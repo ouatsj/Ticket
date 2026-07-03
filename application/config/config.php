@@ -28,7 +28,7 @@
             ? 'https' : 'http';
         $config['base_url'] = $protocol . '://' . $_SERVER['HTTP_HOST'] . '/';
     } else {
-        $config['base_url'] = 'https://ticket.rakietabus.com/';
+        $config['base_url'] = 'https://vente.rakietabus.com/';
     }
     
     /*
