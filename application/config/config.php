@@ -22,7 +22,14 @@
     | a PHP script and you can easily do that on your own.
     |
     */
-    $config['base_url'] = 'https://ticket.rakietabus.com';
+    if (!empty($_SERVER['HTTP_HOST'])) {
+        $protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
+            || (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https')
+            ? 'https' : 'http';
+        $config['base_url'] = $protocol . '://' . $_SERVER['HTTP_HOST'] . '/';
+    } else {
+        $config['base_url'] = 'https://ticket.rakietabus.com/';
+    }
     
     /*
     |--------------------------------------------------------------------------
