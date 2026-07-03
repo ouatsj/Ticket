@@ -1,0 +1,174 @@
+<?php
+    
+    defined('BASEPATH') OR exit('No direct script access allowed'); ?>
+    <div class="row">
+        <p class="mt-0 mb-2 ml-4">
+            <a href="<?= site_url("utilisateurs/{$this->session->company->ekey}". "/caissier/".
+                (!empty($caisseident->gexp_caiss) ? $caisseident->gexp_caiss : 0). "/".(!empty($caisseident->id_caiss) ? $caisseident->id_caiss : 0). "/".(!empty($user_connect->roleattribut) ? $user_connect->roleattribut : 0).'/'.$connex->roleattribut.'/'.$bus_stop->idsousgare.
+                "/" . mdate("%d/%m/%Y", now('UTC'))); ?>" class="btn btn-space btn-secondary">
+                    <i class="fas fa-arrow-circle-left text-info"></i>&nbsp;RETOUR&nbsp;
+            </a>
+        </p>
+    </div>
+<div class="row">
+
+    <div class="col-lg-12">
+
+        <div class="card card-table">
+            <div class="card-header">
+
+                <div class="tools dropdown">
+
+                    <a class="dropdown-toggle" href="#" role="button" data-toggle="dropdown">
+
+                        <span class="icon mdi mdi-more-vert"></span>
+
+                    </a>
+
+                </div>
+
+                <div class="title">Les depots non valide</div>
+
+            </div>
+            <div class="card-body">
+
+                <div class="table-responsive noSwipe">
+
+                    <table class="table table-striped table-hover" id="table1">
+
+                        <thead>
+
+                        <tr>
+                            <th>DATE</th>
+                            <th></th>
+                            <th>TYPE DEPOT</th>
+                            <th>NOM</th>
+                            <th>MONTANT</th>
+                            <th>COMMENTAIRE</th>
+                            <th class="actions"></th>
+                        </tr>
+
+                        </thead>
+
+                        <tbody>
+                        <?foreach ($depots as $item): ?>
+                            <tr>
+                                <td><span><?= $item->datedepot;?></span></td>
+                                <td><span><?= $item->nom_compagnie;?></span></td>
+                                <td><span><?= $item->type_depot;?></span></td>
+                                <td><span><?= $item->nom_pre;?></span></td>
+                                <td><span><?= $item->montant_depot;?></span></td>
+                                <td><span><?= $item->commentaire_depot;?></span></td>
+                                
+                                <td>
+                                    
+                                    <button class="btn btn-space btn-success md-trigger"
+                                                data-modal="validedepot-<?= $item->id_depot; ?>">
+                                                    <i class=""></i>
+                                            VALIDER
+                                    </button>
+                                    <div class="modal-container colored-header colored-header-success custom-width modal-effect-7"
+                                        id="validedepot-<?=$item->id_depot; ?>"
+                                        style="perspective: none;">
+
+                                        <div class="modal-content">
+
+                                            <div class="modal-header modal-header-colored">
+                                                <h3 class="modal-title">VALIDER DEPOT</h3>
+                                                <button class="close modal-close" type="button"
+                                                        data-dismiss="modal" aria-hidden="true"><span
+                                                            class="mdi mdi-close text-white"></span></button>
+                                            </div>
+                                            <?= form_open("Arretcaisses/validdepot/{$this->session->company->ekey}/{$item->gexp_caiss}/{$item->idcaisse_depot}/{$item->idop_depot}/{$item->id_depot}",
+                                                array('class' => 'modal-body form')); ?>
+
+                                            <div class="row">
+                                                <input class="form-control form-control-sm" type="hidden" name="gareconnect" value="<?=$bus_stop->idengare;?>">
+                                                <input class="form-control form-control-sm" type="hidden" name="sousgareconnect" value="<?=$bus_stop->idsousgare;?>">
+                                                <input class="form-control form-control-sm" type="hidden" name="userconnected" value="<?=$connex->roleattribut;?>">
+                                                <input class="form-control form-control-sm" type="hidden" name="compconnected" value="<?=$connex->cpuser_id;?>">
+                                                <div class="form-group col-sm-4">
+                                                    <label>OBSERVATION</label>
+                                                    <textarea class="form-control form-control-sm"
+                                                            placeholder="COMMENTAIRE"
+                                                            name="comment" autocomplete="off"
+                                                            cols="30" rows="2"><?= $item->commentaire_depot; ?></textarea>
+                                                </div>
+                                            </div>
+                                            <div class="modal-footer">
+                                                <button class="btn btn-secondary modal-close" type="button"
+                                                        data-dismiss="modal">
+                                                    <i class="icon icon-left mdi mdi-undo text-dark"></i>&nbsp;ANNULER&nbsp;
+                                                </button>
+                                                <button class="btn btn-success modal-close" type="submit"
+                                                        data-dismiss="modal">
+                                                    <i class="icon icon-left mdi mdi-check-all text-white"></i>&nbsp;OK&nbsp;
+                                                </button>
+                                            </div>
+                                            
+                                            <?= form_close(); ?>
+                                        </div>
+                                    </div>
+
+                                    <button class="btn btn-space btn-danger md-trigger"
+                                                data-modal="depot-rejet-<?= $item->id_depot; ?>">
+                                                    <i class=""></i>REJETER
+                                    </button>
+                                    
+                                    <div class="modal-container colored-header colored-header-success custom-width modal-effect-7"
+                                        id="depot-rejet-<?=$item->id_depot; ?>"
+                                        style="perspective: none;">
+
+                                        <div class="modal-content">
+
+                                            <div class="modal-header modal-header-colored">
+                                                <h3 class="modal-title">REJETER DEPOT</h3>
+                                                <button class="close modal-close" type="button"
+                                                        data-dismiss="modal" aria-hidden="true"><span
+                                                            class="mdi mdi-close text-white"></span></button>
+                                            </div>
+                                            <?= form_open("Arretcaisses/rejetdepo/{$this->session->company->ekey}/{$item->gexp_caiss}/{$item->idcaisse_depot}/{$item->idop_depot}/{$item->id_depot}",
+                                                array('class' => 'modal-body form')); ?>
+
+                                            <div class="row">
+                                                <input class="form-control form-control-sm" type="hidden" name="gareconnect" value="<?=$bus_stop->idengare;?>">
+                                                <input class="form-control form-control-sm" type="hidden" name="sousgareconnect" value="<?=$bus_stop->idsousgare;?>">
+                                                <input class="form-control form-control-sm" type="hidden" name="userconnected" value="<?=$connex->roleattribut;?>">
+                                                <input class="form-control form-control-sm" type="hidden" name="compconnected" value="<?=$connex->cpuser_id;?>">
+                                                <div class="form-group col-sm-4">
+                                                    <label>OBSERVATION</label>
+                                                    <textarea class="form-control form-control-sm"
+                                                            placeholder="COMMENTAIRE"
+                                                            name="comment" autocomplete="off"
+                                                            cols="30" rows="2"><?= $item->commentaire; ?>
+                                                    </textarea>
+                                                </div>
+                                            </div>
+                                            <div class="modal-footer">
+                                                <button class="btn btn-secondary modal-close" type="button"
+                                                        data-dismiss="modal">
+                                                    <i class="icon icon-left mdi mdi-undo text-dark"></i>&nbsp;ANNULER&nbsp;
+                                                </button>
+                                                <button class="btn btn-success modal-close" type="submit"
+                                                        data-dismiss="modal">
+                                                    <i class="icon icon-left mdi mdi-check-all text-white"></i>&nbsp;OK&nbsp;
+                                                </button>
+                                            </div>
+                                            
+                                            <?= form_close(); ?>
+                                        </div>
+                                    </div>
+                                </td>
+
+                            </tr>
+                        
+                        <? endforeach; ?>
+
+                        </tbody>
+
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

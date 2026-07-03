@@ -1,0 +1,19 @@
+.idea
+/application/libraries/tcpdf/examples
+/tickets-v2
+
+# Secrets et config locale
+/application/config/database.php
+.user.ini
+
+# Logs et cache
+/application/logs/*
+!/application/logs/index.html
+/application/cache/*
+!/application/cache/index.html
+
+# OS / éditeur
+.DS_Store
+Thumbs.db
+*.swp
+*~

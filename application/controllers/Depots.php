@@ -1,0 +1,697 @@
+<?php defined('BASEPATH') OR exit('No direct script access allowed');
+    
+    class Depots extends CI_Controller
+    {
+        public $depots;
+        public $company;
+        protected $property = array(
+            'title' => 'Depots',
+            'UPDATE_SUCCESS' => FALSE,
+            'INSERT_SUCCESS' => FALSE,
+        );
+        
+        public function __construct()
+        {
+            parent::__construct();
+            setlocale(LC_TIME, 'fr_FR', 'fra');
+            $this->property['pagetitle'] = utf8_encode(strftime("%d %b %G", now()));
+        }
+        
+       public function view($ckey, $iddepot = NULL)
+       {
+
+            $this->company = $this->m_entreprises->get_key($ckey);
+
+            $this->property['pagetitle'] .= " LES DEPOTS VALIDES &nbsp; <strong>{$this->company->nom_entreprise}</strong>";
+            $this->property['depots'] = $this->m_depot->get($this->company->ekey);
+            $this->property['genres'] = $this->m_genre_depot->getb();
+            $this->property['typedocuments'] = $this->m_typedocument->get();
+            $this->property['banque'] = $this->m_banque->get();
+            return $this->layout->view('_depot/index', $this->property);
+           
+       }
+
+        public function addepotbq($ckey)
+        {
+
+                $this->company = $this->m_entreprises->get_key($ckey);
+                $identifiant_gare = $this->input->post('idgarecode');
+                $identifiant_caisse = $this->input->post('idcaisse'); 
+                $gid = $this->input->post('gareconnect');
+                $iduser = $this->input->post('userconnected');
+                $sgid = $this->input->post('sousgareconnect');
+                $idcmpt = $this->input->post('compconnected');
+
+            if($this->input->post('date_depot')!= '')
+            {
+                $depoaray = array(
+                    'idcaisse_depot' => $identifiant_caisse,
+                    'idop_depot' => $iduser,
+                    'sousgdepot' => $sgid,
+                    'type_depot' => $this->input->post('typedocs'),
+                    'idgenre_depot' => $this->input->post('provenance'),
+                    'compkey_depo' => $this->input->post('_compag'),
+                    'nom_pre' => $this->input->post('nombq'),
+                    'datedepot' => $this->input->post('date_depot'),
+                    'montant_depot' => $this->input->post('montantdeposebq'),
+                    'commentaire_depot' => $this->input->post('comment'),
+                );
+                $depo = $this->m_depot->create($depoaray);
+                
+                if($this->session->agent->userole === '4')
+                {
+                    $updepos = array(
+                            'is_validdepo' => 1, 
+                            'is_actifdepo' => 1,
+                            'opvalid' => $iduser,
+                        );
+                    $this->m_depot->update($depo, $updepos);
+
+                    $this->property['UPDATE_SUCCESS'] = TRUE;
+                    redirect('caisses/'.$this->session->company->ekey. '/gTv/'. $identifiant_gare. '/'. $identifiant_caisse. '/autredepot/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                }
+
+                if($this->session->agent->userole === '18')
+                {
+                    $updepos = array(
+                        'is_validdepo' => 1, 
+                        'is_actifdepo' => 1,
+                        'opvalidad' => $iduser,
+                    );
+                    $this->m_depot->update($depo, $updepos);
+
+                    $this->property['UPDATE_SUCCESS'] = TRUE;
+                    redirect('caisses/'.$this->session->company->ekey. '/gTv/'. $identifiant_gare. '/'. $identifiant_caisse. '/autredepot/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+            
+                }
+                else
+                $this->property['UPDATE_SUCCESS'] = TRUE;
+                redirect('caisses/'.$this->session->company->ekey. '/cais/'. $identifiant_gare. '/'. $identifiant_caisse. '/'. $iduser. '/autredepot_adjoint/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+            }
+            else
+            redirect('gares/'.$this->session->company->ekey. '/gTv/'. $identifiant_gare. '/cais/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+             
+        }
+
+        //enregistrement des depots
+        public function adddepot($ckey)
+        {
+
+            $this->company = $this->m_entreprises->get_key($ckey);
+            $identifiant_gare = $this->input->post('idgarecode');
+            $identifiant_caisse = $this->input->post('idcaisse'); 
+
+            $gid = $this->input->post('gareconnect');
+            $iduser = $this->input->post('userconnected');
+            $sgid = $this->input->post('sousgareconnect');
+            $idcmpt = $this->input->post('compconnected');            
+            if($this->input->post('datedepot')!= '')
+            {
+                $depoaray = array(
+                    'idcaisse_depot' => $identifiant_caisse,
+                    'idop_depot' => $iduser,
+                    'sousgdepot' => $sgid,
+                    'compkey_depo' => $this->input->post('_compag'),
+                    'type_depot' => $this->input->post('autretype'),
+                    'idgenre_depot' => $this->input->post('genreautre'),
+                    'typersodepot' => $this->input->post('typerson'),
+                    'nom_pre' => $this->input->post('nom'),
+                    'datedepot' => $this->input->post('datedepot'),
+                    'montant_depot' => '-'.$this->input->post('autremontant'),
+                    'commentaire_depot' => $this->input->post('comment'),
+                );
+                $depo = $this->m_depot->create($depoaray);
+                
+                if($this->session->agent->userole === '4')
+                {
+                    $updepos = array(
+                        'is_actifdepo' => 1,
+                        'opvalid' => $iduser,
+                    );
+                    $this->m_depot->update($depo, $updepos);
+
+                    redirect('caisses/'.$this->session->company->ekey. '/gTv/'. $identifiant_gare. '/'. $identifiant_caisse. '/depot/'. $iduser.'/'. $sgid.'/'.  mdate("%d/%m/%Y", now('UTC')));
+
+                }
+
+                if($this->session->agent->userole === '18')
+                {
+                    $updepos = array(
+                        'is_actifdepo' => 1,
+                        'opvalidad' => $iduser,
+                    );
+                    $this->m_depot->update($depo, $updepos);
+
+                    redirect('caisses/'.$this->session->company->ekey. '/gTv/'. $identifiant_gare. '/'. $identifiant_caisse. '/depot/'. $iduser.'/'. $sgid.'/'.  mdate("%d/%m/%Y", now('UTC')));
+
+                }
+                else
+                    redirect('caisses/'.$this->session->company->ekey. '/cais/'. $identifiant_gare. '/'. $identifiant_caisse. '/'. $iduser. '/depot_adjoint/' . mdate("%d/%m/%Y", now('UTC')));
+            }
+            else
+            redirect('gares/'.$this->session->company->ekey. '/gTv/'. $identifiant_gare. '/cais/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                     
+        }
+
+        public function addepotfour($ckey)
+        {
+
+            $this->company = $this->m_entreprises->get_key($ckey);
+            $identifiant_gare = $this->input->post('idgarecode');
+            $identifiant_caisse = $this->input->post('idcaisse'); 
+
+            $gid = $this->input->post('gareconnect');
+            $iduser = $this->input->post('userconnected');
+            $sgid = $this->input->post('sousgareconnect');
+            $idcmpt = $this->input->post('compconnected');
+
+            if($this->input->post('datedepot')!= '')
+            {
+                $depoaray = array(
+                    'idcaisse_depot' => $identifiant_caisse,
+                    'idop_depot' => $iduser,
+                    'sousgdepot' => $sgid,
+                    'compkey_depo' => $this->input->post('_compag'),
+                    'type_depot' => $this->input->post('autretype'),
+                    'idgenre_depot' => $this->input->post('genreautre'),
+                    'typersodepot' => $this->input->post('typerson'),
+                    'nom_pre' => $this->input->post('nom'),
+                    'datedepot' => $this->input->post('datedepot'),
+                    'montant_depot' => '-'.$this->input->post('autremontant'),
+                    'commentaire_depot' => $this->input->post('comment'),
+                );
+                $depo = $this->m_depot->create($depoaray);
+                
+                if($this->session->agent->userole === '4')
+                {
+                    $updepos = array(
+                        'is_actifdepo' => 1,
+                        'opvalid' => $iduser,
+                    );
+                    $this->m_depot->update($depo, $updepos);
+
+                    redirect('caisses/'.$this->session->company->ekey. '/gTv/'. $identifiant_gare. '/'. $identifiant_caisse. '/depot/'. $iduser.'/'. $sgid.'/'.  mdate("%d/%m/%Y", now('UTC')));
+
+                }
+
+                if($this->session->agent->userole === '18')
+                {
+                    $updepos = array(
+                        'is_actifdepo' => 1,
+                        'opvalidad' => $iduser,
+                    );
+                    $this->m_depot->update($depo, $updepos);
+
+                    redirect('caisses/'.$this->session->company->ekey. '/gTv/'. $identifiant_gare. '/'. $identifiant_caisse. '/depot/'. $iduser.'/'. $sgid.'/'.  mdate("%d/%m/%Y", now('UTC')));
+
+                }
+                else
+                    redirect('caisses/'.$this->session->company->ekey. '/cais/'. $identifiant_gare. '/'. $identifiant_caisse. '/'. $iduser. '/depot_adjoint/'.$sgid.'/'.  mdate("%d/%m/%Y", now('UTC')));
+        
+            
+            }
+            else
+            redirect('gares/'.$this->session->company->ekey. '/gTv/'. $identifiant_gare. '/cais/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                     
+        }
+        //modification
+        public function updatedepot($ckey, $idpo)
+        {
+
+            $this->company = $this->m_entreprises->get_key($ckey);
+            $identifiant_gare = $this->input->post('idgarecode');
+            $identifiant_caisse = $this->input->post('idcaisse'); 
+            $gid = $this->input->post('gareconnect');
+            $iduser = $this->input->post('userconnected');
+            $sgid = $this->input->post('sousgareconnect');
+            $idcmpt = $this->input->post('compconnected');
+            if($this->input->post('date_depot')!= '')
+            {
+                $depoaray = array(
+                    'idcaisse_depot' => $identifiant_caisse,
+                    'type_depot' => $this->input->post('depot'),
+                    'idgenre_depot' => $this->input->post('genre'),
+                    'compkey_depo' => $this->input->post('_compag'),
+                    'nom_pre' => $this->input->post('nom'),
+                    'datedepot' => $this->input->post('date_depot'),
+                    'montant_depot' => $this->input->post('montantverse'),
+                    'commentaire_depot' => $this->input->post('comment'),
+                );
+                $depo = $this->m_depot->update($idpo, $depoaray);
+                
+                $this->property['UPDATE_SUCCESS'] = TRUE;
+                
+                if($this->session->agent->userole === '4' OR $this->session->agent->userole === '18')
+                {
+                    redirect('caisses/'.$this->session->company->ekey. '/gTv/'. $identifiant_gare. '/'. $identifiant_caisse. '/depot/'. $idcmpt.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                }
+                else
+                    redirect('caisses/'.$this->session->company->ekey. '/cais/'. $identifiant_gare. '/'. $identifiant_caisse. '/'. $iduser. '/depot_adjoint/'. $sgid.'/'.  mdate("%d/%m/%Y", now('UTC')));
+            }
+            else
+            redirect('gares/'.$this->session->company->ekey. '/gTv/'. $identifiant_gare. '/cais/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                
+        }
+
+        //valide comptable
+
+        public function valdepot($ckey, $idpo, $dop)
+        {
+
+            $this->company = $this->m_entreprises->get_key($ckey);
+            $identifiant_gare = $this->input->post('idgar');
+            $identifiant_use = $this->input->post('iduse');
+            $identifiant_sousgare = $this->input->post('idsousgar');
+            $depoaray = array(
+                'commentaire_depot' => $this->input->post('comment'),
+                'valid_cptabledepo' => 1,
+            );
+            $depo = $this->m_depot->update($idpo, $depoaray);
+            
+            $this->property['UPDATE_SUCCESS'] = TRUE;
+            
+                redirect('utilisateurs/'.$this->session->company->ekey. '/caisseprincdepot/'. $identifiant_gare. '/'. $identifiant_use. '/'.$identifiant_sousgare .'/'.$dop. '/' . mdate("%d/%m/%Y", now('UTC')));
+            
+        }
+
+        public function rejetdepots($ckey, $idpo, $dop)
+        {
+
+            $this->company = $this->m_entreprises->get_key($ckey);
+            $identifiant_gare = $this->input->post('idgar');
+            $identifiant_use = $this->input->post('iduse');
+            $identifiant_sousgare = $this->input->post('idsousgar');
+            $depoaray = array(
+                'commentaire_depot' => $this->input->post('comment'),
+                'ferme_caisdepo' => 0,
+            );
+            $depo = $this->m_depot->update($idpo, $depoaray);
+            
+            $this->property['UPDATE_SUCCESS'] = TRUE;
+            
+                redirect('utilisateurs/'.$this->session->company->ekey. '/caisseprincdepot/'. $identifiant_gare. '/'. $identifiant_use. '/'.$identifiant_sousgare.'/'. $dop. '/' . mdate("%d/%m/%Y", now('UTC')));
+            
+        }
+        
+        //enregistrement autre 
+        public function addautre($ckey)
+        {
+
+            $this->company = $this->m_entreprises->get_key($ckey);
+            $identifiant_gare = $this->input->post('idgarecode');
+            $identifiant_caisse = $this->input->post('idcaisse'); 
+            $gid = $this->input->post('gareconnect');
+            $iduser = $this->input->post('userconnected');
+            $sgid = $this->input->post('sousgareconnect');
+            $idcmpt = $this->input->post('compconnected');
+
+            if($this->input->post('daterecep')!= '')
+            {
+                $depoaray = array(
+                    'idcaisse_depot' => $identifiant_caisse,
+                    'idop_depot' => $iduser,
+                    'sousgdepot' => $sgid,
+                    'type_depot' => $this->input->post('autretype'),
+                    'idgenre_depot' => $this->input->post('genreautre'),
+                    'compkey_depo' => $this->input->post('_compag'),
+                    'nom_pre' => $this->input->post('nom'),
+                    'datedepot' => $this->input->post('daterecep'),
+                    'montant_depot' => $this->input->post('autremontant'),
+                    'commentaire_depot' => $this->input->post('comment'),
+                );
+                $depo = $this->m_depot->create($depoaray);
+                
+                if($this->session->agent->userole === '4')
+                {
+                    $updepos = array(
+                            'is_validdepo' => 1, 
+                            'is_actifdepo' => 1,
+                            'opvalid' => $iduser,
+                        );
+                    $this->m_depot->update($depo, $updepos);
+
+                    $this->property['UPDATE_SUCCESS'] = TRUE;
+                    redirect('caisses/'.$this->session->company->ekey. '/gTv/'. $identifiant_gare. '/'. $identifiant_caisse. '/autredepot/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+            
+                }
+                if($this->session->agent->userole === '18')
+                {
+                    $updepos = array(
+                        'is_validdepo' => 1, 
+                        'is_actifdepo' => 1,
+                        'opvalidad' => $iduser,
+                    );
+                    $this->m_depot->update($depo, $updepos);
+
+                    $this->property['UPDATE_SUCCESS'] = TRUE;
+                    redirect('caisses/'.$this->session->company->ekey. '/gTv/'. $identifiant_gare. '/'. $identifiant_caisse. '/autredepot/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+            
+                }
+                else
+                    $this->property['UPDATE_SUCCESS'] = TRUE;
+                    redirect('caisses/'.$this->session->company->ekey. '/cais/'. $identifiant_gare. '/'. $identifiant_caisse. '/'. $iduser. '/autredepot_adjoint/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+            }
+            else
+            redirect('gares/'.$this->session->company->ekey. '/gTv/'. $identifiant_gare. '/cais/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+             
+        }
+
+        //modification
+        public function upautredepot($ckey, $idpo)
+        {
+
+                $this->company = $this->m_entreprises->get_key($ckey);
+                $identifiant_gare = $this->input->post('idgarecode');
+                $identifiant_caisse = $this->input->post('idcaisse'); 
+            $gid = $this->input->post('gareconnect');
+            $iduser = $this->input->post('userconnected');
+            $sgid = $this->input->post('sousgareconnect');
+            $idcmpt = $this->input->post('compconnected');
+            if($this->input->post('daterecep')!= '')
+            {
+                $depoaray = array(
+                    'idcaisse_depot' => $identifiant_caisse,
+                    'type_depot' => $this->input->post('depot'),
+                    'idgenre_depot' => $this->input->post('genre'),
+                    'compkey_depo' => $this->input->post('_compag'),
+                    'nom_pre' => $this->input->post('nom'),
+                    'datedepot' => $this->input->post('datedpot'),
+                    'montant_depot' => $this->input->post('montantverse'),
+                    'commentaire_depot' => $this->input->post('comment'),
+                );
+                $depo = $this->m_depot->update($idpo, $depoaray);
+                
+                $this->property['UPDATE_SUCCESS'] = TRUE;
+
+                if($this->session->agent->userole === '4' OR $this->session->agent->userole === '18')
+                {
+                    redirect('caisses/'.$this->session->company->ekey. '/gTv/'. $identifiant_gare. '/'. $identifiant_caisse. '/autredepot/'. $idcmpt.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                }
+                else
+                    redirect('caisses/'.$this->session->company->ekey. '/cais/'. $identifiant_gare. '/'. $identifiant_caisse. '/'. $iduser. '/autredepot_adjoint/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+            }
+            else
+            redirect('gares/'.$this->session->company->ekey. '/gTv/'. $identifiant_gare. '/cais/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+             
+
+        }
+
+        public function updatefour($ckey, $idpo)
+        {
+
+                $this->company = $this->m_entreprises->get_key($ckey);
+                $identifiant_gare = $this->input->post('idgarecode');
+                $identifiant_caisse = $this->input->post('idcaisse'); 
+                $gid = $this->input->post('gareconnect');
+            $iduser = $this->input->post('userconnected');
+            $sgid = $this->input->post('sousgareconnect');
+            $idcmpt = $this->input->post('compconnected');
+            if($this->input->post('daterecep')!= '')
+            {
+                $depoaray = array(
+                    'idcaisse_depot' => $identifiant_caisse,
+                    'type_depot' => $this->input->post('depot'),
+                    'idgenre_depot' => $this->input->post('genre'),
+                    'compkey_depo' => $this->input->post('_compag'),
+                    'nom_pre' => $this->input->post('nom'),
+                    'datedepot' => $this->input->post('datedpot'),
+                    'montant_depot' => $this->input->post('montantverse'),
+                    'commentaire_depot' => $this->input->post('comment'),
+                );
+                $depo = $this->m_depot->update($idpo, $depoaray);
+                
+                $this->property['UPDATE_SUCCESS'] = TRUE;
+
+                if($this->session->agent->userole === '4' OR $this->session->agent->userole === '18')
+                {
+                    redirect('caisses/'.$this->session->company->ekey. '/gTv/'. $identifiant_gare. '/'. $identifiant_caisse. '/autredepot/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                }
+                else
+                    redirect('caisses/'.$this->session->company->ekey. '/cais/'. $identifiant_gare. '/'. $identifiant_caisse. '/'. $iduser. '/autredepot_adjoint/'. $sgid.'/'.  mdate("%d/%m/%Y", now('UTC')));
+            }
+            else
+            redirect('gares/'.$this->session->company->ekey. '/gTv/'. $identifiant_gare. '/cais/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+             
+
+        }
+
+        //depot sous caisse
+        public function addsous($ckey)
+        {
+
+                $this->company = $this->m_entreprises->get_key($ckey);
+                $identifiant_gare = $this->input->post('idgarecode');
+                $identifiant_caisse = $this->input->post('idcaisse'); 
+                $gid = $this->input->post('gareconnect');
+                $iduser = $this->input->post('userconnected');
+                $sgid = $this->input->post('sousgareconnect');
+                $idcmpt = $this->input->post('compconnected');
+
+            if($this->input->post('daterecep')!= '')
+            {
+                $depoaray = array(
+                    'idcaisse_depot' => $identifiant_caisse,
+                    'idop_depot' => $iduser,
+                    'sousgdepot' => $sgid,
+                    'type_depot' => $this->input->post('autretype'),
+                    'idgenre_depot' => $this->input->post('genreautre'),
+                    'compkey_depo' => $this->input->post('_compag'),
+                    'typersodepot' => $this->input->post('personnels'),
+                    'nom_pre' => $this->input->post('nom'),
+                    'datedepot' => $this->input->post('daterecep'),
+                    'montant_depot' => $this->input->post('autremontant'),
+                    'commentaire_depot' => $this->input->post('comment'),
+                );
+                $depo = $this->m_depot->create($depoaray);
+                
+                if($this->session->agent->userole === '4')
+                {
+
+                    $updepos = array(
+                        'is_validdepo' => 1, 
+                        'is_actifdepo' => 1,
+                        'opvalid' => $iduser,
+                    );
+                    $this->m_depot->update($depo, $updepos);
+
+                    $this->property['UPDATE_SUCCESS'] = TRUE;
+                    redirect('caisses/'.$this->session->company->ekey. '/gTv/'. $identifiant_gare. '/'. $identifiant_caisse. '/depotsous/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+        
+                }
+
+                if($this->session->agent->userole === '18')
+                {
+
+                    $updepos = array(
+                        'is_validdepo' => 1, 
+                        'is_actifdepo' => 1,
+                        'opvalidad' => $iduser,
+                    );
+                    $this->m_depot->update($depo, $updepos);
+
+                    $this->property['UPDATE_SUCCESS'] = TRUE;
+                    redirect('caisses/'.$this->session->company->ekey. '/gTv/'. $identifiant_gare. '/'. $identifiant_caisse. '/depotsous/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+        
+                }
+
+                else
+                $this->property['UPDATE_SUCCESS'] = TRUE;
+                redirect('caisses/'.$this->session->company->ekey. '/cais/'. $identifiant_gare. '/'. $identifiant_caisse. '/'. $iduser. '/depotsous_adjoint/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+
+            }
+            else
+            redirect('gares/'.$this->session->company->ekey. '/gTv/'. $identifiant_gare. '/cais/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+            
+        }
+
+        //modification
+        public function upsousdepot($ckey, $id)
+        {
+
+            $this->company = $this->m_entreprises->get_key($ckey);
+            $identifiant_gare = $this->input->post('idgarecode');
+            $identifiant_caisse = $this->input->post('idcaisse');
+            $gid = $this->input->post('gareconnect');
+            $iduser = $this->input->post('userconnected');
+            $sgid = $this->input->post('sousgareconnect');
+            $idcmpt = $this->input->post('compconnected');
+
+            if($this->input->post('daterecep')!= '')
+            {
+                $depoaray = array(
+                    'idcaisse_depot' => $identifiant_caisse,
+                    'type_depot' => $this->input->post('typedepot'),
+                    'idgenre_depot' => $this->input->post('genreautre'),
+                    'typersodepot' => $this->input->post('personn'),
+                    'compkey_depo' => $this->input->post('_compag'),
+                    'nom_pre' => $this->input->post('nom'),
+                    'datedepot' => $this->input->post('daterecep'),
+                    'montant_depot' => $this->input->post('montantverse'),
+                    'commentaire_depot' => $this->input->post('comment'),
+                );
+                $depo = $this->m_depot->update($id, $depoaray);
+                
+                $this->property['UPDATE_SUCCESS'] = TRUE;
+
+                if($this->session->agent->userole === '4' OR $this->session->agent->userole === '18')
+                {
+                    redirect('caisses/'.$this->session->company->ekey. '/gTv/'. $identifiant_gare. '/'. $identifiant_caisse. '/depotsous/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                }
+                else
+                    redirect('caisses/'.$this->session->company->ekey. '/cais/'. $identifiant_gare. '/'. $identifiant_caisse. '/'. $iduser. '/depotsous_adjoint/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+            }
+            else
+            redirect('gares/'.$this->session->company->ekey. '/gTv/'. $identifiant_gare. '/cais/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+            
+        }
+
+        //approuve
+        public function approuve($ckey, $id)
+        {
+
+            $this->company = $this->m_entreprises->get_key($ckey);
+            $identifiant_gare = $this->input->post('idgarecode');
+            $identifiant_caisse = $this->input->post('idcaisse');
+
+            $gid = $this->input->post('gareconnect');
+            $iduser = $this->input->post('userconnected');
+            $sgid = $this->input->post('sousgareconnect');
+            $idcmpt = $this->input->post('compconnected');
+
+            $prouve = array(
+                'commentaire_depot' => $this->input->post('approuvedepot'),
+                'approuve' => 1,
+            );
+            $depo = $this->m_depot->update($id, $prouve);
+
+            $prouveversement = array(
+                'idcaisse_versement' => $identifiant_caisse,
+                'id_genre_versement' => $this->input->post('autregenrever'),
+                'idop_versement' => $iduser,
+                'sgareidvers' => $sgid,
+                'compkey_vers' => $this->input->post('_compag'),
+                'typpersonnel' => $this->input->post('typeperson'),
+                'type_versement' => $this->input->post('typedepotvers'),
+                'nom_beneficiaire' => $this->input->post('nombf'),
+                'montant_verser' => $this->input->post('autrmontverse'),
+                'commentaire' => $this->input->post('approuvedepot'),
+                'date_versement' => $this->input->post('autreversdate'),
+            );
+            $versement = $this->m_versements->create($prouveversement);
+            
+            $this->property['UPDATE_SUCCESS'] = TRUE;
+            redirect('caisses/'.$this->session->company->ekey. '/cais/'. $identifiant_gare. '/'. $identifiant_caisse. '/'. $iduser. '/depotsous_adjoint/'. $sgid.'/'.  mdate("%d/%m/%Y", now('UTC')));
+        }
+
+        public function approuv($ckey, $id)
+        {
+
+            $this->company = $this->m_entreprises->get_key($ckey);
+            $identifiant_gare = $this->input->post('idgarecode');
+            $identifiant_caisse = $this->input->post('idcaisse');
+
+            $gid = $this->input->post('gareconnect');
+            $iduser = $this->input->post('userconnected');
+            $sgid = $this->input->post('sousgareconnect');
+            $idcmpt = $this->input->post('compconnected');
+            $prouve = array(
+                'commentaire' => $this->input->post('approuvedepot'),
+                'approuveversement' => 1,
+            );
+            $depo = $this->m_versements->update($id, $prouve);
+
+            $prouveversement = array(
+                'idcaisse_depot' => $identifiant_caisse,
+                'type_depot' => $this->input->post('typeversem'),
+                'idop_depot' => $iduser,
+                'sousgdepot' => $sgid,
+                'compkey_depo' => $this->input->post('_compag'),
+                'idgenre_depot' => $this->input->post('autregenrever'),
+                'typersodepot' => $this->input->post('idtypeversem'),
+                'nom_pre' => $this->input->post('nombf'),
+                'datedepot' => $this->input->post('autreversdate'),
+                'montant_depot' => $this->input->post('autrmontverse'),
+                'commentaire_depot' => $this->input->post('approuvedepot'),
+            );
+            $versement = $this->m_depot->create($prouveversement);
+            
+            if($this->session->agent->userole === '4')
+            {
+                $updepos = array(
+                        'is_validdepo' => 1, 
+                        'is_actifdepo' => 1,
+                        'opvalid' => $iduser,
+                    );
+                $this->m_depot->update($id, $updepos);
+
+                $this->property['UPDATE_SUCCESS'] = TRUE;
+                redirect('caisses/'.$this->session->company->ekey. '/gTv/'. $identifiant_gare. '/'. $identifiant_caisse. '/versementcaisse/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+
+            }
+
+            if($this->session->agent->userole === '18')
+            {
+                $updepos = array(
+                        'is_validdepo' => 1, 
+                        'is_actifdepo' => 1,
+                        'opvalidad' => $iduser,
+                    );
+                $this->m_depot->update($id, $updepos);
+
+                $this->property['UPDATE_SUCCESS'] = TRUE;
+                redirect('caisses/'.$this->session->company->ekey. '/gTv/'. $identifiant_gare. '/'. $identifiant_caisse. '/versementcaisse/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+
+            }
+            else
+            
+                redirect('caisses/'.$this->session->company->ekey. '/cais/'. $identifiant_gare. '/'. $identifiant_caisse. '/'. $iduser. '/versementcaisse_adjoint/'. $sgid.'/'.  mdate("%d/%m/%Y", now('UTC')));
+        }
+        //tri depots
+        public function listegenre($ty)
+        {
+            $ptype = $this->m_depot->typinternegenre($this->session->company->ekey, $ty);
+            return $this->load->view('beagle/pages/_programme/json', array('json' => $ptype));
+        }
+
+        
+        public function versetribank($gd, $ty)
+        {
+            $vtype = $this->m_versements->typgenreverse($this->session->company->ekey, $gd, $ty);
+            return $this->load->view('beagle/pages/_programme/json', array('json' => $vtype));
+        }
+
+        //nombanq
+        public function banknom($gd, $typ, $grd)
+        {
+            $bnom = $this->m_versements->typnombank($this->session->company->ekey, $gd, $typ, $grd);
+            return $this->load->view('beagle/pages/_programme/json', array('json' => $bnom));
+        }
+
+        public function listenom($grd, $nom)
+        {
+            $pnom = $this->m_depot->typinternenom($this->session->company->ekey, $grd, $nom);
+            return $this->load->view('beagle/pages/_programme/json', array('json' => $pnom));
+        }
+        
+        //tri autre depots
+        public function autrelistegenre($ty)
+        {
+            $typeautre = $this->m_depot->typautregenre($this->session->company->ekey, $ty);
+            return $this->load->view('beagle/pages/_programme/json', array('json' => $typeautre));
+        }
+
+        public function autrelistenom($grd, $nom)
+        {
+            $autrenom = $this->m_depot->typautrenom($this->session->company->ekey, $grd, $nom);
+            return $this->load->view('beagle/pages/_programme/json', array('json' => $autrenom));
+        }
+
+        public function depot_genre($idgr)
+        {
+            $nom = $this->m_depot->typenom($idgr);
+            return $this->load->view('beagle/pages/_programme/json', array('json' => $nom));
+        }
+    }
+    
+    /** End of file: Depots.php **/
+    /** File location: application/controllers/Depots.php **/
