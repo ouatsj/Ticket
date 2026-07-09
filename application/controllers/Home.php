@@ -1,7 +1,7 @@
 <?php
     defined('BASEPATH') OR exit('No direct script access allowed');
     
-    class Home extends CI_Controller
+    class Home extends MY_Controller
     {
         protected $property = array(
             'title' => 'Accueil',
@@ -15,6 +15,7 @@
 
 
             parent::__construct();
+            $this->load->helper('scripts');
             setlocale(LC_TIME, 'fr_FR', 'fra');
             $this->property['pagetitle'] = mdate("%d/%m/%Y", now('UTC'));
         }
@@ -35,10 +36,21 @@
         public function go($key, $uid, $r)
         {
               $this->charger['company'] = $this->m_entreprises->get_key($key);
+            $rw = $this->m_compte_user->pick_attribution_at_login($uid, $r);
+            if (!empty($rw)) {
+                $this->load->model('Role_attribution_model', 'm_roleattribution');
+                $this->m_roleattribution->activate_exclusive($uid, $r, $rw->roleattribut);
+            }
             // The User logged in
             $this->charger['agent'] = $this->m_compte_user->get($uid, $r);
+            if (empty($this->charger['agent'])) {
+                $this->session->set_flashdata('login_error', 1);
+                redirect('login/ins');
+                return;
+            }
             // The session var is charged
             $this->session->set_userdata($this->charger);
+            compte_arret_track_activity((int) $uid);
             
             $agentapp = $this->m_appdossier->gets($r, $uid);
             
@@ -51,12 +63,16 @@
                 }
                 else
                 {
-                    echo'PAS DE DROIT SUR CETTE APPLICATION';
+                    $this->session->set_flashdata('login_error', 1);
+                    redirect('login/ins');
+                    return;
                 }
             }
             else
             {
-                echo'PAS DE PAGE ATTRIBUER';
+                $this->session->set_flashdata('login_error', 1);
+                redirect('login/ins');
+                return;
             }
            
         }
@@ -72,6 +88,23 @@
             $this->property['villes'] = $this->m_villes->get();
             $this->property['compagnies'] = $this->m_compagnies->get();
 
+            $role = $this->session->agent->userole;
+            if (in_array($role, array('1', '2', '4', '18'), TRUE)) {
+                $gare_ids = array();
+                foreach ($this->property['gares'] as $g) {
+                    $gare_ids[] = $g->idengare;
+                }
+                $this->property['soldes'] = $this->m_compte_user->soldes_accueil(
+                    $this->session->company->ekey,
+                    $this->session->agent->cpuser_id,
+                    $role,
+                    $gare_ids
+                );
+            } else {
+                $this->property['soldes'] = array();
+            }
+
+            $this->property = array_merge($this->property, scripts_bundle_property('accueil'));
             $this->layout->view('index1', $this->property);
         }
     }

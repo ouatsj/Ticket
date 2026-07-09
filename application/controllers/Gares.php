@@ -1,6 +1,6 @@
 <?php defined('BASEPATH') OR exit('No direct script access allowed');
 
-    class Gares extends CI_Controller
+    class Gares extends MY_Controller
     {
         public $property = array(
             'title' => 'Gares',
@@ -14,8 +14,41 @@
         public function __construct()
         {
             parent::__construct();
+            $this->load->helper('scripts');
             setlocale(LC_TIME, 'fr_FR', 'fra');
             $this->property['pagetitle'] = mdate("%d/%m/%Y", now('UTC'));
+        }
+
+        /**
+         * Charge uniquement les modèles nécessaires aux actions légères (réduit la mémoire / 503).
+         */
+        protected function _load_controller_models()
+        {
+            $light = array(
+                'optiongare' => array('m_entreprises', 'm_gare_depart', 'm_compte_user', 'm_sousgare'),
+                'position' => array('m_entreprises', 'm_position'),
+                'options' => array(
+                    'm_entreprises', 'm_sousgare', 'm_compte_user', 'm_tarifs', 'm_heure',
+                    'm_quartier', 'm_compagnies', 'm_gare_depart', 'm_passager', 'm_non_passager',
+                    'm_bagage', 'm_escalclients', 'm_categ', 'm_lignes', 'm_gare_arrivee', 'm_type_client',
+                ),
+                'ajax_passagers' => array('m_entreprises', 'm_passager'),
+            );
+            $method = $this->router->fetch_method();
+
+            if (isset($light[$method])) {
+                $map = self::model_map();
+
+                foreach ($light[$method] as $alias) {
+                    if (isset($map[$alias]) && !isset($this->$alias)) {
+                        $this->load->model($map[$alias], $alias);
+                    }
+                }
+
+                return;
+            }
+
+            parent::_load_controller_models();
         }
         
         /**
@@ -257,20 +290,26 @@
 
             switch ($type) {
                 case 'sousgare':
-                        $bus_stop = $this->m_gares->get($this->company->id_entreprise, $gid);
-
+                    $bus_stop = $this->m_gare_depart->get($this->company->id_entreprise, $gid);
                     $this->property['bus_stop'] = $bus_stop;
 
-                    $conex = $this->m_compte_user->usget($cpus, $gid);
-                    $this->property['conex'] = $conex;
-                    
-                    $this->property['sousgares'] = $this->m_sousgare->get($this->company->id_entreprise, $gid);
-                
-                    $this->property['garedeparts'] = $this->m_sousgare->getsous($this->company->id_entreprise, $gid);
+                    $gare_id = ($bus_stop && !empty($bus_stop->garesid)) ? $bus_stop->garesid : $gid;
+                    $conn = $this->m_compte_user->connect_gare_exclusive($this->company->ekey, $gare_id, $cpus);
+                    $cpus = $conn['cpus'];
+                    $this->property['conex'] = $conn['conex'];
+                    if (!$this->property['conex']) {
+                        $this->property['conex'] = $this->m_compte_user->usget($cpus, $gare_id);
+                    }
 
+                    $this->property['sousgares'] = $this->m_sousgare->get($this->company->id_entreprise, $gare_id);
+                    $this->property['garedeparts'] = $this->m_sousgare->getsous($this->company->ekey, $gare_id);
+
+                    if ($bus_stop) {
                         $this->property['pagetitle'] .= "•{$bus_stop->garenom}&nbsp;•SOUS GARE<strong>•&nbsp;{$this->company->nom_entreprise}</strong>";
+                    }
+
                     return $this->layout->view('_gare/indexsousgar', $this->property);
-                    
+
                 break;
                 
                 default:
@@ -280,67 +319,147 @@
 
         public function options($ckey, $gid, $type = 'compte', $cpus, $idsg, $d = FALSE, $m = FALSE, $y = FALSE)
         {
+            $this->load->helper('app_cache');
             $this->company = $this->m_entreprises->get_key($ckey);
+            $cid = $this->company->id_entreprise;
+            $ekey = $this->company->ekey;
 
             switch ($type) {
                 case 'compte':
-                        $bus_stop = $this->m_sousgare->sget($this->company->ekey, $gid, $idsg);
+                        $bus_stop = $this->m_sousgare->sget($ekey, $gid, $idsg);
                         $this->property['bus_stop'] = $bus_stop;
-                $conex = $this->m_compte_user->getusergare($this->company->ekey, $gid, $cpus);
-                $this->property['conex'] = $conex;
-                        $this->property['typetarifs'] = $this->m_tarifs->get();
-                        $this->property['heures'] = $this->m_heure->get();
-                        $this->property['quartiers'] = $this->m_quartier->get();
+                $conn = $this->m_compte_user->connect_gare_exclusive($ekey, $gid, $cpus);
+                $cpus = $conn['cpus'];
+                $this->property['conex'] = $conn['conex'];
+                        $this->property['typetarifs'] = app_cache_remember('tarifs_all', 600, function () {
+                            return $this->m_tarifs->get();
+                        });
+                        $this->property['heures'] = app_cache_remember('heures_all', 600, function () {
+                            return $this->m_heure->get();
+                        });
+                        $this->property['quartiers'] = app_cache_remember('quartiers_all', 600, function () {
+                            return $this->m_quartier->get();
+                        });
                         
-                        $this->property['compagnies'] = $this->m_compagnies->get();
+                        $this->property['compagnies'] = app_cache_remember('compagnies_all', 600, function () {
+                            return $this->m_compagnies->get();
+                        });
                         
-                        $this->property['allgaredepart'] = $this->m_gare_depart->getbis($this->company->id_entreprise);
-                        $this->property['cptaller'] = $this->m_passager->compteur($this->company->ekey, $cpus, $gid);
-                        $this->property['cptretour'] = $this->m_non_passager->compteur($this->company->ekey, $cpus, $gid);
+                        $this->property['allgaredepart'] = $this->m_gare_depart->getbis($cid);
+                        $this->property['cptaller'] = $this->m_passager->compteur($ekey, $cpus, $gid);
+                        $this->property['cptretour'] = $this->m_non_passager->compteur($ekey, $cpus, $gid);
 
-                        $this->property['recettebagages'] = $this->m_bagage->compteur($this->company->ekey, $cpus, $gid);
+                        $this->property['recettebagages'] = $this->m_bagage->compteur($ekey, $cpus, $gid);
 
-                        $this->property['cptalleresc'] = $this->m_escalclients->compteur($this->company->ekey, $cpus, $gid);
-                        $this->property['cptallercd'] = $this->m_passager->compteurcd($this->company->ekey, $cpus, $gid);
-                        $this->property['cptallerescd'] = $this->m_escalclients->compteurcd($this->company->ekey, $cpus, $gid);
+                        $this->property['cptalleresc'] = $this->m_escalclients->compteur($ekey, $cpus, $gid);
+                        $this->property['cptallercd'] = $this->m_passager->compteurcd($ekey, $cpus, $gid);
+                        $this->property['cptallerescd'] = $this->m_escalclients->compteurcd($ekey, $cpus, $gid);
                         
-                        $this->property['recettebagagescd'] = $this->m_bagage->compteurcd($this->company->ekey, $cpus, $gid);
+                        $this->property['recettebagagescd'] = $this->m_bagage->compteurcd($ekey, $cpus, $gid);
                         
-                        $this->property['typecourriers'] = $this->m_categ->getplis($this->company->id_entreprise);
+                        $this->property['typecourriers'] = app_cache_remember('categ_plis_' . $cid, 600, function () use ($cid) {
+                            return $this->m_categ->getplis($cid);
+                        });
                         
-                        $this->property['typecourriersgl'] = $this->m_categ->get($this->company->id_entreprise);
+                        $this->property['typecourriersgl'] = app_cache_remember('categ_' . $cid, 600, function () use ($cid) {
+                            return $this->m_categ->get($cid);
+                        });
 
                         if ($this->session->agent->userole === '1' OR $this->session->agent->userole === '2'){
-                            $this->property['garedeparts'] = $this->m_sousgare->getes($this->company->ekey, $gid, $idsg);
-                            $this->property['garedepartcomp'] = $this->m_gare_depart->cmpgetad($this->company->id_entreprise);
-                            $this->property['gareactuelles'] = $this->m_gare_depart->getgidbisad($this->company->id_entreprise);
-                            $this->property['nom_vendeuses'] = $this->m_compte_user->get_userad3($this->company->ekey);
-                            $this->property['lignesgare'] = $this->m_lignes->getlggaread($this->company->id_entreprise);
-                            $this->property['lignes'] = $this->m_lignes->getad($this->company->id_entreprise);
-                            $this->property['garearrivees'] = $this->m_gare_arrivee->getad($this->company->id_entreprise);
-                            $this->property['passagers'] = $this->m_passager->totalpassager($this->company->ekey);
+                            $this->property['garedeparts'] = $this->m_sousgare->getes($ekey, $gid, $idsg);
+                            $this->property['garedepartcomp'] = app_cache_remember('gare_depart_cmp_' . $cid, 300, function () use ($cid) {
+                                return $this->m_gare_depart->cmpgetad($cid);
+                            });
+                            $this->property['gareactuelles'] = app_cache_remember('gare_depart_gidbis_' . $cid, 300, function () use ($cid) {
+                                return $this->m_gare_depart->getgidbisad($cid);
+                            });
+                            $this->property['nom_vendeuses'] = $this->m_compte_user->get_userad3($ekey);
+                            $this->property['lignesgare'] = app_cache_remember('lignes_lggaread_' . $cid, 300, function () use ($cid) {
+                                return $this->m_lignes->getlggaread($cid);
+                            });
+                            $this->property['lignes'] = app_cache_remember('lignes_ad_' . $cid, 300, function () use ($cid) {
+                                return $this->m_lignes->getad($cid);
+                            });
+                            $this->property['garearrivees'] = app_cache_remember('gare_arrivee_ad_' . $cid, 300, function () use ($cid) {
+                                return $this->m_gare_arrivee->getad($cid);
+                            });
+                            $this->property['passagers'] = array();
+                            $this->property['passagers_deferred'] = true;
                         }else
                         {
-                            $this->property['garedeparts'] = $this->m_sousgare->getes($this->company->ekey, $gid, $idsg);
-                            $this->property['garearrivees'] = $this->m_gare_arrivee->get($this->company->id_entreprise, $gid);
-                            $this->property['garedepartcomp'] = $this->m_gare_depart->cmpget($this->company->id_entreprise, $gid);
-                            $this->property['garedepartcompt'] = $this->m_gare_depart->cmpgetad($this->company->id_entreprise);
-                            $this->property['gareactuelles'] = $this->m_gare_depart->getgidbis($this->company->id_entreprise, $gid);
+                            $this->property['garedeparts'] = $this->m_sousgare->getes($ekey, $gid, $idsg);
+                            $this->property['garearrivees'] = $this->m_gare_arrivee->get($cid, $gid);
+                            $this->property['garedepartcomp'] = $this->m_gare_depart->cmpget($cid, $gid);
+                            $this->property['garedepartcompt'] = $this->m_gare_depart->cmpgetad($cid);
+                            $this->property['gareactuelles'] = $this->m_gare_depart->getgidbis($cid, $gid);
 
-                            $this->property['lignesgare'] = $this->m_lignes->getlggare($this->company->id_entreprise, $gid);
-                            $this->property['lignes'] = $this->m_lignes->get($this->company->id_entreprise, $gid);
+                            $this->property['lignesgare'] = $this->m_lignes->getlggare($cid, $gid);
+                            $this->property['lignes'] = $this->m_lignes->get($cid, $gid);
                         }
-                        $this->property['typesclients'] = $this->m_type_client->get();
+                        $this->property['typesclients'] = app_cache_remember('type_client_all', 600, function () {
+                            return $this->m_type_client->get();
+                        });
+
+                        $arret = compte_arret_status(
+                            $this->session->agent->userole,
+                            $cpus,
+                            $gid,
+                            null,
+                            (int) $this->session->agent->cpuser_id
+                        );
+                        $this->property['compte_arret_blocked'] = $arret['blocked'];
+                        $this->property['compte_arret_only_compte'] = $arret['only_compte'];
+                        $this->property['compte_arret_grace'] = $arret['grace'];
+                        $this->property['compte_arret_message'] = $arret['reason'];
+                        $this->property['compte_arret_warnings'] = $arret['warnings'];
                     
                     $this->property['pagetitle'] .= "•{$bus_stop->garenom}•&nbsp;{$bus_stop->nomsousgare}&nbsp;•ACCUEIL<strong>•&nbsp;{$this->company->nom_entreprise}</strong>";
+                    $this->property = array_merge(
+                        $this->property,
+                        scripts_bundle_property('guichet', $this->session->agent->userole)
+                    );
 
-                    return $this->layout->view('index', $this->property);
+                    return $this->layout->view(
+                        guichet_page_for_role($this->session->agent->userole),
+                        $this->property
+                    );
                     
                 break;
                 
                 default:
                 return -1;
             }
+        }
+
+        /**
+         * Stats passagers par ligne (chargement différé — requête lourde ~7s).
+         */
+        public function ajax_passagers($ckey)
+        {
+            if (!$this->session->userdata('agent')) {
+                return $this->output->set_status_header(401)->set_content_type('application/json')->set_output('[]');
+            }
+
+            $this->load->helper('app_cache');
+            $this->company = $this->m_entreprises->get_key($ckey);
+
+            if (!$this->company) {
+                show_404();
+            }
+
+            $rows = app_cache_remember('passagers_total_' . $ckey, 120, function () {
+                return $this->m_passager->totalpassager($this->company->ekey);
+            });
+
+            $out = array();
+            foreach ($rows as $row) {
+                $out[] = array(
+                    'nom_ligne' => $row->nom_ligne,
+                    'cod' => $row->cod,
+                );
+            }
+
+            return $this->output->set_content_type('application/json')->set_output(json_encode($out));
         }
         
         public function opts($ckey, $cdg, $type = 'prog', $cpus, $sg, $d = FALSE, $m = FALSE, $y = FALSE)
@@ -358,8 +477,8 @@
                     $gare_stop = $this->m_sousgare->sget($this->company->ekey, $cdg, $sg);
                         $this->property['gare_stop'] = $gare_stop;
                     
-                    $conex = $this->m_compte_user->getusergare($this->company->ekey, $cdg, $cpus);
-                    $this->property['conex'] = $conex;
+                    $conn = $this->m_compte_user->connect_gare_exclusive($this->company->ekey, $cdg, $cpus);
+                    $this->property['conex'] = $conn['conex'];
                     $this->property['heures'] = $this->m_heure->get();
                     
                     if ($this->session->agent->userole === '1' OR $this->session->agent->userole === '2'){
@@ -383,6 +502,7 @@
                     $this->property['nonpersonnels'] = $this->m_client->getp();
                     $this->property['bases'] = $this->m_tarifs->get();
                     $this->property['pagetitle'] .= "• PROGRAMMES • <strong>{$bus_stop->nom_gaep}</strong>&nbsp;•&nbsp;{$bus_stop->nom_ville}<strong>•&nbsp;{$this->company->nom_entreprise}</strong>";
+                    $this->property = array_merge($this->property, scripts_bundle_property('program', null, true));
                     return $this->layout->view('_gare/program', $this->property);
                     
                     break;
@@ -393,11 +513,13 @@
                         $gare_stop = $this->m_sousgare->sget($this->company->ekey, $cdg, $sg);
                         $this->property['gare_stop'] = $gare_stop;
                         
-                        $conex = $this->m_compte_user->getusergare($this->company->ekey, $cdg, $cpus);
-                        $this->property['conex'] = $conex;
+                        $conn = $this->m_compte_user->connect_gare_exclusive($this->company->ekey, $cdg, $cpus);
+                        $cpus = $conn['cpus'];
+                        $this->property['conex'] = $conn['conex'];
                         $this->property['typecaisses'] = $this->m_typecaisse->get();
                         $this->property['bus_stop'] = $bus_stop;
                         $this->property['pagetitle'] .= "• CAISSE • <strong>{$bus_stop->nom_gaep}</strong>&nbsp;•&nbsp;{$bus_stop->nom_ville}<strong>•&nbsp;{$this->company->nom_entreprise}</strong>";
+                        $this->property = array_merge($this->property, scripts_bundle_property('accueil'));
                         return $this->layout->view('_gare/caisse', $this->property);
                         
                         break;

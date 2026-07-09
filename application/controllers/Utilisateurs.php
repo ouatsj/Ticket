@@ -1,6 +1,6 @@
 <?php defined('BASEPATH') OR exit('No direct script access allowed');
     
-    class Utilisateurs extends CI_Controller
+    class Utilisateurs extends MY_Controller
     {
         public $property = array(
             'title' => 'Users',
@@ -305,22 +305,9 @@
                 $this->property['comptejours'] = $this->m_compte_user->caissejours($this->company->ekey, $gid, $idcai, $idcpus);
                 $this->property['typedocuments'] = $this->m_typedocument->get();
 
-                    /*$this->property['recette_stop'] = $this->m_recette->valideget($this->company->ekey, $gid, $idcai, $idcpus);
-                    $this->property['depense_stop'] = $this->m_depense->valideget($this->company->ekey, $gid, $idcai, $idcpus);
-                    $this->property['depot_stop'] = $this->m_depot->valideget($this->company->ekey, $gid, $idcai, $idcpus);*/
-
-                if($user_connect->userole === '18')
-                {
-                    $this->property['recette_stop'] = $this->m_recette->validegead($this->company->ekey, $gid, $idcai, $idcpus);
-                    $this->property['depense_stop'] = $this->m_depense->validegead($this->company->ekey, $gid, $idcai, $idcpus);
-                    $this->property['depot_stop'] = $this->m_depot->validegead($this->company->ekey, $gid, $idcai, $idcpus);
-                }
-                else
-                {
-                    $this->property['recette_stop'] = $this->m_recette->valideget($this->company->ekey, $gid, $idcai, $idcpus);
-                    $this->property['depense_stop'] = $this->m_depense->valideget($this->company->ekey, $gid, $idcai, $idcpus);
-                    $this->property['depot_stop'] = $this->m_depot->valideget($this->company->ekey, $gid, $idcai, $idcpus);
-                }
+                $this->property['recette_stop'] = $this->m_recette->valideget_par_profil($this->company->ekey, $gid, $idcai, $idcpus, $user_connect->userole);
+                $this->property['depense_stop'] = $this->m_depense->valideget_par_profil($this->company->ekey, $gid, $idcai, $idcpus, $user_connect->userole);
+                $this->property['depot_stop'] = $this->m_depot->valideget_par_profil($this->company->ekey, $gid, $idcai, $idcpus, $user_connect->userole);
                     $this->property['compagnies'] = $this->m_compagnies->get();
                 $this->property['pagetitle'] .= "• VALIDATION COMPTE • <strong>{$user_connect->username}</strong>•&nbsp;{$user_connect->garenom}<strong>•&nbsp;{$this->company->nom_entreprise}•&nbsp;{$user_connect->type_rols}</strong>";
                 return $this->layout->view('_caisse/indexcompte', $this->property);
@@ -1202,45 +1189,136 @@
         public function add($ckey, $uid)
         {
             $company = $this->m_entreprises->get_key($ckey);
-                
-                $nu = $this->input->post('username');
-                $usp = sha1($this->input->post('pass1'));
-                $cusp = sha1($this->input->post('confirm'));
 
-                $fsecl = $this->db->query("SELECT * FROM compte_user cu WHERE cu.userlog_id = '$uid' AND cu.username = '$nu' AND cu.upassword = '$usp' AND cu.confirm_password = '$cusp'")->row();
+            $nu = trim((string) $this->input->post('username'));
+            $pass1 = (string) $this->input->post('pass1');
+            $confirm = (string) $this->input->post('confirm');
 
-                if($fsecl == NULL){
+            if ($nu === '') {
+                $this->session->set_flashdata('compte_error', 'Le nom d\'utilisateur est obligatoire.');
+                redirect('utilisateurs/' . $company->ekey);
+                return;
+            }
 
-                    $comptelogin = array(
-                        'userlog_id' => $uid,
-                        'username' => $this->input->post('username'),
-                        'upassword' => sha1($this->input->post('pass1')),
-                        'confirm_password' => sha1($this->input->post('confirm')),
-                        'createdcptus_at' => now('UTC'),
-                    );
-                    
-                    $this->m_compte_user->create($comptelogin);
-                }
-                    $this->property['INSERT_SUCCESS'] = TRUE;
-                redirect('utilisateurs/' . $this->session->company->ekey);
+            if ($this->m_compte_user->username_taken($nu)) {
+                $this->session->set_flashdata(
+                    'compte_error',
+                    'Ce nom d\'utilisateur existe déjà. Choisissez un autre identifiant.'
+                );
+                redirect('utilisateurs/' . $company->ekey);
+                return;
+            }
+
+            if ($pass1 === '' || $pass1 !== $confirm) {
+                $this->session->set_flashdata(
+                    'compte_error',
+                    'Les mots de passe ne correspondent pas ou sont vides.'
+                );
+                redirect('utilisateurs/' . $company->ekey);
+                return;
+            }
+
+            $hash = password_make($pass1);
+            $comptelogin = array(
+                'userlog_id' => $uid,
+                'username' => $nu,
+                'upassword' => $hash,
+                'confirm_password' => $hash,
+                'createdcptus_at' => now('UTC'),
+            );
+
+            $this->m_compte_user->create($comptelogin);
+            $this->session->set_flashdata('compte_success', 'Compte créé avec succès.');
+            redirect('utilisateurs/' . $company->ekey);
         }
         
         public function edit_($ckey, $id, $ul)
         {
             $company = $this->m_entreprises->get_key($ckey);
-            
-                    $comptelogin = array(
-                        'username' => $this->input->post('username'),
-                        'upassword' => sha1($this->input->post('pass1')),
-                        'confirm_password' => sha1($this->input->post('confirm')),
-                        
-                    );
-                    
-                    $this->m_compte_user->update($id, $comptelogin);
 
-                $this->property['UPDATE_SUCCESS'] = TRUE;
-                redirect('utilisateurs/' . $this->session->company->ekey.'/gTv/'.$ul.'/compte/'. mdate("%d/%m/%Y", now('UTC')));
+            $nu = trim((string) $this->input->post('username'));
+            if ($nu === '') {
+                $this->session->set_flashdata('compte_error', 'Le nom d\'utilisateur est obligatoire.');
+                redirect('utilisateurs/' . $company->ekey . '/gTv/' . $ul . '/compte/' . mdate('%d/%m/%Y', now('UTC')));
+                return;
+            }
+
+            if ($this->m_compte_user->username_taken($nu, $id)) {
+                $this->session->set_flashdata(
+                    'compte_error',
+                    'Ce nom d\'utilisateur existe déjà. Choisissez un autre identifiant.'
+                );
+                redirect('utilisateurs/' . $company->ekey . '/gTv/' . $ul . '/compte/' . mdate('%d/%m/%Y', now('UTC')));
+                return;
+            }
+
+            $comptelogin = array(
+                'username' => $nu,
+            );
+
+            // Ne réinitialise le mot de passe que s'il a été saisi,
+            // sinon on conserve le hash existant (évite les blocages).
+            $pass1 = (string) $this->input->post('pass1');
+            $confirm = (string) $this->input->post('confirm');
+            if ($pass1 !== '' && $pass1 !== $confirm) {
+                $this->session->set_flashdata(
+                    'compte_error',
+                    'Les mots de passe ne correspondent pas.'
+                );
+                redirect('utilisateurs/' . $company->ekey . '/gTv/' . $ul . '/compte/' . mdate('%d/%m/%Y', now('UTC')));
+                return;
+            }
+            // Ignorer les hash SHA-1 renvoyés par le formulaire d'édition.
+            if ($pass1 !== '' && $pass1 === $confirm && !password_is_legacy_sha1($pass1)) {
+                $hash = password_make($pass1);
+                $comptelogin['upassword'] = $hash;
+                $comptelogin['confirm_password'] = $hash;
+            }
+
+            $this->m_compte_user->update($id, $comptelogin);
+
+            $this->session->set_flashdata('compte_success', 'Compte mis à jour.');
+            redirect('utilisateurs/' . $company->ekey . '/gTv/' . $ul . '/compte/' . mdate('%d/%m/%Y', now('UTC')));
             
+        }
+
+        /**
+         * Dérogation admin : autoriser la vente malgré les règles d'arrêt (rôles 1 et 2).
+         */
+        public function autorisationvente($ckey, $cpuser_id, $uid)
+        {
+            if (!$this->session->userdata('agent')
+                || !in_array((string) $this->session->agent->userole, compte_arret_admin_roles(), true)) {
+                show_error('Accès réservé à l\'administrateur.', 403);
+                return;
+            }
+
+            $company = $this->m_entreprises->get_key($ckey);
+            $cpuser_id = (int) $cpuser_id;
+            $activer = (int) $this->input->post('autorisation_vente_forcee') === 1 ? 1 : 0;
+            $jusquau = trim((string) $this->input->post('autorisation_vente_jusquau'));
+            $motif = trim((string) $this->input->post('autorisation_vente_motif'));
+            $exempt = (int) $this->input->post('exempt_desactivation_auto') === 1 ? 1 : 0;
+
+            if ($activer && $jusquau === '') {
+                $this->session->set_flashdata('compte_error', 'La date de fin de dérogation est obligatoire.');
+                redirect('utilisateurs/' . $company->ekey . '/gTv/' . $uid . '/compte/' . mdate('%d/%m/%Y', now('UTC')));
+                return;
+            }
+
+            $data = [
+                'autorisation_vente_forcee' => $activer,
+                'autorisation_vente_jusquau' => $activer ? $jusquau : null,
+                'autorisation_vente_motif' => $activer ? $motif : null,
+                'autorisation_vente_par' => $activer ? (int) $this->session->agent->cpuser_id : null,
+                'exempt_desactivation_auto' => $exempt,
+            ];
+
+            $this->m_compte_user->update($cpuser_id, $data);
+            $this->session->set_flashdata('compte_success', $activer
+                ? 'Dérogation vente accordée jusqu\'au ' . $jusquau . '.'
+                : 'Dérogation vente retirée.');
+            redirect('utilisateurs/' . $company->ekey . '/gTv/' . $uid . '/compte/' . mdate('%d/%m/%Y', now('UTC')));
         }
 
         //active ou désactiver un compte utilisateur

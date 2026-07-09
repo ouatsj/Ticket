@@ -1,6 +1,6 @@
 <?php defined('BASEPATH') OR exit('No direct script access allowed');
     
-    class Comptecaisses extends CI_Controller
+    class Comptecaisses extends MY_Controller
     {
         public $caisses;
         public $company;
@@ -14,8 +14,10 @@
         public function __construct()
         {
             parent::__construct();
+            $this->load->helper('scripts');
             setlocale(LC_TIME, 'fr_FR', 'fra');
             $this->property['pagetitle'] = utf8_encode(strftime("%d %b %G", now()));
+            $this->property = array_merge($this->property, scripts_bundle_property('caisse', null, true));
         }
         //bagagiste
         public function arcompte($ckey, $idc, $gd, $sg)
@@ -343,6 +345,13 @@
                         }
                     }
             
+            $cp = (int) $this->input->post('compconnected');
+            if ($cp <= 0 && $this->session->userdata('agent')) {
+                $cp = (int) $this->session->agent->cpuser_id;
+            }
+            if ($cp > 0) {
+                compte_arret_track_activity($cp);
+            }
             redirect('comptecaisses/compte/'.$this->session->company->ekey. '/' . $idcpt.'/'.$gd.'/'.$isg);
         }
 
@@ -1018,6 +1027,13 @@
                         }
 
                     }
+                $cp = (int) $this->input->post('compconnected');
+                if ($cp <= 0 && $this->session->userdata('agent')) {
+                    $cp = (int) $this->session->agent->cpuser_id;
+                }
+                if ($cp > 0) {
+                    compte_arret_track_activity($cp);
+                }
                 redirect('comptecaisses/arcompteescalcour/'.$this->session->company->ekey. '/' . $idcpt.'/'.$gd.'/'.$isg);
         }
     }

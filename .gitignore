@@ -9,6 +9,7 @@
 # Logs et cache
 /application/logs/*
 !/application/logs/index.html
+scripts/cron/logs/*.log
 /application/cache/*
 !/application/cache/index.html
 

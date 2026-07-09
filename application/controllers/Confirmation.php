@@ -1,6 +1,6 @@
 <?php defined('BASEPATH') OR exit('No direct script access allowed');
     
-    class Confirmation extends CI_Controller
+    class Confirmation extends MY_Controller
     {
         public $confirmation;
         public $company;
@@ -101,7 +101,13 @@
         
         public function verifquart($gaid)
         {
-            $quarts = $this->m_quartier->getqart1($this->session->company->ekey, $gaid);
+            $gaid = rawurldecode($gaid);
+            $ekey = $this->session->company->ekey;
+            $this->load->helper('app_cache');
+            $quarts = app_cache_remember('quart_gare_' . $ekey . '_' . $gaid, 600, function () use ($ekey, $gaid) {
+                return $this->m_quartier->getqart1($ekey, $gaid);
+            });
+            session_release_lock();
             return $this->load->view('beagle/pages/_programme/json', array('json' => $quarts));
         }
 
@@ -159,8 +165,12 @@
             return $this->load->view('beagle/pages/_programme/json', array('json' => $datas));
         }
 
-        public function verifinfos($n)
+        public function verifinfos($n = '')
         {
+            $n = trim((string) $n);
+            if ($n === '' || strcasecmp($n, 'undefined') === 0) {
+                return $this->load->view('beagle/pages/_programme/json', array('json' => null));
+            }
             $contcl = $this->m_client->infocl($n);
             return $this->load->view('beagle/pages/_programme/json', array('json' => $contcl));
         }
@@ -216,12 +226,17 @@
         public function confirme($ckey)
         {
             $this->company = $this->m_entreprises->get_key($ckey);
-             
-            $imprimeordinaire = $this->input->post('ordinaire');
-            $imprimeepson = $this->input->post('epson');
+
             $gid = $this->input->post('gareconnect');
             $iduser = $this->input->post('userconnected');
             $sgid = $this->input->post('sousgareconnect');
+            if ($msg = compte_arret_guard_sale('ticket', $iduser, $gid)) {
+                compte_arret_redirect_guichet($iduser, $gid, $sgid, $msg);
+                return;
+            }
+             
+            $imprimeordinaire = $this->input->post('ordinaire');
+            $imprimeepson = $this->input->post('epson');
             $idcmpt = $this->input->post('compconnected');
             $usen = substr($this->session->agent->username, 0, 1);
             $today = mdate("%Y-%m-%d", now('UTC'));

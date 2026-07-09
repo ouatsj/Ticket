@@ -1,6 +1,6 @@
 <?php defined('BASEPATH') OR exit('No direct script access allowed');
 
-    class Programmes extends CI_Controller
+    class Programmes extends MY_Controller
     {
         public $property = array(
             'title' => 'Programmes',
@@ -16,11 +16,234 @@
             setlocale(LC_TIME, 'fr_FR', 'fra');
             $this->property['pagetitle'] = utf8_encode(strftime("%d %b %G", now()));
         }
-        
-        /**
-         *
-         */
 
+        protected function _load_controller_models()
+        {
+            $method = $this->router->fetch_method();
+            $light = self::programmes_api_models();
+
+            if (isset($light[$method])) {
+                $map = self::model_map();
+                foreach ($light[$method] as $alias) {
+                    if (isset($map[$alias]) && !isset($this->$alias)) {
+                        $this->load->model($map[$alias], $alias);
+                    }
+                }
+                return;
+            }
+
+            parent::_load_controller_models();
+        }
+
+        protected static function programmes_api_models()
+        {
+            $sale = array(
+                'm_entreprises', 'm_client', 'm_passager', 'm_non_passager',
+                'm_tamponcode', 'm_tamponcodetr', 'm_tampon_siege', 'm_ordres',
+            );
+
+            return array(
+                'addpassager' => $sale,
+                'addpassagerfi' => $sale,
+                'verifinfos' => array('m_client'),
+                'verifinfosbis' => array('m_client'),
+                'verifquart' => array('m_quartier'),
+                'verifquartr' => array('m_quartier'),
+                'verifquartiers' => array('m_quartier'),
+                'verifisieges' => array('m_tampon_siege'),
+                'verifisiegesnr' => array('m_tampon_siege'),
+                'verifcodeprogramme' => array('m_programme'),
+                'verifieligneheure' => array('m_ligne_heure'),
+                'verifprog' => array('m_programme'),
+                'verifprogtr' => array('m_programme'),
+                'vente' => array('m_compte_user'),
+                'progactifnonactif' => array('m_programme'),
+                'verificodeprogramme' => array('m_programme'),
+                'verifpriprg' => array('m_tarifications'),
+                'verifprogr' => array('m_programme'),
+                'verifcodeclgare' => array('m_tamponcode'),
+                'gareprincipale' => array('m_gare_arrivee'),
+                'verifheure' => array('m_programme'),
+                'verifheure1' => array('m_programme'),
+                'verifpriesc' => array('m_tarifications'),
+                'verifheureitine' => array('m_programme'),
+                'verifiligne' => array('m_programme'),
+                'verifprogramm' => array('m_programme'),
+                'verifsousgares' => array('m_sousgare'),
+                'verifcodecl' => array('m_tamponcode'),
+                'verifitine' => array('m_itineraire'),
+                'verifprogrammes' => array('m_programme'),
+                'siegepassager' => array('m_passager'),
+                'siegdispo' => array('m_programme'),
+                'siegdispobus' => array('m_programme'),
+                'siegdisponible' => array('m_programme'),
+                'siegdisponiblebus' => array('m_programme'),
+                'siegeoccuper' => array('m_passager'),
+            );
+        }
+
+        /**
+         * Retour guichet après échec / abandon de vente.
+         * $message : texte affiché à l'agent (SweetAlert) — indispensable car
+         * session_write_close() a souvent déjà eu lieu (pas de flashdata fiable).
+         */
+        protected function _addpassager_redirect_back($message = null)
+        {
+            $this->_sale_nonce_release();
+            if (!$this->session->userdata('company')) {
+                redirect('login/ins');
+                return;
+            }
+            $gid = $this->input->post('gareconnect');
+            $iduser = $this->input->post('userconnected');
+            if ($iduser === null || $iduser === '') {
+                $iduser = $this->_sale_role_attribut_id();
+            }
+            $sgid = $this->input->post('sousgareconnect');
+            $url = 'gares/' . $this->session->company->ekey . '/gTc/' . $gid . '/compte/' . $iduser . '/' . $sgid . '/' . mdate('%d/%m/%Y', now('UTC'));
+
+            if ($message !== null && $message !== '') {
+                if (session_status() === PHP_SESSION_ACTIVE) {
+                    $this->session->set_flashdata('sale_error', $message);
+                }
+                $url .= (strpos($url, '?') === false ? '?' : '&') . 'sale_error=' . rawurlencode($message);
+            }
+
+            redirect($url);
+        }
+
+        /**
+         * Identifiant opérateur guichet pour passager.idcptuser (= attributions_role.roleattribut).
+         * Ne pas utiliser cpuser_id ici : compteurs, rapports et jointures SQL attendent roleattribut.
+         */
+        protected function _sale_role_attribut_id()
+        {
+            $fields = array(
+                'userconnected',
+                'userconnectedmob',
+                'bonuserconnected',
+                'carteuserconnected',
+                'userconnectedrecu',
+                'userconnectedbag',
+                'userconnectedbagsans',
+                'userconnectedbagsansn',
+                'auuserconnected',
+                'retuserconnecteds',
+                'userconnectedescalbag',
+            );
+
+            foreach ($fields as $field) {
+                $value = trim((string) $this->input->post($field));
+                if ($value !== '' && $value !== '0') {
+                    return $value;
+                }
+            }
+
+            if ($this->session->userdata('agent') && !empty($this->session->agent->roleattribut)) {
+                return (string) $this->session->agent->roleattribut;
+            }
+
+            return '';
+        }
+
+        protected function _sale_nonce_key($nonce)
+        {
+            $nonce = preg_replace('/[^a-zA-Z0-9_-]/', '', (string) $nonce);
+            if ($nonce === '') {
+                return '';
+            }
+            $uid = $this->session->userdata('agent') ? (string) $this->session->agent->cpuser_id : 'guest';
+
+            return 'sale_nonce_' . $uid . '_' . $nonce;
+        }
+
+        protected function _sale_nonce_duplicate()
+        {
+            $nonce = trim((string) $this->input->post('sale_nonce'));
+            if ($nonce === '') {
+                return false;
+            }
+            $this->load->helper('app_cache');
+            $key = $this->_sale_nonce_key($nonce);
+            if ($key === '') {
+                return false;
+            }
+
+            // Bloque uniquement une vente déjà finalisée (double-clic après succès).
+            if (app_cache_get($key) === 'done') {
+                $this->_addpassager_redirect_back(
+                    'Cette vente a déjà été enregistrée. Si le ticket ne s\'est pas imprimé, rouvrez-le depuis l\'historique.'
+                );
+                return true;
+            }
+
+            return false;
+        }
+
+        protected function _sale_nonce_complete()
+        {
+            $nonce = trim((string) $this->input->post('sale_nonce'));
+            if ($nonce === '') {
+                return;
+            }
+            $this->load->helper('app_cache');
+            $key = $this->_sale_nonce_key($nonce);
+            if ($key !== '') {
+                app_cache_set($key, 'done', 300);
+            }
+        }
+
+        protected function _sale_nonce_release()
+        {
+            $nonce = trim((string) $this->input->post('sale_nonce'));
+            if ($nonce === '') {
+                return;
+            }
+            $this->load->helper('app_cache');
+            $key = $this->_sale_nonce_key($nonce);
+            if ($key === '') {
+                return;
+            }
+            $path = APPPATH . 'cache/data/' . md5($key) . '.cache';
+            if (is_file($path)) {
+                @unlink($path);
+            }
+        }
+
+        /**
+         * Bloque vente / opérations guichet si arrêt non fait ou non validé.
+         */
+        protected function _sale_compte_arret_guard()
+        {
+            if (!$this->session->userdata('agent')) {
+                return false;
+            }
+
+            $agent = $this->session->agent;
+            $roleattribut = $this->_sale_role_attribut_id();
+            if ($roleattribut === '' && !empty($agent->roleattribut)) {
+                $roleattribut = (string) $agent->roleattribut;
+            }
+
+            $gare = $this->input->post('gareconnect');
+            if ($gare === null || $gare === '') {
+                $gare = null;
+            }
+
+            $blocked = compte_arret_guard_sale('ticket', $roleattribut, $gare);
+            if ($blocked) {
+                $this->_addpassager_redirect_back($blocked);
+                return true;
+            }
+
+            return false;
+        }
+
+        protected function _sale_redirect($url)
+        {
+            $this->_sale_nonce_complete();
+            redirect($url);
+        }
         
         public function busindex($ckey, $gd, $uid, $sg)
         {
@@ -250,9 +473,12 @@
 
         }
         
-        public function deltamponsieg($id, $ns)
-        {            
-            
+        public function deltamponsieg($id = null, $ns = null)
+        {
+            if ($id === null || $id === '' || $ns === null || $ns === '') {
+                return $this->load->view('beagle/pages/_programme/json', array('json' => null));
+            }
+
             $delsieg = array(
                 'numsieg' => $ns,
             );
@@ -582,7 +808,7 @@
                 'createdpg_at' => now('UTC'),
             );
 
-            if($sub_gdp != '' AND $taf != '' AND $cat != '' AND $dtp >= '$today'){
+            if($sub_gdp != '' AND $taf != '' AND $cat != '' AND $dtp >= $today){
                 $praxe = $this->m_programme->create($arrayprog);
                 if ($praxe != NULL) {
                     $this->property['INSERT_SUCCESS'] = TRUE;
@@ -592,20 +818,39 @@
 
         }
        
-        public function verifinfosbis($n)
+        public function verifinfosbis($n = '')
         {
+            session_release_lock();
+            $n = trim((string) $n);
+            if ($n === '' || strcasecmp($n, 'undefined') === 0) {
+                return $this->load->view('beagle/pages/_programme/json', array('json' => null));
+            }
 
             $contcl = $this->m_client->infocl2($n);
+            if (empty($contcl)) {
+                $digits = preg_replace('/\D/', '', $n);
+                if ($digits !== '') {
+                    $contcl = $this->m_client->infocl2($digits);
+                }
+            }
             return $this->load->view('beagle/pages/_programme/json', array('json' => $contcl));
-
         }
         
-        public function verifinfos($n)
+        public function verifinfos($n = '')
         {
-
+            session_release_lock();
+            $n = trim((string) $n);
+            if ($n === '' || strcasecmp($n, 'undefined') === 0) {
+                return $this->load->view('beagle/pages/_programme/json', array('json' => null));
+            }
             $contcl = $this->m_client->infocl($n);
+            if (empty($contcl)) {
+                $digits = preg_replace('/\D/', '', $n);
+                if ($digits !== '') {
+                    $contcl = $this->m_client->infocl($digits);
+                }
+            }
             return $this->load->view('beagle/pages/_programme/json', array('json' => $contcl));
-
         }
 
         public function verifprog($axe, $dt, $h)
@@ -776,13 +1021,23 @@
         //selection des qurtier pour la gare d'arrivee
         public function verifquart($gaid)
         {
-            $qut = $this->m_quartier->getqart1($this->session->company->ekey, $gaid);
+            session_release_lock();
+            $this->load->helper('app_cache');
+            $ekey = $this->session->company->ekey;
+            $qut = app_cache_remember('verifquart_' . $ekey . '_' . $gaid, 600, function () use ($ekey, $gaid) {
+                return $this->m_quartier->getqart1($ekey, $gaid);
+            });
             return $this->load->view('beagle/pages/_programme/json', array('json' => $qut));
         }
         
         public function verifquartr($gaid)
         {
-            $quart = $this->m_quartier->getqartr1($this->session->company->ekey, $gaid);
+            session_release_lock();
+            $this->load->helper('app_cache');
+            $ekey = $this->session->company->ekey;
+            $quart = app_cache_remember('verifquartr_' . $ekey . '_' . $gaid, 600, function () use ($ekey, $gaid) {
+                return $this->m_quartier->getqartr1($ekey, $gaid);
+            });
             return $this->load->view('beagle/pages/_programme/json', array('json' => $quart));
         }
         //insertion des données du passager et client 
@@ -864,20 +1119,63 @@
 
         public function addpassager($ckey)
         {
+            if ($this->_sale_nonce_duplicate()) {
+                return;
+            }
+
+            if ($this->_sale_compte_arret_guard()) {
+                return;
+            }
+
+            if (!isset($this->m_ordres)) {
+                $this->load->model('Ordres_model', 'm_ordres');
+            }
+
+            $this->load->library('sale_passager_service', null, 'sale_svc');
             $this->company = $this->m_entreprises->get_key($ckey);
-            
             $cid = $this->session->company->ekey;
+            session_release_lock();
+            $today = mdate('%Y-%m-%d', now('UTC'));
+            $this->sale_svc->release_expired_reservations($today);
             $cdre1 = strpos($this->input->post('arrgare'), '/');
             $cdr2 = substr($this->input->post('arrgare'), 0, $cdre1);
             $cd = substr($this->input->post('arrgare'), $cdre1 + 1, strlen($this->input->post('arrgare')));
 
                 $imprimeordinaire = $this->input->post('ordinaire');
                 $imprimeepson = $this->input->post('epson');
+                // Si le bouton submit a été désactivé avant sérialisation (anti double-clic),
+                // le navigateur omet name=epson — on retombe sur EPSON (seul bouton actif).
+                if (!$imprimeordinaire && !$imprimeepson) {
+                    $imprimeepson = 'EPSON';
+                }
                 $gid = $this->input->post('gareconnect');
                 $sgid = $this->input->post('sousgareconnect');
                 $idcmpt = $this->input->post('compconnected');
-                $iduser = $this->input->post('userconnected');
+                $idrole = $this->input->post('userconnected');
+                $iduser = $this->_sale_role_attribut_id();
+                if ($iduser === '' && $idrole !== '' && $idrole !== null) {
+                    $iduser = (string) $idrole;
+                }
                 $usen = substr($this->session->agent->username, 0, 1);
+
+                // Vente directe : heuredept + passagersieges
+                // Vente transit : heuredeptitine + passagersiegesitines (les champs directs restent vides)
+                $vente_directe = $this->input->post('datedepart') != NULL
+                    && $this->input->post('heuredept') != NULL
+                    && $this->input->post('passagersieges') != NULL
+                    && $this->input->post('tarifattribuer') != NULL;
+                $vente_transit = $this->input->post('datedepart') != NULL
+                    && $this->input->post('heuredeptitine') != NULL
+                    && $this->input->post('passagersiegesitines') != NULL
+                    && $this->input->post('tarifattribuer') != NULL;
+
+                if (!$vente_directe && !$vente_transit) {
+                    $this->_addpassager_redirect_back(
+                        'Vente non enregistrée : date, heure, siège ou tarif manquant (direct ou transit). Complétez le formulaire puis cliquez EPSON.'
+                    );
+                    return;
+                }
+
                 if($this->input->post('datedepart') != NULL AND $this->input->post('heuredept') != NULL AND $this->input->post('passagersieges') != NULL AND $this->input->post('tarifattribuer') != NULL)
                 {
                     if($imprimeordinaire)
@@ -983,23 +1281,6 @@
                                         $lhr = substr($this->input->post('heuredept'), 0, $cde);
                                         $c = $this->input->post('rclient_contact');
                                         
-                                        $dte = date('H:i', time('H:i')+3600);
-                                        $result = $this->db->query("SELECT p.code_passager, p.code_ticket, p.code_pro, pr.code_progr, pr.id_heur, lh.heure_identif, h.heure, pr.date_progr FROM passager p
-                                        JOIN programme pr ON p.code_pro = pr.code_progr
-                                        JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
-                                        JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
-                                        JOIN heures h ON lh.heure_identif=h.id_heure
-                                        WHERE h.heure <= '$dte' AND pr.date_progr = '$today' AND p.code_ticket = 'R'")->result();
-                        
-                                        foreach ($result as $rew) {
-                                            $plarray = array(
-                                                'num_siege_categorie' => NULL,
-                                                'prixvente' => NULL,
-                                                'num_cat' => NULL,
-                                            );
-                                            $this->m_passager->update($rew->code_passager, $rew->code_ticket, $plarray);
-                                            
-                                        }
                                         $cp = $this->input->post('progcod');
                                         $d = $this->input->post('passagersieges');
 
@@ -1047,7 +1328,7 @@
                                             
                                             }
                                         }  
-                                        redirect('Historique_Passagers/editpdf/' . $this->session->company->ekey.'/'.$tampon.'/'.$tf.'/'. $lhr.'/'.$gid.'/'.$iduser.'/'.$sgid); 
+                                        $this->_sale_nonce_complete(); redirect('Historique_Passagers/editpdf/' . $this->session->company->ekey.'/'.$tampon.'/'.$tf.'/'. $lhr.'/'.$gid.'/'.$iduser.'/'.$sgid); 
                                         
 
                                     }
@@ -1113,23 +1394,6 @@
                                         $lhr = substr($this->input->post('heuredept'), 0, $cde);
                                         $hr = substr($this->input->post('heuredept'), $cde + 1, strlen($this->input->post('heuredept')));
 
-                                        $dte = date('H:i', time('H:i')+3600);
-                                        $result = $this->db->query("SELECT p.code_passager, p.code_ticket, p.code_pro, pr.code_progr, pr.id_heur, lh.heure_identif, h.heure, pr.date_progr FROM passager p
-                                        JOIN programme pr ON p.code_pro = pr.code_progr
-                                        JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
-                                        JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
-                                        JOIN heures h ON lh.heure_identif=h.id_heure
-                                        WHERE h.heure <= '$dte' AND pr.date_progr = '$today' AND p.code_ticket = 'R'")->result();
-                        
-                                        foreach ($result as $rew) {
-                                            $plarray = array(
-                                                'num_siege_categorie' => NULL,
-                                                'prixvente' => NULL,
-                                                'num_cat' => NULL,
-                                            );
-                                            $this->m_passager->update($rew->code_passager, $rew->code_ticket, $plarray);
-                                            
-                                        }
 
                                         $cp = $this->input->post('progcod');
                                         $d = $this->input->post('passagersieges');
@@ -1177,7 +1441,7 @@
                                             
                                             }
                                         }
-                                        redirect('Historique_Passagers/editpdf/' . $this->session->company->ekey .'/'. $tampon.'/'.$tf. '/' . $lhr.'/'.$gid.'/'.$iduser.'/'.$sgid);
+                                        $this->_sale_nonce_complete(); redirect('Historique_Passagers/editpdf/' . $this->session->company->ekey .'/'. $tampon.'/'.$tf. '/' . $lhr.'/'.$gid.'/'.$iduser.'/'.$sgid);
                                         
                                     }
                                     else
@@ -1297,23 +1561,6 @@
                                         $lhr = substr($this->input->post('heuredept'), 0, $cde);
                                         $c = $this->input->post('rclient_contact');
                                         
-                                        $dte = date('H:i', time('H:i')+3600);
-                                        $result = $this->db->query("SELECT p.code_passager, p.code_ticket, p.code_pro, pr.code_progr, pr.id_heur, lh.heure_identif, h.heure, pr.date_progr FROM passager p
-                                        JOIN programme pr ON p.code_pro = pr.code_progr
-                                        JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
-                                        JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
-                                        JOIN heures h ON lh.heure_identif=h.id_heure
-                                        WHERE h.heure <= '$dte' AND pr.date_progr = '$today' AND p.code_ticket = 'R'")->result();
-                        
-                                        foreach ($result as $rew) {
-                                            $plarray = array(
-                                                'num_siege_categorie' => NULL,
-                                                'prixvente' => NULL,
-                                                'num_cat' => NULL,
-                                            );
-                                            $this->m_passager->update($rew->code_passager, $rew->code_ticket, $plarray);
-                                            
-                                        }
                                         $cp = $this->input->post('progcod');
                                         $d = $this->input->post('passagersieges');
 
@@ -1362,7 +1609,7 @@
                                             
                                             }
                                         }
-                                        redirect('Historique_Passagers/editpdfepson/' . $this->session->company->ekey . '/' . $tampon.'/'.$tf. '/' . $lhr.'/'.$gid. '/'.$iduser.'/'.$sgid); 
+                                        $this->_sale_nonce_complete(); redirect('Historique_Passagers/editpdfepson/' . $this->session->company->ekey . '/' . $tampon.'/'.$tf. '/' . $lhr.'/'.$gid. '/'.$iduser.'/'.$sgid); 
                                         
 
                                     }
@@ -1426,23 +1673,6 @@
                                         $lh = substr($this->input->post('heuredept'), 0, $cde);
                                         $hr = substr($this->input->post('heuredept'), $cde + 1, strlen($this->input->post('heuredept')));
 
-                                        $dte = date('H:i', time('H:i')+3600);
-                                        $result = $this->db->query("SELECT p.code_passager, p.code_ticket, p.code_pro, pr.code_progr, pr.id_heur, lh.heure_identif, h.heure, pr.date_progr FROM passager p
-                                        JOIN programme pr ON p.code_pro = pr.code_progr
-                                        JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
-                                        JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
-                                        JOIN heures h ON lh.heure_identif=h.id_heure
-                                        WHERE h.heure <= '$dte' AND pr.date_progr = '$today' AND p.code_ticket = 'R'")->result();
-                        
-                                        foreach ($result as $rew) {
-                                            $plarray = array(
-                                                'num_siege_categorie' => NULL,
-                                                'prixvente' => NULL,
-                                                'num_cat' => NULL,
-                                            );
-                                            $this->m_passager->update($rew->code_passager, $rew->code_ticket, $plarray);
-                                            
-                                        }
 
                                         $cp = $this->input->post('progcod');
                                         $d = $this->input->post('passagersieges');
@@ -1490,7 +1720,7 @@
                                             
                                             }
                                         }
-                                        redirect('Historique_Passagers/editpdfepson/' . $this->session->company->ekey . '/' . $tampon.'/'.$tf. '/' . $lh.'/'.$gid.'/'.$iduser. '/'.$sgid);
+                                        $this->_sale_nonce_complete(); redirect('Historique_Passagers/editpdfepson/' . $this->session->company->ekey . '/' . $tampon.'/'.$tf. '/' . $lh.'/'.$gid.'/'.$iduser. '/'.$sgid);
                                     }
                                     else
                                     {
@@ -1653,23 +1883,6 @@
                                                         $hr = substr($this->input->post('heuredept'), $cde + 1, strlen($this->input->post('heuredept')));
                                                 
                 
-                                                        $dte = date('H:i', time('H:i')+3600);
-                                                        $result = $this->db->query("SELECT p.code_passager, p.code_ticket, p.code_pro, pr.code_progr, pr.id_heur, lh.heure_identif, h.heure, pr.date_progr FROM passager p
-                                                        JOIN programme pr ON p.code_pro = pr.code_progr
-                                                        JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
-                                                        JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
-                                                        JOIN heures h ON lh.heure_identif=h.id_heure
-                                                        WHERE h.heure <= '$dte' AND pr.date_progr = '$today' AND p.code_ticket = 'R'")->result();
-                                        
-                                                        foreach ($result as $rew) {
-                                                            $plarray = array(
-                                                                'num_siege_categorie' => NULL,
-                                                                'prixvente' => NULL,
-                                                                'num_cat' => NULL,
-                                                            );
-                                                            $this->m_passager->update($rew->code_passager, $rew->code_ticket, $plarray);
-                                                            
-                                                        }
                                                         $cp = $this->input->post('progcod');
                                                         $d = $this->input->post('passagersieges');
                                                         
@@ -1749,7 +1962,7 @@
                                                             $this->db->query("UPDATE non_passager SET verifnonpassager = 'A' WHERE code_non_pass = '$tpcdpas' AND codeticket = '$cdnpas'");
                                                         }
                                                     }
-                                                  redirect('Historique_Passagers/editpdfar/' . $this->session->company->ekey . '/' . $tpcdpas.'/'.$tf. '/' . $tpcdpas.'/'.$lhar.'/'.$gid.'/'.$iduser. '/'.$sgid);
+                                                  $this->_sale_nonce_complete(); redirect('Historique_Passagers/editpdfar/' . $this->session->company->ekey . '/' . $tpcdpas.'/'.$tf. '/' . $tpcdpas.'/'.$lhar.'/'.$gid.'/'.$iduser. '/'.$sgid);
                                             }
                                             else
                                             {
@@ -1826,23 +2039,6 @@
                                                     $hr = substr($this->input->post('heuredept'), $cde + 1, strlen($this->input->post('heuredept')));
                                             
 
-                                                    $dte = date('H:i', time('H:i')+3600);
-                                                    $result = $this->db->query("SELECT p.code_passager, p.code_ticket, p.code_pro, pr.code_progr, pr.id_heur, lh.heure_identif, h.heure, pr.date_progr FROM passager p
-                                                    JOIN programme pr ON p.code_pro = pr.code_progr
-                                                    JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
-                                                    JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
-                                                    JOIN heures h ON lh.heure_identif=h.id_heure
-                                                    WHERE h.heure <= '$dte' AND pr.date_progr = '$today' AND p.code_ticket = 'R'")->result();
-                                    
-                                                    foreach ($result as $rew) {
-                                                        $plarray = array(
-                                                            'num_siege_categorie' => NULL,
-                                                            'prixvente' => NULL,
-                                                            'num_cat' => NULL,
-                                                        );
-                                                        $this->m_passager->update($rew->code_passager, $rew->code_ticket, $plarray);
-                                                        
-                                                    }
                                                     $cp = $this->input->post('progcod');
                                                     $d = $this->input->post('passagersieges');
                                                     
@@ -1921,7 +2117,7 @@
                                                         $this->db->query("UPDATE non_passager SET verifnonpassager = 'A' WHERE code_non_pass = '$tpcdpas' AND codeticket = '$cdnpas'");
                                                     }
                                                 }
-                                            redirect('Historique_Passagers/editpdfar/' . $this->session->company->ekey . '/' . $tpcdpas.'/'. $tf. '/' . $tpcdpas.'/'.$lhar.'/'.$gid.'/'.$iduser. '/'.$sgid);
+                                            $this->_sale_nonce_complete(); redirect('Historique_Passagers/editpdfar/' . $this->session->company->ekey . '/' . $tpcdpas.'/'. $tf. '/' . $tpcdpas.'/'.$lhar.'/'.$gid.'/'.$iduser. '/'.$sgid);
                                             }
                                             else
                                             {
@@ -2085,23 +2281,6 @@
                                                         $hr = substr($this->input->post('heuredept'), $cde + 1, strlen($this->input->post('heuredept')));
                                                 
                 
-                                                        $dte = date('H:i', time('H:i')+3600);
-                                                        $result = $this->db->query("SELECT p.code_passager, p.code_ticket, p.code_pro, pr.code_progr, pr.id_heur, lh.heure_identif, h.heure, pr.date_progr FROM passager p
-                                                        JOIN programme pr ON p.code_pro = pr.code_progr
-                                                        JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
-                                                        JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
-                                                        JOIN heures h ON lh.heure_identif=h.id_heure
-                                                        WHERE h.heure <= '$dte' AND pr.date_progr = '$today' AND p.code_ticket = 'R'")->result();
-                                        
-                                                        foreach ($result as $rew) {
-                                                            $plarray = array(
-                                                            'num_siege_categorie' => NULL,
-                                                            'prixvente' => NULL,
-                                                            'num_cat' => NULL,
-                                                            );
-                                                            $this->m_passager->update($rew->code_passager, $rew->code_ticket, $plarray);
-                                                            
-                                                        }
                                                         $cp = $this->input->post('progcod');
                                                         $d = $this->input->post('passagersieges');
                                                         
@@ -2179,7 +2358,7 @@
                                                                 $this->db->query("UPDATE non_passager SET verifnonpassager = 'A' WHERE code_non_pass = '$tpcdpas' AND codeticket = '$cdnpas'");
                                                             }
                                                         }
-                                                    redirect('Historique_Passagers/epsonalretour/' . $this->session->company->ekey . '/' . $tpcdpas.'/'.$tf. '/' . $tpcdpas.'/'.$lhar.'/'.$gid.'/'.$iduser. '/'.$sgid);   
+                                                    $this->_sale_nonce_complete(); redirect('Historique_Passagers/epsonalretour/' . $this->session->company->ekey . '/' . $tpcdpas.'/'.$tf. '/' . $tpcdpas.'/'.$lhar.'/'.$gid.'/'.$iduser. '/'.$sgid);   
                                                     
                                             }
                                             else
@@ -2256,23 +2435,6 @@
                                                     $hr = substr($this->input->post('heuredept'), $cde + 1, strlen($this->input->post('heuredept')));
                                             
 
-                                                    $dte = date('H:i', time('H:i')+3600);
-                                                    $result = $this->db->query("SELECT p.code_passager, p.code_ticket, p.code_pro, pr.code_progr, pr.id_heur, lh.heure_identif, h.heure, pr.date_progr FROM passager p
-                                                    JOIN programme pr ON p.code_pro = pr.code_progr
-                                                    JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
-                                                    JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
-                                                    JOIN heures h ON lh.heure_identif=h.id_heure
-                                                    WHERE h.heure <= '$dte' AND pr.date_progr = '$today' AND p.code_ticket = 'R'")->result();
-                                    
-                                                    foreach ($result as $rew) {
-                                                        $plarray = array(
-                                                            'num_siege_categorie' => NULL,
-                                                            'prixvente' => NULL,
-                                                            'num_cat' => NULL,
-                                                        );
-                                                        $this->m_passager->update($rew->code_passager, $rew->code_ticket, $plarray);
-                                                        
-                                                    }
                                                     $cp = $this->input->post('progcod');
                                                     $d = $this->input->post('passagersieges');
                                                     
@@ -2351,7 +2513,7 @@
                                                             $this->db->query("UPDATE non_passager SET verifnonpassager = 'A' WHERE code_non_pass = '$tpcdpas' AND codeticket = '$cdnpas'");
                                                         }
                                                     }
-                                                redirect('Historique_Passagers/epsonalretour/' . $this->session->company->ekey . '/' . $tpcdpas.'/'.$tf. '/' . $tpcdpas.'/'.$lhar.'/'.$gid.'/'.$iduser. '/'.$sgid);
+                                                $this->_sale_nonce_complete(); redirect('Historique_Passagers/epsonalretour/' . $this->session->company->ekey . '/' . $tpcdpas.'/'.$tf. '/' . $tpcdpas.'/'.$lhar.'/'.$gid.'/'.$iduser. '/'.$sgid);
                                             }
                                             else
                                             {
@@ -2615,23 +2777,6 @@
                                                 $lhr = substr($this->input->post('heuredeptitine'), 0, $cde);
                                                 $c = $this->input->post('rclient_contact');
                                                 
-                                                $dte = date('H:i', time('H:i')+3600);
-                                                $result = $this->db->query("SELECT p.code_passager, p.code_ticket, p.code_pro, pr.code_progr, pr.id_heur, lh.heure_identif, h.heure, pr.date_progr FROM passager p
-                                                JOIN programme pr ON p.code_pro = pr.code_progr
-                                                JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
-                                                JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
-                                                JOIN heures h ON lh.heure_identif=h.id_heure
-                                                WHERE h.heure <= '$dte' AND pr.date_progr = '$today' AND p.code_ticket = 'R'")->result();
-                                
-                                                foreach ($result as $rew) {
-                                                    $plarray = array(
-                                                        'num_siege_categorie' => NULL,
-                                                        'prixvente' => NULL,
-                                                        'num_cat' => NULL,
-                                                    );
-                                                    $this->m_passager->update($rew->code_passager, $rew->code_ticket, $plarray);
-                                                    
-                                                }
                                                 
                                                 $cp = $this->input->post('progcodtrans');
                                                 $d = $this->input->post('passagersiegesitines');
@@ -2681,7 +2826,7 @@
                                                     
                                                     }    
                                                 }
-                                                redirect('Historique_Passagers/editpdftrans/' . $this->session->company->ekey .'/'.$tampon.'/'.$tf. '/'. $lhr.'/'.$tampon1.'/'.$fnitra1.'/'.$gid.'/'.$iduser. '/'.$sgid);
+                                                $this->_sale_nonce_complete(); redirect('Historique_Passagers/editpdftrans/' . $this->session->company->ekey .'/'.$tampon.'/'.$tf. '/'. $lhr.'/'.$tampon1.'/'.$fnitra1.'/'.$gid.'/'.$iduser. '/'.$sgid);
                                             }
 
                                             else
@@ -2881,7 +3026,7 @@
 
                                                     
                                                     $cp2 = $h_gdp1;
-                                                $d2 = $this->input->post('passagersiegesitines1');
+                                                $d2 = $this->input->post('passagersiegesitines2');
 
                                                 $results2 = $this->db->query("SELECT * FROM tampon_siege t WHERE t.codepro = '$cp2' AND t.numsieg = '$d2'")->row();
                                                         
@@ -2890,7 +3035,7 @@
                                                     'numsieg' => $this->input->post('passagersiegesitines2'),
                                                 );
                                                 
-                                                $this->m_tampon_siege->del($results2->idtamp, $delarray2);
+                                                if (!empty($results2) && isset($results2->idtamp)) { $this->m_tampon_siege->del($results2->idtamp, $delarray2); }
 
                                                 if ($dernier1 == NULL)
                                                 {
@@ -2971,23 +3116,6 @@
                                                 $lhr = substr($this->input->post('heuredeptitine'), 0, $cde);
                                                 $c = $this->input->post('rclient_contact');
                                                 
-                                                $dte = date('H:i', time('H:i')+3600);
-                                                $result = $this->db->query("SELECT p.code_passager, p.code_ticket, p.code_pro, pr.code_progr, pr.id_heur, lh.heure_identif, h.heure, pr.date_progr FROM passager p
-                                                JOIN programme pr ON p.code_pro = pr.code_progr
-                                                JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
-                                                JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
-                                                JOIN heures h ON lh.heure_identif=h.id_heure
-                                                WHERE h.heure <= '$dte' AND pr.date_progr = '$today' AND p.code_ticket = 'R'")->result();
-                                
-                                                foreach ($result as $rew) {
-                                                    $plarray = array(
-                                                        'num_siege_categorie' => NULL,
-                                                        'prixvente' => NULL,
-                                                        'num_cat' => NULL,
-                                                    );
-                                                    $this->m_passager->update($rew->code_passager, $rew->code_ticket, $plarray);
-                                                    
-                                                }
                                                 
                                                 $cp = $this->input->post('progcodtrans');
                                                 $d = $this->input->post('passagersiegesitines');
@@ -3037,7 +3165,7 @@
                                                     }
 
                                                 }
-                                                redirect('Historique_Passagers/editpdftrans2/' . $this->session->company->ekey .'/'.$tampon.'/'.$tf. '/'. $lhr.'/'.$tampon1.'/'.$fnitra1.'/'.$tampon2.'/'.$fnitra2.'/'.$gid.'/'.$iduser. '/'.$sgid);
+                                                $this->_sale_nonce_complete(); redirect('Historique_Passagers/editpdftrans2/' . $this->session->company->ekey .'/'.$tampon.'/'.$tf. '/'. $lhr.'/'.$tampon1.'/'.$fnitra1.'/'.$tampon2.'/'.$fnitra2.'/'.$gid.'/'.$iduser. '/'.$sgid);
                                                 
                                             }
                                             else
@@ -3241,7 +3369,7 @@
                                                             'numsieg' => $this->input->post('passagersiegesitines2'),
                                                             );
                                                             
-                                                            $this->m_tampon_siege->del($results2->idtamp, $delarray2);
+                                                            if (!empty($results2) && isset($results2->idtamp)) { $this->m_tampon_siege->del($results2->idtamp, $delarray2); }
                                                         $reg3 = $this->input->post('gidtransite2');
                                                         $cd3 = $this->input->post('compg3');
                                                         $passecompter3 = $this->db->query("SELECT COUNT(code_passager) AS id FROM passager p WHERE p.datep_create = '$today' AND p.idcptuser = '$iduser' AND p.code_ticket != 'R' AND p.statut_code = 'vendu'")->row();
@@ -3431,23 +3559,6 @@
                                                     $lhr = substr($this->input->post('heuredeptitine'), 0, $cde);
                                                     $c = $this->input->post('rclient_contact');
                                                     
-                                                    $dte = date('H:i', time('H:i')+3600);
-                                                    $result = $this->db->query("SELECT p.code_passager, p.code_ticket, p.code_pro, pr.code_progr, pr.id_heur, lh.heure_identif, h.heure, pr.date_progr FROM passager p
-                                                    JOIN programme pr ON p.code_pro = pr.code_progr
-                                                    JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
-                                                    JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
-                                                    JOIN heures h ON lh.heure_identif=h.id_heure
-                                                    WHERE h.heure <= '$dte' AND pr.date_progr = '$today' AND p.code_ticket = 'R'")->result();
-                                    
-                                                    foreach ($result as $rew) {
-                                                        $plarray = array(
-                                                            'num_siege_categorie' => NULL,
-                                                            'prixvente' => NULL,
-                                                            'num_cat' => NULL,
-                                                        );
-                                                        $this->m_passager->update($rew->code_passager, $rew->code_ticket, $plarray);
-                                                        
-                                                    }
                                                     
                                                     $cp = $this->input->post('progcodtrans');
                                                     $d = $this->input->post('passagersiegesitines');
@@ -3497,7 +3608,7 @@
                                                         
                                                         }
                                                     }
-                                                    redirect('Historique_Passagers/editpdftrans3/' . $this->session->company->ekey .'/'.$tampon.'/'.$tf. '/'. $lhr.'/'.$tampon1.'/'.$fnitra1.'/'.$tampon2.'/'.$fnitras2.'/'.$tampon3.'/'.$fnitra4.'/'.$gid.'/'.$iduser. '/'.$sgid);
+                                                    $this->_sale_nonce_complete(); redirect('Historique_Passagers/editpdftrans3/' . $this->session->company->ekey .'/'.$tampon.'/'.$tf. '/'. $lhr.'/'.$tampon1.'/'.$fnitra1.'/'.$tampon2.'/'.$fnitras2.'/'.$tampon3.'/'.$fnitra4.'/'.$gid.'/'.$iduser. '/'.$sgid);
                                                 }
 
                                                 else
@@ -3685,23 +3796,6 @@
                                                     $lhr = substr($this->input->post('heuredeptitine'), 0, $cde);
                                                     $c = $this->input->post('rclient_contact');
                                                     
-                                                    $dte = date('H:i', time('H:i')+3600);
-                                                    $result = $this->db->query("SELECT p.code_passager, p.code_ticket, p.code_pro, pr.code_progr, pr.id_heur, lh.heure_identif, h.heure, pr.date_progr FROM passager p
-                                                    JOIN programme pr ON p.code_pro = pr.code_progr
-                                                    JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
-                                                    JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
-                                                    JOIN heures h ON lh.heure_identif=h.id_heure
-                                                    WHERE h.heure <= '$dte' AND pr.date_progr = '$today' AND p.code_ticket = 'R'")->result();
-                                    
-                                                    foreach ($result as $rew) {
-                                                        $plarray = array(
-                                                            'num_siege_categorie' => NULL,
-                                                            'prixvente' => NULL,
-                                                            'num_cat' => NULL,
-                                                        );
-                                                        $this->m_passager->update($rew->code_passager, $rew->code_ticket, $plarray);
-                                                        
-                                                    }
                                                     
                                                     $cp = $this->input->post('progcodtrans');
                                                     $d = $this->input->post('passagersiegesitines');
@@ -3751,7 +3845,7 @@
                                                         
                                                         }
                                                     }
-                                                redirect('Historique_Passagers/editpdftrans/' . $this->session->company->ekey .'/'.$tampon.'/'.$tf. '/'. $lhr.'/'.$tampon1.'/'.$fnitra1.'/'.$gid.'/'.$iduser. '/'.$sgid);
+                                                $this->_sale_nonce_complete(); redirect('Historique_Passagers/editpdftrans/' . $this->session->company->ekey .'/'.$tampon.'/'.$tf. '/'. $lhr.'/'.$tampon1.'/'.$fnitra1.'/'.$gid.'/'.$iduser. '/'.$sgid);
 
                                             }
 
@@ -3952,7 +4046,7 @@
                                                         
                                                     $cp2 = $h_gdp1;
                                                     
-                                                    $d2 = $this->input->post('passagersiegesitines1');
+                                                    $d2 = $this->input->post('passagersiegesitines2');
 
                                                     $results2 = $this->db->query("SELECT * FROM tampon_siege t WHERE t.codepro = '$cp2' AND t.numsieg = '$d2'")->row();
                                                             
@@ -3961,7 +4055,7 @@
                                                         'numsieg' => $this->input->post('passagersiegesitines2'),
                                                     );
                                                     
-                                                    $this->m_tampon_siege->del($results2->idtamp, $delarray2);
+                                                    if (!empty($results2) && isset($results2->idtamp)) { $this->m_tampon_siege->del($results2->idtamp, $delarray2); }
                                                     if ($dernier1 == NULL)
                                                     {
                                                                         
@@ -4040,23 +4134,6 @@
                                                     $lhr = substr($this->input->post('heuredeptitine'), 0, $cde);
                                                     $c = $this->input->post('rclient_contact');
                                                     
-                                                    $dte = date('H:i', time('H:i')+3600);
-                                                    $result = $this->db->query("SELECT p.code_passager, p.code_ticket, p.code_pro, pr.code_progr, pr.id_heur, lh.heure_identif, h.heure, pr.date_progr FROM passager p
-                                                    JOIN programme pr ON p.code_pro = pr.code_progr
-                                                    JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
-                                                    JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
-                                                    JOIN heures h ON lh.heure_identif=h.id_heure
-                                                    WHERE h.heure <= '$dte' AND pr.date_progr = '$today' AND p.code_ticket = 'R'")->result();
-                                    
-                                                    foreach ($result as $rew) {
-                                                        $plarray = array(
-                                                            'num_siege_categorie' => NULL,
-                                                            'prixvente' => NULL,
-                                                            'num_cat' => NULL,
-                                                        );
-                                                        $this->m_passager->update($rew->code_passager, $rew->code_ticket, $plarray);
-                                                        
-                                                    }
                                                     
                                                     $cp = $this->input->post('progcodtrans');
                                                     $d = $this->input->post('passagersiegesitines');
@@ -4106,7 +4183,7 @@
                                                         
                                                         }
                                                     }
-                                                    redirect('Historique_Passagers/editpdftrans2/' . $this->session->company->ekey .'/'.$tampon.'/'.$tf. '/'. $lhr.'/'.$tampon1.'/'.$fnitra1.'/'.$tampon2.'/'.$fnitra2.'/'.$gid.'/'.$iduser. '/'.$sgid);
+                                                    $this->_sale_nonce_complete(); redirect('Historique_Passagers/editpdftrans2/' . $this->session->company->ekey .'/'.$tampon.'/'.$tf. '/'. $lhr.'/'.$tampon1.'/'.$fnitra1.'/'.$tampon2.'/'.$fnitra2.'/'.$gid.'/'.$iduser. '/'.$sgid);
                                                 }
 
                                                 else
@@ -4311,7 +4388,7 @@
                                                         'numsieg' => $this->input->post('passagersiegesitines2'),
                                                     );
                                                     
-                                                    $this->m_tampon_siege->del($results2->idtamp, $delarray2);
+                                                    if (!empty($results2) && isset($results2->idtamp)) { $this->m_tampon_siege->del($results2->idtamp, $delarray2); }
 
                                                     $reg3 = $this->input->post('gidtransite2');
                                                     $cd3 = $this->input->post('compg3');
@@ -4501,23 +4578,6 @@
                                                         $lhr = substr($this->input->post('heuredeptitine'), 0, $cde);
                                                         $c = $this->input->post('rclient_contact');
                                                         
-                                                        $dte = date('H:i', time('H:i')+3600);
-                                                        $result = $this->db->query("SELECT p.code_passager, p.code_ticket, p.code_pro, pr.code_progr, pr.id_heur, lh.heure_identif, h.heure, pr.date_progr FROM passager p
-                                                        JOIN programme pr ON p.code_pro = pr.code_progr
-                                                        JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
-                                                        JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
-                                                        JOIN heures h ON lh.heure_identif=h.id_heure
-                                                        WHERE h.heure <= '$dte' AND pr.date_progr = '$today' AND p.code_ticket = 'R'")->result();
-                                        
-                                                        foreach ($result as $rew) {
-                                                            $plarray = array(
-                                                                'num_siege_categorie' => NULL,
-                                                                'prixvente' => NULL,
-                                                                'num_cat' => NULL,
-                                                            );
-                                                            $this->m_passager->update($rew->code_passager, $rew->code_ticket, $plarray);
-                                                            
-                                                        }
                                                         
                                                         $cp = $this->input->post('progcodtrans');
                                                         $d = $this->input->post('passagersiegesitines');
@@ -4568,7 +4628,7 @@
                                                     
                                                             }
                                                         }
-                                                    redirect('Historique_Passagers/editpdftrans3/' . $this->session->company->ekey .'/'.$tampon.'/'.$tf. '/'. $lhr.'/'.$tampon1.'/'.$fnitra1.'/'.$tampon2.'/'.$fnitras2.'/'.$tampon3.'/'.$fnitra4.'/'.$gid.'/'.$iduser. '/'.$sgid);
+                                                    $this->_sale_nonce_complete(); redirect('Historique_Passagers/editpdftrans3/' . $this->session->company->ekey .'/'.$tampon.'/'.$tf. '/'. $lhr.'/'.$tampon1.'/'.$fnitra1.'/'.$tampon2.'/'.$fnitras2.'/'.$tampon3.'/'.$fnitra4.'/'.$gid.'/'.$iduser. '/'.$sgid);
                                                 }
 
                                                 else
@@ -4834,23 +4894,6 @@
                                                         $lhr = substr($this->input->post('heuredeptitine'), 0, $cde);
                                                         $c = $this->input->post('rclient_contact');
                                                         
-                                                        $dte = date('H:i', time('H:i')+3600);
-                                                        $result = $this->db->query("SELECT p.code_passager, p.code_ticket, p.code_pro, pr.code_progr, pr.id_heur, lh.heure_identif, h.heure, pr.date_progr FROM passager p
-                                                        JOIN programme pr ON p.code_pro = pr.code_progr
-                                                        JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
-                                                        JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
-                                                        JOIN heures h ON lh.heure_identif=h.id_heure
-                                                        WHERE h.heure <= '$dte' AND pr.date_progr = '$today' AND p.code_ticket = 'R'")->result();
-                                        
-                                                        foreach ($result as $rew) {
-                                                            $plarray = array(
-                                                                'num_siege_categorie' => NULL,
-                                                                'prixvente' => NULL,
-                                                                'num_cat' => NULL,
-                                                            );
-                                                        $this->m_passager->update($rew->code_passager, $rew->code_ticket, $plarray);
-                                                            
-                                                        }
                                                         
                                                         $cp = $this->input->post('progcodtrans');
                                                         $d = $this->input->post('passagersiegesitines');
@@ -4901,7 +4944,7 @@
                                                     
                                                             }
                                                         }
-                                                        redirect('Historique_Passagers/editpdfepsontrans/' . $this->session->company->ekey .'/'.$tampon. '/'. $tf. '/'. $lhr.'/'.$tampon1.'/'.$fnitra1.'/'.$gid.'/'.$iduser. '/'.$sgid);
+                                                        $this->_sale_nonce_complete(); redirect('Historique_Passagers/editpdfepsontrans/' . $this->session->company->ekey .'/'.$tampon. '/'. $tf. '/'. $lhr.'/'.$tampon1.'/'.$fnitra1.'/'.$gid.'/'.$iduser. '/'.$sgid);
                                                     }
                                     
                                                     else
@@ -5098,7 +5141,7 @@
 
                                                             
                                                         $cp2 = $h_gdp1;
-                                                        $d2 = $this->input->post('passagersiegesitines1');
+                                                        $d2 = $this->input->post('passagersiegesitines2');
 
                                                         $results2 = $this->db->query("SELECT * FROM tampon_siege t WHERE t.codepro = '$cp2' AND t.numsieg = '$d2'")->row();
                                                                 
@@ -5107,7 +5150,7 @@
                                                             'numsieg' => $this->input->post('passagersiegesitines2'),
                                                         );
                                                         
-                                                        $this->m_tampon_siege->del($results2->idtamp, $delarray2);
+                                                        if (!empty($results2) && isset($results2->idtamp)) { $this->m_tampon_siege->del($results2->idtamp, $delarray2); }
                                                         if ($dernier1 == NULL)
                                                         {
                                                                             
@@ -5185,23 +5228,6 @@
                                                         $lhr = substr($this->input->post('heuredeptitine'), 0, $cde);
                                                         $c = $this->input->post('rclient_contact');
                                                         
-                                                        $dte = date('H:i', time('H:i')+3600);
-                                                        $result = $this->db->query("SELECT p.code_passager, p.code_ticket, p.code_pro, pr.code_progr, pr.id_heur, lh.heure_identif, h.heure, pr.date_progr FROM passager p
-                                                        JOIN programme pr ON p.code_pro = pr.code_progr
-                                                        JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
-                                                        JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
-                                                        JOIN heures h ON lh.heure_identif=h.id_heure
-                                                        WHERE h.heure <= '$dte' AND pr.date_progr = '$today' AND p.code_ticket = 'R'")->result();
-                                        
-                                                        foreach ($result as $rew) {
-                                                            $plarray = array(
-                                                                'num_siege_categorie' => NULL,
-                                                                'prixvente' => NULL,
-                                                                'num_cat' => NULL,
-                                                            );
-                                                            $this->m_passager->update($rew->code_passager, $rew->code_ticket, $plarray);
-                                                            
-                                                        }
                                                         
                                                         $cp = $this->input->post('progcodtrans');
                                                         $d = $this->input->post('passagersiegesitines');
@@ -5251,7 +5277,7 @@
                                                     
                                                             }
                                                         }
-                                                        redirect('Historique_Passagers/editpdfepsontrans2/' . $this->session->company->ekey .'/'.$tampon. '/'. $tf. '/'. $lhr.'/'.$tampon1.'/'.$fnitra1.'/'.$tampon2.'/'.$fnitra2.'/'.$gid.'/'.$iduser. '/'.$sgid);
+                                                        $this->_sale_nonce_complete(); redirect('Historique_Passagers/editpdfepsontrans2/' . $this->session->company->ekey .'/'.$tampon. '/'. $tf. '/'. $lhr.'/'.$tampon1.'/'.$fnitra1.'/'.$tampon2.'/'.$fnitra2.'/'.$gid.'/'.$iduser. '/'.$sgid);
                                                     }
                                     
                                                     else
@@ -5449,7 +5475,7 @@
                                                             'numsieg' => $this->input->post('passagersiegesitines2'),
                                                         );
                                                         
-                                                    $this->m_tampon_siege->del($results2->idtamp, $delarray2);
+                                                    if (!empty($results2) && isset($results2->idtamp)) { $this->m_tampon_siege->del($results2->idtamp, $delarray2); }
 
                                                     $reg3 = $this->input->post('gidtransite2');
                                                     $cd3 = $this->input->post('compg3');
@@ -5637,23 +5663,6 @@
                                                         $lhr = substr($this->input->post('heuredeptitine'), 0, $cde);
                                                         $c = $this->input->post('rclient_contact');
                                                         
-                                                        $dte = date('H:i', time('H:i')+3600);
-                                                        $result = $this->db->query("SELECT p.code_passager, p.code_ticket, p.code_pro, pr.code_progr, pr.id_heur, lh.heure_identif, h.heure, pr.date_progr FROM passager p
-                                                        JOIN programme pr ON p.code_pro = pr.code_progr
-                                                        JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
-                                                        JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
-                                                        JOIN heures h ON lh.heure_identif=h.id_heure
-                                                        WHERE h.heure <= '$dte' AND pr.date_progr = '$today' AND p.code_ticket = 'R'")->result();
-                                        
-                                                        foreach ($result as $rew) {
-                                                            $plarray = array(
-                                                                'num_siege_categorie' => NULL,
-                                                                'prixvente' => NULL,
-                                                                'num_cat' => NULL,
-                                                            );
-                                                            $this->m_passager->update($rew->code_passager, $rew->code_ticket, $plarray);
-                                                            
-                                                        }
                                                         
                                                         $cp = $this->input->post('progcodtrans');
                                                         $d = $this->input->post('passagersiegesitines');
@@ -5705,7 +5714,7 @@
                                                             }
                 
                                                         }
-                                                    redirect('Historique_Passagers/editpdfepsontrans3/' . $this->session->company->ekey .'/'.$tampon. '/'. $tf. '/'. $lhr.'/'.$tampon1.'/'.$fnitra1.'/'.$tampon2.'/'.$fnitras2.'/'.$tampon3.'/'.$fnitra4.'/'.$gid.'/'.$iduser. '/'.$sgid);
+                                                    $this->_sale_nonce_complete(); redirect('Historique_Passagers/editpdfepsontrans3/' . $this->session->company->ekey .'/'.$tampon. '/'. $tf. '/'. $lhr.'/'.$tampon1.'/'.$fnitra1.'/'.$tampon2.'/'.$fnitras2.'/'.$tampon3.'/'.$fnitra4.'/'.$gid.'/'.$iduser. '/'.$sgid);
                                                 }
 
                                                 else
@@ -5889,23 +5898,6 @@
                                                     $lhr = substr($this->input->post('heuredeptitine'), 0, $cde);
                                                     $c = $this->input->post('rclient_contact');
                                                     
-                                                    $dte = date('H:i', time('H:i')+3600);
-                                                    $result = $this->db->query("SELECT p.code_passager, p.code_ticket, p.code_pro, pr.code_progr, pr.id_heur, lh.heure_identif, h.heure, pr.date_progr FROM passager p
-                                                    JOIN programme pr ON p.code_pro = pr.code_progr
-                                                    JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
-                                                    JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
-                                                    JOIN heures h ON lh.heure_identif=h.id_heure
-                                                    WHERE h.heure <= '$dte' AND pr.date_progr = '$today' AND p.code_ticket = 'R'")->result();
-                                    
-                                                    foreach ($result as $rew) {
-                                                        $plarray = array(
-                                                            'num_siege_categorie' => NULL,
-                                                            'prixvente' => NULL,
-                                                            'num_cat' => NULL,
-                                                        );
-                                                        $this->m_passager->update($rew->code_passager, $rew->code_ticket, $plarray);
-                                                        
-                                                    }
                                                     
                                                     $cp = $this->input->post('progcodtrans');
                                                     $d = $this->input->post('passagersiegesitines');
@@ -5954,7 +5946,7 @@
                                                     
                                                         }
                                                     }
-                                                    redirect('Historique_Passagers/editpdfepsontrans/' . $this->session->company->ekey .'/'.$tampon. '/'. $tf. '/'. $lhr.'/'.$tampon1.'/'.$fnitra1.'/'.$gid.'/'.$iduser. '/'.$sgid);
+                                                    $this->_sale_nonce_complete(); redirect('Historique_Passagers/editpdfepsontrans/' . $this->session->company->ekey .'/'.$tampon. '/'. $tf. '/'. $lhr.'/'.$tampon1.'/'.$fnitra1.'/'.$gid.'/'.$iduser. '/'.$sgid);
                                                 }
 
                                                 else
@@ -6144,7 +6136,7 @@
 
                                                         
                                                         $cp2 = $h_gdp1;
-                                                    $d2 = $this->input->post('passagersiegesitines1');
+                                                    $d2 = $this->input->post('passagersiegesitines2');
 
                                                     $results2 = $this->db->query("SELECT * FROM tampon_siege t WHERE t.codepro = '$cp2' AND t.numsieg = '$d2'")->row();
                                                             
@@ -6153,7 +6145,7 @@
                                                         'numsieg' => $this->input->post('passagersiegesitines2'),
                                                     );
                                                     
-                                                    $this->m_tampon_siege->del($results2->idtamp, $delarray2);
+                                                    if (!empty($results2) && isset($results2->idtamp)) { $this->m_tampon_siege->del($results2->idtamp, $delarray2); }
                                                 if ($dernier1 == NULL)
                                                 {
                                                                 
@@ -6231,23 +6223,6 @@
                                                     $lhr = substr($this->input->post('heuredeptitine'), 0, $cde);
                                                     $c = $this->input->post('rclient_contact');
                                                     
-                                                    $dte = date('H:i', time('H:i')+3600);
-                                                    $result = $this->db->query("SELECT p.code_passager, p.code_ticket, p.code_pro, pr.code_progr, pr.id_heur, lh.heure_identif, h.heure, pr.date_progr FROM passager p
-                                                    JOIN programme pr ON p.code_pro = pr.code_progr
-                                                    JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
-                                                    JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
-                                                    JOIN heures h ON lh.heure_identif=h.id_heure
-                                                    WHERE h.heure <= '$dte' AND pr.date_progr = '$today' AND p.code_ticket = 'R'")->result();
-                                    
-                                                    foreach ($result as $rew) {
-                                                        $plarray = array(
-                                                            'num_siege_categorie' => NULL,
-                                                            'prixvente' => NULL,
-                                                            'num_cat' => NULL,
-                                                        );
-                                                        $this->m_passager->update($rew->code_passager, $rew->code_ticket, $plarray);
-                                                        
-                                                    }
                                                     
                                                     $cp = $this->input->post('progcodtrans');
                                                     $d = $this->input->post('passagersiegesitines');
@@ -6299,7 +6274,7 @@
                                                             
                                                         }
                                                     }
-                                                    redirect('Historique_Passagers/editpdfepsontrans2/' . $this->session->company->ekey .'/'.$tampon. '/'. $tf. '/'. $lhr.'/'.$tampon1.'/'.$fnitra1.'/'.$tampon2.'/'.$fnitra2.'/'.$gid.'/'.$iduser. '/'.$sgid);
+                                                    $this->_sale_nonce_complete(); redirect('Historique_Passagers/editpdfepsontrans2/' . $this->session->company->ekey .'/'.$tampon. '/'. $tf. '/'. $lhr.'/'.$tampon1.'/'.$fnitra1.'/'.$tampon2.'/'.$fnitra2.'/'.$gid.'/'.$iduser. '/'.$sgid);
                                                 }
 
                                                 else
@@ -6496,7 +6471,7 @@
                                                                 'numsieg' => $this->input->post('passagersiegesitines2'),
                                                             );
                                                             
-                                                            $this->m_tampon_siege->del($results2->idtamp, $delarray2);
+                                                            if (!empty($results2) && isset($results2->idtamp)) { $this->m_tampon_siege->del($results2->idtamp, $delarray2); }
 
                                                                 
                                                         $reg3 = $this->input->post('gidtransite2');
@@ -6667,20 +6642,6 @@
                                                             $lhr = substr($this->input->post('heuredeptitine'), 0, $cde);
                                                             $c = $this->input->post('rclient_contact');
                                                             
-                                                            $dte = date('H:i', time('H:i')+3600);
-                                                            $result = $this->db->query("SELECT p.code_passager, p.code_ticket, p.code_pro, pr.code_progr, pr.id_heur, lh.heure_identif, h.heure, pr.date_progr FROM passager p
-                                                            JOIN programme pr ON p.code_pro = pr.code_progr
-                                                            JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
-                                                            JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
-                                                            JOIN heures h ON lh.heure_identif=h.id_heure
-                                                            WHERE h.heure <= '$dte' AND pr.date_progr = '$today' AND p.code_ticket = 'R'")->result();
-                                            
-                                                            foreach ($result as $rew) {
-                                                                $plarray = array('num_siege_categorie' => NULL, 'prixvente' => NULL,   'num_cat' => NULL,
-                                                                );
-                                                                $this->m_passager->update($rew->code_passager, $rew->code_ticket, $plarray);
-                                                                
-                                                            }
                                                             
                                                             $cp = $this->input->post('progcodtrans');
                                                             $d = $this->input->post('passagersiegesitines');
@@ -6724,7 +6685,7 @@
                                                                 
                                                             }
                                                             
-                                                            redirect('Historique_Passagers/editpdfepsontrans3/' . $this->session->company->ekey .'/'.$tampon. '/'. $tf. '/'. $lhr.'/'.$tampon1.'/'.$fnitra1.'/'.$tampon2.'/'.$fnitras2.'/'.$tampon3.'/'.$fnitra4.'/'.$gid.'/'.$iduser. '/'.$sgid);
+                                                            $this->_sale_nonce_complete(); redirect('Historique_Passagers/editpdfepsontrans3/' . $this->session->company->ekey .'/'.$tampon. '/'. $tf. '/'. $lhr.'/'.$tampon1.'/'.$fnitra1.'/'.$tampon2.'/'.$fnitras2.'/'.$tampon3.'/'.$fnitra4.'/'.$gid.'/'.$iduser. '/'.$sgid);
                                                             
                                                         }
                                                         else
@@ -7083,23 +7044,6 @@
                                                     $hr = substr($this->input->post('heuredeptitine'), $cde + 1, strlen($this->input->post('heuredeptitine')));
                                             
             
-                                                    $dte = date('H:i', time('H:i')+3600);
-                                                    $result = $this->db->query("SELECT p.code_passager, p.code_ticket, p.code_pro, pr.code_progr, pr.id_heur, lh.heure_identif, h.heure, pr.date_progr FROM passager p
-                                                    JOIN programme pr ON p.code_pro = pr.code_progr
-                                                    JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
-                                                    JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
-                                                    JOIN heures h ON lh.heure_identif=h.id_heure
-                                                    WHERE h.heure <= '$dte' AND pr.date_progr = '$today' AND p.code_ticket = 'R'")->result();
-                                    
-                                                    foreach ($result as $rew) {
-                                                        $plarray = array(
-                                                            'num_siege_categorie' => NULL,
-                                                            'prixvente' => NULL,
-                                                            'num_cat' => NULL,
-                                                        );
-                                                        $this->m_passager->update($rew->code_passager, $rew->code_ticket, $plarray);
-                                                        
-                                                    }
                                                     $cp = $this->input->post('progcodtrans');
                                                     $d = $this->input->post('passagersiegesitines');
                                                     
@@ -7178,7 +7122,7 @@
                                                             $this->db->query("UPDATE non_passager SET verifnonpassager = 'A' WHERE code_non_pass = '$tpcdpas' AND codeticket = '$cdnpas'");
                                                         }
                                                     }
-                                                    redirect('Historique_Passagers/editpdftransar/' . $this->session->company->ekey .'/' . $tpcdpas. '/'. $tf. '/'  .$tpcdpas.'/'.$lhar.'/'.$tpcdpas1. '/' .$tpcdpas1.'/'.$fnitra1.'/'.$gid.'/'.$iduser. '/'.$sgid);
+                                                    $this->_sale_nonce_complete(); redirect('Historique_Passagers/editpdftransar/' . $this->session->company->ekey .'/' . $tpcdpas. '/'. $tf. '/'  .$tpcdpas.'/'.$lhar.'/'.$tpcdpas1. '/' .$tpcdpas1.'/'.$fnitra1.'/'.$gid.'/'.$iduser. '/'.$sgid);
                                                 }
                                                 else
                                                 {
@@ -7452,7 +7396,7 @@
                                                             'codepro' => $h_gdp1,
                                                             'numsieg' => $this->input->post('passagersiegesitines2'),
                                                         );
-                                                    $this->m_tampon_siege->del($results2->idtamp, $delarray2);
+                                                    if (!empty($results2) && isset($results2->idtamp)) { $this->m_tampon_siege->del($results2->idtamp, $delarray2); }
 
                                                     if ($dernier1 == NULL)
                                                     {
@@ -7595,23 +7539,6 @@
                                                     $hr = substr($this->input->post('heuredeptitine'), $cde + 1, strlen($this->input->post('heuredeptitine')));
                                             
             
-                                                    $dte = date('H:i', time('H:i')+3600);
-                                                    $result = $this->db->query("SELECT p.code_passager, p.code_ticket, p.code_pro, pr.code_progr, pr.id_heur, lh.heure_identif, h.heure, pr.date_progr FROM passager p
-                                                    JOIN programme pr ON p.code_pro = pr.code_progr
-                                                    JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
-                                                    JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
-                                                    JOIN heures h ON lh.heure_identif=h.id_heure
-                                                    WHERE h.heure <= '$dte' AND pr.date_progr = '$today' AND p.code_ticket = 'R'")->result();
-                                    
-                                                    foreach ($result as $rew) {
-                                                        $plarray = array(
-                                                            'num_siege_categorie' => NULL,
-                                                            'prixvente' => NULL,
-                                                            'num_cat' => NULL,
-                                                        );
-                                                        $this->m_passager->update($rew->code_passager, $rew->code_ticket, $plarray);
-                                                        
-                                                    }
 
                                                     $cp = $this->input->post('progcodtrans');
                                                     $d = $this->input->post('passagersiegesitines');
@@ -7692,7 +7619,7 @@
                                                         }
 
                                                     }
-                                                    redirect('Historique_Passagers/editpdftransar2/' . $this->session->company->ekey .'/' . $tpcdpas. '/'. $tf.'/'.$tpcdpas. '/'.$lhar.'/'.$tpcdpas1. '/' .$tpcdpas1.'/'.$fnitra1.'/'.$tpcdpas2. '/' .$tpcdpas2.'/'.$fnitra2.'/'.$gid.'/'.$iduser. '/'.$sgid);
+                                                    $this->_sale_nonce_complete(); redirect('Historique_Passagers/editpdftransar2/' . $this->session->company->ekey .'/' . $tpcdpas. '/'. $tf.'/'.$tpcdpas. '/'.$lhar.'/'.$tpcdpas1. '/' .$tpcdpas1.'/'.$fnitra1.'/'.$tpcdpas2. '/' .$tpcdpas2.'/'.$fnitra2.'/'.$gid.'/'.$iduser. '/'.$sgid);
                                                     
                                                 }
                                                 else
@@ -7976,7 +7903,7 @@
                                                             'codepro' => $h_gdp1,
                                                             'numsieg' => $this->input->post('passagersiegesitines2'),
                                                         );
-                                                        $this->m_tampon_siege->del($results2->idtamp, $delarray2);
+                                                        if (!empty($results2) && isset($results2->idtamp)) { $this->m_tampon_siege->del($results2->idtamp, $delarray2); }
 
                                                         $reg3 = $this->input->post('gidtransite2');
                                                         $cd3 = $this->input->post('compg3');
@@ -8288,23 +8215,6 @@
                                                         $hr = substr($this->input->post('heuredeptitine'), $cde + 1, strlen($this->input->post('heuredeptitine')));
                                                 
                 
-                                                        $dte = date('H:i', time('H:i')+3600);
-                                                        $result = $this->db->query("SELECT p.code_passager, p.code_ticket, p.code_pro, pr.code_progr, pr.id_heur, lh.heure_identif, h.heure, pr.date_progr FROM passager p
-                                                        JOIN programme pr ON p.code_pro = pr.code_progr
-                                                        JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
-                                                        JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
-                                                        JOIN heures h ON lh.heure_identif=h.id_heure
-                                                        WHERE h.heure <= '$dte' AND pr.date_progr = '$today' AND p.code_ticket = 'R'")->result();
-                                        
-                                                        foreach ($result as $rew) {
-                                                            $plarray = array(
-                                                                'num_siege_categorie' => NULL,
-                                                                'prixvente' => NULL,
-                                                                'num_cat' => NULL,
-                                                            );
-                                                            $this->m_passager->update($rew->code_passager, $rew->code_ticket, $plarray);
-                                                            
-                                                        }
 
                                                         $cp = $this->input->post('progcodtrans');
                                                         $d = $this->input->post('passagersiegesitines');
@@ -8383,7 +8293,7 @@
                                                                 $this->db->query("UPDATE non_passager SET verifnonpassager = 'A' WHERE code_non_pass = '$tpcdpas' AND codeticket = '$cdnpas'");
                                                             }
                                                         }
-                                                    redirect('Historique_Passagers/editpdftransar3/' . $this->session->company->ekey .'/' . $tpcdpas. '/'. $tf.'/'.$tpcdpas. '/'.$lhar.'/'.$tpcdpas1. '/' .$tpcdpas1.'/'.$fnitra1.'/'.$tpcdpas2. '/' .$tpcdpas2.'/'.$fnitras2.'/'.$tpcdpas3. '/' .$tpcdpas3.'/'.$fnitra4.'/'.$gid.'/'.$iduser. '/'.$sgid);
+                                                    $this->_sale_nonce_complete(); redirect('Historique_Passagers/editpdftransar3/' . $this->session->company->ekey .'/' . $tpcdpas. '/'. $tf.'/'.$tpcdpas. '/'.$lhar.'/'.$tpcdpas1. '/' .$tpcdpas1.'/'.$fnitra1.'/'.$tpcdpas2. '/' .$tpcdpas2.'/'.$fnitras2.'/'.$tpcdpas3. '/' .$tpcdpas3.'/'.$fnitra4.'/'.$gid.'/'.$iduser. '/'.$sgid);
                                                 }
                                                 else
                                                 {
@@ -8640,23 +8550,6 @@
                                                     $hr = substr($this->input->post('heuredeptitine'), $cde + 1, strlen($this->input->post('heuredeptitine')));
                                             
             
-                                                    $dte = date('H:i', time('H:i')+3600);
-                                                    $result = $this->db->query("SELECT p.code_passager, p.code_ticket, p.code_pro, pr.code_progr, pr.id_heur, lh.heure_identif, h.heure, pr.date_progr FROM passager p
-                                                    JOIN programme pr ON p.code_pro = pr.code_progr
-                                                    JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
-                                                    JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
-                                                    JOIN heures h ON lh.heure_identif=h.id_heure
-                                                    WHERE h.heure <= '$dte' AND pr.date_progr = '$today' AND p.code_ticket = 'R'")->result();
-                                    
-                                                    foreach ($result as $rew) {
-                                                        $plarray = array(
-                                                            'num_siege_categorie' => NULL,
-                                                            'prixvente' => NULL,
-                                                            'num_cat' => NULL,
-                                                        );
-                                                        $this->m_passager->update($rew->code_passager, $rew->code_ticket, $plarray);
-                                                        
-                                                    }
                                                     $cp = $this->input->post('progcodtrans');
                                                     $d = $this->input->post('passagersiegesitines');
                                                     
@@ -8734,7 +8627,7 @@
                                                             $this->db->query("UPDATE non_passager SET verifnonpassager = 'A' WHERE code_non_pass = '$tpcdpas' AND codeticket = '$cdnpas'");
                                                         }
                                                     }
-                                                    redirect('Historique_Passagers/editpdftransar/' . $this->session->company->ekey .'/' . $tpcdpas. '/'. $tf.'/'.$tpcdpas. '/'.$lhar.'/'.$tpcdpas1. '/' .$tpcdpas1.'/'.$fnitra1.'/'.$gid.'/'.$iduser. '/'.$sgid);
+                                                    $this->_sale_nonce_complete(); redirect('Historique_Passagers/editpdftransar/' . $this->session->company->ekey .'/' . $tpcdpas. '/'. $tf.'/'.$tpcdpas. '/'.$lhar.'/'.$tpcdpas1. '/' .$tpcdpas1.'/'.$fnitra1.'/'.$gid.'/'.$iduser. '/'.$sgid);
                                                 }
                                                 else
                                                 {
@@ -9012,7 +8905,7 @@
                                                     'codepro' => $h_gdp1,
                                                     'numsieg' => $this->input->post('passagersiegesitines2'),
                                                     );
-                                                    $this->m_tampon_siege->del($results2->idtamp, $delarray2);
+                                                    if (!empty($results2) && isset($results2->idtamp)) { $this->m_tampon_siege->del($results2->idtamp, $delarray2); }
 
                                                     if ($dernier1 == NULL)
                                                     {
@@ -9152,23 +9045,6 @@
                                                     $hr = substr($this->input->post('heuredeptitine'), $cde + 1, strlen($this->input->post('heuredeptitine')));
                                             
             
-                                                    $dte = date('H:i', time('H:i')+3600);
-                                                    $result = $this->db->query("SELECT p.code_passager, p.code_ticket, p.code_pro, pr.code_progr, pr.id_heur, lh.heure_identif, h.heure, pr.date_progr FROM passager p
-                                                    JOIN programme pr ON p.code_pro = pr.code_progr
-                                                    JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
-                                                    JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
-                                                    JOIN heures h ON lh.heure_identif=h.id_heure
-                                                    WHERE h.heure <= '$dte' AND pr.date_progr = '$today' AND p.code_ticket = 'R'")->result();
-                                    
-                                                    foreach ($result as $rew) {
-                                                        $plarray = array(
-                                                            'num_siege_categorie' => NULL,
-                                                            'prixvente' => NULL,
-                                                            'num_cat' => NULL,
-                                                        );
-                                                        $this->m_passager->update($rew->code_passager, $rew->code_ticket, $plarray);
-                                                        
-                                                    }
 
                                                     $cp = $this->input->post('progcodtrans');
                                                     $d = $this->input->post('passagersiegesitines');
@@ -9246,7 +9122,7 @@
                                                             $this->db->query("UPDATE non_passager SET verifnonpassager = 'A' WHERE code_non_pass = '$tpcdpas' AND codeticket = '$cdnpas'");
                                                         }
                                                     }
-                                                    redirect('Historique_Passagers/editpdftransar2/' . $this->session->company->ekey .'/' . $tpcdpas. '/'. $tf.'/'.$tpcdpas. '/'.$lhar.'/'.$tpcdpas1. '/' .$tpcdpas1.'/'.$fnitra1.'/'.$tpcdpas2. '/' .$tpcdpas2.'/'.$fnitra2.'/'.$gid.'/'.$iduser. '/'.$sgid);
+                                                    $this->_sale_nonce_complete(); redirect('Historique_Passagers/editpdftransar2/' . $this->session->company->ekey .'/' . $tpcdpas. '/'. $tf.'/'.$tpcdpas. '/'.$lhar.'/'.$tpcdpas1. '/' .$tpcdpas1.'/'.$fnitra1.'/'.$tpcdpas2. '/' .$tpcdpas2.'/'.$fnitra2.'/'.$gid.'/'.$iduser. '/'.$sgid);
                                                 }
                                                 else
                                                 {
@@ -9525,7 +9401,7 @@
                                                         'codepro' => $h_gdp1,
                                                         'numsieg' => $this->input->post('passagersiegesitines2'),
                                                     );
-                                                    $this->m_tampon_siege->del($results2->idtamp, $delarray2);
+                                                    if (!empty($results2) && isset($results2->idtamp)) { $this->m_tampon_siege->del($results2->idtamp, $delarray2); }
 
                                                     $reg3 = $this->input->post('gidtransite2');
                                                     $cd3 = $this->input->post('compg3');
@@ -9835,23 +9711,6 @@
                                                     $hr = substr($this->input->post('heuredeptitine'), $cde + 1, strlen($this->input->post('heuredeptitine')));
                                             
             
-                                                    $dte = date('H:i', time('H:i')+3600);
-                                                    $result = $this->db->query("SELECT p.code_passager, p.code_ticket, p.code_pro, pr.code_progr, pr.id_heur, lh.heure_identif, h.heure, pr.date_progr FROM passager p
-                                                    JOIN programme pr ON p.code_pro = pr.code_progr
-                                                    JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
-                                                    JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
-                                                    JOIN heures h ON lh.heure_identif=h.id_heure
-                                                    WHERE h.heure <= '$dte' AND pr.date_progr = '$today' AND p.code_ticket = 'R'")->result();
-                                    
-                                                    foreach ($result as $rew) {
-                                                        $plarray = array(
-                                                            'num_siege_categorie' => NULL,
-                                                            'prixvente' => NULL,
-                                                            'num_cat' => NULL,
-                                                        );
-                                                        $this->m_passager->update($rew->code_passager, $rew->code_ticket, $plarray);
-                                                        
-                                                    }
 
                                                     $cp = $this->input->post('progcodtrans');
                                                     $d = $this->input->post('passagersiegesitines');
@@ -9930,7 +9789,7 @@
                                                             $this->db->query("UPDATE non_passager SET verifnonpassager = 'A' WHERE code_non_pass = '$tpcdpas' AND codeticket = '$cdnpas'");
                                                         }
                                                     }
-                                                    redirect('Historique_Passagers/editpdftransar3/' . $this->session->company->ekey .'/' . $tpcdpas. '/'. $tf.'/'.$tpcdpas. '/'.$lhar.'/'.$tpcdpas1. '/' .$tpcdpas1.'/'.$fnitra1.'/'.$tpcdpas2. '/' .$tpcdpas2.'/'.$fnitras2.'/'.$tpcdpas3. '/' .$tpcdpas3.'/'.$fnitra4.'/'.$gid.'/'.$iduser. '/'.$sgid);
+                                                    $this->_sale_nonce_complete(); redirect('Historique_Passagers/editpdftransar3/' . $this->session->company->ekey .'/' . $tpcdpas. '/'. $tf.'/'.$tpcdpas. '/'.$lhar.'/'.$tpcdpas1. '/' .$tpcdpas1.'/'.$fnitra1.'/'.$tpcdpas2. '/' .$tpcdpas2.'/'.$fnitras2.'/'.$tpcdpas3. '/' .$tpcdpas3.'/'.$fnitra4.'/'.$gid.'/'.$iduser. '/'.$sgid);
                                                 }
                                                 else
                                                 {
@@ -10284,23 +10143,6 @@
                                                         $hr = substr($this->input->post('heuredeptitine'), $cde + 1, strlen($this->input->post('heuredeptitine')));
                                                 
                 
-                                                        $dte = date('H:i', time('H:i')+3600);
-                                                        $result = $this->db->query("SELECT p.code_passager, p.code_ticket, p.code_pro, pr.code_progr, pr.id_heur, lh.heure_identif, h.heure, pr.date_progr FROM passager p
-                                                        JOIN programme pr ON p.code_pro = pr.code_progr
-                                                        JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
-                                                        JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
-                                                        JOIN heures h ON lh.heure_identif=h.id_heure
-                                                        WHERE h.heure <= '$dte' AND pr.date_progr = '$today' AND p.code_ticket = 'R'")->result();
-                                        
-                                                        foreach ($result as $rew) {
-                                                            $plarray = array(
-                                                                'num_siege_categorie' => NULL,
-                                                                'prixvente' => NULL,
-                                                                'num_cat' => NULL,
-                                                            );
-                                                            $this->m_passager->update($rew->code_passager, $rew->code_ticket, $plarray);
-                                                            
-                                                        }
                                                         $cp = $this->input->post('progcodtrans');
                                                         $d = $this->input->post('passagersiegesitines');
                                                         
@@ -10377,7 +10219,7 @@
                                                                 $this->db->query("UPDATE non_passager SET verifnonpassager = 'A' WHERE code_non_pass = '$tpcdpas' AND codeticket = '$cdnpas'");
                                                             }
                                                         }
-                                                        redirect('Historique_Passagers/editpdfepsontransar/' . $this->session->company->ekey .'/' . $tpcdpas. '/'. $tf.'/'.$tpcdpas. '/'.$lhar.'/'.$tpcdpas1. '/' .$tpcdpas1.'/'.$fnitra1.'/'.$gid.'/'.$iduser. '/'.$sgid);
+                                                        $this->_sale_nonce_complete(); redirect('Historique_Passagers/editpdfepsontransar/' . $this->session->company->ekey .'/' . $tpcdpas. '/'. $tf.'/'.$tpcdpas. '/'.$lhar.'/'.$tpcdpas1. '/' .$tpcdpas1.'/'.$fnitra1.'/'.$gid.'/'.$iduser. '/'.$sgid);
                                                 }
                                                 else
                                                 {
@@ -10653,7 +10495,7 @@
                                                             'codepro' => $h_gdp1,
                                                             'numsieg' => $this->input->post('passagersiegesitines2'),
                                                         );
-                                                        $this->m_tampon_siege->del($results2->idtamp, $delarray2);
+                                                        if (!empty($results2) && isset($results2->idtamp)) { $this->m_tampon_siege->del($results2->idtamp, $delarray2); }
 
                                                         if ($dernier1 == NULL)
                                                         {
@@ -10793,23 +10635,6 @@
                                                         $hr = substr($this->input->post('heuredeptitine'), $cde + 1, strlen($this->input->post('heuredeptitine')));
                                                 
                 
-                                                        $dte = date('H:i', time('H:i')+3600);
-                                                        $result = $this->db->query("SELECT p.code_passager, p.code_ticket, p.code_pro, pr.code_progr, pr.id_heur, lh.heure_identif, h.heure, pr.date_progr FROM passager p
-                                                        JOIN programme pr ON p.code_pro = pr.code_progr
-                                                        JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
-                                                        JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
-                                                        JOIN heures h ON lh.heure_identif=h.id_heure
-                                                        WHERE h.heure <= '$dte' AND pr.date_progr = '$today' AND p.code_ticket = 'R'")->result();
-                                        
-                                                        foreach ($result as $rew) {
-                                                            $plarray = array(
-                                                                'num_siege_categorie' => NULL,
-                                                                'prixvente' => NULL,
-                                                                'num_cat' => NULL,
-                                                            );
-                                                            $this->m_passager->update($rew->code_passager, $rew->code_ticket, $plarray);
-                                                            
-                                                        }
 
                                                         $cp = $this->input->post('progcodtrans');
                                                         $d = $this->input->post('passagersiegesitines');
@@ -10888,7 +10713,7 @@
                                                                 $this->db->query("UPDATE non_passager SET verifnonpassager = 'A' WHERE code_non_pass = '$tpcdpas' AND codeticket = '$cdnpas'");
                                                             }
                                                         }
-                                                    redirect('Historique_Passagers/editpdfepsontransar2/' . $this->session->company->ekey .'/' . $tpcdpas. '/'. $tf.'/'.$tpcdpas. '/'.$lhar.'/'.$tpcdpas1. '/' .$tpcdpas1.'/'.$fnitra1.'/'.$tpcdpas2. '/' .$tpcdpas2.'/'.$fnitra2.'/'.$gid.'/'.$iduser. '/'.$sgid);
+                                                    $this->_sale_nonce_complete(); redirect('Historique_Passagers/editpdfepsontransar2/' . $this->session->company->ekey .'/' . $tpcdpas. '/'. $tf.'/'.$tpcdpas. '/'.$lhar.'/'.$tpcdpas1. '/' .$tpcdpas1.'/'.$fnitra1.'/'.$tpcdpas2. '/' .$tpcdpas2.'/'.$fnitra2.'/'.$gid.'/'.$iduser. '/'.$sgid);
                                                 }
                                                 else
                                                 {
@@ -11166,7 +10991,7 @@
                                                             'codepro' => $h_gdp1,
                                                             'numsieg' => $this->input->post('passagersiegesitines2'),
                                                         );
-                                                        $this->m_tampon_siege->del($results2->idtamp, $delarray2);
+                                                        if (!empty($results2) && isset($results2->idtamp)) { $this->m_tampon_siege->del($results2->idtamp, $delarray2); }
 
                                                         $reg3 = $this->input->post('gidtransite2');
                                                         $cd3 = $this->input->post('compg3');
@@ -11475,24 +11300,6 @@
                                                         $hr = substr($this->input->post('heuredeptitine'), $cde + 1, strlen($this->input->post('heuredeptitine')));
                                                 
                 
-                                                        $dte = date('H:i', time('H:i')+3600);
-                                                        $result = $this->db->query("SELECT p.code_passager, p.code_ticket, p.code_pro, pr.code_progr, pr.id_heur, lh.heure_identif, h.heure, pr.date_progr FROM passager p
-                                                        JOIN programme pr ON p.code_pro = pr.code_progr
-                                                        JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
-                                                        JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
-                                                        JOIN heures h ON lh.heure_identif=h.id_heure
-                                                        WHERE h.heure <= '$dte' AND pr.date_progr = '$today' AND p.code_ticket = 'R'")->result();
-                                        
-                                                        foreach ($result as $rew) {
-                                                            $plarray = array(
-                                                                'num_siege_categorie' => NULL,
-                                                                'prixvente' => NULL,
-                                                                'num_cat' => NULL,
-                                                            );
-                                                            
-                                                        $this->m_passager->update($rew->code_passager, $rew->code_ticket, $plarray);
-                                                            
-                                                        }
 
                                                         $cp = $this->input->post('progcodtrans');
                                                         $d = $this->input->post('passagersiegesitines');
@@ -11570,7 +11377,7 @@
                                                                 $this->db->query("UPDATE non_passager SET verifnonpassager = 'A' WHERE code_non_pass = '$tpcdpas' AND codeticket = '$cdnpas'");
                                                             }
                                                         }
-                                                    redirect('Historique_Passagers/editpdfepsontransar3/' . $this->session->company->ekey .'/' . $tpcdpas. '/'. $tf.'/'.$tpcdpas. '/'.$lhar.'/'.$tpcdpas1. '/' .$tpcdpas1.'/'.$fnitra1.'/'.$tpcdpas2. '/' .$tpcdpas2.'/'.$fnitras2.'/'.$tpcdpas3. '/' .$tpcdpas3.'/'.$fnitra4.'/'.$gid.'/'.$iduser. '/'.$sgid);
+                                                    $this->_sale_nonce_complete(); redirect('Historique_Passagers/editpdfepsontransar3/' . $this->session->company->ekey .'/' . $tpcdpas. '/'. $tf.'/'.$tpcdpas. '/'.$lhar.'/'.$tpcdpas1. '/' .$tpcdpas1.'/'.$fnitra1.'/'.$tpcdpas2. '/' .$tpcdpas2.'/'.$fnitras2.'/'.$tpcdpas3. '/' .$tpcdpas3.'/'.$fnitra4.'/'.$gid.'/'.$iduser. '/'.$sgid);
 
                                                 }
                                                 else
@@ -11833,23 +11640,6 @@
                                                         $hr = substr($this->input->post('heuredeptitine'), $cde + 1, strlen($this->input->post('heuredeptitine')));
                                                 
                 
-                                                        $dte = date('H:i', time('H:i')+3600);
-                                                        $result = $this->db->query("SELECT p.code_passager, p.code_ticket, p.code_pro, pr.code_progr, pr.id_heur, lh.heure_identif, h.heure, pr.date_progr FROM passager p
-                                                        JOIN programme pr ON p.code_pro = pr.code_progr
-                                                        JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
-                                                        JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
-                                                        JOIN heures h ON lh.heure_identif=h.id_heure
-                                                        WHERE h.heure <= '$dte' AND pr.date_progr = '$today' AND p.code_ticket = 'R'")->result();
-                                        
-                                                        foreach ($result as $rew) {
-                                                            $plarray = array(
-                                                                'num_siege_categorie' => NULL,
-                                                                'prixvente' => NULL,
-                                                                'num_cat' => NULL,
-                                                            );
-                                                            $this->m_passager->update($rew->code_passager, $rew->code_ticket, $plarray);
-                                                            
-                                                        }
                                                         $cp = $this->input->post('progcodtrans');
                                                         $d = $this->input->post('passagersiegesitines');
                                                         
@@ -11926,7 +11716,7 @@
                                                                 $this->db->query("UPDATE non_passager SET verifnonpassager = 'A' WHERE code_non_pass = '$tpcdpas' AND codeticket = '$cdnpas'");
                                                             }
                                                         }
-                                                        redirect('Historique_Passagers/editpdfepsontransar/' . $this->session->company->ekey .'/' . $tpcdpas. '/'. $tf.'/'.$tpcdpas. '/'.$lhar.'/'.$tpcdpas1. '/' .$tpcdpas1.'/'.$fnitra1.'/'.$gid.'/'.$iduser. '/'.$sgid);
+                                                        $this->_sale_nonce_complete(); redirect('Historique_Passagers/editpdfepsontransar/' . $this->session->company->ekey .'/' . $tpcdpas. '/'. $tf.'/'.$tpcdpas. '/'.$lhar.'/'.$tpcdpas1. '/' .$tpcdpas1.'/'.$fnitra1.'/'.$gid.'/'.$iduser. '/'.$sgid);
                                                     }
                                                     else
                                                     {
@@ -12201,7 +11991,7 @@
                                                         'codepro' => $h_gdp1,
                                                         'numsieg' => $this->input->post('passagersiegesitines2'),
                                                     );
-                                                    $this->m_tampon_siege->del($results2->idtamp, $delarray2);
+                                                    if (!empty($results2) && isset($results2->idtamp)) { $this->m_tampon_siege->del($results2->idtamp, $delarray2); }
 
                                                     if ($dernier1 == NULL)
                                                     {
@@ -12341,23 +12131,6 @@
                                                     $hr = substr($this->input->post('heuredeptitine'), $cde + 1, strlen($this->input->post('heuredeptitine')));
                                             
             
-                                                    $dte = date('H:i', time('H:i')+3600);
-                                                    $result = $this->db->query("SELECT p.code_passager, p.code_ticket, p.code_pro, pr.code_progr, pr.id_heur, lh.heure_identif, h.heure, pr.date_progr FROM passager p
-                                                    JOIN programme pr ON p.code_pro = pr.code_progr
-                                                    JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
-                                                    JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
-                                                    JOIN heures h ON lh.heure_identif=h.id_heure
-                                                    WHERE h.heure <= '$dte' AND pr.date_progr = '$today' AND p.code_ticket = 'R'")->result();
-                                    
-                                                    foreach ($result as $rew) {
-                                                        $plarray = array(
-                                                            'num_siege_categorie' => NULL,
-                                                            'prixvente' => NULL,
-                                                            'num_cat' => NULL,
-                                                        );
-                                                        $this->m_passager->update($rew->code_passager, $rew->code_ticket, $plarray);
-                                                        
-                                                    }
 
                                                     $cp = $this->input->post('progcodtrans');
                                                     $d = $this->input->post('passagersiegesitines');
@@ -12436,7 +12209,7 @@
                                                             $this->db->query("UPDATE non_passager SET verifnonpassager = 'A' WHERE code_non_pass = '$tpcdpas' AND codeticket = '$cdnpas'");
                                                         }
                                                     }
-                                                    redirect('Historique_Passagers/editpdfepsontransar2/' . $this->session->company->ekey .'/' . $tpcdpas. '/'. $tf.'/'.$tpcdpas. '/'.$lhar.'/'.$tpcdpas1. '/' .$tpcdpas1.'/'.$fnitra1.'/'.$tpcdpas2. '/' .$tpcdpas2.'/'.$fnitra2.'/'.$gid.'/'.$iduser. '/'.$sgid);
+                                                    $this->_sale_nonce_complete(); redirect('Historique_Passagers/editpdfepsontransar2/' . $this->session->company->ekey .'/' . $tpcdpas. '/'. $tf.'/'.$tpcdpas. '/'.$lhar.'/'.$tpcdpas1. '/' .$tpcdpas1.'/'.$fnitra1.'/'.$tpcdpas2. '/' .$tpcdpas2.'/'.$fnitra2.'/'.$gid.'/'.$iduser. '/'.$sgid);
                                                 }
                                                 else
                                                 {
@@ -12710,7 +12483,7 @@
                                                             'codepro' => $h_gdp1,
                                                             'numsieg' => $this->input->post('passagersiegesitines2'),
                                                         );
-                                                        $this->m_tampon_siege->del($results2->idtamp, $delarray2);
+                                                        if (!empty($results2) && isset($results2->idtamp)) { $this->m_tampon_siege->del($results2->idtamp, $delarray2); }
 
                                                         $reg3 = $this->input->post('gidtransite2');
                                                         $cd3 = $this->input->post('compg3');
@@ -13016,23 +12789,6 @@
                                                         $hr = substr($this->input->post('heuredeptitine'), $cde + 1, strlen($this->input->post('heuredeptitine')));
                                                 
                 
-                                                        $dte = date('H:i', time('H:i')+3600);
-                                                        $result = $this->db->query("SELECT p.code_passager, p.code_ticket, p.code_pro, pr.code_progr, pr.id_heur, lh.heure_identif, h.heure, pr.date_progr FROM passager p
-                                                        JOIN programme pr ON p.code_pro = pr.code_progr
-                                                        JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
-                                                        JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
-                                                        JOIN heures h ON lh.heure_identif=h.id_heure
-                                                        WHERE h.heure <= '$dte' AND pr.date_progr = '$today' AND p.code_ticket = 'R'")->result();
-                                        
-                                                        foreach ($result as $rew) {
-                                                            $plarray = array(
-                                                                'num_siege_categorie' => NULL,
-                                                                'prixvente' => NULL,
-                                                                'num_cat' => NULL,
-                                                            );
-                                                            $this->m_passager->update($rew->code_passager, $rew->code_ticket, $plarray);
-                                                            
-                                                        }
 
                                                         $cp = $this->input->post('progcodtrans');
                                                         $d = $this->input->post('passagersiegesitines');
@@ -13110,7 +12866,7 @@
                                                                 $this->db->query("UPDATE non_passager SET verifnonpassager = 'A' WHERE code_non_pass = '$tpcdpas' AND codeticket = '$cdnpas'");
                                                             }
                                                         }
-                                                        redirect('Historique_Passagers/editpdfepsontransar3/' . $this->session->company->ekey .'/' . $tpcdpas. '/'. $tf.'/'.$tpcdpas. '/'.$lhar.'/'.$tpcdpas1. '/' .$tpcdpas1.'/'.$fnitra1.'/'.$tpcdpas2. '/' .$tpcdpas2.'/'.$fnitras2.'/'.$tpcdpas3. '/' .$tpcdpas3.'/'.$fnitra4.'/'.$gid.'/'.$iduser. '/'.$sgid);
+                                                        $this->_sale_nonce_complete(); redirect('Historique_Passagers/editpdfepsontransar3/' . $this->session->company->ekey .'/' . $tpcdpas. '/'. $tf.'/'.$tpcdpas. '/'.$lhar.'/'.$tpcdpas1. '/' .$tpcdpas1.'/'.$fnitra1.'/'.$tpcdpas2. '/' .$tpcdpas2.'/'.$fnitras2.'/'.$tpcdpas3. '/' .$tpcdpas3.'/'.$fnitra4.'/'.$gid.'/'.$iduser. '/'.$sgid);
                                                     }
                                                     else
                                                     {
@@ -13135,6 +12891,22 @@
                         }
                     }
                 }
+            $nbr = $this->input->post('nombretransite');
+            if ($this->input->post('heuredeptitine') != NULL || $this->input->post('passagersiegesitines') != NULL) {
+                if ($nbr !== null && $nbr !== '' && !in_array((string) $nbr, array('2', '3', '4'), true)) {
+                    $this->_addpassager_redirect_back(
+                        'Vente transit non enregistrée : seuls 2, 3 ou 4 segments sont gérés (reçu : ' . $nbr . ').'
+                    );
+                    return;
+                }
+                $this->_addpassager_redirect_back(
+                    'Vente transit non enregistrée : complétez heures, sièges, gares de départ et prix de chaque segment puis cliquez EPSON.'
+                );
+                return;
+            }
+            $this->_addpassager_redirect_back(
+                'Vente non enregistrée : vérifiez le type de trajet, le siège (non déjà pris) et cliquez EPSON.'
+            );
         }
         // modification ticket aller 
         public function update($ckey, $clid, $codeid, $he)
@@ -13372,14 +13144,37 @@
 
         public function addpassagerfi($ckey)
         {
+            if ($this->_sale_nonce_duplicate()) {
+                return;
+            }
+
+            if ($this->_sale_compte_arret_guard()) {
+                return;
+            }
+
+            if (!isset($this->m_ordres)) {
+                $this->load->model('Ordres_model', 'm_ordres');
+            }
+
+            $this->load->library('sale_passager_service', null, 'sale_svc');
             $this->company = $this->m_entreprises->get_key($ckey);
+            session_release_lock();
+            $today = mdate('%Y-%m-%d', now('UTC'));
+            $this->sale_svc->release_expired_reservations($today);
                 $gidc = $this->input->post('gareconnect');
                 $sgid = $this->input->post('sousgareconnect');
                 $idcmpt = $this->input->post('compconnected');
-                $iduser = $this->input->post('userconnected');
+                $idrole = $this->input->post('userconnected');
+                $iduser = $this->_sale_role_attribut_id();
+                if ($iduser === '' && $idrole !== '' && $idrole !== null) {
+                    $iduser = (string) $idrole;
+                }
                 $usen = substr($this->session->agent->username, 0, 1);
                 $imprimeordinaire = $this->input->post('ordinaire');
                 $imprimeepson = $this->input->post('epson');
+                if (!$imprimeordinaire && !$imprimeepson) {
+                    $imprimeepson = 'EPSON';
+                }
 
                 if($this->input->post('datedepartfid') != NULL AND $this->input->post('heuredeptfid') != NULL AND $this->input->post('passagersiegesfid') != NULL)
                 {
@@ -13480,23 +13275,6 @@
                                         $lhr = substr($this->input->post('heuredeptfid'), 0, $cde);
                                         $c = $this->input->post('rclient_contactfid');
                                         
-                                        $dte = date('H:i', time('H:i')+3600);
-                                        $result = $this->db->query("SELECT p.code_passager, p.code_ticket, p.code_pro, pr.code_progr, pr.id_heur, lh.heure_identif, h.heure, pr.date_progr FROM passager p
-                                        JOIN programme pr ON p.code_pro = pr.code_progr
-                                        JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
-                                        JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
-                                        JOIN heures h ON lh.heure_identif=h.id_heure
-                                        WHERE h.heure <= '$dte' AND pr.date_progr = '$today' AND p.code_ticket = 'R'")->result();
-                        
-                                        foreach ($result as $rew) {
-                                            $plarray = array(
-                                                'num_siege_categorie' => NULL,
-                                                'prixvente' => NULL,
-                                                'num_cat' => NULL,
-                                            );
-                                            $this->m_passager->update($rew->code_passager, $rew->code_ticket, $plarray);
-                                            
-                                        }
                                         $cp = $this->input->post('progcodfid');
                                         $d = $this->input->post('passagersiegesfid');
 
@@ -13510,7 +13288,7 @@
                                         $this->m_tampon_siege->del($results->idtamp, $delarray);
 
                                             
-                                        redirect('Historique_Passagers/editpdffi/' . $this->session->company->ekey . '/' . $tampon. '/' . $lhr.'/'.$pri.'/'. $gidc.'/'. $iduser.'/'. $sgid);
+                                        $this->_sale_nonce_complete(); redirect('Historique_Passagers/editpdffi/' . $this->session->company->ekey . '/' . $tampon. '/' . $lhr.'/'.$pri.'/'. $gidc.'/'. $iduser.'/'. $sgid);
                                         
 
                                     }
@@ -13582,23 +13360,6 @@
                                         $lh = substr($this->input->post('heuredeptfid'), 0, $cde);
                                         $hr = substr($this->input->post('heuredeptfid'), $cde + 1, strlen($this->input->post('heuredeptfid')));
 
-                                        $dte = date('H:i', time('H:i')+3600);
-                                        $result = $this->db->query("SELECT p.code_passager, p.code_ticket, p.code_pro, pr.code_progr, pr.id_heur, lh.heure_identif, h.heure, pr.date_progr FROM passager p
-                                        JOIN programme pr ON p.code_pro = pr.code_progr
-                                        JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
-                                        JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
-                                        JOIN heures h ON lh.heure_identif=h.id_heure
-                                        WHERE h.heure <= '$dte' AND pr.date_progr = '$today' AND p.code_ticket = 'R'")->result();
-                        
-                                        foreach ($result as $rew) {
-                                            $plarray = array(
-                                                'num_siege_categorie' => NULL,
-                                                'prixvente' => NULL,
-                                                'num_cat' => NULL,
-                                            );
-                                            $this->m_passager->update($rew->code_passager, $rew->code_ticket, $plarray);
-                                            
-                                        }
 
                                         $cp = $this->input->post('progcodfid');
                                         $d = $this->input->post('passagersiegesfid');
@@ -13610,7 +13371,7 @@
                                         );
                                         $this->m_tampon_siege->del($results->idtamp, $delarray);  
 
-                                        redirect('Historique_Passagers/editpdffi/' . $this->session->company->ekey . '/' . $tampon. '/' . $lh.'/'.$pri.'/'. $gidc.'/'. $iduser.'/'. $sgid);
+                                        $this->_sale_nonce_complete(); redirect('Historique_Passagers/editpdffi/' . $this->session->company->ekey . '/' . $tampon. '/' . $lh.'/'.$pri.'/'. $gidc.'/'. $iduser.'/'. $sgid);
                                         
                                     }
                                     else
@@ -13729,23 +13490,6 @@
                                         $lhr = substr($this->input->post('heuredeptfid'), 0, $cde);
                                         $c = $this->input->post('rclient_contactfid');
                                         
-                                        $dte = date('H:i', time('H:i')+3600);
-                                        $result = $this->db->query("SELECT p.code_passager, p.code_ticket, p.code_pro, pr.code_progr, pr.id_heur, lh.heure_identif, h.heure, pr.date_progr FROM passager p
-                                        JOIN programme pr ON p.code_pro = pr.code_progr
-                                        JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
-                                        JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
-                                        JOIN heures h ON lh.heure_identif=h.id_heure
-                                        WHERE h.heure <= '$dte' AND pr.date_progr = '$today' AND p.code_ticket = 'R'")->result();
-                        
-                                        foreach ($result as $rew) {
-                                            $plarray = array(
-                                                'num_siege_categorie' => NULL,
-                                                'prixvente' => NULL,
-                                                'num_cat' => NULL,
-                                            );
-                                            $this->m_passager->update($rew->code_passager, $rew->code_ticket, $plarray);
-                                            
-                                        }
                                         $cp = $this->input->post('progcodfid');
                                         $d = $this->input->post('passagersiegesfid');
 
@@ -13758,7 +13502,7 @@
                                         
                                         $this->m_tampon_siege->del($results->idtamp, $delarrayp);
 
-                                        redirect('Historique_Passagers/editpdfepsonfi/' . $this->session->company->ekey . '/' . $tampon. '/' . $lhr.'/'.$pri.'/'. $gidc.'/'. $iduser.'/'. $sgid);
+                                        $this->_sale_nonce_complete(); redirect('Historique_Passagers/editpdfepsonfi/' . $this->session->company->ekey . '/' . $tampon. '/' . $lhr.'/'.$pri.'/'. $gidc.'/'. $iduser.'/'. $sgid);
                                     }
 
                                     else
@@ -13828,23 +13572,6 @@
                                         $lh = substr($this->input->post('heuredeptfid'), 0, $cde);
                                         $hr = substr($this->input->post('heuredeptfid'), $cde + 1, strlen($this->input->post('heuredeptfid')));
 
-                                        $dte = date('H:i', time('H:i')+3600);
-                                        $result = $this->db->query("SELECT p.code_passager, p.code_ticket, p.code_pro, pr.code_progr, pr.id_heur, lh.heure_identif, h.heure, pr.date_progr FROM passager p
-                                        JOIN programme pr ON p.code_pro = pr.code_progr
-                                        JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
-                                        JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
-                                        JOIN heures h ON lh.heure_identif=h.id_heure
-                                        WHERE h.heure <= '$dte' AND pr.date_progr = '$today' AND p.code_ticket = 'R'")->result();
-                        
-                                        foreach ($result as $rew) {
-                                            $plarray = array(
-                                                'num_siege_categorie' => NULL,
-                                                'prixvente' => NULL,
-                                                'num_cat' => NULL,
-                                            );
-                                            $this->m_passager->update($rew->code_passager, $rew->code_ticket, $plarray);
-                                            
-                                        }
 
                                         $cp = $this->input->post('progcodfid');
                                         $d = $this->input->post('passagersiegesfid');
@@ -13855,7 +13582,7 @@
                                             'numsieg' => $this->input->post('passagersiegesfid'),
                                         );
                                         $this->m_tampon_siege->del($results->idtamp, $delarray);  
-                                        redirect('Historique_Passagers/editpdfepsonfi/' . $this->session->company->ekey . '/' . $tampon. '/' . $lh.'/'.$pri.'/'. $gidc.'/'. $iduser.'/'. $sgid);
+                                        $this->_sale_nonce_complete(); redirect('Historique_Passagers/editpdfepsonfi/' . $this->session->company->ekey . '/' . $tampon. '/' . $lh.'/'.$pri.'/'. $gidc.'/'. $iduser.'/'. $sgid);
                                         
                                     }
                                     else
@@ -13999,23 +13726,6 @@
                                                         $hr = substr($this->input->post('heuredeptfid'), $cde + 1, strlen($this->input->post('heuredeptfid')));
                                                 
                 
-                                                        $dte = date('H:i', time('H:i')+3600);
-                                                        $result = $this->db->query("SELECT p.code_passager, p.code_ticket, p.code_pro, pr.code_progr, pr.id_heur, lh.heure_identif, h.heure, pr.date_progr FROM passager p
-                                                        JOIN programme pr ON p.code_pro = pr.code_progr
-                                                        JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
-                                                        JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
-                                                        JOIN heures h ON lh.heure_identif=h.id_heure
-                                                        WHERE h.heure <= '$dte' AND pr.date_progr = '$today' AND p.code_ticket = 'R'")->result();
-                                        
-                                                        foreach ($result as $rew) {
-                                                            $plarray = array(
-                                                                'num_siege_categorie' => NULL,
-                                                                'prixvente' => NULL,
-                                                                'num_cat' => NULL,
-                                                            );
-                                                            $this->m_passager->update($rew->code_passager, $rew->code_ticket, $plarray);
-                                                            
-                                                        }
                                                         $cp = $this->input->post('progcodfid');
                                                         $d = $this->input->post('passagersiegesfid');
                                                         
@@ -14028,7 +13738,7 @@
                                                         $this->m_tampon_siege->del($results->idtamp, $delarray); 
                                                         
 
-                                                redirect('Historique_Passagers/editpdfarfi/' . $this->session->company->ekey . '/' . $tpcdpas. '/' .$tpcdpas.'/'.$lhar.'/'.$pri.'/'. $gidc.'/'. $iduser.'/'. $sgid);  
+                                                $this->_sale_nonce_complete(); redirect('Historique_Passagers/editpdfarfi/' . $this->session->company->ekey . '/' . $tpcdpas. '/' .$tpcdpas.'/'.$lhar.'/'.$pri.'/'. $gidc.'/'. $iduser.'/'. $sgid);  
                                                     
                                             }
                                             else
@@ -14116,23 +13826,6 @@
                                                     $hr = substr($this->input->post('heuredeptfid'), $cde + 1, strlen($this->input->post('heuredeptfid')));
                                             
 
-                                                    $dte = date('H:i', time('H:i')+3600);
-                                                    $result = $this->db->query("SELECT p.code_passager, p.code_ticket, p.code_pro, pr.code_progr, pr.id_heur, lh.heure_identif, h.heure, pr.date_progr FROM passager p
-                                                    JOIN programme pr ON p.code_pro = pr.code_progr
-                                                    JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
-                                                    JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
-                                                    JOIN heures h ON lh.heure_identif=h.id_heure
-                                                    WHERE h.heure <= '$dte' AND pr.date_progr = '$today' AND p.code_ticket = 'R'")->result();
-                                    
-                                                    foreach ($result as $rew) {
-                                                        $plarray = array(
-                                                            'num_siege_categorie' => NULL,
-                                                            'prixvente' => NULL,
-                                                            'num_cat' => NULL,
-                                                        );
-                                                        $this->m_passager->update($rew->code_passager, $rew->code_ticket, $plarray);
-                                                        
-                                                    }
                                                     $cp = $this->input->post('progcodfid');
                                                     $d = $this->input->post('passagersiegesfid');
                                                     
@@ -14144,7 +13837,7 @@
                                                     );
                                                     $this->m_tampon_siege->del($results->idtamp, $delarray);
 
-                                                redirect('Historique_Passagers/editpdfarfi/' . $this->session->company->ekey . '/' . $tpcdpas. '/' .$tpcdpas.'/'.$lhar.'/'.$pri.'/'. $gidc.'/'. $iduser.'/'. $sgid);  
+                                                $this->_sale_nonce_complete(); redirect('Historique_Passagers/editpdfarfi/' . $this->session->company->ekey . '/' . $tpcdpas. '/' .$tpcdpas.'/'.$lhar.'/'.$pri.'/'. $gidc.'/'. $iduser.'/'. $sgid);  
                                                 
                                             }
                                             else
@@ -14292,23 +13985,6 @@
                                                         $hr = substr($this->input->post('heuredeptfid'), $cde + 1, strlen($this->input->post('heuredeptfid')));
                                                 
                 
-                                                        $dte = date('H:i', time('H:i')+3600);
-                                                        $result = $this->db->query("SELECT p.code_passager, p.code_ticket, p.code_pro, pr.code_progr, pr.id_heur, lh.heure_identif, h.heure, pr.date_progr FROM passager p
-                                                        JOIN programme pr ON p.code_pro = pr.code_progr
-                                                        JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
-                                                        JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
-                                                        JOIN heures h ON lh.heure_identif=h.id_heure
-                                                        WHERE h.heure <= '$dte' AND pr.date_progr = '$today' AND p.code_ticket = 'R'")->result();
-                                        
-                                                        foreach ($result as $rew) {
-                                                            $plarray = array(
-                                                                'num_siege_categorie' => NULL,
-                                                                'prixvente' => NULL,
-                                                                'num_cat' => NULL,
-                                                            );
-                                                            $this->m_passager->update($rew->code_passager, $rew->code_ticket, $plarray);
-                                                            
-                                                        }
                                                         $cp = $this->input->post('progcodfid');
                                                         $d = $this->input->post('passagersiegesfid');
                                                         
@@ -14320,7 +13996,7 @@
                                                         );
                                                         $this->m_tampon_siege->del($results->idtamp, $delarray); 
                                                         
-                                                redirect('Historique_Passagers/epsonalretourfi/' . $this->session->company->ekey . '/' . $tpcdpas. '/' .$tpcdpas.'/'.$lhar.'/'.$pri.'/'. $gidc.'/'. $iduser.'/'. $sgid);  
+                                                $this->_sale_nonce_complete(); redirect('Historique_Passagers/epsonalretourfi/' . $this->session->company->ekey . '/' . $tpcdpas. '/' .$tpcdpas.'/'.$lhar.'/'.$pri.'/'. $gidc.'/'. $iduser.'/'. $sgid);  
                                                     
                                             }
                                             else
@@ -14406,23 +14082,6 @@
                                                     $hr = substr($this->input->post('heuredeptfid'), $cde + 1, strlen($this->input->post('heuredeptfid')));
                                             
 
-                                                    $dte = date('H:i', time('H:i')+3600);
-                                                    $result = $this->db->query("SELECT p.code_passager, p.code_ticket, p.code_pro, pr.code_progr, pr.id_heur, lh.heure_identif, h.heure, pr.date_progr FROM passager p
-                                                    JOIN programme pr ON p.code_pro = pr.code_progr
-                                                    JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
-                                                    JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
-                                                    JOIN heures h ON lh.heure_identif=h.id_heure
-                                                    WHERE h.heure <= '$dte' AND pr.date_progr = '$today' AND p.code_ticket = 'R'")->result();
-                                    
-                                                    foreach ($result as $rew) {
-                                                        $plarray = array(
-                                                            'num_siege_categorie' => NULL,
-                                                            'prixvente' => NULL,
-                                                            'num_cat' => NULL,
-                                                        );
-                                                        $this->m_passager->update($rew->code_passager, $rew->code_ticket, $plarray);
-                                                        
-                                                    }
                                                     $cp = $this->input->post('progcodfid');
                                                     $d = $this->input->post('passagersiegesfid');
                                                     
@@ -14434,7 +14093,7 @@
                                                     );
                                                     $this->m_tampon_siege->del($results->idtamp, $delarray);
 
-                                               redirect('Historique_Passagers/epsonalretourfi/' . $this->session->company->ekey . '/' . $tpcdpas. '/' .$tpcdpas.'/'.$lhar.'/'.$pri.'/'. $gidc.'/'. $iduser.'/'. $sgid);      
+                                               $this->_sale_nonce_complete(); redirect('Historique_Passagers/epsonalretourfi/' . $this->session->company->ekey . '/' . $tpcdpas. '/' .$tpcdpas.'/'.$lhar.'/'.$pri.'/'. $gidc.'/'. $iduser.'/'. $sgid);      
                                                 
                                             }
                                             else
@@ -14645,23 +14304,6 @@
                                                         $lhr = substr($this->input->post('heuredeptitinefid'), 0, $cde);
                                                         $c = $this->input->post('rclient_contactfid');
                                                         
-                                                        $dte = date('H:i', time('H:i')+3600);
-                                                        $result = $this->db->query("SELECT p.code_passager, p.code_ticket, p.code_pro, pr.code_progr, pr.id_heur, lh.heure_identif, h.heure, pr.date_progr FROM passager p
-                                                        JOIN programme pr ON p.code_pro = pr.code_progr
-                                                        JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
-                                                        JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
-                                                        JOIN heures h ON lh.heure_identif=h.id_heure
-                                                        WHERE h.heure <= '$dte' AND pr.date_progr = '$today' AND p.code_ticket = 'R'")->result();
-                                        
-                                                        foreach ($result as $rew) {
-                                                            $plarray = array(
-                                                                'num_siege_categorie' => NULL,
-                                                                'prixvente' => NULL,
-                                                                'num_cat' => NULL,
-                                                            );
-                                                       $this->m_passager->update($rew->code_passager, $rew->code_ticket, $plarray);
-                                                            
-                                                        }
                                                         
                                                         $cp = $this->input->post('progcodtransfid');
                                                         $d = $this->input->post('passagersiegesitinesfid');
@@ -14675,7 +14317,7 @@
                                                         
                                                         $this->m_tampon_siege->del($results->idtamp, $delarray);
 
-                                                    redirect('Historique_Passagers/editpdftransfi/' . $this->session->company->ekey . '/' . $tampon. '/'. $lhr.'/'.$tampon1.'/'.$fnitra1.'/'.$pri.'/'.$pri1.'/'. $gidc.'/'. $iduser.'/'. $sgid);
+                                                    $this->_sale_nonce_complete(); redirect('Historique_Passagers/editpdftransfi/' . $this->session->company->ekey . '/' . $tampon. '/'. $lhr.'/'.$tampon1.'/'.$fnitra1.'/'.$pri.'/'.$pri1.'/'. $gidc.'/'. $iduser.'/'. $sgid);
                                                         
                                                 }
 
@@ -14882,30 +14524,13 @@
                                                             'numsieg' => $this->input->post('passagersiegesitines2fid'),
                                                         );
                                                         
-                                                        $this->m_tampon_siege->del($results2->idtamp, $delarray2);
+                                                        if (!empty($results2) && isset($results2->idtamp)) { $this->m_tampon_siege->del($results2->idtamp, $delarray2); }
 
                                                         
                                                             $cde = strpos($this->input->post('heuredeptitinefid'), '/');
                                                         $lhr = substr($this->input->post('heuredeptitinefid'), 0, $cde);
                                                         $c = $this->input->post('rclient_contactfid');
                                                         
-                                                        $dte = date('H:i', time('H:i')+3600);
-                                                        $result = $this->db->query("SELECT p.code_passager, p.code_ticket, p.code_pro, pr.code_progr, pr.id_heur, lh.heure_identif, h.heure, pr.date_progr FROM passager p
-                                                        JOIN programme pr ON p.code_pro = pr.code_progr
-                                                        JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
-                                                        JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
-                                                        JOIN heures h ON lh.heure_identif=h.id_heure
-                                                        WHERE h.heure <= '$dte' AND pr.date_progr = '$today' AND p.code_ticket = 'R'")->result();
-                                        
-                                                        foreach ($result as $rew) {
-                                                            $plarray = array(
-                                                                'num_siege_categorie' => NULL,
-                                                                'prixvente' => NULL,
-                                                                'num_cat' => NULL,
-                                                            );
-                                                            $this->m_passager->update($rew->code_passager, $rew->code_ticket, $plarray);
-                                                            
-                                                        }
                                                         
                                                         $cp = $this->input->post('progcodtransfid');
                                                         $d = $this->input->post('passagersiegesitinesfid');
@@ -14921,7 +14546,7 @@
 
                                                             
                                                        
-                                                        redirect('Historique_Passagers/editpdftransfi2/' . $this->session->company->ekey . '/' . $tampon. '/'. $lhr.'/'.$tampon1.'/'.$fnitra1.'/'.$tampon2.'/'.$fnitra2.'/'.$pri.'/'.$pri1.'/'.$pri2.'/'. $gidc.'/'. $iduser.'/'. $sgid);
+                                                        $this->_sale_nonce_complete(); redirect('Historique_Passagers/editpdftransfi2/' . $this->session->company->ekey . '/' . $tampon. '/'. $lhr.'/'.$tampon1.'/'.$fnitra1.'/'.$tampon2.'/'.$fnitra2.'/'.$pri.'/'.$pri1.'/'.$pri2.'/'. $gidc.'/'. $iduser.'/'. $sgid);
                     
                                                 }
 
@@ -15122,7 +14747,7 @@
                                                             'numsieg' => $this->input->post('passagersiegesitines2fid'),
                                                         );
                                                         
-                                                        $this->m_tampon_siege->del($results2->idtamp, $delarray2);
+                                                        if (!empty($results2) && isset($results2->idtamp)) { $this->m_tampon_siege->del($results2->idtamp, $delarray2); }
                                                         $reg3 = $this->input->post('gidtransite2fid');
                                                         $passecompter3 = $this->db->query("SELECT COUNT(code_passager) AS id FROM passager p WHERE p.datep_create = '$today' AND p.idcptuser = '$iduser' AND p.code_ticket != 'R'")->row();
                                                                 $passecompt3 = $this->db->query("SELECT COUNT(code_passager) AS id FROM passager p WHERE p.datep_create = '$today'")->row();
@@ -15195,23 +14820,6 @@
                                                         $lhr = substr($this->input->post('heuredeptitinefid'), 0, $cde);
                                                         $c = $this->input->post('rclient_contactfid');
                                                         
-                                                        $dte = date('H:i', time('H:i')+3600);
-                                                        $result = $this->db->query("SELECT p.code_passager, p.code_ticket, p.code_pro, pr.code_progr, pr.id_heur, lh.heure_identif, h.heure, pr.date_progr FROM passager p
-                                                        JOIN programme pr ON p.code_pro = pr.code_progr
-                                                        JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
-                                                        JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
-                                                        JOIN heures h ON lh.heure_identif=h.id_heure
-                                                        WHERE h.heure <= '$dte' AND pr.date_progr = '$today' AND p.code_ticket = 'R'")->result();
-                                        
-                                                        foreach ($result as $rew) {
-                                                            $plarray = array(
-                                                                'num_siege_categorie' => NULL,
-                                                                'prixvente' => NULL,
-                                                                'num_cat' => NULL,
-                                                            );
-                                                            $this->m_passager->update($rew->code_passager, $rew->code_ticket, $plarray);
-                                                            
-                                                        }
                                                         
                                                         $cp = $this->input->post('progcodtransfid');
                                                         $d = $this->input->post('passagersiegesitinesfid');
@@ -15224,7 +14832,7 @@
                                                         );
                                                         
                                                        
-                                                        redirect('Historique_Passagers/editpdftransfi3/' . $this->session->company->ekey . '/' . $tampon. '/'. $lhr.'/'.$tampon1.'/'.$fnitra1.'/'.$tampon2.'/'.$fnitras2.'/'.$tampon3.'/'.$fnitra4.'/'.$pri.'/'.$pri1.'/'.$pri2.'/'.$pri3.'/'. $gidc.'/'. $iduser.'/'. $sgid);
+                                                        $this->_sale_nonce_complete(); redirect('Historique_Passagers/editpdftransfi3/' . $this->session->company->ekey . '/' . $tampon. '/'. $lhr.'/'.$tampon1.'/'.$fnitra1.'/'.$tampon2.'/'.$fnitras2.'/'.$tampon3.'/'.$fnitra4.'/'.$pri.'/'.$pri1.'/'.$pri2.'/'.$pri3.'/'. $gidc.'/'. $iduser.'/'. $sgid);
                                                     }
 
                                                     else
@@ -15376,23 +14984,6 @@
                                                         $lhr = substr($this->input->post('heuredeptitinefid'), 0, $cde);
                                                         $c = $this->input->post('rclient_contactfid');
                                                         
-                                                        $dte = date('H:i', time('H:i')+3600);
-                                                        $result = $this->db->query("SELECT p.code_passager, p.code_ticket, p.code_pro, pr.code_progr, pr.id_heur, lh.heure_identif, h.heure, pr.date_progr FROM passager p
-                                                        JOIN programme pr ON p.code_pro = pr.code_progr
-                                                        JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
-                                                        JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
-                                                        JOIN heures h ON lh.heure_identif=h.id_heure
-                                                        WHERE h.heure <= '$dte' AND pr.date_progr = '$today' AND p.code_ticket = 'R'")->result();
-                                        
-                                                        foreach ($result as $rew) {
-                                                            $plarray = array(
-                                                                'num_siege_categorie' => NULL,
-                                                                'prixvente' => NULL,
-                                                                'num_cat' => NULL,
-                                                            );
-                                                            $this->m_passager->update($rew->code_passager, $rew->code_ticket, $plarray);
-                                                            
-                                                        }
                                                         
                                                         $cp = $this->input->post('progcodtransfid');
                                                         $d = $this->input->post('passagersiegesitinesfid');
@@ -15406,7 +14997,7 @@
                                                         
                                                         $this->m_tampon_siege->del($results->idtamp, $delarray);
 
-                                                        redirect('Historique_Passagers/editpdftransfi/' . $this->session->company->ekey . '/' . $tampon. '/'. $lhr.'/'.$tampon1.'/'.$fnitra1.'/'.$pri.'/'.$pri1.'/'. $gidc.'/'. $iduser.'/'. $sgid);    
+                                                        $this->_sale_nonce_complete(); redirect('Historique_Passagers/editpdftransfi/' . $this->session->company->ekey . '/' . $tampon. '/'. $lhr.'/'.$tampon1.'/'.$fnitra1.'/'.$pri.'/'.$pri1.'/'. $gidc.'/'. $iduser.'/'. $sgid);    
                                                         
                                                     }
 
@@ -15605,30 +15196,13 @@
                                                             'numsieg' => $this->input->post('passagersiegesitines2fid'),
                                                         );
                                                 
-                                                        $this->m_tampon_siege->del($results2->idtamp, $delarray2);
+                                                        if (!empty($results2) && isset($results2->idtamp)) { $this->m_tampon_siege->del($results2->idtamp, $delarray2); }
 
                                                 
                                                         $cde = strpos($this->input->post('heuredeptitinefid'), '/');
                                                         $lhr = substr($this->input->post('heuredeptitinefid'), 0, $cde);
                                                         $c = $this->input->post('rclient_contactfid');
                                                         
-                                                        $dte = date('H:i', time('H:i')+3600);
-                                                        $result = $this->db->query("SELECT p.code_passager, p.code_ticket, p.code_pro, pr.code_progr, pr.id_heur, lh.heure_identif, h.heure, pr.date_progr FROM passager p
-                                                        JOIN programme pr ON p.code_pro = pr.code_progr
-                                                        JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
-                                                        JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
-                                                        JOIN heures h ON lh.heure_identif=h.id_heure
-                                                        WHERE h.heure <= '$dte' AND pr.date_progr = '$today' AND p.code_ticket = 'R'")->result();
-                                        
-                                                        foreach ($result as $rew) {
-                                                            $plarray = array(
-                                                                'num_siege_categorie' => NULL,
-                                                                'prixvente' => NULL,
-                                                                'num_cat' => NULL,
-                                                            );
-                                                            $this->m_passager->update($rew->code_passager, $rew->code_ticket, $plarray);
-                                                            
-                                                        }
                                                         
                                                         $cp = $this->input->post('progcodtransfid');
                                                         $d = $this->input->post('passagersiegesitinesfid');
@@ -15644,7 +15218,7 @@
 
                                                             
                                                        
-                                                        redirect('Historique_Passagers/editpdftransfi2/' . $this->session->company->ekey . '/' . $tampon. '/'. $lhr.'/'.$tampon1.'/'.$fnitra1.'/'.$tampon2.'/'.$fnitra2.'/'.$pri.'/'.$pri1.'/'.$pri2.'/'. $gidc.'/'. $iduser.'/'. $sgid);
+                                                        $this->_sale_nonce_complete(); redirect('Historique_Passagers/editpdftransfi2/' . $this->session->company->ekey . '/' . $tampon. '/'. $lhr.'/'.$tampon1.'/'.$fnitra1.'/'.$tampon2.'/'.$fnitra2.'/'.$pri.'/'.$pri1.'/'.$pri2.'/'. $gidc.'/'. $iduser.'/'. $sgid);
                                                     }
 
                                                     else
@@ -15845,7 +15419,7 @@
                                                             'numsieg' => $this->input->post('passagersiegesitines2fid'),
                                                             );
                                                             
-                                                            $this->m_tampon_siege->del($results2->idtamp, $delarray2);
+                                                            if (!empty($results2) && isset($results2->idtamp)) { $this->m_tampon_siege->del($results2->idtamp, $delarray2); }
 
                                                             $reg3 = $this->input->post('gidtransite2fid');
                                                             $passecompter3 = $this->db->query("SELECT COUNT(code_passager) AS id FROM passager p WHERE p.datep_create = '$today' AND p.idcptuser = '$iduser' AND p.code_ticket != 'R'")->row();
@@ -15919,23 +15493,6 @@
                                                         $lhr = substr($this->input->post('heuredeptitinefid'), 0, $cde);
                                                         $c = $this->input->post('rclient_contactfid');
                                                         
-                                                        $dte = date('H:i', time('H:i')+3600);
-                                                        $result = $this->db->query("SELECT p.code_passager, p.code_ticket, p.code_pro, pr.code_progr, pr.id_heur, lh.heure_identif, h.heure, pr.date_progr FROM passager p
-                                                        JOIN programme pr ON p.code_pro = pr.code_progr
-                                                        JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
-                                                        JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
-                                                        JOIN heures h ON lh.heure_identif=h.id_heure
-                                                        WHERE h.heure <= '$dte' AND pr.date_progr = '$today' AND p.code_ticket = 'R'")->result();
-                                        
-                                                        foreach ($result as $rew) {
-                                                            $plarray = array(
-                                                            'num_siege_categorie' => NULL,
-                                                            'prixvente' => NULL,
-                                                            'num_cat' => NULL,
-                                                            );
-                                                        $this->m_passager->update($rew->code_passager, $rew->code_ticket, $plarray);
-                                                        
-                                                        }
                                                         
                                                         $cp = $this->input->post('progcodtransfid');
                                                         $d = $this->input->post('passagersiegesitinesfid');
@@ -15952,7 +15509,7 @@
                                                     
                                                         
                                                     
-                                                    redirect('Historique_Passagers/editpdftransfi3/' . $this->session->company->ekey . '/' . $tampon. '/'. $lhr.'/'.$tampon1.'/'.$fnitra1.'/'.$tampon2.'/'.$fnitras2.'/'.$tampon3.'/'.$fnitra4.'/'.$pri.'/'.$pri1.'/'.$pri2.'/'.$pri3.'/'. $gidc.'/'. $iduser.'/'. $sgid);
+                                                    $this->_sale_nonce_complete(); redirect('Historique_Passagers/editpdftransfi3/' . $this->session->company->ekey . '/' . $tampon. '/'. $lhr.'/'.$tampon1.'/'.$fnitra1.'/'.$tampon2.'/'.$fnitras2.'/'.$tampon3.'/'.$fnitra4.'/'.$pri.'/'.$pri1.'/'.$pri2.'/'.$pri3.'/'. $gidc.'/'. $iduser.'/'. $sgid);
                                                 }
 
                                                 else
@@ -16174,23 +15731,6 @@
                                                         $lhr = substr($this->input->post('heuredeptitinefid'), 0, $cde);
                                                         $c = $this->input->post('rclient_contactfid');
                                                     
-                                                        $dte = date('H:i', time('H:i')+3600);
-                                                        $result = $this->db->query("SELECT p.code_passager, p.code_ticket, p.code_pro, pr.code_progr, pr.id_heur, lh.heure_identif, h.heure, pr.date_progr FROM passager p
-                                                        JOIN programme pr ON p.code_pro = pr.code_progr
-                                                        JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
-                                                        JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
-                                                        JOIN heures h ON lh.heure_identif=h.id_heure
-                                                        WHERE h.heure <= '$dte' AND pr.date_progr = '$today' AND p.code_ticket = 'R'")->result();
-                                        
-                                                        foreach ($result as $rew) {
-                                                            $plarray = array(
-                                                            'num_siege_categorie' => NULL,
-                                                            'prixvente' => NULL,
-                                                            'num_cat' => NULL,
-                                                        );
-                                                        $this->m_passager->update($rew->code_passager, $rew->code_ticket, $plarray);
-                                                        
-                                                        }
                                                         
                                                         $cp = $this->input->post('progcodtransfid');
                                                         $d = $this->input->post('passagersiegesitinesfid');
@@ -16204,7 +15744,7 @@
                                                 
                                                     $this->m_tampon_siege->del($results->idtamp, $delarray);
 
-                                                    redirect('Historique_Passagers/editpdfeptransfi/' . $this->session->company->ekey . '/' . $tampon. '/'. $lhr.'/'.$tampon1.'/'.$fnitra1.'/'.$pri.'/'.$pri1.'/'. $gidc.'/'. $iduser.'/'. $sgid);
+                                                    $this->_sale_nonce_complete(); redirect('Historique_Passagers/editpdfeptransfi/' . $this->session->company->ekey . '/' . $tampon. '/'. $lhr.'/'.$tampon1.'/'.$fnitra1.'/'.$pri.'/'.$pri1.'/'. $gidc.'/'. $iduser.'/'. $sgid);
                                                     
                                                 }
                                 
@@ -16409,30 +15949,13 @@
                                                             'numsieg' => $this->input->post('passagersiegesitines2fid'),
                                                         );
                                                     
-                                                        $this->m_tampon_siege->del($results2->idtamp, $delarray2);
+                                                        if (!empty($results2) && isset($results2->idtamp)) { $this->m_tampon_siege->del($results2->idtamp, $delarray2); }
 
                                                         
                                                             $cde = strpos($this->input->post('heuredeptitinefid'), '/');
                                                         $lhr = substr($this->input->post('heuredeptitinefid'), 0, $cde);
                                                         $c = $this->input->post('rclient_contactfid');
                                                         
-                                                        $dte = date('H:i', time('H:i')+3600);
-                                                        $result = $this->db->query("SELECT p.code_passager, p.code_ticket, p.code_pro, pr.code_progr, pr.id_heur, lh.heure_identif, h.heure, pr.date_progr FROM passager p
-                                                        JOIN programme pr ON p.code_pro = pr.code_progr
-                                                        JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
-                                                        JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
-                                                        JOIN heures h ON lh.heure_identif=h.id_heure
-                                                        WHERE h.heure <= '$dte' AND pr.date_progr = '$today' AND p.code_ticket = 'R'")->result();
-                                        
-                                                        foreach ($result as $rew) {
-                                                            $plarray = array(
-                                                            'num_siege_categorie' => NULL,
-                                                            'prixvente' => NULL,
-                                                            'num_cat' => NULL,
-                                                            );
-                                                            $this->m_passager->update($rew->code_passager, $rew->code_ticket, $plarray);
-                                                        
-                                                        }
                                                         
                                                         $cp = $this->input->post('progcodtransfid');
                                                         $d = $this->input->post('passagersiegesitinesfid');
@@ -16448,7 +15971,7 @@
 
                                                     
                                                     
-                                                    redirect('Historique_Passagers/editeppdftransfi2/' . $this->session->company->ekey . '/' . $tampon. '/'. $lhr.'/'.$tampon1.'/'.$fnitra1.'/'.$tampon2.'/'.$fnitra2.'/'.$pri.'/'.$pri1.'/'.$pri2.'/'. $gidc.'/'. $iduser.'/'. $sgid);
+                                                    $this->_sale_nonce_complete(); redirect('Historique_Passagers/editeppdftransfi2/' . $this->session->company->ekey . '/' . $tampon. '/'. $lhr.'/'.$tampon1.'/'.$fnitra1.'/'.$tampon2.'/'.$fnitra2.'/'.$pri.'/'.$pri1.'/'.$pri2.'/'. $gidc.'/'. $iduser.'/'. $sgid);
                                                 }
                                 
                                                 else
@@ -16644,7 +16167,7 @@
                                                                 'numsieg' => $this->input->post('passagersiegesitines2fid'),
                                                                 );
                                                             
-                                                            $this->m_tampon_siege->del($results2->idtamp, $delarray2);
+                                                            if (!empty($results2) && isset($results2->idtamp)) { $this->m_tampon_siege->del($results2->idtamp, $delarray2); }
 
                                                             $reg3 = $this->input->post('gidtransite2fid');
                                                             $passecompter3 = $this->db->query("SELECT COUNT(code_passager) AS id FROM passager p WHERE p.datep_create = '$today' AND p.idcptuser = '$iduser' AND p.code_ticket != 'R'")->row();
@@ -16720,23 +16243,6 @@
                                                             $lhr = substr($this->input->post('heuredeptitinefid'), 0, $cde);
                                                             $c = $this->input->post('rclient_contactfid');
                                                             
-                                                            $dte = date('H:i', time('H:i')+3600);
-                                                            $result = $this->db->query("SELECT p.code_passager, p.code_ticket, p.code_pro, pr.code_progr, pr.id_heur, lh.heure_identif, h.heure, pr.date_progr FROM passager p
-                                                            JOIN programme pr ON p.code_pro = pr.code_progr
-                                                            JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
-                                                            JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
-                                                            JOIN heures h ON lh.heure_identif=h.id_heure
-                                                            WHERE h.heure <= '$dte' AND pr.date_progr = '$today' AND p.code_ticket = 'R'")->result();
-                                            
-                                                            foreach ($result as $rew) {
-                                                                $plarray = array(
-                                                                'num_siege_categorie' => NULL,
-                                                                'prixvente' => NULL,
-                                                                'num_cat' => NULL,
-                                                                );
-                                                                $this->m_passager->update($rew->code_passager, $rew->code_ticket, $plarray);
-                                                                
-                                                            }
                                                             
                                                             $cp = $this->input->post('progcodtransfid');
                                                             $d = $this->input->post('passagersiegesitinesfid');
@@ -16752,7 +16258,7 @@
 
                                                         
                                                     
-                                                    redirect('Historique_Passagers/editeppdftransfi3/' . $this->session->company->ekey . '/' . $tampon. '/'. $lhr.'/'.$tampon1.'/'.$fnitra1.'/'.$tampon2.'/'.$fnitras2.'/'.$tampon3.'/'.$fnitra4.'/'.$pri.'/'.$pri1.'/'.$pri2.'/'.$pri3.'/'. $gidc.'/'. $iduser.'/'. $sgid);
+                                                    $this->_sale_nonce_complete(); redirect('Historique_Passagers/editeppdftransfi3/' . $this->session->company->ekey . '/' . $tampon. '/'. $lhr.'/'.$tampon1.'/'.$fnitra1.'/'.$tampon2.'/'.$fnitras2.'/'.$tampon3.'/'.$fnitra4.'/'.$pri.'/'.$pri1.'/'.$pri2.'/'.$pri3.'/'. $gidc.'/'. $iduser.'/'. $sgid);
                                                 }
 
                                                 else
@@ -16904,23 +16410,6 @@
                                                             $lhr = substr($this->input->post('heuredeptitinefid'), 0, $cde);
                                                             $c = $this->input->post('rclient_contactfid');
                                                             
-                                                            $dte = date('H:i', time('H:i')+3600);
-                                                            $result = $this->db->query("SELECT p.code_passager, p.code_ticket, p.code_pro, pr.code_progr, pr.id_heur, lh.heure_identif, h.heure, pr.date_progr FROM passager p
-                                                            JOIN programme pr ON p.code_pro = pr.code_progr
-                                                            JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
-                                                            JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
-                                                            JOIN heures h ON lh.heure_identif=h.id_heure
-                                                            WHERE h.heure <= '$dte' AND pr.date_progr = '$today' AND p.code_ticket = 'R'")->result();
-                                            
-                                                            foreach ($result as $rew) {
-                                                            $plarray = array(
-                                                                'num_siege_categorie' => NULL,
-                                                                'prixvente' => NULL,
-                                                                'num_cat' => NULL,
-                                                                );
-                                                                $this->m_passager->update($rew->code_passager, $rew->code_ticket, $plarray);
-                                                                
-                                                            }
                                                             
                                                             $cp = $this->input->post('progcodtransfid');
                                                             $d = $this->input->post('passagersiegesitinesfid');
@@ -16934,7 +16423,7 @@
                                                             
                                                         $this->m_tampon_siege->del($results->idtamp, $delarray);
 
-                                                        redirect('Historique_Passagers/editpdfeptransfi/' . $this->session->company->ekey . '/' . $tampon. '/'. $lhr.'/'.$tampon1.'/'.$fnitra1.'/'.$pri.'/'.$pri1.'/'. $gidc.'/'. $iduser.'/'. $sgid);  
+                                                        $this->_sale_nonce_complete(); redirect('Historique_Passagers/editpdfeptransfi/' . $this->session->company->ekey . '/' . $tampon. '/'. $lhr.'/'.$tampon1.'/'.$fnitra1.'/'.$pri.'/'.$pri1.'/'. $gidc.'/'. $iduser.'/'. $sgid);  
                                                         
                                                 }
 
@@ -17132,29 +16621,12 @@
                                                                 'numsieg' => $this->input->post('passagersiegesitines2fid'),
                                                             );
                                                             
-                                                            $this->m_tampon_siege->del($results2->idtamp, $delarray2);
+                                                            if (!empty($results2) && isset($results2->idtamp)) { $this->m_tampon_siege->del($results2->idtamp, $delarray2); }
 
                                                             $cde = strpos($this->input->post('heuredeptitinefid'), '/');
                                                             $lhr = substr($this->input->post('heuredeptitinefid'), 0, $cde);
                                                             $c = $this->input->post('rclient_contactfid');
                                                         
-                                                            $dte = date('H:i', time('H:i')+3600);
-                                                            $result = $this->db->query("SELECT p.code_passager, p.code_ticket, p.code_pro, pr.code_progr, pr.id_heur, lh.heure_identif, h.heure, pr.date_progr FROM passager p
-                                                            JOIN programme pr ON p.code_pro = pr.code_progr
-                                                            JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
-                                                            JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
-                                                            JOIN heures h ON lh.heure_identif=h.id_heure
-                                                            WHERE h.heure <= '$dte' AND pr.date_progr = '$today' AND p.code_ticket = 'R'")->result();
-                                            
-                                                            foreach ($result as $rew) {
-                                                            $plarray = array(
-                                                                'num_siege_categorie' => NULL,
-                                                                'prixvente' => NULL,
-                                                                'num_cat' => NULL,
-                                                                );
-                                                                $this->m_passager->update($rew->code_passager, $rew->code_ticket, $plarray);
-                                                                
-                                                            }
                                                             
                                                             $cp = $this->input->post('progcodtransfid');
                                                             $d = $this->input->post('passagersiegesitinesfid');
@@ -17169,7 +16641,7 @@
                                                             $this->m_tampon_siege->del($results->idtamp, $delarray);
 
                                                            
-                                                        redirect('Historique_Passagers/editeppdftransfi2/' . $this->session->company->ekey . '/' . $tampon. '/'. $lhr.'/'.$tampon1.'/'.$fnitra1.'/'.$tampon2.'/'.$fnitra2.'/'.$pri.'/'.$pri1.'/'.$pri2.'/'. $gidc.'/'. $iduser.'/'. $sgid);
+                                                        $this->_sale_nonce_complete(); redirect('Historique_Passagers/editeppdftransfi2/' . $this->session->company->ekey . '/' . $tampon. '/'. $lhr.'/'.$tampon1.'/'.$fnitra1.'/'.$tampon2.'/'.$fnitra2.'/'.$pri.'/'.$pri1.'/'.$pri2.'/'. $gidc.'/'. $iduser.'/'. $sgid);
                                                 }
 
                                                 else
@@ -17368,7 +16840,7 @@
                                                                 'numsieg' => $this->input->post('passagersiegesitines2fid'),
                                                             );
                                                             
-                                                            $this->m_tampon_siege->del($results2->idtamp, $delarray2);
+                                                            if (!empty($results2) && isset($results2->idtamp)) { $this->m_tampon_siege->del($results2->idtamp, $delarray2); }
 
                                                             $reg3 = $this->input->post('gidtransite2fid');
                                                             $passecompter3 = $this->db->query("SELECT COUNT(code_passager) AS id FROM passager p WHERE p.datep_create = '$today' AND p.idcptuser = '$iduser' AND p.code_ticket !='R'")->row();
@@ -17441,22 +16913,6 @@
                                                                 $lhr = substr($this->input->post('heuredeptitinefid'), 0, $cde);
                                                                 $c = $this->input->post('rclient_contactfid');
                                                                 
-                                                                $dte = date('H:i', time('H:i')+3600);
-                                                                $result = $this->db->query("SELECT p.code_passager, p.code_ticket, p.code_pro, pr.code_progr, pr.id_heur, lh.heure_identif, h.heure, pr.date_progr FROM passager p
-                                                                JOIN programme pr ON p.code_pro = pr.code_progr
-                                                                JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
-                                                                JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
-                                                                JOIN heures h ON lh.heure_identif=h.id_heure
-                                                                WHERE h.heure <= '$dte' AND pr.date_progr = '$today' AND p.code_ticket = 'R'")->result();
-                                                
-                                                        foreach ($result as $rew) {
-                                                                $plarray = array(   'num_siege_categorie' => NULL,
-                                                                 'prixvente' => NULL,
-                                                                 'num_cat' => NULL,
-                                                                    );
-                                                            $this->m_passager->update($rew->code_passager, $rew->code_ticket, $plarray);
-                                                                    
-                                                                }
                                                                 
                                                                 $cp = $this->input->post('progcodtransfid');
                                                                 $d = $this->input->post('passagersiegesitinesfid');
@@ -17470,7 +16926,7 @@
                                                                 
                                                                 $this->m_tampon_siege->del($results->idtamp, $delarray);
                                                        
-                                                        redirect('Historique_Passagers/editeppdftransfi3/' . $this->session->company->ekey . '/' . $tampon. '/'. $lhr.'/'.$tampon1.'/'.$fnitra1.'/'.$tampon2.'/'.$fnitras2.'/'.$tampon3.'/'.$fnitra4.'/'.$pri.'/'.$pri1.'/'.$pri2.'/'.$pri3.'/'. $gidc.'/'. $iduser.'/'. $sgid);
+                                                        $this->_sale_nonce_complete(); redirect('Historique_Passagers/editeppdftransfi3/' . $this->session->company->ekey . '/' . $tampon. '/'. $lhr.'/'.$tampon1.'/'.$fnitra1.'/'.$tampon2.'/'.$fnitras2.'/'.$tampon3.'/'.$fnitra4.'/'.$pri.'/'.$pri1.'/'.$pri2.'/'.$pri3.'/'. $gidc.'/'. $iduser.'/'. $sgid);
                                                 }
                                                 else
                                                 {
@@ -17725,23 +17181,6 @@
                                                     $hr = substr($this->input->post('heuredeptitinefid'), $cde + 1, strlen($this->input->post('heuredeptitinefid')));
                                         
         
-                                                    $dte = date('H:i', time('H:i')+3600);
-                                                    $result = $this->db->query("SELECT p.code_passager, p.code_ticket, p.code_pro, pr.code_progr, pr.id_heur, lh.heure_identif, h.heure, pr.date_progr FROM passager p
-                                                    JOIN programme pr ON p.code_pro = pr.code_progr
-                                                    JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
-                                                    JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
-                                                    JOIN heures h ON lh.heure_identif=h.id_heure
-                                                    WHERE h.heure <= '$dte' AND pr.date_progr = '$today' AND p.code_ticket = 'R'")->result();
-                                    
-                                                    foreach ($result as $rew) {
-                                                        $plarray = array(
-                                                            'num_siege_categorie' => NULL,
-                                                            'prixvente' => NULL,
-                                                            'num_cat' => NULL,
-                                                        );
-                                                            $this->m_passager->update($rew->code_passager, $rew->code_ticket, $plarray);
-                                                                    
-                                                                }
                                                                 $cp = $this->input->post('progcodtransfid');
                                                                 $d = $this->input->post('passagersiegesitinesfid');
                                                                 
@@ -17755,7 +17194,7 @@
                                                         
                                                                 
                                                                 
-                                                        redirect('Historique_Passagers/editpdftransarfi/' . $this->session->company->ekey . '/' . $tpcdpas. '/' .$tpcdpas.'/'.$lhar.'/'.$tpcdpas1. '/' .$tpcdpas1.'/'.$fnitra1.'/'.$pri.'/'.$pri1.'/'. $gidc.'/'. $iduser.'/'. $sgid);
+                                                        $this->_sale_nonce_complete(); redirect('Historique_Passagers/editpdftransarfi/' . $this->session->company->ekey . '/' . $tpcdpas. '/' .$tpcdpas.'/'.$lhar.'/'.$tpcdpas1. '/' .$tpcdpas1.'/'.$fnitra1.'/'.$pri.'/'.$pri1.'/'. $gidc.'/'. $iduser.'/'. $sgid);
                                                             
                                                         }
                                                         else
@@ -18005,7 +17444,7 @@
                                                                 'codepro' => $h_gdp1,
                                                                 'numsieg' => $this->input->post('passagersiegesitines2fid'),
                                                             );
-                                                            $this->m_tampon_siege->del($results2->idtamp, $delarray2);
+                                                            if (!empty($results2) && isset($results2->idtamp)) { $this->m_tampon_siege->del($results2->idtamp, $delarray2); }
 
                                                                 
                                                             $cde = strpos($this->input->post('heuredeptitinefid'), '/');
@@ -18013,21 +17452,6 @@
                                                                 $hr = substr($this->input->post('heuredeptitinefid'), $cde + 1, strlen($this->input->post('heuredeptitinefid')));
                                                         
                         
-                                                            $dte = date('H:i', time('H:i')+3600);
-                                                                $result = $this->db->query("SELECT p.code_passager, p.code_ticket, p.code_pro, pr.code_progr, pr.id_heur, lh.heure_identif, h.heure, pr.date_progr FROM passager p
-                                                                JOIN programme pr ON p.code_pro = pr.code_progr
-                                                                JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
-                                                                JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
-                                                                JOIN heures h ON lh.heure_identif=h.id_heure
-                                                                WHERE h.heure <= '$dte' AND pr.date_progr = '$today' AND p.code_ticket = 'R'")->result();
-                                                
-                                                    foreach ($result as $rew) {
-                                                            $plarray = array('num_siege_categorie' => NULL,            'prixvente' => NULL,
-                                                            'num_cat' => NULL,
-                                                                    );
-                                                            $this->m_passager->update($rew->code_passager, $rew->code_ticket, $plarray);
-                                                                    
-                                                        }
 
                                                             $cp = $this->input->post('progcodtransfid');
                                                             $d = $this->input->post('passagersiegesitinesfid');
@@ -18041,7 +17465,7 @@
                                                             $this->m_tampon_siege->del($results->idtamp, $delarray); 
                                                                 
                                                              
-                                                            redirect('Historique_Passagers/editpdftransarfi2/' . $this->session->company->ekey . '/' . $tpcdpas. '/' .$tpcdpas.'/'.$lhar.'/'.$tpcdpas1. '/' .$tpcdpas1.'/'.$fnitra1.'/'.$tpcdpas2. '/' .$tpcdpas2.'/'.$fnitra2.'/'.$pri.'/'.$pri1.'/'.$pri2.'/'. $gidc.'/'. $iduser.'/'. $sgid);
+                                                            $this->_sale_nonce_complete(); redirect('Historique_Passagers/editpdftransarfi2/' . $this->session->company->ekey . '/' . $tpcdpas. '/' .$tpcdpas.'/'.$lhar.'/'.$tpcdpas1. '/' .$tpcdpas1.'/'.$fnitra1.'/'.$tpcdpas2. '/' .$tpcdpas2.'/'.$fnitra2.'/'.$pri.'/'.$pri1.'/'.$pri2.'/'. $gidc.'/'. $iduser.'/'. $sgid);
                                                         }
                                                         else
                                                         {
@@ -18291,7 +17715,7 @@
                                                                 'codepro' => $h_gdp1,
                                                                 'numsieg' => $this->input->post('passagersiegesitines2fid'),
                                                             );
-                                                            $this->m_tampon_siege->del($results2->idtamp, $delarray2);
+                                                            if (!empty($results2) && isset($results2->idtamp)) { $this->m_tampon_siege->del($results2->idtamp, $delarray2); }
 
                                                             $reg3 = $this->input->post('gidtransite2fid');
 
@@ -18386,23 +17810,6 @@
                                                                 $hr = substr($this->input->post('heuredeptitinefid'), $cde + 1, strlen($this->input->post('heuredeptitinefid')));
                                                         
                         
-                                                            $dte = date('H:i', time('H:i')+3600);
-                                                                $result = $this->db->query("SELECT p.code_passager, p.code_ticket, p.code_pro, pr.code_progr, pr.id_heur, lh.heure_identif, h.heure, pr.date_progr FROM passager p
-                                                                JOIN programme pr ON p.code_pro = pr.code_progr
-                                                                JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
-                                                                JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
-                                                                JOIN heures h ON lh.heure_identif=h.id_heure
-                                                                WHERE h.heure <= '$dte' AND pr.date_progr = '$today' AND p.code_ticket = 'R'")->result();
-                                                
-                                                        foreach ($result as $rew) {
-                                                            $plarray = array(
-                                                                'num_siege_categorie' => NULL,
-                                                                'prixvente' => NULL,
-                                                                'num_cat' => NULL,
-                                                            );
-                                                            $this->m_passager->update($rew->code_passager, $rew->code_ticket, $plarray);
-                                                            
-                                                        }
 
                                                         $cp = $this->input->post('progcodtransfid');
                                                         $d = $this->input->post('passagersiegesitinesfid');
@@ -18416,7 +17823,7 @@
                                                         $this->m_tampon_siege->del($results->idtamp, $delarray); 
                                                 
                                                         
-                                                            redirect('Historique_Passagers/editpdftransarfi3/' . $this->session->company->ekey . '/' . $tpcdpas. '/' .$tpcdpas.'/'.$lhar.'/'.$tpcdpas1. '/' .$tpcdpas1.'/'.$fnitra1.'/'.$tpcdpas2. '/' .$tpcdpas2.'/'.$fnitras2.'/'.$tpcdpas3. '/' .$tpcdpas3.'/'.$fnitra4.'/'.$pri.'/'.$pri1.'/'.$pri2.'/'.$pri3.'/'. $gidc.'/'. $iduser.'/'. $sgid);
+                                                            $this->_sale_nonce_complete(); redirect('Historique_Passagers/editpdftransarfi3/' . $this->session->company->ekey . '/' . $tpcdpas. '/' .$tpcdpas.'/'.$lhar.'/'.$tpcdpas1. '/' .$tpcdpas1.'/'.$fnitra1.'/'.$tpcdpas2. '/' .$tpcdpas2.'/'.$fnitras2.'/'.$tpcdpas3. '/' .$tpcdpas3.'/'.$fnitra4.'/'.$pri.'/'.$pri1.'/'.$pri2.'/'.$pri3.'/'. $gidc.'/'. $iduser.'/'. $sgid);
                                                         }
                                                         else
                                                         {
@@ -18604,22 +18011,6 @@
                                                             $hr = substr($this->input->post('heuredeptitinefid'), $cde + 1, strlen($this->input->post('heuredeptitinefid')));
                                                         
                         
-                                                            $dte = date('H:i', time('H:i')+3600);
-                                                                $result = $this->db->query("SELECT p.code_passager, p.code_ticket, p.code_pro, pr.code_progr, pr.id_heur, lh.heure_identif, h.heure, pr.date_progr FROM passager p
-                                                                JOIN programme pr ON p.code_pro = pr.code_progr
-                                                                JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
-                                                                JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
-                                                                JOIN heures h ON lh.heure_identif=h.id_heure
-                                                                WHERE h.heure <= '$dte' AND pr.date_progr = '$today' AND p.code_ticket = 'R'")->result();
-                                                
-                                                        foreach ($result as $rew) {
-                                                            $plarray = array('num_siege_categorie' => NULL,
-                                                                'prixvente' => NULL,
-                                                                'num_cat' => NULL,
-                                                            );
-                                                            $this->m_passager->update($rew->code_passager, $rew->code_ticket, $plarray);
-                                                            
-                                                        }
                                                         $cp = $this->input->post('progcodtransfid');
                                                         $d = $this->input->post('passagersiegesitinesfid');
                                                         
@@ -18632,7 +18023,7 @@
                                                         $this->m_tampon_siege->del($results->idtamp, $delarray); 
                                                                 
                                                               
-                                                        redirect('Historique_Passagers/editpdftransarfi/' . $this->session->company->ekey . '/' . $tpcdpas. '/' .$tpcdpas.'/'.$lhar.'/'.$tpcdpas1. '/' .$tpcdpas1.'/'.$fnitra1.'/'.$pri.'/'.$pri1.'/'. $gidc.'/'. $iduser.'/'. $sgid);
+                                                        $this->_sale_nonce_complete(); redirect('Historique_Passagers/editpdftransarfi/' . $this->session->company->ekey . '/' . $tpcdpas. '/' .$tpcdpas.'/'.$lhar.'/'.$tpcdpas1. '/' .$tpcdpas1.'/'.$fnitra1.'/'.$pri.'/'.$pri1.'/'. $gidc.'/'. $iduser.'/'. $sgid);
                                                         }
                                                         else
                                                         {
@@ -18882,7 +18273,7 @@
                                                             'codepro' => $h_gdp1,
                                                             'numsieg' => $this->input->post('passagersiegesitines2fid'),
                                                         );
-                                                        $this->m_tampon_siege->del($results2->idtamp, $delarray2);
+                                                        if (!empty($results2) && isset($results2->idtamp)) { $this->m_tampon_siege->del($results2->idtamp, $delarray2); }
 
                                                         
                                                         $cde = strpos($this->input->post('heuredeptitinefid'), '/');
@@ -18890,23 +18281,6 @@
                                                         $hr = substr($this->input->post('heuredeptitinefid'), $cde + 1, strlen($this->input->post('heuredeptitinefid')));
                                                 
                 
-                                                        $dte = date('H:i', time('H:i')+3600);
-                                                        $result = $this->db->query("SELECT p.code_passager, p.code_ticket, p.code_pro, pr.code_progr, pr.id_heur, lh.heure_identif, h.heure, pr.date_progr FROM passager p
-                                                        JOIN programme pr ON p.code_pro = pr.code_progr
-                                                        JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
-                                                        JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
-                                                        JOIN heures h ON lh.heure_identif=h.id_heure
-                                                        WHERE h.heure <= '$dte' AND pr.date_progr = '$today' AND p.code_ticket = 'R'")->result();
-                                        
-                                                        foreach ($result as $rew) {
-                                                            $plarray = array(
-                                                                'num_siege_categorie' => NULL,
-                                                                'prixvente' => NULL,
-                                                                'num_cat' => NULL,
-                                                            );
-                                                            $this->m_passager->update($rew->code_passager, $rew->code_ticket, $plarray);
-                                                            
-                                                        }
 
                                                         $cp = $this->input->post('progcodtransfid');
                                                         $d = $this->input->post('passagersiegesitinesfid');
@@ -18920,7 +18294,7 @@
                                                         $this->m_tampon_siege->del($results->idtamp, $delarray); 
                                                                 
                                                             
-                                                            redirect('Historique_Passagers/editpdftransarfi2/' . $this->session->company->ekey . '/' . $tpcdpas. '/' .$tpcdpas.'/'.$lhar.'/'.$tpcdpas1. '/' .$tpcdpas1.'/'.$fnitra1.'/'.$tpcdpas2. '/' .$tpcdpas2.'/'.$fnitra2.'/'.$pri.'/'.$pri1.'/'.$pri2.'/'. $gidc.'/'. $iduser.'/'. $sgid);
+                                                            $this->_sale_nonce_complete(); redirect('Historique_Passagers/editpdftransarfi2/' . $this->session->company->ekey . '/' . $tpcdpas. '/' .$tpcdpas.'/'.$lhar.'/'.$tpcdpas1. '/' .$tpcdpas1.'/'.$fnitra1.'/'.$tpcdpas2. '/' .$tpcdpas2.'/'.$fnitra2.'/'.$pri.'/'.$pri1.'/'.$pri2.'/'. $gidc.'/'. $iduser.'/'. $sgid);
                                                         }
                                                         else
                                                         {
@@ -19170,7 +18544,7 @@
                                                             'codepro' => $h_gdp1,
                                                             'numsieg' => $this->input->post('passagersiegesitines2fid'),
                                                         );
-                                                        $this->m_tampon_siege->del($results2->idtamp, $delarray2);
+                                                        if (!empty($results2) && isset($results2->idtamp)) { $this->m_tampon_siege->del($results2->idtamp, $delarray2); }
                         
                                                             $reg3 = $this->input->post('gidtransite2fid');
 
@@ -19268,24 +18642,6 @@
                                                             $hr = substr($this->input->post('heuredeptitinefid'), $cde + 1, strlen($this->input->post('heuredeptitinefid')));
                                                     
                     
-                                                            $dte = date('H:i', time('H:i')+3600);
-                                                            $result = $this->db->query("SELECT p.code_passager, p.code_ticket, p.code_pro, pr.code_progr, pr.id_heur, lh.heure_identif, h.heure, pr.date_progr FROM passager p
-                                                            JOIN programme pr ON p.code_pro = pr.code_progr
-                                                            JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
-                                                            JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
-                                                            JOIN heures h ON lh.heure_identif=h.id_heure
-                                                            WHERE h.heure <= '$dte' AND pr.date_progr = '$today' AND p.code_ticket = 'R'")->result();
-                                            
-                                                            foreach ($result as $rew) 
-                                                            {
-                                                                $plarray = array(
-                                                                'num_siege_categorie' => NULL,
-                                                                'prixvente' => NULL,
-                                                                'num_cat' => NULL,
-                                                                );
-                                                                $this->m_passager->update($rew->code_passager, $rew->code_ticket, $plarray);
-                                                                
-                                                            }
 
                                                             $cp = $this->input->post('progcodtransfid');
                                                             $d = $this->input->post('passagersiegesitinesfid');
@@ -19299,7 +18655,7 @@
                                                             $this->m_tampon_siege->del($results->idtamp, $delarray); 
                                                             
                                                            
-                                                            redirect('Historique_Passagers/editpdftransarfi3/' . $this->session->company->ekey . '/' . $tpcdpas. '/' .$tpcdpas.'/'.$lhar.'/'.$tpcdpas1. '/' .$tpcdpas1.'/'.$fnitra1.'/'.$tpcdpas2. '/' .$tpcdpas2.'/'.$fnitras2.'/'.$tpcdpas3. '/' .$tpcdpas3.'/'.$fnitra4.'/'.$pri.'/'.$pri1.'/'.$pri2.'/'.$pri3.'/'. $gidc.'/'. $iduser.'/'. $sgid);
+                                                            $this->_sale_nonce_complete(); redirect('Historique_Passagers/editpdftransarfi3/' . $this->session->company->ekey . '/' . $tpcdpas. '/' .$tpcdpas.'/'.$lhar.'/'.$tpcdpas1. '/' .$tpcdpas1.'/'.$fnitra1.'/'.$tpcdpas2. '/' .$tpcdpas2.'/'.$fnitras2.'/'.$tpcdpas3. '/' .$tpcdpas3.'/'.$fnitra4.'/'.$pri.'/'.$pri1.'/'.$pri2.'/'.$pri3.'/'. $gidc.'/'. $iduser.'/'. $sgid);
                                                         }
                                                         else
                                                         {
@@ -19554,23 +18910,6 @@
                                                                 $hr = substr($this->input->post('heuredeptitinefid'), $cde + 1, strlen($this->input->post('heuredeptitinefid')));
                                                         
                         
-                                                                $dte = date('H:i', time('H:i')+3600);
-                                                                $result = $this->db->query("SELECT p.code_passager, p.code_ticket, p.code_pro, pr.code_progr, pr.id_heur, lh.heure_identif, h.heure, pr.date_progr FROM passager p
-                                                                JOIN programme pr ON p.code_pro = pr.code_progr
-                                                                JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
-                                                                JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
-                                                                JOIN heures h ON lh.heure_identif=h.id_heure
-                                                                WHERE h.heure <= '$dte' AND pr.date_progr = '$today' AND p.code_ticket = 'R'")->result();
-                                                
-                                                            foreach ($result as $rew) {
-                                                            $plarray = array(
-                                                                'num_siege_categorie' => NULL,
-                                                                'prixvente' => NULL,
-                                                                'num_cat' => NULL,
-                                                                );
-                                                                $this->m_passager->update($rew->code_passager, $rew->code_ticket, $plarray);
-                                                                
-                                                            }
                                                             $cp = $this->input->post('progcodtransfid');
                                                                 $d = $this->input->post('passagersiegesitinesfid');
                                                                 
@@ -19583,7 +18922,7 @@
                                                             $this->m_tampon_siege->del($results->idtamp, $delarray); 
                                                                 
                                                              
-                                                            redirect('Historique_Passagers/editpdfeptransarfi/' . $this->session->company->ekey . '/' . $tpcdpas. '/' .$tpcdpas.'/'.$lhar.'/'.$tpcdpas1. '/' .$tpcdpas1.'/'.$fnitra1.'/'.$pri.'/'.$pri1.'/'. $gidc.'/'. $iduser.'/'. $sgid);
+                                                            $this->_sale_nonce_complete(); redirect('Historique_Passagers/editpdfeptransarfi/' . $this->session->company->ekey . '/' . $tpcdpas. '/' .$tpcdpas.'/'.$lhar.'/'.$tpcdpas1. '/' .$tpcdpas1.'/'.$fnitra1.'/'.$pri.'/'.$pri1.'/'. $gidc.'/'. $iduser.'/'. $sgid);
                                                         }
                                                         else
                                                         {
@@ -19833,30 +19172,13 @@
                                                                 'codepro' => $h_gdp1,
                                                                 'numsieg' => $this->input->post('passagersiegesitines2fid'),
                                                             );
-                                                            $this->m_tampon_siege->del($results2->idtamp, $delarray2);
+                                                            if (!empty($results2) && isset($results2->idtamp)) { $this->m_tampon_siege->del($results2->idtamp, $delarray2); }
 
                                                             $cde = strpos($this->input->post('heuredeptitinefid'), '/');
                                                             $lhar = substr($this->input->post('heuredeptitinefid'), 0, $cde);
                                                             $hr = substr($this->input->post('heuredeptitinefid'), $cde + 1, strlen($this->input->post('heuredeptitinefid')));
                                                     
                     
-                                                            $dte = date('H:i', time('H:i')+3600);
-                                                            $result = $this->db->query("SELECT p.code_passager, p.code_ticket, p.code_pro, pr.code_progr, pr.id_heur, lh.heure_identif, h.heure, pr.date_progr FROM passager p
-                                                            JOIN programme pr ON p.code_pro = pr.code_progr
-                                                            JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
-                                                            JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
-                                                            JOIN heures h ON lh.heure_identif=h.id_heure
-                                                            WHERE h.heure <= '$dte' AND pr.date_progr = '$today' AND p.code_ticket = 'R'")->result();
-                                            
-                                                            foreach ($result as $rew) {
-                                                            $plarray = array(
-                                                                'num_siege_categorie' => NULL,
-                                                                'prixvente' => NULL,
-                                                                'num_cat' => NULL,
-                                                                );
-                                                                $this->m_passager->update($rew->code_passager, $rew->code_ticket, $plarray);
-                                                                
-                                                            }
 
                                                             $cp = $this->input->post('progcodtransfid');
                                                             $d = $this->input->post('passagersiegesitinesfid');
@@ -19870,7 +19192,7 @@
                                                             $this->m_tampon_siege->del($results->idtamp, $delarray); 
                                                                 
                                                               
-                                                            redirect('Historique_Passagers/editpdfeptransarfi2/' . $this->session->company->ekey . '/' . $tpcdpas. '/' .$tpcdpas.'/'.$lhar.'/'.$tpcdpas1. '/' .$tpcdpas1.'/'.$fnitra1.'/'.$tpcdpas2. '/' .$tpcdpas2.'/'.$fnitra2.'/'.$pri.'/'.$pri1.'/'.$pri2.'/'. $gidc.'/'. $iduser.'/'. $sgid);
+                                                            $this->_sale_nonce_complete(); redirect('Historique_Passagers/editpdfeptransarfi2/' . $this->session->company->ekey . '/' . $tpcdpas. '/' .$tpcdpas.'/'.$lhar.'/'.$tpcdpas1. '/' .$tpcdpas1.'/'.$fnitra1.'/'.$tpcdpas2. '/' .$tpcdpas2.'/'.$fnitra2.'/'.$pri.'/'.$pri1.'/'.$pri2.'/'. $gidc.'/'. $iduser.'/'. $sgid);
                                                         }
                                                         else
                                                         {
@@ -20120,7 +19442,7 @@
                                                                 'codepro' => $h_gdp1,
                                                                 'numsieg' => $this->input->post('passagersiegesitines2fid'),
                                                             );
-                                                            $this->m_tampon_siege->del($results2->idtamp, $delarray2);
+                                                            if (!empty($results2) && isset($results2->idtamp)) { $this->m_tampon_siege->del($results2->idtamp, $delarray2); }
 
                                                             $reg3 = $this->input->post('gidtransite2fid');
 
@@ -20214,21 +19536,6 @@
                                                                 $hr = substr($this->input->post('heuredeptitinefid'), $cde + 1, strlen($this->input->post('heuredeptitinefid')));
                                                         
                         
-                                                            $dte = date('H:i', time('H:i')+3600);
-                                                            $result = $this->db->query("SELECT p.code_passager, p.code_ticket, p.code_pro, pr.code_progr, pr.id_heur, lh.heure_identif, h.heure, pr.date_progr FROM passager p
-                                                                JOIN programme pr ON p.code_pro = pr.code_progr
-                                                                JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
-                                                                JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
-                                                                JOIN heures h ON lh.heure_identif=h.id_heure
-                                                                WHERE h.heure <= '$dte' AND pr.date_progr = '$today' AND p.code_ticket = 'R'")->result();
-                                                
-                                                            foreach ($result as $rew) {
-                                                            $plarray = array('num_siege_categorie' => NULL, 
-                                                                'prixvente' => NULL,   'num_cat' => NULL,
-                                                                    );
-                                                            $this->m_passager->update($rew->code_passager, $rew->code_ticket, $plarray);
-                                                                    
-                                                            }
 
                                                             $cp = $this->input->post('progcodtransfid');
                                                             $d = $this->input->post('passagersiegesitinesfid');
@@ -20244,7 +19551,7 @@
                                                        
                                                         
                                                             
-                                                            redirect('Historique_Passagers/editpdfeptransarfi3/' . $this->session->company->ekey . '/' . $tpcdpas. '/' .$tpcdpas.'/'.$lhar.'/'.$tpcdpas1. '/' .$tpcdpas1.'/'.$fnitra1.'/'.$tpcdpas2. '/' .$tpcdpas2.'/'.$fnitras2.'/'.$tpcdpas3. '/' .$tpcdpas3.'/'.$fnitra4.'/'.$pri.'/'.$pri1.'/'.$pri2.'/'.$pri3.'/'. $gidc.'/'. $iduser.'/'. $sgid);
+                                                            $this->_sale_nonce_complete(); redirect('Historique_Passagers/editpdfeptransarfi3/' . $this->session->company->ekey . '/' . $tpcdpas. '/' .$tpcdpas.'/'.$lhar.'/'.$tpcdpas1. '/' .$tpcdpas1.'/'.$fnitra1.'/'.$tpcdpas2. '/' .$tpcdpas2.'/'.$fnitras2.'/'.$tpcdpas3. '/' .$tpcdpas3.'/'.$fnitra4.'/'.$pri.'/'.$pri1.'/'.$pri2.'/'.$pri3.'/'. $gidc.'/'. $iduser.'/'. $sgid);
                                                         }
                                                         else
                                                         {
@@ -20445,23 +19752,6 @@
                                                             $hr = substr($this->input->post('heuredeptitinefid'), $cde + 1, strlen($this->input->post('heuredeptitinefid')));
                                                     
                     
-                                                            $dte = date('H:i', time('H:i')+3600);
-                                                            $result = $this->db->query("SELECT p.code_passager, p.code_ticket, p.code_pro, pr.code_progr, pr.id_heur, lh.heure_identif, h.heure, pr.date_progr FROM passager p
-                                                            JOIN programme pr ON p.code_pro = pr.code_progr
-                                                            JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
-                                                            JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
-                                                            JOIN heures h ON lh.heure_identif=h.id_heure
-                                                            WHERE h.heure <= '$dte' AND pr.date_progr = '$today' AND p.code_ticket = 'R'")->result();
-                                            
-                                                        foreach ($result as $rew) {
-                                                            $plarray = array(
-                                                                'num_siege_categorie' => NULL,
-                                                                'prixvente' => NULL,
-                                                                'num_cat' => NULL,
-                                                            );
-                                                            $this->m_passager->update($rew->code_passager, $rew->code_ticket, $plarray);
-                                                            
-                                                        }
                                                         $cp = $this->input->post('progcodtransfid');
                                                         
                                                         $d = $this->input->post('passagersiegesitinesfid');
@@ -20475,7 +19765,7 @@
                                                             $this->m_tampon_siege->del($results->idtamp, $delarray); 
                                                             
                                                             
-                                                            redirect('Historique_Passagers/editpdfeptransarfi/' . $this->session->company->ekey . '/' . $tpcdpas. '/' .$tpcdpas.'/'.$lhar.'/'.$tpcdpas1. '/' .$tpcdpas1.'/'.$fnitra1.'/'.$pri.'/'.$pri1.'/'. $gidc.'/'. $iduser.'/'. $sgid);
+                                                            $this->_sale_nonce_complete(); redirect('Historique_Passagers/editpdfeptransarfi/' . $this->session->company->ekey . '/' . $tpcdpas. '/' .$tpcdpas.'/'.$lhar.'/'.$tpcdpas1. '/' .$tpcdpas1.'/'.$fnitra1.'/'.$pri.'/'.$pri1.'/'. $gidc.'/'. $iduser.'/'. $sgid);
                                                         }
                                                         else
                                                         {
@@ -20744,7 +20034,7 @@
                                                                 'codepro' => $h_gdp1,
                                                                 'numsieg' => $this->input->post('passagersiegesitines2fid'),
                                                             );
-                                                            $this->m_tampon_siege->del($results2->idtamp, $delarray2);
+                                                            if (!empty($results2) && isset($results2->idtamp)) { $this->m_tampon_siege->del($results2->idtamp, $delarray2); }
 
                                                             
                                                             $cde = strpos($this->input->post('heuredeptitinefid'), '/');
@@ -20752,23 +20042,6 @@
                                                             $hr = substr($this->input->post('heuredeptitinefid'), $cde + 1, strlen($this->input->post('heuredeptitinefid')));
                                                     
                     
-                                                            $dte = date('H:i', time('H:i')+3600);
-                                                            $result = $this->db->query("SELECT p.code_passager, p.code_ticket, p.code_pro, pr.code_progr, pr.id_heur, lh.heure_identif, h.heure, pr.date_progr FROM passager p
-                                                            JOIN programme pr ON p.code_pro = pr.code_progr
-                                                            JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
-                                                            JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
-                                                            JOIN heures h ON lh.heure_identif=h.id_heure
-                                                            WHERE h.heure <= '$dte' AND pr.date_progr = '$today' AND p.code_ticket = 'R'")->result();
-                                            
-                                                            foreach ($result as $rew) {
-                                                                $plarray = array(
-                                                                'num_siege_categorie' => NULL,
-                                                                'prixvente' => NULL,
-                                                                'num_cat' => NULL,
-                                                                );
-                                                                $this->m_passager->update($rew->code_passager, $rew->code_ticket, $plarray);
-                                                                
-                                                            }
 
                                                             $cp = $this->input->post('progcodtransfid');
                                                             $d = $this->input->post('passagersiegesitinesfid');
@@ -20782,7 +20055,7 @@
                                                             $this->m_tampon_siege->del($results->idtamp, $delarray); 
                                                             
                                                                     
-                                                                redirect('Historique_Passagers/editpdfeptransarfi2/' . $this->session->company->ekey . '/' . $tpcdpas. '/' .$tpcdpas.'/'.$lhar.'/'.$tpcdpas1. '/' .$tpcdpas1.'/'.$fnitra1.'/'.$tpcdpas2. '/' .$tpcdpas2.'/'.$fnitra2.'/'.$pri.'/'.$pri1.'/'.$pri2.'/'. $gidc.'/'. $iduser.'/'. $sgid);
+                                                                $this->_sale_nonce_complete(); redirect('Historique_Passagers/editpdfeptransarfi2/' . $this->session->company->ekey . '/' . $tpcdpas. '/' .$tpcdpas.'/'.$lhar.'/'.$tpcdpas1. '/' .$tpcdpas1.'/'.$fnitra1.'/'.$tpcdpas2. '/' .$tpcdpas2.'/'.$fnitra2.'/'.$pri.'/'.$pri1.'/'.$pri2.'/'. $gidc.'/'. $iduser.'/'. $sgid);
                                                         }
                                                         else
                                                         {
@@ -21043,7 +20316,7 @@
                                                                 'codepro' => $h_gdp1,
                                                                 'numsieg' => $this->input->post('passagersiegesitines2fid'),
                                                             );
-                                                            $this->m_tampon_siege->del($results2->idtamp, $delarray2);
+                                                            if (!empty($results2) && isset($results2->idtamp)) { $this->m_tampon_siege->del($results2->idtamp, $delarray2); }
 
                                                             $reg3 = $this->input->post('gidtransite2fid');
 
@@ -21146,21 +20419,6 @@
                                                         $hr = substr($this->input->post('heuredeptitinefid'), $cde + 1, strlen($this->input->post('heuredeptitinefid')));
                                                 
                 
-                                                        $dte = date('H:i', time('H:i')+3600);
-                                                        $result = $this->db->query("SELECT p.code_passager, p.code_ticket, p.code_pro, pr.code_progr, pr.id_heur, lh.heure_identif, h.heure, pr.date_progr FROM passager p
-                                                        JOIN programme pr ON p.code_pro = pr.code_progr
-                                                        JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
-                                                        JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
-                                                        JOIN heures h ON lh.heure_identif=h.id_heure
-                                                        WHERE h.heure <= '$dte' AND pr.date_progr = '$today' AND p.code_ticket = 'R'")->result();
-                                        
-                                                        foreach ($result as $rew) {
-                                                            $plarray = array(  'num_siege_categorie' => NULL,
-                                                                'prixvente' => NULL,
-                                                                'num_cat' => NULL,
-                                                            );
-                                                            $this->m_passager->update($rew->code_passager, $rew->code_ticket, $plarray);
-                                                        }
 
                                                         $cp = $this->input->post('progcodtransfid');
                                                         $d = $this->input->post('passagersiegesitinesfid');
@@ -21174,7 +20432,7 @@
                                                         $this->m_tampon_siege->del($results->idtamp, $delarray); 
                                                                 
                                                                 
-                                                            redirect('Historique_Passagers/editpdfeptransarfi3/' . $this->session->company->ekey . '/' . $tpcdpas. '/' .$tpcdpas.'/'.$lhar.'/'.$tpcdpas1. '/' .$tpcdpas1.'/'.$fnitra1.'/'.$tpcdpas2. '/' .$tpcdpas2.'/'.$fnitras2.'/'.$tpcdpas3. '/' .$tpcdpas3.'/'.$fnitra4.'/'.$pri.'/'.$pri1.'/'.$pri2.'/'.$pri3.'/'. $gidc.'/'. $iduser.'/'. $sgid);
+                                                            $this->_sale_nonce_complete(); redirect('Historique_Passagers/editpdfeptransarfi3/' . $this->session->company->ekey . '/' . $tpcdpas. '/' .$tpcdpas.'/'.$lhar.'/'.$tpcdpas1. '/' .$tpcdpas1.'/'.$fnitra1.'/'.$tpcdpas2. '/' .$tpcdpas2.'/'.$fnitras2.'/'.$tpcdpas3. '/' .$tpcdpas3.'/'.$fnitra4.'/'.$pri.'/'.$pri1.'/'.$pri2.'/'.$pri3.'/'. $gidc.'/'. $iduser.'/'. $sgid);
                                                         }
                                                         else
                                                         {
@@ -21201,6 +20459,9 @@
                         }
                     }
                 }
+            $this->_addpassager_redirect_back(
+                'Vente non enregistrée (fidélité) : vérifiez le formulaire et cliquez EPSON.'
+            );
         }
 
         public function passagermobil($ckey)
@@ -21320,23 +20581,6 @@
                                         $lhr = substr($this->input->post('heuredeptmob'), 0, $cde);
                                         $c = $this->input->post('rclient_contactmob');
                                         
-                                        $dte = date('H:i', time('H:i')+3600);
-                                        $result = $this->db->query("SELECT p.code_passager, p.code_ticket, p.code_pro, pr.code_progr, pr.id_heur, lh.heure_identif, h.heure, pr.date_progr FROM passager p
-                                        JOIN programme pr ON p.code_pro = pr.code_progr
-                                        JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
-                                        JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
-                                        JOIN heures h ON lh.heure_identif=h.id_heure
-                                        WHERE h.heure <= '$dte' AND pr.date_progr = '$today' AND p.code_ticket = 'R'")->result();
-                        
-                                        foreach ($result as $rew) {
-                                            $plarray = array(
-                                                'num_siege_categorie' => NULL,
-                                                'prixvente' => NULL,
-                                                'num_cat' => NULL,
-                                            );
-                                            $this->m_passager->update($rew->code_passager, $rew->code_ticket, $plarray);
-                                            
-                                        }
                                         $cp = $this->input->post('progcodmob');
                                         $d = $this->input->post('passagersiegesmob');
 
@@ -21388,12 +20632,12 @@
                                         if($this->session->agent->userole === '1')
                                         {
                                         
-                                            redirect('Historique_Passagers/pdfepsonreduitad/' . $this->session->company->ekey . '/' . $tampon.'/'.$tf. '/' . $lhr.'/'.$gid. '/'.$iduser.'/'.$sgid);
+                                            $this->_sale_nonce_complete(); redirect('Historique_Passagers/pdfepsonreduitad/' . $this->session->company->ekey . '/' . $tampon.'/'.$tf. '/' . $lhr.'/'.$gid. '/'.$iduser.'/'.$sgid);
                                             
                                         }
                                         else
                                         {
-                                            redirect('Historique_Passagers/pdfepsonreduit/' . $this->session->company->ekey . '/' . $tampon.'/'.$tf. '/' . $lhr.'/'.$gid. '/'.$iduser.'/'.$sgid);
+                                            $this->_sale_nonce_complete(); redirect('Historique_Passagers/pdfepsonreduit/' . $this->session->company->ekey . '/' . $tampon.'/'.$tf. '/' . $lhr.'/'.$gid. '/'.$iduser.'/'.$sgid);
                                         }
                                             
                                     }
@@ -21457,23 +20701,6 @@
                                         $lh = substr($this->input->post('heuredeptmob'), 0, $cde);
                                         $hr = substr($this->input->post('heuredeptmob'), $cde + 1, strlen($this->input->post('heuredeptmob')));
 
-                                        $dte = date('H:i', time('H:i')+3600);
-                                        $result = $this->db->query("SELECT p.code_passager, p.code_ticket, p.code_pro, pr.code_progr, pr.id_heur, lh.heure_identif, h.heure, pr.date_progr FROM passager p
-                                        JOIN programme pr ON p.code_pro = pr.code_progr
-                                        JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
-                                        JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
-                                        JOIN heures h ON lh.heure_identif=h.id_heure
-                                        WHERE h.heure <= '$dte' AND pr.date_progr = '$today' AND p.code_ticket = 'R'")->result();
-                        
-                                        foreach ($result as $rew) {
-                                            $plarray = array(
-                                                'num_siege_categorie' => NULL,
-                                                'prixvente' => NULL,
-                                                'num_cat' => NULL,
-                                            );
-                                            $this->m_passager->update($rew->code_passager, $rew->code_ticket, $plarray);
-                                            
-                                        }
 
                                         $cp = $this->input->post('progcodmob');
                                         $d = $this->input->post('passagersiegesmob');
@@ -21524,12 +20751,12 @@
                                         if($this->session->agent->userole === '1')
                                         {
                                         
-                                            redirect('Historique_Passagers/pdfepsonreduitad/' . $this->session->company->ekey . '/' . $tampon.'/'.$tf. '/' . $lh.'/'.$gid. '/'.$iduser.'/'.$sgid);
+                                            $this->_sale_nonce_complete(); redirect('Historique_Passagers/pdfepsonreduitad/' . $this->session->company->ekey . '/' . $tampon.'/'.$tf. '/' . $lh.'/'.$gid. '/'.$iduser.'/'.$sgid);
                                         }
                                         else
                                         {
                                         
-                                            redirect('Historique_Passagers/pdfepsonreduit/' . $this->session->company->ekey . '/' . $tampon.'/'.$tf. '/' . $lh.'/'.$gid. '/'.$iduser.'/'.$sgid);
+                                            $this->_sale_nonce_complete(); redirect('Historique_Passagers/pdfepsonreduit/' . $this->session->company->ekey . '/' . $tampon.'/'.$tf. '/' . $lh.'/'.$gid. '/'.$iduser.'/'.$sgid);
                                         }
                                     }
                                     else
