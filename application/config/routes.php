@@ -51,8 +51,9 @@
     
 
             $route['default_controller'] = 'Login/ins';
+            $route['welcome/pick_gare/(:any)/(:num)/(:num)'] = 'Welcome/pick_gare/$1/$2/$3';
             $route['welcome/(:any)/(:any)'] = 'Welcome/go/$1/$2';
-            $route['home/(:num)/(:num)/(:num)'] = 'Home/go/$1/$2/$3';
+            $route['home/(:any)/(:num)/(:num)'] = 'Home/go/$1/$2/$3';
 
             /* Entreprises */
             $route['entreprises/(:num)'] = 'Entreprises/view/$1';

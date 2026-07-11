@@ -47,6 +47,10 @@
                 auth_session_login_transition_denied();
             }
 
+            if (!auth_session_validate_login_pending($uid, $this->charger['company']->ekey)) {
+                auth_session_login_transition_denied();
+            }
+
             $rw = $this->m_compte_user->pick_attribution_at_login($uid, $r);
             if (!empty($rw)) {
                 $this->load->model('Role_attribution_model', 'm_roleattribution');
@@ -65,7 +69,7 @@
             }
 
             auth_session_finalize($uid, $this->charger['agent'], $this->charger['company']);
-            auth_session_consume_login_pending($uid, $key);
+            auth_session_consume_login_pending($uid, $this->charger['company']->ekey);
             compte_arret_track_activity((int) $uid);
 
             $agentapp = $this->m_appdossier->gets($r, $uid);

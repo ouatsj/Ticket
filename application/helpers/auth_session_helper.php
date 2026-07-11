@@ -59,7 +59,7 @@ if (!function_exists('auth_session_invalidate_user')) {
 }
 
 if (!function_exists('auth_session_purge')) {
-    /** Détruit la session PHP courante (avant nouvelle connexion sur poste partagé). */
+    /** Détruit la session PHP courante (déconnexion). */
     function auth_session_purge()
     {
         $CI =& get_instance();
@@ -68,6 +68,24 @@ if (!function_exists('auth_session_purge')) {
         }
 
         $CI->session->sess_destroy();
+    }
+}
+
+if (!function_exists('auth_session_reset_for_login')) {
+    /**
+     * Nettoie l'ancienne session agent sans la détruire (conserve le cookie pour login_pending).
+     * Ne pas utiliser sess_destroy() avant issue_login_pending : la session ne serait pas réécrite.
+     */
+    function auth_session_reset_for_login()
+    {
+        $CI =& get_instance();
+        if (!isset($CI->session)) {
+            return;
+        }
+
+        foreach (array('agent', 'company', 'auth_token', 'auth_cpuser_id', 'login_pending') as $key) {
+            $CI->session->unset_userdata($key);
+        }
     }
 }
 
@@ -139,6 +157,13 @@ if (!function_exists('auth_session_login_pending_ttl')) {
     }
 }
 
+if (!function_exists('auth_session_normalize_ekey')) {
+    function auth_session_normalize_ekey($ekey)
+    {
+        return trim((string) $ekey);
+    }
+}
+
 if (!function_exists('auth_session_issue_login_pending')) {
     /**
      * Ticket temporaire après mot de passe (avant session agent complète).
@@ -153,7 +178,7 @@ if (!function_exists('auth_session_issue_login_pending')) {
         $pending = array(
             'token' => auth_session_generate_token(),
             'cpuser_id' => (int) $cpuser_id,
-            'ekey' => (string) $ekey,
+            'ekey' => auth_session_normalize_ekey($ekey),
             'expire' => time() + auth_session_login_pending_ttl(),
         );
         $CI->session->set_userdata('login_pending', $pending);
@@ -209,7 +234,7 @@ if (!function_exists('auth_session_validate_login_pending')) {
         }
 
         return (int) $pending['cpuser_id'] === (int) $cpuser_id
-            && (string) $pending['ekey'] === (string) $ekey;
+            && auth_session_normalize_ekey($pending['ekey']) === auth_session_normalize_ekey($ekey);
     }
 }
 

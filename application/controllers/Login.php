@@ -278,7 +278,7 @@
                     return;
                 }
 
-                auth_session_purge();
+                auth_session_reset_for_login();
 
                 if (password_should_rehash($detector->upassword)) {
                     $newhash = password_make($password);
