@@ -105,6 +105,10 @@
                 $viewData = array(
                     'login_error' => (bool) $this->session->flashdata('login_error'),
                     'login_error_msg' => $this->session->flashdata('login_error_msg'),
+                    'login_fresh' => $this->input->get('fresh') === '1',
+                );
+                auth_session_prepare_login_page(
+                    !empty($viewData['login_fresh']) || !empty($viewData['login_error'])
                 );
                 $this->load->view('_in/ins', $viewData);
             } else {
@@ -112,6 +116,22 @@
                 $this->logl['data'] = $this->m_personnels->get($key);
                 $this->load->view('_in/ins', $this->logl['data']);
             }
+        }
+
+        /**
+         * Lien court pour vendeurs distants : reset session + cookies puis login.
+         * URL à communiquer : https://ticket.rakietabus.com/login/reset
+         */
+        public function reset($pk = NULL)
+        {
+            if ($pk !== NULL) {
+                return;
+            }
+
+            auth_session_prepare_login_page(true);
+            auth_session_purge();
+            auth_session_expire_legacy_session_cookies();
+            redirect('login/ins?fresh=1');
         }
 
         /**

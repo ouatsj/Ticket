@@ -377,7 +377,7 @@
     |
     */
     $config['sess_driver'] = 'files';
-    $config['sess_cookie_name'] = 'rakieta_session';
+    $config['sess_cookie_name'] = 'rakieta_sess_v2';
     $config['sess_expiration'] = 28800;
     $config['sess_save_path'] = dirname(__FILE__) . '/../cache/sessions';
     $config['sess_match_ip'] = FALSE;

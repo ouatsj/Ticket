@@ -7,17 +7,20 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
     <meta name="description" content="RAKIETA • Connexion">
     <meta name="author" content="NET SOLUTIONS">
 
     <title>RAKIETA </title>
 
     <link rel="stylesheet" type="text/css"
-          href="<?= base_url('assets/lib/perfect-scrollbar/css/perfect-scrollbar.css'); ?>"/>
+          href="<?= base_url('assets/lib/perfect-scrollbar/css/perfect-scrollbar.css'); ?>?v=<?= (int) date('Ymd'); ?>"/>
     <link rel="stylesheet" type="text/css"
-          href="<?= base_url('assets/lib/material-design-icons/css/material-design-iconic-font.min.css') ?>"/>
+          href="<?= base_url('assets/lib/material-design-icons/css/material-design-iconic-font.min.css'); ?>?v=<?= (int) date('Ymd'); ?>"/>
     <link rel="stylesheet" type="text/css"
-          href="<?= base_url('assets/css/app.css'); ?>"/>
+          href="<?= base_url('assets/css/app.css'); ?>?v=<?= (int) date('Ymd'); ?>"/>
 
 <body class="be-splash-screen">
     <div class="main-content container-fluid">
@@ -28,11 +31,21 @@
                     <div class="card-body text-center">
                     
                         <span class="splash-description">Entrez vos informations de connexion.</span>
+                        <?php if (!empty($login_fresh) && empty($login_error)) : ?>
+                        <div class="alert alert-info mt-2 small">
+                            Session réinitialisée. Vous pouvez vous connecter.
+                        </div>
+                        <?php endif; ?>
                         <?php if (!empty($login_error)): ?>
                         <div class="alert alert-danger mt-2">
                             <?= !empty($login_error_msg)
                                 ? htmlspecialchars($login_error_msg, ENT_QUOTES, 'UTF-8')
                                 : 'Identifiants incorrects. Réessayez.'; ?>
+                            <div class="mt-2">
+                                <a class="btn btn-sm btn-warning" href="<?= site_url('login/reset'); ?>">
+                                    Réinitialiser la connexion
+                                </a>
+                            </div>
                         </div>
                         <?php endif; ?>
                         <div class="card-body">
@@ -75,17 +88,39 @@
             </div>
         </div>
     </div>
-<script src="<?= base_url('assets/lib/jquery/jquery.min.js'); ?>" type="text/javascript"></script>
-<script src="<?= base_url('assets/lib/perfect-scrollbar/js/perfect-scrollbar.min.js'); ?>"
+<script src="<?= base_url('assets/lib/jquery/jquery.min.js'); ?>?v=<?= (int) date('Ymd'); ?>" type="text/javascript"></script>
+<script src="<?= base_url('assets/lib/perfect-scrollbar/js/perfect-scrollbar.min.js'); ?>?v=<?= (int) date('Ymd'); ?>"
         type="text/javascript"></script>
-<script src="<?= base_url('assets/lib/bootstrap/dist/js/bootstrap.bundle.min.js'); ?>" type="text/javascript"></script>
-<script src="<?= base_url('assets/js/app.js'); ?>" type="text/javascript"></script>
+<script src="<?= base_url('assets/lib/bootstrap/dist/js/bootstrap.bundle.min.js'); ?>?v=<?= (int) date('Ymd'); ?>" type="text/javascript"></script>
+<script src="<?= base_url('assets/js/app.js'); ?>?v=<?= (int) date('Ymd'); ?>" type="text/javascript"></script>
 <script type="text/javascript">
+(function () {
+    try {
+        if (window.sessionStorage) {
+            sessionStorage.clear();
+        }
+        if (window.localStorage) {
+            var keep = ['']; 
+            var remove = [];
+            for (var i = 0; i < localStorage.length; i++) {
+                var k = localStorage.key(i);
+                if (k && (k.indexOf('rakieta') !== -1 || k.indexOf('RAKIETA') !== -1 || k.indexOf('ci_') === 0)) {
+                    remove.push(k);
+                }
+            }
+            remove.forEach(function (k) { localStorage.removeItem(k); });
+        }
+        if ('caches' in window) {
+            caches.keys().then(function (keys) {
+                keys.forEach(function (k) { caches.delete(k); });
+            }).catch(function () {});
+        }
+    } catch (e) {}
+
     $(document).ready(function () {
-        //-initialize the javascript
         App.init();
     });
-
+})();
 </script>
 </body>
 

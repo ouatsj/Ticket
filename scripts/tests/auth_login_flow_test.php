@@ -120,7 +120,7 @@ test_case('login_transition_denied pose flash et redirige', function () {
         auth_session_login_transition_denied('Test expiration');
         assert_true(false, 'redirect expected');
     } catch (AuthLoginFlowRedirectException $e) {
-        assert_same('login/ins', $e->getMessage());
+        assert_same('login/ins?fresh=1', $e->getMessage());
     }
     assert_same(1, AuthLoginFlowTestHarness::$ci->session->flashdata('login_error'));
     assert_same('Test expiration', AuthLoginFlowTestHarness::$ci->session->flashdata('login_error_msg'));

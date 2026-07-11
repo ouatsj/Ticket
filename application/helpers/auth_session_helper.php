@@ -71,6 +71,59 @@ if (!function_exists('auth_session_purge')) {
     }
 }
 
+if (!function_exists('auth_session_expire_legacy_session_cookies')) {
+    /** Expire les anciens cookies de session (postes bloqués avec session corrompue). */
+    function auth_session_expire_legacy_session_cookies()
+    {
+        if (headers_sent()) {
+            return;
+        }
+
+        $path = config_item('cookie_path') ?: '/';
+        $domain = config_item('cookie_domain') ?: '';
+        $secure = (bool) config_item('cookie_secure');
+        $past = time() - 86400;
+        $names = array(
+            'rakieta_session',
+            'rakieta_sess_v2',
+            (string) config_item('sess_cookie_name'),
+        );
+        $names = array_unique(array_filter($names));
+
+        foreach ($names as $name) {
+            setcookie($name, '', $past, $path, $domain, $secure, true);
+            setcookie($name, '', $past, $path, $domain, $secure, false);
+        }
+    }
+}
+
+if (!function_exists('auth_session_prepare_login_page')) {
+    /**
+     * Nettoie session/cookies avant affichage login (vendeurs distants, postes bloqués).
+     *
+     * @param bool $renew_session Régénère l'id session (après erreur « expirée »)
+     */
+    function auth_session_prepare_login_page($renew_session = false)
+    {
+        $CI =& get_instance();
+        auth_session_send_nocache_headers();
+        auth_session_expire_legacy_session_cookies();
+        auth_session_clear_login_pending();
+
+        if (!isset($CI->session)) {
+            return;
+        }
+
+        foreach (array('agent', 'company', 'auth_token', 'auth_cpuser_id') as $key) {
+            $CI->session->unset_userdata($key);
+        }
+
+        if ($renew_session && method_exists($CI->session, 'sess_regenerate')) {
+            $CI->session->sess_regenerate(false);
+        }
+    }
+}
+
 if (!function_exists('auth_session_reset_for_login')) {
     /**
      * Nettoie l'ancienne session agent sans la détruire (conserve le cookie pour login_pending).
@@ -265,7 +318,7 @@ if (!function_exists('auth_session_login_transition_denied')) {
             'login_error_msg',
             $message ?: 'Session de connexion expirée. Reconnectez-vous.'
         );
-        redirect('login/ins');
+        redirect('login/ins?fresh=1');
         exit;
     }
 }
