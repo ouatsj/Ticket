@@ -67,7 +67,7 @@
                 auth_session_login_transition_denied();
             }
 
-            if ($gare_id === null && $this->m_compte_user->count_gares_role($cpuser_id, $role_id) > 1) {
+            if ($gare_id === null && auth_session_requires_pick_gare_at_login($cpuser_id, $role_id)) {
                 redirect('welcome/pick_gare/' . $company->ekey . '/' . $cpuser_id . '/' . $role_id);
                 return;
             }

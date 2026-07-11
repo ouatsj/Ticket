@@ -102,8 +102,15 @@
             $ekey = (string) $this->session->company->ekey;
             $this->property['agent_userole'] = $role;
             $this->property['company_ekey'] = $ekey;
-            
-            $this->property['gares'] = $this->m_compte_user->attrib($cpuser_id, $role);
+
+            $all_gares = $this->m_compte_user->attrib($cpuser_id, $role);
+            $accueil = auth_session_filter_accueil_gares($cpuser_id, $role, $all_gares);
+            $this->property['gares'] = $accueil['gares'];
+            $this->property['accueil_gare_filtree'] = !empty($accueil['filtered']);
+            $this->property['accueil_active_garenom'] = isset($accueil['active_garenom'])
+                ? $accueil['active_garenom'] : '';
+            $this->property['accueil_changer_gare_url'] = isset($accueil['changer_gare_url'])
+                ? $accueil['changer_gare_url'] : '';
             session_release_lock();
 
             $this->property['villes'] = $this->m_villes->get();
@@ -126,6 +133,85 @@
 
             $this->property = array_merge($this->property, scripts_bundle_property('accueil'));
             $this->layout->view('index1', $this->property);
+        }
+
+        /**
+         * Changement de gare après connexion (accueil filtré, rôles non-admin).
+         */
+        public function switch_gare()
+        {
+            if (!$this->session->userdata('agent') || !$this->session->userdata('company')) {
+                redirect('login/ins');
+                return;
+            }
+
+            $cpuser_id = (int) $this->session->agent->cpuser_id;
+            $role = (int) $this->session->agent->userole;
+            $ekey = (string) $this->session->company->ekey;
+
+            if (auth_session_accueil_show_all_gares($role)) {
+                return $this->main1();
+            }
+
+            $gares = $this->m_compte_user->lookedfor1($cpuser_id, $role);
+            if (count($gares) <= 1) {
+                return $this->main1();
+            }
+
+            $viewData = array(
+                'gares' => $gares,
+                'ekey' => $ekey,
+                'cpuser_id' => $cpuser_id,
+                'userole' => $role,
+                'form_action' => 'Home/apply_gare',
+                'pick_gare_title' => 'Choisissez une autre gare',
+            );
+            if (!empty($gares[0]->type_rols)) {
+                $viewData['type_rols'] = $gares[0]->type_rols;
+            }
+
+            $this->load->view('_in/pick_gare', $viewData);
+        }
+
+        /**
+         * Applique le changement de gare (session connectée).
+         */
+        public function apply_gare($pk = null)
+        {
+            if ($pk !== null) {
+                return;
+            }
+
+            if (!$this->session->userdata('agent') || !$this->session->userdata('company')) {
+                redirect('login/ins');
+                return;
+            }
+
+            $gare_id = trim((string) $this->input->post('gare_id'));
+            $cpuser_id = (int) $this->session->agent->cpuser_id;
+            $role = (int) $this->session->agent->userole;
+
+            if ($gare_id === '') {
+                redirect('Home/switch_gare');
+                return;
+            }
+
+            $rw = $this->m_compte_user->pick_attribution_on_gare($cpuser_id, $role, $gare_id);
+            if (empty($rw)) {
+                redirect('Home/switch_gare');
+                return;
+            }
+
+            $this->load->model('Role_attribution_model', 'm_roleattribution');
+            $this->m_roleattribution->activate_exclusive($cpuser_id, $role, $rw->roleattribut);
+            $this->m_roleattribution->clear_stale_activeattrib();
+
+            $agent = $this->m_compte_user->get_on_gare($cpuser_id, $role, $gare_id);
+            if ($agent) {
+                $this->session->set_userdata('agent', $agent);
+            }
+
+            return $this->main1();
         }
     }
     

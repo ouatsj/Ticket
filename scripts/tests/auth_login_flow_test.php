@@ -183,6 +183,36 @@ test_case('force_logout efface login_pending', function () {
     assert_same(null, AuthLoginFlowTestHarness::$ci->session->userdata('agent'));
 });
 
+test_case('skips pick_gare pour admin rôles 1 et 2', function () {
+    assert_true(auth_session_skips_pick_gare_at_login('1'));
+    assert_true(auth_session_skips_pick_gare_at_login('2'));
+    assert_true(!auth_session_skips_pick_gare_at_login('6'));
+    assert_true(!auth_session_skips_pick_gare_at_login('4'));
+});
+
+test_case('filter accueil admin laisse toutes les gares', function () {
+    $all = array(
+        (object) array('guser' => 'BOB1', 'idengare' => 'BOB1', 'garenom' => 'BOB1'),
+        (object) array('guser' => 'OUA1', 'idengare' => 'OUA1', 'garenom' => 'OUA1'),
+    );
+    $result = auth_session_filter_accueil_gares(1, '1', $all);
+    assert_same(2, count($result['gares']));
+    assert_true(!$result['filtered']);
+});
+
+test_case('filter accueil vendeur ne garde que la gare active', function () {
+    AuthLoginFlowTestHarness::$ci->load('model', 'Compte_user_model');
+    $all = array(
+        (object) array('guser' => 'BOB1', 'idengare' => 'BOB1', 'garenom' => 'BOB1'),
+        (object) array('guser' => 'OUA1', 'idengare' => 'OUA1', 'garenom' => 'OUA1'),
+    );
+    $result = auth_session_filter_accueil_gares(12, '6', $all);
+    assert_same(1, count($result['gares']));
+    assert_true($result['filtered']);
+    assert_same('BOB1', $result['gares'][0]->garenom);
+    assert_same('BOB1', $result['active_garenom']);
+});
+
 test_case('flux simulé mot de passe → home sans pending après finalize', function () {
     auth_session_issue_login_pending(15, '1000');
     assert_true(auth_session_validate_login_pending(15, '1000'));

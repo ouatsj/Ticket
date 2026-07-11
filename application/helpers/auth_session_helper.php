@@ -521,6 +521,91 @@ if (!function_exists('auth_sale_require_roleattribut')) {
     }
 }
 
+if (!function_exists('auth_session_skips_pick_gare_at_login')) {
+    /** Admin / superviseur : accueil multi-gares sans écran pick_gare au login (B). */
+    function auth_session_skips_pick_gare_at_login($userole)
+    {
+        return in_array((string) $userole, array('1', '2'), true);
+    }
+}
+
+if (!function_exists('auth_session_accueil_show_all_gares')) {
+    function auth_session_accueil_show_all_gares($userole)
+    {
+        return auth_session_skips_pick_gare_at_login($userole);
+    }
+}
+
+if (!function_exists('auth_session_requires_pick_gare_at_login')) {
+    function auth_session_requires_pick_gare_at_login($cpuser_id, $userole)
+    {
+        if (auth_session_skips_pick_gare_at_login($userole)) {
+            return false;
+        }
+
+        $CI =& get_instance();
+        if (!isset($CI->m_compte_user)) {
+            $CI->load->model('Compte_user_model', 'm_compte_user');
+        }
+
+        return $CI->m_compte_user->count_gares_role((int) $cpuser_id, (int) $userole) > 1;
+    }
+}
+
+if (!function_exists('auth_session_filter_accueil_gares')) {
+    /**
+     * Accueil filtré sur la gare active pour non-admin multi-gares (A).
+     *
+     * @param int $cpuser_id
+     * @param string|int $userole
+     * @param array $all_gares
+     * @return array{gares:array,filtered:bool,active_garenom:string,changer_gare_url:string}
+     */
+    function auth_session_filter_accueil_gares($cpuser_id, $userole, array $all_gares)
+    {
+        $empty = array(
+            'gares' => $all_gares,
+            'filtered' => false,
+            'active_garenom' => '',
+            'changer_gare_url' => '',
+        );
+
+        if (auth_session_accueil_show_all_gares($userole) || count($all_gares) <= 1) {
+            return $empty;
+        }
+
+        $CI =& get_instance();
+        if (!isset($CI->m_compte_user)) {
+            $CI->load->model('Compte_user_model', 'm_compte_user');
+        }
+
+        $active = $CI->m_compte_user->active_gare_for_role((int) $cpuser_id, (int) $userole);
+        if (!$active) {
+            return $empty;
+        }
+
+        $active_id = (string) $active->guser;
+        $filtered = array();
+        foreach ($all_gares as $gare) {
+            if ((string) $gare->guser === $active_id
+                || (string) $gare->idengare === $active_id) {
+                $filtered[] = $gare;
+            }
+        }
+
+        if (empty($filtered)) {
+            return $empty;
+        }
+
+        return array(
+            'gares' => $filtered,
+            'filtered' => true,
+            'active_garenom' => isset($active->garenom) ? (string) $active->garenom : '',
+            'changer_gare_url' => site_url('Home/switch_gare'),
+        );
+    }
+}
+
 if (!function_exists('auth_session_vendeur_useroles')) {
     function auth_session_vendeur_useroles()
     {
