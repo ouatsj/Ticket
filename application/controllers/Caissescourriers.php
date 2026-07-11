@@ -1,6 +1,6 @@
 <?php defined('BASEPATH') OR exit('No direct script access allowed');
     
-class Caissescourriers extends CI_Controller
+class Caissescourriers extends MY_Controller
 {
         public $caisses;
         public $company;

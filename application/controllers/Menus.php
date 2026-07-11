@@ -1,6 +1,6 @@
 <?php defined('BASEPATH') OR exit('No direct script access allowed');
 
-    class Menus extends CI_Controller
+    class Menus extends MY_Controller
     {
         public $property = array(
             'title' => 'Menus',

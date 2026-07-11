@@ -32,26 +32,26 @@
         public function infocl($num)
         {
             return $this->db->query("SELECT cl.id_client, cl.type_client, cl.contact_client, cl.nom_client, cl.prenom_client, cl.num_CNIB, cl.date_delivre, cl.lieu_delivre FROM client cl  
-                WHERE cl.contact_client = '$num'
+                WHERE cl.contact_client = ?
                 AND cl.type_client <> 'autre'
                 AND cl.type_client <> 'eleve'
                 AND cl.type_client <> 'enfant'
                 AND cl.type_client <> 'etudiant'
                 AND cl.type_client <> 'client'
                 AND cl.type_client <> 'autrepersonnel'
-                ORDER BY cl.id_client DESC LIMIT 1")->row();
+                ORDER BY cl.id_client DESC LIMIT 1", array($num))->row();
             
         }
 
         public function infocl2($num)
         {
             return $this->db->query("SELECT cl.id_client, cl.type_client, cl.contact_client, cl.nom_client, cl.prenom_client, cl.num_CNIB, cl.date_delivre, cl.lieu_delivre FROM client cl  
-                WHERE cl.contact_client = '$num'
+                WHERE cl.contact_client = ?
                 AND cl.type_client <> 'autre'
                 AND cl.type_client <> 'eleve'
                 AND cl.type_client <> 'enfant'
                 AND cl.type_client <> 'etudiant'
-                ORDER BY cl.id_client DESC LIMIT 1")->row();
+                ORDER BY cl.id_client DESC LIMIT 1", array($num))->row();
             
         }
 
@@ -68,7 +68,7 @@
         public function getclt($cl)
         {
             return $this->db->query("SELECT * FROM client cl  
-            WHERE cl.type_client = '$cl'")->result();
+            WHERE cl.type_client = ?", array($cl))->result();
             
         }
 
@@ -111,8 +111,8 @@
         public function cl($c)
         {
             return $this->db->query("SELECT * FROM client cl
-                WHERE cl.id_client = '$c'
-                AND cl.actifclient = 1")->row();
+                WHERE cl.id_client = ?
+                AND cl.actifclient = 1", array($c))->row();
         }
     }
     /** Client_model.php **/

@@ -1,6 +1,6 @@
 <?php defined('BASEPATH') OR exit('No direct script access allowed');
 
-    class Historiquesescal extends CI_Controller
+    class Historiquesescal extends MY_Controller
     {
         public $property = array(
             'title' => 'Historiquesescal',

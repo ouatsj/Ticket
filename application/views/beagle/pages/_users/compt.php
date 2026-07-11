@@ -1,18 +1,55 @@
 <?php defined('BASEPATH') OR exit('No direct script access allowed'); ?>
 
-<div class="row">
+<div class="row" id="users-filter-list">
+    <?php if ($this->session->flashdata('compte_error')): ?>
+        <div class="col-lg-12">
+            <div class="alert alert-danger alert-dismissible" role="alert">
+                <?= htmlspecialchars($this->session->flashdata('compte_error'), ENT_QUOTES, 'UTF-8'); ?>
+                <button type="button" class="close" data-dismiss="alert" aria-label="Fermer">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+        </div>
+    <?php endif; ?>
+    <?php if ($this->session->flashdata('compte_success')): ?>
+        <div class="col-lg-12">
+            <div class="alert alert-success alert-dismissible" role="alert">
+                <?= htmlspecialchars($this->session->flashdata('compte_success'), ENT_QUOTES, 'UTF-8'); ?>
+                <button type="button" class="close" data-dismiss="alert" aria-label="Fermer">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+        </div>
+    <?php endif; ?>
     <? if (!empty($authusers)): ?>
         <div class="col-lg-12">
             <div class="card">
 
                 <div class="card-header">
-
-                    <div class="tools">
-                        <button class="btn btn-space btn-info md-trigger" data-modal="add-new-user">
-                            <span class="icon mdi mdi-plus-1 text-white"></span>
-                        </button>
+                    <div class="row align-items-center">
+                        <div class="col-md-7 col-lg-8 mb-2 mb-md-0">
+                            <div class="input-group input-group-sm">
+                                <div class="input-group-prepend">
+                                    <span class="input-group-text"><span class="mdi mdi-search"></span></span>
+                                </div>
+                                <input type="search"
+                                       class="form-control"
+                                       id="user-search-input"
+                                       data-user-filter-input="users-filter-list"
+                                       data-user-filter-label="utilisateur(s)"
+                                       placeholder="Rechercher (nom, prénom, contact, email)…"
+                                       autocomplete="off">
+                            </div>
+                        </div>
+                        <div class="col-md-3 mb-2 mb-md-0">
+                            <small id="users-filter-list-count" class="text-muted"></small>
+                        </div>
+                        <div class="col-md-2 text-md-right tools">
+                            <button class="btn btn-space btn-info md-trigger" data-modal="add-new-user">
+                                <span class="icon mdi mdi-plus-1 text-white"></span>
+                            </button>
+                        </div>
                     </div>
-
                 </div>
 
                 <div class="card-body"></div>
@@ -90,11 +127,22 @@
         </div>
         
         <? foreach ($authusers as $item): ?>
-            <div class="col-lg-3">
+            <?php
+            $compte_st = compte_arret_compte_card_status($item);
+            $user_search = strtolower(trim(
+                $item->first_name . ' ' . $item->last_name . ' '
+                . $item->phone . ' ' . $item->phone2 . ' ' . $item->email . ' '
+                . ($item->username ?? '') . ' ' . $compte_st['label'] . ' ' . $compte_st['motif']
+            ));
+            ?>
+            <div class="col-lg-3 user-filter-card" data-user-filter-item="1"
+                 data-search="<?= htmlspecialchars($user_search, ENT_QUOTES, 'UTF-8'); ?>">
 
                 <div class="card card-border card-contrast">
 
-                    <div class="card-header card-header-contrast"><?= $item->first_name; ?>
+                    <?php $this->load->view('beagle/pages/_users/_compte_status_badge', ['item' => $item]); ?>
+
+                    <div class="card-header card-header-contrast"><?= $item->first_name; ?> <?= $item->last_name; ?>
 
                         <div class="tools">
                             <a href="<?= "#?{$item->uid}&name={$item->first_name}&prenom={$item->last_name}&contact={$item->phone}&email={$item->email}"; ?>"
@@ -319,6 +367,14 @@
 
             </div>
         <? endforeach; ?>
+
+        <div class="col-lg-12" id="users-filter-list-empty" style="display: none;">
+            <div class="card card-border">
+                <div class="card-body text-center text-muted py-4">
+                    Aucun utilisateur ne correspond à votre recherche.
+                </div>
+            </div>
+        </div>
     
     <? else: ?>
         <div class="col-lg-4 offset-lg-4">

@@ -54,9 +54,11 @@
 
     <? foreach ($authcompte as $item): ?>
         <?php
+        $compte_st = compte_arret_compte_card_status($item);
         $compte_search = strtolower(trim(
             $item->first_name . ' ' . $item->last_name . ' '
-            . $item->username . ' ' . $item->phone . ' ' . $item->email
+            . $item->username . ' ' . $item->phone . ' ' . $item->email . ' '
+            . $compte_st['label'] . ' ' . $compte_st['motif']
         ));
         ?>
         <div class="col-lg-3" data-user-filter-item="1"
@@ -64,7 +66,9 @@
 
             <div class="card card-border card-contrast">
 
-                <div class="card-header card-header-contrast"><?= $item->first_name; ?>
+                <?php $this->load->view('beagle/pages/_users/_compte_status_badge', ['item' => $item]); ?>
+
+                <div class="card-header card-header-contrast"><?= $item->first_name; ?> <?= $item->last_name; ?>
 
                     <div class="tools">
                         <a href="<?= site_url('Utilisateurs/active/' . $this->session->company->ekey . '/' . $item->cpuser_id. '/' . $item->uid. '/' . $item->activer);?> "class="btn btn-space btn-secondary">
@@ -146,15 +150,15 @@
                 <div class="card-body">
                     <p>Nom:<?= $item->first_name; ?>&nbsp;<?= $item->last_name; ?></p>
                     <p class="text-danger"></p>
+                    <p>Login: <?= htmlspecialchars($item->username, ENT_QUOTES, 'UTF-8'); ?></p>
                     <p>Contact: <?= $item->phone; ?></p>
                     <p>Contact2: <?= $item->phone2; ?></p>
                     <p><?= ($item->is_conect === '1') ? '<span
                             class="icon mdi text-success">En ligne</span>' : '<span
                             class="icon mdi text-danger">Déconnecté</span>&nbsp;<i class="fas fa-power-off text-danger"></i>' ?></p>
-                    <p><?= ($item->activer === '1') ? '<span
-                            class="icon mdi text-danger">Compte désactivé</span>' : '<span
-                            class="icon mdi text-success">Compte activé</span>' ?>
-                    </p>
+                    <? if (!empty($item->derniere_activite_at)): ?>
+                    <p><small class="text-muted">Dernière activité : <?= htmlspecialchars($item->derniere_activite_at, ENT_QUOTES, 'UTF-8'); ?></small></p>
+                    <? endif; ?>
                     <? if (!empty($item->autorisation_vente_forcee) && $item->autorisation_vente_forcee === '1'): ?>
                     <p class="text-warning"><span class="icon mdi mdi-shield-check"></span>
                         Dérogation vente jusqu'au <?= htmlspecialchars($item->autorisation_vente_jusquau, ENT_QUOTES, 'UTF-8'); ?>

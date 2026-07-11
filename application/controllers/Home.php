@@ -35,11 +35,25 @@
 
         public function go($key, $uid, $r)
         {
+            $uid = (int) $uid;
+            $r = (int) $r;
+            $agent = $this->session->userdata('agent');
+            $company = $this->session->userdata('company');
+
+            // Déjà connecté : ne pas refaire activate_exclusive / recharger toute la session.
+            if ($agent && $company
+                && (int) $agent->cpuser_id === $uid
+                && (int) $agent->userole === $r
+                && (string) $company->ekey === (string) $key) {
+                return $this->main1();
+            }
+
               $this->charger['company'] = $this->m_entreprises->get_key($key);
             $rw = $this->m_compte_user->pick_attribution_at_login($uid, $r);
             if (!empty($rw)) {
                 $this->load->model('Role_attribution_model', 'm_roleattribution');
                 $this->m_roleattribution->activate_exclusive($uid, $r, $rw->roleattribut);
+                $this->m_roleattribution->clear_stale_activeattrib();
             }
             // The User logged in
             $this->charger['agent'] = $this->m_compte_user->get($uid, $r);
@@ -83,20 +97,27 @@
             $this->property['pagetitle'] = 'Accueil';
             $this->property['UPDATE_SUCCESS'] = FALSE;
             $this->property['INSERT_SUCCESS'] = FALSE;
+
+            $cpuser_id = (int) $this->session->agent->cpuser_id;
+            $role = (string) $this->session->agent->userole;
+            $ekey = (string) $this->session->company->ekey;
+            $this->property['agent_userole'] = $role;
+            $this->property['company_ekey'] = $ekey;
             
-            $this->property['gares'] = $this->m_compte_user->attrib($this->session->agent->cpuser_id, $this->session->agent->userole);
+            $this->property['gares'] = $this->m_compte_user->attrib($cpuser_id, $role);
+            session_release_lock();
+
             $this->property['villes'] = $this->m_villes->get();
             $this->property['compagnies'] = $this->m_compagnies->get();
 
-            $role = $this->session->agent->userole;
             if (in_array($role, array('1', '2', '4', '18'), TRUE)) {
                 $gare_ids = array();
                 foreach ($this->property['gares'] as $g) {
                     $gare_ids[] = $g->idengare;
                 }
                 $this->property['soldes'] = $this->m_compte_user->soldes_accueil(
-                    $this->session->company->ekey,
-                    $this->session->agent->cpuser_id,
+                    $ekey,
+                    $cpuser_id,
                     $role,
                     $gare_ids
                 );

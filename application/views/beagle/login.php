@@ -75,7 +75,7 @@
 
 </div>
 
-<? $this->load->view('_layouts/scripts'); ?>
+<? $this->load->view('_layouts/scripts_bundle', array('bundle_js' => array(), 'bundle_datatables' => false)); ?>
 </body>
 
 </html>

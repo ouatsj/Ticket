@@ -2066,6 +2066,8 @@
         
         public function create(array $data)
         {
+            $data = roleattribut_guard_apply_to_data($data, array('idoperabagage'));
+
             $this->db->insert($this->table, $data);
             return $this->db->insert_id();
         }

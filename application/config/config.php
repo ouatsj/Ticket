@@ -22,14 +22,7 @@
     | a PHP script and you can easily do that on your own.
     |
     */
-    if (!empty($_SERVER['HTTP_HOST'])) {
-        $protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
-            || (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https')
-            ? 'https' : 'http';
-        $config['base_url'] = $protocol . '://' . $_SERVER['HTTP_HOST'] . '/';
-    } else {
-        $config['base_url'] = 'https://ticket.rakietabus.com/';
-    }
+    $config['base_url'] = 'https://ticket.rakietabus.com';
     
     /*
     |--------------------------------------------------------------------------
@@ -229,7 +222,7 @@
     | your log files will fill up very fast.
     |
     */
-    $config['log_threshold'] = 0;
+    $config['log_threshold'] = 1;
     
     /*
     |--------------------------------------------------------------------------
@@ -330,7 +323,7 @@
     | https://codeigniter.com/user_guide/libraries/encryption.html
     |
     */
-    $config['encryption_key'] = '';
+    $config['encryption_key'] = 'e28b37a878455b634c5a32f223f74925';
     
     /*
     |--------------------------------------------------------------------------
@@ -383,12 +376,12 @@
     | except for 'cookie_prefix' and 'cookie_httponly', which are ignored here.
     |
     */
-    $config['sess_driver'] = 'database';
+    $config['sess_driver'] = 'files';
     $config['sess_cookie_name'] = 'rakieta_session';
-    $config['sess_expiration'] = 0;
-    $config['sess_save_path'] = 'ci_sessions';
+    $config['sess_expiration'] = 28800;
+    $config['sess_save_path'] = dirname(__FILE__) . '/../cache/sessions';
     $config['sess_match_ip'] = FALSE;
-    $config['sess_time_to_update'] = 0;
+    $config['sess_time_to_update'] = 300;
     $config['sess_regenerate_destroy'] = FALSE;
     
     /*
@@ -409,8 +402,8 @@
     $config['cookie_prefix'] = '';
     $config['cookie_domain'] = '';
     $config['cookie_path'] = '/';
-    $config['cookie_secure'] = FALSE;
-    $config['cookie_httponly'] = FALSE;
+    $config['cookie_secure'] = TRUE;
+    $config['cookie_httponly'] = TRUE;
     
     /*
     |--------------------------------------------------------------------------
@@ -454,12 +447,28 @@
     | 'csrf_regenerate' = Regenerate token on every submission
     | 'csrf_exclude_uris' = Array of URIs which ignore CSRF checks
     */
-    $config['csrf_protection'] = FALSE;
-    $config['csrf_token_name'] = 'csrf_test_name';
-    $config['csrf_cookie_name'] = 'csrf_cookie_name';
+    $config['csrf_protection'] = TRUE;
+    $config['csrf_token_name'] = 'csrf_raketa';
+    $config['csrf_cookie_name'] = 'csrf_raketa_cookie';
     $config['csrf_expire'] = 7200;
-    $config['csrf_regenerate'] = TRUE;
-    $config['csrf_exclude_uris'] = array();
+    $config['csrf_regenerate'] = FALSE;
+    $config['csrf_exclude_uris'] = array(
+        'programmes/addpassager.*',
+        'programmes/addpassagerfi.*',
+        'programmes/verif.*',
+        'programmes/sieg.*',
+        'programmes/verificode.*',
+        'programmes/verifiligne.*',
+        'programmes/verifprogramm.*',
+        'programmes/verifitine.*',
+        'programmes/chemin.*',
+        'programmes/gareprincipale.*',
+        'programmes/vente/.*',
+        'confirmation/verif.*',
+        'gares/ajax_passagers.*',
+        'login/lin_s',
+        'cdnhealth/report',
+    );
     
     /*
     |--------------------------------------------------------------------------
@@ -481,7 +490,7 @@
     | by the output class.  Do not 'echo' any values with compression enabled.
     |
     */
-    $config['compress_output'] = FALSE;
+    $config['compress_output'] = TRUE;
     
     /*
     |--------------------------------------------------------------------------

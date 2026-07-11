@@ -83,7 +83,7 @@
                                 <? foreach ($recette_stop as $item): ?>
                                     <td><?=$item->total;?></td>
                                     <td>
-                             <? if ($user_connect->userole === '18' AND $this->session->agent->userole === '4'): ?>
+                             <? if (recette_role_is_validateur_adjoint($user_connect->userole) AND recette_role_is_validateur_principal($this->session->agent->userole)): ?>
                                         <a href="<?= site_url("Arretcaisses/advaliderecette/{$this->session->company->ekey}/{$item->gexp_caiss}/{$item->idcaisse}/{$item->operavalidad}/{$conex->roleattribut}/{$bus_stop->idsousgare}"); ?>"
                                             class="btn btn-secondary btn-space <?= ($item->is_conect === '0') ? 'btn-danger' : 'btn-success'; ?> md-trigger" data-modal="">
                                             <i class="fas fa-puzzle-piece"></i>
@@ -96,7 +96,7 @@
                                             &nbsp;REJETER&nbsp;
                                         </a>
                                         <?endif;?>
-                                        <? if ($user_connect->userole === '5'AND $this->session->agent->userole === '4'): ?>
+                                        <? if (recette_role_is_saisie($user_connect->userole) AND recette_role_is_validateur_principal($this->session->agent->userole)): ?>
                                         <a href="<?= site_url("Arretcaisses/validerecette/{$this->session->company->ekey}/{$item->gexp_caiss}/{$item->idcaisse}/{$item->idopera}/{$conex->roleattribut}/{$bus_stop->idsousgare}"); ?>"
                                             class="btn btn-secondary btn-space <?= ($item->is_conect === '0') ? 'btn-danger' : 'btn-success'; ?> md-trigger" data-modal="">
                                             <i class="fas fa-puzzle-piece"></i>
@@ -109,7 +109,7 @@
                                         </a>
                                         <?endif;?>
                                         
-                                        <? if ($user_connect->userole === '5'AND $this->session->agent->userole === '18'): ?>
+                                        <? if (recette_role_is_saisie($user_connect->userole) AND recette_role_is_validateur_adjoint($this->session->agent->userole)): ?>
                                         <a href="<?= site_url("Arretcaisses/validerecette/{$this->session->company->ekey}/{$item->gexp_caiss}/{$item->idcaisse}/{$item->idopera}/{$conex->roleattribut}/{$bus_stop->idsousgare}"); ?>"
                                             class="btn btn-secondary btn-space <?= ($item->is_conect === '0') ? 'btn-danger' : 'btn-success'; ?> md-trigger" data-modal="">
                                             <i class="fas fa-puzzle-piece"></i>
@@ -170,7 +170,7 @@
                                 <? foreach ($depense_stop as $item): ?>
                                     <td><?=$item->mont;?></td>
                                     <td>
-                                        <? if ($user_connect->userole === '18' AND $this->session->agent->userole === '4'): ?>
+                                        <? if (recette_role_is_validateur_adjoint($user_connect->userole) AND recette_role_is_validateur_principal($this->session->agent->userole)): ?>
                                         <a href="<?= site_url("Arretcaisses/advalidedepense/{$this->session->company->ekey}/{$item->gexp_caiss}/{$item->idcaisse_depens}/{$item->opevalidad}/{$conex->roleattribut}/{$bus_stop->idsousgare}"); ?>"
                                             class="btn btn-secondary btn-space <?= ($item->is_conect === '0') ? 'btn-danger' : 'btn-success'; ?> md-trigger" data-modal="">
                                             <i class="fas fa-puzzle-piece"></i>
@@ -182,7 +182,7 @@
                                             &nbsp;REJETER&nbsp;
                                         </a>
                                         <?endif;?>
-                                        <? if ($user_connect->userole === '5'AND $this->session->agent->userole === '4'): ?>
+                                        <? if (recette_role_is_saisie($user_connect->userole) AND recette_role_is_validateur_principal($this->session->agent->userole)): ?>
                                         <a href="<?= site_url("Arretcaisses/validedepense/{$this->session->company->ekey}/{$item->gexp_caiss}/{$item->idcaisse_depens}/{$item->idop_dep}/{$conex->roleattribut}/{$bus_stop->idsousgare}"); ?>"
                                             class="btn btn-secondary btn-space <?= ($item->is_conect === '0') ? 'btn-danger' : 'btn-success'; ?> md-trigger" data-modal="">
                                             <i class="fas fa-puzzle-piece"></i>
@@ -194,7 +194,7 @@
                                             &nbsp;REJETER&nbsp;
                                         </a>
                                         <?endif;?>
-                                        <? if ($user_connect->userole === '5' AND $this->session->agent->userole === '18'): ?>
+                                        <? if (recette_role_is_saisie($user_connect->userole) AND recette_role_is_validateur_adjoint($this->session->agent->userole)): ?>
                                         <a href="<?= site_url("Arretcaisses/validedepense/{$this->session->company->ekey}/{$item->gexp_caiss}/{$item->idcaisse_depens}/{$item->idop_dep}/{$conex->roleattribut}/{$bus_stop->idsousgare}"); ?>"
                                             class="btn btn-secondary btn-space <?= ($item->is_conect === '0') ? 'btn-danger' : 'btn-success'; ?> md-trigger" data-modal="">
                                             <i class="fas fa-puzzle-piece"></i>

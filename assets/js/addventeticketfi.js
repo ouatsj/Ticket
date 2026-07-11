@@ -2696,55 +2696,49 @@ document.addEventListener('DOMContentLoaded', () => {
             
         //recherche d'information du client depart principal
         let inffi = document.querySelector('#rnclient_contactfid');
-        if (inffi !== null)
-            inffi.onkeyup = () => {
-                let httpInfosfi;
-                if (window.XMLHttpRequest) {
-                    httpInfosfi = new XMLHttpRequest();
-                } else if (window.ActiveXObject) {
-                    httpInfosfi = new ActiveXObject("Microsoft.XMLHTTP");
+        if (inffi !== null && inffi.dataset.guarded !== '1') {
+            inffi.dataset.guarded = '1';
+            inffi.addEventListener('keyup', () => {
+                const rawPhone = inffi.value.trim();
+                const digits = AppRequestGuard.phoneDigits(rawPhone);
+                if (digits.length < 7) {
+                    return;
                 }
-                var verificatfi = document.querySelector('#rnclient_contactfid').value;
-                
-                httpInfosfi.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifinfos/${verificatfi}`, true);
-                httpInfosfi.onload = () => {
-                    const infosfi = JSON.parse(httpInfosfi.responseText);
-                    if (infosfi == null) {
-                        document.querySelector('#rclientfid').value = "";
-                        document.querySelector('#prnclientfid').value = "";
-                        document.querySelector('#cnibfid').value = "";
-                        document.querySelector('#date_cnibfid').value = "";
-                        document.querySelector('#lieudelivrefid').value = "";
-                        document.querySelector('#pascompagniefid').value = "";
-                    } else {
-                        if (Object.entries(infosfi).length > 1) {
-                            
-                            if (infosfi.contact_client == verificatfi) {
-                                document.querySelector('#rclientfid').value = `${infosfi.nom_client}`;
-                                document.querySelector('#prnclientfid').value = `${infosfi.prenom_client}`;
-                                document.querySelector('#cnibfid').value = `${infosfi.num_CNIB}`;
-                                document.querySelector('#date_cnibfid').value = `${infosfi.date_delivre}`;
-                                document.querySelector('#lieudelivrefid').value = `${infosfi.lieu_delivre}`;
-                                document.querySelector('#pascompagniefid').value = `${infosfi.id_client}`;
-                                document.querySelector('#rclientcpfid').value = `${infosfi.nom_client}`;
-                                document.querySelector('#prnclientcpfid').value = `${infosfi.prenom_client}`;
-                                document.querySelector('#cnibcpfid').value = `${infosfi.num_CNIB}`;
-                                document.querySelector('#date_cnibcpfid').value = `${infosfi.date_delivre}`;
-                                document.querySelector('#lieudelivrecpfid').value = `${infosfi.lieu_delivre}`;
+                AppRequestGuard.debounce('verifinfosfi', () => {
+                    AppRequestGuard.getJson(
+                        window.location.origin + `${APP_ROOT}/programmes/verifinfos/${encodeURIComponent(rawPhone)}`,
+                        'verifinfosfi',
+                        (httpInfosfi) => {
+                            let infosfi = null;
+                            try {
+                                infosfi = JSON.parse(httpInfosfi.responseText);
+                            } catch (err) {
+                                return;
+                            }
+                            if (infosfi == null || Object.keys(infosfi).length < 1) {
+                                document.querySelector('#pascompagniefid').value = '';
+                                return;
+                            }
+                            if (AppRequestGuard.phonesMatch(infosfi.contact_client, rawPhone)) {
+                                document.querySelector('#rclientfid').value = `${infosfi.nom_client || ''}`;
+                                document.querySelector('#prnclientfid').value = `${infosfi.prenom_client || ''}`;
+                                document.querySelector('#cnibfid').value = `${infosfi.num_CNIB || ''}`;
+                                document.querySelector('#date_cnibfid').value = `${infosfi.date_delivre || ''}`;
+                                document.querySelector('#lieudelivrefid').value = `${infosfi.lieu_delivre || ''}`;
+                                document.querySelector('#pascompagniefid').value = `${infosfi.id_client || ''}`;
+                                document.querySelector('#rclientcpfid').value = `${infosfi.nom_client || ''}`;
+                                document.querySelector('#prnclientcpfid').value = `${infosfi.prenom_client || ''}`;
+                                document.querySelector('#cnibcpfid').value = `${infosfi.num_CNIB || ''}`;
+                                document.querySelector('#date_cnibcpfid').value = `${infosfi.date_delivre || ''}`;
+                                document.querySelector('#lieudelivrecpfid').value = `${infosfi.lieu_delivre || ''}`;
                             } else {
-                                document.querySelector('#rclientfid').value = "";
-                                document.querySelector('#prnclientfid').value = "";
-                                document.querySelector('#cnibfid').value = "";
-                                document.querySelector('#date_cnibfid').value = "";
-                                document.querySelector('#lieudelivrefid').value = "";
-                                document.querySelector('#pascompagniefid').value = "";
+                                document.querySelector('#pascompagniefid').value = '';
                             }
                         }
-                    }
-                };
-                httpInfosfi.setRequestHeader('Content-Type', 'application/json');
-                httpInfosfi.send();
-            };
+                    );
+                }, 400);
+            });
+        }
             
             let butonclicfi = document.querySelector('#idresetfid');
             if (butonclicfi !== null) {
@@ -2772,20 +2766,28 @@ document.addEventListener('DOMContentLoaded', () => {
                 e.onclick = function () {   
                     let taFormfi = document.querySelector('#tafiForm');
                     
-                    taFormfi.setAttribute('action', `${APP_ROOT}/Programmes/addpassagerfi/${e.dataset.cle_compagnie}`);   
+                    taFormfi.setAttribute('action', `${APP_ROOT}/Programmes/addpassagerfi/${e.dataset.cle_compagnie}`);
+                    AppRequestGuard.ensureNonce('#tafiForm', 'sale_nonce');
+                    AppRequestGuard.guardForm('#tafiForm');
                 }
 
-                var clique = true;
+                var tafiFormEl = document.querySelector('#tafiForm');
+                if (tafiFormEl && !tafiFormEl.dataset.salePrepared) {
+                    tafiFormEl.dataset.salePrepared = '1';
+                    tafiFormEl.addEventListener('submit', function () {
+                        AppRequestGuard.ensureNonce('#tafiForm', 'sale_nonce');
+                        AppRequestGuard.syncClientMirror([
+                            ['#rclientfi', '#rclientcpfi'],
+                            ['#prnclientfi', '#prnclientcpfi'],
+                            ['#cnibfi', '#cnibcpfi'],
+                            ['#date_cnibfi', '#date_cnibcpfi'],
+                            ['#lieudelivrefi', '#lieudelivrecpfi']
+                        ]);
+                    });
+                }
 
-                $('#bottontickfid').click(function(event) 
-                {
-                    if(clique) 
-                    {
-                        clique = false;
-                        return true;
-                    }
-                    else return false;
-                })
+                AppRequestGuard.guardForm('#tafiForm');
+                AppRequestGuard.ensureNonce('#tafiForm', 'sale_nonce');
                 
     })
 

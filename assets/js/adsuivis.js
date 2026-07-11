@@ -5,46 +5,58 @@ document.addEventListener('DOMContentLoaded', () => {
     {
         document.querySelector('h3#suiviTitlebg').innerHTML = `ENREGISTREMENT BAGAGES`;
 
+            function loadProgrammesSuiviLegacy() {
+                var selectLigne = document.querySelector('#deptscouridlignesuivi');
+                var selectDate = document.querySelector('#courdeptchoisirdatesuivi');
+                var selectProg = document.querySelector('#courdeptidprogsuivi');
+                if (!selectLigne || !selectDate || !selectProg) {
+                    return;
+                }
+
+                var ligne = parseLigneOption(selectLigne.options[selectLigne.selectedIndex].value);
+                var verifidate = selectDate.value;
+                selectProg.options.length = 1;
+
+                if (!ligne.ident || !verifidate) {
+                    return;
+                }
+
+                var httpInfoprog = new XMLHttpRequest();
+                httpInfoprog.open('GET', window.location.origin + `${APP_ROOT}/confirmation/verifprogramm/${encodeURIComponent(ligne.ident)}/${verifidate}`, true);
+                httpInfoprog.onload = function () {
+                    var resultp;
+                    try {
+                        resultp = JSON.parse(httpInfoprog.responseText);
+                    } catch (err) {
+                        return;
+                    }
+
+                    if (!resultp || !resultp.length) {
+                        selectProg.options.length = 1;
+                        return;
+                    }
+
+                    resultp.forEach(function (item) {
+                        var opt = document.createElement('option');
+                        opt.value = `${item.code_progr}/${item.heure}/${item.id_ligneheure}/${item.depart_code}`;
+                        opt.innerHTML = `${item.code_progr}/${item.heure}`;
+                        selectProg.add(opt);
+                    });
+                };
+                httpInfoprog.send();
+            }
+
+            let infolignes = document.querySelector('#deptscouridlignesuivi');
+            if (infolignes !== null) {
+                infolignes.onchange = () => {
+                    loadProgrammesSuiviLegacy();
+                };
+            }
+
             let infoligne = document.querySelector('#courdeptchoisirdatesuivi');
             if (infoligne !== null)
             infoligne.onchange = () => {
-                let httpInfoprog;
-                if (window.XMLHttpRequest) {
-                    httpInfoprog = new XMLHttpRequest();
-                } else if (window.ActiveXObject) {
-                    httpInfoprog = new ActiveXObject("Microsoft.XMLHTTP");
-                }
-                const lidligne = document.querySelector('#deptscouridlignesuivi')
-                .options[document.querySelector('#deptscouridlignesuivi').options.selectedIndex].value;
-                var lidligne1 = lidligne.split('/');
-                var lidligne2 = lidligne1[0];
-                var lidligne3 = lidligne1[1];
-                var verifidate = document.querySelector('#courdeptchoisirdatesuivi').value;
-                httpInfoprog.open('GET', window.location.origin + `${APP_ROOT}/confirmation/verifprogramm/${lidligne2}/${verifidate}`, true);
-                httpInfoprog.onload = () => {
-                    const resultp = JSON.parse(httpInfoprog.responseText);
-                    if(resultp == null){
-
-                        
-                    
-                    } else {
-                        if (Object.entries(resultp).length >= 1) 
-                        {
-                           
-                            for (let key in Object.entries(resultp)) {
-                                    let opt = document.createElement('option');
-                                    opt.value = `${resultp[key].code_progr}/${resultp[key].heure}/${resultp[key].id_ligneheure}/${resultp[key].depart_code}`;
-                                    opt.innerHTML = `${resultp[key].code_progr}/${resultp[key].heure}`;
-                                    document.querySelector('#courdeptidprogsuivi').add(opt);
-                                }
-                        } else {
-                            document.querySelector('#courdeptidprogsuivi').options.length = 1;
-                        }
-                        
-                    }
-                };
-                httpInfoprog.setRequestHeader('Content-Type', 'application/json');
-                httpInfoprog.send();
+                loadProgrammesSuiviLegacy();
                                      
             };
             let infrecubag = document.querySelector('#numcoderecu');
@@ -61,8 +73,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 const lidlignes = document.querySelector('#deptscouridlignesuivi')
                 .options[document.querySelector('#deptscouridlignesuivi').options.selectedIndex].value;
-                var lidlignes1 = lidlignes.split('/');
-                var lidlignes2 = lidlignes1[0];
+                var lidlignes2 = parseLigneOption(lidlignes).ident;
                 httpInfosbag.open('GET', window.location.origin + `${APP_ROOT}/confirmation/verifinforecus/${verificatbag}/${lidlignes2}`, true);
                 httpInfosbag.onload = () => {
                     

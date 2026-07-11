@@ -50,6 +50,45 @@
 
             parent::_load_controller_models();
         }
+
+        /**
+         * Données communes pour la liste des sous-gares (sans requêtes SQL dans la vue).
+         *
+         * @param object $conex
+         * @param int|string $entreprise_id
+         * @param int|string $gare_id
+         * @return array
+         */
+        protected function _sousgare_list_property($conex, $entreprise_id, $gare_id)
+        {
+            $this->load->helper('app_cache');
+
+            $ekey = $this->company->ekey;
+            $date_jour = mdate('%d/%m/%Y', now('UTC'));
+            $roleattribut = ($conex && !empty($conex->roleattribut)) ? $conex->roleattribut : 0;
+            $cache_key = 'sousgares_v1_' . (int) $entreprise_id . '_' . $this->db->escape_str($gare_id);
+
+            $sousgares = app_cache_remember($cache_key, 120, function () use ($entreprise_id, $gare_id) {
+                return $this->m_sousgare->get($entreprise_id, $gare_id);
+            });
+
+            foreach ($sousgares as $item) {
+                $item->voir_url = site_url(
+                    'gares/' . $ekey . '/gTc/' . $item->idengare
+                    . '/compte/' . $roleattribut . '/' . $item->idsousgare . '/' . $date_jour
+                );
+            }
+
+            return array(
+                'sousgares' => $sousgares,
+                'company_ekey' => $ekey,
+                'company_nom' => $this->company->nom_entreprise,
+                'date_jour' => $date_jour,
+                'agent_userole' => $this->session->userdata('agent')
+                    ? (string) $this->session->agent->userole
+                    : '',
+            );
+        }
         
         /**
          *
@@ -113,7 +152,11 @@
                 $this->property['pagetitle'] .= "• LISTES DES SOUSGARES <strong>•&nbsp;{$this->company->nom_entreprise}</strong>";
                 $bus_stop = $this->m_gare_depart->get($this->company->id_entreprise, $ids);
                     $this->property['bus_stop'] = $bus_stop;
-                $this->property['sousgares'] = $this->m_sousgare->get($this->company->id_entreprise, $ids);
+                session_release_lock();
+                $this->property = array_merge(
+                    $this->property,
+                    $this->_sousgare_list_property($conex, $this->company->id_entreprise, $ids)
+                );
                 return $this->layout->view('_gare/indexsousgare', $this->property);
         }
 
@@ -287,6 +330,9 @@
         public function optiongare($ckey, $gid, $type = 'sousgare', $cpus, $d = FALSE, $m = FALSE, $y = FALSE)
         {
             $this->company = $this->m_entreprises->get_key($ckey);
+            if ($this->company && !$this->session->userdata('company')) {
+                $this->session->set_userdata('company', $this->company);
+            }
 
             switch ($type) {
                 case 'sousgare':
@@ -294,15 +340,35 @@
                     $this->property['bus_stop'] = $bus_stop;
 
                     $gare_id = ($bus_stop && !empty($bus_stop->garesid)) ? $bus_stop->garesid : $gid;
-                    $conn = $this->m_compte_user->connect_gare_exclusive($this->company->ekey, $gare_id, $cpus);
+                    $gare_connect = roleattribut_guard_normalize_gare_id($this->company->ekey, $gare_id);
+                    $cpus_requested = $cpus;
+                    $conn = $this->m_compte_user->connect_gare_exclusive($this->company->ekey, $gare_connect, $cpus);
                     $cpus = $conn['cpus'];
+                    $date_seg = ($d && $m && $y) ? "{$d}/{$m}/{$y}" : mdate('%d/%m/%Y', now('UTC'));
+                    if (roleattribut_guard_redirect_if_url_mismatch(
+                        'gares/' . $ckey . '/gTs/' . $gid . '/sousgare/' . $cpus . '/' . $date_seg,
+                        $cpus_requested,
+                        $cpus
+                    )) {
+                        return;
+                    }
                     $this->property['conex'] = $conn['conex'];
                     if (!$this->property['conex']) {
-                        $this->property['conex'] = $this->m_compte_user->usget($cpus, $gare_id);
+                        $cp = (int) $this->session->agent->cpuser_id;
+                        $this->property['conex'] = $this->m_compte_user->usget($cp, $gare_id);
                     }
+                    $this->property['company_ekey'] = $this->company->ekey;
+                    session_release_lock();
 
-                    $this->property['sousgares'] = $this->m_sousgare->get($this->company->id_entreprise, $gare_id);
-                    $this->property['garedeparts'] = $this->m_sousgare->getsous($this->company->ekey, $gare_id);
+                    $this->property = array_merge(
+                        $this->property,
+                        $this->_sousgare_list_property(
+                            $this->property['conex'],
+                            $this->company->id_entreprise,
+                            $gare_id
+                        )
+                    );
+                    $this->property['layout_minimal'] = TRUE;
 
                     if ($bus_stop) {
                         $this->property['pagetitle'] .= "•{$bus_stop->garenom}&nbsp;•SOUS GARE<strong>•&nbsp;{$this->company->nom_entreprise}</strong>";
@@ -321,6 +387,9 @@
         {
             $this->load->helper('app_cache');
             $this->company = $this->m_entreprises->get_key($ckey);
+            if ($this->company && !$this->session->userdata('company')) {
+                $this->session->set_userdata('company', $this->company);
+            }
             $cid = $this->company->id_entreprise;
             $ekey = $this->company->ekey;
 
@@ -328,9 +397,26 @@
                 case 'compte':
                         $bus_stop = $this->m_sousgare->sget($ekey, $gid, $idsg);
                         $this->property['bus_stop'] = $bus_stop;
-                $conn = $this->m_compte_user->connect_gare_exclusive($ekey, $gid, $cpus);
+                        if (!$bus_stop) {
+                            redirect('gares/' . $ekey . '/gTs/' . $gid . '/sousgare/' . $cpus . '/' . mdate('%d/%m/%Y', now('UTC')));
+                            return;
+                        }
+                $cpus_requested = $cpus;
+                $gare_connect = roleattribut_guard_normalize_gare_id($ekey, $gid);
+                $conn = $this->m_compte_user->connect_gare_exclusive($ekey, $gare_connect, $cpus);
                 $cpus = $conn['cpus'];
+                $date_seg = ($d && $m && $y) ? "{$d}/{$m}/{$y}" : mdate('%d/%m/%Y', now('UTC'));
+                roleattribut_guard_redirect_if_url_mismatch(
+                    'gares/' . $ekey . '/gTc/' . $gid . '/compte/' . $cpus . '/' . $idsg . '/' . $date_seg,
+                    $cpus_requested,
+                    $cpus
+                );
                 $this->property['conex'] = $conn['conex'];
+                if (!$this->property['conex']) {
+                    $cp = (int) $this->session->agent->cpuser_id;
+                    $this->property['conex'] = $this->m_compte_user->usget($cp, $gid);
+                }
+                session_release_lock();
                         $this->property['typetarifs'] = app_cache_remember('tarifs_all', 600, function () {
                             return $this->m_tarifs->get();
                         });
@@ -477,8 +563,16 @@
                     $gare_stop = $this->m_sousgare->sget($this->company->ekey, $cdg, $sg);
                         $this->property['gare_stop'] = $gare_stop;
                     
+                    $cpus_requested = $cpus;
                     $conn = $this->m_compte_user->connect_gare_exclusive($this->company->ekey, $cdg, $cpus);
+                    $cpus = $conn['cpus'];
                     $this->property['conex'] = $conn['conex'];
+                    $date_seg = ($d && $m && $y) ? "{$d}/{$m}/{$y}" : mdate('%d/%m/%Y', now('UTC'));
+                    roleattribut_guard_redirect_if_url_mismatch(
+                        'gares/' . $this->company->ekey . '/gTv/' . $cdg . '/prog/' . $cpus . '/' . $sg . '/' . $date_seg,
+                        $cpus_requested,
+                        $cpus
+                    );
                     $this->property['heures'] = $this->m_heure->get();
                     
                     if ($this->session->agent->userole === '1' OR $this->session->agent->userole === '2'){
@@ -513,9 +607,16 @@
                         $gare_stop = $this->m_sousgare->sget($this->company->ekey, $cdg, $sg);
                         $this->property['gare_stop'] = $gare_stop;
                         
+                        $cpus_requested = $cpus;
                         $conn = $this->m_compte_user->connect_gare_exclusive($this->company->ekey, $cdg, $cpus);
                         $cpus = $conn['cpus'];
                         $this->property['conex'] = $conn['conex'];
+                        $date_seg = ($d && $m && $y) ? "{$d}/{$m}/{$y}" : mdate('%d/%m/%Y', now('UTC'));
+                        roleattribut_guard_redirect_if_url_mismatch(
+                            'gares/' . $this->company->ekey . '/gTv/' . $cdg . '/cais/' . $cpus . '/' . $sg . '/' . $date_seg,
+                            $cpus_requested,
+                            $cpus
+                        );
                         $this->property['typecaisses'] = $this->m_typecaisse->get();
                         $this->property['bus_stop'] = $bus_stop;
                         $this->property['pagetitle'] .= "• CAISSE • <strong>{$bus_stop->nom_gaep}</strong>&nbsp;•&nbsp;{$bus_stop->nom_ville}<strong>•&nbsp;{$this->company->nom_entreprise}</strong>";
@@ -536,7 +637,7 @@
             $identifiant = $this->input->post('dgare_identifiant');
             $idsg = $this->input->post('sousgareconnect');
             $idcp = $this->input->post('compconnected');
-            $iduser = $this->input->post('userconnected');
+            $iduser = roleattribut_guard_post_hint($this->company->ekey);
             $arraycais = array(
                 'gexp_caiss' => $this->input->post('dgare_identifiant'),
                 'type_caisse' => $this->input->post('typecaiss'),
@@ -557,7 +658,7 @@
             $identifiant = $this->input->post('dgare_identifiant');
             $idsg = $this->input->post('sousgareconnect');
             $idcp = $this->input->post('compconnected');
-            $iduser = $this->input->post('userconnected');
+            $iduser = roleattribut_guard_post_hint($this->company->ekey);
             $arraycais = array(
                 'gexp_caiss' => $this->input->post('dgare_identifiant'),
                 'type_caisse' => $this->input->post('typecaiss'),

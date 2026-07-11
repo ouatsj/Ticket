@@ -12,6 +12,8 @@
         
         public function create(array $data)
         {
+            $data = roleattribut_guard_apply_to_data($data, array('idop_depot', 'opvalid', 'opvalidad'));
+
             $this->db->insert($this->table, $data);
             return $this->db->insert_id();
         }
@@ -142,90 +144,36 @@
 
         public function getsous($cid, $idcais, $gid, $usc, $pk = FALSE)
         {
-            $today = mdate('%Y-%m-%d', now());
+            $sql_base = "SELECT pt.*, tp.type_personnel, gr.genre_depot, c.nom_compagnie FROM depot pt
+                LEFT JOIN type_personnel tp ON pt.typersodepot = tp.idtyperso
+                LEFT JOIN genre_depot gr ON pt.idgenre_depot = gr.id_genredepot
+                JOIN caisse cs ON pt.idcaisse_depot = cs.id_caiss
+                JOIN gare_exp ex ON cs.gexp_caiss = ex.code_gaexp
+                JOIN gares g ON ex.garesid = g.idengare
+                JOIN compagnies c ON pt.compkey_depo = c.cle_compagnie
+                JOIN entreprise e ON c.id_entrep = e.id_entreprise
+                WHERE e.ekey = '$cid'
+                AND pt.arret_caisdepo = 0
+                AND pt.actif_depo = 0
+                AND cs.id_caiss = '$idcais'
+                AND cs.gexp_caiss = '$gid'
+                AND pt.type_depot <> 'Courrier'";
+
             if ($pk === FALSE) {
                 return $this->db->query(
-                "SELECT * FROM depot pt
-                JOIN type_personnel tp ON pt.typersodepot = tp.idtyperso
-                JOIN caisse cs ON pt.idcaisse_depot = cs.id_caiss
-                JOIN gare_exp ex ON cs.gexp_caiss = ex.code_gaexp
-                JOIN gares g ON ex.garesid = g.idengare
-                JOIN compagnies c ON pt.compkey_depo = c.cle_compagnie
-                JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                WHERE e.ekey = '$cid'
-                AND pt.arret_caisdepo = 0
-                AND pt.actif_depo = 0
-                AND cs.id_caiss = '$idcais'
-                OR tp.type_personnel = 'Caissier'
-                AND tp.type_personnel = 'Chef_Guichet'
-                AND cs.gexp_caiss = '$gid'
-                AND pt.type_depot <> 'Courrier'
-                AND pt.opvalid = '$usc'
+                $sql_base . "
                 ORDER BY pt.id_depot DESC")->result();
             }
+
             return $this->db->query(
-                "SELECT * FROM depot pt
-                JOIN type_personnel tp ON pt.typersodepot = tp.idtyperso
-                JOIN caisse cs ON pt.idcaisse_depot = cs.id_caiss
-                JOIN gare_exp ex ON cs.gexp_caiss = ex.code_gaexp
-                JOIN gares g ON ex.garesid = g.idengare
-                JOIN compagnies c ON pt.compkey_depo = c.cle_compagnie
-                JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                WHERE e.ekey = '$cid'
-                AND pt.arret_caisdepo = 0
-                AND pt.actif_depo = 0
-                AND cs.id_caiss = '$idcais'
+                $sql_base . "
                 AND pt.id_depot = '$pk'
-                OR tp.type_personnel = 'Caissier'
-                AND tp.type_personnel = 'Chef_Guichet'
-                AND cs.gexp_caiss = '$gid'
-                AND pt.type_depot <> 'Courrier'
-                AND pt.opvalid = '$usc'
                 ORDER BY pt.id_depot DESC")->row();
         }
 
         public function adgetsous($cid, $idcais, $gid, $usc, $pk = FALSE)
         {
-            $today = mdate('%Y-%m-%d', now());
-            if ($pk === FALSE) {
-                return $this->db->query(
-                "SELECT * FROM depot pt
-                JOIN type_personnel tp ON pt.typersodepot = tp.idtyperso
-                JOIN caisse cs ON pt.idcaisse_depot = cs.id_caiss
-                JOIN gare_exp ex ON cs.gexp_caiss = ex.code_gaexp
-                JOIN gares g ON ex.garesid = g.idengare
-                JOIN compagnies c ON pt.compkey_depo = c.cle_compagnie
-                JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                WHERE e.ekey = '$cid'
-                AND pt.arret_caisdepo = 0
-                AND pt.actif_depo = 0
-                AND cs.id_caiss = '$idcais'
-                OR tp.type_personnel = 'Caissier'
-                AND tp.type_personnel = 'Chef_Guichet'
-                AND cs.gexp_caiss = '$gid'
-                AND pt.type_depot <> 'Courrier'
-                AND pt.opvalidad = '$usc'
-                ORDER BY pt.id_depot DESC")->result();
-            }
-            return $this->db->query(
-                "SELECT * FROM depot pt
-                JOIN type_personnel tp ON pt.typersodepot = tp.idtyperso
-                JOIN caisse cs ON pt.idcaisse_depot = cs.id_caiss
-                JOIN gare_exp ex ON cs.gexp_caiss = ex.code_gaexp
-                JOIN gares g ON ex.garesid = g.idengare
-                JOIN compagnies c ON pt.compkey_depo = c.cle_compagnie
-                JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                WHERE e.ekey = '$cid'
-                AND pt.arret_caisdepo = 0
-                AND pt.actif_depo = 0
-                AND cs.id_caiss = '$idcais'
-                AND pt.id_depot = '$pk'
-                OR tp.type_personnel = 'Caissier'
-                AND tp.type_personnel = 'Chef_Guichet'
-                AND cs.gexp_caiss = '$gid'
-                AND pt.type_depot <> 'Courrier'
-                AND pt.opvalidad = '$usc'
-                ORDER BY pt.id_depot DESC")->row();
+            return $this->getsous($cid, $idcais, $gid, $usc, $pk);
         }
 
         //autres
@@ -631,6 +579,46 @@
                 AND d.type_depot <> 'Courrier'
                 AND cs.gexp_caiss = '$gid'
                 GROUP BY cs.id_caiss, cu.cpuser_id")->result();
+        }
+
+        /** Dépôts saisis par chef guichet (role 5/16), en attente validation caissier. */
+        public function valideget_saisie($cid, $gid, $idcais, $use)
+        {
+            $today = mdate('%Y-%m-%d', now());
+            return $this->db->query("SELECT SUM(montant_depot) AS totalmont, d.idop_depot, d.idcaisse_depot, cs.gexp_caiss, cu.is_conect FROM depot d
+                JOIN attributions_role ar ON d.idop_depot = ar.roleattribut
+                JOIN user_login ul ON ar.idgestcompte = ul.uid_login
+                JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
+                JOIN gares g ON ul.guser = g.idengare
+                JOIN caisse cs ON d.idcaisse_depot = cs.id_caiss
+                JOIN gare_exp ex ON cs.gexp_caiss = ex.code_gaexp
+                JOIN compagnies c ON d.compkey_depo = c.cle_compagnie
+                JOIN entreprise e ON c.id_entrep = e.id_entreprise
+                WHERE e.ekey = '$cid'
+                AND ul.guser = '$gid'
+                AND d.arret_caisdepo = 0
+                AND d.idcaisse_depot = '$idcais'
+                AND d.idop_depot = '$use'
+                AND d.is_validdepo = 0
+                AND d.is_actifdepo = 0
+                AND d.is_actifdepoad = 0
+                AND d.datedepot <= '$today'
+                AND d.actif_depo = 0
+                AND d.type_depot <> 'Courrier'
+                AND cs.gexp_caiss = '$gid'
+                GROUP BY cs.id_caiss, cu.cpuser_id")->result();
+        }
+
+        /** Agrégat validation dépôt selon le rôle du profil affiché. */
+        public function valideget_par_profil($cid, $gid, $idcais, $use, $userole)
+        {
+            if (recette_role_is_saisie($userole)) {
+                return $this->valideget_saisie($cid, $gid, $idcais, $use);
+            }
+            if (recette_role_is_validateur_adjoint($userole)) {
+                return $this->validegead($cid, $gid, $idcais, $use);
+            }
+            return $this->valideget($cid, $gid, $idcais, $use);
         }
         //comptable
         public function validget($cid, $gid, $uc)
@@ -1467,6 +1455,46 @@
                 AND d.type_depot <> 'Courrier'
                 GROUP BY cs.id_caiss")->row();
         }
+
+        /** Liste des dépôts saisis par chef guichet (filtre idop_depot). */
+        public function ad_listdepot($cid, $idg, $idcais, $cx, $pk = FALSE)
+        {
+            if ($pk === FALSE) {
+                return $this->db->query(
+                "SELECT * FROM depot pt
+                JOIN caisse cs ON pt.idcaisse_depot = cs.id_caiss
+                JOIN gare_exp ex ON cs.gexp_caiss = ex.code_gaexp
+                JOIN gares g ON ex.garesid = g.idengare
+                JOIN compagnies c ON pt.compkey_depo = c.cle_compagnie
+                JOIN entreprise e ON c.id_entrep = e.id_entreprise
+                WHERE e.ekey = '$cid'
+                AND pt.arret_caisdepo = 0
+                AND pt.actif_depo = 0
+                AND pt.is_validdepo = 0
+                AND cs.gexp_caiss = '$idg'
+                AND cs.id_caiss = '$idcais'
+                AND pt.idop_depot = '$cx'
+                AND pt.type_depot <> 'Courrier'
+                ORDER BY pt.id_depot DESC")->result();
+            }
+            return $this->db->query(
+                "SELECT * FROM depot pt
+                JOIN caisse cs ON pt.idcaisse_depot = cs.id_caiss
+                JOIN gare_exp ex ON cs.gexp_caiss = ex.code_gaexp
+                JOIN gares g ON ex.garesid = g.idengare
+                JOIN compagnies c ON pt.compkey_depo = c.cle_compagnie
+                JOIN entreprise e ON c.id_entrep = e.id_entreprise
+                WHERE e.ekey = '$cid'
+                AND pt.arret_caisdepo = 0
+                AND pt.actif_depo = 0
+                AND pt.is_validdepo = 0
+                AND cs.gexp_caiss = '$idg'
+                AND cs.id_caiss = '$idcais'
+                AND pt.idop_depot = '$cx'
+                AND pt.id_depot = '$pk'
+                AND pt.type_depot <> 'Courrier'
+                ORDER BY pt.id_depot DESC")->row();
+        }
         public function ad_getdepot($cid, $idg, $idcais, $cx, $pk = FALSE)
         {
             
@@ -2000,6 +2028,95 @@
         }
 
         //tri depot chef guichet
+        public function trisdepot_saisie($cid, $g, $cais, $conect, $dt1, $dt2, $comp = FALSE, $typ = FALSE)
+        {
+            $typ_filter = ($typ === '') ? '' : "AND d.type_depot = '$typ'";
+            return $this->db->query(
+                "SELECT cu.username, d.type_depot, d.nom_pre, d.commentaire_depot, d.montant_depot, d.datedepot FROM depot d
+                JOIN attributions_role ar ON d.idop_depot = ar.roleattribut
+                JOIN user_login ul ON ar.idgestcompte = ul.uid_login
+                JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
+                JOIN gares g ON ul.guser = g.idengare
+                JOIN caisse cs ON d.idcaisse_depot = cs.id_caiss
+                JOIN gare_exp ex ON cs.gexp_caiss = ex.code_gaexp
+                JOIN compagnies c ON d.compkey_depo = c.cle_compagnie
+                JOIN entreprise e ON c.id_entrep = e.id_entreprise
+                WHERE e.ekey = '$cid'
+                AND d.compkey_depo = '$comp'
+                AND cs.gexp_caiss = '$g'
+                AND d.idcaisse_depot = '$cais'
+                AND d.idop_depot = '$conect'
+                AND d.actif_depo = 0
+                AND d.type_depot <> 'Courrier'
+                AND d.datedepot BETWEEN '$dt1' AND '$dt2'
+                $typ_filter
+                ORDER BY d.datedepot ASC")->result();
+        }
+
+        public function trisdepot_par_profil($cid, $g, $cais, $conect, $userole, $dt1, $dt2, $comp = FALSE, $typ = FALSE)
+        {
+            if (recette_role_is_saisie($userole)) {
+                return $this->trisdepot_saisie($cid, $g, $cais, $conect, $dt1, $dt2, $comp, $typ);
+            }
+            if (recette_role_is_validateur_adjoint($userole)) {
+                return $this->trisdepot_opvalidad($cid, $g, $cais, $conect, $dt1, $dt2, $comp, $typ);
+            }
+            if (recette_role_is_validateur_principal($userole)) {
+                return $this->trisdepot_opvalid($cid, $g, $cais, $conect, $dt1, $dt2, $comp, $typ);
+            }
+            return $this->trisdepot($cid, $g, $cais, $conect, $dt1, $dt2, $comp, $typ);
+        }
+
+        public function trisdepot_opvalid($cid, $g, $cais, $conect, $dt1, $dt2, $comp = FALSE, $typ = FALSE)
+        {
+            $typ_filter = ($typ === '') ? '' : "AND d.type_depot = '$typ'";
+            return $this->db->query(
+                "SELECT cu.username, d.type_depot, d.nom_pre, d.commentaire_depot, d.montant_depot, d.datedepot FROM depot d
+                JOIN attributions_role ar ON d.idop_depot = ar.roleattribut
+                JOIN user_login ul ON ar.idgestcompte = ul.uid_login
+                JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
+                JOIN gares g ON ul.guser = g.idengare
+                JOIN caisse cs ON d.idcaisse_depot = cs.id_caiss
+                JOIN gare_exp ex ON cs.gexp_caiss = ex.code_gaexp
+                JOIN compagnies c ON d.compkey_depo = c.cle_compagnie
+                JOIN entreprise e ON c.id_entrep = e.id_entreprise
+                WHERE e.ekey = '$cid'
+                AND d.compkey_depo = '$comp'
+                AND cs.gexp_caiss = '$g'
+                AND d.idcaisse_depot = '$cais'
+                AND d.opvalid = '$conect'
+                AND d.actif_depo = 0
+                AND d.type_depot <> 'Courrier'
+                AND d.datedepot BETWEEN '$dt1' AND '$dt2'
+                $typ_filter
+                ORDER BY d.datedepot ASC")->result();
+        }
+
+        public function trisdepot_opvalidad($cid, $g, $cais, $conect, $dt1, $dt2, $comp = FALSE, $typ = FALSE)
+        {
+            $typ_filter = ($typ === '') ? '' : "AND d.type_depot = '$typ'";
+            return $this->db->query(
+                "SELECT cu.username, d.type_depot, d.nom_pre, d.commentaire_depot, d.montant_depot, d.datedepot FROM depot d
+                JOIN attributions_role ar ON d.idop_depot = ar.roleattribut
+                JOIN user_login ul ON ar.idgestcompte = ul.uid_login
+                JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
+                JOIN gares g ON ul.guser = g.idengare
+                JOIN caisse cs ON d.idcaisse_depot = cs.id_caiss
+                JOIN gare_exp ex ON cs.gexp_caiss = ex.code_gaexp
+                JOIN compagnies c ON d.compkey_depo = c.cle_compagnie
+                JOIN entreprise e ON c.id_entrep = e.id_entreprise
+                WHERE e.ekey = '$cid'
+                AND d.compkey_depo = '$comp'
+                AND cs.gexp_caiss = '$g'
+                AND d.idcaisse_depot = '$cais'
+                AND d.opvalidad = '$conect'
+                AND d.actif_depo = 0
+                AND d.type_depot <> 'Courrier'
+                AND d.datedepot BETWEEN '$dt1' AND '$dt2'
+                $typ_filter
+                ORDER BY d.datedepot ASC")->result();
+        }
+
         public function trisdepot($cid, $g, $cais, $conect, $dt1, $dt2, $comp = FALSE, $typ = FALSE)
         {
             $usc = $this->session->agent->roleattribut;

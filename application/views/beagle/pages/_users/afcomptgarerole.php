@@ -10,7 +10,28 @@
 
             <div class="card card-table">
 
-                <div class="card-header"></div>
+                <div class="card-header">
+                    <div class="row align-items-center">
+                        <div class="col-md-8">
+                            <div class="input-group input-group-sm">
+                                <div class="input-group-prepend">
+                                    <span class="input-group-text"><span class="mdi mdi-search"></span></span>
+                                </div>
+                                <input type="search"
+                                       class="form-control"
+                                       data-user-table-filter="#table1"
+                                       data-user-table-count="#profils-gare-filter-count"
+                                       data-user-table-empty="#profils-gare-filter-empty"
+                                       data-user-filter-label="attribution(s)"
+                                       placeholder="Rechercher (utilisateur, rôle, gare)…"
+                                       autocomplete="off">
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <small id="profils-gare-filter-count" class="text-muted"></small>
+                        </div>
+                    </div>
+                </div>
 
                 <div class="card-body">
 
@@ -29,8 +50,15 @@
 
                         <tbody>
                         <? foreach ($profilusers as $us): ?>
-                            <tr>
+                            <?php
+                            $role_search = strtolower(trim(
+                                $us->username . ' ' . $us->type_rols . ' ' . $us->garenom
+                            ));
+                            ?>
+                            <tr data-user-filter-item="1"
+                                data-search="<?= htmlspecialchars($role_search, ENT_QUOTES, 'UTF-8'); ?>">
                                 <td>
+                                    <?php $this->load->view('beagle/pages/_users/_compte_status_inline', ['item' => $us]); ?>
                                     <span><?= $us->username; ?></span>
                                 </td>
 
@@ -124,6 +152,10 @@
                         </tbody>
 
                     </table>
+
+                    <p id="profils-gare-filter-empty" class="text-center text-muted py-3 mb-0" style="display: none;">
+                        Aucune attribution ne correspond à votre recherche.
+                    </p>
 
                 </div>
 

@@ -1,6 +1,6 @@
 <?php defined('BASEPATH') OR exit('No direct script access allowed');
 
-    class Render extends CI_Controller
+    class Render extends MY_Controller
     {
         public $property = array(
             'title' => 'Historiques',

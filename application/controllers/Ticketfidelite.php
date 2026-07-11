@@ -3,7 +3,7 @@
     // include the main labraries TCPDF
     require_once(APPPATH . 'libraries/tcpdf/tcpdf.php');
 
-    class Ticketfidelite extends CI_Controller
+    class Ticketfidelite extends MY_Controller
     {
         public $property = array('title' => 'FIDELITE');
         public $entreprise = stdClass::class;

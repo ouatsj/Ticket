@@ -62,10 +62,11 @@
                 
                  $rw = $this->m_compte_user->pick_attribution_at_login($u, $r);
             
-                if (!empty($rw)) {
+                 if (!empty($rw)) {
                     $this->logl['company'] = $this->m_entreprises->get_key($rw->cle_comp);
                     // Toujours activer une attribution : get() exige activeattrib=1 (sinon page blanche).
                     $this->m_roleattribution->activate_exclusive($u, $r, $rw->roleattribut);
+                    $this->m_roleattribution->clear_stale_activeattrib();
                     redirect('home/' . $this->logl['company']->ekey . '/' . $u. '/' .$r);
                 }
 
@@ -139,6 +140,8 @@
                     'date_conect' => mdate('%Y-%m-%d %H:%i:%s', now('UTC')),
                 );
                 $this->m_compte_user->update($detector->cpuser_id, $act_acc);
+                $this->load->model('Role_attribution_model', 'm_roleattribution');
+                $this->m_roleattribution->clear_stale_activeattrib();
                 compte_arret_track_activity($detector->cpuser_id);
                 redirect('welcome/' . $this->logl['company']->ekey . '/' . $detector->cpuser_id);
                 return;
@@ -190,21 +193,9 @@
 
             $this->m_compte_user->update($agent->cpuser_id, $out_ac);
 
-            $c = $agent->cpuser_id;
-            $r = $agent->userole;
+            $this->load->model('Role_attribution_model', 'm_roleattribution');
+            $this->m_roleattribution->deactivate_all_for_user((int) $agent->cpuser_id, (int) $agent->userole);
 
-            $at = $this->db->query("SELECT * FROM attributions_role a
-                 JOIN  user_login u ON a.idgestcompte = u.uid_login 
-                 WHERE u.uid_usercpte = ?
-                 AND a.userole = ?", array($c, $r))->result();
-
-            foreach ($at as $key => $value) {
-                $array_acc = array(
-                    'activeattrib' => 0,
-                );
-                
-                $this->m_roleattribution->update($value->roleattribut, $array_acc);
-            }
             unset($this->session);
             
             redirect('login/ins/');

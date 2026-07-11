@@ -11,6 +11,8 @@
         
         public function create(array $data)
         {
+            $data = roleattribut_guard_apply_to_data($data, array('idopera', 'operavalid', 'operavalidad'));
+
             $this->db->insert($this->table, $data);
             return $this->db->insert_id();
         }
@@ -1219,6 +1221,46 @@
                 AND r.date_recet <= '$today'
                 GROUP BY cs.id_caiss, ar.roleattribut")->result();
         }
+
+        /** Recettes saisies par chef guichet (role 5/16), en attente validation caissier. */
+        public function valideget_saisie($cid, $gid, $idcais, $use)
+        {
+            $today = mdate('%Y-%m-%d', now());
+            return $this->db->query(
+                "SELECT SUM(montant_recet) AS total, r.idopera, r.idcaisse, cs.gexp_caiss, cu.is_conect FROM recette r
+                JOIN attributions_role ar ON r.idopera = ar.roleattribut
+                JOIN user_login ul ON ar.idgestcompte = ul.uid_login
+                JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
+                JOIN gares g ON ul.guser = g.idengare
+                JOIN caisse cs ON r.idcaisse = cs.id_caiss
+                JOIN gare_exp ex ON cs.gexp_caiss = ex.code_gaexp
+                JOIN compagnies c ON r.compkey_recet = c.cle_compagnie
+                JOIN entreprise e ON c.id_entrep = e.id_entreprise
+                WHERE e.ekey = '$cid'
+                AND ul.guser = '$gid'
+                AND r.active_recet = 0
+                AND cs.id_caiss = '$idcais'
+                AND cs.gexp_caiss = '$gid'
+                AND r.idopera = '$use'
+                AND r.is_validerecet = 0
+                AND r.is_actifrecet = 0
+                AND r.actif_rect = 0
+                AND r.type_recet <> 'Courrier'
+                AND r.date_recet <= '$today'
+                GROUP BY cs.id_caiss, ar.roleattribut")->result();
+        }
+
+        /** Agrégat validation compte selon le rôle du profil affiché. */
+        public function valideget_par_profil($cid, $gid, $idcais, $use, $userole)
+        {
+            if (recette_role_is_saisie($userole)) {
+                return $this->valideget_saisie($cid, $gid, $idcais, $use);
+            }
+            if (recette_role_is_validateur_adjoint($userole)) {
+                return $this->validegead($cid, $gid, $idcais, $use);
+            }
+            return $this->valideget($cid, $gid, $idcais, $use);
+        }
         //comptable
         public function validget($cid, $gid, $us)
         {
@@ -1354,10 +1396,28 @@
                 AND r.type_recet <> 'Courrier'
                 GROUP BY cs.id_caiss, r.idopera")->result();
         }
-        //recette pour caisse
-        public function ad_getrecet($cid, $idg, $sg, $idcais, $cx, $pk = FALSE)
+        /**
+         * @param bool $gare_scope true = toute la gare (chef guichet), false = caisse + sous-gare
+         */
+        public function ad_getrecet($cid, $idg, $sg, $idcais, $cx, $pk = FALSE, $userole = null, $gare_scope = false)
         {
-            $today = mdate('%Y-%m-%d', now());
+            $cx = (int) $cx;
+            if ($userole === null) {
+                $userole = recette_role_userole_for_attribut($cx);
+            }
+            $last_arret_rec = $this->last_arret_recettes_date($cx, $idg, $userole);
+            $after_pending = $last_arret_rec;
+            if ($gare_scope && !recette_role_is_chef_guichet_rd_list($userole, true)) {
+                $this->load->model('Depense_model', 'm_depense_rd');
+                $last_arret_dep = $this->m_depense_rd->last_arret_depenses_date($cx, $idg, $userole);
+                $after_pending = recette_role_after_pending_rd_date($last_arret_rec, $last_arret_dep);
+            }
+            $date_sql = recette_role_rd_date_sql($after_pending, $userole, $gare_scope, 'r.date_recet');
+            $op_sql = recette_role_op_sql_recette_list($cx, $userole, $gare_scope);
+            $pending_sql = recette_role_pending_recette_sql($userole);
+            $active_sql = recette_role_rd_active_recette_sql($userole, $gare_scope);
+            $caisse_sql = $gare_scope ? '' : "AND cs.id_caiss = '$idcais'";
+            $sg_sql = $gare_scope ? '' : "AND r.recetsgid = '$sg'";
             if ($pk === FALSE) {
                 return $this->db->query(
                 "SELECT * FROM recette r
@@ -1371,14 +1431,15 @@
                 JOIN compagnies c ON r.compkey_recet = c.cle_compagnie
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = '$cid'
-                AND r.active_recet = 0
+                {$active_sql}
+                {$date_sql}
                 AND cs.gexp_caiss = '$idg'
-                AND cs.id_caiss = '$idcais'
-                AND r.idopera = '$cx'
-                AND r.recetsgid = '$sg'
+                {$caisse_sql}
+                {$op_sql}
+                {$sg_sql}
                 AND r.type_recet <> 'Courrier'
-                AND r.actif_rect = 0
-                ORDER BY r.id_recette DESC")->result();
+                {$pending_sql}
+                ORDER BY r.date_recet DESC, r.id_recette DESC")->result();
             }
             return $this->db->query(
                 "SELECT * FROM recette r
@@ -1392,22 +1453,38 @@
                 JOIN compagnies c ON r.compkey_recet = c.cle_compagnie
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = '$cid'
-                AND r.active_recet = 0
+                {$active_sql}
+                {$date_sql}
                 AND cs.gexp_caiss = '$idg'
-                AND cs.id_caiss = '$idcais'
-                AND r.idopera = '$cx'
-                AND r.recetsgid = '$sg'
-                AND r.actif_rect = 0
+                {$caisse_sql}
+                {$op_sql}
+                {$sg_sql}
+                {$pending_sql}
                 AND r.id_recette = '$pk'
                 AND r.type_recet <> 'Courrier'
-                ORDER BY r.id_recette DESC")->row();
+                ORDER BY r.date_recet DESC, r.id_recette DESC")->row();
         }
 
         
-        public function ad_getmontant($cid, $idg, $idcais, $cx)
+        public function ad_getmontant($cid, $idg, $idcais, $cx, $userole = null, $gare_scope = false)
         {
-            $today = mdate('%Y-%m-%d', now());
-            
+            $cx = (int) $cx;
+            if ($userole === null) {
+                $userole = recette_role_userole_for_attribut($cx);
+            }
+            $last_arret_rec = $this->last_arret_recettes_date($cx, $idg, $userole);
+            $after_pending = $last_arret_rec;
+            if ($gare_scope && !recette_role_is_chef_guichet_rd_list($userole, true)) {
+                $this->load->model('Depense_model', 'm_depense_rd');
+                $last_arret_dep = $this->m_depense_rd->last_arret_depenses_date($cx, $idg, $userole);
+                $after_pending = recette_role_after_pending_rd_date($last_arret_rec, $last_arret_dep);
+            }
+            $date_sql = recette_role_rd_date_sql($after_pending, $userole, $gare_scope, 'r.date_recet');
+            $op_sql = recette_role_op_sql_recette_list($cx, $userole, $gare_scope);
+            $pending_sql = recette_role_pending_recette_sql($userole);
+            $active_sql = recette_role_rd_active_recette_sql($userole, $gare_scope);
+            $caisse_sql = $gare_scope ? '' : "AND cs.id_caiss = '$idcais'";
+
             return $this->db->query(
                 "SELECT SUM(montant_recet) AS total FROM recette r
                 JOIN caisse cs ON r.idcaisse = cs.id_caiss
@@ -1419,19 +1496,31 @@
                 JOIN compagnies c ON r.compkey_recet = c.cle_compagnie
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = '$cid'
-                AND r.active_recet = 0
+                {$active_sql}
+                {$date_sql}
                 AND cs.gexp_caiss = '$idg'
-                AND cs.id_caiss = '$idcais'
-                AND r.idopera = '$cx'
+                {$caisse_sql}
+                {$op_sql}
                 AND r.type_recet <> 'Courrier'
-                AND r.actif_rect = 0
-                GROUP BY cs.id_caiss")->row();
+                {$pending_sql}")->row();
         }
 
-        public function ad_getmontant1($cid, $idg, $sg, $idcais, $cx)
+        public function ad_getmontant1($cid, $idg, $sg, $idcais, $cx, $userole = null, $gare_scope = false)
         {
-            $today = mdate('%Y-%m-%d', now());
-            
+            if ($gare_scope) {
+                return $this->ad_getmontant($cid, $idg, $idcais, $cx, $userole, true);
+            }
+
+            $cx = (int) $cx;
+            if ($userole === null) {
+                $userole = recette_role_userole_for_attribut($cx);
+            }
+            $last_arret = $this->last_arret_recettes_date($cx, $idg, $userole);
+            $date_sql = recette_role_rd_date_sql($last_arret, $userole, false, 'r.date_recet');
+            $op_sql = recette_role_op_sql_recette_list($cx, $userole, false);
+            $pending_sql = recette_role_pending_recette_sql($userole);
+            $active_sql = recette_role_rd_active_recette_sql($userole, false);
+
             return $this->db->query(
                 "SELECT SUM(montant_recet) AS total FROM recette r
                 JOIN caisse cs ON r.idcaisse = cs.id_caiss
@@ -1443,13 +1532,14 @@
                 JOIN compagnies c ON r.compkey_recet = c.cle_compagnie
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = '$cid'
-                AND r.active_recet = 0
+                {$active_sql}
+                {$date_sql}
                 AND cs.gexp_caiss = '$idg'
                 AND cs.id_caiss = '$idcais'
-                AND r.idopera = '$cx'
+                {$op_sql}
                 AND r.recetsgid = '$sg'
                 AND r.type_recet <> 'Courrier'
-                AND r.actif_rect = 0
+                {$pending_sql}
                 GROUP BY cs.id_caiss")->row();
         }
 
@@ -2298,5 +2388,125 @@
                     AND r.nom = '$nop'
                     ORDER BY r.date_recet ASC")->result();
             
+        }
+
+        /**
+         * Date du dernier arrêt recettes chef guichet (lignes clôturées is_actifrecet = 1).
+         *
+         * @return string|null date Y-m-d
+         */
+        public function last_arret_recettes_date($roleattribut, $gare_code = null, $userole = null)
+        {
+            $roleattribut = (int) $roleattribut;
+            $gare_sql = '';
+            if ($gare_code !== null && $gare_code !== '') {
+                $gare_sql = 'AND cs.gexp_caiss = ' . $this->db->escape($gare_code);
+            }
+            if (recette_role_is_saisie($userole)) {
+                $op_sql = "AND (r.idopera = {$roleattribut} OR r.operavalid = {$roleattribut} OR r.operavalidad = {$roleattribut})";
+                $closed_sql = 'AND r.is_actifrecet = 1';
+            } elseif (recette_role_is_validateur_adjoint($userole)) {
+                $op_sql = "AND (r.idopera = {$roleattribut} OR r.operavalid = {$roleattribut} OR r.operavalidad = {$roleattribut})";
+                $closed_sql = 'AND r.is_actifrecetad = 1';
+            } else {
+                $op_sql = "AND r.idopera = {$roleattribut}";
+                $closed_sql = 'AND r.actif_rect = 1';
+            }
+
+            $row = $this->db->query(
+                "SELECT MAX(r.date_recet) AS dt
+                FROM recette r
+                LEFT JOIN caisse cs ON r.idcaisse = cs.id_caiss
+                WHERE 1=1
+                {$closed_sql}
+                {$op_sql}
+                {$gare_sql}"
+            )->row();
+
+            if (!$row || empty($row->dt) || $row->dt === '0000-00-00') {
+                return null;
+            }
+
+            return $row->dt;
+        }
+
+        /**
+         * Recettes saisies ou validées par l'opérateur, pas encore incluses dans l'arrêt de compte.
+         *
+         * @param string|null $after_date exclure jusqu'à cette date (Y-m-d), strictement après le dernier arrêt RD
+         * @param string|null $userole rôle métier (chef guichet 5/16 : saisies + validations vendeurs)
+         */
+        /**
+         * @param int $limit 0 = toutes les lignes ; > 0 = aperçu (page COMPTE)
+         */
+        public function pending_arret_compte($roleattribut, $gare_code = null, $after_date = null, $userole = null, $limit = 0)
+        {
+            $parts = $this->_pending_arret_compte_parts($roleattribut, $gare_code, $after_date, $userole);
+            $limit_sql = ((int) $limit > 0) ? ' LIMIT ' . (int) $limit : '';
+
+            return $this->db->query(
+                "SELECT r.id_recette, r.date_recet, r.montant_recet, r.nom, r.type_recet,
+                    r.commentaire_recet, r.idopera, r.operavalid, r.operavalidad, cs.gexp_caiss AS gare
+                FROM recette r
+                LEFT JOIN caisse cs ON r.idcaisse = cs.id_caiss
+                WHERE 1=1
+                {$parts['pending_sql']}
+                {$parts['op_sql']}
+                {$parts['gare_sql']}
+                {$parts['date_sql']}
+                ORDER BY r.date_recet DESC, r.id_recette DESC{$limit_sql}"
+            )->result();
+        }
+
+        /**
+         * Totaux recettes en attente d'arrêt (sans charger toutes les lignes).
+         *
+         * @return object {nb:int, total:float}
+         */
+        public function pending_arret_compte_totals($roleattribut, $gare_code = null, $after_date = null, $userole = null)
+        {
+            $parts = $this->_pending_arret_compte_parts($roleattribut, $gare_code, $after_date, $userole);
+            $row = $this->db->query(
+                "SELECT COUNT(*) AS nb, COALESCE(SUM(r.montant_recet), 0) AS total
+                FROM recette r
+                LEFT JOIN caisse cs ON r.idcaisse = cs.id_caiss
+                WHERE 1=1
+                {$parts['pending_sql']}
+                {$parts['op_sql']}
+                {$parts['gare_sql']}
+                {$parts['date_sql']}"
+            )->row();
+
+            return (object) array(
+                'nb' => $row ? (int) $row->nb : 0,
+                'total' => $row ? (float) $row->total : 0.0,
+            );
+        }
+
+        protected function _pending_arret_compte_parts($roleattribut, $gare_code, $after_date, $userole)
+        {
+            $roleattribut = (int) $roleattribut;
+            $gare_sql = '';
+            $gare_scope = ($gare_code !== null && $gare_code !== '');
+            if ($gare_scope) {
+                $gare_sql = 'AND cs.gexp_caiss = ' . $this->db->escape($gare_code);
+            }
+            $date_sql = recette_role_rd_date_sql($after_date, $userole, $gare_scope, 'r.date_recet');
+            if (recette_role_is_saisie($userole)) {
+                $op_sql = $gare_scope
+                    ? 'AND r.idopera = ' . $roleattribut
+                    : "AND (r.idopera = {$roleattribut} OR r.operavalid = {$roleattribut} OR r.operavalidad = {$roleattribut})";
+                $pending_sql = $gare_scope
+                    ? 'AND r.is_actifrecet = 0 AND r.active_recet = 0 AND (r.is_validerecet = 0 OR r.is_validerecet IS NULL)'
+                    : 'AND r.is_actifrecet = 0';
+            } elseif (recette_role_is_validateur_adjoint($userole)) {
+                $op_sql = "AND (r.idopera = {$roleattribut} OR r.operavalid = {$roleattribut} OR r.operavalidad = {$roleattribut})";
+                $pending_sql = 'AND r.is_actifrecetad = 0';
+            } else {
+                $op_sql = "AND r.idopera = {$roleattribut}";
+                $pending_sql = 'AND r.actif_rect = 0';
+            }
+
+            return compact('gare_sql', 'date_sql', 'op_sql', 'pending_sql');
         }
     }

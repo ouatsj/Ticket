@@ -9,7 +9,16 @@
 define('BASEPATH', dirname(__DIR__, 2) . '/system/');
 define('ENVIRONMENT', getenv('CI_ENV') ?: 'production');
 
+if (!defined('APPPATH')) {
+    define('APPPATH', dirname(__DIR__, 2) . '/application/');
+}
+
 require dirname(__DIR__, 2) . '/application/helpers/compte_arret_helper.php';
+
+if (!compte_arret_inactivite_cron_enabled()) {
+    echo date('Y-m-d H:i:s') . " — cron inactivité désactivé (compte_arret_inactivite_cron = FALSE)\n";
+    exit(0);
+}
 
 $mysqli = (function () {
     require __DIR__ . '/../db/_bootstrap.php';

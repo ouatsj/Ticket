@@ -1,6 +1,6 @@
 <?php defined('BASEPATH') OR exit('No direct script access allowed');
 
-    class Tarifs extends CI_Controller
+    class Tarifs extends MY_Controller
     {
         public $property = array(
             'title' => 'Tarif',
@@ -59,11 +59,11 @@
         
         public function add($ckey)
         {
+            $this->company = $this->m_entreprises->get_key($ckey);
             $u = $this->input->post('compconnected');
             $g = $this->input->post('gareconnect');
             $sg = $this->input->post('sousgareconnect');
-            $iduser = $this->input->post('userconnected');
-            $this->company = $this->m_entreprises->get_key($ckey);
+            $iduser = roleattribut_guard_post_hint($this->company->ekey);
 
             $gare_posd = strpos($this->input->post('itineraire'), '.');
             
@@ -113,7 +113,7 @@
             $g = $this->input->post('gareconnect');
             $sg = $this->input->post('sousgareconnect');
 
-            $iduser = $this->input->post('userconnected');
+            $iduser = roleattribut_guard_post_hint($this->company->ekey);
             $gare_posd = strpos($this->input->post('itineraire'), '.');
             
             $sub_gdp = substr($this->input->post('itineraire'), 0, $gare_posd);

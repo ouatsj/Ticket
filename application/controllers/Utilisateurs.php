@@ -14,6 +14,34 @@
             setlocale(LC_TIME, 'fr_FR', 'fra');
             $this->property['pagetitle'] = utf8_encode(strftime("%d %b %G", now()));
         }
+
+        /**
+         * Opérateurs validation recette arrêt compte : idopera = chef, pas le vendeur (compt_id).
+         *
+         * @return array{idopera:int,iduser_nav:string,operavalid:int|null}
+         */
+        protected function _validerecette_resolve_operators($gare_id, $vendor_roleattribut)
+        {
+            $idopera = validerecette_resolve_idopera(
+                $this->company->ekey,
+                $gare_id,
+                $vendor_roleattribut
+            );
+
+            return array(
+                'idopera' => $idopera,
+                'iduser_nav' => (string) $idopera,
+                'operavalid' => validerecette_operavalid_caissier($this->company->ekey, $gare_id),
+            );
+        }
+
+        /** Vendeur cible + appelant chef pour validation arrêt compte. */
+        protected function _bind_validerecette_vendeur($gare_id, $compt_id)
+        {
+            $bind = chef_validerecette_vendeur_bind($this->company->ekey, $gare_id, $compt_id);
+
+            return (string) $bind['vendor_ra'];
+        }
         
         
         
@@ -100,9 +128,11 @@
         public function profilcaisse($ckey, $gid, $iop, $idsg, $us, $j, $m, $a)
         {
             $this->company = $this->m_entreprises->get_key($ckey);
+            $bind = caissier_principale_chef_bind($this->company->ekey, $gid, $iop, $us);
+            $iop = $bind['caissier_ra'];
+            $us = $bind['chef_ra'];
 
-                
-                $conex = $this->m_compte_user->getusergare($this->company->ekey, $gid, $iop);
+                $conex = $bind['caissier_conex'] ?: $this->m_compte_user->getusergare($this->company->ekey, $gid, $iop);
                     $this->property['conex'] = $conex;
 
                 $connex = $this->m_compte_user->getusergar($this->company->ekey, $gid, $us);
@@ -132,10 +162,13 @@
         public function recettecaisse($ckey, $gid, $ad, $idsg, $uc, $j, $m, $a)
         {
             $this->company = $this->m_entreprises->get_key($ckey);
+            $bind = caissier_principale_chef_bind($this->company->ekey, $gid, $ad, $uc);
+            $ad = $bind['caissier_ra'];
+            $uc = $bind['chef_ra'];
 
                     $gare_stop = $this->m_sousgare->sget($this->company->ekey, $gid, $idsg);
                         $this->property['gare_stop'] = $gare_stop;
-                $conex = $this->m_compte_user->getusergare($this->company->ekey, $gid, $ad);
+                $conex = $bind['caissier_conex'] ?: $this->m_compte_user->getusergare($this->company->ekey, $gid, $ad);
                 $this->property['conex'] = $conex;
                     $connex = $this->m_compte_user->getusergar($this->company->ekey, $gid, $uc);
                 $this->property['connex'] = $connex;
@@ -152,10 +185,13 @@
         public function depensecaisse($ckey, $gid, $ad, $idsg, $uc, $j, $m, $a)
         {
             $this->company = $this->m_entreprises->get_key($ckey);
+            $bind = caissier_principale_chef_bind($this->company->ekey, $gid, $ad, $uc);
+            $ad = $bind['caissier_ra'];
+            $uc = $bind['chef_ra'];
 
                 $gare_stop = $this->m_sousgare->sget($this->company->ekey, $gid, $idsg);
                 $this->property['gare_stop'] = $gare_stop;
-                $conex = $this->m_compte_user->getusergare($this->company->ekey, $gid, $ad);
+                $conex = $bind['caissier_conex'] ?: $this->m_compte_user->getusergare($this->company->ekey, $gid, $ad);
                 $this->property['conex'] = $conex;
 
                     $connex = $this->m_compte_user->getusergar($this->company->ekey, $gid, $uc);
@@ -250,10 +286,13 @@
         public function depotcaisse($ckey, $gid, $ad, $idsg, $uc, $j, $m, $a)
         {
             $this->company = $this->m_entreprises->get_key($ckey);
+            $bind = caissier_principale_chef_bind($this->company->ekey, $gid, $ad, $uc);
+            $ad = $bind['caissier_ra'];
+            $uc = $bind['chef_ra'];
 
                 $gare_stop = $this->m_sousgare->sget($this->company->ekey, $gid, $idsg);
                         $this->property['gare_stop'] = $gare_stop;
-                $conex = $this->m_compte_user->getusergare($this->company->ekey, $gid, $ad);
+                $conex = $bind['caissier_conex'] ?: $this->m_compte_user->getusergare($this->company->ekey, $gid, $ad);
                 $this->property['conex'] = $conex;
                 $connex = $this->m_compte_user->getusergar($this->company->ekey, $gid, $uc);
                 $this->property['connex'] = $connex;
@@ -272,10 +311,13 @@
         public function versemetcaisse($ckey, $gid, $ad, $idsg, $uc, $j, $m, $a)
         {
             $this->company = $this->m_entreprises->get_key($ckey);
+            $bind = caissier_principale_chef_bind($this->company->ekey, $gid, $ad, $uc);
+            $ad = $bind['caissier_ra'];
+            $uc = $bind['chef_ra'];
 
                     $gare_stop = $this->m_sousgare->sget($this->company->ekey, $gid, $idsg);
                         $this->property['gare_stop'] = $gare_stop;
-                $conex = $this->m_compte_user->getusergare($this->company->ekey, $gid, $ad);
+                $conex = $bind['caissier_conex'] ?: $this->m_compte_user->getusergare($this->company->ekey, $gid, $ad);
                 $this->property['conex'] = $conex;
                 $connex = $this->m_compte_user->getusergar($this->company->ekey, $gid, $uc);
                 $this->property['connex'] = $connex;
@@ -292,32 +334,44 @@
         public function viewcaissier($ckey, $gid, $idcai, $idcpus, $idop, $idsg, $j, $m, $a)
         {
             $this->company = $this->m_entreprises->get_key($ckey);
-                
-                    $bus_stop = $this->m_sousgare->sget($this->company->ekey, $gid, $idsg);
-            $this->property['bus_stop'] = $bus_stop;
-                $user_connect = $this->m_compte_user->usergare($this->company->ekey, $gid, $idcpus);
-                $conex = $this->m_compte_user->usget1($idop, $gid);
-                    $this->property['conex'] = $conex;
-                    
-                    $caisseident = $this->m_caisse->get($this->company->id_entreprise, $gid, $idcai);
-                    $this->property['caisseident'] = $caisseident;
-                    $this->property['user_connect'] = $user_connect;
-                $this->property['comptejours'] = $this->m_compte_user->caissejours($this->company->ekey, $gid, $idcai, $idcpus);
-                $this->property['typedocuments'] = $this->m_typedocument->get();
 
-                $this->property['recette_stop'] = $this->m_recette->valideget_par_profil($this->company->ekey, $gid, $idcai, $idcpus, $user_connect->userole);
-                $this->property['depense_stop'] = $this->m_depense->valideget_par_profil($this->company->ekey, $gid, $idcai, $idcpus, $user_connect->userole);
-                $this->property['depot_stop'] = $this->m_depot->valideget_par_profil($this->company->ekey, $gid, $idcai, $idcpus, $user_connect->userole);
-                    $this->property['compagnies'] = $this->m_compagnies->get();
-                $this->property['pagetitle'] .= "• VALIDATION COMPTE • <strong>{$user_connect->username}</strong>•&nbsp;{$user_connect->garenom}<strong>•&nbsp;{$this->company->nom_entreprise}•&nbsp;{$user_connect->type_rols}</strong>";
-                return $this->layout->view('_caisse/indexcompte', $this->property);
+            $bind = caissier_validation_bind_operateurs($this->company->ekey, $gid, $idcpus, $idop, array(
+                'idcai' => $idcai,
+                'idsg' => $idsg,
+            ));
+            $idcpus = $bind['chef_ra'];
+            $idop = $bind['caissier_ra'];
+
+            $bus_stop = $this->m_sousgare->sget($this->company->ekey, $gid, $idsg);
+            $this->property['bus_stop'] = $bus_stop;
+            $user_connect = $this->m_compte_user->usergare($this->company->ekey, $gid, $idcpus);
+            $conex = $bind['caissier_conex'];
+            if (!$conex) {
+                $conex = $this->m_compte_user->usget1($idop, $gid);
+            }
+            $this->property['conex'] = $conex;
+
+            $caisseident = $this->m_caisse->get($this->company->id_entreprise, $gid, $idcai);
+            $this->property['caisseident'] = $caisseident;
+            $this->property['user_connect'] = $user_connect;
+            $this->property['comptejours'] = $this->m_compte_user->caissejours($this->company->ekey, $gid, $idcai, $idcpus);
+            $this->property['typedocuments'] = $this->m_typedocument->get();
+
+            $this->property['recette_stop'] = $this->m_recette->valideget_par_profil($this->company->ekey, $gid, $idcai, $idcpus, $user_connect->userole);
+            $this->property['depense_stop'] = $this->m_depense->valideget_par_profil($this->company->ekey, $gid, $idcai, $idcpus, $user_connect->userole);
+            $this->property['depot_stop'] = $this->m_depot->valideget_par_profil($this->company->ekey, $gid, $idcai, $idcpus, $user_connect->userole);
+            $this->property['compagnies'] = $this->m_compagnies->get();
+            $this->property['pagetitle'] .= "• VALIDATION COMPTE • <strong>{$user_connect->username}</strong>•&nbsp;{$user_connect->garenom}<strong>•&nbsp;{$this->company->nom_entreprise}•&nbsp;{$user_connect->type_rols}</strong>";
+            return $this->layout->view('_caisse/indexcompte', $this->property);
 
         }
 
         public function viewcaiss($ckey, $gid, $idcai, $idcpus, $j, $m, $a)
         {
             $this->company = $this->m_entreprises->get_key($ckey);
-            
+            $bind = chef_guichet_self_bind($this->company->ekey, $gid, $idcpus);
+            $idcpus = $bind['chef_ra'];
+
                 $user_connect = $this->m_compte_user->usergare($this->company->ekey, $gid, $idcpus);
                     $caisseident = $this->m_caisse->get($this->company->id_entreprise, $gid, $idcai);
                     $this->property['caisseident'] = $caisseident;
@@ -340,7 +394,10 @@
                         WHERE s.gareprinceid = '$identifiant_gare'")->row();
 
             $this->company = $this->m_entreprises->get_key($ckey);
-            $iduser = $this->input->post('userconnected');
+            $compt_id = $this->_bind_validerecette_vendeur($identifiant_gare, $compt_id);
+            $validOps = $this->_validerecette_resolve_operators($identifiant_gare, $compt_id);
+            $iduser = $validOps['iduser_nav'];
+            $idopera_recette = $validOps['idopera'];
             $sgid = $this->input->post('sousgareconnect');
             $idcmpt = $this->input->post('compconnected');           
             $caisi= $this->input->post('idgar');
@@ -463,7 +520,7 @@
                     'compkey_recet' => $this->input->post('idcompa'),
                     'recetsgid' => $idsoug,
                     'type_recet' => $this->input->post('interne'),
-                    'idopera' => $iduser,
+                    'idopera' => $idopera_recette,
                     'nom' => $this->input->post('nom'),
                     'montant_recet' => $this->input->post('montantverse'),
                     'commentaire_recet' => $this->input->post('comment'),
@@ -484,7 +541,7 @@
                         'active_recet' => 1, 
                         'is_validerecet' => 1, 
                         'is_actifrecet' => 1,
-                        'operavalid' => $iduser,
+                        'operavalid' => $validOps['operavalid'] ?: $idopera_recette,
                     );
                         $this->m_recette->update($recette, $array);
 
@@ -506,7 +563,10 @@
                         WHERE s.gareprinceid = '$identifiant_gare'")->row();
 
             $this->company = $this->m_entreprises->get_key($ckey);
-            $iduser = $this->input->post('userconnected');
+            $compt_id = $this->_bind_validerecette_vendeur($identifiant_gare, $compt_id);
+            $validOps = $this->_validerecette_resolve_operators($identifiant_gare, $compt_id);
+            $iduser = $validOps['iduser_nav'];
+            $idopera_recette = $validOps['idopera'];
             $sgid = $this->input->post('sousgareconnect');
             $idcmpt = $this->input->post('compconnected');           
             $caisi= $this->input->post('idgar');
@@ -535,7 +595,7 @@
                     'compkey_recet' => $this->input->post('idcompa'),
                     'recetsgid' => $idsoug,
                     'type_recet' => $this->input->post('interne'),
-                    'idopera' => $iduser,
+                    'idopera' => $idopera_recette,
                     'nom' => $this->input->post('nom'),
                     'montant_recet' => $this->input->post('montantverse'),
                     'commentaire_recet' => $this->input->post('comment'),
@@ -556,7 +616,7 @@
                         'active_recet' => 1, 
                         'is_validerecet' => 1, 
                         'is_actifrecet' => 1,
-                        'operavalid' => $iduser,
+                        'operavalid' => $validOps['operavalid'] ?: $idopera_recette,
                     );
                         $this->m_recette->update($recette, $array);
 
@@ -579,7 +639,10 @@
             $sgares = $this->db->query("SELECT count(idsousgare) AS sog FROM sousgare s WHERE s.gareprinceid = '$identifiant_gare'")->row();
 
             $this->company = $this->m_entreprises->get_key($ckey);
-            $iduser = $this->input->post('userconnected');
+            $compt_id = $this->_bind_validerecette_vendeur($identifiant_gare, $compt_id);
+            $validOps = $this->_validerecette_resolve_operators($identifiant_gare, $compt_id);
+            $iduser = $validOps['iduser_nav'];
+            $idopera_recette = $validOps['idopera'];
             $sgid = $this->input->post('sousgareconnect');
             $idcmpt = $this->input->post('compconnected');           
             $caisi= $this->input->post('idgar');
@@ -625,7 +688,7 @@
                     'compkey_recet' => $this->input->post('idcompa'),
                     'recetsgid' => $idsoug,
                     'type_recet' => $this->input->post('interne'),
-                    'idopera' => $iduser,
+                    'idopera' => $idopera_recette,
                     'nom' => $this->input->post('nom'),
                     'montant_recet' => $this->input->post('montantverse'),
                     'commentaire_recet' => $this->input->post('comment'),
@@ -646,7 +709,7 @@
                         'active_recet' => 1, 
                         'is_validerecet' => 1, 
                         'is_actifrecet' => 1,
-                        'operavalid' => $iduser,
+                        'operavalid' => $validOps['operavalid'] ?: $idopera_recette,
                     );
                         $this->m_recette->update($recette, $array);
 
@@ -667,7 +730,10 @@
             $sgares = $this->db->query("SELECT count(idsousgare) AS sog FROM sousgare s WHERE s.gareprinceid = '$identifiant_gare'")->row();
 
             $this->company = $this->m_entreprises->get_key($ckey);
-            $iduser = $this->input->post('userconnected');
+            $compt_id = $this->_bind_validerecette_vendeur($identifiant_gare, $compt_id);
+            $validOps = $this->_validerecette_resolve_operators($identifiant_gare, $compt_id);
+            $iduser = $validOps['iduser_nav'];
+            $idopera_recette = $validOps['idopera'];
             $sgid = $this->input->post('sousgareconnect');
             $idcmpt = $this->input->post('compconnected');           
             $caisi= $this->input->post('idgar');
@@ -713,7 +779,7 @@
                     'compkey_recet' => $this->input->post('idcompa'),
                     'recetsgid' => $idsoug,
                     'type_recet' => $this->input->post('interne'),
-                    'idopera' => $iduser,
+                    'idopera' => $idopera_recette,
                     'nom' => $this->input->post('nom'),
                     'montant_recet' => $this->input->post('montantverse'),
                     'commentaire_recet' => $this->input->post('comment'),
@@ -734,7 +800,7 @@
                         'active_recet' => 1, 
                         'is_validerecet' => 1, 
                         'is_actifrecet' => 1,
-                        'operavalid' => $iduser,
+                        'operavalid' => $validOps['operavalid'] ?: $idopera_recette,
                     );
                         $this->m_recette->update($recette, $array);
 
@@ -752,6 +818,9 @@
         public function profi($ckey, $gid, $isg, $ad, $cdid, $iop, $j, $m, $a)
         {
             $this->company = $this->m_entreprises->get_key($ckey);
+            $profil = roleattribut_guard_profil_vendeur_bind($this->company->ekey, $gid, $ad, $iop);
+            $ad = $profil['vendor_ra'];
+            $iop = $profil['chef_ra'] !== null ? $profil['chef_ra'] : (int) roleattribut_guard_enforce_id($iop, $gid, $this->company->ekey);
 
                     $user_connect = $this->m_compte_user->getusergare1($this->company->ekey, $gid, $ad);
                     $this->property['user_connect'] = $user_connect;
@@ -775,6 +844,9 @@
         public function profiesc($ckey, $gid, $isg, $ad, $cdid, $iop, $j, $m, $a)
         {
             $this->company = $this->m_entreprises->get_key($ckey);
+            $profil = roleattribut_guard_profil_vendeur_bind($this->company->ekey, $gid, $ad, $iop);
+            $ad = $profil['vendor_ra'];
+            $iop = $profil['chef_ra'] !== null ? $profil['chef_ra'] : (int) roleattribut_guard_enforce_id($iop, $gid, $this->company->ekey);
 
                     $user_connect = $this->m_compte_user->getusergare1($this->company->ekey, $gid, $ad);
                     $this->property['user_connect'] = $user_connect;
@@ -798,6 +870,9 @@
         public function profibag($ckey, $gid, $isg, $ad, $cdid, $iop, $j, $m, $a)
         {
             $this->company = $this->m_entreprises->get_key($ckey);
+            $profil = roleattribut_guard_profil_vendeur_bind($this->company->ekey, $gid, $ad, $iop);
+            $ad = $profil['vendor_ra'];
+            $iop = $profil['chef_ra'] !== null ? $profil['chef_ra'] : (int) roleattribut_guard_enforce_id($iop, $gid, $this->company->ekey);
 
                     $user_connect = $this->m_compte_user->getusergare1($this->company->ekey, $gid, $ad);
                     $this->property['user_connect'] = $user_connect;
@@ -818,6 +893,9 @@
         public function profideps($ckey, $gid, $isg, $ad, $cdid, $iop, $j, $m, $a)
         {
             $this->company = $this->m_entreprises->get_key($ckey);
+            $profil = roleattribut_guard_profil_vendeur_bind($this->company->ekey, $gid, $ad, $iop);
+            $ad = $profil['vendor_ra'];
+            $iop = $profil['chef_ra'] !== null ? $profil['chef_ra'] : (int) roleattribut_guard_enforce_id($iop, $gid, $this->company->ekey);
 
                     $user_connect = $this->m_compte_user->getusergare1($this->company->ekey, $gid, $ad);
                     $this->property['user_connect'] = $user_connect;
@@ -844,7 +922,9 @@
             
             $sgares = $this->db->query("SELECT count(idsousgare) AS sog FROM sousgare s WHERE s.gareprinceid = '$identifiant_gare'")->row();
 
-                $iduser = $this->input->post('userconnected');
+                $validOps = $this->_validerecette_resolve_operators($identifiant_gare, $compt_id);
+                $iduser = $validOps['iduser_nav'];
+                $idopera_recette = $validOps['idopera'];
                 $sgid = $this->input->post('sousgareconnect');
                 $idcmpt = $this->input->post('compconnected');           
                 $caisi= $this->input->post('idgar');
@@ -1000,7 +1080,7 @@
                         'compkey_recet' => $this->input->post('idcompa'),
                         'recetsgid' => $idsoug,
                         'type_recet' => $this->input->post('interne'),
-                        'idopera' => $iduser,
+                        'idopera' => $idopera_recette,
                         'nom' => $this->input->post('nom'),
                         'montant_recet' => $this->input->post('montantvers'),
                         'commentaire_recet' => $this->input->post('comment'),
@@ -1039,7 +1119,7 @@
                         'active_recet' => 1, 
                         'is_validerecet' => 1, 
                         'is_actifrecet' => 1,
-                        'operavalid' => $iduser,
+                        'operavalid' => $validOps['operavalid'] ?: $idopera_recette,
                     );
                         $this->m_recette->update($recette, $array);
 
@@ -1060,7 +1140,7 @@
             $this->company = $this->m_entreprises->get_key($ckey); 
             
 
-                $iduser = $this->input->post('userconnected');
+                $iduser = roleattribut_guard_post_hint($this->company->ekey);
                 $sgid = $this->input->post('sousgareconnect');
                 $idcmpt = $this->input->post('compconnected');           
                 $caisi= $this->input->post('idgar');
@@ -1329,14 +1409,20 @@
                     if($statut == 0){
                         $stat = 1;
                         $isc = 0;
+                        $comptelogin = array(
+                            'activer' => $stat,
+                            'is_conect' => $isc,
+                            'date_deconect' => mdate('%Y-%m-%d %H:%i:%s', now('UTC')),
+                        );
+                        $this->load->model('Role_attribution_model', 'm_roleattribution');
+                        $this->m_roleattribution->deactivate_all_for_user((int) $id);
                     }
                     else{
                         $stat = 0;
+                        $comptelogin = array(
+                            'activer' => $stat,
+                        );
                     }
-                    $comptelogin = array(
-                        'activer' => $stat,
-                        'is_conect' => $isc,
-                    );
                     
                     $this->m_compte_user->update($id, $comptelogin);
 
@@ -1576,7 +1662,9 @@
             
             $sgares = $this->db->query("SELECT count(idsousgare) AS sog FROM sousgare s WHERE s.gareprinceid = '$identifiant_gare'")->row();
 
-                $iduser = $this->input->post('userconnected');
+                $validOps = $this->_validerecette_resolve_operators($identifiant_gare, $compt_id);
+                $iduser = $validOps['iduser_nav'];
+                $idopera_recette = $validOps['idopera'];
                 $sgid = $this->input->post('sousgareconnect');
                 $idcmpt = $this->input->post('compconnected');           
                 $caisi= $this->input->post('idgar');
@@ -1622,7 +1710,7 @@
                         'compkey_recet' => $this->input->post('idcompa'),
                         'recetsgid' => $idsoug,
                         'type_recet' => $this->input->post('interne'),
-                        'idopera' => $iduser,
+                        'idopera' => $idopera_recette,
                         'nom' => $this->input->post('nom'),
                         'montant_recet' => $this->input->post('montantvers'),
                         'commentaire_recet' => $this->input->post('comment'),
@@ -1640,7 +1728,7 @@
                         'active_recet' => 1, 
                         'is_validerecet' => 1, 
                         'is_actifrecet' => 1,
-                        'operavalid' => $iduser,
+                        'operavalid' => $validOps['operavalid'] ?: $idopera_recette,
                     );
                         $this->m_recette->update($recette, $array);
 
@@ -1661,7 +1749,10 @@
             $sgares = $this->db->query("SELECT count(idsousgare) AS sog FROM sousgare s WHERE s.gareprinceid = '$identifiant_gare'")->row();
 
             $this->company = $this->m_entreprises->get_key($ckey);
-            $iduser = $this->input->post('userconnected');
+            $compt_id = $this->_bind_validerecette_vendeur($identifiant_gare, $compt_id);
+            $validOps = $this->_validerecette_resolve_operators($identifiant_gare, $compt_id);
+            $iduser = $validOps['iduser_nav'];
+            $idopera_recette = $validOps['idopera'];
             $sgid = $this->input->post('sousgareconnect');
             $idcmpt = $this->input->post('compconnected');           
             $caisi= $this->input->post('idgar');
@@ -1706,7 +1797,7 @@
                     'compkey_recet' => $this->input->post('idcompa'),
                     'recetsgid' => $idsoug,
                     'type_recet' => $this->input->post('interne'),
-                    'idopera' => $iduser,
+                    'idopera' => $idopera_recette,
                     'nom' => $this->input->post('nom'),
                     'montant_recet' => $this->input->post('montantverse'),
                     'commentaire_recet' => $this->input->post('comment'),
@@ -1727,7 +1818,7 @@
                         'active_recet' => 1, 
                         'is_validerecet' => 1, 
                         'is_actifrecet' => 1,
-                        'operavalid' => $iduser,
+                        'operavalid' => $validOps['operavalid'] ?: $idopera_recette,
                     );
                         $this->m_recette->update($recette, $array);
 

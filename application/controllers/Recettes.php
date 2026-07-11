@@ -1,6 +1,6 @@
 <?php defined('BASEPATH') OR exit('No direct script access allowed');
     
-    class Recettes extends CI_Controller
+    class Recettes extends MY_Controller
     {
         public $recettes;
         public $company;
@@ -90,7 +90,7 @@
             $identifiant_caisse = $this->input->post('idcaisse');  
 
             $gid = $this->input->post('gareconnect');
-            $iduser = $this->input->post('userconnected');
+            $iduser = roleattribut_guard_post_hint($this->company->ekey);
             $sgid = $this->input->post('sousgareconnect');
             $idcmpt = $this->input->post('compconnected');
             
@@ -246,7 +246,7 @@
                             }
                     }
                         
-                    if($this->session->agent->userole === '4')
+                    if(recette_role_is_validateur_principal($this->session->agent->userole))
                     {
                         $upargv = array(
                             'active_recet' => 1, 
@@ -260,12 +260,12 @@
                         redirect('caisses/'.$this->session->company->ekey. '/gTv/'. $identifiant_gare. '/'. $identifiant_caisse. '/recette/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
                     }
 
-                    if($this->session->agent->userole === '18')
+                    if(recette_role_is_validateur_adjoint($this->session->agent->userole))
                     {
                         $upargv = array(
                             'active_recet' => 1, 
                             'is_validerecet' => 1, 
-                            'is_actifrecet' => 1,
+                            'is_actifrecetad' => 1,
                             'operavalidad' => $iduser,
                         );
                         $this->m_recette->update($recette, $upargv);
@@ -291,7 +291,7 @@
             $identifiant_gare = $this->input->post('idgarecode');
             $identifiant_caisse = $this->input->post('idcaisse');    
             $gid = $this->input->post('gareconnect');
-            $iduser = $this->input->post('userconnected');
+            $iduser = roleattribut_guard_post_hint($this->company->ekey);
             $sgid = $this->input->post('sousgareconnect');
             $idcmpt = $this->input->post('compconnected');
             if($this->input->post('daterecep')!= '')

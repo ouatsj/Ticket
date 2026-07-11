@@ -11,6 +11,14 @@
         
         public function create(array $data)
         {
+            // Compat : certains chemins de vente passent la clé 'tamponcodtr'
+            // (colonne de la table tamponcode) alors que cette table utilise
+            // 'codtampon'. On remappe pour éviter l'échec d'insertion.
+            if (isset($data['tamponcodtr']) && !isset($data['codtampon'])) {
+                $data['codtampon'] = $data['tamponcodtr'];
+                unset($data['tamponcodtr']);
+            }
+
             $this->db->insert($this->table, $data);
             return $this->db->insert_id();
         }

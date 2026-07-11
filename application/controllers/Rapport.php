@@ -2,7 +2,7 @@
     
     // include the main labraries TCPDF
     require_once(APPPATH . 'libraries/tcpdf/tcpdf.php');
-    class Rapport extends CI_Controller
+    class Rapport extends MY_Controller
     {
         public $property = array('title' => 'RAPPORTS');
         public $entreprise = stdClass::class;
@@ -13,6 +13,15 @@
             $this->property['update_success'] = FALSE;
             $this->property['INSERT'] = FALSE;
             $this->property['pagetitle'] = utf8_encode(strftime("%d %b %G", now()));
+        }
+
+        /**
+         * Plafonds pour les exports PDF lourds (libère le worker PHP, n'impacte pas la vente guichet).
+         */
+        protected function _rapport_limits()
+        {
+            @ini_set('memory_limit', '512M');
+            @set_time_limit(300);
         }
         
         //tirage des recette
@@ -25,7 +34,7 @@
             $gen = $this->input->post('genre');
             $nm = $this->input->post('nom');
             $gid = $this->input->post('gareconnect');
-            $atr = $this->input->post('userconnected');
+            $atr = roleattribut_guard_post_hint($this->entreprise->ekey);
             $comp = $this->input->post('_compag');
             $ncomp = $this->m_compagnies->getn($comp);
 
@@ -382,7 +391,7 @@
             $gen = $this->input->post('genrecr');
             $nm = $this->input->post('nomcr');
             $gid = $this->input->post('gareconnectcr');
-            $atr = $this->input->post('userconnectedcr');
+            $atr = roleattribut_guard_post_hint($this->entreprise->ekey, 'gareconnect', 'userconnectedcr');
             $comp = $this->input->post('_compagcr');
             
             $ncomp = $this->m_compagnies->getn($comp);
@@ -1447,7 +1456,7 @@
             $nm = $this->input->post('nom');
             $comp = $this->input->post('_compag');
             $gid = $this->input->post('gareconnect');
-            $atr = $this->input->post('userconnected');
+            $atr = roleattribut_guard_post_hint($this->entreprise->ekey);
             $ncomp = $this->m_compagnies->getn($comp);
 
             $ngrd = $this->m_gare_depart->getno($gid);
@@ -1456,7 +1465,7 @@
               $days = $dats[2]. '-'. $dats[1]. '-' .$dats[0];
               $dats1 = explode("-", $date2);
               $days1 = $dats1[2]. '-'. $dats1[1]. '-' .$dats1[0];
-            if($this->session->agent->userole === '4')
+            if(recette_role_is_validateur_principal($this->session->agent->userole))
             {
               $tridepens = $this->m_depense->tridepense($this->entreprise->ekey, $gid, $atr, $comp, $date1, $date2, $gen, $nm);
 			
@@ -1542,7 +1551,7 @@
 			
             }
 
-            if($this->session->agent->userole === '18')
+            if(recette_role_is_validateur_adjoint($this->session->agent->userole))
             {
               $tridepens = $this->m_depense->adtridepense($this->entreprise->ekey, $gid, $atr, $comp, $date1, $date2, $gen, $nm);
       
@@ -1713,7 +1722,7 @@
               $pdf->Output('example_016.pdf' . '', 'I');
       
             }
-            else
+            elseif (recette_role_is_saisie($this->session->agent->userole))
             {
               $tridepen = $this->m_depense->tridepense_adjoint($this->entreprise->ekey, $gid, $atr, $date1, $date2, $comp, $typ, $gen, $nm);
               
@@ -1815,7 +1824,7 @@
               $nm = $this->input->post('nom');
               $comp = $this->input->post('_compag');
               $gid = $this->input->post('gareconnect');
-              $atr = $this->input->post('userconnected');
+              $atr = roleattribut_guard_post_hint($this->entreprise->ekey);
               $dats = explode("-", $date1);
               $days = $dats[2]. '-'. $dats[1]. '-' .$dats[0];
               $dats1 = explode("-", $date2);
@@ -1825,7 +1834,7 @@
 
               $ncomp = $this->m_compagnies->getn($comp);
             
-            if($this->session->agent->userole === '4')
+            if(recette_role_is_validateur_principal($this->session->agent->userole))
             {
               $tridepo = $this->m_depot->tridepot($this->entreprise->ekey, $gid, $atr, $comp, $date1, $date2, $gen, $nm);
 
@@ -1910,7 +1919,7 @@
               // END OF FILE
               //============================================================+
             }
-            if($this->session->agent->userole === '18')
+            if(recette_role_is_validateur_adjoint($this->session->agent->userole))
             {
               $tridepo = $this->m_depot->adtridepot($this->entreprise->ekey, $gid, $atr, $comp, $date1, $date2, $gen, $nm);
 
@@ -2080,7 +2089,7 @@
             // END OF FILE
             //============================================================+
             }
-            else
+            elseif (recette_role_is_saisie($this->session->agent->userole))
             {
               $tridepo = $this->m_depot->tridepot_adjoint($this->entreprise->ekey, $gid, $atr, $comp, $date1, $date2, $typ, $gen, $nm);
 
@@ -2176,7 +2185,7 @@
               $nm = $this->input->post('nom');
               $comp = $this->input->post('_compag');
               $gid = $this->input->post('gareconnect');
-              $atr = $this->input->post('userconnected');
+              $atr = roleattribut_guard_post_hint($this->entreprise->ekey);
               $ncomp = $this->m_compagnies->getn($comp);
 
               $ngrd = $this->m_gare_depart->getno($gid);
@@ -9526,8 +9535,7 @@
 
         public function trinombrepass($ckey)
         {
-            ini_set('memory_limit', '1024M');
-            set_time_limit(0);
+            $this->_rapport_limits();
 
             $this->entreprise = $this->m_entreprises->get_key($ckey);
             $dtp1 = $this->input->post('dateps1');
@@ -9919,8 +9927,7 @@
 
         public function trinombrepassglob($ckey)
         {
-            ini_set('memory_limit', '1024M');
-            set_time_limit(0);
+            $this->_rapport_limits();
 
             $this->entreprise = $this->m_entreprises->get_key($ckey);
               $dtp1 = $this->input->post('dateps1');
@@ -10724,7 +10731,7 @@
               $gid = $this->input->post('departgar');
               $comp = $this->input->post('_compag');
 
-              $uopera = $this->input->post('useropered');
+              $uopera = roleattribut_guard_post_hint($this->entreprise->ekey);
 
               $cai = $this->m_compte_user->cpuseres($uopera);
 
@@ -10737,11 +10744,17 @@
                 $dats1 = explode("-", $date2);
                 $days1 = $dats1[2]. '-'. $dats1[1]. '-' .$dats1[0];
                 
-              if ($this->session->agent->userole === '1' OR $this->session->agent->userole === '2'){
-                     
+              if (recette_role_is_saisie($this->session->agent->userole)) {
+                $trirecet = $this->m_recette->trirecette_adjoint($this->entreprise->ekey, $gid, $uopera, $date1, $date2, $comp, $typ, $gen, $nm);
+              } elseif (recette_role_is_validateur_adjoint($this->session->agent->userole)) {
                 $trirecet = $this->m_recette->valdtrirecettead($this->entreprise->ekey, $comp, $gid, $uopera, $date1, $date2, $typ, $gen, $nm);
-              }else{
-                
+              } elseif ($this->session->agent->userole === '1' OR $this->session->agent->userole === '2') {
+                $trirecet = $this->m_recette->valdtrirecettead($this->entreprise->ekey, $comp, $gid, $uopera, $date1, $date2, $typ, $gen, $nm);
+              } elseif (recette_role_is_validateur_principal($this->session->agent->userole)) {
+                $uopera = $this->input->post('useropered');
+                $trirecet = $this->m_recette->valdtrirecette($this->entreprise->ekey, $comp, $gid, $uopera, $date1, $date2, $typ, $gen, $nm);
+              } else {
+                $uopera = $this->input->post('useropered');
                 $trirecet = $this->m_recette->valdtrirecette($this->entreprise->ekey, $comp, $gid, $uopera, $date1, $date2, $typ, $gen, $nm);
               }
               $pdf = new TCPDF(PDF_PAGE_ORIENTATION, PDF_UNIT, PDF_PAGE_FORMAT, true, 'UTF-8', false);
@@ -10839,7 +10852,10 @@
               $comp = $this->input->post('_compag');
               $gid = $this->input->post('departgar');
               $ncomp = $this->m_compagnies->getn($comp);
-              $uopera = $this->input->post('useropered');
+              $uopera = roleattribut_guard_post_hint($this->entreprise->ekey);
+              if ($uopera === NULL || $uopera === '') {
+                  $uopera = $this->input->post('useropered');
+              }
 
               $ngrd = $this->m_gare_depart->getno($gid);
 
@@ -10850,12 +10866,17 @@
                   $dats1 = explode("-", $date2);
                   
                   $days1 = $dats1[2]. '-'. $dats1[1]. '-' .$dats1[0];
-              if ($this->session->agent->userole === '1' OR $this->session->agent->userole === '2'){
-
+              if (recette_role_is_saisie($this->session->agent->userole)) {
+                $tridepens = $this->m_depense->tridepense_adjoint($this->entreprise->ekey, $gid, $uopera, $date1, $date2, $comp, $typ, $gen, $nm);
+              } elseif (recette_role_is_validateur_adjoint($this->session->agent->userole)) {
+                $tridepens = $this->m_depense->adtridepense($this->entreprise->ekey, $gid, $uopera, $comp, $date1, $date2, $gen, $nm);
+              } elseif ($this->session->agent->userole === '1' OR $this->session->agent->userole === '2') {
                 $tridepens = $this->m_depense->valdtridepensead($this->entreprise->ekey, $comp, $gid, $uopera, $date1, $date2, $typ, $gen, $nm);
-              }
-              else
-              {
+              } elseif (recette_role_is_validateur_principal($this->session->agent->userole)) {
+                $uopera = $this->input->post('useropered');
+                $tridepens = $this->m_depense->valdtridepense($this->entreprise->ekey, $comp, $gid, $uopera, $date1, $date2, $typ, $gen, $nm);
+              } else {
+                $uopera = $this->input->post('useropered');
                 $tridepens = $this->m_depense->valdtridepense($this->entreprise->ekey, $comp, $gid, $uopera, $date1, $date2, $typ, $gen, $nm);
               }
                 $pdf = new TCPDF(PDF_PAGE_ORIENTATION, PDF_UNIT, PDF_PAGE_FORMAT, true, 'UTF-8', false);
@@ -11069,7 +11090,10 @@
               $ncomp = $this->m_compagnies->getn($comp);
               $gid = $this->input->post('departgar');
 
-              $uopera = $this->input->post('useropered');
+              $uopera = roleattribut_guard_post_hint($this->entreprise->ekey);
+              if ($uopera === NULL || $uopera === '') {
+                  $uopera = $this->input->post('useropered');
+              }
 
               $cai = $this->m_compte_user->cpuseres($uopera);
 
@@ -11079,7 +11103,19 @@
                     $days = $dats[2]. '-'. $dats[1]. '-' .$dats[0];
                     $dats1 = explode("-", $date2);
                   $days1 = $dats1[2]. '-'. $dats1[1]. '-' .$dats1[0];
-              $tridepo = $this->m_depot->valdtridepot($this->entreprise->ekey, $gid, $uopera, $date1, $date2, $typ, $gen, $nm, $comp);
+              if (recette_role_is_saisie($this->session->agent->userole)) {
+                $tridepo = $this->m_depot->tridepot_adjoint($this->entreprise->ekey, $gid, $uopera, $comp, $date1, $date2, $typ, $gen, $nm);
+              } elseif (recette_role_is_validateur_adjoint($this->session->agent->userole)) {
+                $tridepo = $this->m_depot->adtridepot($this->entreprise->ekey, $gid, $uopera, $comp, $date1, $date2, $gen, $nm);
+              } elseif ($this->session->agent->userole === '1' OR $this->session->agent->userole === '2') {
+                $tridepo = $this->m_depot->tridepotadmin($this->entreprise->ekey, $gid, $comp, $date1, $date2, $typ, $gen, $nm);
+              } elseif (recette_role_is_validateur_principal($this->session->agent->userole)) {
+                $uopera = $this->input->post('useropered');
+                $tridepo = $this->m_depot->valdtridepot($this->entreprise->ekey, $gid, $uopera, $date1, $date2, $typ, $gen, $nm, $comp);
+              } else {
+                $uopera = $this->input->post('useropered');
+                $tridepo = $this->m_depot->valdtridepot($this->entreprise->ekey, $gid, $uopera, $date1, $date2, $typ, $gen, $nm, $comp);
+              }
 
                 $pdf = new TCPDF(PDF_PAGE_ORIENTATION, PDF_UNIT, PDF_PAGE_FORMAT, true, 'UTF-8', false);
                 // set document information
@@ -11824,12 +11860,15 @@
               $typ = $this->input->post('typedepense');
                 $comp = $this->input->post('_compag');
               $ncomp = $this->m_compagnies->getn($comp);
+
+              $profil = $this->db->query("SELECT userole FROM attributions_role WHERE roleattribut = '$us' LIMIT 1")->row();
+              $userole = $profil ? $profil->userole : '';
                 
                 $dats = explode("-", $date1);
                           $days = $dats[2]. '-'. $dats[1]. '-' .$dats[0];
                             $dats1 = explode("-", $date2);
                           $days1 = $dats1[2]. '-'. $dats1[1]. '-' .$dats1[0];
-                $tridepns = $this->m_depense->trisdepens($this->entreprise->ekey, $g, $cai, $us, $date1, $date2, $comp, $typ);
+                $tridepns = $this->m_depense->trisdepens_par_profil($this->entreprise->ekey, $g, $cai, $us, $userole, $date1, $date2, $comp, $typ);
                 $pdf = new TCPDF(PDF_PAGE_ORIENTATION, PDF_UNIT, PDF_PAGE_FORMAT, true, 'UTF-8', false);
                 // set document information
                 $pdf->SetCreator(PDF_CREATOR);
@@ -11917,11 +11956,14 @@
               $comp = $this->input->post('_compag');
               $ncomp = $this->m_compagnies->getn($comp);
 
+              $profil = $this->db->query("SELECT userole FROM attributions_role WHERE roleattribut = '$us' LIMIT 1")->row();
+              $userole = $profil ? $profil->userole : '';
+
                 $dats = explode("-", $date1);
                           $days = $dats[2]. '-'. $dats[1]. '-' .$dats[0];
                             $dats1 = explode("-", $date2);
                           $days1 = $dats1[2]. '-'. $dats1[1]. '-' .$dats1[0];
-            $tridepo = $this->m_depot->trisdepot($this->entreprise->ekey, $g, $cai, $us, $date1, $date2, $comp, $typ);
+            $tridepo = $this->m_depot->trisdepot_par_profil($this->entreprise->ekey, $g, $cai, $us, $userole, $date1, $date2, $comp, $typ);
 
               $pdf = new TCPDF(PDF_PAGE_ORIENTATION, PDF_UNIT, PDF_PAGE_FORMAT, true, 'UTF-8', false);
               // set document information
@@ -12298,7 +12340,7 @@
             $nm = $this->input->post('nom');
             $comp = $this->input->post('_compag');
             $gid = $this->input->post('gareconnect');
-              $atr = $this->input->post('userconnected');
+              $atr = roleattribut_guard_post_hint($this->entreprise->ekey);
               $ncomp = $this->m_compagnies->getn($comp);
 
               $dats = explode("-", $date1);

@@ -55,15 +55,24 @@
         {
             if ($user_id === FALSE) {
                 return $this->db->query(
-                    "SELECT * FROM utilisateurs u 
+                    "SELECT u.*, cu.cpuser_id, cu.username, cu.activer, cu.is_conect,
+                        cu.derniere_activite_at, cu.exempt_desactivation_auto,
+                        cu.autorisation_vente_forcee, cu.autorisation_vente_jusquau, cu.date_deconect
+                    FROM utilisateurs u
                     JOIN entreprise e ON u.cle_comp = e.ekey
+                    LEFT JOIN compte_user cu ON cu.userlog_id = u.uid
                     WHERE e.ekey = '$cid'")->result();
-            } else
-                return $this->db->query(
-                    "SELECT * FROM utilisateurs u 
-                    JOIN entreprise e ON u.cle_comp = e.ekey
-                    WHERE e.ekey = '$cid'
-                    AND u.uid = '$user_id'")->row();
+            }
+
+            return $this->db->query(
+                "SELECT u.*, cu.cpuser_id, cu.username, cu.activer, cu.is_conect,
+                    cu.derniere_activite_at, cu.exempt_desactivation_auto,
+                    cu.autorisation_vente_forcee, cu.autorisation_vente_jusquau, cu.date_deconect
+                FROM utilisateurs u
+                JOIN entreprise e ON u.cle_comp = e.ekey
+                LEFT JOIN compte_user cu ON cu.userlog_id = u.uid
+                WHERE e.ekey = '$cid'
+                AND u.uid = '$user_id'")->row();
         }
 
 

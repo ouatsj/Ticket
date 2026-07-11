@@ -1,0 +1,88 @@
+<?php defined('BASEPATH') OR exit('No direct script access allowed');
+
+/**
+ * Liste des fichiers JS guichet par rôle (sources pour scripts/build_guichet_bundles.php).
+ * Ne pas charger directement en production — utiliser scripts_bundles.php (fichiers fusionnés).
+ */
+return array(
+    '1' => array(
+        'addventemobile.js', 'addventeticket.js', 'addventeticketfi.js',
+        'addreprogramme.js', 'addreprogrammetransit.js', 'addreprogadmin.js',
+        'addconfirmadmin.js', 'addconfirmadmintran.js', 'addconfirme.js',
+        'addreserve.js', 'addretour.js', 'addrecu.js', 'addbon.js',
+        'addcarte.js', 'addconfirmbon.js', 'addconfirmcarte.js',
+        'adreportjs.js', 'adreportjsesc.js', 'adreportgl.js', 'adreportglesc.js',
+        'adreportglcours.js', 'adreportglcoursesc.js', 'adreportgldepcour.js',
+        'adreportpli.js', 'adreportpliesc.js', 'adreportversgljs.js',
+        'adtrio.js', 'adtriocour.js', 'adtrioexo.js', 'adtrioexoesc.js',
+        'adtrioexoplis.js', 'adtrioexoplisesc.js', 'adtriobag.js',
+        'adtrioexobag.js', 'adtrioexobagesc.js', 'advers.js', 'adverssg.js',
+        'recaptbagexop.js', 'recaptbagexopesc.js', 'recaptbagglop.js', 'recaptbagglopesc.js',
+    ),
+    '2' => array(
+        'addventeticket.js', 'addventeticketfi.js',
+        'addreprogramme.js', 'addreprogrammetransit.js', 'addreprogadmin.js',
+        'addconfirmadmin.js', 'addconfirmadmintran.js', 'addconfirme.js',
+        'addreserve.js', 'addretour.js',
+        'adreportjs.js', 'adreportjsesc.js', 'adreportgl.js', 'adreportglesc.js',
+        'adreportglcours.js', 'adreportglcoursesc.js', 'adreportgldepcour.js',
+        'adreportpli.js', 'adreportpliesc.js', 'adreportversgljs.js',
+        'adtrio.js', 'adtriocour.js', 'adtrioexo.js', 'adtrioexoesc.js',
+        'adtrioexoplis.js', 'adtrioexoplisesc.js', 'adtriobag.js',
+        'adtrioexobag.js', 'adtrioexobagesc.js', 'advers.js', 'adverssg.js',
+        'recaptbagexop.js', 'recaptbagexopesc.js', 'recaptbagglop.js', 'recaptbagglopesc.js',
+    ),
+    '3' => array(),
+    '4' => array('addventeticketfi.js'),
+    '5' => array(
+        'addventeticketfi.js', 'addconfirme.js', 'addreserve.js', 'addretour.js',
+        'addreprogramme.js', 'addreprogadmin.js', 'addconfirmadmin.js',
+        'addconfirmbon.js', 'addconfirmcarte.js', 'addrecu.js', 'addbon.js', 'addcarte.js',
+    ),
+    '6' => array(
+        'addventeticket.js', 'addventeticketfi.js',
+        'addreprogramme.js', 'addreprogrammetransit.js', 'addretour.js',
+        'addconfirmadmin.js', 'addconfirmadmintran.js',
+        'addconfirmbon.js', 'addconfirmcarte.js',
+    ),
+    '7' => array(
+        'adreportjs.js', 'adreportjsesc.js', 'adreportpli.js', 'adreportpliesc.js',
+        'adtrioexo.js', 'adtrioexoesc.js', 'adtrioexoplis.js', 'adtrioexoplisesc.js',
+        'adtriobag.js', 'adtrioexobag.js', 'adtrioexobagesc.js',
+        'recaptbagexop.js', 'recaptbagexopesc.js',
+    ),
+    '8' => array('addconfirme.js', 'addreserve.js', 'addventeticketfi.js'),
+    '9' => array(),
+    '10' => array(),
+    '11' => array('addcarte.js', 'addventeticketfi.js'),
+    '12' => array(),
+    '13' => array(
+        'addetat.js',
+        'adreportgl.js', 'adreportglesc.js', 'adreportglcours.js',
+        'adreportglcoursesc.js', 'adreportgldepcour.js', 'adreportversgljs.js',
+        'adtrio.js', 'adtriocour.js', 'adtriobag.js', 'adverssg.js',
+        'recaptbagglop.js', 'recaptbagglopesc.js',
+    ),
+    '14' => array(
+        'adreportgl.js', 'adreportglesc.js', 'adreportglcours.js',
+        'adreportglcoursesc.js', 'adreportgldepcour.js', 'adreportversgljs.js',
+        'adtrio.js', 'adtriocour.js', 'adtriobag.js', 'adverssg.js',
+        'recaptbagglop.js', 'recaptbagglopesc.js',
+    ),
+    '15' => array(
+        'addventeticketfi.js', 'addconfirme.js', 'addreserve.js',
+        'addreprogramme.js', 'addreprogadmin.js', 'addconfirmadmin.js',
+        'addconfirmbon.js', 'addconfirmcarte.js', 'addrecu.js', 'addbon.js', 'addcarte.js',
+    ),
+    '16' => array(),
+    '17' => array(),
+    '18' => array('addventeticketfi.js'),
+    'default' => array(
+        'addventeticket.js', 'addventeticketfi.js',
+        'addventemobile.js', 'addconfirme.js', 'addreprogramme.js',
+        'addreprogrammetransit.js', 'addreprogadmin.js',
+        'addconfirmadmin.js', 'addconfirmadmintran.js',
+        'addreserve.js', 'addretour.js', 'addrecu.js', 'addbon.js',
+        'addcarte.js', 'addconfirmbon.js',
+    ),
+);

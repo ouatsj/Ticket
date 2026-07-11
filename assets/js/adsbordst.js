@@ -5,6 +5,47 @@ document.addEventListener('DOMContentLoaded', () => {
     {
         document.querySelector('h3#bordsTitlebgt').innerHTML = `TIRAGE DE SUIVI TPE`;
 
+        function loadProgrammesBordT() {
+            var selectLigne = document.querySelector('#deptscouridlignebgt');
+            var selectDate = document.querySelector('#courdeptchoisirdatebgt');
+            var selectProg = document.querySelector('#courdeptidprogbgt');
+            if (!selectLigne || !selectDate || !selectProg) {
+                return;
+            }
+
+            var ligne = parseLigneOption(selectLigne.options[selectLigne.selectedIndex].value);
+            var verifidate = selectDate.value;
+            selectProg.options.length = 1;
+
+            if (!ligne.ident || !verifidate) {
+                return;
+            }
+
+            var httpInfoprog = new XMLHttpRequest();
+            httpInfoprog.open('GET', window.location.origin + `${APP_ROOT}/confirmation/verifprogramm/${encodeURIComponent(ligne.ident)}/${verifidate}`, true);
+            httpInfoprog.onload = function () {
+                var resultp;
+                try {
+                    resultp = JSON.parse(httpInfoprog.responseText);
+                } catch (err) {
+                    return;
+                }
+
+                if (!resultp || !resultp.length) {
+                    selectProg.options.length = 1;
+                    return;
+                }
+
+                resultp.forEach(function (item) {
+                    var opt = document.createElement('option');
+                    opt.value = `${item.code_progr}/${item.heure}/${item.id_ligneheure}/${item.depart_code}`;
+                    opt.innerHTML = `${item.code_progr}/${item.heure}`;
+                    selectProg.add(opt);
+                });
+            };
+            httpInfoprog.send();
+        }
+
         let arcourr = document.querySelector('#deptscouridlignebgt');
             if (arcourr !== null)
             arcourr.onchange = () => {
@@ -13,15 +54,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 document.querySelector('#courdeptquartieridbgt').options.length = 1;
                 const lidlignecr = document.querySelector('#deptscouridlignebgt')
                 .options[document.querySelector('#deptscouridlignebgt').options.selectedIndex].value;
-                var lidlignecr1 = lidlignecr.split('/');
-                var lidlignecr2 = lidlignecr1[0];
-                var qart = lidlignecr2.split('-');
-                var lidlignecr3 = qart[0];
-                var lidlignecr4 = qart[1];
+                var ligne = parseLigneOption(lidlignecr);
+                if (!ligne.gareDest) {
+                    return;
+                }
                 let httptypequartr;
                 httptypequartr = new XMLHttpRequest();
                 
-                httptypequartr.open('GET', window.location.origin + `${APP_ROOT}/confirmation/verifquart/${lidlignecr4}`, true);
+                httptypequartr.open('GET', window.location.origin + `${APP_ROOT}/confirmation/verifquart/${encodeURIComponent(ligne.gareDest)}`, true);
                 httptypequartr.onload = () => 
                 {
                     const courquar = JSON.parse(httptypequartr.responseText);
@@ -46,47 +86,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 };
                 httptypequartr.setRequestHeader('Content-Type', 'application/json');
                 httptypequartr.send();
+                loadProgrammesBordT();
             };
             let infoligne = document.querySelector('#courdeptchoisirdatebgt');
             if (infoligne !== null)
             infoligne.onchange = () => {
-                let httpInfoprog;
-                if (window.XMLHttpRequest) {
-                    httpInfoprog = new XMLHttpRequest();
-                } else if (window.ActiveXObject) {
-                    httpInfoprog = new ActiveXObject("Microsoft.XMLHTTP");
-                }
-                const lidligne = document.querySelector('#deptscouridlignebgt')
-                .options[document.querySelector('#deptscouridlignebgt').options.selectedIndex].value;
-                var lidligne1 = lidligne.split('/');
-                var lidligne2 = lidligne1[0];
-                var lidligne3 = lidligne1[1];
-                var verifidate = document.querySelector('#courdeptchoisirdatebgt').value;
-                httpInfoprog.open('GET', window.location.origin + `${APP_ROOT}/confirmation/verifprogramm/${lidligne2}/${verifidate}`, true);
-                httpInfoprog.onload = () => {
-                    const resultp = JSON.parse(httpInfoprog.responseText);
-                    if(resultp == null){
-
-                        
-                    
-                    } else {
-                        if (Object.entries(resultp).length >= 1) 
-                        {
-                           
-                            for (let key in Object.entries(resultp)) {
-                                    let opt = document.createElement('option');
-                                    opt.value = `${resultp[key].code_progr}/${resultp[key].heure}/${resultp[key].id_ligneheure}/${resultp[key].depart_code}`;
-                                    opt.innerHTML = `${resultp[key].code_progr}/${resultp[key].heure}`;
-                                    document.querySelector('#courdeptidprogbgt').add(opt);
-                                }
-                        } else {
-                            document.querySelector('#courdeptidprogbgt').options.length = 1;
-                        }
-                        
-                    }
-                };
-                httpInfoprog.setRequestHeader('Content-Type', 'application/json');
-                httpInfoprog.send();
+                loadProgrammesBordT();
                                      
             };
                     let infchaufbords = document.querySelector('#courstyppersoidbgt');

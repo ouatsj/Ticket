@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Matrice rôles × boutons — simulation (éditable)</title>
+<style>
+  :root {
+    --bg:#f4f6f9; --card:#fff; --border:#d0d7de; --accent:#0d6efd;
+    --head:#212529; --added:#cfe2ff; --removed:#f8d7da; --on:#d1e7dd; --off:#f8f9fa;
+  }
+  * { box-sizing:border-box; }
+  body { font-family:system-ui,-apple-system,sans-serif; margin:0; background:var(--bg); color:#222; }
+  header { background:var(--head); color:#fff; padding:1rem 1.5rem; }
+  header h1 { margin:0 0 .25rem; font-size:1.25rem; }
+  header p { margin:0; opacity:.85; font-size:.9rem; }
+  .tabs { display:flex; gap:0; background:#fff; border-bottom:1px solid var(--border); padding:0 1rem; }
+  .tab { padding:.65rem 1rem; border:none; background:none; cursor:pointer; font-size:.9rem; border-bottom:2px solid transparent; }
+  .tab.active { border-bottom-color:var(--accent); color:var(--accent); font-weight:600; }
+  .toolbar { padding:.75rem 1.5rem; background:#fff; border-bottom:1px solid var(--border); display:flex; flex-wrap:wrap; gap:.5rem .75rem; align-items:center; }
+  .toolbar input[type=search] { padding:.4rem .6rem; border:1px solid var(--border); border-radius:4px; min-width:200px; }
+  .toolbar label { font-size:.85rem; cursor:pointer; }
+  .btn { padding:.4rem .75rem; border:1px solid var(--border); border-radius:4px; background:#fff; cursor:pointer; font-size:.85rem; }
+  .btn:hover { background:#f0f0f0; }
+  .btn-primary { background:var(--accent); color:#fff; border-color:var(--accent); }
+  .btn-primary:hover { background:#0b5ed7; }
+  .btn-danger { color:#842029; border-color:#f5c2c7; }
+  .legend { display:flex; gap:1rem; font-size:.8rem; padding:.5rem 1.5rem; background:#fff; border-bottom:1px solid var(--border); }
+  .swatch { display:inline-block; width:14px; height:14px; border:1px solid #aaa; vertical-align:middle; margin-right:4px; }
+  .wrap { overflow:auto; max-height:calc(100vh - 220px); margin:1rem; border:1px solid var(--border); border-radius:6px; background:var(--card); }
+  table { border-collapse:collapse; font-size:11px; min-width:100%; }
+  th, td { border:1px solid var(--border); padding:3px 5px; text-align:center; }
+  th { position:sticky; top:0; background:#e9ecef; z-index:2; font-weight:600; white-space:nowrap; cursor:pointer; user-select:none; }
+  th:hover { background:#dde2e6; }
+  th:first-child, td:first-child { position:sticky; left:0; background:#fff; z-index:1; text-align:left; min-width:200px; max-width:280px; white-space:normal; font-size:11px; }
+  thead th:first-child { z-index:3; background:#dee2e6; }
+  tr:hover td { filter:brightness(.97); }
+  input.cb { width:15px; height:15px; accent-color:var(--accent); cursor:pointer; }
+  td.on { background:var(--on); }
+  td.off { background:var(--off); }
+  td.added { background:var(--added) !important; }
+  td.removed { background:var(--removed) !important; }
+  .hidden { display:none !important; }
+  footer { padding:.75rem 1.5rem; font-size:.8rem; color:#666; }
+  #status { font-size:.85rem; color:#555; margin-left:auto; }
+  @media print {
+    .toolbar, .tabs, footer, #status, .legend { display:none !important; }
+    header { background:#fff !important; color:#000 !important; padding:.5rem; }
+    .wrap { max-height:none; overflow:visible; margin:0; border:none; }
+    th, td { font-size:8px; padding:2px 3px; }
+    th:first-child, td:first-child { min-width:140px; max-width:180px; }
+    input.cb { -webkit-appearance:none; appearance:none; width:10px; height:10px; border:1px solid #333; }
+    input.cb:checked { background:#000; }
+    @page { size:landscape; margin:8mm; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>Simulation des droits guichet — Rakietabus</h1>
+  <p>Modifiez les cases pour simuler des droits. Les changements par rapport à l&apos;état actuel du code sont surlignés.</p>
+</header>
+<div class="tabs">
+  <button class="tab active" data-panel="guichet">Boutons guichet</button>
+  <button class="tab" data-panel="caisse">Droits caisse</button>
+</div>
+<div class="legend" id="legend">
+  <span><span class="swatch" style="background:var(--on)"></span>Actif (code)</span>
+  <span><span class="swatch" style="background:var(--added)"></span>Ajouté (simulation)</span>
+  <span><span class="swatch" style="background:var(--removed)"></span>Retiré (simulation)</span>
+</div>
+<div class="toolbar">
+  <input type="search" id="filter" placeholder="Filtrer…">
+  <label><input type="checkbox" id="onlyChecked"> Au moins une case cochée</label>
+  <label><input type="checkbox" id="onlyDiff"> Modifications uniquement</label>
+  <label><input type="checkbox" id="compactCols"> Colonnes R1…R18</label>
+  <button class="btn" id="btnReset" type="button">Réinitialiser</button>
+  <button class="btn btn-primary" id="btnExport" type="button">Exporter CSV</button>
+  <button class="btn" id="btnExportDiff" type="button">Exporter diff CSV</button>
+  <button class="btn" id="btnPrint" type="button">Imprimer / PDF</button>
+  <span id="status"></span>
+</div>
+<div class="wrap">
+  <table id="matrix"></table>
+</div>
+<footer>Généré depuis les vues role_N.php — simulation locale (localStorage). Ne modifie pas l&apos;application.</footer>
+<script>
+const DATA = {"roles": ["R1_Administrateur", "R2_Superviseur", "R3_Chefdegare", "R4_Caisse", "R5_ChefGuichet", "R6_Vente", "R7_Comptable", "R8_Confirmateur", "R9_Config_RH", "R10_Vente_mobile", "R11_Carte_voyage", "R12_Bagagiste", "R13_Caisse_globale", "R14_Caisse_globale_allégé", "R15_ChefGuichet_allégé", "R16_Consultation_caisse", "R17_Operateur_escal", "R18_Adjoint_caisse"], "guichet": [{"label": "RETOUR GARE", "roles": [true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true]}, {"label": "RETOUR TICKET", "roles": [false, false, false, false, true, true, false, false, false, false, false, false, false, false, false, false, false, false]}, {"label": "VOIR BORDEREAU BAGAGES(HISTORIQUE)", "roles": [true, true, false, false, true, false, false, false, false, false, false, true, false, false, false, false, false, false]}, {"label": "VOIR CAISSE", "roles": [true, true, false, true, true, false, false, false, false, false, false, false, false, false, false, true, false, true]}, {"label": "VOIR CAISSE PRINCIPALE", "roles": [true, true, false, false, false, false, false, false, false, false, false, false, true, true, false, false, false, false]}, {"label": "VOIR ETATS", "roles": [true, true, false, true, true, false, false, true, false, false, false, false, false, false, true, false, false, true]}, {"label": "VOIR PROGRAMME", "roles": [true, true, true, false, true, false, false, true, true, false, false, false, false, false, true, false, false, false]}, {"label": "VOIR REIMPRESSION", "roles": [true, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, true, false]}, {"label": "PROGRAMME DE BUS", "roles": [true, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false]}, {"label": "REPROGRAMMER AUTRE TICKET", "roles": [true, true, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false]}, {"label": "REPROGRAMMER TICKET", "roles": [true, true, false, false, true, true, false, false, false, false, false, false, false, false, true, false, false, false]}, {"label": "REPROGRAMMER TICKET GUICHET", "roles": [false, false, false, false, true, false, false, false, false, false, false, false, false, false, true, false, false, false]}, {"label": "LISTES", "roles": [true, true, false, false, true, true, false, true, false, false, false, false, false, false, true, false, false, false]}, {"label": "DEPARTS", "roles": [true, true, false, false, true, false, false, true, false, false, false, false, false, false, true, false, false, false]}, {"label": "TARIFICATION", "roles": [true, true, false, false, true, false, false, true, false, false, false, false, false, false, true, false, false, false]}, {"label": "STATUT_HEURE_GARE", "roles": [true, true, false, false, true, false, false, true, false, false, false, false, false, false, true, false, false, false]}, {"label": "COMPTE", "roles": [true, false, false, false, false, true, false, false, false, true, false, true, false, false, false, false, false, false]}, {"label": "COMPTE ESCAL", "roles": [false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, true, false]}, {"label": "COMPTEBAGAGE", "roles": [true, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false]}, {"label": "AUTRES VENTE", "roles": [true, true, false, true, true, false, false, true, false, false, true, false, false, false, true, false, false, true]}, {"label": "BAGAGES AVEC TICKET NON FACTURER", "roles": [true, true, false, false, false, false, false, false, false, false, false, true, false, false, false, false, false, false]}, {"label": "BROUILLARD(EXERCICE) TICKET", "roles": [true, true, false, false, false, false, true, false, false, false, false, false, false, false, false, false, false, false]}, {"label": "BROUILLARD(EXERCICE)TICKET ESCAL", "roles": [true, true, false, false, false, false, true, false, false, false, false, false, false, false, false, false, false, false]}, {"label": "CONFIRMER AUTRE TICKET", "roles": [true, true, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false]}, {"label": "CONFIRMER BON", "roles": [true, false, false, false, true, true, false, false, false, false, false, false, false, false, true, false, false, false]}, {"label": "CONFIRMER CARTE", "roles": [true, false, false, false, true, true, false, false, false, false, false, false, false, false, true, false, false, false]}, {"label": "CONFIRMER TICKET", "roles": [true, true, false, false, true, true, false, true, false, false, false, false, false, false, true, false, false, false]}, {"label": "CONFIRMER TICKET GUICHET", "roles": [false, false, false, false, true, false, false, false, false, false, false, false, false, false, true, false, false, false]}, {"label": "ETAT GLOBAL TICKET GUICHETIER", "roles": [true, true, false, false, false, false, false, false, false, false, false, false, true, true, false, false, false, false]}, {"label": "ETAT GLOBAL TICKET GUICHETIER ESCAL", "roles": [true, true, false, false, false, false, false, false, false, false, false, false, true, true, false, false, false, false]}, {"label": "EXERCICE MENSUEL TICKET GUICHETIER", "roles": [true, true, false, false, false, false, true, false, false, false, false, false, false, false, false, false, false, false]}, {"label": "EXERCICE MENSUEL TICKET GUICHETIER ESCAL", "roles": [true, true, false, false, false, false, true, false, false, false, false, false, false, false, false, false, false, false]}, {"label": "FACTURATION BAGAGES AVEC TICKET", "roles": [true, true, false, false, false, false, false, false, false, false, false, true, false, false, false, false, false, false]}, {"label": "MANIFEST TICKET", "roles": [true, true, false, false, false, false, true, false, false, false, false, false, false, false, false, false, false, false]}, {"label": "MANIFEST TICKET ESCAL", "roles": [true, true, false, false, false, false, true, false, false, false, false, false, false, false, false, false, false, false]}, {"label": "RECAP EX MENSUEL TICKET", "roles": [true, true, false, false, false, false, true, false, false, false, false, false, false, false, false, false, false, false]}, {"label": "RECAP GLOBAL TICKET", "roles": [true, true, false, false, false, false, false, false, false, false, false, false, true, true, false, false, false, false]}, {"label": "RECAP GLOBAL TICKET ESCAL", "roles": [true, true, false, false, false, false, false, false, false, false, false, false, true, true, false, false, false, false]}, {"label": "RECETTE GLOBALE TICKET", "roles": [true, true, false, false, false, false, false, false, false, false, false, false, true, true, false, false, false, false]}, {"label": "RECETTE GLOBALE TICKET PAR GARE", "roles": [true, true, false, false, false, false, false, false, false, false, false, false, true, true, false, false, false, false]}, {"label": "RECETTE PAR OPERATEUR TICKET", "roles": [true, true, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false]}, {"label": "RESERVATION", "roles": [true, true, false, false, true, false, false, true, false, false, false, false, false, false, true, false, false, false]}, {"label": "TICKET", "roles": [false, false, false, false, false, true, false, false, false, false, false, false, false, false, false, false, false, false]}, {"label": "TICKET CONFIRMER", "roles": [false, false, false, false, true, false, false, false, false, false, false, false, false, false, true, false, false, false]}, {"label": "TICKET CONFIRMER DU JOUR", "roles": [true, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false]}, {"label": "VALIDER RESERVATION", "roles": [true, true, false, false, true, true, false, false, false, false, false, false, false, false, true, false, false, false]}, {"label": "VENTE GUICHET", "roles": [true, true, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false]}, {"label": "VENTE MOBILE", "roles": [true, false, false, false, false, false, false, false, false, true, false, false, false, false, false, false, false, false]}, {"label": "VENTE MOBILE ESCAL", "roles": [false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, true, false]}, {"label": "VENTE TICKET", "roles": [false, false, false, false, false, true, false, false, false, false, false, false, false, false, false, false, false, false]}, {"label": "VERSEMENT TICKET GUICHETIER", "roles": [true, true, false, false, false, false, false, false, false, false, false, false, true, true, false, false, false, false]}, {"label": "AUTRES FACTURATION BAGAGES", "roles": [true, false, false, false, false, false, false, false, false, false, false, true, false, false, false, false, false, false]}, {"label": "BAGAGE", "roles": [false, false, false, false, false, true, false, false, false, true, false, false, false, false, false, false, false, false]}, {"label": "BAGAGE ESCAL", "roles": [true, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, true, false]}, {"label": "BAGAGES DECLARER", "roles": [true, true, false, false, false, false, true, false, false, false, false, false, false, false, false, false, false, false]}, {"label": "BAGAGES ESCAL DECLARER", "roles": [true, true, false, false, false, false, true, false, false, false, false, false, false, false, false, false, false, false]}, {"label": "BORDEREAU SUIVI BAGAGES", "roles": [true, true, false, false, false, false, false, false, false, false, false, true, false, false, false, false, false, false]}, {"label": "BROUILLARD(EXERCICE) BAGAGE", "roles": [true, true, false, false, false, false, true, false, false, false, false, false, false, false, false, false, false, false]}, {"label": "BROUILLARD(EXERCICE) BAGAGEESCAL", "roles": [true, true, false, false, false, false, true, false, false, false, false, false, false, false, false, false, false, false]}, {"label": "DECLARATION BAGAGES", "roles": [true, true, false, false, false, false, true, false, false, false, false, false, false, false, false, false, false, false]}, {"label": "DECLARATION BAGAGES ESCAL", "roles": [true, true, false, false, false, false, true, false, false, false, false, false, false, false, false, false, false, false]}, {"label": "ETAT GLOBAL BAGAGE OPERATEUR", "roles": [true, true, false, false, false, false, false, false, false, false, false, false, true, true, false, false, false, false]}, {"label": "ETAT GLOBAL BAGAGEESCAL OPERATEUR", "roles": [true, true, false, false, false, false, false, false, false, false, false, false, true, true, false, false, false, false]}, {"label": "EXERCICE MENSUEL BAGAGE OPERATEUR", "roles": [true, true, false, false, false, false, true, false, false, false, false, false, false, false, false, false, false, false]}, {"label": "EXERCICE MENSUEL BAGAGEESCAL OPERATEUR", "roles": [true, true, false, false, false, false, true, false, false, false, false, false, false, false, false, false, false, false]}, {"label": "FACTURATION BAGAGES ENVOI", "roles": [true, true, false, false, false, false, false, false, false, false, false, true, false, false, false, false, false, false]}, {"label": "MANIFEST BAGAGE", "roles": [true, true, false, false, false, false, true, false, false, false, false, false, false, false, false, false, false, false]}, {"label": "MANIFEST BAGAGEESCAL", "roles": [true, true, false, false, false, false, true, false, false, false, false, false, false, false, false, false, false, false]}, {"label": "MODIFICATION VERSEMENT BAGAGE", "roles": [true, true, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false]}, {"label": "RECAP EX MENSUEL BAGAGE", "roles": [true, true, false, false, false, false, true, false, false, false, false, false, false, false, false, false, false, false]}, {"label": "RECAP EX MENSUEL BAGAGEESCAL", "roles": [true, true, false, false, false, false, true, false, false, false, false, false, false, false, false, false, false, false]}, {"label": "RECAP GLOBAL BAGAGE", "roles": [true, true, false, false, false, false, false, false, false, false, false, false, true, true, false, false, false, false]}, {"label": "RECAP GLOBAL BAGAGE ESCAL", "roles": [true, true, false, false, false, false, false, false, false, false, false, false, true, true, false, false, false, false]}, {"label": "VERSEMENT BAGAGES", "roles": [true, true, false, false, false, false, false, false, false, false, false, false, true, true, false, false, false, false]}, {"label": "ARCHIVER DONNEES COURRIER", "roles": [true, true, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false]}, {"label": "BROUILLARD(EXERCICE) COURRIER", "roles": [true, true, false, false, false, false, true, false, false, false, false, false, false, false, false, false, false, false]}, {"label": "BROUILLARD(EXERCICE) COURRIERESCAL", "roles": [true, true, false, false, false, false, true, false, false, false, false, false, false, false, false, false, false, false]}, {"label": "COURRIERS DECLARER", "roles": [true, true, false, false, false, false, true, false, false, false, false, false, false, false, false, false, false, false]}, {"label": "COURRIERSESCAL DECLARER", "roles": [true, true, false, false, false, false, true, false, false, false, false, false, false, false, false, false, false, false]}, {"label": "DECLARATION", "roles": [true, true, false, false, false, false, true, false, false, false, false, false, false, false, false, false, false, false]}, {"label": "DECLARATION COURRIERS", "roles": [true, true, false, false, false, false, true, false, false, false, false, false, false, false, false, false, false, false]}, {"label": "DECLARATION COURRIERSESCAL", "roles": [true, true, false, false, false, false, true, false, false, false, false, false, false, false, false, false, false, false]}, {"label": "DECLARATION ESCAL", "roles": [true, true, false, false, false, false, true, false, false, false, false, false, false, false, false, false, false, false]}, {"label": "DECLARER", "roles": [true, true, false, false, false, false, true, false, false, false, false, false, false, false, false, false, false, false]}, {"label": "DECLARER ESCAL", "roles": [true, true, false, false, false, false, true, false, false, false, false, false, false, false, false, false, false, false]}, {"label": "ETAT GLOBAL COURRIER GUICHETIER", "roles": [true, true, false, false, false, false, false, false, false, false, false, false, true, true, false, false, false, false]}, {"label": "ETAT GLOBAL COURRIERESCAL GUICHETIER", "roles": [true, true, false, false, false, false, false, false, false, false, false, false, true, true, false, false, false, false]}, {"label": "ETAT PASSAGERS", "roles": [false, false, false, false, false, false, false, false, false, false, false, false, true, false, false, false, false, false]}, {"label": "EXERCICE LISTE COURRIER", "roles": [true, true, false, false, false, false, true, false, false, false, false, false, false, false, false, false, false, false]}, {"label": "EXERCICE LISTE COURRIERESCAL", "roles": [true, true, false, false, false, false, true, false, false, false, false, false, false, false, false, false, false, false]}, {"label": "EXERCICE LISTE PASSAGERS", "roles": [true, true, false, false, false, false, true, false, false, false, false, false, false, false, false, false, false, false]}, {"label": "EXERCICE LISTE PASSAGERS ESCAL", "roles": [true, true, false, false, false, false, true, false, false, false, false, false, false, false, false, false, false, false]}, {"label": "EXERCICE MENSUEL COURRIER GUICHETIER", "roles": [true, true, false, false, false, false, true, false, false, false, false, false, false, false, false, false, false, false]}, {"label": "EXERCICE MENSUEL COURRIERESCAL GUICHETIER", "roles": [true, true, false, false, false, false, true, false, false, false, false, false, false, false, false, false, false, false]}, {"label": "LISTE GLOBALE COURRIER", "roles": [true, true, false, false, false, false, false, false, false, false, false, false, true, true, false, false, false, false]}, {"label": "LISTE GLOBALE COURRIERESCAL", "roles": [true, true, false, false, false, false, false, false, false, false, false, false, true, true, false, false, false, false]}, {"label": "LISTE GLOBALE PASSAGERS", "roles": [true, true, false, false, false, false, false, false, false, false, false, false, true, true, false, false, false, false]}, {"label": "LISTE GLOBALE PASSAGERS ESCAL", "roles": [true, true, false, false, false, false, false, false, false, false, false, false, true, true, false, false, false, false]}, {"label": "MANIFEST COURRIER", "roles": [true, true, false, false, false, false, true, false, false, false, false, false, false, false, false, false, false, false]}, {"label": "MANIFEST COURRIERESCAL", "roles": [true, true, false, false, false, false, true, false, false, false, false, false, false, false, false, false, false, false]}, {"label": "MODIFICATION VERSEMENT COURRIER", "roles": [true, true, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false]}, {"label": "RECAP DEPENSE COURRIER", "roles": [true, true, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false]}, {"label": "RECAP DEPENSES COURRIER", "roles": [false, false, false, false, false, false, false, false, false, false, false, false, true, true, false, false, false, false]}, {"label": "RECAP EX MENSUEL COURRIER", "roles": [true, true, false, false, false, false, true, false, false, false, false, false, false, false, false, false, false, false]}, {"label": "RECAP EX MENSUEL COURRIERESCAL", "roles": [true, true, false, false, false, false, true, false, false, false, false, false, false, false, false, false, false, false]}, {"label": "RECAP EX MENSUEL ESCAL", "roles": [true, true, false, false, false, false, true, false, false, false, false, false, false, false, false, false, false, false]}, {"label": "RECAP GLOBAL COURRIER", "roles": [true, true, false, false, false, false, false, false, false, false, false, false, true, true, false, false, false, false]}, {"label": "RECAP GLOBAL COURRIERESCAL", "roles": [true, true, false, false, false, false, false, false, false, false, false, false, true, true, false, false, false, false]}, {"label": "TRI POUR ARCHIVER DES DONNEES", "roles": [true, true, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false]}, {"label": "TRI VERSEMENTS POUR MODIFICATION", "roles": [true, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false]}, {"label": "VERSEMENT COURRIER GUICHETIER", "roles": [true, true, false, false, false, false, false, false, false, false, false, false, true, true, false, false, false, false]}, {"label": "COURRIER ESCAL", "roles": [true, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, true, false]}, {"label": "VALIDER ARRIVER", "roles": [true, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, true, false]}, {"label": "VALIDER ARRIVER ESCAL", "roles": [true, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false]}, {"label": "BON MILITAIRE", "roles": [true, false, false, false, true, false, false, false, false, false, false, false, false, false, true, false, false, false]}, {"label": "CARTE DE VOYAGE", "roles": [true, false, false, false, true, false, false, false, false, false, true, false, false, false, true, false, false, false]}, {"label": "FAIRE RECU", "roles": [true, false, false, false, true, false, false, false, false, false, false, false, false, false, true, false, false, false]}], "caisse": [{"label": "Recettes_internes_saisie", "roles": [true, true, false, true, false, false, false, false, false, false, false, false, false, false, false, false, false, true]}, {"label": "Recettes_internes_auto_validation_operavalid", "roles": [false, false, false, true, false, false, false, false, false, false, false, false, false, false, false, false, false, false]}, {"label": "Recettes_internes_validation_adjoint_operavalidad", "roles": [false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, true]}, {"label": "Depenses_internes", "roles": [true, true, false, true, false, false, false, false, false, false, false, false, false, false, false, false, false, true]}, {"label": "Depenses_externes", "roles": [true, true, false, true, false, false, false, false, false, false, false, false, false, false, false, false, false, true]}, {"label": "Versements_banque", "roles": [true, true, false, true, false, false, false, false, false, false, false, false, false, false, false, false, false, true]}, {"label": "Versements_client", "roles": [true, true, false, true, false, false, false, false, false, false, false, false, false, false, false, false, false, true]}, {"label": "Versements_fournisseur", "roles": [true, true, false, true, false, false, false, false, false, false, false, false, false, false, false, false, false, true]}, {"label": "Versements_caisse", "roles": [true, true, false, true, false, false, false, false, false, false, false, false, false, false, false, false, false, true]}, {"label": "Depots_caisse", "roles": [true, true, false, true, false, false, false, false, false, false, false, false, false, false, false, false, false, true]}, {"label": "Depots_sous_caisse", "roles": [true, true, false, true, false, false, false, false, false, false, false, false, false, false, false, false, false, true]}, {"label": "Depots_internes", "roles": [true, true, false, true, false, false, false, false, false, false, false, false, false, false, false, false, false, true]}, {"label": "Depots_client", "roles": [true, true, false, true, false, false, false, false, false, false, false, false, false, false, false, false, false, true]}, {"label": "Depots_fournisseur", "roles": [true, true, false, true, false, false, false, false, false, false, false, false, false, false, false, false, false, true]}, {"label": "Validation_recettes_guichet", "roles": [true, true, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false]}, {"label": "Validation_recettes_guichet_escal", "roles": [true, true, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false]}, {"label": "Validation_recettes_bagages", "roles": [true, true, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false]}, {"label": "Validation_depenses_courrier", "roles": [true, true, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false]}, {"label": "Validation_compte_arret_caisse", "roles": [true, true, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false]}, {"label": "Recettes_non_validees", "roles": [true, true, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false]}, {"label": "Depenses_non_validees", "roles": [true, true, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false]}, {"label": "Depots_non_valides", "roles": [true, true, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false]}, {"label": "Soldes_accueil", "roles": [true, true, false, true, false, false, false, false, false, false, false, false, false, false, false, false, false, true]}, {"label": "Voir_caisse_guichet", "roles": [true, true, false, true, true, false, false, false, false, false, false, false, false, false, false, true, false, true]}, {"label": "Voir_caisse_principale", "roles": [true, true, false, false, false, false, false, false, false, false, false, false, true, true, false, false, false, false]}, {"label": "Vue_donnees_adjoint_adget", "roles": [true, true, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, true]}, {"label": "Vue_donnees_standard_get", "roles": [true, true, false, true, false, false, false, false, false, false, false, false, false, false, false, false, false, false]}]};
+
+const STORAGE_KEY = 'rakietabus_matrice_sim_v1';
+let currentPanel = 'guichet';
+let state = loadState();
+
+function defaultState() {
+  const s = { guichet: [], caisse: [] };
+  for (const section of ['guichet', 'caisse']) {
+    s[section] = DATA[section].map(row => row.roles.slice());
+  }
+  return s;
+}
+
+function loadState() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return defaultState();
+    const parsed = JSON.parse(raw);
+    if (!parsed.guichet || !parsed.caisse) return defaultState();
+  if (parsed.guichet.length !== DATA.buttons.length || parsed.caisse.length !== DATA.caisse.length)
+      return defaultState();
+    return parsed;
+  } catch(e) { return defaultState(); }
+}
+
+function saveState() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  updateStatus();
+}
+
+function updateStatus() {
+  const diff = countDiff();
+  document.getElementById('status').textContent = diff
+    ? diff + ' modification(s) par rapport au code'
+    : 'Identique au code actuel';
+}
+
+function countDiff() {
+  let n = 0;
+  for (const section of ['guichet', 'caisse']) {
+    DATA[section].forEach((row, i) => {
+      row.roles.forEach((orig, j) => {
+        if (!!orig !== !!state[section][i][j]) n++;
+      });
+    });
+  }
+  return n;
+}
+
+function render() {
+  const section = currentPanel;
+  const rows = DATA[section];
+  const tbl = document.getElementById('matrix');
+  const compact = document.getElementById('compactCols').checked;
+  let html = '<thead><tr><th>Bouton / opération</th>';
+  DATA.roles.forEach((r, j) => {
+    const short = r.split('_')[0];
+    html += `<th data-col="${j}" title="Cliquer : tout cocher/décocher la colonne\n${r}">${compact ? short : r}</th>`;
+  });
+  html += '</tr></thead><tbody>';
+  rows.forEach((row, i) => {
+    const key = row.label.toLowerCase();
+    html += `<tr data-key="${key}" data-idx="${i}"><td>${row.label}</td>`;
+    row.roles.forEach((orig, j) => {
+      const cur = !!state[section][i][j];
+      let cls = cur ? 'on' : 'off';
+      if (cur && !orig) cls = 'added';
+      if (!cur && orig) cls = 'removed';
+      html += `<td class="${cls}"><input type="checkbox" class="cb" data-section="${section}" data-i="${i}" data-j="${j}" ${cur ? 'checked' : ''}></td>`;
+    });
+    html += '</tr>';
+  });
+  html += '</tbody>';
+  tbl.innerHTML = html;
+  applyFilters();
+  updateStatus();
+}
+
+function applyFilters() {
+  const q = document.getElementById('filter').value.trim().toLowerCase();
+  const onlyChecked = document.getElementById('onlyChecked').checked;
+  const onlyDiff = document.getElementById('onlyDiff').checked;
+  const section = currentPanel;
+  document.querySelectorAll('#matrix tbody tr').forEach(tr => {
+    const i = +tr.dataset.idx;
+    const key = tr.dataset.key;
+    const row = DATA[section][i];
+    const cur = state[section][i];
+    const hasChecked = cur.some(Boolean);
+    const hasDiff = row.roles.some((o, j) => !!o !== !!cur[j]);
+    let show = !q || key.includes(q);
+    if (onlyChecked) show = show && hasChecked;
+    if (onlyDiff) show = show && hasDiff;
+    tr.classList.toggle('hidden', !show);
+  });
+}
+
+document.getElementById('matrix').addEventListener('change', e => {
+  const cb = e.target;
+  if (!cb.classList.contains('cb')) return;
+  const { section, i, j } = cb.dataset;
+  state[section][+i][+j] = cb.checked;
+  saveState();
+  render();
+});
+
+document.getElementById('matrix').addEventListener('click', e => {
+  const th = e.target.closest('th[data-col]');
+  if (!th) return;
+  const j = +th.dataset.col;
+  const section = currentPanel;
+  const rows = DATA[section];
+  const allOn = rows.every((_, i) => state[section][i][j]);
+  rows.forEach((_, i) => { state[section][i][j] = !allOn; });
+  saveState();
+  render();
+});
+
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+    currentPanel = tab.dataset.panel;
+    render();
+  });
+});
+
+document.getElementById('filter').addEventListener('input', applyFilters);
+document.getElementById('onlyChecked').addEventListener('change', applyFilters);
+document.getElementById('onlyDiff').addEventListener('change', applyFilters);
+document.getElementById('compactCols').addEventListener('change', render);
+
+document.getElementById('btnReset').addEventListener('click', () => {
+  if (confirm('Réinitialiser toutes les cases à l\'état du code actuel ?')) {
+    state = defaultState();
+    saveState();
+    render();
+  }
+});
+
+function buildCsv(section, diffOnly) {
+  const lines = [];
+  const hdr = ['Libelle', ...DATA.roles];
+  lines.push(hdr.join(';'));
+  DATA[section].forEach((row, i) => {
+    const cur = state[section][i];
+    const changed = row.roles.some((o, j) => !!o !== !!cur[j]);
+    if (diffOnly && !changed) return;
+    lines.push([row.label, ...cur.map(v => v ? 'X' : '')].join(';'));
+  });
+  return '\ufeff' + lines.join('\n');
+}
+
+function download(text, name) {
+  const blob = new Blob([text], { type: 'text/csv;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = name;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+document.getElementById('btnExport').addEventListener('click', () => {
+  const g = buildCsv('guichet', false);
+  const c = buildCsv('caisse', false);
+  download(g, 'simulation_boutons_guichet.csv');
+  setTimeout(() => download(c, 'simulation_droits_caisse.csv'), 300);
+});
+
+document.getElementById('btnExportDiff').addEventListener('click', () => {
+  const g = buildCsv('guichet', true);
+  const c = buildCsv('caisse', true);
+  download(g, 'diff_boutons_guichet.csv');
+  setTimeout(() => download(c, 'diff_droits_caisse.csv'), 300);
+});
+
+document.getElementById('btnPrint').addEventListener('click', () => window.print());
+
+render();
+</script>
+</body>
+</html>

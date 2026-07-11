@@ -1,6 +1,6 @@
     <?php defined('BASEPATH') OR exit('No direct script access allowed');
 
-    class Ventescales extends CI_Controller
+    class Ventescales extends MY_Controller
     {
         public $property = array(
             'title' => 'Ventescales',
@@ -24,12 +24,17 @@
 
                 $cid = $this->session->company->ekey;
 
-                $imprimeepson = $this->input->post('epsonescal');
-                
                 $gid = $this->input->post('gareconnectescal');
                 $sgid = $this->input->post('sousgareconnectescal');
+                $iduser = roleattribut_guard_post_hint($this->company->ekey, 'gareconnectescal', 'userconnectedescal');
+                if ($msg = compte_arret_guard_sale('ticket', $iduser, $gid)) {
+                    compte_arret_redirect_guichet($iduser, $gid, $sgid, $msg);
+                    return;
+                }
+
+                $imprimeepson = $this->input->post('epsonescal');
+                
                 $idcmpt = $this->input->post('compconnectedescal');
-                $iduser = $this->input->post('userconnectedescal');
 
                 $dateclientesca = mdate("%Y-%m-%d", now());
 

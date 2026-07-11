@@ -591,6 +591,8 @@
                                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                                 WHERE e.ekey = '$cd'
                                 AND d.active_dep = 0
+                                AND d.is_actifdep = 0
+                                AND (d.is_validedep = 0 OR d.is_validedep IS NULL)
                                 AND d.type_depense <> 'Courrier'
                                 AND cs.id_caiss = '$item->id_caiss'
                                 AND d.idop_dep = '$conex->roleattribut'

@@ -28,6 +28,9 @@
                     <div class="card-body text-center">
                     
                         <span class="splash-description">Entrez vos informations de connexion.</span>
+                        <?php if (!empty($login_error)): ?>
+                        <div class="alert alert-danger mt-2">Identifiants incorrects. Réessayez.</div>
+                        <?php endif; ?>
                         <div class="card-body">
                             
                             <?= form_open('Login/lin_s/')?>

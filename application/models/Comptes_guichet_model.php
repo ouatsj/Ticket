@@ -122,6 +122,34 @@
                     ORDER BY cg.datearretcompt ASC")->result();
             }   
         }
+
+        /**
+         * Date/heure du dernier arrêt de compte guichet pour un opérateur.
+         *
+         * @param int|null $idsousga borne à la sous-gare courante si renseignée
+         * @return string|null datetime MySQL
+         */
+        public function last_arret_at($roleattribut, $idsousga = null)
+        {
+            $roleattribut = (int) $roleattribut;
+            if ($roleattribut <= 0) {
+                return null;
+            }
+
+            $params = [$roleattribut];
+            $sousga_sql = '';
+            if ($idsousga !== null && $idsousga !== '') {
+                $sousga_sql = ' AND idsousga = ?';
+                $params[] = (int) $idsousga;
+            }
+
+            $row = $this->db->query(
+                'SELECT MAX(lastcptg_update) AS dt FROM compte_guichet WHERE idusercompt = ?' . $sousga_sql,
+                $params
+            )->row();
+
+            return ($row && !empty($row->dt)) ? $row->dt : null;
+        }
     }
     /** Comptes_guichet_model.php **/
     /** application/models/Comptes_guichet_model.php **/

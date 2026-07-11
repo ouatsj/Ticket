@@ -33,6 +33,26 @@
         
     </p>
 </div>
+<?php if (!empty($compte_show_rd_pending)): ?>
+<div class="row">
+    <?php $this->load->view('beagle/pages/_caisse/_compte_recettes_depenses_pending', array(
+        'compte_recettes_pending' => isset($compte_recettes_pending) ? $compte_recettes_pending : array(),
+        'compte_depenses_pending' => isset($compte_depenses_pending) ? $compte_depenses_pending : array(),
+        'compte_last_arret' => isset($compte_last_arret) ? $compte_last_arret : null,
+        'compte_last_arret_recettes' => isset($compte_last_arret_recettes) ? $compte_last_arret_recettes : null,
+        'compte_last_arret_depenses' => isset($compte_last_arret_depenses) ? $compte_last_arret_depenses : null,
+        'compte_operateur_label' => isset($compte_operateur_label) ? $compte_operateur_label : '',
+        'compte_pending_detail_limit' => isset($compte_pending_detail_limit) ? $compte_pending_detail_limit : 0,
+        'compte_pending_recettes_total' => isset($compte_pending_recettes_total) ? $compte_pending_recettes_total : null,
+        'compte_pending_depenses_total' => isset($compte_pending_depenses_total) ? $compte_pending_depenses_total : null,
+        'compte_rd_arret_url' => isset($compte_rd_arret_url) ? $compte_rd_arret_url : '',
+        'compte_rd_recettes_url' => isset($compte_rd_recettes_url) ? $compte_rd_recettes_url : '',
+        'compte_rd_depenses_url' => isset($compte_rd_depenses_url) ? $compte_rd_depenses_url : '',
+        'compte_rd_caisse_url' => isset($compte_rd_caisse_url) ? $compte_rd_caisse_url : '',
+        'compte_rd_caisse_label' => isset($compte_rd_caisse_label) ? $compte_rd_caisse_label : '',
+    )); ?>
+</div>
+<?php endif; ?>
 <div class="row">    
     <div class="col-lg-8">
         <div class="card text-center">
@@ -245,8 +265,7 @@
                 
                 <?= form_close(); ?>
             </div>
-    </div>  
-   
+    </div>
 </div>
 <!-- tri-->
 <div class="modal-container colored-header colored-header-success custom-width modal-effect-7"

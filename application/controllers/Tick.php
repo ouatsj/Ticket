@@ -1,6 +1,6 @@
 <?php defined('BASEPATH') OR exit('No direct script access allowed');
         require_once(APPPATH . 'libraries/tcpdf/tcpdf.php');
-      class Tick extends CI_Controller
+      class Tick extends MY_Controller
       {
             public $property = array('title' => 'TICKETS');
             public $entreprise;

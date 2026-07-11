@@ -14,15 +14,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 document.querySelector('#quartieridbgt').options.length = 1;
                 const lidlignecr = document.querySelector('#couridlignedeptt')
                 .options[document.querySelector('#couridlignedeptt').options.selectedIndex].value;
-                var lidlignecr1 = lidlignecr.split('/');
-                var lidlignecr2 = lidlignecr1[0];
-                var qart = lidlignecr2.split('-');
-                var lidlignecr3 = qart[0];
-                var lidlignecr4 = qart[1];
+                var ligne = parseLigneOption(lidlignecr);
+                if (!ligne.gareDest) {
+                    return;
+                }
                 let httptypequartr;
                 httptypequartr = new XMLHttpRequest();
                 
-                httptypequartr.open('GET', window.location.origin + `${APP_ROOT}/Confirmation/verifquart/${lidlignecr4}`, true);
+                httptypequartr.open('GET', window.location.origin + `${APP_ROOT}/Confirmation/verifquart/${ligne.gareDest}`, true);
                 httptypequartr.onload = () => 
                 {
                     const courquar = JSON.parse(httptypequartr.responseText);

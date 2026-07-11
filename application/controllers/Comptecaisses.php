@@ -29,7 +29,15 @@
                 $this->company = $this->m_entreprises->get_key($ckey);
                 $bus_stop = $this->m_sousgare->sget($this->company->ekey, $gd, $sg);
                 $this->property['bus_stop'] = $bus_stop;
-                $conex = $this->m_compte_user->usget1($idc, $gd);
+                $idc_requested = $idc;
+                $operateur = compte_arret_bind_operateur($this->company->ekey, $gd, $idc);
+                $idc = $operateur['roleattribut'];
+                roleattribut_guard_redirect_if_url_mismatch(
+                    'comptecaisses/compte/' . $this->company->ekey . '/' . $idc . '/' . $gd . '/' . $sg,
+                    $idc_requested,
+                    $idc
+                );
+                $conex = $operateur['conex'];
                 $this->property['conex'] = $conex;
 
                 $this->property['pagetitle'] .= " • ARRÊT COMPTE • <strong>{$this->company->nom_entreprise}•&nbsp;</strong>";
@@ -67,6 +75,8 @@
         public function valide($ckey, $idcpt, $d, $gd, $isg)
         {
             $this->company = $this->m_entreprises->get_key($ckey);
+            $idcpt = compte_arret_resolve_roleattribut($this->company->ekey, $gd, $idcpt);
+            $idcpt = (int) $idcpt;
         
             $sgares = $this->db->query("SELECT count(idsousgare) AS sog FROM sousgare s
                     WHERE s.gareprinceid = '$gd'")->row();
@@ -345,13 +355,7 @@
                         }
                     }
             
-            $cp = (int) $this->input->post('compconnected');
-            if ($cp <= 0 && $this->session->userdata('agent')) {
-                $cp = (int) $this->session->agent->cpuser_id;
-            }
-            if ($cp > 0) {
-                compte_arret_track_activity($cp);
-            }
+            compte_arret_track_activity_safe();
             redirect('comptecaisses/compte/'.$this->session->company->ekey. '/' . $idcpt.'/'.$gd.'/'.$isg);
         }
 
@@ -364,7 +368,15 @@
             $this->company = $this->m_entreprises->get_key($ckey);
                 $bus_stop = $this->m_sousgare->sget($this->company->ekey, $gd, $sg);
                 $this->property['bus_stop'] = $bus_stop;
-                $conex = $this->m_compte_user->usget1($idc, $gd);
+                $idc_requested = $idc;
+                $operateur = compte_arret_bind_operateur($this->company->ekey, $gd, $idc);
+                $idc = $operateur['roleattribut'];
+                roleattribut_guard_redirect_if_url_mismatch(
+                    'comptecaisses/arcompteescalbag/' . $this->company->ekey . '/' . $idc . '/' . $gd . '/' . $sg,
+                    $idc_requested,
+                    $idc
+                );
+                $conex = $operateur['conex'];
                     $this->property['conex'] = $conex;
 
                 $this->property['pagetitle'] .= " • ARRÊT COMPTE BAGAGE • <strong>{$this->company->nom_entreprise}•&nbsp;{$bus_stop->nom_gaep}•{$bus_stop->nomsousgare}</strong>";
@@ -394,7 +406,15 @@
             $this->company = $this->m_entreprises->get_key($ckey);
                     $bus_stop = $this->m_sousgare->sget($this->company->ekey, $gd, $sg);
                         $this->property['bus_stop'] = $bus_stop;
-                $conex = $this->m_compte_user->usget1($idc, $gd);
+                $idc_requested = $idc;
+                $operateur = compte_arret_bind_operateur($this->company->ekey, $gd, $idc);
+                $idc = $operateur['roleattribut'];
+                roleattribut_guard_redirect_if_url_mismatch(
+                    'comptecaisses/arcompteescalcour/' . $this->company->ekey . '/' . $idc . '/' . $gd . '/' . $sg,
+                    $idc_requested,
+                    $idc
+                );
+                $conex = $operateur['conex'];
                     $this->property['conex'] = $conex;
 
                 $this->property['pagetitle'] .= " • ARRÊT COMPTE COURRIER • <strong>{$this->company->nom_entreprise}•&nbsp;{$bus_stop->nom_gaep}•{$bus_stop->nomsousgare}</strong>";
@@ -420,6 +440,8 @@
         public function valideescbag($ckey, $idcpt, $d, $gd, $isg)
         {
             $this->company = $this->m_entreprises->get_key($ckey);
+            $idcpt = compte_arret_resolve_roleattribut($this->company->ekey, $gd, $idcpt);
+            $idcpt = (int) $idcpt;
         
             $sgares = $this->db->query("SELECT count(idsousgare) AS sog FROM sousgare s
                     WHERE s.gareprinceid = '$gd'")->row();
@@ -685,6 +707,8 @@
         public function validecouresc($ckey, $idcpt, $d, $gd, $isg)
         {
             $this->company = $this->m_entreprises->get_key($ckey);
+            $idcpt = compte_arret_resolve_roleattribut($this->company->ekey, $gd, $idcpt);
+            $idcpt = (int) $idcpt;
         
                 $arcour = $this->db->query("SELECT e.courrierexpidesc, e.num_couresc, e.departcolisesc, e.statutcouresc, e.courrierdepartgareesc FROM courriers_expesc e
                     WHERE e.idoperateuresc = '$idcpt'
@@ -1027,13 +1051,7 @@
                         }
 
                     }
-                $cp = (int) $this->input->post('compconnected');
-                if ($cp <= 0 && $this->session->userdata('agent')) {
-                    $cp = (int) $this->session->agent->cpuser_id;
-                }
-                if ($cp > 0) {
-                    compte_arret_track_activity($cp);
-                }
+                compte_arret_track_activity_safe();
                 redirect('comptecaisses/arcompteescalcour/'.$this->session->company->ekey. '/' . $idcpt.'/'.$gd.'/'.$isg);
         }
     }

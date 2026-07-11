@@ -1,6 +1,6 @@
 <?php defined('BASEPATH') OR exit('No direct script access allowed');
 
-    class Statut_Gares extends CI_Controller
+    class Statut_Gares extends MY_Controller
     {
         public $property = array(
             'title' => 'statut_gare',
@@ -90,7 +90,7 @@
             $u = $this->input->post('compconnected');
             $g = $this->input->post('gareconnect');
             $sg = $this->input->post('sousgareconnect');
-            $iduser = $this->input->post('userconnected');
+            $iduser = roleattribut_guard_post_hint($this->company->ekey);
 
             $argd = $this->input->post('argare');
             $idhr = $this->input->post('heure');
@@ -119,7 +119,7 @@
             $u = $this->input->post('compconnected');
             $g = $this->input->post('gareconnect');
             $sg = $this->input->post('sousgareconnect');
-            $iduser = $this->input->post('userconnected');
+            $iduser = roleattribut_guard_post_hint($this->company->ekey);
 
             $arra = array(
                 'idgarearrive' => $this->input->post('argare'),

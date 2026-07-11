@@ -95,10 +95,7 @@
                 return;
             }
             $gid = $this->input->post('gareconnect');
-            $iduser = $this->input->post('userconnected');
-            if ($iduser === null || $iduser === '') {
-                $iduser = $this->_sale_role_attribut_id();
-            }
+            $iduser = $this->_sale_role_attribut_id();
             $sgid = $this->input->post('sousgareconnect');
             $url = 'gares/' . $this->session->company->ekey . '/gTc/' . $gid . '/compte/' . $iduser . '/' . $sgid . '/' . mdate('%d/%m/%Y', now('UTC'));
 
@@ -132,18 +129,37 @@
                 'userconnectedescalbag',
             );
 
+            $hint = '';
             foreach ($fields as $field) {
                 $value = trim((string) $this->input->post($field));
                 if ($value !== '' && $value !== '0') {
-                    return $value;
+                    $hint = $value;
+                    break;
                 }
             }
 
-            if ($this->session->userdata('agent') && !empty($this->session->agent->roleattribut)) {
-                return (string) $this->session->agent->roleattribut;
+            if ($hint === '' && $this->session->userdata('agent') && !empty($this->session->agent->roleattribut)) {
+                $hint = (string) $this->session->agent->roleattribut;
             }
 
-            return '';
+            if (!$this->session->userdata('company')) {
+                return $hint;
+            }
+
+            $gare = $this->input->post('gareconnect');
+            if ($gare === null || $gare === '') {
+                $gare = $this->input->post('gareconnected');
+            }
+            if ($gare === null || $gare === '') {
+                $gare = $this->input->post('gareconnectmob');
+            }
+
+            if ($gare !== null && $gare !== '') {
+                $op = roleattribut_guard_operateur($this->session->company->ekey, $gare, $hint);
+                return (string) $op['roleattribut'];
+            }
+
+            return (string) roleattribut_guard_enforce_id($hint, null, $this->session->company->ekey);
         }
 
         protected function _sale_nonce_key($nonce)
@@ -252,7 +268,7 @@
                 $bus_stop = $this->m_sousgare->sget($this->company->ekey, $gd, $sg);
                     $this->property['bus_stop'] = $bus_stop;
 
-                $conex = $this->m_compte_user->getusergare($this->company->ekey, $gd, $uid);
+                $conex = $this->_roleattribut_guard_bind($uid, $this->company->ekey, $gd);
 
                 $this->property['conex'] = $conex;
 
@@ -327,7 +343,7 @@
 
         public function add($ckey)
         {            
-            $iduser = $this->input->post('userconnectedstp'); 
+            $iduser = roleattribut_guard_post_hint($this->session->company->ekey, 'gareconnectstp', 'userconnectedstp'); 
             $sgid = $this->input->post('sousgareconnectstp');
             $today = mdate("%Y-%m-%d", now('UTC'));
             $depart = $this->input->post('gareconnectstp');
@@ -372,7 +388,7 @@
 
         public function updateprogramme($ckey, $copgr)
         {            
-            $iduser= $this->input->post('userconnectedstp'); 
+            $iduser = roleattribut_guard_post_hint($this->session->company->ekey, 'gareconnectstp', 'userconnectedstp'); 
             $sgid = $this->input->post('sousgareconnectstp');
             
             $depart = $this->input->post('gareconnectstp');
@@ -524,7 +540,7 @@
         public function addg($ckey)
         {
             $this->company = $this->m_entreprises->get_key($ckey);
-            $iduser = $this->input->post('userconnected');
+            $iduser = $this->_sale_role_attribut_id();
             $idsg = $this->input->post('sousgareconnect');
             $idcp = $this->input->post('compconnected');
             $gare_posd = strpos($this->input->post('itineraireheure'), '.');
@@ -589,7 +605,7 @@
         public function editgare_($ckey, $idpr, $cdb)
         {
             $this->company = $this->m_entreprises->get_key($ckey);
-            $iduser = $this->input->post('userconnected');
+            $iduser = $this->_sale_role_attribut_id();
             $idsg = $this->input->post('sousgareconnect');
             $idcp = $this->input->post('compconnected');
             $post_heure = strpos($this->input->post('heureprog'), '.');
@@ -692,7 +708,7 @@
         public function addsousgare($ckey, $stopgare)
         {
             $this->company = $this->m_entreprises->get_key($ckey);
-            $iduser = $this->input->post('userconnected');
+            $iduser = $this->_sale_role_attribut_id();
             $idsg = $this->input->post('sousgareconnect');
             $idcp = $this->input->post('compconnected');
 
@@ -724,7 +740,7 @@
         public function adsousgare($ckey, $stopgare)
         {
             $this->company = $this->m_entreprises->get_key($ckey);
-            $iduser = $this->input->post('userconnected');
+            $iduser = $this->_sale_role_attribut_id();
             $idsg = $this->input->post('sousgareconnect');
             $idcp = $this->input->post('compconnected');
             $arraygdep = array(
@@ -741,7 +757,7 @@
         public function modifsousgare($ckey, $stopgare, $ids)
         {
             $this->company = $this->m_entreprises->get_key($ckey);
-            $iduser = $this->input->post('userconnected');
+            $iduser = $this->_sale_role_attribut_id();
             $idsg = $this->input->post('sousgareconnect');
             $idcp = $this->input->post('compconnected');
             $arraygdep = array(
@@ -759,7 +775,7 @@
         public function gajout_($ckey, $cdb, $cat, $taf, $dtp, $gt, $dthp)
         {
             $this->company = $this->m_entreprises->get_key($ckey);
-            $iduser = $this->input->post('userconnected');
+            $iduser = $this->_sale_role_attribut_id();
             $idsg = $this->input->post('sousgareconnect');
             $idcp = $this->input->post('compconnected');
             $gare_posd = strpos($this->input->post('heureprog'), '.');
@@ -1151,11 +1167,7 @@
                 $gid = $this->input->post('gareconnect');
                 $sgid = $this->input->post('sousgareconnect');
                 $idcmpt = $this->input->post('compconnected');
-                $idrole = $this->input->post('userconnected');
                 $iduser = $this->_sale_role_attribut_id();
-                if ($iduser === '' && $idrole !== '' && $idrole !== null) {
-                    $iduser = (string) $idrole;
-                }
                 $usen = substr($this->session->agent->username, 0, 1);
 
                 // Vente directe : heuredept + passagersieges
@@ -13089,7 +13101,7 @@
             $this->company = $this->m_entreprises->get_key($ckey);
             $idsg = $this->input->post('sousgareconnect');
             $idcp = $this->input->post('compconnected');
-            $iduser = $this->input->post('userconnected');
+            $iduser = $this->_sale_role_attribut_id();
 
             $l = $this->input->post('_nomligne');
             $sgr = $this->input->post('_nomsousgare');
@@ -13126,7 +13138,7 @@
             $this->company = $this->m_entreprises->get_key($ckey);
             $idsg = $this->input->post('sousgareconnect');
             $idcp = $this->input->post('compconnected');
-            $iduser = $this->input->post('userconnected');
+            $iduser = $this->_sale_role_attribut_id();
             $argarray = array(
                 'idligne' => $this->input->post('_nomligne'),
                 'idsousgar' => $this->input->post('_nomsousgare'),
@@ -13164,11 +13176,7 @@
                 $gidc = $this->input->post('gareconnect');
                 $sgid = $this->input->post('sousgareconnect');
                 $idcmpt = $this->input->post('compconnected');
-                $idrole = $this->input->post('userconnected');
                 $iduser = $this->_sale_role_attribut_id();
-                if ($iduser === '' && $idrole !== '' && $idrole !== null) {
-                    $iduser = (string) $idrole;
-                }
                 $usen = substr($this->session->agent->username, 0, 1);
                 $imprimeordinaire = $this->input->post('ordinaire');
                 $imprimeepson = $this->input->post('epson');
@@ -20472,7 +20480,7 @@
                 $gid = $this->input->post('gareconnectmob');
                 $sgid = $this->input->post('sousgareconnectmob');
                 $idcmpt = $this->input->post('compconnectedmob');
-                $iduser = $this->input->post('userconnectedmob');
+                $iduser = $this->_sale_role_attribut_id();
                 $cid = $this->session->company->ekey;
                 $cdre1 = strpos($this->input->post('arrgaremob'), '/');
                 $cdr2 = substr($this->input->post('arrgaremob'), 0, $cdre1);

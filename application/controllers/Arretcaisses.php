@@ -1,6 +1,6 @@
 <?php defined('BASEPATH') OR exit('No direct script access allowed');
     
-    class Arretcaisses extends CI_Controller
+    class Arretcaisses extends MY_Controller
     {
         public $property = array(
             'title' => 'Chef Guichet',
@@ -44,7 +44,7 @@
             $dpe=$this->input->post('depensetotal');
             $dpo=$this->input->post('totaldepot');
             $gid = $this->input->post('gareconnect');
-            $iduser = $this->input->post('userconnected');
+            $iduser = roleattribut_guard_post_hint($this->company->ekey);
             $sgid = $this->input->post('sousgareconnect');
             $idcmpt = $this->input->post('compconnected');
             
@@ -230,7 +230,7 @@
         {
             $this->company = $this->m_entreprises->get_key($ckey);
             $gid = $this->input->post('gareconnect');
-            $iduser = $this->input->post('userconnected');
+            $iduser = roleattribut_guard_post_hint($this->company->ekey);
             $sgid = $this->input->post('sousgareconnect');
             $idcmpt = $this->input->post('compconnected');
         
@@ -253,7 +253,7 @@
         {
             $this->company = $this->m_entreprises->get_key($ckey);
             $gid = $this->input->post('gareconnect');
-            $iduser = $this->input->post('userconnected');
+            $iduser = roleattribut_guard_post_hint($this->company->ekey);
             $sgid = $this->input->post('sousgareconnect');
             $idcmpt = $this->input->post('compconnected');
                 $plarray = array(
@@ -276,7 +276,7 @@
         {
             $this->company = $this->m_entreprises->get_key($ckey);
             $gid = $this->input->post('gareconnect');
-            $iduser = $this->input->post('userconnected');
+            $iduser = roleattribut_guard_post_hint($this->company->ekey);
             $sgid = $this->input->post('sousgareconnect');
             $idcmpt = $this->input->post('compconnected');
                 
@@ -300,7 +300,7 @@
         {
             $this->company = $this->m_entreprises->get_key($ckey);
             $gid = $this->input->post('gareconnect');
-            $iduser = $this->input->post('userconnected');
+            $iduser = roleattribut_guard_post_hint($this->company->ekey);
             $sgid = $this->input->post('sousgareconnect');
             $idcmpt = $this->input->post('compconnected');
                 
@@ -324,7 +324,7 @@
             $this->company = $this->m_entreprises->get_key($ckey);
            
             $gid = $this->input->post('gareconnect');
-            $iduser = $this->input->post('userconnected');
+            $iduser = roleattribut_guard_post_hint($this->company->ekey);
             $sgid = $this->input->post('sousgareconnect');
             $idcmpt = $this->input->post('compconnected');
                         $dpolarray = array(
@@ -346,7 +346,7 @@
         {
             $this->company = $this->m_entreprises->get_key($ckey);
             $gid = $this->input->post('gareconnect');
-            $iduser = $this->input->post('userconnected');
+            $iduser = roleattribut_guard_post_hint($this->company->ekey);
             $sgid = $this->input->post('sousgareconnect');
             $idcmpt = $this->input->post('compconnected');
                 
@@ -369,31 +369,50 @@
         public function validerecette($ckey, $g, $idc, $idcpt, $iduser, $sgid)
         {
             $this->company = $this->m_entreprises->get_key($ckey);
-           
+            $ctx = caissier_validation_bind_operateurs($this->company->ekey, $g, $idcpt, $iduser);
+            $idcpt = $ctx['chef_ra'];
+            $iduser = $ctx['caissier_ra'];
+            $is_saisie = recette_role_is_saisie($ctx['chef_userole']);
+
+            if ($is_saisie) {
+                $cfrecet = $this->db->query("SELECT r.id_recette, r.active_recet, r.is_validerecet, r.idopera, r.idcaisse FROM recette r
+                    WHERE r.idopera = '$idcpt'
+                    AND r.active_recet = 0
+                    AND r.idcaisse ='$idc'
+                    AND r.is_validerecet = 0
+                    AND r.is_actifrecet = 0
+                    AND r.actif_rect = 0")->result();
+            } else {
                 $cfrecet = $this->db->query("SELECT r.id_recette, r.active_recet, r.is_validerecet, r.idopera, r.idcaisse FROM recette r
                     WHERE r.idopera = '$idcpt'
                     AND r.active_recet = 1
                     AND r.idcaisse ='$idc'
                     AND r.is_validerecet = 0")->result();
+            }
 
                     foreach ($cfrecet as $item9) {
-                        if($this->session->agent->userole === '18')
+                        if (recette_role_is_validateur_adjoint($this->session->agent->userole))
                         {
-                            $upargv = array(
-                                'active_recet' => 1, 
+                            $plarray = array(
+                                'active_recet' => 1,
                                 'is_validerecet' => 1,
-                                'is_actifrecet' => 1, 
+                                'is_actifrecetad' => 1,
                                 'operavalidad' => $iduser,
                             );
-                            
-                        }else
-
+                        }
+                        else
                         {
                             $plarray = array(
                                 'is_actifrecet' => 1,
                                 'is_validerecet' => 1,
                                 'operavalid' => $iduser,
                             );
+                            if ($is_saisie) {
+                                $plarray['active_recet'] = 1;
+                            }
+                        }
+                        if ((int) $sgid > 0) {
+                            $plarray['recetsgid'] = (int) $sgid;
                         }
 
                         $vald_recet = $this->m_recette->update($item9->id_recette, $plarray);
@@ -403,24 +422,37 @@
                 
                 $this->property['UPDATE_SUCCESS'] = TRUE;
             
-            redirect('utilisateurs/' . $this->session->company->ekey.'/caissier/'.$g. '/'. $idc.'/'.$idcpt.'/'.$iduser.'/'.$sgid.'/'.mdate("%d/%m/%Y", now('UTC')));
+            caissier_validation_viewcaissier_redirect(
+                $this->company->ekey,
+                $g,
+                $idc,
+                $idcpt,
+                $iduser,
+                $sgid
+            );
         }
 
         public function rejetrecette($ckey, $g, $idc, $idcpt, $iduser, $sgid)
         {
             $this->company = $this->m_entreprises->get($ckey);
+            $ctx = caissier_validation_bind_operateurs($this->company->ekey, $g, $idcpt, $iduser);
+            $idcpt = $ctx['chef_ra'];
+            $iduser = $ctx['caissier_ra'];
+            $is_saisie = recette_role_is_saisie($ctx['chef_userole']);
+            $active_filter = $is_saisie ? 0 : 1;
            
-            
                 $cfrecet = $this->db->query("SELECT r.id_recette, r.active_recet, r.is_validerecet, r.idopera, r.idcaisse, r.valid_recet FROM recette r
                     WHERE r.idopera = '$idcpt'
-                    AND r.active_recet = 1
+                    AND r.active_recet = $active_filter
                     AND r.idcaisse ='$idc'
                     AND r.is_validerecet = 0
-                    AND r.valid_recet = 'valid'")->result();
+                    AND r.valid_recet = 'valid'" . ($is_saisie ? "
+                    AND r.is_actifrecet = 0
+                    AND r.actif_rect = 0" : ''))->result();
 
                     foreach ($cfrecet as $item10) {
 
-                        if($this->session->agent->userole === '18')
+                        if(recette_role_is_validateur_adjoint($this->session->agent->userole))
                         {
                             $plarray = array(
                                 'active_recet' => 0,
@@ -445,58 +477,101 @@
                 
                 $this->property['UPDATE_SUCCESS'] = TRUE;
             
-              redirect('utilisateurs/' . $this->session->company->ekey.'/caissier/'.$g. '/'. $idc.'/'.$idcpt.'/'.$iduser.'/'.$sgid.'/'.mdate("%d/%m/%Y", now('UTC')));
+            caissier_validation_viewcaissier_redirect(
+                $this->company->ekey,
+                $g,
+                $idc,
+                $idcpt,
+                $iduser,
+                $sgid
+            );
         }
 
         public function validedepense($ckey, $g, $idc, $idcpt, $iduser, $sgid)
         {
             $this->company = $this->m_entreprises->get_key($ckey);
-           
+            $ctx = caissier_validation_bind_operateurs($this->company->ekey, $g, $idcpt, $iduser);
+            $idcpt = $ctx['chef_ra'];
+            $iduser = $ctx['caissier_ra'];
+            $is_saisie = recette_role_is_saisie($ctx['chef_userole']);
+
+            if ($is_saisie) {
+                $cfdepes = $this->db->query("SELECT d.id_depense, d.active_dep, d.is_validedep, d.idop_dep, d.idcaisse_depens FROM depense d
+                    WHERE d.idop_dep = '$idcpt'
+                    AND d.active_dep = 0
+                    AND d.idcaisse_depens = '$idc'
+                    AND d.is_validedep = 0
+                    AND d.is_actifdep = 0
+                    AND d.actif_deps = 0")->result();
+            } else {
                 $cfdepes = $this->db->query("SELECT d.id_depense, d.active_dep, d.is_validedep, d.idop_dep, d.idcaisse_depens FROM depense d
                     WHERE d.idop_dep = '$idcpt'
                     AND d.active_dep = 1
                     AND d.idcaisse_depens = '$idc'
                     AND d.is_validedep = 0")->result();
+            }
 
                     foreach ($cfdepes as $cfdep) {
 
-                        if($this->session->agent->userole === '18')
+                        if (recette_role_is_validateur_adjoint($this->session->agent->userole))
                         {
                             $dplarray = array(
+                                'active_dep' => 1,
                                 'is_validedep' => 1,
+                                'is_actifdepad' => 1,
                                 'opevalidad' => $iduser,
                             );
-                        }else
+                        }
+                        else
                         {
-
                             $dplarray = array(
                                 'is_validedep' => 1,
                                 'is_actifdep' => 1,
                                 'opevalid' => $iduser,
                             );
+                            if ($is_saisie) {
+                                $dplarray['active_dep'] = 1;
+                            }
+                        }
+                        if ((int) $sgid > 0) {
+                            $dplarray['sousgidepens'] = (int) $sgid;
                         }
                         $vald_dep = $this->m_depense->update($cfdep->id_depense, $dplarray);
                     }
                 
                 $this->property['UPDATE_SUCCESS'] = TRUE;
             
-            redirect('utilisateurs/' . $this->session->company->ekey.'/caissier/'.$g. '/'. $idc.'/'.$idcpt.'/'.$iduser.'/'.$sgid.'/'.mdate("%d/%m/%Y", now('UTC')));
+            caissier_validation_viewcaissier_redirect(
+                $this->company->ekey,
+                $g,
+                $idc,
+                $idcpt,
+                $iduser,
+                $sgid
+            );
         }
 
         public function rejetdepense($ckey, $g, $idc, $idcpt, $iduser, $sgid)
         {
             $this->company = $this->m_entreprises->get_key($ckey);
+            $ctx = caissier_validation_bind_operateurs($this->company->ekey, $g, $idcpt, $iduser);
+            $idcpt = $ctx['chef_ra'];
+            $iduser = $ctx['caissier_ra'];
+            $is_saisie = recette_role_is_saisie($ctx['chef_userole']);
+            $active_filter = $is_saisie ? 0 : 1;
            
                 $cfdepe = $this->db->query("SELECT d.id_depense, d.active_dep, d.is_validedep, d.valid_depens, d.idop_dep, d.idcaisse_depens FROM depense d
                     WHERE d.idop_dep = '$idcpt'
-                    AND d.active_dep = 1
+                    AND d.active_dep = $active_filter
                     AND d.idcaisse_depens = '$idc'
                     AND d.is_validedep = 0
-                    AND d.valid_depens = 'valid'")->result();
+                    AND d.valid_depens = 'valid'" . ($is_saisie ? "
+                    AND d.is_actifdep = 0
+                    AND d.actif_deps = 0" : ''))->result();
 
                     foreach ($cfdepe as $teme1) {
 
-                        if($this->session->agent->userole === '18')
+                        if(recette_role_is_validateur_adjoint($this->session->agent->userole))
                         {
 
                             $dplarray = array(
@@ -519,22 +594,44 @@
                 
                 $this->property['UPDATE_SUCCESS'] = TRUE;
             
-            redirect('utilisateurs/' . $this->session->company->ekey.'/caissier/'.$g. '/'. $idc.'/'.$idcpt.'/'.$iduser.'/'.$sgid.'/'.mdate("%d/%m/%Y", now('UTC')));
+            caissier_validation_viewcaissier_redirect(
+                $this->company->ekey,
+                $g,
+                $idc,
+                $idcpt,
+                $iduser,
+                $sgid
+            );
         }
         public function validedepot($ckey, $g, $idc, $idcpt, $iduser, $sgid)
         {
             $this->company = $this->m_entreprises->get_key($ckey);
-           
+            $ctx = caissier_validation_bind_operateurs($this->company->ekey, $g, $idcpt, $iduser);
+            $idcpt = $ctx['chef_ra'];
+            $iduser = $ctx['caissier_ra'];
+            $is_saisie = recette_role_is_saisie($ctx['chef_userole']);
+
+            if ($is_saisie) {
+                $cfdepo = $this->db->query("SELECT d.id_depot, d.is_validdepo, d.idop_depot, d.idcaisse_depot FROM depot d
+                    WHERE d.idop_depot = '$idcpt'
+                    AND d.idcaisse_depot = '$idc'
+                    AND d.is_validdepo = 0
+                    AND d.is_actifdepo = 0
+                    AND d.is_actifdepoad = 0
+                    AND d.actif_depo = 0")->result();
+            } else {
                 $cfdepo = $this->db->query("SELECT d.id_depot, d.is_validdepo, d.idop_depot, d.idcaisse_depot FROM depot d
                     WHERE d.idop_depot = '$idcpt'
                     AND d.idcaisse_depot = '$idc'
                     AND d.is_validdepo = 0")->result();
+            }
 
                     foreach ($cfdepo as $tems) {
-                        if($this->session->agent->userole === '18')
+                        if (recette_role_is_validateur_adjoint($this->session->agent->userole))
                         {
                             $dpolarray = array(
                                 'is_validdepo' => 1,
+                                'is_actifdepoad' => 1,
                                 'opvalidad' => $iduser,
                             );
                         }
@@ -542,31 +639,59 @@
                         {
                             $dpolarray = array(
                                 'is_validdepo' => 1,
+                                'is_actifdepo' => 1,
                                 'opvalid' => $iduser,
                             );
+                        }
+                        if ((int) $sgid > 0) {
+                            $dpolarray['sousgdepot'] = (int) $sgid;
                         }
                         $vald_depo = $this->m_depot->update($tems->id_depot, $dpolarray);
                     }
                 $this->property['UPDATE_SUCCESS'] = TRUE;
             
-            redirect('utilisateurs/' . $this->session->company->ekey.'/caissier/'.$g. '/'. $idc.'/'.$idcpt.'/'.$iduser.'/'.$sgid.'/'.mdate("%d/%m/%Y", now('UTC')));
+            caissier_validation_viewcaissier_redirect(
+                $this->company->ekey,
+                $g,
+                $idc,
+                $idcpt,
+                $iduser,
+                $sgid
+            );
         }
 
         public function rejetdepot($ckey, $g, $idc, $idcpt, $iduser, $sgid)
         {
             $this->company = $this->m_entreprises->get_key($ckey);
-           
+            $ctx = caissier_validation_bind_operateurs($this->company->ekey, $g, $idcpt, $iduser);
+            $idcpt = $ctx['chef_ra'];
+            $iduser = $ctx['caissier_ra'];
+            $is_saisie = recette_role_is_saisie($ctx['chef_userole']);
+
+            if ($is_saisie) {
+                $cfdepo = $this->db->query("SELECT d.id_depot, d.is_validdepo, d.idop_depot, d.valid_depo, d.idcaisse_depot FROM depot d
+                    WHERE d.idop_depot = '$idcpt'
+                    AND d.idcaisse_depot = '$idc'
+                    AND d.is_validdepo = 0
+                    AND d.is_actifdepo = 0
+                    AND d.is_actifdepoad = 0
+                    AND d.actif_depo = 0
+                    AND d.valid_depo = 'valid'")->result();
+            } else {
                 $cfdepo = $this->db->query("SELECT d.id_depot, d.is_validdepo, d.idop_depot, d.valid_depo, d.idcaisse_depot FROM depot d
                     WHERE d.idop_depot = '$idcpt'
                     AND d.idcaisse_depot = '$idc'
                     AND d.is_validdepo = 0
                     AND d.valid_depo = 'valid'")->result();
+            }
 
                     foreach ($cfdepo as $tem) {
-                        if($this->session->agent->userole === '18')
+                        if (recette_role_is_validateur_adjoint($this->session->agent->userole))
                         {
                             $dpolarray = array(
                                 'is_validdepo' => 0,
+                                'is_actifdepo' => 0,
+                                'is_actifdepoad' => 0,
                                 'valid_depo' => 'rejet',
                             );
                         }
@@ -574,6 +699,7 @@
                         {
                             $dpolarray = array(
                                 'is_validdepo' => 0,
+                                'is_actifdepo' => 0,
                                 'valid_depo' => 'rejet',
                             );
                         }
@@ -581,16 +707,29 @@
                     }
                 $this->property['UPDATE_SUCCESS'] = TRUE;
             
-            redirect('utilisateurs/' . $this->session->company->ekey.'/caissier/'.$g. '/'. $idc.'/'.$idcpt.'/'.$iduser.'/'.$sgid.'/'.mdate("%d/%m/%Y", now('UTC')));
+            caissier_validation_viewcaissier_redirect(
+                $this->company->ekey,
+                $g,
+                $idc,
+                $idcpt,
+                $iduser,
+                $sgid
+            );
         }
 
         public function validrecette($ckey, $g, $idc, $idcpt, $recet)
         {
             $this->company = $this->m_entreprises->get_key($ckey);
-            $gid = $this->input->post('gareconnect');
-            $iduser = $this->input->post('userconnected');
-            $sgid = $this->input->post('sousgareconnect');
-            $idcmpt = $this->input->post('compconnected');
+            $g = roleattribut_guard_normalize_gare_id($this->company->ekey, $g);
+            $sgid = (int) $this->input->post('sousgareconnect');
+            $caissier_hint = roleattribut_guard_post_hint($this->company->ekey);
+            $bind = caissier_validation_bind_operateurs($this->company->ekey, $g, $idcpt, $caissier_hint, array(
+                'idcai' => $idc,
+                'idsg' => $sgid,
+                'type' => 'validation_recettes',
+            ));
+            $idcpt = $bind['chef_ra'];
+            $iduser = $bind['caissier_ra'];
                     
                     if($this->session->agent->userole === '18')
                     {
@@ -598,8 +737,11 @@
                             'commentaire_recet'=> $this->input->post('comment'),
                             'idopera' => $idcpt,
                             'idcaisse' => $idc,
+                            'active_recet' => 1,
                             'is_actifrecet' => 1,
+                            'is_actifrecetad' => 1,
                             'is_validerecet' => 1,
+                            'operavalid' => $iduser,
                             'operavalidad' => $iduser,
                         );
                     }
@@ -609,25 +751,43 @@
                             'commentaire_recet'=> $this->input->post('comment'),
                             'idopera' => $idcpt,
                             'idcaisse' => $idc,
+                            'active_recet' => 1,
                             'is_actifrecet' => 1,
                             'is_validerecet' => 1,
                             'operavalid' => $iduser,
                         );
                     }
+                    if ($sgid > 0) {
+                        $plarray['recetsgid'] = $sgid;
+                    }
                     $vald_recet = $this->m_recette->update($recet, $plarray);
                    
                 $this->property['UPDATE_SUCCESS'] = TRUE;
             
-            redirect('caisses/' . $this->session->company->ekey.'/RdD/'.$g. '/'. $idc.'/'.  $idcpt.'/validation_recettes/'. $iduser.'/'. $sgid.'/'.mdate("%d/%m/%Y", now('UTC')));
+            caissier_validation_rdd_redirect(
+                $this->company->ekey,
+                $g,
+                $idc,
+                $idcpt,
+                $iduser,
+                $sgid,
+                'validation_recettes'
+            );
         }
 
         public function rejetrecet($ckey, $g, $idc, $idcpt, $recet)
         {
             $this->company = $this->m_entreprises->get_key($ckey);
-            $gid = $this->input->post('gareconnect');
-            $iduser = $this->input->post('userconnected');
-            $sgid = $this->input->post('sousgareconnect');
-            $idcmpt = $this->input->post('compconnected');
+            $g = roleattribut_guard_normalize_gare_id($this->company->ekey, $g);
+            $sgid = (int) $this->input->post('sousgareconnect');
+            $caissier_hint = roleattribut_guard_post_hint($this->company->ekey);
+            $bind = caissier_validation_bind_operateurs($this->company->ekey, $g, $idcpt, $caissier_hint, array(
+                'idcai' => $idc,
+                'idsg' => $sgid,
+                'type' => 'validation_recettes',
+            ));
+            $idcpt = $bind['chef_ra'];
+            $iduser = $bind['caissier_ra'];
 
                 if($this->session->agent->userole === '18')
                 {
@@ -659,24 +819,41 @@
                    
                 $this->property['UPDATE_SUCCESS'] = TRUE;
             
-            redirect('caisses/' . $this->session->company->ekey.'/RdD/'.$g. '/'. $idc.'/'.  $idcpt.'/validation_recettes/'. $iduser.'/'.$sgid.'/'.mdate("%d/%m/%Y", now('UTC')));
+            caissier_validation_rdd_redirect(
+                $this->company->ekey,
+                $g,
+                $idc,
+                $idcpt,
+                $iduser,
+                $sgid,
+                'validation_recettes'
+            );
         }
 
         public function validdepense($ckey, $g, $idc, $idcpt, $idp)
         {
             $this->company = $this->m_entreprises->get_key($ckey);
-            $gid = $this->input->post('gareconnect');
-            $iduser = $this->input->post('userconnected');
-            $sgid = $this->input->post('sousgareconnect');
-            $idcmpt = $this->input->post('compconnected');
-                if($this->session->agent->userole === '18')
+            $g = roleattribut_guard_normalize_gare_id($this->company->ekey, $g);
+            $sgid = (int) $this->input->post('sousgareconnect');
+            $caissier_hint = roleattribut_guard_post_hint($this->company->ekey);
+            $bind = caissier_validation_bind_operateurs($this->company->ekey, $g, $idcpt, $caissier_hint, array(
+                'idcai' => $idc,
+                'idsg' => $sgid,
+                'type' => 'validation_depenses',
+            ));
+            $idcpt = $bind['chef_ra'];
+            $iduser = $bind['caissier_ra'];
+                if (recette_role_is_validateur_adjoint($this->session->agent->userole))
                 {
                         $dplarray = array(
                             'commentaire'=> $this->input->post('comment'),
                             'idop_dep' => $idcpt,
                             'idcaisse_depens' => $idc,
+                            'active_dep' => 1,
                             'is_actifdep' => 1,
+                            'is_actifdepad' => 1,
                             'is_validedep' => 1,
+                            'opevalid' => $iduser,
                             'opevalidad' => $iduser,
                         );
 
@@ -687,26 +864,44 @@
                             'commentaire'=> $this->input->post('comment'),
                             'idop_dep' => $idcpt,
                             'idcaisse_depens' => $idc,
+                            'active_dep' => 1,
                             'is_actifdep' => 1,
                             'is_validedep' => 1,
                             'opevalid' => $iduser, 
                         );
                 }
+                    if ($sgid > 0) {
+                        $dplarray['sousgidepens'] = $sgid;
+                    }
                         $vald_dep = $this->m_depense->update($idp, $dplarray);
                    
                 
                 $this->property['UPDATE_SUCCESS'] = TRUE;
             
-            redirect('caisses/' . $this->session->company->ekey.'/RdD/'.$g. '/'. $idc.'/'.  $idcpt.'/validation_depenses/'. $iduser.'/'. $sgid.'/'.mdate("%d/%m/%Y", now('UTC')));
+            caissier_validation_rdd_redirect(
+                $this->company->ekey,
+                $g,
+                $idc,
+                $idcpt,
+                $iduser,
+                $sgid,
+                'validation_depenses'
+            );
         }
 
         public function rejetdepens($ckey, $g, $idc, $idcpt, $idp)
         {
             $this->company = $this->m_entreprises->get_key($ckey);
-            $gid = $this->input->post('gareconnect');
-            $iduser = $this->input->post('userconnected');
-            $sgid = $this->input->post('sousgareconnect');
-            $idcmpt = $this->input->post('compconnected');
+            $g = roleattribut_guard_normalize_gare_id($this->company->ekey, $g);
+            $sgid = (int) $this->input->post('sousgareconnect');
+            $caissier_hint = roleattribut_guard_post_hint($this->company->ekey);
+            $bind = caissier_validation_bind_operateurs($this->company->ekey, $g, $idcpt, $caissier_hint, array(
+                'idcai' => $idc,
+                'idsg' => $sgid,
+                'type' => 'validation_depenses',
+            ));
+            $idcpt = $bind['chef_ra'];
+            $iduser = $bind['caissier_ra'];
                 if($this->session->agent->userole === '18')
                 {
                     $dplarray = array(
@@ -737,24 +932,39 @@
                 
                 $this->property['UPDATE_SUCCESS'] = TRUE;
             
-                redirect('caisses/' . $this->session->company->ekey.'/RdD/'.$g. '/'. $idc.'/'.  $idcpt.'/validation_depenses/'. $iduser.'/'. $sgid.'/'.mdate("%d/%m/%Y", now('UTC')));
+            caissier_validation_rdd_redirect(
+                $this->company->ekey,
+                $g,
+                $idc,
+                $idcpt,
+                $iduser,
+                $sgid,
+                'validation_depenses'
+            );
         }
         public function validdepot($ckey, $g, $idc, $idcpt, $idpo)
         {
             $this->company = $this->m_entreprises->get_key($ckey);
-           
-            $gid = $this->input->post('gareconnect');
-            $iduser = $this->input->post('userconnected');
-            $sgid = $this->input->post('sousgareconnect');
-            $idcmpt = $this->input->post('compconnected');
-                if($this->session->agent->userole === '18')
+            $g = roleattribut_guard_normalize_gare_id($this->company->ekey, $g);
+            $sgid = (int) $this->input->post('sousgareconnect');
+            $caissier_hint = roleattribut_guard_post_hint($this->company->ekey);
+            $bind = caissier_validation_bind_operateurs($this->company->ekey, $g, $idcpt, $caissier_hint, array(
+                'idcai' => $idc,
+                'idsg' => $sgid,
+                'type' => 'validation_depots',
+            ));
+            $idcpt = $bind['chef_ra'];
+            $iduser = $bind['caissier_ra'];
+                if(recette_role_is_validateur_adjoint($this->session->agent->userole))
                 {
                     $dpolarray = array(
                         'commentaire_depot'=> $this->input->post('comment'),
                         'idop_depot' => $idcpt,
                         'idcaisse_depot' => $idc,
                         'is_actifdepo' => 1,
+                        'is_actifdepoad' => 1,
                         'is_validdepo' => 1,
+                        'opvalid' => $iduser,
                         'opvalidad' => $iduser,
                     );
                 }
@@ -769,21 +979,38 @@
                         'opvalid' => $iduser,
                     );
                 }
+                    if ($sgid > 0) {
+                        $dpolarray['sousgdepot'] = $sgid;
+                    }
 
                         $vald_depo = $this->m_depot->update($idpo, $dpolarray);
                     
                 $this->property['UPDATE_SUCCESS'] = TRUE;
             
-                redirect('caisses/' . $this->session->company->ekey.'/RdD/'.$g. '/'. $idc.'/'.  $idcpt.'/validation_depots/'. $iduser.'/'. $sgid.'/'.mdate("%d/%m/%Y", now('UTC')));
+            caissier_validation_rdd_redirect(
+                $this->company->ekey,
+                $g,
+                $idc,
+                $idcpt,
+                $iduser,
+                $sgid,
+                'validation_depots'
+            );
             }
 
         public function rejetdepo($ckey, $g, $idc, $idcpt, $idpo)
         {
             $this->company = $this->m_entreprises->get_key($ckey);
-            $gid = $this->input->post('gareconnect');
-            $iduser = $this->input->post('userconnected');
-            $sgid = $this->input->post('sousgareconnect');
-            $idcmpt = $this->input->post('compconnected');
+            $g = roleattribut_guard_normalize_gare_id($this->company->ekey, $g);
+            $sgid = (int) $this->input->post('sousgareconnect');
+            $caissier_hint = roleattribut_guard_post_hint($this->company->ekey);
+            $bind = caissier_validation_bind_operateurs($this->company->ekey, $g, $idcpt, $caissier_hint, array(
+                'idcai' => $idc,
+                'idsg' => $sgid,
+                'type' => 'validation_depots',
+            ));
+            $idcpt = $bind['chef_ra'];
+            $iduser = $bind['caissier_ra'];
                 if($this->session->agent->userole === '18')
                 {
                     $dpolarray = array(
@@ -811,16 +1038,28 @@
                     
                 $this->property['UPDATE_SUCCESS'] = TRUE;
             
-            redirect('caisses/' . $this->session->company->ekey.'/RdD/'.$g. '/'. $idc.'/'.  $idcpt.'/validation_depots/'. $iduser.'/'. $sgid.'/'.mdate("%d/%m/%Y", now('UTC')));
+            caissier_validation_rdd_redirect(
+                $this->company->ekey,
+                $g,
+                $idc,
+                $idcpt,
+                $iduser,
+                $sgid,
+                'validation_depots'
+            );
         }
         public function advaliderecette($ckey, $g, $idc, $idcpt, $iduser, $sgid)
         {
             $this->company = $this->m_entreprises->get_key($ckey);
+            $bind = caissier_principale_adjoint_validation_bind($this->company->ekey, $g, $idcpt, $iduser);
+            $idcpt = $bind['adjoint_ra'];
+            $iduser = $bind['caissier_ra'];
            
                 $cfrecet = $this->db->query("SELECT r.id_recette, r.active_recet, r.is_validerecet, r.operavalidad, r.idcaisse FROM recette r
                     WHERE r.operavalidad = '$idcpt'
                     AND r.active_recet = 1
                     AND r.is_actifrecetad = 0
+                    AND r.is_validerecet = 0
                     AND r.idcaisse ='$idc'")->result();
                     
 
@@ -845,12 +1084,16 @@
         public function adrejetrecette($ckey, $g, $idc, $idcpt, $iduser, $sgid)
         {
             $this->company = $this->m_entreprises->get($ckey);
+            $bind = caissier_principale_adjoint_validation_bind($this->company->ekey, $g, $idcpt, $iduser);
+            $idcpt = $bind['adjoint_ra'];
+            $iduser = $bind['caissier_ra'];
            
-            
                 $cfrecet = $this->db->query("SELECT r.id_recette, r.active_recet, r.is_validerecet, r.operavalidad, r.idcaisse, r.valid_recet FROM recette r
                     WHERE r.operavalidad = '$idcpt'
                     AND r.active_recet = 1
+                    AND r.is_actifrecetad = 0
                     AND r.idcaisse ='$idc'
+                    AND r.is_validerecet = 0
                     AND r.valid_recet = 'valid'")->result();
 
                     foreach ($cfrecet as $item10) {
@@ -876,11 +1119,15 @@
         public function advalidedepense($ckey, $g, $idc, $idcpt, $iduser, $sgid)
         {
             $this->company = $this->m_entreprises->get_key($ckey);
+            $bind = caissier_principale_adjoint_validation_bind($this->company->ekey, $g, $idcpt, $iduser);
+            $idcpt = $bind['adjoint_ra'];
+            $iduser = $bind['caissier_ra'];
            
                 $cfdepes = $this->db->query("SELECT d.id_depense, d.active_dep, d.is_validedep, d.opevalidad, d.idcaisse_depens FROM depense d
                     WHERE d.opevalidad = '$idcpt'
                     AND d.active_dep = 1
                     AND d.is_actifdepad = 0
+                    AND d.is_validedep = 0
                     AND d.idcaisse_depens = '$idc'")->result();
 
                     foreach ($cfdepes as $cfdep) {
@@ -903,12 +1150,16 @@
         public function adrejetdepense($ckey, $g, $idc, $idcpt, $iduser, $sgid)
         {
             $this->company = $this->m_entreprises->get_key($ckey);
+            $bind = caissier_principale_adjoint_validation_bind($this->company->ekey, $g, $idcpt, $iduser);
+            $idcpt = $bind['adjoint_ra'];
+            $iduser = $bind['caissier_ra'];
            
-                $cfdepe = $this->db->query("SELECT d.id_depense, d.active_dep, d.is_validedep, d.valid_depens, d.opevalid, d.idcaisse_depens FROM depense d
+                $cfdepe = $this->db->query("SELECT d.id_depense, d.active_dep, d.is_validedep, d.valid_depens, d.opevalidad, d.idcaisse_depens FROM depense d
                     WHERE d.opevalidad = '$idcpt'
                     AND d.active_dep = 1
                     AND d.is_actifdepad = 0
                     AND d.idcaisse_depens = '$idc'
+                    AND d.is_validedep = 0
                     AND d.valid_depens = 'valid'")->result();
 
                     foreach ($cfdepe as $teme1) {
@@ -936,7 +1187,7 @@
             $db = $this->input->post('date_debut');
             $df = $this->input->post('date_fin');
             $gid = $this->input->post('gareconnect');
-            $iduser = $this->input->post('userconnected');
+            $iduser = roleattribut_guard_post_hint($this->company->ekey);
             $sgid = $this->input->post('sousgareconnect');
             $idcmpt = $this->input->post('compconnected');
 

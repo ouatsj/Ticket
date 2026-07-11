@@ -702,10 +702,22 @@
             GROUP BY cs.id_caiss")->row();
         }
 
-        public function ad_totalrecette($cd, $idg, $idcais, $cx)
+        public function ad_totalrecette($cd, $idg, $idcais, $cx, $userole = null)
         {
-            $today = mdate('%Y-%m-%d', now());
-                return $this->db->query("SELECT SUM(montant_recet) AS montant_recet FROM recette r
+            $cx = (int) $cx;
+            if ($userole === null) {
+                $userole = recette_role_userole_for_attribut($cx);
+            }
+            $this->load->model('Recette_model', 'm_recette_rd');
+            $last_arret = $this->m_recette_rd->last_arret_recettes_date($cx, $idg, $userole);
+            $date_sql = '';
+            if ($last_arret !== null && $last_arret !== '') {
+                $date_sql = 'AND r.date_recet > ' . $this->db->escape($last_arret);
+            }
+            $op_sql = recette_role_op_sql_recette($cx, $userole);
+            $pending_sql = recette_role_pending_recette_sql($userole);
+
+            return $this->db->query("SELECT SUM(montant_recet) AS montant_recet FROM recette r
                 JOIN caisse cs ON r.idcaisse = cs.id_caiss
                 JOIN attributions_role ar ON r.idopera = ar.roleattribut
                 JOIN user_login ul ON ar.idgestcompte = ul.uid_login
@@ -716,18 +728,35 @@
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = '$cd'
                 AND r.active_recet = 0
+                {$date_sql}
                 AND cs.gexp_caiss = '$idg'
                 AND cs.id_caiss = '$idcais'
-                AND r.actif_rect = 0
-                AND r.idopera = '$cx'
+                {$pending_sql}
+                {$op_sql}
                 AND r.type_recet <> 'Courrier'
                 GROUP BY cs.id_caiss")->row();
         }
 
         
-        public function ad_totaldepense($cd, $idg, $idcais, $cx)
+        public function ad_totaldepense($cd, $idg, $idcais, $cx, $userole = null, $gare_scope = false)
         {
-            $today = mdate('%Y-%m-%d', now());
+            $cx = (int) $cx;
+            if ($userole === null) {
+                $userole = recette_role_userole_for_attribut($cx);
+            }
+            $this->load->model('Depense_model', 'm_depense_rd');
+            $this->load->model('Recette_model', 'm_recette_rd');
+            $last_arret_dep = $this->m_depense_rd->last_arret_depenses_date($cx, $idg, $userole);
+            $after_pending = $last_arret_dep;
+            if ($gare_scope && !recette_role_is_chef_guichet_rd_list($userole, true)) {
+                $last_arret_rec = $this->m_recette_rd->last_arret_recettes_date($cx, $idg, $userole);
+                $after_pending = recette_role_after_pending_rd_date($last_arret_rec, $last_arret_dep);
+            }
+            $date_sql = recette_role_rd_date_sql($after_pending, $userole, $gare_scope, 'd.date_depens');
+            $op_sql = recette_role_op_sql_depense_list($cx, $userole, $gare_scope);
+            $pending_sql = recette_role_pending_depense_sql($userole);
+            $active_sql = recette_role_rd_active_depense_sql($userole, $gare_scope);
+            $caisse_sql = $gare_scope ? '' : "AND cs.id_caiss = '$idcais'";
 
             return $this->db->query("SELECT SUM(montant_depens) AS montant_depens FROM depense d
                 JOIN caisse cs ON d.idcaisse_depens = cs.id_caiss
@@ -740,18 +769,31 @@
                 JOIN compagnies c ON d.compkey_dep = c.cle_compagnie
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = '$cd'
-                AND d.active_dep = 0
-                AND d.actif_deps = 0
+                {$active_sql}
+                {$pending_sql}
+                {$date_sql}
                 AND cs.gexp_caiss = '$idg'
-                AND cs.id_caiss = '$idcais'
-                AND d.idop_dep = '$cx'
-                AND d.type_depense <> 'Courrier'
-                GROUP BY cs.id_caiss")->row();
+                {$caisse_sql}
+                {$op_sql}
+                AND d.type_depense <> 'Courrier'")->row();
         }
         
-        public function ad_totalesdepense($cd, $idg, $sg, $idcais, $cx)
+        public function ad_totalesdepense($cd, $idg, $sg, $idcais, $cx, $userole = null, $gare_scope = false)
         {
-            $today = mdate('%Y-%m-%d', now());
+            if ($gare_scope) {
+                return $this->ad_totaldepense($cd, $idg, $idcais, $cx, $userole, true);
+            }
+
+            $cx = (int) $cx;
+            if ($userole === null) {
+                $userole = recette_role_userole_for_attribut($cx);
+            }
+            $this->load->model('Depense_model', 'm_depense_rd');
+            $last_arret = $this->m_depense_rd->last_arret_depenses_date($cx, $idg, $userole);
+            $date_sql = recette_role_rd_date_sql($last_arret, $userole, false, 'd.date_depens');
+            $op_sql = recette_role_op_sql_depense_list($cx, $userole, false);
+            $pending_sql = recette_role_pending_depense_sql($userole);
+            $active_sql = recette_role_rd_active_depense_sql($userole, false);
 
             return $this->db->query("SELECT SUM(montant_depens) AS montant_depens FROM depense d
                 JOIN caisse cs ON d.idcaisse_depens = cs.id_caiss
@@ -764,11 +806,12 @@
                 JOIN compagnies c ON d.compkey_dep = c.cle_compagnie
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = '$cd'
-                AND d.active_dep = 0
-                AND d.actif_deps = 0
+                {$active_sql}
+                {$pending_sql}
+                {$date_sql}
                 AND cs.gexp_caiss = '$idg'
                 AND cs.id_caiss = '$idcais'
-                AND d.idop_dep = '$cx'
+                {$op_sql}
                 AND d.sousgidepens = '$sg'
                 AND d.type_depense <> 'Courrier'
                 GROUP BY cs.id_caiss")->row();
