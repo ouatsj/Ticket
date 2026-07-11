@@ -149,11 +149,14 @@ if (!function_exists('roleattribut_guard_post_hint')) {
         }
 
         $hint = '';
-        foreach ($hint_post_keys as $field) {
-            $value = trim((string) $CI->input->post($field));
-            if ($value !== '' && $value !== '0') {
-                $hint = $value;
-                break;
+        if (!function_exists('auth_session_vendor_ignores_post_hints')
+            || !auth_session_vendor_ignores_post_hints()) {
+            foreach ($hint_post_keys as $field) {
+                $value = trim((string) $CI->input->post($field));
+                if ($value !== '' && $value !== '0') {
+                    $hint = $value;
+                    break;
+                }
             }
         }
 

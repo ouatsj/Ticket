@@ -22,6 +22,14 @@
             }
             $pdata = scripts_resolve_layout($pdata);
 
+            if (function_exists('auth_session_is_guichet_page')
+                && auth_session_is_guichet_page($page)) {
+                auth_session_send_nocache_headers();
+            } elseif (function_exists('auth_session_show_guichet_banner')
+                && auth_session_show_guichet_banner($page)) {
+                auth_session_send_nocache_headers();
+            }
+
             $params['cfl'] = $CI->load->view($this->theme . '/pages/' .
                 $page, $pdata, TRUE);
             $params['scripts_layout'] = $pdata['scripts_layout'];
@@ -32,6 +40,9 @@
             $params['title'] = isset($pdata['title']) ? $pdata['title'] : '';
             $params['app_retour_url'] = retour_url('');
             $params['layout_minimal'] = !empty($pdata['layout_minimal']);
+            $params['layout_page'] = $page;
+            $params['layout_guichet_banner'] = function_exists('auth_session_show_guichet_banner')
+                && auth_session_show_guichet_banner($page);
             $CI->load->view($this->theme . '/use', $params);
         }
     }

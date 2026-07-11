@@ -41,8 +41,6 @@ class MY_Controller extends CI_Controller
         $this->_enforce_auth();
         $this->_enforce_roleattribut_uri();
         $this->load->helper('session');
-        // Libère le verrou session avant le contrôleur (accueil multi-gares + navigation parallèle).
-        session_release_lock();
         $this->_load_controller_models();
         session_release_lock_on_shutdown();
     }
@@ -90,6 +88,26 @@ class MY_Controller extends CI_Controller
             }
             redirect('login/ins');
         }
+
+        auth_session_validate_or_logout();
+
+        $class = strtolower($this->router->fetch_class());
+        $method = strtolower($this->router->fetch_method());
+        if ($class === 'gares' && in_array($method, array('options', 'optiongare'), true)) {
+            auth_session_send_nocache_headers();
+        }
+    }
+
+    /**
+     * roleattribut sécurisé pour vente guichet (session serveur, bloc si <= 0).
+     *
+     * @param string $ekey
+     * @param string|null $gare_id
+     * @return int
+     */
+    protected function _auth_sale_roleattribut($ekey, $gare_id = null)
+    {
+        return auth_sale_require_roleattribut($ekey, $gare_id);
     }
 
     /**

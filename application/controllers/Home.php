@@ -37,58 +37,53 @@
         {
             $uid = (int) $uid;
             $r = (int) $r;
-            $agent = $this->session->userdata('agent');
-            $company = $this->session->userdata('company');
 
-            // Déjà connecté : ne pas refaire activate_exclusive / recharger toute la session.
-            if ($agent && $company
-                && (int) $agent->cpuser_id === $uid
-                && (int) $agent->userole === $r
-                && (string) $company->ekey === (string) $key) {
-                return $this->main1();
+            if (!auth_session_validate_login_pending($uid, $key)) {
+                auth_session_login_transition_denied();
             }
 
-              $this->charger['company'] = $this->m_entreprises->get_key($key);
+            $this->charger['company'] = $this->m_entreprises->get_key($key);
+            if (empty($this->charger['company'])) {
+                auth_session_login_transition_denied();
+            }
+
             $rw = $this->m_compte_user->pick_attribution_at_login($uid, $r);
             if (!empty($rw)) {
                 $this->load->model('Role_attribution_model', 'm_roleattribution');
                 $this->m_roleattribution->activate_exclusive($uid, $r, $rw->roleattribut);
                 $this->m_roleattribution->clear_stale_activeattrib();
             }
-            // The User logged in
+
+            $this->m_compte_user->update($uid, array(
+                'is_conect' => 1,
+                'date_conect' => mdate('%Y-%m-%d %H:%i:%s', now('UTC')),
+            ));
+
             $this->charger['agent'] = $this->m_compte_user->get($uid, $r);
             if (empty($this->charger['agent'])) {
-                $this->session->set_flashdata('login_error', 1);
-                redirect('login/ins');
-                return;
+                auth_session_login_transition_denied('Impossible d\'ouvrir la session. Reconnectez-vous.');
             }
-            // The session var is charged
-            $this->session->set_userdata($this->charger);
+
+            auth_session_finalize($uid, $this->charger['agent'], $this->charger['company']);
+            auth_session_consume_login_pending($uid, $key);
             compte_arret_track_activity((int) $uid);
-            
+
             $agentapp = $this->m_appdossier->gets($r, $uid);
-            
-            if($agentapp != NULL)
-            {
-                if($agentapp->iddoss == '1')
-                {
-                    // and we go right in the application main page.
+
+            if ($agentapp != NULL) {
+                if ($agentapp->iddoss == '1') {
                     return $this->main1($this->charger);
                 }
-                else
-                {
-                    $this->session->set_flashdata('login_error', 1);
-                    redirect('login/ins');
-                    return;
-                }
-            }
-            else
-            {
+
                 $this->session->set_flashdata('login_error', 1);
+                auth_session_force_logout(true);
                 redirect('login/ins');
                 return;
             }
-           
+
+            $this->session->set_flashdata('login_error', 1);
+            auth_session_force_logout(true);
+            redirect('login/ins');
         }
         
         

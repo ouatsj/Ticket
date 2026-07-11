@@ -629,6 +629,12 @@ if (!function_exists('compte_arret_resolve_roleattribut')) {
     function compte_arret_resolve_roleattribut($ekey, $gare_id, $url_hint)
     {
         $CI =& get_instance();
+
+        if (function_exists('auth_session_vendor_ignores_post_hints')
+            && auth_session_vendor_ignores_post_hints()) {
+            return auth_sale_roleattribut($ekey, $gare_id);
+        }
+
         $post_hint = trim((string) $CI->input->post('userconnected'));
         $hint = ($post_hint !== '' && $post_hint !== '0') ? $post_hint : $url_hint;
 
@@ -650,6 +656,18 @@ if (!function_exists('compte_arret_bind_operateur')) {
      */
     function compte_arret_bind_operateur($ekey, $gare_id, $url_hint)
     {
+        if (function_exists('auth_session_vendor_ignores_post_hints')
+            && auth_session_vendor_ignores_post_hints()) {
+            $ra = auth_sale_roleattribut($ekey, $gare_id);
+            $op = roleattribut_guard_operateur($ekey, $gare_id, null);
+
+            return array(
+                'roleattribut' => $ra > 0 ? $ra : (int) $op['roleattribut'],
+                'conex' => $op['conex'],
+                'userole' => $op['userole'],
+            );
+        }
+
         $post_hint = trim((string) get_instance()->input->post('userconnected'));
         $hint = ($post_hint !== '' && $post_hint !== '0') ? $post_hint : $url_hint;
 

@@ -877,6 +877,44 @@
         }
 
         /**
+         * Gare active (activeattrib=1) pour bandeau identité.
+         *
+         * @return object|null
+         */
+        public function active_gare_for_role($cpuser_id, $userole)
+        {
+            return $this->db->query(
+                "SELECT g.garenom, g.idengare, ul.guser
+                FROM user_login ul
+                JOIN attributions_role ar ON ar.idgestcompte = ul.uid_login
+                JOIN gares g ON ul.guser = g.idengare
+                WHERE ul.uid_usercpte = ?
+                AND ar.userole = ?
+                AND ar.activeattrib = 1
+                AND ar.activer_role = 0
+                AND ul.comptactif = 0
+                LIMIT 1",
+                array((int) $cpuser_id, (int) $userole)
+            )->row();
+        }
+
+        /**
+         * Attribution d'un rôle sur une gare précise (connexion multi-gares).
+         *
+         * @return object|null
+         */
+        public function pick_attribution_on_gare($u, $r, $gare_id)
+        {
+            foreach ($this->lookedfor1($u, $r) as $att) {
+                if ((string) $att->guser === (string) $gare_id) {
+                    return $att;
+                }
+            }
+
+            return null;
+        }
+
+        /**
          * Nombre de gares actives pour un compte / rôle.
          */
         public function count_gares_role($cpuser_id, $userole)

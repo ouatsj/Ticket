@@ -115,6 +115,16 @@
          */
         protected function _sale_role_attribut_id()
         {
+            if (!$this->session->userdata('company')) {
+                return '0';
+            }
+
+            $ekey = (string) $this->session->company->ekey;
+
+            if (auth_session_vendor_ignores_post_hints()) {
+                return (string) auth_sale_require_roleattribut($ekey, auth_session_resolve_gare_post());
+            }
+
             $fields = array(
                 'userconnected',
                 'userconnectedmob',
@@ -142,24 +152,37 @@
                 $hint = (string) $this->session->agent->roleattribut;
             }
 
-            if (!$this->session->userdata('company')) {
-                return $hint;
+            $gare = auth_session_resolve_gare_post();
+
+            if ($gare !== '') {
+                if (!auth_session_assert_compconnected()) {
+                    return '0';
+                }
+                $op = roleattribut_guard_operateur($ekey, $gare, $hint);
+
+                return (string) (int) $op['roleattribut'];
             }
 
-            $gare = $this->input->post('gareconnect');
-            if ($gare === null || $gare === '') {
-                $gare = $this->input->post('gareconnected');
-            }
-            if ($gare === null || $gare === '') {
-                $gare = $this->input->post('gareconnectmob');
+            return (string) roleattribut_guard_enforce_id($hint, null, $ekey);
+        }
+
+        /**
+         * Bloque si roleattribut vente invalide (0 / compte étranger).
+         *
+         * @return bool true si bloqué
+         */
+        protected function _sale_roleattribut_guard()
+        {
+            $ra = (int) $this->_sale_role_attribut_id();
+            if ($ra > 0) {
+                return false;
             }
 
-            if ($gare !== null && $gare !== '') {
-                $op = roleattribut_guard_operateur($this->session->company->ekey, $gare, $hint);
-                return (string) $op['roleattribut'];
-            }
+            $this->_addpassager_redirect_back(
+                'Guichet invalide ou session expirée. Déconnectez-vous, reconnectez-vous, puis rouvrez votre sous-gare avant de vendre.'
+            );
 
-            return (string) roleattribut_guard_enforce_id($hint, null, $this->session->company->ekey);
+            return true;
         }
 
         protected function _sale_nonce_key($nonce)
@@ -1140,6 +1163,10 @@
             }
 
             if ($this->_sale_compte_arret_guard()) {
+                return;
+            }
+
+            if ($this->_sale_roleattribut_guard()) {
                 return;
             }
 
@@ -13161,6 +13188,10 @@
             }
 
             if ($this->_sale_compte_arret_guard()) {
+                return;
+            }
+
+            if ($this->_sale_roleattribut_guard()) {
                 return;
             }
 

@@ -1416,6 +1416,7 @@
                         );
                         $this->load->model('Role_attribution_model', 'm_roleattribution');
                         $this->m_roleattribution->deactivate_all_for_user((int) $id);
+                        auth_session_invalidate_user((int) $id);
                     }
                     else{
                         $stat = 0;

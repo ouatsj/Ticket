@@ -29,7 +29,11 @@
                     
                         <span class="splash-description">Entrez vos informations de connexion.</span>
                         <?php if (!empty($login_error)): ?>
-                        <div class="alert alert-danger mt-2">Identifiants incorrects. Réessayez.</div>
+                        <div class="alert alert-danger mt-2">
+                            <?= !empty($login_error_msg)
+                                ? htmlspecialchars($login_error_msg, ENT_QUOTES, 'UTF-8')
+                                : 'Identifiants incorrects. Réessayez.'; ?>
+                        </div>
                         <?php endif; ?>
                         <div class="card-body">
                             

@@ -230,6 +230,10 @@
             $gid = $this->input->post('gareconnect');
             $iduser = $this->_roleattribut_guard_post_id($this->company->ekey);
             $sgid = $this->input->post('sousgareconnect');
+            if ((int) $iduser <= 0) {
+                compte_arret_redirect_guichet(0, $gid, $sgid, 'Session ou guichet invalide. Déconnectez-vous et reconnectez-vous.');
+                return;
+            }
             if ($msg = compte_arret_guard_sale('ticket', $iduser, $gid)) {
                 compte_arret_redirect_guichet($iduser, $gid, $sgid, $msg);
                 return;

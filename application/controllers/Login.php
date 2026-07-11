@@ -21,6 +21,71 @@
             $this->load->model('Role_attribution_model', 'm_roleattribution');
             $this->load->model('Utilisateur_model', 'm_utilisateur');
         }
+
+        protected function _login_fail($message = null)
+        {
+            if ($message !== null && $message !== '') {
+                $this->session->set_flashdata('login_error_msg', $message);
+            }
+            $this->session->set_flashdata('login_error', 1);
+            redirect('login/ins');
+        }
+
+        /**
+         * Après mot de passe OK : jeton pending + profil unique ou écran Welcome.
+         */
+        protected function _after_password_ok($detector, $company)
+        {
+            auth_session_issue_login_pending((int) $detector->cpuser_id, (string) $company->ekey);
+            $this->m_roleattribution->clear_stale_activeattrib();
+            compte_arret_track_activity((int) $detector->cpuser_id);
+
+            $roles = $this->m_compte_user->roleatt((int) $detector->cpuser_id);
+            if (empty($roles)) {
+                auth_session_login_transition_denied('Aucun profil actif pour ce compte.');
+            }
+
+            if (count($roles) === 1) {
+                $this->_proceed_with_role($company, (int) $detector->cpuser_id, (int) $roles[0]->id_rols);
+                return;
+            }
+
+            redirect('welcome/' . $company->ekey . '/' . (int) $detector->cpuser_id);
+        }
+
+        /**
+         * Active l'attribution (gare si besoin) puis ouvre home/go avec pending.
+         *
+         * @param object $company
+         * @param int $cpuser_id
+         * @param int $role_id
+         * @param string|null $gare_id
+         */
+        protected function _proceed_with_role($company, $cpuser_id, $role_id, $gare_id = null)
+        {
+            if (!auth_session_validate_login_pending($cpuser_id, $company->ekey)) {
+                auth_session_login_transition_denied();
+            }
+
+            if ($gare_id === null && $this->m_compte_user->count_gares_role($cpuser_id, $role_id) > 1) {
+                redirect('welcome/pick_gare/' . $company->ekey . '/' . $cpuser_id . '/' . $role_id);
+                return;
+            }
+
+            if ($gare_id !== null) {
+                $rw = $this->m_compte_user->pick_attribution_on_gare($cpuser_id, $role_id, $gare_id);
+            } else {
+                $rw = $this->m_compte_user->pick_attribution_at_login($cpuser_id, $role_id);
+            }
+
+            if (empty($rw)) {
+                auth_session_login_transition_denied('Profil ou gare invalide.');
+            }
+
+            $this->m_roleattribution->activate_exclusive($cpuser_id, $role_id, $rw->roleattribut);
+            $this->m_roleattribution->clear_stale_activeattrib();
+            redirect('home/' . $company->ekey . '/' . $cpuser_id . '/' . $role_id);
+        }
         
         public function in($key = NULL, array $in = NULL)
         {
@@ -39,6 +104,7 @@
             if ($key === NULL) {
                 $viewData = array(
                     'login_error' => (bool) $this->session->flashdata('login_error'),
+                    'login_error_msg' => $this->session->flashdata('login_error_msg'),
                 );
                 $this->load->view('_in/ins', $viewData);
             } else {
@@ -47,33 +113,128 @@
                 $this->load->view('_in/ins', $this->logl['data']);
             }
         }
+
+        /**
+         * Vérification session — détecte changement d'agent sur poste partagé.
+         */
+        public function whoami()
+        {
+            if (!$this->session->userdata('agent')) {
+                $this->output->set_status_header(401);
+                $this->output->set_content_type('application/json');
+                $this->output->set_output(json_encode(array('error' => 'auth_required')));
+                return;
+            }
+
+            $ctx = function_exists('auth_session_identity_context')
+                ? auth_session_identity_context()
+                : null;
+
+            if (!$ctx) {
+                $agent = $this->session->agent;
+                $ctx = array(
+                    'cpuser_id' => (int) $agent->cpuser_id,
+                    'username' => (string) $agent->username,
+                    'userole' => (string) $agent->userole,
+                    'type_rols' => isset($agent->type_rols) ? (string) $agent->type_rols : '',
+                    'roleattribut' => isset($agent->roleattribut) ? (int) $agent->roleattribut : 0,
+                    'garenom' => '',
+                    'gare_id' => '',
+                );
+            }
+
+            $this->output->set_content_type('application/json');
+            $this->output->set_output(json_encode($ctx));
+        }
     
 
         public function lin_($pk = NULL)
         {
             if ($pk != NULL) {
-                
-                
-            } else {
-                $this->_load_auth_models();
-                $ro = strpos($this->input->post('fonction'), '/');
-                $r = substr($this->input->post('fonction'), 0, $ro);
-                $u = substr($this->input->post('fonction'), $ro + 1, strlen($this->input->post('fonction')));
-                
-                 $rw = $this->m_compte_user->pick_attribution_at_login($u, $r);
-            
-                 if (!empty($rw)) {
-                    $this->logl['company'] = $this->m_entreprises->get_key($rw->cle_comp);
-                    // Toujours activer une attribution : get() exige activeattrib=1 (sinon page blanche).
-                    $this->m_roleattribution->activate_exclusive($u, $r, $rw->roleattribut);
-                    $this->m_roleattribution->clear_stale_activeattrib();
-                    redirect('home/' . $this->logl['company']->ekey . '/' . $u. '/' .$r);
-                }
-
-                $this->session->set_flashdata('login_error', 1);
-                redirect('login/ins');
+                return;
             }
-                
+
+            $this->_load_auth_models();
+            $fonction = (string) $this->input->post('fonction');
+            $ro = strpos($fonction, '/');
+            if ($ro === false) {
+                $this->_login_fail('Choisissez un profil.');
+                return;
+            }
+
+            $r = (int) substr($fonction, 0, $ro);
+            $u = (int) substr($fonction, $ro + 1, strlen($fonction));
+
+            if ($u <= 0 || $r <= 0) {
+                $this->_login_fail('Profil invalide.');
+                return;
+            }
+
+            $pending = auth_session_get_login_pending();
+            if (!$pending) {
+                auth_session_login_transition_denied();
+            }
+
+            $company = $this->m_entreprises->get_key($pending['ekey']);
+            if (empty($company)) {
+                auth_session_login_transition_denied();
+            }
+
+            if ((int) $pending['cpuser_id'] !== $u) {
+                auth_session_login_transition_denied('Ce profil ne correspond pas au compte connecté.');
+            }
+
+            $this->_proceed_with_role($company, $u, $r);
+        }
+
+        /**
+         * Choix gare validé (GET auto ou POST) pendant le flux login pending.
+         */
+        public function pick_gare_go($ekey = null, $uid = null, $role = null, $gare_id = null)
+        {
+            $this->_load_auth_models();
+            $uid = (int) $uid;
+            $role = (int) $role;
+            $gare_id = (string) $gare_id;
+
+            if ($uid <= 0 || $role <= 0 || $gare_id === '') {
+                auth_session_login_transition_denied('Gare invalide.');
+            }
+
+            $company = $this->m_entreprises->get_key($ekey);
+            if (empty($company)) {
+                auth_session_login_transition_denied();
+            }
+
+            if (!auth_session_validate_login_pending($uid, $company->ekey)) {
+                auth_session_login_transition_denied();
+            }
+
+            $allowed = $this->m_compte_user->pick_attribution_on_gare($uid, $role, $gare_id);
+            if (empty($allowed)) {
+                auth_session_login_transition_denied('Cette gare n\'est pas disponible pour votre profil.');
+            }
+
+            $this->_proceed_with_role($company, $uid, $role, $gare_id);
+        }
+
+        public function pick_gare_s($pk = null)
+        {
+            if ($pk !== null) {
+                return;
+            }
+
+            $this->_load_auth_models();
+            $ekey = (string) $this->input->post('ekey');
+            $uid = (int) $this->input->post('cpuser_id');
+            $role = (int) $this->input->post('userole');
+            $gare_id = (string) $this->input->post('gare_id');
+
+            if ($ekey === '' || $uid <= 0 || $role <= 0 || $gare_id === '') {
+                auth_session_login_transition_denied('Choisissez une gare.');
+            }
+
+            redirect('login/pick_gare_go/' . rawurlencode($ekey) . '/' . $uid . '/' . $role . '/' . rawurlencode($gare_id));
         }
 
         public function lin_s($pk = NULL)
@@ -117,8 +278,8 @@
                     return;
                 }
 
-                // Migration transparente : ré-hachage bcrypt du mot de passe
-                // encore stocké en SHA-1 (ou dont le coût bcrypt a changé).
+                auth_session_purge();
+
                 if (password_should_rehash($detector->upassword)) {
                     $newhash = password_make($password);
                     $this->m_compte_user->update($detector->cpuser_id, array(
@@ -135,15 +296,7 @@
                     return;
                 }
 
-                $act_acc = array(
-                    'is_conect' => 1,
-                    'date_conect' => mdate('%Y-%m-%d %H:%i:%s', now('UTC')),
-                );
-                $this->m_compte_user->update($detector->cpuser_id, $act_acc);
-                $this->load->model('Role_attribution_model', 'm_roleattribution');
-                $this->m_roleattribution->clear_stale_activeattrib();
-                compte_arret_track_activity($detector->cpuser_id);
-                redirect('welcome/' . $this->logl['company']->ekey . '/' . $detector->cpuser_id);
+                $this->_after_password_ok($detector, $this->logl['company']);
                 return;
             }
 
@@ -182,22 +335,13 @@
             $agent = $this->session->userdata('agent');
 
             if (empty($agent) || $o !== $this->session->session_id || $a !== $agent->cpuser_id) {
+                auth_session_purge();
                 redirect('login/ins/');
                 return;
             }
 
-            $out_ac = array(
-                'is_conect' => 0,
-                'date_deconect' => mdate("%Y-%m-%d %H:%i:%s", now('UTC')),
-            );
+            auth_session_force_logout(true);
 
-            $this->m_compte_user->update($agent->cpuser_id, $out_ac);
-
-            $this->load->model('Role_attribution_model', 'm_roleattribution');
-            $this->m_roleattribution->deactivate_all_for_user((int) $agent->cpuser_id, (int) $agent->userole);
-
-            unset($this->session);
-            
             redirect('login/ins/');
         }
     }

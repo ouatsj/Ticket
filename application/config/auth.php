@@ -15,10 +15,10 @@ return array(
 
   /**
    * class/method (minuscules). Méthode * = toutes.
+   * home/go : route publique mais protégée par login_pending dans Home::go().
    */
   'public_methods' => array(
     'home/go',
-    'home/main1',
     'ticket/*',
     'tick/*',
     'rapport/*',
