@@ -2,7 +2,7 @@
     
       // include the main labraries TCPDF
       require_once(APPPATH . 'libraries/tcpdf/tcpdf.php');
-      class Ticket extends CI_Controller
+      class Ticket extends MY_Controller
       {
             public $property = array('title' => 'TICKETS');
             public $entreprise = stdClass::class;

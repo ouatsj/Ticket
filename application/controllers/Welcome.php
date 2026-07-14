@@ -2,7 +2,7 @@
     
     defined('BASEPATH') OR exit('No direct script access allowed');
     
-    class Welcome extends CI_Controller
+    class Welcome extends MY_Controller
     {
         protected $property = array(
             'title' => 'Accueil',
@@ -21,9 +21,39 @@
         
         public function go($key, $m)
         {
+            $m = (int) $m;
+            if (!auth_session_validate_login_pending($m, $key)) {
+                auth_session_login_transition_denied();
+            }
+
             $this->property['agentroles'] = $this->m_compte_user->roleatt($m);
+            if (empty($this->property['agentroles'])) {
+                auth_session_login_transition_denied('Aucun profil actif pour ce compte.');
+            }
+
+            // Un seul profil → accueil direct (choix gare = page Accueil / VOIR GARES).
+            if (count($this->property['agentroles']) === 1) {
+                $role = (int) $this->property['agentroles'][0]->id_rols;
+                redirect('login/enter_role/' . rawurlencode($key) . '/' . $m . '/' . $role);
+                return;
+            }
 
             $this->load->view('_in/index2', $this->property);
+        }
+
+        /**
+         * Compat : anciennes URLs pick_gare → entrée rôle sans écran intermédiaire.
+         */
+        public function pick_gare($key, $uid, $role)
+        {
+            $uid = (int) $uid;
+            $role = (int) $role;
+
+            if (!auth_session_validate_login_pending($uid, $key)) {
+                auth_session_login_transition_denied();
+            }
+
+            redirect('login/enter_role/' . rawurlencode($key) . '/' . $uid . '/' . $role);
         }
         
     }

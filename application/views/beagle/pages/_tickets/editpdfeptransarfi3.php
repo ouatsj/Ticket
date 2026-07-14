@@ -290,7 +290,7 @@
                           <tr><td style="font-size: 20px;"><?= $item->nom_client; ?> &nbsp;<?= $item->prenom_client; ?></td></tr>
                           <tr><td style="font-size: 20px;"><b><?= $day; ?> &nbsp;<?= $heures; ?></b></td></tr>
                           <tr><td style="font-size: 20px;">Siege:<b><?= str_pad($item->num_siege_categorie, 2, "0", STR_PAD_LEFT); ?></b></td></tr>
-						              <tr><td style="font-size: 20px;">Prix:<?= number_format("{$item->prix}", 0, '', ' '); ?> &nbsp;FCFA &nbsp;<?= "{$item->contact_client}"; ?></td></tr>
+						              <tr><td style="font-size: 20px;">Prix:<?= number_format(ticket_impression_prix($item), 0, '', ' '); ?> &nbsp;FCFA &nbsp;<?= "{$item->contact_client}"; ?></td></tr>
                            <tr><td>ALLER-RETOUR</td></tr>
                         
                         </table>

@@ -51,8 +51,11 @@
     
 
             $route['default_controller'] = 'Login/ins';
+            $route['welcome/pick_gare/(:any)/(:num)/(:num)'] = 'Welcome/pick_gare/$1/$2/$3';
             $route['welcome/(:any)/(:any)'] = 'Welcome/go/$1/$2';
-            $route['home/(:num)/(:num)/(:num)'] = 'Home/go/$1/$2/$3';
+            $route['home/(:any)/(:num)/(:num)'] = 'Home/go/$1/$2/$3';
+            $route['home/main'] = 'Home/main1';
+            $route['home/accueil'] = 'Home/main1';
 
             /* Entreprises */
             $route['entreprises/(:num)'] = 'Entreprises/view/$1';
@@ -77,7 +80,7 @@
             $route['utilisateurs/(:any)/gTv/(:any)/compte/(:any)/(:any)/(:any)'] = 'Utilisateurs/viewcompte/$1/$2/$3/$4/$5';
             $route['utilisateurs/(:any)/gTv/(:any)/(:any)/garecompte/(:any)/(:any)/(:any)'] = 'Utilisateurs/comptegares/$1/$2/$3/$4/$5/$6';
             $route['utilisateurs/(:any)/gTv/(:any)/(:any)/rolecompte/(:any)/(:any)/(:any)'] = 'Utilisateurs/compteroles/$1/$2/$3/$4/$5/$6';
-            $route['utilisateurs/(:num)/caissier/(:any)/(:num)/(:num)/(:num)/(:any)/(:num)/(:any)/(:any)'] = 'Utilisateurs/viewcaissier/$1/$2/$3/$4/$5/$6/$7/$8/$9';
+            $route['utilisateurs/(:num)/caissier/(:any)/(:num)/(:num)/(:num)/(:num)/(:num)/(:any)/(:any)'] = 'Utilisateurs/viewcaissier/$1/$2/$3/$4/$5/$6/$7/$8/$9';
             $route['utilisateurs/(:num)/caissierprincip/(:any)/(:any)/(:any)/(:any)/(:any)/(:any)/(:any)'] = 'Utilisateurs/profilcaisse/$1/$2/$3/$4/$5/$6/$7/$8';
             $route['utilisateurs/(:num)/caisseprincrecette/(:any)/(:any)/(:any)/(:any)/(:any)/(:any)/(:any)'] = 'Utilisateurs/recettecaisse/$1/$2/$3/$4/$5/$6/$7/$8';
             $route['utilisateurs/(:num)/caisseprincdepense/(:any)/(:any)/(:any)/(:any)/(:any)/(:any)/(:any)'] = 'Utilisateurs/depensecaisse/$1/$2/$3/$4/$5/$6/$7/$8';
@@ -218,8 +221,24 @@
             $route['statut_gares/(:num)'] = 'Statut_Gares/view/$1';
             $route['statut_gares/statutheure/(:num)/(:any)/(:any)/(:any)'] = 'Statut_Gares/viewstatut/$1/$2/$3/$4';
 
+            /* personnels — vérif. matricule (caisse / recettes) */
+            $route['personnels/verifinfos/(:any)'] = 'Personnels/verifinfos/$1';
+            $route['personnels/verifinfos'] = 'Personnels/verifinfos';
+
             /* programmes */
+            $route['programmes/verifinfos/(:any)'] = 'Programmes/verifinfos/$1';
+            $route['programmes/verifinfos'] = 'Programmes/verifinfos';
+            $route['programmes/verifinfosbis/(:any)'] = 'Programmes/verifinfosbis/$1';
+            $route['programmes/verifinfosbis'] = 'Programmes/verifinfosbis';
+            $route['programmes/deltamponsieg/(:any)/(:any)'] = 'Programmes/deltamponsieg/$1/$2';
+            $route['programmes/deltamponsieg'] = 'Programmes/deltamponsieg';
             $route['programmes/(:num)'] = 'Programmes/index/$1';
+
+            /* reprogrammes — vérif. code client bagage / transit */
+            $route['reprogrammes/codeclientveriftr/(:any)'] = 'Reprogrammes/codeclientveriftr/$1';
+            $route['reprogrammes/codeclientveriftr'] = 'Reprogrammes/codeclientveriftr';
+            $route['reprogrammes/codeclientveriftr2/(:any)'] = 'Reprogrammes/codeclientveriftr2/$1';
+            $route['reprogrammes/codeclientveriftr2'] = 'Reprogrammes/codeclientveriftr2';
             $route['programmes/(:num)/gTa'] = 'Programmes/add/$1';
             $route['programmes/(:num)/gTv/(:num)'] = 'Programmes/edit/$1/$2';
 
@@ -241,11 +260,12 @@
             $route['gares/expedit/(:num)'] = 'Gares/index/$1';
             
             $route['gares/gare/(:num)'] = 'Gares/indview/$1';
-            $route['gares/(:num)/gTv/(:any)/(:any)/(:any)/(:any)/(:num)/(:any)/(:any)'] = 'Gares/opts/$1/$2/$3/$4/$5/$6/$7/$8';
+            $route['gares/(:num)/gTv/(:any)/(:any)/(:any)/(:num)/(:num)/(:any)/(:any)'] = 'Gares/opts/$1/$2/$3/$4/$5/$6/$7/$8';
             $route['gares/position(:num)'] = 'Gares/positions/$1';
             $route['gares/sousgares/(:num)/(:any)/(:any)/(:any)'] = 'Gares/editsousgare/$1/$2/$3/$4';
             $route['gares/souslignegares/(:num)/(:any)/(:any)/(:any)'] = 'Gares/editsousligne/$1/$2/$3/$4';
             $route['gares/(:num)/gTs/(:any)/(:any)/(:any)/(:any)/(:any)/(:any)'] = 'Gares/optiongare/$1/$2/$3/$4/$5/$6/$7';
+            $route['gares/(:num)/ajax_passagers'] = 'Gares/ajax_passagers/$1';
             $route['gares/(:num)/gTc/(:any)/(:any)/(:any)/(:any)/(:any)/(:num)/(:num)'] = 'Gares/options/$1/$2/$3/$4/$5/$6/$7/$8';
 
 
@@ -256,8 +276,8 @@
             $route['bus/(:num)/gTv/(:num)'] = 'Bus/edit/$1/$2';
             /* caisse */
 
-            $route['caisses/(:num)/gTv/(:any)/(:num)/(:any)/(:any)/(:any)/(:num)/(:any)/(:any)'] = 'Caisses/opts/$1/$2/$3/$4/$5/$6/$7/$8/$9';
-            $route['caisses/(:num)/cais/(:any)/(:num)/(:any)/(:any)/(:any)/(:num)/(:num)/(:any)'] = 'Caisses/options/$1/$2/$3/$4/$5/$6/$7/$8/$9';
+            $route['caisses/(:num)/gTv/(:any)/(:num)/(:any)/(:any)/(:num)/(:num)/(:any)/(:any)'] = 'Caisses/opts/$1/$2/$3/$4/$5/$6/$7/$8/$9';
+            $route['caisses/(:num)/cais/(:any)/(:num)/(:any)/(:any)/(:num)/(:num)/(:any)/(:any)'] = 'Caisses/options/$1/$2/$3/$4/$5/$6/$7/$8/$9';
             $route['caisses/(:num)/RdD/(:any)/(:num)/(:any)/(:any)/(:any)/(:num)/(:num)/(:any)/(:any)'] = 'Caisses/optionscaisse/$1/$2/$3/$4/$5/$6/$7/$8/$9/$10';
             $route['caisses/caisse/(:num)'] = 'Caisses/viewversement/$1';
             $route['arretcaisses/compte/(:num)'] = 'Arretcaisses/view/$1';
@@ -278,6 +298,8 @@
             $route['categories/(:num)/gTv/(:num)'] = 'Categories/edit/$1/$2';
 
             $route['pages/(:num)'] = 'Pages/view/$1';
+
+            $route['cdnhealth/report'] = 'cdnhealth/report';
 
             $route['404_override'] = '';
             $route['translate_uri_dashes'] = FALSE;

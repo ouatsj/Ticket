@@ -46,8 +46,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     let httptypequart;
                     httptypequart = new XMLHttpRequest();
                     
-                    httptypequart.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifquart/${typgare}`, true);
-                    httptypequart.onload = () => 
+                    AppRequestGuard.getJson(
+                        window.location.origin + `${APP_ROOT}/programmes/verifquart/${encodeURIComponent(typgare)}`,
+                        'verifquart-' + typgare,
+                        (httptypequart) => 
                     {
                         const donqua = JSON.parse(httptypequart.responseText);
                         if (donqua == '') {
@@ -68,9 +70,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         }
                         
 
-                    };
-                    httptypequart.setRequestHeader('Content-Type', 'application/json');
-                    httptypequart.send();
+                    });
             };
             
             let da = document.querySelector('#date_depheure');
@@ -2757,55 +2757,49 @@ document.addEventListener('DOMContentLoaded', () => {
             
         //recherche d'information du client depart principal
         let inf = document.querySelector('#rnclient_contact');
-        if (inf !== null)
-            inf.onkeyup = () => {
-                let httpInfos;
-                if (window.XMLHttpRequest) {
-                    httpInfos = new XMLHttpRequest();
-                } else if (window.ActiveXObject) {
-                    httpInfos = new ActiveXObject("Microsoft.XMLHTTP");
+        if (inf !== null && inf.dataset.guarded !== '1') {
+            inf.dataset.guarded = '1';
+            inf.addEventListener('keyup', () => {
+                const rawPhone = inf.value.trim();
+                const digits = AppRequestGuard.phoneDigits(rawPhone);
+                if (digits.length < 7) {
+                    return;
                 }
-                var verificat = document.querySelector('#rnclient_contact').value;
-                
-                httpInfos.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifinfos/${verificat}`, true);
-                httpInfos.onload = () => {
-                    const infos = JSON.parse(httpInfos.responseText);
-                    if (infos == null) {
-                        document.querySelector('#rclient').value = "";
-                        document.querySelector('#prnclient').value = "";
-                        document.querySelector('#cnib').value = "";
-                        document.querySelector('#date_cnib').value = "";
-                        document.querySelector('#lieudelivre').value = "";
-                        document.querySelector('#pascompagnie').value = "";
-                    } else {
-                        if (Object.entries(infos).length > 1) {
-                            
-                            if (infos.contact_client == verificat) {
-                                document.querySelector('#rclient').value = `${infos.nom_client}`;
-                                document.querySelector('#prnclient').value = `${infos.prenom_client}`;
-                                document.querySelector('#cnib').value = `${infos.num_CNIB}`;
-                                document.querySelector('#date_cnib').value = `${infos.date_delivre}`;
-                                document.querySelector('#lieudelivre').value = `${infos.lieu_delivre}`;
-                                document.querySelector('#pascompagnie').value = `${infos.id_client}`;
-                                document.querySelector('#rclientcp').value = `${infos.nom_client}`;
-                                document.querySelector('#prnclientcp').value = `${infos.prenom_client}`;
-                                document.querySelector('#cnibcp').value = `${infos.num_CNIB}`;
-                                document.querySelector('#date_cnibcp').value = `${infos.date_delivre}`;
-                                document.querySelector('#lieudelivrecp').value = `${infos.lieu_delivre}`;
+                AppRequestGuard.debounce('verifinfos', () => {
+                    AppRequestGuard.getJson(
+                        window.location.origin + `${APP_ROOT}/programmes/verifinfos/${encodeURIComponent(rawPhone)}`,
+                        'verifinfos',
+                        (httpInfos) => {
+                            let infos = null;
+                            try {
+                                infos = JSON.parse(httpInfos.responseText);
+                            } catch (err) {
+                                return;
+                            }
+                            if (infos == null || Object.keys(infos).length < 1) {
+                                document.querySelector('#pascompagnie').value = '';
+                                return;
+                            }
+                            if (AppRequestGuard.phonesMatch(infos.contact_client, rawPhone)) {
+                                document.querySelector('#rclient').value = `${infos.nom_client || ''}`;
+                                document.querySelector('#prnclient').value = `${infos.prenom_client || ''}`;
+                                document.querySelector('#cnib').value = `${infos.num_CNIB || ''}`;
+                                document.querySelector('#date_cnib').value = `${infos.date_delivre || ''}`;
+                                document.querySelector('#lieudelivre').value = `${infos.lieu_delivre || ''}`;
+                                document.querySelector('#pascompagnie').value = `${infos.id_client || ''}`;
+                                document.querySelector('#rclientcp').value = `${infos.nom_client || ''}`;
+                                document.querySelector('#prnclientcp').value = `${infos.prenom_client || ''}`;
+                                document.querySelector('#cnibcp').value = `${infos.num_CNIB || ''}`;
+                                document.querySelector('#date_cnibcp').value = `${infos.date_delivre || ''}`;
+                                document.querySelector('#lieudelivrecp').value = `${infos.lieu_delivre || ''}`;
                             } else {
-                                document.querySelector('#rclient').value = "";
-                                document.querySelector('#prnclient').value = "";
-                                document.querySelector('#cnib').value = "";
-                                document.querySelector('#date_cnib').value = "";
-                                document.querySelector('#lieudelivre').value = "";
-                                document.querySelector('#pascompagnie').value = "";
+                                document.querySelector('#pascompagnie').value = '';
                             }
                         }
-                    }
-                };
-                httpInfos.setRequestHeader('Content-Type', 'application/json');
-                httpInfos.send();
-            };
+                    );
+                }, 400);
+            });
+        }
             
             let butonclic = document.querySelector('#idreset');
             if (butonclic !== null) {
@@ -2834,19 +2828,28 @@ document.addEventListener('DOMContentLoaded', () => {
                 e.onclick = function () {   
                     let taForm = document.querySelector('#taForm');
                     
-                    taForm.setAttribute('action', `${APP_ROOT}/Programmes/addpassager/${e.dataset.cle_compagnie}`);   
+                    taForm.setAttribute('action', `${APP_ROOT}/Programmes/addpassager/${e.dataset.cle_compagnie}`);
+                    AppRequestGuard.ensureNonce('#taForm', 'sale_nonce');
+                    AppRequestGuard.guardForm('#taForm');
                 }
-                var clique = true;
 
-                $('#bottontick').click(function(event) 
-                {
-                    if(clique) 
-                    {
-                        clique = false;
-                        return true;
-                    }
-                    else return false;
-                })          
+                var taFormEl = document.querySelector('#taForm');
+                if (taFormEl && !taFormEl.dataset.salePrepared) {
+                    taFormEl.dataset.salePrepared = '1';
+                    taFormEl.addEventListener('submit', function () {
+                        AppRequestGuard.ensureNonce('#taForm', 'sale_nonce');
+                        AppRequestGuard.syncClientMirror([
+                            ['#rclient', '#rclientcp'],
+                            ['#prnclient', '#prnclientcp'],
+                            ['#cnib', '#cnibcp'],
+                            ['#date_cnib', '#date_cnibcp'],
+                            ['#lieudelivre', '#lieudelivrecp']
+                        ]);
+                    });
+                }
+
+                AppRequestGuard.guardForm('#taForm');
+                AppRequestGuard.ensureNonce('#taForm', 'sale_nonce');
     })
 
 });

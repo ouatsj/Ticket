@@ -1,10 +1,11 @@
 <?php
 
-class Upload extends CI_Controller {
+class Upload extends MY_Controller {
 
         public function __construct()
         {
                 parent::__construct();
+                $this->load->library('upload');
                 $this->load->helper(array('form', 'url'));
         }
 

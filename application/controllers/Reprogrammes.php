@@ -1,6 +1,6 @@
 <?php defined('BASEPATH') OR exit('No direct script access allowed');
 
-    class Reprogrammes extends CI_Controller
+    class Reprogrammes extends MY_Controller
     {
         public $property = array(
             'title' => 'Reprogrammation',
@@ -98,15 +98,21 @@
             return $this->load->view('beagle/pages/_tarif/json', array('json' => $contcl));
         }
 
-        public function codeclientveriftr($cod)
+        public function codeclientveriftr($cod = '')
         {
+            if ($cod === '' || $cod === 'undefined') {
+                return $this->load->view('beagle/pages/_programme/json', array('json' => null));
+            }
             $outbagt = $this->m_passager->verifcodbagt($this->session->company->ekey, $cod);
 
             return $this->load->view('beagle/pages/_programme/json', array('json' => $outbagt));
         }
 
-        public function codeclientveriftr2($cod2)
+        public function codeclientveriftr2($cod2 = '')
         {
+            if ($cod2 === '' || $cod2 === 'undefined') {
+                return $this->load->view('beagle/pages/_programme/json', array('json' => null));
+            }
             $outbagt2 = $this->m_passager->verifcodbagt2($this->session->company->ekey, $cod2);
 
             return $this->load->view('beagle/pages/_programme/json', array('json' => $outbagt2));
@@ -160,7 +166,7 @@
             $idcmpt = $this->input->post('compconnected');
             if($imprimeordinaire)
             {
-                $iduser = $this->input->post('userconnected');
+                $iduser = roleattribut_guard_post_hint($this->company->ekey);
                 $usen = substr($this->session->agent->username, 0, 1);           
                 $reg = $this->input->post('gareconnect');
                 $codet = $this->input->post('rpcode');
@@ -268,7 +274,7 @@
 
             if($imprimeepson)
             {
-                $iduser = $this->input->post('userconnected');
+                $iduser = roleattribut_guard_post_hint($this->company->ekey);
                 $usen = substr($this->session->agent->username, 0, 1);           
                 $reg = $this->input->post('gareconnect');
 
@@ -391,7 +397,7 @@
             $idcmpt = $this->input->post('compconnected');
             if($imprimeepson)
             {
-                $iduser = $this->input->post('userconnected');
+                $iduser = roleattribut_guard_post_hint($this->company->ekey);
                 $usen = substr($this->session->agent->username, 0, 1);           
                 $reg = $this->input->post('gareconnect');
 
@@ -674,7 +680,7 @@
             $idcmpt = $this->input->post('compconnected');
             if($imprimeordinaire)
             {
-                $iduser = $this->input->post('userconnected');
+                $iduser = roleattribut_guard_post_hint($this->company->ekey);
                 $usen = substr($this->session->agent->username, 0, 1);           
                 $reg = $this->input->post('gareconnect');
                 $codet = $this->input->post('adminrpcode');
@@ -782,7 +788,7 @@
 
             if($imprimeepson)
             {
-                $iduser = $this->input->post('userconnected');
+                $iduser = roleattribut_guard_post_hint($this->company->ekey);
                 $usen = substr($this->session->agent->username, 0, 1);           
                 $reg = $this->input->post('gareconnect');
 
@@ -903,7 +909,7 @@
             $sgid = $this->input->post('sousgareconnectrecu');
             $idcmpt = $this->input->post('compconnectedrecu');
         
-            $iduser = $this->input->post('userconnectedrecu');
+            $iduser = roleattribut_guard_post_hint($this->company->ekey, 'gareconnect', 'userconnectedrecu');
             
             $cdtamp = $this->input->post('codetamponrecu');
             $npas = $this->input->post('passnomrecu');
@@ -961,6 +967,14 @@
 
             $this->company = $this->m_entreprises->get_key($ckey);
 
+            $gid = $this->input->post('gareconnectbagsans');
+            $sgid = $this->input->post('sousgareconnectbagsans');
+            $iduser = roleattribut_guard_post_hint($this->company->ekey, 'gareconnect', 'userconnectedbagsans');
+            if ($msg = compte_arret_guard_sale('bagage', $iduser, $gid)) {
+                compte_arret_redirect_guichet($iduser, $gid, $sgid, $msg);
+                return;
+            }
+
             $cd = (int)$this->input->post('idcompagad');
 
             $today = mdate("%Y-%m-%d", now('UTC'));
@@ -968,10 +982,7 @@
             $cid = (int)$this->session->company->ekey;
 
             $bagepson = $this->input->post('epsonbagsans');
-            $gid = $this->input->post('gareconnectbagsans');
-            $sgid = $this->input->post('sousgareconnectbagsans');
             $idcmpt = $this->input->post('compconnectedbagsans');
-            $iduser = $this->input->post('userconnectedbagsans');
 
             $garec = $this->db->query("SELECT gr.codegares FROM gares gr WHERE gr.idengare = '$gid'")->row();
             
@@ -1174,13 +1185,18 @@
 
             $this->company = $this->m_entreprises->get_key($ckey);
 
+            $gid = $this->input->post('gareconnectbagsansn');
+            $sgid = $this->input->post('sousgareconnectbagsansn');
+            $iduser = roleattribut_guard_post_hint($this->company->ekey, 'gareconnect', 'userconnectedbagsansn');
+            if ($msg = compte_arret_guard_sale('bagage', $iduser, $gid)) {
+                compte_arret_redirect_guichet($iduser, $gid, $sgid, $msg);
+                return;
+            }
+
             $today = mdate("%Y-%m-%d", now('UTC'));
 
             $bagepson = $this->input->post('epsonbagsansn');
-            $gid = $this->input->post('gareconnectbagsansn');
-            $sgid = $this->input->post('sousgareconnectbagsansn');
             $idcmpt = $this->input->post('compconnectedbagsansn');
-            $iduser = $this->input->post('userconnectedbagsansn');
                 //strval();
 
             $garec = $this->db->query("SELECT gr.codegares FROM gares gr WHERE gr.idengare = '$gid'")->row();
@@ -1328,12 +1344,18 @@
         public function savebagsuivi($ckey){
 
             $this->company = $this->m_entreprises->get_key($ckey);
-            $today = mdate("%Y-%m-%d", now('UTC'));
-            $imprimeepson = $this->input->post('epsonbag');
+
             $gid = $this->input->post('gareconnectbag');
             $sgid = $this->input->post('sousgareconnectbag');
+            $iduser = roleattribut_guard_post_hint($this->company->ekey, 'gareconnect', 'userconnectedbag');
+            if ($msg = compte_arret_guard_sale('bagage', $iduser, $gid)) {
+                compte_arret_redirect_guichet($iduser, $gid, $sgid, $msg);
+                return;
+            }
+
+            $today = mdate("%Y-%m-%d", now('UTC'));
+            $imprimeepson = $this->input->post('epsonbag');
             $idcmpt = $this->input->post('compconnectedbag');
-            $iduser = $this->input->post('userconnectedbag');
             $usen = substr($this->session->agent->username, 0, 1);
 
 
@@ -1722,7 +1744,7 @@
             $gid = $this->input->post('augareconnect');
             $sgid = $this->input->post('ausousgareconnect');
             $idcmpt = $this->input->post('aucompconnected');
-            $iduser = $this->input->post('auuserconnected');
+            $iduser = roleattribut_guard_post_hint($this->company->ekey, 'gareconnect', 'auuserconnected');
             $usen = substr($this->session->agent->username, 0, 1);
 
             $garec = $this->db->query("SELECT gr.codegares FROM gares gr WHERE gr.idengare = '$gid'")->row();
@@ -2097,7 +2119,7 @@
                 $gid = $this->input->post('retgareconnects');
                 $sgid = $this->input->post('retsousgareconnect');
                 $idcmpt = $this->input->post('retcompconnected');
-                $iduser = $this->input->post('retuserconnecteds');
+                $iduser = roleattribut_guard_post_hint($this->company->ekey, 'gareconnect', 'retuserconnecteds');
 
                 $usrets= $this->input->post('usrets');
                 $retsgds = $this->input->post('retsgds');
@@ -2197,13 +2219,18 @@
 
             $this->company = $this->m_entreprises->get_key($ckey);
 
+            $gid = $this->input->post('gareconnectescalbag');
+            $sgid = $this->input->post('sousgareconnectescalbag');
+            $iduser = roleattribut_guard_post_hint($this->company->ekey, 'gareconnect', 'userconnectedescalbag');
+            if ($msg = compte_arret_guard_sale('bagage', $iduser, $gid)) {
+                compte_arret_redirect_guichet($iduser, $gid, $sgid, $msg);
+                return;
+            }
+
             $today = mdate("%Y-%m-%d", now('UTC'));
 
             $bagepsonesc = $this->input->post('epsonbagsansesc');
-            $gid = $this->input->post('gareconnectescalbag');
-            $sgid = $this->input->post('sousgareconnectescalbag');
             $idcmpt = $this->input->post('compconnectedescalbag');
-            $iduser = $this->input->post('userconnectedescalbag');
 
             $ch = $this->input->post('types_bagsansesc');
 
@@ -2359,11 +2386,16 @@
             $cid = $this->session->company->ekey;
 
             $this->company = $this->m_entreprises->get_key($ckey);
-            $imprimepson = $this->input->post('epsonesc');
             $iduser = $this->input->post('userconnect');
             $sgid = $this->input->post('sousgareconnect');
-            $idcmpt = $this->input->post('compconnected');
             $gid = $this->input->post('gareattribuer');
+            if ($msg = compte_arret_guard_sale('courrier', $iduser, $gid)) {
+                compte_arret_redirect_guichet($iduser, $gid, $sgid, $msg);
+                return;
+            }
+
+            $imprimepson = $this->input->post('epsonesc');
+            $idcmpt = $this->input->post('compconnected');
             $usen = substr($this->session->agent->username, 0, 1);
 
             if($this->input->post('heuredpcouresc') != NULL AND $this->input->post('quartconfirmeesc') != NULL AND $this->input->post('datedepartesc') != NULL AND $this->input->post('types_couresc') != NULL AND $this->input->post('naturecolesc') != NULL OR $this->input->post('persopassdestesc') != NULL OR $this->input->post('compagniepassdestesc') != NULL)
@@ -4149,11 +4181,16 @@
         {
             
             $this->company = $this->m_entreprises->get_key($ckey);
-            $imprimepson = $this->input->post('epsonesc');
             $iduser = $this->input->post('userconnectperso');
             $sgid = $this->input->post('sousgareconnectperso');
-            $idcmpt = $this->input->post('compconnectedperso');
             $gid = $this->input->post('gareattribuerperso');
+            if ($msg = compte_arret_guard_sale('courrier', $iduser, $gid)) {
+                compte_arret_redirect_guichet($iduser, $gid, $sgid, $msg);
+                return;
+            }
+
+            $imprimepson = $this->input->post('epsonesc');
+            $idcmpt = $this->input->post('compconnectedperso');
             $usen = substr($this->session->agent->username, 0, 1);
 
             if($this->input->post('heuredpcourpersoesc') != NULL AND $this->input->post('quartconfirmepersoesc') != NULL AND $this->input->post('datedepartpersoesc') != NULL AND $this->input->post('types_courpersoesc') != NULL AND $this->input->post('naturecolpersoesc') != NULL OR $this->input->post('persopassdestpersoesc') != NULL OR $this->input->post('compagniepassdestpersoesc') != NULL)
@@ -4604,11 +4641,16 @@
 
             $cid = $this->session->company->ekey;
 
-            $imprimepson = $this->input->post('epsonesc');
             $iduser = $this->input->post('userconnectparto');
             $sgid = $this->input->post('sousgareconnectparto');
-            $idcmpt = $this->input->post('compconnectedparto');
             $gid = $this->input->post('gareattribuerparto');
+            if ($msg = compte_arret_guard_sale('courrier', $iduser, $gid)) {
+                compte_arret_redirect_guichet($iduser, $gid, $sgid, $msg);
+                return;
+            }
+
+            $imprimepson = $this->input->post('epsonesc');
+            $idcmpt = $this->input->post('compconnectedparto');
             $usen = substr($this->session->agent->username, 0, 1);
 
             if($this->input->post('heuredpcourpartoesc') != NULL AND $this->input->post('quartconfirmepartoesc') != NULL AND $this->input->post('datedepartpartoesc') != NULL AND $this->input->post('types_courpartoesc') != NULL AND $this->input->post('naturecolpartoesc') != NULL OR $this->input->post('persopassdestpartoesc') != NULL OR $this->input->post('compagniepassdestpartoesc') != NULL)

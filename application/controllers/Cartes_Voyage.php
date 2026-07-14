@@ -1,6 +1,6 @@
 <?php defined('BASEPATH') OR exit('No direct script access allowed');
 
-    class Cartes_Voyage extends CI_Controller
+    class Cartes_Voyage extends MY_Controller
     {
         public $company;
         protected $property = array(
@@ -60,11 +60,16 @@
         //enregistrer carte de voyage
         public function addcarte($ckey)
         {
+                $this->company = $this->m_entreprises->get_key($ckey);
 
                 $gid = $this->input->post('gareconnect');
                 $sgid = $this->input->post('sousgareconnect');
+                $iduser = roleattribut_guard_post_hint($this->company->ekey);
+                if ($msg = compte_arret_guard_sale('ticket', $iduser, $gid)) {
+                    compte_arret_redirect_guichet($iduser, $gid, $sgid, $msg);
+                    return;
+                }
                 $idcmpt = $this->input->post('compconnected');
-                $iduser = $this->input->post('userconnected');
                 $usen = substr($this->session->agent->username, 0, 1);
                 $lien = 'assets/img/gallery/';
                 $cv = 'CV';
@@ -167,11 +172,12 @@
 
         public function upcarte($ckey, $icdcart, $iccopte)
         {
+                $this->company = $this->m_entreprises->get_key($ckey);
 
                 $gid = $this->input->post('gareconnect');
                 $sgid = $this->input->post('sousgareconnect');
                 $idcmpt = $this->input->post('compconnected');
-                $iduser = $this->input->post('userconnected');
+                $iduser = roleattribut_guard_post_hint($this->company->ekey);
 
             
                 $argcompte = array(

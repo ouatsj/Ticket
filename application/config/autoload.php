@@ -57,9 +57,7 @@
     |
     |	$autoload['libraries'] = array('user_agent' => 'ua');
     */
-    $autoload['libraries'] = array('database', 'calendar', 'upload',
-        'pagination', 'unit_test', 'user_agent', 'form_validation',
-        'session', 'layout',);
+    $autoload['libraries'] = array('database', 'session', 'form_validation', 'layout');
     
     /*
     | -------------------------------------------------------------------
@@ -90,9 +88,7 @@
     |
     |	$autoload['helper'] = array('url', 'file');
     */
-    $autoload['helper'] = array('date', 'directory', 'download',
-        'email', 'file', 'form', 'html', 'number', 'path',
-        'smiley', 'string', 'text', 'url', 'xml',);
+    $autoload['helper'] = array('url', 'form', 'html', 'date', 'string', 'file', 'session', 'retour', 'passwordhash', 'recette_role', 'compte_arret', 'roleattribut_guard', 'auth_session', 'ticket_prix', 'url_safe');
     
     /*
     | -------------------------------------------------------------------
@@ -106,7 +102,7 @@
     | config files.  Otherwise, leave it blank.
     |
     */
-    $autoload['config'] = array();
+    $autoload['config'] = array('compte_arret');
     
     /*
     | -------------------------------------------------------------------
@@ -135,91 +131,4 @@
     |
     |	$autoload['model'] = array('first_model' => 'first');
     */
-    $autoload['model'] = array('Entreprises_model' => 'm_entreprises',
-        'Compagnies_model' => 'm_compagnies',
-        'Villes_model' => 'm_villes',
-        'Banque_model' => 'm_banque',
-        'Categories_model' => 'm_categories',
-        'Bus_model' => 'm_bus',
-        'Client_model' => 'm_client',
-        'Gare_depart_model' => 'm_gare_depart',
-        'Gare_arrivee_model' => 'm_gare_arrivee',
-        'Lignes_model' => 'm_lignes',
-        'Non_passager_model' => 'm_non_passager',
-        'Passager_model' => 'm_passager',
-        'Programme_model' => 'm_programme',
-        'Heure_model' => 'm_heure',
-        'Comptes_guichet_model' => 'm_comptes_guichet',
-        'Genre_recette_model' => 'm_genre_recette',
-        'Genre_depense_model' => 'm_genre_depense',
-        'Genre_depot_model' => 'm_genre_depot',
-        'Recette_model' => 'm_recette',
-        'Depense_model' => 'm_depense',
-        'Depot_model' => 'm_depot',
-        'Report_model' => 'm_report',
-        'Quartier_model' => 'm_quartier',
-        'Personnels_model' => 'm_personnels',
-        'Type_client_model' => 'm_type_client',
-        'Type_personnel_model' => 'm_type_personnel',
-        'Typecaisse_model' => 'm_typecaisse',
-        'Pays_model' => 'm_pays',
-        'Tarifs_model' => 'm_tarifs',
-        'Tarifications_model' => 'm_tarifications',
-        'Ligne_heure_model' => 'm_ligne_heure',
-        'Tamponcode_model' => 'm_tamponcode',
-        'Categories_siege_model' => 'm_categories_siege',
-        'Caisse_model' => 'm_caisse',
-        'Liste_model' => 'm_liste',
-        'Utilisateur_model' => 'm_utilisateur',
-        'User_login_model' => 'm_user_login',
-        'Compte_user_model' => 'm_compte_user',
-        'Users_role_model' => 'm_users_role',
-        'Versements_model' => 'm_versements',
-        'Genre_versement_model' => 'm_genre_versement',
-        'Carte_voyage_model' => 'm_carte_voyage',
-        'Bon_millitaire_model' => 'm_bon_millitaire',
-        'Menu_bouton_model' => 'm_menu_bouton',
-        'Gare_heure_statut_model' => 'm_gare_heure_statut',
-        'Statut_gare_model' => 'm_statut_gare',
-        'Tampon_siege_model' => 'm_tampon_siege',
-        'Tampon_sup_model' => 'm_tampon_sup',
-        'Ligne_itineraire_model' => 'm_ligne_itineraire',
-        'Itineraire_model' => 'm_itineraire',
-        'Sous_gare_model' => 'm_sousgare',
-        'Position_model' => 'm_position',
-        'Sous_gare_ligne_model' => 'm_sousgareligne',
-        'Type_document_model' => 'm_typedocument',
-        'Gares_model' => 'm_gares',
-        'Role_attribution_model' => 'm_roleattribution',
-        'Comptes_courrier_model' => 'm_comptes_courrier',
-        'Expediteurs_model' => 'm_expediteur',
-        'Code_courriers_model' => 'm_code_courrier',
-        'Courriers_exp_model' => 'm_courrier_expedier',
-        'Recepteurs_model' => 'm_recepteur',
-        'Expedition_reception_model' => 'm_expedition_reception',
-        'Courriers_recet_model' => 'm_courrier_recet',
-        'Courriers_depense_model' => 'm_courrier_depens',
-        'Compte_credite_model' => 'm_compte_credite',
-        'Carte_ligne_model' => 'm_carte_ligne',
-        'Comptes_courrierrecet_model' => 'm_comptes_courrierrecet',
-        'Comptes_courrierdepens_model' => 'm_comptes_courrierdepens',
-        'Programmebus_model' => 'm_programmebus',
-        'Recupassager_model' => 'm_recupassager',
-        'Bagage_model' => 'm_bagage',
-        'Categ_model' => 'm_categ',
-        'Comptes_bagage_model' => 'm_comptes_bagage',
-        'Facturation_model' => 'm_facturation',
-        'Type_contrat_model' => 'm_typecontrat',
-        'Bordereaubagage_model' => 'm_bordereaubagage',
-        'Envoibagages_model' => 'm_envoibagages',
-        'Dossier_model' => 'm_dossier',
-        'Appdossier_model' => 'm_appdossier',
-        'Autredepense_model' => 'm_autredepense',
-        'Ordres_model' => 'm_ordres',
-        'Escalclients_model' => 'm_escalclients',
-        'Courriers_expesc_model' => 'm_courrier_expedieresc',
-        'Valeurattribuer_model' => 'm_valeurattrib',
-        'Valeurs_model' => 'm_valeurs',
-        'Bagageesc_model' => 'm_bagageesc',
-        'Tamponcodetr_model' => 'm_tamponcodetr',
-    );
+    $autoload['model'] = array();

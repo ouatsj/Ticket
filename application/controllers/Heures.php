@@ -1,6 +1,6 @@
 <?php defined('BASEPATH') OR exit('No direct script access allowed');
 
-    class Heures extends CI_Controller
+    class Heures extends MY_Controller
     {
         public $property = array(
             'title' => 'Heures',

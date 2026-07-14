@@ -2,11 +2,15 @@
 
 <div class="row">
     <p class="mt-0 mb-2 ml-4">
-        <a href="<?= site_url("gares/{$this->session->company->ekey}". "/gTv/".
-                    (!empty($caisseident->gexp_caiss) ? $caisseident->gexp_caiss : 0).
-                "/cais/" . $conex->roleattribut.'/'.$bus_stop->idsousgare .'/'.mdate("%d/%m/%Y", now('UTC'))); ?>" class="btn btn-space btn-secondary">
-                <i class="fas fa-arrow-circle-left text-info"></i>&nbsp;RETOUR A LA CAISSE&nbsp;
-        </a>
+        <?php $this->load->view('_partials/btn_retour', array(
+            'fallback' => retour_caisse_url(
+                $this->session->company->ekey,
+                !empty($caisseident->gexp_caiss) ? $caisseident->gexp_caiss : 0,
+                $conex->roleattribut,
+                $bus_stop->idsousgare
+            ),
+            'label' => 'RETOUR A LA CAISSE',
+        )); ?>
         <? if ($this->session->agent->userole === '1' OR $this->session->agent->userole === '2' OR $this->session->agent->userole === '4' OR $this->session->agent->userole === '18'): ?>
             <a href="<?= site_url("caisses/{$this->session->company->ekey}". "/gTv/".
                     (!empty($caisseident->gexp_caiss) ? $caisseident->gexp_caiss : 0). "/".(!empty($caisseident->id_caiss) ? $caisseident->id_caiss : 0).
@@ -171,7 +175,7 @@
                                                 <div class="form-group col-sm-4">
                                                     <label>PROVENANCE</label>
                                                     <select class="form-control form-control-sm" name="genre">
-                                                        <option value="<?= $alldepots->idgenre_depot; ?>"><?= $alldepots->idgenre_depot; ?></option>
+                                                        <option value="<?= $alldepots->idgenre_depot; ?>"><?= $alldepots->genre_depot; ?></option>
                                                         <? foreach ($genres as $genr): ?>
                                                             <option value="<?= $genr->id_genredepot; ?>">
                                                             <?= "{$genr->genre_depot}"; ?>
@@ -206,7 +210,7 @@
                                                 </div>
 												<div class="form-group col-sm-4">
 													<label>DATE</label>
-													<input class="form-control form-control-sm" type="date" name="date_depot" value="<?= $alldepots->datedepot; ?>">
+													<input class="form-control form-control-sm" type="date" name="date_depot" value="<?= !empty($alldepots->datedepot) ? date('Y-m-d', strtotime($alldepots->datedepot)) : ''; ?>">
 												</div>
                                             </div>
                                             <div class="modal-footer">
@@ -214,8 +218,7 @@
                                                         data-dismiss="modal">
                                                     <i class="icon icon-left mdi mdi-undo"></i>&nbsp;ANNULER&nbsp;
                                                 </button>
-                                                <button class="btn btn-success md-trigger" type="submit"
-                                                        data-dismiss="modal">
+                                                <button class="btn btn-success" type="submit">
                                                     <i class="icon icon-left mdi mdi-check-all"></i>&nbsp;OK&nbsp;
                                                 </button>
                                             </div>
@@ -332,8 +335,7 @@
                         data-dismiss="modal">
                     <i class="icon icon-left mdi mdi-undo"></i>&nbsp;ANNULER&nbsp;
                 </button>
-                <button class="btn btn-success md-trigger" type="submit"
-                        data-dismiss="modal">
+                <button class="btn btn-success" type="submit">
                     <i class="icon icon-left mdi mdi-check-all"></i>&nbsp;OK&nbsp;
                 </button>
             </div>
@@ -382,7 +384,7 @@
             
             <div class="form-group col-sm-4">
                 <label>TYPE DOCUMENT</label>
-                <select class="form-control form-control-sm" name="type">
+                <select class="form-control form-control-sm" name="type" id="typedepot">
                     <option value=""></option>
                         <? foreach ($typedocuments as $doc): ?>
                             <option value="<?= $doc->typedocument; ?>">
@@ -392,13 +394,13 @@
             </div>
             <div class="form-group col-sm-4">
                 <label>GENRE</label>
-                <select class="form-control form-control-sm" name="genre">
+                <select class="form-control form-control-sm" name="genre" id="genredepot">
                     <option value="">Choississez genre</option>
                 </select>
             </div>
             <div class="form-group col-sm-4">
                 <label>NOM</label>
-                <select class="form-control form-control-sm" name="nom">
+                <select class="form-control form-control-sm" name="nom" id="nomdepot">
                 <option value="">choississez nom</option>
                     
                 </select>
@@ -410,8 +412,7 @@
                         data-dismiss="modal">
                     <i class="icon icon-left mdi mdi-undo"></i>&nbsp;ANNULER&nbsp;
                 </button>
-                <button class="btn btn-success md-trigger" type="submit"
-                        data-dismiss="modal">
+                <button class="btn btn-success" type="submit">
                     <i class="icon icon-left mdi mdi-check-all"></i>&nbsp;RECHERCHER&nbsp;
                 </button>
             </div>
@@ -488,8 +489,7 @@
                         data-dismiss="modal">
                     <i class="icon icon-left mdi mdi-undo"></i>&nbsp;ANNULER&nbsp;
                 </button>
-                <button class="btn btn-success md-trigger" type="submit"
-                        data-dismiss="modal">
+                <button class="btn btn-success" type="submit">
                     <i class="icon icon-left mdi mdi-check-all"></i>&nbsp;RECHERCHER&nbsp;
                 </button>
             </div>
@@ -563,8 +563,7 @@
                         data-dismiss="modal">
                     <i class="icon icon-left mdi mdi-undo"></i>&nbsp;ANNULER&nbsp;
                 </button>
-                <button class="btn btn-success md-trigger" type="submit"
-                        data-dismiss="modal">
+                <button class="btn btn-success" type="submit">
                     <i class="icon icon-left mdi mdi-check-all"></i>&nbsp;RECHERCHER&nbsp;
                 </button>
             </div>

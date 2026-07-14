@@ -47,6 +47,25 @@
         <?endif;?>
         </p>
     </div>
+    <?php
+    $liste_recettes = !empty($recettes) ? $recettes : array();
+    $nb_recettes = count($liste_recettes);
+    ?>
+    <?php if (!empty($compte_show_rd_pending)): ?>
+    <div class="col-12">
+        <div class="alert alert-info mb-2">
+            Recettes non arrêtées — <strong>toute la gare</strong>
+            <?php if (!empty($compte_operateur_label)): ?>
+            — chef de guichet <strong><?= htmlspecialchars($compte_operateur_label, ENT_QUOTES, 'UTF-8'); ?></strong>
+            <?php endif; ?>
+            <?php if (!empty($caisse_operateur_roleattribut) || !empty($compte_operateur_roleattribut)): ?>
+            (roleattribut <strong><?= (int) (!empty($caisse_operateur_roleattribut) ? $caisse_operateur_roleattribut : $compte_operateur_roleattribut); ?></strong>)
+            <?php endif; ?>
+            — toutes vos saisies avec compte recettes/dépenses encore ouvert.
+            <strong><?= $nb_recettes; ?></strong> ligne(s) affichée(s).
+        </div>
+    </div>
+    <?php endif; ?>
     <div class="form-group text-center">Les recettes de la caisse : <? if($sommesrecettes == NULL):?> 0 <? else:?> &nbsp;<?=$sommesrecettes->total; ?><? endif; ?></div>
 <div class="row">
 
@@ -66,7 +85,7 @@
 
                 </div>
 
-                <div class="title">Les recettes interne</div>
+                <div class="title">Les recettes interne (<?= $nb_recettes; ?>)</div>
 
             </div>
 
@@ -91,7 +110,10 @@
                         </thead>
 
                         <tbody class="no-border-x">
-                        <?foreach ($recettes as $item): ?>
+                        <?php if (empty($liste_recettes)): ?>
+                            <tr><td colspan="8" class="text-muted text-center">Aucune recette non arrêtée pour cette caisse.</td></tr>
+                        <?php else: ?>
+                        <?foreach ($liste_recettes as $item): ?>
                             <tr>
                                 <td><span><?= $item->date_recet;?></span></td>
                                 <td><span><?=$item->nom_compagnie;?></span></td>
@@ -209,6 +231,7 @@
                                 </td>
                             </tr>
                             <? endforeach; ?>
+                        <?php endif; ?>
                         </tbody>
 
                     </table>

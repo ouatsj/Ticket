@@ -25,9 +25,15 @@
                     <body>
                         
                     <table>
-                            <? $ckey = $this->session->company->ekey;
+                            <? if (empty($item)) : ?>
+                        <tr><td colspan="5"><strong>Billet introuvable.</strong> Vérifiez le guichet ou réimprimez depuis l'historique.</td></tr>
+                            <? else :
+                            $ckey = $this->session->company->ekey;
                             $this->entreprise = $this->m_entreprises->get_key($ckey);
-                          $ressougare = $this->m_gare_depart->getgar($this->entreprise->id_entreprise, $item->code_gaexp, $item->departclient_idgare, $item->ident_ligne);
+                          $gare_ref = !empty($bus_stop->idengare) ? $bus_stop->idengare : $item->code_gaexp;
+                          $ressougare = $this->m_gare_depart->getgar($this->entreprise->id_entreprise, $gare_ref, $item->departclient_idgare, $item->ident_ligne, $item->id_ligneheure);
+                          $heures = $item->heure;
+                          if ($ressougare && !empty($ressougare->possitiongare)) {
                           if($ressougare->possitiongare === 'Maintenant'){
 
                                 $g = explode(":", $item->heure);
@@ -54,6 +60,10 @@
                                 $heures = sprintf("%02d:%02d", $heur, $secondes);      
 
                           }
+                          }
+                          $sg_label = ($ressougare && !empty($ressougare->nomsousgare))
+                              ? $ressougare->nomsousgare
+                              : (isset($item->nomsousgare) ? $item->nomsousgare : '');
 
                               $tim = date('H', time('H'));
 
@@ -78,9 +88,9 @@
                                 </tr>
                                 <tr><td align=left style="font-size: 17px;"><?= $item->nom_ligne; ?></td><td colspan="3" align=left style="font-size: 17px;">CODE:<?= $item->code_ticket; ?></td><td style="font-size: 17px;" align=left>SIEGE:<?= str_pad($item->num_siege_categorie, 2, "0", STR_PAD_LEFT);?></td>
                                 </tr>
-                                <tr><td align=left><?= $ressougare->nomsousgare; ?></td><td align=left colspan="3" style="font-size: 17px;">AXE:<?= $item->nom_ligne; ?></td><td align=left style="font-size: 15px;">QUARTIER:<?= $item->quart;?></td>
+                                <tr><td align=left><?= $sg_label; ?></td><td align=left colspan="3" style="font-size: 17px;">AXE:<?= $item->nom_ligne; ?></td><td align=left style="font-size: 15px;">QUARTIER:<?= $item->quart;?></td>
                                 </tr>
-                                <tr><td align=left style="font-size: 15px;"><?= $day; ?> <?= $heures;?> <?= str_pad($item->num_siege_categorie, 2, "0", STR_PAD_LEFT); ?></td><td colspan="3" align=left style="font-size: 15px;"><?= $ressougare->nomsousgare; ?>:<?= $day;?></td><td style="font-size: 17px;">HEURE:<?= $heures;?></td>
+                                <tr><td align=left style="font-size: 15px;"><?= $day; ?> <?= $heures;?> <?= str_pad($item->num_siege_categorie, 2, "0", STR_PAD_LEFT); ?></td><td colspan="3" align=left style="font-size: 15px;"><?= $sg_label; ?>:<?= $day;?></td><td style="font-size: 17px;">HEURE:<?= $heures;?></td>
                                 </tr>
                                 <tr><td align=left><?= $item->nom_client; ?></td><td td colspan="3" align=left>TEL:<?= $item->contact_client; ?></td><td align=left>PRIX:<?= number_format($item->prix, 0, '', ' ');?>FCFA</td>
                                 </tr>
@@ -96,6 +106,7 @@
                                 
                                 </tr>
                         </table>
+                            <? endif; ?>
                         
                     </body>
                 </div>

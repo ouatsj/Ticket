@@ -251,12 +251,12 @@
                                     </a>
                                     &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
                                     
-                                    <a href="<?= site_url('Personnels/active/' . $this->session->company->ekey . '/' . $personnel->matricule. '/' . $personnel->actif_perso);?> "class="btn btn-space btn-secondary">
+                                    <a href="<?= site_url_segments('Personnels', 'active', $this->session->company->ekey, $personnel->matricule, $personnel->actif_perso); ?>" class="btn btn-space btn-secondary">
                                         <?= ($personnel->actif_perso === '1') ? '<span class="icon mdi text-danger">désactiver</span>' : '<span
                                         class="icon mdi text-success">activer</span>' ?>
                                     </a>&nbsp;
                                     <? if ($this->session->agent->userole === '1' OR $this->session->agent->userole === '2') : ?>
-                                    <a href="<?= site_url('Personnels/permission/' . $this->session->company->ekey . '/' . $personnel->matricule. '/' . $personnel->persoactif);?> "class="btn btn-space btn-secondary">
+                                    <a href="<?= site_url_segments('Personnels', 'permission', $this->session->company->ekey, $personnel->matricule, $personnel->persoactif); ?>" class="btn btn-space btn-secondary">
                                     <?= ($personnel->persoactif === '0') ? '<span class="icon mdi text-danger">permission</span>' : '<span class="icon mdi text-success">non_permis</span>' ?>
                                     </a>&nbsp;
                                     <?endif;?>
@@ -270,7 +270,7 @@
                                                     class="mdi mdi-close text-white"></span>
                                                 </button>
                                             </div>
-                                            <?= form_open("Personnels/edit_/{$this->session->company->ekey}/{$personnel->matricule}",
+                                            <?= form_open('Personnels/edit_/'.$this->session->company->ekey.'/'.rawurlencode($personnel->matricule),
                                                 array('class' => 'modal-body form')); ?>
 
                                             <div class="row">

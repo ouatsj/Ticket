@@ -85,13 +85,13 @@
                           </tr>
                           <tr><td align=left style="font-size: 15px;"><?= $day; ?> <?= $heures;?> <?= str_pad($item->num_siege_categorie, 2, "0", STR_PAD_LEFT); ?></td><td colspan="3" align=left style="font-size: 15px;">QUARTIER:<?= $item->quart;?></td><td style="font-size: 17px;">HEURE:<?= $heures;?></td>
                           </tr>
-                          <tr><td align=left><?= $item->nom_client; ?></td><td td colspan="3" align=left>TEL:<?= $item->contact_client; ?></td><td align=left>PRIX:<?= number_format($item->prix, 0, '', ' ');?>FCFA</td>
+                          <tr><td align=left><?= $item->nom_client; ?></td><td td colspan="3" align=left>TEL:<?= $item->contact_client; ?></td><td align=left>PRIX:<?= number_format(ticket_impression_prix($item), 0, '', ' ');?>FCFA</td>
                           </tr>
                           <tr><td align=left width="30%"><?= $item->prenom_client; ?></td><td align=center colspan="3"> <img src="<?php echo site_url('render/Barcode/'.$item->tamponcod);?>" alt="" width="250" height="30"></td><td align=left></td>
                           </tr>
                           <tr><td align=left><?= $item->contact_client; ?></td><td colspan="3" align=center style="font-size: 8px;">Billet valable 1 mois. Billet non remboursable</td><td align=left>CONVOCATION 45 mn avant le départ</td>
                           </tr>
-                          <tr><td align=left><?= number_format($item->prix, 0, '', ' ');?> FCFA <?= $nge;?></td><td colspan="3" align="center" style="font-size: 9px;"><?= $item->nom_compagnie;?> décline toute responsabilité en cas de perte ou de vol de billet et de bagages même payés.</td>
+                          <tr><td align=left><?= number_format(ticket_impression_prix($item), 0, '', ' ');?> FCFA <?= $nge;?></td><td colspan="3" align="center" style="font-size: 9px;"><?= $item->nom_compagnie;?> décline toute responsabilité en cas de perte ou de vol de billet et de bagages même payés.</td>
                           </tr>
                           <tr><td align=left style="font-size: 9px;"><?= $item->tamponcod;?></td><td colspan="3" align=center style="font-size: 9px;">Suivez et surveillez bien vos bagages</td>
                           </tr>
@@ -606,13 +606,13 @@
                           </tr>
                           <tr><td align=left style="font-size: 15px;"><?= $day1; ?> <?= $heures1;?> <?= str_pad($itemtrans->num_siege_categorie, 2, "0", STR_PAD_LEFT); ?></td><td colspan="3" align=left style="font-size: 15px;"><?= $ressougaretra->nomsousgare; ?>:<?= $day1;?></td><td style="font-size: 17px;">HEURE:<?= $heures1;?></td>
                           </tr>
-                          <tr><td align=left><?= $item->nom_client; ?></td><td td colspan="3" align=left>TEL:<?= $item->contact_client; ?></td><td align=left>PRIX:<?= number_format($itemtrans->prix, 0, '', ' ');?>FCFA</td>
+                          <tr><td align=left><?= $item->nom_client; ?></td><td td colspan="3" align=left>TEL:<?= $item->contact_client; ?></td><td align=left>PRIX:<?= number_format(ticket_impression_prix($itemtrans), 0, '', ' ');?>FCFA</td>
                           </tr>
                           <tr><td align=left width="30%"><?= $item->prenom_client; ?></td><td align=center colspan="3"> <img src="<?php echo site_url('render/Barcode/'.$itemtrans->tamponcod);?>" alt="" width="250" height="30"></td><td align=left></td>
                           </tr>
                           <tr><td align=left><?= $item->contact_client; ?></td><td colspan="3" align=center style="font-size: 8px;">Billet valable 1 mois. Billet non remboursable</td><td align=left>CONVOCATION 45 mn avant le départ</td>
                           </tr>
-                          <tr><td align=left><?= number_format($itemtrans->prix, 0, '', ' ');?> FCFA <?= $nge1;?></td><td colspan="3" align="center" style="font-size: 9px;"><?= $itemtrans->nom_compagnie;?> décline toute responsabilité en cas de perte ou de vol de billet et de bagages même payés.</td>
+                          <tr><td align=left><?= number_format(ticket_impression_prix($itemtrans), 0, '', ' ');?> FCFA <?= $nge1;?></td><td colspan="3" align="center" style="font-size: 9px;"><?= $itemtrans->nom_compagnie;?> décline toute responsabilité en cas de perte ou de vol de billet et de bagages même payés.</td>
                           </tr>
                           <tr><td align=left style="font-size: 9px;"><?= $itemtrans->tamponcod;?></td><td colspan="3" align=center style="font-size: 9px;">Suivez et surveillez bien vos bagages</td>
                           </tr>
@@ -1123,13 +1123,13 @@
                               </tr>
                               <tr><td align=left style="font-size: 15px;"><?= $day2; ?> <?= $heures2;?> <?= str_pad($itemtrans2->num_siege_categorie, 2, "0", STR_PAD_LEFT); ?></td><td colspan="3" align=left style="font-size: 15px;"><?= $ressougaretra2->nomsousgare; ?>:<?= $day2;?></td><td style="font-size: 17px;">HEURE:<?= $heures2;?></td>
                               </tr>
-                              <tr><td align=left><?= $item->nom_client; ?></td><td td colspan="3" align=left>TEL:<?= $item->contact_client; ?></td><td align=left>PRIX:<?= number_format($itemtrans2->prix, 0, '', ' ');?>FCFA</td>
+                              <tr><td align=left><?= $item->nom_client; ?></td><td td colspan="3" align=left>TEL:<?= $item->contact_client; ?></td><td align=left>PRIX:<?= number_format(ticket_impression_prix($itemtrans2), 0, '', ' ');?>FCFA</td>
                               </tr>
                               <tr><td align=left width="30%"><?= $item->prenom_client; ?></td><td align=center colspan="3"> <img src="<?php echo site_url('render/Barcode/'.$itemtrans2->tamponcod);?>" alt="" width="250" height="30"></td><td align=left></td>
                               </tr>
                               <tr><td align=left><?= $item->contact_client; ?></td><td colspan="3" align=center style="font-size: 8px;">Billet valable 1 mois. Billet non remboursable</td><td align=left>CONVOCATION 45 mn avant le départ</td>
                               </tr>
-                              <tr><td align=left><?= number_format($itemtrans2->prix, 0, '', ' ');?> FCFA <?= $nge2;?></td><td colspan="3" align="center" style="font-size: 9px;"><?= $itemtrans2->nom_compagnie;?> décline toute responsabilité en cas de perte ou de vol de billet et de bagages même payés.</td>
+                              <tr><td align=left><?= number_format(ticket_impression_prix($itemtrans2), 0, '', ' ');?> FCFA <?= $nge2;?></td><td colspan="3" align="center" style="font-size: 9px;"><?= $itemtrans2->nom_compagnie;?> décline toute responsabilité en cas de perte ou de vol de billet et de bagages même payés.</td>
                               </tr>
                               <tr><td align=left style="font-size: 9px;"><?= $itemtrans2->tamponcod;?></td><td colspan="3" align=center style="font-size: 9px;">Suivez et surveillez bien vos bagages</td>
                               </tr>
@@ -1597,13 +1597,13 @@
                               </tr>
                               <tr><td align=left style="font-size: 15px;"><?= $day3; ?> <?= $heures3;?> <?= str_pad($itemtrans3->num_siege_categorie, 2, "0", STR_PAD_LEFT); ?></td><td colspan="3" align=left style="font-size: 15px;"><?= $ressougaretra3->nomsousgare; ?>:<?= $day3;?></td><td style="font-size: 17px;">HEURE:<?= $heures3;?></td>
                               </tr>
-                              <tr><td align=left><?= $item->nom_client; ?></td><td td colspan="3" align=left>TEL:<?= $item->contact_client; ?></td><td align=left>PRIX:<?= number_format($itemtrans3->prix, 0, '', ' ');?>FCFA</td>
+                              <tr><td align=left><?= $item->nom_client; ?></td><td td colspan="3" align=left>TEL:<?= $item->contact_client; ?></td><td align=left>PRIX:<?= number_format(ticket_impression_prix($itemtrans3), 0, '', ' ');?>FCFA</td>
                               </tr>
                               <tr><td align=left width="30%"><?= $item->prenom_client; ?></td><td align=center colspan="3"> <img src="<?php echo site_url('render/Barcode/'.$itemtrans3->tamponcod);?>" alt="" width="250" height="30"></td><td align=left></td>
                               </tr>
                               <tr><td align=left><?= $item->contact_client; ?></td><td colspan="3" align=center style="font-size: 8px;">Billet valable 1 mois. Billet non remboursable</td><td align=left>CONVOCATION 45 mn avant le départ</td>
                               </tr>
-                              <tr><td align=left><?= number_format($itemtrans3->prix, 0, '', ' ');?> FCFA <?= $nge3;?></td><td colspan="3" align="center" style="font-size: 9px;"><?= $itemtrans3->nom_compagnie;?> décline toute responsabilité en cas de perte ou de vol de billet et de bagages même payés.</td>
+                              <tr><td align=left><?= number_format(ticket_impression_prix($itemtrans3), 0, '', ' ');?> FCFA <?= $nge3;?></td><td colspan="3" align="center" style="font-size: 9px;"><?= $itemtrans3->nom_compagnie;?> décline toute responsabilité en cas de perte ou de vol de billet et de bagages même payés.</td>
                               </tr>
                               <tr><td align=left style="font-size: 9px;"><?= $itemtrans3->tamponcod;?></td><td colspan="3" align=center style="font-size: 9px;">Suivez et surveillez bien vos bagages</td>
                               </tr>

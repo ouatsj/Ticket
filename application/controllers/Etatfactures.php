@@ -49,7 +49,7 @@ require_once(APPPATH . 'libraries/tcpdf/tcpdf.php');
         }
     }
    
-    class Etatfactures extends CI_Controller
+    class Etatfactures extends MY_Controller
     {
         
         public $property = array('title' => 'FACTURES');

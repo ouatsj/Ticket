@@ -1,6 +1,6 @@
 <?php defined('BASEPATH') OR exit('No direct script access allowed');
     
-    class Caisses extends CI_Controller
+    class Caisses extends MY_Controller
     {
         public $caisses;
         public $company;
@@ -14,8 +14,101 @@
         public function __construct()
         {
             parent::__construct();
+            $this->load->helper('scripts');
             setlocale(LC_TIME, 'fr_FR', 'fra');
             $this->property['pagetitle'] = utf8_encode(strftime("%d %b %G", now()));
+            $this->property = array_merge($this->property, scripts_bundle_property('caisse', null, true));
+        }
+
+        /**
+         * Pages lourdes : tous les modèles. Actions légères : sous-ensemble.
+         */
+        protected function _load_controller_models()
+        {
+            $method = $this->router->fetch_method();
+            $heavy = array(
+                'opts', 'options', 'optionscaisse', 'valide', 'valideesc', 'validerec',
+                'arcompte', 'arcompteescal', 'viewcaisprinc',
+            );
+
+            if (in_array($method, $heavy, true)) {
+                parent::_load_controller_models();
+                return;
+            }
+
+            $light = self::caisses_light_models();
+
+            if (isset($light[$method])) {
+                $map = self::model_map();
+                foreach ($light[$method] as $alias) {
+                    if (isset($map[$alias]) && !isset($this->$alias)) {
+                        $this->load->model($map[$alias], $alias);
+                    }
+                }
+                return;
+            }
+
+            parent::_load_controller_models();
+        }
+
+        /**
+         * @return array<string, array<int, string>>
+         */
+        protected static function caisses_light_models()
+        {
+            return array(
+                'triversement' => array('m_entreprises'),
+                'valversement' => array('m_entreprises', 'm_versements'),
+                'rejetversement' => array('m_entreprises', 'm_versements'),
+                'add' => array('m_entreprises', 'm_recette'),
+                'updaterecette' => array('m_entreprises', 'm_recette'),
+                'updatrecette' => array('m_entreprises', 'm_recette'),
+                'unstop' => array('m_entreprises', 'm_compte_user', 'm_recette', 'm_depense', 'm_depot', 'm_versements'),
+                'modifierversement' => array('m_entreprises', 'm_sousgare', 'm_compte_user', 'm_comptes_guichet'),
+                'ajoutversement' => array('m_entreprises', 'm_sousgare', 'm_compte_user', 'm_comptes_guichet'),
+                'modifierversementcr' => array('m_entreprises', 'm_sousgare', 'm_compte_user', 'm_comptes_courrier'),
+                'ajoutversementcr' => array('m_entreprises', 'm_sousgare', 'm_compte_user', 'm_comptes_courrier'),
+                'indexversementbgs' => array('m_entreprises', 'm_sousgare', 'm_compte_user', 'm_comptes_bagage', 'm_compagnies'),
+                'modifierversementbgs' => array('m_entreprises', 'm_sousgare', 'm_compte_user', 'm_comptes_bagage'),
+                'ajoutversementbg' => array('m_entreprises', 'm_sousgare', 'm_compte_user', 'm_comptes_bagage'),
+                'addbank' => array('m_entreprises', 'm_banque'),
+                'updatebank' => array('m_entreprises', 'm_banque'),
+                'addverseautre' => array('m_entreprises', 'm_versements'),
+                'addverseautrefour' => array('m_entreprises', 'm_versements'),
+                'upautreversement' => array('m_entreprises', 'm_versements'),
+                'upfourversement' => array('m_entreprises', 'm_versements'),
+                'adverscaisse' => array('m_entreprises', 'm_versements'),
+                'upautreversment' => array('m_entreprises', 'm_versements'),
+            );
+        }
+
+        /**
+         * Données de référence caisse (TTL 10 min).
+         */
+        protected function _caisse_ref_data()
+        {
+            $this->load->helper('app_cache');
+
+            return array(
+                'compagnies' => app_cache_remember('compagnies_all', 600, function () {
+                    return $this->m_compagnies->get();
+                }),
+                'typedocuments' => app_cache_remember('typedocument_all', 600, function () {
+                    return $this->m_typedocument->get();
+                }),
+                'genrespersonnels' => app_cache_remember('type_personnel_all', 600, function () {
+                    return $this->m_type_personnel->get();
+                }),
+                'typesclients' => app_cache_remember('type_client_all', 600, function () {
+                    return $this->m_type_client->get();
+                }),
+                'genres' => app_cache_remember('genre_depense_all', 600, function () {
+                    return $this->m_genre_depense->get();
+                }),
+                'genresguichet' => app_cache_remember('genre_recette_recet_all', 600, function () {
+                    return $this->m_genre_recette->getrecet();
+                }),
+            );
         }
         
        
@@ -25,8 +118,24 @@
            $this->company = $this->m_entreprises->get_key($ckey);
             $bus_stop = $this->m_sousgare->sget($this->company->ekey, $cdg, $idsg);
             $this->property['bus_stop'] = $bus_stop;
-            $conex = $this->m_compte_user->getusergare($this->company->ekey, $cdg, $cpr);
+            $cpr_requested = $cpr;
+            $operateur = $this->_gare_connexion_operateur($this->company->ekey, $cdg, $cpr);
+            $cpr = $operateur['roleattribut'];
+            $date_seg = ($d && $m && $y) ? "{$d}/{$m}/{$y}" : mdate('%d/%m/%Y', now('UTC'));
+            roleattribut_guard_redirect_if_url_mismatch(
+                'caisses/' . $this->company->ekey . '/gTv/' . $cdg . '/' . $cid . '/' . $type . '/' . $cpr . '/' . $idsg . '/' . $date_seg,
+                $cpr_requested,
+                $cpr
+            );
+            $conex = $operateur['conex'];
+            $userole = $operateur['userole'];
+            if (!$conex || (int) $cpr <= 0) {
+                roleattribut_guard_fail_redirect_gare_caisse($this->company->ekey, $cdg);
+            }
             $this->property['conex'] = $conex;
+            $this->property['caisse_operateur_roleattribut'] = $cpr;
+            $this->property['caisse_operateur_userole'] = $userole;
+            $ref = $this->_caisse_ref_data();
 
             $sgares = $this->db->query("SELECT count(idsousgare) AS sog FROM sousgare s
                             WHERE s.gareprinceid = '$cdg'")->row();
@@ -40,12 +149,12 @@
                 $this->property['comptejours'] = $this->m_compte_user->getjours($this->company->ekey, $cpr, $cdg);
                 $this->property['depenses'] = $this->m_depense->depens_pr($this->company->ekey, $cid, $cdg, $cpr);
                 $this->property['depensescaisse'] = $this->m_depense->depenscais_pr($this->company->ekey, $cid, $cdg, $cpr);
-                $this->property['typedocuments'] = $this->m_typedocument->get();
+                $this->property['typedocuments'] = $ref['typedocuments'];
                 $this->property['depots'] = $this->m_depot->depo_pr($this->company->ekey, $cid, $cdg, $cpr);
                 $this->property['montanttotal'] = $this->m_versements->versecaisse_pr($this->company->ekey, $cid, $cdg, $cpr);
                 $this->property['caisseident'] = $caisseident;
-                $this->property['compagnies'] = $this->m_compagnies->get();
-                $this->property['genrespersonnels'] = $this->m_type_personnel->get();
+                $this->property['compagnies'] = $ref['compagnies'];
+                $this->property['genrespersonnels'] = $ref['genrespersonnels'];
 
                     $this->property['passagerallergrouptrans'] = $this->m_passager->comptegroupetranstr($this->company->ekey, $cpr, $cdg, $idsg, 5000);
 
@@ -88,13 +197,22 @@
                 $this->property['passager_repro'] = $this->m_passager->comptrep($this->company->ekey, $cpr, $cdg);
                 $this->property['passager_conf'] = $this->m_passager->comptconf($this->company->ekey, $cpr, $cdg);
                 
-                $this->property['genresguichet'] = $this->m_genre_recette->getrecet();
+                $this->property['genresguichet'] = $ref['genresguichet'];
                 $this->property['pagetitle'] .= "• ARRÊT COMPTE ET CAISSE<strong>•&nbsp;{$this->company->nom_entreprise}•&nbsp;{$conex->type_rols}</strong>";
             return $this->layout->view('_caisse/caisseprincipale', $this->property);
             break;
                 case 'recette':
                         $caisseident = $this->m_caisse->get($this->company->id_entreprise, $cdg, $cid);
                         $this->property['caisseident'] = $caisseident;
+                        if (recette_role_is_saisie($this->session->agent->userole) OR $this->session->agent->userole === '1' OR $this->session->agent->userole === '2') {
+                            $this->_bind_compte_recettes_depenses_pending($cpr, $cdg, $conex);
+                            $this->property['recettes'] = $this->m_recette->ad_getrecet($this->company->ekey, $cdg, $idsg, $cid, $cpr, FALSE, $userole, true);
+                            if (empty($this->property['recettes'])) {
+                                $this->property['recettes'] = array();
+                            }
+                            $this->property['sommerecettes'] = $this->m_recette->ad_getmontant($this->company->ekey, $cdg, $cid, $cpr, $userole, true);
+                            $this->property['totalrecettes'] = $this->m_recette->ad_getmontant1($this->company->ekey, $cdg, $idsg, $cid, $cpr, $userole, true);
+                        }
                         if ($this->session->agent->userole === '18' OR $this->session->agent->userole === '1' OR $this->session->agent->userole === '2'){
                             $this->property['recettes'] = $this->m_recette->adgetrecet($this->company->ekey, $cid, $cdg, $idsg, $cpr);
                             $this->property['sommerecettes'] = $this->m_recette->adgetmontant($this->company->ekey, $cid, $cdg);
@@ -107,12 +225,12 @@
                         $this->property['totalrecettes'] = $this->m_recette->getmontant1($this->company->ekey, $cid, $cdg, $idsg, $cpr);
                     }
                         $this->property['operateurs'] = $this->m_compte_user->getusercompte($this->company->ekey, $cdg);
-                        $this->property['typedocuments'] = $this->m_typedocument->get();
+                        $this->property['typedocuments'] = $ref['typedocuments'];
                         
-                        $this->property['genrespersonnels'] = $this->m_type_personnel->get();
+                        $this->property['genrespersonnels'] = $ref['genrespersonnels'];
                         $this->property['personnels'] = $this->m_personnels->get($this->company->ekey);
-                        $this->property['typesclients'] = $this->m_type_client->get();
-                        $this->property['compagnies'] = $this->m_compagnies->get();
+                        $this->property['typesclients'] = $ref['typesclients'];
+                        $this->property['compagnies'] = $ref['compagnies'];
                         $this->property['pagetitle'] .= "• RECETTES INTERNE•&nbsp;<strong>{$this->company->nom_entreprise}•&nbsp;{$conex->type_rols}</strong>";
                    return $this->layout->view('_recette/index', $this->property);
                 break;
@@ -120,6 +238,21 @@
                 case 'depense':
                     $caisseident = $this->m_caisse->get($this->company->id_entreprise, $cdg, $cid);
 
+                    if (recette_role_is_saisie($this->session->agent->userole) OR $this->session->agent->userole === '1' OR $this->session->agent->userole === '2') {
+                        $this->_bind_compte_recettes_depenses_pending($cpr, $cdg, $conex);
+                        $this->property['depenses'] = $this->m_depense->ad_getdepen($this->company->ekey, $cdg, $idsg, $cid, $cpr, FALSE, $userole, true);
+                        if (empty($this->property['depenses'])) {
+                            $this->property['depenses'] = array();
+                        }
+                        $this->property['depotcaisse'] = $this->m_depot->ad_depotinterne($this->company->ekey, $cdg, $cid, $cpr);
+                        $this->property['montantverves'] = $this->m_versements->ad_totalversement($this->company->ekey, $cdg, $cid, $cpr);
+                        $this->property['sommedepenses'] = $this->m_versements->ad_totaldepense($this->company->ekey, $cdg, $cid, $cpr, $userole, true);
+                        $this->property['sommesdepenses'] = $this->m_versements->ad_totalesdepense($this->company->ekey, $cdg, $idsg, $cid, $cpr, $userole, true);
+                        $this->property['sommerecettes'] = $this->m_versements->ad_totalrecette($this->company->ekey, $cdg, $cid, $cpr, $userole);
+                        $this->property['sommedepot'] = $this->m_versements->ad_totaldepot($this->company->ekey, $cdg, $cid, $cpr);
+                        $this->property['sommedepots'] = $this->m_depot->ad_getmontant($this->company->ekey, $cdg, $cid, $cpr);
+                        $this->property['sommesdepots'] = $this->m_depot->ad_getmontant1($this->company->ekey, $cdg, $idsg, $cid, $cpr);
+                    }
                     if ($this->session->agent->userole === '18' OR $this->session->agent->userole === '1' OR $this->session->agent->userole === '2'){
                             
                             $this->property['depenses'] = $this->m_depense->adgetdepen($this->company->ekey, $cid, $cdg, $idsg, $cpr);
@@ -147,16 +280,16 @@
                             $this->property['sommesdepots'] = $this->m_depot->getmontant($this->company->ekey, $cid, $cpr, $cdg, $idsg);
                     }
                     
-                    $this->property['genrespersonnels'] = $this->m_type_personnel->get();
-                    $this->property['typedocuments'] = $this->m_typedocument->get();
+                    $this->property['genrespersonnels'] = $ref['genrespersonnels'];
+                    $this->property['typedocuments'] = $ref['typedocuments'];
 
                     $this->property['personnels'] = $this->m_personnels->get($this->company->ekey);
                     $this->property['operateurs'] = $this->m_compte_user->getusercompte($this->company->ekey, $cdg);
-                    $this->property['genres'] = $this->m_genre_depense->get();
+                    $this->property['genres'] = $ref['genres'];
                     $this->property['caisseident'] = $caisseident;
 
-                    $this->property['typesclients'] = $this->m_type_client->get();
-                        $this->property['compagnies'] = $this->m_compagnies->get();
+                    $this->property['typesclients'] = $ref['typesclients'];
+                        $this->property['compagnies'] = $ref['compagnies'];
                     $this->property['caissemontant'] = $this->m_caisse->vers($this->company->id_entreprise, $cdg, $cid);
                     $this->property['pagetitle'] .= "• DEPENSES INTERNE• <strong>•&nbsp;{$this->company->nom_entreprise}•&nbsp;{$conex->type_rols}</strong>";
                     return $this->layout->view('_depense/index', $this->property);
@@ -188,9 +321,9 @@
                             $this->property['sommedepots'] = $this->m_depot->getmontant($this->company->ekey, $cid, $cpr, $cdg);
                             $this->property['sommesdepots'] = $this->m_depot->getmontant($this->company->ekey, $cid, $cpr, $cdg, $idsg);
                     }
-                    $this->property['genres'] = $this->m_genre_depense->get();
+                    $this->property['genres'] = $ref['genres'];
                     $this->property['caisseident'] = $caisseident;
-                    $this->property['compagnies'] = $this->m_compagnies->get();
+                    $this->property['compagnies'] = $ref['compagnies'];
                     $this->property['pagetitle'] .= "• DEPENSES EXTERNE• <strong>•&nbsp;{$this->company->nom_entreprise}•&nbsp;{$conex->type_rols}</strong>";
                     return $this->layout->view('_depense/autreindex', $this->property);
                 break;
@@ -228,12 +361,12 @@
                     
                     $this->property['genres'] = $this->m_genre_depot->getb();
                     $this->property['banque'] = $this->m_banque->get();
-                    $this->property['compagnies'] = $this->m_compagnies->get();
+                    $this->property['compagnies'] = $ref['compagnies'];
                         
-                    $this->property['typedocuments'] = $this->m_typedocument->get();                    
+                    $this->property['typedocuments'] = $ref['typedocuments'];                    
                     
-                    $this->property['typesclients'] = $this->m_type_client->get();
-                        $this->property['compagnies'] = $this->m_compagnies->get();
+                    $this->property['typesclients'] = $ref['typesclients'];
+                        $this->property['compagnies'] = $ref['compagnies'];
                     $this->property['pagetitle'] .= "• VERSEMENTS BANQUE<strong>•&nbsp;{$this->company->nom_entreprise}•&nbsp;{$conex->type_rols}</strong>";
                     return $this->layout->view('_caisse/versement', $this->property);
                 break;
@@ -267,10 +400,10 @@
                     }
                     $this->property['genresv'] = $this->m_genre_depot->geta();
                     
-                    $this->property['genrespersonnels'] = $this->m_type_personnel->get();
-                    $this->property['typedocuments'] = $this->m_typedocument->get();                       
+                    $this->property['genrespersonnels'] = $ref['genrespersonnels'];
+                    $this->property['typedocuments'] = $ref['typedocuments'];                       
                     $this->property['caisseident'] = $caisseident;
-                    $this->property['compagnies'] = $this->m_compagnies->get();
+                    $this->property['compagnies'] = $ref['compagnies'];
                     $this->property['pagetitle'] .= "• VERSEMENTS CLIENT<strong>•&nbsp;{$this->company->nom_entreprise}•&nbsp;{$conex->type_rols}</strong>";
                     return $this->layout->view('_caisse/autreversement', $this->property);
                 break;
@@ -298,11 +431,11 @@
                     }
                     $this->property['caisses'] = $this->m_caisse->getcaisse($this->company->ekey);
                     
-                    $this->property['genres'] = $this->m_genre_depense->get(); 
-                    $this->property['genrespersonnels'] = $this->m_type_personnel->get();
-                    $this->property['typedocuments'] = $this->m_typedocument->get();                       
+                    $this->property['genres'] = $ref['genres']; 
+                    $this->property['genrespersonnels'] = $ref['genrespersonnels'];
+                    $this->property['typedocuments'] = $ref['typedocuments'];                       
                     $this->property['caisseident'] = $caisseident;
-                    $this->property['compagnies'] = $this->m_compagnies->get();
+                    $this->property['compagnies'] = $ref['compagnies'];
                     $this->property['pagetitle'] .= "• VERSEMENTS FOURNISSEURS<strong>•&nbsp;{$this->company->nom_entreprise}•&nbsp;{$conex->type_rols}</strong>";
                     return $this->layout->view('_caisse/versementfour', $this->property);
                 case 'versementcaisse':
@@ -336,11 +469,11 @@
                     }
 
                     $this->property['depotcaisse'] = $this->m_depot->ad_deptinterne1($this->company->ekey, $cdg, $cid, $cpr);
-                    $this->property['typedocuments'] = $this->m_typedocument->get();            
+                    $this->property['typedocuments'] = $ref['typedocuments'];            
                     $this->property['caisseident'] = $caisseident;
                     $this->property['genres'] = $this->m_genre_depot->geta();
-                    $this->property['typesclients'] = $this->m_type_client->get();
-                        $this->property['compagnies'] = $this->m_compagnies->get();
+                    $this->property['typesclients'] = $ref['typesclients'];
+                        $this->property['compagnies'] = $ref['compagnies'];
 
                     $this->property['pagetitle'] .= "• DEPOTS DES CAISSES <strong>•&nbsp;{$this->company->nom_entreprise}•&nbsp;{$conex->type_rols}</strong>";
 
@@ -348,6 +481,15 @@
                 break;
                 case 'depot':
 
+                    if (recette_role_is_saisie($this->session->agent->userole) OR $this->session->agent->userole === '1' OR $this->session->agent->userole === '2') {
+                        $this->property['depots'] = $this->m_depot->ad_listdepot($this->company->ekey, $cdg, $cid, $cpr);
+                        $this->property['montantverves'] = $this->m_versements->ad_totalversement($this->company->ekey, $cdg, $cid, $cpr);
+                        $this->property['sommedepenses'] = $this->m_versements->ad_totaldepense($this->company->ekey, $cdg, $cid, $cpr);
+                        $this->property['sommerecettes'] = $this->m_versements->ad_totalrecette($this->company->ekey, $cdg, $cid, $cpr);
+                        $this->property['sommedepot'] = $this->m_versements->ad_totaldepot($this->company->ekey, $cdg, $cid, $cpr);
+                        $this->property['sommedepots'] = $this->m_depot->ad_getmontant($this->company->ekey, $cdg, $cid, $cpr);
+                        $this->property['sommesdepots'] = $this->m_depot->ad_getmontant1($this->company->ekey, $cdg, $idsg, $cid, $cpr);
+                    }
                     if ($this->session->agent->userole === '18' OR $this->session->agent->userole === '1' OR $this->session->agent->userole === '2'){
 
                         $this->property['depots'] = $this->m_depot->adgetdepot($this->company->ekey, $cid, $cdg, $cpr);
@@ -375,13 +517,13 @@
                     $caisseident = $this->m_caisse->get($this->company->id_entreprise, $cdg, $cid);
 
                     $this->property['operateurs'] = $this->m_compte_user->getusercompte($this->company->ekey, $cdg);
-                        $this->property['typedocuments'] = $this->m_typedocument->get();
+                        $this->property['typedocuments'] = $ref['typedocuments'];
                     $this->property['genres'] = $this->m_genre_depot->getb();
                     $this->property['banque'] = $this->m_banque->get();
                     $this->property['caisseident'] = $caisseident;
-                    $this->property['genrespersonnels'] = $this->m_type_personnel->get();
-                    $this->property['typesclients'] = $this->m_type_client->get();
-                        $this->property['compagnies'] = $this->m_compagnies->get();
+                    $this->property['genrespersonnels'] = $ref['genrespersonnels'];
+                    $this->property['typesclients'] = $ref['typesclients'];
+                        $this->property['compagnies'] = $ref['compagnies'];
                     $this->property['pagetitle'] .= "• DEPOTS INTERNE• <strong>•&nbsp;{$this->company->nom_entreprise}•&nbsp;{$conex->type_rols}</strong>";
                     return $this->layout->view('_depot/index', $this->property);
                 break;
@@ -412,16 +554,16 @@
                         $this->property['sommesdepots'] = $this->m_depot->getmontantget($this->company->ekey, $cid, $cdg, $cpr);
                     }
                     
-                    $this->property['typedocuments'] = $this->m_typedocument->get();
-                    $this->property['genrespersonnels'] = $this->m_type_personnel->get();
+                    $this->property['typedocuments'] = $ref['typedocuments'];
+                    $this->property['genrespersonnels'] = $ref['genrespersonnels'];
                     
                     $this->property['genrespersonnel'] = $this->m_type_personnel->getusercp($this->company->ekey, $cdg);
                     $this->property['genrespersonnels'] = $this->m_type_personnel->getsc();
                     $this->property['personnels'] = $this->m_personnels->get($this->company->ekey);
                     $this->property['genres'] = $this->m_genre_depot->get();
                     $this->property['caisseident'] = $caisseident;
-                    $this->property['typesclients'] = $this->m_type_client->get();
-                        $this->property['compagnies'] = $this->m_compagnies->get();
+                    $this->property['typesclients'] = $ref['typesclients'];
+                        $this->property['compagnies'] = $ref['compagnies'];
                     $this->property['pagetitle'] .= "• DEPOTS SOUS CAISSE <strong>•&nbsp;{$this->company->nom_entreprise}•&nbsp;{$conex->type_rols}</strong>";
                     return $this->layout->view('_depot/sousindex', $this->property);
                 break;
@@ -454,13 +596,13 @@
                         $this->property['sommesdepots'] = $this->m_depot->getmontantget($this->company->ekey, $cid, $cdg, $cpr);
                     }
 
-                        $this->property['typedocuments'] = $this->m_typedocument->get();
+                        $this->property['typedocuments'] = $ref['typedocuments'];
                         $this->property['genres'] = $this->m_genre_depot->geta();
 
                         $caisseident = $this->m_caisse->get($this->company->id_entreprise, $cdg, $cid);
                         $this->property['caisseident'] = $caisseident;
-                        $this->property['genrespersonnels'] = $this->m_type_personnel->get();
-                        $this->property['compagnies'] = $this->m_compagnies->get();
+                        $this->property['genrespersonnels'] = $ref['genrespersonnels'];
+                        $this->property['compagnies'] = $ref['compagnies'];
                         $this->property['pagetitle'] .= "• DEPOTS CLIENT• <strong>•&nbsp;{$this->company->nom_entreprise}•&nbsp;{$conex->type_rols}</strong>";
                     return $this->layout->view('_depot/autreindex', $this->property);
                 break;
@@ -486,12 +628,12 @@
                         $this->property['sommedepots'] = $this->m_depot->getmontant($this->company->ekey, $cid, $cpr, $cdg);
                     }
 
-                        $this->property['typedocuments'] = $this->m_typedocument->get();
+                        $this->property['typedocuments'] = $ref['typedocuments'];
                         $this->property['genres'] = $this->m_genre_depot->geta();
                         $caisseident = $this->m_caisse->get($this->company->id_entreprise, $cdg, $cid);
                         $this->property['caisseident'] = $caisseident;
-                        $this->property['genrespersonnels'] = $this->m_type_personnel->get();
-                        $this->property['compagnies'] = $this->m_compagnies->get();
+                        $this->property['genrespersonnels'] = $ref['genrespersonnels'];
+                        $this->property['compagnies'] = $ref['compagnies'];
                     $this->property['pagetitle'] .= "• DEPOTS FOURNISSEURS• <strong>•&nbsp;{$this->company->nom_entreprise}•&nbsp;{$conex->type_rols}</strong>";
                     return $this->layout->view('_depot/fourdepot', $this->property);
                 break;
@@ -549,14 +691,10 @@
                     $this->property['recettes'] = $this->m_recette->recet($this->company->ekey, $cid, $cdg, $cpr);
                     $this->property['depenses'] = $this->m_depense->depens($this->company->ekey, $cid, $cdg, $cpr);
                     $this->property['caisseident'] = $caisseident;
-                    $this->property['typedocuments'] = $this->m_typedocument->get();
-                    if ($this->session->agent->userole === '1' OR $this->session->agent->userole === '2'){
-
-                    $this->property['usercomptes'] = $this->m_compte_user->get_cuser($this->company->ekey, $cdg);
-                    }else{
-                        $this->property['usercomptes'] = $this->m_compte_user->get_cuser($this->company->ekey, $cdg);
-                    }
-                    $this->property['pagetitle'] .= "• VALIDATION COMPTE<strong•&nbsp;{$this->company->nom_entreprise}•&nbsp;{$conex->type_rols}></strong>";
+                    $this->property['typedocuments'] = $ref['typedocuments'];
+                    $this->property['usercomptes'] = $this->m_compte_user->get_chefs_gare($this->company->ekey, $cdg);
+                    $this->property['pending_arret'] = caissier_arret_pending_map($this->company->ekey, $cdg, $cid);
+                    $this->property['pagetitle'] .= "• VALIDATION COMPTE<strong>•&nbsp;{$this->company->nom_entreprise}•&nbsp;{$conex->type_rols}</strong>";
                 return $this->layout->view('_caisse/caissevalide', $this->property);
                 break;
 
@@ -575,7 +713,7 @@
             $identifiant_gare = $this->input->post('idgarecode');
             $identifiant_caisse = $this->input->post('idcaisse');
             $gid = $this->input->post('gareconnect');
-            $iduser = $this->input->post('userconnected');
+            $iduser = roleattribut_guard_post_hint($this->company->ekey);
             $sgid = $this->input->post('sousgareconnect');
             $idcmpt = $this->input->post('compconnected');
             
@@ -639,7 +777,7 @@
             $identifiant_caisse = $this->input->post('idcaisse');
 
             $gid = $this->input->post('gareconnect');
-            $iduser = $this->input->post('userconnected');
+            $iduser = roleattribut_guard_post_hint($this->company->ekey);
             $sgid = $this->input->post('sousgareconnect');
             $idcmpt = $this->input->post('compconnected');
             if($this->input->post('daterecep')!= '')
@@ -676,7 +814,7 @@
             $identifiant_gare = $this->input->post('idgarecode');
             $identifiant_caisse = $this->input->post('idcaisse');
             $gid = $this->input->post('gareconnect');
-            $iduser = $this->input->post('userconnected');
+            $iduser = roleattribut_guard_post_hint($this->company->ekey);
             $sgid = $this->input->post('sousgareconnect');
             $idcmpt = $this->input->post('compconnected');
             if($this->input->post('daterecep')!= '')
@@ -710,7 +848,7 @@
                 $identifiant_gare = $this->input->post('idgarecode');
                 $identifiant_caisse = $this->input->post('idcaisse');
                 $gid = $this->input->post('gareconnect');
-                $iduser = $this->input->post('userconnected');
+                $iduser = roleattribut_guard_post_hint($this->company->ekey);
                 $sgid = $this->input->post('sousgareconnect');
                 $idcmpt = $this->input->post('compconnected');
 
@@ -781,18 +919,18 @@
         
         public function indexversement($ckey, $g)
         {
+            $this->company = $this->m_entreprises->get_key($ckey);
             $ddbt = $this->input->post('dated');
             $dfin = $this->input->post('datef');
             $comp = $this->input->post('_compag');
             $ivd = $this->input->post('vendeuseid');
             $gid = $this->input->post('departgar');
             $gidc = $this->input->post('gareconnect');
-            $iduser = $this->input->post('userconnected');
+            $iduser = roleattribut_guard_post_hint($this->company->ekey);
             $sgid = $this->input->post('sousgareconnect');
             $idcmpt = $this->input->post('compconnected');
 
-            $this->company = $this->m_entreprises->get_key($ckey);
-                $this->property['pagetitle'] .= " • VERSEMENT DES GUICHETS• <strong>{$this->company->nom_entreprise}•&nbsp;</strong>";
+            $this->property['pagetitle'] .= " • VERSEMENT DES GUICHETS• <strong>{$this->company->nom_entreprise}•&nbsp;</strong>";
                 $bus_stop = $this->m_sousgare->sget($this->company->ekey, $gidc, $sgid);
             $this->property['bus_stop'] = $bus_stop;
             $conex = $this->m_compte_user->getusergare($this->company->ekey, $gidc, $iduser);
@@ -811,7 +949,7 @@
             $this->company = $this->m_entreprises->get_key($ckey);
             
             $gidc = $this->input->post('gareconnect');
-            $iduser = $this->input->post('userconnected');
+            $iduser = roleattribut_guard_post_hint($this->company->ekey);
             $sgid = $this->input->post('sousgareconnect');
             $idcmpt = $this->input->post('compconnected');
                 
@@ -834,7 +972,7 @@
         {
             $this->company = $this->m_entreprises->get_key($ckey);
             $gidc = $this->input->post('gareconnect');
-            $iduser = $this->input->post('userconnected');
+            $iduser = roleattribut_guard_post_hint($this->company->ekey);
             $sgid = $this->input->post('sousgareconnect');
             $idcmpt = $this->input->post('compconnected');
                 
@@ -863,7 +1001,7 @@
             $ivd = $this->input->post('vendeuseidcr');
             $gid = $this->input->post('departgarcr');
             $gidc = $this->input->post('gareconnect');
-            $iduser = $this->input->post('userconnected');
+            $iduser = roleattribut_guard_post_hint($this->company->ekey);
             $sgid = $this->input->post('sousgareconnect');
             $idcmpt = $this->input->post('compconnected');
 
@@ -886,7 +1024,7 @@
         {
             $this->company = $this->m_entreprises->get_key($ckey);
                 $gidc = $this->input->post('gareconnect');
-            $iduser = $this->input->post('userconnected');
+            $iduser = roleattribut_guard_post_hint($this->company->ekey);
             $sgid = $this->input->post('sousgareconnect');
             $idcmpt = $this->input->post('compconnected');
                 
@@ -909,7 +1047,7 @@
             $this->company = $this->m_entreprises->get_key($ckey);
             
             $gidc = $this->input->post('gareconnect');
-            $iduser = $this->input->post('userconnected');
+            $iduser = roleattribut_guard_post_hint($this->company->ekey);
             $sgid = $this->input->post('sousgareconnect');
             $idcmpt = $this->input->post('compconnected');
                 
@@ -940,7 +1078,7 @@
             $ivd = $this->input->post('vendeuseidbgs');
             $gid = $this->input->post('departgarbgs');
             $gidc = $this->input->post('gareconnect');
-            $iduser = $this->input->post('userconnected');
+            $iduser = roleattribut_guard_post_hint($this->company->ekey);
             $sgid = $this->input->post('sousgareconnect');
             $idcmpt = $this->input->post('compconnected');
 
@@ -961,41 +1099,41 @@
         
         public function modifierversementbgs($ckey, $idcpt, $g)
         {
+            if ($this->input->method() !== 'post' || !$this->input->post('gareconnect')) {
+                redirect('caisses/indexversementbgs/' . $ckey . '/' . $g);
+                return;
+            }
+
             $this->company = $this->m_entreprises->get_key($ckey);
-                
-                $gidc = $this->input->post('gareconnect');
-            $iduser = $this->input->post('userconnected');
+
+            $gidc = $this->input->post('gareconnect');
+            $iduser = roleattribut_guard_post_hint($this->company->ekey);
             $sgid = $this->input->post('sousgareconnect');
-            $idcmpt = $this->input->post('compconnected');
-                
-            $bus_stop = $this->m_sousgare->sget($this->company->ekey, $gidc, $sgid);
-            $this->property['bus_stop'] = $bus_stop;
-            $conex = $this->m_compte_user->getusergare($this->company->ekey, $gidc, $iduser);
-            $this->property['conex'] = $conex;
 
-                $arrayvalidcr = array(
-                    'montcomtptebg' => $this->input->post('montantenvoyerbgs'),
-                );
-                $this->m_comptes_bagage->update($idcpt, $arrayvalidcr);
-                    
-              
-              redirect('gares/'.$this->session->company->ekey.'/gTc/'. $gidc.'/compte/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+            $arrayvalidcr = array(
+                'montcomtptebg' => $this->input->post('montantenvoyerbgs'),
+            );
+            $date_arret = $this->input->post('daterecepbg');
+            if ($date_arret !== null && $date_arret !== '') {
+                $arrayvalidcr['datearretcomptbg'] = $date_arret;
+            }
 
-            //redirect('caisses/indexversementbgs/'.$this->session->company->ekey.'/'. $g);
+            $this->m_comptes_bagage->update($idcpt, $arrayvalidcr);
+
+            redirect('gares/' . $this->session->company->ekey . '/gTc/' . $gidc . '/compte/' . $iduser . '/' . $sgid . '/' . mdate('%d/%m/%Y', now('UTC')));
         }
 
         public function ajoutversementbg($ckey, $g)
         {
+            if ($this->input->method() !== 'post' || !$this->input->post('gareconnect')) {
+                redirect('caisses/indexversementbgs/' . $ckey . '/' . $g);
+                return;
+            }
+
             $this->company = $this->m_entreprises->get_key($ckey);
             $gidc = $this->input->post('gareconnect');
-            $iduser = $this->input->post('userconnected');
+            $iduser = roleattribut_guard_post_hint($this->company->ekey);
             $sgid = $this->input->post('sousgareconnect');
-            $idcmpt = $this->input->post('compconnected');
-                
-            $bus_stop = $this->m_sousgare->sget($this->company->ekey, $gidc, $sgid);
-            $this->property['bus_stop'] = $bus_stop;
-            $conex = $this->m_compte_user->getusergare($this->company->ekey, $gidc, $iduser);
-            $this->property['conex'] = $conex;
 
             $arrayvalidcr = array(
                 'idusercomptbg' => $this->input->post('vendeuseidbg'),
@@ -1005,76 +1143,221 @@
                 'datearretcomptbg' => $this->input->post('dateencbg'),
             );
             $this->m_comptes_bagage->create($arrayvalidcr);
-            
-            redirect('gares/'.$this->session->company->ekey.'/gTc/'. $gidc.'/compte/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));          
-            //redirect('caisses/indexversementbgs/'.$this->session->company->ekey.'/'. $g);
+
+            redirect('gares/' . $this->session->company->ekey . '/gTc/' . $gidc . '/compte/' . $iduser . '/' . $sgid . '/' . mdate('%d/%m/%Y', now('UTC')));
         }
+        /**
+         * Connexion gare + roleattribut réel de l'opérateur (chef guichet, toutes gares).
+         *
+         * @return array{roleattribut:int,conex:object|null,userole:string|null}
+         */
+        protected function _gare_connexion_operateur($ekey, $gare_code, $roleattribut_hint)
+        {
+            return roleattribut_guard_operateur($ekey, $gare_code, $roleattribut_hint);
+        }
+
+        /**
+         * roleattribut effectif pour arrêt / validation compte (URL + POST + session).
+         */
+        protected function _resolve_arret_roleattribut($ekey, $gare_id, $url_hint)
+        {
+            return compte_arret_resolve_roleattribut($ekey, $gare_id, $url_hint);
+        }
+
+        /**
+         * Recettes / dépenses non arrêtées (chef guichet) pour la page arrêt compte tickets.
+         *
+         * Options :
+         * - detail_limit (int) : limite les lignes chargées (aperçu page COMPTE)
+         * - separate_cutoff (bool) : date de coupure distincte recettes / dépenses
+         * - bind_rd_links (bool) : URLs vers arrêt RD caisse
+         * - idsousgare (int) : sous-gare pour les liens caisse
+         */
+        protected function _bind_compte_recettes_depenses_pending($idc, $gd, $conex, array $options = array())
+        {
+            $userole = recette_role_userole_for_attribut($idc, $conex);
+            if ($userole === null && $conex && !empty($conex->userole)) {
+                $userole = (string) $conex->userole;
+            } elseif ($userole === null && $this->session->userdata('agent') && (int) $this->session->agent->roleattribut === (int) $idc) {
+                $userole = (string) $this->session->agent->userole;
+            }
+
+            $detail_limit = isset($options['detail_limit']) ? (int) $options['detail_limit'] : 0;
+            $separate_cutoff = !empty($options['separate_cutoff']);
+
+            $last_arret_recettes = $this->m_recette->last_arret_recettes_date($idc, $gd, $userole);
+            $last_arret_depenses = $this->m_depense->last_arret_depenses_date($idc, $gd, $userole);
+
+            if ($separate_cutoff) {
+                $after_rec = $last_arret_recettes;
+                $after_dep = $last_arret_depenses;
+            } else {
+                $after_rec = null;
+                $after_dep = null;
+                if ($last_arret_recettes && $last_arret_depenses) {
+                    $after_rec = $after_dep = max($last_arret_recettes, $last_arret_depenses);
+                } elseif ($last_arret_recettes) {
+                    $after_rec = $after_dep = $last_arret_recettes;
+                } elseif ($last_arret_depenses) {
+                    $after_rec = $after_dep = $last_arret_depenses;
+                }
+            }
+
+            $after_pending = null;
+            if ($last_arret_recettes && $last_arret_depenses) {
+                $after_pending = max($last_arret_recettes, $last_arret_depenses);
+            } elseif ($last_arret_recettes) {
+                $after_pending = $last_arret_recettes;
+            } elseif ($last_arret_depenses) {
+                $after_pending = $last_arret_depenses;
+            }
+
+            $recettes_pending = $this->m_recette->pending_arret_compte($idc, $gd, $after_rec, $userole, $detail_limit);
+            $depenses_pending = $this->m_depense->pending_arret_compte($idc, $gd, $after_dep, $userole, $detail_limit);
+
+            $this->property['compte_last_arret'] = $after_pending;
+            $this->property['compte_last_arret_recettes'] = $last_arret_recettes;
+            $this->property['compte_last_arret_depenses'] = $last_arret_depenses;
+            $this->property['compte_pending_since'] = $after_pending;
+            $this->property['compte_operateur_label'] = ($conex && !empty($conex->username)) ? $conex->username : '';
+            $this->property['compte_recettes_pending'] = $recettes_pending;
+            $this->property['compte_depenses_pending'] = $depenses_pending;
+            $this->property['compte_operateur_roleattribut'] = (int) $idc;
+            $this->property['compte_pending_detail_limit'] = $detail_limit;
+
+            if ($detail_limit > 0) {
+                $this->property['compte_pending_recettes_total'] = $this->m_recette->pending_arret_compte_totals($idc, $gd, $after_rec, $userole);
+                $this->property['compte_pending_depenses_total'] = $this->m_depense->pending_arret_compte_totals($idc, $gd, $after_dep, $userole);
+            } else {
+                $this->property['compte_pending_recettes_total'] = null;
+                $this->property['compte_pending_depenses_total'] = null;
+            }
+
+            $this->property['compte_show_rd_pending'] = recette_role_is_saisie($userole)
+                && (
+                    !empty($after_pending)
+                    || !empty($recettes_pending)
+                    || !empty($depenses_pending)
+                    || ($detail_limit > 0 && (
+                        (!empty($this->property['compte_pending_recettes_total']) && $this->property['compte_pending_recettes_total']->nb > 0)
+                        || (!empty($this->property['compte_pending_depenses_total']) && $this->property['compte_pending_depenses_total']->nb > 0)
+                    ))
+                );
+
+            if (!empty($options['bind_rd_links']) && recette_role_is_saisie($userole)) {
+                $this->_bind_compte_rd_navigation_urls(
+                    $gd,
+                    (int) $idc,
+                    isset($options['idsousgare']) ? (int) $options['idsousgare'] : 0
+                );
+            }
+        }
+
+        /**
+         * Liens navigation arrêt recettes/dépenses depuis la page COMPTE tickets.
+         */
+        protected function _bind_compte_rd_navigation_urls($gd, $idc, $idsg)
+        {
+            $date = mdate('%d/%m/%Y', now('UTC'));
+            $ekey = $this->company->ekey;
+            $caisses = $this->m_caisse->get($this->company->id_entreprise, $gd);
+
+            $this->property['compte_rd_caisse_url'] = site_url(
+                'gares/' . $ekey . '/gTv/' . $gd . '/cais/' . $idc . '/' . $idsg . '/' . $date
+            );
+            $this->property['compte_rd_arret_url'] = $this->property['compte_rd_caisse_url'];
+            $this->property['compte_rd_recettes_url'] = $this->property['compte_rd_caisse_url'];
+            $this->property['compte_rd_depenses_url'] = $this->property['compte_rd_caisse_url'];
+            $this->property['compte_rd_caisse_label'] = '';
+
+            if (empty($caisses)) {
+                return;
+            }
+
+            if (count($caisses) === 1) {
+                $caisse = $caisses[0];
+                $base = 'caisses/' . $ekey . '/cais/' . $caisse->gexp_caiss . '/' . $caisse->id_caiss . '/' . $idc;
+                $this->property['compte_rd_arret_url'] = site_url($base . '/arretcaisse_adjoint/' . $idsg . '/' . $date);
+                $this->property['compte_rd_recettes_url'] = site_url($base . '/recette_adjoint/' . $idsg . '/' . $date);
+                $this->property['compte_rd_depenses_url'] = site_url($base . '/depense_adjoint/' . $idsg . '/' . $date);
+                $this->property['compte_rd_caisse_label'] = $caisse->nom_caisse;
+            }
+        }
+
+        /**
+         * Données passagers pour arrêt compte guichet (indexguichet / ad_indexcaisse).
+         */
+        protected function _load_guichet_arret_passagers($ekey, $idc, $gd, $sg, $single_sousgare)
+        {
+            $this->property['passagerallergrouptrans'] = $this->m_passager->comptegroupetranstr($ekey, $idc, $gd, $sg, 5000);
+            $this->property['passagerallergroupeptrans'] = $this->m_passager->comptegroupeptranstr($ekey, $idc, $gd, $sg, 5000);
+            $this->property['passagerallergroupbisinter'] = $this->m_passager->comptegroupbisinter($ekey, $idc, $gd, 5000);
+
+            if ($single_sousgare) {
+                $this->property['passagerallergroupbis'] = $this->m_passager->comptegroupbis($ekey, $idc, $gd, 5000);
+                $this->property['passagerretourgroupbis'] = $this->m_non_passager->comptegroupbis($ekey, $idc, $gd, 5000);
+                $this->property['passageraller'] = $this->m_passager->compte($ekey, $idc, $gd);
+                $this->property['passagerretour'] = $this->m_non_passager->compte($ekey, $idc, $gd);
+                $this->property['passagerallergroup'] = $this->m_passager->comptegroupb($ekey, $idc, $gd, 5000);
+                $this->property['passagerretourgroup'] = $this->m_non_passager->comptegroupb($ekey, $idc, $gd, 5000);
+            } else {
+                $this->property['passagerallergroupbis'] = $this->m_passager->comptegroupbis($ekey, $idc, $gd, 5000);
+                $this->property['passagerretourgroupbis'] = $this->m_non_passager->comptegroupbis($ekey, $idc, $gd, 5000);
+                $this->property['passageraller'] = $this->m_passager->compte($ekey, $idc, $gd);
+                $this->property['passagerretour'] = $this->m_non_passager->compte($ekey, $idc, $gd);
+                $this->property['passagerallergroup'] = $this->m_passager->comptegroupsbis($ekey, $idc, $gd, $sg, 5000);
+                $this->property['passagerretourgroup'] = $this->m_non_passager->comptegroupsbis($ekey, $idc, $gd, $sg, 5000);
+            }
+
+            $this->property['passager_repro'] = $this->m_passager->comptrep($ekey, $idc, $gd);
+            $this->property['passager_conf'] = $this->m_passager->comptconf($ekey, $idc, $gd);
+        }
+
              //guichet
         public function arcompte($ckey, $idc, $gd, $sg)
         {
             $sgares = $this->db->query("SELECT count(idsousgare) AS sog FROM sousgare s
                             WHERE s.gareprinceid = '$gd'")->row();
-            
 
             $this->company = $this->m_entreprises->get_key($ckey);
-                    $bus_stop = $this->m_sousgare->sget($this->company->ekey, $gd, $sg);
-                        $this->property['bus_stop'] = $bus_stop;
-                $conex = $this->m_compte_user->usget1($idc, $gd);
-                    $this->property['conex'] = $conex;
+            $bus_stop = $this->m_sousgare->sget($this->company->ekey, $gd, $sg);
+            $this->property['bus_stop'] = $bus_stop;
+            $idc_requested = $idc;
+            $operateur = compte_arret_bind_operateur($this->company->ekey, $gd, $idc);
+            $idc = $operateur['roleattribut'];
+            roleattribut_guard_redirect_if_url_mismatch(
+                'caisses/compte/' . $this->company->ekey . '/' . $idc . '/' . $gd . '/' . $sg,
+                $idc_requested,
+                $idc
+            );
+            $conex = $operateur['conex'];
+            $this->property['conex'] = $conex;
 
-                $this->property['pagetitle'] .= " • ARRÊT COMPTE • <strong>{$this->company->nom_entreprise}•&nbsp;{$bus_stop->nom_gaep}•{$bus_stop->nomsousgare}</strong>";
-                $this->property['comptejours'] = $this->m_compte_user->getjours($this->company->ekey, $idc, $gd);
+            $this->property['pagetitle'] .= " • ARRÊT COMPTE • <strong>{$this->company->nom_entreprise}•&nbsp;{$bus_stop->nom_gaep}•{$bus_stop->nomsousgare}</strong>";
+            $this->property['comptejours'] = $this->m_compte_user->getjours($this->company->ekey, $idc, $gd);
 
-                    $this->property['passagerallergrouptrans'] = $this->m_passager->comptegroupetranstr($this->company->ekey, $idc, $gd, $sg, 5000);
+            $this->_load_guichet_arret_passagers(
+                $this->company->ekey,
+                $idc,
+                $gd,
+                $sg,
+                ($sgares->sog == 1)
+            );
 
-                    $this->property['passagerallergroupeptrans'] = $this->m_passager->comptegroupeptranstr($this->company->ekey, $idc, $gd, $sg, 5000);
+            $this->_bind_compte_recettes_depenses_pending($idc, $gd, $conex, array(
+                'detail_limit' => 30,
+                'separate_cutoff' => true,
+                'bind_rd_links' => true,
+                'idsousgare' => $sg,
+            ));
 
-                    $this->property['passagerallergroupbisinter'] = $this->m_passager->comptegroupbisinter($this->company->ekey, $idc, $gd, 5000);
-
-                if($sgares->sog == 1){
-                   $this->property['passagerallerbis'] = $this->m_passager->comptebis($this->company->ekey, $idc, $gd, 5000);
-                    $this->property['passagerretourbis'] = $this->m_non_passager->comptebis($this->company->ekey, $idc, $gd, 5000);
-                
-                    $this->property['passagerallergroupbis'] = $this->m_passager->comptegroupbis($this->company->ekey, $idc, $gd, 5000);
-                    $this->property['passagerretourgroupbis'] = $this->m_non_passager->comptegroupbis($this->company->ekey, $idc, $gd, 5000);
-                    
-                    $this->property['passageraller'] = $this->m_passager->compte($this->company->ekey, $idc, $gd);
-                    $this->property['passagerretour'] = $this->m_non_passager->compte($this->company->ekey, $idc, $gd);
-                
-                    $this->property['passagerallergroup'] = $this->m_passager->comptegroupb($this->company->ekey, $idc, $gd, 5000);
-                    $this->property['passagerretourgroup'] = $this->m_non_passager->comptegroupb($this->company->ekey, $idc, $gd, 5000);
-                }
-                else
-                {
-
-
-                    $this->property['passagerallerbis'] = $this->m_passager->comptebis($this->company->ekey, $idc, $gd, 5000);
-                    $this->property['passagerretourbis'] = $this->m_non_passager->comptebis($this->company->ekey, $idc, $gd, 5000);
-                
-                    $this->property['passagerallergroupbis'] = $this->m_passager->comptegroupbis($this->company->ekey, $idc, $gd, 5000);
-                    $this->property['passagerretourgroupbis'] = $this->m_non_passager->comptegroupbis($this->company->ekey, $idc, $gd, 5000);
-                    
-                    $this->property['passageraller'] = $this->m_passager->compte($this->company->ekey, $idc, $gd);
-                    $this->property['passagerretour'] = $this->m_non_passager->compte($this->company->ekey, $idc, $gd);
-                
-                    $this->property['passagerallergroup'] = $this->m_passager->comptegroupsbis($this->company->ekey, $idc, $gd, $sg, 5000);
-                    $this->property['passagerretourgroup'] = $this->m_non_passager->comptegroupsbis($this->company->ekey, $idc, $gd, $sg, 5000);
-
-                }
-                $this->property['passager_repro'] = $this->m_passager->comptrep($this->company->ekey, $idc, $gd);
-                $this->property['passager_conf'] = $this->m_passager->comptconf($this->company->ekey, $idc, $gd);
-                if ($this->session->agent->userole === '1' OR $this->session->agent->userole === '2'){
-                    $this->property['garedepartcomp'] = $this->m_gare_depart->cmpgetad($this->company->id_entreprise);
-                    
-                }
-                else
-                {
-                    $this->property['garedepartcomp'] = $this->m_gare_depart->cmpget($this->company->id_entreprise, $gd);
-                    
-                }
-                $this->property['compagnies'] = $this->m_compagnies->get();
-                return $this->layout->view('_caisse/indexguichet', $this->property);
-          
+            if ($this->session->agent->userole === '1' OR $this->session->agent->userole === '2'){
+                $this->property['garedepartcomp'] = $this->m_gare_depart->cmpgetad($this->company->id_entreprise);
+            } else {
+                $this->property['garedepartcomp'] = $this->m_gare_depart->cmpget($this->company->id_entreprise, $gd);
+            }
+            $this->property['compagnies'] = $this->m_compagnies->get();
+            return $this->layout->view('_caisse/indexguichet', $this->property);
         }
 
         public function arcompteescal($ckey, $idc, $gd, $sg)
@@ -1085,7 +1368,15 @@
             $this->company = $this->m_entreprises->get_key($ckey);
                     $bus_stop = $this->m_sousgare->sget($this->company->ekey, $gd, $sg);
                         $this->property['bus_stop'] = $bus_stop;
-                $conex = $this->m_compte_user->usget1($idc, $gd);
+                $idc_requested = $idc;
+                $operateur = compte_arret_bind_operateur($this->company->ekey, $gd, $idc);
+                $idc = $operateur['roleattribut'];
+                roleattribut_guard_redirect_if_url_mismatch(
+                    'caisses/compteescal/' . $this->company->ekey . '/' . $idc . '/' . $gd . '/' . $sg,
+                    $idc_requested,
+                    $idc
+                );
+                $conex = $operateur['conex'];
                     $this->property['conex'] = $conex;
 
                 $this->property['pagetitle'] .= " • ARRÊT COMPTE ESCAL • <strong>{$this->company->nom_entreprise}•&nbsp;{$bus_stop->nom_gaep}•{$bus_stop->nomsousgare}</strong>";
@@ -1113,6 +1404,7 @@
         public function valide($ckey, $idcpt, $d, $gd, $isg)
         {
             $this->company = $this->m_entreprises->get_key($ckey);
+            $idcpt = $this->_resolve_arret_roleattribut($this->company->ekey, $gd, $idcpt);
             $cus = $this->input->post('compconnected');
             $today = mdate("%Y-%m-%d", now());
         
@@ -4488,14 +4780,21 @@
                             $this->m_comptes_guichet->create($arraycompt3);
                         }
                     }*/
+                $this->_track_arret_activity();
                 redirect('caisses/compte/'.$this->session->company->ekey. '/' . $idcpt.'/'.$gd.'/'.$isg);
             }
+        }
+
+        protected function _track_arret_activity()
+        {
+            compte_arret_track_activity_safe();
         }
 
        
         public function valideesc($ckey, $idcpt, $d, $gd, $isg)
         {
             $this->company = $this->m_entreprises->get_key($ckey);
+            $idcpt = $this->_resolve_arret_roleattribut($this->company->ekey, $gd, $idcpt);
         
             $cus = $this->input->post('compconnected');
             $today = mdate("%Y-%m-%d", now());
@@ -4579,7 +4878,7 @@
         {
             $this->company = $this->m_entreprises->get_key($ckey);
             $gid = $this->input->post('gareconnect');
-            $iduser = $this->input->post('userconnected');
+            $iduser = roleattribut_guard_post_hint($this->company->ekey);
             $sgid = $this->input->post('sousgareconnect');
             $idcmpt = $this->input->post('compconnected');
 
@@ -5505,7 +5804,8 @@
         {
             $this->company = $this->m_entreprises->get_key($ckey);
             $gid = $this->input->post('gareconnect');
-            $iduser = $this->input->post('userconnected');
+            $idcpt = $this->_resolve_arret_roleattribut($this->company->ekey, $gd, $idcpt);
+            $iduser = (string) $idcpt;
             $sgid = $this->input->post('sousgareconnect');
             $idcmpt = $this->input->post('compconnected');
 
@@ -10271,7 +10571,7 @@
             $identifiant_caisse = $this->input->post('idcaisse');
 
             $gid = $this->input->post('gareconnect');
-            $iduser = $this->input->post('userconnected');
+            $iduser = roleattribut_guard_post_hint($this->company->ekey);
             $sgid = $this->input->post('sousgareconnect');
             $idcmpt = $this->input->post('compconnected');
             if($this->input->post('versedate')!= '')
@@ -10310,7 +10610,7 @@
             $identifiant_caisse = $this->input->post('idcaisse');
 
             $gid = $this->input->post('gareconnect');
-            $iduser = $this->input->post('userconnected');
+            $iduser = roleattribut_guard_post_hint($this->company->ekey);
             $sgid = $this->input->post('sousgareconnect');
             $idcmpt = $this->input->post('compconnected');
 
@@ -10346,7 +10646,7 @@
             $identifiant_caisse = $this->input->post('idcaisse');
 
             $gid = $this->input->post('gareconnect');
-            $iduser = $this->input->post('userconnected');
+            $iduser = roleattribut_guard_post_hint($this->company->ekey);
             $sgid = $this->input->post('sousgareconnect');
             $idcmpt = $this->input->post('compconnected');
 
@@ -10413,7 +10713,7 @@
             $identifiant_caisse = $this->input->post('idcaisse');
 
                 $gid = $this->input->post('gareconnect');
-            $iduser = $this->input->post('userconnected');
+            $iduser = roleattribut_guard_post_hint($this->company->ekey);
             $sgid = $this->input->post('sousgareconnect');
             $idcmpt = $this->input->post('compconnected');
 
@@ -10478,7 +10778,7 @@
             $identifiant_caisse = $this->input->post('idcaisse');
 
             $gid = $this->input->post('gareconnect');
-            $iduser = $this->input->post('userconnected');
+            $iduser = roleattribut_guard_post_hint($this->company->ekey);
             $sgid = $this->input->post('sousgareconnect');
             $idcmpt = $this->input->post('compconnected');
 
@@ -10518,7 +10818,7 @@
             $identifiant_caisse = $this->input->post('idcaisse');
 
             $gid = $this->input->post('gareconnect');
-            $iduser = $this->input->post('userconnected');
+            $iduser = roleattribut_guard_post_hint($this->company->ekey);
             $sgid = $this->input->post('sousgareconnect');
             $idcmpt = $this->input->post('compconnected');
 
@@ -10556,7 +10856,7 @@
             $identifiant_gare = $this->input->post('idgarecode');
             $identifiant_caisse = $this->input->post('idcaisse');
             $gid = $this->input->post('gareconnect');
-            $iduser = $this->input->post('userconnected');
+            $iduser = roleattribut_guard_post_hint($this->company->ekey);
             $sgid = $this->input->post('sousgareconnect');
             $idcmpt = $this->input->post('compconnected');
 
@@ -10620,7 +10920,7 @@
             $identifiant_caisse = $this->input->post('idcaisse');
 
             $gid = $this->input->post('gareconnect');
-            $iduser = $this->input->post('userconnected');
+            $iduser = roleattribut_guard_post_hint($this->company->ekey);
             $sgid = $this->input->post('sousgareconnect');
             $idcmpt = $this->input->post('compconnected');
 
@@ -10657,8 +10957,15 @@
             $this->company = $this->m_entreprises->get_key($ckey);
                 $gare_stop = $this->m_sousgare->sget($this->company->ekey, $cdg, $idsg);
                         $this->property['gare_stop'] = $gare_stop;
-                $conex = $this->m_compte_user->getusergare($this->company->ekey, $cdg, $idcpus);
-                $this->property['conex'] = $conex;
+                $idcpus_requested = $idcpus;
+                $conn = $this->m_compte_user->connect_gare_exclusive($this->company->ekey, $cdg, $idcpus);
+                $idcpus = $conn['cpus'];
+                roleattribut_guard_redirect_if_url_mismatch(
+                    'caisses/' . $this->company->ekey . '/caissieres/' . $idcpus . '/' . $cdg . '/' . $idsg,
+                    $idcpus_requested,
+                    $idcpus
+                );
+                $this->property['conex'] = $conn['conex'];
            
                 
                     $this->property['usercomptes'] = $this->m_compte_user->gets_usercp($this->company->ekey, $cdg);
@@ -10728,8 +11035,23 @@
 
                 $bus_stop = $this->m_sousgare->sget($this->company->ekey, $cdg, $idsg);
                 $this->property['bus_stop'] = $bus_stop;
-                $conex = $this->m_compte_user->getusergare($this->company->ekey, $cdg, $icx);
+                $icx_requested = $icx;
+                $operateur = $this->_gare_connexion_operateur($this->company->ekey, $cdg, $icx);
+                $icx = $operateur['roleattribut'];
+                $date_seg = ($d && $m && $y) ? "{$d}/{$m}/{$y}" : mdate('%d/%m/%Y', now('UTC'));
+                roleattribut_guard_redirect_if_url_mismatch(
+                    'caisses/' . $this->company->ekey . '/cais/' . $cdg . '/' . $cid . '/' . $icx . '/' . $type . '/' . $idsg . '/' . $date_seg,
+                    $icx_requested,
+                    $icx
+                );
+                $conex = $operateur['conex'];
+                $userole = $operateur['userole'];
+                if (!$conex || (int) $icx <= 0) {
+                    roleattribut_guard_fail_redirect_gare_caisse($this->company->ekey, $cdg);
+                }
                 $this->property['conex'] = $conex;
+                $this->property['caisse_operateur_roleattribut'] = $icx;
+                $this->property['caisse_operateur_userole'] = $userole;
 
                 $sgares = $this->db->query("SELECT count(idsousgare) AS sog FROM sousgare s
                             WHERE s.gareprinceid = '$cdg'")->row();
@@ -10740,9 +11062,13 @@
                 
                 case 'recette_adjoint':
                     $caisseident = $this->m_caisse->get($this->company->id_entreprise, $cdg, $cid);
-                    $this->property['recettes'] = $this->m_recette->ad_getrecet($this->company->ekey, $cdg, $idsg, $cid, $icx);
-                    $this->property['sommerecettes'] = $this->m_recette->ad_getmontant($this->company->ekey, $cdg, $cid, $icx);
-                    $this->property['sommesrecettes'] = $this->m_recette->ad_getmontant1($this->company->ekey, $cdg, $idsg, $cid, $icx);
+                    $this->_bind_compte_recettes_depenses_pending($icx, $cdg, $conex);
+                    $this->property['recettes'] = $this->m_recette->ad_getrecet($this->company->ekey, $cdg, $idsg, $cid, $icx, FALSE, $userole, true);
+                    if (empty($this->property['recettes'])) {
+                        $this->property['recettes'] = array();
+                    }
+                    $this->property['sommerecettes'] = $this->m_recette->ad_getmontant($this->company->ekey, $cdg, $cid, $icx, $userole, true);
+                    $this->property['sommesrecettes'] = $this->m_recette->ad_getmontant1($this->company->ekey, $cdg, $idsg, $cid, $icx, $userole, true);
                     $this->property['typedocuments'] = $this->m_typedocument->get();
                     $this->property['genrespersonnels'] = $this->m_type_personnel->get();
                     $this->property['personnels'] = $this->m_personnels->get($this->company->ekey);
@@ -10816,13 +11142,17 @@
 
             case 'depense_adjoint':
                 $caisseident = $this->m_caisse->get($this->company->id_entreprise, $cdg, $cid);
-                $this->property['depenses'] = $this->m_depense->ad_getdepen($this->company->ekey, $cdg, $idsg, $cid, $icx);
+                $this->_bind_compte_recettes_depenses_pending($icx, $cdg, $conex);
+                $this->property['depenses'] = $this->m_depense->ad_getdepen($this->company->ekey, $cdg, $idsg, $cid, $icx, FALSE, $userole, true);
+                if (empty($this->property['depenses'])) {
+                    $this->property['depenses'] = array();
+                }
                 $this->property['depotcaisse'] = $this->m_depot->ad_depotinterne($this->company->ekey, $cdg, $cid, $icx);
                 $this->property['typedocuments'] = $this->m_typedocument->get();
                 $this->property['montantverves'] = $this->m_versements->ad_totalversement($this->company->ekey, $cdg, $cid, $icx);
-                $this->property['sommedepenses'] = $this->m_versements->ad_totaldepense($this->company->ekey, $cdg, $cid, $icx);
-                $this->property['sommesdepenses'] = $this->m_versements->ad_totalesdepense($this->company->ekey, $cdg, $idsg, $cid, $icx);
-                $this->property['sommerecettes'] = $this->m_versements->ad_totalrecette($this->company->ekey, $cdg, $cid, $icx);
+                $this->property['sommedepenses'] = $this->m_versements->ad_totaldepense($this->company->ekey, $cdg, $cid, $icx, $userole, true);
+                $this->property['sommesdepenses'] = $this->m_versements->ad_totalesdepense($this->company->ekey, $cdg, $idsg, $cid, $icx, $userole, true);
+                $this->property['sommerecettes'] = $this->m_versements->ad_totalrecette($this->company->ekey, $cdg, $cid, $icx, $userole);
                 $this->property['sommedepot'] = $this->m_versements->ad_totaldepot($this->company->ekey, $cdg, $cid, $icx);
                 $this->property['genrespersonnels'] = $this->m_type_personnel->get();
                 $this->property['sommedepots'] = $this->m_depot->ad_getmontant($this->company->ekey, $cdg, $cid, $icx);
@@ -10943,7 +11273,7 @@
                 $this->property['recettes'] = $this->m_recette->ad_recet($this->company->ekey, $cdg, $cid, $icx);
                 $this->property['recettecaisses'] = $this->m_recette->ad_recetcais($this->company->ekey, $cdg, $cid, $icx);
                 $this->property['depenses'] = $this->m_depense->ad_depens($this->company->ekey, $cdg, $cid, $icx);
-                $this->property['depensecaisses'] = $this->m_depense->ad_depenscais($this->company->ekey, $cdg, $cid, $icx);
+                $this->property['depensecaisses'] = $this->m_depense->ad_depenscais($this->company->ekey, $cdg, $cid, $icx, $idsg);
                 $this->property['depotcaisses'] = $this->m_depot->ad_depocais($this->company->ekey, $cdg, $cid, $icx);
                 $this->property['montanttotalcaisses'] = $this->m_versements->versecaiss($this->company->ekey, $cdg, $cid, $icx);
                 $this->property['typedocuments'] = $this->m_typedocument->get();
@@ -11065,9 +11395,17 @@
 
                 $bus_stop = $this->m_sousgare->sget($this->company->ekey, $cdg, $idsg);
                 $this->property['bus_stop'] = $bus_stop;
-                $conex = $this->m_compte_user->getusergare($this->company->ekey, $cdg, $icx);
+                $bind = caissier_validation_bind_operateurs($this->company->ekey, $cdg, $icx, $op, array(
+                    'idcai' => $cid,
+                    'idsg' => $idsg,
+                    'type' => $type,
+                ));
+                $icx = $bind['chef_ra'];
+                $op = $bind['caissier_ra'];
+                $conn = $this->m_compte_user->connect_gare_exclusive($this->company->ekey, $cdg, $icx);
+                $conex = $conn['conex'];
                 $this->property['conex'] = $conex;
-                $connex = $this->m_compte_user->usget1($op, $cdg);
+                $connex = $bind['caissier_conex'] ?: $this->m_compte_user->usget1($op, $cdg);
                     $this->property['connex'] = $connex;
 
            // All the departures

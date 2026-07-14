@@ -1,6 +1,6 @@
 <?php defined('BASEPATH') OR exit('No direct script access allowed');
     
-    class Reserves extends CI_Controller
+    class Reserves extends MY_Controller
     {
         public $company;
         protected $property = array(
@@ -33,7 +33,7 @@
                     $this->property['bus_stop'] = $bus_stop;
 
                 //$conex = $this->m_compte_user->usget($id, $g);
-                $conex = $this->m_compte_user->getusergare($this->company->ekey, $g, $id);
+                $conex = $this->_roleattribut_guard_bind($id, $this->company->ekey, $g);
                     $this->property['conex'] = $conex;
                 if ($this->session->agent->userole === '1' OR $this->session->agent->userole === '2'){
 
@@ -59,7 +59,7 @@
                     $bus_stop = $this->m_sousgare->sget($this->company->ekey, $g, $sg);
                     $this->property['bus_stop'] = $bus_stop;
                 //$conex = $this->m_compte_user->usget($id, $g);
-                    $conex = $this->m_compte_user->getusergare($this->company->ekey, $g, $id);
+                    $conex = $this->_roleattribut_guard_bind($id, $this->company->ekey, $g);
                 $this->property['conex'] = $conex;
             if ($this->session->agent->userole === '1' OR $this->session->agent->userole === '2'){
 
@@ -78,8 +78,12 @@
             $this->company = $this->m_entreprises->get_key($ckey);
             $gidc = $this->input->post('gareconnect');
             $sgid = $this->input->post('sousgareconnect');
+            $iduser = $this->_roleattribut_guard_post_id($this->company->ekey);
+            if ($msg = compte_arret_guard_sale('ticket', $iduser, $gidc)) {
+                compte_arret_redirect_guichet($iduser, $gidc, $sgid, $msg);
+                return;
+            }
             $idcmpt = $this->input->post('compconnected');
-            $iduser = $this->input->post('userconnected');
             $usen = substr($this->session->agent->username, 0, 1);
             $today = mdate("%Y-%m-%d", now('UTC'));
 
@@ -189,7 +193,7 @@
                         'codepro' => $this->input->post('timereserve'),
                         'numsieg' => $this->input->post('pasgsieges'),
                     );
-                    $this->m_tampon_siege->del($result->idtamp, $delarray);
+                    if ( ! empty($result)) { $this->m_tampon_siege->del($result->idtamp, $delarray); }
                 
                     $this->property['UPDATE_SUCCESS'] = TRUE;
                     redirect('reserves/reserve/' . $this->session->company->ekey.'/'.$iduser.'/'.$gidc.'/'.$sgid);
@@ -203,10 +207,11 @@
          //valider reservation
         public function valideconfirmation($ckey, $cl, $cdpass, $reg, $cprog, $h, $tf)
         {
+            $this->company = $this->m_entreprises->get_key($ckey);
             $cid = $this->session->company->ekey;
             $cd = $this->input->post('compar');
-            $iduser = $this->input->post('userconnected');
             $gidc = $this->input->post('gareconnect');
+            $iduser = $this->_roleattribut_guard_post_id($this->company->ekey);
             $sgid = $this->input->post('sousgareconnect');
             $idcmpt = $this->input->post('compconnected');
 
@@ -297,7 +302,7 @@
                                     'codepro' => $cprog,
                                     'numsieg' => $this->input->post('numerosieg'),
                                 );
-                                $this->m_tampon_siege->del($result->idtamp, $delarray);
+                                if ( ! empty($result)) { $this->m_tampon_siege->del($result->idtamp, $delarray); }
 
                             
                                         if ($dernier == NULL)
@@ -467,7 +472,7 @@
                                 'codepro' => $cprog,
                                 'numsieg' => $this->input->post('numerosieg'),
                             );
-                            $this->m_tampon_siege->del($result->idtamp, $delarray);
+                            if ( ! empty($result)) { $this->m_tampon_siege->del($result->idtamp, $delarray); }
                             
                             
                             if ($dernier == NULL)
@@ -635,7 +640,7 @@
                                     'codepro' => $cprog,
                                     'numsieg' => $this->input->post('numerosieg'),
                                 );
-                                $this->m_tampon_siege->del($result->idtamp, $delarray);
+                                if ( ! empty($result)) { $this->m_tampon_siege->del($result->idtamp, $delarray); }
 
                             
                             if ($dernier == NULL)
@@ -806,7 +811,7 @@
                                 'codepro' => $cprog,
                                 'numsieg' => $this->input->post('numerosieg'),
                             );
-                            $this->m_tampon_siege->del($result->idtamp, $delarray);
+                            if ( ! empty($result)) { $this->m_tampon_siege->del($result->idtamp, $delarray); }
                             
                             if ($dernier == NULL)
                             {
@@ -895,12 +900,12 @@
         //validation reservation avec ticket
         public function valideconfirm($ckey, $cl, $cdpass, $reg, $cprog, $h, $tf)
         {
-            $iduser = $this->input->post('userconnected');
+            $this->company = $this->m_entreprises->get_key($ckey);
             $gidc = $this->input->post('gareconnect');
+            $iduser = $this->_roleattribut_guard_post_id($this->company->ekey);
             $sgid = $this->input->post('sousgareconnect');
             $idcmpt = $this->input->post('compconnected');
             $usen = substr($this->session->agent->username, 0, 1);
-            $this->company = $this->m_entreprises->get_key($ckey);
                 
             $imprimeordinaire = $this->input->post('ordinaire');
                 
@@ -972,7 +977,7 @@
                         'codepro' => $cprog,
                         'numsieg' => $this->input->post('numerosieg'),
                     );
-                    $this->m_tampon_siege->del($result->idtamp, $delarray);
+                    if ( ! empty($result)) { $this->m_tampon_siege->del($result->idtamp, $delarray); }
 
                   
                     redirect('Historique_Passagers/print_conf/' . $this->session->company->ekey.'/' . $cdpass .'/'.$tf.'/'.$h.'/'.$gidc.'/'.$iduser.'/'.$sgid);
@@ -1047,7 +1052,7 @@
                             'codepro' => $cprog,
                             'numsieg' => $this->input->post('numerosieg'),
                         );
-                        $this->m_tampon_siege->del($result->idtamp, $delarray);
+                        if ( ! empty($result)) { $this->m_tampon_siege->del($result->idtamp, $delarray); }
 
                     
                         redirect('Historique_Passagers/printep_conf/' . $this->session->company->ekey.'/'.$cdpass.'/'.$tf.'/'.$h.'/'.$gidc.'/'.$iduser.'/'.$sgid);
@@ -1087,11 +1092,11 @@
 
         public function supprime($ckey, $codepas, $idp, $cl)
         {
+            $this->company = $this->m_entreprises->get_key($ckey);
             $gidc = $this->input->post('gareconnect');
             $sgid = $this->input->post('sousgareconnect');
             $idcmpt = $this->input->post('compconnected');
-            $iduser = $this->input->post('userconnected');
-            $this->company = $this->m_entreprises->get_key($ckey);
+            $iduser = $this->_roleattribut_guard_post_id($this->company->ekey);
 
             $pasecompter = $this->db->query("SELECT * FROM tamponcodetr tcr 
                 JOIN tamponcode tc ON tc.tamponcodtr = tcr.codtampon

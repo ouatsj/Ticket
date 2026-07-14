@@ -111,7 +111,7 @@
                         <tr><td style="font-size: 20px;"><?= $item->nom_client; ?> <?= $item->prenom_client; ?></td></tr>
                         <tr><td style="font-size: 20px;"><b><?= $day; ?>&nbsp;&nbsp;&nbsp; <?= $heures; ?></b></td></tr>
                         <tr><td style="font-size: 20px;">Siege:<b><?= str_pad($item->num_siege_categorie, 2, "0", STR_PAD_LEFT); ?></b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<b style="border:2px solid; font-size: 23px;"> N° BUS :<?=$x;?></td></b></tr>
-                        <tr><td style="font-size: 20px;"><?= number_format("{$item->prix}", 0, '', ' '); ?> FCFA &nbsp;<?= "{$item->contact_client}"; ?></td></tr>
+                        <tr><td style="font-size: 20px;"><?= number_format(ticket_impression_prix($item), 0, '', ' '); ?> FCFA &nbsp;<?= "{$item->contact_client}"; ?></td></tr>
                         <tr><td>CONVOCATION 45 mn avant le départ</td></tr>
                         <tr><td style="font-size: 9px;">Billet valable 1 mois. Billet non remboursable</td></tr>
                         <tr><td style="font-size: 9px;"><?= $item->nom_compagnie;?> décline toute responsabilité en cas de</td></tr>
@@ -186,7 +186,7 @@
             						  <tr><td style="font-size: 20px;"><?= $item->nom_client; ?>&nbsp; <?= $item->prenom_client; ?></td></tr>
             						  <tr><td style="font-size: 20px;"><b><?= "{$day }"; ?> &nbsp;<?= "{$heures}"; ?></b></td></tr>
             						  <tr><td style="font-size: 20px;">Siege:<b><?= str_pad($item->num_siege_categorie, 2, "0", STR_PAD_LEFT); ?></b></td></tr>
-            						  <tr><td style="font-size: 20px;">Prix:<?= number_format("{$item->prix}", 0, '', ' '); ?> &nbsp;FCFA &nbsp;<?= "{$item->contact_client}"; ?></td></tr>
+            						  <tr><td style="font-size: 20px;">Prix:<?= number_format(ticket_impression_prix($item), 0, '', ' '); ?> &nbsp;FCFA &nbsp;<?= "{$item->contact_client}"; ?></td></tr>
                         
                         </table>
                     </body>
@@ -313,7 +313,7 @@
                             <tr><td style="font-size: 20px;"><?= $item->nom_client; ?> <?= $item->prenom_client; ?></td></tr>
                             <tr><td style="font-size: 20px;"><b><?= "{$day1}"; ?>&nbsp; <?= $heures1; ?></b></td></tr>
                             <tr><td style="font-size: 20px;">Siege:<b><?= str_pad($itemtrans->num_siege_categorie, 2, "0", STR_PAD_LEFT); ?></b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<b style="border:2px solid; font-size: 23px;"> N° BUS :<?=$x1;?></td></b></tr>
-                            <tr><td style="font-size: 20px;"><?= number_format("{$itemtrans->prix}", 0, '', ' '); ?> &nbsp;FCFA &nbsp; <?= "{$item->contact_client}"; ?></td></tr>
+                            <tr><td style="font-size: 20px;"><?= number_format(ticket_impression_prix($itemtrans), 0, '', ' '); ?> &nbsp;FCFA &nbsp; <?= "{$item->contact_client}"; ?></td></tr>
                             <tr><td>CONVOCATION 45 mn avant le départ</td></tr>
                             <tr><td style="font-size: 9px;">Billet valable 1 mois. Billet non remboursable</td></tr>
                             <tr><td style="font-size: 9px;"><?= $itemtrans->nom_compagnie;?> décline toute responsabilité en cas de</td></tr>
@@ -391,7 +391,7 @@
           						  <tr><td style="font-size: 20px;"><?= $item->nom_client; ?> <?= $item->prenom_client; ?></td></tr>
           						  <tr><td style="font-size: 20px;"><b><?= $day1; ?>&nbsp; <?= "{$heures1}"; ?></b></td></tr>
           						  <tr><td style="font-size: 20px;">Siege:<b><?= str_pad($itemtrans->num_siege_categorie, 2, "0", STR_PAD_LEFT); ?></b></td></tr>
-          						  <tr><td style="font-size: 20px;">Prix:<?= number_format("{$itemtrans->prix}", 0, '', ' '); ?> &nbsp;FCFA &nbsp;<?= "{$itemtrans->contact_client}"; ?></td></tr></td></tr>
+          						  <tr><td style="font-size: 20px;">Prix:<?= number_format(ticket_impression_prix($itemtrans), 0, '', ' '); ?> &nbsp;FCFA &nbsp;<?= "{$itemtrans->contact_client}"; ?></td></tr></td></tr>
 						  
                         </table>
                     </body>

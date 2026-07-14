@@ -105,7 +105,7 @@
                             <tr><td style="font-size: 20px;"><?= $item->nom_client; ?>&nbsp; <?= $item->prenom_client; ?></td></tr>
                             <tr><td style="font-size: 20px;"><b><?= $day; ?>&nbsp; <?= $heures; ?></b></td></tr>
                             <tr><td style="font-size: 20px;">Siege : <b><?= str_pad($item->num_siege_categorie, 2, "0", STR_PAD_LEFT); ?></b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<b style="border:2px solid; font-size: 23px;"> N° BUS :<?=$x;?></b></td></tr>
-                            <tr><td style="font-size: 20px;"><?= number_format("{$item->prix}", 0, '', ' '); ?> FCFA&nbsp; Tel:<?= "{$item->contact_client}"; ?></td></tr>
+                            <tr><td style="font-size: 20px;"><?= number_format(ticket_impression_prix($item), 0, '', ' '); ?> FCFA&nbsp; Tel:<?= "{$item->contact_client}"; ?></td></tr>
                             <tr><td>CONVOCATION 45 mn avant le départ</td></tr>
                             <tr><td style="font-size: 9px;">Billet valable 1 mois. Billet non remboursable</td></tr>
                             <tr><td style="font-size: 9px;"><?= $item->nom_compagnie;?> décline toute responsabilité en cas de</td></tr>
@@ -187,7 +187,7 @@
                           <tr><td style="font-size: 20px;">Date_depart:</td></tr>
                           <tr><td style="font-size: 20px;">Heure_depart:</td></tr>
                           <tr><td style="font-size: 20px;">Siege:</td></tr>
-                          <tr><td style="font-size: 20px;"><?= number_format("{$item->prix}", 0, '', ' '); ?> FCFA &nbsp; <?= "{$item->contact_client}"; ?></td></tr>
+                          <tr><td style="font-size: 20px;"><?= number_format(ticket_impression_prix($item), 0, '', ' '); ?> FCFA &nbsp; <?= "{$item->contact_client}"; ?></td></tr>
                           <tr><td style="border:2px solid; font-size: 23px;"><b>N° BUS :...... </b></td></tr>
                           <tr><td>CONVOCATION 45 mn avant le départ</td></tr>
                           <tr><td style="font-size: 9px;">Billet valable 1 mois. Billet non remboursable</td></tr>
@@ -260,7 +260,7 @@
                           <tr><td style="font-size: 20px;"><b><?= $item->nom_client; ?> <?= $item->prenom_client; ?></td></tr>
                           <tr><td style="font-size: 20px;"><b><?= $day; ?>&nbsp; <?= $heures; ?></b></td></tr>
                           <tr><td style="font-size: 20px;"><b><?= str_pad($item->num_siege_categorie, 2, "0", STR_PAD_LEFT); ?></b></td></tr>
-						              <tr><td style="font-size: 20px;"><?= number_format($item->prix+$item->prix, 0, '', ' '); ?> &nbsp;FCFA &nbsp;<?= "{$item->contact_client}"; ?></td></tr>
+						              <tr><td style="font-size: 20px;"><?= number_format(ticket_impression_prix($item)+ticket_impression_prix($item), 0, '', ' '); ?> &nbsp;FCFA &nbsp;<?= "{$item->contact_client}"; ?></td></tr>
 							           <tr><td>ALLER-RETOUR</td></tr>
                         </table>
                     </body>
@@ -367,7 +367,7 @@
                             <tr><td style="font-size: 20px;"><?= $item->nom_client; ?> <?= $item->prenom_client; ?></td></tr>
                             <tr><td style="font-size: 20px;"><b><?= "{$day1}"; ?>&nbsp;<?= $heures1; ?></b></td></tr>
                             <tr><td style="font-size: 20px;">Siege : <b><?= str_pad($itemtrans->num_siege_categorie, 2, "0", STR_PAD_LEFT); ?></b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<b style="border:2px solid; font-size: 23px;"> N° BUS :<?=$x1;?></b></td></tr>
-                            <tr><td style="font-size: 20px;"><?= number_format("{$itemtrans->prix}", 0, '', ' '); ?> FCFA&nbsp; <?= "{$item->contact_client}"; ?></td></tr>
+                            <tr><td style="font-size: 20px;"><?= number_format(ticket_impression_prix($itemtrans), 0, '', ' '); ?> FCFA&nbsp; <?= "{$item->contact_client}"; ?></td></tr>
                             <tr><td>CONVOCATION 45 mn avant le départ</td></tr>
                             <tr><td style="font-size: 9px;">Billet valable 1 mois. Billet non remboursable</td></tr>
                             <tr><td style="font-size: 9px;"><?= $itemtrans->nom_compagnie;?> décline toute responsabilité en cas de</td></tr>
@@ -455,7 +455,7 @@
                               <tr><td style="font-size: 20px;">Date_depart:</td></tr>
                               <tr><td style="font-size: 20px;">Heure_depart:</td></tr>
                               <tr><td style="font-size: 20px;">Siege:</td></tr>
-                              <tr><td style="font-size: 20px;"><?= number_format("{$itemtrans->prix}", 0, '', ' '); ?> FCFA</td></tr>
+                              <tr><td style="font-size: 20px;"><?= number_format(ticket_impression_prix($itemtrans), 0, '', ' '); ?> FCFA</td></tr>
                               <tr><td style="font-size: 20px;"><?= "{$item->contact_client}"; ?></td></tr>
                               <tr><td>CONVOCATION 45 mn avant le départ</td></tr>
                               <tr><td style="font-size: 9px;">Billet valable 1 mois. Billet non remboursable</td></tr>
@@ -530,7 +530,7 @@
           								  <tr><td style="font-size: 20px;"><?= $item->nom_client; ?> <?= $item->prenom_client; ?></td></tr>
           								  <tr><td style="font-size: 20px;"><b><?= $day1; ?><?= $heures1; ?></b></td></tr>
           								  <tr><td style="font-size: 20px;"><b><?= str_pad($itemtrans->num_siege_categorie, 2, "0", STR_PAD_LEFT); ?></b></td></tr>
-          								  <tr><td style="font-size: 20px;"><?= number_format($itemtrans->prix+$itemtrans->prix, 0, '', ' '); ?> &nbsp;FCFA &nbsp;<?= "{$item->contact_client}"; ?></td></tr>
+          								  <tr><td style="font-size: 20px;"><?= number_format(ticket_impression_prix($itemtrans)+ticket_impression_prix($itemtrans), 0, '', ' '); ?> &nbsp;FCFA &nbsp;<?= "{$item->contact_client}"; ?></td></tr>
           								<tr><td>ALLER-RETOUR</td></tr>
                         </table>
                     </body>
@@ -633,7 +633,7 @@
                             <tr><td style="font-size: 20px;"><?= $item->nom_client; ?>&nbsp;<?= $item->prenom_client; ?></td></tr>
                             <tr><td style="font-size: 20px;"><b><?= "{$day2}"; ?> &nbsp;<?= $heures2; ?></b></td></tr>
                             <tr><td style="font-size: 20px;">Siege : <b><?= str_pad($itemtrans2->num_siege_categorie, 2, "0", STR_PAD_LEFT); ?></b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<b style="border:2px solid; font-size: 23px;"> N° BUS :<?=$x2;?></b></td></tr>
-                            <tr><td style="font-size: 20px;"><?= number_format("{$itemtrans2->prix}", 0, '', ' '); ?> FCFA&nbsp; <?= "{$item->contact_client}"; ?></td></tr>
+                            <tr><td style="font-size: 20px;"><?= number_format(ticket_impression_prix($itemtrans2), 0, '', ' '); ?> FCFA&nbsp; <?= "{$item->contact_client}"; ?></td></tr>
                             <tr><td>CONVOCATION 45 mn avant le départ</td></tr>
                             <tr><td style="font-size: 9px;">Billet valable 1 mois. Billet non remboursable</td></tr>
                             <tr><td style="font-size: 9px;"><?= $itemtrans2->nom_compagnie;?> décline toute responsabilité en cas de</td></tr>
@@ -725,7 +725,7 @@
                               <tr><td style="font-size: 20px;">Date_depart:</td></tr>
                               <tr><td style="font-size: 20px;">Heure_depart:</td></tr>
                               <tr><td style="font-size: 20px;">Siege:</td></tr>
-                              <tr><td style="font-size: 20px;"><?= number_format("{$itemtrans2->prix}", 0, '', ' '); ?> FCFA&nbsp;<?= "{$item->contact_client}"; ?></td></tr>
+                              <tr><td style="font-size: 20px;"><?= number_format(ticket_impression_prix($itemtrans2), 0, '', ' '); ?> FCFA&nbsp;<?= "{$item->contact_client}"; ?></td></tr>
                               <tr><td>CONVOCATION 45 mn avant le départ</td></tr>
                               <tr><td style="font-size: 9px;">Billet valable 1 mois. Billet non remboursable</td></tr>
                               <tr><td style="font-size: 9px;"><?= $itemtrans2->nom_compagnie;?> décline toute responsabilité en cas de</td></tr>
@@ -798,7 +798,7 @@
           							  <tr><td style="font-size: 20px;"><?= $item->nom_client; ?>&nbsp; <?= $item->prenom_client; ?></td></tr>
           							  <tr><td style="font-size: 20px;"><b><?= $day2; ?>&nbsp; <?= $heures2; ?></b></td></tr>
           							  <tr><td style="font-size: 20px;"><b><?= str_pad($itemtrans2->num_siege_categorie, 2, "0", STR_PAD_LEFT); ?></b></td></tr>
-          							  <tr><td style="font-size: 20px;">Prix :<?= number_format($itemtrans2->prix+$itemtrans2->prix, 0, '', ' '); ?> &nbsp;FCFA &nbsp;<?= "{$item->contact_client}"; ?></td></tr>
+          							  <tr><td style="font-size: 20px;">Prix :<?= number_format(ticket_impression_prix($itemtrans2)+ticket_impression_prix($itemtrans2), 0, '', ' '); ?> &nbsp;FCFA &nbsp;<?= "{$item->contact_client}"; ?></td></tr>
           								<tr><td>ALLER-RETOUR</td></tr>
                         </table>
                     </body>
@@ -900,7 +900,7 @@
                             <tr><td style="font-size: 20px;"><?= $item->nom_client; ?> <?= $item->prenom_client; ?></td></tr>
                             <tr><td style="font-size: 20px;"><b><?= "{$day3}"; ?>&nbsp;<?= $heures3; ?></b></td></tr>
                             <tr><td style="font-size: 20px;">Siege : <b><?= str_pad($itemtrans3->num_siege_categorie, 2, "0", STR_PAD_LEFT); ?></b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<b style="border:2px solid; font-size: 23px;"> N° BUS :<?=$x3;?></b></td></tr>
-                            <tr><td style="font-size: 20px;"><?= number_format("{$itemtrans3->prix}", 0, '', ' '); ?> FCFA &nbsp;<?= "{$item->contact_client}"; ?></td></tr>
+                            <tr><td style="font-size: 20px;"><?= number_format(ticket_impression_prix($itemtrans3), 0, '', ' '); ?> FCFA &nbsp;<?= "{$item->contact_client}"; ?></td></tr>
                             <tr><td>CONVOCATION 45 mn avant le départ</td></tr>
                             <tr><td style="font-size: 9px;">Billet valable 1 mois. Billet non remboursable</td></tr>
                             <tr><td style="font-size: 9px;"><?= $itemtrans3->nom_compagnie;?> décline toute responsabilité en cas de</td></tr>
@@ -990,7 +990,7 @@
                               <tr><td style="font-size: 30px;">Date_depart:</td></tr>
                               <tr><td style="font-size: 30px;">Heure_depart:</td></tr>
                               <tr><td style="font-size: 30px;">Siege:</td></tr>
-                              <tr><td style="font-size: 30px;"><?= number_format($itemtrans3->prix, 0, '', ' '); ?> FCFA&nbsp;<?= $item->contact_client; ?></td></tr>
+                              <tr><td style="font-size: 30px;"><?= number_format(ticket_impression_prix($itemtrans3), 0, '', ' '); ?> FCFA&nbsp;<?= $item->contact_client; ?></td></tr>
                               <tr><td style="border:2px solid; font-size: 23px;"><b>N° BUS :...... </b></td></tr>
                               <tr><td>CONVOCATION 45 mn avant le départ</td></tr>
                               <tr><td style="font-size: 9px;">Billet valable 1 mois. Billet non remboursable</td></tr>
@@ -1064,7 +1064,7 @@
                           <tr><td style="font-size: 20px;"><?= $item->nom_client; ?>&nbsp;<?= $item->prenom_client; ?></td></tr>
                           <tr><td style="font-size: 20px;"><b><?= $day3; ?>&nbsp;<?= $heures3; ?></b></td></tr>
                           <tr><td style="font-size: 20px;"><b><?= str_pad($itemtrans3->num_siege_categorie, 2, "0", STR_PAD_LEFT); ?></b></td></tr>
-                          <tr><td style="font-size: 20px;"><?= number_format($itemtrans3->prix+$itemtrans3->prix, 0, '', ' '); ?> &nbsp;FCFA &nbsp;<?= "{$item->contact_client}"; ?></td></tr>
+                          <tr><td style="font-size: 20px;"><?= number_format(ticket_impression_prix($itemtrans3)+ticket_impression_prix($itemtrans3), 0, '', ' '); ?> &nbsp;FCFA &nbsp;<?= "{$item->contact_client}"; ?></td></tr>
                             <tr><td>ALLER-RETOUR</td></tr>
                         </table>
                     </body>

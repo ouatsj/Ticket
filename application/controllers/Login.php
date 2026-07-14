@@ -1,6 +1,6 @@
 <?php defined('BASEPATH') OR exit('No direct script access allowed');
     
-    class Login extends CI_Controller
+    class Login extends MY_Controller
     {
         protected $logl = array();
         
@@ -9,6 +9,100 @@
             parent::__construct();
             setlocale(LC_TIME, 'fr_FR', 'fra');
         }
+
+        /**
+         * Modèles nécessaires aux actions d'authentification (pas à la page login GET).
+         */
+        protected function _load_auth_models()
+        {
+            $this->load->model('Compte_user_model', 'm_compte_user');
+            $this->load->model('Entreprises_model', 'm_entreprises');
+            $this->load->model('Personnels_model', 'm_personnels');
+            $this->load->model('Role_attribution_model', 'm_roleattribution');
+            $this->load->model('Utilisateur_model', 'm_utilisateur');
+        }
+
+        protected function _login_fail($message = null)
+        {
+            if ($message !== null && $message !== '') {
+                $this->session->set_flashdata('login_error_msg', $message);
+            }
+            $this->session->set_flashdata('login_error', 1);
+            redirect('login/ins');
+        }
+
+        /**
+         * Après mot de passe OK : jeton pending + profil unique ou écran Welcome.
+         */
+        protected function _after_password_ok($detector, $company)
+        {
+            auth_session_issue_login_pending((int) $detector->cpuser_id, (string) $company->ekey);
+            $this->m_roleattribution->clear_stale_activeattrib();
+            compte_arret_track_activity((int) $detector->cpuser_id);
+
+            $roles = $this->m_compte_user->roleatt((int) $detector->cpuser_id);
+            if (empty($roles)) {
+                auth_session_login_transition_denied('Aucun profil actif pour ce compte.');
+            }
+
+            if (count($roles) === 1) {
+                $this->_proceed_with_role($company, (int) $detector->cpuser_id, (int) $roles[0]->id_rols);
+                return;
+            }
+
+            redirect('welcome/' . $company->ekey . '/' . (int) $detector->cpuser_id);
+        }
+
+        /**
+         * Active une attribution (session) puis ouvre l'accueil.
+         * Le choix de gare métier se fait sur l'accueil (VOIR GARES) — pas d'écran pick_gare au login.
+         *
+         * @param object $company
+         * @param int $cpuser_id
+         * @param int $role_id
+         * @param string|null $gare_id Optionnel (compat liens anciens)
+         */
+        protected function _proceed_with_role($company, $cpuser_id, $role_id, $gare_id = null)
+        {
+            if (!auth_session_validate_login_pending($cpuser_id, $company->ekey)) {
+                auth_session_login_transition_denied();
+            }
+
+            if ($gare_id !== null && $gare_id !== '') {
+                $rw = $this->m_compte_user->pick_attribution_on_gare($cpuser_id, $role_id, $gare_id);
+            } else {
+                $rw = $this->m_compte_user->pick_attribution_at_login($cpuser_id, $role_id);
+            }
+
+            if (empty($rw)) {
+                auth_session_login_transition_denied('Profil ou gare invalide.');
+            }
+
+            $this->m_roleattribution->activate_exclusive($cpuser_id, $role_id, $rw->roleattribut);
+            $this->m_roleattribution->clear_stale_activeattrib();
+            redirect('home/' . $company->ekey . '/' . $cpuser_id . '/' . $role_id);
+        }
+
+        /**
+         * Entrée session pour un rôle (après mot de passe / Welcome) — sans écran choix gare.
+         */
+        public function enter_role($ekey = null, $uid = null, $role = null)
+        {
+            $this->_load_auth_models();
+            $uid = (int) $uid;
+            $role = (int) $role;
+
+            if ($uid <= 0 || $role <= 0) {
+                auth_session_login_transition_denied('Profil invalide.');
+            }
+
+            $company = $this->m_entreprises->get_key($ekey);
+            if (empty($company)) {
+                auth_session_login_transition_denied();
+            }
+
+            $this->_proceed_with_role($company, $uid, $role);
+        }
         
         public function in($key = NULL, array $in = NULL)
         {
@@ -16,6 +110,7 @@
                 $this->logl['data'] = array(null);
                 $this->load->view('_in/in', $this->logl['data']);
             } else {
+                $this->_load_auth_models();
                 $this->logl['data'] = $this->m_personnels->get($key);
                 $this->load->view('_in/in', $this->logl['data']);
             }
@@ -24,73 +119,206 @@
         public function ins($key = NULL, array $in = NULL)
         {
             if ($key === NULL) {
-                $this->logl['data'] = array(null);
-                $this->load->view('_in/ins', $this->logl['data']);
+                $viewData = array(
+                    'login_error' => (bool) $this->session->flashdata('login_error'),
+                    'login_error_msg' => $this->session->flashdata('login_error_msg'),
+                );
+                $this->load->view('_in/ins', $viewData);
             } else {
+                $this->_load_auth_models();
                 $this->logl['data'] = $this->m_personnels->get($key);
                 $this->load->view('_in/ins', $this->logl['data']);
             }
+        }
+
+        /**
+         * Vérification session — détecte changement d'agent sur poste partagé.
+         */
+        public function whoami()
+        {
+            if (!$this->session->userdata('agent')) {
+                $this->output->set_status_header(401);
+                $this->output->set_content_type('application/json');
+                $this->output->set_output(json_encode(array('error' => 'auth_required')));
+                return;
+            }
+
+            $ctx = function_exists('auth_session_identity_context')
+                ? auth_session_identity_context()
+                : null;
+
+            if (!$ctx) {
+                $agent = $this->session->agent;
+                $ctx = array(
+                    'cpuser_id' => (int) $agent->cpuser_id,
+                    'username' => (string) $agent->username,
+                    'userole' => (string) $agent->userole,
+                    'type_rols' => isset($agent->type_rols) ? (string) $agent->type_rols : '',
+                    'roleattribut' => isset($agent->roleattribut) ? (int) $agent->roleattribut : 0,
+                    'garenom' => '',
+                    'gare_id' => '',
+                );
+            }
+
+            $this->output->set_content_type('application/json');
+            $this->output->set_output(json_encode($ctx));
         }
     
 
         public function lin_($pk = NULL)
         {
             if ($pk != NULL) {
-                
-                
-            } else {
-                $ro = strpos($this->input->post('fonction'), '/');
-                $r = substr($this->input->post('fonction'), 0, $ro);
-                $u = substr($this->input->post('fonction'), $ro + 1, strlen($this->input->post('fonction')));
-                
-                 $detector = $this->m_compte_user->lookedfor1($u, $r);
-            
-                if (!empty($detector)) {
-                       
-                    foreach ($detector as $rw) {
-                        $this->logl['company'] = $this->m_entreprises->get_key($rw->cle_comp);
-                             
-                                $array_acc = array(
-                                'activeattrib' => 1,
-                                );
-                                
-                        $this->m_roleattribution->update($rw->roleattribut, $array_acc);
-                    }
-                    redirect('home/' . $this->logl['company']->ekey . '/' . $u. '/' .$r);
-                }
-                 else
-                    $this->lin('', $this->logl);
+                return;
             }
-                
+
+            $this->_load_auth_models();
+            $fonction = (string) $this->input->post('fonction');
+            $ro = strpos($fonction, '/');
+            if ($ro === false) {
+                $this->_login_fail('Choisissez un profil.');
+                return;
+            }
+
+            $r = (int) substr($fonction, 0, $ro);
+            $u = (int) substr($fonction, $ro + 1, strlen($fonction));
+
+            if ($u <= 0 || $r <= 0) {
+                $this->_login_fail('Profil invalide.');
+                return;
+            }
+
+            $pending = auth_session_get_login_pending();
+            if (!$pending) {
+                auth_session_login_transition_denied();
+            }
+
+            $company = $this->m_entreprises->get_key($pending['ekey']);
+            if (empty($company)) {
+                auth_session_login_transition_denied();
+            }
+
+            if ((int) $pending['cpuser_id'] !== $u) {
+                auth_session_login_transition_denied('Ce profil ne correspond pas au compte connecté.');
+            }
+
+            $this->_proceed_with_role($company, $u, $r);
+        }
+
+        /**
+         * Choix gare validé (GET auto ou POST) pendant le flux login pending.
+         */
+        public function pick_gare_go($ekey = null, $uid = null, $role = null, $gare_id = null)
+        {
+            $this->_load_auth_models();
+            $uid = (int) $uid;
+            $role = (int) $role;
+            $gare_id = (string) $gare_id;
+
+            if ($uid <= 0 || $role <= 0 || $gare_id === '') {
+                auth_session_login_transition_denied('Gare invalide.');
+            }
+
+            $company = $this->m_entreprises->get_key($ekey);
+            if (empty($company)) {
+                auth_session_login_transition_denied();
+            }
+
+            if (!auth_session_validate_login_pending($uid, $company->ekey)) {
+                auth_session_login_transition_denied();
+            }
+
+            $allowed = $this->m_compte_user->pick_attribution_on_gare($uid, $role, $gare_id);
+            if (empty($allowed)) {
+                auth_session_login_transition_denied('Cette gare n\'est pas disponible pour votre profil.');
+            }
+
+            $this->_proceed_with_role($company, $uid, $role, $gare_id);
+        }
+
+        public function pick_gare_s($pk = null)
+        {
+            if ($pk !== null) {
+                return;
+            }
+
+            $this->_load_auth_models();
+            $ekey = (string) $this->input->post('ekey');
+            $uid = (int) $this->input->post('cpuser_id');
+            $role = (int) $this->input->post('userole');
+            $gare_id = (string) $this->input->post('gare_id');
+
+            if ($ekey === '' || $uid <= 0 || $role <= 0 || $gare_id === '') {
+                auth_session_login_transition_denied('Choisissez une gare.');
+            }
+
+            redirect('login/pick_gare_go/' . rawurlencode($ekey) . '/' . $uid . '/' . $role . '/' . rawurlencode($gare_id));
         }
 
         public function lin_s($pk = NULL)
         {
             if ($pk != NULL) {
-               
-                
-            } else {
-                $username = $this->input->post('username');
-                $upassword = sha1($this->input->post('upassword'));
-
-                $detector = $this->m_compte_user->lookedfor($username, $upassword);
-            
-                if (!empty($detector)) {
-                       
-                        $this->logl['company'] = $this->m_entreprises->get_key($detector->cle_comp);
-                        
-                        $act_acc = array(
-                        'is_conect' => 1,
-                        'date_conect' => mdate("%Y-%m-%d %H:%i:%s", now('UTC')),
-                        );
-                        $msj = $this->m_compte_user->update($detector->cpuser_id, $act_acc);
-                        redirect('welcome/' . $this->logl['company']->ekey . '/' . $detector->cpuser_id);
-                    
-                }
-                 else
-                    $this->lin('', $this->logl);
+                return;
             }
-                
+
+            $this->_load_auth_models();
+            $username = trim((string) $this->input->post('username'));
+            $password = (string) $this->input->post('upassword');
+
+            if ($username === '' || $password === '') {
+                $this->session->set_flashdata('login_error', 1);
+                redirect('login/ins');
+                return;
+            }
+
+            $candidates = $this->m_compte_user->find_all_by_username($username);
+
+            if ($candidates === false) {
+                log_message('error', 'Login/lin_s: échec requête compte_user (droits MySQL ?)');
+                show_error('Service temporairement indisponible. Réessayez dans quelques minutes.', 503);
+                return;
+            }
+
+            $detector = null;
+            foreach ($candidates as $row) {
+                if (password_check($password, $row->upassword)
+                    || password_check($password, $row->confirm_password)) {
+                    $detector = $row;
+                    break;
+                }
+            }
+
+            if (!empty($detector)) {
+                if ((int) $detector->activer === 1) {
+                    $this->session->set_flashdata('login_error', 1);
+                    $this->session->set_flashdata('login_error_msg', 'Ce compte est désactivé. Contactez l\'administrateur.');
+                    redirect('login/ins');
+                    return;
+                }
+
+                auth_session_reset_for_login();
+
+                if (password_should_rehash($detector->upassword)) {
+                    $newhash = password_make($password);
+                    $this->m_compte_user->update($detector->cpuser_id, array(
+                        'upassword'        => $newhash,
+                        'confirm_password' => $newhash,
+                    ));
+                }
+
+                $this->logl['company'] = $this->m_entreprises->get_key($detector->cle_comp);
+
+                if (empty($this->logl['company'])) {
+                    $this->session->set_flashdata('login_error', 1);
+                    redirect('login/ins');
+                    return;
+                }
+
+                $this->_after_password_ok($detector, $this->logl['company']);
+                return;
+            }
+
+            $this->session->set_flashdata('login_error', 1);
+            redirect('login/ins');
         }
         
         public function lin($key = NULL, array $in = NULL)
@@ -99,6 +327,7 @@
                 $this->logl['data'] = array(null);
                 $this->load->view('_in/ins', $this->logl['data']);
             } else {
+                $this->_load_auth_models();
                 $this->logl['data'] = $this->m_utilisateur->get_user($key);
                 $this->load->view('_in/ins', $this->logl['data']);
             }
@@ -110,6 +339,7 @@
                 $this->logl['data'] = array(null);
                 $this->load->view('_in/ine', $this->logl['data']);
             } else {
+                $this->_load_auth_models();
                 $this->logl['data'] = $this->m_utilisateur->get_user($key);
                 $this->load->view('_in/ine', $this->logl['data']);
             }
@@ -117,31 +347,18 @@
         
         public function lout($o = NULL, $a = NULL)
         {
-            if ($o === $this->session->session_id AND $a === $this->session->agent->cpuser_id)
-                $out_ac = array(
-                    'is_conect' => 0,
-                    'date_deconect' => mdate("%Y-%m-%d %H:%i:%s", now('UTC')),
-                );
+            $this->_load_auth_models();
 
-            $out_acc = $this->m_compte_user->update($this->session->agent->cpuser_id, $out_ac);
+            $agent = $this->session->userdata('agent');
 
-            $c = $this->session->agent->cpuser_id;
-            $r = $this->session->agent->userole;
-
-            $at = $this->db->query("SELECT * FROM attributions_role a
-                 JOIN  user_login u ON a.idgestcompte = u.uid_login 
-                 WHERE u.uid_usercpte = '$c'
-                 AND a.userole = '$r'")->result();
-
-            foreach ($at as $key => $value) {
-                $array_acc = array(
-                    'activeattrib' => 0,
-                );
-                
-                $this->m_roleattribution->update($value->roleattribut, $array_acc);
+            if (empty($agent) || $o !== $this->session->session_id || $a !== $agent->cpuser_id) {
+                auth_session_purge();
+                redirect('login/ins/');
+                return;
             }
-            unset($this->session);
-            
+
+            auth_session_force_logout(true);
+
             redirect('login/ins/');
         }
     }

@@ -1,8 +1,63 @@
-# Environnement production (masque les erreurs PHP à l'écran)
+# ticket.rakietabus.com — anti 403/408 (Hostinger hCDN / LiteSpeed / scans)
 SetEnv CI_ENV production
 
+<FilesMatch "^(\.env|\.gitignore|\.htpasswd|composer\.(json|lock)|web\.config)$">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order allow,deny
+        Deny from all
+    </IfModule>
+</FilesMatch>
+
+# Pages dynamiques : ne pas mettre en cache CDN (évite 408 / réponses figées)
+<IfModule mod_headers.c>
+    SetEnvIf Request_Method "POST" dynamic_request
+    SetEnvIf Request_URI "(programmes|Programmes|login|gares|confirmation|reserves|depots|reprogrammes|caisses|historique)(/|$)" dynamic_request
+    Header set Cache-Control "no-store, no-cache, must-revalidate, max-age=0" env=dynamic_request
+    Header set Pragma "no-cache" env=dynamic_request
+</IfModule>
+
+<IfModule LiteSpeed>
+    RewriteEngine On
+    # Évite que LiteSpeed coupe les requêtes PHP lentes (sinon hCDN → 408)
+    RewriteRule .* - [E=noabort:1,E=noconntimeout:1]
+    RewriteRule (programmes|Programmes|login|gares|confirmation|reserves|depots|reprogrammes|caisses) - [E=Cache-Control:no-cache]
+</IfModule>
+
 RewriteEngine ON
-RewriteCond $1 !^(index\.php|resources|robots\.txt)
+
+# Assets statiques : court-circuit avant index.php (réduit charge PHP + 403 hCDN)
+RewriteRule ^assets/ - [L]
+RewriteRule ^favicon\.ico$ - [L]
+RewriteRule ^robots\.txt$ - [L]
+RewriteRule ^ping\.txt$ - [L]
+
+# Favicon statique
+RewriteRule ^favicon\.ico$ assets/img/avatar3.png [L]
+
+# Assets manquants : 404 direct (ne pas saturer les workers PHP)
+RewriteCond %{REQUEST_URI} ^/assets/ [NC]
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteRule . - [R=404,L]
+
+# Bloquer sondes WordPress / Plesk / XML-RPC (scans → pics requêtes → 403)
+RewriteRule ^(wp-admin|wp-includes|wp-content|wp-login\.php|xmlrpc\.php|plesk-stat)(/|$) - [F,L]
+
+# Bloquer accès HTTP direct aux dossiers sensibles
+RewriteRule ^(\.git|application|system)/ - [F,L]
+
+# Bloquer fichiers/dossiers cachés (sauf .well-known pour SSL)
+RewriteRule (^|/)\.(?!well-known/) - [F,L]
+
+RewriteCond $1 !^(index\.php|resources|robots\.txt|assets|favicon\.ico|ping\.txt)
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
-RewriteRule ^(.*)$ index.php?/$1 [L,QSA]
+# Apache 2.4.60+ AH10411 : ne pas passer le chemin en query string (espaces/noms → 403).
+# CI lit REQUEST_URI (config uri_protocol) — index.php suffit.
+RewriteRule ^(.*)$ index.php [L]
+
+<IfModule mod_autoindex.c>
+    Options -Indexes
+</IfModule>

@@ -1,9 +1,14 @@
 <?php defined('BASEPATH') OR exit('No direct script access allowed'); ?>
 <div class="row">
     <p class="mt-0 mb-2 ml-4">
-        <a href="<?= site_url("confirmation/bagagemobile/{$this->session->company->ekey}/{$conex->roleattribut}/{$bus_stop->idengare}/{$bus_stop->idsousgare}"); ?>" class="btn btn-space btn-secondary">
-            <i class="fas fa-arrow-circle-left text-info"></i>&nbsp;RETOUR&nbsp;
-        </a>
+        <?php $this->load->view('_partials/btn_retour', array(
+            'fallback' => retour_bagage_mobile_url(
+                $this->session->company->ekey,
+                $conex->roleattribut,
+                $bus_stop->idengare,
+                $bus_stop->idsousgare
+            ),
+        )); ?>
         <a href="#" class="btn btn-space btn-secondary md-trigger" 
                 data-modal="tribagage" data-cle_compagnie="<?= $this->session->company->ekey; ?>">
             <i class="fas fa-edit text-info"></i>&nbsp; TRIBAGAGE&nbsp;

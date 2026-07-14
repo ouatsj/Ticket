@@ -171,7 +171,7 @@
                              
                         <li class="<?= ($this->uri->segment(1, 0) === 'retour' ? 'active' : ''); ?>">
 
-                            <a href="<?= site_url("home/{$this->session->company->ekey}/{$this->session->agent->cpuser_id}/{$this->session->agent->userole}"); ?>">
+                            <a href="<?= site_url("home/main"); ?>">
                                     <i class="fas fa-arrow-circle-left text-info"></i>&nbsp; 
                                     <span>RETOUR A L'ACCUEIL&nbsp;</span>
                                 </a>
@@ -351,7 +351,7 @@
 
                             <li class="<?= ($this->uri->segment(1, 0) === 'retour' ? 'active' : ''); ?>">
 
-                                <a href="<?= site_url("home/{$this->session->company->ekey}/{$this->session->agent->cpuser_id}/{$this->session->agent->userole}"); ?>">
+                                <a href="<?= site_url("home/main"); ?>">
                                     <i class="fas fa-arrow-circle-left text-info"></i>&nbsp; 
                                     <span>RETOUR A L'ACCUEIL&nbsp;</span>
                                 </a>
@@ -403,7 +403,7 @@
 
                         <li class="<?= ($this->uri->segment(1, 0) === 'retour' ? 'active' : ''); ?>">
 
-                            <a href="<?= site_url("home/{$this->session->company->ekey}/{$this->session->agent->cpuser_id}/{$this->session->agent->userole}"); ?>">
+                            <a href="<?= site_url("home/main"); ?>">
                                 <i class="fas fa-arrow-circle-left text-info"></i>&nbsp; 
                                 <span>RETOUR A L'ACCUEIL&nbsp;</span>
                             </a>
@@ -426,7 +426,7 @@
                     <? if ($this->session->agent->userole === '4'): ?>
                         <li class="<?= ($this->uri->segment(1, 0) === 'retour' ? 'active' : ''); ?>">
 
-                            <a href="<?= site_url("home/{$this->session->company->ekey}/{$this->session->agent->cpuser_id}/{$this->session->agent->userole}"); ?>">
+                            <a href="<?= site_url("home/main"); ?>">
                                 <i class="fas fa-arrow-circle-left text-info"></i>&nbsp; 
                                 <span>RETOUR A L'ACCUEIL&nbsp;</span>
                             </a>
@@ -508,7 +508,7 @@
                         <? if ($this->session->agent->userole === '5'): ?>
                             <li class="<?= ($this->uri->segment(1, 0) === 'retour' ? 'active' : ''); ?>">
 
-                                <a href="<?= site_url("home/{$this->session->company->ekey}/{$this->session->agent->cpuser_id}/{$this->session->agent->userole}"); ?>">
+                                <a href="<?= site_url("home/main"); ?>">
                                     <i class="fas fa-arrow-circle-left text-info"></i>&nbsp; 
                                     <span>RETOUR A L'ACCUEIL&nbsp;</span>
                                 </a>
@@ -609,7 +609,7 @@
                         <? if ($this->session->agent->userole === '8'): ?>
                             <li class="<?= ($this->uri->segment(1, 0) === 'retour' ? 'active' : ''); ?>">
 
-                                <a href="<?= site_url("home/{$this->session->company->ekey}/{$this->session->agent->cpuser_id}/{$this->session->agent->userole}"); ?>">
+                                <a href="<?= site_url("home/main"); ?>">
                                     <i class="fas fa-arrow-circle-left text-info"></i>&nbsp; 
                                     <span>RETOUR A L'ACCUEIL&nbsp;</span>
                                 </a>
@@ -664,7 +664,7 @@
                     <? if ($this->session->agent->userole === '3'): ?>
                         <li class="<?= ($this->uri->segment(1, 0) === 'retour' ? 'active' : ''); ?>">
 
-                                <a href="<?= site_url("home/{$this->session->company->ekey}/{$this->session->agent->cpuser_id}/{$this->session->agent->userole}"); ?>">
+                                <a href="<?= site_url("home/main"); ?>">
                                     <i class="fas fa-arrow-circle-left text-info"></i>&nbsp; 
                                     <span>RETOUR A L'ACCUEIL&nbsp;</span>
                                 </a>
@@ -688,7 +688,7 @@
                     <? if ($this->session->agent->userole === '6'): ?>
                         <li class="<?= ($this->uri->segment(1, 0) === 'retour' ? 'active' : ''); ?>">
 
-                                <a href="<?= site_url("home/{$this->session->company->ekey}/{$this->session->agent->cpuser_id}/{$this->session->agent->userole}"); ?>">
+                                <a href="<?= site_url("home/main"); ?>">
                                     <i class="fas fa-arrow-circle-left text-info"></i>&nbsp; 
                                     <span>RETOUR A L'ACCUEIL&nbsp;</span>
                                 </a>
@@ -738,7 +738,7 @@
 
                         <li class="<?= ($this->uri->segment(1, 0) === 'retour' ? 'active' : ''); ?>">
 
-                            <a href="<?= site_url("home/{$this->session->company->ekey}/{$this->session->agent->cpuser_id}/{$this->session->agent->userole}"); ?>">
+                            <a href="<?= site_url("home/main"); ?>">
                                     <i class="fas fa-arrow-circle-left text-info"></i>&nbsp; 
                                     <span>RETOUR A L'ACCUEIL&nbsp;</span>
                                 </a>
@@ -758,7 +758,7 @@
                     <? if ($this->session->agent->userole === '10'): ?>
                         <li class="<?= ($this->uri->segment(1, 0) === 'retour' ? 'active' : ''); ?>">
 
-                                <a href="<?= site_url("home/{$this->session->company->ekey}/{$this->session->agent->cpuser_id}/{$this->session->agent->userole}"); ?>">
+                                <a href="<?= site_url("home/main"); ?>">
                                     <i class="fas fa-arrow-circle-left text-info"></i>&nbsp; 
                                     <span>RETOUR A L'ACCUEIL&nbsp;</span>
                                 </a>
@@ -779,7 +779,7 @@
                     <? if ($this->session->agent->userole === '12'): ?>
                         <li class="<?= ($this->uri->segment(1, 0) === 'retour' ? 'active' : ''); ?>">
 
-                                <a href="<?= site_url("home/{$this->session->company->ekey}/{$this->session->agent->cpuser_id}/{$this->session->agent->userole}"); ?>">
+                                <a href="<?= site_url("home/main"); ?>">
                                     <i class="fas fa-arrow-circle-left text-info"></i>&nbsp; 
                                     <span>RETOUR A L'ACCUEIL&nbsp;</span>
                                 </a>
@@ -800,7 +800,7 @@
                     <? if ($this->session->agent->userole === '13'): ?>
                         <li class="<?= ($this->uri->segment(1, 0) === 'retour' ? 'active' : ''); ?>">
 
-                                <a href="<?= site_url("home/{$this->session->company->ekey}/{$this->session->agent->cpuser_id}/{$this->session->agent->userole}"); ?>">
+                                <a href="<?= site_url("home/main"); ?>">
                                     <i class="fas fa-arrow-circle-left text-info"></i>&nbsp; 
                                     <span>RETOUR A L'ACCUEIL&nbsp;</span>
                                 </a>
@@ -821,7 +821,7 @@
                     <? if ($this->session->agent->userole === '14'): ?>
                         <li class="<?= ($this->uri->segment(1, 0) === 'retour' ? 'active' : ''); ?>">
 
-                                <a href="<?= site_url("home/{$this->session->company->ekey}/{$this->session->agent->cpuser_id}/{$this->session->agent->userole}"); ?>">
+                                <a href="<?= site_url("home/main"); ?>">
                                     <i class="fas fa-arrow-circle-left text-info"></i>&nbsp; 
                                     <span>RETOUR A L'ACCUEIL&nbsp;</span>
                                 </a>
@@ -843,7 +843,7 @@
                         <? if ($this->session->agent->userole === '15'): ?>
                             <li class="<?= ($this->uri->segment(1, 0) === 'retour' ? 'active' : ''); ?>">
 
-                                <a href="<?= site_url("home/{$this->session->company->ekey}/{$this->session->agent->cpuser_id}/{$this->session->agent->userole}"); ?>">
+                                <a href="<?= site_url("home/main"); ?>">
                                     <i class="fas fa-arrow-circle-left text-info"></i>&nbsp; 
                                     <span>RETOUR A L'ACCUEIL&nbsp;</span>
                                 </a>
@@ -905,7 +905,7 @@
                         <? if ($this->session->agent->userole === '16'): ?>
                             <li class="<?= ($this->uri->segment(1, 0) === 'retour' ? 'active' : ''); ?>">
 
-                                <a href="<?= site_url("home/{$this->session->company->ekey}/{$this->session->agent->cpuser_id}/{$this->session->agent->userole}"); ?>">
+                                <a href="<?= site_url("home/main"); ?>">
                                     <i class="fas fa-arrow-circle-left text-info"></i>&nbsp; 
                                     <span>RETOUR A L'ACCUEIL&nbsp;</span>
                                 </a>
@@ -987,7 +987,7 @@
                     <? if ($this->session->agent->userole === '17'): ?>
                         <li class="<?= ($this->uri->segment(1, 0) === 'retour' ? 'active' : ''); ?>">
 
-                                <a href="<?= site_url("home/{$this->session->company->ekey}/{$this->session->agent->cpuser_id}/{$this->session->agent->userole}"); ?>">
+                                <a href="<?= site_url("home/main"); ?>">
                                     <i class="fas fa-arrow-circle-left text-info"></i>&nbsp; 
                                     <span>RETOUR A L'ACCUEIL&nbsp;</span>
                                 </a>
@@ -1008,7 +1008,7 @@
                     <? if ($this->session->agent->userole === '18'): ?>
                         <li class="<?= ($this->uri->segment(1, 0) === 'retour' ? 'active' : ''); ?>">
 
-                                <a href="<?= site_url("home/{$this->session->company->ekey}/{$this->session->agent->cpuser_id}/{$this->session->agent->userole}"); ?>">
+                                <a href="<?= site_url("home/main"); ?>">
                                     <i class="fas fa-arrow-circle-left text-info"></i>&nbsp; 
                                     <span>RETOUR A L'ACCUEIL&nbsp;</span>
                                 </a>

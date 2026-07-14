@@ -90,6 +90,13 @@
         
         public function create(array $data)
         {
+            $data = roleattribut_guard_apply_to_data($data, array('idcptuser', 'cptus'));
+
+            // Retour : si un code programme aller est fourni (rare), aligner ; sinon conserver POST.
+            if (isset($data['prixretour']) && !empty($data['code_pro']) && function_exists('ticket_prix_depuis_programme')) {
+                $data['prixretour'] = ticket_prix_depuis_programme($data['code_pro'], $data['prixretour']);
+            }
+
             $this->db->insert($this->table, $data);
             return $this->db->insert_id();
         }
@@ -161,16 +168,11 @@
         public function compteur($cd, $idcox, $g)
         {
             $today = mdate("%Y-%m-%d", now('UTC'));
-
-            $today2 = date("Y-m-d", strtotime("-2 day"));
             
             return $this->db->query("SELECT SUM(prixretour) AS totalr FROM non_passager np
-                JOIN attributions_role ar ON np.cptus = ar.roleattribut
-                WHERE ar.roleattribut = '$idcox'
-                AND ar.activeattrib = 1
+                WHERE np.cptus = '$idcox'
                 AND np.statvente = 0
-                AND np.datevente <= '$today'
-                GROUP BY np.cptus")->row();
+                AND np.datevente <= '$today'")->row();
         }
         public function comptegroup($cd, $idcox, $g)
         {

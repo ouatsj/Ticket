@@ -2,9 +2,15 @@
 
 <div class="row">
     <p class="mt-0 mb-2 ml-4">
-        <a href="<?= site_url('gares/'.$this->session->company->ekey.'/gTc/'.$bus_stop->idengare.'/compte/'.$conex->roleattribut.'/'.$bus_stop->idsousgare.'/'.mdate("%d/%m/%Y", now('UTC'))); ?>" class="btn btn-space btn-secondary">
-                <i class="fas fa-arrow-circle-left text-info"></i>&nbsp;RETOUR ACCUEIL&nbsp;
-        </a>
+        <?php $this->load->view('_partials/btn_retour', array(
+            'fallback' => retour_guichet_url(
+                $this->session->company->ekey,
+                $bus_stop->idengare,
+                $conex->roleattribut,
+                $bus_stop->idsousgare
+            ),
+            'label' => 'RETOUR ACCUEIL',
+        )); ?>
         <a href="<?= site_url("confirmation/voirbagage/{$this->session->company->ekey}/{$conex->roleattribut}/{$bus_stop->idengare}/{$bus_stop->idsousgare}"); ?>"
             class="btn btn-secondary btn-space md-trigger" data-modal="">
             <i class="fas fa-print text-info"></i>&nbsp; VOIR BAGAGES AVEC TICKET&nbsp;

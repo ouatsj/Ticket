@@ -1,10 +1,17 @@
 <?php defined('BASEPATH') OR exit('No direct script access allowed');?>
 <div class="row">
+    <div class="col-12">
+        <p class="mt-0 mb-2 ml-3">
+            <a href="<?= site_url('home/main'); ?>" class="btn btn-space btn-secondary">
+                <i class="fas fa-arrow-circle-left text-info"></i>&nbsp;RETOUR AUX GARES&nbsp;
+            </a>
+        </p>
+    </div>
  <? if (!empty($sousgares)) : ?>
         
         <div class="col-lg-12">
             <div class="card">
-                <? if ($this->session->agent->userole === '1' OR $this->session->agent->userole === '2'): ?>
+                <? if (isset($agent_userole) && in_array($agent_userole, array('1', '2'), TRUE)): ?>
                     <div class="card-header">
                     
                         <div class="tools">
@@ -26,7 +33,7 @@
 				                    data-dismiss="modal" aria-hidden="true">
 				                <span class="mdi mdi-close text-white"></span></button>
 				        </div>
-				        <?= form_open('Programmes/adsousgare/' . $this->session->company->ekey.'/'.$bus_stop->idengare, array('class' => 'modal-body form')); ?>
+				        <?= form_open('Programmes/adsousgare/' . (isset($company_ekey) ? $company_ekey : $this->session->company->ekey).'/'.$bus_stop->idengare, array('class' => 'modal-body form')); ?>
 				        <div class="row">
 				            <input class="form-control form-control-sm" type="hidden" name="gareconnect" value="<?=$bus_stop->idengare;?>">
 				            
@@ -75,180 +82,8 @@
 	                    <div class="card-body">
 	                        <p>Code:<?= $item->idengare; ?></p>
 	                        <p>Ville:<?= $item->nom_ville; ?></p>
-	                        <p>Contact:<?= $item->contactsousgare;?></p>
-	                    <? if ($this->session->agent->userole === '1' OR $this->session->agent->userole === '2' OR $this->session->agent->userole === '4'): ?>
-	                        <? $cd = $this->session->company->ekey;
-
-	                        $c = $this->session->agent->cpuser_id;
-
-                        
-                        	$ents = $this->db->query("SELECT * FROM attributions_role ar
-                            JOIN user_login ul ON ar.idgestcompte = ul.uid_login
-                            JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
-                            WHERE cu.cpuser_id = '$c'
-                            AND ul.guser = '$item->idengare'
-                            AND ar.activer_role = 0 
-                            AND ar.activeattrib = 1")->row();
-
-                        	$versements = $this->db->query(
-                            "SELECT SUM(montant_verser) AS montant_verser FROM versements v
-                            JOIN caisse cs ON v.idcaisse_versement = cs.id_caiss
-                            JOIN gare_exp ex ON cs.gexp_caiss = ex.code_gaexp
-                            JOIN compagnies c ON ex.id_compagd = c.cle_compagnie
-                            JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                            WHERE e.ekey = '$cd'
-                            AND v.ferme_caisvers = 0
-                            AND v.is_actifverser = 1
-                            AND v.type_versement <> 'Bordereau_bancairecourrier'
-                            AND cs.gexp_caiss = '$item->idengare'
-			                AND v.sgareidvers = '$item->idsousgare'
-			                AND v.validop = '$ents->roleattribut'
-                            GROUP BY cs.id_caiss, v.sgareidvers")->row();
-                            $recettes = $this->db->query(
-                                "SELECT SUM(montant_recet) AS montant_recet FROM recette r
-                                JOIN caisse cs ON r.idcaisse = cs.id_caiss
-                                JOIN gare_exp ex ON cs.gexp_caiss = ex.code_gaexp
-                                JOIN compagnies c ON ex.id_compagd = c.cle_compagnie
-                                JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                                WHERE e.ekey = '$cd'
-                                AND r.ferme_caisrecet = 0
-                                AND r.is_actifrecet = 1
-                                AND r.type_recet <> 'Courrier'
-                                AND cs.gexp_caiss = '$item->idengare'
-				                AND r.recetsgid = '$item->idsousgare'
-				                AND r.operavalid = '$ents->roleattribut'
-                                GROUP BY cs.id_caiss, r.recetsgid")->row();
-                                $depenses = $this->db->query(
-                                    "SELECT SUM(montant_depens) AS montant_depens FROM depense d
-                                    JOIN caisse cs ON d.idcaisse_depens = cs.id_caiss
-                                    JOIN gare_exp ex ON cs.gexp_caiss = ex.code_gaexp
-                                    JOIN compagnies c ON ex.id_compagd = c.cle_compagnie
-                                    JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                                    WHERE e.ekey = '$cd'
-                                    AND d.ferme_caisdep = 0
-                                    AND d.is_actifdep = 1
-                                    AND d.type_depense <> 'Courrier'
-                                    AND cs.gexp_caiss = '$item->idengare'
-                                    AND d.opevalid = '$ents->roleattribut'
-				                    AND d.sousgidepens = '$item->idsousgare'
-                                    GROUP BY cs.id_caiss, d.sousgidepens")->row();
-                                    $depots = $this->db->query(
-                                        "SELECT SUM(montant_depot) AS montant_depot FROM depot dp
-                                        JOIN caisse cs ON dp.idcaisse_depot = cs.id_caiss
-                                        JOIN attributions_role ar ON dp.idop_depot = ar.roleattribut
-                                        JOIN gare_exp ex ON cs.gexp_caiss = ex.code_gaexp
-                                        JOIN compagnies c ON ex.id_compagd = c.cle_compagnie
-                                        JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                                        WHERE e.ekey = '$cd'
-                                        AND dp.ferme_caisdepo = 0
-                                        AND dp.is_validdepo = 1
-                                        AND dp.type_depot <> 'Courrier'
-                                        AND cs.gexp_caiss = '$item->idengare'
-                                        AND dp.opvalid = '$ents->roleattribut'
-					                    AND dp.sousgdepot = '$item->idsousgare'
-                                        GROUP BY cs.id_caiss, dp.sousgdepot")->row();?>
-                                    <? if($versements == NULL):?><?$v=0;?><? else:?><? $v = $versements->montant_verser;?><?endif;?>
-                                    <? if($recettes == NULL):?><?$r=0;?><? else:?><? $r = $recettes->montant_recet;?><?endif;?>
-                                    <? if($depenses == NULL):?><?$d=0;?><? else:?><? $d = $depenses->montant_depens;?><?endif;?>
-                                    <? if($depots == NULL):?><?$dp=0;?><? else:?><?$dp = $depots->montant_depot;?><?endif;?>
-                                    <?$solde = ($dp+$r)-($v+$d);?>
-                        
-                            	<p>Caisse <?=$item->nomsousgare;?>&nbsp;<?=$item->nom_gaep;?></p>
-                            	<p>Recette totale:<strong><?= number_format($r, 0, '', ' '); ?></strong></p>
-                                <p>Depot total:<strong><?= number_format($dp, 0, '', ' ');?></strong></p>
-                            	<p>Versement total:<strong><?= number_format($v, 0, '', ' '); ?></strong></p>
-                                <p>Depense totale:<strong><?= number_format($d, 0, '', ' ');?></strong></p>
-                                
-                                <p class="form-group text-center">Solde total:<strong><?=number_format($solde, 0, '', ' ');?>F</strong></p>
-                            <?endif;?>
-
-                            <? if ($this->session->agent->userole === '18'): ?>
-                            <? $cd = $this->session->company->ekey;
-
-                            $c = $this->session->agent->cpuser_id;
-
-                        
-                            $ents = $this->db->query("SELECT * FROM attributions_role ar
-                            JOIN user_login ul ON ar.idgestcompte = ul.uid_login
-                            JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
-                            WHERE cu.cpuser_id = '$c'
-                            AND ul.guser = '$item->idengare'
-                            AND ar.activer_role = 0 
-                            AND ar.activeattrib = 1")->row();
-
-                            $versements = $this->db->query(
-                            "SELECT SUM(montant_verser) AS montant_verser FROM versements v
-                            JOIN caisse cs ON v.idcaisse_versement = cs.id_caiss
-                            JOIN gare_exp ex ON cs.gexp_caiss = ex.code_gaexp
-                            JOIN compagnies c ON ex.id_compagd = c.cle_compagnie
-                            JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                            WHERE e.ekey = '$cd'
-                            AND v.ferme_caisvers = 0
-                            AND v.is_actifverser = 1
-                            AND v.type_versement <> 'Bordereau_bancairecourrier'
-                            AND cs.gexp_caiss = '$item->idengare'
-                            AND v.sgareidvers = '$item->idsousgare'
-                            AND v.validopad = '$ents->roleattribut'
-                            GROUP BY cs.id_caiss, v.sgareidvers")->row();
-                            $recettes = $this->db->query(
-                                "SELECT SUM(montant_recet) AS montant_recet FROM recette r
-                                JOIN caisse cs ON r.idcaisse = cs.id_caiss
-                                JOIN gare_exp ex ON cs.gexp_caiss = ex.code_gaexp
-                                JOIN compagnies c ON ex.id_compagd = c.cle_compagnie
-                                JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                                WHERE e.ekey = '$cd'
-                                AND r.ferme_caisrecet = 0
-                                AND r.is_actifrecet = 1
-                                AND r.type_recet <> 'Courrier'
-                                AND cs.gexp_caiss = '$item->idengare'
-                                AND r.recetsgid = '$item->idsousgare'
-                                AND r.operavalidad = '$ents->roleattribut'
-                                GROUP BY cs.id_caiss, r.recetsgid")->row();
-                                $depenses = $this->db->query(
-                                    "SELECT SUM(montant_depens) AS montant_depens FROM depense d
-                                    JOIN caisse cs ON d.idcaisse_depens = cs.id_caiss
-                                    JOIN gare_exp ex ON cs.gexp_caiss = ex.code_gaexp
-                                    JOIN compagnies c ON ex.id_compagd = c.cle_compagnie
-                                    JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                                    WHERE e.ekey = '$cd'
-                                    AND d.ferme_caisdep = 0
-                                    AND d.is_actifdep = 1
-                                    AND d.type_depense <> 'Courrier'
-                                    AND cs.gexp_caiss = '$item->idengare'
-                                    AND d.opevalidad = '$ents->roleattribut'
-                                    AND d.sousgidepens = '$item->idsousgare'
-                                    GROUP BY cs.id_caiss, d.sousgidepens")->row();
-                                    $depots = $this->db->query(
-                                        "SELECT SUM(montant_depot) AS montant_depot FROM depot dp
-                                        JOIN caisse cs ON dp.idcaisse_depot = cs.id_caiss
-                                        JOIN attributions_role ar ON dp.idop_depot = ar.roleattribut
-                                        JOIN gare_exp ex ON cs.gexp_caiss = ex.code_gaexp
-                                        JOIN compagnies c ON ex.id_compagd = c.cle_compagnie
-                                        JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                                        WHERE e.ekey = '$cd'
-                                        AND dp.ferme_caisdepo = 0
-                                        AND dp.is_validdepo = 1
-                                        AND dp.type_depot <> 'Courrier'
-                                        AND cs.gexp_caiss = '$item->idengare'
-                                        AND dp.opvalidad = '$ents->roleattribut'
-                                        AND dp.sousgdepot = '$item->idsousgare'
-                                        GROUP BY cs.id_caiss, dp.sousgdepot")->row();?>
-                                    <? if($versements == NULL):?><?$v=0;?><? else:?><? $v = $versements->montant_verser;?><?endif;?>
-                                    <? if($recettes == NULL):?><?$r=0;?><? else:?><? $r = $recettes->montant_recet;?><?endif;?>
-                                    <? if($depenses == NULL):?><?$d=0;?><? else:?><? $d = $depenses->montant_depens;?><?endif;?>
-                                    <? if($depots == NULL):?><?$dp=0;?><? else:?><?$dp = $depots->montant_depot;?><?endif;?>
-                                    <?$solde = ($dp+$r)-($v+$d);?>
-                        
-                                <p>Caisse <?=$item->nomsousgare;?>&nbsp;<?=$item->nom_gaep;?></p>
-                                <p>Recette totale:<strong><?= number_format($r, 0, '', ' '); ?></strong></p>
-                                <p>Depot total:<strong><?= number_format($dp, 0, '', ' ');?></strong></p>
-                                <p>Versement total:<strong><?= number_format($v, 0, '', ' '); ?></strong></p>
-                                <p>Depense totale:<strong><?= number_format($d, 0, '', ' ');?></strong></p>
-                                
-                                <p class="form-group text-center">Solde total:<strong><?=number_format($solde, 0, '', ' ');?>F</strong></p>
-                            <?endif;?>
-                            
-	                        <a href="<?= site_url('gares/'.$this->session->company->ekey.'/gTc/'. $item->idengare.'/compte/'. $conex->roleattribut.'/'. $item->idsousgare.'/'. mdate("%d/%m/%Y", now('UTC'))); ?>"
+                        <p>Contact:<?= $item->contactsousgare;?></p>
+	                        <a href="<?= isset($item->voir_url) ? $item->voir_url : site_url('gares/'.(isset($company_ekey) ? $company_ekey : $this->session->company->ekey).'/gTc/'. $item->idengare.'/compte/'. $conex->roleattribut.'/'. $item->idsousgare.'/'. (isset($date_jour) ? $date_jour : mdate("%d/%m/%Y", now('UTC')))); ?>"
 	                           class="btn btn-block btn-rounded text-dark bg-white">
 	                            <span class="fas fa-eye"></span>
 	                            VOIR
@@ -267,7 +102,7 @@
 
         <div class="card">
 
-            <div class="card-header card-header-divider"><?= $this->session->company->nom_entreprise; ?></div>
+            <div class="card-header card-header-divider"><?= isset($company_nom) ? $company_nom : $this->session->company->nom_entreprise; ?></div>
 
             <div class="card-body text-center text-capitalize">
                 <h2>AUCUNE GARE TROUVEE</h2>
@@ -287,7 +122,7 @@
 			                    data-dismiss="modal" aria-hidden="true">
 			                <span class="mdi mdi-close text-white"></span></button>
 			        </div>
-			        <?= form_open('Programmes/adsousgare/' . $this->session->company->ekey.'/'.$bus_stop->idengare, array('class' => 'modal-body form')); ?>
+			        <?= form_open('Programmes/adsousgare/' . (isset($company_ekey) ? $company_ekey : $this->session->company->ekey).'/'.$bus_stop->idengare, array('class' => 'modal-body form')); ?>
 			        <div class="row">
 			            <input class="form-control form-control-sm" type="hidden" name="gareconnect" value="<?=$bus_stop->idengare;?>">
 			            

@@ -1,6 +1,6 @@
 <?php defined('BASEPATH') OR exit('No direct script access allowed');
 
-    class Personnels extends CI_Controller
+    class Personnels extends MY_Controller
     {
         public $property = array(
             'title' => 'Personnels',
@@ -198,12 +198,16 @@
                 return $this->view($ckey, $this->property);
             }
         }
-        public function verifinfos($m)
+        public function verifinfos($m = '')
         {
+            session_release_lock();
+            $m = trim((string) $m);
+            if ($m === '' || strcasecmp($m, 'undefined') === 0) {
+                return $this->load->view('beagle/pages/_programme/json', array('json' => null));
+            }
 
             $persomat = $this->m_personnels->getinfo($m);
             return $this->load->view('beagle/pages/_programme/json', array('json' => $persomat));
-
         }
 
         public function verifpersonne($pr)

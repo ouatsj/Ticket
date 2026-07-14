@@ -58,7 +58,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             {
         
                                 document.querySelector('#autresmsdepot').style.display = 'block';
-                                document.querySelector('#autresmsdepot').innerHTML = `le montant que vous aviez saisi dépasse le solde de votre caisse`;
+                                document.querySelector('#autredepotsms').innerHTML = `le montant que vous aviez saisi dépasse le solde de votre caisse`;
                                 
                                 document.querySelector('#autredepotmontant').value = 'VERIFIER SOLDE';
                             } 

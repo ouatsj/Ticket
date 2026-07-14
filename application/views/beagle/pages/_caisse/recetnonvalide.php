@@ -87,7 +87,7 @@
                                                 array('class' => 'modal-body form')); ?>
 
                                             <div class="row">
-                                                <input class="form-control form-control-sm" type="hidden" name="gareconnect" value="<?=$bus_stop->idengare;?>">
+                                                <input class="form-control form-control-sm" type="hidden" name="gareconnect" value="<?= !empty($caisseident->gexp_caiss) ? $caisseident->gexp_caiss : $bus_stop->idengare; ?>">
                                                 <input class="form-control form-control-sm" type="hidden" name="sousgareconnect" value="<?=$bus_stop->idsousgare;?>">
                                                 <input class="form-control form-control-sm" type="hidden" name="userconnected" value="<?=$connex->roleattribut;?>">
                                                 <input class="form-control form-control-sm" type="hidden" name="compconnected" value="<?=$connex->cpuser_id;?>">
@@ -132,7 +132,7 @@
                                                 array('class' => 'modal-body form')); ?>
 
                                             <div class="row">
-                                                <input class="form-control form-control-sm" type="hidden" name="gareconnect" value="<?=$bus_stop->idengare;?>">
+                                                <input class="form-control form-control-sm" type="hidden" name="gareconnect" value="<?= !empty($caisseident->gexp_caiss) ? $caisseident->gexp_caiss : $bus_stop->idengare; ?>">
                                                 <input class="form-control form-control-sm" type="hidden" name="sousgareconnect" value="<?=$bus_stop->idsousgare;?>">
                                                 <input class="form-control form-control-sm" type="hidden" name="userconnected" value="<?=$connex->roleattribut;?>">
                                                 <input class="form-control form-control-sm" type="hidden" name="compconnected" value="<?=$connex->cpuser_id;?>">

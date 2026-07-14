@@ -13,6 +13,8 @@
 
             <div class="card card-border card-contrast">
 
+                <?php $this->load->view('beagle/pages/_users/_compte_status_badge', ['item' => $item]); ?>
+
                 <div class="card-header card-header-contrast"><?= $item->first_name; ?>
 
                     <div class="tools">

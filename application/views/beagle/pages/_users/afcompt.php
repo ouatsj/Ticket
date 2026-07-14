@@ -11,7 +11,28 @@
 
             <div class="card card-table">
 
-                <div class="card-header"></div>
+                <div class="card-header">
+                    <div class="row align-items-center">
+                        <div class="col-md-8">
+                            <div class="input-group input-group-sm">
+                                <div class="input-group-prepend">
+                                    <span class="input-group-text"><span class="mdi mdi-search"></span></span>
+                                </div>
+                                <input type="search"
+                                       class="form-control"
+                                       data-user-table-filter="#table1"
+                                       data-user-table-count="#profils-filter-count"
+                                       data-user-table-empty="#profils-filter-empty"
+                                       data-user-filter-label="profil(s)"
+                                       placeholder="Rechercher (nom utilisateur, gare)…"
+                                       autocomplete="off">
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <small id="profils-filter-count" class="text-muted"></small>
+                        </div>
+                    </div>
+                </div>
 
                 <div class="card-body">
 
@@ -29,8 +50,13 @@
 
                         <tbody>
                         <? foreach ($profilusers as $us): ?>
-                            <tr>
+                            <?php
+                            $profil_search = strtolower(trim($us->username . ' ' . $us->garenom));
+                            ?>
+                            <tr data-user-filter-item="1"
+                                data-search="<?= htmlspecialchars($profil_search, ENT_QUOTES, 'UTF-8'); ?>">
                                 <td>
+                                    <?php $this->load->view('beagle/pages/_users/_compte_status_inline', ['item' => $us]); ?>
                                     <span><?= $us->username; ?></span>
                                 </td>
 
@@ -113,6 +139,10 @@
                         </tbody>
 
                     </table>
+
+                    <p id="profils-filter-empty" class="text-center text-muted py-3 mb-0" style="display: none;">
+                        Aucun profil ne correspond à votre recherche.
+                    </p>
 
                 </div>
 

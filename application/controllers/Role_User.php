@@ -1,6 +1,6 @@
 <?php defined('BASEPATH') OR exit ('No direct script access allowed');
     
-    class Role_User extends CI_Controller
+    class Role_User extends MY_Controller
     {
         public $property = array(
             'title' => 'Rôles',

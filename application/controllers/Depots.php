@@ -1,6 +1,6 @@
 <?php defined('BASEPATH') OR exit('No direct script access allowed');
     
-    class Depots extends CI_Controller
+    class Depots extends MY_Controller
     {
         public $depots;
         public $company;
@@ -13,8 +13,40 @@
         public function __construct()
         {
             parent::__construct();
+            $this->load->helper('scripts');
             setlocale(LC_TIME, 'fr_FR', 'fra');
             $this->property['pagetitle'] = utf8_encode(strftime("%d %b %G", now()));
+            $this->property = array_merge($this->property, scripts_bundle_property('caisse', null, true));
+        }
+
+        /**
+         * Date de dépôt envoyée par les formulaires (noms de champs historiques).
+         *
+         * @param int|null $id_depot  repli sur la date existante en modification
+         * @return string
+         */
+        private function _depot_date_from_post($id_depot = null)
+        {
+            foreach (array('daterecep', 'date_depot', 'datedepot') as $field) {
+                $value = trim((string) $this->input->post($field));
+                if ($value !== '') {
+                    return $value;
+                }
+            }
+
+            if ($id_depot !== null) {
+                $row = $this->db->where('id_depot', (int) $id_depot)->get('depot')->row();
+                if ($row && !empty($row->datedepot)) {
+                    $ts = strtotime($row->datedepot);
+                    if ($ts !== false) {
+                        return date('Y-m-d', $ts);
+                    }
+
+                    return $row->datedepot;
+                }
+            }
+
+            return '';
         }
         
        public function view($ckey, $iddepot = NULL)
@@ -38,7 +70,7 @@
                 $identifiant_gare = $this->input->post('idgarecode');
                 $identifiant_caisse = $this->input->post('idcaisse'); 
                 $gid = $this->input->post('gareconnect');
-                $iduser = $this->input->post('userconnected');
+                $iduser = roleattribut_guard_post_hint($this->company->ekey);
                 $sgid = $this->input->post('sousgareconnect');
                 $idcmpt = $this->input->post('compconnected');
 
@@ -58,7 +90,7 @@
                 );
                 $depo = $this->m_depot->create($depoaray);
                 
-                if($this->session->agent->userole === '4')
+                if(recette_role_is_validateur_principal($this->session->agent->userole))
                 {
                     $updepos = array(
                             'is_validdepo' => 1, 
@@ -71,11 +103,11 @@
                     redirect('caisses/'.$this->session->company->ekey. '/gTv/'. $identifiant_gare. '/'. $identifiant_caisse. '/autredepot/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
                 }
 
-                if($this->session->agent->userole === '18')
+                if(recette_role_is_validateur_adjoint($this->session->agent->userole))
                 {
                     $updepos = array(
                         'is_validdepo' => 1, 
-                        'is_actifdepo' => 1,
+                        'is_actifdepoad' => 1,
                         'opvalidad' => $iduser,
                     );
                     $this->m_depot->update($depo, $updepos);
@@ -102,7 +134,7 @@
             $identifiant_caisse = $this->input->post('idcaisse'); 
 
             $gid = $this->input->post('gareconnect');
-            $iduser = $this->input->post('userconnected');
+            $iduser = roleattribut_guard_post_hint($this->company->ekey);
             $sgid = $this->input->post('sousgareconnect');
             $idcmpt = $this->input->post('compconnected');            
             if($this->input->post('datedepot')!= '')
@@ -122,7 +154,7 @@
                 );
                 $depo = $this->m_depot->create($depoaray);
                 
-                if($this->session->agent->userole === '4')
+                if(recette_role_is_validateur_principal($this->session->agent->userole))
                 {
                     $updepos = array(
                         'is_actifdepo' => 1,
@@ -134,10 +166,10 @@
 
                 }
 
-                if($this->session->agent->userole === '18')
+                if(recette_role_is_validateur_adjoint($this->session->agent->userole))
                 {
                     $updepos = array(
-                        'is_actifdepo' => 1,
+                        'is_actifdepoad' => 1,
                         'opvalidad' => $iduser,
                     );
                     $this->m_depot->update($depo, $updepos);
@@ -161,7 +193,7 @@
             $identifiant_caisse = $this->input->post('idcaisse'); 
 
             $gid = $this->input->post('gareconnect');
-            $iduser = $this->input->post('userconnected');
+            $iduser = roleattribut_guard_post_hint($this->company->ekey);
             $sgid = $this->input->post('sousgareconnect');
             $idcmpt = $this->input->post('compconnected');
 
@@ -182,7 +214,7 @@
                 );
                 $depo = $this->m_depot->create($depoaray);
                 
-                if($this->session->agent->userole === '4')
+                if(recette_role_is_validateur_principal($this->session->agent->userole))
                 {
                     $updepos = array(
                         'is_actifdepo' => 1,
@@ -194,10 +226,10 @@
 
                 }
 
-                if($this->session->agent->userole === '18')
+                if(recette_role_is_validateur_adjoint($this->session->agent->userole))
                 {
                     $updepos = array(
-                        'is_actifdepo' => 1,
+                        'is_actifdepoad' => 1,
                         'opvalidad' => $iduser,
                     );
                     $this->m_depot->update($depo, $updepos);
@@ -222,10 +254,11 @@
             $identifiant_gare = $this->input->post('idgarecode');
             $identifiant_caisse = $this->input->post('idcaisse'); 
             $gid = $this->input->post('gareconnect');
-            $iduser = $this->input->post('userconnected');
+            $iduser = roleattribut_guard_post_hint($this->company->ekey);
             $sgid = $this->input->post('sousgareconnect');
             $idcmpt = $this->input->post('compconnected');
-            if($this->input->post('date_depot')!= '')
+            $date_depot = $this->_depot_date_from_post($idpo);
+            if ($date_depot !== '')
             {
                 $depoaray = array(
                     'idcaisse_depot' => $identifiant_caisse,
@@ -233,7 +266,7 @@
                     'idgenre_depot' => $this->input->post('genre'),
                     'compkey_depo' => $this->input->post('_compag'),
                     'nom_pre' => $this->input->post('nom'),
-                    'datedepot' => $this->input->post('date_depot'),
+                    'datedepot' => $date_depot,
                     'montant_depot' => $this->input->post('montantverse'),
                     'commentaire_depot' => $this->input->post('comment'),
                 );
@@ -241,7 +274,7 @@
                 
                 $this->property['UPDATE_SUCCESS'] = TRUE;
                 
-                if($this->session->agent->userole === '4' OR $this->session->agent->userole === '18')
+                if(recette_role_is_validateur_principal($this->session->agent->userole) OR recette_role_is_validateur_adjoint($this->session->agent->userole))
                 {
                     redirect('caisses/'.$this->session->company->ekey. '/gTv/'. $identifiant_gare. '/'. $identifiant_caisse. '/depot/'. $idcmpt.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
                 }
@@ -301,7 +334,7 @@
             $identifiant_gare = $this->input->post('idgarecode');
             $identifiant_caisse = $this->input->post('idcaisse'); 
             $gid = $this->input->post('gareconnect');
-            $iduser = $this->input->post('userconnected');
+            $iduser = roleattribut_guard_post_hint($this->company->ekey);
             $sgid = $this->input->post('sousgareconnect');
             $idcmpt = $this->input->post('compconnected');
 
@@ -321,7 +354,7 @@
                 );
                 $depo = $this->m_depot->create($depoaray);
                 
-                if($this->session->agent->userole === '4')
+                if(recette_role_is_validateur_principal($this->session->agent->userole))
                 {
                     $updepos = array(
                             'is_validdepo' => 1, 
@@ -334,11 +367,11 @@
                     redirect('caisses/'.$this->session->company->ekey. '/gTv/'. $identifiant_gare. '/'. $identifiant_caisse. '/autredepot/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
             
                 }
-                if($this->session->agent->userole === '18')
+                if(recette_role_is_validateur_adjoint($this->session->agent->userole))
                 {
                     $updepos = array(
                         'is_validdepo' => 1, 
-                        'is_actifdepo' => 1,
+                        'is_actifdepoad' => 1,
                         'opvalidad' => $iduser,
                     );
                     $this->m_depot->update($depo, $updepos);
@@ -364,10 +397,11 @@
                 $identifiant_gare = $this->input->post('idgarecode');
                 $identifiant_caisse = $this->input->post('idcaisse'); 
             $gid = $this->input->post('gareconnect');
-            $iduser = $this->input->post('userconnected');
+            $iduser = roleattribut_guard_post_hint($this->company->ekey);
             $sgid = $this->input->post('sousgareconnect');
             $idcmpt = $this->input->post('compconnected');
-            if($this->input->post('daterecep')!= '')
+            $date_depot = $this->_depot_date_from_post($idpo);
+            if ($date_depot !== '')
             {
                 $depoaray = array(
                     'idcaisse_depot' => $identifiant_caisse,
@@ -375,7 +409,7 @@
                     'idgenre_depot' => $this->input->post('genre'),
                     'compkey_depo' => $this->input->post('_compag'),
                     'nom_pre' => $this->input->post('nom'),
-                    'datedepot' => $this->input->post('datedpot'),
+                    'datedepot' => $date_depot,
                     'montant_depot' => $this->input->post('montantverse'),
                     'commentaire_depot' => $this->input->post('comment'),
                 );
@@ -383,7 +417,7 @@
                 
                 $this->property['UPDATE_SUCCESS'] = TRUE;
 
-                if($this->session->agent->userole === '4' OR $this->session->agent->userole === '18')
+                if(recette_role_is_validateur_principal($this->session->agent->userole) OR recette_role_is_validateur_adjoint($this->session->agent->userole))
                 {
                     redirect('caisses/'.$this->session->company->ekey. '/gTv/'. $identifiant_gare. '/'. $identifiant_caisse. '/autredepot/'. $idcmpt.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
                 }
@@ -403,10 +437,11 @@
                 $identifiant_gare = $this->input->post('idgarecode');
                 $identifiant_caisse = $this->input->post('idcaisse'); 
                 $gid = $this->input->post('gareconnect');
-            $iduser = $this->input->post('userconnected');
+            $iduser = roleattribut_guard_post_hint($this->company->ekey);
             $sgid = $this->input->post('sousgareconnect');
             $idcmpt = $this->input->post('compconnected');
-            if($this->input->post('daterecep')!= '')
+            $date_depot = $this->_depot_date_from_post($idpo);
+            if ($date_depot !== '')
             {
                 $depoaray = array(
                     'idcaisse_depot' => $identifiant_caisse,
@@ -414,7 +449,7 @@
                     'idgenre_depot' => $this->input->post('genre'),
                     'compkey_depo' => $this->input->post('_compag'),
                     'nom_pre' => $this->input->post('nom'),
-                    'datedepot' => $this->input->post('datedpot'),
+                    'datedepot' => $date_depot,
                     'montant_depot' => $this->input->post('montantverse'),
                     'commentaire_depot' => $this->input->post('comment'),
                 );
@@ -422,7 +457,7 @@
                 
                 $this->property['UPDATE_SUCCESS'] = TRUE;
 
-                if($this->session->agent->userole === '4' OR $this->session->agent->userole === '18')
+                if(recette_role_is_validateur_principal($this->session->agent->userole) OR recette_role_is_validateur_adjoint($this->session->agent->userole))
                 {
                     redirect('caisses/'.$this->session->company->ekey. '/gTv/'. $identifiant_gare. '/'. $identifiant_caisse. '/autredepot/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
                 }
@@ -443,7 +478,7 @@
                 $identifiant_gare = $this->input->post('idgarecode');
                 $identifiant_caisse = $this->input->post('idcaisse'); 
                 $gid = $this->input->post('gareconnect');
-                $iduser = $this->input->post('userconnected');
+                $iduser = roleattribut_guard_post_hint($this->company->ekey);
                 $sgid = $this->input->post('sousgareconnect');
                 $idcmpt = $this->input->post('compconnected');
 
@@ -464,7 +499,7 @@
                 );
                 $depo = $this->m_depot->create($depoaray);
                 
-                if($this->session->agent->userole === '4')
+                if(recette_role_is_validateur_principal($this->session->agent->userole))
                 {
 
                     $updepos = array(
@@ -479,12 +514,12 @@
         
                 }
 
-                if($this->session->agent->userole === '18')
+                if(recette_role_is_validateur_adjoint($this->session->agent->userole))
                 {
 
                     $updepos = array(
                         'is_validdepo' => 1, 
-                        'is_actifdepo' => 1,
+                        'is_actifdepoad' => 1,
                         'opvalidad' => $iduser,
                     );
                     $this->m_depot->update($depo, $updepos);
@@ -512,11 +547,11 @@
             $identifiant_gare = $this->input->post('idgarecode');
             $identifiant_caisse = $this->input->post('idcaisse');
             $gid = $this->input->post('gareconnect');
-            $iduser = $this->input->post('userconnected');
+            $iduser = roleattribut_guard_post_hint($this->company->ekey);
             $sgid = $this->input->post('sousgareconnect');
             $idcmpt = $this->input->post('compconnected');
-
-            if($this->input->post('daterecep')!= '')
+            $date_depot = $this->_depot_date_from_post($id);
+            if ($date_depot !== '')
             {
                 $depoaray = array(
                     'idcaisse_depot' => $identifiant_caisse,
@@ -525,7 +560,7 @@
                     'typersodepot' => $this->input->post('personn'),
                     'compkey_depo' => $this->input->post('_compag'),
                     'nom_pre' => $this->input->post('nom'),
-                    'datedepot' => $this->input->post('daterecep'),
+                    'datedepot' => $date_depot,
                     'montant_depot' => $this->input->post('montantverse'),
                     'commentaire_depot' => $this->input->post('comment'),
                 );
@@ -533,7 +568,7 @@
                 
                 $this->property['UPDATE_SUCCESS'] = TRUE;
 
-                if($this->session->agent->userole === '4' OR $this->session->agent->userole === '18')
+                if(recette_role_is_validateur_principal($this->session->agent->userole) OR recette_role_is_validateur_adjoint($this->session->agent->userole))
                 {
                     redirect('caisses/'.$this->session->company->ekey. '/gTv/'. $identifiant_gare. '/'. $identifiant_caisse. '/depotsous/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
                 }
@@ -554,7 +589,7 @@
             $identifiant_caisse = $this->input->post('idcaisse');
 
             $gid = $this->input->post('gareconnect');
-            $iduser = $this->input->post('userconnected');
+            $iduser = roleattribut_guard_post_hint($this->company->ekey);
             $sgid = $this->input->post('sousgareconnect');
             $idcmpt = $this->input->post('compconnected');
 
@@ -591,7 +626,7 @@
             $identifiant_caisse = $this->input->post('idcaisse');
 
             $gid = $this->input->post('gareconnect');
-            $iduser = $this->input->post('userconnected');
+            $iduser = roleattribut_guard_post_hint($this->company->ekey);
             $sgid = $this->input->post('sousgareconnect');
             $idcmpt = $this->input->post('compconnected');
             $prouve = array(
@@ -615,7 +650,7 @@
             );
             $versement = $this->m_depot->create($prouveversement);
             
-            if($this->session->agent->userole === '4')
+            if(recette_role_is_validateur_principal($this->session->agent->userole))
             {
                 $updepos = array(
                         'is_validdepo' => 1, 
@@ -629,11 +664,11 @@
 
             }
 
-            if($this->session->agent->userole === '18')
+            if(recette_role_is_validateur_adjoint($this->session->agent->userole))
             {
                 $updepos = array(
                         'is_validdepo' => 1, 
-                        'is_actifdepo' => 1,
+                        'is_actifdepoad' => 1,
                         'opvalidad' => $iduser,
                     );
                 $this->m_depot->update($id, $updepos);

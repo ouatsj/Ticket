@@ -33,6 +33,25 @@
             <?endif;?>
         </p>
     </div>
+    <?php
+    $liste_depenses = !empty($depenses) ? $depenses : array();
+    $nb_depenses = count($liste_depenses);
+    ?>
+    <?php if (!empty($compte_show_rd_pending)): ?>
+    <div class="col-12">
+        <div class="alert alert-info mb-2">
+            Dépenses non arrêtées — <strong>toute la gare</strong>
+            <?php if (!empty($compte_operateur_label)): ?>
+            — chef de guichet <strong><?= htmlspecialchars($compte_operateur_label, ENT_QUOTES, 'UTF-8'); ?></strong>
+            <?php endif; ?>
+            <?php if (!empty($caisse_operateur_roleattribut) || !empty($compte_operateur_roleattribut)): ?>
+            (roleattribut <strong><?= (int) (!empty($caisse_operateur_roleattribut) ? $caisse_operateur_roleattribut : $compte_operateur_roleattribut); ?></strong>)
+            <?php endif; ?>
+            — toutes vos saisies avec compte recettes/dépenses encore ouvert.
+            <strong><?= $nb_depenses; ?></strong> ligne(s) affichée(s).
+        </div>
+    </div>
+    <?php endif; ?>
     
     <div class="form-group text-center">les depenses de la caisse : <? if($sommesdepenses == NULL):?> 0 <? else:?> &nbsp;<?=$sommesdepenses->montant_depens; ?><? endif; ?></div>
 <div class="row">
@@ -53,7 +72,7 @@
 
                 </div>
 
-                <div class="title">Les depenses internes</div>
+                <div class="title">Les depenses internes (<?= $nb_depenses; ?>)</div>
 
             </div>
 
@@ -78,7 +97,10 @@
                         </thead>
 
                         <tbody class="no-border-x">
-                        <? foreach ($depenses as $item): ?>
+                        <?php if (empty($liste_depenses)): ?>
+                            <tr><td colspan="8" class="text-muted text-center">Aucune dépense non arrêtée pour cette caisse.</td></tr>
+                        <?php else: ?>
+                        <? foreach ($liste_depenses as $item): ?>
                             <tr>
                                 <td><span><?= $item->date_depens;?></span></td>
                                 <td><span><?= $item->nom_compagnie;?></span></td>
@@ -225,6 +247,7 @@
                                 </td>
                             </tr>
                             <? endforeach; ?>
+                        <?php endif; ?>
                         </tbody>
 
                     </table>

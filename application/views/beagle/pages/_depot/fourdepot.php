@@ -2,11 +2,15 @@
 
 <div class="row">
     <p class="mt-0 mb-2 ml-4">
-        <a href="<?= site_url("gares/{$this->session->company->ekey}". "/gTv/".
-                    (!empty($caisseident->gexp_caiss) ? $caisseident->gexp_caiss : 0).
-                "/cais/" . $conex->roleattribut.'/'.$bus_stop->idsousgare .'/'. mdate("%d/%m/%Y", now('UTC'))); ?>" class="btn btn-space btn-secondary">
-                <i class="fas fa-arrow-circle-left text-info"></i>&nbsp;RETOUR A LA CAISSE&nbsp;
-        </a>
+        <?php $this->load->view('_partials/btn_retour', array(
+            'fallback' => retour_caisse_url(
+                $this->session->company->ekey,
+                !empty($caisseident->gexp_caiss) ? $caisseident->gexp_caiss : 0,
+                $conex->roleattribut,
+                $bus_stop->idsousgare
+            ),
+            'label' => 'RETOUR A LA CAISSE',
+        )); ?>
         <a href="<?= site_url("caisses/{$this->session->company->ekey}". "/gTv/".
                 (!empty($caisseident->gexp_caiss) ? $caisseident->gexp_caiss : 0). "/".(!empty($caisseident->id_caiss) ? $caisseident->id_caiss : 0).
                 "/depotsous/" . $conex->roleattribut.'/'.$bus_stop->idsousgare.'/'. mdate("%d/%m/%Y", now('UTC'))); ?>" class="btn btn-space btn-secondary">
@@ -179,8 +183,7 @@
                                                         data-dismiss="modal">
                                                     <i class="icon icon-left mdi mdi-undo"></i>&nbsp;ANNULER&nbsp;
                                                 </button>
-                                                <button class="btn btn-success md-trigger" type="submit"
-                                                        data-dismiss="modal">
+                                                <button class="btn btn-success" type="submit">
                                                     <i class="icon icon-left mdi mdi-check-all"></i>&nbsp;OK&nbsp;
                                                 </button>
                                             </div>
@@ -320,8 +323,7 @@
                         data-dismiss="modal">
                     <i class="icon icon-left mdi mdi-undo"></i>&nbsp;ANNULER&nbsp;
                 </button>
-                <button class="btn btn-success md-trigger" type="submit"
-                        data-dismiss="modal">
+                <button class="btn btn-success" type="submit">
                     <i class="icon icon-left mdi mdi-check-all"></i>&nbsp;OK&nbsp;
                 </button>
             </div>

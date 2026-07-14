@@ -1,6 +1,6 @@
 <?php defined('BASEPATH') OR exit('No direct script access allowed');
 
-    class Ligneheure extends CI_Controller
+    class Ligneheure extends MY_Controller
     {
         public $property = array(
             'title' => 'Ligneheure',
@@ -53,7 +53,7 @@
             $u = $this->input->post('compconnected');
             $g = $this->input->post('gareconnect');
             $sg = $this->input->post('sousgareconnect');
-            $iduser = $this->input->post('userconnected');
+            $iduser = roleattribut_guard_post_hint($this->company->ekey);
 
             $lgd = $this->input->post('itineraire');
             $idhr = $this->input->post('heureitine');
@@ -86,7 +86,7 @@
             $u = $this->input->post('compconnected');
             $g = $this->input->post('gareconnect');
             $sg = $this->input->post('sousgareconnect');
-            $iduser = $this->input->post('userconnected');
+            $iduser = roleattribut_guard_post_hint($this->company->ekey);
              $arraylh = array(
                 'ligne_id' => $this->input->post('itineraire'),
                 'heure_identif' => $this->input->post('heureitine'),

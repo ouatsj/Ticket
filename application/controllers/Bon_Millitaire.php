@@ -1,6 +1,6 @@
 <?php defined('BASEPATH') OR exit('No direct script access allowed');
 
-    class Bon_Millitaire extends CI_Controller
+    class Bon_Millitaire extends MY_Controller
     {
         public $property = array(
             'title' => 'BON MILLITAIRE',
@@ -63,8 +63,12 @@
             $this->company = $this->m_entreprises->get_key($ckey);
                 $gid = $this->input->post('gareconnect');
                 $sgid = $this->input->post('sousgareconnect');
+                $iduser = roleattribut_guard_post_hint($this->company->ekey);
+                if ($msg = compte_arret_guard_sale('ticket', $iduser, $gid)) {
+                    compte_arret_redirect_guichet($iduser, $gid, $sgid, $msg);
+                    return;
+                }
                 $idcmpt = $this->input->post('compconnected');
-                $iduser = $this->input->post('userconnected');
                 $usen = substr($this->session->agent->username, 0, 1);
 
                 $today = mdate("%Y-%m-%d", now('UTC'));

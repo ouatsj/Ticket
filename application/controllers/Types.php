@@ -1,6 +1,6 @@
 <?php defined('BASEPATH') OR exit('No direct script access allowed');
 
-    class Types extends CI_Controller
+    class Types extends MY_Controller
     {
         public $property = array(
             'title' => 'Types',

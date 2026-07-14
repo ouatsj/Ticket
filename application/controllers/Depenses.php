@@ -1,6 +1,6 @@
 <?php defined('BASEPATH') OR exit('No direct script access allowed');
     
-    class Depenses extends CI_Controller
+    class Depenses extends MY_Controller
     {
         public $depenses;
         public $company;
@@ -41,7 +41,7 @@
             $f = $this->input->post('datefin');
             $cop = $this->input->post('_compag');
             $gid = $this->input->post('gareconnect');
-            $iduser = $this->input->post('userconnected');
+            $iduser = roleattribut_guard_post_hint($this->company->ekey);
             $sgid = $this->input->post('sousgareconnect');
             $idcmpt = $this->input->post('compconnected');
             $this->property['pagetitle'] .= " LES DEPENSES &nbsp; <strong>{$d} au &nbsp;{$f}</strong>";
@@ -75,7 +75,7 @@
             $cop = $this->input->post('_compag');
 
             $gid = $this->input->post('gareconnect');
-            $iduser = $this->input->post('userconnected');
+            $iduser = roleattribut_guard_post_hint($this->company->ekey);
             $sgid = $this->input->post('sousgareconnect');
             $idcmpt = $this->input->post('compconnected');
             $this->property['pagetitle'] .= " LES DEPENSES &nbsp; <strong>{$d} au &nbsp;{$f}</strong>";
@@ -108,7 +108,7 @@
             $identifiant_gare = $this->input->post('idgarecode');
             $identifiant_caisse = $this->input->post('idcaisse'); 
             $gid = $this->input->post('gareconnect');
-            $iduser = $this->input->post('userconnected');
+            $iduser = roleattribut_guard_post_hint($this->company->ekey);
             $sgid = $this->input->post('sousgareconnect');
             $idcmpt = $this->input->post('compconnected');
 
@@ -263,7 +263,7 @@
                                 $depense = $this->m_depense->create($arraydeps);
                             }
                     }
-                    if($this->session->agent->userole === '4')
+                    if(recette_role_is_validateur_principal($this->session->agent->userole))
                     {
                         $updeps = array(
                             'active_dep' => 1, 
@@ -278,12 +278,12 @@
         
                     }
 
-                    if($this->session->agent->userole === '18')
+                    if(recette_role_is_validateur_adjoint($this->session->agent->userole))
                     {
                         $updeps = array(
                             'active_dep' => 1, 
                             'is_validedep' => 1, 
-                            'is_actifdep' => 1,
+                            'is_actifdepad' => 1,
                             'opevalidad' => $iduser,
                         );
                         $this->m_depense->update($depense, $updeps);
@@ -311,7 +311,7 @@
                 $identifiant_caisse = $this->input->post('idcaisse');   
 
                 $gid = $this->input->post('gareconnect');
-                $iduser = $this->input->post('userconnected');
+                $iduser = roleattribut_guard_post_hint($this->company->ekey);
                 $sgid = $this->input->post('sousgareconnect');
                 $idcmpt = $this->input->post('compconnected');
 
@@ -351,7 +351,7 @@
                 $identifiant_gare = $this->input->post('idgarecode');
                 $identifiant_caisse = $this->input->post('idcaisse');   
                 $gid = $this->input->post('gareconnect');
-                $iduser = $this->input->post('userconnected');
+                $iduser = roleattribut_guard_post_hint($this->company->ekey);
                 $sgid = $this->input->post('sousgareconnect');
                 $idcmpt = $this->input->post('compconnected');
                 if($this->input->post('datereception')!= '')

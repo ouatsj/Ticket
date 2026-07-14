@@ -52,7 +52,7 @@
                 <select class="form-control form-control-sm" name="deptscourlignebg" id="deptscouridlignebg" required>
                     <option value="">Choisissez la ligne</option>
                     <? foreach ($alllignes as $ligneitem): ?>
-                        <option value="<?= $ligneitem->ident_ligne; ?>/<?= $ligneitem->nom_ligne; ?>">
+                        <option value="<?= $ligneitem->ident_ligne; ?>/<?= !empty($ligneitem->code_gadest) ? $ligneitem->code_gadest : $ligneitem->gadest_lg; ?>/<?= $ligneitem->nom_ligne; ?>">
                             <?= $ligneitem->nom_ligne; ?>
                         </option>
                     <? endforeach; ?>
@@ -163,7 +163,7 @@
                 <select class="form-control form-control-sm" name="deptscourlignebgt" id="deptscouridlignebgt" required>
                     <option value="">Choisissez la ligne</option>
                     <? foreach ($alllignes as $ligneitem): ?>
-                        <option value="<?= $ligneitem->ident_ligne; ?>/<?= $ligneitem->nom_ligne; ?>">
+                        <option value="<?= $ligneitem->ident_ligne; ?>/<?= !empty($ligneitem->code_gadest) ? $ligneitem->code_gadest : $ligneitem->gadest_lg; ?>/<?= $ligneitem->nom_ligne; ?>">
                             <?= $ligneitem->nom_ligne; ?>
                         </option>
                     <? endforeach; ?>
@@ -289,7 +289,7 @@
                 <select class="form-control form-control-sm" name="deptscourlignesuivi" id="deptscouridlignesuivi" required>
                     <option value="">Choisissez la ligne</option>
                     <? foreach ($alllignes as $ligneitem): ?>
-                        <option value="<?= $ligneitem->ident_ligne; ?>/<?= $ligneitem->nom_ligne; ?>">
+                        <option value="<?= $ligneitem->ident_ligne; ?>/<?= !empty($ligneitem->code_gadest) ? $ligneitem->code_gadest : $ligneitem->gadest_lg; ?>/<?= $ligneitem->nom_ligne; ?>">
                             <?= $ligneitem->nom_ligne; ?>
                         </option>
                     <? endforeach; ?>
@@ -390,7 +390,7 @@
                 <select class="form-control form-control-sm" name="sdeptscourlignesuivi" id="sdeptscouridlignesuivi" required>
                     <option value="">Choisissez la ligne</option>
                     <? foreach ($alllignes as $ligneitem): ?>
-                        <option value="<?= $ligneitem->ident_ligne; ?>/<?= $ligneitem->nom_ligne; ?>">
+                        <option value="<?= $ligneitem->ident_ligne; ?>/<?= !empty($ligneitem->code_gadest) ? $ligneitem->code_gadest : $ligneitem->gadest_lg; ?>/<?= $ligneitem->nom_ligne; ?>">
                             <?= $ligneitem->nom_ligne; ?>
                         </option>
                     <? endforeach; ?>

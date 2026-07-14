@@ -1,6 +1,6 @@
 <?php defined('BASEPATH') OR exit('No direct script access allowed');
 
-    class Historique_Passagers extends CI_Controller
+    class Historique_Passagers extends MY_Controller
     {
         public $property = array(
             'title' => 'Historiques',
@@ -13,8 +13,10 @@
         public function __construct()
         {
             parent::__construct();
+            $this->load->helper('scripts');
             setlocale(LC_TIME, 'fr_FR', 'fra');
             $this->property['pagetitle'] = utf8_encode(strftime("%d %b %G", now()));
+            $this->property = array_merge($this->property, scripts_bundle_property('historique', null, true));
         }
         
         /**
@@ -25,34 +27,26 @@
         {
             $this->company = $this->m_entreprises->get_key($ckey);
 
-                $bus_stop = $this->m_sousgare->sget($this->company->ekey, $gd, $sg);
-                    $this->property['bus_stop'] = $bus_stop;
+            $bus_stop = $this->m_sousgare->sget($this->company->ekey, $gd, $sg);
+            $this->property['bus_stop'] = $bus_stop;
 
-                $conex = $this->m_compte_user->getusergare($this->company->ekey, $gd, $uid);
+            $conex = $this->_roleattribut_guard_bind($uid, $this->company->ekey, $gd);
+            $this->property['conex'] = $conex;
+            $this->property['compagnies'] = $this->m_compagnies->get();
+            $this->property['pagetitle'] .= "• PASSAGERS<strong>•&nbsp;{$this->company->nom_entreprise}</strong>";
 
-                $this->property['conex'] = $conex;
-                $this->property['compagnies'] = $this->m_compagnies->get();
-                $this->property['pagetitle'] .= "• PASSAGERS<strong>•&nbsp;{$this->company->nom_entreprise}</strong>";
-            if ($this->session->agent->userole === '1' OR $this->session->agent->userole === '2'){
-
-                $this->property['daypassagers'] = $this->m_passager->getdayad($this->company->ekey);
-                $this->property['heuredeparts'] = $this->m_heure->getall();
+            // daypassagers (getdayad/getday) retiré : jamais utilisé dans la vue index,
+            // mais chargeait tous les passagers du jour avec 10+ JOINs.
+            $role = $this->session->agent->userole;
+            if ($role === '1' OR $role === '2') {
                 $this->property['lignes'] = $this->m_lignes->getad($this->company->id_entreprise);
-
+            } else {
+                $this->property['lignes'] = $this->m_lignes->get($this->company->id_entreprise, $gd);
             }
-            else{
+            $this->property['heuredeparts'] = $this->m_heure->get();
+            $this->property['garedeparts'] = $this->m_sousgare->getes($this->company->ekey, $gd, $sg);
 
-
-                $this->property['daypassagers'] = $this->m_passager->getday($this->company->ekey, $gd);
-            } 
-                $this->property['compagnies'] = $this->m_compagnies->get();
-
-                $this->property['garedeparts'] = $this->m_sousgare->getes($this->company->ekey, $gd, $sg);
-
-                $this->property['nom_vendeuses'] = $this->m_compte_user->get_userad($this->company->ekey);
-                $this->property['typesclients'] = $this->m_type_client->get();
-
-                return $this->layout->view('_historique/index', $this->property);
+            return $this->layout->view('_historique/index', $this->property);
         }
         
 
@@ -63,7 +57,7 @@
                     $this->property['bus_stop'] = $bus_stop;
 
                 //$conex = $this->m_compte_user->usget($uid, $gd);
-                $conex = $this->m_compte_user->getusergare($this->company->ekey, $gd, $uid);
+                $conex = $this->_roleattribut_guard_bind($uid, $this->company->ekey, $gd);
                 $this->property['conex'] = $conex;
             $ddbt = $this->input->post('debutdate');
             $dfin = $this->input->post('findate');
@@ -74,7 +68,7 @@
             }
             else{
 
-                $this->property['historiques'] = $this->m_passager->allday($this->company->ekey, $ddbt, $dfin, $gd);
+                $this->property['historiques'] = $this->m_passager->alldayarch($this->company->ekey, $ddbt, $dfin, $gd);
             }
 
                 $this->property['garedeparts'] = $this->m_sousgare->get($this->company->id_entreprise, $gd);
@@ -90,7 +84,7 @@
             $bus_stop = $this->m_sousgare->sget($this->company->ekey, $gd, $sg);
                     $this->property['bus_stop'] = $bus_stop;
 
-                $conex = $this->m_compte_user->getusergare($this->company->ekey, $gd, $uid);
+                $conex = $this->_roleattribut_guard_bind($uid, $this->company->ekey, $gd);
                 $this->property['conex'] = $conex;
             
             if ($this->session->agent->userole === '1' OR $this->session->agent->userole === '2'){
@@ -114,7 +108,7 @@
             $bus_stop = $this->m_sousgare->sget($this->company->ekey, $gd, $sg);
                 $this->property['bus_stop'] = $bus_stop;
 
-                $conex = $this->m_compte_user->getusergare($this->company->ekey, $gd, $uid);
+                $conex = $this->_roleattribut_guard_bind($uid, $this->company->ekey, $gd);
                 $this->property['conex'] = $conex;
 
                 $this->property['allrecu'] = $this->m_passager->grecus($this->company->ekey, $gd);  
@@ -131,7 +125,7 @@
                     $this->property['bus_stop'] = $bus_stop;
 
                 //$conex = $this->m_compte_user->usget($uid, $gd);
-                $conex = $this->m_compte_user->getusergare($this->company->ekey, $gd, $uid);
+                $conex = $this->_roleattribut_guard_bind($uid, $this->company->ekey, $gd);
                 $this->property['conex'] = $conex;
             
 			if ($this->session->agent->userole === '1' OR $this->session->agent->userole === '2'){
@@ -154,7 +148,7 @@
                     $this->property['bus_stop'] = $bus_stop;
 
                 //$conex = $this->m_compte_user->usget($uid, $gd);
-            $conex = $this->m_compte_user->getusergare($this->company->ekey, $gd, $uid);
+            $conex = $this->_roleattribut_guard_bind($uid, $this->company->ekey, $gd);
                 $this->property['conex'] = $conex;
             if ($this->session->agent->userole === '1' OR $this->session->agent->userole === '2'){
 
@@ -179,7 +173,7 @@
                     $this->property['bus_stop'] = $bus_stop;
 
                 //$conex = $this->m_compte_user->usget($uid, $gd);
-            $conex = $this->m_compte_user->getusergare($this->company->ekey, $gd, $uid);
+            $conex = $this->_roleattribut_guard_bind($uid, $this->company->ekey, $gd);
                 $this->property['conex'] = $conex;
             if ($this->session->agent->userole === '1' OR $this->session->agent->userole === '2'){
 
@@ -233,11 +227,12 @@
         //modifier depart
         public function modifdepart($ckey, $cdp, $ct)
         {
+            $this->company = $this->m_entreprises->get_key($ckey);
             $sieges = strpos($this->input->post('siege'), '/');
             $sub_siege = substr($this->input->post('siege'), 0, $sieges);
             $cde_siege = substr($this->input->post('siege'), $sieges + 1, strlen($this->input->post('siege')));
             $g = $this->input->post('stop');
-            $uid = $this->input->post('useridconnected');
+            $uid = $this->_roleattribut_guard_post_id($this->company->ekey, 'stop', 'useridconnected');
             $sg = $this->input->post('sousgd');
              
             $delarray2 = array(
@@ -462,8 +457,8 @@
             $gidc = $this->input->post('gareconnect');
             $sgid = $this->input->post('sousgareconnect');
             $idcmpt = $this->input->post('compconnected');
-            $iduser = $this->input->post('userconnected');
             $this->company = $this->m_entreprises->get_key($ckey);
+            $iduser = $this->_roleattribut_guard_post_id($this->company->ekey);
 
                 
                 $archdepense = $this->db->query("SELECT * FROM depense d
@@ -622,9 +617,9 @@
             $gidc = $this->input->post('gareconnect');
             $sgid = $this->input->post('sousgareconnect');
             $idcmpt = $this->input->post('compconnected');
-            $iduser = $this->input->post('userconnected');
 
             $this->company = $this->m_entreprises->get_key($ckey);
+            $iduser = $this->_roleattribut_guard_post_id($this->company->ekey);
 
                 $archcomptecr = $this->db->query("SELECT * FROM compte_courrier cgc
                     JOIN sousgare sg ON cgc.idsousg = sg.idsousgare
@@ -663,7 +658,7 @@
             
             $bus_stop = $this->m_sousgare->sget($this->company->ekey, $g, $idsg);
                         $this->property['bus_stop'] = $bus_stop;
-                $conex = $this->m_compte_user->getusergare($this->company->ekey, $g, $cpus);
+                $conex = $this->_roleattribut_guard_bind($cpus, $this->company->ekey, $g);
                 $this->property['conex'] = $conex;
             
             $this->passagers = $this->m_passager->get($this->company->ekey, $code_id, $tf, $h);
@@ -679,7 +674,7 @@
             
             $bus_stop = $this->m_sousgare->sget($this->company->ekey, $g, $idsg);
                         $this->property['bus_stop'] = $bus_stop;
-                $conex = $this->m_compte_user->getusergare($this->company->ekey, $g, $cpus);
+                $conex = $this->_roleattribut_guard_bind($cpus, $this->company->ekey, $g);
                 $this->property['conex'] = $conex;
                 if ($this->session->agent->userole === '1' OR $this->session->agent->userole === '2'){
 
@@ -701,7 +696,7 @@
             
             $bus_stop = $this->m_sousgare->sget($this->company->ekey, $g, $idsg);
                         $this->property['bus_stop'] = $bus_stop;
-                $conex = $this->m_compte_user->getusergare($this->company->ekey, $g, $cpus);
+                $conex = $this->_roleattribut_guard_bind($cpus, $this->company->ekey, $g);
                 $this->property['conex'] = $conex;
                 if ($this->session->agent->userole === '1' OR $this->session->agent->userole === '2'){
 
@@ -721,7 +716,7 @@
 
             $bus_stop = $this->m_sousgare->sget($this->company->ekey, $g, $idsg);
                         $this->property['bus_stop'] = $bus_stop;
-                $conex = $this->m_compte_user->getusergare($this->company->ekey, $g, $cpus);
+                $conex = $this->_roleattribut_guard_bind($cpus, $this->company->ekey, $g);
                 $this->property['conex'] = $conex;
             $this->passagers = $this->m_passager->get($this->company->ekey, $code_id, $tf, $h);
             $this->property['item'] = $this->passagers;
@@ -738,7 +733,7 @@
 
             $bus_stop = $this->m_sousgare->sget($this->company->ekey, $g, $idsg);
                         $this->property['bus_stop'] = $bus_stop;
-                $conex = $this->m_compte_user->getusergare($this->company->ekey, $g, $cpus);
+                $conex = $this->_roleattribut_guard_bind($cpus, $this->company->ekey, $g);
                 $this->property['conex'] = $conex;
             $this->passagers = $this->m_passager->get($this->company->ekey, $code_id, $tf, $h);
             $this->property['item'] = $this->passagers;
@@ -760,7 +755,7 @@
 
             $bus_stop = $this->m_sousgare->sget($this->company->ekey, $g, $idsg);
                         $this->property['bus_stop'] = $bus_stop;
-                $conex = $this->m_compte_user->getusergare($this->company->ekey, $g, $cpus);
+                $conex = $this->_roleattribut_guard_bind($cpus, $this->company->ekey, $g);
                 $this->property['conex'] = $conex;
             $this->passagers = $this->m_passager->get($this->company->ekey, $code_id, $tf, $h);
             $this->property['item'] = $this->passagers;
@@ -782,7 +777,7 @@
             $this->company = $this->m_entreprises->get_key($ckey);
             $bus_stop = $this->m_sousgare->sget($this->company->ekey, $g, $idsg);
                         $this->property['bus_stop'] = $bus_stop;
-                $conex = $this->m_compte_user->getusergare($this->company->ekey, $g, $cpus);
+                $conex = $this->_roleattribut_guard_bind($cpus, $this->company->ekey, $g);
                 $this->property['conex'] = $conex;
             $this->passagers = $this->m_passager->get($this->company->ekey, $code_id, $tf, $h);
             $this->property['item'] = $this->passagers;
@@ -795,7 +790,7 @@
             $this->company = $this->m_entreprises->get_key($ckey);
             $bus_stop = $this->m_sousgare->sget($this->company->ekey, $g, $idsg);
                         $this->property['bus_stop'] = $bus_stop;
-                $conex = $this->m_compte_user->getusergare($this->company->ekey, $g, $cpus);
+                $conex = $this->_roleattribut_guard_bind($cpus, $this->company->ekey, $g);
                 $this->property['conex'] = $conex;
             $this->passagers = $this->m_passager->get($this->company->ekey, $code_id, $tf, $h);
             $this->property['item'] = $this->passagers;
@@ -812,7 +807,7 @@
             $this->company = $this->m_entreprises->get_key($ckey);
             $bus_stop = $this->m_sousgare->sget($this->company->ekey, $g, $idsg);
                         $this->property['bus_stop'] = $bus_stop;
-                $conex = $this->m_compte_user->getusergare($this->company->ekey, $g, $cpus);
+                $conex = $this->_roleattribut_guard_bind($cpus, $this->company->ekey, $g);
                 $this->property['conex'] = $conex;
             $this->passagers = $this->m_passager->get($this->company->ekey, $code_id, $tf, $h);
             $this->property['item'] = $this->passagers;
@@ -831,7 +826,7 @@
             $this->company = $this->m_entreprises->get_key($ckey);
             $bus_stop = $this->m_sousgare->sget($this->company->ekey, $g, $idsg);
                         $this->property['bus_stop'] = $bus_stop;
-                $conex = $this->m_compte_user->getusergare($this->company->ekey, $g, $cpus);
+                $conex = $this->_roleattribut_guard_bind($cpus, $this->company->ekey, $g);
                 $this->property['conex'] = $conex;
             $this->passagers = $this->m_passager->get($this->company->ekey, $code_id, $tf, $h);
             $this->property['item'] = $this->passagers;
@@ -852,7 +847,7 @@
             $this->company = $this->m_entreprises->get_key($ckey);
             $bus_stop = $this->m_sousgare->sget($this->company->ekey, $g, $idsg);
                         $this->property['bus_stop'] = $bus_stop;
-                $conex = $this->m_compte_user->getusergare($this->company->ekey, $g, $cpus);
+                $conex = $this->_roleattribut_guard_bind($cpus, $this->company->ekey, $g);
                 $this->property['conex'] = $conex;
             $this->passagers = $this->m_passager->get($this->company->ekey, $code_id, $tf, $h);
             $this->property['item'] = $this->passagers;
@@ -869,7 +864,7 @@
             $this->company = $this->m_entreprises->get_key($ckey);
             $bus_stop = $this->m_sousgare->sget($this->company->ekey, $g, $idsg);
                         $this->property['bus_stop'] = $bus_stop;
-                $conex = $this->m_compte_user->getusergare($this->company->ekey, $g, $cpus);
+                $conex = $this->_roleattribut_guard_bind($cpus, $this->company->ekey, $g);
                 $this->property['conex'] = $conex;
             $this->passagers = $this->m_passager->get($this->company->ekey, $code_id, $tf, $h);
             $this->property['item'] = $this->passagers;
@@ -886,7 +881,7 @@
 
                 $bus_stop = $this->m_sousgare->sget($this->company->ekey, $g, $idsg);
                         $this->property['bus_stop'] = $bus_stop;
-                $conex = $this->m_compte_user->getusergare($this->company->ekey, $g, $cpus);
+                $conex = $this->_roleattribut_guard_bind($cpus, $this->company->ekey, $g);
                 $this->property['conex'] = $conex;
                 $this->passagers = $this->m_passager->get($this->company->ekey, $code_id, $tf, $h);
                 $this->property['item'] = $this->passagers;$this->nonpassagers = $this->m_non_passager->getad($this->company->ekey, $cdnp);
@@ -905,7 +900,7 @@
 
                 $bus_stop = $this->m_sousgare->sget($this->company->ekey, $g, $idsg);
                         $this->property['bus_stop'] = $bus_stop;
-                $conex = $this->m_compte_user->getusergare($this->company->ekey, $g, $cpus);
+                $conex = $this->_roleattribut_guard_bind($cpus, $this->company->ekey, $g);
                 $this->property['conex'] = $conex;
                 $this->passagers = $this->m_passager->get($this->company->ekey, $code_id, $tf, $h);
                 $this->property['item'] = $this->passagers;$this->nonpassagers = $this->m_non_passager->getad($this->company->ekey, $cdnp);
@@ -931,7 +926,7 @@
 
                 $bus_stop = $this->m_sousgare->sget($this->company->ekey, $g, $idsg);
                         $this->property['bus_stop'] = $bus_stop;
-                $conex = $this->m_compte_user->getusergare($this->company->ekey, $g, $cpus);
+                $conex = $this->_roleattribut_guard_bind($cpus, $this->company->ekey, $g);
                 $this->property['conex'] = $conex;
                 $this->passagers = $this->m_passager->get($this->company->ekey, $code_id, $tf, $h);
                 $this->property['item'] = $this->passagers;$this->nonpassagers = $this->m_non_passager->getad($this->company->ekey, $cdnp);
@@ -961,7 +956,7 @@
             $this->company = $this->m_entreprises->get_key($ckey);
             $bus_stop = $this->m_sousgare->sget($this->company->ekey, $g, $idsg);
                         $this->property['bus_stop'] = $bus_stop;
-                $conex = $this->m_compte_user->getusergare($this->company->ekey, $g, $cpus);
+                $conex = $this->_roleattribut_guard_bind($cpus, $this->company->ekey, $g);
                 $this->property['conex'] = $conex;
                 $this->passagers = $this->m_passager->get($this->company->ekey, $code_id, $tf, $h);
                 $this->property['item'] = $this->passagers;$this->nonpassagers = $this->m_non_passager->getad($this->company->ekey, $cdnp);
@@ -980,7 +975,7 @@
             $this->company = $this->m_entreprises->get_key($ckey);
             $bus_stop = $this->m_sousgare->sget($this->company->ekey, $g, $idsg);
                         $this->property['bus_stop'] = $bus_stop;
-                $conex = $this->m_compte_user->getusergare($this->company->ekey, $g, $cpus);
+                $conex = $this->_roleattribut_guard_bind($cpus, $this->company->ekey, $g);
                 $this->property['conex'] = $conex;
                 $this->passagers = $this->m_passager->get($this->company->ekey, $code_id, $tf, $h);
                 $this->property['item'] = $this->passagers;
@@ -1006,7 +1001,7 @@
             $this->company = $this->m_entreprises->get_key($ckey);
             $bus_stop = $this->m_sousgare->sget($this->company->ekey, $g, $idsg);
                         $this->property['bus_stop'] = $bus_stop;
-                $conex = $this->m_compte_user->getusergare($this->company->ekey, $g, $cpus);
+                $conex = $this->_roleattribut_guard_bind($cpus, $this->company->ekey, $g);
                 $this->property['conex'] = $conex;
                 $this->passagers = $this->m_passager->get($this->company->ekey, $code_id, $tf, $h);
                 $this->property['item'] = $this->passagers;$this->nonpassagers = $this->m_non_passager->getad($this->company->ekey, $cdnp);
@@ -1036,7 +1031,7 @@
 
             $bus_stop = $this->m_sousgare->sget($this->company->ekey, $g, $idsg);
                         $this->property['bus_stop'] = $bus_stop;
-                $conex = $this->m_compte_user->getusergare($this->company->ekey, $g, $cpus);
+                $conex = $this->_roleattribut_guard_bind($cpus, $this->company->ekey, $g);
                 $this->property['conex'] = $conex;
             if ($this->session->agent->userole === '1' OR $this->session->agent->userole === '2'){
 
@@ -1059,7 +1054,7 @@
 
             $bus_stop = $this->m_sousgare->sget($this->company->ekey, $g, $idsg);
                         $this->property['bus_stop'] = $bus_stop;
-                $conex = $this->m_compte_user->getusergare($this->company->ekey, $g, $cpus);
+                $conex = $this->_roleattribut_guard_bind($cpus, $this->company->ekey, $g);
                 $this->property['conex'] = $conex;
             if ($this->session->agent->userole === '1' OR $this->session->agent->userole === '2'){
                     $this->passagers = $this->m_passager->passereportad($this->company->ekey, $codrep, $tf, $code_id, $h);
@@ -1086,7 +1081,7 @@
 
             $bus_stop = $this->m_sousgare->sget($this->company->ekey, $g, $idsg);
                         $this->property['bus_stop'] = $bus_stop;
-                $conex = $this->m_compte_user->getusergare($this->company->ekey, $g, $cpus);
+                $conex = $this->_roleattribut_guard_bind($cpus, $this->company->ekey, $g);
                 $this->property['conex'] = $conex;
             if ($this->session->agent->userole === '1' OR $this->session->agent->userole === '2'){
                     $this->passagers = $this->m_passager->passereportad($this->company->ekey, $codrep, $tf, $code_id, $h);
@@ -1108,7 +1103,7 @@
 
             $bus_stop = $this->m_sousgare->sget($this->company->ekey, $g, $idsg);
                         $this->property['bus_stop'] = $bus_stop;
-                $conex = $this->m_compte_user->getusergare($this->company->ekey, $g, $cpus);
+                $conex = $this->_roleattribut_guard_bind($cpus, $this->company->ekey, $g);
                 $this->property['conex'] = $conex;
             if ($this->session->agent->userole === '1' OR $this->session->agent->userole === '2'){
                     $this->passagers = $this->m_passager->passereportad($this->company->ekey, $codrep, $tf, $code_id, $h);
@@ -1129,7 +1124,7 @@
 
             $bus_stop = $this->m_sousgare->sget($this->company->ekey, $g, $idsg);
                         $this->property['bus_stop'] = $bus_stop;
-                $conex = $this->m_compte_user->getusergare($this->company->ekey, $g, $cpus);
+                $conex = $this->_roleattribut_guard_bind($cpus, $this->company->ekey, $g);
                 $this->property['conex'] = $conex;
             if ($this->session->agent->userole === '1' OR $this->session->agent->userole === '2'){
                 $this->passagers = $this->m_passager->passereportad($this->company->ekey, $codrep, $tf, $code_id, $h);
@@ -1156,7 +1151,7 @@
 
             $bus_stop = $this->m_sousgare->sget($this->company->ekey, $g, $idsg);
                         $this->property['bus_stop'] = $bus_stop;
-                $conex = $this->m_compte_user->getusergare($this->company->ekey, $g, $cpus);
+                $conex = $this->_roleattribut_guard_bind($cpus, $this->company->ekey, $g);
                 $this->property['conex'] = $conex;
             if ($this->session->agent->userole === '1' OR $this->session->agent->userole === '2'){
                 $this->passagers = $this->m_passager->passereportad($this->company->ekey, $codrep, $tf, $code_id, $h);
@@ -1185,7 +1180,7 @@
             
             $bus_stop = $this->m_sousgare->sget($this->company->ekey, $g, $idsg);
                         $this->property['bus_stop'] = $bus_stop;
-                $conex = $this->m_compte_user->getusergare($this->company->ekey, $g, $cpus);
+                $conex = $this->_roleattribut_guard_bind($cpus, $this->company->ekey, $g);
                 $this->property['conex'] = $conex;
             if ($this->session->agent->userole === '1' OR $this->session->agent->userole === '2'){
                                
@@ -1207,7 +1202,7 @@
             $this->company = $this->m_entreprises->get_key($ckey);
             $bus_stop = $this->m_sousgare->sget($this->company->ekey, $g, $idsg);
                         $this->property['bus_stop'] = $bus_stop;
-                $conex = $this->m_compte_user->getusergare($this->company->ekey, $g, $cpus);
+                $conex = $this->_roleattribut_guard_bind($cpus, $this->company->ekey, $g);
                 $this->property['conex'] = $conex;
             if ($this->session->agent->userole === '1' OR $this->session->agent->userole === '2'){
                                
@@ -1228,7 +1223,7 @@
             $this->company = $this->m_entreprises->get_key($ckey);
             $bus_stop = $this->m_sousgare->sget($this->company->ekey, $g, $idsg);
                         $this->property['bus_stop'] = $bus_stop;
-                $conex = $this->m_compte_user->getusergare($this->company->ekey, $g, $cpus);
+                $conex = $this->_roleattribut_guard_bind($cpus, $this->company->ekey, $g);
                 $this->property['conex'] = $conex;
             
             if ($this->session->agent->userole === '1' OR $this->session->agent->userole === '2'){
@@ -1256,7 +1251,7 @@
             $this->company = $this->m_entreprises->get_key($ckey);
             $bus_stop = $this->m_sousgare->sget($this->company->ekey, $g, $idsg);
                         $this->property['bus_stop'] = $bus_stop;
-                $conex = $this->m_compte_user->getusergare($this->company->ekey, $g, $cpus);
+                $conex = $this->_roleattribut_guard_bind($cpus, $this->company->ekey, $g);
                 $this->property['conex'] = $conex;
             if ($this->session->agent->userole === '1' OR $this->session->agent->userole === '2'){
                               
@@ -1285,7 +1280,7 @@
 
             $bus_stop = $this->m_sousgare->sget($this->company->ekey, $g, $idsg);
                         $this->property['bus_stop'] = $bus_stop;
-                $conex = $this->m_compte_user->getusergare($this->company->ekey, $g, $cpus);
+                $conex = $this->_roleattribut_guard_bind($cpus, $this->company->ekey, $g);
                 $this->property['conex'] = $conex;
             
             if ($this->session->agent->userole === '1' OR $this->session->agent->userole === '2'){
@@ -1310,7 +1305,7 @@
 
             $bus_stop = $this->m_sousgare->sget($this->company->ekey, $g, $idsg);
                         $this->property['bus_stop'] = $bus_stop;
-                $conex = $this->m_compte_user->getusergare($this->company->ekey, $g, $cpus);
+                $conex = $this->_roleattribut_guard_bind($cpus, $this->company->ekey, $g);
                 $this->property['conex'] = $conex;
             
             if ($this->session->agent->userole === '1' OR $this->session->agent->userole === '2'){
@@ -1334,7 +1329,7 @@
             $this->company = $this->m_entreprises->get_key($ckey);
             $bus_stop = $this->m_sousgare->sget($this->company->ekey, $g, $idsg);
                         $this->property['bus_stop'] = $bus_stop;
-                $conex = $this->m_compte_user->getusergare($this->company->ekey, $g, $cpus);
+                $conex = $this->_roleattribut_guard_bind($cpus, $this->company->ekey, $g);
                 $this->property['conex'] = $conex;
                 $this->passagers = $this->m_passager->reductad($this->company->ekey, $code_id, $h, $hrs);
                 $this->property['item'] = $this->passagers;
@@ -1353,7 +1348,7 @@
             $this->company = $this->m_entreprises->get_key($ckey);
             $bus_stop = $this->m_sousgare->sget($this->company->ekey, $g, $idsg);
                         $this->property['bus_stop'] = $bus_stop;
-                $conex = $this->m_compte_user->getusergare($this->company->ekey, $g, $cpus);
+                $conex = $this->_roleattribut_guard_bind($cpus, $this->company->ekey, $g);
                 $this->property['conex'] = $conex;
                 $this->passagers = $this->m_passager->reductad($this->company->ekey, $code_id, $h, $hrs);
                 $this->property['item'] = $this->passagers;
@@ -1374,7 +1369,7 @@
 
             $bus_stop = $this->m_sousgare->sget($this->company->ekey, $g, $idsg);
                         $this->property['bus_stop'] = $bus_stop;
-                $conex = $this->m_compte_user->getusergare($this->company->ekey, $g, $cpus);
+                $conex = $this->_roleattribut_guard_bind($cpus, $this->company->ekey, $g);
                 $this->property['conex'] = $conex;
             
             if ($this->session->agent->userole === '1' OR $this->session->agent->userole === '2'){
@@ -1403,7 +1398,7 @@
 
             $bus_stop = $this->m_sousgare->sget($this->company->ekey, $g, $idsg);
                         $this->property['bus_stop'] = $bus_stop;
-                $conex = $this->m_compte_user->getusergare($this->company->ekey, $g, $cpus);
+                $conex = $this->_roleattribut_guard_bind($cpus, $this->company->ekey, $g);
                 $this->property['conex'] = $conex;
             
             if ($this->session->agent->userole === '1' OR $this->session->agent->userole === '2'){
@@ -1436,7 +1431,7 @@
 
             $bus_stop = $this->m_sousgare->sget($this->company->ekey, $g, $idsg);
                         $this->property['bus_stop'] = $bus_stop;
-                $conex = $this->m_compte_user->getusergare($this->company->ekey, $g, $cpus);
+                $conex = $this->_roleattribut_guard_bind($cpus, $this->company->ekey, $g);
                 $this->property['conex'] = $conex;
             
             if ($this->session->agent->userole === '1' OR $this->session->agent->userole === '2'){
@@ -1465,7 +1460,7 @@
 
             $bus_stop = $this->m_sousgare->sget($this->company->ekey, $g, $idsg);
                         $this->property['bus_stop'] = $bus_stop;
-                $conex = $this->m_compte_user->getusergare($this->company->ekey, $g, $cpus);
+                $conex = $this->_roleattribut_guard_bind($cpus, $this->company->ekey, $g);
                 $this->property['conex'] = $conex;
             
             if ($this->session->agent->userole === '1' OR $this->session->agent->userole === '2'){
@@ -1497,7 +1492,7 @@
             $this->company = $this->m_entreprises->get_key($ckey);
             $bus_stop = $this->m_sousgare->sget($this->company->ekey, $g, $idsg);
                         $this->property['bus_stop'] = $bus_stop;
-                $conex = $this->m_compte_user->getusergare($this->company->ekey, $g, $cpus);
+                $conex = $this->_roleattribut_guard_bind($cpus, $this->company->ekey, $g);
                 $this->property['conex'] = $conex;
                 $this->passagers = $this->m_passager->reductad($this->company->ekey, $code_id, $h, $hrs);
                 $this->property['item'] = $this->passagers;
@@ -1520,7 +1515,7 @@
             $this->company = $this->m_entreprises->get_key($ckey);
             $bus_stop = $this->m_sousgare->sget($this->company->ekey, $g, $idsg);
                         $this->property['bus_stop'] = $bus_stop;
-                $conex = $this->m_compte_user->getusergare($this->company->ekey, $g, $cpus);
+                $conex = $this->_roleattribut_guard_bind($cpus, $this->company->ekey, $g);
                 $this->property['conex'] = $conex;
                 $this->passagers = $this->m_passager->reductad($this->company->ekey, $code_id, $h, $hrs);
                 $this->property['item'] = $this->passagers;
@@ -1549,7 +1544,7 @@
             $this->company = $this->m_entreprises->get_key($ckey);
             $bus_stop = $this->m_sousgare->sget($this->company->ekey, $g, $idsg);
                         $this->property['bus_stop'] = $bus_stop;
-                $conex = $this->m_compte_user->getusergare($this->company->ekey, $g, $cpus);
+                $conex = $this->_roleattribut_guard_bind($cpus, $this->company->ekey, $g);
                 $this->property['conex'] = $conex;
                 $this->passagers = $this->m_passager->reductad($this->company->ekey, $code_id, $h, $hrs);
                 $this->property['item'] = $this->passagers;
@@ -1572,7 +1567,7 @@
             $this->company = $this->m_entreprises->get_key($ckey);
             $bus_stop = $this->m_sousgare->sget($this->company->ekey, $g, $idsg);
                         $this->property['bus_stop'] = $bus_stop;
-                $conex = $this->m_compte_user->getusergare($this->company->ekey, $g, $cpus);
+                $conex = $this->_roleattribut_guard_bind($cpus, $this->company->ekey, $g);
                 $this->property['conex'] = $conex;
                 $this->passagers = $this->m_passager->reductad($this->company->ekey, $code_id, $h, $hrs);
                 $this->property['item'] = $this->passagers;
@@ -1601,7 +1596,7 @@
             $this->company = $this->m_entreprises->get_key($ckey);
             $bus_stop = $this->m_sousgare->sget($this->company->ekey, $g, $idsg);
                         $this->property['bus_stop'] = $bus_stop;
-                $conex = $this->m_compte_user->getusergare($this->company->ekey, $g, $cpus);
+                $conex = $this->_roleattribut_guard_bind($cpus, $this->company->ekey, $g);
                 $this->property['conex'] = $conex;
             $this->passagers = $this->m_passager->get($this->company->ekey, $code_id, $tf, $h);
             $this->property['item'] = $this->passagers;
@@ -1614,7 +1609,7 @@
             $this->company = $this->m_entreprises->get_key($ckey);
             $bus_stop = $this->m_sousgare->sget($this->company->ekey, $g, $idsg);
                         $this->property['bus_stop'] = $bus_stop;
-                $conex = $this->m_compte_user->getusergare($this->company->ekey, $g, $cpus);
+                $conex = $this->_roleattribut_guard_bind($cpus, $this->company->ekey, $g);
                 $this->property['conex'] = $conex;
             $this->passagers = $this->m_passager->get($this->company->ekey, $code_id, $tf, $h);
             $this->property['item'] = $this->passagers;
@@ -1626,7 +1621,7 @@
             $this->company = $this->m_entreprises->get_key($ckey);
             $bus_stop = $this->m_sousgare->sget($this->company->ekey, $g, $idsg);
                         $this->property['bus_stop'] = $bus_stop;
-                $conex = $this->m_compte_user->getusergare($this->company->ekey, $g, $cpus);
+                $conex = $this->_roleattribut_guard_bind($cpus, $this->company->ekey, $g);
                 $this->property['conex'] = $conex;
             $this->passagers = $this->m_passager->get($this->company->ekey, $code_id, $tf, $h);
             $this->property['item'] = $this->passagers;
@@ -1644,7 +1639,7 @@
             
             $bus_stop = $this->m_sousgare->sget($this->company->ekey, $g, $idsg);
                         $this->property['bus_stop'] = $bus_stop;
-                $conex = $this->m_compte_user->getusergare($this->company->ekey, $g, $cpus);
+                $conex = $this->_roleattribut_guard_bind($cpus, $this->company->ekey, $g);
                 $this->property['conex'] = $conex;
             
             $this->recus = $this->m_passager->grecu($this->company->ekey, $codetp);
@@ -1660,7 +1655,7 @@
             
             $bus_stop = $this->m_sousgare->sget($this->company->ekey, $g, $idsg);
                         $this->property['bus_stop'] = $bus_stop;
-                $conex = $this->m_compte_user->getusergare($this->company->ekey, $g, $cpus);
+                $conex = $this->_roleattribut_guard_bind($cpus, $this->company->ekey, $g);
                 $this->property['conex'] = $conex;
             
             $this->recus = $this->m_passager->getrecu($this->company->ekey, $codetp);
@@ -1679,7 +1674,7 @@
                 $this->property['ncomp'] = $ncomp;
                 $bus_stop = $this->m_sousgare->sget($this->company->ekey, $g, $idsg);
                 $this->property['bus_stop'] = $bus_stop;
-                $conex = $this->m_compte_user->getusergare($this->company->ekey, $g, $cpus);
+                $conex = $this->_roleattribut_guard_bind($cpus, $this->company->ekey, $g);
                 $this->property['conex'] = $conex;
 
                 $this->property['reponsealler'] = $this->m_passager->rapportaller($this->company->ekey, $idconnex, $comp, $g);
@@ -1700,7 +1695,7 @@
                 $this->property['ncomp'] = $ncomp;
                 $bus_stop = $this->m_sousgare->sget($this->company->ekey, $g, $idsg);
                 $this->property['bus_stop'] = $bus_stop;
-                $conex = $this->m_compte_user->getusergare($this->company->ekey, $g, $cpus);
+                $conex = $this->_roleattribut_guard_bind($cpus, $this->company->ekey, $g);
                 $this->property['conex'] = $conex;
 
                 $this->property['reponsealler'] = $this->m_passager->rapportaller($this->company->ekey, $idconnex, $comp, $g);
@@ -1722,7 +1717,7 @@
                 $this->property['ncomp'] = $ncomp;
                 $bus_stop = $this->m_sousgare->sget($this->company->ekey, $g, $idsg);
                 $this->property['bus_stop'] = $bus_stop;
-                $conex = $this->m_compte_user->getusergare($this->company->ekey, $g, $cpus);
+                $conex = $this->_roleattribut_guard_bind($cpus, $this->company->ekey, $g);
                 $this->property['conex'] = $conex;
 
                 $this->property['reponsealler'] = $this->m_passager->rapportaller($this->company->ekey, $idconnex, $comp, $g);
@@ -1742,7 +1737,7 @@
                 $this->property['ncomp'] = $ncomp;
                 $bus_stop = $this->m_sousgare->sget($this->company->ekey, $g, $idsg);
                 $this->property['bus_stop'] = $bus_stop;
-                $conex = $this->m_compte_user->getusergare($this->company->ekey, $g, $cpus);
+                $conex = $this->_roleattribut_guard_bind($cpus, $this->company->ekey, $g);
                 $this->property['conex'] = $conex;
 
                 
@@ -1760,7 +1755,7 @@
                 $this->property['ncomp'] = $ncomp;
                 $bus_stop = $this->m_sousgare->sget($this->company->ekey, $g, $idsg);
                 $this->property['bus_stop'] = $bus_stop;
-                $conex = $this->m_compte_user->getusergare($this->company->ekey, $g, $cpus);
+                $conex = $this->_roleattribut_guard_bind($cpus, $this->company->ekey, $g);
                 $this->property['conex'] = $conex;
 
                 
@@ -1774,7 +1769,7 @@
             $this->company = $this->m_entreprises->get_key($ckey);
             $bus_stop = $this->m_sousgare->sget($this->company->ekey, $g, $idsg);
                         $this->property['bus_stop'] = $bus_stop;
-                $conex = $this->m_compte_user->getusergare($this->company->ekey, $g, $cpus);
+                $conex = $this->_roleattribut_guard_bind($cpus, $this->company->ekey, $g);
                 $this->property['conex'] = $conex;
             $this->bagages = $this->m_bagage->getesc($this->company->ekey, $g, $bg_id, $cdbg_id, $lgbg_id);
             $this->property['itembag'] = $this->bagages;
@@ -1787,7 +1782,7 @@
             $this->company = $this->m_entreprises->get_key($ckey);
             $bus_stop = $this->m_sousgare->sget($this->company->ekey, $g, $idsg);
                         $this->property['bus_stop'] = $bus_stop;
-                $conex = $this->m_compte_user->getusergare($this->company->ekey, $g, $cpus);
+                $conex = $this->_roleattribut_guard_bind($cpus, $this->company->ekey, $g);
                 $this->property['conex'] = $conex;
             $this->bagages = $this->m_bagage->getnones($this->company->ekey, $g, $bg_id, $cdbg_id, $lgbg_id);
             $this->property['itembag'] = $this->bagages;
@@ -1800,7 +1795,7 @@
             $this->company = $this->m_entreprises->get_key($ckey);
             $bus_stop = $this->m_sousgare->sget($this->company->ekey, $g, $idsg);
                         $this->property['bus_stop'] = $bus_stop;
-                $conex = $this->m_compte_user->getusergare($this->company->ekey, $g, $cpus);
+                $conex = $this->_roleattribut_guard_bind($cpus, $this->company->ekey, $g);
                 $this->property['conex'] = $conex;
             $this->bagages = $this->m_bagage->getsuivi($this->company->ekey, $g, $bg_id);
             $this->property['itembags'] = $this->bagages;
@@ -1813,7 +1808,7 @@
             $this->company = $this->m_entreprises->get_key($ckey);
             $bus_stop = $this->m_sousgare->sget($this->company->ekey, $g, $idsg);
                         $this->property['bus_stop'] = $bus_stop;
-                $conex = $this->m_compte_user->getusergare($this->company->ekey, $g, $cpus);
+                $conex = $this->_roleattribut_guard_bind($cpus, $this->company->ekey, $g);
                 $this->property['conex'] = $conex;
             $this->bagages = $this->m_bagage->getsuivi($this->company->ekey, $g, $bg_id);
             $this->property['itembags'] = $this->bagages;
@@ -1829,7 +1824,7 @@
             $this->company = $this->m_entreprises->get_key($ckey);
             $bus_stop = $this->m_sousgare->sget($this->company->ekey, $g, $idsg);
                         $this->property['bus_stop'] = $bus_stop;
-                $conex = $this->m_compte_user->getusergare($this->company->ekey, $g, $cpus);
+                $conex = $this->_roleattribut_guard_bind($cpus, $this->company->ekey, $g);
                 $this->property['conex'] = $conex;
             $this->bagages = $this->m_bagage->getsuivi($this->company->ekey, $g, $bg_id);
             $this->property['itembags'] = $this->bagages;
@@ -1848,7 +1843,7 @@
             $this->company = $this->m_entreprises->get_key($ckey);
             $bus_stop = $this->m_sousgare->sget($this->company->ekey, $g, $idsg);
                         $this->property['bus_stop'] = $bus_stop;
-                $conex = $this->m_compte_user->getusergare($this->company->ekey, $g, $cpus);
+                $conex = $this->_roleattribut_guard_bind($cpus, $this->company->ekey, $g);
                 $this->property['conex'] = $conex;
             $this->bagages = $this->m_bagage->getsuivi($this->company->ekey, $g, $bg_id);
             $this->property['itembags'] = $this->bagages;
@@ -1871,7 +1866,7 @@
             $this->company = $this->m_entreprises->get_key($ckey);
             $bus_stop = $this->m_sousgare->sget($this->company->ekey, $g, $idsg);
                         $this->property['bus_stop'] = $bus_stop;
-                $conex = $this->m_compte_user->getusergare($this->company->ekey, $g, $cpus);
+                $conex = $this->_roleattribut_guard_bind($cpus, $this->company->ekey, $g);
                 $this->property['conex'] = $conex;
             $this->bagages = $this->m_bagage->getsuivi($this->company->ekey, $g, $bg_id);
             $this->property['itembags'] = $this->bagages;
@@ -1884,7 +1879,7 @@
             $this->company = $this->m_entreprises->get_key($ckey);
             $bus_stop = $this->m_sousgare->sget($this->company->ekey, $g, $idsg);
                         $this->property['bus_stop'] = $bus_stop;
-                $conex = $this->m_compte_user->getusergare($this->company->ekey, $g, $cpus);
+                $conex = $this->_roleattribut_guard_bind($cpus, $this->company->ekey, $g);
                 $this->property['conex'] = $conex;
             $this->bagages = $this->m_bagage->getnones($this->company->ekey, $g, $bg_id, $cdbg_id, $lgbg_id);
             $this->property['itembag'] = $this->bagages;
@@ -1898,7 +1893,7 @@
             $this->company = $this->m_entreprises->get_key($ckey);
             $bus_stop = $this->m_sousgare->sget($this->company->ekey, $g, $idsg);
                         $this->property['bus_stop'] = $bus_stop;
-                $conex = $this->m_compte_user->getusergare($this->company->ekey, $g, $cpus);
+                $conex = $this->_roleattribut_guard_bind($cpus, $this->company->ekey, $g);
                 $this->property['conex'] = $conex;
             $this->bagages = $this->m_bagage->getesc($this->company->ekey, $g, $bg_id, $cdbg_id, $lgbg_id);
             $this->property['itembag'] = $this->bagages;
@@ -1911,7 +1906,7 @@
             $this->company = $this->m_entreprises->get_key($ckey);
             $bus_stop = $this->m_sousgare->sget($this->company->ekey, $g, $idsg);
                         $this->property['bus_stop'] = $bus_stop;
-                $conex = $this->m_compte_user->getusergare($this->company->ekey, $g, $cpus);
+                $conex = $this->_roleattribut_guard_bind($cpus, $this->company->ekey, $g);
                 $this->property['conex'] = $conex;
             $this->bagages = $this->m_bagage->getsuivi($this->company->ekey, $g, $bg_id);
             $this->property['itembags'] = $this->bagages;
@@ -1927,7 +1922,7 @@
             $this->company = $this->m_entreprises->get_key($ckey);
             $bus_stop = $this->m_sousgare->sget($this->company->ekey, $g, $idsg);
                         $this->property['bus_stop'] = $bus_stop;
-                $conex = $this->m_compte_user->getusergare($this->company->ekey, $g, $cpus);
+                $conex = $this->_roleattribut_guard_bind($cpus, $this->company->ekey, $g);
                 $this->property['conex'] = $conex;
             $this->bagages = $this->m_bagage->getsuivi($this->company->ekey, $g, $bg_id);
             $this->property['itembags'] = $this->bagages;
@@ -1945,7 +1940,7 @@
             $this->company = $this->m_entreprises->get_key($ckey);
             $bus_stop = $this->m_sousgare->sget($this->company->ekey, $g, $idsg);
                         $this->property['bus_stop'] = $bus_stop;
-                $conex = $this->m_compte_user->getusergare($this->company->ekey, $g, $cpus);
+                $conex = $this->_roleattribut_guard_bind($cpus, $this->company->ekey, $g);
                 $this->property['conex'] = $conex;
             $this->bagages = $this->m_bagage->getsuivi($this->company->ekey, $g, $bg_id);
             $this->property['itembags'] = $this->bagages;
@@ -1968,7 +1963,7 @@
             $this->company = $this->m_entreprises->get_key($ckey);
             $bus_stop = $this->m_sousgare->sget($this->company->ekey, $g, $idsg);
                         $this->property['bus_stop'] = $bus_stop;
-                $conex = $this->m_compte_user->getusergare($this->company->ekey, $g, $cpus);
+                $conex = $this->_roleattribut_guard_bind($cpus, $this->company->ekey, $g);
                 $this->property['conex'] = $conex;
                               
         
@@ -1983,7 +1978,7 @@
             $this->company = $this->m_entreprises->get_key($ckey);
             $bus_stop = $this->m_sousgare->sget($this->company->ekey, $g, $idsg);
                         $this->property['bus_stop'] = $bus_stop;
-                $conex = $this->m_compte_user->getusergare($this->company->ekey, $g, $cpus);
+                $conex = $this->_roleattribut_guard_bind($cpus, $this->company->ekey, $g);
                 $this->property['conex'] = $conex;
 
                $this->ordrees = $this->m_ordres->reduct($this->company->ekey, $code_id, $hrs);
@@ -2001,7 +1996,7 @@
             $this->company = $this->m_entreprises->get_key($ckey);
             $bus_stop = $this->m_sousgare->sget($this->company->ekey, $g, $idsg);
                         $this->property['bus_stop'] = $bus_stop;
-                $conex = $this->m_compte_user->getusergare($this->company->ekey, $g, $cpus);
+                $conex = $this->_roleattribut_guard_bind($cpus, $this->company->ekey, $g);
                 $this->property['conex'] = $conex;
             $this->bagages = $this->m_bagage->sgetuco($this->company->ekey, $g, $bg_id);
             $this->property['itembgs'] = $this->bagages;
@@ -2014,7 +2009,7 @@
             $this->company = $this->m_entreprises->get_key($ckey);
             $bus_stop = $this->m_sousgare->sget($this->company->ekey, $g, $idsg);
                         $this->property['bus_stop'] = $bus_stop;
-                $conex = $this->m_compte_user->getusergare($this->company->ekey, $g, $cpus);
+                $conex = $this->_roleattribut_guard_bind($cpus, $this->company->ekey, $g);
                 $this->property['conex'] = $conex;
             $this->bagages = $this->m_bagage->sgetuco($this->company->ekey, $g, $bg_id);
             $this->property['itembag'] = $this->bagages;
@@ -2027,7 +2022,7 @@
             $this->company = $this->m_entreprises->get_key($ckey);
             $bus_stop = $this->m_sousgare->sget($this->company->ekey, $g, $idsg);
                         $this->property['bus_stop'] = $bus_stop;
-                $conex = $this->m_compte_user->getusergare($this->company->ekey, $g, $cpus);
+                $conex = $this->_roleattribut_guard_bind($cpus, $this->company->ekey, $g);
                 $this->property['conex'] = $conex;
             $this->bagages = $this->m_bagage->sgetnones($this->company->ekey, $g, $bg_id);
             $this->property['itembgs'] = $this->bagages;
@@ -2040,7 +2035,7 @@
             $this->company = $this->m_entreprises->get_key($ckey);
             $bus_stop = $this->m_sousgare->sget($this->company->ekey, $g, $idsg);
                         $this->property['bus_stop'] = $bus_stop;
-                $conex = $this->m_compte_user->getusergare($this->company->ekey, $g, $cpus);
+                $conex = $this->_roleattribut_guard_bind($cpus, $this->company->ekey, $g);
                 $this->property['conex'] = $conex;
             $this->bagages = $this->m_bagage->sgetnones($this->company->ekey, $g, $bg_id);
             $this->property['itembag'] = $this->bagages;
@@ -2053,7 +2048,7 @@
             $this->company = $this->m_entreprises->get_key($ckey);
             $bus_stop = $this->m_sousgare->sget($this->company->ekey, $g, $idsg);
                         $this->property['bus_stop'] = $bus_stop;
-                $conex = $this->m_compte_user->getusergare($this->company->ekey, $g, $cpus);
+                $conex = $this->_roleattribut_guard_bind($cpus, $this->company->ekey, $g);
                 $this->property['conex'] = $conex;
             $this->bagages = $this->m_bagage->sgetsuivi($this->company->ekey, $g, $bg_id);
             $this->property['itembags'] = $this->bagages;
@@ -2066,7 +2061,7 @@
             $this->company = $this->m_entreprises->get_key($ckey);
             $bus_stop = $this->m_sousgare->sget($this->company->ekey, $g, $idsg);
                         $this->property['bus_stop'] = $bus_stop;
-                $conex = $this->m_compte_user->getusergare($this->company->ekey, $g, $cpus);
+                $conex = $this->_roleattribut_guard_bind($cpus, $this->company->ekey, $g);
                 $this->property['conex'] = $conex;
             $this->bagages = $this->m_bagage->sgetsuivi($this->company->ekey, $g, $bg_id);
             $this->property['itembags'] = $this->bagages;
@@ -2079,7 +2074,7 @@
             $this->company = $this->m_entreprises->get_key($ckey);
             $bus_stop = $this->m_sousgare->sget($this->company->ekey, $g, $idsg);
                         $this->property['bus_stop'] = $bus_stop;
-                $conex = $this->m_compte_user->getusergare($this->company->ekey, $g, $cpus);
+                $conex = $this->_roleattribut_guard_bind($cpus, $this->company->ekey, $g);
                 $this->property['conex'] = $conex;
             $this->bagages = $this->m_bagage->sgetsuivi($this->company->ekey, $g, $bg_id);
             $this->property['itembags'] = $this->bagages;
@@ -2092,7 +2087,7 @@
             $this->company = $this->m_entreprises->get_key($ckey);
             $bus_stop = $this->m_sousgare->sget($this->company->ekey, $g, $idsg);
                         $this->property['bus_stop'] = $bus_stop;
-                $conex = $this->m_compte_user->getusergare($this->company->ekey, $g, $cpus);
+                $conex = $this->_roleattribut_guard_bind($cpus, $this->company->ekey, $g);
                 $this->property['conex'] = $conex;
             $this->bagages = $this->m_bagage->sgetsuivi($this->company->ekey, $g, $bg_id);
             $this->property['itembags'] = $this->bagages;
@@ -2114,7 +2109,7 @@
             
                 $bus_stop = $this->m_sousgare->sget($this->company->ekey, $g, $idsg);
                 $this->property['bus_stop'] = $bus_stop;
-                $conex = $this->m_compte_user->getusergare($this->company->ekey, $g, $cpus);
+                $conex = $this->_roleattribut_guard_bind($cpus, $this->company->ekey, $g);
                 $this->property['conex'] = $conex;
                 
             $this->layout->view('_tickets/pdfsuivi', $this->property);
@@ -2127,7 +2122,7 @@
             
                 $bus_stop = $this->m_sousgare->sget($this->company->ekey, $g, $idsg);
                 $this->property['bus_stop'] = $bus_stop;
-                $conex = $this->m_compte_user->getusergare($this->company->ekey, $g, $cpus);
+                $conex = $this->_roleattribut_guard_bind($cpus, $this->company->ekey, $g);
                 $this->property['conex'] = $conex;
 
                 $nam = $this->m_compte_user->cpuseres($cpus);
@@ -2151,7 +2146,7 @@
             
                 $bus_stop = $this->m_sousgare->sget($this->company->ekey, $g, $idsg);
                 $this->property['bus_stop'] = $bus_stop;
-                $conex = $this->m_compte_user->getusergare($this->company->ekey, $g, $cpus);
+                $conex = $this->_roleattribut_guard_bind($cpus, $this->company->ekey, $g);
                 $this->property['conex'] = $conex;
 
                 $nam = $this->m_compte_user->cpuseres($op);
@@ -2177,7 +2172,7 @@
                 $this->property['ncomp'] = $ncomp;
                 $bus_stop = $this->m_sousgare->sget($this->company->ekey, $g, $idsg);
                 $this->property['bus_stop'] = $bus_stop;
-                $conex = $this->m_compte_user->getusergare($this->company->ekey, $g, $cpus);
+                $conex = $this->_roleattribut_guard_bind($cpus, $this->company->ekey, $g);
                 $this->property['conex'] = $conex;
 
                 $this->property['reponsealler'] = $this->m_escalclients->rapportaller($this->company->ekey, $idconnex, $comp, $g);
@@ -2191,7 +2186,7 @@
             $this->company = $this->m_entreprises->get_key($ckey);
             $bus_stop = $this->m_sousgare->sget($this->company->ekey, $g, $idsg);
                         $this->property['bus_stop'] = $bus_stop;
-                $conex = $this->m_compte_user->getusergare($this->company->ekey, $g, $cpus);
+                $conex = $this->_roleattribut_guard_bind($cpus, $this->company->ekey, $g);
                 $this->property['conex'] = $conex;
             $this->escalclients = $this->m_escalclients->get($this->company->ekey, $code_id, $tf, $h);
             $this->property['item'] = $this->escalclients;
@@ -2204,7 +2199,7 @@
             $this->company = $this->m_entreprises->get_key($ckey);
             $bus_stop = $this->m_sousgare->sget($this->company->ekey, $g, $idsg);
                         $this->property['bus_stop'] = $bus_stop;
-                $conex = $this->m_compte_user->getusergare($this->company->ekey, $g, $cpus);
+                $conex = $this->_roleattribut_guard_bind($cpus, $this->company->ekey, $g);
                 $this->property['conex'] = $conex;
             $this->bagagesesc = $this->m_bagageesc->get($this->company->ekey, $g, $bg_id);
             $this->property['itemescbag'] = $this->bagagesesc;
@@ -2221,7 +2216,7 @@
                 $this->property['ncomp'] = $ncomp;
                 $bus_stop = $this->m_sousgare->sget($this->company->ekey, $g, $idsg);
                 $this->property['bus_stop'] = $bus_stop;
-                $conex = $this->m_compte_user->getusergare($this->company->ekey, $g, $cpus);
+                $conex = $this->_roleattribut_guard_bind($cpus, $this->company->ekey, $g);
                 $this->property['conex'] = $conex;
 
                 
@@ -2235,7 +2230,7 @@
             $bus_stop = $this->m_sousgare->sget($this->company->ekey, $gd, $sg);
                     $this->property['bus_stop'] = $bus_stop;
 
-                $conex = $this->m_compte_user->getusergare($this->company->ekey, $gd, $uid);
+                $conex = $this->_roleattribut_guard_bind($uid, $this->company->ekey, $gd);
                 $this->property['conex'] = $conex;
             $ddbt = $this->input->post('debutdatees');
             $dfin = $this->input->post('findatees');
@@ -2260,7 +2255,7 @@
             $this->company = $this->m_entreprises->get_key($ckey);
             $bus_stop = $this->m_sousgare->sget($this->company->ekey, $g, $idsg);
                         $this->property['bus_stop'] = $bus_stop;
-                $conex = $this->m_compte_user->getusergare($this->company->ekey, $g, $cpus);
+                $conex = $this->_roleattribut_guard_bind($cpus, $this->company->ekey, $g);
                 $this->property['conex'] = $conex;
 
             $this->nonpassagers = $this->m_non_passager->getad($this->company->ekey, $cdnp);
@@ -2274,7 +2269,7 @@
             $this->company = $this->m_entreprises->get_key($ckey);
             $bus_stop = $this->m_sousgare->sget($this->company->ekey, $g, $idsg);
                         $this->property['bus_stop'] = $bus_stop;
-                $conex = $this->m_compte_user->getusergare($this->company->ekey, $g, $cpus);
+                $conex = $this->_roleattribut_guard_bind($cpus, $this->company->ekey, $g);
                 $this->property['conex'] = $conex;
             $this->passagers = $this->m_passager->get($this->company->ekey, $code_id, $tf, $h);
             $this->property['item'] = $this->passagers;
@@ -2291,7 +2286,7 @@
             $this->company = $this->m_entreprises->get_key($ckey);
             $bus_stop = $this->m_sousgare->sget($this->company->ekey, $g, $idsg);
                         $this->property['bus_stop'] = $bus_stop;
-                $conex = $this->m_compte_user->getusergare($this->company->ekey, $g, $cpus);
+                $conex = $this->_roleattribut_guard_bind($cpus, $this->company->ekey, $g);
                 $this->property['conex'] = $conex;
             $this->passagers = $this->m_passager->get($this->company->ekey, $code_id, $tf, $h);
             $this->property['item'] = $this->passagers;
@@ -2310,7 +2305,7 @@
             $this->company = $this->m_entreprises->get_key($ckey);
             $bus_stop = $this->m_sousgare->sget($this->company->ekey, $g, $idsg);
                         $this->property['bus_stop'] = $bus_stop;
-                $conex = $this->m_compte_user->getusergare($this->company->ekey, $g, $cpus);
+                $conex = $this->_roleattribut_guard_bind($cpus, $this->company->ekey, $g);
                 $this->property['conex'] = $conex;
             $this->passagers = $this->m_passager->get($this->company->ekey, $code_id, $tf, $h);
             $this->property['item'] = $this->passagers;
@@ -2331,7 +2326,7 @@
             $this->company = $this->m_entreprises->get_key($ckey);
             $bus_stop = $this->m_sousgare->sget($this->company->ekey, $g, $idsg);
                 $this->property['bus_stop'] = $bus_stop;
-                $conex = $this->m_compte_user->getusergare($this->company->ekey, $g, $cpus);
+                $conex = $this->_roleattribut_guard_bind($cpus, $this->company->ekey, $g);
                 $this->property['conex'] = $conex;
 
             
@@ -2347,7 +2342,7 @@
             $bus_stop = $this->m_sousgare->sget($this->company->ekey, $g, $idsg);
                 $this->property['bus_stop'] = $bus_stop;
                 
-                $conex = $this->m_compte_user->getusergare($this->company->ekey, $g, $cpus);
+                $conex = $this->_roleattribut_guard_bind($cpus, $this->company->ekey, $g);
                 $this->property['conex'] = $conex;
 
             $this->property['tritem'] = $this->m_passager->gettr($this->company->ekey, $code_id);
@@ -2362,7 +2357,7 @@
             $this->company = $this->m_entreprises->get_key($ckey);
             $bus_stop = $this->m_sousgare->sget($this->company->ekey, $g, $idsg);
                         $this->property['bus_stop'] = $bus_stop;
-                $conex = $this->m_compte_user->getusergare($this->company->ekey, $g, $cpus);
+                $conex = $this->_roleattribut_guard_bind($cpus, $this->company->ekey, $g);
                 $this->property['conex'] = $conex;
                               
         
@@ -2377,7 +2372,7 @@
             $this->company = $this->m_entreprises->get_key($ckey);
             $bus_stop = $this->m_sousgare->sget($this->company->ekey, $g, $idsg);
                         $this->property['bus_stop'] = $bus_stop;
-                $conex = $this->m_compte_user->getusergare($this->company->ekey, $g, $cpus);
+                $conex = $this->_roleattribut_guard_bind($cpus, $this->company->ekey, $g);
                 $this->property['conex'] = $conex;
 
                $this->ordrees = $this->m_ordres->reducttr($this->company->ekey, $code_id);
