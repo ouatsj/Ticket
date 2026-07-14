@@ -115,7 +115,16 @@ document.addEventListener('DOMContentLoaded', () => {
                         var heu = post_verifheu[0];
                         const idlign = document.querySelector('#idligne')
                         .options[document.querySelector('#idligne').options.selectedIndex].value;
-                        httpInfoscodedep.open('GET', window.location.origin + `${APP_ROOT}/programmes/verificodeprogramme/${veridate}/${heu}/${pcat}/${idlign}`, true);
+                        httpInfoscodedep.open(
+                            'GET',
+                            window.location.origin
+                                + `${APP_ROOT}/programmes/verificodeprogramme`
+                                + `?date=${encodeURIComponent(veridate)}`
+                                + `&heure=${encodeURIComponent(heu)}`
+                                + `&cat=${encodeURIComponent(pcat)}`
+                                + `&ligne=${encodeURIComponent(idlign)}`,
+                            true
+                        );
                         httpInfoscodedep.onload = () => 
                         {
                             const codeinfos = JSON.parse(httpInfoscodedep.responseText);

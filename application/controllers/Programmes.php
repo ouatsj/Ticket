@@ -923,12 +923,35 @@
             
         }
 
-        public function verificodeprogramme($h, $dt, $cdp, $l)
+        public function verificodeprogramme($h = null, $dt = null, $cdp = null, $l = null)
         {
-            
-            $uprod = $this->m_programme->product($this->session->company->ekey, $h, $dt, $cdp, $l);
+            // Query string prioritaire (évite la confusion garde URI : id_heure + catégorie type A31).
+            $date = $this->input->get('date');
+            $heure = $this->input->get('heure');
+            $categorie = $this->input->get('cat');
+            $ligne = $this->input->get('ligne');
+
+            if ($date === null || $date === '') {
+                $date = $h;
+            }
+            if ($heure === null || $heure === '') {
+                $heure = $dt;
+            }
+            if ($categorie === null || $categorie === '') {
+                $categorie = $cdp;
+            }
+            if ($ligne === null || $ligne === '') {
+                $ligne = $l;
+            }
+
+            $uprod = $this->m_programme->product(
+                $this->session->company->ekey,
+                $date,
+                $heure,
+                $categorie,
+                $ligne
+            );
             return $this->load->view('beagle/pages/_programme/json', array('json' => $uprod));
-            
         }
         public function verifpriprg($h, $tfb)
         {
