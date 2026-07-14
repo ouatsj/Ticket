@@ -566,13 +566,30 @@
                     $cpus_requested = $cpus;
                     $conn = $this->m_compte_user->connect_gare_exclusive($this->company->ekey, $cdg, $cpus);
                     $cpus = $conn['cpus'];
-                    $this->property['conex'] = $conn['conex'];
+                    $conex = $conn['conex'];
+
+                    // Superviseur / lecture : si connect ne remonte pas conex, retomber sur le hint URL.
+                    if (!$conex && (int) $cpus_requested > 0) {
+                        $conex = $this->m_compte_user->getusergare($this->company->ekey, $cdg, $cpus_requested);
+                        if ($conex && !empty($conex->roleattribut)) {
+                            $cpus = (int) $conex->roleattribut;
+                        }
+                    }
+
+                    $this->property['conex'] = $conex;
                     $date_seg = ($d && $m && $y) ? "{$d}/{$m}/{$y}" : mdate('%d/%m/%Y', now('UTC'));
                     roleattribut_guard_redirect_if_url_mismatch(
                         'gares/' . $this->company->ekey . '/gTv/' . $cdg . '/prog/' . $cpus . '/' . $sg . '/' . $date_seg,
                         $cpus_requested,
                         $cpus
                     );
+
+                    if (!$conex || empty($bus_stop) || empty($gare_stop)) {
+                        roleattribut_guard_fail_redirect_home(
+                            'Impossible d\'ouvrir la page programmes pour cette gare.'
+                        );
+                    }
+
                     $this->property['heures'] = $this->m_heure->get();
                     
                     if ($this->session->agent->userole === '1' OR $this->session->agent->userole === '2'){
@@ -610,13 +627,29 @@
                         $cpus_requested = $cpus;
                         $conn = $this->m_compte_user->connect_gare_exclusive($this->company->ekey, $cdg, $cpus);
                         $cpus = $conn['cpus'];
-                        $this->property['conex'] = $conn['conex'];
+                        $conex = $conn['conex'];
+
+                        if (!$conex && (int) $cpus_requested > 0) {
+                            $conex = $this->m_compte_user->getusergare($this->company->ekey, $cdg, $cpus_requested);
+                            if ($conex && !empty($conex->roleattribut)) {
+                                $cpus = (int) $conex->roleattribut;
+                            }
+                        }
+
+                        $this->property['conex'] = $conex;
                         $date_seg = ($d && $m && $y) ? "{$d}/{$m}/{$y}" : mdate('%d/%m/%Y', now('UTC'));
                         roleattribut_guard_redirect_if_url_mismatch(
                             'gares/' . $this->company->ekey . '/gTv/' . $cdg . '/cais/' . $cpus . '/' . $sg . '/' . $date_seg,
                             $cpus_requested,
                             $cpus
                         );
+
+                        if (!$conex || empty($bus_stop) || empty($gare_stop)) {
+                            roleattribut_guard_fail_redirect_home(
+                                'Impossible d\'ouvrir la page caisse pour cette gare.'
+                            );
+                        }
+
                         $this->property['typecaisses'] = $this->m_typecaisse->get();
                         $this->property['bus_stop'] = $bus_stop;
                         $this->property['pagetitle'] .= "• CAISSE • <strong>{$bus_stop->nom_gaep}</strong>&nbsp;•&nbsp;{$bus_stop->nom_ville}<strong>•&nbsp;{$this->company->nom_entreprise}</strong>";

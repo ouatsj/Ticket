@@ -64,6 +64,7 @@ if (!function_exists('roleattribut_guard_operateur')) {
     /**
      * Résout le roleattribut et la connexion gare pour l'agent connecté.
      * Ignore un hint URL qui ne lui appartient pas (sauf admin 1/2).
+     * Une gare/attribution désactivée (activer_role=1 ou comptactif=1) renvoie always 0.
      *
      * @param string $ekey
      * @param int|string $gare_id idengare
@@ -77,7 +78,7 @@ if (!function_exists('roleattribut_guard_operateur')) {
 
         if (!$CI->session->userdata('agent')) {
             return array(
-                'roleattribut' => (int) $hint,
+                'roleattribut' => 0,
                 'conex' => null,
                 'userole' => null,
             );
@@ -86,15 +87,20 @@ if (!function_exists('roleattribut_guard_operateur')) {
         $gare_id = roleattribut_guard_normalize_gare_id($ekey, $gare_id);
 
         $conn = $CI->m_compte_user_guard->connect_gare_exclusive($ekey, $gare_id, $hint);
-        $roleattribut = (int) $conn['cpus'];
+        $roleattribut = ($conn['cpus'] === null || $conn['cpus'] === '') ? 0 : (int) $conn['cpus'];
         $conex = $conn['conex'];
 
         if ($conex && !empty($conex->roleattribut)) {
             $roleattribut = (int) $conex->roleattribut;
         }
 
+        if ($roleattribut > 0 && !roleattribut_guard_is_usable($roleattribut, $gare_id)) {
+            $roleattribut = 0;
+            $conex = null;
+        }
+
         $userole = null;
-        if (function_exists('recette_role_userole_for_attribut')) {
+        if ($roleattribut > 0 && function_exists('recette_role_userole_for_attribut')) {
             $userole = recette_role_userole_for_attribut($roleattribut, $conex);
         } elseif ($conex && !empty($conex->userole)) {
             $userole = (string) $conex->userole;
@@ -105,6 +111,37 @@ if (!function_exists('roleattribut_guard_operateur')) {
             'conex' => $conex,
             'userole' => $userole,
         );
+    }
+}
+
+if (!function_exists('roleattribut_guard_is_usable')) {
+    /**
+     * True si le roleattribut est utilisable sur la gare (rôle + login gare actifs).
+     * Flags métier inversés : activer_role=0 et comptactif=0 = actif.
+     */
+    function roleattribut_guard_is_usable($roleattribut, $gare_id = null)
+    {
+        $roleattribut = (int) $roleattribut;
+        if ($roleattribut <= 0) {
+            return false;
+        }
+
+        $CI =& get_instance();
+        $sql = "SELECT 1 AS ok FROM attributions_role ar
+            JOIN user_login ul ON ar.idgestcompte = ul.uid_login
+            WHERE ar.roleattribut = ?
+            AND ar.activer_role = 0
+            AND ul.comptactif = 0";
+        $params = array($roleattribut);
+
+        if ($gare_id !== null && $gare_id !== '') {
+            $sql .= " AND ul.guser = ?";
+            $params[] = (string) $gare_id;
+        }
+
+        $sql .= " LIMIT 1";
+
+        return (bool) $CI->db->query($sql, $params)->row();
     }
 }
 
@@ -247,6 +284,95 @@ if (!function_exists('roleattribut_guard_enforce_id')) {
     }
 }
 
+if (!function_exists('roleattribut_guard_safe_workspace_url')) {
+    /**
+     * URL d'espace sûr pour un agent déjà authentifié (jamais Home/go ni login).
+     * Préserve le roleattribut utilisable ; sinon accueil multi-gares.
+     *
+     * @return string|null null si pas de session agent/company
+     */
+    function roleattribut_guard_safe_workspace_url()
+    {
+        $CI =& get_instance();
+        if (!$CI->session->userdata('agent') || !$CI->session->userdata('company')) {
+            return null;
+        }
+
+        $ekey = (string) $CI->session->company->ekey;
+        $agent = $CI->session->agent;
+        $date = mdate('%d/%m/%Y', now('UTC'));
+        $sg = (!empty($agent->idsousgare) || (isset($agent->idsousgare) && (string) $agent->idsousgare === '0'))
+            ? (string) $agent->idsousgare
+            : '0';
+
+        $candidates = array();
+
+        $gare = !empty($agent->guser) ? (string) $agent->guser : '';
+        $ra = !empty($agent->roleattribut) ? (int) $agent->roleattribut : 0;
+        if ($gare !== '' && $ra > 0) {
+            $candidates[] = array('gare' => $gare, 'ra' => $ra);
+        }
+
+        // Repli : première gare active du même profil (comptes multi-gares).
+        $CI->load->model('Compte_user_model', 'm_compte_user_guard_home');
+        $gares = $CI->m_compte_user_guard_home->attrib((int) $agent->cpuser_id, (string) $agent->userole);
+        if (is_array($gares)) {
+            foreach ($gares as $g) {
+                $ra = !empty($g->roleattribut) ? (int) $g->roleattribut : 0;
+                $g_id = '';
+                if (!empty($g->guser)) {
+                    $g_id = (string) $g->guser;
+                } elseif (!empty($g->idengare)) {
+                    $g_id = (string) $g->idengare;
+                }
+                if ($ra <= 0 || $g_id === '') {
+                    continue;
+                }
+                $candidates[] = array('gare' => $g_id, 'ra' => $ra);
+            }
+        }
+
+        foreach ($candidates as $c) {
+            if ($c['ra'] <= 0 || $c['gare'] === '') {
+                continue;
+            }
+            if (!roleattribut_guard_is_usable($c['ra'], $c['gare'])) {
+                continue;
+            }
+
+            return 'gares/' . $ekey . '/gTc/' . $c['gare'] . '/compte/' . $c['ra'] . '/' . $sg . '/' . $date;
+        }
+
+        return 'home/main';
+    }
+}
+
+if (!function_exists('roleattribut_guard_fail_redirect_home')) {
+    /**
+     * Redirection sûre quand le roleattribut / gare n'est pas utilisable.
+     * Session intacte : jamais Home/go (login_pending) ni login si agent connecté.
+     */
+    function roleattribut_guard_fail_redirect_home($message = null)
+    {
+        $CI =& get_instance();
+        $CI->session->set_flashdata(
+            'roleattribut_guard_notice',
+            $message
+                ? $message
+                : 'Cette gare est désactivée sur votre compte ou ne vous appartient pas. Choisissez une gare active.'
+        );
+
+        $url = roleattribut_guard_safe_workspace_url();
+        if ($url !== null) {
+            redirect($url);
+            exit;
+        }
+
+        redirect('login/ins');
+        exit;
+    }
+}
+
 if (!function_exists('roleattribut_guard_fail_redirect_gare_caisse')) {
     function roleattribut_guard_fail_redirect_gare_caisse($ekey, $gare_id)
     {
@@ -262,9 +388,19 @@ if (!function_exists('roleattribut_guard_fail_redirect_gare_caisse')) {
         }
 
         $gare_id = roleattribut_guard_normalize_gare_id($ekey, $gare_id);
-        $ra = ($CI->session->userdata('agent') && !empty($CI->session->agent->roleattribut))
-            ? (int) $CI->session->agent->roleattribut
-            : 0;
+        $ra = 0;
+        if ($CI->session->userdata('agent') && !empty($CI->session->agent->roleattribut)) {
+            $candidate = (int) $CI->session->agent->roleattribut;
+            if (roleattribut_guard_is_usable($candidate, $gare_id)) {
+                $ra = $candidate;
+            }
+        }
+
+        if ($ra <= 0) {
+            roleattribut_guard_fail_redirect_home();
+            return;
+        }
+
         redirect('gares/' . $ekey . '/gTv/' . $gare_id . '/cais/' . $ra . '/0/' . mdate('%d/%m/%Y', now('UTC')));
         exit;
     }
@@ -292,6 +428,7 @@ if (!function_exists('roleattribut_guard_attribution_on_gare')) {
             AND ul.guser = ?
             AND ar.userole IN ({$roles_in})
             AND ar.activer_role = 0
+            AND ul.comptactif = 0
             LIMIT 1",
             array($ekey, $ra, $gare_id)
         )->row();
@@ -522,7 +659,16 @@ if (!function_exists('roleattribut_guard_redirect_if_url_mismatch')) {
         $requested = (int) $requested_cpus;
         $resolved = (int) $resolved_cpus;
 
-        if ($requested <= 0 || $resolved <= 0 || $requested === $resolved) {
+        // Gare/attribution inaccessible : ne jamais conserver le roleattribut URL,
+        // mais ne pas expédier vers Home/go (casse la session → login).
+        if ($resolved <= 0) {
+            roleattribut_guard_fail_redirect_home(
+                'Impossible d\'ouvrir cette gare (désactivée ou non affectée). Retour à votre espace.'
+            );
+            return true;
+        }
+
+        if ($requested <= 0 || $requested === $resolved) {
             return false;
         }
 
@@ -608,6 +754,15 @@ if (!function_exists('roleattribut_guard_uri_enforcement_skipped')) {
         }
 
         if ($controller === 'caisses' && $method === 'opts') {
+            return true;
+        }
+
+        if ($controller === 'caisses' && $method === 'options') {
+            return true;
+        }
+
+        // Gares::opts (prog / cais via gTv) a déjà connect_gare_exclusive + mismatch.
+        if ($controller === 'gares' && $method === 'opts') {
             return true;
         }
 
@@ -826,7 +981,19 @@ if (!function_exists('roleattribut_guard_enforce_uri_segments')) {
             $resolved = (int) $op['roleattribut'];
             $requested = (int) $hint;
 
-            if ($requested <= 0 || $resolved <= 0 || $requested === $resolved) {
+            if ($requested <= 0) {
+                continue;
+            }
+
+            // Attribution désactivée ou étrangère : stop, pas de conservation du segment URL.
+            if ($resolved <= 0) {
+                if (!roleattribut_guard_is_supervisor()) {
+                    roleattribut_guard_fail_redirect_home();
+                }
+                continue;
+            }
+
+            if ($requested === $resolved) {
                 continue;
             }
 
@@ -874,6 +1041,16 @@ if (!function_exists('roleattribut_guard_enforce_uri_segments')) {
             if (!preg_match('/^[A-Za-z][A-Za-z0-9]{0,11}$/', $gare_id)) {
                 continue;
             }
+            // Jetons de route : ne jamais les traiter comme code gare (sinon 1000/gTv → login).
+            if (in_array(strtolower($gare_id), array(
+                'gtv', 'gtc', 'gts', 'cais', 'compte', 'sousgare', 'prog', 'recette', 'depense',
+                'depot', 'versement', 'arretcaisseprincipale', 'arretcaisse_adjoint',
+                'recette_adjoint', 'depense_adjoint', 'depot_adjoint', 'versement_adjoint',
+                'autredepense', 'validation', 'home', 'gares', 'caisses', 'login', 'rdd',
+                'main', 'accueil', 'utilisateurs', 'programmes', 'confirmation',
+            ), true)) {
+                continue;
+            }
 
             $already = false;
             foreach ($checks as $check) {
@@ -890,7 +1067,18 @@ if (!function_exists('roleattribut_guard_enforce_uri_segments')) {
             $resolved = (int) $op['roleattribut'];
             $requested = (int) $hint;
 
-            if ($requested <= 0 || $resolved <= 0 || $requested === $resolved) {
+            if ($requested <= 0) {
+                continue;
+            }
+
+            if ($resolved <= 0) {
+                if (!roleattribut_guard_is_supervisor()) {
+                    roleattribut_guard_fail_redirect_home();
+                }
+                continue;
+            }
+
+            if ($requested === $resolved) {
                 continue;
             }
 

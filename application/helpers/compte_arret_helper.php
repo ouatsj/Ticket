@@ -753,6 +753,7 @@ if (!function_exists('validerecette_chef_roleattribut_on_gare')) {
             WHERE ul.guser = '{$gare_id}'
             AND ar.userole IN (5, 16)
             AND ar.activer_role = 0
+            AND ul.comptactif = 0
             ORDER BY ar.activeattrib DESC, ar.roleattribut ASC
             LIMIT 1"
         )->row();

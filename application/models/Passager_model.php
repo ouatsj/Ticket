@@ -23,6 +23,14 @@
         {
             $data = roleattribut_guard_apply_to_data($data, array('idcptuser'));
 
+            // Prix serveur : catalogue programme + gare du programme (pas gare de session).
+            if (isset($data['code_pro']) && array_key_exists('prixvente', $data) && function_exists('ticket_prix_depuis_programme')) {
+                $data['prixvente'] = ticket_prix_depuis_programme(
+                    $data['code_pro'],
+                    $data['prixvente']
+                );
+            }
+
             $this->db->insert($this->table, $data);
             return $this->db->insert_id();
         }

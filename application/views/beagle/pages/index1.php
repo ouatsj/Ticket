@@ -1,21 +1,5 @@
 <?php defined('BASEPATH') OR exit('No direct script access allowed');?>
-<div class="row">
-    <?php if (!empty($accueil_gare_filtree)) : ?>
-    <div class="col-12 mb-3">
-        <div class="alert alert-info d-flex flex-wrap align-items-center justify-content-between mb-0">
-            <span>
-                Gare active :
-                <strong><?= htmlspecialchars($accueil_active_garenom, ENT_QUOTES, 'UTF-8'); ?></strong>
-            </span>
-            <?php if (!empty($accueil_changer_gare_url)) : ?>
-            <a class="btn btn-sm btn-outline-primary mt-2 mt-md-0"
-               href="<?= htmlspecialchars($accueil_changer_gare_url, ENT_QUOTES, 'UTF-8'); ?>">
-                Changer de gare
-            </a>
-            <?php endif; ?>
-        </div>
-    </div>
-    <?php endif; ?>
+<div class="row">        
         
     <? foreach($gares as $item): ?>
 

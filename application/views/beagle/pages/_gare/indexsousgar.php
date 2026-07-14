@@ -1,5 +1,12 @@
 <?php defined('BASEPATH') OR exit('No direct script access allowed');?>
 <div class="row">
+    <div class="col-12">
+        <p class="mt-0 mb-2 ml-3">
+            <a href="<?= site_url('home/main'); ?>" class="btn btn-space btn-secondary">
+                <i class="fas fa-arrow-circle-left text-info"></i>&nbsp;RETOUR AUX GARES&nbsp;
+            </a>
+        </p>
+    </div>
  <? if (!empty($sousgares)) : ?>
         
         <div class="col-lg-12">

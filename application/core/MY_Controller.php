@@ -165,6 +165,9 @@ class MY_Controller extends CI_Controller
     {
         $op = roleattribut_guard_operateur($ekey, $gare_id, $roleattribut_hint);
         $roleattribut_hint = (int) $op['roleattribut'];
+        if ($roleattribut_hint <= 0) {
+            return null;
+        }
         if (!empty($op['conex'])) {
             return $op['conex'];
         }

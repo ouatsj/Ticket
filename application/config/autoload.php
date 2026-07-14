@@ -88,7 +88,7 @@
     |
     |	$autoload['helper'] = array('url', 'file');
     */
-    $autoload['helper'] = array('url', 'form', 'html', 'date', 'string', 'file', 'session', 'retour', 'passwordhash', 'recette_role', 'compte_arret', 'roleattribut_guard', 'auth_session', 'ticket_prix');
+    $autoload['helper'] = array('url', 'form', 'html', 'date', 'string', 'file', 'session', 'retour', 'passwordhash', 'recette_role', 'compte_arret', 'roleattribut_guard', 'auth_session', 'ticket_prix', 'url_safe');
     
     /*
     | -------------------------------------------------------------------

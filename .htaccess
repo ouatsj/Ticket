@@ -54,7 +54,9 @@ RewriteRule (^|/)\.(?!well-known/) - [F,L]
 RewriteCond $1 !^(index\.php|resources|robots\.txt|assets|favicon\.ico|ping\.txt)
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
-RewriteRule ^(.*)$ index.php?/$1 [L,QSA]
+# Apache 2.4.60+ AH10411 : ne pas passer le chemin en query string (espaces/noms → 403).
+# CI lit REQUEST_URI (config uri_protocol) — index.php suffit.
+RewriteRule ^(.*)$ index.php [L]
 
 <IfModule mod_autoindex.c>
     Options -Indexes

@@ -92,6 +92,11 @@
         {
             $data = roleattribut_guard_apply_to_data($data, array('idcptuser', 'cptus'));
 
+            // Retour : si un code programme aller est fourni (rare), aligner ; sinon conserver POST.
+            if (isset($data['prixretour']) && !empty($data['code_pro']) && function_exists('ticket_prix_depuis_programme')) {
+                $data['prixretour'] = ticket_prix_depuis_programme($data['code_pro'], $data['prixretour']);
+            }
+
             $this->db->insert($this->table, $data);
             return $this->db->insert_id();
         }

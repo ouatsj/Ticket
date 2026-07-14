@@ -54,6 +54,8 @@
             $route['welcome/pick_gare/(:any)/(:num)/(:num)'] = 'Welcome/pick_gare/$1/$2/$3';
             $route['welcome/(:any)/(:any)'] = 'Welcome/go/$1/$2';
             $route['home/(:any)/(:num)/(:num)'] = 'Home/go/$1/$2/$3';
+            $route['home/main'] = 'Home/main1';
+            $route['home/accueil'] = 'Home/main1';
 
             /* Entreprises */
             $route['entreprises/(:num)'] = 'Entreprises/view/$1';

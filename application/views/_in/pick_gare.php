@@ -28,16 +28,12 @@
                     <div class="card-header"></div>
                     <div class="card-body text-center">
 
-                        <span class="splash-description"><?= htmlspecialchars(
-                            !empty($pick_gare_title) ? $pick_gare_title : 'Choisissez la gare sur laquelle vous vous connectez',
-                            ENT_QUOTES,
-                            'UTF-8'
-                        ); ?></span>
+                        <span class="splash-description">Choisissez la gare sur laquelle vous vous connectez</span>
                         <?php if (!empty($type_rols)) : ?>
                         <p class="text-muted small mb-3"><?= htmlspecialchars($type_rols, ENT_QUOTES, 'UTF-8'); ?></p>
                         <?php endif; ?>
 
-                        <?= form_open(!empty($form_action) ? $form_action : 'Login/pick_gare_s/')?>
+                        <?= form_open('Login/pick_gare_s/')?>
                             <input type="hidden" name="ekey" value="<?= htmlspecialchars($ekey, ENT_QUOTES, 'UTF-8'); ?>">
                             <input type="hidden" name="cpuser_id" value="<?= (int) $cpuser_id; ?>">
                             <input type="hidden" name="userole" value="<?= (int) $userole; ?>">

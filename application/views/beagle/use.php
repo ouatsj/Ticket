@@ -44,6 +44,17 @@ $this->load->view('_layouts/head', $head_extra);
 	    <div class="be-content">
 
 	        <div class="main-content container-fluid">
+	            <?php
+	            $roleattribut_guard_notice = $this->session->flashdata('roleattribut_guard_notice');
+	            if (!empty($roleattribut_guard_notice)) :
+	            ?>
+	            <div class="alert alert-warning alert-dismissible" role="alert">
+	                <?= htmlspecialchars((string) $roleattribut_guard_notice, ENT_QUOTES, 'UTF-8'); ?>
+	                <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+	                    <span aria-hidden="true">&times;</span>
+	                </button>
+	            </div>
+	            <?php endif; ?>
 	            
 	            <?= $cfl; ?>
 	            

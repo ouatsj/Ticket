@@ -54,12 +54,13 @@
         }
 
         /**
-         * Active l'attribution (gare si besoin) puis ouvre home/go avec pending.
+         * Active une attribution (session) puis ouvre l'accueil.
+         * Le choix de gare métier se fait sur l'accueil (VOIR GARES) — pas d'écran pick_gare au login.
          *
          * @param object $company
          * @param int $cpuser_id
          * @param int $role_id
-         * @param string|null $gare_id
+         * @param string|null $gare_id Optionnel (compat liens anciens)
          */
         protected function _proceed_with_role($company, $cpuser_id, $role_id, $gare_id = null)
         {
@@ -67,12 +68,7 @@
                 auth_session_login_transition_denied();
             }
 
-            if ($gare_id === null && auth_session_requires_pick_gare_at_login($cpuser_id, $role_id)) {
-                redirect('welcome/pick_gare/' . $company->ekey . '/' . $cpuser_id . '/' . $role_id);
-                return;
-            }
-
-            if ($gare_id !== null) {
+            if ($gare_id !== null && $gare_id !== '') {
                 $rw = $this->m_compte_user->pick_attribution_on_gare($cpuser_id, $role_id, $gare_id);
             } else {
                 $rw = $this->m_compte_user->pick_attribution_at_login($cpuser_id, $role_id);
@@ -85,6 +81,27 @@
             $this->m_roleattribution->activate_exclusive($cpuser_id, $role_id, $rw->roleattribut);
             $this->m_roleattribution->clear_stale_activeattrib();
             redirect('home/' . $company->ekey . '/' . $cpuser_id . '/' . $role_id);
+        }
+
+        /**
+         * Entrée session pour un rôle (après mot de passe / Welcome) — sans écran choix gare.
+         */
+        public function enter_role($ekey = null, $uid = null, $role = null)
+        {
+            $this->_load_auth_models();
+            $uid = (int) $uid;
+            $role = (int) $role;
+
+            if ($uid <= 0 || $role <= 0) {
+                auth_session_login_transition_denied('Profil invalide.');
+            }
+
+            $company = $this->m_entreprises->get_key($ekey);
+            if (empty($company)) {
+                auth_session_login_transition_denied();
+            }
+
+            $this->_proceed_with_role($company, $uid, $role);
         }
         
         public function in($key = NULL, array $in = NULL)
@@ -105,10 +122,6 @@
                 $viewData = array(
                     'login_error' => (bool) $this->session->flashdata('login_error'),
                     'login_error_msg' => $this->session->flashdata('login_error_msg'),
-                    'login_fresh' => $this->input->get('fresh') === '1',
-                );
-                auth_session_prepare_login_page(
-                    !empty($viewData['login_fresh']) || !empty($viewData['login_error'])
                 );
                 $this->load->view('_in/ins', $viewData);
             } else {
@@ -116,22 +129,6 @@
                 $this->logl['data'] = $this->m_personnels->get($key);
                 $this->load->view('_in/ins', $this->logl['data']);
             }
-        }
-
-        /**
-         * Lien court pour vendeurs distants : reset session + cookies puis login.
-         * URL à communiquer : https://ticket.rakietabus.com/login/reset
-         */
-        public function reset($pk = NULL)
-        {
-            if ($pk !== NULL) {
-                return;
-            }
-
-            auth_session_prepare_login_page(true);
-            auth_session_purge();
-            auth_session_expire_legacy_session_cookies();
-            redirect('login/ins?fresh=1');
         }
 
         /**

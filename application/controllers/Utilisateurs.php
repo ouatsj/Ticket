@@ -1448,6 +1448,11 @@
                     
                     $this->m_user_login->update($id, $comptelogin);
 
+                    // Gare désactivée : ne doit plus pouvoir rester activeattrib ni être utilisée.
+                    if ((int) $stat === 1) {
+                        $this->m_roleattribution->clear_activeattrib_for_login($id);
+                    }
+
                 $this->property['UPDATE_SUCCESS'] = TRUE;
             redirect('utilisateurs/' . $this->session->company->ekey.'/gTv/'.$uid.'/'.$cp.'/garecompte/'. mdate("%d/%m/%Y", now('UTC')));
             
@@ -1465,6 +1470,10 @@
                     $compteat = array(
                         'activer_role' => $stat,
                     );
+                    // Rôle désactivé sur la gare : purge activeattrib pour éviter confusion roleattribut.
+                    if ((int) $stat === 1) {
+                        $compteat['activeattrib'] = 0;
+                    }
                     
                     $this->m_roleattribution->update($id, $compteat);
 

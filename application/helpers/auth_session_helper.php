@@ -71,59 +71,6 @@ if (!function_exists('auth_session_purge')) {
     }
 }
 
-if (!function_exists('auth_session_expire_legacy_session_cookies')) {
-    /** Expire les anciens cookies de session (postes bloqués avec session corrompue). */
-    function auth_session_expire_legacy_session_cookies()
-    {
-        if (headers_sent()) {
-            return;
-        }
-
-        $path = config_item('cookie_path') ?: '/';
-        $domain = config_item('cookie_domain') ?: '';
-        $secure = (bool) config_item('cookie_secure');
-        $past = time() - 86400;
-        $names = array(
-            'rakieta_session',
-            'rakieta_sess_v2',
-            (string) config_item('sess_cookie_name'),
-        );
-        $names = array_unique(array_filter($names));
-
-        foreach ($names as $name) {
-            setcookie($name, '', $past, $path, $domain, $secure, true);
-            setcookie($name, '', $past, $path, $domain, $secure, false);
-        }
-    }
-}
-
-if (!function_exists('auth_session_prepare_login_page')) {
-    /**
-     * Nettoie session/cookies avant affichage login (vendeurs distants, postes bloqués).
-     *
-     * @param bool $renew_session Régénère l'id session (après erreur « expirée »)
-     */
-    function auth_session_prepare_login_page($renew_session = false)
-    {
-        $CI =& get_instance();
-        auth_session_send_nocache_headers();
-        auth_session_expire_legacy_session_cookies();
-        auth_session_clear_login_pending();
-
-        if (!isset($CI->session)) {
-            return;
-        }
-
-        foreach (array('agent', 'company', 'auth_token', 'auth_cpuser_id') as $key) {
-            $CI->session->unset_userdata($key);
-        }
-
-        if ($renew_session && method_exists($CI->session, 'sess_regenerate')) {
-            $CI->session->sess_regenerate(false);
-        }
-    }
-}
-
 if (!function_exists('auth_session_reset_for_login')) {
     /**
      * Nettoie l'ancienne session agent sans la détruire (conserve le cookie pour login_pending).
@@ -318,7 +265,7 @@ if (!function_exists('auth_session_login_transition_denied')) {
             'login_error_msg',
             $message ?: 'Session de connexion expirée. Reconnectez-vous.'
         );
-        redirect('login/ins?fresh=1');
+        redirect('login/ins');
         exit;
     }
 }
@@ -373,6 +320,65 @@ if (!function_exists('auth_session_validate_or_logout')) {
             );
             auth_session_force_logout(false);
             redirect('login/ins');
+            exit;
+        }
+
+        // Gare/rôle désactivé en cours de session : basculer vers une gare utilisable,
+        // sans détruire la session (évite le retour login à tort).
+        if (!empty($CI->session->agent->roleattribut)
+            && function_exists('roleattribut_guard_is_usable')
+            && !roleattribut_guard_is_usable((int) $CI->session->agent->roleattribut)) {
+            $CI->load->model('Role_attribution_model', 'm_roleattribution_auth');
+            $CI->load->model('Compte_user_model', 'm_compte_user_auth');
+            $CI->m_roleattribution_auth->clear_activeattrib((int) $CI->session->agent->roleattribut);
+
+            $cp = (int) $CI->session->agent->cpuser_id;
+            $role = (string) $CI->session->agent->userole;
+            $switched = false;
+            $gares = $CI->m_compte_user_auth->attrib($cp, $role);
+            if (is_array($gares)) {
+                foreach ($gares as $g) {
+                    $ra = !empty($g->roleattribut) ? (int) $g->roleattribut : 0;
+                    $gare_id = !empty($g->guser) ? (string) $g->guser : (!empty($g->idengare) ? (string) $g->idengare : '');
+                    if ($ra <= 0 || $gare_id === '') {
+                        continue;
+                    }
+                    if (!roleattribut_guard_is_usable($ra, $gare_id)) {
+                        continue;
+                    }
+                    if ($CI->m_roleattribution_auth->activate_exclusive($cp, (int) $role, $ra)) {
+                        $fresh = $CI->m_compte_user_auth->get($cp, $role);
+                        if (!empty($fresh)) {
+                            $CI->session->set_userdata('agent', $fresh);
+                            $switched = true;
+                        }
+                        break;
+                    }
+                }
+            }
+
+            if ($switched) {
+                // Continuer la requête avec le nouveau roleattribut (pas de faux logout).
+                $CI->session->set_flashdata(
+                    'roleattribut_guard_notice',
+                    'Votre gare active précédente n\'est plus disponible. Vous avez été basculé sur une gare utilisable.'
+                );
+                return;
+            }
+
+            // Aucune gare dispo : retirer le RA session pour éviter une boucle redirect,
+            // puis accueil multi-gares (session conservée).
+            $agent = $CI->session->userdata('agent');
+            if (is_object($agent)) {
+                $agent->roleattribut = 0;
+                $agent->guser = isset($agent->guser) ? $agent->guser : '';
+                $CI->session->set_userdata('agent', $agent);
+            }
+            $CI->session->set_flashdata(
+                'roleattribut_guard_notice',
+                'La gare active de votre session a été désactivée. Choisissez une autre gare active.'
+            );
+            redirect('home/main');
             exit;
         }
     }
@@ -518,91 +524,6 @@ if (!function_exists('auth_sale_require_roleattribut')) {
         }
 
         return 0;
-    }
-}
-
-if (!function_exists('auth_session_skips_pick_gare_at_login')) {
-    /** Admin / superviseur : accueil multi-gares sans écran pick_gare au login (B). */
-    function auth_session_skips_pick_gare_at_login($userole)
-    {
-        return in_array((string) $userole, array('1', '2'), true);
-    }
-}
-
-if (!function_exists('auth_session_accueil_show_all_gares')) {
-    function auth_session_accueil_show_all_gares($userole)
-    {
-        return auth_session_skips_pick_gare_at_login($userole);
-    }
-}
-
-if (!function_exists('auth_session_requires_pick_gare_at_login')) {
-    function auth_session_requires_pick_gare_at_login($cpuser_id, $userole)
-    {
-        if (auth_session_skips_pick_gare_at_login($userole)) {
-            return false;
-        }
-
-        $CI =& get_instance();
-        if (!isset($CI->m_compte_user)) {
-            $CI->load->model('Compte_user_model', 'm_compte_user');
-        }
-
-        return $CI->m_compte_user->count_gares_role((int) $cpuser_id, (int) $userole) > 1;
-    }
-}
-
-if (!function_exists('auth_session_filter_accueil_gares')) {
-    /**
-     * Accueil filtré sur la gare active pour non-admin multi-gares (A).
-     *
-     * @param int $cpuser_id
-     * @param string|int $userole
-     * @param array $all_gares
-     * @return array{gares:array,filtered:bool,active_garenom:string,changer_gare_url:string}
-     */
-    function auth_session_filter_accueil_gares($cpuser_id, $userole, array $all_gares)
-    {
-        $empty = array(
-            'gares' => $all_gares,
-            'filtered' => false,
-            'active_garenom' => '',
-            'changer_gare_url' => '',
-        );
-
-        if (auth_session_accueil_show_all_gares($userole) || count($all_gares) <= 1) {
-            return $empty;
-        }
-
-        $CI =& get_instance();
-        if (!isset($CI->m_compte_user)) {
-            $CI->load->model('Compte_user_model', 'm_compte_user');
-        }
-
-        $active = $CI->m_compte_user->active_gare_for_role((int) $cpuser_id, (int) $userole);
-        if (!$active) {
-            return $empty;
-        }
-
-        $active_id = (string) $active->guser;
-        $filtered = array();
-        foreach ($all_gares as $gare) {
-            if ((string) $gare->guser === $active_id
-                || (string) $gare->idengare === $active_id) {
-                $filtered[] = $gare;
-            }
-        }
-
-        if (empty($filtered)) {
-            return $empty;
-        }
-
-        return array(
-            'gares' => $filtered,
-            'filtered' => true,
-            'active_garenom' => isset($active->garenom) ? (string) $active->garenom : '',
-            'changer_gare_url' => site_url('Home/switch_gare'),
-        );
     }
 }
 

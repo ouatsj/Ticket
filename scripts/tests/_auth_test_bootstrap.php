@@ -20,13 +20,6 @@ if (!function_exists('redirect')) {
     }
 }
 
-if (!function_exists('site_url')) {
-    function site_url($uri = '')
-    {
-        return 'http://test/' . ltrim((string) $uri, '/');
-    }
-}
-
 if (!function_exists('log_message')) {
     function log_message($level, $message)
     {

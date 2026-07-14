@@ -120,7 +120,7 @@ test_case('login_transition_denied pose flash et redirige', function () {
         auth_session_login_transition_denied('Test expiration');
         assert_true(false, 'redirect expected');
     } catch (AuthLoginFlowRedirectException $e) {
-        assert_same('login/ins?fresh=1', $e->getMessage());
+        assert_same('login/ins', $e->getMessage());
     }
     assert_same(1, AuthLoginFlowTestHarness::$ci->session->flashdata('login_error'));
     assert_same('Test expiration', AuthLoginFlowTestHarness::$ci->session->flashdata('login_error_msg'));
@@ -181,36 +181,6 @@ test_case('force_logout efface login_pending', function () {
     auth_session_force_logout(false);
     assert_same(null, auth_session_get_login_pending());
     assert_same(null, AuthLoginFlowTestHarness::$ci->session->userdata('agent'));
-});
-
-test_case('skips pick_gare pour admin rôles 1 et 2', function () {
-    assert_true(auth_session_skips_pick_gare_at_login('1'));
-    assert_true(auth_session_skips_pick_gare_at_login('2'));
-    assert_true(!auth_session_skips_pick_gare_at_login('6'));
-    assert_true(!auth_session_skips_pick_gare_at_login('4'));
-});
-
-test_case('filter accueil admin laisse toutes les gares', function () {
-    $all = array(
-        (object) array('guser' => 'BOB1', 'idengare' => 'BOB1', 'garenom' => 'BOB1'),
-        (object) array('guser' => 'OUA1', 'idengare' => 'OUA1', 'garenom' => 'OUA1'),
-    );
-    $result = auth_session_filter_accueil_gares(1, '1', $all);
-    assert_same(2, count($result['gares']));
-    assert_true(!$result['filtered']);
-});
-
-test_case('filter accueil vendeur ne garde que la gare active', function () {
-    AuthLoginFlowTestHarness::$ci->load('model', 'Compte_user_model');
-    $all = array(
-        (object) array('guser' => 'BOB1', 'idengare' => 'BOB1', 'garenom' => 'BOB1'),
-        (object) array('guser' => 'OUA1', 'idengare' => 'OUA1', 'garenom' => 'OUA1'),
-    );
-    $result = auth_session_filter_accueil_gares(12, '6', $all);
-    assert_same(1, count($result['gares']));
-    assert_true($result['filtered']);
-    assert_same('BOB1', $result['gares'][0]->garenom);
-    assert_same('BOB1', $result['active_garenom']);
 });
 
 test_case('flux simulé mot de passe → home sans pending après finalize', function () {

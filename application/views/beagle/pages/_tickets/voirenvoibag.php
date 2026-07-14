@@ -54,7 +54,7 @@
                         <tr>
                             <td>
                                 <span><?= $item->identbordbag; ?>&nbsp;&nbsp;&nbsp;<a class="icon" title="reimprimer"
-                                href="<?= site_url('Rapport/reimpressionlistebag/'.$this->session->company->ekey.'/'.$item->code_gaexp.'/'.$item->idsousgare.'/'.$item->code_progr.'/'.$item->id_heur.'/'.$item->date_progr.'/'.$item->quartierbordbag); ?>">
+                                href="<?= site_url_segments('Rapport', 'reimpressionlistebag', $this->session->company->ekey, $item->code_gaexp, $item->idsousgare, $item->code_progr, $item->id_heur, $item->date_progr, $item->quartierbordbag); ?>">
                                 <i class="fas fa-print"></i>
                             </a></span>
                             </td>
@@ -82,17 +82,17 @@
                             <td>
                                 
                                <a class="icon" title="reimprimer"
-                                href="<?= site_url('Rapport/reimpressionlistebag/'.$this->session->company->ekey.'/'.$item->code_gaexp.'/'.$item->idsousgare.'/'.$item->code_progr.'/'.$item->id_heur.'/'.$item->date_progr.'/'.$item->quartierbordbag); ?>">
+                                href="<?= site_url_segments('Rapport', 'reimpressionlistebag', $this->session->company->ekey, $item->code_gaexp, $item->idsousgare, $item->code_progr, $item->id_heur, $item->date_progr, $item->quartierbordbag); ?>">
                                 <i class="fas fa-print"></i>
                             </a>&nbsp;
                             <? if ($this->session->agent->userole === '1'): ?>
                             <a class="icon" title="reimprimer"
-                                href="<?= site_url('Historique_Passagers/listesuivi/'.$this->session->company->ekey.'/'.$item->code_gaexp.'/'.$item->idsousgare.'/'.$item->code_progr.'/'.$item->id_heur.'/'.$item->date_progr.'/'.$item->quartierbordbag.'/'.$conex->roleattribut.'/'.$bus_stop->idengare.'/'.$bus_stop->idsousgare);?>">
+                                href="<?= site_url_segments('Historique_Passagers', 'listesuivi', $this->session->company->ekey, $item->code_gaexp, $item->idsousgare, $item->code_progr, $item->id_heur, $item->date_progr, $item->quartierbordbag, $conex->roleattribut, $bus_stop->idengare, $bus_stop->idsousgare); ?>">
                                 <i class="fas fa-print"></i>
                             </a>&nbsp;
 
                             <a class="icon" title="reimprimer"
-                                href="<?= site_url('Historique_Passagers/listesuivi1/'.$this->session->company->ekey.'/'.$item->identbordbag.'/'.$item->idoperbordbag.'/'.$item->programmebordbag.'/'.$conex->roleattribut.'/'.$bus_stop->idengare.'/'.$bus_stop->idsousgare);?>">
+                                href="<?= site_url_segments('Historique_Passagers', 'listesuivi1', $this->session->company->ekey, $item->identbordbag, $item->idoperbordbag, $item->programmebordbag, $conex->roleattribut, $bus_stop->idengare, $bus_stop->idsousgare); ?>">
                                 <i class="fas fa-print"></i>
                             </a>&nbsp;
                             <? endif; ?>                        

@@ -49,7 +49,8 @@
                 JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
                 WHERE cu.cpuser_id = '$pk'
                 AND ar.userole = '$u'
-                AND ar.activer_role = 0 
+                AND ar.activer_role = 0
+                AND ul.comptactif = 0
                 AND ar.activeattrib = 1
                 AND cu.is_conect = 1")->row();
         }
@@ -63,6 +64,7 @@
                 JOIN attributions_role ar ON ar.idgestcompte = ul.uid_login
                 WHERE cu.cpuser_id = '$id'
                 AND ar.activer_role = 0
+                AND ul.comptactif = 0
                 AND ul.guser = '$g'
                 AND ar.activeattrib = 1
                 AND cu.is_conect = 1")->row();
@@ -77,6 +79,7 @@
                 JOIN attributions_role ar ON ar.idgestcompte = ul.uid_login
                 WHERE ar.roleattribut = '$id'
                 AND ar.activer_role = 0
+                AND ul.comptactif = 0
                 AND ul.guser = '$g'
                 AND ar.activeattrib = 1
                 AND cu.is_conect = 1")->row();
@@ -139,7 +142,8 @@
                 AND cu.is_conect = 1
                 AND ar.activeattrib = 1
                 AND cu.date_conect <= '$today'
-                AND ar.activer_role = 0")->row();
+                AND ar.activer_role = 0
+                AND ul.comptactif = 0")->row();
         }
 
         public function get_user($cid, $gid)
@@ -155,7 +159,8 @@
                 WHERE e.ekey = '$cid'
                 AND ul.guser = '$gid'
                 AND ar.userole IN(6, 5, 15, 17)
-                AND ar.activer_role = 0")->result();
+                AND ar.activer_role = 0
+                AND ul.comptactif = 0")->result();
         }
 
         public function get_user2($cid, $gid)
@@ -171,7 +176,8 @@
                 WHERE e.ekey = '$cid'
                 AND ul.guser = '$gid'
                 AND ar.userole IN(6, 10, 17)
-                AND ar.activer_role = 0")->result();
+                AND ar.activer_role = 0
+                AND ul.comptactif = 0")->result();
         }
 
         public function get_userus2($cid, $gid)
@@ -642,6 +648,7 @@
                 AND ar.roleattribut = " . (int) $roleattribut . "
                 AND ar.activeattrib = 1
                 AND ar.activer_role = 0
+                AND ul.comptactif = 0
                 AND cu.is_conect = 1"
             )->row();
         }
@@ -661,6 +668,7 @@
                 AND ar.userole = ?
                 AND ul.guser = ?
                 AND ar.activer_role = 0
+                AND ul.comptactif = 0
                 AND ar.activeattrib = 1
                 AND cu.is_conect = 1",
                 array((int) $cpuser_id, (int) $userole, (string) $gare_id)
@@ -691,6 +699,7 @@
                 AND ul.uid_usercpte = " . (int) $cpuser_id . "
                 AND ar.userole = " . (int) $userole . "
                 AND ar.activer_role = 0
+                AND ul.comptactif = 0
                 AND cu.is_conect = 1"
             )->row();
         }
@@ -698,6 +707,9 @@
         public function getusergar($cd, $gid, $user_id)
         {
             $user_id = $this->resolve_gare_operateur_hint($cd, $gid, $user_id);
+            if ((int) $user_id <= 0) {
+                return null;
+            }
 
             return $this->db->query(
                 "SELECT * FROM attributions_role ar
@@ -710,7 +722,9 @@
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = '$cd'
                 AND ul.guser = '$gid'
-                AND ar.roleattribut = '$user_id'")->row();
+                AND ar.roleattribut = '$user_id'
+                AND ar.activer_role = 0
+                AND ul.comptactif = 0")->row();
             
         }
 
@@ -728,7 +742,8 @@
                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
                     WHERE e.ekey = '$cd'
                     AND ul.guser = '$gid'
-                    AND ar.activer_role = 0")->result();
+                    AND ar.activer_role = 0
+                    AND ul.comptactif = 0")->result();
             }else
                 return $this->db->query(
                     "SELECT * FROM compte_user cu
@@ -742,7 +757,8 @@
                     WHERE e.ekey = '$cd'
                     AND ul.guser = '$gid'
                     AND ar.roleattribut = '$user_id'
-                    AND ar.activer_role = 0")->row();
+                    AND ar.activer_role = 0
+                    AND ul.comptactif = 0")->row();
             
         }
 
@@ -759,7 +775,9 @@
                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
                     WHERE e.ekey = '$cd'
                     AND ul.guser = '$gid'
-                    AND ul.uid_login = '$user_id'")->row();
+                    AND ul.uid_login = '$user_id'
+                    AND ar.activer_role = 0
+                    AND ul.comptactif = 0")->row();
             
         }
 
@@ -1140,7 +1158,10 @@
             $cpus_resolved = (int) $target_roleattribut;
 
             $this->load->model('Role_attribution_model', 'm_roleattribution');
-            $this->m_roleattribution->activate_exclusive($cpuser_id, $userole, $cpus_resolved);
+            if (!$this->m_roleattribution->activate_exclusive($cpuser_id, $userole, $cpus_resolved)) {
+                $in_progress = false;
+                return array('cpus' => null, 'conex' => null);
+            }
 
             $conex = $this->_fetch_own_gare_operateur_row($ekey, $gare_id, $cpuser_id, $userole);
 

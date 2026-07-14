@@ -67,7 +67,7 @@
                             
                             <td>
                                 <a class="icon" title="reimprimer"
-                                    href="<?= site_url('Ticket/reimpressionliste/' . $this->session->company->ekey . '/' . $item->depart_code. '/' . $item->heure_identif. '/' . $item->date_progr. '/' . $item->gareidentif. '/' . $item->chauff. '/' . $item->buscateg. '/' . $item->codebus. '/' . $item->heure. '/' . $item->nom_ligne. '/' . $item->code_gaexp.'/'.$item->convoy); ?>">
+                                    href="<?= site_url_segments('Ticket', 'reimpressionliste', $this->session->company->ekey, $item->depart_code, $item->heure_identif, $item->date_progr, $item->gareidentif, $item->chauff, $item->buscateg, $item->codebus, $item->heure, $item->nom_ligne, $item->code_gaexp, $item->convoy); ?>">
                                     <i class="fas fa-print"></i>
                                 </a>&nbsp;
                         

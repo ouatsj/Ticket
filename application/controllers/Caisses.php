@@ -129,6 +129,9 @@
             );
             $conex = $operateur['conex'];
             $userole = $operateur['userole'];
+            if (!$conex || (int) $cpr <= 0) {
+                roleattribut_guard_fail_redirect_gare_caisse($this->company->ekey, $cdg);
+            }
             $this->property['conex'] = $conex;
             $this->property['caisse_operateur_roleattribut'] = $cpr;
             $this->property['caisse_operateur_userole'] = $userole;
@@ -11043,6 +11046,9 @@
                 );
                 $conex = $operateur['conex'];
                 $userole = $operateur['userole'];
+                if (!$conex || (int) $icx <= 0) {
+                    roleattribut_guard_fail_redirect_gare_caisse($this->company->ekey, $cdg);
+                }
                 $this->property['conex'] = $conex;
                 $this->property['caisse_operateur_roleattribut'] = $icx;
                 $this->property['caisse_operateur_userole'] = $userole;

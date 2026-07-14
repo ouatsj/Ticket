@@ -31,13 +31,10 @@
                 auth_session_login_transition_denied('Aucun profil actif pour ce compte.');
             }
 
+            // Un seul profil → accueil direct (choix gare = page Accueil / VOIR GARES).
             if (count($this->property['agentroles']) === 1) {
                 $role = (int) $this->property['agentroles'][0]->id_rols;
-                if (auth_session_requires_pick_gare_at_login($m, $role)) {
-                    redirect('welcome/pick_gare/' . $key . '/' . $m . '/' . $role);
-                    return;
-                }
-                redirect('home/' . $key . '/' . $m . '/' . $role);
+                redirect('login/enter_role/' . rawurlencode($key) . '/' . $m . '/' . $role);
                 return;
             }
 
@@ -45,7 +42,7 @@
         }
 
         /**
-         * Choix gare explicite (multi-gares) avant ouverture session.
+         * Compat : anciennes URLs pick_gare → entrée rôle sans écran intermédiaire.
          */
         public function pick_gare($key, $uid, $role)
         {
@@ -56,32 +53,7 @@
                 auth_session_login_transition_denied();
             }
 
-            if (auth_session_skips_pick_gare_at_login($role)) {
-                redirect('home/' . $key . '/' . $uid . '/' . $role);
-                return;
-            }
-
-            $gares = $this->m_compte_user->lookedfor1($uid, $role);
-            if (empty($gares)) {
-                auth_session_login_transition_denied('Aucune gare pour ce profil.');
-            }
-
-            if (count($gares) === 1) {
-                redirect('login/pick_gare_go/' . rawurlencode($key) . '/' . $uid . '/' . $role . '/' . rawurlencode($gares[0]->guser));
-                return;
-            }
-
-            $this->property['gares'] = $gares;
-            $this->property['ekey'] = $key;
-            $this->property['cpuser_id'] = $uid;
-            $this->property['userole'] = $role;
-            $this->property['form_action'] = 'Login/pick_gare_s/';
-            $this->property['pick_gare_title'] = 'Choisissez la gare sur laquelle vous vous connectez';
-            if (!empty($gares[0]->type_rols)) {
-                $this->property['type_rols'] = $gares[0]->type_rols;
-            }
-
-            $this->load->view('_in/pick_gare', $this->property);
+            redirect('login/enter_role/' . rawurlencode($key) . '/' . $uid . '/' . $role);
         }
         
     }
