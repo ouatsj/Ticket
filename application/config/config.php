@@ -22,7 +22,16 @@
     | a PHP script and you can easily do that on your own.
     |
     */
-    $config['base_url'] = 'https://ticket.rakietabus.com';
+    // Production = ticket ; développement = essaiticket (même appli, domaines séparés).
+    $ci_http_host = isset($_SERVER['HTTP_HOST']) ? strtolower((string) $_SERVER['HTTP_HOST']) : '';
+    $ci_allowed_hosts = array(
+        'ticket.rakietabus.com',
+        'essaiticket.rakietabus.com',
+    );
+    if (!in_array($ci_http_host, $ci_allowed_hosts, true)) {
+        $ci_http_host = 'ticket.rakietabus.com';
+    }
+    $config['base_url'] = 'https://' . $ci_http_host;
     
     /*
     |--------------------------------------------------------------------------
