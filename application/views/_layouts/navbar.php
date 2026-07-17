@@ -43,6 +43,24 @@
 
                         <a class="dropdown-item" href="#"><span class="icon mdi mdi-face"></span>Compte</a>
                         <a class="dropdown-item" href="#"><span class="icon mdi mdi-settings"></span>Paramètres</a>
+                        <?php if (super_admin_is_current()): ?>
+                            <a class="dropdown-item"
+                               href="<?= site_url('super-administration/' . $this->session->company->ekey); ?>">
+                                <span class="fas fa-user-shield"></span>&nbsp;&nbsp;Super Administration
+                            </a>
+                        <?php endif; ?>
+                        <?php if (super_admin_can('audit.view')): ?>
+                            <a class="dropdown-item"
+                               href="<?= site_url('audit_quotidien/' . $this->session->company->ekey); ?>">
+                                <span class="fas fa-clipboard-check"></span>&nbsp;&nbsp;Rapports d’audit
+                            </a>
+                        <?php endif; ?>
+                        <?php if (super_admin_can('documentation.view')): ?>
+                            <a class="dropdown-item"
+                               href="<?= site_url('documentation/' . $this->session->company->ekey); ?>">
+                                <span class="fas fa-book"></span>&nbsp;&nbsp;Documentation
+                            </a>
+                        <?php endif; ?>
                         <a class="dropdown-item"
                             href="<?= site_url('Login/lout/' . $this->session->session_id . '/' . $this->session->agent->cpuser_id); ?>"><span
                                     class="fas fa-power-off"></span>&nbsp;&nbsp;Déconnexion</a>
@@ -133,6 +151,11 @@
                                 <i class="fas fa-edit text-success"></i>
                                     Pages
                             </a>
+                            <a class="dropdown-item"
+                                href="<?= site_url("documentation/{$this->session->company->ekey}"); ?>">
+                                <i class="fas fa-book text-primary"></i>
+                                    Documentation &amp; QCM
+                            </a>
                         </div>
                     </li>
                 </ul>
@@ -202,6 +225,11 @@
                                 href="<?= site_url("utilisateurs/{$this->session->company->ekey}"); ?>">
                                     <i class="fas fa-users"></i>&nbsp;Utilisateurs
                             </a>
+                            <a class="dropdown-item"
+                                href="<?= site_url("documentation/{$this->session->company->ekey}"); ?>">
+                                <i class="fas fa-book text-primary"></i>
+                                    Documentation &amp; QCM
+                            </a>
                             
                         </div>
                     </li>
@@ -232,6 +260,11 @@
                             href="<?= site_url("banques/{$this->session->company->ekey}"); ?>">
                                 <i class="fas fa-edit text-danger"></i>
                                 Banques
+                            </a>
+                            <a class="dropdown-item"
+                                href="<?= site_url("documentation/{$this->session->company->ekey}"); ?>">
+                                <i class="fas fa-book text-primary"></i>
+                                    Documentation &amp; QCM
                             </a>
                           
                             
@@ -278,7 +311,12 @@
                                 href="<?= site_url("gares/position/{$this->session->company->ekey}"); ?>">
                                         <i class="fas fa-edit text-info"></i>
                                 Position
-                            </a>                            
+                            </a>
+                            <a class="dropdown-item"
+                                href="<?= site_url("documentation/{$this->session->company->ekey}"); ?>">
+                                <i class="fas fa-book text-primary"></i>
+                                    Documentation &amp; QCM
+                            </a>
                             
                         </div>
                     </li>
@@ -287,6 +325,27 @@
 
             </li>
 
+        </ul>
+    <? endif; ?>
+    <? if ($this->session->agent->userole === '16' OR $this->session->agent->userole === '18' OR $this->session->agent->userole === '6' OR $this->session->agent->userole === '17'): ?>
+        <ul class="nav navbar-nav float-right be-icons-nav">
+            <li class="nav-item dropdown">
+                <a class="nav-link dropdown-toggle" href="#" data-toggle="dropdown" role="button"
+                    aria-expanded="true" title="Paramètres">
+                    <i class="fas fa-cogs"></i>
+                </a>
+                <ul class="dropdown-menu be-notifications">
+                    <li>
+                        <div class="text-body">
+                            <a class="dropdown-item"
+                                href="<?= site_url("documentation/{$this->session->company->ekey}"); ?>">
+                                <i class="fas fa-book text-primary"></i>
+                                    Documentation &amp; QCM
+                            </a>
+                        </div>
+                    </li>
+                </ul>
+            </li>
         </ul>
     <? endif; ?>
     <? if ($this->session->agent->userole === '9'): ?>

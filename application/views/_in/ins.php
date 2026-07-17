@@ -10,6 +10,9 @@
     <meta name="description" content="RAKIETA • Connexion">
     <meta name="author" content="NET SOLUTIONS">
 
+    <link rel="shortcut icon" href="<?= base_url('assets/img/favicon-rakieta.png'); ?>">
+    <link rel="icon" type="image/png" href="<?= base_url('assets/img/favicon-rakieta.png'); ?>">
+
     <title>RAKIETA </title>
 
     <link rel="stylesheet" type="text/css"
@@ -33,6 +36,11 @@
                             <?= !empty($login_error_msg)
                                 ? htmlspecialchars($login_error_msg, ENT_QUOTES, 'UTF-8')
                                 : 'Identifiants incorrects. Réessayez.'; ?>
+                        </div>
+                        <?php endif; ?>
+                        <?php if (!empty($login_notice)): ?>
+                        <div class="alert alert-success mt-2">
+                            <?= htmlspecialchars($login_notice, ENT_QUOTES, 'UTF-8'); ?>
                         </div>
                         <?php endif; ?>
                         <div class="card-body">

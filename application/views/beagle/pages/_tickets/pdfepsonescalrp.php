@@ -57,14 +57,6 @@
                     <tr><td style="font-size: 50px;"><b>BON VOYAGE AVEC <?= $item->nom_compagnie;?></b></td></tr>
                     <tr><td style="font-size: 35px; width:40%;"> <img src="<?php echo site_url('render/Barcode/'.$item->idclescal);?>" width="700" height="170"></td></tr>
                     <tr><td style="font-size: 50px;">emis : <?= $dtoday; ?></td></tr>
-
-                        <? ;  
-                            $uppassrp = array(
-                                'reimpr' => 0,
-                            );
-                                                  
-                            $this->m_escalclients->update($item->idclescal , $uppassrp);
-                        ?>
                     </table>
                 </body>
             </div>

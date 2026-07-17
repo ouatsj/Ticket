@@ -1,7 +1,15 @@
 <?php defined('BASEPATH') OR exit('No direct script access allowed'); ?>
+<?php
+$profiles_back_url = !empty($target_account)
+    ? site_url(
+        'utilisateurs/' . $this->session->company->ekey . '/gTv/'
+        . $target_account->uid . '/compte/' . mdate("%d/%m/%Y", now('UTC'))
+    )
+    : site_url('utilisateurs/' . $this->session->company->ekey);
+?>
 <div class="row">
 <div class="tools">
-        <a href="<?= site_url('utilisateurs/' . $this->session->company->ekey); ?>" class="btn btn-space btn-secondary">
+        <a href="<?= $profiles_back_url; ?>" class="btn btn-space btn-secondary">
                 <i class="fas fa-arrow-circle-left text-info"></i>&nbsp;RETOUR 
         </a>
         

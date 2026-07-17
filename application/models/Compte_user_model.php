@@ -1248,6 +1248,14 @@
             $valid_depense = $adjoint ? 'd.opevalidad' : 'd.opevalid';
             $valid_depot = $adjoint ? 'dp.opvalidad' : 'dp.opvalid';
 
+            // Flags actifs alignés sur la page caisse (principal vs adjoint).
+            $actif_versement = $adjoint ? 'v.is_actifverserad = 1' : 'v.is_actifverser = 1';
+            $actif_recette = $adjoint ? 'r.is_actifrecetad = 1' : 'r.is_actifrecet = 1';
+            $actif_depense = $adjoint ? 'd.is_actifdepad = 1' : 'd.is_actifdep = 1';
+            $actif_depot = $adjoint
+                ? 'dp.is_validdepo = 1 AND dp.is_actifdepoad = 1'
+                : 'dp.is_validdepo = 1';
+
             $attrib = "JOIN attributions_role ar ON ar.roleattribut = %s
                 JOIN user_login ul ON ar.idgestcompte = ul.uid_login AND ul.guser = cs.gexp_caiss
                 JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
@@ -1270,7 +1278,7 @@
                 " . sprintf($attrib, $valid_versement) . "
                 {$filtre}
                 AND v.ferme_caisvers = 0
-                AND v.is_actifverser = 1
+                AND {$actif_versement}
                 AND v.type_versement <> 'Bordereau_bancairecourrier'
                 GROUP BY cs.gexp_caiss"
             )->result();
@@ -1283,7 +1291,7 @@
                 " . sprintf($attrib, $valid_recette) . "
                 {$filtre}
                 AND r.ferme_caisrecet = 0
-                AND r.is_actifrecet = 1
+                AND {$actif_recette}
                 AND r.type_recet <> 'Courrier'
                 GROUP BY cs.gexp_caiss"
             )->result();
@@ -1296,7 +1304,7 @@
                 " . sprintf($attrib, $valid_depense) . "
                 {$filtre}
                 AND d.ferme_caisdep = 0
-                AND d.is_actifdep = 1
+                AND {$actif_depense}
                 AND d.type_depense <> 'Courrier'
                 GROUP BY cs.gexp_caiss"
             )->result();
@@ -1309,7 +1317,7 @@
                 " . sprintf($attrib, $valid_depot) . "
                 {$filtre}
                 AND dp.ferme_caisdepo = 0
-                AND dp.is_validdepo = 1
+                AND {$actif_depot}
                 AND dp.type_depot <> 'Courrier'
                 GROUP BY cs.gexp_caiss"
             )->result();

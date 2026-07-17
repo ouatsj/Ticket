@@ -14,6 +14,9 @@ return array(
         'm_typedocument',
         'm_versements',
     ),
+    'Audit_quotidien' => array(
+        'm_entreprises',
+    ),
     'Banques' => array(
         'm_banque',
         'm_compagnies',
@@ -164,6 +167,9 @@ return array(
         'm_genre_depot',
         'm_typedocument',
         'm_versements',
+    ),
+    'Documentation' => array(
+        'm_entreprises',
     ),
     'Entreprises' => array(
         'm_entreprises',

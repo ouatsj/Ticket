@@ -1,7 +1,15 @@
 <?php defined('BASEPATH') OR exit('No direct script access allowed'); ?>
+<?php
+$profiles_back_url = !empty($target_account)
+    ? site_url(
+        'utilisateurs/' . $this->session->company->ekey . '/gTv/'
+        . $target_account->uid . '/compte/' . mdate("%d/%m/%Y", now('UTC'))
+    )
+    : site_url('utilisateurs/' . $this->session->company->ekey);
+?>
 <div class="row">
     <div class="tools">
-        <a href="<?= site_url('utilisateurs/' . $this->session->company->ekey); ?>" class="btn btn-space btn-secondary">
+        <a href="<?= $profiles_back_url; ?>" class="btn btn-space btn-secondary">
                 <i class="fas fa-arrow-circle-left text-info"></i>&nbsp;RETOUR 
         </a>
         
@@ -88,7 +96,7 @@
                                                 </button>
                                             </div>
                                             <div class="card-body">
-                                                <?= form_open('Utilisateurs/edit_pro/' . $this->session->company->ekey . '/' . $us->uid_login . '/' . $us->uid,
+                                                <?= form_open('Utilisateurs/edit_pro/' . $this->session->company->ekey . '/' . $us->uid . '/' . $us->uid_login,
                                                     array('class' => 'modal-body form')); ?>
 
                                                 
@@ -97,8 +105,18 @@
                                                     <div class="col-12 col-sm-8 col-lg-6">
                                                         <select class="form-control form-control-sm" name="nomuser" id="">
                                                             <option value="<?= $us->uid_login; ?>"><?= $us->username; ?></option>
-                                                            <? $userlogins = $this->db->query(
-                                                                "SELECT * FROM compte_user")->result(); ?>
+                                                            <?php
+                                                            $visibleAccountsSql = "SELECT cpuser_id, username FROM compte_user cu";
+                                                            if ($this->db->table_exists('super_admin_accounts')
+                                                                && !super_admin_is_current()
+                                                            ) {
+                                                                $visibleAccountsSql .= " WHERE NOT EXISTS (
+                                                                    SELECT 1 FROM super_admin_accounts sa
+                                                                    WHERE sa.cpuser_id = cu.cpuser_id
+                                                                )";
+                                                            }
+                                                            $userlogins = $this->db->query($visibleAccountsSql)->result();
+                                                            ?>
                                                             
                                                             <? foreach ($userlogins as $logus): ?>
                                                                 <option value="<?= $logus->cpuser_id; ?>"><?= $logus->username; ?></option>

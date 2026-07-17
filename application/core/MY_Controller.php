@@ -91,6 +91,13 @@ class MY_Controller extends CI_Controller
 
         auth_session_validate_or_logout();
 
+        $agent = $this->session->userdata('agent');
+        if ($agent && super_admin_requires_password_change((int) $agent->cpuser_id)) {
+            auth_session_force_logout(TRUE);
+            redirect('login/ins');
+            exit;
+        }
+
         $class = strtolower($this->router->fetch_class());
         $method = strtolower($this->router->fetch_method());
         if ($class === 'gares' && in_array($method, array('options', 'optiongare'), true)) {

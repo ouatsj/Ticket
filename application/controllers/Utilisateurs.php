@@ -42,6 +42,34 @@
 
             return (string) $bind['vendor_ra'];
         }
+
+        protected function _account_in_company($ckey, $cpuser_id)
+        {
+            if (!$this->config->item('users_account_scoped_navigation_enabled')
+                || (string) $this->session->company->ekey !== (string) $ckey
+            ) {
+                show_404();
+                exit;
+            }
+
+            $account = $this->db->query(
+                "SELECT cu.cpuser_id, cu.username, cu.userlog_id, u.uid,
+                        u.first_name, u.last_name, u.cle_comp
+                 FROM compte_user cu
+                 JOIN utilisateurs u ON u.uid = cu.userlog_id
+                 WHERE cu.cpuser_id = ?
+                 AND u.cle_comp = ?
+                 LIMIT 1",
+                array((int) $cpuser_id, (int) $ckey)
+            )->row();
+
+            if (!$account) {
+                show_404();
+                exit;
+            }
+
+            return $account;
+        }
         
         
         
@@ -1568,6 +1596,21 @@
                 return $this->layout->view('_users/afcompt', $this->property);
         }
 
+        public function account_gares($ckey, $cpuser_id)
+        {
+            $this->company = $this->m_entreprises->get_key($ckey);
+            $account = $this->_account_in_company($ckey, $cpuser_id);
+            $this->property['target_account'] = $account;
+            $this->property['profilusers'] = $this->m_user_login
+                ->get_by_account($this->company->ekey, $account->cpuser_id);
+            $this->property['pagetitle'] .= "&nbsp;•&nbsp;GARES DE <strong>"
+                . htmlspecialchars($account->username, ENT_QUOTES, 'UTF-8') . "</strong>";
+            $this->property['garees'] = $this->m_gares->get($this->company->id_entreprise);
+            $this->property['gares'] = $this->m_gare_depart->get($this->company->id_entreprise);
+
+            return $this->layout->view('_users/afcompt', $this->property);
+        }
+
         public function affectrole($ckey)
         {
             $this->company = $this->m_entreprises->get_key($ckey);
@@ -1575,6 +1618,19 @@
                 $this->property['pagetitle'] .= "&nbsp;•&nbsp;PROFILS<strong>&nbsp;•&nbsp;{$this->company->nom_entreprise}</strong> ";
                 
                 return $this->layout->view('_users/afcomptgarerole', $this->property);
+        }
+
+        public function account_profiles($ckey, $cpuser_id)
+        {
+            $this->company = $this->m_entreprises->get_key($ckey);
+            $account = $this->_account_in_company($ckey, $cpuser_id);
+            $this->property['target_account'] = $account;
+            $this->property['profilusers'] = $this->m_roleattribution
+                ->get_by_account($this->company->ekey, $account->cpuser_id);
+            $this->property['pagetitle'] .= "&nbsp;•&nbsp;PROFILS DE <strong>"
+                . htmlspecialchars($account->username, ENT_QUOTES, 'UTF-8') . "</strong>";
+
+            return $this->layout->view('_users/afcomptgarerole', $this->property);
         }
 
         public function editpage_($ckey, $idc, $idr, $idus, $g)
@@ -1608,6 +1664,19 @@
                 $this->property['pagetitle'] .= "&nbsp;•&nbsp;PAGES<strong>&nbsp;•&nbsp;{$this->company->nom_entreprise}</strong> ";
                 
                 return $this->layout->view('_users/afcomptpage', $this->property);
+        }
+
+        public function account_pages($ckey, $cpuser_id)
+        {
+            $this->company = $this->m_entreprises->get_key($ckey);
+            $account = $this->_account_in_company($ckey, $cpuser_id);
+            $this->property['target_account'] = $account;
+            $this->property['profiluserspage'] = $this->m_appdossier
+                ->get_by_account($this->company->ekey, $account->cpuser_id);
+            $this->property['pagetitle'] .= "&nbsp;•&nbsp;PAGES DE <strong>"
+                . htmlspecialchars($account->username, ENT_QUOTES, 'UTF-8') . "</strong>";
+
+            return $this->layout->view('_users/afcomptpage', $this->property);
         }
         public function activeprofil($ckey, $id, $idcp, $ul, $statut)
         {

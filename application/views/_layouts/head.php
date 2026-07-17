@@ -22,8 +22,9 @@
     <meta name="cdn-watch-script-warn" content="20">
     <link rel="preconnect" href="<?= base_url(); ?>" crossorigin>
     <link rel="dns-prefetch" href="<?= base_url(); ?>">
-    <link rel="shortcut icon" href="<?= base_url('assets/img/avatar3.png'); ?>">
-    <link rel="icon" type="image/png" href="<?= base_url('assets/img/avatar3.png'); ?>">
+    <link rel="shortcut icon" href="<?= base_url('assets/img/favicon-rakieta.png'); ?>">
+    <link rel="icon" type="image/png" href="<?= base_url('assets/img/favicon-rakieta.png'); ?>">
+    <link rel="apple-touch-icon" href="<?= base_url('assets/img/favicon-rakieta.png'); ?>">
     <title><?php
         $companyName = ($this->session->userdata('company') && isset($this->session->company->nom_entreprise))
             ? $this->session->company->nom_entreprise

@@ -1,19 +1,24 @@
-<?php defined('BASEPATH') OR exit('No direct script access allowed'); ?>
+<?php
+defined('BASEPATH') OR exit('No direct script access allowed');
+$account_scoped_navigation_enabled =
+    (bool) $this->config->item('users_account_scoped_navigation_enabled');
+?>
 <div class="row">
     <div class="tools">
         <a href="<?= site_url('utilisateurs/' . $this->session->company->ekey); ?>" class="btn btn-space btn-secondary">
                 <i class="fas fa-arrow-circle-left text-info"></i>&nbsp;RETOUR 
         </a>
-        <a href="<?= site_url('utilisateurs/voirprofil/'. $this->session->company->ekey); ?>" class="btn btn-space btn-secondary">
+        <?php if (!$account_scoped_navigation_enabled): ?>
+            <a href="<?= site_url('utilisateurs/voirprofil/' . $this->session->company->ekey); ?>" class="btn btn-space btn-secondary">
                 <i class="fas fa-arrow-circle-left text-success"></i>&nbsp;VOIR LES PROFILS
-        </a>
-
-        <a href="<?= site_url('utilisateurs/voirprofilgare/'. $this->session->company->ekey); ?>" class="btn btn-space btn-secondary">
-            <i class="fas fa-arrow-circle-left text-success"></i>&nbsp;VOIR LES GARES ATTRIBUER AU COMPTE
-        </a>
-        <a href="<?= site_url('utilisateurs/voirprofilpage/'. $this->session->company->ekey); ?>" class="btn btn-space btn-secondary">
-            <i class="fas fa-arrow-circle-left text-info"></i>&nbsp;VOIR LES PAGES ATTRIBUER AU COMPTE
-        </a>
+            </a>
+            <a href="<?= site_url('utilisateurs/voirprofilgare/' . $this->session->company->ekey); ?>" class="btn btn-space btn-secondary">
+                <i class="fas fa-arrow-circle-left text-success"></i>&nbsp;VOIR LES GARES ATTRIBUER AU COMPTE
+            </a>
+            <a href="<?= site_url('utilisateurs/voirprofilpage/' . $this->session->company->ekey); ?>" class="btn btn-space btn-secondary">
+                <i class="fas fa-arrow-circle-left text-info"></i>&nbsp;VOIR LES PAGES ATTRIBUER AU COMPTE
+            </a>
+        <?php endif; ?>
     </div>
 </div>
 <div class="row" id="comptes-filter-list">
@@ -209,15 +214,55 @@
                             </div>
                         </div>
                     <? endif; ?>
+                    <?php if ($account_scoped_navigation_enabled): ?>
+                        <a href="<?= site_url(
+                                'utilisateurs/' . $this->session->company->ekey
+                                . '/comptes/' . $item->cpuser_id . '/profils'
+                            ); ?>"
+                            class="btn btn-block btn-rounded text-dark bg-success">
+                            <span class="fas fa-user-tag"></span>
+                            VOIR LES PROFILS
+                        </a>
+
+                        <a href="<?= site_url(
+                                'utilisateurs/' . $this->session->company->ekey
+                                . '/comptes/' . $item->cpuser_id . '/gares'
+                            ); ?>"
+                            class="btn btn-block btn-rounded text-dark bg-info">
+                            <span class="fas fa-map-marker-alt"></span>
+                            VOIR LES GARES ATTRIBUÉES
+                        </a>
+
+                        <a href="<?= site_url(
+                                'utilisateurs/' . $this->session->company->ekey
+                                . '/comptes/' . $item->cpuser_id . '/pages'
+                            ); ?>"
+                            class="btn btn-block btn-rounded text-dark bg-info">
+                            <span class="fas fa-file-alt"></span>
+                            VOIR LES PAGES ATTRIBUÉES
+                        </a>
+
+                        <?php if (super_admin_is_current()): ?>
+                            <a href="<?= site_url(
+                                    'super-administration/' . $this->session->company->ekey
+                                    . '/compte/' . $item->cpuser_id
+                                ); ?>"
+                                class="btn btn-block btn-rounded text-white bg-primary">
+                                <span class="fas fa-user-shield"></span>
+                                PERMISSIONS
+                            </a>
+                        <?php endif; ?>
+                    <?php else: ?>
                         <a href="<?= site_url('utilisateurs/'
                                 . $this->session->company->ekey . '/gTv/'
-                                . $item->uid.'/'
-                                . $item->cpuser_id. '/garecompte/' . mdate("%d/%m/%Y", now('UTC'))); ?>" 
+                                . $item->uid . '/'
+                                . $item->cpuser_id . '/garecompte/' . mdate("%d/%m/%Y", now('UTC'))); ?>"
                             class="btn btn-block btn-rounded text-dark bg-info">
                             <span class="fas fa-edit"></span>
                             VOIR GARE ATTRIBUER AU COMPTE
                         </a>
-                        
+                    <?php endif; ?>
+
                         <a href="#"
                             class="btn btn-block btn-rounded text-dark bg-info md-trigger" data-modal="attribgare-<?= $item->cpuser_id; ?>" title="Attribuer gare">
                             <span class="fas fa-edit"></span> ATTRIBUER UNE GARE

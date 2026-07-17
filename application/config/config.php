@@ -32,6 +32,12 @@
         $ci_http_host = 'ticket.rakietabus.com';
     }
     $config['base_url'] = 'https://' . $ci_http_host;
+    // Fonction pilote : onglets géographiques de la liste des utilisateurs.
+    $config['users_zone_tabs_enabled'] = ($ci_http_host === 'essaiticket.rakietabus.com');
+    $config['users_account_scoped_navigation_enabled'] =
+        ($ci_http_host === 'essaiticket.rakietabus.com');
+    $config['sales_price_controls_enabled'] =
+        ($ci_http_host === 'essaiticket.rakietabus.com');
     
     /*
     |--------------------------------------------------------------------------

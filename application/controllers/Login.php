@@ -40,6 +40,11 @@
             $this->m_roleattribution->clear_stale_activeattrib();
             compte_arret_track_activity((int) $detector->cpuser_id);
 
+            if (super_admin_requires_password_change((int) $detector->cpuser_id)) {
+                redirect('login/change_password');
+                return;
+            }
+
             $roles = $this->m_compte_user->roleatt((int) $detector->cpuser_id);
             if (empty($roles)) {
                 auth_session_login_transition_denied('Aucun profil actif pour ce compte.');
@@ -122,6 +127,7 @@
                 $viewData = array(
                     'login_error' => (bool) $this->session->flashdata('login_error'),
                     'login_error_msg' => $this->session->flashdata('login_error_msg'),
+                    'login_notice' => $this->session->flashdata('login_notice'),
                 );
                 $this->load->view('_in/ins', $viewData);
             } else {
@@ -360,6 +366,89 @@
             auth_session_force_logout(true);
 
             redirect('login/ins/');
+        }
+
+        public function change_password()
+        {
+            $pending = auth_session_get_login_pending();
+            if (!$pending || !super_admin_requires_password_change((int) $pending['cpuser_id'])) {
+                redirect('login/ins');
+                return;
+            }
+
+            $this->load->view('_in/change_password', array(
+                'password_error' => $this->session->flashdata('password_error'),
+            ));
+        }
+
+        public function change_password_submit()
+        {
+            $this->_load_auth_models();
+            $pending = auth_session_get_login_pending();
+            if (!$pending || !super_admin_requires_password_change((int) $pending['cpuser_id'])) {
+                redirect('login/ins');
+                return;
+            }
+
+            $password = (string) $this->input->post('new_password');
+            $confirm = (string) $this->input->post('confirm_password');
+            $error = NULL;
+
+            if ($password !== $confirm) {
+                $error = 'Les deux mots de passe ne correspondent pas.';
+            } elseif (strlen($password) < 10
+                || !preg_match('/[A-Z]/', $password)
+                || !preg_match('/[a-z]/', $password)
+                || !preg_match('/[0-9]/', $password)
+                || !preg_match('/[^A-Za-z0-9]/', $password)
+            ) {
+                $error = 'Utilisez au moins 10 caractères avec majuscule, minuscule, chiffre et caractère spécial.';
+            } elseif ($password === 'Admin123') {
+                $error = 'Choisissez un mot de passe différent du mot de passe temporaire.';
+            }
+
+            if ($error !== NULL) {
+                $this->session->set_flashdata('password_error', $error);
+                redirect('login/change_password');
+                return;
+            }
+
+            $accountId = (int) $pending['cpuser_id'];
+            $hash = password_make($password);
+            $now = date('Y-m-d H:i:s');
+            $this->db->trans_start();
+            $this->m_compte_user->update($accountId, array(
+                'upassword' => $hash,
+                'confirm_password' => $hash,
+            ));
+            $this->db
+                ->where('cpuser_id', $accountId)
+                ->update('super_admin_accounts', array(
+                    'must_change_password' => 0,
+                    'password_changed_at' => $now,
+                ));
+            $this->db->insert('super_admin_audit_log', array(
+                'actor_cpuser_id' => $accountId,
+                'target_cpuser_id' => $accountId,
+                'action_code' => 'password.first_change',
+                'details_json' => '{}',
+                'ip_address' => (string) $this->input->ip_address(),
+                'created_at' => $now,
+            ));
+            $this->db->trans_complete();
+
+            if (!$this->db->trans_status()) {
+                $this->session->set_flashdata('password_error', 'Le changement a échoué. Réessayez.');
+                redirect('login/change_password');
+                return;
+            }
+
+            auth_session_consume_login_pending($accountId, (string) $pending['ekey']);
+            $this->session->set_flashdata(
+                'login_notice',
+                'Mot de passe changé. Connectez-vous maintenant avec votre nouveau mot de passe.'
+            );
+            redirect('login/ins');
         }
     }
     

@@ -2835,7 +2835,46 @@ document.addEventListener('DOMContentLoaded', () => {
                 var tafiFormEl = document.querySelector('#tafiForm');
                 if (tafiFormEl && !tafiFormEl.dataset.salePrepared) {
                     tafiFormEl.dataset.salePrepared = '1';
-                    tafiFormEl.addEventListener('submit', function () {
+                    var priceInput = tafiFormEl.querySelector('[name="prixfid"]');
+                    if (priceInput && !tafiFormEl.querySelector('[name="type_autorisation_prix"]')) {
+                        var authorizationBlock = document.createElement('div');
+                        authorizationBlock.className = 'card card-border border-warning mb-3';
+                        authorizationBlock.innerHTML =
+                            '<div class="card-header">Autorisation du prix</div>' +
+                            '<div class="card-body">' +
+                                '<div class="form-group">' +
+                                    '<label>Type d’autorisation</label>' +
+                                    '<select class="form-control form-control-sm" name="type_autorisation_prix" required>' +
+                                        '<option value="divers">Divers — validation selon les permissions</option>' +
+                                        '<option value="carte_voyage">Carte de voyage valide</option>' +
+                                    '</select>' +
+                                '</div>' +
+                                '<div class="form-group" data-travel-card-field style="display:none">' +
+                                    '<label>Numéro de carte de voyage</label>' +
+                                    '<input class="form-control form-control-sm" name="numero_carte_voyage" autocomplete="off">' +
+                                '</div>' +
+                                '<div class="form-group">' +
+                                    '<label>Motif du prix appliqué</label>' +
+                                    '<textarea class="form-control form-control-sm" name="prix_libre_motif" maxlength="500" required></textarea>' +
+                                '</div>' +
+                                '<input type="hidden" name="confirmation_zero" value="0">' +
+                            '</div>';
+                        priceInput.closest('.form-group').insertAdjacentElement('afterend', authorizationBlock);
+
+                        var authorizationSelect = authorizationBlock.querySelector('[name="type_autorisation_prix"]');
+                        var cardField = authorizationBlock.querySelector('[data-travel-card-field]');
+                        var cardInput = authorizationBlock.querySelector('[name="numero_carte_voyage"]');
+                        authorizationSelect.addEventListener('change', function () {
+                            var isCard = authorizationSelect.value === 'carte_voyage';
+                            cardField.style.display = isCard ? '' : 'none';
+                            cardInput.required = isCard;
+                            if (!isCard) {
+                                cardInput.value = '';
+                            }
+                        });
+                    }
+
+                    tafiFormEl.addEventListener('submit', function (event) {
                         AppRequestGuard.ensureNonce('#tafiForm', 'sale_nonce');
                         AppRequestGuard.syncClientMirror([
                             ['#rclientfi', '#rclientcpfi'],
@@ -2844,6 +2883,19 @@ document.addEventListener('DOMContentLoaded', () => {
                             ['#date_cnibfi', '#date_cnibcpfi'],
                             ['#lieudelivrefi', '#lieudelivrecpfi']
                         ]);
+                        var amountInput = tafiFormEl.querySelector('[name="prixfid"]');
+                        var amount = parseFloat(((amountInput && amountInput.value) || '0').replace(',', '.'));
+                        var authorizationType = tafiFormEl.querySelector('[name="type_autorisation_prix"]');
+                        var zeroConfirmation = tafiFormEl.querySelector('[name="confirmation_zero"]');
+                        if (amount === 0 && authorizationType && authorizationType.value !== 'carte_voyage') {
+                            if (!window.confirm('Confirmer une vente à 0 F ?')) {
+                                event.preventDefault();
+                                return;
+                            }
+                            zeroConfirmation.value = '1';
+                        } else if (zeroConfirmation) {
+                            zeroConfirmation.value = '0';
+                        }
                     });
                 }
 

@@ -22,17 +22,35 @@
         public function create(array $data)
         {
             $data = roleattribut_guard_apply_to_data($data, array('idcptuser'));
+            $pricing = null;
+            $CI =& get_instance();
+            $isOtherSale = sales_price_controls_enabled()
+                && isset($CI->router)
+                && strtolower((string) $CI->router->fetch_method()) === 'addpassagerfi';
 
-            // Prix serveur : catalogue programme + gare du programme (pas gare de session).
-            if (isset($data['code_pro']) && array_key_exists('prixvente', $data) && function_exists('ticket_prix_depuis_programme')) {
-                $data['prixvente'] = ticket_prix_depuis_programme(
+            if ($isOtherSale && isset($data['code_pro']) && array_key_exists('prixvente', $data)) {
+                $pricing = sales_price_validate_or_fail(
                     $data['code_pro'],
-                    $data['prixvente']
+                    $data['prixvente'],
+                    array(
+                        'reason' => $this->input->post('prix_libre_motif'),
+                        'authorization_type' => $this->input->post('type_autorisation_prix'),
+                        'card_number' => $this->input->post('numero_carte_voyage'),
+                        'zero_confirmed' => $this->input->post('confirmation_zero') === '1',
+                    )
                 );
+                $data['prixvente'] = $pricing['sold_price'];
+            } elseif (isset($data['code_pro']) && array_key_exists('prixvente', $data) && function_exists('ticket_prix_depuis_programme')) {
+                // Vente normale : prix catalogue du programme.
+                $data['prixvente'] = ticket_prix_depuis_programme($data['code_pro'], $data['prixvente']);
             }
 
             $this->db->insert($this->table, $data);
-            return $this->db->insert_id();
+            $insertId = $this->db->insert_id();
+            if ($insertId && $pricing) {
+                sales_price_snapshot_record($data, $pricing);
+            }
+            return $insertId;
         }
         
         public function update($code_passager, $code_ticket, array $data)

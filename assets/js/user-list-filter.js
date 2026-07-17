@@ -20,16 +20,27 @@
             var $items = $list.find('[data-user-filter-item]');
             var $count = $('#' + listId + '-count');
             var $empty = $('#' + listId + '-empty');
+            var $zoneTabs = $('[data-user-zone-tabs="' + listId + '"]');
+            var $zoneButtons = $zoneTabs.find('[data-user-zone]');
             var label = $input.attr('data-user-filter-label') || 'utilisateur(s)';
 
             function applyFilter() {
                 var query = normalize($.trim($input.val()));
+                var activeZone = normalize($zoneButtons.filter('.active').attr('data-user-zone'));
                 var visible = 0;
+                var zoneTotal = 0;
 
                 $items.each(function () {
                     var $item = $(this);
                     var haystack = normalize($item.attr('data-search') || $item.text());
-                    var match = !query || haystack.indexOf(query) !== -1;
+                    var zones = normalize($item.attr('data-user-zones')).split(/\s+/);
+                    var zoneMatch = !activeZone || zones.indexOf(activeZone) !== -1;
+                    var searchMatch = !query || haystack.indexOf(query) !== -1;
+                    var match = zoneMatch && searchMatch;
+
+                    if (zoneMatch) {
+                        zoneTotal++;
+                    }
                     $item.toggle(match);
                     if (match) {
                         visible++;
@@ -38,18 +49,23 @@
 
                 if ($count.length) {
                     if (query) {
-                        $count.text(visible + ' / ' + $items.length + ' ' + label);
+                        $count.text(visible + ' / ' + zoneTotal + ' ' + label);
                     } else {
-                        $count.text($items.length + ' ' + label);
+                        $count.text(zoneTotal + ' ' + label);
                     }
                 }
 
                 if ($empty.length) {
-                    $empty.toggle(!!query && visible === 0);
+                    $empty.toggle(visible === 0 && (!!query || !!activeZone));
                 }
             }
 
             $input.on('input keyup search', applyFilter);
+            $zoneButtons.on('click', function () {
+                $zoneButtons.removeClass('active').attr('aria-selected', 'false');
+                $(this).addClass('active').attr('aria-selected', 'true');
+                applyFilter();
+            });
             applyFilter();
         });
     }

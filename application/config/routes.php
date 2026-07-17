@@ -77,6 +77,23 @@
             $route['utilisateurs/(:num)/profilsbagage/(:any)/(:num)/(:num)/(:num)/(:any)/(:num)/(:any)/(:any)'] = 'Utilisateurs/profibag/$1/$2/$3/$4/$5/$6/$7/$8/$9';
             $route['utilisateurs/(:num)/profilsdep/(:any)/(:num)/(:num)/(:num)/(:any)/(:num)/(:any)/(:any)'] = 'Utilisateurs/profideps/$1/$2/$3/$4/$5/$6/$7/$8/$9';
             $route['role_user/(:num)'] = 'Role_User/view/$1';
+
+            /** Documentation & QCM formation */
+            $route['documentation/(:num)'] = 'Documentation/index/$1';
+            $route['documentation/(:num)/manuel/(:any)'] = 'Documentation/manuel/$1/$2';
+            $route['documentation/(:num)/qcm/(:any)'] = 'Documentation/qcm/$1/$2';
+            $route['documentation/(:num)/qcm_corrige/(:any)'] = 'Documentation/qcm_corrige/$1/$2';
+            $route['audit_quotidien/(:num)'] = 'Audit_quotidien/index/$1';
+            $route['audit_quotidien/(:num)/voir/(:num)'] = 'Audit_quotidien/voir/$1/$2';
+            $route['audit_quotidien/(:num)/generer'] = 'Audit_quotidien/generer/$1';
+            $route['super-administration/(:num)/compte/(:num)'] = 'Super_administration/index/$1/$2';
+            $route['super-administration/(:num)'] = 'Super_administration/index/$1';
+            $route['super-administration/(:num)/permissions/(:num)'] = 'Super_administration/save_permissions/$1/$2';
+            $route['super-administration/(:num)/controle'] = 'Super_administration/toggle_enforcement/$1';
+            $route['super-administration/(:num)/reglages-ventes'] = 'Super_administration/save_sales_settings/$1';
+            $route['utilisateurs/(:num)/comptes/(:num)/profils'] = 'Utilisateurs/account_profiles/$1/$2';
+            $route['utilisateurs/(:num)/comptes/(:num)/gares'] = 'Utilisateurs/account_gares/$1/$2';
+            $route['utilisateurs/(:num)/comptes/(:num)/pages'] = 'Utilisateurs/account_pages/$1/$2';
             $route['utilisateurs/(:any)/gTv/(:any)/compte/(:any)/(:any)/(:any)'] = 'Utilisateurs/viewcompte/$1/$2/$3/$4/$5';
             $route['utilisateurs/(:any)/gTv/(:any)/(:any)/garecompte/(:any)/(:any)/(:any)'] = 'Utilisateurs/comptegares/$1/$2/$3/$4/$5/$6';
             $route['utilisateurs/(:any)/gTv/(:any)/(:any)/rolecompte/(:any)/(:any)/(:any)'] = 'Utilisateurs/compteroles/$1/$2/$3/$4/$5/$6';

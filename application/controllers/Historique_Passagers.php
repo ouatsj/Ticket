@@ -289,17 +289,87 @@
         public function updateticket($ckey, $cdp, $ct, $uid, $g, $sg, $nct = FALSE)
         {
             $this->company = $this->m_entreprises->get_key($ckey);
+            if (sales_price_controls_enabled()) {
+                if (strtoupper($this->input->method()) !== 'POST'
+                    || (string) $this->session->company->ekey !== (string) $ckey
+                    || !super_admin_can('sales.price.free')
+                ) {
+                    show_error('Modification du prix non autorisée.', 403);
+                    return;
+                }
+
+                $ticket = $this->db
+                    ->from('passager')
+                    ->where('code_passager', $cdp)
+                    ->where('code_ticket', $ct)
+                    ->limit(1)
+                    ->get()
+                    ->row();
+                if (!$ticket) {
+                    show_404();
+                    return;
+                }
+
+                $printed = $this->db
+                    ->from('ticket_print_events')
+                    ->where('company_ekey', (int) $ckey)
+                    ->where('code_passager', $cdp)
+                    ->where('code_ticket', $ct)
+                    ->limit(1)
+                    ->count_all_results() > 0;
+                if ($printed
+                    && (!sales_setting_bool('sales.post_print_edit_enabled', false)
+                        || !super_admin_can('sales.ticket.edit_after_print'))
+                ) {
+                    show_error('Ce billet a déjà été imprimé et ne peut plus être modifié.', 403);
+                    return;
+                }
+
+                $reason = trim((string) $this->input->post('modification_motif'));
+                if ($reason === '') {
+                    show_error('Le motif de modification est obligatoire.', 422);
+                    return;
+                }
+                $pricing = sales_price_validate_or_fail(
+                    $ticket->code_pro,
+                    $this->input->post('prixticket'),
+                    array(
+                        'reason' => $reason,
+                        'authorization_type' => 'divers',
+                        'zero_confirmed' => $this->input->post('confirmation_zero') === '1',
+                    )
+                );
+                $newPrice = $pricing['sold_price'];
+                $oldPrice = (float) $ticket->prixvente;
+            } else {
+                $newPrice = $this->input->post('prixticket');
+                $oldPrice = null;
+                $reason = null;
+            }
 
             $delarray = array(
-                'prixvente' => $this->input->post('prixticket'),
+                'prixvente' => $newPrice,
             );
             $this->m_passager->update($cdp, $ct, $delarray);
 
             $codenarray = array(
-                'prixretour' => $this->input->post('prixticket'),
+                'prixretour' => $newPrice,
             );
 
             $this->m_non_passager->update($cdp, $nct, $codenarray);
+            if (sales_price_controls_enabled() && $this->db->table_exists('ticket_audit_log')) {
+                $this->db->insert('ticket_audit_log', array(
+                    'company_ekey' => (int) $ckey,
+                    'code_passager' => (string) $cdp,
+                    'code_ticket' => (string) $ct,
+                    'actor_cpuser_id' => (int) $this->session->agent->cpuser_id,
+                    'action_code' => 'price.update',
+                    'old_values_json' => json_encode(array('prixvente' => $oldPrice)),
+                    'new_values_json' => json_encode(array('prixvente' => $newPrice)),
+                    'reason' => $reason,
+                    'created_at' => date('Y-m-d H:i:s'),
+                ));
+            }
 
             $this->property['UPDATE_SUCCESS'] = TRUE;
 

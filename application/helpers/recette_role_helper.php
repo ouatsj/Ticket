@@ -191,11 +191,13 @@ if (!function_exists('recette_role_rd_open_depense_sql')) {
 
 if (!function_exists('recette_role_rd_date_sql')) {
     /**
-     * Chef guichet : pas de coupure par date — les flags active_* + is_actif* définissent la période ouverte.
+     * Chef guichet (5/16) : pas de coupure par date — les flags active_* + is_actif*
+     * définissent la période ouverte (aligné solde carte / formulaire).
+     * Autres rôles : après le dernier arrêt (last_arret), si fourni.
      */
     function recette_role_rd_date_sql($after_date, $userole, $gare_scope, $date_column)
     {
-        if (recette_role_is_chef_guichet_rd_list($userole, $gare_scope)) {
+        if (recette_role_is_saisie($userole) || recette_role_is_chef_guichet_rd_list($userole, $gare_scope)) {
             return '';
         }
         if ($after_date !== null && $after_date !== '') {

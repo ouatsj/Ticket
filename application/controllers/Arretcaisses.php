@@ -236,7 +236,6 @@
         
                         $plarray = array(
                             'commentaire_recet'=> $this->input->post('comment'),
-                            'idopera' => $idcpt,
                             'idcaisse' => $idc,
                             'is_actifrecet' => 1,
                             'is_validerecet' => 1,
@@ -258,7 +257,6 @@
             $idcmpt = $this->input->post('compconnected');
                 $plarray = array(
                     'commentaire_recet'=> $this->input->post('comment'),
-                    'idopera' => $idcpt,
                     'idcaisse' => $idc,
                     'active_recet' => 0,
                     'is_actifrecet' => 0,
@@ -282,7 +280,6 @@
                 
                         $dplarray = array(
                             'commentaire'=> $this->input->post('comment'),
-                            'idop_dep' => $idcpt,
                             'idcaisse_depens' => $idc,
                             'is_actifdep' => 1,
                             'is_validedep' => 1,
@@ -306,7 +303,6 @@
                 
                         $dplarray = array(
                             'commentaire'=> $this->input->post('comment'),
-                            'idop_dep' => $idcpt,
                             'idcaisse_depens' => $idc,
                             'active_dep' => 0,
                             'is_actifdep' => 0,
@@ -329,7 +325,6 @@
             $idcmpt = $this->input->post('compconnected');
                         $dpolarray = array(
                             'commentaire_depot'=> $this->input->post('comment'),
-                            'idop_depot' => $idcpt,
                             'idcaisse_depot' => $idc,
                             'is_actifdepo' => 1,
                             'is_validdepo' => 1,
@@ -352,7 +347,6 @@
                 
                         $dpolarray = array(
                             'commentaire_depot'=> $this->input->post('comment'),
-                            'idop_depot' => $idcpt,
                             'idcaisse_depot' => $idc,
                             'is_actifdepo' => 0,
                             'is_validdepo' => 0,
@@ -735,7 +729,6 @@
                     {
                         $plarray = array(
                             'commentaire_recet'=> $this->input->post('comment'),
-                            'idopera' => $idcpt,
                             'idcaisse' => $idc,
                             'active_recet' => 1,
                             'is_actifrecet' => 1,
@@ -749,7 +742,6 @@
 
                         $plarray = array(
                             'commentaire_recet'=> $this->input->post('comment'),
-                            'idopera' => $idcpt,
                             'idcaisse' => $idc,
                             'active_recet' => 1,
                             'is_actifrecet' => 1,
@@ -793,7 +785,6 @@
                 {
                     $plarray = array(
                         'commentaire_recet'=> $this->input->post('comment'),
-                        'idopera' => $idcpt,
                         'idcaisse' => $idc,
                         'active_recet' => 0,
                         'is_actifrecet' => 0,
@@ -806,7 +797,6 @@
                 {
                     $plarray = array(
                         'commentaire_recet'=> $this->input->post('comment'),
-                        'idopera' => $idcpt,
                         'idcaisse' => $idc,
                         'active_recet' => 0,
                         'is_actifreceta' => 0,
@@ -847,7 +837,6 @@
                 {
                         $dplarray = array(
                             'commentaire'=> $this->input->post('comment'),
-                            'idop_dep' => $idcpt,
                             'idcaisse_depens' => $idc,
                             'active_dep' => 1,
                             'is_actifdep' => 1,
@@ -862,7 +851,6 @@
 
                     $dplarray = array(
                             'commentaire'=> $this->input->post('comment'),
-                            'idop_dep' => $idcpt,
                             'idcaisse_depens' => $idc,
                             'active_dep' => 1,
                             'is_actifdep' => 1,
@@ -906,7 +894,6 @@
                 {
                     $dplarray = array(
                         'commentaire'=> $this->input->post('comment'),
-                        'idop_dep' => $idcpt,
                         'idcaisse_depens' => $idc,
                         'active_dep' => 0,
                         'is_actifdep' => 0,
@@ -920,7 +907,6 @@
                 {
                     $dplarray = array(
                         'commentaire'=> $this->input->post('comment'),
-                        'idop_dep' => $idcpt,
                         'idcaisse_depens' => $idc,
                         'active_dep' => 0,
                         'is_actifdep' => 0,
@@ -959,7 +945,6 @@
                 {
                     $dpolarray = array(
                         'commentaire_depot'=> $this->input->post('comment'),
-                        'idop_depot' => $idcpt,
                         'idcaisse_depot' => $idc,
                         'is_actifdepo' => 1,
                         'is_actifdepoad' => 1,
@@ -972,7 +957,6 @@
                 {
                      $dpolarray = array(
                         'commentaire_depot'=> $this->input->post('comment'),
-                        'idop_depot' => $idcpt,
                         'idcaisse_depot' => $idc,
                         'is_actifdepo' => 1,
                         'is_validdepo' => 1,
@@ -1015,7 +999,6 @@
                 {
                     $dpolarray = array(
                         'commentaire_depot'=> $this->input->post('comment'),
-                        'idop_depot' => $idcpt,
                         'idcaisse_depot' => $idc,
                         'is_actifdepo' => 0,
                         'is_actifdepoad' => 0,
@@ -1027,7 +1010,6 @@
                 else{
                     $dpolarray = array(
                         'commentaire_depot'=> $this->input->post('comment'),
-                        'idop_depot' => $idcpt,
                         'idcaisse_depot' => $idc,
                         'is_actifdepo' => 0,
                         'is_validdepo' => 0,
@@ -1183,137 +1165,180 @@
         }
         public function unstop_caisse($ckey, $g, $idc)
         {
+            // ekey métier (ex. 1000) — jamais un roleattribut (ex. 215 Zenabou).
             $this->company = $this->m_entreprises->get_key($ckey);
-            $db = $this->input->post('date_debut');
-            $df = $this->input->post('date_fin');
-            $gid = $this->input->post('gareconnect');
-            $iduser = roleattribut_guard_post_hint($this->company->ekey);
-            $sgid = $this->input->post('sousgareconnect');
-            $idcmpt = $this->input->post('compconnected');
+            if (!$this->company && $this->session->userdata('company')) {
+                $this->company = $this->session->company;
+            }
+            if (!$this->company || empty($this->company->ekey)) {
+                $this->session->set_flashdata('error', 'Entreprise invalide pour l\'arrêt de caisse.');
+                redirect('home/main');
+                return;
+            }
 
-                $cfrecet = $this->db->query("SELECT r.id_recette, r.is_actifrecet, r.idopera, r.is_validerecet, r.arret_caisrecet FROM recette r
-                    WHERE r.is_validerecet = 1
-                    AND r.idcaisse ='$idc'
-                    AND r.operavalid = '$iduser'
-                    AND r.arret_caisrecet = 1
-                    AND r.date_recet BETWEEN '$db' AND '$df'")->result();
+            $ekey = $this->company->ekey;
+            $g = roleattribut_guard_normalize_gare_id($ekey, $g ? $g : $this->input->post('gareconnect'));
+            $idc = (int) $idc;
+            $db = trim((string) $this->input->post('date_debut'));
+            $df = trim((string) $this->input->post('date_fin'));
+            $sgid = (int) $this->input->post('sousgareconnect');
+            $iduser = (int) roleattribut_guard_post_hint($ekey);
 
-                    foreach ($cfrecet as $items2) {
-                        $plarray = array(
-                            'ferme_caisrecet' => 1,
-                        );
-                        $vald_recet = $this->m_recette->update($items2->id_recette, $plarray);
-                    }
+            $back = 'caisses/' . $ekey . '/gTv/' . $g . '/' . $idc
+                . '/arretcaisseprincipale/' . ($iduser > 0 ? $iduser : 0) . '/'
+                . $sgid . '/' . mdate('%d/%m/%Y', now('UTC'));
 
-                    $cfrecetbis = $this->db->query("SELECT r.id_recette, r.is_actifrecet, r.idopera, r.is_validerecet, r.arret_caisrecet FROM recette r
-                    WHERE r.is_validerecet = 1
-                    AND r.idcaisse ='$idc'
-                    AND r.idopera = '$iduser'
-                    AND r.operavalid = '$iduser'
-                    AND r.date_recet BETWEEN '$db' AND '$df'")->result();
+            if ($this->input->method(true) !== 'POST') {
+                $this->session->set_flashdata('error', 'Arrêt de caisse : utilisez le formulaire (dates obligatoires).');
+                redirect($back);
+                return;
+            }
+            if ($idc <= 0 || $iduser <= 0) {
+                $this->session->set_flashdata('error', 'Arrêt de caisse : opérateur ou caisse manquant.');
+                redirect($back);
+                return;
+            }
+            if ($db === '' || $df === ''
+                || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $db)
+                || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $df)
+            ) {
+                $this->session->set_flashdata('error', 'Arrêt de caisse : renseignez les dates DU et AU (format AAAA-MM-JJ).');
+                redirect($back);
+                return;
+            }
+            if ($db > $df) {
+                $this->session->set_flashdata('error', 'Arrêt de caisse : la date de début doit précéder la date de fin.');
+                redirect($back);
+                return;
+            }
 
-                    foreach ($cfrecetbis as $items2bis) {
-                        $plarraybis = array(
-                            'arret_caisrecet' => 1,
-                            'ferme_caisrecet' => 1,
-                        );
-                        $vald_recetbis = $this->m_recette->update($items2bis->id_recette, $plarraybis);
-                    }
+            $db = $this->db->escape_str($db);
+            $df = $this->db->escape_str($df);
 
-                    $cfrecetbisr = $this->db->query("SELECT r.id_recette, r.is_actifrecet, r.idopera, r.is_validerecet, r.arret_caisrecet FROM recette r
-                    WHERE r.is_validerecet = 1
-                    AND r.idcaisse ='$idc'
-                    AND r.operavalid = '$iduser'
-                    AND r.is_actifrecetad = 0
-                    AND r.arret_caisrecet = 0
-                    AND r.date_recet BETWEEN '$db' AND '$df'")->result();
+            $rows = function ($sql) {
+                $q = $this->db->query($sql);
+                return ($q && is_object($q)) ? $q->result() : array();
+            };
 
-                    foreach ($cfrecetbisr as $items2bisr) {
-                        $plarraybisr = array(
-                            'arret_caisrecet' => 1,
-                            'ferme_caisrecet' => 1,
-                        );
-                        $vald_recetbisr = $this->m_recette->update($items2bisr->id_recette, $plarraybisr);
-                    }
+            $cfrecet = $rows(
+                "SELECT r.id_recette FROM recette r
+                WHERE r.is_validerecet = 1
+                AND r.idcaisse = '{$idc}'
+                AND r.operavalid = '{$iduser}'
+                AND r.arret_caisrecet = 1
+                AND r.date_recet BETWEEN '{$db}' AND '{$df}'"
+            );
+            foreach ($cfrecet as $items2) {
+                $this->m_recette->update($items2->id_recette, array('ferme_caisrecet' => 1));
+            }
 
-                  $cfdepe = $this->db->query("SELECT d.id_depense, d.is_actifdep, d.idop_dep, d.is_validedep, d.arret_caisdep FROM depense d
-                    WHERE d.is_validedep = 1
-                    AND d.idcaisse_depens = '$idc'
-                    AND d.opevalid = '$iduser'
-                    AND d.arret_caisdep = 1
-                    AND d.date_depens BETWEEN '$db' AND '$df'")->result();
+            $cfrecetbis = $rows(
+                "SELECT r.id_recette FROM recette r
+                WHERE r.is_validerecet = 1
+                AND r.idcaisse = '{$idc}'
+                AND r.idopera = '{$iduser}'
+                AND r.operavalid = '{$iduser}'
+                AND r.date_recet BETWEEN '{$db}' AND '{$df}'"
+            );
+            foreach ($cfrecetbis as $items2bis) {
+                $this->m_recette->update($items2bis->id_recette, array(
+                    'arret_caisrecet' => 1,
+                    'ferme_caisrecet' => 1,
+                ));
+            }
 
-                    foreach ($cfdepe as $items3) {
-                        $dplarray = array(
-                            'ferme_caisdep' => 1,
-                        );
-                        $vald_dep = $this->m_depense->update($items3->id_depense, $dplarray);
-                    }
+            // Piste principal : operavalid (même si is_actifrecetad=1 après validation adjoint).
+            $cfrecetbisr = $rows(
+                "SELECT r.id_recette FROM recette r
+                WHERE r.is_validerecet = 1
+                AND r.idcaisse = '{$idc}'
+                AND r.operavalid = '{$iduser}'
+                AND r.arret_caisrecet = 0
+                AND r.date_recet BETWEEN '{$db}' AND '{$df}'"
+            );
+            foreach ($cfrecetbisr as $items2bisr) {
+                $this->m_recette->update($items2bisr->id_recette, array(
+                    'arret_caisrecet' => 1,
+                    'ferme_caisrecet' => 1,
+                ));
+            }
 
-                    $cfdepebis = $this->db->query("SELECT d.id_depense, d.is_actifdep, d.idop_dep, d.is_validedep, d.arret_caisdep FROM depense d
-                    WHERE d.is_validedep = 1
-                    AND d.idcaisse_depens = '$idc'
-                    AND d.idop_dep = '$iduser'
-                    AND d.opevalid = '$iduser'
-                    AND d.date_depens BETWEEN '$db' AND '$df'")->result();
+            $cfdepe = $rows(
+                "SELECT d.id_depense FROM depense d
+                WHERE d.is_validedep = 1
+                AND d.idcaisse_depens = '{$idc}'
+                AND d.opevalid = '{$iduser}'
+                AND d.arret_caisdep = 1
+                AND d.date_depens BETWEEN '{$db}' AND '{$df}'"
+            );
+            foreach ($cfdepe as $items3) {
+                $this->m_depense->update($items3->id_depense, array('ferme_caisdep' => 1));
+            }
 
-                    foreach ($cfdepebis as $items3bis) {
-                        $dplarraybis = array(
-                            'arret_caisdep' => 1,
-                            'ferme_caisdep' => 1,
-                        );
-                        $vald_depbis = $this->m_depense->update($items3bis->id_depense, $dplarraybis);
-                    }
+            $cfdepebis = $rows(
+                "SELECT d.id_depense FROM depense d
+                WHERE d.is_validedep = 1
+                AND d.idcaisse_depens = '{$idc}'
+                AND d.idop_dep = '{$iduser}'
+                AND d.opevalid = '{$iduser}'
+                AND d.date_depens BETWEEN '{$db}' AND '{$df}'"
+            );
+            foreach ($cfdepebis as $items3bis) {
+                $this->m_depense->update($items3bis->id_depense, array(
+                    'arret_caisdep' => 1,
+                    'ferme_caisdep' => 1,
+                ));
+            }
 
-                    $cfdepeb = $this->db->query("SELECT d.id_depense, d.is_actifdep, d.idop_dep, d.is_validedep, d.arret_caisdep FROM depense d
-                        WHERE d.is_validedep = 1
-                        AND d.idcaisse_depens = '$idc'
-                        AND d.opevalid = '$iduser'
-                        AND d.is_actifdepad = 0
-                        AND d.arret_caisdep = 0
-                        AND d.date_depens BETWEEN '$db' AND '$df'")->result();
+            // Piste principal : opevalid (même si is_actifdepad=1 après validation adjoint).
+            $cfdepeb = $rows(
+                "SELECT d.id_depense FROM depense d
+                WHERE d.is_validedep = 1
+                AND d.idcaisse_depens = '{$idc}'
+                AND d.opevalid = '{$iduser}'
+                AND d.arret_caisdep = 0
+                AND d.date_depens BETWEEN '{$db}' AND '{$df}'"
+            );
+            foreach ($cfdepeb as $items3b) {
+                $this->m_depense->update($items3b->id_depense, array(
+                    'arret_caisdep' => 1,
+                    'ferme_caisdep' => 1,
+                ));
+            }
 
-                    foreach ($cfdepeb as $items3b) {
-                        $dplarrayb = array(
-                            'arret_caisdep' => 1,
-                            'ferme_caisdep' => 1,
-                        );
-                        $vald_dep = $this->m_depense->update($items3b->id_depense, $dplarrayb);
-                    }
+            $cfdepo = $rows(
+                "SELECT d.id_depot FROM depot d
+                WHERE d.is_validdepo = 1
+                AND d.idcaisse_depot = '{$idc}'
+                AND d.opvalid = '{$iduser}'
+                AND d.datedepot BETWEEN '{$db}' AND '{$df}'"
+            );
+            foreach ($cfdepo as $ites5) {
+                $this->m_depot->update($ites5->id_depot, array(
+                    'arret_caisdepo' => 1,
+                    'ferme_caisdepo' => 1,
+                    'active_depot' => 1,
+                    'is_actifdepo' => 1,
+                ));
+            }
 
-                $cfdepo = $this->db->query("SELECT d.id_depot, d.is_actifdepo, d.idop_depot, d.is_validdepo, d.arret_caisdepo FROM depot d
-                    WHERE d.is_validdepo = 1
-                    AND d.idcaisse_depot = '$idc'
-                    AND d.opvalid = '$iduser'
-                    AND d.datedepot BETWEEN '$db' AND '$df'")->result();
+            $cfvers = $rows(
+                "SELECT v.id_versements FROM versements v
+                WHERE v.valider_vers = 1
+                AND v.idcaisse_versement = '{$idc}'
+                AND v.validop = '{$iduser}'
+                AND v.date_versement BETWEEN '{$db}' AND '{$df}'"
+            );
+            foreach ($cfvers as $ites6) {
+                $this->m_versements->update($ites6->id_versements, array(
+                    'ferme_caisvers' => 1,
+                    'arret_caisvers' => 1,
+                ));
+            }
 
-                    foreach ($cfdepo as $ites5) {
-                        $dpolarray = array(
-                            'arret_caisdepo' => 1,
-                            'ferme_caisdepo' => 1,
-							'active_depot' => 1,
-							'is_actifdepo' => 1,
-                        );
-                        $vald_depo = $this->m_depot->update($ites5->id_depot, $dpolarray);
-                    }
-
-                    $cfvers = $this->db->query("SELECT v.id_versements, v.idop_versement, v.is_actifverser FROM versements v
-                    WHERE v.valider_vers = 1
-                    AND v.idcaisse_versement = '$idc'
-                    AND v.validop = '$iduser'
-                    AND v.date_versement BETWEEN '$db' AND '$df'")->result();
-
-                    foreach ($cfvers as $ites6) {
-                        $dpolarray = array(
-                            'ferme_caisvers' => 1,
-                            'arret_caisvers' => 1,
-                        );
-                        $vald_verse = $this->m_versements->update($ites6->id_versements, $dpolarray);
-                    }
-                    
-                $this->property['UPDATE_SUCCESS'] = TRUE;
-            
-            redirect('caisses/' . $this->session->company->ekey.'/gTv/'.$g. '/'. $idc.'/arretcaisseprincipale/'. $iduser.'/'. $sgid.'/'.mdate("%d/%m/%Y", now('UTC')));
+            $this->property['UPDATE_SUCCESS'] = TRUE;
+            $this->session->set_flashdata('success', 'Arrêt de caisse enregistré pour la période sélectionnée.');
+            redirect($back);
         }
     }
     /* End of file: Arretcaisses */

@@ -280,31 +280,93 @@
         public function voirreimpri($ckey, $uid, $gd, $sg)
         {
             $this->company = $this->m_entreprises->get_key($ckey);
-
-            
             $bus_stop = $this->m_sousgare->sget($this->company->ekey, $gd, $sg);
-                    $this->property['bus_stop'] = $bus_stop;
+            if (!$bus_stop) {
+                roleattribut_guard_fail_redirect_home($this->company->ekey);
+                return;
+            }
+            $this->property['bus_stop'] = $bus_stop;
 
-                    $conex = $this->m_compte_user->getusergare($this->company->ekey, $gd, $uid);
-                $this->property['conex'] = $conex;
+            $conex = $this->m_compte_user->getusergare($this->company->ekey, $gd, $uid);
+            if (!$conex && $this->session->userdata('agent')) {
+                $conex = $this->m_compte_user->getusergare(
+                    $this->company->ekey,
+                    $gd,
+                    $this->session->agent->roleattribut
+                );
+            }
+            if (!$conex) {
+                roleattribut_guard_fail_redirect_home($this->company->ekey);
+                return;
+            }
+            $this->property['conex'] = $conex;
 
-                $this->property['reponseallereimp'] = $this->m_escalclients->getrep($this->company->ekey, $uid, $gd, $sg);
-                
-                $this->property['pagetitle'] .= "REIMPRESSION TICKET• <strong>{$this->company->nom_entreprise}•&nbsp;$bus_stop->garenom •&nbsp;$bus_stop->nomsousgare</strong>";
-            
-                return $this->layout->view('_tickets/indexreimpri', $this->property);                   
+            // Admin / superviseur : toutes les réimpressions de la sous-gare (vendeurs inclus).
+            $userole = !empty($conex->userole)
+                ? (string) $conex->userole
+                : (string) $this->session->agent->userole;
+            $scope_gare = in_array($userole, array('1', '2'), true);
+
+            $this->property['reponseallereimp'] = $this->m_escalclients->getrep(
+                $this->company->ekey,
+                $conex->roleattribut,
+                $gd,
+                $sg,
+                $scope_gare
+            );
+
+            $this->property['pagetitle'] .= "REIMPRESSION TICKET• <strong>{$this->company->nom_entreprise}•&nbsp;{$bus_stop->garenom} •&nbsp;{$bus_stop->nomsousgare}</strong>";
+
+            return $this->layout->view('_tickets/indexreimpri', $this->property);
         }
 
         public function pdfepsonescalrp($ckey, $code_id, $tf, $h, $g, $cpus, $idsg)
         {
             $this->company = $this->m_entreprises->get_key($ckey);
             $bus_stop = $this->m_sousgare->sget($this->company->ekey, $g, $idsg);
-                        $this->property['bus_stop'] = $bus_stop;
-                $conex = $this->m_compte_user->getusergare($this->company->ekey, $g, $cpus);
-                $this->property['conex'] = $conex;
-            $this->escalclients = $this->m_escalclients->rget($this->company->ekey, $code_id, $tf, $h);
-            $this->property['item'] = $this->escalclients;
-            
+            if (!$bus_stop) {
+                roleattribut_guard_fail_redirect_home($this->company->ekey);
+                return;
+            }
+            $this->property['bus_stop'] = $bus_stop;
+
+            $conex = $this->m_compte_user->getusergare($this->company->ekey, $g, $cpus);
+            if (!$conex && $this->session->userdata('agent')) {
+                $conex = $this->m_compte_user->getusergare(
+                    $this->company->ekey,
+                    $g,
+                    $this->session->agent->roleattribut
+                );
+            }
+            if (!$conex) {
+                roleattribut_guard_fail_redirect_home($this->company->ekey);
+                return;
+            }
+            $this->property['conex'] = $conex;
+
+            $item = $this->m_escalclients->rget($this->company->ekey, $code_id, $tf, $h);
+            if (!$item) {
+                redirect('ventescales/voirreimpri/' . $this->company->ekey . '/'
+                    . (int) $conex->roleattribut . '/' . rawurlencode($g) . '/' . (int) $idsg);
+                return;
+            }
+
+            $userole = !empty($conex->userole)
+                ? (string) $conex->userole
+                : (string) $this->session->agent->userole;
+            // Vendeur : uniquement ses tickets. Admin/superviseur : tickets de la gare.
+            if ((string) $userole === '17'
+                && (int) $item->iduseescal !== (int) $conex->roleattribut
+            ) {
+                redirect('ventescales/voirreimpri/' . $this->company->ekey . '/'
+                    . (int) $conex->roleattribut . '/' . rawurlencode($g) . '/' . (int) $idsg);
+                return;
+            }
+
+            // Une fois chargé pour impression → sort de la file (disparaît de VOIR REIMPRESSION).
+            $this->m_escalclients->update($item->idclescal, array('reimpr' => 0));
+
+            $this->property['item'] = $item;
             $this->layout->view('_tickets/pdfepsonescalrp', $this->property);
         }
     }

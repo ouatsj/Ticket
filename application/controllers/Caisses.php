@@ -1405,6 +1405,7 @@
         {
             $this->company = $this->m_entreprises->get_key($ckey);
             $idcpt = $this->_resolve_arret_roleattribut($this->company->ekey, $gd, $idcpt);
+            sales_closure_totals_prepare($this->company->ekey, $idcpt);
             $cus = $this->input->post('compconnected');
             $today = mdate("%Y-%m-%d", now());
         

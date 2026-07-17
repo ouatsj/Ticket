@@ -173,7 +173,7 @@ defined('BASEPATH') OR exit('No direct script access allowed'); ?>
                                         <i class="fas fa-trash-alt text-danger"></i>
                                     </a>&nbsp;
                                 <?endif;?>
-                                <? if ($this->session->agent->userole === '1'): ?>
+                                <? if (super_admin_can('sales.price.free')): ?>
 
                                     <a href="<?= "#?{$item->id_client_pass}&client={$item->prenom_client}"; ?>"
                                             title="prix" class="md-trigger" data-modal="edit-<?= $item->code_passager; ?>">
@@ -203,12 +203,22 @@ defined('BASEPATH') OR exit('No direct script access allowed'); ?>
                                                 <div class="row">
                                                     <div class="form-group col-sm-4">
                                                         <label>Prix</label>
-                                                        <input class="form-control form-control-sm" type="text"
+                                                        <input class="form-control form-control-sm" type="number" min="0" step="0.01"
                                                         name="prixticket"
                                                         value="<?= $item->prixvente; ?>"
                                                         placeholder="<?= $item->prixvente; ?>"/>
                                                     </div>
-
+                                                    <div class="form-group col-sm-8">
+                                                        <label>Motif de la modification</label>
+                                                        <input class="form-control form-control-sm" type="text"
+                                                               name="modification_motif" maxlength="500" required>
+                                                    </div>
+                                                    <div class="form-group col-sm-12">
+                                                        <label>
+                                                            <input type="checkbox" name="confirmation_zero" value="1">
+                                                            Je confirme une éventuelle modification à 0 F
+                                                        </label>
+                                                    </div>
                                                 </div>
 
                                                 <div class="modal-footer">

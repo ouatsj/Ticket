@@ -104,8 +104,18 @@
         {   
             $today = mdate("%Y-%m-%d", now('UTC'));
                 return $this->db->query(
-                "SELECT * FROM ordres o
+                "SELECT *,
+                    COALESCE(
+                        tps.sale_nature,
+                        CASE WHEN p.prixvente = 0 THEN 'gratuit' ELSE 'reduit_probable' END
+                    ) AS sale_category,
+                    tps.normal_price AS recorded_normal_price,
+                    tps.reason AS recorded_price_reason
+                FROM ordres o
                 JOIN passager p ON o.codepassagers = p.code_passager
+                LEFT JOIN ticket_pricing_snapshot tps
+                    ON tps.code_passager = p.code_passager
+                    AND tps.code_ticket = p.code_ticket
                 JOIN tamponcode ctp ON p.code_passager = ctp.tamponcod
                 LEFT JOIN non_passager np ON ctp.tamponcod = np.code_non_pass
                 JOIN sousgare sg ON p.departclient_idgare = sg.idsousgare 
@@ -120,7 +130,6 @@
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = '$cd'
                 AND p.reimprime = 0
-                AND p.prixvente = 0
                 AND p.departclient_idgare = '$sg'
                 AND o.dateenregistrement = '$today'")->result();
         }

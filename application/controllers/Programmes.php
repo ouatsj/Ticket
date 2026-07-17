@@ -923,12 +923,35 @@
             
         }
 
-        public function verificodeprogramme($h, $dt, $cdp, $l)
+        public function verificodeprogramme($h = null, $dt = null, $cdp = null, $l = null)
         {
-            
-            $uprod = $this->m_programme->product($this->session->company->ekey, $h, $dt, $cdp, $l);
+            // Query string prioritaire (évite la confusion garde URI : id_heure + catégorie type A31).
+            $date = $this->input->get('date');
+            $heure = $this->input->get('heure');
+            $categorie = $this->input->get('cat');
+            $ligne = $this->input->get('ligne');
+
+            if ($date === null || $date === '') {
+                $date = $h;
+            }
+            if ($heure === null || $heure === '') {
+                $heure = $dt;
+            }
+            if ($categorie === null || $categorie === '') {
+                $categorie = $cdp;
+            }
+            if ($ligne === null || $ligne === '') {
+                $ligne = $l;
+            }
+
+            $uprod = $this->m_programme->product(
+                $this->session->company->ekey,
+                $date,
+                $heure,
+                $categorie,
+                $ligne
+            );
             return $this->load->view('beagle/pages/_programme/json', array('json' => $uprod));
-            
         }
         public function verifpriprg($h, $tfb)
         {
@@ -1168,6 +1191,27 @@
 
             if ($this->_sale_roleattribut_guard()) {
                 return;
+            }
+
+            if (sales_price_controls_enabled()) {
+                if (!super_admin_can('sales.price.free')) {
+                    show_error('Vous n’avez pas la permission d’utiliser AUTRES VENTE.', 403);
+                    return;
+                }
+                if ($this->input->post('progcodfid') !== null
+                    && $this->input->post('prixfid') !== null
+                ) {
+                    sales_price_validate_or_fail(
+                        $this->input->post('progcodfid'),
+                        $this->input->post('prixfid'),
+                        array(
+                            'reason' => $this->input->post('prix_libre_motif'),
+                            'authorization_type' => $this->input->post('type_autorisation_prix'),
+                            'card_number' => $this->input->post('numero_carte_voyage'),
+                            'zero_confirmed' => $this->input->post('confirmation_zero') === '1',
+                        )
+                    );
+                }
             }
 
             if (!isset($this->m_ordres)) {
