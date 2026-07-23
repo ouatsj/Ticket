@@ -719,8 +719,18 @@
                     GROUP BY ar.roleattribut, dest.id_compaga, u.first_name, u.last_name, lg.nom_ligne, esp.prixescal")->result();
         }
 
-        public function getrep($cid, $uid, $gid, $sgid)
+        /**
+         * Tickets escales marqués pour réimpression (reimpr=1).
+         * @param bool $scope_gare si true (admin 1/2) : toute la gare/sous-gare, pas seulement iduseescal.
+         */
+        public function getrep($cid, $uid, $gid, $sgid, $scope_gare = false)
         {
+            $cid = $this->db->escape_str($cid);
+            $uid = (int) $uid;
+            $gid = $this->db->escape_str($gid);
+            $sgid = (int) $sgid;
+            $op_sql = $scope_gare ? '' : "AND es.iduseescal = '{$uid}'";
+
             return $this->db->query(
                 "SELECT * FROM escalclients es
                 JOIN sousgare sg ON es.departsgescal = sg.idsousgare
@@ -733,12 +743,14 @@
                 JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
                 JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                WHERE e.ekey = '$cid'
-                AND es.iduseescal = '$uid'
+                WHERE e.ekey = '{$cid}'
+                {$op_sql}
                 AND h.h_active = 1
                 AND es.reimpr = 1
-                AND ex.code_gaexp = '$gid'
-                AND es.departsgescal = '$sgid'")->result();
+                AND ex.code_gaexp = '{$gid}'
+                AND es.departsgescal = '{$sgid}'
+                ORDER BY es.datedepescal DESC, es.idclescal DESC"
+            )->result();
         }
 
         public function verifcodbag($cid, $cod, $gd, $sg)

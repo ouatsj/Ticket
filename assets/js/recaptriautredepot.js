@@ -92,7 +92,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 };
         e.onclick = function () {
         let recaptlisteautredepot = document.querySelector('#recaptautredepotForm');
-        recaptlisteautredepot.setAttribute('action', `${APP_ROOT}/Rapport/recaptautredepot/${e.dataset.ekey}`);
+        recaptlisteautredepot.setAttribute('action', `${APP_ROOT}/Rapport/recaptautredepot/${e.dataset.ckey}`);
         }
 
     })

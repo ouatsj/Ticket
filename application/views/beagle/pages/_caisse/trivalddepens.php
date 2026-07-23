@@ -201,7 +201,7 @@
                                                     class="mdi mdi-close text-white"></span>
                                                 </button>
                                             </div>
-                                            <?= form_open("Depenses/rejetsdepense/{$this->session->company->eckey}/{$item->id_depense}/{$item->opevalid}",
+                                            <?= form_open("Depenses/rejetsdepense/{$this->session->company->ekey}/{$item->id_depense}/{$item->opevalid}",
                                                 array('class' => 'modal-body form')); ?>
 
                                             <div class="row">

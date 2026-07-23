@@ -71,8 +71,8 @@
                 'indexversementbgs' => array('m_entreprises', 'm_sousgare', 'm_compte_user', 'm_comptes_bagage', 'm_compagnies'),
                 'modifierversementbgs' => array('m_entreprises', 'm_sousgare', 'm_compte_user', 'm_comptes_bagage'),
                 'ajoutversementbg' => array('m_entreprises', 'm_sousgare', 'm_compte_user', 'm_comptes_bagage'),
-                'addbank' => array('m_entreprises', 'm_banque'),
-                'updatebank' => array('m_entreprises', 'm_banque'),
+                'addbank' => array('m_entreprises', 'm_versements'),
+                'updatebank' => array('m_entreprises', 'm_versements'),
                 'addverseautre' => array('m_entreprises', 'm_versements'),
                 'addverseautrefour' => array('m_entreprises', 'm_versements'),
                 'upautreversement' => array('m_entreprises', 'm_versements'),
@@ -116,6 +116,7 @@
        public function opts($ckey, $cdg, $cid, $type = 'recette', $cpr, $idsg, $d = FALSE, $m = FALSE, $y = FALSE)
        {
            $this->company = $this->m_entreprises->get_key($ckey);
+            $this->property['company'] = $this->company;
             $bus_stop = $this->m_sousgare->sget($this->company->ekey, $cdg, $idsg);
             $this->property['bus_stop'] = $bus_stop;
             $cpr_requested = $cpr;
@@ -10955,6 +10956,10 @@
         public function viewcaisprinc($ckey, $idcpus, $cdg, $idsg)
         {
             $this->company = $this->m_entreprises->get_key($ckey);
+                if (!roleattribut_guard_can_consult_main_cashbox()) {
+                    show_error('Consultation réservée aux superviseurs autorisés.', 403);
+                    return;
+                }
                 $gare_stop = $this->m_sousgare->sget($this->company->ekey, $cdg, $idsg);
                         $this->property['gare_stop'] = $gare_stop;
                 $idcpus_requested = $idcpus;
@@ -10997,15 +11002,30 @@
             $identifiant_gare = $this->input->post('idgar');
             $identifiant_use = $this->input->post('iduse'); 
                 $identifiant_sousgare = $this->input->post('idsousgar');
+            $cashboxContext = roleattribut_guard_main_cashbox_validation_context(
+                $this->company->ekey,
+                $identifiant_gare,
+                $opid
+            );
+            if ($cashboxContext) {
+                roleattribut_guard_assert_main_cashbox_operation(
+                    'versement',
+                    $id,
+                    $this->company->ekey,
+                    $identifiant_gare,
+                    $cashboxContext['caissier_ra']
+                );
+            }
             $array = array(
                 'commentaire' => $this->input->post('autrecommentverse'),
                 'valid_cptablevers' => 1,
+                'opvalid_cptablevers' => roleattribut_guard_session_ra(),
             );
             $this->m_versements->update($id, $array);
                        
             $this->property['UPDATE_SUCCESS'] = TRUE;
             
-            redirect('utilisateurs/'.$this->session->company->ekey. '/caisseprincversement/'. $identifiant_gare. '/'. $identifiant_use.'/'.$identifiant_sousgare.'/'.$opid. '/' . mdate("%d/%m/%Y", now('UTC')));
+            redirect('utilisateurs/'.$this->session->company->ekey. '/caisseprincversement/'. $identifiant_gare. '/'. ($cashboxContext ? $cashboxContext['consultant_ra'] : $identifiant_use).'/'.$identifiant_sousgare.'/'.($cashboxContext ? $cashboxContext['caissier_ra'] : $opid). '/' . mdate("%d/%m/%Y", now('UTC')));
             
         }
 
@@ -11016,6 +11036,20 @@
             $identifiant_gare = $this->input->post('idgar');
             $identifiant_use = $this->input->post('iduse');   
                 $identifiant_sousgare = $this->input->post('idsousgar');
+            $cashboxContext = roleattribut_guard_main_cashbox_validation_context(
+                $this->company->ekey,
+                $identifiant_gare,
+                $opid
+            );
+            if ($cashboxContext) {
+                roleattribut_guard_assert_main_cashbox_operation(
+                    'versement',
+                    $id,
+                    $this->company->ekey,
+                    $identifiant_gare,
+                    $cashboxContext['caissier_ra']
+                );
+            }
             $array = array(
                 'commentaire' => $this->input->post('autrecommentverse'),
                 'ferme_caisvers' => 0,
@@ -11025,7 +11059,7 @@
                        
             $this->property['UPDATE_SUCCESS'] = TRUE;
             
-            redirect('utilisateurs/'.$this->session->company->ekey. '/caisseprincversement/'. $identifiant_gare. '/'. $identifiant_use.'/'.$identifiant_sousgare.'/'.$opid. '/' . mdate("%d/%m/%Y", now('UTC')));
+            redirect('utilisateurs/'.$this->session->company->ekey. '/caisseprincversement/'. $identifiant_gare. '/'. ($cashboxContext ? $cashboxContext['consultant_ra'] : $identifiant_use).'/'.$identifiant_sousgare.'/'.($cashboxContext ? $cashboxContext['caissier_ra'] : $opid). '/' . mdate("%d/%m/%Y", now('UTC')));
             
         }
 

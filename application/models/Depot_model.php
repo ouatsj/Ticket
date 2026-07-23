@@ -13,6 +13,9 @@
         public function create(array $data)
         {
             $data = roleattribut_guard_apply_to_data($data, array('idop_depot', 'opvalid', 'opvalidad'));
+            if (empty($data['createddepot_at'])) {
+                $data['createddepot_at'] = mdate('%Y-%m-%d %H:%i:%s', now('UTC'));
+            }
 
             $this->db->insert($this->table, $data);
             return $this->db->insert_id();
@@ -660,6 +663,34 @@
                 AND d.valid_cptabledepo = 0
                 AND d.actif_depo = 0
                 GROUP BY cs.id_caiss")->row();
+        }
+
+        public function validfilter($cid, $gid, $validator, $d1, $d2, $company = null)
+        {
+            $companyFilter = ($company === null || $company === '')
+                ? ''
+                : ' AND d.compkey_depo = ' . $this->db->escape($company);
+
+            return $this->db->query(
+                "SELECT * FROM depot d
+                 JOIN attributions_role ar ON d.idop_depot = ar.roleattribut
+                 JOIN user_login ul ON ar.idgestcompte = ul.uid_login
+                 JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
+                 JOIN gares g ON ul.guser = g.idengare
+                 JOIN caisse cs ON d.idcaisse_depot = cs.id_caiss
+                 JOIN compagnies c ON d.compkey_depo = c.cle_compagnie
+                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
+                 WHERE e.ekey = ?
+                 AND cs.gexp_caiss = ?
+                 AND d.opvalid = ?
+                 AND d.ferme_caisdepo = 1
+                 AND d.valid_cptabledepo = 0
+                 AND d.actif_depo = 0
+                 AND d.datedepot BETWEEN ? AND ?
+                 {$companyFilter}
+                 ORDER BY d.datedepot ASC",
+                array($cid, $gid, (int) $validator, $d1, $d2)
+            )->result();
         }
 
         //tri depot

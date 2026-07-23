@@ -167,6 +167,7 @@
                                                         value="<?= $item->lieu_delivre; ?>"
                                                         placeholder="<?= $item->lieu_delivre; ?>">
                                             </div>
+                                            <?= historique_modif_ticket_motif_fields_html('conf_' . $item->id_client_pass); ?>
 
                                         </div>
 
@@ -175,8 +176,7 @@
                                                     data-dismiss="modal">
                                                 <i class="icon icon-left mdi mdi-undo"></i>&nbsp;ANNULER&nbsp;
                                             </button>
-                                            <button class="btn btn-success modal-close" type="submit"
-                                                    data-dismiss="modal">
+                                            <button class="btn btn-success" type="submit">
                                                 <i class="icon icon-left mdi mdi-check-all"></i>&nbsp;OK&nbsp;
                                             </button>
                                         </div>

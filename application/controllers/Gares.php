@@ -498,6 +498,9 @@
                         $this->property['compte_arret_grace'] = $arret['grace'];
                         $this->property['compte_arret_message'] = $arret['reason'];
                         $this->property['compte_arret_warnings'] = $arret['warnings'];
+                        if (!empty($arret['blocked'])) {
+                            $this->property['layout_minimal'] = TRUE;
+                        }
                     
                     $this->property['pagetitle'] .= "•{$bus_stop->garenom}•&nbsp;{$bus_stop->nomsousgare}&nbsp;•ACCUEIL<strong>•&nbsp;{$this->company->nom_entreprise}</strong>";
                     $this->property = array_merge(

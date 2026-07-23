@@ -133,6 +133,31 @@
                                 <i class="fas fa-edit text-success"></i>
                                     Pages
                             </a>
+                            <a class="dropdown-item"
+                                href="<?= site_url("documentation/{$this->session->company->ekey}"); ?>">
+                                <i class="fas fa-book text-primary"></i>
+                                    Documentation &amp; QCM
+                            </a>
+                            <a class="dropdown-item"
+                                href="<?= site_url("audit_quotidien/{$this->session->company->ekey}"); ?>">
+                                <i class="fas fa-clipboard-check text-warning"></i>
+                                    Rapport d'audit quotidien
+                            </a>
+                            <a class="dropdown-item"
+                                href="<?= site_url("param_restrictions/{$this->session->company->ekey}"); ?>">
+                                <i class="fas fa-user-clock text-secondary"></i>
+                                    Restrictions comptes (inactivité)
+                            </a>
+                            <a class="dropdown-item"
+                                href="<?= site_url("rapport_autre_vente/{$this->session->company->ekey}"); ?>">
+                                <i class="fas fa-ticket-alt text-danger"></i>
+                                    Autres ventes (0 F / hors tarif)
+                            </a>
+                            <a class="dropdown-item"
+                                href="<?= site_url("rapport_modif_ticket/{$this->session->company->ekey}"); ?>">
+                                <i class="fas fa-exchange-alt text-info"></i>
+                                    Modifications tickets
+                            </a>
                         </div>
                     </li>
                 </ul>
@@ -202,6 +227,31 @@
                                 href="<?= site_url("utilisateurs/{$this->session->company->ekey}"); ?>">
                                     <i class="fas fa-users"></i>&nbsp;Utilisateurs
                             </a>
+                            <a class="dropdown-item"
+                                href="<?= site_url("documentation/{$this->session->company->ekey}"); ?>">
+                                <i class="fas fa-book text-primary"></i>
+                                    Documentation &amp; QCM
+                            </a>
+                            <a class="dropdown-item"
+                                href="<?= site_url("audit_quotidien/{$this->session->company->ekey}"); ?>">
+                                <i class="fas fa-clipboard-check text-warning"></i>
+                                    Rapport d'audit quotidien
+                            </a>
+                            <a class="dropdown-item"
+                                href="<?= site_url("param_restrictions/{$this->session->company->ekey}"); ?>">
+                                <i class="fas fa-user-clock text-secondary"></i>
+                                    Restrictions comptes (inactivité)
+                            </a>
+                            <a class="dropdown-item"
+                                href="<?= site_url("rapport_autre_vente/{$this->session->company->ekey}"); ?>">
+                                <i class="fas fa-ticket-alt text-danger"></i>
+                                    Autres ventes (0 F / hors tarif)
+                            </a>
+                            <a class="dropdown-item"
+                                href="<?= site_url("rapport_modif_ticket/{$this->session->company->ekey}"); ?>">
+                                <i class="fas fa-exchange-alt text-info"></i>
+                                    Modifications tickets
+                            </a>
                             
                         </div>
                     </li>
@@ -232,6 +282,11 @@
                             href="<?= site_url("banques/{$this->session->company->ekey}"); ?>">
                                 <i class="fas fa-edit text-danger"></i>
                                 Banques
+                            </a>
+                            <a class="dropdown-item"
+                                href="<?= site_url("documentation/{$this->session->company->ekey}"); ?>">
+                                <i class="fas fa-book text-primary"></i>
+                                    Documentation &amp; QCM
                             </a>
                           
                             
@@ -278,7 +333,12 @@
                                 href="<?= site_url("gares/position/{$this->session->company->ekey}"); ?>">
                                         <i class="fas fa-edit text-info"></i>
                                 Position
-                            </a>                            
+                            </a>
+                            <a class="dropdown-item"
+                                href="<?= site_url("documentation/{$this->session->company->ekey}"); ?>">
+                                <i class="fas fa-book text-primary"></i>
+                                    Documentation &amp; QCM
+                            </a>
                             
                         </div>
                     </li>
@@ -287,6 +347,27 @@
 
             </li>
 
+        </ul>
+    <? endif; ?>
+    <? if ($this->session->agent->userole === '16' OR $this->session->agent->userole === '18' OR $this->session->agent->userole === '6' OR $this->session->agent->userole === '17'): ?>
+        <ul class="nav navbar-nav float-right be-icons-nav">
+            <li class="nav-item dropdown">
+                <a class="nav-link dropdown-toggle" href="#" data-toggle="dropdown" role="button"
+                    aria-expanded="true" title="Paramètres">
+                    <i class="fas fa-cogs"></i>
+                </a>
+                <ul class="dropdown-menu be-notifications">
+                    <li>
+                        <div class="text-body">
+                            <a class="dropdown-item"
+                                href="<?= site_url("documentation/{$this->session->company->ekey}"); ?>">
+                                <i class="fas fa-book text-primary"></i>
+                                    Documentation &amp; QCM
+                            </a>
+                        </div>
+                    </li>
+                </ul>
+            </li>
         </ul>
     <? endif; ?>
     <? if ($this->session->agent->userole === '9'): ?>

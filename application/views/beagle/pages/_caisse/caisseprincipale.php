@@ -294,11 +294,11 @@
                                     <input class="form-control form-control-sm" type="hidden" name="compconnected" value="<?=$conex->cpuser_id;?>">
                                     <div class="form-group col-sm-4">
                                         <label>DU</label>
-                                        <input class="form-control form-control-sm" type="date" name="date_debut">
+                                        <input class="form-control form-control-sm" type="date" name="date_debut" required>
                                     </div>
                                     <div class="form-group col-sm-4">
                                         <label>AU</label>
-                                        <input class="form-control form-control-sm" type="date" name="date_fin">
+                                        <input class="form-control form-control-sm" type="date" name="date_fin" required>
                                     </div>
                                     <? if (!empty($recettescaisse)): ?>
                                             

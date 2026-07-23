@@ -1,10 +1,23 @@
-<?php defined('BASEPATH') OR exit('No direct script access allowed'); ?>
+<?php
+defined('BASEPATH') OR exit('No direct script access allowed');
+$validation_filter_modal = 'tridepot-validation-form';
+$validation_filter_action = "Utilisateurs/depotcaissecptable/{$this->session->company->ekey}/"
+    . "{$gare_stop->idengare}/{$cashbox_viewer_roleattribut}/{$gare_stop->idsousgare}";
+?>
 <div class="row">
         <p class="mt-0 mb-2 ml-4">
             
             <a href="<?= site_url("caisses/caissieres/{$this->session->company->ekey}"."/". $conex->roleattribut.'/'.$gare_stop->idengare.'/'.$gare_stop->idsousgare); ?>" class="btn btn-space btn-secondary">
                 <i class="fas fa-arrow-circle-left text-info"></i>&nbsp;RETOUR A LA CAISSE&nbsp;
             </a>
+            <?php $this->load->view('beagle/pages/_caisse/_validation_filter', array(
+                'validation_filter_modal' => $validation_filter_modal,
+                'validation_filter_action' => $validation_filter_action,
+                'cashbox_target_roleattribut' => $cashbox_target_roleattribut,
+                'compagnies' => $compagnies,
+                'filter_date_start' => isset($filter_date_start) ? $filter_date_start : null,
+                'filter_date_end' => isset($filter_date_end) ? $filter_date_end : null,
+            )); ?>
         </p>
 </div>
 <div class="row">

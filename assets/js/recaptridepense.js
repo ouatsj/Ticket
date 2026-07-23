@@ -58,7 +58,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     } else if (window.ActiveXObject) {
                         Infostypinforecapt = new ActiveXObject("Microsoft.XMLHTTP");
                     }
-                    document.querySelector('#gnom').options.length = 1;
+                    document.querySelector('#recaptgnom').options.length = 1;
                     var recapttypedepchoisi = document.querySelector('#recaptdtype')
                     .options[document.querySelector('#recaptdtype').options.selectedIndex].value;
 

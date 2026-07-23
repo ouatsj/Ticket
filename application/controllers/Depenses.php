@@ -389,6 +389,20 @@
 
                 $gare_stop = $this->m_sousgare->sget($this->company->ekey, $identifiant_gare, $identifiant_sousgare);
                 $this->property['gare_stop'] = $gare_stop;
+                $cashboxContext = roleattribut_guard_main_cashbox_validation_context(
+                    $this->company->ekey,
+                    $identifiant_gare,
+                    $dop
+                );
+                if ($cashboxContext) {
+                    roleattribut_guard_assert_main_cashbox_operation(
+                        'depense',
+                        $dep,
+                        $this->company->ekey,
+                        $identifiant_gare,
+                        $cashboxContext['caissier_ra']
+                    );
+                }
                 
                 $cp = $this->input->post('_compagd');
                 $d1 = $this->input->post('datedebutsd');
@@ -398,8 +412,20 @@
                     $arraydep = array(
                         'commentaire' => $this->input->post('commentdep'),
                         'validcptabledep' => 1,
+                        'opvalid_cptabledep' => roleattribut_guard_session_ra(),
                     );
                 $depens = $this->m_depense->update($dep, $arraydep);
+                if ($cashboxContext) {
+                    redirect(
+                        'utilisateurs/' . $this->company->ekey
+                        . '/caisseprincdepense/' . $identifiant_gare
+                        . '/' . $cashboxContext['consultant_ra']
+                        . '/' . $identifiant_sousgare
+                        . '/' . $cashboxContext['caissier_ra']
+                        . '/' . mdate('%d/%m/%Y', now('UTC'))
+                    );
+                    return;
+                }
                 
                 $conex = $this->m_compte_user->getusergare($this->company->ekey, $identifiant_gare, $identifiant_use);
                 $this->property['conex'] = $conex;
@@ -463,6 +489,7 @@
                         foreach ($cfdepe10 as $ite1) {
                             $dplarray = array(
                                 'validcptabledep' => 1,
+                                'opvalid_cptabledep' => roleattribut_guard_session_ra(),
                             );
                             $vald_dep = $this->m_depense->update($ite1->id_depense, $dplarray);
                         }
@@ -522,6 +549,20 @@
 
             $gare_stop = $this->m_sousgare->sget($this->company->ekey, $identifiant_gare, $identifiant_sousgare);
                 $this->property['gare_stop'] = $gare_stop;
+            $cashboxContext = roleattribut_guard_main_cashbox_validation_context(
+                $this->company->ekey,
+                $identifiant_gare,
+                $dop
+            );
+            if ($cashboxContext) {
+                roleattribut_guard_assert_main_cashbox_operation(
+                    'depense',
+                    $dep,
+                    $this->company->ekey,
+                    $identifiant_gare,
+                    $cashboxContext['caissier_ra']
+                );
+            }
 
             $cp = $this->input->post('_compagd');
             $d1 = $this->input->post('datedebutsd');
@@ -534,6 +575,17 @@
                     'ferme_caisdep' => 0,
                 );
                 $depens = $this->m_depense->update($dep, $arraydep);
+                if ($cashboxContext) {
+                    redirect(
+                        'utilisateurs/' . $this->company->ekey
+                        . '/caisseprincdepense/' . $identifiant_gare
+                        . '/' . $cashboxContext['consultant_ra']
+                        . '/' . $identifiant_sousgare
+                        . '/' . $cashboxContext['caissier_ra']
+                        . '/' . mdate('%d/%m/%Y', now('UTC'))
+                    );
+                    return;
+                }
                 
                     
                 $conex = $this->m_compte_user->getusergare($this->company->ekey, $identifiant_gare, $identifiant_use);

@@ -57,7 +57,8 @@
                 return $this->db->query(
                     "SELECT u.*, cu.cpuser_id, cu.username, cu.activer, cu.is_conect,
                         cu.derniere_activite_at, cu.exempt_desactivation_auto,
-                        cu.autorisation_vente_forcee, cu.autorisation_vente_jusquau, cu.date_deconect
+                        cu.autorisation_vente_forcee, cu.autorisation_vente_jusquau, cu.date_deconect,
+                        cu.desactivation_motif, cu.desactivation_at
                     FROM utilisateurs u
                     JOIN entreprise e ON u.cle_comp = e.ekey
                     LEFT JOIN compte_user cu ON cu.userlog_id = u.uid
@@ -67,7 +68,8 @@
             return $this->db->query(
                 "SELECT u.*, cu.cpuser_id, cu.username, cu.activer, cu.is_conect,
                     cu.derniere_activite_at, cu.exempt_desactivation_auto,
-                    cu.autorisation_vente_forcee, cu.autorisation_vente_jusquau, cu.date_deconect
+                    cu.autorisation_vente_forcee, cu.autorisation_vente_jusquau, cu.date_deconect,
+                    cu.desactivation_motif, cu.desactivation_at
                 FROM utilisateurs u
                 JOIN entreprise e ON u.cle_comp = e.ekey
                 LEFT JOIN compte_user cu ON cu.userlog_id = u.uid

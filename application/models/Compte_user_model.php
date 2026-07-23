@@ -525,13 +525,18 @@
         protected function _hint_allowed_foreign_lookup($ekey, $gare_id, $normalized_ra, $caller_userole)
         {
             $normalized_ra = (int) $normalized_ra;
-            if ($normalized_ra <= 0 || !$this->roleattribut_exists_on_gare($normalized_ra, $gare_id, $ekey)) {
+            // Existence sur la gare (y compris compte désactivé : validation caisse).
+            if ($normalized_ra <= 0
+                || !$this->roleattribut_exists_on_gare($normalized_ra, $gare_id, $ekey, false)) {
                 return false;
             }
 
             if (recette_role_is_validateur_principal($caller_userole)
                 || recette_role_is_validateur_adjoint($caller_userole)
-                || in_array((string) $caller_userole, array('1', '2'), true)) {
+                || in_array((string) $caller_userole, array('1', '2'), true)
+                || (function_exists('roleattribut_guard_is_cashbox_consultant')
+                    && roleattribut_guard_is_cashbox_consultant())
+                || in_array((string) $caller_userole, array('13', '14'), true)) {
                 return true;
             }
 
@@ -542,7 +547,6 @@
                     JOIN user_login ul ON ar.idgestcompte = ul.uid_login
                     WHERE ar.roleattribut = ?
                     AND ul.guser = ?
-                    AND ar.activer_role = 0
                     LIMIT 1",
                     array($normalized_ra, $gare_id)
                 )->row();
@@ -726,6 +730,38 @@
                 AND ar.activer_role = 0
                 AND ul.comptactif = 0")->row();
             
+        }
+
+        /**
+         * Même lecture que getusergar, y compris compte / rôle désactivés
+         * (consultation validation caisse principale).
+         * Ne passe PAS par resolve_gare_operateur_hint : les rôles 13/14
+         * doivent pouvoir charger un caissier (4) sans être remappés sur leur propre RA.
+         */
+        public function getusergar_any($cd, $gid, $user_id)
+        {
+            $user_id = (int) $user_id;
+            if ($user_id <= 0) {
+                return null;
+            }
+
+            $cd = $this->db->escape_str($cd);
+            $gid = $this->db->escape_str($gid);
+
+            return $this->db->query(
+                "SELECT * FROM attributions_role ar
+                JOIN user_login ul ON ar.idgestcompte = ul.uid_login
+                JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
+                JOIN utilisateurs u ON cu.userlog_id = u.uid
+                JOIN user_roles r ON ar.userole = r.id_rols
+                JOIN gares g ON ul.guser = g.idengare
+                JOIN compagnies c ON g.compagniegare = c.cle_compagnie
+                JOIN entreprise e ON c.id_entrep = e.id_entreprise
+                WHERE e.ekey = '$cd'
+                AND ul.guser = '$gid'
+                AND ar.roleattribut = '$user_id'
+                LIMIT 1"
+            )->row();
         }
 
         public function usergare($cd, $gid, $user_id = FALSE)
@@ -1064,7 +1100,7 @@
         /**
          * Vérifie qu'une attribution existe sur la gare (superviseur).
          */
-        public function roleattribut_exists_on_gare($roleattribut, $gare_id, $ekey = null)
+        public function roleattribut_exists_on_gare($roleattribut, $gare_id, $ekey = null, $require_active = true)
         {
             $roleattribut = (int) $roleattribut;
             if ($roleattribut <= 0) {
@@ -1078,6 +1114,10 @@
                 $ekey_sql = 'AND e.ekey = ' . $this->db->escape($ekey);
             }
 
+            $active_sql = $require_active
+                ? 'AND ar.activer_role = 0 AND ul.comptactif = 0'
+                : '';
+
             $row = $this->db->query(
                 "SELECT 1 AS ok FROM attributions_role ar
                 JOIN user_login ul ON ar.idgestcompte = ul.uid_login
@@ -1086,8 +1126,7 @@
                 JOIN entreprise e ON u.cle_comp = e.ekey
                 WHERE ar.roleattribut = {$roleattribut}
                 AND ul.guser = '{$gare_id}'
-                AND ar.activer_role = 0
-                AND ul.comptactif = 0
+                {$active_sql}
                 {$ekey_sql}
                 LIMIT 1"
             )->row();

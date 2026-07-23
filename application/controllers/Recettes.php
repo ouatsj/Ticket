@@ -36,9 +36,46 @@
        {
 
             $this->company = $this->m_entreprises->get_key($ckey);
-            $d = $this->input->post('datedebut');
-            $f = $this->input->post('datefin');
+            if (!$this->company) {
+                $session_company = $this->session->userdata('company');
+                if (is_object($session_company) && !empty($session_company->ekey)) {
+                    $this->company = $this->m_entreprises->get_key($session_company->ekey);
+                }
+            }
+
+            if (!$this->company) {
+                show_404();
+                return;
+            }
+
+            $d = trim((string) $this->input->post('datedebut'));
+            $f = trim((string) $this->input->post('datefin'));
             $co = $this->input->post('_compag');
+
+            $date_debut = DateTime::createFromFormat('!Y-m-d', $d);
+            $date_fin = DateTime::createFromFormat('!Y-m-d', $f);
+            $dates_valides = $date_debut
+                && $date_fin
+                && $date_debut->format('Y-m-d') === $d
+                && $date_fin->format('Y-m-d') === $f
+                && $date_debut <= $date_fin;
+
+            if (!$dates_valides) {
+                $this->session->set_flashdata(
+                    'error',
+                    'Veuillez choisir une date de début et une date de fin valides.'
+                );
+                redirect(
+                    'caisses/' . $this->company->ekey
+                    . '/gTv/' . $idgd
+                    . '/' . (int) $idcais
+                    . '/recette/' . (int) $cpr
+                    . '/' . (int) $sg
+                    . '/' . mdate('%d/%m/%Y', now('UTC'))
+                );
+                return;
+            }
+
             $bus_stop = $this->m_sousgare->sget($this->company->ekey, $idgd, $sg);
             $this->property['bus_stop'] = $bus_stop;
             $conex = $this->m_compte_user->getusergare($this->company->ekey, $idgd, $cpr);
@@ -338,6 +375,20 @@
             $identifiant_sousgare = $this->input->post('idsousgar'); 
 
             $gare_stop = $this->m_sousgare->sget($this->company->ekey, $identifiant_gare, $identifiant_sousgare);
+            $cashboxContext = roleattribut_guard_main_cashbox_validation_context(
+                $this->company->ekey,
+                $identifiant_gare,
+                $ucn
+            );
+            if ($cashboxContext) {
+                roleattribut_guard_assert_main_cashbox_operation(
+                    'recette',
+                    $recet,
+                    $this->company->ekey,
+                    $identifiant_gare,
+                    $cashboxContext['caissier_ra']
+                );
+            }
                 
 
             $this->property['gare_stop'] = $gare_stop;
@@ -351,9 +402,21 @@
             $arrayrecette = array(
                 'commentaire_recet' => $this->input->post('comment'),
                 'valid_cptablerecet' => 1,
+                'opvalid_cptablerecet' => roleattribut_guard_session_ra(),
             );
 
             $recette = $this->m_recette->update($recet, $arrayrecette);
+            if ($cashboxContext) {
+                redirect(
+                    'utilisateurs/' . $this->company->ekey
+                    . '/caisseprincrecette/' . $identifiant_gare
+                    . '/' . $cashboxContext['consultant_ra']
+                    . '/' . $identifiant_sousgare
+                    . '/' . $cashboxContext['caissier_ra']
+                    . '/' . mdate('%d/%m/%Y', now('UTC'))
+                );
+                return;
+            }
             
 
             $conex = $this->m_compte_user->getusergare($this->company->ekey, $identifiant_gare, $identifiant_use);
@@ -417,6 +480,7 @@
                         foreach ($cfrecet10 as $its) {
                             $plarray = array(
                                 'valid_cptablerecet' => 1,
+                                'opvalid_cptablerecet' => roleattribut_guard_session_ra(),
                             );
                             $vald_recet = $this->m_recette->update($its->id_recette, $plarray);
                         }
@@ -483,12 +547,37 @@
 
             $gare_stop = $this->m_sousgare->sget($this->company->ekey, $identifiant_gare, $identifiant_sousgare);
                 $this->property['gare_stop'] = $gare_stop;
+            $cashboxContext = roleattribut_guard_main_cashbox_validation_context(
+                $this->company->ekey,
+                $identifiant_gare,
+                $ucn
+            );
+            if ($cashboxContext) {
+                roleattribut_guard_assert_main_cashbox_operation(
+                    'recette',
+                    $recet,
+                    $this->company->ekey,
+                    $identifiant_gare,
+                    $cashboxContext['caissier_ra']
+                );
+            }
 
             $arrayrecette = array(
                 'commentaire_recet' => $this->input->post('comment'),
                 'ferme_caisrecet' => 0,
             );
             $recette = $this->m_recette->update($recet, $arrayrecette);
+            if ($cashboxContext) {
+                redirect(
+                    'utilisateurs/' . $this->company->ekey
+                    . '/caisseprincrecette/' . $identifiant_gare
+                    . '/' . $cashboxContext['consultant_ra']
+                    . '/' . $identifiant_sousgare
+                    . '/' . $cashboxContext['caissier_ra']
+                    . '/' . mdate('%d/%m/%Y', now('UTC'))
+                );
+                return;
+            }
                        
             $this->property['UPDATE_SUCCESS'] = TRUE;
             

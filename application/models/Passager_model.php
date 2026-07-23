@@ -22,9 +22,21 @@
         public function create(array $data)
         {
             $data = roleattribut_guard_apply_to_data($data, array('idcptuser'));
+            $CI =& get_instance();
+            $isOtherSale = isset($CI->router)
+                && strtolower((string) $CI->router->fetch_method()) === 'addpassagerfi';
 
-            // Prix serveur : catalogue programme + gare du programme (pas gare de session).
-            if (isset($data['code_pro']) && array_key_exists('prixvente', $data) && function_exists('ticket_prix_depuis_programme')) {
+            if ($isOtherSale && array_key_exists('prixvente', $data)) {
+                $freePrice = trim((string) $data['prixvente']);
+                if ($freePrice === '' || !is_numeric($freePrice) || (float) $freePrice < 0) {
+                    show_error('Le prix libre doit être un montant positif ou égal à zéro.', 400);
+                    return 0;
+                }
+
+                // AUTRES VENTE : conserver exactement le prix saisi, y compris 0 F.
+                $data['prixvente'] = round((float) $freePrice, 2);
+            } elseif (isset($data['code_pro']) && array_key_exists('prixvente', $data) && function_exists('ticket_prix_depuis_programme')) {
+                // Vente normale : prix serveur issu du catalogue du programme.
                 $data['prixvente'] = ticket_prix_depuis_programme(
                     $data['code_pro'],
                     $data['prixvente']

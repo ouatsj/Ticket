@@ -2,6 +2,11 @@
 <?php
 $compte_arret_only_compte = !empty($compte_arret_only_compte) || !empty($compte_arret_blocked);
 $compte_arret_grace = !empty($compte_arret_grace);
+
+if ($compte_arret_only_compte) {
+    $this->load->view('beagle/pages/guichet/_chef_arret_blocked');
+    return;
+}
 ?>
 <div class="row">
                 <div class="col-sm-12">
@@ -998,9 +1003,9 @@ $compte_arret_grace = !empty($compte_arret_grace);
                                     <p id="erreurMessfi"></p>
                                 </div>
                                 <div class="form-group col-sm-4">
-                                    <label>Prix</label>
+                                    <label>Prix libre (0 = ticket gratuit)</label>
                                     <input class="form-control form-control-sm" type="text" inputmode="numeric" oninput="this.value=this.value.replace(/[^0-9]/g,'');" name="prixfi"
-                                        autocomplete="off" required>
+                                        autocomplete="off" placeholder="Exemple : 5000 ou 0" required>
                                 </div>
                                 <div class="form-group col-sm-4">
                                     <label style="display:none">Heure départ</label>

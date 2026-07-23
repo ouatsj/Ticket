@@ -77,6 +77,31 @@
             $route['utilisateurs/(:num)/profilsbagage/(:any)/(:num)/(:num)/(:num)/(:any)/(:num)/(:any)/(:any)'] = 'Utilisateurs/profibag/$1/$2/$3/$4/$5/$6/$7/$8/$9';
             $route['utilisateurs/(:num)/profilsdep/(:any)/(:num)/(:num)/(:num)/(:any)/(:num)/(:any)/(:any)'] = 'Utilisateurs/profideps/$1/$2/$3/$4/$5/$6/$7/$8/$9';
             $route['role_user/(:num)'] = 'Role_User/view/$1';
+
+            /** Documentation & QCM formation */
+            $route['documentation/(:num)'] = 'Documentation/index/$1';
+            $route['documentation/(:num)/manuel/(:any)'] = 'Documentation/manuel/$1/$2';
+            $route['documentation/(:num)/qcm/(:any)'] = 'Documentation/qcm/$1/$2';
+            $route['documentation/(:num)/qcm_corrige/(:any)'] = 'Documentation/qcm_corrige/$1/$2';
+
+            /** Audit quotidien */
+            $route['audit_quotidien/(:num)'] = 'Audit_quotidien/index/$1';
+            $route['audit_quotidien/(:num)/voir/(:num)'] = 'Audit_quotidien/voir/$1/$2';
+            $route['audit_quotidien/(:num)/generer'] = 'Audit_quotidien/generer/$1';
+
+            /** Paramètres restrictions comptes (inactivité, sessions) */
+            $route['param_restrictions/(:num)'] = 'Param_restrictions/index/$1';
+            $route['param_restrictions/(:num)/save'] = 'Param_restrictions/save/$1';
+
+            /** Rapport autres ventes (0 F / hors tarif) */
+            $route['rapport_autre_vente/(:num)'] = 'Rapport_autre_vente/index/$1';
+            $route['rapport_autre_vente/(:num)/export'] = 'Rapport_autre_vente/export/$1';
+            $route['rapport_autre_vente/(:num)/imprimer'] = 'Rapport_autre_vente/imprimer/$1';
+            $route['rapport_autre_vente/(:num)/voir/(:any)'] = 'Rapport_autre_vente/voir/$1/$2';
+
+            /** Rapport modifications tickets */
+            $route['rapport_modif_ticket/(:num)'] = 'Rapport_modif_ticket/index/$1';
+            $route['rapport_modif_ticket/(:num)/export'] = 'Rapport_modif_ticket/export/$1';
             $route['utilisateurs/(:any)/gTv/(:any)/compte/(:any)/(:any)/(:any)'] = 'Utilisateurs/viewcompte/$1/$2/$3/$4/$5';
             $route['utilisateurs/(:any)/gTv/(:any)/(:any)/garecompte/(:any)/(:any)/(:any)'] = 'Utilisateurs/comptegares/$1/$2/$3/$4/$5/$6';
             $route['utilisateurs/(:any)/gTv/(:any)/(:any)/rolecompte/(:any)/(:any)/(:any)'] = 'Utilisateurs/compteroles/$1/$2/$3/$4/$5/$6';

@@ -165,6 +165,22 @@ return array(
         'm_typedocument',
         'm_versements',
     ),
+    'Documentation' => array(
+        'm_entreprises',
+    ),
+    'Param_restrictions' => array(
+        'm_entreprises',
+        'm_gare_depart',
+    ),
+    'Audit_quotidien' => array(
+        'm_entreprises',
+    ),
+    'Rapport_autre_vente' => array(
+        'm_entreprises',
+    ),
+    'Rapport_modif_ticket' => array(
+        'm_entreprises',
+    ),
     'Entreprises' => array(
         'm_entreprises',
         'm_pays',

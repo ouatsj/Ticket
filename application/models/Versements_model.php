@@ -439,6 +439,34 @@
                     AND v.valid_cptablevers = 0
                     GROUP BY cs.id_caiss")->row();
         }
+
+        public function validfilter($cid, $gid, $validator, $d1, $d2, $company = null)
+        {
+            $companyFilter = ($company === null || $company === '')
+                ? ''
+                : ' AND v.compkey_vers = ' . $this->db->escape($company);
+
+            return $this->db->query(
+                "SELECT * FROM versements v
+                 JOIN attributions_role ar ON v.idop_versement = ar.roleattribut
+                 JOIN user_login ul ON ar.idgestcompte = ul.uid_login
+                 JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
+                 JOIN gares g ON ul.guser = g.idengare
+                 JOIN caisse cs ON v.idcaisse_versement = cs.id_caiss
+                 JOIN compagnies c ON v.compkey_vers = c.cle_compagnie
+                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
+                 WHERE e.ekey = ?
+                 AND cs.gexp_caiss = ?
+                 AND v.validop = ?
+                 AND v.actifvers = 0
+                 AND v.ferme_caisvers = 1
+                 AND v.valid_cptablevers = 0
+                 AND v.date_versement BETWEEN ? AND ?
+                 {$companyFilter}
+                 ORDER BY v.date_versement ASC",
+                array($cid, $gid, (int) $validator, $d1, $d2)
+            )->result();
+        }
         public function nom($cd)
         {
             return $this->db->query("SELECT nom_beneficiaire FROM versements v
@@ -480,7 +508,7 @@
                     AND v.type_versement = '$t'
                     AND cs.gexp_caiss = '$gid'
                     AND v.validop = '$uop'
-                    AND v.date_versement BETWEEN '$d' AND '$f'")->row();
+                    AND v.date_versement BETWEEN '$d' AND '$f'")->result();
             }
                 return $this->db->query("SELECT * FROM versements v
                     JOIN caisse cs ON v.idcaisse_versement = cs.id_caiss
@@ -709,12 +737,17 @@
                 $userole = recette_role_userole_for_attribut($cx);
             }
             $this->load->model('Recette_model', 'm_recette_rd');
-            $last_arret = $this->m_recette_rd->last_arret_recettes_date($cx, $idg, $userole);
-            $date_sql = '';
-            if ($last_arret !== null && $last_arret !== '') {
-                $date_sql = 'AND r.date_recet > ' . $this->db->escape($last_arret);
+            // Chefs 5/16 : même règle que la carte caisse — période ouverte via flags,
+            // sans coupure date > last_arret (sinon solde formulaire << solde affiché).
+            $last_arret = null;
+            if (!recette_role_is_saisie($userole)) {
+                $last_arret = $this->m_recette_rd->last_arret_recettes_date($cx, $idg, $userole);
             }
-            $op_sql = recette_role_op_sql_recette($cx, $userole);
+            $date_sql = recette_role_rd_date_sql($last_arret, $userole, false, 'r.date_recet');
+            // Chef : idopera uniquement (carte caisse) ; validateurs : helper rôle.
+            $op_sql = recette_role_is_saisie($userole)
+                ? ('AND r.idopera = ' . $cx)
+                : recette_role_op_sql_recette($cx, $userole);
             $pending_sql = recette_role_pending_recette_sql($userole);
 
             return $this->db->query("SELECT SUM(montant_recet) AS montant_recet FROM recette r
@@ -1014,7 +1047,7 @@
                     AND v.type_versement = '$t'
                     AND cs.gexp_caiss = '$gid'
                     AND v.type_versement <> 'Bordereau_bancairecourrier'
-                    AND v.date_versement BETWEEN '$d' AND '$f'")->row();
+                    AND v.date_versement BETWEEN '$d' AND '$f'")->result();
             }
                 return $this->db->query("SELECT * FROM versements v
                     JOIN caisse cs ON v.idcaisse_versement = cs.id_caiss

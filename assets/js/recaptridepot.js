@@ -73,7 +73,7 @@ document.addEventListener('DOMContentLoaded', () => {
         
                             } 
                             if (Object.entries(resperecapt).length >= 1) {
-                                for (let key in Object.entries(respe)) {
+                                for (let key in Object.entries(resperecapt)) {
                                     let opt = document.createElement('option');
                                     opt.value = `${resperecapt[key].nom_pre}`;
                                     opt.innerHTML = `${resperecapt[key].nom_pre}`;
@@ -92,7 +92,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 };
         e.onclick = function () {
         let recaptlistedepot = document.querySelector('#recaptdepotForm');
-        recaptlistedepot.setAttribute('action', `${APP_ROOT}/Rapport/recaptdepot/${e.dataset.ekey}`);
+        recaptlistedepot.setAttribute('action', `${APP_ROOT}/Rapport/recaptdepot/${e.dataset.ckey}`);
         }
 
     })

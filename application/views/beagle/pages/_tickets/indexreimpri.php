@@ -43,6 +43,15 @@ defined('BASEPATH') OR exit('No direct script access allowed'); ?>
                     </thead>
 
                     <tbody class="no-border-x">
+                    <? if (empty($reponseallereimp)): ?>
+                        <tr>
+                            <td colspan="6" class="text-muted py-4">
+                                Aucun ticket à réimprimer.
+                                Depuis Historique passagers, validez la réimpression (icône crayon),
+                                puis revenez ici. Après impression, le ticket disparaît automatiquement.
+                            </td>
+                        </tr>
+                    <? endif; ?>
                     <? foreach ($reponseallereimp as $item): ?>
 
                         <tr>

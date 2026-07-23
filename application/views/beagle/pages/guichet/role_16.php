@@ -1,4 +1,11 @@
 <?php defined('BASEPATH') OR exit('No direct script access allowed'); ?>
+<?php
+$compte_arret_only_compte = !empty($compte_arret_only_compte) || !empty($compte_arret_blocked);
+if ($compte_arret_only_compte) {
+    $this->load->view('beagle/pages/guichet/_chef_arret_blocked');
+    return;
+}
+?>
 <div class="row">
                 <div class="col-sm-12">
                     <div class="text-center">

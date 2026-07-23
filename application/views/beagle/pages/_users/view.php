@@ -159,6 +159,9 @@
                     <? if (!empty($item->derniere_activite_at)): ?>
                     <p><small class="text-muted">Dernière activité : <?= htmlspecialchars($item->derniere_activite_at, ENT_QUOTES, 'UTF-8'); ?></small></p>
                     <? endif; ?>
+                    <? if (!empty($item->desactivation_motif) && (string) $item->activer !== '0'): ?>
+                    <p class="text-danger"><small>Motif désactivation : <?= htmlspecialchars($item->desactivation_motif, ENT_QUOTES, 'UTF-8'); ?></small></p>
+                    <? endif; ?>
                     <? if (!empty($item->autorisation_vente_forcee) && $item->autorisation_vente_forcee === '1'): ?>
                     <p class="text-warning"><span class="icon mdi mdi-shield-check"></span>
                         Dérogation vente jusqu'au <?= htmlspecialchars($item->autorisation_vente_jusquau, ENT_QUOTES, 'UTF-8'); ?>
@@ -199,7 +202,7 @@
                                 <div class="form-group">
                                     <label><input type="checkbox" name="exempt_desactivation_auto" value="1"
                                         <?= (!empty($item->exempt_desactivation_auto) && $item->exempt_desactivation_auto === '1') ? 'checked' : ''; ?>>
-                                        Exempt de désactivation auto (inactivité 48 h)</label>
+                                        Exempt de désactivation auto (inactivité 3 jours)</label>
                                 </div>
                                 <div class="modal-footer">
                                     <button class="btn btn-secondary modal-close" type="reset" data-dismiss="modal">Annuler</button>

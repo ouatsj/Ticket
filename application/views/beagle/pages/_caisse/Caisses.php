@@ -2631,7 +2631,7 @@
             $array = array(
                 'commentaire' => $this->input->post('autrecommentverse'),
                 'valid_cptablevers' => 1,
-
+                'opvalid_cptablevers' => roleattribut_guard_session_ra(),
             );
             $this->m_versements->update($id, $array);
                        

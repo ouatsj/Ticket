@@ -985,7 +985,10 @@
 
         public function validget1($cid, $gid, $cp, $d1, $d2, $uop)
         {
-            $today = mdate('%Y-%m-%d', now());
+            $companyFilter = ($cp === null || $cp === '')
+                ? ''
+                : ' AND d.compkey_dep = ' . $this->db->escape($cp);
+
             return $this->db->query(
                 "SELECT * FROM depense d
                 JOIN attributions_role ar ON d.idop_dep = ar.roleattribut
@@ -995,14 +998,16 @@
                 JOIN gare_exp ex ON cs.gexp_caiss = ex.code_gaexp
                 JOIN compagnies c ON d.compkey_dep = c.cle_compagnie
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                WHERE e.ekey = '$cid'
-                AND d.compkey_dep = '$cp'
-                AND d.date_depens BETWEEN '$d1' AND '$d2'
+                WHERE e.ekey = ?
+                AND d.date_depens BETWEEN ? AND ?
                 AND d.ferme_caisdep = 1
                 AND d.validcptabledep = 0
-                AND cs.gexp_caiss = '$gid'
-                AND d.opevalid = '$uop'
-                ORDER BY d.date_depens ASC")->result();
+                AND cs.gexp_caiss = ?
+                AND d.opevalid = ?
+                {$companyFilter}
+                ORDER BY d.date_depens ASC",
+                array($cid, $d1, $d2, $gid, (int) $uop)
+            )->result();
         }
         public function validgetmont($cid, $gid, $uc)
         {
@@ -1477,7 +1482,9 @@
                 GROUP BY cs.id_caiss")->row();
         }
 
-        //depenses de la caisse (arrêt chef, en attente validation caissier)
+        // Dépenses de la caisse (stock arrêté chef, jusqu'à l'arrêt caisse).
+        // Aligné sur ad_recetcais : ne pas filtrer is_actifdep / is_validedep,
+        // sinon les dépenses validées par le caissier disparaissent du rapport caisse.
         public function ad_depenscais($cid, $g, $idcais, $conect, $sg = null)
         {
             $today = mdate('%Y-%m-%d', now());
@@ -1497,8 +1504,6 @@
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = '$cid'
                 AND d.active_dep = 1
-                AND d.is_actifdep = 0
-                AND (d.is_validedep = 0 OR d.is_validedep IS NULL)
                 AND d.actif_deps = 0
                 AND d.arret_caisdep = 0
                 AND d.idop_dep = '$conect'
