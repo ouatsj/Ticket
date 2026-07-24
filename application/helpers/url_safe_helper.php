@@ -31,3 +31,20 @@ function site_url_segments()
 
 	return site_url(implode('/', $encoded));
 }
+
+/**
+ * Décode un segment d’URL (ex. 05%3A00%3A00) et affiche l’heure en 05h00.
+ *
+ * @param string $hr
+ * @return string
+ */
+function url_segment_heure_affiche($hr)
+{
+	$hr = rawurldecode((string) $hr);
+	$hr = trim($hr);
+	if (preg_match('/^(\d{1,2}):(\d{2})(?::\d{2})?$/', $hr, $m)) {
+		return sprintf('%02dh%s', (int) $m[1], $m[2]);
+	}
+
+	return $hr;
+}

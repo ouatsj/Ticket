@@ -78,8 +78,18 @@
                 auth_session_login_transition_denied('Profil ou gare invalide.');
             }
 
-            $this->m_roleattribution->activate_exclusive($cpuser_id, $role_id, $rw->roleattribut);
-            $this->m_roleattribution->clear_stale_activeattrib();
+            // is_conect=1 avant activate : sinon clear_stale_activeattrib() (is_conect=0)
+            // efface immédiatement le activeattrib fraîchement posé.
+            $this->m_compte_user->update($cpuser_id, array(
+                'is_conect' => 1,
+                'date_conect' => mdate('%Y-%m-%d %H:%i:%s', now('UTC')),
+            ));
+
+            if (!$this->m_roleattribution->activate_exclusive($cpuser_id, $role_id, $rw->roleattribut)) {
+                auth_session_login_transition_denied(
+                    'Impossible d\'activer le profil sur une gare. Contactez l\'administrateur.'
+                );
+            }
             redirect('home/' . $company->ekey . '/' . $cpuser_id . '/' . $role_id);
         }
 

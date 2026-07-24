@@ -105,6 +105,10 @@ class Role_attribution_model extends CI_Model
         /**
          * Libère les guichets laissés actifs par des comptes déjà déconnectés
          * ou des gares/attributions désactivées (ne doivent plus être utilisables).
+         *
+         * Ne pas appeler juste après activate_exclusive() tant que is_conect=0 :
+         * sinon l'attribution fraîchement activée est immédiatement remise à 0
+         * (échec login au 1er essai, succès au 2e quand is_conect est déjà 1).
          */
         public function clear_stale_activeattrib()
         {

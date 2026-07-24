@@ -68,6 +68,16 @@ class Rapport_modif_ticket extends MY_Controller
         }));
     }
 
+    protected function _onglet_from_get()
+    {
+        $onglet = strtolower(trim((string) $this->input->get('onglet')));
+        if ($onglet === 'historique') {
+            return 'historique';
+        }
+
+        return 'modifies';
+    }
+
     public function index($ckey)
     {
         $this->_require_admin();
@@ -78,15 +88,41 @@ class Rapport_modif_ticket extends MY_Controller
         }
 
         historique_modif_ticket_ensure_table($this->db);
+        $onglet = $this->_onglet_from_get();
         $filters = $this->_filters_from_get();
-        $result = historique_modif_ticket_fetch($this->db, $this->company->ekey, $filters);
+        $code_recherche = trim((string) $this->input->get('code'));
 
+        $this->property['onglet'] = $onglet;
         $this->property['filters'] = $filters;
         $this->property['filters_qs'] = $this->_filters_qs($filters);
-        $this->property['lignes'] = $result['lignes'];
-        $this->property['stats'] = $result['stats'];
         $this->property['types'] = historique_modif_ticket_type_labels();
         $this->property['gares'] = historique_modif_ticket_gares($this->db, $this->company->ekey);
+        $this->property['code_recherche'] = $code_recherche;
+        $this->property['hist_lignes'] = array();
+        $this->property['hist_stats'] = array('total' => 0, 'par_type' => array());
+        $this->property['hist_passager'] = null;
+        $this->property['hist_codes'] = array();
+        $this->property['lignes'] = array();
+        $this->property['stats'] = array('total' => 0, 'par_type' => array());
+
+        if ($onglet === 'historique') {
+            if ($code_recherche !== '') {
+                $hist = historique_modif_ticket_fetch_by_code(
+                    $this->db,
+                    $this->company->ekey,
+                    $code_recherche
+                );
+                $this->property['hist_lignes'] = $hist['lignes'];
+                $this->property['hist_stats'] = $hist['stats'];
+                $this->property['hist_passager'] = $hist['passager'];
+                $this->property['hist_codes'] = $hist['codes_resolus'];
+            }
+        } else {
+            $result = historique_modif_ticket_fetch($this->db, $this->company->ekey, $filters);
+            $this->property['lignes'] = $result['lignes'];
+            $this->property['stats'] = $result['stats'];
+        }
+
         $this->property['pagetitle'] .= ' • Modifications tickets • <strong>'
             . $this->company->nom_entreprise . '</strong>';
 
@@ -102,11 +138,24 @@ class Rapport_modif_ticket extends MY_Controller
             return;
         }
 
-        $filters = $this->_filters_from_get();
-        $result = historique_modif_ticket_fetch($this->db, $this->company->ekey, $filters);
-        $lignes = $result['lignes'];
+        $onglet = $this->_onglet_from_get();
+        $code_recherche = trim((string) $this->input->get('code'));
 
-        $filename = 'modif_tickets_' . $filters['date_debut'] . '_' . $filters['date_fin'] . '.csv';
+        if ($onglet === 'historique' && $code_recherche !== '') {
+            $result = historique_modif_ticket_fetch_by_code(
+                $this->db,
+                $this->company->ekey,
+                $code_recherche
+            );
+            $lignes = $result['lignes'];
+            $filename = 'historique_ticket_' . preg_replace('/[^A-Za-z0-9_-]/', '', $code_recherche) . '.csv';
+        } else {
+            $filters = $this->_filters_from_get();
+            $result = historique_modif_ticket_fetch($this->db, $this->company->ekey, $filters);
+            $lignes = $result['lignes'];
+            $filename = 'modif_tickets_' . $filters['date_debut'] . '_' . $filters['date_fin'] . '.csv';
+        }
+
         header('Content-Type: text/csv; charset=utf-8');
         header('Content-Disposition: attachment; filename="' . $filename . '"');
         $out = fopen('php://output', 'w');

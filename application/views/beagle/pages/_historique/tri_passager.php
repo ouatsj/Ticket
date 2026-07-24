@@ -123,6 +123,7 @@ defined('BASEPATH') OR exit('No direct script access allowed'); ?>
                                         data-passagecod="<?= $item->code_passager; ?>"
                                         data-cdligneh="<?= $item->id_ligneheure; ?>"
                                         data-ticketcod="<?= $item->code_ticket; ?>"
+                                        data-ticketcodnp="<?= isset($item->codeticket) ? $item->codeticket : ''; ?>"
                                         data-nom="<?= $item->nom_client; ?>"
                                         data-prenom="<?= $item->prenom_client; ?>"
                                         data-type="<?= $item->type_client; ?>"
@@ -133,25 +134,6 @@ defined('BASEPATH') OR exit('No direct script access allowed'); ?>
                                         class="updateticket md-trigger" title="MODIFIER INFOS CLIENT"
                                         data-modal="ticket-0">&nbsp;
                                         <span class="fas fa-edit text-warning"></span>
-                                </a>&nbsp;
-                                <a href="<?= "#?{$item->id_client}&&{$item->nom_client}"; ?>"
-                                   data-cle_compagnie="<?= $this->session->company->ekey; ?>"
-                                    data-id_clientp="<?= $item->id_client; ?>"
-                                    data-tamponcodp="<?= $item->tamponcod; ?>"
-                                    data-passagecodp="<?= $item->code_passager; ?>"
-                                    data-cdlignehp="<?= $item->id_ligneheure; ?>"
-                                    data-ticketcodp="<?= $item->code_ticket; ?>"
-                                    data-ticketcodnp="<?= $item->codeticket ; ?>"
-                                    data-nomp="<?= $item->nom_client; ?>"
-                                    data-prenomp="<?= $item->prenom_client; ?>"
-                                    data-typep="<?= $item->type_client; ?>"
-                                    data-contactp="<?= $item->contact_client; ?>"
-                                    data-cnip="<?= $item->num_CNIB; ?>"
-                                    data-cnideliverp="<?= $item->date_delivre; ?>"
-                                    data-cnideliverzonep="<?= $item->lieu_delivre; ?>"
-                                    class="updateclient md-trigger" title="MODIFIER CLIENT"
-                                    data-modal="ticketp-0">&nbsp;
-                                    <span class="fas fa-edit text-danger"></span>
                                 </a>&nbsp;
                                             
                                 <a href="#" class="updatedticket md-trigger" data-cle_compagnie="<?= $this->session->company->ekey; ?>"
@@ -341,6 +323,9 @@ defined('BASEPATH') OR exit('No direct script access allowed'); ?>
                 <input class="form-control-sm" type="hidden" name="useridconn" value="<?=$conex->cpuser_id;?>" />
                 <input class="form-control-sm" type="hidden" name="useridconnected" value="<?=$conex->roleattribut;?>" />
                 <input class="form-control-sm" type="hidden" name="sousgd" value="<?=$bus_stop->idsousgare;?>" />
+                <input class="form-control-sm" type="hidden" name="identifyclient" value="" id="identifyclientid" />
+                <input class="form-control-sm" type="hidden" name="identifycontact" value="" id="identifycontactid" />
+                <input class="form-control-sm" type="hidden" name="force_create_client" value="0" id="force_create_client" />
                 <div class="form-group col-sm-4">
                     <label>Conctact</label>
                     <input class="form-control form-control-sm" type="text"
@@ -390,6 +375,17 @@ defined('BASEPATH') OR exit('No direct script access allowed'); ?>
                             autocomplete="off"
                             value=""
                             placeholder="">
+                </div>
+                <div class="form-group col-sm-12" id="force_create_client_wrap" style="display:none;">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="force_create_client_chk">
+                        <label class="form-check-label" for="force_create_client_chk">
+                            Contact inconnu : créer une <strong>nouvelle fiche client</strong> et rattacher le ticket
+                        </label>
+                    </div>
+                    <small class="text-muted">
+                        Sans cette case, les infos sont enregistrées sur le client déjà lié au ticket.
+                    </small>
                 </div>
                 <?= historique_modif_ticket_motif_fields_html('infos'); ?>
     

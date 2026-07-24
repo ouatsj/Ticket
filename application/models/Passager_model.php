@@ -43,16 +43,99 @@
                 );
             }
 
-            $this->db->insert($this->table, $data);
-            return $this->db->insert_id();
+            $ok = $this->db->insert($this->table, $data);
+            $insert_id = $this->db->insert_id();
+
+            // Phase 1 : journal confirmation (création) — jamais bloquant.
+            if ($ok) {
+                $this->_historique_modif_ticket_safe_log('create', '', '', array(), $data);
+            }
+
+            return $insert_id;
         }
         
         public function update($code_passager, $code_ticket, array $data)
         {
-
             $multiClause = array('code_passager' => $code_passager, 'code_ticket' => $code_ticket);
 
-            return $this->db->where($multiClause)->update($this->table, $data);
+            $before = array();
+            $type = null;
+            if (function_exists('historique_modif_ticket_detect_write_type')) {
+                $type = historique_modif_ticket_detect_write_type($data);
+            }
+            if ($type !== null && function_exists('historique_modif_ticket_row_passager')) {
+                try {
+                    $before = historique_modif_ticket_row_passager($this->db, $code_passager, $code_ticket);
+                } catch (Throwable $e) {
+                    $before = array();
+                    if (function_exists('log_message')) {
+                        log_message('error', 'Passager_model historique before: ' . $e->getMessage());
+                    }
+                }
+            }
+
+            $ok = $this->db->where($multiClause)->update($this->table, $data);
+
+            if ($ok && $type !== null) {
+                $this->_historique_modif_ticket_safe_log(
+                    'update',
+                    (string) $code_passager,
+                    (string) $code_ticket,
+                    is_array($before) ? $before : array(),
+                    $data
+                );
+            }
+
+            return $ok;
+        }
+
+        /**
+         * Journal Phase 1 (reprog / confirmation) — isolé du flux métier.
+         *
+         * @param string $mode
+         * @param string $code_passager
+         * @param string $code_ticket
+         * @param array $before
+         * @param array $data
+         * @return void
+         */
+        private function _historique_modif_ticket_safe_log($mode, $code_passager, $code_ticket, array $before, array $data)
+        {
+            try {
+                if (!function_exists('historique_modif_ticket_detect_write_type')
+                    || !function_exists('historique_modif_ticket_try_log_passager_write')
+                ) {
+                    return;
+                }
+                $type = historique_modif_ticket_detect_write_type($data);
+                if ($type === null) {
+                    return;
+                }
+                if ($code_passager === '' && isset($data['code_passager'])) {
+                    $code_passager = (string) $data['code_passager'];
+                }
+                if ($code_ticket === '' && isset($data['code_ticket'])) {
+                    $code_ticket = (string) $data['code_ticket'];
+                }
+                if ($code_passager === '') {
+                    return;
+                }
+                historique_modif_ticket_try_log_passager_write(
+                    $this->db,
+                    $type,
+                    $code_passager,
+                    $code_ticket,
+                    $before,
+                    $data,
+                    array(
+                        'meta' => array('source' => 'passager_' . $mode),
+                    )
+                );
+            } catch (Throwable $e) {
+                if (function_exists('log_message')) {
+                    log_message('error', 'Passager_model _historique_modif_ticket_safe_log: ' . $e->getMessage());
+                }
+            }
         }
 
         public function del($id, $idtick)

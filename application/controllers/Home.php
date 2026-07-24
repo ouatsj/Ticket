@@ -52,7 +52,6 @@
                     if (!empty($rw)) {
                         $this->load->model('Role_attribution_model', 'm_roleattribution');
                         $this->m_roleattribution->activate_exclusive($uid, $r, $rw->roleattribut);
-                        $this->m_roleattribution->clear_stale_activeattrib();
                         $agent = $this->m_compte_user->get($uid, $r);
                         if (!empty($agent)) {
                             $this->session->set_userdata('agent', $agent);
@@ -75,17 +74,26 @@
                 auth_session_login_transition_denied();
             }
 
-            $rw = $this->m_compte_user->pick_attribution_at_login($uid, $r);
-            if (!empty($rw)) {
-                $this->load->model('Role_attribution_model', 'm_roleattribution');
-                $this->m_roleattribution->activate_exclusive($uid, $r, $rw->roleattribut);
-                $this->m_roleattribution->clear_stale_activeattrib();
-            }
-
+            // Marquer connecté AVANT activate_exclusive : clear_stale_activeattrib()
+            // remet activeattrib=0 si is_conect=0 (échec login au 1er essai).
             $this->m_compte_user->update($uid, array(
                 'is_conect' => 1,
                 'date_conect' => mdate('%Y-%m-%d %H:%i:%s', now('UTC')),
             ));
+
+            $rw = $this->m_compte_user->pick_attribution_at_login($uid, $r);
+            if (empty($rw)) {
+                auth_session_login_transition_denied(
+                    'Aucun profil actif pour ouvrir la session. Contactez l\'administrateur.'
+                );
+            }
+
+            $this->load->model('Role_attribution_model', 'm_roleattribution');
+            if (!$this->m_roleattribution->activate_exclusive($uid, $r, $rw->roleattribut)) {
+                auth_session_login_transition_denied(
+                    'Impossible d\'activer le profil sur une gare. Contactez l\'administrateur.'
+                );
+            }
 
             $this->charger['agent'] = $this->m_compte_user->get($uid, $r);
             if (empty($this->charger['agent'])) {

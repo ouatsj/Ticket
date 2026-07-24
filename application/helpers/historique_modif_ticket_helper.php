@@ -152,6 +152,8 @@ if (!function_exists('historique_modif_ticket_type_labels')) {
             'prix' => 'Prix ticket',
             'desactivation_code' => 'Activation / désactivation code',
             'annulation_siege' => 'Annulation siège',
+            'reprogrammation' => 'Reprogrammation',
+            'confirmation' => 'Confirmation',
         );
     }
 }
@@ -185,6 +187,10 @@ if (!function_exists('historique_modif_ticket_field_labels')) {
             'prixvente' => 'Prix vente',
             'prixretour' => 'Prix retour',
             'is_activecode' => 'Code actif',
+            'statut_reprog' => 'Statut reprogrammation',
+            'statut_confirme' => 'Statut confirmation',
+            'code_ticket' => 'Code ticket',
+            'dateheure_prog' => 'Date/heure départ',
         );
     }
 }
@@ -324,14 +330,14 @@ if (!function_exists('historique_modif_ticket_row_passager')) {
             if ($code_ticket !== null && $code_ticket !== '') {
                 $stmt = $db->prepare(
                     'SELECT code_passager, code_ticket, id_client_pass, code_pro, num_siege_categorie, num_cat,
-                        departclient_idgare, quart, prixvente
+                        departclient_idgare, quart, prixvente, statut_reprog, statut_confirme
                      FROM passager WHERE code_passager = ? AND code_ticket = ? LIMIT 1'
                 );
                 $stmt->bind_param('ss', $code_passager, $code_ticket);
             } else {
                 $stmt = $db->prepare(
                     'SELECT code_passager, code_ticket, id_client_pass, code_pro, num_siege_categorie, num_cat,
-                        departclient_idgare, quart, prixvente
+                        departclient_idgare, quart, prixvente, statut_reprog, statut_confirme
                      FROM passager WHERE code_passager = ? ORDER BY code_ticket DESC LIMIT 1'
                 );
                 $stmt->bind_param('s', $code_passager);
@@ -347,14 +353,14 @@ if (!function_exists('historique_modif_ticket_row_passager')) {
         if ($code_ticket !== null && $code_ticket !== '') {
             $q = $db->query(
                 'SELECT code_passager, code_ticket, id_client_pass, code_pro, num_siege_categorie, num_cat,
-                    departclient_idgare, quart, prixvente
+                    departclient_idgare, quart, prixvente, statut_reprog, statut_confirme
                  FROM passager WHERE code_passager = ? AND code_ticket = ? LIMIT 1',
                 array($code_passager, $code_ticket)
             );
         } else {
             $q = $db->query(
                 'SELECT code_passager, code_ticket, id_client_pass, code_pro, num_siege_categorie, num_cat,
-                    departclient_idgare, quart, prixvente
+                    departclient_idgare, quart, prixvente, statut_reprog, statut_confirme
                  FROM passager WHERE code_passager = ? ORDER BY code_ticket DESC LIMIT 1',
                 array($code_passager)
             );
@@ -671,6 +677,141 @@ if (!function_exists('historique_modif_ticket_fetch')) {
     }
 }
 
+if (!function_exists('historique_modif_ticket_fetch_by_code')) {
+    /**
+     * Historique complet d'un ticket / code passager (chronologique).
+     *
+     * @param object $db
+     * @param string $ekey
+     * @param string $code
+     * @return array{lignes:array,stats:array,code:string,passager:?object,codes_resolus:array}
+     */
+    function historique_modif_ticket_fetch_by_code($db, $ekey, $code)
+    {
+        historique_modif_ticket_ensure_table($db);
+
+        $code = trim((string) $code);
+        $empty = array(
+            'lignes' => array(),
+            'stats' => array('total' => 0, 'par_type' => array()),
+            'code' => $code,
+            'passager' => null,
+            'codes_resolus' => array(),
+        );
+        if ($code === '' || $ekey === '') {
+            return $empty;
+        }
+
+        $codes = array($code);
+        $passager = null;
+        try {
+            $qp = $db->query(
+                'SELECT code_passager, code_ticket, id_client_pass, code_pro, num_siege_categorie, num_cat,
+                    departclient_idgare, quart, prixvente, statut_code, statutvente, statut_reprog,
+                    statut_confirme, date_emis, datep_create, verifpassager, is_valdtick
+                 FROM passager
+                 WHERE code_ticket = ? OR code_passager = ?
+                 ORDER BY date_emis DESC
+                 LIMIT 1',
+                array($code, $code)
+            );
+            if ($qp && $qp->row()) {
+                $passager = $qp->row();
+                if (!empty($passager->code_passager)) {
+                    $codes[] = (string) $passager->code_passager;
+                }
+                if (!empty($passager->code_ticket)) {
+                    $codes[] = (string) $passager->code_ticket;
+                }
+            }
+        } catch (Throwable $e) {
+            $passager = null;
+        }
+        $codes = array_values(array_unique(array_filter(array_map('strval', $codes))));
+
+        $ors = array();
+        foreach ($codes as $c) {
+            $esc = $db->escape($c);
+            $ors[] = 'h.code_ticket = ' . $esc;
+            $ors[] = 'h.code_passager = ' . $esc;
+        }
+
+        $sql = 'SELECT h.*, g.garenom
+            FROM historique_modif_ticket h
+            LEFT JOIN gares g ON g.idengare = h.gare_id
+            WHERE h.ekey = ' . $db->escape($ekey) . '
+            AND (' . implode(' OR ', $ors) . ')
+            ORDER BY h.created_at ASC, h.id ASC
+            LIMIT 1000';
+
+        $q = $db->query($sql);
+        $rows = $q ? $q->result() : array();
+        $labels = historique_modif_ticket_type_labels();
+        $stats = array(
+            'total' => count($rows),
+            'par_type' => array(),
+        );
+        foreach ($labels as $k => $lab) {
+            $stats['par_type'][$k] = 0;
+        }
+
+        $lignes = array();
+        foreach ($rows as $r) {
+            $detail = json_decode((string) $r->detail_json, true);
+            if (!is_array($detail)) {
+                $detail = array();
+            }
+            $changes = isset($detail['changes']) && is_array($detail['changes'])
+                ? $detail['changes'] : array();
+            $resume = isset($detail['resume'])
+                ? (string) $detail['resume']
+                : historique_modif_ticket_format_changes($changes);
+            $t = (string) $r->type_modif;
+            if (isset($stats['par_type'][$t])) {
+                $stats['par_type'][$t]++;
+            } else {
+                $stats['par_type'][$t] = 1;
+            }
+            $motif = !empty($r->motif) ? (string) $r->motif : '';
+            if ($motif === '' && !empty($detail['motif'])) {
+                $motif = (string) $detail['motif'];
+            }
+            $ordre_par = !empty($r->ordre_par) ? (string) $r->ordre_par : '';
+            if ($ordre_par === '' && !empty($detail['ordre_par'])) {
+                $ordre_par = (string) $detail['ordre_par'];
+            }
+            $meta = isset($detail['meta']) && is_array($detail['meta']) ? $detail['meta'] : array();
+            $lignes[] = (object) array(
+                'id' => (int) $r->id,
+                'created_at' => $r->created_at,
+                'type_modif' => $t,
+                'type_label' => historique_modif_ticket_type_label($t),
+                'code_passager' => $r->code_passager,
+                'code_ticket' => $r->code_ticket,
+                'id_client' => $r->id_client,
+                'gare_id' => $r->gare_id,
+                'garenom' => !empty($r->garenom) ? $r->garenom : $r->gare_id,
+                'username' => $r->username,
+                'roleattribut' => $r->roleattribut,
+                'userole' => $r->userole,
+                'motif' => $motif,
+                'ordre_par' => $ordre_par,
+                'resume' => $resume,
+                'changes' => $changes,
+                'meta' => $meta,
+            );
+        }
+
+        return array(
+            'lignes' => $lignes,
+            'stats' => $stats,
+            'code' => $code,
+            'passager' => $passager,
+            'codes_resolus' => $codes,
+        );
+    }
+}
+
 if (!function_exists('historique_modif_ticket_gares')) {
     function historique_modif_ticket_gares($db, $ekey)
     {
@@ -775,7 +916,7 @@ if (!function_exists('audit_quotidien_modif_ticket_section')) {
 
         return array(
             'id' => 'modif_tickets',
-            'titre' => '13. Modifications de tickets (infos client, départ, prix…)',
+            'titre' => '13. Modifications de tickets (infos, départ, reprog, confirmation…)',
             'status' => $status,
             'alertes' => 0,
             'warnings' => 0,
@@ -794,5 +935,180 @@ if (!function_exists('audit_quotidien_modif_ticket_section')) {
             ),
             'suggestions' => $suggestions,
         );
+    }
+}
+
+if (!function_exists('historique_modif_ticket_detect_write_type')) {
+    /**
+     * Détecte un événement Phase 1 à journaliser (sans toucher aux autres updates).
+     *
+     * @param array $data
+     * @return string|null
+     */
+    function historique_modif_ticket_detect_write_type(array $data)
+    {
+        if (isset($data['statut_reprog']) && (string) $data['statut_reprog'] === 'repor') {
+            return 'reprogrammation';
+        }
+        if (isset($data['statut_confirme']) && (string) $data['statut_confirme'] === 'confirm') {
+            return 'confirmation';
+        }
+
+        return null;
+    }
+}
+
+if (!function_exists('historique_modif_ticket_programme_meta')) {
+    /**
+     * @param object $db
+     * @param string $code_pro
+     * @return array
+     */
+    function historique_modif_ticket_programme_meta($db, $code_pro)
+    {
+        $code_pro = (string) $code_pro;
+        if ($code_pro === '') {
+            return array();
+        }
+        try {
+            if ($db instanceof mysqli) {
+                $stmt = $db->prepare(
+                    'SELECT code_progr, dateheure_prog, gareidentif, categori
+                     FROM programme WHERE code_progr = ? LIMIT 1'
+                );
+                if (!$stmt) {
+                    return array();
+                }
+                $stmt->bind_param('s', $code_pro);
+                $stmt->execute();
+                $res = $stmt->get_result();
+                $row = $res ? $res->fetch_assoc() : null;
+                $stmt->close();
+
+                return $row ? $row : array();
+            }
+            $q = $db->query(
+                'SELECT code_progr, dateheure_prog, gareidentif, categori
+                 FROM programme WHERE code_progr = ? LIMIT 1',
+                array($code_pro)
+            );
+
+            return ($q && $q->row_array()) ? $q->row_array() : array();
+        } catch (Throwable $e) {
+            return array();
+        }
+    }
+}
+
+if (!function_exists('historique_modif_ticket_try_log_passager_write')) {
+    /**
+     * Journalisation défensive : jamais d'exception remontée au flux métier.
+     *
+     * @param object $db
+     * @param string $type_modif
+     * @param string $code_passager
+     * @param string $code_ticket
+     * @param array $before
+     * @param array $new_data
+     * @param array $ctx
+     * @return bool
+     */
+    function historique_modif_ticket_try_log_passager_write(
+        $db,
+        $type_modif,
+        $code_passager,
+        $code_ticket,
+        array $before,
+        array $new_data,
+        array $ctx = array()
+    ) {
+        try {
+            $type_modif = (string) $type_modif;
+            if ($type_modif === '' || !is_object($db)) {
+                return false;
+            }
+
+            $watch = array(
+                'code_pro',
+                'num_siege_categorie',
+                'num_cat',
+                'departclient_idgare',
+                'quart',
+                'statut_reprog',
+                'statut_confirme',
+                'id_client_pass',
+                'prixvente',
+                'code_ticket',
+            );
+            $before_slice = array();
+            $after_slice = array();
+            foreach ($watch as $field) {
+                if (!array_key_exists($field, $new_data)) {
+                    continue;
+                }
+                $before_slice[$field] = array_key_exists($field, $before) ? $before[$field] : null;
+                $after_slice[$field] = $new_data[$field];
+            }
+            if (empty($after_slice)) {
+                return false;
+            }
+
+            $changes = historique_modif_ticket_diff($before_slice, $after_slice);
+            if (empty($changes)) {
+                return false;
+            }
+
+            $meta = isset($ctx['meta']) && is_array($ctx['meta']) ? $ctx['meta'] : array();
+            if (isset($changes['code_pro'])) {
+                $meta['programme_avant'] = historique_modif_ticket_programme_meta(
+                    $db,
+                    isset($changes['code_pro']['avant']) ? $changes['code_pro']['avant'] : ''
+                );
+                $meta['programme_apres'] = historique_modif_ticket_programme_meta(
+                    $db,
+                    isset($changes['code_pro']['apres']) ? $changes['code_pro']['apres'] : ''
+                );
+            } elseif (isset($new_data['code_pro'])) {
+                $meta['programme'] = historique_modif_ticket_programme_meta($db, $new_data['code_pro']);
+            }
+
+            $code_ticket_final = (string) $code_ticket;
+            if ($code_ticket_final === '' && isset($new_data['code_ticket'])) {
+                $code_ticket_final = (string) $new_data['code_ticket'];
+            }
+            $id_client = null;
+            if (isset($before['id_client_pass']) && $before['id_client_pass'] !== '' && $before['id_client_pass'] !== null) {
+                $id_client = (int) $before['id_client_pass'];
+            } elseif (isset($new_data['id_client_pass'])) {
+                $id_client = (int) $new_data['id_client_pass'];
+            }
+
+            $payload = array(
+                'type_modif' => $type_modif,
+                'code_passager' => (string) $code_passager,
+                'code_ticket' => $code_ticket_final !== '' ? $code_ticket_final : null,
+                'id_client' => $id_client,
+                'changes' => $changes,
+                'motif' => isset($ctx['motif']) ? (string) $ctx['motif'] : (
+                    $type_modif === 'reprogrammation' ? 'Reprogrammation' : 'Confirmation'
+                ),
+                'ordre_par' => isset($ctx['ordre_par']) ? (string) $ctx['ordre_par'] : 'guichet',
+                'meta' => $meta,
+            );
+            if (isset($ctx['ekey'])) {
+                $payload['ekey'] = $ctx['ekey'];
+            }
+            if (isset($ctx['gare_id'])) {
+                $payload['gare_id'] = $ctx['gare_id'];
+            }
+
+            return historique_modif_ticket_log($db, $payload);
+        } catch (Throwable $e) {
+            if (function_exists('log_message')) {
+                log_message('error', 'historique_modif_ticket_try_log_passager_write: ' . $e->getMessage());
+            }
+
+            return false;
+        }
     }
 }
