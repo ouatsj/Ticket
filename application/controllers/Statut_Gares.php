@@ -33,25 +33,32 @@
         public function viewstatut($ckey, $u, $g, $sg)
         {
             $this->company = $this->m_entreprises->get_key($ckey);
+            if (!$this->company) {
+                show_error('Entreprise introuvable.', 404);
+                return;
+            }
+
             $gare_stop = $this->m_sousgare->sget($this->company->ekey, $g, $sg);
-                        $this->property['gare_stop'] = $gare_stop;
-                    //$conex = $this->m_compte_user->usget($u, $g);
             $conex = $this->m_compte_user->getusergare($this->company->ekey, $g, $u);
-                        $this->property['conex'] = $conex;
-                $this->property['pagetitle'] .= "• LISTES DES STATUTS DES GARES D'ARRIVEE EN FONCTION DES HEURES<strong>•&nbsp;{$this->company->nom_entreprise}</strong>";
-                
-                
-                if ($this->session->agent->userole === '1' OR $this->session->agent->userole === '2'){
-                    $this->property['garearrivees'] = $this->m_gare_arrivee->getad($this->company->id_entreprise);
-                }else
-                {
-                    $this->property['garearrivees'] = $this->m_gare_arrivee->get($this->company->id_entreprise, $g);
-                }
-                $this->property['satutgaresheures'] = $this->m_gare_heure_statut->get($this->company->ekey);
-                $this->property['heures'] = $this->m_heure->get();
-                
-                $this->property['statutgares'] = $this->m_statut_gare->get();
-                return $this->layout->view('_menu/indexview', $this->property);
+            if (!$gare_stop || !$conex) {
+                show_error('Gare ou compte introuvable pour cette URL.', 404);
+                return;
+            }
+
+            $this->property['gare_stop'] = $gare_stop;
+            $this->property['conex'] = $conex;
+            $this->property['pagetitle'] .= "• LISTES DES STATUTS DES GARES D'ARRIVEE EN FONCTION DES HEURES<strong>•&nbsp;{$this->company->nom_entreprise}</strong>";
+
+            // Listes pour le formulaire d'ajout uniquement (évite N×modals trop lourds).
+            $this->property['garearrivees'] = $this->m_gare_arrivee->getad($this->company->id_entreprise);
+            $satutgaresheures = $this->m_gare_heure_statut->get($this->company->ekey);
+            $this->property['satutgaresheures'] = is_array($satutgaresheures) ? $satutgaresheures : array();
+            $this->property['statuts_par_compagnie'] = $this->m_gare_heure_statut->group_by_compagnie_arrivee(
+                $this->property['satutgaresheures']
+            );
+            $this->property['heures'] = $this->m_heure->get();
+            $this->property['statutgares'] = $this->m_statut_gare->get();
+            return $this->layout->view('_menu/indexview', $this->property);
         }
 
         public function add($ckey)

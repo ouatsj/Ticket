@@ -16,6 +16,26 @@
   .saut-page {
     page-break-after: always;
   }
+  img.ticket-barcode {
+    display: block;
+    width: 220px;
+    max-width: 100%;
+    height: 40px !important;
+    object-fit: fill;
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+  }
+  @media print {
+    @page { size: auto; margin: 4mm; }
+    img.ticket-barcode {
+      width: 48mm;
+      max-width: 100%;
+      height: 10mm !important;
+      object-fit: fill;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+  }
 </style>
     <div class="col-lg-6">
 
@@ -107,7 +127,7 @@
                         $day = $dat[2]. '-'. $dat[1]. '-' .$dat[0];?>
                         <tr><td style="font-size: 55px; width: 50%;"> <img src="<?echo site_url($item->logo);?>" width="300" height=""></td></tr>
                         <tr><td style="font-size: 20px;"><b>TICKET CODE : <?= "{$item->code_ticket}"; ?></b></td></tr>
-                        <tr><td style="font-size: 20px;"><?= "{$item->nom_gaep}"; ?> <?= "{$ressougare->nomsousgare}"; ?>-<?= "{$item->nom_gadest}"; ?> <?= "{$item->quart}"; ?></td></tr>
+                        <tr><td style="font-size: 20px;"><?= "{$item->nom_gaep}"; ?> <?= "{$ressougare->nomsousgare}"; ?>-<?= ticket_destination_label($item); ?> <?= "{$item->quart}"; ?></td></tr>
                         <tr><td style="font-size: 20px;"><?= $item->nom_client; ?> <?= $item->prenom_client; ?></td></tr>
                         <tr><td style="font-size: 20px;"><b><?= "{$day}"; ?>&nbsp;&nbsp; <?= $heures; ?></b></td></tr>
                         <tr><td style="font-size: 20px;">Siege:<b><?= str_pad($item->num_siege_categorie, 2, "0", STR_PAD_LEFT); ?></b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<b style="border:2px solid; font-size: 23px;"> N° BUS :<?=$x;?></td></b></tr>
@@ -118,7 +138,8 @@
                         <tr><td style="font-size: 9px;">perte ou de vol de billet et de bagages même payés.</td></tr>
                         <tr><td style="font-size: 9px;">Suivez et surveillez bien vos bagages</td></tr>
                         <tr><td>BON VOYAGE AVEC <?= $item->nom_compagnie;?> <?= $nge;?></td></tr>
-                        <tr><td style="font-size: 35px; width: 90%;"> <img src="<?echo site_url('render/Barcode/'.$item->tamponcod);?>" width="350" height="45"></td></tr>
+                        <tr><td style="font-size: 35px; width: 90%;"><?= ticket_barcode_img($item->tamponcod, 250, 40); ?></td></tr>
+                        <tr><td style="font-size: 14px; letter-spacing: 1px;"><?= htmlspecialchars((string) $item->tamponcod, ENT_QUOTES, 'UTF-8'); ?></td></tr>
                         <tr><td style="font-size: 15px;">emis : <?= $dtoday; ?></td></tr>
                         </table>
                     </body>
@@ -179,13 +200,13 @@
                         $dat = explode("-", $item->date_progr);
                         $day = $dat[2]. '-'. $dat[1]. '-' .$dat[0];?>
                           <tr><td style="font-size: 55px; width: 50%;"> <img src="<?echo site_url($item->logo);?>" width="300" height=""></td></tr>
-          						  <tr><td style="font-size: 20px;"><b><?= "{$item->tamponcod}"; ?></b></td></tr>
-          						  <tr><td style="font-size: 20px;"><b><?= "{$item->code_ticket}"; ?></b></td></tr>
-          						  <tr><td style="font-size: 20px;"><?= "{$item->nom_gaep}"; ?> <?= "{$ressougare->nomsousgare}"; ?>-<?= "{$item->nom_gadest}"; ?> <?= "{$item->quart}"; ?></td></tr>
-          						  <tr><td style="font-size: 20px;"><?= $item->nom_client; ?> <?= $item->prenom_client; ?></td></tr>
-          						  <tr><td style="font-size: 20px;"><b><?= "{$day}"; ?>&nbsp;&nbsp;<?= "{$heures}"; ?></b></td></tr>
-          						  <tr><td style="font-size: 20px;">Siege:<b><?= str_pad($item->num_siege_categorie, 2, "0", STR_PAD_LEFT); ?></b></td></tr>
-          						  <tr><td style="font-size: 20px;">Prix:<?= number_format("{$item->prix}", 0, '', ' '); ?> &nbsp;FCFA &nbsp;<?= "{$item->contact_client}"; ?></td></tr>
+                          <tr><td style="font-size: 20px;"><b><?= "{$item->tamponcod}"; ?></b></td></tr>
+                          <tr><td style="font-size: 20px;"><b><?= "{$item->code_ticket}"; ?></b></td></tr>
+                          <tr><td style="font-size: 20px;"><?= "{$item->nom_gaep}"; ?> <?= "{$ressougare->nomsousgare}"; ?>-<?= ticket_destination_label($item); ?> <?= "{$item->quart}"; ?></td></tr>
+                          <tr><td style="font-size: 20px;"><?= $item->nom_client; ?> <?= $item->prenom_client; ?></td></tr>
+                          <tr><td style="font-size: 20px;"><b><?= "{$day}"; ?>&nbsp;&nbsp;<?= "{$heures}"; ?></b></td></tr>
+                          <tr><td style="font-size: 20px;">Siege:<b><?= str_pad($item->num_siege_categorie, 2, "0", STR_PAD_LEFT); ?></b></td></tr>
+                          <tr><td style="font-size: 20px;">Prix:<?= number_format("{$item->prix}", 0, '', ' '); ?> &nbsp;FCFA &nbsp;<?= "{$item->contact_client}"; ?></td></tr>
                           
                       </table>
                     </body>

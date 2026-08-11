@@ -1,77 +1,764 @@
 document.addEventListener('DOMContentLoaded', () => {
+
+    function __venteSetTaTitle(txt) {
+        var t = document.querySelector('h3#taTitle') || document.querySelector('#taTitle');
+        if (t) t.textContent = txt || 'VENTE DE TICKET';
+    }
+    __venteSetTaTitle('VENTE DE TICKET');
+
+    function __venteSetDisplay(id, display) {
+        var el = document.querySelector('#' + id);
+        if (el) el.style.display = display;
+    }
+    function __venteSafeReset(sel, keepOpts) {
+        var el = document.querySelector(sel);
+        if (!el) return;
+        if (el.options) el.options.length = (typeof keepOpts === 'number') ? keepOpts : 1;
+        else if ('value' in el) el.value = '';
+    }
+    /** Valeur quartier mémorisée avant masquage escale (restaurée à la désactivation). */
+    window.__venteSavedQuartierValue = window.__venteSavedQuartierValue || null;
+
+    /** Vrai seulement si une escale est réellement choisie (pas juste la case cochée). */
+    function __venteIsEscaleSaleActive() {
+        var idEsc = document.querySelector('#id_escale_vente');
+        if (idEsc && String(idEsc.value || '').trim() !== '') return true;
+        var nbrEl = document.querySelector('#nbrtrans');
+        var nbr = nbrEl ? parseInt(nbrEl.value, 10) : 0;
+        if (!isNaN(nbr) && nbr >= 2) {
+            var idTr = document.querySelector('#id_escale_vente_tr' + nbr);
+            if (idTr && String(idTr.value || '').trim() !== '') return true;
+        }
+        return false;
+    }
+    function __venteHideMainQuartier() {
+        var q = document.querySelector('#quartier');
+        var lab = document.querySelector('#idquart');
+        var wrap = q && q.closest ? q.closest('.form-group') : null;
+        var visible = true;
+        if (wrap && wrap.style.display === 'none') visible = false;
+        if (q && q.style.display === 'none') visible = false;
+        // Mémoriser seulement si encore visible (ne pas écraser avec '').
+        if (q && visible) {
+            window.__venteSavedQuartierValue = q.value;
+        }
+        if (wrap) wrap.style.display = 'none';
+        if (lab) lab.style.display = 'none';
+        if (q) q.style.display = 'none';
+        // Ne pas vider q.value — restauration à la désactivation.
+    }
+    function __venteShowMainQuartier() {
+        // Vente escale active : rester masqué (sans vider).
+        if (__venteIsEscaleSaleActive()) {
+            __venteHideMainQuartier();
+            return;
+        }
+        var q = document.querySelector('#quartier');
+        var lab = document.querySelector('#idquart');
+        var wrap = q && q.closest ? q.closest('.form-group') : null;
+        if (wrap) wrap.style.display = '';
+        if (lab) lab.style.display = 'block';
+        if (q) {
+            q.style.display = 'block';
+            if (window.__venteSavedQuartierValue != null && window.__venteSavedQuartierValue !== '') {
+                q.value = window.__venteSavedQuartierValue;
+            }
+        }
+    }
+    window.__venteIsEscaleSaleActive = __venteIsEscaleSaleActive;
+    window.__venteHideMainQuartier = __venteHideMainQuartier;
+    window.__venteShowMainQuartier = __venteShowMainQuartier;
+
+    /** Remplit un select d'heures transit (chemintr) — 1 option par code_progr. */
+    function __venteFillCheminHeures(selectSel, rows, legKey) {
+        var sel = typeof selectSel === 'string' ? document.querySelector(selectSel) : selectSel;
+        if (!sel) return;
+        sel.options.length = 1;
+        var list = Array.isArray(rows) ? rows
+            : (rows && typeof rows === 'object' ? Object.keys(rows).map(function (k) { return rows[k]; }) : []);
+        var groups = {};
+        var order = [];
+        for (var i = 0; i < list.length; i++) {
+            var row = list[i];
+            if (!row || row.code_progr == null || row.code_progr === '') continue;
+            var lh = String(row.id_ligneheure != null ? row.id_ligneheure : '');
+            if (!lh) continue;
+            if (!groups[lh]) {
+                groups[lh] = { heure: row.heure || '', rows: [] };
+                order.push(lh);
+            }
+            // dédup code_progr dans le groupe
+            var exists = false;
+            for (var j = 0; j < groups[lh].rows.length; j++) {
+                if (String(groups[lh].rows[j].code_progr) === String(row.code_progr)) {
+                    exists = true;
+                    break;
+                }
+            }
+            if (!exists) groups[lh].rows.push(row);
+        }
+        if (!window.__venteCheminGroups) window.__venteCheminGroups = {};
+        window.__venteCheminGroups[sel.id] = groups;
+        for (var k = 0; k < order.length; k++) {
+            var idLh = order[k];
+            var g = groups[idLh];
+            var opt = document.createElement('option');
+            opt.value = idLh;
+            opt.innerHTML = g.heure || idLh;
+            if (g.rows.length > 1) {
+                opt.innerHTML = (g.heure || idLh) + ' (' + g.rows.length + ' départs)';
+            }
+            sel.add(opt);
+        }
+        if (legKey) {
+            __venteWireCheminHeur(sel.id, legKey);
+        }
+    }
+
+    window.__venteHasTransit = false;
+    window.__venteLastHeuresVente = [];
+    window.__venteApplyTransitLegs = null; // assigné après chargement des jambes (closures)
+
+    function __venteHideTransitPanel() {
+        var tran = document.querySelector('#tran');
+        if (tran) tran.style.display = 'none';
+        ['#hdepartitine','#psiegesitines','#lignesitineraire','#ligne1','#siegitine',
+         '#heureitin','#idchemins','#idcheminsheur','#psiegesitines1','#idchemins1',
+         '#idcheminsheur1','#psiegesitines2','#idchemins2','#idcheminsheur2','#psiegesitines3',
+         '#transitedepargare1','#transitedepargare2','#transitedepargare3','#transitedepargare4',
+         '#arritin1','#arritin2','#arritin3','#heureitin1','#heureitin2','#heureitin3',
+         '#siegitine1','#siegitine2','#siegitine3','#quartier1','#quartier2','#quartier3',
+         '#idquart1','#idquart2','#idquart3','#iddeptrans1','#iddeptrans2','#iddeptrans3','#iddeptrans4',
+         '#selprog_box_tr1','#selprog_box_tr2','#selprog_box_tr3','#selprog_box_tr4'
+        ].forEach(function (s) {
+            var el = document.querySelector(s);
+            if (el) el.style.display = 'none';
+        });
+        __venteHideAllTransitProgSelects();
+        ['depitin1','depargareitine1','arrsgareitine1','hdepartitine1',
+         'depitin2','depargareitine2','arrsgareitine2','hdepartitine2',
+         'depitin3','depargareitine3','arrsgareitine3','hdepartitine3'].forEach(function (id) {
+            __venteSetDisplay(id, 'none');
+        });
+    }
+
+    function __venteShowDirectHourUi() {
+        __venteHideTransitPanel();
+        ['#hrid','#hdepart','#sigid','#psieges','#iddep','#depargare','#arrid','#arrsgare'].forEach(function (s) {
+            var el = document.querySelector(s);
+            if (el) el.style.display = 'block';
+        });
+        __venteShowMainQuartier();
+        __venteHideProgSelect();
+    }
+
+    function __venteProgListFromResponse(don) {
+        if (don == null || don === '') return [];
+        if (Array.isArray(don)) return don.filter(Boolean);
+        if (typeof don === 'object') {
+            return Object.keys(don).map(function (k) { return don[k]; }).filter(Boolean);
+        }
+        return [];
+    }
+
+    function __venteHideProgSelect() {
+        var box = document.getElementById('selprog_box');
+        var sel = document.getElementById('selprog');
+        if (box) box.style.display = 'none';
+        if (sel) {
+            sel.options.length = 1;
+            sel.value = '';
+            sel.onchange = null;
+            sel.style.display = '';
+        }
+    }
+
+    function __venteLabelProg(p) {
+        if (!p) return '';
+        var parts = [];
+        if (p.code_progr) parts.push(String(p.code_progr));
+        if (p.depart_code) parts.push(String(p.depart_code));
+        if (p.categori) parts.push(String(p.categori));
+        if (p.intervalle1 != null && p.intervalle2 != null) {
+            parts.push('s.' + p.intervalle1 + '-' + p.intervalle2);
+        }
+        return parts.join(' · ');
+    }
+
+    function __venteApplyProgFields(p) {
+        if (!p) return;
+        var set = function (id, val) {
+            var el = document.querySelector(id);
+            if (el) el.value = val == null ? '' : String(val);
+        };
+        set('#program', p.code_progr);
+        set('#tarifattrib', p.typetarif);
+        set('#datepr', p.date_progr);
+        set('#depligne', p.gareidentif);
+        set('#inter1', p.intervalle1);
+        set('#inter2', p.intervalle2);
+        set('#lign', p.ident_ligne);
+        set('#nomitin', p.nom_ligne);
+        set('#her', p.heure);
+        set('#cate', p.categori);
+    }
+
+    function __venteLoadSiegesDirect(idLigneheure, dptDate) {
+        var ps = document.querySelector('#psieges');
+        if (ps) ps.options.length = 1;
+        var tfbsEl = document.querySelector('#tarifattrib');
+        var tfbs = tfbsEl ? tfbsEl.value : '';
+        if (idLigneheure && tfbs) {
+            var httpPrix = new XMLHttpRequest();
+            httpPrix.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifpriprg/${idLigneheure}/${tfbs}`, true);
+            httpPrix.onload = function () {
+                try {
+                    var donprix = JSON.parse(httpPrix.responseText);
+                    if (Object.entries(donprix).length >= 1) {
+                        for (var key in Object.entries(donprix)) {
+                            var px = document.querySelector('#prix_axe');
+                            if (px) px.value = `${donprix[key].prix}`;
+                        }
+                    }
+                } catch (e) {}
+            };
+            httpPrix.setRequestHeader('Content-Type', 'application/json');
+            httpPrix.send();
+        }
+        var cdprog = document.querySelector('#program') ? document.querySelector('#program').value : '';
+        var db = document.querySelector('#inter1') ? document.querySelector('#inter1').value : '';
+        var fn = document.querySelector('#inter2') ? document.querySelector('#inter2').value : '';
+        var lg = document.querySelector('#nomitin') ? document.querySelector('#nomitin').value : '';
+        var tim = document.querySelector('#her') ? document.querySelector('#her').value : '';
+        if (!cdprog) return;
+        var httpRequette = new XMLHttpRequest();
+        httpRequette.open('GET', window.location.origin + `${APP_ROOT}/programmes/siegdisponible/${cdprog}/${dptDate}/${lg}/${tim}/${db}/${fn}`, true);
+        httpRequette.onload = function () {
+            try {
+                var datta = JSON.parse(httpRequette.responseText);
+                if (ps) ps.options.length = 1;
+                if (Object.entries(datta).length >= 1) {
+                    for (var key2 in Object.entries(datta)) {
+                        var opt = document.createElement('option');
+                        opt.value = `${datta[key2].siege_num}`;
+                        opt.innerHTML = `${datta[key2].siege_num}`;
+                        if (ps) ps.add(opt);
+                    }
+                }
+            } catch (e2) {
+                if (ps) ps.options.length = 1;
+            }
+        };
+        httpRequette.setRequestHeader('Content-Type', 'application/json');
+        httpRequette.send();
+    }
+
+    /**
+     * Après verifprog : N=0 → false (creedepart) ; N=1 auto ; N>1 sélecteur.
+     */
+    function __venteHandleProgList(don, idLigneheure, dptDate) {
+        var list = __venteProgListFromResponse(don);
+        __venteHideProgSelect();
+        var ps = document.querySelector('#psieges');
+        if (ps) ps.options.length = 1;
+        if (list.length === 0) {
+            return false;
+        }
+        if (list.length === 1) {
+            __venteApplyProgFields(list[0]);
+            __venteLoadSiegesDirect(idLigneheure, dptDate);
+            return true;
+        }
+        var box = document.getElementById('selprog_box');
+        var sel = document.getElementById('selprog');
+        if (!sel) {
+            // Pas de UI multi : prendre le plus récent (comportement historique).
+            __venteApplyProgFields(list[0]);
+            __venteLoadSiegesDirect(idLigneheure, dptDate);
+            return true;
+        }
+        if (box) box.style.display = 'block';
+        if (sel) sel.style.display = 'block';
+        sel.options.length = 1;
+        for (var i = 0; i < list.length; i++) {
+            var p = list[i];
+            var opt = document.createElement('option');
+            opt.value = String(i);
+            opt.innerHTML = __venteLabelProg(p);
+            sel.add(opt);
+        }
+        sel.onchange = function () {
+            if (ps) ps.options.length = 1;
+            var idx = parseInt(sel.value, 10);
+            if (isNaN(idx) || !list[idx]) {
+                __venteApplyProgFields({});
+                return;
+            }
+            __venteApplyProgFields(list[idx]);
+            __venteLoadSiegesDirect(idLigneheure, dptDate);
+        };
+        return true;
+    }
+
+    function __venteHideProgSelectAny(boxId, selId) {
+        var box = document.getElementById(boxId);
+        var sel = document.getElementById(selId);
+        if (box) box.style.display = 'none';
+        if (sel) {
+            sel.options.length = 1;
+            sel.value = '';
+            sel.onchange = null;
+            // ne pas forcer display:none sur le select : le box parent suffit
+            sel.style.display = '';
+        }
+    }
+
+    function __venteShowProgSelectAny(boxId, selId) {
+        var box = document.getElementById(boxId);
+        var sel = document.getElementById(selId);
+        if (box) box.style.display = 'block';
+        if (sel) sel.style.display = 'block';
+    }
+
+    function __venteHideAllTransitProgSelects() {
+        [
+            ['selprog_box_tr1', 'selprog_tr1'],
+            ['selprog_box_tr2', 'selprog_tr2'],
+            ['selprog_box_tr3', 'selprog_tr3'],
+            ['selprog_box_tr4', 'selprog_tr4']
+        ].forEach(function (pair) {
+            __venteHideProgSelectAny(pair[0], pair[1]);
+        });
+    }
+
+    var __venteCheminLegCfg = {
+        tr2: {
+            heur: 'idcheminsheur', progBox: 'selprog_box_tr2', progSel: 'selprog_tr2',
+            sieges: 'psiegesitines1', prix: 'prix_axetransit', cate: 'catetransit',
+            gid: 'gidtrans', nom: 'nomitintrans1', lign: 'ligntrans1', depGare: 'transitedepargare2',
+            idtampo: 'idtampo1', siegselect: 'siegselect1'
+        },
+        tr3: {
+            heur: 'idcheminsheur1', progBox: 'selprog_box_tr3', progSel: 'selprog_tr3',
+            sieges: 'psiegesitines2', prix: 'prix_axetransit1', cate: 'catetransit1',
+            gid: 'gidtrans1', nom: 'nomitintrans2', lign: 'ligntrans2', depGare: 'transitedepargare3',
+            idtampo: 'idtampo2', siegselect: 'siegselect2'
+        },
+        tr4: {
+            heur: 'idcheminsheur2', progBox: 'selprog_box_tr4', progSel: 'selprog_tr4',
+            sieges: 'psiegesitines3', prix: 'prix_axetransit2', cate: 'catetransit2',
+            gid: 'gidtrans2', nom: 'nomitintrans3', lign: 'ligntrans3', depGare: 'transitedepargare4',
+            idtampo: 'idtampo3', siegselect: 'siegselect3'
+        }
+    };
+
+    function __venteCheminRowValue(row) {
+        if (!row) return '';
+        return String(row.code_progr) + '/' + row.intervalle1 + '/' + row.intervalle2 + '/'
+            + row.id_ligneheure + '/' + (row.prix != null ? row.prix : '');
+    }
+
+    function __venteApplyCheminRow(cfg, row) {
+        if (!cfg || !row) return;
+        var set = function (id, val) {
+            var el = document.getElementById(id);
+            if (el) el.value = val == null ? '' : String(val);
+        };
+        set(cfg.prix, row.prix != null ? row.prix : '');
+        set(cfg.cate, row.categori != null ? row.categori : '');
+        set(cfg.gid, row.gareidentif != null ? row.gareidentif : '');
+        set(cfg.nom, row.nom_ligne != null ? row.nom_ligne : '');
+        set(cfg.lign, row.ident_ligne != null ? row.ident_ligne : (row.ligne_id != null ? row.ligne_id : ''));
+        var heur = document.getElementById(cfg.heur);
+        if (heur && heur.selectedIndex >= 0) {
+            heur.options[heur.selectedIndex].value = __venteCheminRowValue(row);
+            heur.options[heur.selectedIndex].setAttribute('data-code-progr', String(row.code_progr));
+        }
+        if (cfg.depGare) {
+            __venteFillTransitDepart('#' + cfg.depGare, row.gareidentif);
+        }
+    }
+
+    function __venteLoadSiegesChemin(cfg, row) {
+        var ps = document.getElementById(cfg.sieges);
+        if (ps) ps.options.length = 1;
+        if (!row || !row.code_progr) return;
+        // enrichir meta (catégorie / gare) puis sièges
+        var httpMeta = new XMLHttpRequest();
+        httpMeta.open('GET', window.location.origin + `${APP_ROOT}/programmes/siegdispotrans/${encodeURIComponent(row.code_progr)}`, true);
+        httpMeta.onload = function () {
+            try {
+                var meta = JSON.parse(httpMeta.responseText);
+                if (Object.entries(meta).length >= 1) {
+                    for (var key in Object.entries(meta)) {
+                        if (cfg.cate) {
+                            var c = document.getElementById(cfg.cate);
+                            if (c) c.value = `${meta[key].categori}`;
+                        }
+                        if (cfg.gid) {
+                            var g = document.getElementById(cfg.gid);
+                            if (g) g.value = `${meta[key].gareidentif}`;
+                        }
+                        if (cfg.nom) {
+                            var n = document.getElementById(cfg.nom);
+                            if (n) n.value = `${meta[key].nom_ligne}`;
+                        }
+                        if (cfg.lign) {
+                            var l = document.getElementById(cfg.lign);
+                            if (l) l.value = `${meta[key].ident_ligne}`;
+                        }
+                        if (cfg.depGare) {
+                            __venteFillTransitDepart('#' + cfg.depGare, meta[key].gareidentif);
+                        }
+                    }
+                }
+            } catch (e) {}
+            var httpS = new XMLHttpRequest();
+            httpS.open(
+                'GET',
+                window.location.origin + `${APP_ROOT}/programmes/siegdisponibletrans/${encodeURIComponent(row.code_progr)}/${row.intervalle1}/${row.intervalle2}`,
+                true
+            );
+            httpS.onload = function () {
+                try {
+                    var dat = JSON.parse(httpS.responseText);
+                    if (ps) ps.options.length = 1;
+                    if (Object.entries(dat).length >= 1) {
+                        for (var k2 in Object.entries(dat)) {
+                            var opt = document.createElement('option');
+                            opt.value = `${dat[k2].siege_num}`;
+                            opt.innerHTML = `${dat[k2].siege_num}`;
+                            if (ps) ps.add(opt);
+                        }
+                    }
+                } catch (e2) {
+                    if (ps) ps.options.length = 1;
+                }
+            };
+            httpS.setRequestHeader('Content-Type', 'application/json');
+            httpS.send();
+        };
+        httpMeta.setRequestHeader('Content-Type', 'application/json');
+        httpMeta.send();
+        if (cfg.prix && row.prix != null) {
+            var px = document.getElementById(cfg.prix);
+            if (px) px.value = String(row.prix);
+        }
+    }
+
+    function __venteOnCheminHeurChange(legKey) {
+        var cfg = __venteCheminLegCfg[legKey];
+        if (!cfg) return;
+        var heur = document.getElementById(cfg.heur);
+        if (!heur) return;
+        __venteHideProgSelectAny(cfg.progBox, cfg.progSel);
+        var ps = document.getElementById(cfg.sieges);
+        if (ps) ps.options.length = 1;
+        var idLh = heur.value;
+        if (!idLh) return;
+        // si déjà format historique code/i1/i2/lh/prix (après choix)
+        if (String(idLh).indexOf('/') !== -1) {
+            var parts = String(idLh).split('/');
+            __venteLoadSiegesChemin(cfg, {
+                code_progr: parts[0],
+                intervalle1: parts[1],
+                intervalle2: parts[2],
+                id_ligneheure: parts[3],
+                prix: parts[4]
+            });
+            return;
+        }
+        var groups = (window.__venteCheminGroups && window.__venteCheminGroups[cfg.heur]) || {};
+        var g = groups[idLh];
+        var list = (g && g.rows) ? g.rows : [];
+        if (list.length === 0) return;
+        if (list.length === 1) {
+            __venteApplyCheminRow(cfg, list[0]);
+            __venteLoadSiegesChemin(cfg, list[0]);
+            return;
+        }
+        var box = document.getElementById(cfg.progBox);
+        var sel = document.getElementById(cfg.progSel);
+        if (!sel) {
+            __venteApplyCheminRow(cfg, list[0]);
+            __venteLoadSiegesChemin(cfg, list[0]);
+            return;
+        }
+        if (box) {
+            box.style.display = 'block';
+        }
+        if (sel) sel.style.display = 'block';
+        // afficher le box même si les champs transit sont en display none sur le label heure
+        sel.options.length = 1;
+        for (var i = 0; i < list.length; i++) {
+            var opt = document.createElement('option');
+            opt.value = String(i);
+            opt.innerHTML = __venteLabelProg(list[i]);
+            sel.add(opt);
+        }
+        sel.onchange = function () {
+            if (ps) ps.options.length = 1;
+            var idx = parseInt(sel.value, 10);
+            if (isNaN(idx) || !list[idx]) return;
+            __venteApplyCheminRow(cfg, list[idx]);
+            __venteLoadSiegesChemin(cfg, list[idx]);
+        };
+    }
+
+    function __venteWireCheminHeur(heurId, legKey) {
+        var heur = document.getElementById(heurId);
+        if (!heur) return;
+        heur.onchange = function () {
+            __venteOnCheminHeurChange(legKey);
+        };
+    }
+
+    function __venteApplyTransit1Fields(p) {
+        if (!p) return;
+        var set = function (id, val) {
+            var el = document.querySelector(id);
+            if (el) el.value = val == null ? '' : String(val);
+        };
+        set('#programtrans', p.code_progr);
+        set('#tarifattrib', p.typetarif);
+        set('#dateprtrans', p.date_progr);
+        set('#deplignetrans', p.gareidentif);
+        set('#intertrans1', p.intervalle1);
+        set('#intertrans2', p.intervalle2);
+        set('#ligntrans', p.ident_ligne);
+        set('#nomitintrans', p.nom_ligne);
+        set('#hertrans', p.heure);
+        set('#catetrans', p.categori);
+    }
+
+    function __venteLoadSiegesTransit1(idLigneheure, dptDate) {
+        var ps = document.querySelector('#psiegesitines');
+        if (ps) ps.options.length = 1;
+        var tfbs = document.querySelector('#tarifattrib') ? document.querySelector('#tarifattrib').value : '';
+        if (idLigneheure && tfbs) {
+            var httpPrixit = new XMLHttpRequest();
+            httpPrixit.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifpriprg/${idLigneheure}/${tfbs}`, true);
+            httpPrixit.onload = function () {
+                try {
+                    var donprixit = JSON.parse(httpPrixit.responseText);
+                    if (Object.entries(donprixit).length >= 1) {
+                        for (var key in Object.entries(donprixit)) {
+                            var px = document.querySelector('#prix_axetrans');
+                            if (px) px.value = `${donprixit[key].prix}`;
+                        }
+                    }
+                } catch (e) {}
+            };
+            httpPrixit.setRequestHeader('Content-Type', 'application/json');
+            httpPrixit.send();
+        }
+        var cdprogit = document.querySelector('#programtrans') ? document.querySelector('#programtrans').value : '';
+        var dbit = document.querySelector('#intertrans1') ? document.querySelector('#intertrans1').value : '';
+        var fnit = document.querySelector('#intertrans2') ? document.querySelector('#intertrans2').value : '';
+        var lgit = document.querySelector('#nomitintrans') ? document.querySelector('#nomitintrans').value : '';
+        var timit = document.querySelector('#hertrans') ? document.querySelector('#hertrans').value : '';
+        if (!cdprogit) return;
+        var httpRequetteit = new XMLHttpRequest();
+        httpRequetteit.open('GET', window.location.origin + `${APP_ROOT}/programmes/siegdisponible/${cdprogit}/${dptDate}/${lgit}/${timit}/${dbit}/${fnit}`, true);
+        httpRequetteit.onload = function () {
+            try {
+                var dattait = JSON.parse(httpRequetteit.responseText);
+                if (ps) ps.options.length = 1;
+                if (Object.entries(dattait).length >= 1) {
+                    for (var key2 in Object.entries(dattait)) {
+                        var opt = document.createElement('option');
+                        opt.value = `${dattait[key2].siege_num}`;
+                        opt.innerHTML = `${dattait[key2].siege_num}`;
+                        if (ps) ps.add(opt);
+                    }
+                }
+            } catch (e2) {
+                if (ps) ps.options.length = 1;
+            }
+        };
+        httpRequetteit.setRequestHeader('Content-Type', 'application/json');
+        httpRequetteit.send();
+    }
+
+    /** Corr. 1 : multi-départs même heure. */
+    function __venteHandleTransit1ProgList(don, idLigneheure, dptDate) {
+        var list = __venteProgListFromResponse(don);
+        __venteHideProgSelectAny('selprog_box_tr1', 'selprog_tr1');
+        var ps = document.querySelector('#psiegesitines');
+        if (ps) ps.options.length = 1;
+        if (list.length === 0) return false;
+        if (list.length === 1) {
+            __venteApplyTransit1Fields(list[0]);
+            __venteLoadSiegesTransit1(idLigneheure, dptDate);
+            return true;
+        }
+        var box = document.getElementById('selprog_box_tr1');
+        var sel = document.getElementById('selprog_tr1');
+        if (!sel) {
+            __venteApplyTransit1Fields(list[0]);
+            __venteLoadSiegesTransit1(idLigneheure, dptDate);
+            return true;
+        }
+        if (box) box.style.display = 'block';
+        if (sel) sel.style.display = 'block';
+        sel.options.length = 1;
+        for (var i = 0; i < list.length; i++) {
+            var opt = document.createElement('option');
+            opt.value = String(i);
+            opt.innerHTML = __venteLabelProg(list[i]);
+            sel.add(opt);
+        }
+        sel.onchange = function () {
+            if (ps) ps.options.length = 1;
+            var idx = parseInt(sel.value, 10);
+            if (isNaN(idx) || !list[idx]) return;
+            __venteApplyTransit1Fields(list[idx]);
+            __venteLoadSiegesTransit1(idLigneheure, dptDate);
+        };
+        return true;
+    }
+
+    function __venteFillHeuresVente(heures, hasTransit) {
+        var hSel = document.querySelector('#hdepart');
+        if (!hSel) return;
+        hSel.options.length = 1;
+        var list = Array.isArray(heures) ? heures : [];
+        for (var i = 0; i < list.length; i++) {
+            var hr = list[i];
+            if (!hr || hr.id_ligneheure == null || hr.id_ligneheure === '') continue;
+            var opt = document.createElement('option');
+            opt.value = hr.id_ligneheure + '/' + hr.heure;
+            var hasProg = !!(hr.has_programme === true || hr.has_programme === 1 || hr.has_programme === '1');
+            opt.setAttribute('data-has-programme', hasProg ? '1' : '0');
+            opt.innerHTML = hr.heure;
+            hSel.add(opt);
+        }
+    }
+
+    /** Remplit un select « départ correspondance » dès que gareIdentif est connu (reset inclus). */
+    function __venteFillTransitDepart(selectSel, gareIdentif) {
+        var sel = document.querySelector(selectSel);
+        if (!sel) return;
+        sel.options.length = 1;
+        if (gareIdentif == null || gareIdentif === '') return;
+        var http = new XMLHttpRequest();
+        http.open(
+            'GET',
+            window.location.origin + `${APP_ROOT}/programmes/verifsousgares/` + encodeURIComponent(gareIdentif),
+            true
+        );
+        http.onload = function () {
+            var rows = null;
+            try { rows = JSON.parse(http.responseText); } catch (e) { rows = null; }
+            if (!rows || Object.entries(rows).length < 1) return;
+            for (var key in Object.entries(rows)) {
+                var opt = document.createElement('option');
+                opt.value = `${rows[key].idsousgare}`;
+                opt.innerHTML = `${rows[key].nomsousgare}`;
+                sel.add(opt);
+            }
+        };
+        http.setRequestHeader('Content-Type', 'application/json');
+        http.send();
+    }
+
+    function __venteRequestTransitLegs(seltdep, arr, datedepart, sougid, force, onDone) {
+        var sg = (sougid != null && sougid !== '') ? sougid : '0';
+        var forceFlag = force ? '1' : '0';
+        var httpRequestitine = new XMLHttpRequest();
+        httpRequestitine.open(
+            'GET',
+            window.location.origin + `${APP_ROOT}/programmes/verifitine/`
+                + encodeURIComponent(seltdep + '-' + arr) + '/'
+                + encodeURIComponent(datedepart) + '/'
+                + encodeURIComponent(sg) + '/'
+                + forceFlag,
+            true
+        );
+        httpRequestitine.onload = function () {
+            var donitines = null;
+            try { donitines = JSON.parse(httpRequestitine.responseText); } catch (e) { donitines = null; }
+            if (typeof onDone === 'function') {
+                onDone(donitines);
+            } else if (typeof window.__venteApplyTransitLegs === 'function') {
+                window.__venteApplyTransitLegs(donitines);
+            }
+        };
+        httpRequestitine.setRequestHeader('Content-Type', 'application/json');
+        httpRequestitine.send();
+    }
+
+    function __venteFillQuartierSelect(rows) {
+        var q = document.querySelector('#quartier');
+        if (!q) return;
+        var keep = window.__venteSavedQuartierValue || q.value || '';
+        q.options.length = 1;
+        var list = Array.isArray(rows) ? rows
+            : (rows && typeof rows === 'object' ? Object.keys(rows).map(function (k) { return rows[k]; }) : []);
+        for (var i = 0; i < list.length; i++) {
+            var row = list[i];
+            if (!row) continue;
+            var nom = row.nom_quartier || row.nom || '';
+            if (!nom) continue;
+            var opt = document.createElement('option');
+            opt.value = nom;
+            opt.textContent = nom;
+            q.add(opt);
+        }
+        if (keep) {
+            q.value = keep;
+            if (q.value === keep) {
+                window.__venteSavedQuartierValue = keep;
+            }
+        }
+    }
+    function __venteLoadQuartiersArrivee() {
+        try {
+            ['#prix_axe','#tarifattrib','#date_depheure','#program','#idcompg','#idcompg1','#idcompg2','#idcompg3'].forEach(function (s) {
+                __venteSafeReset(s, null);
+            });
+            ['#hdepart','#quartier','#psieges','#selprog','#hdepartitine','#psiegesitines','#idcheminsheur',
+             '#idchemins','#idchemins1','#idchemins2','#psiegesitines1','#idcheminsheur1',
+             '#psiegesitines2','#idcheminsheur2','#psiegesitines3','#quartier1','#quartier2','#quartier3',
+             '#transitedepargare1','#transitedepargare2','#transitedepargare3','#transitedepargare4'
+            ].forEach(function (s) { __venteSafeReset(s, 1); });
+            __venteHideProgSelect();
+            __venteShowMainQuartier();
+            var arEl = document.querySelector('#arrsgare');
+            if (!arEl || !arEl.value) return;
+            var typgare = String(arEl.value).split('/')[0].trim();
+            if (!typgare) return;
+            var url = window.location.origin + (typeof APP_ROOT !== 'undefined' ? APP_ROOT : '')
+                + '/programmes/verifquart/' + encodeURIComponent(typgare);
+            var onOk = function (xhr) {
+                try {
+                    __venteFillQuartierSelect(JSON.parse(xhr.responseText || '[]'));
+                    __venteShowMainQuartier();
+                } catch (err) {
+                    console.error('verifquart', err);
+                    __venteSafeReset('#quartier', 1);
+                }
+            };
+            if (window.AppRequestGuard && AppRequestGuard.getJson) {
+                AppRequestGuard.getJson(url, 'verifquart-' + typgare, onOk, function () { __venteSafeReset('#quartier', 1); });
+            } else {
+                var xhr = new XMLHttpRequest();
+                xhr.open('GET', url, true);
+                xhr.onload = function () { if (xhr.status >= 200 && xhr.status < 300) onOk(xhr); };
+                xhr.send();
+            }
+        } catch (e) { console.error('quartier arrivee', e); }
+    }
+
+    var arBoot = document.querySelector('#arrsgare');
+    if (arBoot && !arBoot._venteQuartierBound) {
+        arBoot.addEventListener('change', __venteLoadQuartiersArrivee);
+        arBoot._venteQuartierBound = true;
+    }
     
     document.querySelectorAll('.addventeticket').forEach(function (e) 
     {
-        document.querySelector('h3#taTitle').innerHTML = `VENTE DE TICKET`;
-
-            let ar = document.querySelector('#arrsgare');
-            if (ar !== null)
-            ar.onchange = () =>{
-                document.querySelector('#prix_axe').value = '';
-                  document.querySelector('#tarifattrib').value = '';
-                document.querySelector('#date_depheure').value = '';
-                document.querySelector('#hdepart').options.length = 1;
-                document.querySelector('#quartier').options.length = 1;
-                document.querySelector('#psieges').options.length = 1;
-                document.querySelector('#hdepartitine').options.length = 1;
-                document.querySelector('#psiegesitines').options.length = 1;
-                document.querySelector('#idcheminsheur').options.length = 1;
-                document.querySelector('#transitedepargare1').options.length = 1;
-                document.querySelector('#transitedepargare2').options.length = 1;
-                document.querySelector('#transitedepargare3').options.length = 1;
-                document.querySelector('#transitedepargare4').options.length = 1;
-                document.querySelector('#idchemins').options.length = 1;
-                document.querySelector('#idchemins1').options.length = 1;
-                document.querySelector('#idchemins2').options.length = 1;
-                document.querySelector('#idcompg').value = '';
-                document.querySelector('#idcompg1').value = '';
-                document.querySelector('#idcompg2').value = '';
-                document.querySelector('#idcompg3').value = '';
-                document.querySelector('#psiegesitines1').options.length = 1;
-                document.querySelector('#idcheminsheur1').options.length = 1;
-                document.querySelector('#psiegesitines2').options.length = 1;
-                document.querySelector('#idcheminsheur2').options.length = 1;
-                document.querySelector('#psiegesitines3').options.length = 1;
-                document.querySelector('#quartier1').options.length = 1;
-                document.querySelector('#quartier2').options.length = 1;
-                document.querySelector('#quartier3').options.length = 1;
-                  document.querySelector('#program').value = '';
-
-                    //const typgare = document.querySelector('#arrsgare').value;
-                    var typgarepa1 = document.querySelector('#arrsgare').value;
-                    var artypgarepa2 = typgarepa1.split('/');
-                    const typgare = artypgarepa2[0];
-                    var typgare2 = artypgarepa2[1];
-                                                    
-                    let httptypequart;
-                    httptypequart = new XMLHttpRequest();
-                    
-                    AppRequestGuard.getJson(
-                        window.location.origin + `${APP_ROOT}/programmes/verifquart/${encodeURIComponent(typgare)}`,
-                        'verifquart-' + typgare,
-                        (httptypequart) => 
-                    {
-                        const donqua = JSON.parse(httptypequart.responseText);
-                        if (donqua == '') {
-                            document.querySelector('#quartier').options.length = 1;
-                        }
-                        else{
-                            if (Object.entries(donqua).length >= 1) {
-                                            
-                                for (let key in Object.entries(donqua)) {
-                                    let opt = document.createElement('option');
-                                    opt.value = `${donqua[key].nom_quartier}`;
-                                    opt.innerHTML = `${donqua[key].nom_quartier}`;
-                                    document.querySelector('#quartier').add(opt);
-                                }
-                            } else {
-                                document.querySelector('#quartier').options.length = 1;
-                            }
-                        }
-                        
-
-                    });
-            };
+        __venteSetTaTitle('VENTE DE TICKET');
             
             let da = document.querySelector('#date_depheure');
             if (da !== null){
@@ -129,25 +816,28 @@ document.addEventListener('DOMContentLoaded', () => {
                         if(datedepart >= dateactu)
                         {
                             
-                            httpRequetes.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifheure/${seltdep}-${arr}/${datedepart}`, true);
+                            httpRequetes.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifheuresvente/${seltdep}-${arr}/${datedepart}/${sougid || '0'}`, true);
                             httpRequetes.onload = () => {
-                                const dataAxe = JSON.parse(httpRequetes.responseText);
-                                
-                                    if (dataAxe == '') {
-                                        
-                                        document.querySelector('#smsdt').style.display = 'none';
-                                        document.querySelector('#date_depheure').style.color = "black";
-                                        document.querySelector('#date_depheure').style.border = "1px solid";
-                                        //on verifit pour voir si elle n'a pas d'itineraire
-                                        let httpRequestitine;
-                                        httpRequestitine = new XMLHttpRequest();
-                                        httpRequestitine.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifitine/${seltdep}-${arr}`, true);
-                                        httpRequestitine.onload = () => {
-                                                const donitines = JSON.parse(httpRequestitine.responseText);
-                                                    if(donitines === null)
+                                var payloadHv = {};
+                                try { payloadHv = JSON.parse(httpRequetes.responseText) || {}; } catch (eHv) { payloadHv = {}; }
+                                var heuresList = Array.isArray(payloadHv.heures) ? payloadHv.heures : [];
+                                window.__venteHasTransit = !!payloadHv.has_transit;
+                                window.__venteLastHeuresVente = heuresList;
+
+                                document.querySelector('#smsdt').style.display = 'none';
+                                document.querySelector('#date_depheure').style.color = "black";
+                                document.querySelector('#date_depheure').style.border = "1px solid";
+
+                                // Phase 1 : toujours lister le catalogue d'heures (avec ou sans départ).
+                                __venteShowDirectHourUi();
+                                __venteFillHeuresVente(heuresList, window.__venteHasTransit);
+
+                                // Applique les jambes transit (réutilisé au choix d'une heure sans départ).
+                                window.__venteApplyTransitLegs = function (donitines) {
+                                                    if(donitines === null || donitines === '' || (typeof donitines === 'object' && !Object.keys(donitines).length))
                                                     {
-                                                        document.querySelector('#depitin1').style.display = 'none';
-                                                        document.querySelector('#depargareitine1').style.display = 'none';
+                                                        __venteSetDisplay('depitin1', 'none');
+                                                        __venteSetDisplay('depargareitine1', 'none');
                                                         document.querySelector('#iddeptrans1').style.display = 'none';
                                                         document.querySelector('#transitedepargare1').style.display = 'none';
                                                         document.querySelector('#iddeptrans2').style.display = 'none';
@@ -157,29 +847,29 @@ document.addEventListener('DOMContentLoaded', () => {
                                                         document.querySelector('#iddeptrans4').style.display = 'none';
                                                         document.querySelector('#transitedepargare4').style.display = 'none';
                                                         document.querySelector('#arritin1').style.display = 'none';
-                                                        document.querySelector('#arrsgareitine1').style.display = 'none';
+                                                        __venteSetDisplay('arrsgareitine1', 'none');
                                                         document.querySelector('#arritin1').style.display = 'none';
-                                                        document.querySelector('#arrsgareitine1').style.display = 'none';
+                                                        __venteSetDisplay('arrsgareitine1', 'none');
                                                         document.querySelector('#heureitin1').style.display = 'none';
-                                                        document.querySelector('#hdepartitine1').style.display = 'none';
+                                                        __venteSetDisplay('hdepartitine1', 'none');
                                                         document.querySelector('#lignesitineraire').style.display = 'none';
                                                         document.querySelector('#ligne1').style.display = 'none';
                                                         document.querySelector('#siegitine1').style.display = 'none';
                                                         document.querySelector('#psiegesitines1').style.display = 'none';
-                                                        document.querySelector('#depitin2').style.display = 'none';
-                                                        document.querySelector('#depargareitine2').style.display = 'none';
+                                                        __venteSetDisplay('depitin2', 'none');
+                                                        __venteSetDisplay('depargareitine2', 'none');
                                                         document.querySelector('#arritin2').style.display = 'none';
-                                                        document.querySelector('#arrsgareitine2').style.display = 'none';
+                                                        __venteSetDisplay('arrsgareitine2', 'none');
                                                         document.querySelector('#heureitin2').style.display = 'none';
-                                                        document.querySelector('#hdepartitine2').style.display = 'none';
+                                                        __venteSetDisplay('hdepartitine2', 'none');
                                                         document.querySelector('#siegitine2').style.display = 'none';
                                                         document.querySelector('#psiegesitines2').style.display = 'none';
-                                                        document.querySelector('#depitin3').style.display = 'none';
-                                                        document.querySelector('#depargareitine3').style.display = 'none';
+                                                        __venteSetDisplay('depitin3', 'none');
+                                                        __venteSetDisplay('depargareitine3', 'none');
                                                         document.querySelector('#arritin3').style.display = 'none';
-                                                        document.querySelector('#arrsgareitine3').style.display = 'none';
+                                                        __venteSetDisplay('arrsgareitine3', 'none');
                                                         document.querySelector('#heureitin3').style.display = 'none';
-                                                        document.querySelector('#hdepartitine3').style.display = 'none';
+                                                        __venteSetDisplay('hdepartitine3', 'none');
                                                         document.querySelector('#siegitine3').style.display = 'none';
                                                         document.querySelector('#psiegesitines3').style.display = 'none';
                                                         document.querySelector('#quartier1').style.display = 'none';
@@ -208,11 +898,8 @@ document.addEventListener('DOMContentLoaded', () => {
                                                         if (Object.entries(donitines).length >= 1) 
                                                         {
                                                             var i = Object.entries(donitines).length;
-                                                            
-                                                            for (let key in Object.entries(donitines)) 
+                                                            document.querySelector('#nbrtrans').value = i;
                                                             {
-                                                                
-                                                                document.querySelector('#nbrtrans').value = Object.entries(donitines).length;;
                                                                 if(i === 2){
                                                                     document.querySelector('#arritin1').style.display = 'block';
                                                                     document.querySelector('#idchemins').style.display = 'block';
@@ -283,10 +970,12 @@ document.addEventListener('DOMContentLoaded', () => {
                                                                     document.querySelector('#psiegesitines3').style.display = 'block';
                                                                     document.querySelector('#quartier1').style.display = 'block';
                                                                     document.querySelector('#quartier2').style.display = 'block';
-                                                                    document.querySelector('#quartier3').style.display = 'block';    
+                                                                    document.querySelector('#quartier3').style.display = 'block';
                                                                     document.querySelector('#idquart1').style.display = 'block';
                                                                     document.querySelector('#idquart2').style.display = 'block';
                                                                     document.querySelector('#idquart3').style.display = 'block';
+                                                                    // Jambe 4 : quartier final = #quartier (haut de formulaire)
+                                                                    __venteShowMainQuartier();
 
                                                                 }
                                                                 document.querySelector('#tran').style.display = 'block';
@@ -420,12 +1109,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
                                                                             const dpt_dateitine = document.querySelector('#date_depheure').value;
                                                                             var itinproit = document.querySelector('#itinecode').value;
-                                                                        httpRequestit.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifprog/${itinproit}/${dpt_dateitine}/${selitine}`, true);
+                                                                        httpRequestit.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifprog/${itinproit}/${dpt_dateitine}/${selitine}/${(typeof sougid !== 'undefined' && sougid) ? sougid : '0'}`, true);
                                                                         httpRequestit.onload = () => 
                                                                         {
                                                                             const donit = JSON.parse(httpRequestit.responseText);
                                                                                 console.debug(`${typeof donit} - ${donit.attributes}`, console.memory);
 
+                                                                                if (__venteHandleTransit1ProgList(donit, selitine, dpt_dateitine)) { return; }
                                                                                 if (donit == '') 
                                                                                 {
                                                                                     
@@ -618,15 +1308,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                                                         {
                                                                 
                                                                                     const dongtranschem = JSON.parse(httpSiegeschemin.responseText);
-                                                                                    if (Object.entries(dongtranschem).length >= 1)
-                                                                                        {
-                                                                                            for (let key in Object.entries(dongtranschem)) {
-                                                                                                let opt = document.createElement('option');
-                                                                                                opt.value = `${dongtranschem[key].code_progr}/${dongtranschem[key].intervalle1}/${dongtranschem[key].intervalle2}/${dongtranschem[key].id_ligneheure}/${dongtranschem[key].prix}`;
-                                                                                                opt.innerHTML = `${dongtranschem[key].heure}/${dongtranschem[key].date_progr}`;
-                                                                                                document.querySelector('#idcheminsheur').add(opt);
-                                                                                            }
-                                                                                        }
+                                                                                    __venteFillCheminHeures('#idcheminsheur', dongtranschem, 'tr2');
                                                                         };
                                                                         httpSiegeschemin.setRequestHeader('Content-Type', 'application/json');
                                                                         httpSiegeschemin.send();
@@ -634,11 +1316,12 @@ document.addEventListener('DOMContentLoaded', () => {
                                                                     };
                                                                         let prochemintra = document.querySelector('#idcheminsheur');
                                                                     if (prochemintra !== null)
-                                                                        prochemintra.onchange = () => 
+                                                                        __venteWireCheminHeur('idcheminsheur', 'tr2'); if (false) prochemintra.onchange = () => 
                                                                         {  
                                                                             const httpPrixittransite = new XMLHttpRequest();
 
                                                                             document.querySelector('#psiegesitines1').options.length = 1;
+                                                                            document.querySelector('#transitedepargare2').options.length = 1;
 
                                                                                 const transselitine = document.querySelector('#idcheminsheur')
                                                                             .options[document.querySelector('#idcheminsheur').options.selectedIndex].value;
@@ -664,6 +1347,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                                                                             document.querySelector('#ligntrans1').value = `${donprixitran[key].ident_ligne}`;
 
                                                                                         }
+                                                                                        __venteFillTransitDepart('#transitedepargare2', document.querySelector('#gidtrans').value);
                                                                                     }
                                                                                 };
                                                                                 httpPrixittransite.setRequestHeader('Content-Type', 'application/json');
@@ -707,26 +1391,8 @@ document.addEventListener('DOMContentLoaded', () => {
                                                                                 var post_trans1 = transselitine1.split('/');
                                                                                 var itinetras1 = post_trans1[0];
                                                                                 
-                                                                                gareidentiftrans2 = document.querySelector('#gidtrans').value;
-                                                                                const httpsousgare1 = new XMLHttpRequest();
-                                                                                httpsousgare1.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifsousgares/${gareidentiftrans2}`, true);
-                                                                                httpsousgare1.onload = () => 
-                                                                                {
-                                                                                    const donsousg1 = JSON.parse(httpsousgare1.responseText);
-                                                                                    console.debug(`${typeof donsousg1}-${donsousg1.attributes}`, console.memory);
-                                                                                    if (Object.entries(donsousg1).length >= 1) {
-                                                                                        for (let key in Object.entries(donsousg1)) 
-                                                                                        {
-                                                                                            let opt = document.createElement('option');
-                                                                                            opt.value = `${donsousg1[key].idsousgare}`;
-                                                                                            opt.innerHTML = `${donsousg1[key].nomsousgare}`;
-                                                                                            document.querySelector('#transitedepargare2').add(opt);
-                                
-                                                                                        }
-                                                                                    }
-                                                                                };
-                                                                                httpsousgare1.setRequestHeader('Content-Type', 'application/json');
-                                                                                httpsousgare1.send();
+                                                                                // Départ Corr. 2 déjà rempli au choix de l'heure ; re-sync si besoin.
+                                                                                __venteFillTransitDepart('#transitedepargare2', document.querySelector('#gidtrans').value);
                                                                               
                                                                                 let httpSieges1;
                                                                                 httpSieges1 = new XMLHttpRequest();
@@ -882,12 +1548,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
                                                                             const dpt_dateitine1 = document.querySelector('#date_depheure').value;
                                                                             var itinproit1 = document.querySelector('#itinecode').value;
-                                                                        httpRequestit1.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifprog/${itinproit1}/${dpt_dateitine1}/${selitine1}`, true);
+                                                                        httpRequestit1.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifprog/${itinproit1}/${dpt_dateitine1}/${selitine1}/${(typeof sougid !== 'undefined' && sougid) ? sougid : '0'}`, true);
                                                                         httpRequestit1.onload = () => 
                                                                         {
                                                                             const donit1 = JSON.parse(httpRequestit1.responseText);
                                                                                 console.debug(`${typeof donit1} - ${donit1.attributes}`, console.memory);
 
+                                                                                if (__venteHandleTransit1ProgList(donit1, selitine1, dpt_dateitine1)) { return; }
                                                                                 if (donit1 == '') 
                                                                                 {
                                                                                     
@@ -1110,15 +1777,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                                                         {
                                                                 
                                                                                     const dongtranschem = JSON.parse(httpSiegeschemin.responseText);
-                                                                                    if (Object.entries(dongtranschem).length >= 1)
-                                                                                        {
-                                                                                            for (let key in Object.entries(dongtranschem)) {
-                                                                                                let opt = document.createElement('option');
-                                                                                                opt.value = `${dongtranschem[key].code_progr}/${dongtranschem[key].intervalle1}/${dongtranschem[key].intervalle2}/${dongtranschem[key].id_ligneheure}/${dongtranschem[key].prix}`;
-                                                                                                opt.innerHTML = `${dongtranschem[key].heure}/${dongtranschem[key].date_progr}`;
-                                                                                                document.querySelector('#idcheminsheur').add(opt);
-                                                                                            }
-                                                                                        }
+                                                                                    __venteFillCheminHeures('#idcheminsheur', dongtranschem, 'tr2');
                                                                         };
                                                                         httpSiegeschemin.setRequestHeader('Content-Type', 'application/json');
                                                                         httpSiegeschemin.send();
@@ -1126,11 +1785,12 @@ document.addEventListener('DOMContentLoaded', () => {
                                                                     };
                                                                        let prochemintra = document.querySelector('#idcheminsheur');
                                                                     if (prochemintra !== null)
-                                                                        prochemintra.onchange = () => 
+                                                                        __venteWireCheminHeur('idcheminsheur', 'tr2'); if (false) prochemintra.onchange = () => 
                                                                         {  
 
                                                                            
                                                                             document.querySelector('#psiegesitines1').options.length = 1;
+                                                                            document.querySelector('#transitedepargare2').options.length = 1;
 
                                                                             const httpPrixittransite = new XMLHttpRequest();
                                                                                 const transselitine = document.querySelector('#idcheminsheur')
@@ -1156,6 +1816,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                                                                             document.querySelector('#nomitintrans1').value = `${donprixitran[key].nom_ligne}`; 
                                                                                         document.querySelector('#ligntrans1').value = `${donprixitran[key].ident_ligne}`;
                                                                                         }
+                                                                                        __venteFillTransitDepart('#transitedepargare2', document.querySelector('#gidtrans').value);
                                                                                     }
                                                                                 };
                                                                                 httpPrixittransite.setRequestHeader('Content-Type', 'application/json');
@@ -1194,26 +1855,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                                                             progsieges1.onchange = () => 
                                                                             {
 
-                                                                              const  gareidentiftrans2 = document.querySelector('#gidtrans').value;
-                                                                                    const httpsousgare1 = new XMLHttpRequest();
-                                                                                    httpsousgare1.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifsousgares/${gareidentiftrans2}`, true);
-                                                                                    httpsousgare1.onload = () => 
-                                                                                    {
-                                                                                        const donsousg1 = JSON.parse(httpsousgare1.responseText);
-                                                                                        console.debug(`${typeof donsousg1}-${donsousg1.attributes}`, console.memory);
-                                                                                        if (Object.entries(donsousg1).length >= 1) {
-                                                                                            for (let key in Object.entries(donsousg1)) 
-                                                                                            {
-                                                                                                let opt = document.createElement('option');
-                                                                                                opt.value = `${donsousg1[key].idsousgare}`;
-                                                                                                opt.innerHTML = `${donsousg1[key].nomsousgare}`;
-                                                                                                document.querySelector('#transitedepargare2').add(opt);
-                                    
-                                                                                            }
-                                                                                        }
-                                                                                    };
-                                                                                    httpsousgare1.setRequestHeader('Content-Type', 'application/json');
-                                                                                    httpsousgare1.send();
+                                                                              __venteFillTransitDepart('#transitedepargare2', document.querySelector('#gidtrans').value);
                                                                                  const transselitine1 = document.querySelector('#idcheminsheur')
                                                                                 .options[document.querySelector('#idcheminsheur').options.selectedIndex].value;
                                                                                 var post_trans1 = transselitine1.split('/');
@@ -1301,15 +1943,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                                                         {
                                                                 
                                                                                     const dongtranschem1 = JSON.parse(httpSiegeschemin1.responseText);
-                                                                                    if (Object.entries(dongtranschem1).length >= 1)
-                                                                                        {
-                                                                                            for (let key in Object.entries(dongtranschem1)) {
-                                                                                                let opt = document.createElement('option');
-                                                                                                opt.value = `${dongtranschem1[key].code_progr}/${dongtranschem1[key].intervalle1}/${dongtranschem1[key].intervalle2}/${dongtranschem1[key].id_ligneheure}/${dongtranschem1[key].prix}`;
-                                                                                                opt.innerHTML = `${dongtranschem1[key].heure}/${dongtranschem1[key].date_progr}`;
-                                                                                                document.querySelector('#idcheminsheur1').add(opt);
-                                                                                            }
-                                                                                        }
+                                                                                    __venteFillCheminHeures('#idcheminsheur1', dongtranschem1, 'tr3');
                                                                         };
                                                                         httpSiegeschemin1.setRequestHeader('Content-Type', 'application/json');
                                                                         httpSiegeschemin1.send();
@@ -1317,11 +1951,12 @@ document.addEventListener('DOMContentLoaded', () => {
                                                                     };
                                                                       let prochemintra1 = document.querySelector('#idcheminsheur1');
                                                                     if (prochemintra1 !== null)
-                                                                        prochemintra1.onchange = () => 
+                                                                        __venteWireCheminHeur('idcheminsheur1', 'tr3'); if (false) prochemintra1.onchange = () => 
                                                                         {  
 
                                                                                 
                                                                                 document.querySelector('#psiegesitines2').options.length = 1;
+                                                                                document.querySelector('#transitedepargare3').options.length = 1;
 
                                                                             const httpPrixittransite1 = new XMLHttpRequest();
                                                                                 const transselitine1 = document.querySelector('#idcheminsheur1')
@@ -1346,6 +1981,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                                                                             document.querySelector('#nomitintrans2').value = `${donprixitran1[key].nom_ligne}`;
                                                                                             document.querySelector('#ligntrans2').value = `${donprixitran1[key].ident_ligne}`;
                                                                                         }
+                                                                                        __venteFillTransitDepart('#transitedepargare3', document.querySelector('#gidtrans1').value);
                                                                                     }
                                                                                 };
                                                                                 httpPrixittransite1.setRequestHeader('Content-Type', 'application/json');
@@ -1387,26 +2023,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                                                                 var post_trans2 = transselitine2.split('/');
                                                                                 var itinetras2 = post_trans2[0];
                                                                                     
-                                                                                    const gareidentiftrans4 = document.querySelector('#gidtrans1').value;
-                                                                                    const httpsousgare4 = new XMLHttpRequest();
-                                                                                    httpsousgare4.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifsousgares/${gareidentiftrans4}`, true);
-                                                                                    httpsousgare4.onload = () => 
-                                                                                    {
-                                                                                        const donsousg4 = JSON.parse(httpsousgare4.responseText);
-                                                                                        console.debug(`${typeof donsousg4}-${donsousg4.attributes}`, console.memory);
-                                                                                        if (Object.entries(donsousg4).length >= 1) {
-                                                                                            for (let key in Object.entries(donsousg4)) 
-                                                                                            {
-                                                                                                let opt = document.createElement('option');
-                                                                                                opt.value = `${donsousg4[key].idsousgare}`;
-                                                                                                opt.innerHTML = `${donsousg4[key].nomsousgare}`;
-                                                                                                document.querySelector('#transitedepargare3').add(opt);
-                                    
-                                                                                            }
-                                                                                        }
-                                                                                    };
-                                                                                    httpsousgare4.setRequestHeader('Content-Type', 'application/json');
-                                                                                    httpsousgare4.send();
+                                                                                    __venteFillTransitDepart('#transitedepargare3', document.querySelector('#gidtrans1').value);
 
                                                                                 let httpSieges2;
                                                                                 httpSieges2 = new XMLHttpRequest();
@@ -1564,12 +2181,13 @@ document.addEventListener('DOMContentLoaded', () => {
                                                                             
                                                                             const dpt_dateitine1 = document.querySelector('#date_depheure').value;
                                                                             var itinproit1 = document.querySelector('#itinecode').value;
-                                                                        httpRequestit1.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifprog/${itinproit1}/${dpt_dateitine1}/${selitine1}`, true);
+                                                                        httpRequestit1.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifprog/${itinproit1}/${dpt_dateitine1}/${selitine1}/${(typeof sougid !== 'undefined' && sougid) ? sougid : '0'}`, true);
                                                                         httpRequestit1.onload = () => 
                                                                         {
                                                                             const donit1 = JSON.parse(httpRequestit1.responseText);
                                                                                 console.debug(`${typeof donit1} - ${donit1.attributes}`, console.memory);
 
+                                                                                if (__venteHandleTransit1ProgList(donit1, selitine1, dpt_dateitine1)) { return; }
                                                                                 if (donit1 == '') 
                                                                                 {
                                                                                     
@@ -1793,15 +2411,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                                                         {
                                                                 
                                                                                     const dongtranschem = JSON.parse(httpSiegeschemin.responseText);
-                                                                                    if (Object.entries(dongtranschem).length >= 1)
-                                                                                        {
-                                                                                            for (let key in Object.entries(dongtranschem)) {
-                                                                                                let opt = document.createElement('option');
-                                                                                                opt.value = `${dongtranschem[key].code_progr}/${dongtranschem[key].intervalle1}/${dongtranschem[key].intervalle2}/${dongtranschem[key].id_ligneheure}/${dongtranschem[key].prix}`;
-                                                                                                opt.innerHTML = `${dongtranschem[key].heure}/${dongtranschem[key].date_progr}`;
-                                                                                                document.querySelector('#idcheminsheur').add(opt);
-                                                                                            }
-                                                                                        }
+                                                                                    __venteFillCheminHeures('#idcheminsheur', dongtranschem, 'tr2');
                                                                         };
                                                                         httpSiegeschemin.setRequestHeader('Content-Type', 'application/json');
                                                                         httpSiegeschemin.send();
@@ -1809,11 +2419,12 @@ document.addEventListener('DOMContentLoaded', () => {
                                                                     };
                                                                         let prochemintra = document.querySelector('#idcheminsheur');
                                                                         if (prochemintra !== null){
-                                                                            prochemintra.onchange = () => 
+                                                                            __venteWireCheminHeur('idcheminsheur', 'tr2'); if (false) prochemintra.onchange = () => 
                                                                             {  
 
                                                                                
-                                                                                document.querySelector('#psiegesitines1').options.length = 1; 
+                                                                                document.querySelector('#psiegesitines1').options.length = 1;
+                                                                                document.querySelector('#transitedepargare2').options.length = 1;
 
                                                                                 const httpPrixittransite = new XMLHttpRequest();
                                                                                     const transselitine = document.querySelector('#idcheminsheur')
@@ -1839,6 +2450,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                                                                                 document.querySelector('#nomitintrans1').value = `${donprixitran[key].nom_ligne}`;
                                                                                                 document.querySelector('#ligntrans1').value = `${donprixitran[key].ident_ligne}`;
                                                                                             }
+                                                                                            __venteFillTransitDepart('#transitedepargare2', document.querySelector('#gidtrans').value);
                                                                                         }
                                                                                     };
                                                                                     httpPrixittransite.setRequestHeader('Content-Type', 'application/json');
@@ -1876,27 +2488,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                                                             progsieges1.onchange = () => 
                                                                             {
 
-                                                                               const gareidentiftrans2 = document.querySelector('#gidtrans').value;
-                                                                                    const httpsousgare1 = new XMLHttpRequest();
-                                                                                    httpsousgare1.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifsousgares/${gareidentiftrans2}`, true);
-                                                                                    httpsousgare1.onload = () => 
-                                                                                    {
-                                                                                        const donsousg1 = JSON.parse(httpsousgare1.responseText);
-                                                                                        console.debug(`${typeof donsousg1}-${donsousg1.attributes}`, console.memory);
-                                                                                        if (Object.entries(donsousg1).length >= 1) {
-                                                                                            for (let key in Object.entries(donsousg1)) 
-                                                                                            {
-                                                                                                let opt = document.createElement('option');
-                                                                                                opt.value = `${donsousg1[key].idsousgare}`;
-                                                                                                opt.innerHTML = `${donsousg1[key].nomsousgare}`;
-                                                                                                document.querySelector('#transitedepargare2').add(opt);
-                                    
-                                                                                            }
-                                                                                        }
-                                                                                    };
-                                                                                    httpsousgare1.setRequestHeader('Content-Type', 'application/json');
-                                                                                    httpsousgare1.send();
-                                                                                
+                                                                               __venteFillTransitDepart('#transitedepargare2', document.querySelector('#gidtrans').value);
 
                                                                                     const transselitine1 = document.querySelector('#idcheminsheur')
                                                                                 .options[document.querySelector('#idcheminsheur').options.selectedIndex].value;
@@ -2011,15 +2603,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                                                         {
                                                                 
                                                                                     const dongtranschem1 = JSON.parse(httpSiegeschemin1.responseText);
-                                                                                    if (Object.entries(dongtranschem1).length >= 1)
-                                                                                        {
-                                                                                            for (let key in Object.entries(dongtranschem1)) {
-                                                                                                let opt = document.createElement('option');
-                                                                                                opt.value = `${dongtranschem1[key].code_progr}/${dongtranschem1[key].intervalle1}/${dongtranschem1[key].intervalle2}/${dongtranschem1[key].id_ligneheure}/${dongtranschem1[key].prix}`;
-                                                                                                opt.innerHTML = `${dongtranschem1[key].heure}/${dongtranschem1[key].date_progr}`;
-                                                                                                document.querySelector('#idcheminsheur1').add(opt);
-                                                                                            }
-                                                                                        }
+                                                                                    __venteFillCheminHeures('#idcheminsheur1', dongtranschem1, 'tr3');
                                                                         };
                                                                         httpSiegeschemin1.setRequestHeader('Content-Type', 'application/json');
                                                                         httpSiegeschemin1.send();
@@ -2027,10 +2611,11 @@ document.addEventListener('DOMContentLoaded', () => {
                                                                     };
                                                                        let prochemintra1 = document.querySelector('#idcheminsheur1');
                                                                     if (prochemintra1 !== null)
-                                                                        prochemintra1.onchange = () => 
+                                                                        __venteWireCheminHeur('idcheminsheur1', 'tr3'); if (false) prochemintra1.onchange = () => 
                                                                         {  
                                                                             
                                                                             document.querySelector('#psiegesitines2').options.length = 1;
+                                                                            document.querySelector('#transitedepargare3').options.length = 1;
 
                                                                             const httpPrixittransite1 = new XMLHttpRequest();
                                                                                 const transselitine1 = document.querySelector('#idcheminsheur1')
@@ -2055,6 +2640,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                                                                             document.querySelector('#nomitintrans2').value = `${donprixitran1[key].nom_ligne}`;
                                                                                             document.querySelector('#ligntrans2').value = `${donprixitran1[key].ident_ligne}`;
                                                                                         }
+                                                                                        __venteFillTransitDepart('#transitedepargare3', document.querySelector('#gidtrans1').value);
                                                                                     }
                                                                                 };
                                                                                 httpPrixittransite1.setRequestHeader('Content-Type', 'application/json');
@@ -2092,26 +2678,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                                                             progsieges2.onchange = () => 
                                                                             {
 
-                                                                               const gareidentiftrans4 = document.querySelector('#gidtrans1').value;
-                                                                                const httpsousgare4 = new XMLHttpRequest();
-                                                                                httpsousgare4.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifsousgares/${gareidentiftrans4}`, true);
-                                                                                httpsousgare4.onload = () => 
-                                                                                {
-                                                                                    const donsousg4 = JSON.parse(httpsousgare4.responseText);
-                                                                                    console.debug(`${typeof donsousg4}-${donsousg4.attributes}`, console.memory);
-                                                                                    if (Object.entries(donsousg4).length >= 1) {
-                                                                                        for (let key in Object.entries(donsousg4)) 
-                                                                                        {
-                                                                                            let opt = document.createElement('option');
-                                                                                            opt.value = `${donsousg4[key].idsousgare}`;
-                                                                                            opt.innerHTML = `${donsousg4[key].nomsousgare}`;
-                                                                                            document.querySelector('#transitedepargare3').add(opt);
-                                
-                                                                                        }
-                                                                                    }
-                                                                                };
-                                                                                httpsousgare4.setRequestHeader('Content-Type', 'application/json');
-                                                                                httpsousgare4.send();
+                                                                               __venteFillTransitDepart('#transitedepargare3', document.querySelector('#gidtrans1').value);
                                                                                     const transselitine2 = document.querySelector('#idcheminsheur1')
                                                                                 .options[document.querySelector('#idcheminsheur1').options.selectedIndex].value;
                                                                                 var post_trans2 = transselitine2.split('/');
@@ -2182,6 +2749,24 @@ document.addEventListener('DOMContentLoaded', () => {
                                                                         var post_typgare42 = prostranschemin42.split('-');
                                                                         var seltypgare42 = post_typgare42[0];
                                                                         var typgaresel41 = post_typgare42[1];
+
+                                                                        // Jambe 4 : #quartier = arrivée finale (déjà chargé via arrsgare).
+                                                                        // Ne pas reconstruire le select ici — ça vidait la sélection du client.
+                                                                        var qMain4 = document.querySelector('#quartier');
+                                                                        if (typgaresel41 && qMain4 && qMain4.options.length <= 1) {
+                                                                            var httptypequart4 = new XMLHttpRequest();
+                                                                            httptypequart4.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifquartr/${typgaresel41}`, true);
+                                                                            httptypequart4.onload = () => {
+                                                                                var donqua4 = [];
+                                                                                try { donqua4 = JSON.parse(httptypequart4.responseText) || []; } catch (e4) { donqua4 = []; }
+                                                                                __venteFillQuartierSelect(donqua4);
+                                                                                __venteShowMainQuartier();
+                                                                            };
+                                                                            httptypequart4.setRequestHeader('Content-Type', 'application/json');
+                                                                            httptypequart4.send();
+                                                                        } else if (qMain4) {
+                                                                            __venteShowMainQuartier();
+                                                                        }
                                                                         
                                                                         let httpSiegeschemin2;
                                                                         httpSiegeschemin2 = new XMLHttpRequest();
@@ -2197,15 +2782,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                                                         {
                                                                 
                                                                                     const dongtranschem2 = JSON.parse(httpSiegeschemin2.responseText);
-                                                                                    if (Object.entries(dongtranschem2).length >= 1)
-                                                                                        {
-                                                                                            for (let key in Object.entries(dongtranschem2)) {
-                                                                                                let opt = document.createElement('option');
-                                                                                                opt.value = `${dongtranschem2[key].code_progr}/${dongtranschem2[key].intervalle1}/${dongtranschem2[key].intervalle2}/${dongtranschem2[key].id_ligneheure}/${dongtranschem2[key].prix}`;
-                                                                                                opt.innerHTML = `${dongtranschem2[key].heure}/${dongtranschem2[key].date_progr}`;
-                                                                                                document.querySelector('#idcheminsheur2').add(opt);
-                                                                                            }
-                                                                                        }
+                                                                                    __venteFillCheminHeures('#idcheminsheur2', dongtranschem2, 'tr4');
                                                                         };
                                                                         httpSiegeschemin2.setRequestHeader('Content-Type', 'application/json');
                                                                         httpSiegeschemin2.send();
@@ -2213,10 +2790,11 @@ document.addEventListener('DOMContentLoaded', () => {
                                                                     };
                                                                       let prochemintra2 = document.querySelector('#idcheminsheur2');
                                                                     if (prochemintra2 !== null)
-                                                                        prochemintra2.onchange = () => 
+                                                                        __venteWireCheminHeur('idcheminsheur2', 'tr4'); if (false) prochemintra2.onchange = () => 
                                                                         {  
                                                                             
                                                                             document.querySelector('#psiegesitines3').options.length = 1;
+                                                                            document.querySelector('#transitedepargare4').options.length = 1;
 
                                                                             const httpPrixittransite2 = new XMLHttpRequest();
                                                                                 const transselitine2 = document.querySelector('#idcheminsheur2')
@@ -2241,6 +2819,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                                                                             document.querySelector('#nomitintrans3').value = `${donprixitran2[key].nom_ligne}`;
                                                                                             document.querySelector('#ligntrans3').value = `${donprixitran2[key].ident_ligne}`;
                                                                                         }
+                                                                                        __venteFillTransitDepart('#transitedepargare4', document.querySelector('#gidtrans2').value);
                                                                                     }
                                                                                 };
                                                                                 httpPrixittransite2.setRequestHeader('Content-Type', 'application/json');
@@ -2279,26 +2858,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                                                             {
 
 
-                                                                               const gareidentiftrans5 = document.querySelector('#gidtrans2').value;
-                                                                                const httpsousgare5 = new XMLHttpRequest();
-                                                                                httpsousgare5.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifsousgares/${gareidentiftrans5}`, true);
-                                                                                httpsousgare5.onload = () => 
-                                                                                {
-                                                                                    const donsousg5 = JSON.parse(httpsousgare5.responseText);
-                                                                                    console.debug(`${typeof donsousg5}-${donsousg5.attributes}`, console.memory);
-                                                                                    if (Object.entries(donsousg5).length >= 1) {
-                                                                                        for (let key in Object.entries(donsousg5)) 
-                                                                                        {
-                                                                                            let opt = document.createElement('option');
-                                                                                            opt.value = `${donsousg5[key].idsousgare}`;
-                                                                                            opt.innerHTML = `${donsousg5[key].nomsousgare}`;
-                                                                                            document.querySelector('#transitedepargare4').add(opt);
-                                
-                                                                                        }
-                                                                                    }
-                                                                                };
-                                                                                httpsousgare5.setRequestHeader('Content-Type', 'application/json');
-                                                                                httpsousgare5.send();
+                                                                               __venteFillTransitDepart('#transitedepargare4', document.querySelector('#gidtrans2').value);
                                                                                     const transselitine3 = document.querySelector('#idcheminsheur2')
                                                                                 .options[document.querySelector('#idcheminsheur2').options.selectedIndex].value;
                                                                                 var post_trans3 = transselitine3.split('/');
@@ -2357,31 +2917,10 @@ document.addEventListener('DOMContentLoaded', () => {
                                                                 
                                                         }
                                                     }
-                                        };
-                                        httpRequestitine.setRequestHeader('Content-Type', 'application/json');
-                                        httpRequestitine.send();
-                                    } 
-                                    else 
-                                    {       
-                                        
-                                        document.querySelector('#smsdt').style.display = 'none';
-                                        document.querySelector('#date_depheure').style.color = "black";
-                                        document.querySelector('#date_depheure').style.border = "1px solid";
-                                        if (Object.entries(dataAxe).length >= 1) 
-                                        {
-                                                
-                                            
-    
-                                            for (let key in Object.entries(dataAxe)) {
-                                                    let opt = document.createElement('option');
-                                                    opt.value = `${dataAxe[key].id_ligneheure}/${dataAxe[key].heure}`;
-                                                    opt.innerHTML = `${dataAxe[key].heure}`;
-                                                    document.querySelector('#hdepart').add(opt);
-                                                }
-                                        } else {
-                                            document.querySelector('#hdepart').options.length = 1;
-                                        }
-                                    }
+                                        }; // fin __venteApplyTransitLegs
+
+                                // Ne pas ouvrir le transit au clic date (même catalogue vide) :
+                                // le champ heure reste visible ; transit uniquement au choix d'une heure sans départ.
 
                                         let hrdepart = document.querySelector('#hdepart');
                                         if (hrdepart !== null) {
@@ -2389,9 +2928,31 @@ document.addEventListener('DOMContentLoaded', () => {
                                             {
                                                 document.querySelector('#psieges').options.length = 1;
                                                 document.querySelector('#typegare').value = '';
+                                                __venteHideProgSelect();
+                                                const hOpt = document.querySelector('#hdepart').options[document.querySelector('#hdepart').options.selectedIndex];
+                                                const sele = hOpt ? hOpt.value : '';
+                                                const hasProgHour = hOpt && hOpt.getAttribute('data-has-programme') === '1';
+
+                                                // Phase 1 : heure sans départ → correspondances (pas creedepart).
+                                                if (sele && !hasProgHour) {
+                                                    var messEl = document.querySelector('#mess');
+                                                    var errEl = document.querySelector('#erreurMess');
+                                                    if (window.__venteHasTransit) {
+                                                        if (messEl) messEl.style.display = 'block';
+                                                        if (errEl) errEl.innerHTML = 'Pas de départ à cette heure — correspondances proposées.';
+                                                        __venteRequestTransitLegs(seltdep, arr, datedepart, sougid, true);
+                                                    } else {
+                                                        __venteShowDirectHourUi();
+                                                        if (messEl) messEl.style.display = 'block';
+                                                        if (errEl) errEl.innerHTML = 'Aucun départ ni correspondance pour cette heure.';
+                                                    }
+                                                    return;
+                                                }
+
+                                                // Heure avec départ : vente directe classique.
+                                                __venteShowDirectHourUi();
+                                                if (document.querySelector('#mess')) document.querySelector('#mess').style.display = 'none';
                                                 const httpRequest = new XMLHttpRequest();
-                                                const sele = document.querySelector('#hdepart')
-                                                    .options[document.querySelector('#hdepart').options.selectedIndex].value;
 
                                                     var post_lh = sele.split('/');
                                                     var sel = post_lh[0];
@@ -2419,14 +2980,17 @@ document.addEventListener('DOMContentLoaded', () => {
                                                 
 
 
-                                                httpRequest.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifprog/${seltdep}-${arr}/${dpt_date}/${sel}`, true);
+                                                httpRequest.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifprog/${seltdep}-${arr}/${dpt_date}/${sel}/${sougid || '0'}`, true);
                                                 httpRequest.onload = () => 
                                                 {
                                                     var typ_gare = document.querySelector('#typegare').value;    
                                                     const don = JSON.parse(httpRequest.responseText);
                                                         console.debug(`${typeof don} - ${don.attributes}`, console.memory);
-                                                        //const tabe = [];
-                                                        if (don == '') 
+                                                        // Multi-départs même heure : N>=1 → sélecteur / auto ; N=0 → creedepart
+                                                        if (__venteHandleProgList(don, sel, dpt_date)) {
+                                                            return;
+                                                        }
+                                                        if (don == '' || __venteProgListFromResponse(don).length === 0) 
                                                         {
                                                             if(typ_gare == 'Principale'){
                                                                 
@@ -2524,70 +3088,6 @@ document.addEventListener('DOMContentLoaded', () => {
                                                             }
                                                             
                                                             
-                                                        } 
-                                                        else 
-                                                        {       
-                                                            if (Object.entries(don).length >= 1) {
-                                                                for (let key in Object.entries(don)) {
-                                                                    document.querySelector('#program').value = `${don[key].code_progr}`;
-                                                                    document.querySelector('#tarifattrib').value = `${don[key].typetarif}`;
-                                                                    document.querySelector('#datepr').value = `${don[key].date_progr}`;
-                                                                    document.querySelector('#depligne').value = `${don[key].gareidentif}`;
-                                                                    document.querySelector('#inter1').value = `${don[key].intervalle1}`;
-                                                                    document.querySelector('#inter2').value = `${don[key].intervalle2}`;
-                                                                    document.querySelector('#lign').value = `${don[key].ident_ligne}`;
-                                                                    document.querySelector('#nomitin').value = `${don[key].nom_ligne}`;
-                                                                    document.querySelector('#her').value = `${don[key].heure}`;
-                                                                    document.querySelector('#cate').value = `${don[key].categori}`;
-
-                                                                }
-                                                            } 
-                                                            
-                                                            var tfbs = document.querySelector('#tarifattrib').value;
-                                                            const httpPrix = new XMLHttpRequest();
-                                                            httpPrix.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifpriprg/${sel}/${tfbs}`, true);
-                                                            httpPrix.onload = () => 
-                                                            {
-
-                                                                const donprix = JSON.parse(httpPrix.responseText);
-                                                                console.debug(`${typeof donprix}-${donprix.attributes}`, console.memory);
-                                                                if (Object.entries(donprix).length >= 1) {
-                                                                    for (let key in Object.entries(donprix)) 
-                                                                    {
-                                                                        document.querySelector('#prix_axe').value = `${donprix[key].prix}`;
-            
-                                                                    }
-                                                                }
-                                                            };
-                                                            httpPrix.setRequestHeader('Content-Type', 'application/json');
-                                                            httpPrix.send();
-                                                            
-                                                            const httpRequette = new XMLHttpRequest();
-                                                            const cdprog = document.querySelector('#program').value;
-                                                            const db = document.querySelector('#inter1').value;
-                                                            const fn = document.querySelector('#inter2').value;
-                                                            const lg = document.querySelector('#nomitin').value;
-                                                            const tim = document.querySelector('#her').value;
-                                                                httpRequette.open('GET', window.location.origin + `${APP_ROOT}/programmes/siegdisponible/${cdprog}/${dpt_date}/${lg}/${tim}/${db}/${fn}`, true);
-                                                            httpRequette.onload = () => {
-                                                                const datta = JSON.parse(httpRequette.responseText);
-                                                                console.debug(`${typeof datta} - ${datta.attributes}`, console.memory);
-                                                                if (Object.entries(datta).length >= 1) {
-                                                                    for (let key in Object.entries(datta)) {
-                                                                        
-                                                                        let opt = document.createElement('option');
-                                                                        opt.value = `${datta[key].siege_num}`;
-                                                                        opt.innerHTML = `${datta[key].siege_num}`;
-                                                                        document.querySelector('#psieges').add(opt);
-                                                                        
-                                                                    }
-                                                                    
-                                                                } else {
-                                                                    document.querySelector('#psieges').options.length = 1;
-                                                                }
-                                                            };
-                                                            httpRequette.setRequestHeader('Content-Type', 'application/json');
-                                                            httpRequette.send();
                                                         }  
                                                         
                                                     };
@@ -2826,6 +3326,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
                 
                 e.onclick = function () {   
+                    __venteSetTaTitle('VENTE DE TICKET');
                     let taForm = document.querySelector('#taForm');
                     
                     taForm.setAttribute('action', `${APP_ROOT}/Programmes/addpassager/${e.dataset.cle_compagnie}`);

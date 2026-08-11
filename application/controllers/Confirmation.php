@@ -2930,16 +2930,7 @@
                 $this->property['conex'] = $conex;
 
             
-                $specialSales = $this->m_ordres->getgr($this->company->ekey, $gd, $sg);
-                $this->property['ticketsgratuits'] = array();
-                $this->property['ticketsreduits'] = array();
-                foreach ($specialSales as $specialSale) {
-                    if ((string) $specialSale->sale_category === 'gratuit') {
-                        $this->property['ticketsgratuits'][] = $specialSale;
-                    } else {
-                        $this->property['ticketsreduits'][] = $specialSale;
-                    }
-                }
+                $this->property['ticketsgratuits'] = $this->m_ordres->getgr($this->company->ekey, $gd, $sg);
                 
                 $this->property['pagetitle'] .= ".LES TICKETS GRATUITS OU A PRIX REDUITS • <strong>{$this->company->nom_entreprise}•&nbsp;</strong> ";
             return $this->layout->view('_tickets/ticketgra', $this->property);

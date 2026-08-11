@@ -95,6 +95,7 @@
                                         
                                     </div>
                                 </div>
+                                <div class="px-3 pb-2" data-compagnies-arrivee-for="arrsgarefi"></div>
                                 <div class="row">
                                 <div class="form-group col-sm-4">
                                     <label>Départ</label>
@@ -110,11 +111,12 @@
                                     <label>Arrivée</label>
                                     <select class="form-control form-control-sm" name="arrgarefi" id="arrsgarefi">
                                         <option value="">Choisissez l'arrivée</option>
-                                        <? foreach ($garearrivees as $garearrivee): ?>
-                                            <option value="<?= $garearrivee->code_gadest; ?>">
-                                                <?= $garearrivee->nom_gadest; ?>
-                                            </option>
-                                        <? endforeach; ?>
+                                        <?php
+                                            $this->load->view('beagle/pages/guichet/_options_gare_arrivee', array(
+                                                'garearrivees' => !empty($garearrivees) ? $garearrivees : array(),
+                                                'value_format' => 'code',
+                                            ));
+                                        ?>
                                     </select>
                                 </div>
                                 <div class="form-group col-sm-4">
@@ -358,6 +360,8 @@
                                         
                                     </div>
                                 </div>
+                                <div class="px-3 pb-2" data-compagnies-arrivee-for="arrsgarefid"></div>
+
                                 <div class="row">
                                     <div class="form-group col-sm-4">
                                         <label style="display:block" id="iddepfid">Départ</label>
@@ -373,11 +377,12 @@
                                         <label style="display:block" id="arridfid">Arrivée</label>
                                         <select style="display:block" class="form-control form-control-sm" name="arrigarefid" id="arrsgarefid">
                                             <option value="">Choisissez l'arrivée</option>
-                                            <? foreach ($garearrivees as $garearrivee): ?>
-                                                <option value="<?= $garearrivee->code_gadest; ?>">
-                                                    <?= $garearrivee->nom_gadest; ?>
-                                                </option>
-                                            <? endforeach; ?>
+                                            <?php
+                                                $this->load->view('beagle/pages/guichet/_options_gare_arrivee', array(
+                                                    'garearrivees' => !empty($garearrivees) ? $garearrivees : array(),
+                                                    'value_format' => 'code',
+                                                ));
+                                            ?>
                                         </select>
                                     </div>
                                     <div class="form-group col-sm-4">
@@ -398,6 +403,12 @@
                                         <select style="display:block" class="form-control form-control-sm" name="heuredeptfid" id="hdepartfid">
                                             <option value="">Choisissez départ</option>
                                             
+                                        </select>
+                                    </div>
+                                    <div class="form-group col-sm-4" id="selprog_box_fid" style="display:none;">
+                                        <label style="display:block" id="selprog_label_fid">Départ (même heure)</label>
+                                        <select class="form-control form-control-sm" name="selprog_choice_fid" id="selprogfid">
+                                            <option value="">Choisissez le départ</option>
                                         </select>
                                     </div>                   
                                     <div class="form-group col-sm-4">
@@ -453,6 +464,12 @@
                                             
                                         </select>
                                     </div>
+                                        <div class="form-group col-sm-4" id="selprog_box_tr1fid" style="display:none;">
+                                            <label style="display:block">Départ (même heure)</label>
+                                            <select class="form-control form-control-sm" id="selprog_tr1fid">
+                                                <option value="">Choisissez le départ</option>
+                                            </select>
+                                        </div>
                                     <div class="form-group col-sm-4">
                                         <label style="display:none" id="siegitinefid">Siège</label>
                                         <select style="display:none" class="form-control form-control-sm" name="passagersiegesitinesfid" id="psiegesitinesfid">
@@ -492,6 +509,12 @@
                                             
                                         </select>
                                     </div>
+                                        <div class="form-group col-sm-4" id="selprog_box_tr2fid" style="display:none;">
+                                            <label style="display:block">Départ (même heure)</label>
+                                            <select class="form-control form-control-sm" id="selprog_tr2fid">
+                                                <option value="">Choisissez le départ</option>
+                                            </select>
+                                        </div>
                                     <div class="form-group col-sm-4">
                                         <label style="display:none;" id="siegitine1fid">Siège</label>
                                         <select style="display:none" class="form-control form-control-sm" name="passagersiegesitines1fid" id="psiegesitines1fid">
@@ -530,6 +553,12 @@
                                             
                                         </select>
                                     </div>
+                                        <div class="form-group col-sm-4" id="selprog_box_tr3fid" style="display:none;">
+                                            <label style="display:block">Départ (même heure)</label>
+                                            <select class="form-control form-control-sm" id="selprog_tr3fid">
+                                                <option value="">Choisissez le départ</option>
+                                            </select>
+                                        </div>
 
                                     <div class="form-group col-sm-4">
                                         <label style="display:none;" id="siegitine2fid">Siège</label>
@@ -563,6 +592,12 @@
                                             
                                         </select>
                                     </div>
+                                        <div class="form-group col-sm-4" id="selprog_box_tr4fid" style="display:none;">
+                                            <label style="display:block">Départ (même heure)</label>
+                                            <select class="form-control form-control-sm" id="selprog_tr4fid">
+                                                <option value="">Choisissez le départ</option>
+                                            </select>
+                                        </div>
                                     <div class="form-group col-sm-4">
                                         <label style="display:none;" id="siegitine3fid">Siège</label>
                                         <select style="display:none" class="form-control form-control-sm" name="passagersiegesitines3fid" id="psiegesitines3fid">

@@ -12,6 +12,7 @@ return array(
     'admin' => array(
         'addperso.js',
         'user-list-filter.js',
+        'filtre_arrivee_compagnie.js',
     ),
 
     'confirmation' => array('bundles/confirmation.js'),

@@ -79,7 +79,7 @@
                   $pdf->MultiCell(60, 0, 'DESTINATION : ', 0, 'L', 0, 0, 50, 64, true);
                   $pdf->SetFont('Helvetica', '', 9);
                   $pdf->MultiCell(35, 0, '' . $reponse->nom_gaep, 0, 'L', 0, 0, 27, 64, true);
-                  $pdf->MultiCell(70, 0, '' . $reponse->nom_gadest, 0, 'L', 0, 0, 80, 64, true);
+                  $pdf->MultiCell(70, 0, '' . ticket_destination_label($reponse), 0, 'L', 0, 0, 80, 64, true);
                   $pdf->SetFont('Helvetica', 'I', 9);
                   $pdf->MultiCell(50, 0, $reponse->nom_gaep.', le : ', 0, 'c', 0, 0, 35, 74, true);
                   $pdf->SetFont('Helvetica', 'BI', 9);
@@ -173,7 +173,7 @@
                   $pdf->MultiCell(60, 0, 'DESTINATION : ', 0, 'L', 0, 0, 10, 69, true);
                   $pdf->SetFont('Helvetica', '', 9);
                   $pdf->MultiCell(35, 0, '' . $reponse->nom_gaep, 0, 'L', 0, 0, 27, 64, true);
-                  $pdf->MultiCell(70, 0, '' . $reponse->nom_gadest, 0, 'L', 0, 0, 35, 69, true);
+                  $pdf->MultiCell(70, 0, '' . ticket_destination_label($reponse), 0, 'L', 0, 0, 35, 69, true);
                   $pdf->SetFont('Helvetica', 'I', 9);
                   $pdf->MultiCell(50, 0, $reponse->nom_gaep.', le : ', 0, 'c', 0, 0, 35, 74, true);
                   $pdf->SetFont('Helvetica', 'BI', 9);
@@ -219,7 +219,7 @@
                   $pdf->MultiCell(60, 0, 'DESTINATION : ', 0, 'L', 0, 0, 10, 69, true);
                   $pdf->SetFont('Helvetica', '', 9);
                   $pdf->MultiCell(35, 0, '' . $repons->nom_gaep, 0, 'L', 0, 0, 27, 64, true);
-                  $pdf->MultiCell(70, 0, '' . $repons->nom_gadest, 0, 'L', 0, 0, 35, 69, true);
+                  $pdf->MultiCell(70, 0, '' . ticket_destination_label($repons), 0, 'L', 0, 0, 35, 69, true);
                   $pdf->SetFont('Helvetica', 'I', 9);
                   $pdf->MultiCell(50, 0, $reponse->nom_gaep.', le : ', 0, 'c', 0, 0, 35, 74, true);
                   $pdf->SetFont('Helvetica', 'BI', 9);
@@ -4861,7 +4861,7 @@
                           $them .= '<tr>
                               <td width="7%" align="center"><strong>' . $element->num_siege_categorie . '</strong></td>
                               <td width="13%" align="left"><strong>' . $element->code_ticket . '</strong></td>
-                              <td width="17%" align="left"><strong>' . $element->nomsousgare . '<br/>' . $element->nom_gadest . ' ' . $element->quart . '</strong></td>
+                              <td width="17%" align="left"><strong>' . $element->nomsousgare . '<br/>' . ticket_destination_label($element) . ' ' . $element->quart . '</strong></td>
                               <td width="30%" align="left"><strong>' . $element->nom_client . '&nbsp;&nbsp;' . $element->prenom_client . '</strong></td>
                               <td width="14%"><strong>' . $element->contact_client . '</strong></td>
                               <td width="21%" ><strong>' . $element->num_CNIB . ' ' . utf8_encode(strftime("%d/%m/%G", strtotime($element->date_delivre))).'</strong></td>
@@ -4984,7 +4984,7 @@
                        $them .= '<tr>
                                   <td width="7%" align="center"><strong>' . $element->num_siege_categorie . '</strong></td>
                                   <td width="13%" align="left"><strong>' . $element->code_ticket . '</strong></td>
-                                  <td width="17%" align="left"><strong>' . $element->nomsousgare . '<br/>' . $element->nom_gadest . ' ' . $element->quart . '</strong></td>
+                                  <td width="17%" align="left"><strong>' . $element->nomsousgare . '<br/>' . ticket_destination_label($element) . ' ' . $element->quart . '</strong></td>
                                   <td width="30%" align="left"><strong>' . $element->nom_client . '&nbsp;&nbsp;' . $element->prenom_client . '</strong></td>
                                   <td width="14%"><strong>' . $element->contact_client . '</strong></td>
                                   <td width="21%" ><strong>' . $element->num_CNIB . ' ' . utf8_encode(strftime("%d/%m/%G", strtotime($element->date_delivre))) . '</strong></td>
@@ -5092,7 +5092,7 @@
                         $them .= '<tr>
                                       <td width="7%" align="center"><strong>' . $element->num_siege_categorie . '</strong></td>
                                       <td width="13%" align="left"><strong>' . $element->code_ticket . '</strong></td>
-                                      <td width="17%" align="left"><strong>' . $element->nomsousgare . '<br/>' . $element->nom_gadest . ' ' . $element->quart . '</strong></td>
+                                      <td width="17%" align="left"><strong>' . $element->nomsousgare . '<br/>' . ticket_destination_label($element) . ' ' . $element->quart . '</strong></td>
                                       <td width="30%" align="left"><strong>' . $element->nom_client . '&nbsp;&nbsp;' . $element->prenom_client . '</strong></td>
                                       <td width="14%"><strong>' . $element->contact_client . '</strong></td>
                                       <td width="21%" ><strong>' . $element->num_CNIB . ' ' . utf8_encode(strftime("%d/%m/%G", strtotime($element->date_delivre))) . '</strong></td>
@@ -5206,7 +5206,7 @@
                           $them .= '<tr>
                               <td width="7%" align="center"><strong>' . $element->num_siege_categorie . '</strong></td>
                               <td width="13%" align="left"><strong>' . $element->code_ticket . '</strong></td>
-                              <td width="17%" align="left"><strong>' . $element->nomsousgare . '<br/>' . $element->nom_gadest . ' ' . $element->quart . '</strong></td>
+                              <td width="17%" align="left"><strong>' . $element->nomsousgare . '<br/>' . ticket_destination_label($element) . ' ' . $element->quart . '</strong></td>
                               <td width="30%" align="left"><strong>' . $element->nom_client . '&nbsp;&nbsp;' . $element->prenom_client . '</strong></td>
                               <td width="14%"><strong>' . $element->contact_client . '</strong></td>
                               <td width="21%" ><strong>' . $element->num_CNIB . ' ' . utf8_encode(strftime("%d/%m/%G", strtotime($element->date_delivre))).'</strong></td>

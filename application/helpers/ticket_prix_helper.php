@@ -201,3 +201,78 @@ if (!function_exists('ticket_impression_prix_rows')) {
         return $rows;
     }
 }
+
+if (!function_exists('ticket_destination_label')) {
+    /**
+     * Libellé destination ticket : escale (nom_dest_vente) si présente, sinon terminus.
+     *
+     * @param object|array|null $row
+     * @param string            $fallback
+     * @return string
+     */
+    function ticket_destination_label($row, $fallback = '')
+    {
+        if (is_array($row)) {
+            $row = (object) $row;
+        }
+        if (!$row || !is_object($row)) {
+            return (string) $fallback;
+        }
+
+        if (!empty($row->nom_dest_vente)) {
+            return (string) $row->nom_dest_vente;
+        }
+        if (!empty($row->nom_gadest)) {
+            return (string) $row->nom_gadest;
+        }
+        if (!empty($row->arrivee_escale)) {
+            return (string) $row->arrivee_escale;
+        }
+
+        return (string) $fallback;
+    }
+}
+
+if (!function_exists('ticket_axe_label')) {
+    /**
+     * Libellé d'axe (ex. OUAGA-BOUSSE) : remplace le terminus par l'escale vendue si présente.
+     *
+     * @param object|array|null $row
+     * @param string            $fallback
+     * @return string
+     */
+    function ticket_axe_label($row, $fallback = '')
+    {
+        if (is_array($row)) {
+            $row = (object) $row;
+        }
+        if (!$row || !is_object($row)) {
+            return (string) $fallback;
+        }
+
+        $destVente = isset($row->nom_dest_vente) ? trim((string) $row->nom_dest_vente) : '';
+        if ($destVente !== '') {
+            // Préférer le préfixe de nom_ligne (ex. OUAGA) pour coller à l'affichage habituel.
+            if (!empty($row->nom_ligne) && strpos((string) $row->nom_ligne, '-') !== false) {
+                $parts = explode('-', (string) $row->nom_ligne, 2);
+                return trim($parts[0]) . '-' . $destVente;
+            }
+            if (!empty($row->nom_gaep)) {
+                return trim((string) $row->nom_gaep) . '-' . $destVente;
+            }
+            return $destVente;
+        }
+
+        if (!empty($row->nom_ligne)) {
+            return (string) $row->nom_ligne;
+        }
+
+        $depart = !empty($row->nom_gaep) ? trim((string) $row->nom_gaep) : '';
+        $dest = ticket_destination_label($row, '');
+        if ($depart !== '' && $dest !== '') {
+            return $depart . '-' . $dest;
+        }
+
+        return (string) $fallback;
+    }
+}

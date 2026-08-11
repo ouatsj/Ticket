@@ -47,7 +47,8 @@
                         <input class="form-control form-control-sm" type="hidden" name="compconnectedmob" value="<?=$conex->cpuser_id;?>">
                         
                           
-                            <div class="row">
+                                                            <div class="px-3 pb-2" data-compagnies-arrivee-for="arrsgaremob"></div>
+<div class="row">
                                 <div class="col-sm-4 text-center text-danger" style="display:none"
                                 id="smsdtmob">
                                 <p id="erreurSmsdtmob"></p>
@@ -65,11 +66,12 @@
                                     
                                     <select style="display:block" class="form-control form-control-sm" name="arrgaremob" id="arrsgaremob">
                                         <option value="">Choisissez l'arrivée</option>
-                                        <? foreach ($garearrivees as $garearrivee): ?>
-                                            <option value="<?= $garearrivee->code_gadest; ?>/<?= $garearrivee->id_compaga; ?>">
-                                            <?= $garearrivee->nom_gadest; ?>
-                                            </option>
-                                        <? endforeach; ?>
+                                        <?php
+                                            $this->load->view('beagle/pages/guichet/_options_gare_arrivee', array(
+                                                'garearrivees' => !empty($garearrivees) ? $garearrivees : array(),
+                                                'value_format' => 'code_comp',
+                                            ));
+                                        ?>
                                     </select>
                                 </div>
                                 <div class="form-group col-sm-4">

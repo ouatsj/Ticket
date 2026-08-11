@@ -27,15 +27,20 @@ class Documentation extends MY_Controller
             redirect('login/ins');
             exit;
         }
-        super_admin_require(
-            'documentation.view',
-            'Vous n’avez pas la permission de consulter la documentation.'
-        );
+
+        $role = (string) $this->session->agent->userole;
+        // Admin / superviseur : accès complet. Autres rôles : lecture autorisée.
+        if ($role === '') {
+            redirect('login/ins');
+            exit;
+        }
     }
 
     protected function _can_print_corrige()
     {
-        return super_admin_can('documentation.answers');
+        $role = (string) $this->session->agent->userole;
+
+        return in_array($role, array('1', '2'), true);
     }
 
     public function index($ckey)
@@ -56,15 +61,17 @@ class Documentation extends MY_Controller
         $this->company = $this->m_entreprises->get_key($ckey);
         $meta = documentation_formation_role_meta($role_code);
         $manuel = documentation_formation_manuel($role_code);
-        if (!$meta || !$manuel) {
+        $fiche_poste = documentation_formation_fiche_poste_simple($role_code);
+        if (!$meta || !$manuel || !$fiche_poste) {
             show_404();
             return;
         }
 
         $this->property['role_meta'] = $meta;
         $this->property['manuel'] = $manuel;
+        $this->property['fiche_poste'] = $fiche_poste;
         $this->property['role_code'] = $role_code;
-        $this->property['pagetitle'] .= ' • Manuel • <strong>' . $meta['titre'] . '</strong>';
+        $this->property['pagetitle'] .= ' • Fiche de poste & manuel • <strong>' . $meta['titre'] . '</strong>';
 
         return $this->layout->view('_documentation/manuel', $this->property);
     }
@@ -94,7 +101,7 @@ class Documentation extends MY_Controller
     {
         $this->_require_staff_access();
         if (!$this->_can_print_corrige()) {
-            show_error('Vous n’avez pas la permission de consulter les corrigés.', 403);
+            show_error('Accès réservé aux administrateurs / superviseurs.', 403);
             return;
         }
 

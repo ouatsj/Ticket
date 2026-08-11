@@ -31,3 +31,62 @@ function site_url_segments()
 
 	return site_url(implode('/', $encoded));
 }
+
+/**
+ * Décode un segment d’URL (ex. 05%3A00%3A00) et affiche l’heure en 05h00.
+ *
+ * @param string $hr
+ * @return string
+ */
+function url_segment_heure_affiche($hr)
+{
+	$hr = rawurldecode((string) $hr);
+	$hr = trim($hr);
+	if (preg_match('/^(\d{1,2}):(\d{2})(?::\d{2})?$/', $hr, $m)) {
+		return sprintf('%02dh%s', (int) $m[1], $m[2]);
+	}
+
+	return $hr;
+}
+
+/**
+ * URL image code-barres ticket (segment encodé).
+ *
+ * @param string $code tamponcod / code passager
+ * @return string
+ */
+function ticket_barcode_url($code)
+{
+	return site_url('render/Barcode/' . rawurlencode((string) $code));
+}
+
+/**
+ * Alias URL (compat vues qui appellent ticket_barcode_src).
+ *
+ * @param string $code
+ * @return string
+ */
+function ticket_barcode_src($code)
+{
+	return ticket_barcode_url($code);
+}
+
+/**
+ * Balise <img> code-barres pour tickets HTML / Epson.
+ *
+ * @param string $code
+ * @param int $width
+ * @param int $height
+ * @return string
+ */
+function ticket_barcode_img($code, $width = 250, $height = 40)
+{
+	$src = htmlspecialchars(ticket_barcode_url($code), ENT_QUOTES, 'UTF-8');
+	$w = (int) $width;
+	$h = (int) $height;
+
+	return '<img class="ticket-barcode" src="' . $src . '" alt="'
+		. htmlspecialchars((string) $code, ENT_QUOTES, 'UTF-8')
+		. '" width="' . $w . '" height="' . $h
+		. '" style="display:block;max-width:100%;height:auto;">';
+}

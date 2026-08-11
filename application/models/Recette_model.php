@@ -1286,7 +1286,10 @@
 
         public function validget1($cid, $gid, $cp, $d1, $d2, $conect)
         {
-            $today = mdate('%Y-%m-%d', now());
+            $companyFilter = ($cp === null || $cp === '')
+                ? ''
+                : ' AND r.compkey_recet = ' . $this->db->escape($cp);
+
             return $this->db->query(
                 "SELECT * FROM recette r
                 JOIN attributions_role ar ON r.idopera = ar.roleattribut
@@ -1297,14 +1300,16 @@
                 JOIN gare_exp ex ON cs.gexp_caiss = ex.code_gaexp
                 JOIN compagnies c ON r.compkey_recet = c.cle_compagnie
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                WHERE e.ekey = '$cid'
-                AND cs.gexp_caiss = '$gid'
-                AND r.compkey_recet = '$cp'
+                WHERE e.ekey = ?
+                AND cs.gexp_caiss = ?
                 AND r.ferme_caisrecet = 1
-                AND r.operavalid = '$conect'
+                AND r.operavalid = ?
                 AND r.valid_cptablerecet = 0
-                AND r.date_recet BETWEEN '$d1' AND '$d2'
-                ORDER BY r.date_recet ASC")->result();
+                AND r.date_recet BETWEEN ? AND ?
+                {$companyFilter}
+                ORDER BY r.date_recet ASC",
+                array($cid, $gid, (int) $conect, $d1, $d2)
+            )->result();
         }
         public function validgetmont($cid, $gid, $us)
         {

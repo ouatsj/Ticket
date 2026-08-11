@@ -14,9 +14,6 @@ return array(
         'm_typedocument',
         'm_versements',
     ),
-    'Audit_quotidien' => array(
-        'm_entreprises',
-    ),
     'Banques' => array(
         'm_banque',
         'm_compagnies',
@@ -144,6 +141,7 @@ return array(
         'm_type_client',
         'm_valeurattrib',
         'm_valeurs',
+        'm_itineraire_etape',
     ),
     'Depenses' => array(
         'm_caisse',
@@ -169,6 +167,19 @@ return array(
         'm_versements',
     ),
     'Documentation' => array(
+        'm_entreprises',
+    ),
+    'Param_restrictions' => array(
+        'm_entreprises',
+        'm_gare_depart',
+    ),
+    'Audit_quotidien' => array(
+        'm_entreprises',
+    ),
+    'Rapport_autre_vente' => array(
+        'm_entreprises',
+    ),
+    'Rapport_modif_ticket' => array(
         'm_entreprises',
     ),
     'Entreprises' => array(
@@ -281,6 +292,8 @@ return array(
         'm_itineraire',
         'm_ligne_itineraire',
         'm_lignes',
+        'm_itineraire_etape',
+        'm_itineraire_escale',
     ),
     'Login' => array(
     ),
@@ -314,6 +327,7 @@ return array(
         'm_passager',
         'm_personnels',
         'm_programme',
+        'm_programme_correspondance',
         'm_programmebus',
         'm_quartier',
         'm_sousgare',
@@ -322,6 +336,8 @@ return array(
         'm_tamponcodetr',
         'm_tampon_siege',
         'm_tarifications',
+        'm_itineraire_etape',
+        'm_itineraire_escale',
     ),
     'Rapport' => array(
         'm_bagage',
@@ -384,6 +400,7 @@ return array(
         'm_report',
         'm_tamponcode',
         'm_tampon_siege',
+        'm_itineraire_etape',
     ),
     'Reserves' => array(
         'm_client',
@@ -398,6 +415,7 @@ return array(
         'm_tampon_siege',
         'm_type_client',
         'm_users_role',
+        'm_itineraire_etape',
     ),
     'Role_User' => array(
         'm_entreprises',

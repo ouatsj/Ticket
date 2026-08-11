@@ -50,24 +50,5 @@ class User_login_model extends CI_Model
                     WHERE e.ekey = '$cid'
                     AND ul.uid_login = '$user_id'")->row();
         }
-
-        public function get_by_account($cid, $cpuser_id)
-        {
-            return $this->db->query(
-                "SELECT ul.*, cu.*, u.*, g.*, e.*,
-                        (SELECT MIN(ar.userole)
-                         FROM attributions_role ar
-                         WHERE ar.idgestcompte = ul.uid_login) AS userole
-                 FROM user_login ul
-                 JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
-                 JOIN utilisateurs u ON cu.userlog_id = u.uid
-                 JOIN gares g ON ul.guser = g.idengare
-                 JOIN entreprise e ON u.cle_comp = e.ekey
-                 WHERE e.ekey = ?
-                 AND cu.cpuser_id = ?
-                 ORDER BY g.garenom",
-                array((int) $cid, (int) $cpuser_id)
-            )->result();
-        }
         
     }

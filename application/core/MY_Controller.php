@@ -40,6 +40,9 @@ class MY_Controller extends CI_Controller
         parent::__construct();
         $this->_enforce_auth();
         $this->_enforce_roleattribut_uri();
+        $this->_enforce_chef_arret_deadline();
+        $this->_enforce_caissier_arret_deadline();
+        $this->_enforce_sup_agence_validation_deadline();
         $this->load->helper('session');
         $this->_load_controller_models();
         session_release_lock_on_shutdown();
@@ -55,6 +58,257 @@ class MY_Controller extends CI_Controller
         }
 
         roleattribut_guard_enforce_uri_segments();
+    }
+
+    /**
+     * Après 36 h, un chef guichet avec des opérations non envoyées au caissier
+     * ne peut accéder qu'à son accueil et au parcours d'arrêt de compte.
+     */
+    protected function _enforce_chef_arret_deadline()
+    {
+        if (!$this->session->userdata('agent') || !$this->session->userdata('company')) {
+            return;
+        }
+
+        $agent = $this->session->agent;
+        if (!in_array((string) $agent->userole, compte_arret_chef_roles(), true)) {
+            return;
+        }
+
+        $gare_id = !empty($agent->guser) ? (string) $agent->guser : '';
+        $roleattribut = !empty($agent->roleattribut) ? (int) $agent->roleattribut : 0;
+        $status = compte_arret_chef_pending_status(
+            $agent->userole,
+            $roleattribut,
+            $gare_id
+        );
+        if (empty($status['blocked'])) {
+            return;
+        }
+
+        $class = strtolower((string) $this->router->fetch_class());
+        $method = strtolower((string) $this->router->fetch_method());
+        $allowed = array(
+            'caisses' => array('arcompte'),
+            'login' => array('lout'),
+        );
+
+        if (isset($allowed[$class])
+            && (in_array('*', $allowed[$class], true)
+                || in_array($method, $allowed[$class], true))) {
+            return;
+        }
+
+        // Accueil minimal du compte bloqué : il affiche uniquement le bouton ARRÊT DE COMPTE.
+        if ($class === 'gares'
+            && $method === 'options'
+            && in_array('compte', $this->uri->segment_array(), true)) {
+            return;
+        }
+
+        // Soumissions nécessaires à la régularisation, uniquement en POST.
+        if (($class === 'caisses' && $method === 'valide')
+            || ($class === 'arretcaisses' && $method === 'unstop')) {
+            if (strtoupper((string) $this->input->method()) === 'POST') {
+                return;
+            }
+        }
+
+        // Page intermédiaire indispensable pour transmettre recettes/dépenses/dépôts au caissier.
+        if ($class === 'caisses'
+            && $method === 'options'
+            && in_array('arretcaisse_adjoint', $this->uri->segment_array(), true)) {
+            return;
+        }
+
+        if ($this->input->is_ajax_request()) {
+            $this->output->set_status_header(403);
+            $this->output->set_content_type('application/json');
+            $this->output->set_output(json_encode(array(
+                'error' => 'chef_arret_overdue',
+                'message' => $status['reason'],
+            )));
+            exit;
+        }
+
+        $sg = $this->db->query(
+            'SELECT idsousgare FROM sousgare WHERE gareprinceid = ? ORDER BY idsousgare ASC LIMIT 1',
+            array($gare_id)
+        )->row();
+        if (!$sg || empty($sg->idsousgare)) {
+            redirect('home');
+            exit;
+        }
+
+        $this->session->set_flashdata('sale_error', $status['reason']);
+        redirect(
+            'gares/' . $this->session->company->ekey
+            . '/gTc/' . $gare_id
+            . '/compte/' . $roleattribut
+            . '/' . (int) $sg->idsousgare
+            . '/' . mdate('%d/%m/%Y', now('UTC'))
+        );
+        exit;
+    }
+
+    /**
+     * Caissier (4) : après le jour N du mois suivant, blocage si arrêt de caisse non fait.
+     */
+    protected function _enforce_caissier_arret_deadline()
+    {
+        if (!$this->session->userdata('agent') || !$this->session->userdata('company')) {
+            return;
+        }
+
+        $agent = $this->session->agent;
+        if ((string) $agent->userole !== '4') {
+            return;
+        }
+
+        $gare_id = !empty($agent->guser) ? (string) $agent->guser : '';
+        $roleattribut = !empty($agent->roleattribut) ? (int) $agent->roleattribut : 0;
+        $status = compte_arret_caissier_pending_status(
+            $agent->userole,
+            $roleattribut,
+            $gare_id
+        );
+        if (empty($status['blocked'])) {
+            return;
+        }
+
+        $class = strtolower((string) $this->router->fetch_class());
+        $method = strtolower((string) $this->router->fetch_method());
+
+        // Accès minimal : espace caisse / arrêt / validation / déconnexion.
+        $allowed = array(
+            'login' => array('lout'),
+            'caisses' => array(
+                'viewcaisprinc', 'options', 'opts', 'optionscaisse',
+                'arretcaisseprincipale', 'valversement', 'rejetversement',
+            ),
+            'utilisateurs' => array(
+                'profilcaisse', 'recettecaisse', 'depensecaisse',
+                'depotcaisse', 'versemetcaisse',
+                'recettecaissecptable', 'depensecaissecptable',
+            ),
+            'arretcaisses' => array('*'),
+        );
+
+        if (isset($allowed[$class])
+            && (in_array('*', $allowed[$class], true)
+                || in_array($method, $allowed[$class], true))) {
+            return;
+        }
+
+        if ($class === 'gares'
+            && in_array($method, array('options', 'opts', 'optiongare'), true)) {
+            return;
+        }
+
+        if ($this->input->is_ajax_request()) {
+            $this->output->set_status_header(403);
+            $this->output->set_content_type('application/json');
+            $this->output->set_output(json_encode(array(
+                'error' => $status['code'],
+                'message' => $status['reason'],
+            )));
+            exit;
+        }
+
+        $this->session->set_flashdata('sale_error', $status['reason']);
+        redirect(
+            'gares/' . $this->session->company->ekey
+            . '/gTv/' . $gare_id
+            . '/cais/' . $roleattribut
+            . '/0/'
+            . mdate('%d/%m/%Y', now('UTC'))
+        );
+        exit;
+    }
+
+    /**
+     * Superviseur d'agence (13) : après le jour N, blocage si validations caissier en retard.
+     */
+    protected function _enforce_sup_agence_validation_deadline()
+    {
+        if (!$this->session->userdata('agent') || !$this->session->userdata('company')) {
+            return;
+        }
+
+        $agent = $this->session->agent;
+        if ((string) $agent->userole !== '13') {
+            return;
+        }
+
+        $gare_id = !empty($agent->guser) ? (string) $agent->guser : '';
+        $roleattribut = !empty($agent->roleattribut) ? (int) $agent->roleattribut : 0;
+        $status = compte_arret_sup_agence_pending_status(
+            $agent->userole,
+            $roleattribut,
+            $gare_id
+        );
+        if (empty($status['blocked'])) {
+            return;
+        }
+
+        $class = strtolower((string) $this->router->fetch_class());
+        $method = strtolower((string) $this->router->fetch_method());
+
+        $allowed = array(
+            'login' => array('lout'),
+            'caisses' => array('viewcaisprinc'),
+            'utilisateurs' => array(
+                'profilcaisse', 'recettecaisse', 'depensecaisse',
+                'depotcaisse', 'versemetcaisse',
+                'recettecaissecptable', 'depensecaissecptable',
+            ),
+            'arretcaisses' => array('*'),
+        );
+
+        if (isset($allowed[$class])
+            && (in_array('*', $allowed[$class], true)
+                || in_array($method, $allowed[$class], true))) {
+            return;
+        }
+
+        if ($class === 'gares'
+            && in_array($method, array('options', 'opts', 'optiongare'), true)) {
+            return;
+        }
+
+        // POST de validation comptable (Caisses).
+        if ($class === 'caisses'
+            && in_array($method, array(
+                'valversement', 'rejetversement',
+                'valrecette', 'rejetrecette',
+                'valdepense', 'rejetdepense',
+                'valdepot', 'rejetdepot',
+            ), true)
+            && strtoupper((string) $this->input->method()) === 'POST') {
+            return;
+        }
+
+        if ($this->input->is_ajax_request()) {
+            $this->output->set_status_header(403);
+            $this->output->set_content_type('application/json');
+            $this->output->set_output(json_encode(array(
+                'error' => $status['code'],
+                'message' => $status['reason'],
+            )));
+            exit;
+        }
+
+        $this->session->set_flashdata('sale_error', $status['reason']);
+        $sg = (!empty($agent->idsousgare) || (isset($agent->idsousgare) && (string) $agent->idsousgare === '0'))
+            ? (string) $agent->idsousgare
+            : '0';
+        redirect(
+            'caisses/caissieres/' . $this->session->company->ekey
+            . '/' . $roleattribut
+            . '/' . $gare_id
+            . '/' . $sg
+        );
+        exit;
     }
 
     /**
@@ -90,13 +344,6 @@ class MY_Controller extends CI_Controller
         }
 
         auth_session_validate_or_logout();
-
-        $agent = $this->session->userdata('agent');
-        if ($agent && super_admin_requires_password_change((int) $agent->cpuser_id)) {
-            auth_session_force_logout(TRUE);
-            redirect('login/ins');
-            exit;
-        }
 
         $class = strtolower($this->router->fetch_class());
         $method = strtolower($this->router->fetch_method());

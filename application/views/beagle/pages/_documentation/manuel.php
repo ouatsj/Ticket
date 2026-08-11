@@ -4,6 +4,10 @@
     .doc-manuel .doc-table { width: 100%; margin: .75rem 0 1rem; border-collapse: collapse; }
     .doc-manuel .doc-table th, .doc-manuel .doc-table td { border: 1px solid #ccc; padding: .4rem .55rem; font-size: .95rem; }
     .doc-manuel .doc-table th { background: #f3f3f3; }
+    .doc-manuel .fiche-poste { border-left: 4px solid #4285f4; margin-bottom: 1.5rem; }
+    .doc-manuel .fiche-meta { background: #f7f8fa; padding: .75rem 1rem; margin-bottom: 1rem; }
+    .doc-manuel .permission-eventuelle { border-left: 4px solid #fbbc04; padding-left: 1rem; }
+    .doc-manuel .permission-interdite { border-left: 4px solid #ea4335; padding-left: 1rem; }
     .doc-actions { margin-bottom: 1rem; }
     @media print {
         .doc-actions, .navbar, .be-left-sidebar, .be-top-header, .page-head, footer { display: none !important; }
@@ -20,7 +24,7 @@
                 ← Retour documentation
             </a>
             <button type="button" class="btn btn-primary" onclick="window.print();">
-                Imprimer le manuel
+                Imprimer la fiche et le manuel
             </button>
             <?php if (documentation_formation_qcm($role_code)): ?>
                 <a class="btn btn-info"
@@ -41,6 +45,81 @@
                     — <?= date('d/m/Y'); ?>
                 </p>
 
+                <section class="fiche-poste">
+                    <div class="p-3">
+                        <h3><?= htmlspecialchars($fiche_poste['intitule']); ?></h3>
+                        <div class="fiche-meta">
+                            <p class="mb-2">
+                                <strong>Finalité du poste :</strong>
+                                <?= htmlspecialchars($fiche_poste['finalite']); ?>
+                            </p>
+                            <p class="mb-0">
+                                <strong>Responsable hiérarchique / fonctionnel :</strong>
+                                <?= htmlspecialchars($fiche_poste['responsable']); ?>
+                            </p>
+                        </div>
+
+                        <h4>Missions et responsabilités</h4>
+                        <ul>
+                            <?php foreach ($fiche_poste['missions'] as $mission): ?>
+                                <li><?= htmlspecialchars($mission); ?></li>
+                            <?php endforeach; ?>
+                        </ul>
+
+                        <h4>Permissions du rôle</h4>
+                        <div class="table-responsive">
+                            <table class="doc-table">
+                                <thead>
+                                <tr>
+                                    <th>Fonction / permission</th>
+                                    <th>Niveau</th>
+                                    <th>Conditions et limites</th>
+                                </tr>
+                                </thead>
+                                <tbody>
+                                <?php foreach ($fiche_poste['permissions'] as $permission): ?>
+                                    <tr>
+                                        <?php foreach ($permission as $cell): ?>
+                                            <td><?= htmlspecialchars($cell); ?></td>
+                                        <?php endforeach; ?>
+                                    </tr>
+                                <?php endforeach; ?>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div class="permission-eventuelle">
+                            <h4>Permissions éventuelles ou conditionnelles</h4>
+                            <p class="text-muted">
+                                Ces droits ne sont pas donnés automatiquement. Un responsable doit les accorder
+                                clairement pour une gare, une période ou une tâche précise.
+                            </p>
+                            <ul>
+                                <?php foreach ($fiche_poste['permissions_eventuelles'] as $permission): ?>
+                                    <li><?= htmlspecialchars($permission); ?></li>
+                                <?php endforeach; ?>
+                            </ul>
+                        </div>
+
+                        <div class="permission-interdite">
+                            <h4>Actions interdites</h4>
+                            <ul>
+                                <?php foreach ($fiche_poste['interdits'] as $interdit): ?>
+                                    <li><?= htmlspecialchars($interdit); ?></li>
+                                <?php endforeach; ?>
+                            </ul>
+                        </div>
+
+                        <h4>Contrôles attendus et points de vigilance</h4>
+                        <ul>
+                            <?php foreach ($fiche_poste['controles'] as $controle): ?>
+                                <li><?= htmlspecialchars($controle); ?></li>
+                            <?php endforeach; ?>
+                        </ul>
+                    </div>
+                </section>
+
+                <h3>Manuel opérationnel</h3>
                 <?php foreach ($manuel['sections'] as $section): ?>
                     <h4><?= htmlspecialchars($section['h']); ?></h4>
                     <?php if (!empty($section['paras'])): ?>

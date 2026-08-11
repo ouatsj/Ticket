@@ -30,7 +30,6 @@
             </div>
 
             <div class="card-body">
-                <h4 class="text-danger">Ventes gratuites (0 F)</h4>
 
                 <table class="table table-striped table-borderless" id="table1">
 
@@ -113,56 +112,6 @@
                     </tbody>
 
                 </table>
-
-                <hr>
-                <h4 class="text-warning">Ventes à prix réduit</h4>
-                <div class="table-responsive">
-                    <table class="table table-striped table-borderless">
-                        <thead>
-                        <tr>
-                            <th>Code</th>
-                            <th>Client</th>
-                            <th>Départ / Axe</th>
-                            <th>Tarif normal</th>
-                            <th>Prix vendu</th>
-                            <th>Motif</th>
-                        </tr>
-                        </thead>
-                        <tbody>
-                        <?php foreach ((array) $ticketsreduits as $item): ?>
-                            <tr>
-                                <td><?= htmlspecialchars($item->code_ticket, ENT_QUOTES, 'UTF-8'); ?></td>
-                                <td>
-                                    <?= htmlspecialchars(
-                                        trim($item->nom_client . ' ' . $item->prenom_client),
-                                        ENT_QUOTES,
-                                        'UTF-8'
-                                    ); ?>
-                                </td>
-                                <td>
-                                    <?= htmlspecialchars($item->date_progr . ' / ' . $item->nom_ligne, ENT_QUOTES, 'UTF-8'); ?>
-                                </td>
-                                <td>
-                                    <?= $item->recorded_normal_price !== null
-                                        ? number_format((float) $item->recorded_normal_price, 0, ',', ' ') . ' F'
-                                        : 'Historique non classé'; ?>
-                                </td>
-                                <td><?= number_format((float) $item->prixvente, 0, ',', ' '); ?> F</td>
-                                <td>
-                                    <?= htmlspecialchars(
-                                        $item->recorded_price_reason ?: $item->pourordre,
-                                        ENT_QUOTES,
-                                        'UTF-8'
-                                    ); ?>
-                                </td>
-                            </tr>
-                        <?php endforeach; ?>
-                        <?php if (empty($ticketsreduits)): ?>
-                            <tr><td colspan="6" class="text-center text-muted">Aucune vente réduite.</td></tr>
-                        <?php endif; ?>
-                        </tbody>
-                    </table>
-                </div>
 
             </div>
 

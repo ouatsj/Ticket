@@ -42,6 +42,7 @@
 <script type="application/javascript" src="<?= base_url('assets/lib/sweetalert2/sweetalert2.min.js'); ?>"></script>
 <script type="application/javascript" src="<?= base_url('assets/lib/mprogress/js/mprogress.min.js'); ?>"></script>
 <script type="application/javascript" src="<?= base_url('assets/js/addventeticket.js');?>"></script>
+<script type="application/javascript" src="<?= base_url('assets/js/filtre_arrivee_compagnie.js');?>"></script>
 <script type="application/javascript" src="<?= base_url('assets/js/addreprogramme.js');?>"></script>
 <script type="application/javascript" src="<?= base_url('assets/js/addconfirme.js');?>"></script>
 <script type="application/javascript" src="<?= base_url('assets/js/addrecette.js');?>"></script>

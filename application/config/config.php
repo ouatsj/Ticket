@@ -38,6 +38,7 @@
         ($ci_http_host === 'essaiticket.rakietabus.com');
     $config['sales_price_controls_enabled'] =
         ($ci_http_host === 'essaiticket.rakietabus.com');
+    // Phase 2 graphe correspondances : serve + prefer_direct sur essaiticket (config/graphe_correspondance.php)
     
     /*
     |--------------------------------------------------------------------------
@@ -479,6 +480,8 @@
         'programmes/chemin.*',
         'programmes/gareprincipale.*',
         'programmes/vente/.*',
+        'programmes/link_correspondance.*',
+        'programmes/unlink_correspondance.*',
         'confirmation/verif.*',
         'gares/ajax_passagers.*',
         'login/lin_s',

@@ -1,7 +1,4 @@
-<?php
-defined('BASEPATH') OR exit('No direct script access allowed');
-$users_zone_tabs_enabled = (bool) $this->config->item('users_zone_tabs_enabled');
-?>
+<?php defined('BASEPATH') OR exit('No direct script access allowed'); ?>
 
 <div class="row" id="users-filter-list">
     <?php if ($this->session->flashdata('compte_error')): ?>
@@ -128,73 +125,10 @@ $users_zone_tabs_enabled = (bool) $this->config->item('users_zone_tabs_enabled')
                 </div>
             </div>
         </div>
-
-        <?php if ($users_zone_tabs_enabled): ?>
-            <div class="col-lg-12 mb-3">
-                <ul class="nav nav-tabs" data-user-zone-tabs="users-filter-list" role="tablist">
-                    <li class="nav-item">
-                        <button type="button" class="nav-link active" data-user-zone="bobo">
-                            Zone Bobo-Dioulasso
-                        </button>
-                    </li>
-                    <li class="nav-item">
-                        <button type="button" class="nav-link" data-user-zone="banfora">
-                            Zone Banfora
-                        </button>
-                    </li>
-                    <li class="nav-item">
-                        <button type="button" class="nav-link" data-user-zone="ouagadougou">
-                            Zone Ouagadougou
-                        </button>
-                    </li>
-                    <li class="nav-item">
-                        <button type="button" class="nav-link" data-user-zone="disabled">
-                            Toutes les gares désactivées
-                        </button>
-                    </li>
-                    <li class="nav-item">
-                        <button type="button" class="nav-link" data-user-zone="multiple">
-                            Plusieurs zones actives
-                        </button>
-                    </li>
-                </ul>
-            </div>
-        <?php endif; ?>
         
         <? foreach ($authusers as $item): ?>
             <?php
             $compte_st = compte_arret_compte_card_status($item);
-            $user_zones = array();
-            $gare_ids = array_filter(explode(',', (string) ($item->active_gare_ids ?? '')));
-            $active_gare_count = (int) ($item->active_gare_count ?? 0);
-            $assigned_gare_count = (int) ($item->assigned_gare_count ?? 0);
-            $bobo_gare_ids = array('BOB1', 'DIS10');
-            $banfora_gare_ids = array('BAN3', 'NIA5');
-            $known_zone_gare_ids = array_merge($bobo_gare_ids, $banfora_gare_ids);
-            $has_bobo_zone = (bool) array_intersect($gare_ids, $bobo_gare_ids);
-            $has_banfora_zone = (bool) array_intersect($gare_ids, $banfora_gare_ids);
-            $has_ouagadougou_zone = (bool) array_diff($gare_ids, $known_zone_gare_ids);
-            $active_zone_count = (int) $has_bobo_zone
-                + (int) $has_banfora_zone
-                + (int) $has_ouagadougou_zone;
-
-            if ($active_zone_count > 1) {
-                $user_zones[] = 'multiple';
-            } else {
-                if ($has_bobo_zone) {
-                    $user_zones[] = 'bobo';
-                }
-                if ($has_banfora_zone) {
-                    $user_zones[] = 'banfora';
-                }
-                if ($has_ouagadougou_zone) {
-                    $user_zones[] = 'ouagadougou';
-                }
-                if ($assigned_gare_count > 0 && $active_gare_count === 0) {
-                    $user_zones[] = 'disabled';
-                }
-            }
-
             $user_search = strtolower(trim(
                 $item->first_name . ' ' . $item->last_name . ' '
                 . $item->phone . ' ' . $item->phone2 . ' ' . $item->email . ' '
@@ -202,7 +136,6 @@ $users_zone_tabs_enabled = (bool) $this->config->item('users_zone_tabs_enabled')
             ));
             ?>
             <div class="col-lg-3 user-filter-card" data-user-filter-item="1"
-                 data-user-zones="<?= htmlspecialchars(implode(' ', $user_zones), ENT_QUOTES, 'UTF-8'); ?>"
                  data-search="<?= htmlspecialchars($user_search, ENT_QUOTES, 'UTF-8'); ?>">
 
                 <div class="card card-border card-contrast">
@@ -393,18 +326,8 @@ $users_zone_tabs_enabled = (bool) $this->config->item('users_zone_tabs_enabled')
                                     <label class="col-12 col-sm-3 col-form-label text-left text-sm-right">Compte_Utilisateur:</label>
                                     <div class="col-12 col-sm-8 col-lg-6">
                                         <select class="form-control form-control-sm" name="fonction" id="fonction">
-                                            <?php
-                                            $visibleAccountsSql = "SELECT cpuser_id, username FROM compte_user cu";
-                                            if ($this->db->table_exists('super_admin_accounts')
-                                                && !super_admin_is_current()
-                                            ) {
-                                                $visibleAccountsSql .= " WHERE NOT EXISTS (
-                                                    SELECT 1 FROM super_admin_accounts sa
-                                                    WHERE sa.cpuser_id = cu.cpuser_id
-                                                )";
-                                            }
-                                            $userlogins = $this->db->query($visibleAccountsSql)->result();
-                                            ?>
+                                            <? $userlogins = $this->db->query(
+                                                "SELECT * FROM compte_user")->result(); ?>
                                             
                                             <? foreach ($userlogins as $logus): ?>
                                                 <option value="<?= $logus->cpuser_id; ?>"><?= $logus->username; ?></option>
@@ -448,7 +371,7 @@ $users_zone_tabs_enabled = (bool) $this->config->item('users_zone_tabs_enabled')
         <div class="col-lg-12" id="users-filter-list-empty" style="display: none;">
             <div class="card card-border">
                 <div class="card-body text-center text-muted py-4">
-                    Aucun utilisateur ne correspond à cette zone ou à votre recherche.
+                    Aucun utilisateur ne correspond à votre recherche.
                 </div>
             </div>
         </div>

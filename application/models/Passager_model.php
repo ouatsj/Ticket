@@ -24,6 +24,16 @@
             $data = roleattribut_guard_apply_to_data($data, array('idcptuser'));
             $pricing = null;
             $CI =& get_instance();
+
+            // Vente escale : persister destination partielle + prix escale (évite terminus parent).
+            if (!isset($CI->sale_svc)) {
+                $CI->load->library('sale_passager_service', null, 'sale_svc');
+            }
+            if (isset($CI->sale_svc) && method_exists($CI->sale_svc, 'enrich_passager_escale')) {
+                $data = $CI->sale_svc->enrich_passager_escale($data);
+            }
+            $isEscaleSale = !empty($data['id_escale_vente']);
+
             $isOtherSale = sales_price_controls_enabled()
                 && isset($CI->router)
                 && strtolower((string) $CI->router->fetch_method()) === 'addpassagerfi';
@@ -40,8 +50,14 @@
                     )
                 );
                 $data['prixvente'] = $pricing['sold_price'];
-            } elseif (isset($data['code_pro']) && array_key_exists('prixvente', $data) && function_exists('ticket_prix_depuis_programme')) {
+            } elseif (
+                !$isEscaleSale
+                && isset($data['code_pro'])
+                && array_key_exists('prixvente', $data)
+                && function_exists('ticket_prix_depuis_programme')
+            ) {
                 // Vente normale : prix catalogue du programme.
+                // Vente escale : prix déjà fixé via itineraire_escales.prix_escale.
                 $data['prixvente'] = ticket_prix_depuis_programme($data['code_pro'], $data['prixvente']);
             }
 

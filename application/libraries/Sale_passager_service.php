@@ -196,4 +196,224 @@ class Sale_passager_service
 
         return array($tampon, $cdtick, $tampo);
     }
+
+    /**
+     * Charge une escale active par id (source de vérité nom / code / prix).
+     *
+     * @param int $id_escale
+     * @return object|null
+     */
+    public function escale_row_by_id($id_escale)
+    {
+        $id_escale = (int) $id_escale;
+        if ($id_escale <= 0) {
+            return null;
+        }
+
+        return $this->ci->db->query(
+            "SELECT ie.id_escale, ie.id_lignes, ie.code_gadest, ie.nom_escale, ie.prix_escale,
+                    ga.nom_gadest AS arrivee_escale
+             FROM itineraire_escales ie
+             LEFT JOIN gare_dest ga ON ga.code_gadest = ie.code_gadest
+             WHERE ie.id_escale = ?
+               AND ie.actif_escale = 1
+             LIMIT 1",
+            array($id_escale)
+        )->row();
+    }
+
+    /**
+     * Champs passager à persister pour une escale (validés en base).
+     *
+     * @param int $id_escale
+     * @return array
+     */
+    public function escale_passager_fields($id_escale)
+    {
+        $row = $this->escale_row_by_id($id_escale);
+        if (!$row) {
+            return array();
+        }
+
+        $nom = trim((string) $row->nom_escale);
+        if ($nom === '' && !empty($row->arrivee_escale)) {
+            $nom = trim((string) $row->arrivee_escale);
+        }
+
+        $out = array(
+            'id_escale_vente' => (int) $row->id_escale,
+            'code_gadest_vente' => (string) $row->code_gadest,
+            'nom_dest_vente' => $nom,
+        );
+        if ($row->prix_escale !== null && $row->prix_escale !== '') {
+            $out['prixvente'] = round((float) $row->prix_escale, 2);
+        }
+
+        return $out;
+    }
+
+    /**
+     * Code programme de la dernière jambe transit (POST idcheminheure*).
+     *
+     * @param int $nbr nombre de correspondances (2..4)
+     * @param bool $isFid
+     * @return string
+     */
+    public function escale_last_leg_code_pro($nbr, $isFid = false)
+    {
+        $nbr = (int) $nbr;
+        $fieldMap = $isFid
+            ? array(
+                2 => 'idcheminheurefid',
+                3 => 'idcheminheure1fid',
+                4 => 'idcheminheure2fid',
+            )
+            : array(
+                2 => 'idcheminheure',
+                3 => 'idcheminheure1',
+                4 => 'idcheminheure2',
+            );
+        if (!isset($fieldMap[$nbr])) {
+            return '';
+        }
+        $raw = $this->ci->input->post($fieldMap[$nbr]);
+        if ($raw === null || $raw === '') {
+            return '';
+        }
+        $raw = (string) $raw;
+        $pos = strpos($raw, '/');
+        return $pos === false ? trim($raw) : trim(substr($raw, 0, $pos));
+    }
+
+    /**
+     * Ligne (ident_ligne) d'un programme.
+     *
+     * @param string $code_pro
+     * @return string
+     */
+    public function ligne_of_programme($code_pro)
+    {
+        $code_pro = trim((string) $code_pro);
+        if ($code_pro === '') {
+            return '';
+        }
+        $row = $this->ci->db->query(
+            "SELECT lh.ligne_id
+             FROM programme pr
+             JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
+             WHERE pr.code_progr = ?
+             LIMIT 1",
+            array($code_pro)
+        )->row();
+        return $row && !empty($row->ligne_id) ? (string) $row->ligne_id : '';
+    }
+
+    /**
+     * Détermine le suffixe POST de l'escale à appliquer à ce passager
+     * ('' = vente directe, '_tr2'..'_tr4' = dernière jambe transit).
+     *
+     * Matching transit : par code_pro de la dernière jambe (pas par prix —
+     * sinon 1re et dernière jambe au même tarif reçoivent toutes deux l'escale).
+     *
+     * @param array $data données passager avant insert
+     * @return string|null null = pas d'escale
+     */
+    public function escale_request_suffix_for_passager(array $data)
+    {
+        $input = $this->ci->input;
+        if (!empty($data['id_escale_vente'])) {
+            return '';
+        }
+
+        $nbr = (int) $input->post('nombretransite');
+        $isFid = false;
+        if ($nbr < 2) {
+            $nbr = (int) $input->post('nombretransitefid');
+            $isFid = ($nbr >= 2);
+        }
+
+        // Vente directe (ou sans multi-transit) : champs sans suffixe.
+        if ($nbr < 2) {
+            $id = $input->post('id_escale_vente');
+            if ($id !== null && $id !== '' && (int) $id > 0) {
+                return '';
+            }
+            return null;
+        }
+
+        // Transit : escale uniquement sur la dernière correspondance (trN).
+        $suffix = '_tr' . $nbr;
+        $idLast = $input->post('id_escale_vente' . $suffix);
+        if ($idLast === null || $idLast === '' || (int) $idLast <= 0) {
+            return null;
+        }
+
+        $codePro = isset($data['code_pro']) ? trim((string) $data['code_pro']) : '';
+        $lastCode = $this->escale_last_leg_code_pro($nbr, $isFid);
+        if ($codePro === '' || $lastCode === '' || $codePro !== $lastCode) {
+            return null;
+        }
+
+        return $suffix;
+    }
+
+    /**
+     * Enrichit $data avec id/code/nom/prix escale si la requête est une vente escale.
+     * Escales : pas de quartier → quart forcé vide.
+     *
+     * @param array $data
+     * @return array
+     */
+    public function enrich_passager_escale(array $data)
+    {
+        $suffix = $this->escale_request_suffix_for_passager($data);
+        if ($suffix === null) {
+            return $data;
+        }
+
+        $input = $this->ci->input;
+        $id = !empty($data['id_escale_vente'])
+            ? (int) $data['id_escale_vente']
+            : (int) $input->post('id_escale_vente' . $suffix);
+
+        $fields = $this->escale_passager_fields($id);
+        if (empty($fields)) {
+            // Repli POST si l'id n'est plus actif / introuvable.
+            $code = $input->post('code_gadest_vente' . $suffix);
+            $nom = $input->post('nom_dest_vente' . $suffix);
+            if (($code === null || $code === '') && ($nom === null || $nom === '')) {
+                return $data;
+            }
+            $data['id_escale_vente'] = $id > 0 ? $id : null;
+            if ($code !== null && $code !== '') {
+                $data['code_gadest_vente'] = $code;
+            }
+            if ($nom !== null && $nom !== '') {
+                $data['nom_dest_vente'] = $nom;
+            }
+            // Pas de quartier sur une vente escale.
+            $data['quart'] = null;
+            return $data;
+        }
+
+        // Sécurité : l'escale doit appartenir à la ligne du programme de ce passager.
+        if (!empty($data['code_pro'])) {
+            $ligneProg = $this->ligne_of_programme($data['code_pro']);
+            $rowEsc = $this->escale_row_by_id($fields['id_escale_vente']);
+            if ($ligneProg !== '' && $rowEsc && (string) $rowEsc->id_lignes !== $ligneProg) {
+                return $data;
+            }
+        }
+
+        $data['id_escale_vente'] = $fields['id_escale_vente'];
+        $data['code_gadest_vente'] = $fields['code_gadest_vente'];
+        $data['nom_dest_vente'] = $fields['nom_dest_vente'];
+        if (isset($fields['prixvente']) && array_key_exists('prixvente', $data)) {
+            $data['prixvente'] = $fields['prixvente'];
+        }
+        // Escales sans quartier.
+        $data['quart'] = null;
+
+        return $data;
+    }
 }

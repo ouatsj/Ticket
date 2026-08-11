@@ -91,122 +91,114 @@
             </div>
         </div>
         
-        <? foreach ($gares as $item): ?>
-
-            <div class="col-lg-3">
-
-                <div class="card card-border card-full">
-
-                    <div class="card-header card-header-divider"> AGENCE DE <?= $item->garenom; ?> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-
-                        
-                            <a href="<?= "#?{$item->idengare}&name={$item->garenom}"; ?>"
-                               class="md-trigger" data-modal="edit-gar-<?= $item->idengare; ?>">
-                                <span class="fas fa-edit text-white"></span>
-                            </a>&nbsp;
-
-                            
-                            <!-- edition -->
-                            <div class="modal-container colored-header colored-header-success custom-width modal-effect-7"
-                                 id="edit-gar-<?= $item->idengare; ?>" style="">
-
-                                <div class="modal-content">
-
-                                    <div class="modal-header modal-header-colored">
-                                        <h3 class="modal-title">MODIFICATION SUR <?= $item->garenom; ?></h3>
-                                        <button class="close modal-close" type="button"
-                                                data-dismiss="modal" aria-hidden="true"><span
-                                                    class="mdi mdi-close text-white"></span></button>
-                                    </div>
-                                    
-                                    <?= form_open('Gares/editgid_/' . $this->session->company->ekey
-                                        . '/' . $item->idengare, array('class' => 'modal-body form')); ?>
-                                    <div class="row no-margin-y">
-                                        <!-- Designation de la gare-->
-                                        <div class="form-group">
-                                            <label>NOM GARE </label>
-                                            <input class="form-control form-control-sm" name="_garenom"
-                                                value="<?= $item->garenom; ?>"
-                                                type="text" autocomplete="off" placeholder="<?= $item->idengare; ?>">
-                                        </div>
-
-                                        <!-- Localisation-->
-                                    
-                                        <div class="form-group col-sm-4">
-                                            <label>LOCALISATION DE LA GARE</label>
-                                            <select class="form-control form-control-sm" name="_glocalise">
-                                                <option value="<?= $item->villeid; ?>"><?= $item->nom_ville; ?></option>
-                                                
-                                                <? foreach ($villes as $local): ?>
-                                                    <option value="<?= $local->id_ville; ?>">
-                                                        <?= $local->nom_ville; ?>
-                                                    </option>
-                                                <? endforeach; ?>
-
-                                            </select>
-                                        </div>
-                                        <div class="form-group col-sm-4">
-                                            <label>COMPAGNIE</label>
-                                            <select name="_compagare" class="form-control form-control-sm">
-                                                <option value="<?= $item->compagniegare; ?>"><?= $item->nom_compagnie; ?></option>
-                                                    <? foreach ($compagnies as $compagnie): ?>
-                                                        <option value="<?= $compagnie->cle_compagnie; ?>">
-                                                            <?= $compagnie->nom_compagnie; ?>
-                                                        </option>
-                                                    <? endforeach; ?>
-                                                
-                                            </select>
-                                        </div>
-                                       <!-- CONTACT -->
-                                       <div class="form-group col-sm-4">
-                                            <label>CONTACT</label>
-                                            <input class="form-control form-control-sm" name="contact" type="text"
-                                            value="<?= $item->contactgares; ?>" placeholder="<?= $item->contactgares;?>" autocomplete="off">
-                                        </div>
-
-                                        <!-- CODE -->
-                                        <div class="form-group col-sm-4">
-                                            <label>CODE</label>
-                                            <input class="form-control form-control-sm" name="codes" type="text"
-                                            value="<?= $item->codegares; ?>" placeholder="<?= $item->codegares;?>" autocomplete="off">
-                                        </div>
-                                    </div>
-
-                                    <div class="modal-footer">
-                                        <button class="btn btn-secondary modal-close" type="button"
-                                                data-dismiss="modal">
-                                            <i class="icon icon-left mdi text-dark mdi-undo"></i>&nbsp;ANNULER&nbsp;
-                                        </button>
-                                        <button class="btn btn-success md-trigger" type="submit"
-                                                data-dismiss="modal">
-                                            <i class="icon icon-left mdi mdi-check-all"></i>&nbsp;OK&nbsp;
-                                        </button>
-                                    </div>
-                                    
-                                    <?= form_close(); ?>
-
-                                </div>
-
-                            </div>
-                            
+        <?
+        $gares_par_compagnie = !empty($gares_par_compagnie) ? $gares_par_compagnie : array();
+        foreach ($gares_par_compagnie as $groupe):
+            $comp_label = !empty($groupe['nom_compagnie']) ? $groupe['nom_compagnie'] : 'Sans compagnie';
+            $nb_gares = !empty($groupe['gares']) ? count($groupe['gares']) : 0;
+        ?>
+            <div class="col-lg-12">
+                <div class="card card-border">
+                    <div class="card-header card-header-divider">
+                        COMPAGNIE <?= htmlspecialchars($comp_label, ENT_QUOTES, 'UTF-8'); ?>
+                        <span class="text-muted">&nbsp;(<?= (int) $nb_gares; ?> gare<?= $nb_gares > 1 ? 's' : ''; ?>)</span>
                     </div>
-
                     <div class="card-body">
-                            <p>code:<?= $item->idengare; ?></p>
-                            <p>ville:<?= $item->nom_ville; ?></p>
-                            <p>contact:<?= $item->contactgares;?></p>
-                            
-                            <a href="#"
-                               class="btn btn-block btn-rounded text-dark bg-white">
-                                <span class="fas fa-eye"></span>
-                               
-                            </a>
+                        <div class="row">
+                            <? foreach ($groupe['gares'] as $item): ?>
+                                <div class="col-lg-3">
+                                    <div class="card card-border card-full">
+                                        <div class="card-header card-header-divider"> AGENCE DE <?= $item->garenom; ?> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                                            <a href="<?= "#?{$item->idengare}&name={$item->garenom}"; ?>"
+                                               class="md-trigger" data-modal="edit-gar-<?= $item->idengare; ?>">
+                                                <span class="fas fa-edit text-white"></span>
+                                            </a>&nbsp;
+
+                                            <div class="modal-container colored-header colored-header-success custom-width modal-effect-7"
+                                                 id="edit-gar-<?= $item->idengare; ?>" style="">
+                                                <div class="modal-content">
+                                                    <div class="modal-header modal-header-colored">
+                                                        <h3 class="modal-title">MODIFICATION SUR <?= $item->garenom; ?></h3>
+                                                        <button class="close modal-close" type="button"
+                                                                data-dismiss="modal" aria-hidden="true"><span
+                                                                    class="mdi mdi-close text-white"></span></button>
+                                                    </div>
+
+                                                    <?= form_open('Gares/editgid_/' . $this->session->company->ekey
+                                                        . '/' . $item->idengare, array('class' => 'modal-body form')); ?>
+                                                    <div class="row no-margin-y">
+                                                        <div class="form-group">
+                                                            <label>NOM GARE </label>
+                                                            <input class="form-control form-control-sm" name="_garenom"
+                                                                value="<?= $item->garenom; ?>"
+                                                                type="text" autocomplete="off" placeholder="<?= $item->idengare; ?>">
+                                                        </div>
+
+                                                        <div class="form-group col-sm-4">
+                                                            <label>LOCALISATION DE LA GARE</label>
+                                                            <select class="form-control form-control-sm" name="_glocalise">
+                                                                <option value="<?= $item->villeid; ?>"><?= $item->nom_ville; ?></option>
+                                                                <? foreach ($villes as $local): ?>
+                                                                    <option value="<?= $local->id_ville; ?>">
+                                                                        <?= $local->nom_ville; ?>
+                                                                    </option>
+                                                                <? endforeach; ?>
+                                                            </select>
+                                                        </div>
+                                                        <div class="form-group col-sm-4">
+                                                            <label>COMPAGNIE</label>
+                                                            <select name="_compagare" class="form-control form-control-sm">
+                                                                <option value="<?= $item->compagniegare; ?>"><?= $item->nom_compagnie; ?></option>
+                                                                <? foreach ($compagnies as $compagnie): ?>
+                                                                    <option value="<?= $compagnie->cle_compagnie; ?>">
+                                                                        <?= $compagnie->nom_compagnie; ?>
+                                                                    </option>
+                                                                <? endforeach; ?>
+                                                            </select>
+                                                        </div>
+                                                        <div class="form-group col-sm-4">
+                                                            <label>CONTACT</label>
+                                                            <input class="form-control form-control-sm" name="contact" type="text"
+                                                            value="<?= $item->contactgares; ?>" placeholder="<?= $item->contactgares;?>" autocomplete="off">
+                                                        </div>
+                                                        <div class="form-group col-sm-4">
+                                                            <label>CODE</label>
+                                                            <input class="form-control form-control-sm" name="codes" type="text"
+                                                            value="<?= $item->codegares; ?>" placeholder="<?= $item->codegares;?>" autocomplete="off">
+                                                        </div>
+                                                    </div>
+
+                                                    <div class="modal-footer">
+                                                        <button class="btn btn-secondary modal-close" type="button"
+                                                                data-dismiss="modal">
+                                                            <i class="icon icon-left mdi text-dark mdi-undo"></i>&nbsp;ANNULER&nbsp;
+                                                        </button>
+                                                        <button class="btn btn-success md-trigger" type="submit"
+                                                                data-dismiss="modal">
+                                                            <i class="icon icon-left mdi mdi-check-all"></i>&nbsp;OK&nbsp;
+                                                        </button>
+                                                    </div>
+                                                    <?= form_close(); ?>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div class="card-body">
+                                            <p>code:<?= $item->idengare; ?></p>
+                                            <p>ville:<?= $item->nom_ville; ?></p>
+                                            <p>contact:<?= $item->contactgares;?></p>
+                                            <a href="#"
+                                               class="btn btn-block btn-rounded text-dark bg-white">
+                                                <span class="fas fa-eye"></span>
+                                            </a>
+                                        </div>
+                                    </div>
+                                </div>
+                            <? endforeach; ?>
+                        </div>
                     </div>
-
                 </div>
-
             </div>
-        
         <? endforeach; ?>
     
     <? else: ?>

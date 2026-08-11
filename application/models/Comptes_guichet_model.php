@@ -11,16 +11,6 @@
         
         public function create(array $data)
         {
-            if (isset($data['idusercompt'], $data['comp'], $data['montcomtpte'])
-                && isset($this->session->company->ekey)
-            ) {
-                $data['montcomtpte'] = sales_closure_total(
-                    $this->session->company->ekey,
-                    $data['idusercompt'],
-                    $data['comp'],
-                    $data['montcomtpte']
-                );
-            }
             $this->db->insert($this->table, $data);
             return $this->db->insert_id();
         }

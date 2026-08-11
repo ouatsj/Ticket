@@ -609,7 +609,7 @@
                         class="mdi mdi-close text-white"></span>
                 </button>
             </div>
-            <?= form_open("Recettes/tripardate/{$this->session->company->ekey}/{$caisseident->gexp_caiss}/{$caisseident->id_caiss}/{$conex->roleattribut}/{$bus_stop->idsousgare}", array('class' => 'modal-body form')); ?>
+            <?= form_open("Recettes/tripardate/{$company->ekey}/{$caisseident->gexp_caiss}/{$caisseident->id_caiss}/{$conex->roleattribut}/{$bus_stop->idsousgare}", array('class' => 'modal-body form')); ?>
             <div class="form-group row">
                 <input class="form-control form-control-sm" type="hidden" name="gareconnect" value="<?=$bus_stop->idengare;?>">
                             
@@ -628,11 +628,11 @@
                 </div>
                 <div class="form-group col-sm-4">
                     <label>DU</label>
-                    <input class="form-control form-control-sm" type="date" name="datedebut">
+                    <input class="form-control form-control-sm" type="date" name="datedebut" required>
                 </div>
                 <div class="form-group col-sm-4">
                     <label>AU</label>
-                    <input class="form-control form-control-sm" type="date" name="datefin">
+                    <input class="form-control form-control-sm" type="date" name="datefin" required>
                 </div>
             </div>
             <div class="form-group row">

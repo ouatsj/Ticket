@@ -52,7 +52,7 @@ function db_script_connect(array $argv = array())
         $c['username'],
         $c['password'],
         $c['database'],
-        isset($c['port']) ? (int) $c['port'] : 3306
+        (int) $c['port']
     );
 
     if ($mysqli->connect_error) {

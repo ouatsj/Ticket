@@ -40,18 +40,40 @@
         public function unstop($ckey, $g, $idc, $idcpt)
         {
             $this->company = $this->m_entreprises->get_key($ckey);
+            $requested_roleattribut = (int) $idcpt;
+            $operateur = compte_arret_bind_operateur($this->company->ekey, $g, $idcpt);
+            $idcpt = (int) $operateur['roleattribut'];
+            if ($idcpt <= 0 || $requested_roleattribut !== $idcpt) {
+                show_error('Arrêt de compte non autorisé.', 403);
+                return;
+            }
+
+            $caisse = $this->db->query(
+                'SELECT id_caiss FROM caisse WHERE id_caiss = ? AND gexp_caiss = ? LIMIT 1',
+                array((int) $idc, $g)
+            )->row();
+            if (!$caisse) {
+                show_error('La caisse ne correspond pas à la gare active.', 403);
+                return;
+            }
+
             $r=$this->input->post('recettetotal');
             $dpe=$this->input->post('depensetotal');
             $dpo=$this->input->post('totaldepot');
             $gid = $this->input->post('gareconnect');
-            $iduser = roleattribut_guard_post_hint($this->company->ekey);
+            $iduser = $idcpt;
             $sgid = $this->input->post('sousgareconnect');
             $idcmpt = $this->input->post('compconnected');
-            
-                $cfrecet = $this->db->query("SELECT r.id_recette, r.active_recet, r.idopera FROM recette r
-                    WHERE r.idopera = '$idcpt'
+
+            $this->db->trans_start();
+
+                $cfrecet = $this->db->query(
+                    "SELECT r.id_recette, r.active_recet, r.idopera FROM recette r
+                    WHERE r.idopera = ?
                     AND r.active_recet = 0
-                    AND r.idcaisse ='$idc'")->result();
+                    AND r.idcaisse = ?",
+                    array($idcpt, (int) $idc)
+                )->result();
 
                     foreach ($cfrecet as $item7) {
                         $plarray = array(
@@ -61,10 +83,13 @@
                         $vald_recet = $this->m_recette->update($item7->id_recette, $plarray);
                     }
 
-                $cfdepe = $this->db->query("SELECT d.id_depense, d.active_dep, d.idop_dep FROM depense d
-                    WHERE d.idop_dep = '$idcpt'
+                $cfdepe = $this->db->query(
+                    "SELECT d.id_depense, d.active_dep, d.idop_dep FROM depense d
+                    WHERE d.idop_dep = ?
                     AND d.active_dep = 0
-                    AND d.idcaisse_depens = '$idc'")->result();
+                    AND d.idcaisse_depens = ?",
+                    array($idcpt, (int) $idc)
+                )->result();
 
                     foreach ($cfdepe as $item8) {
                         $dplarray = array(
@@ -73,6 +98,31 @@
                         );
                         $vald_dep = $this->m_depense->update($item8->id_depense, $dplarray);
                     }
+
+                $cfdepo = $this->db->query(
+                    "SELECT d.id_depot FROM depot d
+                    WHERE d.idop_depot = ?
+                    AND d.idcaisse_depot = ?
+                    AND d.arret_caisdepo = 0
+                    AND d.is_validdepo = 0
+                    AND d.is_actifdepo = 0
+                    AND d.actif_depo = 0
+                    AND COALESCE(d.valid_depo, '') <> 'valid'",
+                    array($idcpt, (int) $idc)
+                )->result();
+
+                foreach ($cfdepo as $item9) {
+                    $this->m_depot->update($item9->id_depot, array(
+                        'valid_depo' => 'valid',
+                    ));
+                }
+
+            $this->db->trans_complete();
+            if ($this->db->trans_status() === false) {
+                show_error('L’arrêt de compte n’a pas pu être envoyé. Veuillez réessayer.', 500);
+                return;
+            }
+
                 $this->property['UPDATE_SUCCESS'] = TRUE;
             
             redirect('caisses/' . $this->session->company->ekey.'/cais/'.$g. '/'. $idc. '/'. $iduser.'/arretcaisse_adjoint/'. $sgid.'/'.mdate("%d/%m/%Y", now('UTC')));
@@ -1228,8 +1278,16 @@
                 AND r.arret_caisrecet = 1
                 AND r.date_recet BETWEEN '{$db}' AND '{$df}'"
             );
+            $date_envoi_arret = date('Y-m-d');
+
             foreach ($cfrecet as $items2) {
-                $this->m_recette->update($items2->id_recette, array('ferme_caisrecet' => 1));
+                // date_ferme_* = date à laquelle le caissier a fait l'arrêt (conservée si déjà renseignée)
+                $this->db->query(
+                    "UPDATE recette SET ferme_caisrecet = 1,
+                     date_ferme_caisrecet = IFNULL(date_ferme_caisrecet, ?)
+                     WHERE id_recette = ?",
+                    array($date_envoi_arret, (int) $items2->id_recette)
+                );
             }
 
             $cfrecetbis = $rows(
@@ -1241,10 +1299,12 @@
                 AND r.date_recet BETWEEN '{$db}' AND '{$df}'"
             );
             foreach ($cfrecetbis as $items2bis) {
-                $this->m_recette->update($items2bis->id_recette, array(
-                    'arret_caisrecet' => 1,
-                    'ferme_caisrecet' => 1,
-                ));
+                $this->db->query(
+                    "UPDATE recette SET arret_caisrecet = 1, ferme_caisrecet = 1,
+                     date_ferme_caisrecet = IFNULL(date_ferme_caisrecet, ?)
+                     WHERE id_recette = ?",
+                    array($date_envoi_arret, (int) $items2bis->id_recette)
+                );
             }
 
             // Piste principal : operavalid (même si is_actifrecetad=1 après validation adjoint).
@@ -1257,10 +1317,12 @@
                 AND r.date_recet BETWEEN '{$db}' AND '{$df}'"
             );
             foreach ($cfrecetbisr as $items2bisr) {
-                $this->m_recette->update($items2bisr->id_recette, array(
-                    'arret_caisrecet' => 1,
-                    'ferme_caisrecet' => 1,
-                ));
+                $this->db->query(
+                    "UPDATE recette SET arret_caisrecet = 1, ferme_caisrecet = 1,
+                     date_ferme_caisrecet = IFNULL(date_ferme_caisrecet, ?)
+                     WHERE id_recette = ?",
+                    array($date_envoi_arret, (int) $items2bisr->id_recette)
+                );
             }
 
             $cfdepe = $rows(
@@ -1272,7 +1334,12 @@
                 AND d.date_depens BETWEEN '{$db}' AND '{$df}'"
             );
             foreach ($cfdepe as $items3) {
-                $this->m_depense->update($items3->id_depense, array('ferme_caisdep' => 1));
+                $this->db->query(
+                    "UPDATE depense SET ferme_caisdep = 1,
+                     date_ferme_caisdep = IFNULL(date_ferme_caisdep, ?)
+                     WHERE id_depense = ?",
+                    array($date_envoi_arret, (int) $items3->id_depense)
+                );
             }
 
             $cfdepebis = $rows(
@@ -1284,10 +1351,12 @@
                 AND d.date_depens BETWEEN '{$db}' AND '{$df}'"
             );
             foreach ($cfdepebis as $items3bis) {
-                $this->m_depense->update($items3bis->id_depense, array(
-                    'arret_caisdep' => 1,
-                    'ferme_caisdep' => 1,
-                ));
+                $this->db->query(
+                    "UPDATE depense SET arret_caisdep = 1, ferme_caisdep = 1,
+                     date_ferme_caisdep = IFNULL(date_ferme_caisdep, ?)
+                     WHERE id_depense = ?",
+                    array($date_envoi_arret, (int) $items3bis->id_depense)
+                );
             }
 
             // Piste principal : opevalid (même si is_actifdepad=1 après validation adjoint).
@@ -1300,10 +1369,12 @@
                 AND d.date_depens BETWEEN '{$db}' AND '{$df}'"
             );
             foreach ($cfdepeb as $items3b) {
-                $this->m_depense->update($items3b->id_depense, array(
-                    'arret_caisdep' => 1,
-                    'ferme_caisdep' => 1,
-                ));
+                $this->db->query(
+                    "UPDATE depense SET arret_caisdep = 1, ferme_caisdep = 1,
+                     date_ferme_caisdep = IFNULL(date_ferme_caisdep, ?)
+                     WHERE id_depense = ?",
+                    array($date_envoi_arret, (int) $items3b->id_depense)
+                );
             }
 
             $cfdepo = $rows(
@@ -1314,12 +1385,13 @@
                 AND d.datedepot BETWEEN '{$db}' AND '{$df}'"
             );
             foreach ($cfdepo as $ites5) {
-                $this->m_depot->update($ites5->id_depot, array(
-                    'arret_caisdepo' => 1,
-                    'ferme_caisdepo' => 1,
-                    'active_depot' => 1,
-                    'is_actifdepo' => 1,
-                ));
+                $this->db->query(
+                    "UPDATE depot SET arret_caisdepo = 1, ferme_caisdepo = 1,
+                     date_ferme_caisdepo = IFNULL(date_ferme_caisdepo, ?),
+                     active_depot = 1, is_actifdepo = 1
+                     WHERE id_depot = ?",
+                    array($date_envoi_arret, (int) $ites5->id_depot)
+                );
             }
 
             $cfvers = $rows(
@@ -1330,10 +1402,12 @@
                 AND v.date_versement BETWEEN '{$db}' AND '{$df}'"
             );
             foreach ($cfvers as $ites6) {
-                $this->m_versements->update($ites6->id_versements, array(
-                    'ferme_caisvers' => 1,
-                    'arret_caisvers' => 1,
-                ));
+                $this->db->query(
+                    "UPDATE versements SET ferme_caisvers = 1, arret_caisvers = 1,
+                     date_ferme_caisvers = IFNULL(date_ferme_caisvers, ?)
+                     WHERE id_versements = ?",
+                    array($date_envoi_arret, (int) $ites6->id_versements)
+                );
             }
 
             $this->property['UPDATE_SUCCESS'] = TRUE;

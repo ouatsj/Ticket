@@ -23,6 +23,79 @@
             @ini_set('memory_limit', '512M');
             @set_time_limit(300);
         }
+
+        /**
+         * Vérifie les champs communs aux récapitulatifs avant toute requête.
+         */
+        protected function _assert_cashbox_recap_filters($ekey, $date1, $date2, $company, $gare)
+        {
+            if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) $date1)
+                || !preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) $date2)
+                || $date1 > $date2
+                || trim((string) $company) === ''
+                || trim((string) $gare) === ''
+            ) {
+                show_error('Compagnie, gare et période valides sont obligatoires.', 400);
+                exit;
+            }
+
+            $allowed = $this->db->query(
+                'SELECT
+                    EXISTS(
+                        SELECT 1 FROM compagnies c
+                        JOIN entreprise e ON c.id_entrep = e.id_entreprise
+                        WHERE e.ekey = ? AND c.cle_compagnie = ?
+                    ) AS company_ok,
+                    EXISTS(
+                        SELECT 1 FROM gare_exp ex
+                        JOIN compagnies c ON ex.id_compagd = c.cle_compagnie
+                        JOIN entreprise e ON c.id_entrep = e.id_entreprise
+                        WHERE e.ekey = ? AND ex.code_gaexp = ?
+                    ) AS gare_ok',
+                array($ekey, $company, $ekey, $gare)
+            )->row();
+
+            if (!$allowed || !$allowed->company_ok || !$allowed->gare_ok) {
+                show_error('La compagnie et la gare sélectionnées ne correspondent pas.', 403);
+                exit;
+            }
+        }
+
+        /**
+         * Pour les rôles 13/14, résout le caissier principal ciblé depuis la
+         * session et la gare. Les identifiants POST ne sont jamais utilisés seuls.
+         */
+        protected function _secured_consulted_cashbox_operator($ekey)
+        {
+            if (!roleattribut_guard_is_cashbox_consultant()) {
+                return null;
+            }
+
+            $contextGare = trim((string) $this->input->post('gareconnect'));
+            $selectedGare = trim((string) $this->input->post('departgar'));
+            $target = $this->input->post('cashbox_target_roleattribut');
+            if ($target === null || $target === '') {
+                $target = $this->input->post('userconnected');
+            }
+
+            if ($contextGare === ''
+                || roleattribut_guard_normalize_gare_id($ekey, $contextGare)
+                    !== roleattribut_guard_normalize_gare_id($ekey, $selectedGare)
+            ) {
+                show_error('Cette gare ne correspond pas à la caisse consultée.', 403);
+                exit;
+            }
+
+            $consultant = roleattribut_guard_operateur($ekey, $contextGare, null);
+            $bind = roleattribut_guard_main_cashbox_consultation_bind(
+                $ekey,
+                $contextGare,
+                $consultant['roleattribut'],
+                $target
+            );
+
+            return (int) $bind['caissier_ra'];
+        }
         
         //tirage des recette
         public function recette($ckey)
@@ -10560,9 +10633,14 @@
             $nm = $this->input->post('nom');
             $gid = $this->input->post('departgar');
             $comp = $this->input->post('_compag');
+            $this->_assert_cashbox_recap_filters($this->entreprise->ekey, $dt1, $dt2, $comp, $gid);
+            $consultedCashbox = $this->_secured_consulted_cashbox_operator($this->entreprise->ekey);
 
             $ncomp = $this->m_compagnies->getn($comp);
             $uopera = $this->input->post('useropered');
+            if ($consultedCashbox !== null) {
+                $uopera = $consultedCashbox;
+            }
 
               $cai = $this->m_compte_user->cpuseres($uopera);
 
@@ -10572,7 +10650,48 @@
                 $days = $dats[2]. '-'. $dats[1]. '-' .$dats[0];
                 $dats1 = explode("-", $dt2);
                 $days1 = $dats1[2]. '-'. $dats1[1]. '-' .$dats1[0];
-              if($this->session->agent->userole === '1' OR $this->session->agent->userole === '2')
+              if ($consultedCashbox !== null)
+                {
+                    $trivers = $this->m_versements->valiget($this->entreprise->ekey, $gid, $uopera, $dt1, $dt2, $comp, $ver, $nm);
+                    $pdf = new TCPDF(PDF_PAGE_ORIENTATION, PDF_UNIT, PDF_PAGE_FORMAT, true, 'UTF-8', false);
+                    $pdf->SetCreator(PDF_CREATOR);
+                    $pdf->SetAuthor('NET SOLUTIONS');
+                    $pdf->SetTitle('LISTE-');
+                    $pdf->SetSubject('CBT_RAKIETA');
+                    $pdf->SetKeywords('--');
+                    $pdf->SetHeaderData(false, false, $this->entreprise->nom_entreprise);
+                    $pdf->setPrintHeader(true);
+                    $pdf->setPrintFooter(false);
+                    $pdf->SetDefaultMonospacedFont(PDF_FONT_MONOSPACED);
+                    $pdf->SetHeaderMargin(PDF_MARGIN_LEFT, PDF_MARGIN_TOP, PDF_MARGIN_RIGHT);
+                    $pdf->SetHeaderMargin(PDF_MARGIN_HEADER);
+                    $pdf->SetMargins(PDF_MARGIN_LEFT, PDF_MARGIN_TOP, PDF_MARGIN_RIGHT);
+                    $pdf->SetAutoPageBreak(TRUE, PDF_MARGIN_BOTTOM);
+                    $pdf->setImageScale(PDF_IMAGE_SCALE_RATIO);
+                    $pdf->AddPage('L', 'A4', 0);
+                    $pdf->SetFont('courier', '', 9);
+                    $titre = '<h1 align="center">ETATS DES VERSEMENTS '. $ncomp->nom_compagnie.' '.$ngrd->garenom.' DU '. $days .' AU '.$days1.'</h1>';
+                    $them = '<table border="1" cellpadding="0"><thead><tr>
+                        <th width="20%" align="center"><strong>DATE</strong></th>
+                        <th width="20%" align="center"><strong>NOM</strong></th>
+                        <th width="20%" align="center"><strong>TYPE</strong></th>
+                        <th width="20%" align="center"><strong>MONTANT</strong></th>
+                        </tr></thead><tbody>';
+                    foreach ($trivers as $lement) {
+                        $them .= '<tr>
+                            <td width="20%" align="left"><strong>' . $lement->date_versement . '</strong></td>
+                            <td width="20%" align="center"><strong>' . $lement->nom_beneficiaire . '</strong></td>
+                            <td width="20%" align="center"><strong>' . $lement->type_versement . '</strong></td>
+                            <td width="20%" align="right"><strong>' . number_format($lement->montant_verser, 0, '', ' ') . '</strong></td>
+                            </tr>';
+                    }
+                    $them .= '</tbody></table><h2>CAISSE DE :' . $cai->first_name . ' ' . $cai->last_name . '</h2>';
+                    $pdf->writeHTML($titre, false, false, true, false, '');
+                    $pdf->writeHTML($them, true, false, true, false, '');
+                    ob_end_clean();
+                    $pdf->Output('example_013.pdf', 'I');
+                }
+              elseif($this->session->agent->userole === '1' OR $this->session->agent->userole === '2')
                 {
                     $trivers = $this->m_versements->valigetadmin($this->entreprise->ekey, $gid, $dt1, $dt2, $comp, $ver, $nm);
 
@@ -10730,8 +10849,13 @@
               $nm = $this->input->post('nom');
               $gid = $this->input->post('departgar');
               $comp = $this->input->post('_compag');
+              $this->_assert_cashbox_recap_filters($this->entreprise->ekey, $date1, $date2, $comp, $gid);
+              $consultedCashbox = $this->_secured_consulted_cashbox_operator($this->entreprise->ekey);
 
               $uopera = roleattribut_guard_post_hint($this->entreprise->ekey);
+              if ($consultedCashbox !== null) {
+                  $uopera = $consultedCashbox;
+              }
 
               $cai = $this->m_compte_user->cpuseres($uopera);
 
@@ -10744,7 +10868,10 @@
                 $dats1 = explode("-", $date2);
                 $days1 = $dats1[2]. '-'. $dats1[1]. '-' .$dats1[0];
                 
-              if (recette_role_is_saisie($this->session->agent->userole)) {
+              if ($consultedCashbox !== null) {
+                $uopera = $consultedCashbox;
+                $trirecet = $this->m_recette->valdtrirecette($this->entreprise->ekey, $comp, $gid, $uopera, $date1, $date2, $typ, $gen, $nm);
+              } elseif (recette_role_is_saisie($this->session->agent->userole)) {
                 $trirecet = $this->m_recette->trirecette_adjoint($this->entreprise->ekey, $gid, $uopera, $date1, $date2, $comp, $typ, $gen, $nm);
               } elseif (recette_role_is_validateur_adjoint($this->session->agent->userole)) {
                 $trirecet = $this->m_recette->valdtrirecettead($this->entreprise->ekey, $comp, $gid, $uopera, $date1, $date2, $typ, $gen, $nm);
@@ -10851,10 +10978,15 @@
               $nm = $this->input->post('nom');
               $comp = $this->input->post('_compag');
               $gid = $this->input->post('departgar');
+              $this->_assert_cashbox_recap_filters($this->entreprise->ekey, $date1, $date2, $comp, $gid);
+              $consultedCashbox = $this->_secured_consulted_cashbox_operator($this->entreprise->ekey);
               $ncomp = $this->m_compagnies->getn($comp);
               $uopera = roleattribut_guard_post_hint($this->entreprise->ekey);
               if ($uopera === NULL || $uopera === '') {
                   $uopera = $this->input->post('useropered');
+              }
+              if ($consultedCashbox !== null) {
+                  $uopera = $consultedCashbox;
               }
 
               $ngrd = $this->m_gare_depart->getno($gid);
@@ -10866,7 +10998,10 @@
                   $dats1 = explode("-", $date2);
                   
                   $days1 = $dats1[2]. '-'. $dats1[1]. '-' .$dats1[0];
-              if (recette_role_is_saisie($this->session->agent->userole)) {
+              if ($consultedCashbox !== null) {
+                $uopera = $consultedCashbox;
+                $tridepens = $this->m_depense->valdtridepense($this->entreprise->ekey, $comp, $gid, $uopera, $date1, $date2, $typ, $gen, $nm);
+              } elseif (recette_role_is_saisie($this->session->agent->userole)) {
                 $tridepens = $this->m_depense->tridepense_adjoint($this->entreprise->ekey, $gid, $uopera, $date1, $date2, $comp, $typ, $gen, $nm);
               } elseif (recette_role_is_validateur_adjoint($this->session->agent->userole)) {
                 $tridepens = $this->m_depense->adtridepense($this->entreprise->ekey, $gid, $uopera, $comp, $date1, $date2, $gen, $nm);
@@ -10973,8 +11108,14 @@
               $gen = $this->input->post('genre');
               $nm = $this->input->post('nom');
               $gid = $this->input->post('departgar');
+              $comp = $this->input->post('_compag');
+              $this->_assert_cashbox_recap_filters($this->entreprise->ekey, $date1, $date2, $comp, $gid);
+              $consultedCashbox = $this->_secured_consulted_cashbox_operator($this->entreprise->ekey);
               
               $uopera = $this->input->post('useropered');
+              if ($consultedCashbox !== null) {
+                  $uopera = $consultedCashbox;
+              }
 
               $cai = $this->m_compte_user->cpuseres($uopera);
 
@@ -10985,12 +11126,15 @@
                       $days = $dats[2]. '-'. $dats[1]. '-' .$dats[0];
                       $dats1 = explode("-", $date2);         
                   $days1 = $dats1[2]. '-'. $dats1[1]. '-' .$dats1[0];
-                if ($this->session->agent->userole === '1' OR $this->session->agent->userole === '2'){
+                if ($consultedCashbox !== null) {
+                    $tridepens = $this->m_depense->valdautretridepense($this->entreprise->ekey, $comp, $gid, $uopera, $date1, $date2, $typ, $gen, $nm);
+                  }
+                  elseif ($this->session->agent->userole === '1' OR $this->session->agent->userole === '2'){
 
-                    $tridepens = $this->m_depense->valdautretridepensead($this->entreprise->ekey, $gid, $uopera, $date1, $date2, $typ, $gen, $nm);
+                    $tridepens = $this->m_depense->valdautretridepensead($this->entreprise->ekey, $comp, $gid, $uopera, $date1, $date2, $typ, $gen, $nm);
                   }
                   else{
-                    $tridepens = $this->m_depense->valdautretridepense($this->entreprise->ekey, $gid, $uopera, $date1, $date2, $typ, $gen, $nm);
+                    $tridepens = $this->m_depense->valdautretridepense($this->entreprise->ekey, $comp, $gid, $uopera, $date1, $date2, $typ, $gen, $nm);
                   }
                 $pdf = new TCPDF(PDF_PAGE_ORIENTATION, PDF_UNIT, PDF_PAGE_FORMAT, true, 'UTF-8', false);
                 // set document information
@@ -11087,12 +11231,17 @@
               $gen = $this->input->post('genre');
               $nm = $this->input->post('nom');
               $comp = $this->input->post('_compag');
-              $ncomp = $this->m_compagnies->getn($comp);
               $gid = $this->input->post('departgar');
+              $this->_assert_cashbox_recap_filters($this->entreprise->ekey, $date1, $date2, $comp, $gid);
+              $consultedCashbox = $this->_secured_consulted_cashbox_operator($this->entreprise->ekey);
+              $ncomp = $this->m_compagnies->getn($comp);
 
               $uopera = roleattribut_guard_post_hint($this->entreprise->ekey);
               if ($uopera === NULL || $uopera === '') {
                   $uopera = $this->input->post('useropered');
+              }
+              if ($consultedCashbox !== null) {
+                  $uopera = $consultedCashbox;
               }
 
               $cai = $this->m_compte_user->cpuseres($uopera);
@@ -11103,18 +11252,21 @@
                     $days = $dats[2]. '-'. $dats[1]. '-' .$dats[0];
                     $dats1 = explode("-", $date2);
                   $days1 = $dats1[2]. '-'. $dats1[1]. '-' .$dats1[0];
-              if (recette_role_is_saisie($this->session->agent->userole)) {
-                $tridepo = $this->m_depot->tridepot_adjoint($this->entreprise->ekey, $gid, $uopera, $comp, $date1, $date2, $typ, $gen, $nm);
+              if ($consultedCashbox !== null) {
+                $uopera = $consultedCashbox;
+                $tridepo = $this->m_depot->valdtridepot($this->entreprise->ekey, $gid, $uopera, $date1, $date2, $comp, $typ, $gen, $nm);
+              } elseif (recette_role_is_saisie($this->session->agent->userole)) {
+                $tridepo = $this->m_depot->tridepot_adjoint($this->entreprise->ekey, $gid, $comp, $uopera, $date1, $date2, $typ, $gen, $nm);
               } elseif (recette_role_is_validateur_adjoint($this->session->agent->userole)) {
-                $tridepo = $this->m_depot->adtridepot($this->entreprise->ekey, $gid, $uopera, $comp, $date1, $date2, $gen, $nm);
+                $tridepo = $this->m_depot->adtridepot($this->entreprise->ekey, $gid, $uopera, $date1, $date2, $comp, $gen, $nm);
               } elseif ($this->session->agent->userole === '1' OR $this->session->agent->userole === '2') {
-                $tridepo = $this->m_depot->tridepotadmin($this->entreprise->ekey, $gid, $comp, $date1, $date2, $typ, $gen, $nm);
+                $tridepo = $this->m_depot->tridepotadmin($this->entreprise->ekey, $gid, $date1, $date2, $typ, $gen, $nm, $comp);
               } elseif (recette_role_is_validateur_principal($this->session->agent->userole)) {
                 $uopera = $this->input->post('useropered');
-                $tridepo = $this->m_depot->valdtridepot($this->entreprise->ekey, $gid, $uopera, $date1, $date2, $typ, $gen, $nm, $comp);
+                $tridepo = $this->m_depot->valdtridepot($this->entreprise->ekey, $gid, $uopera, $date1, $date2, $comp, $typ, $gen, $nm);
               } else {
                 $uopera = $this->input->post('useropered');
-                $tridepo = $this->m_depot->valdtridepot($this->entreprise->ekey, $gid, $uopera, $date1, $date2, $typ, $gen, $nm, $comp);
+                $tridepo = $this->m_depot->valdtridepot($this->entreprise->ekey, $gid, $uopera, $date1, $date2, $comp, $typ, $gen, $nm);
               }
 
                 $pdf = new TCPDF(PDF_PAGE_ORIENTATION, PDF_UNIT, PDF_PAGE_FORMAT, true, 'UTF-8', false);
@@ -11212,7 +11364,13 @@
               $gen = $this->input->post('genre');
               $nm = $this->input->post('nom');
               $gid = $this->input->post('departgar');
+              $comp = $this->input->post('_compag');
+              $this->_assert_cashbox_recap_filters($this->entreprise->ekey, $date1, $date2, $comp, $gid);
+              $consultedCashbox = $this->_secured_consulted_cashbox_operator($this->entreprise->ekey);
               $uopera = $this->input->post('useropered');
+              if ($consultedCashbox !== null) {
+                  $uopera = $consultedCashbox;
+              }
 
                 $ngrd = $this->m_gare_depart->getno($gid);
 
@@ -11222,7 +11380,7 @@
                       $days = $dats[2]. '-'. $dats[1]. '-' .$dats[0];
                         $dats1 = explode("-", $date2);
                   $days1 = $dats1[2]. '-'. $dats1[1]. '-' .$dats1[0];
-                $tridepo = $this->m_depot->valdautretridepot($this->entreprise->ekey, $gid, $uopera, $date1, $date2, $typ, $gen, $nm);
+                $tridepo = $this->m_depot->valdautretridepot($this->entreprise->ekey, $gid, $uopera, $date1, $date2, $comp, $typ, $gen, $nm);
 
                 $pdf = new TCPDF(PDF_PAGE_ORIENTATION, PDF_UNIT, PDF_PAGE_FORMAT, true, 'UTF-8', false);
                 // set document information

@@ -38,11 +38,6 @@
                                 : 'Identifiants incorrects. Réessayez.'; ?>
                         </div>
                         <?php endif; ?>
-                        <?php if (!empty($login_notice)): ?>
-                        <div class="alert alert-success mt-2">
-                            <?= htmlspecialchars($login_notice, ENT_QUOTES, 'UTF-8'); ?>
-                        </div>
-                        <?php endif; ?>
                         <div class="card-body">
                             
                             <?= form_open('Login/lin_s/')?>

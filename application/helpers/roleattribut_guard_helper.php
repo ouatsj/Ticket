@@ -24,6 +24,40 @@ if (!function_exists('roleattribut_guard_is_supervisor')) {
     }
 }
 
+if (!function_exists('roleattribut_guard_cashbox_consultant_roles')) {
+    /**
+     * Consultation ciblée des caisses principales, sans droits globaux de superviseur.
+     */
+    function roleattribut_guard_cashbox_consultant_roles()
+    {
+        return array('13', '14');
+    }
+}
+
+if (!function_exists('roleattribut_guard_is_cashbox_consultant')) {
+    function roleattribut_guard_is_cashbox_consultant()
+    {
+        $CI =& get_instance();
+        if (!$CI->session->userdata('agent')) {
+            return false;
+        }
+
+        return in_array(
+            (string) $CI->session->agent->userole,
+            roleattribut_guard_cashbox_consultant_roles(),
+            true
+        );
+    }
+}
+
+if (!function_exists('roleattribut_guard_can_consult_main_cashbox')) {
+    function roleattribut_guard_can_consult_main_cashbox()
+    {
+        return roleattribut_guard_is_supervisor()
+            || roleattribut_guard_is_cashbox_consultant();
+    }
+}
+
 if (!function_exists('roleattribut_guard_normalize_gare_id')) {
     /**
      * Résout code_gaexp (BOB1) vers idengare utilisé dans user_login.guser.
@@ -407,8 +441,16 @@ if (!function_exists('roleattribut_guard_fail_redirect_gare_caisse')) {
 }
 
 if (!function_exists('roleattribut_guard_attribution_on_gare')) {
-    function roleattribut_guard_attribution_on_gare($ekey, $gare_id, $hint, array $allowed_useroles)
-    {
+    /**
+     * @param bool $require_active Si false : autorise un compte désactivé (consultation caisse).
+     */
+    function roleattribut_guard_attribution_on_gare(
+        $ekey,
+        $gare_id,
+        $hint,
+        array $allowed_useroles,
+        $require_active = true
+    ) {
         $gare_id = roleattribut_guard_normalize_gare_id($ekey, $gare_id);
         $ra = (int) $hint;
         if ($ra <= 0 || empty($allowed_useroles) || $gare_id === '') {
@@ -417,9 +459,13 @@ if (!function_exists('roleattribut_guard_attribution_on_gare')) {
 
         $CI =& get_instance();
         $roles_in = implode(',', array_map('intval', $allowed_useroles));
+        $active_sql = $require_active
+            ? ' AND ar.activer_role = 0 AND ul.comptactif = 0'
+            : '';
 
         return $CI->db->query(
-            "SELECT ar.roleattribut, ar.userole FROM attributions_role ar
+            "SELECT ar.roleattribut, ar.userole, ar.activer_role, ul.comptactif
+            FROM attributions_role ar
             JOIN user_login ul ON ar.idgestcompte = ul.uid_login
             JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
             JOIN utilisateurs u ON cu.userlog_id = u.uid
@@ -427,8 +473,7 @@ if (!function_exists('roleattribut_guard_attribution_on_gare')) {
             AND ar.roleattribut = ?
             AND ul.guser = ?
             AND ar.userole IN ({$roles_in})
-            AND ar.activer_role = 0
-            AND ul.comptactif = 0
+            {$active_sql}
             LIMIT 1",
             array($ekey, $ra, $gare_id)
         )->row();
@@ -446,6 +491,176 @@ if (!function_exists('roleattribut_guard_chef_on_gare')) {
     function roleattribut_guard_chef_on_gare($ekey, $gare_id, $hint)
     {
         return roleattribut_guard_attribution_on_gare($ekey, $gare_id, $hint, array('5', '16'));
+    }
+}
+
+if (!function_exists('roleattribut_guard_main_cashbox_consultation_bind')) {
+    /**
+     * Autorise uniquement les rôles 13/14 à consulter un caissier principal
+     * actif (rôle 4) sur une gare qui leur est elle-même attribuée.
+     */
+    function roleattribut_guard_main_cashbox_consultation_bind(
+        $ekey,
+        $gare_id,
+        $consultant_hint,
+        $caissier_hint
+    ) {
+        if (!roleattribut_guard_is_cashbox_consultant()) {
+            roleattribut_guard_fail_redirect_gare_caisse($ekey, $gare_id);
+        }
+
+        $consultant = roleattribut_guard_operateur($ekey, $gare_id, null);
+        if (!$consultant['conex']
+            || !in_array(
+                (string) $consultant['userole'],
+                roleattribut_guard_cashbox_consultant_roles(),
+                true
+            )
+            || (int) $consultant['roleattribut'] !== (int) $consultant_hint
+        ) {
+            roleattribut_guard_fail_redirect_gare_caisse($ekey, $gare_id);
+        }
+
+        // Consultation : autoriser aussi un caissier principal désactivé
+        // (opérations encore à valider après désactivation du compte).
+        $caissier = roleattribut_guard_attribution_on_gare(
+            $ekey,
+            $gare_id,
+            $caissier_hint,
+            array('4'),
+            false
+        );
+        if (!$caissier) {
+            roleattribut_guard_fail_redirect_gare_caisse($ekey, $gare_id);
+        }
+
+        return array(
+            'consultant_ra' => (int) $consultant['roleattribut'],
+            'consultant_conex' => $consultant['conex'],
+            'caissier_ra' => (int) $caissier->roleattribut,
+        );
+    }
+}
+
+if (!function_exists('roleattribut_guard_main_cashbox_supervisor_bind')) {
+    /**
+     * Admin / superviseur (rôles 1/2) : consulter un caissier principal (rôle 4)
+     * sans passer par le bind chef guichet (5/16), qui ne s'applique pas à eux.
+     */
+    function roleattribut_guard_main_cashbox_supervisor_bind(
+        $ekey,
+        $gare_id,
+        $viewer_hint,
+        $caissier_hint
+    ) {
+        if (!roleattribut_guard_is_supervisor()) {
+            roleattribut_guard_fail_redirect_gare_caisse($ekey, $gare_id);
+        }
+
+        $viewer = roleattribut_guard_operateur($ekey, $gare_id, $viewer_hint);
+        if ((int) $viewer['roleattribut'] <= 0) {
+            $CI =& get_instance();
+            if ($CI->session->userdata('agent') && !empty($CI->session->agent->roleattribut)) {
+                $viewer = array(
+                    'roleattribut' => (int) $CI->session->agent->roleattribut,
+                    'conex' => $CI->session->agent,
+                    'userole' => (string) $CI->session->agent->userole,
+                );
+            }
+        }
+
+        if ((int) $viewer['roleattribut'] <= 0) {
+            roleattribut_guard_fail_redirect_gare_caisse($ekey, $gare_id);
+        }
+
+        $caissier = roleattribut_guard_attribution_on_gare(
+            $ekey,
+            $gare_id,
+            $caissier_hint,
+            array('4'),
+            false
+        );
+        if (!$caissier) {
+            roleattribut_guard_fail_redirect_gare_caisse($ekey, $gare_id);
+        }
+
+        return array(
+            'supervisor_ra' => (int) $viewer['roleattribut'],
+            'supervisor_conex' => $viewer['conex'],
+            'caissier_ra' => (int) $caissier->roleattribut,
+        );
+    }
+}
+
+if (!function_exists('roleattribut_guard_main_cashbox_validation_context')) {
+    /**
+     * Contexte serveur pour une validation faite par un rôle 13/14.
+     */
+    function roleattribut_guard_main_cashbox_validation_context($ekey, $gare_id, $caissier_hint)
+    {
+        if (!roleattribut_guard_is_cashbox_consultant()) {
+            return null;
+        }
+
+        $consultant = roleattribut_guard_operateur($ekey, $gare_id, null);
+
+        return roleattribut_guard_main_cashbox_consultation_bind(
+            $ekey,
+            $gare_id,
+            $consultant['roleattribut'],
+            $caissier_hint
+        );
+    }
+}
+
+if (!function_exists('roleattribut_guard_assert_main_cashbox_operation')) {
+    /**
+     * Empêche de valider par modification d'URL une opération d'une autre gare
+     * ou d'un autre caissier principal.
+     */
+    function roleattribut_guard_assert_main_cashbox_operation(
+        $operation_type,
+        $operation_id,
+        $ekey,
+        $gare_id,
+        $caissier_roleattribut
+    ) {
+        $map = array(
+            'recette' => array('recette', 'id_recette', 'idcaisse', 'operavalid'),
+            'depense' => array('depense', 'id_depense', 'idcaisse_depens', 'opevalid'),
+            'depot' => array('depot', 'id_depot', 'idcaisse_depot', 'opvalid'),
+            'versement' => array('versements', 'id_versements', 'idcaisse_versement', 'validop'),
+        );
+        if (!isset($map[$operation_type])) {
+            show_error('Type d’opération non autorisé.', 403);
+            exit;
+        }
+
+        $CI =& get_instance();
+        $cfg = $map[$operation_type];
+        $row = $CI->db->query(
+            "SELECT 1 AS ok FROM {$cfg[0]} op
+             JOIN caisse cs ON op.{$cfg[2]} = cs.id_caiss
+             JOIN gare_exp ex ON cs.gexp_caiss = ex.code_gaexp
+             JOIN compagnies c ON ex.id_compagd = c.cle_compagnie
+             JOIN entreprise e ON c.id_entrep = e.id_entreprise
+             WHERE op.{$cfg[1]} = ?
+             AND op.{$cfg[3]} = ?
+             AND cs.gexp_caiss = ?
+             AND e.ekey = ?
+             LIMIT 1",
+            array(
+                (int) $operation_id,
+                (int) $caissier_roleattribut,
+                (string) $gare_id,
+                $ekey,
+            )
+        )->row();
+
+        if (!$row) {
+            show_error('Cette opération ne correspond pas à la caisse autorisée.', 403);
+            exit;
+        }
     }
 }
 
@@ -734,6 +949,7 @@ if (!function_exists('roleattribut_guard_uri_enforcement_skipped')) {
         }
 
         // Validation arrêt compte vendeur : ekey (1000) + nom de méthode (validerecette…) confondus avec gare/roleattribut.
+        // Pages caisse principale : roleattribut cible (caissier) ≠ session — bind contrôleur suffit.
         if ($controller === 'utilisateurs') {
             $validation_methods = array(
                 'validerecette',
@@ -743,6 +959,11 @@ if (!function_exists('roleattribut_guard_uri_enforcement_skipped')) {
                 'validerecettebagesc',
                 'recettevaliderecet',
                 'viewcaissier',
+                'profilcaisse',
+                'recettecaisse',
+                'depensecaisse',
+                'depotcaisse',
+                'versemetcaisse',
             );
             if (in_array($method, $validation_methods, true)) {
                 return true;
@@ -780,6 +1001,8 @@ if (!function_exists('roleattribut_guard_uri_enforcement_skipped')) {
                 'rejetedepense',
                 'validedepot',
                 'rejetedepot',
+                // ekey (1000) en 3e segment — ne pas confondre avec roleattribut caissier.
+                'unstop_caisse',
             );
             if (in_array($method, $validation_methods, true)) {
                 return true;
@@ -958,11 +1181,11 @@ if (!function_exists('roleattribut_guard_enforce_uri_segments')) {
             );
         }
 
-        if ($controller === 'caisses' && $method === 'viewcaisprinc' && isset($segments[3], $segments[4])) {
+        if ($controller === 'caisses' && $method === 'viewcaisprinc' && isset($segments[4], $segments[5])) {
             $checks[] = array(
-                'index' => 3,
-                'gare_id' => $segments[4],
-                'hint' => $segments[3],
+                'index' => 4,
+                'gare_id' => $segments[5],
+                'hint' => $segments[4],
             );
         }
 
@@ -1029,6 +1252,15 @@ if (!function_exists('roleattribut_guard_enforce_uri_segments')) {
                 continue;
             }
 
+            // {controller}/{method}/{ekey}/{gare}/… — ne pas remplacer l'ekey par le rôle actif.
+            // Exemple : Recettes/tripardate/1000/OUA1/4/422/6.
+            if ($i === 4
+                && isset($segments[2], $segments[3])
+                && strtolower((string) $segments[2]) === $method
+                && (string) $segments[3] === (string) $ekey) {
+                continue;
+            }
+
             // .../{tarif}/{id_ligneheure}/{gare}/... — impression ticket (confirmation, repro, etc.)
             if (isset($segments[$i - 2], $segments[$i - 1])
                 && ctype_digit((string) $segments[$i - 2])
@@ -1089,5 +1321,22 @@ if (!function_exists('roleattribut_guard_enforce_uri_segments')) {
             );
             redirect(implode('/', $segments));
         }
+    }
+}
+
+if (!function_exists('roleattribut_guard_session_ra')) {
+    /**
+     * roleattribut de l'agent connecté (ex. superviseur de site qui valide un arrêt).
+     *
+     * @return int
+     */
+    function roleattribut_guard_session_ra()
+    {
+        $CI =& get_instance();
+        if (!$CI->session->userdata('agent') || empty($CI->session->agent->roleattribut)) {
+            return 0;
+        }
+
+        return (int) $CI->session->agent->roleattribut;
     }
 }

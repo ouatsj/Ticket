@@ -2,6 +2,11 @@
 <?php
 $compte_arret_only_compte = !empty($compte_arret_only_compte) || !empty($compte_arret_blocked);
 $compte_arret_grace = !empty($compte_arret_grace);
+
+if ($compte_arret_only_compte) {
+    $this->load->view('beagle/pages/guichet/_chef_arret_blocked');
+    return;
+}
 ?>
 <div class="row">
                 <div class="col-sm-12">
@@ -947,6 +952,7 @@ $compte_arret_grace = !empty($compte_arret_grace);
                                         
                                     </div>
                                 </div>
+                                <div class="px-3 pb-2" data-compagnies-arrivee-for="arrsgarefi"></div>
                                 <div class="row">
                                 <div class="form-group col-sm-4">
                                     <label>Départ</label>
@@ -962,11 +968,12 @@ $compte_arret_grace = !empty($compte_arret_grace);
                                     <label>Arrivée</label>
                                     <select class="form-control form-control-sm" name="arrgarefi" id="arrsgarefi">
                                         <option value="">Choisissez l'arrivée</option>
-                                        <? foreach ($garearrivees as $garearrivee): ?>
-                                            <option value="<?= $garearrivee->code_gadest; ?>">
-                                                <?= $garearrivee->nom_gadest; ?>
-                                            </option>
-                                        <? endforeach; ?>
+                                        <?php
+                                            $this->load->view('beagle/pages/guichet/_options_gare_arrivee', array(
+                                                'garearrivees' => !empty($garearrivees) ? $garearrivees : array(),
+                                                'value_format' => 'code',
+                                            ));
+                                        ?>
                                     </select>
                                 </div>
                                 <div class="form-group col-sm-4">
@@ -998,9 +1005,9 @@ $compte_arret_grace = !empty($compte_arret_grace);
                                     <p id="erreurMessfi"></p>
                                 </div>
                                 <div class="form-group col-sm-4">
-                                    <label>Prix</label>
+                                    <label>Prix libre (0 = ticket gratuit)</label>
                                     <input class="form-control form-control-sm" type="text" inputmode="numeric" oninput="this.value=this.value.replace(/[^0-9]/g,'');" name="prixfi"
-                                        autocomplete="off" required>
+                                        autocomplete="off" placeholder="Exemple : 5000 ou 0" required>
                                 </div>
                                 <div class="form-group col-sm-4">
                                     <label style="display:none">Heure départ</label>
@@ -1211,6 +1218,8 @@ $compte_arret_grace = !empty($compte_arret_grace);
                                         
                                     </div>
                                 </div>
+                                <div class="px-3 pb-2" data-compagnies-arrivee-for="arrsgarefid"></div>
+
                                 <div class="row">
                                     <div class="form-group col-sm-4">
                                         <label style="display:block" id="iddepfid">Départ</label>
@@ -1226,11 +1235,12 @@ $compte_arret_grace = !empty($compte_arret_grace);
                                         <label style="display:block" id="arridfid">Arrivée</label>
                                         <select style="display:block" class="form-control form-control-sm" name="arrigarefid" id="arrsgarefid">
                                             <option value="">Choisissez l'arrivée</option>
-                                            <? foreach ($garearrivees as $garearrivee): ?>
-                                                <option value="<?= $garearrivee->code_gadest; ?>">
-                                                    <?= $garearrivee->nom_gadest; ?>
-                                                </option>
-                                            <? endforeach; ?>
+                                            <?php
+                                                $this->load->view('beagle/pages/guichet/_options_gare_arrivee', array(
+                                                    'garearrivees' => !empty($garearrivees) ? $garearrivees : array(),
+                                                    'value_format' => 'code',
+                                                ));
+                                            ?>
                                         </select>
                                     </div>
                                     <div class="form-group col-sm-4">
@@ -1251,6 +1261,12 @@ $compte_arret_grace = !empty($compte_arret_grace);
                                         <select style="display:block" class="form-control form-control-sm" name="heuredeptfid" id="hdepartfid">
                                             <option value="">Choisissez départ</option>
                                             
+                                        </select>
+                                    </div>
+                                    <div class="form-group col-sm-4" id="selprog_box_fid" style="display:none;">
+                                        <label style="display:block" id="selprog_label_fid">Départ (même heure)</label>
+                                        <select class="form-control form-control-sm" name="selprog_choice_fid" id="selprogfid">
+                                            <option value="">Choisissez le départ</option>
                                         </select>
                                     </div>                   
                                     <div class="form-group col-sm-4">
@@ -1306,6 +1322,12 @@ $compte_arret_grace = !empty($compte_arret_grace);
                                             
                                         </select>
                                     </div>
+                                        <div class="form-group col-sm-4" id="selprog_box_tr1fid" style="display:none;">
+                                            <label style="display:block">Départ (même heure)</label>
+                                            <select class="form-control form-control-sm" id="selprog_tr1fid">
+                                                <option value="">Choisissez le départ</option>
+                                            </select>
+                                        </div>
                                     <div class="form-group col-sm-4">
                                         <label style="display:none" id="siegitinefid">Siège</label>
                                         <select style="display:none" class="form-control form-control-sm" name="passagersiegesitinesfid" id="psiegesitinesfid">
@@ -1345,6 +1367,12 @@ $compte_arret_grace = !empty($compte_arret_grace);
                                             
                                         </select>
                                     </div>
+                                        <div class="form-group col-sm-4" id="selprog_box_tr2fid" style="display:none;">
+                                            <label style="display:block">Départ (même heure)</label>
+                                            <select class="form-control form-control-sm" id="selprog_tr2fid">
+                                                <option value="">Choisissez le départ</option>
+                                            </select>
+                                        </div>
                                     <div class="form-group col-sm-4">
                                         <label style="display:none;" id="siegitine1fid">Siège</label>
                                         <select style="display:none" class="form-control form-control-sm" name="passagersiegesitines1fid" id="psiegesitines1fid">
@@ -1383,6 +1411,12 @@ $compte_arret_grace = !empty($compte_arret_grace);
                                             
                                         </select>
                                     </div>
+                                        <div class="form-group col-sm-4" id="selprog_box_tr3fid" style="display:none;">
+                                            <label style="display:block">Départ (même heure)</label>
+                                            <select class="form-control form-control-sm" id="selprog_tr3fid">
+                                                <option value="">Choisissez le départ</option>
+                                            </select>
+                                        </div>
 
                                     <div class="form-group col-sm-4">
                                         <label style="display:none;" id="siegitine2fid">Siège</label>
@@ -1416,6 +1450,12 @@ $compte_arret_grace = !empty($compte_arret_grace);
                                             
                                         </select>
                                     </div>
+                                        <div class="form-group col-sm-4" id="selprog_box_tr4fid" style="display:none;">
+                                            <label style="display:block">Départ (même heure)</label>
+                                            <select class="form-control form-control-sm" id="selprog_tr4fid">
+                                                <option value="">Choisissez le départ</option>
+                                            </select>
+                                        </div>
                                     <div class="form-group col-sm-4">
                                         <label style="display:none;" id="siegitine3fid">Siège</label>
                                         <select style="display:none" class="form-control form-control-sm" name="passagersiegesitines3fid" id="psiegesitines3fid">
@@ -1872,11 +1912,12 @@ $compte_arret_grace = !empty($compte_arret_grace);
                                     <label>Arrivée</label>
                                     <select class="form-control form-control-sm" name="arrgar" id="arrisgare">
                                         <option value="">Choisissez l'arrivée</option>
-                                        <? foreach ($garearrivees as $garearrivee): ?>
-                                            <option value="<?= $garearrivee->code_gadest;?>/<?= $garearrivee->idgaresdest;?>">
-                                                <?= $garearrivee->nom_gadest; ?>
-                                            </option>
-                                        <? endforeach; ?>
+                                        <?php
+                                            $this->load->view('beagle/pages/guichet/_options_gare_arrivee', array(
+                                                'garearrivees' => !empty($garearrivees) ? $garearrivees : array(),
+                                                'value_format' => 'code_idgare',
+                                            ));
+                                        ?>
                                     </select>
                                 </div>
                             </div>

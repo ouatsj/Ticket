@@ -2213,7 +2213,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     } else if (window.ActiveXObject) {
                         Infostypinforecapt = new ActiveXObject("Microsoft.XMLHTTP");
                     }
-                    document.querySelector('#gnom').options.length = 1;
+                    document.querySelector('#recaptgnom').options.length = 1;
                     var recapttypedepchoisi = document.querySelector('#recaptdtype')
                     .options[document.querySelector('#recaptdtype').options.selectedIndex].value;
 
@@ -2430,7 +2430,7 @@ document.addEventListener('DOMContentLoaded', () => {
         
                             } 
                             if (Object.entries(resperecapt).length >= 1) {
-                                for (let key in Object.entries(respe)) {
+                                for (let key in Object.entries(resperecapt)) {
                                     let opt = document.createElement('option');
                                     opt.value = `${resperecapt[key].nom_pre}`;
                                     opt.innerHTML = `${resperecapt[key].nom_pre}`;
@@ -2449,7 +2449,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 };
         e.onclick = function () {
         let recaptlistedepot = document.querySelector('#recaptdepotForm');
-        recaptlistedepot.setAttribute('action', `${APP_ROOT}/Rapport/recaptdepot/${e.dataset.ekey}`);
+        recaptlistedepot.setAttribute('action', `${APP_ROOT}/Rapport/recaptdepot/${e.dataset.ckey}`);
         }
 
     })
@@ -2550,7 +2550,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 };
         e.onclick = function () {
         let recaptlisteautredepot = document.querySelector('#recaptautredepotForm');
-        recaptlisteautredepot.setAttribute('action', `${APP_ROOT}/Rapport/recaptautredepot/${e.dataset.ekey}`);
+        recaptlisteautredepot.setAttribute('action', `${APP_ROOT}/Rapport/recaptautredepot/${e.dataset.ckey}`);
         }
 
     })

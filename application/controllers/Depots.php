@@ -295,15 +295,30 @@
             $identifiant_gare = $this->input->post('idgar');
             $identifiant_use = $this->input->post('iduse');
             $identifiant_sousgare = $this->input->post('idsousgar');
+            $cashboxContext = roleattribut_guard_main_cashbox_validation_context(
+                $this->company->ekey,
+                $identifiant_gare,
+                $dop
+            );
+            if ($cashboxContext) {
+                roleattribut_guard_assert_main_cashbox_operation(
+                    'depot',
+                    $idpo,
+                    $this->company->ekey,
+                    $identifiant_gare,
+                    $cashboxContext['caissier_ra']
+                );
+            }
             $depoaray = array(
                 'commentaire_depot' => $this->input->post('comment'),
                 'valid_cptabledepo' => 1,
+                'opvalid_cptabledepo' => roleattribut_guard_session_ra(),
             );
             $depo = $this->m_depot->update($idpo, $depoaray);
             
             $this->property['UPDATE_SUCCESS'] = TRUE;
             
-                redirect('utilisateurs/'.$this->session->company->ekey. '/caisseprincdepot/'. $identifiant_gare. '/'. $identifiant_use. '/'.$identifiant_sousgare .'/'.$dop. '/' . mdate("%d/%m/%Y", now('UTC')));
+                redirect('utilisateurs/'.$this->session->company->ekey. '/caisseprincdepot/'. $identifiant_gare. '/'. ($cashboxContext ? $cashboxContext['consultant_ra'] : $identifiant_use). '/'.$identifiant_sousgare .'/'.($cashboxContext ? $cashboxContext['caissier_ra'] : $dop). '/' . mdate("%d/%m/%Y", now('UTC')));
             
         }
 
@@ -314,6 +329,20 @@
             $identifiant_gare = $this->input->post('idgar');
             $identifiant_use = $this->input->post('iduse');
             $identifiant_sousgare = $this->input->post('idsousgar');
+            $cashboxContext = roleattribut_guard_main_cashbox_validation_context(
+                $this->company->ekey,
+                $identifiant_gare,
+                $dop
+            );
+            if ($cashboxContext) {
+                roleattribut_guard_assert_main_cashbox_operation(
+                    'depot',
+                    $idpo,
+                    $this->company->ekey,
+                    $identifiant_gare,
+                    $cashboxContext['caissier_ra']
+                );
+            }
             $depoaray = array(
                 'commentaire_depot' => $this->input->post('comment'),
                 'ferme_caisdepo' => 0,
@@ -322,7 +351,7 @@
             
             $this->property['UPDATE_SUCCESS'] = TRUE;
             
-                redirect('utilisateurs/'.$this->session->company->ekey. '/caisseprincdepot/'. $identifiant_gare. '/'. $identifiant_use. '/'.$identifiant_sousgare.'/'. $dop. '/' . mdate("%d/%m/%Y", now('UTC')));
+                redirect('utilisateurs/'.$this->session->company->ekey. '/caisseprincdepot/'. $identifiant_gare. '/'. ($cashboxContext ? $cashboxContext['consultant_ra'] : $identifiant_use). '/'.$identifiant_sousgare.'/'. ($cashboxContext ? $cashboxContext['caissier_ra'] : $dop). '/' . mdate("%d/%m/%Y", now('UTC')));
             
         }
         

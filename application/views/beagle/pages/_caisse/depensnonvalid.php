@@ -1,14 +1,33 @@
 <?php
     
-    defined('BASEPATH') OR exit('No direct script access allowed'); ?>
+    defined('BASEPATH') OR exit('No direct script access allowed');
+    $total_attente_depense = 0;
+    foreach ($depenses as $_item) {
+        $total_attente_depense += (float) $_item->montant_depens;
+    }
+    $chef_label = trim(($user_connect->first_name ?? '') . ' ' . ($user_connect->last_name ?? ''));
+    if ($chef_label === '') {
+        $chef_label = !empty($user_connect->username) ? $user_connect->username : 'Chef guichet';
+    }
+?>
     <div class="row">
-        <p class="mt-0 mb-2 ml-4">
+        <div class="col-12 mt-0 mb-2 ml-4 mr-4">
             <a href="<?= site_url("utilisateurs/{$this->session->company->ekey}". "/caissier/".
                 (!empty($caisseident->gexp_caiss) ? $caisseident->gexp_caiss : 0). "/".(!empty($caisseident->id_caiss) ? $caisseident->id_caiss : 0). "/".(!empty($user_connect->roleattribut) ? $user_connect->roleattribut : 0).'/'.$connex->roleattribut.'/'.$bus_stop->idsousgare.
                 "/" . mdate("%d/%m/%Y", now('UTC'))); ?>" class="btn btn-space btn-secondary">
                     <i class="fas fa-arrow-circle-left text-info"></i>&nbsp;RETOUR&nbsp;
             </a>
-        </p>
+            <div class="mt-3 p-3 border rounded bg-light">
+                <p class="mb-1">Chef guichet : <strong><?= htmlspecialchars($chef_label, ENT_QUOTES, 'UTF-8'); ?></strong></p>
+                <p class="mb-0">
+                    Total dépenses en attente de validation :
+                    <strong class="text-danger" style="font-size:1.2rem;">
+                        <?= number_format($total_attente_depense, 0, ',', ' '); ?> F
+                    </strong>
+                    <span class="text-muted small">(diminue après chaque validation)</span>
+                </p>
+            </div>
+        </div>
     </div>
 <div class="row">
 

@@ -73,7 +73,7 @@
                             <td>
                                 <span>Départ:<?= $item->date_progr; ?></span><br>
                                 <span>Heure:<?= $item->heure; ?></span><br>
-                                <span>Axe:<?= $item->nom_ligne; ?> <?= $item->quart; ?></span>
+                                <span>Axe:<?= ticket_axe_label($item); ?> <?= $item->quart; ?></span>
                             </td>
 
                             <td>

@@ -15,27 +15,74 @@
 
             if ($lg_id === FALSE) {
                 return $this->db->query(
-                    "SELECT * FROM lignes lg
-                    JOIN gare_dest ga ON lg.gadest_lg = ga.code_gadest
-                    JOIN gare_exp ge ON lg.gaexp_lg	= ge.code_gaexp
-                    JOIN gares g ON ge.garesid = g.idengare
-                    JOIN ville v ON ga.id_villega = v.id_ville
-                    JOIN compagnies c ON ge.id_compagd = c.cle_compagnie
-                    JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                    WHERE e.id_entreprise = '$cid'
-                    ORDER BY lg.nom_ligne")->result();
-            } else
-                return $this->db->query(
-                    "SELECT * FROM lignes lg
+                    "SELECT lg.*, ga.*, ge.*, g.*, v.*, e.*,
+                            c.nom_compagnie AS nom_compagnie_depart,
+                            c.cle_compagnie AS cle_compagnie_depart,
+                            ca.nom_compagnie AS nom_compagnie_arrivee,
+                            ca.cle_compagnie AS cle_compagnie_arrivee
+                    FROM lignes lg
                     JOIN gare_dest ga ON lg.gadest_lg = ga.code_gadest
                     JOIN gare_exp ge ON lg.gaexp_lg = ge.code_gaexp
                     JOIN gares g ON ge.garesid = g.idengare
                     JOIN ville v ON ga.id_villega = v.id_ville
                     JOIN compagnies c ON ge.id_compagd = c.cle_compagnie
+                    JOIN compagnies ca ON ga.id_compaga = ca.cle_compagnie
+                    JOIN entreprise e ON c.id_entrep = e.id_entreprise
+                    WHERE e.id_entreprise = '$cid'
+                    ORDER BY ca.nom_compagnie ASC, ga.nom_gadest ASC, lg.nom_ligne ASC")->result();
+            } else
+                return $this->db->query(
+                    "SELECT lg.*, ga.*, ge.*, g.*, v.*, e.*,
+                            c.nom_compagnie AS nom_compagnie_depart,
+                            c.cle_compagnie AS cle_compagnie_depart,
+                            ca.nom_compagnie AS nom_compagnie_arrivee,
+                            ca.cle_compagnie AS cle_compagnie_arrivee
+                    FROM lignes lg
+                    JOIN gare_dest ga ON lg.gadest_lg = ga.code_gadest
+                    JOIN gare_exp ge ON lg.gaexp_lg = ge.code_gaexp
+                    JOIN gares g ON ge.garesid = g.idengare
+                    JOIN ville v ON ga.id_villega = v.id_ville
+                    JOIN compagnies c ON ge.id_compagd = c.cle_compagnie
+                    JOIN compagnies ca ON ga.id_compaga = ca.cle_compagnie
                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
                     WHERE e.id_entreprise = '$cid'
                     AND lg.id_ligne = '$lg_id'
                     ORDER BY lg.nom_ligne")->row();
+        }
+
+        /**
+         * Regroupe des lignes déjà chargées par compagnie d'arrivée.
+         *
+         * @param array $rows
+         * @return array [cle_compagnie => [nom_compagnie, cle_compagnie, lignes[]]]
+         */
+        public function group_by_compagnie_arrivee($rows)
+        {
+            $groups = array();
+            if (empty($rows)) {
+                return $groups;
+            }
+            foreach ($rows as $row) {
+                $key = isset($row->cle_compagnie_arrivee) ? (string) $row->cle_compagnie_arrivee : '';
+                if ($key === '' && isset($row->id_compaga)) {
+                    $key = (string) $row->id_compaga;
+                }
+                if ($key === '') {
+                    $key = '_sans';
+                }
+                if (!isset($groups[$key])) {
+                    $nom = !empty($row->nom_compagnie_arrivee)
+                        ? $row->nom_compagnie_arrivee
+                        : (!empty($row->nom_compagnie) ? $row->nom_compagnie : 'Sans compagnie');
+                    $groups[$key] = array(
+                        'cle_compagnie' => $key === '_sans' ? null : $key,
+                        'nom_compagnie' => $nom,
+                        'lignes' => array(),
+                    );
+                }
+                $groups[$key]['lignes'][] = $row;
+            }
+            return $groups;
         }
 
 

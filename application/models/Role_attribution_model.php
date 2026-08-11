@@ -105,6 +105,10 @@ class Role_attribution_model extends CI_Model
         /**
          * Libère les guichets laissés actifs par des comptes déjà déconnectés
          * ou des gares/attributions désactivées (ne doivent plus être utilisables).
+         *
+         * Ne pas appeler juste après activate_exclusive() tant que is_conect=0 :
+         * sinon l'attribution fraîchement activée est immédiatement remise à 0
+         * (échec login au 1er essai, succès au 2e quand is_conect est déjà 1).
          */
         public function clear_stale_activeattrib()
         {
@@ -178,24 +182,6 @@ class Role_attribution_model extends CI_Model
                     JOIN entreprise e ON u.cle_comp = e.ekey
                     WHERE e.ekey = '$cid'
                     AND ar.roleattribut = '$useid'")->row();
-        }
-
-        public function get_by_account($cid, $cpuser_id)
-        {
-            return $this->db->query(
-                "SELECT ar.*, ul.*, cu.*, u.*, r.*, g.*, e.*
-                 FROM attributions_role ar
-                 JOIN user_login ul ON ar.idgestcompte = ul.uid_login
-                 JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
-                 JOIN utilisateurs u ON cu.userlog_id = u.uid
-                 JOIN user_roles r ON ar.userole = r.id_rols
-                 JOIN gares g ON ul.guser = g.idengare
-                 JOIN entreprise e ON u.cle_comp = e.ekey
-                 WHERE e.ekey = ?
-                 AND cu.cpuser_id = ?
-                 ORDER BY g.garenom, r.type_rols",
-                array((int) $cid, (int) $cpuser_id)
-            )->result();
         }
         
     }

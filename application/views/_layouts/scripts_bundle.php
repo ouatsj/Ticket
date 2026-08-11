@@ -24,13 +24,7 @@ $bundle_datatables = !empty($bundle_datatables);
 <script type="application/javascript" src="<?= base_url('assets/js/retour.js'); ?>"></script>
 <script type="application/javascript" src="<?= base_url('assets/js/request-guard.js'); ?>"></script>
 <?php foreach ($bundle_js as $js): ?>
-<?php
-$js_relative_path = 'assets/js/' . $js;
-$js_file_path = FCPATH . $js_relative_path;
-$js_version = is_file($js_file_path) ? (string) filemtime($js_file_path) : '';
-$js_url = base_url($js_relative_path) . ($js_version !== '' ? '?v=' . rawurlencode($js_version) : '');
-?>
-<script type="application/javascript" src="<?= htmlspecialchars($js_url, ENT_QUOTES, 'UTF-8'); ?>"></script>
+<script type="application/javascript" src="<?= base_url('assets/js/' . $js); ?>?v=<?= @filemtime(FCPATH . 'assets/js/' . $js) ?: time(); ?>"></script>
 <?php endforeach; ?>
 
 <script type="text/javascript">

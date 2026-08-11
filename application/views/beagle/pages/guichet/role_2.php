@@ -701,7 +701,7 @@
                             <input class="form-control form-control-sm" type="hidden" name="userconnected" value="<?=$conex->roleattribut;?>">
                             <input class="form-control form-control-sm" type="hidden" name="sousgareconnect" value="<?=$bus_stop->idsousgare;?>">
                             <input class="form-control form-control-sm" type="hidden" name="compconnected" value="<?=$conex->cpuser_id;?>">
-                            <div class="card-header text-center">Information sur le depart </div>
+                            <div class="card-header text-center">Type de billet</div>
                             
                                 <div class="col-sm-4 text-center text-danger" style="display:none"
                                     id="smsdt">
@@ -720,6 +720,9 @@
                                         
                                     </div>
                                 </div>
+
+                                <div class="px-3 pb-2" data-compagnies-arrivee-for="arrsgare"></div>
+                                <div class="card-header text-center">Trajet</div>
                                 <div class="row">
                                     <div class="form-group col-sm-4">
                                         <label style="display:block" id="iddep">Départ</label>
@@ -735,11 +738,12 @@
                                         <label style="display:block" id="arrid">Arrivée</label>
                                         <select style="display:block" class="form-control form-control-sm" name="arrgare" id="arrsgare">
                                             <option value="">Choisissez l'arrivée</option>
-                                            <? foreach ($garearrivees as $garearrivee): ?>
-                                                <option value="<?= $garearrivee->code_gadest; ?>/<?= $garearrivee->id_compaga; ?>">
-                                                    <?= $garearrivee->nom_gadest; ?>
-                                                </option>
-                                            <? endforeach; ?>
+                                            <?php
+                                                $this->load->view('beagle/pages/guichet/_options_gare_arrivee', array(
+                                                    'garearrivees' => !empty($garearrivees) ? $garearrivees : array(),
+                                                    'value_format' => 'code_comp',
+                                                ));
+                                            ?>
                                         </select>
                                     </div>
                                     <div class="form-group col-sm-4">
@@ -749,170 +753,286 @@
                                             
                                         </select>
                                     </div>
+                                    <div class="form-group col-sm-12" id="escale_dest_wrap">
+                                        <div class="form-check">
+                                            <label class="custom-control custom-checkbox custom-control-inline mb-0">
+                                                <input class="custom-control-input" type="checkbox" id="escale_vente_check" name="escale_vente_check" value="1">
+                                                <span class="custom-control-label" id="escale_dest_label">Vente escale</span>
+                                            </label>
+                                        </div>
+                                        <div id="escale_dest_fields" style="display:none; margin-top:8px;" class="row">
+                                            <div class="form-group col-sm-4 mb-0">
+                                                <label style="display:block" for="escale_dest_select">Destination escale</label>
+                                                <select style="display:block" class="form-control form-control-sm" name="escale_dest_select" id="escale_dest_select">
+                                                    <option value="">Choisissez l&apos;escale</option>
+                                                </select>
+                                                <small class="form-text text-muted" id="escale_dest_help">Choisissez l&apos;escale demandée (quartier non requis).</small>
+                                            </div>
+                                        </div>
+                                        <input type="hidden" name="id_escale_vente" id="id_escale_vente" value="">
+                                        <input type="hidden" name="code_gadest_vente" id="code_gadest_vente" value="">
+                                        <input type="hidden" name="nom_dest_vente" id="nom_dest_vente" value="">
+                                    </div>
+                                </div>
+
+                                <div class="card-header text-center">Place</div>
+                                <div class="row">
                                     <div class="form-group col-sm-4">
-                                        <label>Date depart</label>
+                                        <label>Date départ</label>
                                         <input class="form-control form-control-sm" type="date" name="datedepart" id="date_depheure">
                                     </div>
-                                    
-                                    <div class="card-header text-center" id="tran" style="display:none">Transite</div>
                                     <div class="form-group col-sm-4">
+                                        <div class="col-12 text-info small px-0" id="sms_heure_flow" style="display:none; margin-bottom:6px;"></div>
                                         <label style="display:block" id="hrid">Heure</label>
                                         <select style="display:block" class="form-control form-control-sm" name="heuredept" id="hdepart">
                                             <option value="">Choisissez départ</option>
                                             
                                         </select>
-                                    </div>                   
+                                    </div>
+                                    <div class="form-group col-sm-4" id="selprog_box" style="display:none;">
+                                        <label style="display:block" id="selprog_label">Départ (même heure)</label>
+                                        <select class="form-control form-control-sm" name="selprog_choice" id="selprog">
+                                            <option value="">Choisissez le départ</option>
+                                        </select>
+                                    </div>
                                     <div class="form-group col-sm-4">
                                         <label style="display:block;" id="sigid">Siège</label>
                                         <select style="display:block" class="form-control form-control-sm" name="passagersieges" id="psieges">
                                             <option value="">Choisissez siège</option>
                                         </select>
                                     </div>
+                                    <div class="form-group col-sm-4">
+                                        <label for="prix_axe_affiche">Prix (FCFA)</label>
+                                        <input class="form-control form-control-sm font-weight-bold" type="text" id="prix_axe_affiche" readonly autocomplete="off" placeholder="—" style="background:#f7f7f7;">
+                                    </div>
                                     <div class="col-sm-4 text-center text-danger" style="display:none"
                                         id="mess">
                                         <p id="erreurMess"></p>
                                     </div>
-                                                   
-                                    <div> 
-                                        <input class="form-control form-control-sm" type="hidden" name="itincode"
-                                            id="itinecode">
-                                    </div>
-                                    <div> 
-                                        <input class="form-control form-control-sm" type="hidden" name="lignetineraires"
-                                            id="lignetineraire">
+                                </div>
+
+                                <div id="tran" style="display:none; margin: 10px 0 16px; padding: 12px 8px; border: 1px solid #d7d7d7; border-radius: 4px; background: #fafafa;">
+                                    <div class="card-header text-center" style="background:transparent; border:0;">Correspondances</div>
+                                    <input type="hidden" name="itincode" id="itinecode">
+                                    <input type="hidden" name="lignetineraires" id="lignetineraire">
+                                    <input type="hidden" name="itincodees" id="itinecodes">
+
+                                    <div class="row align-items-end">
+                                        <div class="col-12"><small class="text-muted font-weight-bold" id="corr_leg_1_hint" style="display:none;">Étape 1</small></div>
+                                        <div class="form-group col-sm-4">
+                                            <label style="display:none" id="ligne1">Correspondance 1 — ligne</label>
+                                            <input class="form-control form-control-sm" style="display:none" type="text" name="lignesitineraires"
+                                                id="lignesitineraire" disabled="">
+                                        </div>
+                                        <div class="form-group col-sm-4" id="escale_leg_wrap_tr1" style="display:none;">
+                                            <label id="escale_leg_label_tr1">Vente escale</label>
+                                            <div class="form-check mb-1">
+                                                <label class="custom-control custom-checkbox custom-control-inline mb-0">
+                                                    <input class="custom-control-input" type="checkbox" id="escale_vente_check_tr1" name="escale_vente_check_tr1" value="1">
+                                                    <span class="custom-control-label">Activer</span>
+                                                </label>
+                                            </div>
+                                            <div id="escale_dest_fields_tr1" style="display:none;">
+                                                <select class="form-control form-control-sm" name="escale_dest_select_tr1" id="escale_dest_select_tr1">
+                                                    <option value="">Choisissez l&apos;escale</option>
+                                                </select>
+                                            </div>
+                                            <input type="hidden" name="id_escale_vente_tr1" id="id_escale_vente_tr1" value="">
+                                            <input type="hidden" name="code_gadest_vente_tr1" id="code_gadest_vente_tr1" value="">
+                                            <input type="hidden" name="nom_dest_vente_tr1" id="nom_dest_vente_tr1" value="">
+                                        </div>
+                                        <div class="form-group col-sm-4">
+                                            <label style="display:none" id="idquart1">Correspondance 1 — quartier</label>
+                                            <select style="display:none" name="quartconfirme1" class="form-control form-control-sm" id="quartier1">
+                                                    <option value="">Choisissez le quartier</option>
+                                            </select>
+                                        </div>
+                                        <div class="form-group col-sm-4">
+                                            <label style="display:none" id="heureitin">Correspondance 1 — heure</label>
+                                            <select style="display:none" class="form-control form-control-sm" name="heuredeptitine" id="hdepartitine">
+                                                <option value="">Choisissez heure départ</option>
+                                            </select>
+                                        </div>
+                                        <div class="form-group col-sm-4" id="selprog_box_tr1" style="display:none;">
+                                            <label style="display:block" id="selprog_label_tr1">Départ (même heure)</label>
+                                            <select class="form-control form-control-sm" name="selprog_tr1_choice" id="selprog_tr1">
+                                                <option value="">Choisissez le départ</option>
+                                            </select>
+                                        </div>
+                                        <div class="form-group col-sm-4">
+                                            <label style="display:none" id="siegitine">Correspondance 1 — siège</label>
+                                            <select style="display:none" class="form-control form-control-sm" name="passagersiegesitines" id="psiegesitines">
+                                                <option value="">Choisissez siège</option>
+                                            </select>
+                                        </div>
+                                        <div class="form-group col-sm-4">
+                                            <label style="display:none" id="iddeptrans1">Correspondance 1 — départ</label>
+                                            <select style="display:none" class="form-control form-control-sm" name="transitedepargare1" id="transitedepargare1">
+                                            </select>
+                                        </div>
                                     </div>
 
-                                    <div> 
-                                        <input class="form-control form-control-sm" type="hidden" name="itincodees"
-                                            id="itinecodes">
+                                    <div class="row align-items-end">
+                                        <div class="form-group col-sm-4">
+                                            <label style="display:none" id="arritin1">Correspondance 2 — ligne</label>
+                                            <select style="display:none" class="form-control form-control-sm" name="idchemin" id="idchemins">
+                                                <option value="">Choisissez la ligne</option>
+                                            </select>
+                                        </div>
+                                        <div class="form-group col-sm-4" id="escale_leg_wrap_tr2" style="display:none;">
+                                            <label id="escale_leg_label_tr2">Vente escale</label>
+                                            <div class="form-check mb-1">
+                                                <label class="custom-control custom-checkbox custom-control-inline mb-0">
+                                                    <input class="custom-control-input" type="checkbox" id="escale_vente_check_tr2" name="escale_vente_check_tr2" value="1">
+                                                    <span class="custom-control-label">Activer</span>
+                                                </label>
+                                            </div>
+                                            <div id="escale_dest_fields_tr2" style="display:none;">
+                                                <select class="form-control form-control-sm" name="escale_dest_select_tr2" id="escale_dest_select_tr2">
+                                                    <option value="">Choisissez l&apos;escale</option>
+                                                </select>
+                                            </div>
+                                            <input type="hidden" name="id_escale_vente_tr2" id="id_escale_vente_tr2" value="">
+                                            <input type="hidden" name="code_gadest_vente_tr2" id="code_gadest_vente_tr2" value="">
+                                            <input type="hidden" name="nom_dest_vente_tr2" id="nom_dest_vente_tr2" value="">
+                                        </div>
+                                        <div class="form-group col-sm-4">
+                                            <label style="display:none" id="idquart2">Correspondance 2 — quartier</label>
+                                            <select style="display:none" name="quartconfirme2" class="form-control form-control-sm" id="quartier2">
+                                                    <option value="">Choisissez le quartier</option>
+                                            </select>
+                                        </div>
+                                        <div class="form-group col-sm-4">
+                                            <label style="display:none" id="heureitin1">Correspondance 2 — heure</label>
+                                            <select style="display:none" class="form-control form-control-sm" name="idcheminheure" id="idcheminsheur">
+                                                <option value="">Choisissez heure départ</option>
+                                            </select>
+                                        </div>
+                                        <div class="form-group col-sm-4" id="selprog_box_tr2" style="display:none;">
+                                            <label style="display:block" id="selprog_label_tr2">Départ (même heure)</label>
+                                            <select class="form-control form-control-sm" name="selprog_tr2_choice" id="selprog_tr2">
+                                                <option value="">Choisissez le départ</option>
+                                            </select>
+                                        </div>
+                                        <div class="form-group col-sm-4">
+                                            <label style="display:none;" id="siegitine1">Correspondance 2 — siège</label>
+                                            <select style="display:none" class="form-control form-control-sm" name="passagersiegesitines1" id="psiegesitines1">
+                                                <option value="">Choisissez le siège</option>
+                                            </select>
+                                        </div>
+                                        <div class="form-group col-sm-4">
+                                            <label style="display:none" id="iddeptrans2">Correspondance 2 — départ</label>
+                                            <select style="display:none" class="form-control form-control-sm" name="transitedepargare2" id="transitedepargare2">
+                                            </select>
+                                        </div>
                                     </div>
-                                    
-                                    <div> 
-                                        <label style="display:none" id="ligne1">Ligne transite1</label>
-                                        <input class="form-control form-control-sm" style="display:none" type="text" name="lignesitineraires"
-                                            id="lignesitineraire" disabled="">
+
+                                    <div class="row align-items-end">
+                                        <div class="form-group col-sm-4">
+                                            <label style="display:none" id="arritin2">Correspondance 3 — ligne</label>
+                                            <select style="display:none" class="form-control form-control-sm" name="idchemin1" id="idchemins1">
+                                                <option value="">Choisissez la ligne</option>
+                                            </select>
+                                        </div>
+                                        <div class="form-group col-sm-4" id="escale_leg_wrap_tr3" style="display:none;">
+                                            <label id="escale_leg_label_tr3">Vente escale</label>
+                                            <div class="form-check mb-1">
+                                                <label class="custom-control custom-checkbox custom-control-inline mb-0">
+                                                    <input class="custom-control-input" type="checkbox" id="escale_vente_check_tr3" name="escale_vente_check_tr3" value="1">
+                                                    <span class="custom-control-label">Activer</span>
+                                                </label>
+                                            </div>
+                                            <div id="escale_dest_fields_tr3" style="display:none;">
+                                                <select class="form-control form-control-sm" name="escale_dest_select_tr3" id="escale_dest_select_tr3">
+                                                    <option value="">Choisissez l&apos;escale</option>
+                                                </select>
+                                            </div>
+                                            <input type="hidden" name="id_escale_vente_tr3" id="id_escale_vente_tr3" value="">
+                                            <input type="hidden" name="code_gadest_vente_tr3" id="code_gadest_vente_tr3" value="">
+                                            <input type="hidden" name="nom_dest_vente_tr3" id="nom_dest_vente_tr3" value="">
+                                        </div>
+                                        <div class="form-group col-sm-4">
+                                            <label style="display:none" id="idquart3">Correspondance 3 — quartier</label>
+                                            <select style="display:none" name="quartconfirme3" class="form-control form-control-sm" id="quartier3">
+                                                    <option value="">Choisissez le quartier</option>
+                                            </select>
+                                        </div>
+                                        <div class="form-group col-sm-4">
+                                            <label style="display:none" id="heureitin2">Correspondance 3 — heure</label>
+                                            <select style="display:none" class="form-control form-control-sm" name="idcheminheure1" id="idcheminsheur1">
+                                                <option value="">Choisissez heure départ</option>
+                                            </select>
+                                        </div>
+                                        <div class="form-group col-sm-4" id="selprog_box_tr3" style="display:none;">
+                                            <label style="display:block" id="selprog_label_tr3">Départ (même heure)</label>
+                                            <select class="form-control form-control-sm" name="selprog_tr3_choice" id="selprog_tr3">
+                                                <option value="">Choisissez le départ</option>
+                                            </select>
+                                        </div>
+                                        <div class="form-group col-sm-4">
+                                            <label style="display:none;" id="siegitine2">Correspondance 3 — siège</label>
+                                            <select style="display:none" class="form-control form-control-sm" name="passagersiegesitines2" id="psiegesitines2">
+                                                <option value="">Choisissez le siège</option>
+                                            </select>
+                                        </div>
+                                        <div class="form-group col-sm-4">
+                                            <label style="display:none" id="iddeptrans3">Correspondance 3 — départ</label>
+                                            <select style="display:none" class="form-control form-control-sm" name="transitedepargare3" id="transitedepargare3">
+                                            </select>
+                                        </div>
                                     </div>
-                                    <div class="form-group col-sm-4">
-                                        <label style="display:none" id="idquart1">Quartier</label>
-                                        <select style="display:none" name="quartconfirme1" class="form-control form-control-sm" id="quartier1">
-                                                <option value="">Choisissez le quartier</option>
-                                            
-                                        </select>
-                                    </div>
-                                    <div class="form-group col-sm-4">
-                                        <label style="display:none" id="heureitin">Heure</label>
-                                        <select style="display:none" class="form-control form-control-sm" name="heuredeptitine" id="hdepartitine">
-                                            <option value="">Choisissez heure départ</option>
-                                            
-                                        </select>
-                                    </div>
-                                    <div class="form-group col-sm-4">
-                                        <label style="display:none" id="siegitine">Siège</label>
-                                        <select style="display:none" class="form-control form-control-sm" name="passagersiegesitines" id="psiegesitines">
-                                            <option value="">Choisissez siège</option>
-                                        </select>
-                                    </div>
-                                    <div class="form-group col-sm-4">
-                                        <label style="display:none" id="iddeptrans1">Départ transite1</label>
-                                        <select style="display:none" class="form-control form-control-sm" name="transitedepargare1" id="transitedepargare1">
-                                            
-                                        </select>
-                                    </div>
-                                    
-                                    <div class="form-group col-sm-4">
-                                        <label style="display:none" id="arritin1">Ligne transite2</label>
-                                        <select style="display:none" class="form-control form-control-sm" name="idchemin" id="idchemins">
-                                            <option value="">Choisissez la ligne</option>
-                                        </select>
-                                    </div>
-                                    <div class="form-group col-sm-4">
-                                        <label style="display:none" id="idquart2">Quartier</label>
-                                        <select style="display:none" name="quartconfirme2" class="form-control form-control-sm" id="quartier2">
-                                                <option value="">Choisissez le quartier</option>
-                                            
-                                        </select>
-                                    </div>
-                                    <div class="form-group col-sm-4">
-                                        <label style="display:none" id="heureitin1">Heure</label>
-                                        <select style="display:none" class="form-control form-control-sm" name="idcheminheure" id="idcheminsheur">
-                                            <option value="">Choisissez heure départ</option>
-                                            
-                                        </select>
-                                    </div>
-                                    <div class="form-group col-sm-4">
-                                        <label style="display:none;" id="siegitine1">Siège</label>
-                                        <select style="display:none" class="form-control form-control-sm" name="passagersiegesitines1" id="psiegesitines1">
-                                            <option value="">Choisissez le siège</option>
-                                        </select>
-                                    </div>
-                                    <div class="form-group col-sm-4">
-                                        <label style="display:none" id="iddeptrans2">Départ transite2</label>
-                                        <select style="display:none" class="form-control form-control-sm" name="transitedepargare2" id="transitedepargare2">
-                                            
-                                        </select>
-                                    </div>
-                                    
-                                    <div class="form-group col-sm-4">
-                                        <label style="display:none" id="arritin2">Ligne transite3</label>
-                                        <select style="display:none" class="form-control form-control-sm" name="idchemin1" id="idchemins1">
-                                            <option value="">Choisissez la ligne</option>
-                                        </select>
-                                    </div>
-                                    <div class="form-group col-sm-4">
-                                        <label style="display:none" id="idquart3">Quartier</label>
-                                        <select style="display:none" name="quartconfirme3" class="form-control form-control-sm" id="quartier3">
-                                                <option value="">Choisissez le quartier</option>
-                                            
-                                        </select>
-                                    </div>
-                                    <div class="form-group col-sm-4">
-                                        <label style="display:none" id="heureitin2">Heure</label>
-                                        <select style="display:none" class="form-control form-control-sm" name="idcheminheure1" id="idcheminsheur1">
-                                            <option value="">Choisissez heure départ</option>
-                                            
-                                        </select>
-                                    </div>
-                                    <div class="form-group col-sm-4">
-                                        <label style="display:none;" id="siegitine2">Siège</label>
-                                        <select style="display:none" class="form-control form-control-sm" name="passagersiegesitines2" id="psiegesitines2">
-                                            <option value="">Choisissez le siège</option>
-                                        </select>
-                                    </div>
-                                    <div class="form-group col-sm-4">
-                                        <label style="display:none" id="iddeptrans3">Départ transite3</label>
-                                        <select style="display:none" class="form-control form-control-sm" name="transitedepargare3" id="transitedepargare3">
-                                            
-                                        </select>
-                                    </div>
-                                    
-                                    <div class="form-group col-sm-4">
-                                        <label style="display:none" id="arritin3">Ligne transite4</label>
-                                        <select style="display:none" class="form-control form-control-sm" name="idchemin2" id="idchemins2">
-                                            <option value="">Choisissez la ligne</option>
-                                        </select>
-                                    </div>
-                                    
-                                    <div class="form-group col-sm-4">
-                                        <label style="display:none" id="heureitin3">Heure</label>
-                                        <select style="display:none" class="form-control form-control-sm" name="idcheminheure2" id="idcheminsheur2">
-                                            <option value="">Choisissez heure départ</option>
-                                            
-                                        </select>
-                                    </div>
-                                    <div class="form-group col-sm-4">
-                                        <label style="display:none;" id="siegitine3">Siège</label>
-                                        <select style="display:none" class="form-control form-control-sm" name="passagersiegesitines3" id="psiegesitines3">
-                                            <option value="">Choisissez le siège</option>
-                                        </select>
-                                    </div>
-                                    <div class="form-group col-sm-4">
-                                        <label style="display:none" id="iddeptrans4">Départ transite4</label>
-                                        <select style="display:none" class="form-control form-control-sm" name="transitedepargare4" id="transitedepargare4">
-                                            
-                                        </select>
+
+                                    <div class="row align-items-end">
+                                        <div class="form-group col-sm-4">
+                                            <label style="display:none" id="arritin3">Correspondance 4 — ligne</label>
+                                            <select style="display:none" class="form-control form-control-sm" name="idchemin2" id="idchemins2">
+                                                <option value="">Choisissez la ligne</option>
+                                            </select>
+                                        </div>
+                                        <div class="form-group col-sm-4" id="escale_leg_wrap_tr4" style="display:none;">
+                                            <label id="escale_leg_label_tr4">Vente escale</label>
+                                            <div class="form-check mb-1">
+                                                <label class="custom-control custom-checkbox custom-control-inline mb-0">
+                                                    <input class="custom-control-input" type="checkbox" id="escale_vente_check_tr4" name="escale_vente_check_tr4" value="1">
+                                                    <span class="custom-control-label">Activer</span>
+                                                </label>
+                                            </div>
+                                            <div id="escale_dest_fields_tr4" style="display:none;">
+                                                <select class="form-control form-control-sm" name="escale_dest_select_tr4" id="escale_dest_select_tr4">
+                                                    <option value="">Choisissez l&apos;escale</option>
+                                                </select>
+                                            </div>
+                                            <input type="hidden" name="id_escale_vente_tr4" id="id_escale_vente_tr4" value="">
+                                            <input type="hidden" name="code_gadest_vente_tr4" id="code_gadest_vente_tr4" value="">
+                                            <input type="hidden" name="nom_dest_vente_tr4" id="nom_dest_vente_tr4" value="">
+                                        </div>
+                                        <div class="form-group col-sm-4">
+                                            <label style="display:none" id="heureitin3">Correspondance 4 — heure</label>
+                                            <select style="display:none" class="form-control form-control-sm" name="idcheminheure2" id="idcheminsheur2">
+                                                <option value="">Choisissez heure départ</option>
+                                            </select>
+                                        </div>
+                                        <div class="form-group col-sm-4" id="selprog_box_tr4" style="display:none;">
+                                            <label style="display:block" id="selprog_label_tr4">Départ (même heure)</label>
+                                            <select class="form-control form-control-sm" name="selprog_tr4_choice" id="selprog_tr4">
+                                                <option value="">Choisissez le départ</option>
+                                            </select>
+                                        </div>
+                                        <div class="form-group col-sm-4">
+                                            <label style="display:none;" id="siegitine3">Correspondance 4 — siège</label>
+                                            <select style="display:none" class="form-control form-control-sm" name="passagersiegesitines3" id="psiegesitines3">
+                                                <option value="">Choisissez le siège</option>
+                                            </select>
+                                        </div>
+                                        <div class="form-group col-sm-4">
+                                            <label style="display:none" id="iddeptrans4">Correspondance 4 — départ</label>
+                                            <select style="display:none" class="form-control form-control-sm" name="transitedepargare4" id="transitedepargare4">
+                                            </select>
+                                        </div>
                                     </div>
                                 </div>
-                                <div class="card-header text-center">Information du client</div>
+
+                                <div class="card-header text-center">Client</div>
                                 <div class="row">
                                     <div class="form-group col-sm-4">
                                         <label>Type</label>
@@ -944,47 +1064,52 @@
                                             autocomplete="off" 
                                             placeholder="prenom" required>
                                     </div>
-                                    <div class="form-group col-sm-4">
-                                        <label>Cni ou Passport</label>
-                                        <input class="form-control form-control-sm" type="text" name="cnib"
-                                            id="cnib"
-                                            autocomplete="off"
-                                            placeholder="cni ou passport">
-                                    </div>
-                                    <div class="form-group col-sm-4">
-                                        <label>Délivré(e)le</label>
-                                        <input class="form-control form-control-sm" type="date" name="date_cnib" value="<?= mdate("%Y-%m-%d", now());?>"
-                                            id="date_cnib">
-                                    </div>
-                                    <div class="form-group col-sm-4">
-                                        <label class="col-sm-4 text-left">Lieu</label>
-                                        <input class="form-control form-control-sm" type="text" name="lieu"
-                                            id="lieudelivre"
-                                            autocomplete="off"
-                                            placeholder="lieu d'établissement">
-                                    </div>
-                                    <div class="form-group col-sm-4">
-                                        <label style="display:none" id="motif">Motif</label>
-                                        <select class="form-control form-control-sm" name="commentclient" style="display:none"
-                                                id="motifrefus">
-                                            <option value="">Choisissez une cause</option>
-                                            <option value="refus">refus</option>
-                                            <option value="pas de contact">pas de contact</option>
-                                            <option value="pas de cnib">pas de cnib</option>
-                                        </select>
-                                    </div>
-                                    <div class="form-group col-sm-4">
-                                        <label class="col-sm-4" style="display:none" id="doc">numéro_document</label>
-                                        <input class="form-control form-control-sm" type="text" name="document"
-                                            id="num_doc" style="display:none"
-                                            autocomplete="off">
-                                    </div>
-                                    <div class="form-group col-sm-4">
-                                        <label style="display:none" id="docdelivre">Délivré(e)le</label>
-                                        <input class="form-control form-control-sm" type="date" name="date_doc" value="<?= mdate("%Y-%m-%d", now());?>"
-                                        style="display:none" id="datedocdel">
-                                    </div>
                                 </div>
+                                <details class="mb-3" id="client_id_details" style="margin: 0 15px 12px;">
+                                    <summary style="cursor:pointer; font-weight:600; user-select:none;">Pièce d&apos;identité (optionnel)</summary>
+                                    <div class="row mt-2">
+                                        <div class="form-group col-sm-4">
+                                            <label>CNI ou Passeport</label>
+                                            <input class="form-control form-control-sm" type="text" name="cnib"
+                                                id="cnib"
+                                                autocomplete="off"
+                                                placeholder="cni ou passport">
+                                        </div>
+                                        <div class="form-group col-sm-4">
+                                            <label>Délivré(e) le</label>
+                                            <input class="form-control form-control-sm" type="date" name="date_cnib" value="<?= mdate("%Y-%m-%d", now());?>"
+                                                id="date_cnib">
+                                        </div>
+                                        <div class="form-group col-sm-4">
+                                            <label>Lieu</label>
+                                            <input class="form-control form-control-sm" type="text" name="lieu"
+                                                id="lieudelivre"
+                                                autocomplete="off"
+                                                placeholder="lieu d'établissement">
+                                        </div>
+                                        <div class="form-group col-sm-4">
+                                            <label style="display:none" id="motif">Motif</label>
+                                            <select class="form-control form-control-sm" name="commentclient" style="display:none"
+                                                    id="motifrefus">
+                                                <option value="">Choisissez une cause</option>
+                                                <option value="refus">refus</option>
+                                                <option value="pas de contact">pas de contact</option>
+                                                <option value="pas de cnib">pas de cnib</option>
+                                            </select>
+                                        </div>
+                                        <div class="form-group col-sm-4">
+                                            <label class="col-sm-4" style="display:none" id="doc">numéro_document</label>
+                                            <input class="form-control form-control-sm" type="text" name="document"
+                                                id="num_doc" style="display:none"
+                                                autocomplete="off">
+                                        </div>
+                                        <div class="form-group col-sm-4">
+                                            <label style="display:none" id="docdelivre">Délivré(e)le</label>
+                                            <input class="form-control form-control-sm" type="date" name="date_doc" value="<?= mdate("%Y-%m-%d", now());?>"
+                                            style="display:none" id="datedocdel">
+                                        </div>
+                                    </div>
+                                </details>
                                 <div class="form-group row">
                                     <div class="modal-footer">
                                         <button class="btn btn-secondary modal-close" type="reset" id="idreset">
@@ -1610,6 +1735,8 @@
                                         
                                     </div>
                                 </div>
+                                <div class="px-3 pb-2" data-compagnies-arrivee-for="arrsgarefid"></div>
+
                                 <div class="row">
                                     <div class="form-group col-sm-4">
                                         <label style="display:block" id="iddepfid">Départ</label>
@@ -1625,11 +1752,12 @@
                                         <label style="display:block" id="arridfid">Arrivée</label>
                                         <select style="display:block" class="form-control form-control-sm" name="arrigarefid" id="arrsgarefid">
                                             <option value="">Choisissez l'arrivée</option>
-                                            <? foreach ($garearrivees as $garearrivee): ?>
-                                                <option value="<?= $garearrivee->code_gadest; ?>">
-                                                    <?= $garearrivee->nom_gadest; ?>
-                                                </option>
-                                            <? endforeach; ?>
+                                            <?php
+                                                $this->load->view('beagle/pages/guichet/_options_gare_arrivee', array(
+                                                    'garearrivees' => !empty($garearrivees) ? $garearrivees : array(),
+                                                    'value_format' => 'code',
+                                                ));
+                                            ?>
                                         </select>
                                     </div>
                                     <div class="form-group col-sm-4">
@@ -1650,6 +1778,12 @@
                                         <select style="display:block" class="form-control form-control-sm" name="heuredeptfid" id="hdepartfid">
                                             <option value="">Choisissez départ</option>
                                             
+                                        </select>
+                                    </div>
+                                    <div class="form-group col-sm-4" id="selprog_box_fid" style="display:none;">
+                                        <label style="display:block" id="selprog_label_fid">Départ (même heure)</label>
+                                        <select class="form-control form-control-sm" name="selprog_choice_fid" id="selprogfid">
+                                            <option value="">Choisissez le départ</option>
                                         </select>
                                     </div>                   
                                     <div class="form-group col-sm-4">
@@ -1705,6 +1839,12 @@
                                             
                                         </select>
                                     </div>
+                                        <div class="form-group col-sm-4" id="selprog_box_tr1fid" style="display:none;">
+                                            <label style="display:block">Départ (même heure)</label>
+                                            <select class="form-control form-control-sm" id="selprog_tr1fid">
+                                                <option value="">Choisissez le départ</option>
+                                            </select>
+                                        </div>
                                     <div class="form-group col-sm-4">
                                         <label style="display:none" id="siegitinefid">Siège</label>
                                         <select style="display:none" class="form-control form-control-sm" name="passagersiegesitinesfid" id="psiegesitinesfid">
@@ -1744,6 +1884,12 @@
                                             
                                         </select>
                                     </div>
+                                        <div class="form-group col-sm-4" id="selprog_box_tr2fid" style="display:none;">
+                                            <label style="display:block">Départ (même heure)</label>
+                                            <select class="form-control form-control-sm" id="selprog_tr2fid">
+                                                <option value="">Choisissez le départ</option>
+                                            </select>
+                                        </div>
                                     <div class="form-group col-sm-4">
                                         <label style="display:none;" id="siegitine1fid">Siège</label>
                                         <select style="display:none" class="form-control form-control-sm" name="passagersiegesitines1fid" id="psiegesitines1fid">
@@ -1782,6 +1928,12 @@
                                             
                                         </select>
                                     </div>
+                                        <div class="form-group col-sm-4" id="selprog_box_tr3fid" style="display:none;">
+                                            <label style="display:block">Départ (même heure)</label>
+                                            <select class="form-control form-control-sm" id="selprog_tr3fid">
+                                                <option value="">Choisissez le départ</option>
+                                            </select>
+                                        </div>
 
                                     <div class="form-group col-sm-4">
                                         <label style="display:none;" id="siegitine2fid">Siège</label>
@@ -1807,13 +1959,18 @@
                                             <option value="">Choisissez la ligne</option>
                                         </select>
                                     </div>
-                                    
-                                    <div class="form-group col-sm-4">
+<div class="form-group col-sm-4">
                                         <label style="display:none" id="heureitin3fid">Heure</label>
                                         <select style="display:none" class="form-control form-control-sm" name="idcheminheure2fid" id="idcheminsheur2fid">
                                             <option value="">Choisissez heure départ</option> 
                                         </select>
                                     </div>
+                                        <div class="form-group col-sm-4" id="selprog_box_tr4fid" style="display:none;">
+                                            <label style="display:block">Départ (même heure)</label>
+                                            <select class="form-control form-control-sm" id="selprog_tr4fid">
+                                                <option value="">Choisissez le départ</option>
+                                            </select>
+                                        </div>
                                     <div class="form-group col-sm-4">
                                         <label style="display:none;" id="siegitine3fid">Siège</label>
                                         <select style="display:none" class="form-control form-control-sm" name="passagersiegesitines3fid" id="psiegesitines3fid">

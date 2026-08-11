@@ -88,7 +88,7 @@
     |
     |	$autoload['helper'] = array('url', 'file');
     */
-    $autoload['helper'] = array('url', 'form', 'html', 'date', 'string', 'file', 'session', 'retour', 'passwordhash', 'recette_role', 'compte_arret', 'roleattribut_guard', 'auth_session', 'ticket_prix', 'sales_price', 'url_safe', 'super_admin');
+    $autoload['helper'] = array('url', 'form', 'html', 'date', 'string', 'file', 'session', 'retour', 'passwordhash', 'recette_role', 'compte_arret', 'roleattribut_guard', 'auth_session', 'ticket_prix', 'url_safe', 'super_admin', 'sales_price');
     
     /*
     | -------------------------------------------------------------------
@@ -102,7 +102,7 @@
     | config files.  Otherwise, leave it blank.
     |
     */
-    $autoload['config'] = array('compte_arret', 'super_admin');
+    $autoload['config'] = array('compte_arret');
     
     /*
     | -------------------------------------------------------------------

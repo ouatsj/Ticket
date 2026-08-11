@@ -83,17 +83,25 @@
             $route['documentation/(:num)/manuel/(:any)'] = 'Documentation/manuel/$1/$2';
             $route['documentation/(:num)/qcm/(:any)'] = 'Documentation/qcm/$1/$2';
             $route['documentation/(:num)/qcm_corrige/(:any)'] = 'Documentation/qcm_corrige/$1/$2';
+
+            /** Audit quotidien */
             $route['audit_quotidien/(:num)'] = 'Audit_quotidien/index/$1';
             $route['audit_quotidien/(:num)/voir/(:num)'] = 'Audit_quotidien/voir/$1/$2';
             $route['audit_quotidien/(:num)/generer'] = 'Audit_quotidien/generer/$1';
-            $route['super-administration/(:num)/compte/(:num)'] = 'Super_administration/index/$1/$2';
-            $route['super-administration/(:num)'] = 'Super_administration/index/$1';
-            $route['super-administration/(:num)/permissions/(:num)'] = 'Super_administration/save_permissions/$1/$2';
-            $route['super-administration/(:num)/controle'] = 'Super_administration/toggle_enforcement/$1';
-            $route['super-administration/(:num)/reglages-ventes'] = 'Super_administration/save_sales_settings/$1';
-            $route['utilisateurs/(:num)/comptes/(:num)/profils'] = 'Utilisateurs/account_profiles/$1/$2';
-            $route['utilisateurs/(:num)/comptes/(:num)/gares'] = 'Utilisateurs/account_gares/$1/$2';
-            $route['utilisateurs/(:num)/comptes/(:num)/pages'] = 'Utilisateurs/account_pages/$1/$2';
+
+            /** Paramètres restrictions comptes (inactivité, sessions) */
+            $route['param_restrictions/(:num)'] = 'Param_restrictions/index/$1';
+            $route['param_restrictions/(:num)/save'] = 'Param_restrictions/save/$1';
+
+            /** Rapport autres ventes (0 F / hors tarif) */
+            $route['rapport_autre_vente/(:num)'] = 'Rapport_autre_vente/index/$1';
+            $route['rapport_autre_vente/(:num)/export'] = 'Rapport_autre_vente/export/$1';
+            $route['rapport_autre_vente/(:num)/imprimer'] = 'Rapport_autre_vente/imprimer/$1';
+            $route['rapport_autre_vente/(:num)/voir/(:any)'] = 'Rapport_autre_vente/voir/$1/$2';
+
+            /** Rapport modifications tickets */
+            $route['rapport_modif_ticket/(:num)'] = 'Rapport_modif_ticket/index/$1';
+            $route['rapport_modif_ticket/(:num)/export'] = 'Rapport_modif_ticket/export/$1';
             $route['utilisateurs/(:any)/gTv/(:any)/compte/(:any)/(:any)/(:any)'] = 'Utilisateurs/viewcompte/$1/$2/$3/$4/$5';
             $route['utilisateurs/(:any)/gTv/(:any)/(:any)/garecompte/(:any)/(:any)/(:any)'] = 'Utilisateurs/comptegares/$1/$2/$3/$4/$5/$6';
             $route['utilisateurs/(:any)/gTv/(:any)/(:any)/rolecompte/(:any)/(:any)/(:any)'] = 'Utilisateurs/compteroles/$1/$2/$3/$4/$5/$6';
@@ -219,6 +227,10 @@
             $route['lignes/(:num)'] = 'Lignes/view/$1';
             $route['lignes/(:num)/gTa'] = 'Lignes/add/$1/$2';
             $route['lignes/itineraires/(:num)'] = 'Lignes/itineraire/$1';
+            $route['lignes/escales/(:num)'] = 'Lignes/escales/$1';
+            $route['lignes/escales/(:num)/add'] = 'Lignes/addescale/$1';
+            $route['lignes/escales/(:num)/edit/(:num)'] = 'Lignes/editescale/$1/$2';
+            $route['lignes/escales/(:num)/toggle/(:num)/(:num)'] = 'Lignes/activeescale/$1/$2/$3';
 
 
             /* sous lignes */
@@ -249,6 +261,11 @@
             $route['programmes/verifinfosbis'] = 'Programmes/verifinfosbis';
             $route['programmes/deltamponsieg/(:any)/(:any)'] = 'Programmes/deltamponsieg/$1/$2';
             $route['programmes/deltamponsieg'] = 'Programmes/deltamponsieg';
+            $route['programmes/suggest_correspondances/(:any)/(:any)'] = 'Programmes/suggest_correspondances/$1/$2';
+            $route['programmes/get_correspondance/(:any)/(:any)'] = 'Programmes/get_correspondance/$1/$2';
+            $route['programmes/sousgares_correspondance/(:any)/(:any)'] = 'Programmes/sousgares_correspondance/$1/$2';
+            $route['programmes/link_correspondance/(:any)'] = 'Programmes/link_correspondance/$1';
+            $route['programmes/unlink_correspondance/(:any)'] = 'Programmes/unlink_correspondance/$1';
             $route['programmes/(:num)'] = 'Programmes/index/$1';
 
             /* reprogrammes — vérif. code client bagage / transit */

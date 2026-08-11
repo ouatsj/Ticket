@@ -25,14 +25,9 @@
             $this->company = $this->m_entreprises->get_key($ckey);
 
                 $this->property['pagetitle'] .= "• LISTE DES LIGNES<strong>•&nbsp;{$this->company->nom_entreprise}</strong>";
-                if ($this->session->agent->userole === '1' OR $this->session->agent->userole === '2'){
-
-                    $this->property['lignes'] = $this->m_lignes->getad($this->company->id_entreprise);
-                }
-                else
-                {
-                    $this->property['lignes'] = $this->m_lignes->get($this->company->id_entreprise);
-                }
+                $lignes = $this->m_lignes->getad($this->company->id_entreprise);
+                $this->property['lignes'] = $lignes;
+                $this->property['lignes_par_compagnie_arrivee'] = $this->m_lignes->group_by_compagnie_arrivee($lignes);
                 $this->property['garedeparts'] = $this->m_gare_depart->get($this->company->id_entreprise);
                 $this->property['garearrivees'] = $this->m_gare_arrivee->getad($this->company->id_entreprise);
                 return $this->layout->view('_ligne/view', $this->property);
@@ -109,274 +104,216 @@
         {
             $this->company = $this->m_entreprises->get_key($ckey);
 
-                $this->property['pagetitle'] .= "• LISTES DES ITINERAIRES<strong>•&nbsp;{$this->company->nom_entreprise}</strong>";
-                
-                //$this->property['itineraires'] = $this->m_itineraire->get($this->company->id_entreprise);
+            $this->property['pagetitle'] .= "• LISTES DES ITINERAIRES<strong>•&nbsp;{$this->company->nom_entreprise}</strong>";
 
-                $this->property['itineraires'] = $this->m_ligne_itineraire->get($this->company->id_entreprise);
-                if ($this->session->agent->userole === '1' OR $this->session->agent->userole === '2'){
+            if (!isset($this->m_itineraire_etape)) {
+                $this->load->model('Itineraire_etape_model', 'm_itineraire_etape');
+            }
+            if (!isset($this->m_itineraire_escale)) {
+                $this->load->model('Itineraire_escale_model', 'm_itineraire_escale');
+            }
 
-                    $this->property['lignes'] = $this->m_lignes->getad($this->company->id_entreprise);
-                }
-                else
-                {
-                    $this->property['lignes'] = $this->m_lignes->get($this->company->id_entreprise);
-                }
-                $this->property['garedeparts'] = $this->m_gare_depart->get($this->company->id_entreprise);
-                $this->property['garearrivees'] = $this->m_gare_arrivee->getad($this->company->id_entreprise);
-                return $this->layout->view('_ligne/index', $this->property);
+            $this->property['itineraires'] = $this->m_itineraire_etape->get($this->company->id_entreprise);
+            $this->property['escales'] = $this->m_itineraire_escale->get($this->company->id_entreprise);
+            if ($this->session->agent->userole === '1' OR $this->session->agent->userole === '2') {
+                $this->property['lignes'] = $this->m_lignes->getad($this->company->id_entreprise);
+            } else {
+                $this->property['lignes'] = $this->m_lignes->get($this->company->id_entreprise);
+            }
+            $this->property['garedeparts'] = array();
+            $this->property['garearrivees'] = $this->m_gare_arrivee->getad($this->company->id_entreprise);
+            return $this->layout->view('_ligne/index', $this->property);
         }
+
 
         public function additine($ckey)
         {
             $this->company = $this->m_entreprises->get_key($ckey);
 
-            
-            $gare_posd = strpos($this->input->post('garedepart'), '.');
-            
-            $sub_gcod = substr($this->input->post('garedepart'), 0, $gare_posd);
-            $sub_direction = substr($this->input->post('garedepart'), $gare_posd + 1, strlen($this->input->post('garedepart')));
-            
-            $gare_posa = strpos($this->input->post('garearrivee'), '.');
-            
-            $sub_gcoda = substr($this->input->post('garearrivee'), 0, $gare_posa);
-            $directionar = substr($this->input->post('garearrivee'), $gare_posa + 1, strlen($this->input->post('garearrivee')));
+            $parent = trim((string) $this->input->post('ligne'));
+            $etapes = array_filter(array(
+                trim((string) $this->input->post('etape1')),
+                trim((string) $this->input->post('etape2')),
+                trim((string) $this->input->post('etape3')),
+                trim((string) $this->input->post('etape4')),
+            ));
 
-            $gare_posd1 = strpos($this->input->post('garedepartsecond'), '.');
-            
-            $sub_gcod1 = substr($this->input->post('garedepartsecond'), 0, $gare_posd1);
-            $sub_direction1 = substr($this->input->post('garedepartsecond'), $gare_posd1 + 1, strlen($this->input->post('garedepartsecond')));
-            
-            $gare_posa1 = strpos($this->input->post('garearriveesecond'), '.');
-            
-            $sub_gcoda1 = substr($this->input->post('garearriveesecond'), 0, $gare_posa1);
-            $directionar1 = substr($this->input->post('garearriveesecond'), $gare_posa1 + 1, strlen($this->input->post('garearriveesecond')));
-                 $gare_posd2 = strpos($this->input->post('garedepartsecond2'), '.');
-                
-                $sub_gcod2 = substr($this->input->post('garedepartsecond2'), 0, $gare_posd2);
-                $sub_direction2 = substr($this->input->post('garedepartsecond2'), $gare_posd2 + 1, strlen($this->input->post('garedepartsecond2')));
-                
-                $gare_posa2 = strpos($this->input->post('garearrivee2'), '.');
-                
-                $sub_gcoda2 = substr($this->input->post('garearrivee2'), 0, $gare_posa2);
-                $directionar2 = substr($this->input->post('garearrivee2'), $gare_posa2 + 1, strlen($this->input->post('garearrivee2')));
-
-                $gare_posd3 = strpos($this->input->post('garedepartsecond3'), '.');
-                
-                $sub_gcod3 = substr($this->input->post('garedepartsecond3'), 0, $gare_posd3);
-                $sub_direction3 = substr($this->input->post('garedepartsecond3'), $gare_posd3 + 1, strlen($this->input->post('garedepartsecond3')));
-                
-                $gare_posa3 = strpos($this->input->post('garearriveesecond3'), '.');
-                
-                $sub_gcoda3 = substr($this->input->post('garearriveesecond3'), 0, $gare_posa3);
-                $directionar3 = substr($this->input->post('garearriveesecond3'), $gare_posa3 + 1, strlen($this->input->post('garearriveesecond3')));
-            
-            if($this->input->post('garedepartsecond2') != NULL AND $this->input->post('garedepartsecond3') != NULL){
-                $arrayitin = array(
-                'code_itineraires' => $sub_gcod. '-' .$sub_gcoda,
-                'nom_itineraires' => $sub_direction. '-' .$directionar,
-                'depart_itine' =>  $sub_direction,
-                'arrive_itine' => $directionar,
-                );
-                 $itid = $this->m_itineraire->create($arrayitin);
-                 
-                 $arrayitin1 = array(
-                    'code_itineraires' => $sub_gcod1. '-' .$sub_gcoda1,
-                    'nom_itineraires' => $sub_direction1. '-' .$directionar1,
-                    'depart_itine' =>  $sub_direction1,
-                    'arrive_itine' => $directionar1,
-                );
-
-                $itid1 = $this->m_itineraire->create($arrayitin1);
-
-                //3em et 4eme
-                $arrayitin2 = array(
-                    'code_itineraires' => $sub_gcod2. '-' .$sub_gcoda2,
-                    'nom_itineraires' => $sub_direction2. '-' .$directionar2,
-                    'depart_itine' =>  $sub_direction2,
-                    'arrive_itine' => $directionar2,
-                );
-                 $itid2 = $this->m_itineraire->create($arrayitin2);
-                 
-                 $arrayitin3 = array(
-                    'code_itineraires' => $sub_gcod3. '-' .$sub_gcoda3,
-                    'nom_itineraires' => $sub_direction3. '-' .$directionar3,
-                    'depart_itine' =>  $sub_direction3,
-                    'arrive_itine' => $directionar3,
-                );
-
-                $itid3 = $this->m_itineraire->create($arrayitin3);
-
-                $arrayitinlg = array(
-                    'id_lignes' => $this->input->post('ligne'),
-                    'ident_itineraires' => $itid,
-                );
-                $blg = $this->m_ligne_itineraire->create($arrayitinlg);
-
-                $arrayitinlg1 = array(
-                    'id_lignes' => $this->input->post('ligne'),
-                    'ident_itineraires' => $itid1,
-                );
-                $blg1 = $this->m_ligne_itineraire->create($arrayitinlg1);
-
-                $arrayitinlg2 = array(
-                    'id_lignes' => $this->input->post('ligne'),
-                    'ident_itineraires' => $itid2,
-                );
-                $blg2 = $this->m_ligne_itineraire->create($arrayitinlg2);
-
-                $arrayitinlg3 = array(
-                    'id_lignes' => $this->input->post('ligne'),
-                    'ident_itineraires' => $itid3,
-                );
-                $blg3 = $this->m_ligne_itineraire->create($arrayitinlg3);
+            if ($parent === '' || count($etapes) < 2) {
+                $this->session->set_flashdata('error', 'Choisir une ligne conteneur et au moins 2 itinéraires.');
+                redirect('lignes/itineraires/' . $this->session->company->ekey);
+                return;
             }
 
-            if($this->input->post('garedepartsecond2') != NULL)
-            {
-                 $arrayitin = array(
-                'code_itineraires' => $sub_gcod. '-' .$sub_gcoda,
-                'nom_itineraires' => $sub_direction. '-' .$directionar,
-                'depart_itine' =>  $sub_direction,
-                'arrive_itine' => $directionar,
-                );
-                 $itid = $this->m_itineraire->create($arrayitin);
-                 
-                 $arrayitin1 = array(
-                    'code_itineraires' => $sub_gcod1. '-' .$sub_gcoda1,
-                    'nom_itineraires' => $sub_direction1. '-' .$directionar1,
-                    'depart_itine' =>  $sub_direction1,
-                    'arrive_itine' => $directionar1,
-                );
-
-                $itid1 = $this->m_itineraire->create($arrayitin1);
-
-                //3em et 4eme
-                $arrayitin2 = array(
-                    'code_itineraires' => $sub_gcod2. '-' .$sub_gcoda2,
-                    'nom_itineraires' => $sub_direction2. '-' .$directionar2,
-                    'depart_itine' =>  $sub_direction2,
-                    'arrive_itine' => $directionar2,
-                );
-                 $itid2 = $this->m_itineraire->create($arrayitin2);
-                 
-                 
-                $arrayitinlg = array(
-                    'id_lignes' => $this->input->post('ligne'),
-                    'ident_itineraires' => $itid,
-                );
-                $blg = $this->m_ligne_itineraire->create($arrayitinlg);
-
-                $arrayitinlg1 = array(
-                    'id_lignes' => $this->input->post('ligne'),
-                    'ident_itineraires' => $itid1,
-                );
-                $blg1 = $this->m_ligne_itineraire->create($arrayitinlg1);
-
-                $arrayitinlg2 = array(
-                    'id_lignes' => $this->input->post('ligne'),
-                    'ident_itineraires' => $itid2,
-                );
-                $blg2 = $this->m_ligne_itineraire->create($arrayitinlg2);
-
+            $ok = $this->m_itineraire_etape->replace_composition($parent, $etapes);
+            if ($ok) {
+                $this->property['INSERT_SUCCESS'] = TRUE;
+            } else {
+                $this->session->set_flashdata('error', 'Composition invalide (2 à 4 itinéraires distincts, différents de la ligne conteneur).');
             }
-            else
-            {
-                $arrayitin = array(
-                    'code_itineraires' => $sub_gcod. '-' .$sub_gcoda,
-                    'nom_itineraires' => $sub_direction. '-' .$directionar,
-                    'depart_itine' =>  $sub_direction,
-                    'arrive_itine' => $directionar,
-                );
-                 $itid = $this->m_itineraire->create($arrayitin);
-                 
-                 $arrayitin1 = array(
-                    'code_itineraires' => $sub_gcod1. '-' .$sub_gcoda1,
-                    'nom_itineraires' => $sub_direction1. '-' .$directionar1,
-                    'depart_itine' =>  $sub_direction1,
-                    'arrive_itine' => $directionar1,
-                );
+            redirect('lignes/itineraires/' . $this->session->company->ekey);
+        }
 
-                $itid1 = $this->m_itineraire->create($arrayitin1);
 
-                $arrayitinlg = array(
-                    'id_lignes' => $this->input->post('ligne'),
-                    'ident_itineraires' => $itid,
-                );
-                $blg = $this->m_ligne_itineraire->create($arrayitinlg);
-
-                $arrayitinlg1 = array(
-                    'id_lignes' => $this->input->post('ligne'),
-                    'ident_itineraires' => $itid1,
-                );
-                $blg1 = $this->m_ligne_itineraire->create($arrayitinlg1);
+        public function editsous_($ckey, $id_etape, $unused = NULL)
+        {
+            $this->company = $this->m_entreprises->get_key($ckey);
+            $parent = trim((string) $this->input->post('ligne'));
+            $etape_ligne = trim((string) $this->input->post('etape_ligne'));
+            $ordre = (int) $this->input->post('ordre_etape');
+            if ($ordre < 1) {
+                $ordre = 1;
+            }
+            if ($ordre > 4) {
+                $ordre = 4;
             }
 
-            if ($blg != NULL) {
+            if ($parent === '' || $etape_ligne === '') {
+                redirect('lignes/itineraires/' . $this->session->company->ekey);
+                return;
+            }
+
+            $ok = $this->m_itineraire_etape->update($id_etape, array(
+                'id_lignes' => $parent,
+                'ident_ligne_etape' => $etape_ligne,
+                'ordre_etape' => $ordre,
+            ));
+
+            if ($ok !== FALSE) {
+                $this->property['UPDATE_SUCCESS'] = TRUE;
+            }
+            redirect('lignes/itineraires/' . $this->session->company->ekey);
+        }
+
+
+
+
+        public function escales($ckey)
+        {
+            return $this->itineraire($ckey);
+        }
+
+        public function addescale($ckey)
+        {
+            $this->company = $this->m_entreprises->get_key($ckey);
+            if (!isset($this->m_itineraire_escale)) {
+                $this->load->model('Itineraire_escale_model', 'm_itineraire_escale');
+            }
+
+            $parent = trim((string) $this->input->post('ligne_parent'));
+            $dest_raw = trim((string) $this->input->post('gare_escale'));
+            $prix = (float) str_replace(array(' ', ','), array('', '.'), (string) $this->input->post('prix_escale'));
+            $ordre = (int) $this->input->post('ordre_escale');
+
+            $code = '';
+            $nom = '';
+            if (strpos($dest_raw, '.') !== FALSE) {
+                list($code, $nom) = explode('.', $dest_raw, 2);
+            } else {
+                $code = $dest_raw;
+            }
+            $code = trim($code);
+            $nom = trim($nom);
+
+            if ($parent === '' || $code === '' || $prix < 0) {
+                $this->session->set_flashdata('error', 'Itinéraire parent, destination et prix sont obligatoires.');
+                redirect('lignes/itineraires/' . $this->session->company->ekey);
+                return;
+            }
+
+            // Destination escale != destination finale de la ligne parent
+            $parent_row = NULL;
+            foreach ((array) $this->m_lignes->getad($this->company->id_entreprise) as $lg) {
+                if ($lg->ident_ligne === $parent) {
+                    $parent_row = $lg;
+                    break;
+                }
+            }
+            if ($parent_row && isset($parent_row->gadest_lg) && $parent_row->gadest_lg === $code) {
+                $this->session->set_flashdata('error', 'L\'escale ne peut pas être la destination finale de l\'itinéraire.');
+                redirect('lignes/itineraires/' . $this->session->company->ekey);
+                return;
+            }
+
+            if ($this->m_itineraire_escale->exists($parent, $code)) {
+                $this->session->set_flashdata('error', 'Cette escale existe déjà sur cet itinéraire.');
+                redirect('lignes/itineraires/' . $this->session->company->ekey);
+                return;
+            }
+
+            if ($ordre < 1) {
+                $ordre = $this->m_itineraire_escale->next_ordre($parent);
+            }
+
+            if ($nom === '') {
+                $ga = $this->m_gare_arrivee->getad($this->company->id_entreprise);
+                foreach ((array) $ga as $g) {
+                    if ($g->code_gadest === $code) {
+                        $nom = $g->nom_gadest;
+                        break;
+                    }
+                }
+            }
+
+            $id = $this->m_itineraire_escale->create(array(
+                'id_lignes' => $parent,
+                'code_gadest' => $code,
+                'nom_escale' => $nom !== '' ? $nom : $code,
+                'prix_escale' => $prix,
+                'ordre_escale' => $ordre,
+                'actif_escale' => 1,
+            ));
+
+            if ($id) {
                 $this->property['INSERT_SUCCESS'] = TRUE;
             }
-            redirect('lignes/itineraire/' . $this->session->company->ekey);
+            redirect('lignes/itineraires/' . $this->session->company->ekey);
         }
 
-        public function editsous_($ckey, $lgid, $itl)
+        public function editescale($ckey, $id_escale)
         {
-            $gare_posd = strpos($this->input->post('garedepart'), '.');
-            
-            $sub_gcod = substr($this->input->post('garedepart'), 0, $gare_posd);
-            $sub_direction = substr($this->input->post('garedepart'), $gare_posd + 1, strlen($this->input->post('garedepart')));
-            
-            $gare_posa = strpos($this->input->post('garearrivee'), '.');
-            
-            $sub_gcoda = substr($this->input->post('garearrivee'), 0, $gare_posa);
-            $directionar = substr($this->input->post('garearrivee'), $gare_posa + 1, strlen($this->input->post('garearrivee')));
-            
-           
-            $arrayitin = array(
-                'code_itineraires' => $sub_gcod. '-' .$sub_gcoda,
-                'nom_itineraires' => $sub_direction. '-' .$directionar,
-                'depart_itine' =>  $sub_direction,
-                'arrive_itine' => $directionar,
-            );
-
-            $itid = $this->m_itineraire->update($lgid, $arrayitin);
-
-            if ($itid != FALSE) {
-                
-                $this->property['UPDATE_SUCCESS'] = TRUE;
-                redirect('lignes/itineraire/' . $this->session->company->ekey);
+            $this->company = $this->m_entreprises->get_key($ckey);
+            if (!isset($this->m_itineraire_escale)) {
+                $this->load->model('Itineraire_escale_model', 'm_itineraire_escale');
             }
-        }
 
-        public function activeit($ckey, $idit, $iditlg, $stit, $stitlg)
-        {
-            $company = $this->m_entreprises->get_key($ckey);
-                    if($stit == 1 AND $stitlg == 1){
+            $prix = (float) str_replace(array(' ', ','), array('', '.'), (string) $this->input->post('prix_escale'));
+            $ordre = (int) $this->input->post('ordre_escale');
+            if ($ordre < 1) {
+                $ordre = 1;
+            }
 
-                        $stit = 0;
-                        $stitlg = 0;
-                    }
-                    else
-                    {
-                        $stit = 1;
-                        $stitlg = 1;
-                    }
-
-                    $upit = array(
-                        'actiftine' => $stit,
-                    );
-
-                    $this->m_itineraire->update($idit, $upit);
-
-                    $upitlg = array(
-                        'actifint' => $stitlg,
-                    );
-                    
-                    $this->m_ligne_itineraire->update($iditlg, $upitlg);
-
+            $ok = $this->m_itineraire_escale->update($id_escale, array(
+                'prix_escale' => $prix,
+                'ordre_escale' => $ordre,
+            ));
+            if ($ok !== FALSE) {
                 $this->property['UPDATE_SUCCESS'] = TRUE;
-
-                redirect('lignes/itineraire/' . $this->session->company->ekey);
+            }
+            redirect('lignes/itineraires/' . $this->session->company->ekey);
         }
+
+        public function activeescale($ckey, $id_escale, $current = 1)
+        {
+            if (!isset($this->m_itineraire_escale)) {
+                $this->load->model('Itineraire_escale_model', 'm_itineraire_escale');
+            }
+            $next = ((int) $current === 1) ? 0 : 1;
+            $this->m_itineraire_escale->update($id_escale, array('actif_escale' => $next));
+            $this->property['UPDATE_SUCCESS'] = TRUE;
+            redirect('lignes/itineraires/' . $this->session->company->ekey);
+        }
+
+
+        public function activeit($ckey, $idit, $iditlg, $stit = NULL, $stitlg = NULL)
+        {
+            // $iditlg = id_etape ; $stitlg = état actuel (1/0)
+            $current = ($stitlg === NULL) ? 1 : (int) $stitlg;
+            $next = ($current === 1) ? 0 : 1;
+            $this->m_itineraire_etape->update($iditlg, array('actif_etape' => $next));
+            $this->property['UPDATE_SUCCESS'] = TRUE;
+            redirect('lignes/itineraires/' . $this->session->company->ekey);
+        }
+
     }
     
     /** End of file: Lignes.php **/

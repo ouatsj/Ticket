@@ -261,7 +261,12 @@
                         <? $tt = ($r-$d);?>
                     <p>TOTAL:&nbsp;<span><?=$r-$d;?></span></p>
                 <? if (!empty($comptejours)): ?>
-                    <? if ($tt != 0): ?>
+                    <?php
+                    // Activer l'arrêt dès qu'il reste des lignes à envoyer au caissier,
+                    // même si le montant total est 0 F (tickets gratuits, solde net nul, etc.).
+                    $has_arret_compte_pending = !empty($recettes) || !empty($depenses);
+                    ?>
+                    <? if ($has_arret_compte_pending): ?>
                         <button class="btn btn-space <?= ($comptejours->is_conect === '0') ? 'btn-danger' : 'btn-success'; ?> md-trigger"
                                 title="ARRÊTER COMPTE"
                                 data-modal="unstop-<?= $comptejours->roleattribut; ?>">
@@ -361,7 +366,11 @@
                     <?$sol = ($dp+$r)-($vr+$d);?>
                     <p>SOLDE:&nbsp;<span><?=($dp+$r)-($vr+$d);?></span></p>
                 <? if (!empty($comptejours)): ?>
-                    <? if ($sol != 0): ?>
+                    <?php
+                    // Même règle : données à arrêter (y compris montants 0 F) ⇒ bouton actif.
+                    $has_arret_caisse_pending = !empty($recettecaisses) || !empty($depensecaisses) || !empty($depotcaisses);
+                    ?>
+                    <? if ($has_arret_caisse_pending): ?>
                         <button class="btn btn-space <?= ($comptejours->is_conect === '0') ? 'btn-danger' : 'btn-success'; ?> md-trigger"
                                 title="ARRÊTER CAISSE"
                                 data-modal="unstope-<?= $comptejours->roleattribut; ?>">

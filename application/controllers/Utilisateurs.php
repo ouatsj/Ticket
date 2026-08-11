@@ -43,32 +43,95 @@
             return (string) $bind['vendor_ra'];
         }
 
-        protected function _account_in_company($ckey, $cpuser_id)
+        /**
+         * Lie la page caisse principale sans donner aux rôles 13/14
+         * les privilèges globaux des rôles 1/2.
+         */
+        protected function _bind_main_cashbox_page($gare_id, $viewer_hint, $target_hint)
         {
-            if (!$this->config->item('users_account_scoped_navigation_enabled')
-                || (string) $this->session->company->ekey !== (string) $ckey
-            ) {
-                show_404();
-                exit;
+            if (roleattribut_guard_is_cashbox_consultant()) {
+                $bind = roleattribut_guard_main_cashbox_consultation_bind(
+                    $this->company->ekey,
+                    $gare_id,
+                    $viewer_hint,
+                    $target_hint
+                );
+                $target = $this->m_compte_user->getusergar_any(
+                    $this->company->ekey,
+                    $gare_id,
+                    $bind['caissier_ra']
+                );
+                if (!$target || !$bind['consultant_conex']) {
+                    roleattribut_guard_fail_redirect_gare_caisse($this->company->ekey, $gare_id);
+                }
+
+                return array(
+                    'caissier_ra' => (int) $bind['caissier_ra'],
+                    'query_ra' => (int) $bind['caissier_ra'],
+                    'caissier_conex' => $target,
+                    'viewer_ra' => (int) $bind['consultant_ra'],
+                    'viewer_conex' => $bind['consultant_conex'],
+                );
             }
 
-            $account = $this->db->query(
-                "SELECT cu.cpuser_id, cu.username, cu.userlog_id, u.uid,
-                        u.first_name, u.last_name, u.cle_comp
-                 FROM compte_user cu
-                 JOIN utilisateurs u ON u.uid = cu.userlog_id
-                 WHERE cu.cpuser_id = ?
-                 AND u.cle_comp = ?
-                 LIMIT 1",
-                array((int) $cpuser_id, (int) $ckey)
-            )->row();
+            // Admin / superviseur (1/2) : ne pas exiger un chef guichet (5/16).
+            if (roleattribut_guard_is_supervisor()) {
+                $bind = roleattribut_guard_main_cashbox_supervisor_bind(
+                    $this->company->ekey,
+                    $gare_id,
+                    $viewer_hint,
+                    $target_hint
+                );
+                $target = $this->m_compte_user->getusergar_any(
+                    $this->company->ekey,
+                    $gare_id,
+                    $bind['caissier_ra']
+                );
+                $viewer = $bind['supervisor_conex']
+                    ?: $this->m_compte_user->getusergar_any(
+                        $this->company->ekey,
+                        $gare_id,
+                        $bind['supervisor_ra']
+                    );
+                if (!$target || !$viewer) {
+                    roleattribut_guard_fail_redirect_gare_caisse($this->company->ekey, $gare_id);
+                }
 
-            if (!$account) {
-                show_404();
-                exit;
+                return array(
+                    'caissier_ra' => (int) $bind['caissier_ra'],
+                    'query_ra' => (int) $bind['caissier_ra'],
+                    'caissier_conex' => $target,
+                    'viewer_ra' => (int) $bind['supervisor_ra'],
+                    'viewer_conex' => $viewer,
+                );
             }
 
-            return $account;
+            // Chef guichet : URL = viewer(chef) puis cible(caissier).
+            $bind = caissier_principale_chef_bind(
+                $this->company->ekey,
+                $gare_id,
+                $target_hint,
+                $viewer_hint
+            );
+            $caissier = $bind['caissier_conex']
+                ?: $this->m_compte_user->getusergare(
+                    $this->company->ekey,
+                    $gare_id,
+                    $bind['caissier_ra']
+                );
+            $viewer = $this->m_compte_user->getusergar(
+                $this->company->ekey,
+                $gare_id,
+                $bind['chef_ra']
+            );
+
+            return array(
+                'caissier_ra' => (int) $bind['caissier_ra'],
+                'query_ra' => (int) $bind['chef_ra'],
+                'caissier_conex' => $caissier,
+                'viewer_ra' => (int) $bind['chef_ra'],
+                'viewer_conex' => $viewer,
+            );
         }
         
         
@@ -156,15 +219,19 @@
         public function profilcaisse($ckey, $gid, $iop, $idsg, $us, $j, $m, $a)
         {
             $this->company = $this->m_entreprises->get_key($ckey);
-            $bind = caissier_principale_chef_bind($this->company->ekey, $gid, $iop, $us);
+            $bind = $this->_bind_main_cashbox_page($gid, $iop, $us);
             $iop = $bind['caissier_ra'];
-            $us = $bind['chef_ra'];
-
-                $conex = $bind['caissier_conex'] ?: $this->m_compte_user->getusergare($this->company->ekey, $gid, $iop);
-                    $this->property['conex'] = $conex;
-
-                $connex = $this->m_compte_user->getusergar($this->company->ekey, $gid, $us);
-                    $this->property['connex'] = $connex;
+            $us = $bind['viewer_ra'];
+            $conex = $bind['caissier_conex'];
+            $connex = $bind['viewer_conex'];
+            $this->property['conex'] = $conex;
+            $this->property['connex'] = $connex;
+            $this->property['cashbox_viewer_roleattribut'] = (int) $bind['viewer_ra'];
+            $this->property['cashbox_target_roleattribut'] = (int) $bind['caissier_ra'];
+            $this->property['cashbox_list_roleattribut'] =
+                roleattribut_guard_is_cashbox_consultant()
+                    ? (int) $us
+                    : (int) $conex->roleattribut;
 
                    $bus_stop = $this->m_sousgare->sget($this->company->ekey, $gid, $idsg);
                         $this->property['bus_stop'] = $bus_stop;
@@ -190,16 +257,18 @@
         public function recettecaisse($ckey, $gid, $ad, $idsg, $uc, $j, $m, $a)
         {
             $this->company = $this->m_entreprises->get_key($ckey);
-            $bind = caissier_principale_chef_bind($this->company->ekey, $gid, $ad, $uc);
+            $bind = $this->_bind_main_cashbox_page($gid, $ad, $uc);
             $ad = $bind['caissier_ra'];
-            $uc = $bind['chef_ra'];
+            $uc = $bind['query_ra'];
 
                     $gare_stop = $this->m_sousgare->sget($this->company->ekey, $gid, $idsg);
                         $this->property['gare_stop'] = $gare_stop;
-                $conex = $bind['caissier_conex'] ?: $this->m_compte_user->getusergare($this->company->ekey, $gid, $ad);
+                $conex = $bind['caissier_conex'];
                 $this->property['conex'] = $conex;
-                    $connex = $this->m_compte_user->getusergar($this->company->ekey, $gid, $uc);
+                    $connex = $bind['viewer_conex'];
                 $this->property['connex'] = $connex;
+                $this->property['cashbox_viewer_roleattribut'] = (int) $bind['viewer_ra'];
+                $this->property['cashbox_target_roleattribut'] = (int) $bind['caissier_ra'];
 
                     $this->property['recettes'] = $this->m_recette->validget($this->company->ekey, $gid, $uc);
                     $this->property['recettesvalid'] = $this->m_recette->validgetmont($this->company->ekey, $gid, $uc);
@@ -213,17 +282,19 @@
         public function depensecaisse($ckey, $gid, $ad, $idsg, $uc, $j, $m, $a)
         {
             $this->company = $this->m_entreprises->get_key($ckey);
-            $bind = caissier_principale_chef_bind($this->company->ekey, $gid, $ad, $uc);
+            $bind = $this->_bind_main_cashbox_page($gid, $ad, $uc);
             $ad = $bind['caissier_ra'];
-            $uc = $bind['chef_ra'];
+            $uc = $bind['query_ra'];
 
                 $gare_stop = $this->m_sousgare->sget($this->company->ekey, $gid, $idsg);
                 $this->property['gare_stop'] = $gare_stop;
-                $conex = $bind['caissier_conex'] ?: $this->m_compte_user->getusergare($this->company->ekey, $gid, $ad);
+                $conex = $bind['caissier_conex'];
                 $this->property['conex'] = $conex;
 
-                    $connex = $this->m_compte_user->getusergar($this->company->ekey, $gid, $uc);
+                    $connex = $bind['viewer_conex'];
                 $this->property['connex'] = $connex;
+                $this->property['cashbox_viewer_roleattribut'] = (int) $bind['viewer_ra'];
+                $this->property['cashbox_target_roleattribut'] = (int) $bind['caissier_ra'];
 
                 $this->property['depenses'] = $this->m_depense->validget($this->company->ekey, $gid, $uc);
                 $this->property['depensesvalid'] = $this->m_depense->validgetmont($this->company->ekey, $gid, $uc);
@@ -242,19 +313,30 @@
                 $cp = $this->input->post('_compag');
                 $d1 = $this->input->post('datedebut');
                 $d2 = $this->input->post('datefin');
-
                 $con = $this->input->post('idusecon');
+                $bind = $this->_bind_main_cashbox_page($gid, $ad, $con);
+                $con = $bind['query_ra'];
+                if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) $d1)
+                    || !preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) $d2)
+                    || $d1 > $d2
+                ) {
+                    $this->session->set_flashdata('validation_filter_error', 'Choisissez une période valide.');
+                    redirect(
+                        'utilisateurs/' . $this->company->ekey . '/caisseprincdepense/'
+                        . $gid . '/' . $bind['viewer_ra'] . '/' . $idsg . '/'
+                        . $bind['caissier_ra'] . '/' . mdate('%d/%m/%Y', now('UTC'))
+                    );
+                    return;
+                }
 
                 $gare_stop = $this->m_sousgare->sget($this->company->ekey, $gid, $idsg);
-                
                 $this->property['gare_stop'] = $gare_stop;
-
-                $conex = $this->m_compte_user->getusergare($this->company->ekey, $gid, $ad);
+                $conex = $bind['caissier_conex'];
                 $this->property['conex'] = $conex;
-
-                $connex = $this->m_compte_user->getusergar($this->company->ekey, $gid, $con);
-
+                $connex = $bind['viewer_conex'];
                 $this->property['connex'] = $connex;
+                $this->property['cashbox_viewer_roleattribut'] = (int) $bind['viewer_ra'];
+                $this->property['cashbox_target_roleattribut'] = (int) $bind['caissier_ra'];
                 
                 $this->property['tridepenses'] = $this->m_depense->validget1($this->company->ekey, $gid, $cp, $d1, $d2, $con);
                     $this->property['compagnies'] = $this->m_compagnies->get();
@@ -280,18 +362,30 @@
                 $cp = $this->input->post('_compag');
                 $d1 = $this->input->post('datedebuts');
                 $d2 = $this->input->post('datefins');
-
                 $con = $this->input->post('idusecon');
+                $bind = $this->_bind_main_cashbox_page($gid, $ad, $con);
+                $con = $bind['query_ra'];
+                if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) $d1)
+                    || !preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) $d2)
+                    || $d1 > $d2
+                ) {
+                    $this->session->set_flashdata('validation_filter_error', 'Choisissez une période valide.');
+                    redirect(
+                        'utilisateurs/' . $this->company->ekey . '/caisseprincrecette/'
+                        . $gid . '/' . $bind['viewer_ra'] . '/' . $idsg . '/'
+                        . $bind['caissier_ra'] . '/' . mdate('%d/%m/%Y', now('UTC'))
+                    );
+                    return;
+                }
 
                 $gare_stop = $this->m_sousgare->sget($this->company->ekey, $gid, $idsg);
-
                 $this->property['gare_stop'] = $gare_stop;
-
-                $conex = $this->m_compte_user->getusergare($this->company->ekey, $gid, $ad);
+                $conex = $bind['caissier_conex'];
                 $this->property['conex'] = $conex;
-
-                $connex = $this->m_compte_user->getusergar($this->company->ekey, $gid, $con);
+                $connex = $bind['viewer_conex'];
                 $this->property['connex'] = $connex;
+                $this->property['cashbox_viewer_roleattribut'] = (int) $bind['viewer_ra'];
+                $this->property['cashbox_target_roleattribut'] = (int) $bind['caissier_ra'];
 
                 $this->property['trirecettes'] = $this->m_recette->validget1($this->company->ekey, $gid, $cp, $d1, $d2, $con);
                 
@@ -314,18 +408,21 @@
         public function depotcaisse($ckey, $gid, $ad, $idsg, $uc, $j, $m, $a)
         {
             $this->company = $this->m_entreprises->get_key($ckey);
-            $bind = caissier_principale_chef_bind($this->company->ekey, $gid, $ad, $uc);
+            $bind = $this->_bind_main_cashbox_page($gid, $ad, $uc);
             $ad = $bind['caissier_ra'];
-            $uc = $bind['chef_ra'];
+            $uc = $bind['query_ra'];
 
                 $gare_stop = $this->m_sousgare->sget($this->company->ekey, $gid, $idsg);
                         $this->property['gare_stop'] = $gare_stop;
-                $conex = $bind['caissier_conex'] ?: $this->m_compte_user->getusergare($this->company->ekey, $gid, $ad);
+                $conex = $bind['caissier_conex'];
                 $this->property['conex'] = $conex;
-                $connex = $this->m_compte_user->getusergar($this->company->ekey, $gid, $uc);
+                $connex = $bind['viewer_conex'];
                 $this->property['connex'] = $connex;
+                $this->property['cashbox_viewer_roleattribut'] = (int) $bind['viewer_ra'];
+                $this->property['cashbox_target_roleattribut'] = (int) $bind['caissier_ra'];
                     $this->property['depots'] = $this->m_depot->validget($this->company->ekey, $gid, $uc);
                     $this->property['depotsvalid'] = $this->m_depot->validgetmont($this->company->ekey, $gid, $uc);
+                    $this->property['compagnies'] = $this->m_compagnies->get();
                     $this->property['typedocuments'] = $this->m_typedocument->get();
                     $this->property['pagetitle'] .= "• VALIDATION DES DEPOTS•&nbsp;{$conex->garenom}<strong>•&nbsp;{$this->company->nom_entreprise}</strong>";
                     
@@ -339,23 +436,122 @@
         public function versemetcaisse($ckey, $gid, $ad, $idsg, $uc, $j, $m, $a)
         {
             $this->company = $this->m_entreprises->get_key($ckey);
-            $bind = caissier_principale_chef_bind($this->company->ekey, $gid, $ad, $uc);
+            $bind = $this->_bind_main_cashbox_page($gid, $ad, $uc);
             $ad = $bind['caissier_ra'];
-            $uc = $bind['chef_ra'];
+            $uc = $bind['query_ra'];
 
                     $gare_stop = $this->m_sousgare->sget($this->company->ekey, $gid, $idsg);
                         $this->property['gare_stop'] = $gare_stop;
-                $conex = $bind['caissier_conex'] ?: $this->m_compte_user->getusergare($this->company->ekey, $gid, $ad);
+                $conex = $bind['caissier_conex'];
                 $this->property['conex'] = $conex;
-                $connex = $this->m_compte_user->getusergar($this->company->ekey, $gid, $uc);
+                $connex = $bind['viewer_conex'];
                 $this->property['connex'] = $connex;
+                $this->property['cashbox_viewer_roleattribut'] = (int) $bind['viewer_ra'];
+                $this->property['cashbox_target_roleattribut'] = (int) $bind['caissier_ra'];
                 $this->property['versements'] = $this->m_versements->validget($this->company->ekey, $gid, $uc);
                     $this->property['versementsvalid'] = $this->m_versements->validgetmont($this->company->ekey, $gid, $uc);
+                    $this->property['compagnies'] = $this->m_compagnies->get();
                     $this->property['typedocuments'] = $this->m_typedocument->get();
                     $this->property['pagetitle'] .= "• VALIDATION DES VERSEMENTS•&nbsp;{$conex->garenom}<strong>•&nbsp;{$this->company->nom_entreprise}</strong>";
                     
                     return $this->layout->view('_caisse/valdversement', $this->property);
 
+        }
+
+        public function depotcaissecptable($ckey, $gid, $ad, $idsg)
+        {
+            $this->company = $this->m_entreprises->get_key($ckey);
+            $company = $this->input->post('_compag');
+            $d1 = $this->input->post('datedebut');
+            $d2 = $this->input->post('datefin');
+            $target = $this->input->post('idusecon');
+            $bind = $this->_bind_main_cashbox_page($gid, $ad, $target);
+
+            if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) $d1)
+                || !preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) $d2)
+                || $d1 > $d2
+            ) {
+                $this->session->set_flashdata('validation_filter_error', 'Choisissez une période valide.');
+                redirect(
+                    'utilisateurs/' . $this->company->ekey . '/caisseprincdepot/'
+                    . $gid . '/' . $bind['viewer_ra'] . '/' . $idsg . '/'
+                    . $bind['caissier_ra'] . '/' . mdate('%d/%m/%Y', now('UTC'))
+                );
+                return;
+            }
+
+            $rows = $this->m_depot->validfilter(
+                $this->company->ekey,
+                $gid,
+                $bind['query_ra'],
+                $d1,
+                $d2,
+                $company
+            );
+            $this->property['gare_stop'] = $this->m_sousgare->sget($this->company->ekey, $gid, $idsg);
+            $this->property['conex'] = $bind['caissier_conex'];
+            $this->property['connex'] = $bind['viewer_conex'];
+            $this->property['cashbox_viewer_roleattribut'] = (int) $bind['viewer_ra'];
+            $this->property['cashbox_target_roleattribut'] = (int) $bind['caissier_ra'];
+            $this->property['depots'] = $rows;
+            $this->property['depotsvalid'] = (object) array(
+                'montant_depot' => array_sum(array_map(function ($row) {
+                    return (float) $row->montant_depot;
+                }, $rows)),
+            );
+            $this->property['compagnies'] = $this->m_compagnies->get();
+            $this->property['typedocuments'] = $this->m_typedocument->get();
+            $this->property['filter_date_start'] = $d1;
+            $this->property['filter_date_end'] = $d2;
+            return $this->layout->view('_caisse/valddept', $this->property);
+        }
+
+        public function versementcaissecptable($ckey, $gid, $ad, $idsg)
+        {
+            $this->company = $this->m_entreprises->get_key($ckey);
+            $company = $this->input->post('_compag');
+            $d1 = $this->input->post('datedebut');
+            $d2 = $this->input->post('datefin');
+            $target = $this->input->post('idusecon');
+            $bind = $this->_bind_main_cashbox_page($gid, $ad, $target);
+
+            if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) $d1)
+                || !preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) $d2)
+                || $d1 > $d2
+            ) {
+                $this->session->set_flashdata('validation_filter_error', 'Choisissez une période valide.');
+                redirect(
+                    'utilisateurs/' . $this->company->ekey . '/caisseprincversement/'
+                    . $gid . '/' . $bind['viewer_ra'] . '/' . $idsg . '/'
+                    . $bind['caissier_ra'] . '/' . mdate('%d/%m/%Y', now('UTC'))
+                );
+                return;
+            }
+
+            $rows = $this->m_versements->validfilter(
+                $this->company->ekey,
+                $gid,
+                $bind['query_ra'],
+                $d1,
+                $d2,
+                $company
+            );
+            $this->property['gare_stop'] = $this->m_sousgare->sget($this->company->ekey, $gid, $idsg);
+            $this->property['conex'] = $bind['caissier_conex'];
+            $this->property['connex'] = $bind['viewer_conex'];
+            $this->property['cashbox_viewer_roleattribut'] = (int) $bind['viewer_ra'];
+            $this->property['cashbox_target_roleattribut'] = (int) $bind['caissier_ra'];
+            $this->property['versements'] = $rows;
+            $this->property['versementsvalid'] = (object) array(
+                'montant_verser' => array_sum(array_map(function ($row) {
+                    return (float) $row->montant_verser;
+                }, $rows)),
+            );
+            $this->property['compagnies'] = $this->m_compagnies->get();
+            $this->property['typedocuments'] = $this->m_typedocument->get();
+            $this->property['filter_date_start'] = $d1;
+            $this->property['filter_date_end'] = $d2;
+            return $this->layout->view('_caisse/valdversement', $this->property);
         }
 
         //voir le profil des caissiers adjoint
@@ -388,6 +584,12 @@
             $this->property['recette_stop'] = $this->m_recette->valideget_par_profil($this->company->ekey, $gid, $idcai, $idcpus, $user_connect->userole);
             $this->property['depense_stop'] = $this->m_depense->valideget_par_profil($this->company->ekey, $gid, $idcai, $idcpus, $user_connect->userole);
             $this->property['depot_stop'] = $this->m_depot->valideget_par_profil($this->company->ekey, $gid, $idcai, $idcpus, $user_connect->userole);
+            $this->property['pending_totals'] = caissier_validation_chef_pending_totals(
+                $this->company->ekey,
+                $gid,
+                $idcai,
+                $idcpus
+            );
             $this->property['compagnies'] = $this->m_compagnies->get();
             $this->property['pagetitle'] .= "• VALIDATION COMPTE • <strong>{$user_connect->username}</strong>•&nbsp;{$user_connect->garenom}<strong>•&nbsp;{$this->company->nom_entreprise}•&nbsp;{$user_connect->type_rols}</strong>";
             return $this->layout->view('_caisse/indexcompte', $this->property);
@@ -1450,6 +1652,8 @@
                         $stat = 0;
                         $comptelogin = array(
                             'activer' => $stat,
+                            'desactivation_motif' => null,
+                            'desactivation_at' => null,
                         );
                     }
                     
@@ -1596,21 +1800,6 @@
                 return $this->layout->view('_users/afcompt', $this->property);
         }
 
-        public function account_gares($ckey, $cpuser_id)
-        {
-            $this->company = $this->m_entreprises->get_key($ckey);
-            $account = $this->_account_in_company($ckey, $cpuser_id);
-            $this->property['target_account'] = $account;
-            $this->property['profilusers'] = $this->m_user_login
-                ->get_by_account($this->company->ekey, $account->cpuser_id);
-            $this->property['pagetitle'] .= "&nbsp;•&nbsp;GARES DE <strong>"
-                . htmlspecialchars($account->username, ENT_QUOTES, 'UTF-8') . "</strong>";
-            $this->property['garees'] = $this->m_gares->get($this->company->id_entreprise);
-            $this->property['gares'] = $this->m_gare_depart->get($this->company->id_entreprise);
-
-            return $this->layout->view('_users/afcompt', $this->property);
-        }
-
         public function affectrole($ckey)
         {
             $this->company = $this->m_entreprises->get_key($ckey);
@@ -1618,19 +1807,6 @@
                 $this->property['pagetitle'] .= "&nbsp;•&nbsp;PROFILS<strong>&nbsp;•&nbsp;{$this->company->nom_entreprise}</strong> ";
                 
                 return $this->layout->view('_users/afcomptgarerole', $this->property);
-        }
-
-        public function account_profiles($ckey, $cpuser_id)
-        {
-            $this->company = $this->m_entreprises->get_key($ckey);
-            $account = $this->_account_in_company($ckey, $cpuser_id);
-            $this->property['target_account'] = $account;
-            $this->property['profilusers'] = $this->m_roleattribution
-                ->get_by_account($this->company->ekey, $account->cpuser_id);
-            $this->property['pagetitle'] .= "&nbsp;•&nbsp;PROFILS DE <strong>"
-                . htmlspecialchars($account->username, ENT_QUOTES, 'UTF-8') . "</strong>";
-
-            return $this->layout->view('_users/afcomptgarerole', $this->property);
         }
 
         public function editpage_($ckey, $idc, $idr, $idus, $g)
@@ -1664,19 +1840,6 @@
                 $this->property['pagetitle'] .= "&nbsp;•&nbsp;PAGES<strong>&nbsp;•&nbsp;{$this->company->nom_entreprise}</strong> ";
                 
                 return $this->layout->view('_users/afcomptpage', $this->property);
-        }
-
-        public function account_pages($ckey, $cpuser_id)
-        {
-            $this->company = $this->m_entreprises->get_key($ckey);
-            $account = $this->_account_in_company($ckey, $cpuser_id);
-            $this->property['target_account'] = $account;
-            $this->property['profiluserspage'] = $this->m_appdossier
-                ->get_by_account($this->company->ekey, $account->cpuser_id);
-            $this->property['pagetitle'] .= "&nbsp;•&nbsp;PAGES DE <strong>"
-                . htmlspecialchars($account->username, ENT_QUOTES, 'UTF-8') . "</strong>";
-
-            return $this->layout->view('_users/afcomptpage', $this->property);
         }
         public function activeprofil($ckey, $id, $idcp, $ul, $statut)
         {

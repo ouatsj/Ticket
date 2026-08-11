@@ -24,16 +24,16 @@
                             class="mdi mdi-close text-white"></span>
                     </button>
                 </div>
-                <?= form_open("Utilisateurs/recettecaissecptable/{$this->session->company->ekey}/{$conex->guser}/{$conex->roleattribut}/$gare_stop->idsousgare",
+                <?= form_open("Utilisateurs/recettecaissecptable/{$this->session->company->ekey}/{$conex->guser}/{$cashbox_viewer_roleattribut}/$gare_stop->idsousgare",
                             array('class' => 'modal-body form')); ?>
                 <div class="form-group row">
                     <input type="hidden" name="idgar" value="<?= $conex->idengare; ?>">
                     <input type="hidden" name="iduse" value="<?= $conex->roleattribut; ?>">
-                    <input type="hidden" name="idusecon" value="<?= $connex->roleattribut; ?>">  
+                    <input type="hidden" name="idusecon" value="<?= (int) $cashbox_target_roleattribut; ?>">
                     <div class="form-group col-sm-4">
-                        <label>COMPAGNIE</label>
+                        <label>COMPAGNIE (FACULTATIF)</label>
                         <select class="form-control form-control-sm" name="_compag">
-                        <option value=""></option>
+                        <option value="">TOUTES LES COMPAGNIES</option>
                             <? foreach ($compagnies as $compagnie): ?>
                                 <option value="<?= $compagnie->cle_compagnie; ?>">
                                     <?= "{$compagnie->nom_compagnie}"; ?>
@@ -43,11 +43,11 @@
                     </div>
                     <div class="form-group col-sm-4">
                         <label>DU</label>
-                        <input class="form-control form-control-sm" type="date" name="datedebuts">
+                        <input class="form-control form-control-sm" type="date" name="datedebuts" value="<?= mdate('%Y-%m-%d', now('UTC')); ?>" required>
                     </div>
                     <div class="form-group col-sm-4">
                         <label>AU</label>
-                        <input class="form-control form-control-sm" type="date" name="datefins">
+                        <input class="form-control form-control-sm" type="date" name="datefins" value="<?= mdate('%Y-%m-%d', now('UTC')); ?>" required>
                     </div>
                     
                 </div>

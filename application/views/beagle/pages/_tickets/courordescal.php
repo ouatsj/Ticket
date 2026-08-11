@@ -59,11 +59,12 @@
                         <label>Destination</label>
                         <select class="form-control form-control-sm" name="arricouresc" id="arrscouresc">
                             <option value="">Choisissez l'arrivée</option>
-                            <? foreach ($garearrivees as $garearrivee): ?>
-                                <option value="<?= $garearrivee->code_gadest; ?>/<?= $garearrivee->codville; ?>/<?= $garearrivee->cod_pays;?>">
-                                    <?= $garearrivee->nom_gadest; ?>
-                                </option>
-                            <? endforeach; ?>
+                            <?php
+                                $this->load->view('beagle/pages/guichet/_options_gare_arrivee', array(
+                                    'garearrivees' => !empty($garearrivees) ? $garearrivees : array(),
+                                    'value_format' => 'code_ville_pays',
+                                ));
+                            ?>
                         </select>
                     </div>
                     <div class="form-group col-sm-4">

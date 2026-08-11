@@ -2,32 +2,24 @@
 <div class="row">
     <div class="col-12">
         <?php if ($this->session->flashdata('audit_notice')): ?>
-            <div class="alert alert-success">
-                <?= htmlspecialchars($this->session->flashdata('audit_notice'), ENT_QUOTES, 'UTF-8'); ?>
-            </div>
+            <div class="alert alert-success"><?= htmlspecialchars($this->session->flashdata('audit_notice')); ?></div>
         <?php endif; ?>
 
         <div class="card mb-3">
-            <div class="card-header">Rapport d’audit quotidien</div>
+            <div class="card-header">Rapport d'audit quotidien</div>
             <div class="card-body">
                 <p>
-                    Contrôle des comptes, arrêts non faits, validations et arrêts de caisse.
+                    Rapport automatique chaque jour à <strong>01h00</strong> (journée précédente).
+                    Couvre : comptes, arrêts, validations, silence commercial, et bon usage
+                    (autres ventes anormales, ventes après arrêt, dérogations, auto-validation, saisie groupée).
+                    Affiche uniquement les anomalies.
                 </p>
-                <?php if (!empty($can_generate)): ?>
-                    <?= form_open(
-                        'audit_quotidien/' . $this->session->company->ekey . '/generer',
-                        array('class' => 'form-inline')
-                    ); ?>
-                        <label class="mr-2">Générer ou régénérer pour la date :</label>
-                        <input type="date" name="date_rapport" class="form-control form-control-sm mr-2"
-                               value="<?= date('Y-m-d', strtotime('-1 day')); ?>" required>
-                        <button type="submit" class="btn btn-sm btn-primary">Lancer l’audit</button>
-                    <?= form_close(); ?>
-                <?php else: ?>
-                    <div class="alert alert-info mb-0">
-                        Vous pouvez consulter les rapports, mais pas en générer.
-                    </div>
-                <?php endif; ?>
+                <?= form_open('Audit_quotidien/generer/' . $this->session->company->ekey, array('class' => 'form-inline')); ?>
+                    <label class="mr-2">Générer / régénérer pour la date :</label>
+                    <input type="date" name="date_rapport" class="form-control form-control-sm mr-2"
+                           value="<?= date('Y-m-d', strtotime('-1 day')); ?>">
+                    <button type="submit" class="btn btn-sm btn-primary">Lancer l'audit maintenant</button>
+                <?= form_close(); ?>
             </div>
         </div>
 
@@ -38,7 +30,7 @@
                     <table class="table table-striped table-hover">
                         <thead>
                         <tr>
-                            <th>Date</th>
+                            <th>Date rapport</th>
                             <th>Généré le</th>
                             <th>Alertes</th>
                             <th>Avertissements</th>
@@ -47,20 +39,29 @@
                         </thead>
                         <tbody>
                         <?php if (empty($rapports)): ?>
-                            <tr><td colspan="5">Aucun rapport disponible.</td></tr>
+                            <tr><td colspan="5">Aucun rapport pour l'instant. Lancez un audit ou attendez le cron 01h.</td></tr>
                         <?php else: ?>
-                            <?php foreach ($rapports as $rapport): ?>
+                            <?php foreach ($rapports as $r): ?>
                                 <tr>
-                                    <td><strong><?= htmlspecialchars($rapport->date_rapport, ENT_QUOTES, 'UTF-8'); ?></strong></td>
-                                    <td><?= htmlspecialchars($rapport->generated_at, ENT_QUOTES, 'UTF-8'); ?></td>
-                                    <td><span class="badge badge-danger"><?= (int) $rapport->nb_alertes; ?></span></td>
-                                    <td><span class="badge badge-warning"><?= (int) $rapport->nb_avertissements; ?></span></td>
+                                    <td><strong><?= htmlspecialchars($r->date_rapport); ?></strong></td>
+                                    <td><?= htmlspecialchars($r->generated_at); ?></td>
+                                    <td>
+                                        <?php if ((int) $r->nb_alertes > 0): ?>
+                                            <span class="badge badge-danger"><?= (int) $r->nb_alertes; ?></span>
+                                        <?php else: ?>
+                                            0
+                                        <?php endif; ?>
+                                    </td>
+                                    <td>
+                                        <?php if ((int) $r->nb_avertissements > 0): ?>
+                                            <span class="badge badge-warning"><?= (int) $r->nb_avertissements; ?></span>
+                                        <?php else: ?>
+                                            0
+                                        <?php endif; ?>
+                                    </td>
                                     <td>
                                         <a class="btn btn-sm btn-secondary"
-                                           href="<?= site_url(
-                                               'audit_quotidien/' . $this->session->company->ekey
-                                               . '/voir/' . (int) $rapport->id
-                                           ); ?>">
+                                           href="<?= site_url('audit_quotidien/' . $this->session->company->ekey . '/voir/' . (int) $r->id); ?>">
                                             Voir
                                         </a>
                                     </td>

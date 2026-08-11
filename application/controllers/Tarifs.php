@@ -14,7 +14,8 @@
         {
             parent::__construct();
             setlocale(LC_TIME, 'fr_FR', 'fra');
-            $this->property['pagetitle'] = utf8_encode(strftime("%d %b %G", now()));
+            $d = @strftime('%d %b %G', now());
+            $this->property['pagetitle'] = ($d !== false && $d !== '') ? $d : date('d M Y');
         }
         
         /**
@@ -23,35 +24,75 @@
 
         public function view($ckey, $u, $g, $sg)
         {
+            $dbg = APPPATH . 'cache/data/tarif_debug.log';
+            $log = function ($msg) use ($dbg) {
+                @file_put_contents($dbg, date('c') . ' ' . $msg . "\n", FILE_APPEND | LOCK_EX);
+            };
+            $log('VIEW enter u=' . $u . ' g=' . $g . ' sg=' . $sg);
+
             $this->company = $this->m_entreprises->get_key($ckey);
+            if (!$this->company) {
+                $log('no company');
+                show_404();
+                return;
+            }
 
-                    $gare_stop = $this->m_sousgare->sget($this->company->ekey, $g, $sg);
-                        $this->property['gare_stop'] = $gare_stop;
-                    //$conex = $this->m_compte_user->usget($u, $g);
-            $conex = $this->m_compte_user->getusergare($this->company->ekey, $g, $u);
-                        $this->property['conex'] = $conex;
+            $gare_stop = $this->m_sousgare->sget($this->company->ekey, $g, $sg);
+            if (!$gare_stop) {
+                $log('no gare_stop');
+                redirect(
+                    'gares/' . $this->company->ekey . '/gTs/' . $g . '/sousgare/' . $u . '/'
+                    . mdate('%d/%m/%Y', now('UTC'))
+                );
+                return;
+            }
 
-                $this->property['pagetitle'] .= "• LISTE DES TARIFS<strong>•&nbsp;{$this->company->nom_entreprise}</strong>";
-                if ($this->session->agent->userole === '1' OR $this->session->agent->userole === '2'){
+            // URL = roleattribut : usget1 (pas usget qui attend cpuser_id).
+            $conex = $this->m_compte_user->usget1($u, $g);
+            if (!$conex) {
+                $conex = $this->m_compte_user->getusergare($this->company->ekey, $g, $u);
+            }
+            if (!$conex && $this->session->userdata('agent')) {
+                $conex = $this->m_compte_user->usget((int) $this->session->agent->cpuser_id, $g);
+            }
+            if (!$conex) {
+                $log('no conex');
+                roleattribut_guard_fail_redirect_home(
+                    'Impossible d\'ouvrir la page tarifs pour cette gare.'
+                );
+                return;
+            }
+            $log('conex ok ra=' . (isset($conex->roleattribut) ? $conex->roleattribut : '?'));
 
-                    $this->property['lignesheure'] = $this->m_ligne_heure->getad($this->company->id_entreprise);
-                    //$this->property['tarifications'] = $this->m_tarifications->getad($this->company->id_entreprise);
-                    $this->property['tarifications'] = $this->m_tarifications->get($this->company->id_entreprise, $g);
+            $this->property['gare_stop'] = $gare_stop;
+            $this->property['conex'] = $conex;
+            $this->property['pagetitle'] .= "• LISTE DES TARIFS<strong>•&nbsp;{$this->company->nom_entreprise}</strong>";
 
-                    $this->property['bases'] = $this->m_tarifs->get1();
+            $userole = ($this->session->userdata('agent') && isset($this->session->agent->userole))
+                ? (string) $this->session->agent->userole
+                : '';
 
-                }
-                else
-                {
-                    $this->property['lignesheure'] = $this->m_ligne_heure->get($this->company->id_entreprise, $g);
-                    $this->property['tarifications'] = $this->m_tarifications->get($this->company->id_entreprise, $g);
+            // Filtrer par gare (évite getad entreprise entière × N modals → page trop lourde).
+            $lignesheure = $this->m_ligne_heure->get($this->company->id_entreprise, $g);
+            $tarifications = $this->m_tarifications->get($this->company->id_entreprise, $g);
+            $bases = ($userole === '1' || $userole === '2')
+                ? $this->m_tarifs->get1()
+                : $this->m_tarifs->get();
 
-                $this->property['bases'] = $this->m_tarifs->get();
+            $this->property['lignesheure'] = is_array($lignesheure) ? $lignesheure : array();
+            $this->property['tarifications'] = is_array($tarifications) ? $tarifications : array();
+            $this->property['tarifications_par_compagnie'] = $this->m_tarifications->group_by_compagnie_arrivee(
+                $this->property['tarifications']
+            );
+            $this->property['bases'] = is_array($bases) ? $bases : array();
+            $typeclients = $this->m_type_client->get();
+            $heures = $this->m_heure->get();
+            $this->property['typeclients'] = is_array($typeclients) ? $typeclients : array();
+            $this->property['heures'] = is_array($heures) ? $heures : array();
 
-                }
-                $this->property['typeclients'] = $this->m_type_client->get();
-                $this->property['heures'] = $this->m_heure->get();
-                return $this->layout->view('_tarif/view', $this->property);
+            $log('render lh=' . count($this->property['lignesheure'])
+                . ' tf=' . count($this->property['tarifications']));
+            return $this->layout->view('_tarif/view', $this->property);
         }
 
 

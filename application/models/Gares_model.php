@@ -36,7 +36,8 @@
                     JOIN ville v ON g.villeid = v.id_ville
                     JOIN compagnies c ON g.compagniegare = c.cle_compagnie
                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                    WHERE e.id_entreprise = '$cid'")->result();
+                    WHERE e.id_entreprise = '$cid'
+                    ORDER BY c.nom_compagnie ASC, g.garenom ASC")->result();
             } else
                 return $this->db->query(
                     "SELECT * FROM gares g
@@ -45,7 +46,34 @@
                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
                     WHERE e.id_entreprise = '$cid'
                     AND g.idengare = '$gdid'")->row();
-        }        
+        }
+
+        /**
+         * Regroupe les gares d'une entreprise par compagnie.
+         *
+         * @param int|string $cid id_entreprise
+         * @return array Liste de groupes [nom_compagnie, cle_compagnie, gares[]]
+         */
+        public function get_grouped_by_compagnie($cid)
+        {
+            $gares = $this->get($cid);
+            $groups = array();
+            if (empty($gares)) {
+                return $groups;
+            }
+            foreach ($gares as $gare) {
+                $key = (string) $gare->compagniegare;
+                if (!isset($groups[$key])) {
+                    $groups[$key] = array(
+                        'cle_compagnie' => $gare->compagniegare,
+                        'nom_compagnie' => $gare->nom_compagnie,
+                        'gares' => array(),
+                    );
+                }
+                $groups[$key]['gares'][] = $gare;
+            }
+            return $groups;
+        }
     }
     /** Gares_model.php **/
     /** application/models/Gares_model.php **/

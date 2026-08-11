@@ -2,7 +2,7 @@
 <div class="row">
         <p class="mt-0 mb-2 ml-4">
         
-            <a href="<?= site_url("caisses/caissieres/{$this->session->company->ekey}"."/". $conex->roleattribut.'/'.$bus_stop->idengare.'/'.$bus_stop->idsousgare); ?>" class="btn btn-space btn-secondary">
+            <a href="<?= site_url("caisses/caissieres/{$this->session->company->ekey}"."/". $cashbox_list_roleattribut.'/'.$bus_stop->idengare.'/'.$bus_stop->idsousgare); ?>" class="btn btn-space btn-secondary">
                 <i class="fas fa-arrow-circle-left text-info"></i>&nbsp;RETOUR A LA CAISSE&nbsp;
             </a>
         
@@ -23,8 +23,9 @@
             <button class="btn btn-space btn-secondary recaptridepot md-trigger" data-ckey="<?= $this->session->company->ekey; ?>"
                 data-modal="form-recaptridepot">
                 <i class="fas fa-edit text-warning"></i>&nbsp;DEPOTS&nbsp;
+            </button>
 
-                <button class="btn btn-space btn-secondary recaptriautredepot md-trigger" data-ckey="<?= $this->session->company->ekey; ?>"
+            <button class="btn btn-space btn-secondary recaptriautredepot md-trigger" data-ckey="<?= $this->session->company->ekey; ?>"
                 data-modal="form-recapautretridepot">
                 <i class="fas fa-edit text-warning"></i>&nbsp; AUTRES DEPOTS&nbsp;
             </button>            
@@ -48,11 +49,12 @@
                     </button>
                 </div>
                 
-                <?= form_open("", array('class' => 'modal-body form', 'id' => 'recaptrecetForm')); ?>
+                <?= form_open("Rapport/recaptrecette/{$this->session->company->ekey}", array('class' => 'modal-body form cashbox-recap-form', 'id' => 'recaptrecetForm')); ?>
                 <div class="form-group row">
                     <input class="form-control form-control-sm" type="hidden" name="gareconnect" value="<?=$bus_stop->idengare;?>">
                             <input class="form-control form-control-sm" type="hidden" name="sousgareconnect" value="<?=$bus_stop->idsousgare;?>">
                             <input class="form-control form-control-sm" type="hidden" name="userconnected" value="<?=$conex->roleattribut;?>">
+                            <input type="hidden" name="cashbox_target_roleattribut" value="<?= (int) $cashbox_target_roleattribut; ?>">
                             <input class="form-control form-control-sm" type="hidden" name="useropered" value="<?=$connex->roleattribut;?>">
                             <input class="form-control form-control-sm" type="hidden" name="compconnected" value="<?=$conex->cpuser_id;?>">
                     <div class="form-group col-sm-4">
@@ -137,11 +139,12 @@
                     </button>
                 </div>
                 
-                <?= form_open("", array('class' => 'modal-body form', 'id' => 'recaptdpForm')); ?>
+                <?= form_open("Rapport/recaptdepense/{$this->session->company->ekey}", array('class' => 'modal-body form cashbox-recap-form', 'id' => 'recaptdpForm')); ?>
                 <div class="form-group row">
                     <input class="form-control form-control-sm" type="hidden" name="gareconnect" value="<?=$bus_stop->idengare;?>">
                             <input class="form-control form-control-sm" type="hidden" name="sousgareconnect" value="<?=$bus_stop->idsousgare;?>">
                             <input class="form-control form-control-sm" type="hidden" name="userconnected" value="<?=$conex->roleattribut;?>">
+                            <input type="hidden" name="cashbox_target_roleattribut" value="<?= (int) $cashbox_target_roleattribut; ?>">
                             <input class="form-control form-control-sm" type="hidden" name="useropered" value="<?=$connex->roleattribut;?>">
                             <input class="form-control form-control-sm" type="hidden" name="compconnected" value="<?=$conex->cpuser_id;?>">
                     <div class="form-group col-sm-4">
@@ -181,7 +184,6 @@
                                     <option value="<?= $doc->typedocument; ?>">
                                         <?= $doc->typedocument; ?></option>
                                 <? endforeach; ?>
-                        </select>
                         </select>
                     </div>
                     <div class="form-group col-sm-4">
@@ -228,11 +230,12 @@
                     </button>
                 </div>
                 
-                <?= form_open("", array('class' => 'modal-body form', 'id' => 'recaptautredpForm')); ?>
+                <?= form_open("Rapport/recaptautredepense/{$this->session->company->ekey}", array('class' => 'modal-body form cashbox-recap-form', 'id' => 'recaptautredpForm')); ?>
                 <div class="form-group row">
                     <input class="form-control form-control-sm" type="hidden" name="gareconnect" value="<?=$bus_stop->idengare;?>">
                             <input class="form-control form-control-sm" type="hidden" name="sousgareconnect" value="<?=$bus_stop->idsousgare;?>">
                             <input class="form-control form-control-sm" type="hidden" name="userconnected" value="<?=$conex->roleattribut;?>">
+                            <input type="hidden" name="cashbox_target_roleattribut" value="<?= (int) $cashbox_target_roleattribut; ?>">
                             <input class="form-control form-control-sm" type="hidden" name="useropered" value="<?=$connex->roleattribut;?>">
                             <input class="form-control form-control-sm" type="hidden" name="compconnected" value="<?=$conex->cpuser_id;?>">
                     <div class="form-group col-sm-4">
@@ -272,7 +275,6 @@
                                     <option value="<?= $doc->typedocument; ?>">
                                         <?= $doc->typedocument; ?></option>
                                 <? endforeach; ?>
-                        </select>
                         </select>
                     </div>
                     <div class="form-group col-sm-4">
@@ -318,11 +320,12 @@
                     </button>
                 </div>
                 
-                <?= form_open("", array('class' => 'modal-body form', 'id' => 'recaptdepotForm')); ?>
+                <?= form_open("Rapport/recaptdepot/{$this->session->company->ekey}", array('class' => 'modal-body form cashbox-recap-form', 'id' => 'recaptdepotForm')); ?>
                 <div class="form-group row">
                     <input class="form-control form-control-sm" type="hidden" name="gareconnect" value="<?=$bus_stop->idengare;?>">
                             <input class="form-control form-control-sm" type="hidden" name="sousgareconnect" value="<?=$bus_stop->idsousgare;?>">
                             <input class="form-control form-control-sm" type="hidden" name="userconnected" value="<?=$conex->roleattribut;?>">
+                            <input type="hidden" name="cashbox_target_roleattribut" value="<?= (int) $cashbox_target_roleattribut; ?>">
                             <input class="form-control form-control-sm" type="hidden" name="useropered" value="<?=$connex->roleattribut;?>">
                             <input class="form-control form-control-sm" type="hidden" name="compconnected" value="<?=$conex->cpuser_id;?>">
                     <div class="form-group col-sm-4">
@@ -362,7 +365,6 @@
                                     <option value="<?= $doc->typedocument; ?>">
                                         <?= $doc->typedocument; ?></option>
                                 <? endforeach; ?>
-                        </select>
                         </select>
                     </div>
                     <div class="form-group col-sm-4">
@@ -407,11 +409,12 @@
                     </button>
                 </div>
                 
-                <?= form_open("", array('class' => 'modal-body form', 'id' => 'recaptautredepotForm')); ?>
+                <?= form_open("Rapport/recaptautredepot/{$this->session->company->ekey}", array('class' => 'modal-body form cashbox-recap-form', 'id' => 'recaptautredepotForm')); ?>
                 <div class="form-group row">
                     <input class="form-control form-control-sm" type="hidden" name="gareconnect" value="<?=$bus_stop->idengare;?>">
                             <input class="form-control form-control-sm" type="hidden" name="sousgareconnect" value="<?=$bus_stop->idsousgare;?>">
                             <input class="form-control form-control-sm" type="hidden" name="userconnected" value="<?=$conex->roleattribut;?>">
+                            <input type="hidden" name="cashbox_target_roleattribut" value="<?= (int) $cashbox_target_roleattribut; ?>">
                             <input class="form-control form-control-sm" type="hidden" name="useropered" value="<?=$connex->roleattribut;?>">
                             <input class="form-control form-control-sm" type="hidden" name="compconnected" value="<?=$conex->cpuser_id;?>">
                     <div class="form-group col-sm-4">
@@ -451,7 +454,6 @@
                                     <option value="<?= $doc->typedocument; ?>">
                                         <?= $doc->typedocument; ?></option>
                                 <? endforeach; ?>
-                        </select>
                         </select>
                     </div>
                     <div class="form-group col-sm-4">
@@ -495,11 +497,12 @@
                     </button>
                 </div>
                 
-                <?= form_open("Rapport/verse/{$this->session->company->ekey}", array('class' => 'modal-body form')); ?>
+                <?= form_open("Rapport/verse/{$this->session->company->ekey}", array('class' => 'modal-body form cashbox-recap-form', 'id' => 'recaptversementForm')); ?>
                 <div class="form-group row">
                     <input class="form-control form-control-sm" type="hidden" name="gareconnect" value="<?=$bus_stop->idengare;?>">
                             <input class="form-control form-control-sm" type="hidden" name="sousgareconnect" value="<?=$bus_stop->idsousgare;?>">
                             <input class="form-control form-control-sm" type="hidden" name="userconnected" value="<?=$conex->roleattribut;?>">
+                            <input type="hidden" name="cashbox_target_roleattribut" value="<?= (int) $cashbox_target_roleattribut; ?>">
                             <input class="form-control form-control-sm" type="hidden" name="useropered" value="<?=$connex->roleattribut;?>">
                             <input class="form-control form-control-sm" type="hidden" name="compconnected" value="<?=$conex->cpuser_id;?>">
                     <div class="form-group col-sm-4">
@@ -540,7 +543,6 @@
                                         <?= $doc->typedocument; ?></option>
                                 <? endforeach; ?>
                         </select>
-                        </select>
                     </div>
                     
                     <div class="form-group col-sm-4">
@@ -570,6 +572,22 @@
         </div>
 </div>
 
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    var today = new Date().toISOString().slice(0, 10);
+    document.querySelectorAll('.cashbox-recap-form').forEach(function (form) {
+        ['_compag', 'departgar', 'datedebut', 'datefin'].forEach(function (name) {
+            var field = form.querySelector('[name="' + name + '"]');
+            if (field) {
+                field.required = true;
+                if ((name === 'datedebut' || name === 'datefin') && !field.value) {
+                    field.value = today;
+                }
+            }
+        });
+    });
+});
+</script>
 
 <!--End of file: comptecaissier.php-->
 <!--File location: application/views/beagle/pages/_caisse/comptecaissier.php-->

@@ -100,6 +100,7 @@
                 $this->property['pagetitle'] .= "• LES GARES D'ARRIVEE <strong>•&nbsp;{$this->company->nom_entreprise}</strong>";
                 $this->property['gares'] = $this->m_gares->get($this->company->id_entreprise);
                 $this->property['bus_stop'] = $this->m_gare_arrivee->getad($this->company->id_entreprise);
+                $this->property['arrivees_par_compagnie'] = $this->m_gare_arrivee->get_grouped_by_compagnie($this->company->id_entreprise);
                 $this->property['villes'] = $this->m_villes->get();
                 $this->property['compagnies'] = $this->m_compagnies->get();
                 return $this->layout->view('_gare/view', $this->property);
@@ -113,6 +114,7 @@
                 $this->property['gares'] = $this->m_gares->get($this->company->id_entreprise);
                 
                 $this->property['busarrive_stop'] = $this->m_gare_depart->get($this->company->id_entreprise);
+                $this->property['departs_par_compagnie'] = $this->m_gare_depart->get_grouped_by_compagnie($this->company->id_entreprise);
                 
                 $this->property['villes'] = $this->m_villes->get();
                 $this->property['compagnies'] = $this->m_compagnies->get();
@@ -128,6 +130,7 @@
                 $this->property['pagetitle'] .= "•GARES<strong>•&nbsp;{$this->company->nom_entreprise}</strong>";
                 
                 $this->property['gares'] = $this->m_gares->get($this->company->id_entreprise);
+                $this->property['gares_par_compagnie'] = $this->m_gares->get_grouped_by_compagnie($this->company->id_entreprise);
                 
                 $this->property['villes'] = $this->m_villes->get();
                 $this->property['compagnies'] = $this->m_compagnies->get();
@@ -559,7 +562,24 @@
                     $bus_stop = $this->m_gare_depart->get($this->company->id_entreprise, $cdg);
                             $this->property['bus_stop'] = $bus_stop;
 
-                    $this->property['progs'] = $this->m_programme->getall($this->company->id_entreprise, $cdg);
+                    $this->property['progs'] = $this->m_programme->getall($this->company->id_entreprise, $cdg, FALSE, $sg);
+                    $this->property['progs_par_compagnie'] = $this->m_programme->group_by_compagnie_arrivee(
+                        $this->property['progs']
+                    );
+                    $corr_index = array();
+                    if (!empty($this->property['progs'])) {
+                        if (!isset($this->m_programme_correspondance)) {
+                            $this->load->model('Programme_correspondance_model', 'm_programme_correspondance');
+                        }
+                        $codes = array();
+                        foreach ($this->property['progs'] as $__p) {
+                            if (!empty($__p->code_progr)) {
+                                $codes[] = $__p->code_progr;
+                            }
+                        }
+                        $corr_index = $this->m_programme_correspondance->index_for_codes($codes);
+                    }
+                    $this->property['corr_index'] = $corr_index;
                     $gare_stop = $this->m_sousgare->sget($this->company->ekey, $cdg, $sg);
                         $this->property['gare_stop'] = $gare_stop;
                     
@@ -602,12 +622,20 @@
                         $this->property['alllignes'] = $this->m_lignes->get($this->company->id_entreprise, $cdg);
                         $this->property['lignesheure'] = $this->m_ligne_heure->get($this->company->id_entreprise, $cdg);
                     }
+                    $this->property['lignesheure_par_compagnie'] = $this->m_ligne_heure->group_by_compagnie_arrivee(
+                        $this->property['lignesheure']
+                    );
                     $this->property['categories'] = $this->m_categories->get();
                     $this->property['chauffeurs'] = $this->m_personnels->getch($this->company->ekey);
                     $this->property['convoyeurs'] = $this->m_personnels->getconv($this->company->ekey);
                     $this->property['typepersonnels'] = $this->m_type_personnel->get();
                     $this->property['compagnies'] = $this->m_compagnies->get();
                     $this->property['sousgares'] = $this->m_sousgare->get($this->company->id_entreprise, $cdg);
+                    if (!isset($this->m_programme)) {
+                        $this->load->model('Programme_model', 'm_programme');
+                    }
+                    $this->property['mode_depart_gare'] = $this->m_programme->get_mode_depart($cdg);
+                    $this->property['code_gaexp_mode'] = $cdg;
                     $this->property['positions'] = $this->m_position->get();
                     $this->property['lignes'] = $this->m_lignes->getgid($this->company->id_entreprise, $cdg);
                     $this->property['nonpersonnels'] = $this->m_client->getp();

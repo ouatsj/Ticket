@@ -37,7 +37,8 @@
                     JOIN ville v ON gd.id_villegd = v.id_ville
                     JOIN compagnies c ON gd.id_compagd = c.cle_compagnie
                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                    WHERE e.id_entreprise = '$cid'")->result();
+                    WHERE e.id_entreprise = '$cid'
+                    ORDER BY c.nom_compagnie ASC, gd.nom_gaep ASC")->result();
             } else
                 return $this->db->query(
                     "SELECT * FROM gare_exp gd
@@ -47,6 +48,33 @@
                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
                     WHERE e.id_entreprise = '$cid'
                     AND gd.code_gaexp = '$gd_id'")->row();
+        }
+
+        /**
+         * Regroupe les gares de départ d'une entreprise par compagnie.
+         *
+         * @param int|string $cid id_entreprise
+         * @return array Liste de groupes [nom_compagnie, cle_compagnie, gares[]]
+         */
+        public function get_grouped_by_compagnie($cid)
+        {
+            $gares = $this->get($cid);
+            $groups = array();
+            if (empty($gares)) {
+                return $groups;
+            }
+            foreach ($gares as $gare) {
+                $key = (string) $gare->id_compagd;
+                if (!isset($groups[$key])) {
+                    $groups[$key] = array(
+                        'cle_compagnie' => $gare->id_compagd,
+                        'nom_compagnie' => $gare->nom_compagnie,
+                        'gares' => array(),
+                    );
+                }
+                $groups[$key]['gares'][] = $gare;
+            }
+            return $groups;
         }
 
 

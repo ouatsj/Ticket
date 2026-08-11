@@ -30,38 +30,88 @@
         
         public function get($cd, $gid, $tf = FALSE)
         {
-            
+            // $gid = idengare (URL), via gares liés à gare_exp.
             if ($tf === FALSE) {
                 return $this->db->query(
-                    "SELECT * FROM tarification tf
+                    "SELECT tf.*, tc.*, t.*, ex.*, lh.*, h.*, lg.*, e.*,
+                            c.nom_compagnie AS nom_compagnie_depart,
+                            ga.nom_gadest AS nom_gadest,
+                            ga.code_gadest AS code_gadest,
+                            ca.nom_compagnie AS nom_compagnie_arrivee,
+                            ca.cle_compagnie AS cle_compagnie_arrivee
+                    FROM tarification tf
                     JOIN type_client tc ON tf.typeclient_id = tc.idtyp
                     JOIN tarifs t ON tf.typetarif_id = t.id_tarifs
                     JOIN gare_exp ex ON tf.id_garedepart = ex.code_gaexp
+                    JOIN gares g ON ex.garesid = g.idengare
                     JOIN ligne_heure lh ON tf.ligne_heure_id = lh.id_ligneheure
                     JOIN heures h ON lh.heure_identif = h.id_heure
                     JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
+                    JOIN gare_dest ga ON lg.gadest_lg = ga.code_gadest
                     JOIN compagnies c ON ex.id_compagd = c.cle_compagnie
+                    JOIN compagnies ca ON ga.id_compaga = ca.cle_compagnie
                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
                     WHERE e.id_entreprise = '$cd'
-                    AND ex.code_gaexp = '$gid'
+                    AND g.idengare = '$gid'
                     AND h.h_active = 1
-                    ORDER BY h.heure ASC")->result();
+                    ORDER BY ca.nom_compagnie ASC, h.heure ASC")->result();
             } else
                 return $this->db->query(
-                    "SELECT * FROM tarification tf
+                    "SELECT tf.*, tc.*, t.*, ex.*, lh.*, h.*, lg.*, e.*,
+                            c.nom_compagnie AS nom_compagnie_depart,
+                            ga.nom_gadest AS nom_gadest,
+                            ga.code_gadest AS code_gadest,
+                            ca.nom_compagnie AS nom_compagnie_arrivee,
+                            ca.cle_compagnie AS cle_compagnie_arrivee
+                    FROM tarification tf
                     JOIN type_client tc ON tf.typeclient_id = tc.idtyp
                     JOIN tarifs t ON tf.typetarif_id = t.id_tarifs
                     JOIN gare_exp ex ON tf.id_garedepart = ex.code_gaexp
+                    JOIN gares g ON ex.garesid = g.idengare
                     JOIN ligne_heure lh ON tf.ligne_heure_id = lh.id_ligneheure
                     JOIN heures h ON lh.heure_identif = h.id_heure
                     JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
+                    JOIN gare_dest ga ON lg.gadest_lg = ga.code_gadest
                     JOIN compagnies c ON ex.id_compagd = c.cle_compagnie
+                    JOIN compagnies ca ON ga.id_compaga = ca.cle_compagnie
                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
                     WHERE e.id_entreprise = '$cd'
                     AND tf.id_tarification = '$tf'
-                    AND ex.code_gaexp = '$gid'
+                    AND g.idengare = '$gid'
                     AND h.h_active = 1
                     ORDER BY h.heure ASC")->row();
+        }
+
+        /**
+         * Regroupe des tarifications par compagnie d'arrivée.
+         *
+         * @param array $rows
+         * @return array
+         */
+        public function group_by_compagnie_arrivee($rows)
+        {
+            $groups = array();
+            if (empty($rows)) {
+                return $groups;
+            }
+            foreach ($rows as $row) {
+                $key = isset($row->cle_compagnie_arrivee) ? (string) $row->cle_compagnie_arrivee : '';
+                if ($key === '') {
+                    $key = '_sans';
+                }
+                if (!isset($groups[$key])) {
+                    $nom = !empty($row->nom_compagnie_arrivee)
+                        ? $row->nom_compagnie_arrivee
+                        : 'Sans compagnie';
+                    $groups[$key] = array(
+                        'cle_compagnie' => $key === '_sans' ? null : $key,
+                        'nom_compagnie' => $nom,
+                        'tarifications' => array(),
+                    );
+                }
+                $groups[$key]['tarifications'][] = $row;
+            }
+            return $groups;
         }
         
         public function pri($cd, $th, $tf, $gid = null)

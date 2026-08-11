@@ -55,6 +55,11 @@
                 'verifcodeprogramme' => array('m_programme'),
                 'verifieligneheure' => array('m_ligne_heure'),
                 'verifprog' => array('m_programme'),
+                'verifheuresvente' => array('m_programme', 'm_itineraire'),
+                'getmodedepart' => array('m_programme'),
+                'setmodedepart' => array('m_programme'),
+                'creedepart' => array('m_programme'),
+                'creersiege' => array('m_tampon_siege', 'm_programme'),
                 'verifprogtr' => array('m_programme'),
                 'vente' => array('m_compte_user'),
                 'progactifnonactif' => array('m_programme'),
@@ -72,6 +77,8 @@
                 'verifsousgares' => array('m_sousgare'),
                 'verifcodecl' => array('m_tamponcode'),
                 'verifitine' => array('m_itineraire'),
+                'verifescales' => array('m_itineraire_escale'),
+                'verifescalesod' => array('m_itineraire_escale'),
                 'verifprogrammes' => array('m_programme'),
                 'siegepassager' => array('m_passager'),
                 'siegdispo' => array('m_programme'),
@@ -79,6 +86,11 @@
                 'siegdisponible' => array('m_programme'),
                 'siegdisponiblebus' => array('m_programme'),
                 'siegeoccuper' => array('m_passager'),
+                'suggest_correspondances' => array('m_programme', 'm_programme_correspondance', 'm_itineraire_etape', 'm_entreprises', 'm_sousgare'),
+                'link_correspondance' => array('m_programme', 'm_programme_correspondance', 'm_itineraire_etape', 'm_entreprises', 'm_sousgare'),
+                'unlink_correspondance' => array('m_programme', 'm_programme_correspondance', 'm_entreprises'),
+                'get_correspondance' => array('m_programme', 'm_programme_correspondance', 'm_entreprises'),
+                'sousgares_correspondance' => array('m_programme_correspondance', 'm_entreprises'),
             );
         }
 
@@ -314,8 +326,8 @@
                 return $this->layout->view('_programme/indexbus', $this->property);
         }
 
-        public function creedepart($dep, $dat, $lh, $hr)
-        {            
+        public function creedepart($dep, $dat, $lh, $hr, $sgid = null)
+        {
             $today = mdate("%Y-%m-%d", now('UTC'));
             $compter = $this->db->query("SELECT COUNT(code_progr) AS id FROM programme WHERE createdatepr = '$today' AND gareidentif = '$dep'")->row();
 
@@ -324,25 +336,44 @@
 
             $cts = $cat->categorie;
 
-            if($dep === 'OUA12')
-            {
-
-               $dep6 = 'WUA12';
-            }
-            else
-            {
-
+            if ($dep === 'OUA12') {
+                $dep6 = 'WUA12';
+            } else {
                 $dep6 = $dep;
             }
 
-                $cpde1 = mdate("%y%m%d", now('UTC')).$dep6.($compter->id + 1);
-                $dpcde1 = mdate("%d", now('UTC')).$dep6.($compter->id + 1);
+            $cpde1 = mdate("%y%m%d", now('UTC')).$dep6.($compter->id + 1);
+            $dpcde1 = mdate("%d", now('UTC')).$dep6.($compter->id + 1);
+
+            // Auto-création vente: départ gare (NULL) = utilisable par toutes les sous-gares.
+            // Si un départ propre SG existe déjà, resoudre_depart le prendra en priorité à la vente.
+            $idsous = $this->m_programme->idsousgare_pour_creation($dep, $sgid, 'gare');
+
+            $sgSql = ($idsous === null)
+                ? ' AND idsousgare_prog IS NULL'
+                : (' AND idsousgare_prog = ' . (int) $idsous);
+            $dup = $this->db->query(
+                "SELECT code_progr FROM programme
+                 WHERE id_heur = ?
+                 AND date_progr = ?
+                 AND gareidentif = ?
+                 AND statut_prog = 'actif'
+                 AND actif_prog = 0
+                 {$sgSql}
+                 LIMIT 1",
+                array($lh, $dat, $dep)
+            )->row();
+            if ($dup) {
+                $rs = $this->m_programme->getpr($this->session->company->ekey, $dup->code_progr, $lh);
+                return $this->load->view('beagle/pages/_programme/json', array('json' => $rs));
+            }
 
             $arrayprog = array(
-                'code_progr' => $cpd1,
-                'depart_code' => $dpcd1,
+                'code_progr' => $cpde1,
+                'depart_code' => $dpcde1,
                 'id_heur' => $lh,
                 'gareidentif' => $dep,
+                'idsousgare_prog' => $idsous,
                 'typetarif' => 1,
                 'categori' => $cat->categorie,
                 'intervalle1' => 1,
@@ -352,17 +383,13 @@
                 'dateheure_prog' => $dat.'-'.$hr,
                 'createdpg_at' => now('UTC'),
             );
-            if($lh != '' AND $cts != '' AND $dat >= '$today'){
-
+            if ($lh != '' AND $cts != '' AND $dat >= $today) {
                 $this->m_programme->create($arrayprog);
-                $pr = mdate("%y%m%d", now('UTC')).$dep.($compter->id + 1);
-                
-                $rs = $this->m_programme->getpr($this->session->company->ekey, $pr, $lh);
-
+                $rs = $this->m_programme->getpr($this->session->company->ekey, $cpde1, $lh);
                 return $this->load->view('beagle/pages/_programme/json', array('json' => $rs));
             }
-
         }
+
 
         public function add($ckey)
         {            
@@ -601,11 +628,21 @@
             $pcd2 = mdate("%y%m%d", now('UTC')).$gd4.($compter->id + 1);
             $pc2 = mdate("%d", now('UTC')).$gd4.($compter->id + 1);
             
+            $selected_sg = $this->input->post('scope_sousgares');
+            if (!is_array($selected_sg)) { $selected_sg = array(); }
+            if ($this->input->post('scope_depart') !== 'sousgare') {
+                $selected_sg = array(); // toute portée
+            }
+            $total_sg = 0;
+            $sgRows = $this->db->query("SELECT idsousgare FROM sousgare WHERE gareprinceid = ?", array($gd))->result();
+            $total_sg = is_array($sgRows) ? count($sgRows) : 0;
+            $idsous_prog = $this->m_programme->idsousgare_prog_depuis_selection($selected_sg, $total_sg);
             $arrayprog = array(
                 'code_progr' => $pcd2,
                 'depart_code' => $pc2,
                 'id_heur' => $sub_gdp,
                 'gareidentif' => $gd,
+                'idsousgare_prog' => $idsous_prog,
                 'typetarif' => $this->input->post('tariftype'),
                 'categori' => $this->input->post('categorie'),
                 'intervalle1' => $this->input->post('debut'),
@@ -619,6 +656,7 @@
             if($sub_gdp != '' AND $tp != '' AND $cts != '' AND $dts >= '$today'){
                 $pr = $this->m_programme->create($arrayprog);
                 if ($pr != NULL) {
+                    $this->m_programme->sync_portee_sousgares($pcd2, $selected_sg, $total_sg);
                     $this->property['INSERT_SUCCESS'] = TRUE;
                 }
             }
@@ -656,12 +694,29 @@
             $cgb = $this->input->post('ouotancien');
 
             if($sub_heure != '' AND $tp != '' AND $cts != '' AND $dts >= '$today'){
+                $selected_sg = $this->input->post('scope_sousgares');
+                if (!is_array($selected_sg)) { $selected_sg = array(); }
+                if ($this->input->post('scope_depart') !== 'sousgare') {
+                    $selected_sg = array(); // toute portée
+                }
+                $sgRows = $this->db->query("SELECT idsousgare FROM sousgare WHERE gareprinceid = ?", array($gd))->result();
+                $total_sg = is_array($sgRows) ? count($sgRows) : 0;
+                $idsous_prog = $this->m_programme->idsousgare_prog_depuis_selection($selected_sg, $total_sg);
+                if (!$this->m_programme->portee_selection_autorisee($idpr, $selected_sg, $total_sg)) {
+                    $this->session->set_flashdata(
+                        'prog_portee_error',
+                        'Impossible de retirer une sous-gare de ce départ : des ventes y ont déjà été faites. Recochez les sous-gares concernées ou toutes les cases.'
+                    );
+                    redirect('gares/'.$this->session->company->ekey. '/gTv/'. $gd. '/prog/'.$iduser.'/'.$idsg.'/'.  mdate("%d/%m/%Y", now('UTC')));
+                    return;
+                }
                 if($cgbselect == '')
                 {
                     $arrayedit = array(
                         'depart_code' => $cdb,
                         'id_heur' => $sub_heure,
                         'gareidentif' => $gd,
+                        'idsousgare_prog' => $idsous_prog,
                         'typetarif' => $this->input->post('tariftype'),
                         'categori' => $this->input->post('categorie'),
                         'intervalle1' => $this->input->post('debut'),
@@ -671,7 +726,7 @@
                     );
                     if($this->m_programme->update($idpr, $arrayedit) != FALSE)
                     {
-                        
+                        $this->m_programme->sync_portee_sousgares($idpr, $selected_sg, $total_sg);
                         $nbp = $this->input->post('fin');
                         $cte = $this->input->post('categorie');
                         $d = $this->input->post('dateprogramme');
@@ -693,6 +748,7 @@
                             'depart_code' => $cdb,
                             'id_heur' => $sub_heure,
                             'gareidentif' => $gd,
+                            'idsousgare_prog' => $idsous_prog,
                             'typetarif' => $this->input->post('tariftype'),
                             'categori' => $this->input->post('categorie'),
                             'intervalle1' => $this->input->post('debut'),
@@ -702,7 +758,7 @@
                         );
                         if($this->m_programme->update($idpr, $arrayedit) != FALSE)
                         {
-                            
+                            $this->m_programme->sync_portee_sousgares($idpr, $selected_sg, $total_sg);
                             $nbp = $this->input->post('fin');
                             $cte = $this->input->post('categorie');
                             $d = $this->input->post('dateprogramme');
@@ -832,11 +888,20 @@
 
             $cp3 = mdate("%y%m%d", now('UTC')).$gt5.($compter->id + 1);
             
+            $selected_sg = $this->input->post('scope_sousgares');
+            if (!is_array($selected_sg)) { $selected_sg = array(); }
+            if ($this->input->post('scope_depart') !== 'sousgare') {
+                $selected_sg = array(); // toute portée
+            }
+            $sgRows = $this->db->query("SELECT idsousgare FROM sousgare WHERE gareprinceid = ?", array($gt))->result();
+            $total_sg = is_array($sgRows) ? count($sgRows) : 0;
+            $idsous_prog = $this->m_programme->idsousgare_prog_depuis_selection($selected_sg, $total_sg);
             $arrayprog = array(
                 'code_progr' => $cp3,
                 'depart_code' => $cdb,
                 'id_heur' => $sub_gdp,
                 'gareidentif' => $gt,
+                'idsousgare_prog' => $idsous_prog,
                 'typetarif' => $taf,
                 'categori' => $cat,
                 'intervalle1' => $this->input->post('debut'),
@@ -850,11 +915,165 @@
             if($sub_gdp != '' AND $taf != '' AND $cat != '' AND $dtp >= $today){
                 $praxe = $this->m_programme->create($arrayprog);
                 if ($praxe != NULL) {
+                    $this->m_programme->sync_portee_sousgares($cp3, $selected_sg, $total_sg);
                     $this->property['INSERT_SUCCESS'] = TRUE;
                 }
             }
                 redirect('gares/'.$this->session->company->ekey. '/gTv/'. $gt. '/prog/'.$iduser.'/'.$idsg.'/'.  mdate("%d/%m/%Y", now('UTC')));
 
+        }
+
+        /**
+         * Suggestions de départs de correspondance déjà créés (JSON).
+         * GET Programmes/suggest_correspondances/{ekey}/{code_progr}
+         */
+        public function suggest_correspondances($ckey, $code_progr = null)
+        {
+            session_release_lock();
+            $this->company = $this->m_entreprises->get_key($ckey);
+            if (!$code_progr) {
+                $code_progr = $this->input->get('code') ?: $this->input->post('code_progr');
+            }
+            if (!isset($this->m_programme_correspondance)) {
+                $this->load->model('Programme_correspondance_model', 'm_programme_correspondance');
+            }
+            $out = $this->m_programme_correspondance->suggest_suites(
+                $this->session->company->ekey,
+                $code_progr
+            );
+            if (!empty($out['ok'])) {
+                $gareBan = null;
+                if (!empty($out['principal']) && is_array($out['principal']) && !empty($out['principal']['gareidentif'])) {
+                    $gareBan = $out['principal']['gareidentif'];
+                }
+                if (!$gareBan) {
+                    $detail = $this->m_programme_correspondance->prog_detail(
+                        $this->session->company->ekey,
+                        $code_progr
+                    );
+                    $gareBan = $detail ? $detail->gareidentif : null;
+                }
+                $out['sousgares_banfora'] = $gareBan
+                    ? $this->m_programme_correspondance->list_sousgares_gare($gareBan)
+                    : array();
+            }
+            return $this->load->view('beagle/pages/_programme/json', array('json' => $out));
+        }
+
+        /**
+         * Sous-gares d'une gare (JSON) — portée Bobo à la création du lien.
+         * GET Programmes/sousgares_correspondance/{ekey}/{code_gaexp}
+         */
+        public function sousgares_correspondance($ckey, $code_gaexp = null)
+        {
+            session_release_lock();
+            $this->company = $this->m_entreprises->get_key($ckey);
+            if (!$code_gaexp) {
+                $code_gaexp = $this->input->get('gare');
+            }
+            if (!isset($this->m_programme_correspondance)) {
+                $this->load->model('Programme_correspondance_model', 'm_programme_correspondance');
+            }
+            $list = $this->m_programme_correspondance->list_sousgares_gare($code_gaexp);
+            return $this->load->view('beagle/pages/_programme/json', array(
+                'json' => array('ok' => true, 'gare' => $code_gaexp, 'sousgares' => $list),
+            ));
+        }
+
+        /**
+         * Crée le lien principal ↔ suite + départ dérivé (JSON).
+         * POST Programmes/link_correspondance/{ekey}
+         * body: code_progr_principal, code_progr_suite,
+         *       scope_banfora[], apply_principal, apply_derive,
+         *       scope_bobo[], apply_suite, has_scope_banfora, has_scope_bobo
+         */
+        public function link_correspondance($ckey)
+        {
+            session_release_lock();
+            $this->company = $this->m_entreprises->get_key($ckey);
+            $principal = trim((string) $this->input->post('code_progr_principal'));
+            $suite = trim((string) $this->input->post('code_progr_suite'));
+            if ($principal === '' || $suite === '') {
+                return $this->load->view('beagle/pages/_programme/json', array(
+                    'json' => array('ok' => false, 'error' => 'params_manquants'),
+                ));
+            }
+            if (!isset($this->m_programme_correspondance)) {
+                $this->load->model('Programme_correspondance_model', 'm_programme_correspondance');
+            }
+            $scopeBanfora = $this->input->post('scope_banfora');
+            if (!is_array($scopeBanfora)) {
+                $scopeBanfora = array();
+            }
+            $scopeBobo = $this->input->post('scope_bobo');
+            if (!is_array($scopeBobo)) {
+                $scopeBobo = array();
+            }
+            $options = array(
+                'scope_banfora' => $scopeBanfora,
+                'scope_bobo' => $scopeBobo,
+                'apply_principal' => ($this->input->post('apply_principal') === '0') ? false : true,
+                'apply_derive' => ($this->input->post('apply_derive') === '0') ? false : true,
+                'apply_suite' => ($this->input->post('apply_suite') === '0') ? false : true,
+                'has_scope_banfora' => ($this->input->post('has_scope_banfora') === '1'),
+                'has_scope_bobo' => ($this->input->post('has_scope_bobo') === '1'),
+            );
+            $out = $this->m_programme_correspondance->link(
+                $this->session->company->ekey,
+                $principal,
+                $suite,
+                $options
+            );
+            return $this->load->view('beagle/pages/_programme/json', array('json' => $out));
+        }
+
+        /**
+         * Supprime le lien (programmes conservés).
+         * POST Programmes/unlink_correspondance/{ekey}
+         */
+        public function unlink_correspondance($ckey)
+        {
+            session_release_lock();
+            $this->company = $this->m_entreprises->get_key($ckey);
+            $principal = trim((string) $this->input->post('code_progr_principal'));
+            if ($principal === '') {
+                $principal = trim((string) $this->input->get('code_progr_principal'));
+            }
+            if (!isset($this->m_programme_correspondance)) {
+                $this->load->model('Programme_correspondance_model', 'm_programme_correspondance');
+            }
+            $out = $this->m_programme_correspondance->unlink($principal);
+            return $this->load->view('beagle/pages/_programme/json', array('json' => $out));
+        }
+
+        /**
+         * État du lien pour un programme (JSON).
+         * GET Programmes/get_correspondance/{ekey}/{code_progr}
+         */
+        public function get_correspondance($ckey, $code_progr = null)
+        {
+            session_release_lock();
+            $this->company = $this->m_entreprises->get_key($ckey);
+            if (!$code_progr) {
+                $code_progr = $this->input->get('code');
+            }
+            if (!isset($this->m_programme_correspondance)) {
+                $this->load->model('Programme_correspondance_model', 'm_programme_correspondance');
+            }
+            $lien = $this->m_programme_correspondance->get_by_any_code($code_progr);
+            $out = array('ok' => true, 'lien' => $lien, 'verrouille' => false, 'nb_ventes' => 0);
+            if ($lien) {
+                $ekey = $this->session->company->ekey;
+                $out['principal'] = $this->m_programme_correspondance->prog_detail($ekey, $lien->code_progr_principal);
+                $out['suite'] = $this->m_programme_correspondance->prog_detail($ekey, $lien->code_progr_suite);
+                if (!empty($lien->code_progr_derive)) {
+                    $out['derive'] = $this->m_programme_correspondance->prog_detail($ekey, $lien->code_progr_derive);
+                }
+                $lock = $this->m_programme_correspondance->statut_verrouillage($lien);
+                $out['verrouille'] = !empty($lock['verrouille']);
+                $out['nb_ventes'] = isset($lock['nb_ventes']) ? (int) $lock['nb_ventes'] : 0;
+            }
+            return $this->load->view('beagle/pages/_programme/json', array('json' => $out));
         }
        
         public function verifinfosbis($n = '')
@@ -892,13 +1111,22 @@
             return $this->load->view('beagle/pages/_programme/json', array('json' => $contcl));
         }
 
-        public function verifprog($axe, $dt, $h)
+        public function verifprog($axe, $dt, $h, $sgid = null)
         {
-            
-            $outh = $this->m_programme->allprog($this->session->company->ekey, $axe, $dt, $h);
-            return $this->load->view('beagle/pages/_programme/json', array('json' => $outh));
-            
+            // Liste tous les départs actifs visibles (N>=2 → sélecteur guichet).
+            // N=0 → [] (creedepart / transit côté client). N=1 → tableau 1 élément (compat).
+            $list = $this->m_programme->lister_departs_actifs(
+                $this->session->company->ekey,
+                $axe,
+                $dt,
+                $h,
+                $sgid
+            );
+            return $this->load->view('beagle/pages/_programme/json', array(
+                'json' => is_array($list) ? $list : array(),
+            ));
         }
+
         public function verifprogtr($axe, $dt)
         {
             
@@ -989,6 +1217,38 @@
             return $this->load->view('beagle/pages/_programme/json', array('json' => $lgh));
             
         }
+
+        public function verifheuresvente($axe, $da, $sgid = null)
+        {
+            session_release_lock();
+            if (!isset($this->m_itineraire)) {
+                $this->load->model('Itineraire_model', 'm_itineraire');
+            }
+            $out = $this->m_programme->heures_vente_od($this->session->company->ekey, $axe, $da, $sgid);
+            return $this->load->view('beagle/pages/_programme/json', array('json' => $out));
+        }
+
+        public function getmodedepart($code_gaexp)
+        {
+            session_release_lock();
+            $mode = $this->m_programme->get_mode_depart($code_gaexp);
+            return $this->load->view('beagle/pages/_programme/json', array('json' => array(
+                'code_gaexp' => $code_gaexp,
+                'mode_depart' => $mode,
+            )));
+        }
+
+        public function setmodedepart($code_gaexp, $mode)
+        {
+            $ok = $this->m_programme->set_mode_depart($code_gaexp, $mode);
+            $current = $this->m_programme->get_mode_depart($code_gaexp);
+            return $this->load->view('beagle/pages/_programme/json', array('json' => array(
+                'ok' => $ok ? TRUE : FALSE,
+                'code_gaexp' => $code_gaexp,
+                'mode_depart' => $current,
+            )));
+        }
+
 
         public function verifheure1($axe, $da)
         {
@@ -1111,12 +1371,65 @@
                             
         }
 
-        public function verifitine($axe)
+        public function verifitine($axe, $da = null, $sgid = null, $force = null)
         {
-            
-            $outitin = $this->m_itineraire->getitine($this->session->company->ekey, $axe);
+            // $da / $sgid optionnels ; $force=1 ⇒ correspondances même si un direct existe ailleurs le jour.
+            $date = ($da !== null && $da !== '' && $da !== '0') ? $da : null;
+            $sg = ($sgid !== null && $sgid !== '' && $sgid !== '0') ? (int) $sgid : null;
+            $force_transit = ($force === '1' || $force === 1 || $force === true);
+            $outitin = $this->m_itineraire->getitine(
+                $this->session->company->ekey,
+                $axe,
+                $date,
+                $sg,
+                $force_transit
+            );
             return $this->load->view('beagle/pages/_programme/json', array('json' => $outitin));
-            
+        }
+
+        /**
+         * Phase 2 debug : décision graphe (JSON).
+         * GET programmes/verifchemins/{axe}/{date}/{sg?}
+         */
+        public function verifchemins($axe, $da = null, $sgid = null)
+        {
+            session_release_lock();
+            $date = ($da !== null && $da !== '' && $da !== '0') ? $da : mdate('%Y-%m-%d', now());
+            $sg = ($sgid !== null && $sgid !== '' && $sgid !== '0') ? (int) $sgid : null;
+            $this->load->library('graphe_correspondance');
+            if (!isset($this->m_itineraire_etape)) {
+                $this->load->model('Itineraire_etape_model', 'm_itineraire_etape');
+            }
+            $declRows = $this->m_itineraire_etape->get_by_parent($this->session->company->ekey, $axe);
+            $decl = array();
+            foreach ($declRows as $r) {
+                $decl[] = $r->code_itineraires;
+            }
+            $decision = $this->graphe_correspondance->resoudre_pour_vente(
+                $this->session->company->ekey,
+                $axe,
+                $date,
+                $sg,
+                $declRows
+            );
+            $out = array(
+                'mode' => $decision['mode'],
+                'meta' => $decision['meta'],
+                'declaratif' => $decl,
+                'chemins' => array(),
+                'etapes_servies' => array(),
+            );
+            foreach ($decision['chemins'] as $c) {
+                $out['chemins'][] = array(
+                    'codes' => isset($c['codes']) ? $c['codes'] : array(),
+                    'score' => isset($c['score']) ? $c['score'] : null,
+                    'nb_jambes' => isset($c['nb_jambes']) ? $c['nb_jambes'] : null,
+                );
+            }
+            foreach ($decision['etapes'] as $e) {
+                $out['etapes_servies'][] = isset($e->code_itineraires) ? $e->code_itineraires : null;
+            }
+            return $this->load->view('beagle/pages/_programme/json', array('json' => $out));
         }
 
         public function chemin($ax, $d)
@@ -1179,6 +1492,32 @@
             return $this->load->view('beagle/pages/_programme/json', array('json' => $outq));
         }
 
+        /**
+         * Escales actives d'une ligne parent (vente guichet).
+         */
+        public function verifescales($ligne)
+        {
+            session_release_lock();
+            if (!isset($this->m_itineraire_escale)) {
+                $this->load->model('Itineraire_escale_model', 'm_itineraire_escale');
+            }
+            $rows = $this->m_itineraire_escale->get_by_parent($ligne, TRUE);
+            return $this->load->view('beagle/pages/_programme/json', array('json' => $rows));
+        }
+
+        /**
+         * Escales actives pour une OD départ/arrivée (vente guichet).
+         */
+        public function verifescalesod($gaexp, $gadest)
+        {
+            session_release_lock();
+            if (!isset($this->m_itineraire_escale)) {
+                $this->load->model('Itineraire_escale_model', 'm_itineraire_escale');
+            }
+            $rows = $this->m_itineraire_escale->get_by_od($gaexp, $gadest, TRUE);
+            return $this->load->view('beagle/pages/_programme/json', array('json' => $rows));
+        }
+
         public function addpassager($ckey)
         {
             if ($this->_sale_nonce_duplicate()) {
@@ -1191,27 +1530,6 @@
 
             if ($this->_sale_roleattribut_guard()) {
                 return;
-            }
-
-            if (sales_price_controls_enabled()) {
-                if (!super_admin_can('sales.price.free')) {
-                    show_error('Vous n’avez pas la permission d’utiliser AUTRES VENTE.', 403);
-                    return;
-                }
-                if ($this->input->post('progcodfid') !== null
-                    && $this->input->post('prixfid') !== null
-                ) {
-                    sales_price_validate_or_fail(
-                        $this->input->post('progcodfid'),
-                        $this->input->post('prixfid'),
-                        array(
-                            'reason' => $this->input->post('prix_libre_motif'),
-                            'authorization_type' => $this->input->post('type_autorisation_prix'),
-                            'card_number' => $this->input->post('numero_carte_voyage'),
-                            'zero_confirmed' => $this->input->post('confirmation_zero') === '1',
-                        )
-                    );
-                }
             }
 
             if (!isset($this->m_ordres)) {
@@ -3358,7 +3676,7 @@
                                                         'num_siege_categorie' => $this->input->post('passagersiegesitines1'),
                                                         'num_cat' => $this->input->post('catgorietransit'),
                                                         'prixvente' => $this->input->post('prixtransit'),
-                                                        'quart' => $this->input->post('quartconfirme3'),
+                                                        'quart' => $this->input->post('quartconfirme2'),
                                                         'createpas_at' => now('UTC'),
                                                         'datep_create' => mdate("%Y-%m-%d", now('UTC')),
                                                                 );
@@ -3435,7 +3753,7 @@
                                                         'num_siege_categorie' => $this->input->post('passagersiegesitines2'),
                                                         'num_cat' => $this->input->post('catgorietransit1'),
                                                         'prixvente' => $this->input->post('prixtransit1'),
-                                                        'quart' => $this->input->post('quartconfirme2'),
+                                                        'quart' => $this->input->post('quartconfirme3'),
                                                         'createpas_at' => now('UTC'),
                                                         'datep_create' => mdate("%Y-%m-%d", now('UTC')),
                                                         );
@@ -3456,7 +3774,7 @@
                                                         $reg3 = $this->input->post('gidtransite2');
                                                         $cd3 = $this->input->post('compg3');
                                                         $passecompter3 = $this->db->query("SELECT COUNT(code_passager) AS id FROM passager p WHERE p.datep_create = '$today' AND p.idcptuser = '$iduser' AND p.code_ticket != 'R' AND p.statut_code = 'vendu'")->row();
-                                                            $passecompt3 = $this->db->query("SELECT COUNT(code_passager) AS id FROM passager p.datep_create = '$today'")->row();
+                                                            $passecompt3 = $this->db->query("SELECT COUNT(code_passager) AS id FROM passager p WHERE p.datep_create = '$today'")->row();
 
                                                        
 
@@ -4381,7 +4699,7 @@
                                                         'num_siege_categorie' => $this->input->post('passagersiegesitines1'),
                                                         'num_cat' => $this->input->post('catgorietransit'),
                                                         'prixvente' => $this->input->post('prixtransit'),
-                                                        'quart' => $this->input->post('quartconfirme3'),
+                                                        'quart' => $this->input->post('quartconfirme2'),
                                                         'createpas_at' => now('UTC'),
                                                         'datep_create' => mdate("%Y-%m-%d", now('UTC')),
                                                     );
@@ -4454,7 +4772,7 @@
                                                         'num_siege_categorie' => $this->input->post('passagersiegesitines2'),
                                                         'num_cat' => $this->input->post('catgorietransit1'),
                                                         'prixvente' => $this->input->post('prixtransit1'),
-                                                        'quart' => $this->input->post('quartconfirme2'),
+                                                        'quart' => $this->input->post('quartconfirme3'),
                                                         'createpas_at' => now('UTC'),
                                                         'datep_create' => mdate("%Y-%m-%d", now('UTC')),
                                                     );
@@ -5470,7 +5788,7 @@
                                                             'num_siege_categorie' => $this->input->post('passagersiegesitines1'),
                                                             'num_cat' => $this->input->post('catgorietransit'),
                                                             'prixvente' => $this->input->post('prixtransit'),
-                                                            'quart' => $this->input->post('quartconfirme3'),
+                                                            'quart' => $this->input->post('quartconfirme2'),
                                                             'createpas_at' => now('UTC'),
                                                             'datep_create' => mdate("%Y-%m-%d", now('UTC')),
                                                         );
@@ -5541,7 +5859,7 @@
                                                             'num_siege_categorie' => $this->input->post('passagersiegesitines2'),
                                                             'num_cat' => $this->input->post('catgorietransit1'),
                                                             'prixvente' => $this->input->post('prixtransit1'),
-                                                            'quart' => $this->input->post('quartconfirme2'),
+                                                            'quart' => $this->input->post('quartconfirme3'),
                                                             'createpas_at' => now('UTC'),
                                                             'datep_create' => mdate("%Y-%m-%d", now('UTC')),
                                                             );
@@ -6469,7 +6787,7 @@
                                                             'num_siege_categorie' => $this->input->post('passagersiegesitines1'),
                                                             'num_cat' => $this->input->post('catgorietransit'),
                                                             'prixvente' => $this->input->post('prixtransit'),
-                                                            'quart' => $this->input->post('quartconfirme3'),
+                                                            'quart' => $this->input->post('quartconfirme2'),
                                                             'createpas_at' => now('UTC'),
                                                             'datep_create' => mdate("%Y-%m-%d", now('UTC')),
                                                                 );
@@ -6539,7 +6857,7 @@
                                                             'num_siege_categorie' => $this->input->post('passagersiegesitines2'),
                                                             'num_cat' => $this->input->post('catgorietransit1'),
                                                             'prixvente' => $this->input->post('prixtransit1'),
-                                                            'quart' => $this->input->post('quartconfirme2'),
+                                                            'quart' => $this->input->post('quartconfirme3'),
                                                             'createpas_at' => now('UTC'),
                                                             'datep_create' => mdate("%Y-%m-%d", now('UTC')),
                                                             );
@@ -7850,7 +8168,7 @@
                                                             'num_siege_categorie' => $this->input->post('passagersiegesitines1'),
                                                             'num_cat' =>$this->input->post('catgorietransit'),
                                                             'statut_code' => 'vendu',
-                                                            'quart' => $this->input->post('quartconfirme3'),
+                                                            'quart' => $this->input->post('quartconfirme2'),
                                                             'prixvente' => $this->input->post('prixtransit'),
                                                             'createpas_at' => now('UTC'),
                                                             'datep_create' => mdate("%Y/%m/%d", now('UTC')),
@@ -7954,7 +8272,7 @@
                                                             'num_siege_categorie' => $this->input->post('passagersiegesitines2'),
                                                             'num_cat' =>$this->input->post('catgorietransit1'),
                                                             'statut_code' => 'vendu',
-                                                            'quart' => $this->input->post('quartconfirme2'),
+                                                            'quart' => $this->input->post('quartconfirme3'),
                                                             'prixvente' => $this->input->post('prixtransit1'),
                                                             'createpas_at' => now('UTC'),
                                                             'datep_create' => mdate("%Y/%m/%d", now('UTC')),
@@ -9348,7 +9666,7 @@
                                                         'num_siege_categorie' => $this->input->post('passagersiegesitines1'),
                                                         'num_cat' =>$this->input->post('catgorietransit'),
                                                         'statut_code' => 'vendu',
-                                                        'quart' => $this->input->post('quartconfirme3'),
+                                                        'quart' => $this->input->post('quartconfirme2'),
                                                         'prixvente' => $this->input->post('prixtransit'),
                                                         'createpas_at' => now('UTC'),
                                                         'datep_create' => mdate("%Y/%m/%d", now('UTC')),
@@ -9452,7 +9770,7 @@
                                                         'num_siege_categorie' => $this->input->post('passagersiegesitines2'),
                                                         'num_cat' =>$this->input->post('catgorietransit1'),
                                                         'statut_code' => 'vendu',
-                                                        'quart' => $this->input->post('quartconfirme2'),
+                                                        'quart' => $this->input->post('quartconfirme3'),
                                                         'prixvente' => $this->input->post('prixtransit1'),
                                                         'createpas_at' => now('UTC'),
                                                         'datep_create' => mdate("%Y/%m/%d", now('UTC')),
@@ -10938,7 +11256,7 @@
                                                             'num_siege_categorie' => $this->input->post('passagersiegesitines1'),
                                                             'num_cat' =>$this->input->post('catgorietransit'),
                                                             'statut_code' => 'vendu',
-                                                            'quart' => $this->input->post('quartconfirme3'),
+                                                            'quart' => $this->input->post('quartconfirme2'),
                                                             'prixvente' => $this->input->post('prixtransit'),
                                                             'createpas_at' => now('UTC'),
                                                             'datep_create' => mdate("%Y/%m/%d", now('UTC')),
@@ -11042,7 +11360,7 @@
                                                             'num_siege_categorie' => $this->input->post('passagersiegesitines2'),
                                                             'num_cat' =>$this->input->post('catgorietransit1'),
                                                             'statut_code' => 'vendu',
-                                                            'quart' => $this->input->post('quartconfirme2'),
+                                                            'quart' => $this->input->post('quartconfirme3'),
                                                             'prixvente' => $this->input->post('prixtransit1'),
                                                             'createpas_at' => now('UTC'),
                                                             'datep_create' => mdate("%Y/%m/%d", now('UTC')),
@@ -12431,7 +12749,7 @@
                                                             'num_siege_categorie' => $this->input->post('passagersiegesitines1'),
                                                             'num_cat' =>$this->input->post('catgorietransit'),
                                                             'statut_code' => 'vendu',
-                                                            'quart' => $this->input->post('quartconfirme3'),
+                                                            'quart' => $this->input->post('quartconfirme2'),
                                                             'prixvente' => $this->input->post('prixtransit'),
                                                             'createpas_at' => now('UTC'),
                                                             'datep_create' => mdate("%Y/%m/%d", now('UTC')),
@@ -12535,7 +12853,7 @@
                                                             'num_siege_categorie' => $this->input->post('passagersiegesitines2'),
                                                             'num_cat' =>$this->input->post('catgorietransit1'),
                                                             'statut_code' => 'vendu',
-                                                            'quart' => $this->input->post('quartconfirme2'),
+                                                            'quart' => $this->input->post('quartconfirme3'),
                                                             'prixvente' => $this->input->post('prixtransit1'),
                                                             'createpas_at' => now('UTC'),
                                                             'datep_create' => mdate("%Y/%m/%d", now('UTC')),
@@ -13236,6 +13554,16 @@
             }
 
             if ($this->_sale_roleattribut_guard()) {
+                return;
+            }
+
+            // AUTRES VENTE uniquement : permission prix libre.
+            if (function_exists('sales_price_controls_enabled')
+                && sales_price_controls_enabled()
+                && function_exists('super_admin_can')
+                && !super_admin_can('sales.price.free')
+            ) {
+                show_error('Vous n’avez pas la permission d’utiliser AUTRES VENTE.', 403);
                 return;
             }
 
@@ -14685,7 +15013,7 @@
                                                         'statut_code' => 'vendu',
                                                         'num_siege_categorie' => $this->input->post('passagersiegesitinesfid'),
                                                         'num_cat' => $this->input->post('catgorietransfid'),
-                                                        'quart' => $this->input->post('quartconfirme3fid'),
+                                                        'quart' => $this->input->post('quartconfirme1fid'),
                                                         'prixvente' => $this->input->post('prixtransfid'),
                                                         'createpas_at' => now('UTC'),
                                                         'datep_create' => mdate("%Y-%m-%d", now('UTC')),
@@ -14739,7 +15067,7 @@
                                                             'num_siege_categorie' => $this->input->post('passagersiegesitines1fid'),
                                                             'num_cat' => $this->input->post('catgorietransitfid'),
                                                             'prixvente' => $this->input->post('prixtransitfid'),
-                                                            'quart' => $this->input->post('quartconfirme1fid'),
+                                                            'quart' => $this->input->post('quartconfirme2fid'),
                                                             'createpas_at' => now('UTC'),
                                                             'datep_create' => mdate("%Y-%m-%d", now('UTC')),
                                                             );
@@ -14805,7 +15133,7 @@
                                                                 'num_siege_categorie' => $this->input->post('passagersiegesitines2fid'),
                                                                 'num_cat' => $this->input->post('catgorietransit1fid'),
                                                                 'prixvente' => $this->input->post('prixtransit1fid'),
-                                                                'quart' => $this->input->post('quartconfirme2fid'),
+                                                                'quart' => $this->input->post('quartconfirme3fid'),
                                                                 'createpas_at' => now('UTC'),
                                                                 'datep_create' => mdate("%Y-%m-%d", now('UTC')),
                                                             );
@@ -15355,7 +15683,7 @@
                                                     'statut_code' => 'vendu',
                                                     'num_siege_categorie' => $this->input->post('passagersiegesitinesfid'),
                                                     'num_cat' => $this->input->post('catgorietransfid'),
-                                                    'quart' => $this->input->post('quartconfirme3fid'),
+                                                    'quart' => $this->input->post('quartconfirme1fid'),
                                                     'prixvente' => $this->input->post('prixtransfid'),
                                                     'createpas_at' => now('UTC'),
                                                     'datep_create' => mdate("%Y-%m-%d", now('UTC')),
@@ -15412,7 +15740,7 @@
                                                                 'num_siege_categorie' => $this->input->post('passagersiegesitines1fid'),
                                                                 'num_cat' => $this->input->post('catgorietransitfid'),
                                                                 'prixvente' => $this->input->post('prixtransitfid'),
-                                                                'quart' => $this->input->post('quartconfirme1fid'),
+                                                                'quart' => $this->input->post('quartconfirme2fid'),
                                                                 'createpas_at' => now('UTC'),
                                                                 'datep_create' => mdate("%Y-%m-%d", now('UTC')),
                                                             );
@@ -15477,7 +15805,7 @@
                                                                 'num_siege_categorie' => $this->input->post('passagersiegesitines2fid'),
                                                                 'num_cat' => $this->input->post('catgorietransit1fid'),
                                                                 'prixvente' => $this->input->post('prixtransit1fid'),
-                                                                'quart' => $this->input->post('quartconfirme2fid'),
+                                                                'quart' => $this->input->post('quartconfirme3fid'),
                                                                 'createpas_at' => now('UTC'),
                                                                 'datep_create' => mdate("%Y-%m-%d", now('UTC')),
                                                             );
@@ -16105,7 +16433,7 @@
                                                     'statut_code' => 'vendu',
                                                     'num_siege_categorie' => $this->input->post('passagersiegesitinesfid'),
                                                     'num_cat' => $this->input->post('catgorietransfid'),
-                                                    'quart' => $this->input->post('quartconfirme3fid'),
+                                                    'quart' => $this->input->post('quartconfirme1fid'),
                                                     'prixvente' => $this->input->post('prixtransfid'),
                                                     'createpas_at' => now('UTC'),
                                                     'datep_create' => mdate("%Y-%m-%d", now('UTC')),
@@ -16160,7 +16488,7 @@
                                                                 'num_siege_categorie' => $this->input->post('passagersiegesitines1fid'),
                                                                 'num_cat' => $this->input->post('catgorietransitfid'),
                                                                 'prixvente' => $this->input->post('prixtransitfid'),
-                                                                'quart' => $this->input->post('quartconfirme1fid'),
+                                                                'quart' => $this->input->post('quartconfirme2fid'),
                                                                 'createpas_at' => now('UTC'),
                                                                 'datep_create' => mdate("%Y-%m-%d", now('UTC')),
                                                             );
@@ -16225,7 +16553,7 @@
                                                             'num_siege_categorie' => $this->input->post('passagersiegesitines2fid'),
                                                             'num_cat' => $this->input->post('catgorietransit1fid'),
                                                             'prixvente' => $this->input->post('prixtransit1fid'),
-                                                            'quart' => $this->input->post('quartconfirme2fid'),
+                                                            'quart' => $this->input->post('quartconfirme3fid'),
                                                             'createpas_at' => now('UTC'),
                                                             'datep_create' => mdate("%Y-%m-%d", now('UTC')),
                                                                 );
@@ -16775,7 +17103,7 @@
                                                     'statut_code' => 'vendu',
                                                     'num_siege_categorie' => $this->input->post('passagersiegesitinesfid'),
                                                     'num_cat' => $this->input->post('catgorietransfid'),
-                                                    'quart' => $this->input->post('quartconfirme3fid'),
+                                                    'quart' => $this->input->post('quartconfirme1fid'),
                                                     'prixvente' => $this->input->post('prixtransfid'),
                                                     'createpas_at' => now('UTC'),
                                                     'datep_create' => mdate("%Y-%m-%d", now('UTC')),
@@ -16832,7 +17160,7 @@
                                                                 'num_siege_categorie' => $this->input->post('passagersiegesitines1fid'),
                                                                 'num_cat' => $this->input->post('catgorietransitfid'),
                                                                 'prixvente' => $this->input->post('prixtransitfid'),
-                                                                'quart' => $this->input->post('quartconfirme1fid'),
+                                                                'quart' => $this->input->post('quartconfirme2fid'),
                                                                 'createpas_at' => now('UTC'),
                                                                 'datep_create' => mdate("%Y-%m-%d", now('UTC')),
                                                             );
@@ -16897,7 +17225,7 @@
                                                                 'num_siege_categorie' => $this->input->post('passagersiegesitines2fid'),
                                                                 'num_cat' => $this->input->post('catgorietransit1fid'),
                                                                 'prixvente' => $this->input->post('prixtransit1fid'),
-                                                                'quart' => $this->input->post('quartconfirme2fid'),
+                                                                'quart' => $this->input->post('quartconfirme3fid'),
                                                                 'createpas_at' => now('UTC'),
                                                                 'datep_create' => mdate("%Y-%m-%d", now('UTC')),
                                                             );
@@ -17596,7 +17924,7 @@
                                                             'num_siege_categorie' => $this->input->post('passagersiegesitinesfid'),
                                                             'num_cat' =>$this->input->post('catgorietransfid'),
                                                             'statut_code' => 'vendu',
-                                                            'quart' => $this->input->post('quartconfirme3fid'),
+                                                            'quart' => $this->input->post('quartconfirme1fid'),
                                                             'prixvente' => $this->input->post('prixtransfid'),
                                                             'createpas_at' => now('UTC'),
                                                             'datep_create' => mdate("%Y/%m/%d", now('UTC')),
@@ -17672,7 +18000,7 @@
                                                                 'num_siege_categorie' => $this->input->post('passagersiegesitines1fid'),
                                                                 'num_cat' =>$this->input->post('catgorietransitfid'),
                                                                 'statut_code' => 'vendu',
-                                                                'quart' => $this->input->post('quartconfirme1fid'),
+                                                                'quart' => $this->input->post('quartconfirme2fid'),
                                                                 'prixvente' => $this->input->post('prixtransitfid'),
                                                                 'createpas_at' => now('UTC'),
                                                                 'datep_create' => mdate("%Y/%m/%d", now('UTC')),
@@ -17757,7 +18085,7 @@
                                                             'num_siege_categorie' => $this->input->post('passagersiegesitines2fid'),
                                                             'num_cat' =>$this->input->post('catgorietransit1fid'),
                                                             'statut_code' => 'vendu',
-                                                            'quart' => $this->input->post('quartconfirme2fid'),
+                                                            'quart' => $this->input->post('quartconfirme3fid'),
                                                             'prixvente' => $this->input->post('prixtransit1fid'),
                                                             'createpas_at' => now('UTC'),
                                                             'datep_create' => mdate("%Y/%m/%d", now('UTC')),
@@ -18425,7 +18753,7 @@
                                                             'num_siege_categorie' => $this->input->post('passagersiegesitinesfid'),
                                                             'num_cat' =>$this->input->post('catgorietransfid'),
                                                             'statut_code' => 'vendu',
-                                                            'quart' => $this->input->post('quartconfirme3fid'),
+                                                            'quart' => $this->input->post('quartconfirme1fid'),
                                                             'prixvente' => $this->input->post('prixtransfid'),
                                                             'createpas_at' => now('UTC'),
                                                             'datep_create' => mdate("%Y/%m/%d", now('UTC')),
@@ -18501,7 +18829,7 @@
                                                             'num_siege_categorie' => $this->input->post('passagersiegesitines1fid'),
                                                             'num_cat' =>$this->input->post('catgorietransitfid'),
                                                             'statut_code' => 'vendu',
-                                                            'quart' => $this->input->post('quartconfirme1fid'),
+                                                            'quart' => $this->input->post('quartconfirme2fid'),
                                                             'prixvente' => $this->input->post('prixtransitfid'),
                                                             'createpas_at' => now('UTC'),
                                                             'datep_create' => mdate("%Y/%m/%d", now('UTC')),
@@ -18587,7 +18915,7 @@
                                                             'num_siege_categorie' => $this->input->post('passagersiegesitines2fid'),
                                                             'num_cat' =>$this->input->post('catgorietransit1fid'),
                                                             'statut_code' => 'vendu',
-                                                            'quart' => $this->input->post('quartconfirme2fid'),
+                                                            'quart' => $this->input->post('quartconfirme3fid'),
                                                             'prixvente' => $this->input->post('prixtransit1fid'),
                                                             'createpas_at' => now('UTC'),
                                                             'datep_create' => mdate("%Y/%m/%d", now('UTC')),
@@ -19324,7 +19652,7 @@
                                                             'num_siege_categorie' => $this->input->post('passagersiegesitinesfid'),
                                                             'num_cat' =>$this->input->post('catgorietransfid'),
                                                             'statut_code' => 'vendu',
-                                                            'quart' => $this->input->post('quartconfirme3fid'),
+                                                            'quart' => $this->input->post('quartconfirme1fid'),
                                                             'prixvente' => $this->input->post('prixtransfid'),
                                                             'createpas_at' => now('UTC'),
                                                             'datep_create' => mdate("%Y/%m/%d", now('UTC')),
@@ -19399,7 +19727,7 @@
                                                             'num_siege_categorie' => $this->input->post('passagersiegesitines1fid'),
                                                             'num_cat' =>$this->input->post('catgorietransitfid'),
                                                             'statut_code' => 'vendu',
-                                                            'quart' => $this->input->post('quartconfirme1fid'),
+                                                            'quart' => $this->input->post('quartconfirme2fid'),
                                                             'prixvente' => $this->input->post('prixtransitfid'),
                                                             'createpas_at' => now('UTC'),
                                                             'datep_create' => mdate("%Y/%m/%d", now('UTC')),
@@ -19484,7 +19812,7 @@
                                                             'num_siege_categorie' => $this->input->post('passagersiegesitines2fid'),
                                                             'num_cat' =>$this->input->post('catgorietransit1fid'),
                                                             'statut_code' => 'vendu',
-                                                            'quart' => $this->input->post('quartconfirme2fid'),
+                                                            'quart' => $this->input->post('quartconfirme3fid'),
                                                             'prixvente' => $this->input->post('prixtransit1fid'),
                                                             'createpas_at' => now('UTC'),
                                                             'datep_create' => mdate("%Y/%m/%d", now('UTC')),
@@ -20187,7 +20515,7 @@
                                                             'num_siege_categorie' => $this->input->post('passagersiegesitinesfid'),
                                                             'num_cat' =>$this->input->post('catgorietransfid'),
                                                             'statut_code' => 'vendu',
-                                                            'quart' => $this->input->post('quartconfirme3fid'),
+                                                            'quart' => $this->input->post('quartconfirme1fid'),
                                                             'prixvente' => $this->input->post('prixtransfid'),
                                                             'createpas_at' => now('UTC'),
                                                             'datep_create' => mdate("%Y/%m/%d", now('UTC')),
@@ -20263,7 +20591,7 @@
                                                             'num_siege_categorie' => $this->input->post('passagersiegesitines1fid'),
                                                             'num_cat' =>$this->input->post('catgorietransitfid'),
                                                             'statut_code' => 'vendu',
-                                                            'quart' => $this->input->post('quartconfirme1fid'),
+                                                            'quart' => $this->input->post('quartconfirme2fid'),
                                                             'prixvente' => $this->input->post('prixtransitfid'),
                                                             'createpas_at' => now('UTC'),
                                                             'datep_create' => mdate("%Y/%m/%d", now('UTC')),
@@ -20357,7 +20685,7 @@
                                                                 'num_siege_categorie' => $this->input->post('passagersiegesitines2fid'),
                                                                 'num_cat' =>$this->input->post('catgorietransit1fid'),
                                                                 'statut_code' => 'vendu',
-                                                                'quart' => $this->input->post('quartconfirme2fid'),
+                                                                'quart' => $this->input->post('quartconfirme3fid'),
                                                                 'prixvente' => $this->input->post('prixtransit1fid'),
                                                                 'createpas_at' => now('UTC'),
                                                                 'datep_create' => mdate("%Y/%m/%d", now('UTC')),

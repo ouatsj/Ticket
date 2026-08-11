@@ -5,7 +5,8 @@
             <div class="card-header">Documentation & formation Ticket Rakieta</div>
             <div class="card-body">
                 <p class="mb-3">
-                    Manuels détaillés par rôle et fiches <strong>QCM de fin de formation</strong> imprimables.
+                    Fiches de poste, permissions détaillées, manuels par rôle et
+                    <strong>QCM de fin de formation</strong> imprimables.
                     Les corrigés QCM sont réservés aux administrateurs / superviseurs.
                 </p>
                 <p class="text-muted mb-4">
@@ -20,7 +21,7 @@
                         <tr>
                             <th>Rôle</th>
                             <th>Description</th>
-                            <th class="text-center">Manuel</th>
+                            <th class="text-center">Fiche de poste & manuel</th>
                             <th class="text-center">QCM (à imprimer)</th>
                             <?php if (!empty($can_corrige)): ?>
                                 <th class="text-center">Corrigé</th>
@@ -35,7 +36,7 @@
                                 <td class="text-center">
                                     <a class="btn btn-sm btn-secondary"
                                        href="<?= site_url('documentation/' . $this->session->company->ekey . '/manuel/' . rawurlencode($code)); ?>">
-                                        Lire
+                                        Consulter
                                     </a>
                                 </td>
                                 <td class="text-center">

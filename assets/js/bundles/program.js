@@ -435,7 +435,11 @@ document.addEventListener('DOMContentLoaded', () => {
             document.querySelector('h3#Titleprog').innerHTML = `MODIFICATION DU PROGRAMME`;
             $('#idcateg').val(`${e.dataset.categorie}`);
             $('#typetaf').val(`${e.dataset.typtarif}`);
-            $('#progh').val(`${e.dataset.eure}`);
+            if (typeof window.__syncDepartCompagnie === 'function') {
+                window.__syncDepartCompagnie('progh', e.dataset.eure);
+            } else {
+                $('#progh').val(`${e.dataset.eure}`);
+            }
             $('#ouotdebut').val(`${e.dataset.inter1}`);
             $('#ouotfin').val(`${e.dataset.inter2}`);
             $('#prodate').val(`${e.dataset.pdate}`);
@@ -481,6 +485,43 @@ document.addEventListener('DOMContentLoaded', () => {
 /* --- addgprogramme.js --- */
 document.addEventListener('DOMContentLoaded', () => {
 
+    function parseVentesSgs(raw) {
+        var map = {};
+        String(raw || '').split(',').forEach(function (part) {
+            part = String(part || '').trim();
+            if (!part) return;
+            var bits = part.split(':');
+            var id = String(bits[0] || '').trim();
+            var nb = parseInt(bits[1], 10) || 0;
+            if (id && nb > 0) map[id] = nb;
+        });
+        return map;
+    }
+
+    function applyVentesLock(box, ventes) {
+        box.querySelectorAll('.js-sg-check').forEach(function (c) {
+            var nb = ventes[String(c.value)] || 0;
+            var badge = c.parentNode ? c.parentNode.querySelector('.js-sg-ventes') : null;
+            var wrap = c.closest('.form-group') || c.parentNode;
+            if (nb > 0) {
+                c.setAttribute('data-locked', '1');
+                c.checked = true;
+                if (wrap) wrap.style.opacity = '0.65';
+                if (badge) {
+                    badge.style.display = '';
+                    badge.textContent = ' — ' + nb + ' vente' + (nb > 1 ? 's' : '');
+                }
+            } else {
+                c.setAttribute('data-locked', '0');
+                if (wrap) wrap.style.opacity = '';
+                if (badge) {
+                    badge.style.display = 'none';
+                    badge.textContent = '';
+                }
+            }
+        });
+    }
+
     document.querySelectorAll('.addgprogramme').forEach(function (e) {
         
         e.onclick = function () {
@@ -488,11 +529,50 @@ document.addEventListener('DOMContentLoaded', () => {
             document.querySelector('h3#Titleprog').innerHTML = `MODIFICATION DU PROGRAMME`;
             $('#idcateg').val(`${e.dataset.categorie}`);
             $('#typetaf').val(`${e.dataset.typtarif}`);
-            $('#progh').val(`${e.dataset.eure}`);
+            if (typeof window.__syncDepartCompagnie === 'function') {
+                window.__syncDepartCompagnie('progh', e.dataset.eure);
+            } else {
+                $('#progh').val(`${e.dataset.eure}`);
+            }
             $('#ouotadebut').val(`${e.dataset.inter1}`);
             $('#ouotafin').val(`${e.dataset.inter2}`);
             $('#progdate').val(`${e.dataset.pdate}`);
             $('#ouotafinancien').val(`${e.dataset.categnbplace}`);
+            var portee = (e.dataset.porteeSgs || '').trim();
+            var ids = portee ? portee.split(',').map(function (x) { return String(x).trim(); }).filter(Boolean) : [];
+            var ventes = parseVentesSgs(e.dataset.ventesSgs);
+            var box = document.querySelector('#portee_sousgares_box_edit');
+            if (box) {
+                var radioGare = box.querySelector('.js-scope-mode[value="gare"]');
+                var radioSg = box.querySelector('.js-scope-mode[value="sousgare"]');
+                var checks = box.querySelectorAll('.js-sg-check');
+                applyVentesLock(box, ventes);
+                if (ids.length === 0) {
+                    if (radioGare) radioGare.checked = true;
+                    checks.forEach(function (c) { c.checked = true; });
+                } else {
+                    if (radioSg) radioSg.checked = true;
+                    checks.forEach(function (c) {
+                        var locked = c.getAttribute('data-locked') === '1';
+                        c.checked = locked || ids.indexOf(String(c.value)) !== -1;
+                    });
+                }
+                if (typeof window.__applyPorteeScopeMode === 'function') {
+                    window.__applyPorteeScopeMode(box);
+                }
+                if (ids.length > 0) {
+                    checks.forEach(function (c) {
+                        var locked = c.getAttribute('data-locked') === '1';
+                        c.checked = locked || ids.indexOf(String(c.value)) !== -1;
+                        c.disabled = locked ? true : !(radioSg && radioSg.checked);
+                    });
+                } else {
+                    checks.forEach(function (c) {
+                        c.checked = true;
+                        c.disabled = true;
+                    });
+                }
+            }
         
                 let typcat = document.querySelector('#idcateg');
                 
@@ -529,6 +609,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     })
 });
+
 ;
 /* --- upprogramme.js --- */
 document.addEventListener('DOMContentLoaded', () => {
@@ -739,3 +820,102 @@ document.addEventListener('DOMContentLoaded', () => {
 
     })
 });
+;
+/* --- filtre_depart_compagnie.js --- */
+document.addEventListener('DOMContentLoaded', function () {
+    function applyDepartFilter(compSelect) {
+        if (!compSelect) return;
+        var targetId = compSelect.getAttribute('data-target-depart');
+        if (!targetId) return;
+        var departSelect = document.getElementById(targetId);
+        if (!departSelect) return;
+
+        var cle = String(compSelect.value || '');
+        var keepValue = departSelect.value;
+        var options = departSelect.querySelectorAll('option[data-compagnie]');
+        var firstVisible = null;
+
+        for (var i = 0; i < options.length; i++) {
+            var opt = options[i];
+            var match = cle !== '' && String(opt.getAttribute('data-compagnie') || '') === cle;
+            opt.hidden = !match;
+            opt.disabled = !match;
+            if (match && !firstVisible) {
+                firstVisible = opt;
+            }
+        }
+
+        if (cle === '') {
+            departSelect.value = '';
+            return;
+        }
+
+        var selected = departSelect.options[departSelect.selectedIndex];
+        var selectedOk = selected
+            && selected.getAttribute('data-compagnie')
+            && String(selected.getAttribute('data-compagnie')) === cle
+            && !selected.disabled;
+        if (!selectedOk) {
+            departSelect.value = keepValue && firstVisible && keepValue === firstVisible.value
+                ? keepValue
+                : '';
+            // Si la valeur conservée n'est plus visible, reset
+            selected = departSelect.options[departSelect.selectedIndex];
+            if (!selected || selected.disabled || selected.hidden) {
+                departSelect.value = '';
+            }
+        }
+    }
+
+    function bindFiltreCompagnie(root) {
+        root = root || document;
+        root.querySelectorAll('.js-filtre-compagnie-arrivee').forEach(function (sel) {
+            if (sel.getAttribute('data-filtre-bound') === '1') return;
+            sel.setAttribute('data-filtre-bound', '1');
+            sel.addEventListener('change', function () {
+                applyDepartFilter(sel);
+            });
+            applyDepartFilter(sel);
+        });
+    }
+
+    /**
+     * Prefill compagnie + départ (édition programme).
+     * @param {string} departSelectId
+     * @param {string} departValue
+     */
+    window.__syncDepartCompagnie = function (departSelectId, departValue) {
+        var departSelect = document.getElementById(departSelectId);
+        if (!departSelect) return;
+        var compSelect = document.querySelector(
+            '.js-filtre-compagnie-arrivee[data-target-depart="' + departSelectId + '"]'
+        );
+        if (!compSelect) {
+            if (departValue) {
+                departSelect.value = departValue;
+            }
+            return;
+        }
+        var opt = null;
+        if (departValue) {
+            for (var i = 0; i < departSelect.options.length; i++) {
+                if (departSelect.options[i].value === departValue) {
+                    opt = departSelect.options[i];
+                    break;
+                }
+            }
+        }
+        if (opt) {
+            var cle = opt.getAttribute('data-compagnie') || '';
+            compSelect.value = cle;
+            applyDepartFilter(compSelect);
+            departSelect.value = departValue;
+        } else {
+            applyDepartFilter(compSelect);
+        }
+    };
+
+    bindFiltreCompagnie(document);
+    window.__bindFiltreDepartCompagnie = bindFiltreCompagnie;
+});
+

@@ -272,7 +272,7 @@ if (!function_exists('auth_session_login_transition_denied')) {
 
 if (!function_exists('auth_session_validate_or_logout')) {
     /**
-     * Vérifie activer / is_conect / jeton session. Déconnecte si invalide.
+     * Vérifie activer / is_conect / jeton / inactivité 30 min. Déconnecte si invalide.
      */
     function auth_session_validate_or_logout()
     {
@@ -290,8 +290,8 @@ if (!function_exists('auth_session_validate_or_logout')) {
         }
 
         $select = auth_session_token_column_exists()
-            ? 'activer, is_conect, session_token'
-            : 'activer, is_conect';
+            ? 'activer, is_conect, session_token, derniere_activite_at'
+            : 'activer, is_conect, derniere_activite_at';
 
         $row = $CI->db->select($select, false)
             ->where('cpuser_id', $cp)
@@ -299,6 +299,20 @@ if (!function_exists('auth_session_validate_or_logout')) {
             ->row();
 
         $invalid = (!$row || (int) $row->activer !== 0 || (int) $row->is_conect !== 1);
+        $idle_msg = null;
+
+        if (!$invalid
+            && function_exists('compte_arret_session_deconnexion_enabled')
+            && compte_arret_session_deconnexion_enabled()) {
+            $minutes = function_exists('compte_arret_session_idle_minutes')
+                ? (int) compte_arret_session_idle_minutes()
+                : 30;
+            $last = !empty($row->derniere_activite_at) ? strtotime($row->derniere_activite_at) : false;
+            if (!$last || (time() - $last) >= ($minutes * 60)) {
+                $invalid = true;
+                $idle_msg = 'Session expirée pour inactivité (' . $minutes . ' min). Reconnectez-vous.';
+            }
+        }
 
         if (!$invalid && auth_session_token_column_exists()) {
             $db_token = isset($row->session_token) ? trim((string) $row->session_token) : '';
@@ -316,11 +330,18 @@ if (!function_exists('auth_session_validate_or_logout')) {
             $CI->session->set_flashdata('login_error', 1);
             $CI->session->set_flashdata(
                 'login_error_msg',
-                'Session expirée ou compte désactivé. Reconnectez-vous.'
+                $idle_msg ?: 'Session expirée ou compte désactivé. Reconnectez-vous.'
             );
-            auth_session_force_logout(false);
+            // Écrire is_conect=0 si le flag DB dit encore « connecté » (idle, jeton, désactivation…).
+            $update_db = ($row && (int) $row->is_conect === 1);
+            auth_session_force_logout($update_db);
             redirect('login/ins');
             exit;
+        }
+
+        if (function_exists('compte_arret_track_activity')) {
+            $known = isset($row->derniere_activite_at) ? $row->derniere_activite_at : null;
+            compte_arret_track_activity($cp, $known);
         }
 
         // Gare/rôle désactivé en cours de session : basculer vers une gare utilisable,

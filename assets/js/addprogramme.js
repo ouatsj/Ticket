@@ -7,7 +7,11 @@ document.addEventListener('DOMContentLoaded', () => {
             document.querySelector('h3#Titleprog').innerHTML = `MODIFICATION DU PROGRAMME`;
             $('#idcateg').val(`${e.dataset.categorie}`);
             $('#typetaf').val(`${e.dataset.typtarif}`);
-            $('#progh').val(`${e.dataset.eure}`);
+            if (typeof window.__syncDepartCompagnie === 'function') {
+                window.__syncDepartCompagnie('progh', e.dataset.eure);
+            } else {
+                $('#progh').val(`${e.dataset.eure}`);
+            }
             $('#ouotdebut').val(`${e.dataset.inter1}`);
             $('#ouotfin').val(`${e.dataset.inter2}`);
             $('#prodate').val(`${e.dataset.pdate}`);

@@ -61,28 +61,6 @@
         public function addcarte($ckey)
         {
                 $this->company = $this->m_entreprises->get_key($ckey);
-                if (sales_price_controls_enabled()) {
-                    if (!super_admin_can('sales.card.manage_expiry')) {
-                        show_error('Vous n’avez pas la permission de créer ou modifier une carte de voyage.', 403);
-                        return;
-                    }
-                    $validFrom = trim((string) $this->input->post('datedelive'));
-                    $expiresAt = trim((string) $this->input->post('dateexpire'));
-                    if (sales_setting_bool('sales.card_expiry_required', true)
-                        && ($validFrom === '' || $expiresAt === '')
-                    ) {
-                        show_error('Les dates de validité et de péremption sont obligatoires.', 422);
-                        return;
-                    }
-                    if (($validFrom !== '' && !preg_match('/^\d{4}-\d{2}-\d{2}$/', $validFrom))
-                        || ($expiresAt !== '' && !preg_match('/^\d{4}-\d{2}-\d{2}$/', $expiresAt))
-                        || ($validFrom !== '' && $expiresAt !== '' && $expiresAt < $validFrom)
-                        || ($expiresAt !== '' && $expiresAt < date('Y-m-d'))
-                    ) {
-                        show_error('La période de validité de la carte est invalide.', 422);
-                        return;
-                    }
-                }
 
                 $gid = $this->input->post('gareconnect');
                 $sgid = $this->input->post('sousgareconnect');

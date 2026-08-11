@@ -38,6 +38,7 @@ return array(
         'advers.js',
     ),
     'confirmation' => array(
+        'filtre_arrivee_compagnie.js',
         'addconfirme.js',
         'addconfirmadmin.js',
         'addconfirmadmintran.js',
@@ -66,6 +67,7 @@ return array(
         'addconfirmcarte.js',
     ),
     'bagage' => array(
+        'filtre_arrivee_compagnie.js',
         'addbagage.js',
         'addbagagesuivi.js',
         'addbagagenfact.js',
@@ -90,6 +92,7 @@ return array(
         'addprogramme.js',
         'addgprogramme.js',
         'upprogramme.js',
+        'filtre_depart_compagnie.js',
     ),
     'historique' => array(
         'addetat.js',

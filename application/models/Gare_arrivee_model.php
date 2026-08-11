@@ -38,7 +38,7 @@
                     JOIN compagnies c ON ga.id_compaga = c.cle_compagnie
                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
                     WHERE e.id_entreprise = '$cid'
-                    ORDER BY ga.nom_gadest")->result();
+                    ORDER BY c.nom_compagnie ASC, ga.nom_gadest ASC")->result();
             } else
                 return $this->db->query(
                     "SELECT * FROM gare_dest ga
@@ -49,6 +49,17 @@
                     WHERE e.id_entreprise = '$cid'
                     AND ga.code_gadest = '$ga_id'
                     ORDER BY ga.nom_gadest")->row();
+        }
+
+        /**
+         * Regroupe les gares d'arrivée d'une entreprise par compagnie.
+         *
+         * @param int|string $cid id_entreprise
+         * @return array Liste de groupes [nom_compagnie, cle_compagnie, gares[]]
+         */
+        public function get_grouped_by_compagnie($cid)
+        {
+            return $this->group_rows_by_compagnie($this->getad($cid));
         }
 		
         public function g($ga_id)
@@ -93,7 +104,7 @@
                     WHERE e.id_entreprise = '$cid'
                     AND ga.nom_gadest !='OUAGAESCAL'
                     AND ga.nom_gadest NOT IN (SELECT nom_gaep FROM gare_exp WHERE code_gaexp ='$g')
-                    ORDER BY ga.nom_gadest")->result();
+                    ORDER BY c.nom_compagnie ASC, ga.nom_gadest ASC")->result();
             } else
                 return $this->db->query(
                     "SELECT * FROM gare_dest ga
@@ -106,6 +117,39 @@
                     AND ga.code_gadest = '$ga_id'
                     AND ga.nom_gadest NOT IN (SELECT nom_gaep FROM gare_exp WHERE code_gaexp ='$g')
                     ORDER BY ga.nom_gadest")->row();
+        }
+
+        /**
+         * Regroupe une liste de gares d'arrivée déjà chargées par compagnie.
+         *
+         * @param array $rows
+         * @return array [cle => [cle_compagnie, nom_compagnie, gares[]]]
+         */
+        public function group_rows_by_compagnie($rows)
+        {
+            $groups = array();
+            if (empty($rows)) {
+                return $groups;
+            }
+            foreach ($rows as $gare) {
+                $key = isset($gare->id_compaga) ? (string) $gare->id_compaga : '';
+                if ($key === '' && isset($gare->cle_compagnie)) {
+                    $key = (string) $gare->cle_compagnie;
+                }
+                if ($key === '') {
+                    $key = '_sans';
+                }
+                if (!isset($groups[$key])) {
+                    $nom = !empty($gare->nom_compagnie) ? $gare->nom_compagnie : 'Sans compagnie';
+                    $groups[$key] = array(
+                        'cle_compagnie' => $key === '_sans' ? null : $key,
+                        'nom_compagnie' => $nom,
+                        'gares' => array(),
+                    );
+                }
+                $groups[$key]['gares'][] = $gare;
+            }
+            return $groups;
         }
         
 

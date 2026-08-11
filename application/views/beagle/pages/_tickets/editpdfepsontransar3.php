@@ -101,7 +101,7 @@
                           <tr><td style="font-size: 55px; width: 50%;"> <img src="<?echo site_url($item->logo);?>" width="300" height=""></td></tr>
                             <tr><td style="font-size: 20px;"><b>ALLER</b></td></tr>
                             <tr><td style="font-size: 20px;"><b>TICKET CODE : <?= "{$item->code_ticket}"; ?></b></td></tr>
-                            <tr><td style="font-size: 20px;"><?= "{$item->nom_gaep}"; ?> <?= "{$ressougare->nomsousgare}"; ?>-<?= "{$item->nom_gadest}"; ?> <?= "{$item->quart}"; ?></td></tr>
+                            <tr><td style="font-size: 20px;"><?= "{$item->nom_gaep}"; ?> <?= "{$ressougare->nomsousgare}"; ?>-<?= ticket_destination_label($item); ?> <?= "{$item->quart}"; ?></td></tr>
                             <tr><td style="font-size: 20px;"><?= $item->nom_client; ?>&nbsp; <?= $item->prenom_client; ?></td></tr>
                             <tr><td style="font-size: 20px;"><b><?= $day; ?>&nbsp; <?= $heures; ?></b></td></tr>
                             <tr><td style="font-size: 20px;">Siege : <b><?= str_pad($item->num_siege_categorie, 2, "0", STR_PAD_LEFT); ?></b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<b style="border:2px solid; font-size: 23px;"> N° BUS :<?=$x;?></b></td></tr>
@@ -182,7 +182,7 @@
                           <tr><td style="font-size: 55px; width: 50%;"> <img src="<?echo site_url($item->logo);?>" width="300" height=""></td></tr>
                           <tr><td style="font-size: 20px;"><b>RETOUR</b></td></tr>
                           <tr><td style="font-size: 20px;"><b><?= "{$itemar->codeticket}"; ?></b></td></tr>
-                          <tr><td style="font-size: 20px;"><?= "{$item->nom_gadest}"; ?>-<?= "{$item->nom_gaep}"; ?></td></tr>
+                          <tr><td style="font-size: 20px;"><?= ticket_destination_label($item); ?>-<?= "{$item->nom_gaep}"; ?></td></tr>
                           <tr><td style="font-size: 20px;"><?= $item->nom_client; ?>&nbsp; <?= $item->prenom_client; ?></td></tr>                        
                           <tr><td style="font-size: 20px;">Date_depart:</td></tr>
                           <tr><td style="font-size: 20px;">Heure_depart:</td></tr>
@@ -256,7 +256,7 @@
                           <tr><td style="font-size: 55px; width: 50%;"> <img src="<?echo site_url($item->logo);?>" width="300" height=""></td></tr>
                           <tr><td style="font-size: 20px;"><b><?= "{$item->tamponcod}"; ?></b></td></tr>
                           <tr><td style="font-size: 20px;"><b><?= "{$item->code_ticket}"; ?></b></td></tr>
-                          <tr><td style="font-size: 20px;"><b><?= "{$item->nom_gaep}"; ?> <?= "{$ressougare->nomsousgare}"; ?>-<?= "{$item->nom_gadest}"; ?> <?= "{$item->quart}"; ?></td></tr>
+                          <tr><td style="font-size: 20px;"><b><?= "{$item->nom_gaep}"; ?> <?= "{$ressougare->nomsousgare}"; ?>-<?= ticket_destination_label($item); ?> <?= "{$item->quart}"; ?></td></tr>
                           <tr><td style="font-size: 20px;"><b><?= $item->nom_client; ?> <?= $item->prenom_client; ?></td></tr>
                           <tr><td style="font-size: 20px;"><b><?= $day; ?>&nbsp; <?= $heures; ?></b></td></tr>
                           <tr><td style="font-size: 20px;"><b><?= str_pad($item->num_siege_categorie, 2, "0", STR_PAD_LEFT); ?></b></td></tr>
@@ -363,7 +363,7 @@
 							               <tr><td style="font-size: 55px; width: 50%;"> <img src="<?echo site_url($itemtrans->logo);?>" width="300" height=""></td></tr>
                             <tr><td style="font-size: 20px;"><b>ALLER</b></td></tr>
                             <tr><td style="font-size: 20px;"><b>TICKET CODE : <?= "{$itemtrans->code_ticket}"; ?></b></td></tr>
-                            <tr><td style="font-size: 20px;"><?= "{$itemtrans->nom_gaep}"; ?> <?= "{$ressougaretra->nomsousgare}"; ?>-<?= "{$itemtrans->nom_gadest}"; ?> <?= "{$itemtrans->quart}"; ?></td></tr>
+                            <tr><td style="font-size: 20px;"><?= "{$itemtrans->nom_gaep}"; ?> <?= "{$ressougaretra->nomsousgare}"; ?>-<?= ticket_destination_label($itemtrans); ?> <?= "{$itemtrans->quart}"; ?></td></tr>
                             <tr><td style="font-size: 20px;"><?= $item->nom_client; ?> <?= $item->prenom_client; ?></td></tr>
                             <tr><td style="font-size: 20px;"><b><?= "{$day1}"; ?>&nbsp;<?= $heures1; ?></b></td></tr>
                             <tr><td style="font-size: 20px;">Siege : <b><?= str_pad($itemtrans->num_siege_categorie, 2, "0", STR_PAD_LEFT); ?></b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<b style="border:2px solid; font-size: 23px;"> N° BUS :<?=$x1;?></b></td></tr>
@@ -450,7 +450,7 @@
                               <tr><td style="font-size: 55px; width: 50%;"> <img src="<?echo site_url($itemtrans->logo);?>" width="300" height=""></td></tr>
                               <tr><td style="font-size: 20px;">RETOUR</td></tr>
                               <tr><td style="font-size: 20px;"><?= "{$itemartrans->codeticket}"; ?></td></tr>
-                              <tr><td style="font-size: 20px;"><?= "{$itemtrans->nom_gadest}"; ?>-<?= "{$itemtrans->nom_gaep}"; ?></td></tr> 
+                              <tr><td style="font-size: 20px;"><?= ticket_destination_label($itemtrans); ?>-<?= "{$itemtrans->nom_gaep}"; ?></td></tr> 
                               <tr><td style="font-size: 20px;"><?= $item->nom_client; ?> <?= $item->prenom_client; ?></td></tr>                       
                               <tr><td style="font-size: 20px;">Date_depart:</td></tr>
                               <tr><td style="font-size: 20px;">Heure_depart:</td></tr>
@@ -526,7 +526,7 @@
                             <tr><td style="font-size: 55px; width: 50%;"> <img src="<?echo site_url($itemtrans->logo);?>" width="300" height=""></td></tr>
           								  <tr><td style="font-size: 20px;"><b><?= "{$itemtrans->tamponcod}"; ?></b></td></tr>
           								  <tr><td style="font-size: 20px;"><b><?= "{$itemtrans->code_ticket}"; ?></b></td></tr>
-          								  <tr><td style="font-size: 20px;"><?= "{$itemtrans->nom_gaep}"; ?> <?= "{$ressougaretra->nomsousgare}"; ?>-<?= "{$itemtrans->nom_gadest}"; ?> <?= "{$itemtrans->quart}"; ?></td></tr>
+          								  <tr><td style="font-size: 20px;"><?= "{$itemtrans->nom_gaep}"; ?> <?= "{$ressougaretra->nomsousgare}"; ?>-<?= ticket_destination_label($itemtrans); ?> <?= "{$itemtrans->quart}"; ?></td></tr>
           								  <tr><td style="font-size: 20px;"><?= $item->nom_client; ?> <?= $item->prenom_client; ?></td></tr>
           								  <tr><td style="font-size: 20px;"><b><?= $day1; ?><?= $heures1; ?></b></td></tr>
           								  <tr><td style="font-size: 20px;"><b><?= str_pad($itemtrans->num_siege_categorie, 2, "0", STR_PAD_LEFT); ?></b></td></tr>
@@ -629,7 +629,7 @@
 							               <tr><td style="font-size: 55px; width: 50%;"> <img src="<?echo site_url($itemtrans2->logo);?>" width="300" height=""></td></tr>
                               <tr><td style="font-size: 20px;"><b>ALLER</b></td></tr>
                             <tr><td style="font-size: 20px;"><b>TICKET CODE : <?= "{$itemtrans2->code_ticket}"; ?></b></td></tr>
-                            <tr><td style="font-size: 20px;"><?= "{$itemtrans2->nom_gaep}"; ?> <?= "{$ressougaretra2->nomsousgare}"; ?>-<?= "{$itemtrans2->nom_gadest}"; ?> <?= "{$itemtrans2->quart}"; ?></td></tr>
+                            <tr><td style="font-size: 20px;"><?= "{$itemtrans2->nom_gaep}"; ?> <?= "{$ressougaretra2->nomsousgare}"; ?>-<?= ticket_destination_label($itemtrans2); ?> <?= "{$itemtrans2->quart}"; ?></td></tr>
                             <tr><td style="font-size: 20px;"><?= $item->nom_client; ?>&nbsp;<?= $item->prenom_client; ?></td></tr>
                             <tr><td style="font-size: 20px;"><b><?= "{$day2}"; ?> &nbsp;<?= $heures2; ?></b></td></tr>
                             <tr><td style="font-size: 20px;">Siege : <b><?= str_pad($itemtrans2->num_siege_categorie, 2, "0", STR_PAD_LEFT); ?></b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<b style="border:2px solid; font-size: 23px;"> N° BUS :<?=$x2;?></b></td></tr>
@@ -720,7 +720,7 @@
                               <tr><td style="font-size: 55px; width: 50%;"> <img src="<?echo site_url($itemtrans2->logo);?>" width="300" height=""></td></tr>
                               <tr><td style="font-size: 20px;"><b>RETOUR</b></td></tr>
                               <tr><td style="font-size: 20px;"><b><?= "{$itemartrans2->codeticket}"; ?></b></td></tr>
-                              <tr><td style="font-size: 20px;"><?= "{$itemtrans2->nom_gadest}"; ?>-<?= "{$itemtrans2->nom_gaep}"; ?></td></tr>
+                              <tr><td style="font-size: 20px;"><?= ticket_destination_label($itemtrans2); ?>-<?= "{$itemtrans2->nom_gaep}"; ?></td></tr>
                               <tr><td style="font-size: 20px;"><?= $item->nom_client; ?>&nbsp;<?= $item->prenom_client; ?></td></tr>                        
                               <tr><td style="font-size: 20px;">Date_depart:</td></tr>
                               <tr><td style="font-size: 20px;">Heure_depart:</td></tr>
@@ -794,7 +794,7 @@
                           <tr><td style="font-size: 55px; width: 50%;"> <img src="<?echo site_url($itemtrans2->logo);?>" width="300" height=""></td></tr>
           								<tr><td style="font-size: 20px;"><b><?= "{$itemtrans2->tamponcod}"; ?></b></td></tr>
           							  <tr><td style="font-size: 20px;"><b><?= "{$itemtrans2->code_ticket}"; ?></b></td></tr>
-          							  <tr><td style="font-size: 20px;"><?= "{$itemtrans2->nom_gaep}"; ?> <?= "{$ressougaretra2->nomsousgare}"; ?>-<?= "{$itemtrans2->nom_gadest}"; ?> <?= "{$itemtrans2->quart}"; ?></td></tr>
+          							  <tr><td style="font-size: 20px;"><?= "{$itemtrans2->nom_gaep}"; ?> <?= "{$ressougaretra2->nomsousgare}"; ?>-<?= ticket_destination_label($itemtrans2); ?> <?= "{$itemtrans2->quart}"; ?></td></tr>
           							  <tr><td style="font-size: 20px;"><?= $item->nom_client; ?>&nbsp; <?= $item->prenom_client; ?></td></tr>
           							  <tr><td style="font-size: 20px;"><b><?= $day2; ?>&nbsp; <?= $heures2; ?></b></td></tr>
           							  <tr><td style="font-size: 20px;"><b><?= str_pad($itemtrans2->num_siege_categorie, 2, "0", STR_PAD_LEFT); ?></b></td></tr>
@@ -896,7 +896,7 @@
 							               <tr><td style="font-size: 55px; width: 50%;"> <img src="<?echo site_url($itemtrans3->logo);?>" width="300" height=""></td></tr>
                               <tr><td style="font-size: 20px;"><b>ALLER</b></td></tr>
                             <tr><td style="font-size: 20px;"><b>TICKET CODE : <?= "{$itemtrans3->code_ticket}"; ?></b></td></tr>
-                            <tr><td style="font-size: 20px;"><?= "{$itemtrans3->nom_gaep}"; ?> <?= "{$ressougaretra3->nomsousgare}"; ?>-<?= "{$itemtrans3->nom_gadest}"; ?> <?= "{$itemtrans3->quart}"; ?></td></tr>
+                            <tr><td style="font-size: 20px;"><?= "{$itemtrans3->nom_gaep}"; ?> <?= "{$ressougaretra3->nomsousgare}"; ?>-<?= ticket_destination_label($itemtrans3); ?> <?= "{$itemtrans3->quart}"; ?></td></tr>
                             <tr><td style="font-size: 20px;"><?= $item->nom_client; ?> <?= $item->prenom_client; ?></td></tr>
                             <tr><td style="font-size: 20px;"><b><?= "{$day3}"; ?>&nbsp;<?= $heures3; ?></b></td></tr>
                             <tr><td style="font-size: 20px;">Siege : <b><?= str_pad($itemtrans3->num_siege_categorie, 2, "0", STR_PAD_LEFT); ?></b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<b style="border:2px solid; font-size: 23px;"> N° BUS :<?=$x3;?></b></td></tr>
@@ -985,7 +985,7 @@
                             <tr><td style="font-size: 55px; width: 50%;"> <img src="<?echo site_url($itemtrans3->logo);?>" width="300" height=""></td></tr>
                               <tr><td style="font-size: 30px;"><b>RETOUR</b></td></tr>
                               <tr><td style="font-size: 30px;"><b><?= $itemartrans3->codeticket; ?></b></td></tr>
-							               <tr><td style="font-size: 20px;"><?= $itemtrans3->nom_gadest; ?>-<?= $itemtrans3->nom_gaep; ?></td></tr> 
+							               <tr><td style="font-size: 20px;"><?= ticket_destination_label($itemtrans3); ?>-<?= $itemtrans3->nom_gaep; ?></td></tr> 
                               <tr><td style="font-size: 30px;"><?= $item->nom_client; ?>&nbsp;<?= $item->prenom_client; ?></td></tr>                     
                               <tr><td style="font-size: 30px;">Date_depart:</td></tr>
                               <tr><td style="font-size: 30px;">Heure_depart:</td></tr>
@@ -1060,7 +1060,7 @@
                          <tr><td style="font-size: 55px; width: 50%;"> <img src="<?echo site_url($itemtrans3->logo);?>" width="300" height=""></td></tr>
                           <tr><td style="font-size: 20px;"><b><?= "{$itemtrans3->tamponcod}"; ?></b></td></tr>
                           <tr><td style="font-size: 20px;"><b><?= "{$itemtrans3->code_ticket}"; ?></b></td></tr>
-                          <tr><td style="font-size: 20px;"><?= "{$itemtrans3->nom_gaep}"; ?> <?= "{$ressougaretra3->nomsousgare}"; ?>-<?= "{$itemtrans3->nom_gadest}"; ?> <?= "{$itemtrans3->quart}"; ?></td></tr>
+                          <tr><td style="font-size: 20px;"><?= "{$itemtrans3->nom_gaep}"; ?> <?= "{$ressougaretra3->nomsousgare}"; ?>-<?= ticket_destination_label($itemtrans3); ?> <?= "{$itemtrans3->quart}"; ?></td></tr>
                           <tr><td style="font-size: 20px;"><?= $item->nom_client; ?>&nbsp;<?= $item->prenom_client; ?></td></tr>
                           <tr><td style="font-size: 20px;"><b><?= $day3; ?>&nbsp;<?= $heures3; ?></b></td></tr>
                           <tr><td style="font-size: 20px;"><b><?= str_pad($itemtrans3->num_siege_categorie, 2, "0", STR_PAD_LEFT); ?></b></td></tr>

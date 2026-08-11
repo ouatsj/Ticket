@@ -11,37 +11,107 @@ if (!function_exists('documentation_formation_roles')) {
             'general' => array(
                 'code' => 'general',
                 'titre' => 'Vue d\'ensemble',
-                'sous_titre' => 'Architecture comptes, gares et caisse',
+                'sous_titre' => 'Comprendre simplement les postes et les responsabilités',
+            ),
+            '1' => array(
+                'code' => '1',
+                'titre' => 'Administrateur',
+                'sous_titre' => 'Organisation, réglages et contrôle général de l\'application',
+            ),
+            '2' => array(
+                'code' => '2',
+                'titre' => 'Superviseur',
+                'sous_titre' => 'Contrôle des activités et accompagnement des équipes',
+            ),
+            '3' => array(
+                'code' => '3',
+                'titre' => 'Agent d\'appel',
+                'sous_titre' => 'Information des clients et consultation des programmes',
             ),
             '4' => array(
                 'code' => '4',
                 'titre' => 'Caissier principal',
-                'sous_titre' => 'Rôle 4 — validation et solde caisse',
-            ),
-            '18' => array(
-                'code' => '18',
-                'titre' => 'Caissier adjoint',
-                'sous_titre' => 'Rôle 18 — piste adjoint (*ad)',
+                'sous_titre' => 'Contrôle, validation et suivi de la caisse',
             ),
             '5' => array(
                 'code' => '5',
                 'titre' => 'Chef de guichet',
-                'sous_titre' => 'Rôle 5 — saisie, solde ouvert, arrêt de compte',
-            ),
-            '16' => array(
-                'code' => '16',
-                'titre' => 'Aide chef de guichet',
-                'sous_titre' => 'Rôle 16 — même logique que le chef (saisie)',
+                'sous_titre' => 'Organisation du guichet, saisie et remise des comptes',
             ),
             '6' => array(
                 'code' => '6',
                 'titre' => 'Vendeur',
-                'sous_titre' => 'Rôle 6 — vente tickets et arrêt vendeur',
+                'sous_titre' => 'Vente des tickets et clôture de sa vacation',
+            ),
+            '7' => array(
+                'code' => '7',
+                'titre' => 'Comptable',
+                'sous_titre' => 'Contrôle des chiffres et préparation des états',
+            ),
+            '8' => array(
+                'code' => '8',
+                'titre' => 'Chef de gare',
+                'sous_titre' => 'Organisation et suivi de l\'activité de la gare',
+            ),
+            '9' => array(
+                'code' => '9',
+                'titre' => 'Superviseur courrier',
+                'sous_titre' => 'Contrôle des opérations et factures courrier',
+            ),
+            '10' => array(
+                'code' => '10',
+                'titre' => 'Vendeur mobile',
+                'sous_titre' => 'Vente mobile et opérations associées',
+            ),
+            '11' => array(
+                'code' => '11',
+                'titre' => 'Ressources humaines',
+                'sous_titre' => 'Gestion des informations relatives au personnel',
+            ),
+            '12' => array(
+                'code' => '12',
+                'titre' => 'Agent bagage',
+                'sous_titre' => 'Facturation, suivi et remise des bagages',
+            ),
+            '13' => array(
+                'code' => '13',
+                'titre' => 'Superviseur d\'agence',
+                'sous_titre' => 'Suivi financier et opérationnel de l\'agence',
+            ),
+            '14' => array(
+                'code' => '14',
+                'titre' => 'Superviseur de site',
+                'sous_titre' => 'Vue d\'ensemble et contrôle des activités du site',
+            ),
+            '15' => array(
+                'code' => '15',
+                'titre' => 'Aide-programmeur',
+                'sous_titre' => 'Préparation et mise à jour des programmes de voyage',
+            ),
+            '16' => array(
+                'code' => '16',
+                'titre' => 'Aide chef de guichet',
+                'sous_titre' => 'Appui au chef pour la saisie et la préparation des comptes',
             ),
             '17' => array(
                 'code' => '17',
                 'titre' => 'Vendeur escale',
-                'sous_titre' => 'Rôle 17 — ventes escales / réimpression',
+                'sous_titre' => 'Ventes et services aux voyageurs en escale',
+            ),
+            '18' => array(
+                'code' => '18',
+                'titre' => 'Caissier adjoint',
+                'sous_titre' => 'Contrôles et validations confiés par le caissier principal',
+            ),
+            '19' => array(
+                'code' => '19',
+                'titre' => 'Tableau de bord',
+                'sous_titre' => 'Consultation des indicateurs — écran métier à finaliser',
+            ),
+            '20' => array(
+                'code' => '20',
+                'titre' => 'Livraison',
+                'sous_titre' => 'Suivi des remises — écran métier à finaliser',
             ),
         );
     }
@@ -54,6 +124,870 @@ if (!function_exists('documentation_formation_role_meta')) {
         $role_code = (string) $role_code;
 
         return isset($roles[$role_code]) ? $roles[$role_code] : null;
+    }
+}
+
+if (!function_exists('documentation_formation_fiche_poste_simple')) {
+    /**
+     * Fiches rédigées avec des mots métier, sans noms de colonnes ni codes internes.
+     *
+     * @return array|null
+     */
+    function documentation_formation_fiche_poste_simple($role_code)
+    {
+        $role_code = (string) $role_code;
+        $postes = array(
+            'general' => array(
+                'finalite' => 'Expliquer qui fait quoi afin que chaque opération soit faite par la bonne personne et puisse être contrôlée.',
+                'responsable' => 'Direction et responsables désignés',
+                'missions' => array(
+                    'Utiliser son propre compte et choisir la bonne gare avant de travailler.',
+                    'Respecter la séparation entre la personne qui saisit et celle qui contrôle.',
+                    'Signaler rapidement toute erreur ou possibilité d\'accès anormale.',
+                ),
+                'autorise' => array(
+                    array('Travailler dans une gare', 'Oui, si cette gare est affectée au compte'),
+                    array('Voir ou modifier des informations', 'Uniquement selon le poste occupé'),
+                    array('Imprimer un document', 'Oui, si le document est utile au poste'),
+                    array('Travailler dans plusieurs gares', 'Oui, seulement avec une affectation pour chacune'),
+                ),
+                'eventuel' => array(
+                    'Une autre gare peut être ajoutée par un responsable.',
+                    'Des rapports ou écrans complémentaires peuvent être ouverts selon les besoins du poste.',
+                    'Un remplacement temporaire doit être accordé nominativement ; il ne faut jamais partager un mot de passe.',
+                ),
+                'interdits' => array(
+                    'Utiliser le compte d\'un collègue.',
+                    'Travailler dans une gare ou sur un écran qui n\'a pas été confié.',
+                    'Changer le nom de la personne qui a réellement fait une opération.',
+                    'Contourner un refus, un blocage ou une fermeture de compte.',
+                ),
+                'controles' => array(
+                    'Vérifier régulièrement les accès accordés à chaque personne.',
+                    'Comparer les opérations, leurs auteurs, leurs contrôleurs et leurs gares.',
+                ),
+            ),
+            '1' => array(
+                'finalite' => 'Faire fonctionner l\'application, organiser les accès et garantir la sécurité des données.',
+                'responsable' => 'Direction générale',
+                'missions' => array(
+                    'Créer et organiser les entreprises, gares, compagnies, comptes et postes.',
+                    'Accorder uniquement les accès nécessaires à chaque agent.',
+                    'Contrôler les anomalies, assister les utilisateurs et protéger les données.',
+                ),
+                'autorise' => array(
+                    array('Créer ou désactiver un compte', 'Oui, avec vérification et motif'),
+                    array('Affecter un poste et une gare', 'Oui, selon la décision de la direction'),
+                    array('Régler les programmes, tarifs et référentiels', 'Oui, après contrôle'),
+                    array('Consulter les rapports et audits', 'Oui, pour les besoins de contrôle'),
+                    array('Corriger une donnée sensible', 'Seulement avec preuve, sauvegarde et trace écrite'),
+                ),
+                'eventuel' => array(
+                    'Intervention temporaire dans une gare pour assistance.',
+                    'Accès à de nouveaux modules après validation de la direction.',
+                    'Délégation de certaines tâches à un superviseur, sans céder les actions les plus sensibles.',
+                ),
+                'interdits' => array(
+                    'Accorder un accès sans besoin professionnel.',
+                    'Modifier ou supprimer une donnée financière sans preuve et sans trace.',
+                    'Utiliser les droits d\'un administrateur pour effectuer le travail quotidien d\'un autre agent.',
+                ),
+                'controles' => array(
+                    'Revue des comptes, gares et postes actifs.',
+                    'Suivi des changements importants et des corrections de données.',
+                    'Contrôle des alertes de sécurité et des rapports quotidiens.',
+                ),
+            ),
+            '2' => array(
+                'finalite' => 'Suivre les activités, aider les équipes et faire appliquer les procédures.',
+                'responsable' => 'Direction / administrateur',
+                'missions' => array(
+                    'Contrôler les opérations des gares et les rapports disponibles.',
+                    'Aider les responsables à comprendre et corriger les écarts.',
+                    'Vérifier que les agents utilisent le bon compte et la bonne gare.',
+                ),
+                'autorise' => array(
+                    array('Consulter les activités de plusieurs gares', 'Oui, dans le périmètre confié'),
+                    array('Consulter les comptes et leurs affectations', 'Oui, pour le contrôle'),
+                    array('Produire des états et rapports', 'Oui'),
+                    array('Faire les réglages réservés à l\'administrateur', 'Non'),
+                ),
+                'eventuel' => array(
+                    'Gestion de gares ou d\'agences supplémentaires sur décision de la direction.',
+                    'Droit temporaire de traiter une anomalie précise.',
+                ),
+                'interdits' => array(
+                    'Changer les règles générales sans autorisation.',
+                    'Effectuer une opération financière à la place de son auteur ou de son contrôleur.',
+                    'Partager les informations confidentielles consultées.',
+                ),
+                'controles' => array(
+                    'Suivi des écarts, retards de validation et comptes inactifs.',
+                    'Compte rendu régulier à la direction.',
+                ),
+            ),
+            '3' => array(
+                'finalite' => 'Donner aux clients des informations fiables sur les départs et les programmes.',
+                'responsable' => 'Chef de gare / responsable clientèle',
+                'missions' => array(
+                    'Consulter les programmes et horaires.',
+                    'Informer correctement les clients.',
+                    'Imprimer une liste utile à l\'information lorsque cela est prévu.',
+                ),
+                'autorise' => array(
+                    array('Voir les programmes', 'Oui'),
+                    array('Imprimer une liste de programme', 'Oui, si nécessaire'),
+                    array('Créer ou changer un programme', 'Non'),
+                    array('Vendre ou valider une caisse', 'Non'),
+                ),
+                'eventuel' => array(
+                    'Consultation d\'une autre gare après affectation.',
+                    'Accès à une liste d\'information supplémentaire sur décision du responsable.',
+                ),
+                'interdits' => array(
+                    'Changer un horaire, un tarif ou un départ.',
+                    'Promettre une place ou un départ non confirmé dans l\'application.',
+                ),
+                'controles' => array(
+                    'Vérifier la gare, la date et le programme avant de répondre.',
+                    'Signaler toute information incohérente au chef de gare.',
+                ),
+            ),
+            '4' => array(
+                'finalite' => 'Contrôler les mouvements d\'argent transmis par les chefs et tenir une caisse juste.',
+                'responsable' => 'Responsable financier / superviseur',
+                'missions' => array(
+                    'Vérifier les montants, motifs, dates et pièces avant décision.',
+                    'Accepter ou refuser les recettes, dépenses et dépôts de la même gare.',
+                    'Suivre le solde et effectuer la fermeture de caisse.',
+                ),
+                'autorise' => array(
+                    array('Accepter ou refuser une opération du chef', 'Oui, après contrôle'),
+                    array('Voir le solde et les états de sa caisse', 'Oui'),
+                    array('Saisir sa propre opération de caisse', 'Oui, seulement si la procédure le prévoit'),
+                    array('Changer le nom du chef qui a saisi', 'Non'),
+                ),
+                'eventuel' => array(
+                    'Travail dans plusieurs gares si chacune lui est affectée.',
+                    'Saisie de certaines recettes ou dépenses propres à la caisse.',
+                    'Rapports supplémentaires ou remplacement temporaire accordés par un responsable.',
+                ),
+                'interdits' => array(
+                    'Se déclarer auteur d\'une opération saisie par un chef.',
+                    'Accepter une opération sans la contrôler.',
+                    'Travailler dans une gare non affectée ou avec le poste du caissier adjoint.',
+                ),
+                'controles' => array(
+                    'Comparer le solde de l\'application avec les pièces et l\'argent disponible.',
+                    'Vérifier les opérations encore en attente et expliquer les refus.',
+                ),
+            ),
+            '5' => array(
+                'finalite' => 'Organiser le guichet, enregistrer les mouvements et remettre un compte exact au caissier.',
+                'responsable' => 'Chef de gare / superviseur',
+                'missions' => array(
+                    'Saisir les recettes, dépenses et dépôts du guichet.',
+                    'Contrôler les ventes et les justificatifs remis par l\'équipe.',
+                    'Faire l\'arrêt de compte et traiter les refus avec le caissier.',
+                ),
+                'autorise' => array(
+                    array('Saisir une recette, une dépense ou un dépôt', 'Oui'),
+                    array('Voir le solde et les états de son guichet', 'Oui'),
+                    array('Faire l\'arrêt de compte', 'Oui'),
+                    array('Accepter définitivement sa propre saisie', 'Non, le caissier contrôle'),
+                ),
+                'eventuel' => array(
+                    'Responsabilité de plusieurs gares, utilisées séparément.',
+                    'Suivi d\'un aide-chef ou de vendeurs de la même gare.',
+                    'Rapports supplémentaires ou autorisation temporaire accordés par un responsable.',
+                ),
+                'interdits' => array(
+                    'Utiliser le compte ou le poste d\'un vendeur, d\'un autre chef ou du caissier.',
+                    'Saisir une dépense sans solde ou sans justificatif.',
+                    'Saisir deux fois la même opération après l\'arrêt.',
+                ),
+                'controles' => array(
+                    'Comparer le solde affiché avec les mouvements et pièces.',
+                    'Vérifier les refus et faire l\'arrêt à la fréquence prévue.',
+                ),
+            ),
+            '6' => array(
+                'finalite' => 'Vendre les tickets correctement et remettre un compte exact à la fin de la vacation.',
+                'responsable' => 'Chef de guichet / chef de gare',
+                'missions' => array(
+                    'Choisir le bon voyage, la bonne destination et le bon tarif.',
+                    'Enregistrer les informations du voyageur et remettre le ticket.',
+                    'Faire son arrêt de vente.',
+                ),
+                'autorise' => array(
+                    array('Vendre et imprimer un ticket', 'Oui'),
+                    array('Voir ses propres ventes', 'Oui'),
+                    array('Faire son arrêt de vente', 'Oui'),
+                    array('Saisir ou accepter une recette de caisse', 'Non'),
+                ),
+                'eventuel' => array(
+                    'Vente dans une autre gare après affectation.',
+                    'Réimpression d\'un ticket lorsqu\'un responsable l\'autorise.',
+                    'Vente mobile avec un poste complémentaire prévu.',
+                ),
+                'interdits' => array(
+                    'Utiliser le compte d\'un collègue.',
+                    'Modifier librement une vente déjà arrêtée.',
+                    'Continuer à vendre lorsqu\'un arrêt est obligatoire.',
+                ),
+                'controles' => array(
+                    'Comparer les tickets émis avec l\'arrêt de vente.',
+                    'Justifier les annulations et réimpressions.',
+                ),
+            ),
+            '7' => array(
+                'finalite' => 'Contrôler les chiffres et préparer des états fiables pour la direction.',
+                'responsable' => 'Direction financière',
+                'missions' => array(
+                    'Consulter les opérations et préparer les états comptables.',
+                    'Rapprocher les recettes, dépenses, versements et justificatifs.',
+                    'Signaler les écarts aux responsables.',
+                ),
+                'autorise' => array(
+                    array('Voir et imprimer les états comptables', 'Oui'),
+                    array('Faire les rapprochements et déclarations', 'Oui'),
+                    array('Vendre, saisir ou accepter une opération de caisse', 'Non'),
+                    array('Changer une opération déjà enregistrée', 'Non, sauf procédure de correction'),
+                ),
+                'eventuel' => array(
+                    'Consultation de plusieurs gares ou périodes selon le travail confié.',
+                    'Export ou rapport complémentaire accordé par la direction.',
+                ),
+                'interdits' => array(
+                    'Modifier les données pour faire disparaître un écart.',
+                    'Cumuler contrôle comptable et opération quotidienne sans autorisation.',
+                ),
+                'controles' => array(
+                    'Conserver les preuves des rapprochements.',
+                    'Documenter et suivre chaque écart jusqu\'à sa résolution.',
+                ),
+            ),
+            '8' => array(
+                'finalite' => 'Organiser les départs, les programmes et le bon fonctionnement de la gare.',
+                'responsable' => 'Direction de l\'exploitation',
+                'missions' => array(
+                    'Préparer et suivre les programmes, horaires et départs.',
+                    'Coordonner le personnel et les moyens de la gare.',
+                    'Suivre les ventes et états utiles à l\'exploitation.',
+                ),
+                'autorise' => array(
+                    array('Créer ou modifier un programme et ses horaires', 'Oui'),
+                    array('Voir les listes, départs, tarifs et états locaux', 'Oui'),
+                    array('Organiser les bus et le personnel de gare', 'Oui'),
+                    array('Accepter une caisse à la place du caissier', 'Non'),
+                ),
+                'eventuel' => array(
+                    'Gestion d\'une autre gare après affectation.',
+                    'Rapports d\'exploitation supplémentaires.',
+                ),
+                'interdits' => array(
+                    'Changer un programme sans vérifier les conséquences sur les ventes.',
+                    'Effectuer une opération financière avec le compte d\'un autre poste.',
+                ),
+                'controles' => array(
+                    'Vérifier horaires, bus, destinations et personnel avant publication.',
+                    'Informer les équipes de tout changement.',
+                ),
+            ),
+            '9' => array(
+                'finalite' => 'Contrôler les opérations et factures liées au courrier.',
+                'responsable' => 'Responsable courrier / direction',
+                'missions' => array(
+                    'Suivre les envois et les factures courrier.',
+                    'Comparer les données des gares et signaler les écarts.',
+                    'Produire les états demandés.',
+                ),
+                'autorise' => array(
+                    array('Consulter les opérations courrier', 'Oui, selon les écrans disponibles'),
+                    array('Établir ou contrôler des factures courrier', 'Oui, dans le périmètre confié'),
+                    array('Voir plusieurs gares de départ', 'Oui, si l\'accès est ouvert'),
+                    array('Vendre un ticket ou accepter une caisse', 'Non'),
+                ),
+                'eventuel' => array(
+                    'Accès à toutes les gares courrier sur décision de la direction.',
+                    'Rapports ou écrans courrier supplémentaires lorsqu\'ils sont raccordés au poste.',
+                ),
+                'interdits' => array(
+                    'Changer une facture ou un envoi sans preuve.',
+                    'Utiliser une route non visible comme un droit automatique.',
+                ),
+                'controles' => array(
+                    'Rapprocher envois, factures et paiements.',
+                    'Signaler les écrans manquants ou les accès trop larges.',
+                ),
+            ),
+            '10' => array(
+                'finalite' => 'Effectuer les ventes mobiles et rendre compte des encaissements associés.',
+                'responsable' => 'Chef de gare / responsable commercial',
+                'missions' => array(
+                    'Vendre depuis le point mobile autorisé.',
+                    'Traiter les bagages prévus dans son parcours.',
+                    'Faire son arrêt de compte.',
+                ),
+                'autorise' => array(
+                    array('Faire une vente mobile', 'Oui'),
+                    array('Traiter un bagage prévu par le poste', 'Oui'),
+                    array('Voir son compte et son rapport mobile', 'Oui'),
+                    array('Accepter une caisse principale', 'Non'),
+                ),
+                'eventuel' => array(
+                    'Autre point de vente ou gare après affectation.',
+                    'Impressions bagage complémentaires selon le besoin.',
+                ),
+                'interdits' => array(
+                    'Utiliser l\'identité d\'un autre vendeur.',
+                    'Continuer après l\'arrêt obligatoire.',
+                ),
+                'controles' => array(
+                    'Comparer ventes mobiles, encaissements et arrêt.',
+                    'Vérifier la gare et le point de vente actifs.',
+                ),
+            ),
+            '11' => array(
+                'finalite' => 'Tenir à jour les informations relatives au personnel.',
+                'responsable' => 'Direction / responsable des ressources humaines',
+                'missions' => array(
+                    'Enregistrer et consulter les informations du personnel.',
+                    'Organiser les catégories de personnel.',
+                    'Protéger les informations confidentielles.',
+                ),
+                'autorise' => array(
+                    array('Voir et gérer les fiches du personnel', 'Oui'),
+                    array('Gérer les catégories de personnel', 'Oui'),
+                    array('Utiliser les écrans commerciaux visibles', 'Seulement avec autorisation écrite'),
+                    array('Gérer les comptes et postes des utilisateurs', 'Non, sauf autre poste accordé'),
+                ),
+                'eventuel' => array(
+                    'Rapports RH ou consultation d\'une autre agence.',
+                    'Un poste commercial distinct peut être accordé si la personne cumule réellement les fonctions.',
+                ),
+                'interdits' => array(
+                    'Divulguer les informations du personnel.',
+                    'Utiliser un écran de vente simplement parce qu\'il apparaît dans le menu.',
+                ),
+                'controles' => array(
+                    'Revoir régulièrement les accès commerciaux encore visibles pour ce poste.',
+                    'Contrôler l\'exactitude et la confidentialité des fiches.',
+                ),
+            ),
+            '12' => array(
+                'finalite' => 'Facturer, identifier et suivre les bagages jusqu\'à leur traitement.',
+                'responsable' => 'Chef de gare / responsable bagage',
+                'missions' => array(
+                    'Enregistrer et facturer les bagages.',
+                    'Produire les reçus et bordereaux.',
+                    'Suivre les bagages envoyés, reçus ou non facturés.',
+                ),
+                'autorise' => array(
+                    array('Facturer et imprimer un document bagage', 'Oui'),
+                    array('Voir l\'historique et les bordereaux bagage', 'Oui'),
+                    array('Faire son arrêt de compte bagage', 'Oui'),
+                    array('Saisir une recette de caisse au nom du chef', 'Non'),
+                ),
+                'eventuel' => array(
+                    'Traitement d\'une autre gare après affectation.',
+                    'Impression ou suivi complémentaire selon le circuit bagage.',
+                ),
+                'interdits' => array(
+                    'Inscrire son poste bagage comme auteur d\'une recette de caisse.',
+                    'Remettre un bagage sans contrôle du reçu et de l\'identité.',
+                ),
+                'controles' => array(
+                    'Comparer bagages facturés, bordereaux et arrêt de compte.',
+                    'Suivre les bagages non facturés ou non remis.',
+                ),
+            ),
+            '13' => array(
+                'finalite' => 'Donner une vue complète de l\'agence et contrôler ses résultats.',
+                'responsable' => 'Direction',
+                'missions' => array(
+                    'Suivre les caisses, ventes, bagages, courriers et versements de l\'agence.',
+                    'Produire les états globaux.',
+                    'Alerter les responsables en cas d\'écart.',
+                ),
+                'autorise' => array(
+                    array('Voir les états globaux de l\'agence', 'Oui'),
+                    array('Voir la caisse principale et les versements', 'Oui, en consultation'),
+                    array('Vendre ou saisir une opération quotidienne', 'Non'),
+                    array('Modifier une donnée contrôlée', 'Non, sauf procédure autorisée'),
+                ),
+                'eventuel' => array(
+                    'Supervision de plusieurs agences après affectation.',
+                    'Rapports complémentaires demandés par la direction.',
+                ),
+                'interdits' => array(
+                    'Modifier une donnée pour masquer un écart.',
+                    'Utiliser le poste de supervision comme un poste de vente.',
+                ),
+                'controles' => array(
+                    'Comparer les résultats des différents services.',
+                    'Documenter et suivre les anomalies.',
+                ),
+            ),
+            '14' => array(
+                'finalite' => 'Suivre les activités de plusieurs services d\'un site et présenter une vue d\'ensemble.',
+                'responsable' => 'Direction',
+                'missions' => array(
+                    'Consulter les états globaux et la caisse principale.',
+                    'Suivre les recettes, dépenses, versements, bagages et courriers.',
+                    'Coordonner le traitement des anomalies du site.',
+                ),
+                'autorise' => array(
+                    array('Voir les états globaux du site', 'Oui'),
+                    array('Voir plusieurs gares courrier', 'Oui, si prévu'),
+                    array('Vendre ou accepter une opération', 'Non'),
+                    array('Changer les réglages généraux', 'Non'),
+                ),
+                'eventuel' => array(
+                    'Extension à d\'autres sites ou gares.',
+                    'Rapports supplémentaires accordés par la direction.',
+                ),
+                'interdits' => array(
+                    'Effectuer une opération quotidienne à la place d\'un agent.',
+                    'Modifier les chiffres observés sans procédure.',
+                ),
+                'controles' => array(
+                    'Suivre les écarts et les actions correctives.',
+                    'Vérifier que chaque service travaille avec son propre poste.',
+                ),
+            ),
+            '15' => array(
+                'finalite' => 'Aider à préparer et mettre à jour les programmes de voyage.',
+                'responsable' => 'Chef de gare / responsable de programmation',
+                'missions' => array(
+                    'Préparer les programmes, horaires et informations de voyage.',
+                    'Contrôler les changements avant publication.',
+                    'Aider le responsable dans les tâches de programmation confiées.',
+                ),
+                'autorise' => array(
+                    array('Créer ou modifier un programme', 'Oui, dans le périmètre confié'),
+                    array('Voir les listes, horaires et tarifs', 'Oui'),
+                    array('Utiliser les nombreux écrans commerciaux visibles', 'Seulement avec autorisation écrite'),
+                    array('Accepter une caisse', 'Non'),
+                ),
+                'eventuel' => array(
+                    'Programmation d\'une autre gare après affectation.',
+                    'Une fonction commerciale distincte peut être ajoutée si elle fait réellement partie du poste.',
+                ),
+                'interdits' => array(
+                    'Utiliser tous les boutons visibles comme s\'ils étaient automatiquement autorisés.',
+                    'Changer un programme sans accord du responsable.',
+                ),
+                'controles' => array(
+                    'Faire valider les changements importants.',
+                    'Revoir les accès commerciaux trop larges de ce poste.',
+                ),
+            ),
+            '16' => array(
+                'finalite' => 'Aider le chef à saisir et préparer les comptes, sous sa responsabilité.',
+                'responsable' => 'Chef de guichet',
+                'missions' => array(
+                    'Saisir les mouvements qui lui sont confiés.',
+                    'Vérifier les pièces et préparer l\'arrêt de compte.',
+                    'Signaler les erreurs au chef avant transmission.',
+                ),
+                'autorise' => array(
+                    array('Saisir une recette, dépense ou dépôt confié', 'Oui, avec son propre compte'),
+                    array('Voir le solde de son périmètre', 'Oui'),
+                    array('Préparer ou faire l\'arrêt selon l\'organisation', 'Oui'),
+                    array('Accepter une opération à la place du caissier', 'Non'),
+                ),
+                'eventuel' => array(
+                    'Remplacement temporaire dans une autre gare après affectation.',
+                    'Rapports utiles à la préparation du compte.',
+                ),
+                'interdits' => array(
+                    'Utiliser le compte du chef.',
+                    'Étendre seul son travail à une autre gare.',
+                    'Accepter ou refuser à la place du caissier.',
+                ),
+                'controles' => array(
+                    'Faire contrôler le travail par le chef.',
+                    'Comparer solde, mouvements et pièces avant l\'arrêt.',
+                ),
+            ),
+            '17' => array(
+                'finalite' => 'Servir les voyageurs et traiter les opérations prévues dans une escale.',
+                'responsable' => 'Chef de gare / chef de guichet',
+                'missions' => array(
+                    'Vendre dans l\'escale affectée.',
+                    'Traiter les bagages ou courriers d\'escale prévus.',
+                    'Réimprimer un ticket uniquement lorsqu\'il est autorisé.',
+                ),
+                'autorise' => array(
+                    array('Vendre dans son escale', 'Oui'),
+                    array('Voir ses propres opérations', 'Oui'),
+                    array('Réimprimer un ticket', 'Oui, seulement si l\'autorisation existe'),
+                    array('Accepter une caisse', 'Non'),
+                ),
+                'eventuel' => array(
+                    'Autre escale après affectation.',
+                    'Réimpression exceptionnelle accordée par un responsable.',
+                ),
+                'interdits' => array(
+                    'Réimprimer sans demande ou sans autorisation.',
+                    'Forcer une vente sur une mauvaise escale ou un mauvais voyage.',
+                    'Utiliser le compte d\'un autre vendeur.',
+                ),
+                'controles' => array(
+                    'Vérifier l\'escale, le voyage et le client.',
+                    'Justifier chaque réimpression.',
+                ),
+            ),
+            '18' => array(
+                'finalite' => 'Aider le caissier principal à contrôler les opérations qui lui sont confiées.',
+                'responsable' => 'Caissier principal / responsable financier',
+                'missions' => array(
+                    'Contrôler et accepter ou refuser les mouvements confiés.',
+                    'Suivre séparément le solde de sa caisse adjointe.',
+                    'Rendre compte au caissier principal.',
+                ),
+                'autorise' => array(
+                    array('Accepter ou refuser une opération confiée', 'Oui'),
+                    array('Voir le solde de la caisse adjointe', 'Oui'),
+                    array('Voir la caisse principale comme si elle était la sienne', 'Non'),
+                    array('Changer le nom de l\'auteur d\'une opération', 'Non'),
+                ),
+                'eventuel' => array(
+                    'Autre gare ou remplacement temporaire après affectation.',
+                    'Rapports complémentaires accordés par le responsable.',
+                ),
+                'interdits' => array(
+                    'Utiliser le compte ou le poste du caissier principal.',
+                    'Continuer à travailler avec une affectation désactivée.',
+                    'Accepter une opération d\'une autre gare.',
+                ),
+                'controles' => array(
+                    'Comparer le solde adjoint avec les pièces.',
+                    'Suivre les opérations en attente et les refus.',
+                ),
+            ),
+            '19' => array(
+                'finalite' => 'Consulter des chiffres résumés pour aider à la décision.',
+                'responsable' => 'Direction',
+                'missions' => array(
+                    'Consulter les indicateurs qui seront confiés au poste.',
+                    'Signaler les écarts aux responsables.',
+                    'Ne pas modifier les opérations utilisées pour les calculs.',
+                ),
+                'autorise' => array(
+                    array('Ouvrir un tableau de bord dédié', 'Pas encore disponible dans l\'application'),
+                    array('Voir les gares affectées', 'Possible à l\'accueil'),
+                    array('Vendre, saisir ou accepter une opération', 'Non'),
+                    array('Modifier un chiffre source', 'Non'),
+                ),
+                'eventuel' => array(
+                    'Des tableaux de bord précis pourront être ouverts lorsque le module sera raccordé.',
+                    'Le périmètre pourra être limité à une agence, une gare ou une activité.',
+                ),
+                'interdits' => array(
+                    'Considérer une page accessible par adresse comme une permission accordée.',
+                    'Utiliser ce poste avant la mise en service officielle de son écran.',
+                ),
+                'controles' => array(
+                    'Faire valider la liste des indicateurs et des personnes autorisées avant mise en service.',
+                ),
+            ),
+            '20' => array(
+                'finalite' => 'Suivre et confirmer la remise des colis ou courriers lorsque le module de livraison sera disponible.',
+                'responsable' => 'Responsable livraison / courrier',
+                'missions' => array(
+                    'Identifier les éléments à remettre.',
+                    'Contrôler le destinataire et conserver une preuve de remise.',
+                    'Signaler les éléments non remis ou litigieux.',
+                ),
+                'autorise' => array(
+                    array('Ouvrir un écran de livraison dédié', 'Pas encore disponible dans l\'application'),
+                    array('Confirmer une remise', 'Non disponible actuellement'),
+                    array('Vendre ou accepter une caisse', 'Non'),
+                    array('Modifier un courrier ou un colis', 'Non'),
+                ),
+                'eventuel' => array(
+                    'Scan, preuve de remise et suivi de tournée après développement du module.',
+                    'Affectation à une zone ou une agence précise.',
+                ),
+                'interdits' => array(
+                    'Utiliser ce poste comme s\'il était déjà opérationnel.',
+                    'Confirmer une remise sans contrôle du destinataire et sans preuve.',
+                ),
+                'controles' => array(
+                    'Définir et tester la procédure de livraison avant ouverture du poste.',
+                ),
+            ),
+        );
+
+        if (!isset($postes[$role_code])) {
+            return null;
+        }
+
+        $fiche = $postes[$role_code];
+        $meta = documentation_formation_role_meta($role_code);
+        $fiche['intitule'] = $role_code === 'general'
+            ? 'Référentiel simple des postes'
+            : 'Fiche de poste — ' . ($meta ? $meta['titre'] : ('Rôle ' . $role_code));
+
+        return $fiche;
+    }
+}
+
+if (!function_exists('documentation_formation_fiche_poste')) {
+    /**
+     * Fiche de poste et matrice de permissions des rôles documentés.
+     *
+     * Les permissions conditionnelles ne sont jamais acquises par défaut :
+     * elles dépendent d'une attribution active, de la gare et des modules
+     * effectivement ouverts par l'administrateur.
+     *
+     * @return array|null
+     */
+    function documentation_formation_fiche_poste($role_code)
+    {
+        $role_code = (string) $role_code;
+        $fiches = array(
+            'general' => array(
+                'intitule' => 'Référentiel des postes et permissions',
+                'finalite' => 'Présenter la séparation des responsabilités dans Ticket Rakieta et rappeler qu\'un rôle n\'autorise que les actions prévues dans sa gare active.',
+                'responsable' => 'Administrateur / superviseur fonctionnel',
+                'missions' => array(
+                    'Garantir la traçabilité : chaque action est réalisée avec le compte et le rôle de son auteur.',
+                    'Séparer la saisie, la validation et la supervision.',
+                    'Appliquer le principe du moindre privilège : uniquement les droits nécessaires au poste.',
+                ),
+                'permissions' => array(
+                    array('Administrateur / superviseur', 'Paramétrage, contrôle et consultation élargie selon délégation', 'Les actions sensibles restent nominatives et justifiées'),
+                    array('Chef / aide chef', 'Saisie des mouvements et arrêt de compte', 'Ne valide pas ses propres lignes à la place du caissier'),
+                    array('Caissier principal / adjoint', 'Validation, rejet et suivi de sa piste caisse', 'Ne remplace pas l\'auteur de la saisie'),
+                    array('Vendeur / vendeur escale', 'Vente et opérations clients de son périmètre', 'Pas de validation de caisse'),
+                ),
+                'permissions_eventuelles' => array(
+                    'Accès à plusieurs gares, avec une seule attribution active à la fois.',
+                    'Consultation ou impression de rapports supplémentaires sur décision administrateur.',
+                    'Accès à un module complémentaire uniquement si une attribution correspondante est active.',
+                ),
+                'interdits' => array(
+                    'Partager un mot de passe ou travailler sous le compte d\'un collègue.',
+                    'Utiliser un rôle, une gare ou un module non attribué.',
+                    'Modifier l\'auteur d\'une opération lors de sa validation.',
+                    'Contourner un rejet, un blocage de solde ou une désactivation de compte.',
+                ),
+                'controles' => array(
+                    'Contrôle périodique des comptes, rôles et gares actifs.',
+                    'Rapprochement entre auteur, validateur, gare et caisse.',
+                    'Revue des anomalies et des permissions exceptionnelles.',
+                ),
+            ),
+            '4' => array(
+                'intitule' => 'Fiche de poste — Caissier principal',
+                'finalite' => 'Sécuriser les mouvements de caisse en contrôlant et en validant les opérations transmises par les chefs de guichet.',
+                'responsable' => 'Responsable financier / superviseur / administrateur',
+                'missions' => array(
+                    'Contrôler le montant, le motif, la date, la gare et la caisse avant validation.',
+                    'Valider ou rejeter les recettes, dépenses et dépôts des chefs de la même gare.',
+                    'Suivre son solde, effectuer l\'arrêt de caisse et signaler les écarts.',
+                    'Conserver la séparation entre auteur de la saisie et validateur.',
+                ),
+                'permissions' => array(
+                    array('Validation recette', 'Autorisé', 'Renseigne operavalid et les indicateurs de validation ; idopera reste inchangé'),
+                    array('Validation dépense', 'Autorisé', 'Renseigne opevalid ; idop_dep reste inchangé'),
+                    array('Validation dépôt', 'Autorisé', 'Renseigne opvalid ; idop_depot reste inchangé'),
+                    array('Rejet', 'Autorisé', 'Avec contrôle et commentaire suffisamment explicite'),
+                    array('Consultation solde / rapports', 'Autorisé', 'Sur sa piste et son périmètre de gare'),
+                    array('Saisie d\'un mouvement propre', 'Autorisé si prévu par la procédure', 'Dans ce cas seulement, le caissier peut être l\'auteur de la ligne'),
+                ),
+                'permissions_eventuelles' => array(
+                    'Validation sur plusieurs gares si chaque gare lui est formellement attribuée.',
+                    'Saisie de recettes ou dépenses propres à la caisse selon la procédure interne.',
+                    'Impression de rapports détaillés et consultation d\'historiques si le module est ouvert.',
+                    'Délégation temporaire documentée par un administrateur, sans partage d\'identifiants.',
+                ),
+                'interdits' => array(
+                    'Remplacer idopera, idop_dep ou idop_depot par son propre roleattribut pendant la validation.',
+                    'Valider une ligne d\'une autre gare sans attribution correspondante.',
+                    'Valider sans pièce, motif ou contrôle du montant.',
+                    'Utiliser la piste du caissier adjoint sans rôle 18 actif.',
+                ),
+                'controles' => array(
+                    'File de validation restante et rejets motivés.',
+                    'Rapprochement quotidien du solde système avec les justificatifs.',
+                    'Alerte immédiate si auteur et validateur deviennent identiques après une validation non saisie par le caissier.',
+                ),
+            ),
+            '18' => array(
+                'intitule' => 'Fiche de poste — Caissier adjoint',
+                'finalite' => 'Assurer les contrôles et validations délégués sur la piste adjoint, sans se substituer au caissier principal hors délégation.',
+                'responsable' => 'Caissier principal / responsable financier',
+                'missions' => array(
+                    'Valider ou rejeter les mouvements confiés à la piste adjoint.',
+                    'Contrôler les justificatifs et suivre le solde adjoint.',
+                    'Rendre compte au caissier principal et signaler tout écart.',
+                ),
+                'permissions' => array(
+                    array('Validation recette', 'Autorisé sur piste adjoint', 'operavalidad et is_actifrecetad'),
+                    array('Validation dépense', 'Autorisé sur piste adjoint', 'opevalidad et is_actifdepad'),
+                    array('Validation dépôt', 'Autorisé sur piste adjoint', 'opvalidad et is_actifdepoad'),
+                    array('Rejet', 'Autorisé sur son périmètre', 'Avec motif et traçabilité'),
+                    array('Consultation solde', 'Autorisé', 'Solde de la piste adjoint uniquement'),
+                ),
+                'permissions_eventuelles' => array(
+                    'Accès à plusieurs gares si des attributions rôle 18 actives existent.',
+                    'Remplacement temporaire encadré, après activation explicite du rôle approprié.',
+                    'Consultation de rapports complémentaires selon délégation.',
+                ),
+                'interdits' => array(
+                    'Utiliser les colonnes ou le roleattribut du caissier principal.',
+                    'Modifier l\'auteur chef lors de la validation.',
+                    'Continuer à opérer avec une attribution adjoint désactivée.',
+                    'Valider hors de la gare active.',
+                ),
+                'controles' => array(
+                    'Rapprochement de la piste adjoint.',
+                    'Revue des délégations et des anciennes attributions rôle 18.',
+                    'Contrôle des opérations laissées en attente.',
+                ),
+            ),
+            '5' => array(
+                'intitule' => 'Fiche de poste — Chef de guichet',
+                'finalite' => 'Organiser l\'activité du guichet, enregistrer fidèlement les mouvements et transmettre un compte contrôlable au caissier.',
+                'responsable' => 'Chef de gare / superviseur / responsable financier',
+                'missions' => array(
+                    'Saisir les recettes, dépenses et dépôts relevant de son guichet.',
+                    'Contrôler les ventes consolidées, les justificatifs et le solde disponible.',
+                    'Effectuer l\'arrêt de compte et traiter les rejets avec le caissier.',
+                    'Superviser les vendeurs rattachés à son périmètre sans utiliser leurs comptes.',
+                ),
+                'permissions' => array(
+                    array('Saisie recette', 'Autorisé', 'idopera = son roleattribut chef'),
+                    array('Saisie dépense', 'Autorisé sous contrôle du solde', 'idop_dep = son roleattribut chef'),
+                    array('Saisie dépôt', 'Autorisé selon procédure', 'idop_depot = son roleattribut chef'),
+                    array('Arrêt de compte', 'Autorisé', 'Transmet les lignes au caissier'),
+                    array('Consultation solde / états', 'Autorisé', 'Sur son guichet, sa gare et sa période'),
+                    array('Validation caisse', 'Non autorisé', 'Réservée au caissier 4/18'),
+                ),
+                'permissions_eventuelles' => array(
+                    'Gestion de plusieurs gares si chaque attribution chef est active et sélectionnée séparément.',
+                    'Consultation de rapports supplémentaires selon délégation du superviseur.',
+                    'Supervision d\'un aide chef ou de vendeurs identifiés sur la même gare.',
+                    'Dérogation de vente temporaire uniquement si elle est accordée et motivée par un administrateur.',
+                ),
+                'interdits' => array(
+                    'Valider ses propres lignes à la place du caissier.',
+                    'Saisir sous le roleattribut d\'un vendeur ou d\'un autre chef.',
+                    'Créer une dépense supérieure au solde ou sans justificatif.',
+                    'Dupliquer une ligne après l\'arrêt de compte.',
+                ),
+                'controles' => array(
+                    'Concordance entre solde carte et formulaire.',
+                    'Arrêt de compte réalisé selon la fréquence prévue.',
+                    'Suivi des rejets, doublons et opérations sans justificatif.',
+                ),
+            ),
+            '16' => array(
+                'intitule' => 'Fiche de poste — Aide chef de guichet',
+                'finalite' => 'Assister le chef dans la saisie et la préparation des arrêts de compte, dans les limites de la délégation reçue.',
+                'responsable' => 'Chef de guichet',
+                'missions' => array(
+                    'Saisir les mouvements confiés avec son propre roleattribut.',
+                    'Contrôler les pièces et préparer l\'arrêt de compte.',
+                    'Signaler au chef toute anomalie avant transmission au caissier.',
+                ),
+                'permissions' => array(
+                    array('Saisie recette / dépense / dépôt', 'Autorisé', 'Même logique d\'auteur que le chef, avec rôle 16'),
+                    array('Consultation solde', 'Autorisé', 'Sur son périmètre attribué'),
+                    array('Arrêt de compte', 'Autorisé selon organisation', 'Sous responsabilité du chef'),
+                    array('Validation caisse', 'Non autorisé', 'Réservée au caissier'),
+                ),
+                'permissions_eventuelles' => array(
+                    'Prise en charge temporaire d\'un périmètre chef avec attribution rôle 16 active.',
+                    'Accès à plusieurs gares selon affectations explicites.',
+                    'Consultation de rapports nécessaires à la préparation de l\'arrêt.',
+                ),
+                'interdits' => array(
+                    'Utiliser le roleattribut du chef titulaire.',
+                    'Valider ou rejeter à la place du caissier.',
+                    'Étendre de lui-même sa délégation à une autre gare.',
+                    'Modifier une opération après arrêt sans procédure.',
+                ),
+                'controles' => array(
+                    'Validation du travail par le chef responsable.',
+                    'Contrôle des soldes et justificatifs avant arrêt.',
+                    'Revue régulière de la délégation.',
+                ),
+            ),
+            '6' => array(
+                'intitule' => 'Fiche de poste — Vendeur',
+                'finalite' => 'Vendre les titres de transport correctement et assurer la traçabilité de sa vacation jusqu\'à l\'arrêt vendeur.',
+                'responsable' => 'Chef de guichet / chef de gare',
+                'missions' => array(
+                    'Vendre, imprimer et remettre les tickets aux clients.',
+                    'Contrôler programme, destination, tarif et informations passager.',
+                    'Effectuer son arrêt vendeur et remettre les éléments au chef.',
+                ),
+                'permissions' => array(
+                    array('Vente ticket', 'Autorisé', 'Sur ses programmes, sa gare et sa vacation'),
+                    array('Consultation de ses ventes', 'Autorisé', 'Périmètre personnel'),
+                    array('Impression ticket', 'Autorisé', 'Selon l\'état de la vente'),
+                    array('Arrêt vendeur', 'Autorisé / obligatoire', 'Selon les règles de la gare'),
+                    array('Saisie recette de caisse', 'Non autorisé', 'La recette consolidée appartient au chef ou au caissier saisisseur'),
+                    array('Validation caisse', 'Non autorisé', 'Réservée aux rôles 4/18'),
+                ),
+                'permissions_eventuelles' => array(
+                    'Vente sur une autre gare après affectation et activation explicites.',
+                    'Réimpression limitée si le droit est accordé pour le ticket concerné.',
+                    'Vente mobile uniquement avec une attribution prévue à cet effet.',
+                ),
+                'interdits' => array(
+                    'Utiliser le compte ou le roleattribut d\'un collègue.',
+                    'Inscrire son roleattribut vendeur dans idopera d\'une recette de caisse.',
+                    'Modifier librement une vente arrêtée.',
+                    'Contourner un blocage d\'arrêt de compte.',
+                ),
+                'controles' => array(
+                    'Concordance entre tickets émis et arrêt vendeur.',
+                    'Annulations et réimpressions justifiées.',
+                    'Arrêt réalisé à la fin de la vacation.',
+                ),
+            ),
+            '17' => array(
+                'intitule' => 'Fiche de poste — Vendeur escale',
+                'finalite' => 'Traiter les ventes et services clients d\'escale dans le périmètre de la sous-gare attribuée.',
+                'responsable' => 'Chef de gare / chef de guichet',
+                'missions' => array(
+                    'Traiter les ventes liées à l\'escale et contrôler le programme concerné.',
+                    'Effectuer les réimpressions autorisées et conserver leur traçabilité.',
+                    'Remonter les incohérences au responsable de gare.',
+                ),
+                'permissions' => array(
+                    array('Vente escale', 'Autorisé', 'Sur la sous-gare et les programmes attribués'),
+                    array('Consultation de ses opérations', 'Autorisé', 'Périmètre de son roleattribut'),
+                    array('Réimpression', 'Conditionnelle', 'Uniquement si le ticket est éligible et le droit disponible'),
+                    array('Validation caisse', 'Non autorisé', 'Réservée aux caissiers'),
+                    array('Administration programme', 'Non autorisé', 'Sauf rôle complémentaire explicite'),
+                ),
+                'permissions_eventuelles' => array(
+                    'Réimpression exceptionnelle autorisée par un responsable.',
+                    'Accès à une autre escale après affectation formelle.',
+                    'Consultation élargie uniquement avec une délégation de supervision distincte.',
+                ),
+                'interdits' => array(
+                    'Réimprimer sans demande ou sans droit disponible.',
+                    'Utiliser le compte d\'un autre vendeur.',
+                    'Forcer une vente sur un programme ou une escale incohérents.',
+                    'Valider une recette ou une dépense de caisse.',
+                ),
+                'controles' => array(
+                    'Journal des réimpressions et droits consommés.',
+                    'Concordance escale, programme et vendeur.',
+                    'Suivi des anomalies remontées au responsable.',
+                ),
+            ),
+        );
+
+        return isset($fiches[$role_code]) ? $fiches[$role_code] : null;
     }
 }
 
@@ -354,7 +1288,43 @@ if (!function_exists('documentation_formation_manuel')) {
             ),
         );
 
-        return isset($manuels[$role_code]) ? $manuels[$role_code] : null;
+        if (isset($manuels[$role_code])) {
+            return $manuels[$role_code];
+        }
+
+        // Les nouveaux rôles disposent au minimum d'un guide simple construit
+        // depuis leur fiche de poste, même si aucun QCM spécialisé n'existe encore.
+        $fiche = documentation_formation_fiche_poste_simple($role_code);
+        $meta = documentation_formation_role_meta($role_code);
+        if (!$fiche || !$meta) {
+            return null;
+        }
+
+        return array(
+            'titre' => 'Guide pratique — ' . $meta['titre'],
+            'sections' => array(
+                array(
+                    'h' => '1. Avant de commencer',
+                    'bullets' => array(
+                        'Se connecter uniquement avec son propre compte.',
+                        'Choisir la gare ou le lieu de travail réellement concerné.',
+                        'Vérifier que le poste affiché correspond bien au travail confié.',
+                    ),
+                ),
+                array(
+                    'h' => '2. Travail attendu',
+                    'bullets' => $fiche['missions'],
+                ),
+                array(
+                    'h' => '3. En cas de doute',
+                    'bullets' => array(
+                        'Ne pas utiliser un bouton simplement parce qu\'il est visible.',
+                        'Ne pas forcer une opération refusée ou bloquée.',
+                        'Demander au responsable avant d\'agir et lui indiquer la gare, la date et l\'opération concernées.',
+                    ),
+                ),
+            ),
+        );
     }
 }
 
@@ -369,305 +1339,283 @@ if (!function_exists('documentation_formation_qcm')) {
         $role_code = (string) $role_code;
         $qcms = array(
             '4' => array(
-                'titre' => 'QCM fin de formation — Caissier principal (rôle 4)',
+                'titre' => 'QCM fin de formation — Caissier principal',
                 'duree' => '20 minutes',
                 'bareme' => '1 point par bonne réponse — Total /10 — Seuil indicatif : 7/10',
                 'questions' => array(
                     array(
-                        'q' => 'Que signifie activeattrib = 1 pour un caissier ?',
+                        'q' => 'Après connexion, que devez-vous faire avant de travailler sur une gare ?',
                         'choices' => array(
-                            'A' => 'Le compte est désactivé',
-                            'B' => 'La gare actuellement active pour le rôle connecté',
-                            'C' => 'Toutes les gares sont ouvertes en même temps',
-                            'D' => 'Le solde est à zéro',
+                            'A' => 'Rien, toutes les gares sont ouvertes',
+                            'B' => 'Choisir / entrer dans la gare concernée',
+                            'C' => 'Changer le mot de passe du chef',
+                            'D' => 'Supprimer les recettes du jour',
                         ),
                         'answer' => 'B',
-                        'tip' => 'Une seule gare active à la fois pour le rôle.',
-                    ),
-                    array(
-                        'q' => 'Lors de la validation d\'une recette chef, quelle colonne reçoit le roleattribut du caissier 4 ?',
-                        'choices' => array(
-                            'A' => 'idopera',
-                            'B' => 'operavalidad',
-                            'C' => 'operavalid',
-                            'D' => 'cpuser_id',
-                        ),
-                        'answer' => 'C',
-                        'tip' => 'idopera reste l\'auteur (chef) ; operavalid = validateur 4.',
-                    ),
-                    array(
-                        'q' => 'Que fait un REJET sur une dépense en file ?',
-                        'choices' => array(
-                            'A' => 'Elle entre dans le solde caissier',
-                            'B' => 'Elle est hors solde / hors file de validation',
-                            'C' => 'Elle change automatiquement d\'auteur',
-                            'D' => 'Elle passe sur la piste adjoint',
-                        ),
-                        'answer' => 'B',
-                        'tip' => 'Rejet = pas de prise en compte dans le solde caissier.',
-                    ),
-                    array(
-                        'q' => 'Le solde caisse principal se calcule principalement sur :',
-                        'choices' => array(
-                            'A' => 'Toutes les saisies chefs non validées',
-                            'B' => 'Les mouvements validés sur la piste 4 (is_actif* + operavalid/opevalid)',
-                            'C' => 'Uniquement les courriers',
-                            'D' => 'Le username du chef',
-                        ),
-                        'answer' => 'B',
-                        'tip' => 'Piste 4 = flags is_actif sans suffixe ad.',
-                    ),
-                    array(
-                        'q' => 'activer_role = 1 sur une attribution signifie :',
-                        'choices' => array(
-                            'A' => 'Attribution utilisable',
-                            'B' => 'Attribution désactivée — ne plus utiliser',
-                            'C' => 'Gare active exclusive',
-                            'D' => 'Session connectée',
-                        ),
-                        'answer' => 'B',
-                        'tip' => 'Flags inversés : 0 = OK, 1 = off.',
+                        'tip' => 'On travaille toujours dans une gare précise.',
                     ),
                     array(
                         'q' => 'Qui doit valider l\'arrêt de compte d\'un chef de guichet ?',
                         'choices' => array(
                             'A' => 'Le vendeur',
                             'B' => 'Le caissier de la même gare',
-                            'C' => 'N\'importe quel utilisateur',
-                            'D' => 'Le passager',
+                            'C' => 'Le passager',
+                            'D' => 'N\'importe quel utilisateur',
                         ),
                         'answer' => 'B',
-                        'tip' => 'Circuit gare : chef saisit → caissier valide.',
+                        'tip' => 'Le chef saisit ; le caissier valide.',
                     ),
                     array(
-                        'q' => 'Peut-on modifier idopera au moment de VALIDER une ligne ?',
+                        'q' => 'Que faire face à une ligne en file VALIDATION douteuse ?',
                         'choices' => array(
-                            'A' => 'Oui, pour mettre le caissier',
-                            'B' => 'Oui, pour corriger la date',
-                            'C' => 'Non — idopera doit rester l\'auteur',
-                            'D' => 'Oui, uniquement le dimanche',
+                            'A' => 'Toujours valider sans lire',
+                            'B' => 'Contrôler le montant et le motif, puis VALIDER ou REJETER',
+                            'C' => 'Demander au passager de valider',
+                            'D' => 'Effacer la gare',
                         ),
-                        'answer' => 'C',
-                        'tip' => 'Correction appliquée : validation ne réécrit plus idopera.',
+                        'answer' => 'B',
+                        'tip' => 'La validation engage le solde caisse.',
                     ),
                     array(
-                        'q' => 'Avant une dépense caissier, le système vérifie :',
+                        'q' => 'Que se passe-t-il si vous REJETEZ une dépense ?',
                         'choices' => array(
-                            'A' => 'Le solde de la caisse',
-                            'B' => 'Le numéro de bus uniquement',
-                            'C' => 'Le code PIN du passager',
-                            'D' => 'Rien',
+                            'A' => 'Elle entre quand même dans votre solde',
+                            'B' => 'Elle n\'entre pas dans votre solde caisse',
+                            'C' => 'Elle change automatiquement de gare',
+                            'D' => 'Elle devient une recette',
                         ),
-                        'answer' => 'A',
-                        'tip' => 'Message « dépasse le solde » si montant > solde.',
+                        'answer' => 'B',
+                        'tip' => 'Rejet = hors solde caissier.',
                     ),
                     array(
-                        'q' => 'Si deux gares apparaissent pour le même caissier, comment travailler ?',
+                        'q' => 'Votre solde caisse dépend surtout de :',
                         'choices' => array(
-                            'A' => 'Les deux en parallèle sans choisir',
-                            'B' => 'Activer une gare (activeattrib) puis opérer',
-                            'C' => 'Supprimer une gare chaque matin',
+                            'A' => 'Toutes les saisies non validées des chefs',
+                            'B' => 'Les mouvements que vous avez validés',
+                            'C' => 'Le nombre de bus du jour',
+                            'D' => 'Le nom de l\'entreprise seul',
+                        ),
+                        'answer' => 'B',
+                        'tip' => 'Seules les lignes validées comptent pour le caissier.',
+                    ),
+                    array(
+                        'q' => 'Avant une dépense sur votre caisse, vous devez :',
+                        'choices' => array(
+                            'A' => 'Ignorer le solde',
+                            'B' => 'Vérifier que le montant ne dépasse pas le solde',
+                            'C' => 'Appeler le passager',
                             'D' => 'Changer de username',
                         ),
                         'answer' => 'B',
-                        'tip' => 'Accueil multi-gares → entrée exclusive dans une gare.',
+                        'tip' => 'Sinon message « dépasse le solde ».',
                     ),
                     array(
-                        'q' => 'Une recette validée apparaît dans le solde caissier quand :',
+                        'q' => 'Un compte désactivé :',
                         'choices' => array(
-                            'A' => 'active_recet = 0 seulement',
-                            'B' => 'is_actifrecet = 1 et operavalid = caissier',
-                            'C' => 'Le chef est déconnecté',
-                            'D' => 'Le type est Courrier uniquement',
-                        ),
-                        'answer' => 'B',
-                        'tip' => 'Validation = flags actifs + id validateur.',
-                    ),
-                ),
-            ),
-            '18' => array(
-                'titre' => 'QCM fin de formation — Caissier adjoint (rôle 18)',
-                'duree' => '20 minutes',
-                'bareme' => '1 point par bonne réponse — Total /10 — Seuil indicatif : 7/10',
-                'questions' => array(
-                    array(
-                        'q' => 'La piste adjoint utilise principalement :',
-                        'choices' => array(
-                            'A' => 'operavalid / is_actifrecet',
-                            'B' => 'operavalidad / is_actifrecetad',
-                            'C' => 'idopera uniquement',
-                            'D' => 'cpuser_id',
-                        ),
-                        'answer' => 'B',
-                        'tip' => 'Suffixe ad = adjoint.',
-                    ),
-                    array(
-                        'q' => 'Si l\'attribution 18 est désactivée (activer_role=1) :',
-                        'choices' => array(
-                            'A' => 'On peut encore valider en 18',
-                            'B' => 'Il ne faut plus utiliser ce rôle',
-                            'C' => 'Le solde double',
-                            'D' => 'Toutes les gares s\'activent',
+                            'A' => 'Peut encore valider normalement',
+                            'B' => 'Ne doit plus être utilisé',
+                            'C' => 'Double le solde',
+                            'D' => 'Ouvre toutes les gares',
                         ),
                         'answer' => 'B',
                         'tip' => 'Compte / rôle désactivé = inutilisable.',
                     ),
                     array(
-                        'q' => 'Après passage d\'un adjoint en caissier 4, l\'historique 18 :',
+                        'q' => 'Si vous avez plusieurs gares, comment travailler correctement ?',
+                        'choices' => array(
+                            'A' => 'Sans choisir de gare',
+                            'B' => 'Entrer dans une gare puis opérer',
+                            'C' => 'Utiliser le compte d\'un collègue',
+                            'D' => 'Valider toutes les gares d\'un clic sans contrôle',
+                        ),
+                        'answer' => 'B',
+                        'tip' => 'Une gare à la fois.',
+                    ),
+                    array(
+                        'q' => 'Après validation, l\'auteur de la saisie (le chef) :',
+                        'choices' => array(
+                            'A' => 'Doit devenir le caissier',
+                            'B' => 'Reste le chef qui a saisi',
+                            'C' => 'Disparaît',
+                            'D' => 'Passe au vendeur',
+                        ),
+                        'answer' => 'B',
+                        'tip' => 'Qui a saisi ≠ qui a validé.',
+                    ),
+                    array(
+                        'q' => 'En fin de journée, une bonne pratique est :',
+                        'choices' => array(
+                            'A' => 'Partir sans regarder la file',
+                            'B' => 'Vérifier qu\'il ne reste pas trop de pending sans motif, puis suivre l\'arrêt de caisse',
+                            'C' => 'Supprimer les recettes',
+                            'D' => 'Donner son mot de passe au chef',
+                        ),
+                        'answer' => 'B',
+                        'tip' => 'Contrôle + clôture selon procédure.',
+                    ),
+                ),
+            ),
+            '18' => array(
+                'titre' => 'QCM fin de formation — Caissier adjoint',
+                'duree' => '20 minutes',
+                'bareme' => '1 point par bonne réponse — Total /10 — Seuil indicatif : 7/10',
+                'questions' => array(
+                    array(
+                        'q' => 'Le caissier adjoint sert surtout à :',
+                        'choices' => array(
+                            'A' => 'Vendre les tickets à la place du vendeur',
+                            'B' => 'Valider les arrêts des chefs et suivre le solde (piste adjoint)',
+                            'C' => 'Créer les entreprises',
+                            'D' => 'Modifier les programmes bus',
+                        ),
+                        'answer' => 'B',
+                        'tip' => 'Même mission que le caissier, piste adjoint.',
+                    ),
+                    array(
+                        'q' => 'Si votre compte adjoint est désactivé :',
+                        'choices' => array(
+                            'A' => 'Vous validez quand même en adjoint',
+                            'B' => 'Vous ne devez plus utiliser ce rôle',
+                            'C' => 'Le solde double',
+                            'D' => 'Toutes les gares s\'ouvrent',
+                        ),
+                        'answer' => 'B',
+                        'tip' => 'Rôle désactivé = inutilisable.',
+                    ),
+                    array(
+                        'q' => 'Après un changement de rôle (ex. adjoint → principal), l\'ancien travail :',
                         'choices' => array(
                             'A' => 'Disparaît',
-                            'B' => 'Reste lié aux anciens roleattribut 18',
-                            'C' => 'Est recopié automatiquement en 4',
-                            'D' => 'Passe au chef',
+                            'B' => 'Reste dans l\'historique de l\'ancien rôle',
+                            'C' => 'Est effacé chaque nuit',
+                            'D' => 'Passe au passager',
                         ),
                         'answer' => 'B',
-                        'tip' => 'Les IDs d\'historique ne migrent pas seuls.',
+                        'tip' => 'L\'historique ne change pas tout seul.',
                     ),
                     array(
-                        'q' => 'Pour une dépense validée en adjoint, la colonne validateur est :',
+                        'q' => 'Qui saisit une dépense de chef avant votre validation ?',
                         'choices' => array(
-                            'A' => 'opevalid',
-                            'B' => 'opevalidad',
-                            'C' => 'idop_dep',
-                            'D' => 'idopera',
+                            'A' => 'Le caissier adjoint',
+                            'B' => 'Le chef de guichet',
+                            'C' => 'Le passager',
+                            'D' => 'Le bus',
                         ),
                         'answer' => 'B',
-                        'tip' => 'opevalidad pour rôle 18.',
-                    ),
-                    array(
-                        'q' => 'Le solde adjoint sur l\'accueil doit utiliser les flags :',
-                        'choices' => array(
-                            'A' => 'is_actifrecet / is_actifdep',
-                            'B' => 'is_actifrecetad / is_actifdepad',
-                            'C' => 'actif_rect seulement',
-                            'D' => 'Aucun flag',
-                        ),
-                        'answer' => 'B',
-                        'tip' => 'Alignement soldes_accueil *ad.',
-                    ),
-                    array(
-                        'q' => 'Qui saisit idop_dep sur une dépense chef ?',
-                        'choices' => array(
-                            'A' => 'Le caissier adjoint à la validation',
-                            'B' => 'Le chef à la saisie',
-                            'C' => 'L\'admin uniquement',
-                            'D' => 'Le système après rejet',
-                        ),
-                        'answer' => 'B',
-                        'tip' => 'Auteur = saisie ; validateur = validation.',
+                        'tip' => 'Chef saisit ; caissier valide.',
                     ),
                     array(
                         'q' => 'Validation et rejet se font :',
                         'choices' => array(
                             'A' => 'Sans regarder la gare',
-                            'B' => 'Sur la file du chef de la même gare',
+                            'B' => 'Sur les chefs de la même gare',
                             'C' => 'Uniquement le dimanche',
                             'D' => 'Par le vendeur',
                         ),
                         'answer' => 'B',
-                        'tip' => 'Même gare que le chef.',
+                        'tip' => 'Toujours la même gare.',
                     ),
                     array(
-                        'q' => 'activeattrib pour un adjoint multi-gares :',
+                        'q' => 'Avec plusieurs gares, vous devez :',
                         'choices' => array(
-                            'A' => 'Plusieurs à 1 en même temps',
-                            'B' => 'Au plus une gare à 1',
-                            'C' => 'Toujours 0',
-                            'D' => 'Inutile',
+                            'A' => 'Tout mélanger',
+                            'B' => 'Travailler gare par gare',
+                            'C' => 'Ignorer le choix de gare',
+                            'D' => 'Utiliser le compte du principal sans droit',
                         ),
                         'answer' => 'B',
-                        'tip' => 'Règle exclusive.',
+                        'tip' => 'Une gare active à la fois.',
                     ),
                     array(
-                        'q' => 'Un message « dépasse le solde » indique :',
+                        'q' => 'Le message « dépasse le solde » signifie :',
                         'choices' => array(
                             'A' => 'Le ticket est expiré',
-                            'B' => 'Le montant saisi est supérieur au solde caisse',
-                            'C' => 'Le rôle est admin',
-                            'D' => 'La gare est fermée définitivement',
+                            'B' => 'Le montant est supérieur au solde de la caisse',
+                            'C' => 'La gare est fermée définitivement',
+                            'D' => 'Le rôle est admin',
                         ),
                         'answer' => 'B',
-                        'tip' => 'Contrôle JS / métier sur monttcaisse.',
+                        'tip' => 'Réduire le montant ou vérifier le solde.',
                     ),
                     array(
-                        'q' => 'RETOUR GARE pour un caissier doit utiliser :',
+                        'q' => 'Pour revenir à la liste des gares, on utilise en général :',
                         'choices' => array(
-                            'A' => 'Le cpuser_id seul',
-                            'B' => 'Le roleattribut',
-                            'C' => 'Le numéro de téléphone',
-                            'D' => 'L\'id de la recette',
+                            'A' => 'RETOUR GARE / accueil gares',
+                            'B' => 'Supprimer le compte',
+                            'C' => 'Créer une entreprise',
+                            'D' => 'Imprimer un ticket passager',
+                        ),
+                        'answer' => 'A',
+                        'tip' => 'Navigation standard caissier.',
+                    ),
+                    array(
+                        'q' => 'Avant de valider un montant important :',
+                        'choices' => array(
+                            'A' => 'Valider sans lire',
+                            'B' => 'Contrôler motif, montant et cohérence',
+                            'C' => 'Demander au client final',
+                            'D' => 'Changer de gare au hasard',
                         ),
                         'answer' => 'B',
-                        'tip' => 'Navigation basée sur roleattribut.',
+                        'tip' => 'Contrôle avant engagement.',
+                    ),
+                    array(
+                        'q' => 'Partager son mot de passe caissier :',
+                        'choices' => array(
+                            'A' => 'Est recommandé',
+                            'B' => 'Est interdit',
+                            'C' => 'Est obligatoire le lundi',
+                            'D' => 'Remplace la validation',
+                        ),
+                        'answer' => 'B',
+                        'tip' => 'Traçabilité et sécurité.',
                     ),
                 ),
             ),
             '5' => array(
-                'titre' => 'QCM fin de formation — Chef de guichet (rôle 5)',
+                'titre' => 'QCM fin de formation — Chef de guichet',
                 'duree' => '20 minutes',
                 'bareme' => '1 point par bonne réponse — Total /10 — Seuil indicatif : 7/10',
                 'questions' => array(
                     array(
-                        'q' => 'En tant que chef, vous êtes principalement :',
+                        'q' => 'En tant que chef de guichet, votre rôle principal est de :',
                         'choices' => array(
-                            'A' => 'Validateur des recettes caissier',
-                            'B' => 'Saisisseur (idopera / idop_dep)',
-                            'C' => 'Administrateur système',
-                            'D' => 'Imprimeur escale uniquement',
+                            'A' => 'Valider la caisse à la place du caissier',
+                            'B' => 'Saisir recettes / dépenses et faire l\'arrêt de compte',
+                            'C' => 'Créer les utilisateurs',
+                            'D' => 'Imprimer uniquement les tickets escale',
                         ),
                         'answer' => 'B',
-                        'tip' => 'Le caissier valide ; le chef saisit.',
+                        'tip' => 'Saisie + arrêt ; validation = caissier.',
                     ),
                     array(
                         'q' => 'Avant une dépense, vous devez :',
                         'choices' => array(
                             'A' => 'Ignorer le solde',
-                            'B' => 'Vérifier que le montant ≤ solde période ouverte',
+                            'B' => 'Vérifier que le montant ne dépasse pas votre solde',
                             'C' => 'Demander au passager',
                             'D' => 'Changer de gare',
                         ),
                         'answer' => 'B',
-                        'tip' => 'Contrôle solde carte / formulaire.',
+                        'tip' => 'Contrôle solde obligatoire.',
                     ),
                     array(
                         'q' => 'L\'arrêt de compte sert à :',
                         'choices' => array(
                             'A' => 'Supprimer les recettes',
-                            'B' => 'Préparer / envoyer les lignes à la validation caissier',
+                            'B' => 'Envoyer / préparer vos lignes pour le caissier',
                             'C' => 'Créer un username',
                             'D' => 'Fermer l\'entreprise',
                         ),
                         'answer' => 'B',
-                        'tip' => 'File VALIDATION caissier.',
+                        'tip' => 'Handoff vers VALIDATION caissier.',
                     ),
                     array(
-                        'q' => 'Après validation caissier, idopera d\'une recette chef doit :',
+                        'q' => 'Qui valide vos recettes après l\'arrêt ?',
                         'choices' => array(
-                            'A' => 'Devenir le caissier',
-                            'B' => 'Rester le roleattribut du chef',
-                            'C' => 'Passer à NULL',
-                            'D' => 'Être égal à operavalid obligatoirement',
-                        ),
-                        'answer' => 'B',
-                        'tip' => 'Auteur ≠ validateur.',
-                    ),
-                    array(
-                        'q' => 'Le solde « période ouverte » s\'appuie surtout sur :',
-                        'choices' => array(
-                            'A' => 'operavalid',
-                            'B' => 'Flags active_* / lignes encore ouvertes pour idopera',
-                            'C' => 'Le mot de passe',
-                            'D' => 'Le rôle 1',
-                        ),
-                        'answer' => 'B',
-                        'tip' => 'Pas la piste caissier.',
-                    ),
-                    array(
-                        'q' => 'Qui valide vos recettes après arrêt ?',
-                        'choices' => array(
-                            'A' => 'Vous-même en rôle 5',
-                            'B' => 'Le caissier 4 ou 18 de la gare',
-                            'C' => 'Le vendeur 6',
+                            'A' => 'Vous-même',
+                            'B' => 'Le caissier de la gare',
+                            'C' => 'Le vendeur',
                             'D' => 'Personne',
                         ),
                         'answer' => 'B',
@@ -676,104 +1624,115 @@ if (!function_exists('documentation_formation_qcm')) {
                     array(
                         'q' => 'Si le caissier REJETTE une ligne :',
                         'choices' => array(
-                            'A' => 'Elle compte quand même dans son solde',
+                            'A' => 'Elle compte quand même dans sa caisse',
                             'B' => 'Elle ne compte pas dans le solde caissier',
                             'C' => 'Elle change de gare',
-                            'D' => 'Elle devient Courrier',
+                            'D' => 'Elle devient un ticket',
                         ),
                         'answer' => 'B',
                         'tip' => 'Rejet = hors solde caissier.',
                     ),
                     array(
-                        'q' => 'activer = 1 sur votre compte utilisateur signifie :',
+                        'q' => 'Après validation, vous restez l\'auteur de la saisie :',
                         'choices' => array(
-                            'A' => 'Compte utilisable',
-                            'B' => 'Compte désactivé',
-                            'C' => 'Gare active',
-                            'D' => 'Solde positif',
+                            'A' => 'Faux — le caissier devient l\'auteur',
+                            'B' => 'Vrai — le caissier est seulement le validateur',
+                            'C' => 'Faux — l\'auteur disparaît',
+                            'D' => 'Vrai seulement le dimanche',
                         ),
                         'answer' => 'B',
-                        'tip' => 'Flag inversé compte.',
+                        'tip' => 'Auteur ≠ validateur.',
                     ),
                     array(
-                        'q' => 'Vous travailz quelle clé dans les URLs caisse ?',
+                        'q' => 'Un compte désactivé :',
                         'choices' => array(
-                            'A' => 'roleattribut',
-                            'B' => 'Adresse e-mail',
-                            'C' => 'IMEI du téléphone',
-                            'D' => 'Nom de la compagnie seule',
+                            'A' => 'Peut encore saisir',
+                            'B' => 'Ne doit plus être utilisé',
+                            'C' => 'Augmente le solde',
+                            'D' => 'Active toutes les gares',
                         ),
-                        'answer' => 'A',
-                        'tip' => 'Identifiant opérationnel.',
+                        'answer' => 'B',
+                        'tip' => 'Compte off = pas d\'usage.',
                     ),
                     array(
                         'q' => 'En fin de vacation, la bonne pratique est :',
                         'choices' => array(
                             'A' => 'Partir sans arrêt',
-                            'B' => 'Faire l\'arrêt de compte et informer le caissier',
+                            'B' => 'Faire l\'arrêt et informer le caissier',
                             'C' => 'Supprimer les dépenses',
-                            'D' => 'Changer le mot de passe du caissier',
+                            'D' => 'Donner le mot de passe du caissier',
                         ),
                         'answer' => 'B',
                         'tip' => 'Clôture + handoff.',
                     ),
+                    array(
+                        'q' => 'Si le formulaire dit « dépasse le solde » alors que la carte montre de l\'argent :',
+                        'choices' => array(
+                            'A' => 'Forcer plusieurs fois',
+                            'B' => 'Alerter le responsable / support',
+                            'C' => 'Inventer une recette',
+                            'D' => 'Changer de username collègue',
+                        ),
+                        'answer' => 'B',
+                        'tip' => 'Ne pas contourner ; signaler.',
+                    ),
+                    array(
+                        'q' => 'Partager son compte chef :',
+                        'choices' => array(
+                            'A' => 'Est autorisé',
+                            'B' => 'Est interdit',
+                            'C' => 'Est obligatoire',
+                            'D' => 'Remplace l\'arrêt',
+                        ),
+                        'answer' => 'B',
+                        'tip' => 'Chaque agent a sa traçabilité.',
+                    ),
                 ),
             ),
             '16' => array(
-                'titre' => 'QCM fin de formation — Aide chef de guichet (rôle 16)',
+                'titre' => 'QCM fin de formation — Aide chef de guichet',
                 'duree' => '15 minutes',
                 'bareme' => '1 point par bonne réponse — Total /8 — Seuil indicatif : 6/8',
                 'questions' => array(
                     array(
-                        'q' => 'Le rôle 16 est proche de :',
+                        'q' => 'Le rôle d\'aide chef est proche de :',
                         'choices' => array(
-                            'A' => 'Caissier 4',
-                            'B' => 'Chef guichet 5 (saisie)',
-                            'C' => 'Admin 1',
-                            'D' => 'Vendeur escale 17',
+                            'A' => 'Caissier',
+                            'B' => 'Chef de guichet (saisie)',
+                            'C' => 'Administrateur',
+                            'D' => 'Vendeur escale seulement',
                         ),
                         'answer' => 'B',
-                        'tip' => 'Saisie idopera / idop_dep.',
+                        'tip' => 'Même logique de saisie.',
                     ),
                     array(
-                        'q' => 'Vous pouvez valider les arrêts des autres chefs :',
+                        'q' => 'Pouvez-vous valider les arrêts des autres chefs ?',
                         'choices' => array(
                             'A' => 'Oui toujours',
-                            'B' => 'Non — réservé caissier',
+                            'B' => 'Non — c\'est le caissier',
                             'C' => 'Oui le week-end',
                             'D' => 'Oui si solde = 0',
                         ),
                         'answer' => 'B',
-                        'tip' => 'Pas de validation auto rôle 16.',
+                        'tip' => 'Pas de validation caissier.',
                     ),
                     array(
-                        'q' => 'Avant dépense :',
+                        'q' => 'Avant une dépense :',
                         'choices' => array(
-                            'A' => 'Contrôler le solde ouvert',
+                            'A' => 'Contrôler le solde',
                             'B' => 'Rien',
                             'C' => 'Appeler le passager',
-                            'D' => 'Changer activeattrib du caissier',
+                            'D' => 'Modifier le compte caissier',
                         ),
                         'answer' => 'A',
                         'tip' => 'Même règle que le chef.',
-                    ),
-                    array(
-                        'q' => 'idop_dep à la création d\'une dépense vaut :',
-                        'choices' => array(
-                            'A' => 'Le roleattribut du saisisseur',
-                            'B' => 'Toujours 0',
-                            'C' => 'Le cpuser_id caissier',
-                            'D' => 'L\'id de la gare',
-                        ),
-                        'answer' => 'A',
-                        'tip' => 'Auteur = vous.',
                     ),
                     array(
                         'q' => 'En cas de doute sur un montant :',
                         'choices' => array(
                             'A' => 'Saisir quand même',
                             'B' => 'Demander au chef / responsable avant l\'arrêt',
-                            'C' => 'Rejeter côté caissier soi-même',
+                            'C' => 'Rejeter à la place du caissier',
                             'D' => 'Effacer le programme',
                         ),
                         'answer' => 'B',
@@ -782,27 +1741,27 @@ if (!function_exists('documentation_formation_qcm')) {
                     array(
                         'q' => 'L\'arrêt de compte :',
                         'choices' => array(
-                            'A' => 'Est inutile pour le 16',
+                            'A' => 'Est inutile',
                             'B' => 'Suit la même logique que le chef',
-                            'C' => 'Crée un rôle 4',
+                            'C' => 'Crée un caissier',
                             'D' => 'Imprime les tickets',
                         ),
                         'answer' => 'B',
-                        'tip' => 'Même filière saisie.',
+                        'tip' => 'Même filière.',
                     ),
                     array(
-                        'q' => 'operavalid sur une ligne validée désigne :',
+                        'q' => 'Qui valide ensuite vos lignes ?',
                         'choices' => array(
-                            'A' => 'Le chef',
-                            'B' => 'Le caissier validateur',
+                            'A' => 'Vous-même',
+                            'B' => 'Le caissier',
                             'C' => 'Le bus',
                             'D' => 'Le quartier',
                         ),
                         'answer' => 'B',
-                        'tip' => 'Validateur ≠ auteur.',
+                        'tip' => 'Validateur = caissier.',
                     ),
                     array(
-                        'q' => 'Un compte avec activer_role = 1 :',
+                        'q' => 'Un compte désactivé :',
                         'choices' => array(
                             'A' => 'Doit être utilisé',
                             'B' => 'Ne doit plus être utilisé',
@@ -810,12 +1769,23 @@ if (!function_exists('documentation_formation_qcm')) {
                             'D' => 'Active toutes les gares',
                         ),
                         'answer' => 'B',
-                        'tip' => 'Attribution off.',
+                        'tip' => 'Compte off.',
+                    ),
+                    array(
+                        'q' => 'Partager son mot de passe :',
+                        'choices' => array(
+                            'A' => 'Recommandé',
+                            'B' => 'Interdit',
+                            'C' => 'Obligatoire',
+                            'D' => 'Sans importance',
+                        ),
+                        'answer' => 'B',
+                        'tip' => 'Sécurité.',
                     ),
                 ),
             ),
             '6' => array(
-                'titre' => 'QCM fin de formation — Vendeur (rôle 6)',
+                'titre' => 'QCM fin de formation — Vendeur',
                 'duree' => '15 minutes',
                 'bareme' => '1 point par bonne réponse — Total /8 — Seuil indicatif : 6/8',
                 'questions' => array(
@@ -846,11 +1816,11 @@ if (!function_exists('documentation_formation_qcm')) {
                         'choices' => array(
                             'A' => 'Continuer sans arrêt',
                             'B' => 'Faire l\'arrêt puis reprendre',
-                            'C' => 'Changer de siège',
+                            'C' => 'Changer de siège seulement',
                             'D' => 'Supprimer les passagers',
                         ),
                         'answer' => 'B',
-                        'tip' => 'Respecter le soft-lock / procédure.',
+                        'tip' => 'Respecter la procédure.',
                     ),
                     array(
                         'q' => 'Partager son mot de passe :',
@@ -867,8 +1837,8 @@ if (!function_exists('documentation_formation_qcm')) {
                         'q' => 'Avant d\'émettre un ticket, vérifier :',
                         'choices' => array(
                             'A' => 'Programme, destination, tarif',
-                            'B' => 'Le solde caissier adjoint',
-                            'C' => 'operavalidad',
+                            'B' => 'Le solde du caissier adjoint',
+                            'C' => 'Le QCM admin',
                             'D' => 'Rien',
                         ),
                         'answer' => 'A',
@@ -886,41 +1856,41 @@ if (!function_exists('documentation_formation_qcm')) {
                         'tip' => 'Période clôturée.',
                     ),
                     array(
-                        'q' => 'Le roleattribut sert à :',
-                        'choices' => array(
-                            'A' => 'Identifier votre session opérationnelle gare/rôle',
-                            'B' => 'Nommer le bus',
-                            'C' => 'Calculer le carburant',
-                            'D' => 'Imprimer le logo',
-                        ),
-                        'answer' => 'A',
-                        'tip' => 'Clé métier.',
-                    ),
-                    array(
                         'q' => 'En cas d\'erreur ticket :',
                         'choices' => array(
                             'A' => 'Ignorer',
-                            'B' => 'Suivre la procédure gare (annulation / responsable)',
-                            'C' => 'Créer un rôle 18',
-                            'D' => 'Valider en caisse',
+                            'B' => 'Suivre la procédure gare (responsable)',
+                            'C' => 'Créer un compte caissier',
+                            'D' => 'Valider en caisse soi-même',
                         ),
                         'answer' => 'B',
                         'tip' => 'Escalade métier.',
                     ),
+                    array(
+                        'q' => 'Utiliser le compte d\'un collègue vendeur :',
+                        'choices' => array(
+                            'A' => 'Autorisé',
+                            'B' => 'Interdit',
+                            'C' => 'Obligatoire',
+                            'D' => 'Recommandé',
+                        ),
+                        'answer' => 'B',
+                        'tip' => 'Traçabilité.',
+                    ),
                 ),
             ),
             '17' => array(
-                'titre' => 'QCM fin de formation — Vendeur escale (rôle 17)',
+                'titre' => 'QCM fin de formation — Vendeur escale',
                 'duree' => '15 minutes',
                 'bareme' => '1 point par bonne réponse — Total /8 — Seuil indicatif : 6/8',
                 'questions' => array(
                     array(
-                        'q' => 'La réimpression escale est en général filtrée sur :',
+                        'q' => 'En réimpression, vous voyez en général :',
                         'choices' => array(
-                            'A' => 'Toutes les gares du pays',
-                            'B' => 'Vos opérations (iduseescal)',
-                            'C' => 'Uniquement le caissier',
-                            'D' => 'Les rôles 1 et 2 seulement sans exception',
+                            'A' => 'Tous les tickets du pays',
+                            'B' => 'Surtout vos opérations',
+                            'C' => 'Uniquement la caisse',
+                            'D' => 'Rien jamais',
                         ),
                         'answer' => 'B',
                         'tip' => 'Scope vendeur escale.',
@@ -931,7 +1901,7 @@ if (!function_exists('documentation_formation_qcm')) {
                             'A' => 'Bug obligatoire',
                             'B' => 'Aucun ticket éligible pour votre compte',
                             'C' => 'Solde insuffisant',
-                            'D' => 'Gare désactivée forcément',
+                            'D' => 'Gare fermée forcément',
                         ),
                         'answer' => 'B',
                         'tip' => 'Souvent normal.',
@@ -940,18 +1910,18 @@ if (!function_exists('documentation_formation_qcm')) {
                         'q' => 'Après une réimpression, le droit peut :',
                         'choices' => array(
                             'A' => 'Rester illimité',
-                            'B' => 'Être consommé (reimpr)',
+                            'B' => 'Être consommé',
                             'C' => 'Créer un caissier',
-                            'D' => 'Changer idopera',
+                            'D' => 'Changer le programme national',
                         ),
                         'answer' => 'B',
-                        'tip' => 'Flag réimpression.',
+                        'tip' => 'Une réimpression peut être limitée.',
                     ),
                     array(
                         'q' => 'Avant de traiter un client escale, vérifier :',
                         'choices' => array(
                             'A' => 'Escale / sous-gare / programme',
-                            'B' => 'operavalid du jour',
+                            'B' => 'Le solde caissier du mois',
                             'C' => 'Le QCM admin',
                             'D' => 'Rien',
                         ),
@@ -962,15 +1932,15 @@ if (!function_exists('documentation_formation_qcm')) {
                         'q' => 'En cas d\'incohérence programme :',
                         'choices' => array(
                             'A' => 'Forcer la vente',
-                            'B' => 'Escalader au chef de gare / responsable',
-                            'C' => 'Désactiver le compte caissier',
-                            'D' => 'Modifier activeattrib d\'un collègue',
+                            'B' => 'Prévenir le chef de gare / responsable',
+                            'C' => 'Désactiver le caissier',
+                            'D' => 'Utiliser un autre compte',
                         ),
                         'answer' => 'B',
                         'tip' => 'Escalade.',
                     ),
                     array(
-                        'q' => 'Le rôle 17 remplace-t-il le caissier ?',
+                        'q' => 'Le vendeur escale remplace-t-il le caissier ?',
                         'choices' => array(
                             'A' => 'Oui',
                             'B' => 'Non',
@@ -992,15 +1962,132 @@ if (!function_exists('documentation_formation_qcm')) {
                         'tip' => 'Traçabilité.',
                     ),
                     array(
-                        'q' => 'Admin 1/2 en réimpression voit en général :',
+                        'q' => 'Un admin / superviseur en réimpression peut voir :',
                         'choices' => array(
-                            'A' => 'Uniquement ses tickets',
-                            'B' => 'Un scope gare plus large',
+                            'A' => 'Uniquement ses tickets personnels',
+                            'B' => 'Un périmètre gare plus large',
                             'C' => 'Rien',
                             'D' => 'Seulement les dépenses',
                         ),
                         'answer' => 'B',
-                        'tip' => 'Scope élargi supervision.',
+                        'tip' => 'Supervision plus large.',
+                    ),
+                ),
+            ),
+            '12' => array(
+                'titre' => 'QCM fin de formation — Agent bagage',
+                'duree' => '20 minutes',
+                'bareme' => '1 point par bonne réponse — Total /10 — Seuil indicatif : 7/10',
+                'questions' => array(
+                    array(
+                        'q' => 'La mission principale de l\'agent bagage est :',
+                        'choices' => array(
+                            'A' => 'Valider les dépenses de caisse du chef de guichet',
+                            'B' => 'Facturer, identifier et suivre les bagages',
+                            'C' => 'Créer les programmes de voyage',
+                            'D' => 'Vendre les tickets passagers',
+                        ),
+                        'answer' => 'B',
+                        'tip' => 'Rôle bagage : facturation et suivi.',
+                    ),
+                    array(
+                        'q' => '« Facturation bagages avec ticket » sert à :',
+                        'choices' => array(
+                            'A' => 'Facturer un bagage lié à un passager / ticket',
+                            'B' => 'Clôturer la caisse principale',
+                            'C' => 'Créer une sous-gare',
+                            'D' => 'Valider une recette du caissier',
+                        ),
+                        'answer' => 'A',
+                        'tip' => 'Bagage accompagnant un voyageur.',
+                    ),
+                    array(
+                        'q' => '« Facturation bagages envoi » concerne plutôt :',
+                        'choices' => array(
+                            'A' => 'Uniquement les tickets gratuits',
+                            'B' => 'Un bagage expédié / suivi d\'envoi (hors simple accompagnement)',
+                            'C' => 'L\'arrêt de compte vendeur',
+                            'D' => 'La validation des dépenses',
+                        ),
+                        'answer' => 'B',
+                        'tip' => 'Circuit envoi / suivi bagage.',
+                    ),
+                    array(
+                        'q' => 'Le menu « Bagages avec ticket non facturés » permet de :',
+                        'choices' => array(
+                            'A' => 'Supprimer tous les tickets du jour',
+                            'B' => 'Traiter les bagages encore non facturés liés à un ticket',
+                            'C' => 'Changer le rôle d\'un collègue',
+                            'D' => 'Ouvrir une nouvelle entreprise',
+                        ),
+                        'answer' => 'B',
+                        'tip' => 'Rattrapage des bagages non facturés.',
+                    ),
+                    array(
+                        'q' => 'Le bordereau suivi bagages sert à :',
+                        'choices' => array(
+                            'A' => 'Remplacer l\'arrêt de compte caissier',
+                            'B' => 'Lister / formaliser le suivi des bagages (remise, départ…)',
+                            'C' => 'Modifier les tarifs nationaux',
+                            'D' => 'Créer un compte administrateur',
+                        ),
+                        'answer' => 'B',
+                        'tip' => 'Document de suivi opérationnel.',
+                    ),
+                    array(
+                        'q' => 'Avant de remettre un bagage, vous devez :',
+                        'choices' => array(
+                            'A' => 'Rien contrôler si le client presse',
+                            'B' => 'Contrôler le reçu et l\'identité',
+                            'C' => 'Utiliser le compte du caissier',
+                            'D' => 'Valider une dépense',
+                        ),
+                        'answer' => 'B',
+                        'tip' => 'Contrôle reçu + identité obligatoire.',
+                    ),
+                    array(
+                        'q' => 'L\'agent bagage peut-il saisir une recette de caisse au nom du chef ?',
+                        'choices' => array(
+                            'A' => 'Oui, toujours',
+                            'B' => 'Non',
+                            'C' => 'Oui le dimanche seulement',
+                            'D' => 'Oui si le solde est à zéro',
+                        ),
+                        'answer' => 'B',
+                        'tip' => 'Interdit : poste bagage ≠ saisie recette chef.',
+                    ),
+                    array(
+                        'q' => 'L\'arrêt / compte bagage sert à :',
+                        'choices' => array(
+                            'A' => 'Clôturer la période de facturation bagage de l\'agent',
+                            'B' => 'Créer un programme',
+                            'C' => 'Désactiver tous les vendeurs',
+                            'D' => 'Changer le mot de passe admin',
+                        ),
+                        'answer' => 'A',
+                        'tip' => 'Clôture du poste bagage.',
+                    ),
+                    array(
+                        'q' => 'Pour contrôler son activité, l\'agent bagage doit surtout comparer :',
+                        'choices' => array(
+                            'A' => 'Les rôles admin et les QCM',
+                            'B' => 'Bagages facturés, bordereaux et arrêt de compte',
+                            'C' => 'Uniquement le nombre de bus',
+                            'D' => 'Les mots de passe des collègues',
+                        ),
+                        'answer' => 'B',
+                        'tip' => 'Cohérence facturation / bordereaux / compte.',
+                    ),
+                    array(
+                        'q' => 'Utiliser le compte d\'un autre agent bagage :',
+                        'choices' => array(
+                            'A' => 'Autorisé pour gagner du temps',
+                            'B' => 'Interdit',
+                            'C' => 'Obligatoire en fin de journée',
+                            'D' => 'Recommandé par la procédure',
+                        ),
+                        'answer' => 'B',
+                        'tip' => 'Traçabilité et responsabilité individuelle.',
                     ),
                 ),
             ),
@@ -1010,29 +2097,29 @@ if (!function_exists('documentation_formation_qcm')) {
                 'bareme' => '1 point par bonne réponse — Total /8 — Seuil indicatif : 6/8',
                 'questions' => array(
                     array(
-                        'q' => 'roleattribut représente :',
+                        'q' => 'Chaque agent travaille avec :',
                         'choices' => array(
-                            'A' => 'Le mot de passe',
-                            'B' => 'L\'opérateur dans une gare + un rôle',
-                            'C' => 'Le nom de l\'entreprise',
-                            'D' => 'Le numéro de ticket',
-                        ),
-                        'answer' => 'B',
-                        'tip' => 'Clé métier caisse / vente.',
-                    ),
-                    array(
-                        'q' => 'activer_role = 0 signifie :',
-                        'choices' => array(
-                            'A' => 'Attribution utilisable',
-                            'B' => 'Attribution coupée',
-                            'C' => 'Solde négatif',
-                            'D' => 'Impression interdite',
+                            'A' => 'Un compte et un rôle dans une gare',
+                            'B' => 'Uniquement un numéro de ticket',
+                            'C' => 'Le mot de passe du collègue',
+                            'D' => 'Sans gare',
                         ),
                         'answer' => 'A',
-                        'tip' => 'Flag inversé.',
+                        'tip' => 'Compte + rôle + gare.',
                     ),
                     array(
-                        'q' => 'Chaîne correcte :',
+                        'q' => 'Un compte désactivé :',
+                        'choices' => array(
+                            'A' => 'Peut encore être utilisé',
+                            'B' => 'Ne doit plus être utilisé',
+                            'C' => 'Augmente le solde',
+                            'D' => 'Imprime plus vite',
+                        ),
+                        'answer' => 'B',
+                        'tip' => 'Désactivé = inutilisable.',
+                    ),
+                    array(
+                        'q' => 'Chaîne correcte en caisse :',
                         'choices' => array(
                             'A' => 'Caissier saisit → chef valide',
                             'B' => 'Chef saisit → caissier valide',
@@ -1043,29 +2130,29 @@ if (!function_exists('documentation_formation_qcm')) {
                         'tip' => 'Circuit standard.',
                     ),
                     array(
-                        'q' => 'Rôle 4 vs 18 :',
+                        'q' => 'Caissier principal et adjoint :',
                         'choices' => array(
-                            'A' => 'Mêmes colonnes DB',
-                            'B' => 'Pistes distinctes (avec / sans *ad)',
-                            'C' => 'Identiques au rôle 6',
-                            'D' => 'Sans importance',
+                            'A' => 'Font exactement la même piste sans distinction',
+                            'B' => 'Ont des pistes / soldes distincts',
+                            'C' => 'Sont identiques au vendeur',
+                            'D' => 'N\'existent pas',
                         ),
                         'answer' => 'B',
-                        'tip' => 'Pistes séparées.',
+                        'tip' => 'Principal ≠ adjoint.',
                     ),
                     array(
-                        'q' => 'Une gare active exclusive se voit par :',
+                        'q' => 'Avant d\'opérer, il faut :',
                         'choices' => array(
-                            'A' => 'activeattrib = 1',
-                            'B' => 'is_conect = 0',
-                            'C' => 'activer = 1',
-                            'D' => 'montant = 0',
+                            'A' => 'Choisir la bonne gare',
+                            'B' => 'Ignorer la gare',
+                            'C' => 'Désactiver le compte',
+                            'D' => 'Supprimer les recettes',
                         ),
                         'answer' => 'A',
-                        'tip' => 'Une seule à la fois.',
+                        'tip' => 'Contexte gare obligatoire.',
                     ),
                     array(
-                        'q' => 'idopera désigne :',
+                        'q' => 'Qui a saisi une ligne reste :',
                         'choices' => array(
                             'A' => 'Toujours le caissier',
                             'B' => 'L\'auteur de la saisie',
@@ -1073,26 +2160,26 @@ if (!function_exists('documentation_formation_qcm')) {
                             'D' => 'Le quartier',
                         ),
                         'answer' => 'B',
-                        'tip' => 'Auteur.',
+                        'tip' => 'Auteur ≠ validateur.',
                     ),
                     array(
-                        'q' => 'Compte utilisateur activer = 1 :',
+                        'q' => 'Partager son identifiant :',
                         'choices' => array(
-                            'A' => 'Login autorisé',
-                            'B' => 'Compte désactivé',
-                            'C' => 'Multi-gare forcé',
-                            'D' => 'QCM réussi',
+                            'A' => 'Autorisé',
+                            'B' => 'Interdit',
+                            'C' => 'Obligatoire',
+                            'D' => 'Sans effet',
                         ),
                         'answer' => 'B',
-                        'tip' => 'Inversé.',
+                        'tip' => 'Sécurité.',
                     ),
                     array(
                         'q' => 'En cas d\'anomalie solde :',
                         'choices' => array(
                             'A' => 'Inventer une recette',
-                            'B' => 'Alerter support / responsable avec gare et roleattribut',
-                            'C' => 'Supprimer la base',
-                            'D' => 'Changer le rôle en 17',
+                            'B' => 'Alerter le responsable avec la gare concernée',
+                            'C' => 'Supprimer des données',
+                            'D' => 'Changer de rôle au hasard',
                         ),
                         'answer' => 'B',
                         'tip' => 'Escalade propre.',
