@@ -321,7 +321,13 @@
             $sgFilter = $this->sql_filtre_sousgare($idsousgare);
 
             $sql = "SELECT pr.*, lh.id_ligneheure, lh.ligne_id AS ident_ligne, h.heure, lg.nom_ligne,
-                           t.id_tarifs AS typetarif, t.type_tarifs
+                           t.id_tarifs AS typetarif, t.type_tarifs,
+                           (SELECT tf.prix FROM tarification tf
+                             WHERE tf.ligne_heure_id = lh.id_ligneheure
+                               AND tf.typetarif_id = pr.typetarif
+                               AND tf.actif_taf = 1
+                             ORDER BY tf.typeclient_id ASC
+                             LIMIT 1) AS prix
                     FROM programme pr
                     JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
                     JOIN heures h ON lh.heure_identif = h.id_heure

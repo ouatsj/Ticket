@@ -115,11 +115,10 @@
 
             $this->property['itineraires'] = $this->m_itineraire_etape->get($this->company->id_entreprise);
             $this->property['escales'] = $this->m_itineraire_escale->get($this->company->id_entreprise);
-            if ($this->session->agent->userole === '1' OR $this->session->agent->userole === '2') {
-                $this->property['lignes'] = $this->m_lignes->getad($this->company->id_entreprise);
-            } else {
-                $this->property['lignes'] = $this->m_lignes->get($this->company->id_entreprise);
-            }
+            // Même source que Lignes/view : getad + regroupement compagnie d'arrivée.
+            $lignes = $this->m_lignes->getad($this->company->id_entreprise);
+            $this->property['lignes'] = $lignes;
+            $this->property['lignes_par_compagnie_arrivee'] = $this->m_lignes->group_by_compagnie_arrivee($lignes);
             $this->property['garedeparts'] = array();
             $this->property['garearrivees'] = $this->m_gare_arrivee->getad($this->company->id_entreprise);
             return $this->layout->view('_ligne/index', $this->property);

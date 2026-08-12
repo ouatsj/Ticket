@@ -37,11 +37,11 @@ return array(
     '3' => array(),
     '4' => array(
         'filtre_arrivee_compagnie.js',
-        'addventeticketfi.js',
+        'addventeticketfi.js', 'vente-escale-itineraire.js',
     ),
     '5' => array(
         'filtre_arrivee_compagnie.js',
-        'addventeticketfi.js', 'addconfirme.js', 'addreserve.js', 'addretour.js',
+        'addventeticketfi.js', 'vente-escale-itineraire.js', 'addconfirme.js', 'addreserve.js', 'addretour.js',
         'addreprogramme.js', 'addreprogadmin.js', 'addconfirmadmin.js',
         'addconfirmbon.js', 'addconfirmcarte.js', 'addrecu.js', 'addbon.js', 'addcarte.js',
     ),
@@ -62,14 +62,14 @@ return array(
         'filtre_arrivee_compagnie.js',
         'addconfirme.js',
         'addreserve.js',
-        'addventeticketfi.js',
+        'addventeticketfi.js', 'vente-escale-itineraire.js',
     ),
     '9' => array(),
     '10' => array(),
     '11' => array(
         'filtre_arrivee_compagnie.js',
         'addcarte.js',
-        'addventeticketfi.js',
+        'addventeticketfi.js', 'vente-escale-itineraire.js',
     ),
     '12' => array(),
     '13' => array(
@@ -87,7 +87,7 @@ return array(
     ),
     '15' => array(
         'filtre_arrivee_compagnie.js',
-        'addventeticketfi.js', 'addconfirme.js', 'addreserve.js',
+        'addventeticketfi.js', 'vente-escale-itineraire.js', 'addconfirme.js', 'addreserve.js',
         'addreprogramme.js', 'addreprogadmin.js', 'addconfirmadmin.js',
         'addconfirmbon.js', 'addconfirmcarte.js', 'addrecu.js', 'addbon.js', 'addcarte.js',
     ),
@@ -95,7 +95,7 @@ return array(
     '17' => array(),
     '18' => array(
         'filtre_arrivee_compagnie.js',
-        'addventeticketfi.js',
+        'addventeticketfi.js', 'vente-escale-itineraire.js',
     ),
     'default' => array(
         'filtre_arrivee_compagnie.js',

@@ -119,6 +119,39 @@ document.addEventListener('DOMContentLoaded', () => {
     window.__venteLastHeuresVente = [];
     window.__venteApplyTransitLegs = null; // assigné après chargement des jambes (closures)
 
+    function __venteResetMainEscaleUi() {
+        var ck = document.querySelector('#escale_vente_check');
+        if (ck) ck.checked = false;
+        ['#id_escale_vente', '#code_gadest_vente', '#nom_dest_vente'].forEach(function (s) {
+            var el = document.querySelector(s);
+            if (el) el.value = '';
+        });
+        var sel = document.querySelector('#escale_dest_select');
+        if (sel) {
+            sel.innerHTML = '';
+            var o = document.createElement('option');
+            o.value = '';
+            o.textContent = 'Choisir une escale…';
+            sel.appendChild(o);
+            sel.value = '';
+        }
+        var fields = document.querySelector('#escale_dest_fields');
+        if (fields) fields.style.display = 'none';
+    }
+
+    /** Case « Vente escale » principale : utile en vente directe uniquement (pas en transit). */
+    function __venteSetMainEscaleVisible(visible) {
+        var wrap = document.querySelector('#escale_dest_wrap');
+        if (!wrap) return;
+        if (!visible) {
+            __venteResetMainEscaleUi();
+            wrap.style.display = 'none';
+        } else {
+            wrap.style.display = '';
+        }
+    }
+    window.__venteSetMainEscaleVisible = __venteSetMainEscaleVisible;
+
     function __venteHideTransitPanel() {
         var tran = document.querySelector('#tran');
         if (tran) tran.style.display = 'none';
@@ -150,6 +183,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         __venteShowMainQuartier();
         __venteHideProgSelect();
+        __venteSetMainEscaleVisible(true);
     }
 
     function __venteProgListFromResponse(don) {
@@ -520,7 +554,9 @@ document.addEventListener('DOMContentLoaded', () => {
             if (el) el.value = val == null ? '' : String(val);
         };
         set('#programtrans', p.code_progr);
-        set('#tarifattrib', p.typetarif);
+        // Défaut tarif 1 si absent — sinon verifpriprg / prixtrans ne partent jamais.
+        var tf = (p.typetarif != null && String(p.typetarif).trim() !== '') ? p.typetarif : '1';
+        set('#tarifattrib', tf);
         set('#dateprtrans', p.date_progr);
         set('#deplignetrans', p.gareidentif);
         set('#intertrans1', p.intervalle1);
@@ -529,13 +565,20 @@ document.addEventListener('DOMContentLoaded', () => {
         set('#nomitintrans', p.nom_ligne);
         set('#hertrans', p.heure);
         set('#catetrans', p.categori);
+        if (p.prix != null && String(p.prix).trim() !== '') {
+            set('#prix_axetrans', p.prix);
+        }
     }
 
     function __venteLoadSiegesTransit1(idLigneheure, dptDate) {
         var ps = document.querySelector('#psiegesitines');
         if (ps) ps.options.length = 1;
-        var tfbs = document.querySelector('#tarifattrib') ? document.querySelector('#tarifattrib').value : '';
-        if (idLigneheure && tfbs) {
+        var tfEl = document.querySelector('#tarifattrib');
+        var tfbs = tfEl && String(tfEl.value || '').trim() !== '' ? String(tfEl.value).trim() : '1';
+        if (tfEl && String(tfEl.value || '').trim() === '') {
+            tfEl.value = tfbs;
+        }
+        if (idLigneheure) {
             var httpPrixit = new XMLHttpRequest();
             httpPrixit.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifpriprg/${idLigneheure}/${tfbs}`, true);
             httpPrixit.onload = function () {
@@ -639,7 +682,9 @@ document.addEventListener('DOMContentLoaded', () => {
     function __venteFillTransitDepart(selectSel, gareIdentif) {
         var sel = document.querySelector(selectSel);
         if (!sel) return;
-        sel.options.length = 1;
+        // length=1 sur un select vide crée une option blanche qui reste sélectionnée
+        // et fait échouer la vente (transitedepargare* posté vide → redirect silencieux).
+        sel.options.length = 0;
         if (gareIdentif == null || gareIdentif === '') return;
         var http = new XMLHttpRequest();
         http.open(
@@ -650,12 +695,19 @@ document.addEventListener('DOMContentLoaded', () => {
         http.onload = function () {
             var rows = null;
             try { rows = JSON.parse(http.responseText); } catch (e) { rows = null; }
+            sel.options.length = 0;
             if (!rows || Object.entries(rows).length < 1) return;
             for (var key in Object.entries(rows)) {
                 var opt = document.createElement('option');
                 opt.value = `${rows[key].idsousgare}`;
                 opt.innerHTML = `${rows[key].nomsousgare}`;
                 sel.add(opt);
+            }
+            // Une seule sous-gare (cas fréquent) : la sélectionner pour que le POST soit valide.
+            if (sel.options.length === 1) {
+                sel.selectedIndex = 0;
+            } else if (sel.options.length > 1) {
+                sel.selectedIndex = 0;
             }
         };
         http.setRequestHeader('Content-Type', 'application/json');
@@ -771,10 +823,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     document.querySelector('#psiegesitines').options.length = 1;
                     document.querySelector('#idcheminsheur').options.length = 1;
                     //document.querySelector('#lignesitineraire').value = '';
-                    document.querySelector('#transitedepargare1').options.length = 1;
-                    document.querySelector('#transitedepargare2').options.length = 1;
-                    document.querySelector('#transitedepargare3').options.length = 1;
-                    document.querySelector('#transitedepargare4').options.length = 1;
+                    // selects départ transit : pas de placeholder — length=1 créerait une option vide sélectionnée
+                    document.querySelector('#transitedepargare1').options.length = 0;
+                    document.querySelector('#transitedepargare2').options.length = 0;
+                    document.querySelector('#transitedepargare3').options.length = 0;
+                    document.querySelector('#transitedepargare4').options.length = 0;
                     document.querySelector('#idchemins').options.length = 1;
                     document.querySelector('#idchemins1').options.length = 1;
                     document.querySelector('#idchemins2').options.length = 1;
@@ -891,6 +944,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                                         document.querySelector('#depargare').style.display = 'block';
                                                         document.querySelector('#arrid').style.display = 'block';
                                                         document.querySelector('#arrsgare').style.display = 'block';
+                                                        __venteSetMainEscaleVisible(true);
 
                                                     }
                                                     else
@@ -993,6 +1047,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                                                 document.querySelector('#depargare').style.display = 'none';
                                                                 document.querySelector('#arrid').style.display = 'none';
                                                                 document.querySelector('#arrsgare').style.display = 'none';
+                                                                __venteSetMainEscaleVisible(false);
 
 
                                                                 document.querySelector('#itinecode').value = `${donitines[0].code_itineraires}`;
@@ -1084,15 +1139,18 @@ document.addEventListener('DOMContentLoaded', () => {
                                                                         {
                                                                             const donsousg = JSON.parse(httpsousgare.responseText);
                                                                             console.debug(`${typeof donsousg}-${donsousg.attributes}`, console.memory);
+                                                                            var td1 = document.querySelector('#transitedepargare1');
+                                                                            if (td1) td1.options.length = 0;
                                                                             if (Object.entries(donsousg).length >= 1) {
                                                                                 for (let key in Object.entries(donsousg)) 
                                                                                 {
                                                                                     let opt = document.createElement('option');
                                                                                     opt.value = `${donsousg[key].idsousgare}`;
                                                                                     opt.innerHTML = `${donsousg[key].nomsousgare}`;
-                                                                                    document.querySelector('#transitedepargare1').add(opt);
+                                                                                    if (td1) td1.add(opt);
                         
                                                                                 }
+                                                                                if (td1 && td1.options.length > 0) td1.selectedIndex = 0;
                                                                             }
                                                                         };
                                                                         httpsousgare.setRequestHeader('Content-Type', 'application/json');
@@ -1212,25 +1270,11 @@ document.addEventListener('DOMContentLoaded', () => {
                                                                     {
 
                                                                         gareidentiftrans = document.querySelector('#deplignetrans').value;
-                                                                            const httpsousgare = new XMLHttpRequest();
-                                                                            httpsousgare.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifsousgares/${gareidentiftrans}`, true);
-                                                                            httpsousgare.onload = () => 
-                                                                            {
-                                                                                const donsousg = JSON.parse(httpsousgare.responseText);
-                                                                                console.debug(`${typeof donsousg}-${donsousg.attributes}`, console.memory);
-                                                                                if (Object.entries(donsousg).length >= 1) {
-                                                                                    for (let key in Object.entries(donsousg)) 
-                                                                                    {
-                                                                                        let opt = document.createElement('option');
-                                                                                        opt.value = `${donsousg[key].idsousgare}`;
-                                                                                        opt.innerHTML = `${donsousg[key].nomsousgare}`;
-                                                                                        document.querySelector('#transitedepargare1').add(opt);
-                            
-                                                                                    }
-                                                                                }
-                                                                            };
-                                                                            httpsousgare.setRequestHeader('Content-Type', 'application/json');
-                                                                            httpsousgare.send();
+                                                                            // Ne pas vider un départ déjà choisi à chaque clic siège.
+                                                                            var td1cur = document.querySelector('#transitedepargare1');
+                                                                            if (!td1cur || !td1cur.value) {
+                                                                                __venteFillTransitDepart('#transitedepargare1', gareidentiftrans);
+                                                                            }
                                                                         let httpSiegestrans;
                                                                         httpSiegestrans = new XMLHttpRequest();
                                                                         const sigstrans = document.querySelector('#psiegesitines')
@@ -1652,25 +1696,10 @@ document.addEventListener('DOMContentLoaded', () => {
                                                                     {
 
                                                                         const gareidentiftrans1 = document.querySelector('#deplignetrans').value;
-                                                                        const httpsousgare = new XMLHttpRequest();
-                                                                        httpsousgare.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifsousgares/${gareidentiftrans1}`, true);
-                                                                        httpsousgare.onload = () => 
-                                                                        {
-                                                                            const donsousg = JSON.parse(httpsousgare.responseText);
-                                                                            console.debug(`${typeof donsousg}-${donsousg.attributes}`, console.memory);
-                                                                            if (Object.entries(donsousg).length >= 1) {
-                                                                                for (let key in Object.entries(donsousg)) 
-                                                                                {
-                                                                                    let opt = document.createElement('option');
-                                                                                    opt.value = `${donsousg[key].idsousgare}`;
-                                                                                    opt.innerHTML = `${donsousg[key].nomsousgare}`;
-                                                                                    document.querySelector('#transitedepargare1').add(opt);
-                        
-                                                                                }
-                                                                            }
-                                                                        };
-                                                                        httpsousgare.setRequestHeader('Content-Type', 'application/json');
-                                                                        httpsousgare.send();
+                                                                        var td1cur = document.querySelector('#transitedepargare1');
+                                                                        if (!td1cur || !td1cur.value) {
+                                                                            __venteFillTransitDepart('#transitedepargare1', gareidentiftrans1);
+                                                                        }
                                                                         let httpSiegestrans1;
                                                                         httpSiegestrans1 = new XMLHttpRequest();
                                                                         const sigstrans = document.querySelector('#psiegesitines')
@@ -2285,25 +2314,10 @@ document.addEventListener('DOMContentLoaded', () => {
                                                                     {
 
                                                                        const gareidentiftrans1 = document.querySelector('#deplignetrans').value;
-                                                                                    const httpsousgare = new XMLHttpRequest();
-                                                                                    httpsousgare.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifsousgares/${gareidentiftrans1}`, true);
-                                                                                    httpsousgare.onload = () => 
-                                                                                    {
-                                                                                        const donsousg = JSON.parse(httpsousgare.responseText);
-                                                                                        console.debug(`${typeof donsousg}-${donsousg.attributes}`, console.memory);
-                                                                                        if (Object.entries(donsousg).length >= 1) {
-                                                                                            for (let key in Object.entries(donsousg)) 
-                                                                                            {
-                                                                                                let opt = document.createElement('option');
-                                                                                                opt.value = `${donsousg[key].idsousgare}`;
-                                                                                                opt.innerHTML = `${donsousg[key].nomsousgare}`;
-                                                                                                document.querySelector('#transitedepargare1').add(opt);
-                                    
-                                                                                            }
-                                                                                        }
-                                                                                    };
-                                                                                    httpsousgare.setRequestHeader('Content-Type', 'application/json');
-                                                                                    httpsousgare.send();
+                                                                        var td1cur = document.querySelector('#transitedepargare1');
+                                                                        if (!td1cur || !td1cur.value) {
+                                                                            __venteFillTransitDepart('#transitedepargare1', gareidentiftrans1);
+                                                                        }
                                                                         let httpSiegestrans1;
                                                                         httpSiegestrans1 = new XMLHttpRequest();
                                                                         const sigstrans = document.querySelector('#psiegesitines')

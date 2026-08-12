@@ -362,14 +362,51 @@ if ($compte_arret_only_compte) {
                                 </div>
                                 
                             </div>
-                            <div class="form-group row">
+                                                        <div class="form-group col-sm-12" id="escale_dest_wrap_cf">
+                                <div class="form-check">
+                                    <label class="custom-control custom-checkbox custom-control-inline mb-0">
+                                        <input class="custom-control-input" type="checkbox" id="escale_vente_check_cf" name="escale_vente_check_cf" value="1">
+                                        <span class="custom-control-label" id="escale_dest_label_cf">Vente escale</span>
+                                    </label>
+                                </div>
+                                <div id="escale_dest_fields_cf" style="display:none; margin-top:8px;" class="row">
+                                    <div class="form-group col-sm-4 mb-0">
+                                        <label style="display:block" for="escale_dest_select_cf">Destination escale</label>
+                                        <select style="display:block" class="form-control form-control-sm" name="escale_dest_select_cf" id="escale_dest_select_cf">
+                                            <option value="">Choisissez l&apos;escale</option>
+                                        </select>
+                                        <small class="form-text text-muted" id="escale_dest_help_cf">Choisissez l&apos;escale demandée (quartier non requis).</small>
+                                    </div>
+                                </div>
+                                <input type="hidden" name="id_escale_ventecf" id="id_escale_ventecf" value="">
+                                <input type="hidden" name="code_gadest_ventecf" id="code_gadest_ventecf" value="">
+                                <input type="hidden" name="nom_dest_ventecf" id="nom_dest_ventecf" value="">
+                            </div>
+<div class="form-group row">
                                 <div class="card-header text-center" id="trancf" style="display:none">Transite</div>
                                 <div>
                                     <label style="display:none" id="lignecf1">Ligne transite1</label>
                                     <input class="form-control form-control-sm" style="display:none" type="text" name="lignesitinerairescf"
                                         id="lignesitinerairecf" disabled="">
                                 </div>
-                                <div class="form-group col-sm-4">
+                                                                <div class="form-group col-sm-4" id="escale_leg_wrap_tr1cf" style="display:none;">
+                                    <label id="escale_leg_label_tr1cf">Vente escale</label>
+                                    <div class="form-check mb-1">
+                                        <label class="custom-control custom-checkbox custom-control-inline mb-0">
+                                            <input class="custom-control-input" type="checkbox" id="escale_vente_check_tr1cf" name="escale_vente_check_tr1cf" value="1">
+                                            <span class="custom-control-label">Activer</span>
+                                        </label>
+                                    </div>
+                                    <div id="escale_dest_fields_tr1cf" style="display:none;">
+                                        <select class="form-control form-control-sm" name="escale_dest_select_tr1cf" id="escale_dest_select_tr1cf">
+                                            <option value="">Choisissez l&apos;escale</option>
+                                        </select>
+                                    </div>
+                                    <input type="hidden" name="id_escale_vente_tr1cf" id="id_escale_vente_tr1cf" value="">
+                                    <input type="hidden" name="code_gadest_vente_tr1cf" id="code_gadest_vente_tr1cf" value="">
+                                    <input type="hidden" name="nom_dest_vente_tr1cf" id="nom_dest_vente_tr1cf" value="">
+                                </div>
+<div class="form-group col-sm-4">
                                     <label style="display:none" id="idquartcf1">Quartier transite1</label>
                                     <select style="display:none" name="quartconfirmecf1" class="form-control form-control-sm" id="quartiercf1">
                                         <option value="">Choisissez le quartier</option>
@@ -419,7 +456,24 @@ if ($compte_arret_only_compte) {
                                     </select>
                                 </div>
                                 
-                                <div class="form-group col-sm-4">
+                                                                <div class="form-group col-sm-4" id="escale_leg_wrap_tr2cf" style="display:none;">
+                                    <label id="escale_leg_label_tr2cf">Vente escale</label>
+                                    <div class="form-check mb-1">
+                                        <label class="custom-control custom-checkbox custom-control-inline mb-0">
+                                            <input class="custom-control-input" type="checkbox" id="escale_vente_check_tr2cf" name="escale_vente_check_tr2cf" value="1">
+                                            <span class="custom-control-label">Activer</span>
+                                        </label>
+                                    </div>
+                                    <div id="escale_dest_fields_tr2cf" style="display:none;">
+                                        <select class="form-control form-control-sm" name="escale_dest_select_tr2cf" id="escale_dest_select_tr2cf">
+                                            <option value="">Choisissez l&apos;escale</option>
+                                        </select>
+                                    </div>
+                                    <input type="hidden" name="id_escale_vente_tr2cf" id="id_escale_vente_tr2cf" value="">
+                                    <input type="hidden" name="code_gadest_vente_tr2cf" id="code_gadest_vente_tr2cf" value="">
+                                    <input type="hidden" name="nom_dest_vente_tr2cf" id="nom_dest_vente_tr2cf" value="">
+                                </div>
+<div class="form-group col-sm-4">
                                     <label style="display:none" id="heureitincf">Heure transite2</label>
                                     <select style="display:none" class="form-control form-control-sm" name="heuredeptitinecf" id="hdepartitinecf">
                                         <option value="">Choisissez heure départ</option>
@@ -446,7 +500,24 @@ if ($compte_arret_only_compte) {
                                 </div>
                             </div>
                             <div class="form-group row">
-                                <div class="form-group col-sm-4">
+                                                                <div class="form-group col-sm-4" id="escale_leg_wrap_tr3cf" style="display:none;">
+                                    <label id="escale_leg_label_tr3cf">Vente escale</label>
+                                    <div class="form-check mb-1">
+                                        <label class="custom-control custom-checkbox custom-control-inline mb-0">
+                                            <input class="custom-control-input" type="checkbox" id="escale_vente_check_tr3cf" name="escale_vente_check_tr3cf" value="1">
+                                            <span class="custom-control-label">Activer</span>
+                                        </label>
+                                    </div>
+                                    <div id="escale_dest_fields_tr3cf" style="display:none;">
+                                        <select class="form-control form-control-sm" name="escale_dest_select_tr3cf" id="escale_dest_select_tr3cf">
+                                            <option value="">Choisissez l&apos;escale</option>
+                                        </select>
+                                    </div>
+                                    <input type="hidden" name="id_escale_vente_tr3cf" id="id_escale_vente_tr3cf" value="">
+                                    <input type="hidden" name="code_gadest_vente_tr3cf" id="code_gadest_vente_tr3cf" value="">
+                                    <input type="hidden" name="nom_dest_vente_tr3cf" id="nom_dest_vente_tr3cf" value="">
+                                </div>
+<div class="form-group col-sm-4">
                                     <label style="display:none" id="idquartcf2">Quartier transite3</label>
                                     <select style="display:none" name="quartconfirmecf2" class="form-control form-control-sm" id="quartiercf2">
                                         <option value="">Choisissez le quartier</option>
@@ -488,7 +559,24 @@ if ($compte_arret_only_compte) {
                                 </div>
                             </div>
                             <div class="form-group row">
-                                <div class="form-group col-sm-4">
+                                                                <div class="form-group col-sm-4" id="escale_leg_wrap_tr4cf" style="display:none;">
+                                    <label id="escale_leg_label_tr4cf">Vente escale</label>
+                                    <div class="form-check mb-1">
+                                        <label class="custom-control custom-checkbox custom-control-inline mb-0">
+                                            <input class="custom-control-input" type="checkbox" id="escale_vente_check_tr4cf" name="escale_vente_check_tr4cf" value="1">
+                                            <span class="custom-control-label">Activer</span>
+                                        </label>
+                                    </div>
+                                    <div id="escale_dest_fields_tr4cf" style="display:none;">
+                                        <select class="form-control form-control-sm" name="escale_dest_select_tr4cf" id="escale_dest_select_tr4cf">
+                                            <option value="">Choisissez l&apos;escale</option>
+                                        </select>
+                                    </div>
+                                    <input type="hidden" name="id_escale_vente_tr4cf" id="id_escale_vente_tr4cf" value="">
+                                    <input type="hidden" name="code_gadest_vente_tr4cf" id="code_gadest_vente_tr4cf" value="">
+                                    <input type="hidden" name="nom_dest_vente_tr4cf" id="nom_dest_vente_tr4cf" value="">
+                                </div>
+<div class="form-group col-sm-4">
                                     <label style="display:none" id="heureitincf2">Heure transite4</label>
                                     <select style="display:none" class="form-control form-control-sm" name="idcheminheurecf1" id="idcheminsheurcf1">
                                         <option value="">Choisissez heure départ</option>
@@ -1186,6 +1274,7 @@ if ($compte_arret_only_compte) {
                             <input type="hidden" id="siegselect1fid">
                             <input type="hidden" id="idtampo1fid">
                             <input type="hidden" id="nbrtransfid" name="nombretransitefid">
+                            <input type="hidden" id="tarifattribfid" name="tarifattribuerfid">
                             <input type="hidden" id="gidtransfid" name="gidtransitefid">
 
                             <input type="hidden" id="catetransit1fid" name="catgorietransit1fid">
@@ -1250,6 +1339,27 @@ if ($compte_arret_only_compte) {
                                             
                                         </select>
                                     </div>
+                                    <div class="form-group col-sm-12" id="escale_dest_wrap_fid">
+                                        <div class="form-check">
+                                            <label class="custom-control custom-checkbox custom-control-inline mb-0">
+                                                <input class="custom-control-input" type="checkbox" id="escale_vente_check_fid" name="escale_vente_check_fid" value="1">
+                                                <span class="custom-control-label" id="escale_dest_label_fid">Vente escale</span>
+                                            </label>
+                                        </div>
+                                        <div id="escale_dest_fields_fid" style="display:none; margin-top:8px;" class="row">
+                                            <div class="form-group col-sm-4 mb-0">
+                                                <label style="display:block" for="escale_dest_select_fid">Destination escale</label>
+                                                <select style="display:block" class="form-control form-control-sm" name="escale_dest_select_fid" id="escale_dest_select_fid">
+                                                    <option value="">Choisissez l&apos;escale</option>
+                                                </select>
+                                                <small class="form-text text-muted" id="escale_dest_help_fid">Choisissez l&apos;escale demandée (quartier non requis).</small>
+                                            </div>
+                                        </div>
+                                        <input type="hidden" name="id_escale_ventefid" id="id_escale_ventefid" value="">
+                                        <input type="hidden" name="code_gadest_ventefid" id="code_gadest_ventefid" value="">
+                                        <input type="hidden" name="nom_dest_ventefid" id="nom_dest_ventefid" value="">
+                                    </div>
+
                                     <div class="form-group col-sm-4">
                                         <label>Date depart</label>
                                         <input class="form-control form-control-sm" type="date" name="datedepartfid" id="date_depheurefid">
@@ -1308,7 +1418,24 @@ if ($compte_arret_only_compte) {
                                         <input class="form-control form-control-sm" style="display:none" type="text" name="lignesitinerairesfid"
                                             id="lignesitinerairefid" disabled="">
                                     </div>
-                                    <div class="form-group col-sm-4">
+                                                                        <div class="form-group col-sm-4" id="escale_leg_wrap_tr1fid" style="display:none;">
+                                        <label id="escale_leg_label_tr1fid">Vente escale</label>
+                                        <div class="form-check mb-1">
+                                            <label class="custom-control custom-checkbox custom-control-inline mb-0">
+                                                <input class="custom-control-input" type="checkbox" id="escale_vente_check_tr1fid" name="escale_vente_check_tr1fid" value="1">
+                                                <span class="custom-control-label">Activer</span>
+                                            </label>
+                                        </div>
+                                        <div id="escale_dest_fields_tr1fid" style="display:none;">
+                                            <select class="form-control form-control-sm" name="escale_dest_select_tr1fid" id="escale_dest_select_tr1fid">
+                                                <option value="">Choisissez l&apos;escale</option>
+                                            </select>
+                                        </div>
+                                        <input type="hidden" name="id_escale_vente_tr1fid" id="id_escale_vente_tr1fid" value="">
+                                        <input type="hidden" name="code_gadest_vente_tr1fid" id="code_gadest_vente_tr1fid" value="">
+                                        <input type="hidden" name="nom_dest_vente_tr1fid" id="nom_dest_vente_tr1fid" value="">
+                                    </div>
+<div class="form-group col-sm-4">
                                         <label style="display:none" id="idquart1fid">Quartier</label>
                                         <select style="display:none" name="quartconfirme1fid" class="form-control form-control-sm" id="quartier1fid">
                                                 <option value="">Choisissez le quartier</option>
@@ -1353,7 +1480,24 @@ if ($compte_arret_only_compte) {
                                             <option value="">Choisissez la ligne</option>
                                         </select>
                                     </div>
-                                    <div class="form-group col-sm-4">
+                                                                        <div class="form-group col-sm-4" id="escale_leg_wrap_tr2fid" style="display:none;">
+                                        <label id="escale_leg_label_tr2fid">Vente escale</label>
+                                        <div class="form-check mb-1">
+                                            <label class="custom-control custom-checkbox custom-control-inline mb-0">
+                                                <input class="custom-control-input" type="checkbox" id="escale_vente_check_tr2fid" name="escale_vente_check_tr2fid" value="1">
+                                                <span class="custom-control-label">Activer</span>
+                                            </label>
+                                        </div>
+                                        <div id="escale_dest_fields_tr2fid" style="display:none;">
+                                            <select class="form-control form-control-sm" name="escale_dest_select_tr2fid" id="escale_dest_select_tr2fid">
+                                                <option value="">Choisissez l&apos;escale</option>
+                                            </select>
+                                        </div>
+                                        <input type="hidden" name="id_escale_vente_tr2fid" id="id_escale_vente_tr2fid" value="">
+                                        <input type="hidden" name="code_gadest_vente_tr2fid" id="code_gadest_vente_tr2fid" value="">
+                                        <input type="hidden" name="nom_dest_vente_tr2fid" id="nom_dest_vente_tr2fid" value="">
+                                    </div>
+<div class="form-group col-sm-4">
                                         <label style="display:none" id="idquart2fid">Quartier</label>
                                         <select style="display:none" name="quartconfirme2fid" class="form-control form-control-sm" id="quartier2fid">
                                                 <option value="">Choisissez le quartier</option>
@@ -1397,7 +1541,24 @@ if ($compte_arret_only_compte) {
                                             <option value="">Choisissez la ligne</option>
                                         </select>
                                     </div>
-                                    <div class="form-group col-sm-4">
+                                                                        <div class="form-group col-sm-4" id="escale_leg_wrap_tr3fid" style="display:none;">
+                                        <label id="escale_leg_label_tr3fid">Vente escale</label>
+                                        <div class="form-check mb-1">
+                                            <label class="custom-control custom-checkbox custom-control-inline mb-0">
+                                                <input class="custom-control-input" type="checkbox" id="escale_vente_check_tr3fid" name="escale_vente_check_tr3fid" value="1">
+                                                <span class="custom-control-label">Activer</span>
+                                            </label>
+                                        </div>
+                                        <div id="escale_dest_fields_tr3fid" style="display:none;">
+                                            <select class="form-control form-control-sm" name="escale_dest_select_tr3fid" id="escale_dest_select_tr3fid">
+                                                <option value="">Choisissez l&apos;escale</option>
+                                            </select>
+                                        </div>
+                                        <input type="hidden" name="id_escale_vente_tr3fid" id="id_escale_vente_tr3fid" value="">
+                                        <input type="hidden" name="code_gadest_vente_tr3fid" id="code_gadest_vente_tr3fid" value="">
+                                        <input type="hidden" name="nom_dest_vente_tr3fid" id="nom_dest_vente_tr3fid" value="">
+                                    </div>
+<div class="form-group col-sm-4">
                                         <label style="display:none" id="idquart3fid">Quartier</label>
                                         <select style="display:none" name="quartconfirme3fid" class="form-control form-control-sm" id="quartier3fid">
                                                 <option value="">Choisissez le quartier</option>
@@ -1443,7 +1604,24 @@ if ($compte_arret_only_compte) {
                                         </select>
                                     </div>
                                     
-                                    <div class="form-group col-sm-4">
+                                                                        <div class="form-group col-sm-4" id="escale_leg_wrap_tr4fid" style="display:none;">
+                                        <label id="escale_leg_label_tr4fid">Vente escale</label>
+                                        <div class="form-check mb-1">
+                                            <label class="custom-control custom-checkbox custom-control-inline mb-0">
+                                                <input class="custom-control-input" type="checkbox" id="escale_vente_check_tr4fid" name="escale_vente_check_tr4fid" value="1">
+                                                <span class="custom-control-label">Activer</span>
+                                            </label>
+                                        </div>
+                                        <div id="escale_dest_fields_tr4fid" style="display:none;">
+                                            <select class="form-control form-control-sm" name="escale_dest_select_tr4fid" id="escale_dest_select_tr4fid">
+                                                <option value="">Choisissez l&apos;escale</option>
+                                            </select>
+                                        </div>
+                                        <input type="hidden" name="id_escale_vente_tr4fid" id="id_escale_vente_tr4fid" value="">
+                                        <input type="hidden" name="code_gadest_vente_tr4fid" id="code_gadest_vente_tr4fid" value="">
+                                        <input type="hidden" name="nom_dest_vente_tr4fid" id="nom_dest_vente_tr4fid" value="">
+                                    </div>
+<div class="form-group col-sm-4">
                                         <label style="display:none" id="heureitin3fid">Heure</label>
                                         <select style="display:none" class="form-control form-control-sm" name="idcheminheure2fid" id="idcheminsheur2fid">
                                             <option value="">Choisissez heure départ</option>
@@ -1851,7 +2029,8 @@ if ($compte_arret_only_compte) {
                                 </div>
                             </div>
                                 
-                            <div class="row">
+                                                            <div class="px-3 pb-2" data-compagnies-arrivee-for="arrisgare"></div>
+<div class="row">
                                 <div class="form-group col-sm-4">
                                     <label>Date bon</label>
                                     <input class="form-control form-control-sm" type="date" name="datebon" id="date_bon" value="<?= mdate("%Y-%m-%d", now());?>">

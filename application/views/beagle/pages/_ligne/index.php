@@ -171,11 +171,12 @@
                     <label>LIGNE CONTENEUR (axe commercial)</label>
                     <select class="form-control form-control-sm" name="ligne" required>
                         <option value=""></option>
-                        <? foreach ($lignes as $items): ?>
-                            <option value="<?= htmlspecialchars($items->ident_ligne); ?>">
-                                <?= htmlspecialchars($items->nom_ligne); ?>
-                            </option>
-                        <? endforeach; ?>
+                        <?php
+                            $this->load->view('beagle/pages/_ligne/_options_ligne_compagnie_arrivee', array(
+                                'lignes_par_compagnie_arrivee' => !empty($lignes_par_compagnie_arrivee) ? $lignes_par_compagnie_arrivee : array(),
+                                'lignes' => !empty($lignes) ? $lignes : array(),
+                            ));
+                        ?>
                     </select>
                 </div>
                 <p class="text-muted small">Sélectionnez des <strong>itinéraires déjà créés</strong> (lignes), dans l’ordre géographique. Cela <strong>remplace</strong> la composition existante de cette ligne.</p>
@@ -184,11 +185,12 @@
                     <label>ITINÉRAIRE <?= $i; ?><?= $i <= 2 ? ' *' : ' (optionnel)'; ?></label>
                     <select class="form-control form-control-sm" name="etape<?= $i; ?>" <?= $i <= 2 ? 'required' : ''; ?>>
                         <option value=""></option>
-                        <? foreach ($lignes as $items): ?>
-                            <option value="<?= htmlspecialchars($items->ident_ligne); ?>">
-                                <?= htmlspecialchars($items->nom_ligne); ?>
-                            </option>
-                        <? endforeach; ?>
+                        <?php
+                            $this->load->view('beagle/pages/_ligne/_options_ligne_compagnie_arrivee', array(
+                                'lignes_par_compagnie_arrivee' => !empty($lignes_par_compagnie_arrivee) ? $lignes_par_compagnie_arrivee : array(),
+                                'lignes' => !empty($lignes) ? $lignes : array(),
+                            ));
+                        ?>
                     </select>
                 </div>
                 <? endfor; ?>
@@ -211,25 +213,24 @@
                     <label>ITINÉRAIRE PARENT *</label>
                     <select class="form-control form-control-sm" name="ligne_parent" required>
                         <option value=""></option>
-                        <? foreach ($lignes as $items): ?>
-                            <option value="<?= htmlspecialchars($items->ident_ligne); ?>">
-                                <?= htmlspecialchars($items->nom_ligne); ?>
-                            </option>
-                        <? endforeach; ?>
+                        <?php
+                            $this->load->view('beagle/pages/_ligne/_options_ligne_compagnie_arrivee', array(
+                                'lignes_par_compagnie_arrivee' => !empty($lignes_par_compagnie_arrivee) ? $lignes_par_compagnie_arrivee : array(),
+                                'lignes' => !empty($lignes) ? $lignes : array(),
+                            ));
+                        ?>
                     </select>
                 </div>
                 <div class="form-group">
                     <label>DESTINATION ESCALE *</label>
                     <select class="form-control form-control-sm" name="gare_escale" required>
                         <option value=""></option>
-                        <? if (!empty($garearrivees)): ?>
-                            <? foreach ($garearrivees as $garearrive): ?>
-                                <option value="<?= htmlspecialchars($garearrive->code_gadest . '.' . $garearrive->nom_gadest); ?>">
-                                    <?= htmlspecialchars($garearrive->nom_gadest); ?>
-                                    (<?= htmlspecialchars($garearrive->code_gadest); ?>)
-                                </option>
-                            <? endforeach; ?>
-                        <? endif; ?>
+                        <?php
+                            $this->load->view('beagle/pages/guichet/_options_gare_arrivee', array(
+                                'garearrivees' => !empty($garearrivees) ? $garearrivees : array(),
+                                'value_format' => 'code_nom',
+                            ));
+                        ?>
                     </select>
                 </div>
                 <div class="form-group">

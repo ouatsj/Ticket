@@ -295,6 +295,35 @@
             $this->_sale_nonce_complete();
             redirect($url);
         }
+
+        protected function _sale_post_filled($key)
+        {
+            $v = $this->input->post($key);
+            if ($v === null || $v === false) {
+                return false;
+            }
+            return trim((string) $v) !== '';
+        }
+
+        protected function _sale_transit_leg1_missing_message()
+        {
+            $missing = array();
+            if (!$this->_sale_post_filled('transitedepargare1')) {
+                $missing[] = 'départ correspondance 1';
+            }
+            if (!$this->_sale_post_filled('passagersiegesitines')) {
+                $missing[] = 'siège 1';
+            }
+            if (!$this->_sale_post_filled('prixtrans')) {
+                $missing[] = 'prix segment 1';
+            }
+            if (!$missing) {
+                return 'Vente transit non enregistrée : données segment 1 incomplètes. Complétez puis cliquez EPSON.';
+            }
+            return 'Vente transit non enregistrée : manque ' . implode(', ', $missing) . '. Resélectionnez l\'heure/siège de la correspondance 1 puis cliquez EPSON.';
+        }
+
+
         
         public function busindex($ckey, $gd, $uid, $sg)
         {
@@ -2132,7 +2161,10 @@
                             
                             else
                             {
-                                redirect('gares/'.$this->session->company->ekey.'/gTc/'. $gid.'/compte/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                                $this->_addpassager_redirect_back(
+                                    $this->_sale_transit_leg1_missing_message()
+                                );
+                                return;
                             } 
 
                 
@@ -5350,13 +5382,19 @@
                                     
                                                     else
                                                     {
-                                                        redirect('gares/'.$this->session->company->ekey.'/gTc/'. $gid.'/compte/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                                                        $this->_addpassager_redirect_back(
+                                                            'Vente transit non enregistrée : un des sièges est déjà occupé. Choisissez d\'autres sièges puis cliquez EPSON.'
+                                                        );
+                                                        return;
                                                     }
                                             }
                                     
                                             else
                                             {
-                                                redirect('gares/'.$this->session->company->ekey.'/gTc/'. $gid.'/compte/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                                                $this->_addpassager_redirect_back(
+                                                    'Vente transit (2 segments) incomplète : vérifiez départ correspondance 2, siège 2 et prix de chaque segment, puis cliquez EPSON.'
+                                                );
+                                                return;
                                             } 
                                     }
 
@@ -7105,7 +7143,10 @@
                             
                             else
                             {
-                                redirect('gares/'.$this->session->company->ekey.'/gTc/'. $gid.'/compte/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                                $this->_addpassager_redirect_back(
+                                    $this->_sale_transit_leg1_missing_message()
+                                );
+                                return;
                             } 
 
                 

@@ -36,7 +36,8 @@
                 </div>
 
                 <!-- DESIGNATION -->
-                <div class="row">
+                                <div class="px-3 pb-2" data-compagnies-arrivee-for="arrscouresc"></div>
+<div class="row">
                     <input class="form-control form-control-sm" type="hidden" name="gareattribuer" value="<?=$bus_stop->idengare;?>">
                     <input class="form-control form-control-sm" type="hidden" name="userconnect" value="<?=$conex->roleattribut;?>">
 

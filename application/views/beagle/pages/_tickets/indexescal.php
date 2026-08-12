@@ -39,7 +39,8 @@
                         <input class="form-control form-control-sm" type="hidden" name="userconnectedescal" value="<?=$conex->roleattribut;?>">
                         <input class="form-control form-control-sm" type="hidden" name="compconnectedescal" value="<?=$conex->cpuser_id;?>">
                           
-                            <div class="row">
+                                                        <div class="px-3 pb-2" data-compagnies-arrivee-for="arrsgareescal"></div>
+<div class="row">
                                 <div class="col-sm-4 text-center text-danger" style="display:none"
                                 id="smsdtescal">
                                 <p id="erreurSmsdtescal"></p>

@@ -1,5 +1,387 @@
 document.addEventListener('DOMContentLoaded', () => {
-    
+
+    window.__confHasTransit = false;
+    window.__confLastHeuresVente = [];
+    window.__confApplyTransitLegs = null;
+
+    function __confFillHeuresVente(heures) {
+        var hSel = document.querySelector('#heured');
+        if (!hSel) return;
+        hSel.options.length = 1;
+        var list = Array.isArray(heures) ? heures : [];
+        for (var i = 0; i < list.length; i++) {
+            var hr = list[i];
+            if (!hr || hr.id_ligneheure == null || hr.id_ligneheure === '') continue;
+            var opt = document.createElement('option');
+            var hasProg = !!(hr.has_programme === true || hr.has_programme === 1 || hr.has_programme === '1');
+            // Avec programme : format historique confirm (code_progr/tarif/id_lh) pour siegdispo.
+            // Sans programme : id_lh/heure (transit au choix).
+            if (hasProg && hr.code_progr) {
+                opt.value = String(hr.code_progr) + '/1/' + String(hr.id_ligneheure);
+            } else {
+                opt.value = String(hr.id_ligneheure) + '/' + String(hr.heure || '');
+            }
+            opt.setAttribute('data-has-programme', hasProg ? '1' : '0');
+            opt.innerHTML = hr.heure || '';
+            hSel.add(opt);
+        }
+    }
+
+    function __confShowDirectHourUi() {
+        var hideIds = [
+            'iddeptranscf1','transitedepargarecf1','iddeptranscf2','transitedepargarecf2',
+            'iddeptranscf3','transitedepargarecf3','iddeptranscf4','transitedepargarecf4',
+            'arritincf1','arritincf2','arritincf3','heureitincf','heureitincf1','heureitincf2',
+            'hdepartitinecf','hdepartitinecf2','lignesitinerairecf','lignecf1',
+            'siegitinecf','siegitinecf1','siegitinecf2','psiegesitinescf','psiegesitinescf1','psiegesitinescf2',
+            'quartiercf1','quartiercf2','quartiercf3','idquartcf1','idquartcf2','idquartcf3',
+            'idcheminscf','idcheminscf1','idcheminscf2','idcheminsheurcf','idcheminsheurcf1','idcheminsheurcf2'
+        ];
+        for (var i = 0; i < hideIds.length; i++) {
+            var el = document.getElementById(hideIds[i]);
+            if (el) el.style.display = 'none';
+        }
+        var tran = document.querySelector('#trancf');
+        if (tran) tran.style.display = 'none';
+        if (typeof window.__confSetMainEscaleVisible === 'function') window.__confSetMainEscaleVisible(true);
+        ['heured','depsieg'].forEach(function (id) {
+            var el = document.getElementById(id);
+            if (el) el.style.display = 'block';
+        });
+        var nbr = document.querySelector('#nbrtranscf');
+        if (nbr) nbr.value = '';
+    }
+
+    function __confSetMainEscaleVisible(visible) {
+        var wrap = document.querySelector('#escale_dest_wrap_cf');
+        if (!wrap) return;
+        if (!visible) {
+            var ck = document.querySelector('#escale_vente_check_cf');
+            if (ck) ck.checked = false;
+            ['#id_escale_ventecf','#code_gadest_ventecf','#nom_dest_ventecf'].forEach(function (s) {
+                var el = document.querySelector(s);
+                if (el) el.value = '';
+            });
+            var fields = document.querySelector('#escale_dest_fields_cf');
+            if (fields) fields.style.display = 'none';
+            wrap.style.display = 'none';
+        } else {
+            wrap.style.display = '';
+        }
+    }
+    window.__confSetMainEscaleVisible = __confSetMainEscaleVisible;
+
+    function __confDepSousGare() {
+        var dep = document.querySelector('#confirm-0 #depargare') || document.querySelector('#confForm #depargare') || document.querySelector('#depargare');
+        if (!dep || !dep.value) return '0';
+        var parts = String(dep.value).split('/');
+        return parts[1] || '0';
+    }
+
+    function __confRequestTransitLegs(axe, datedepart, sougid, force, onDone) {
+        var sg = (sougid != null && sougid !== '') ? sougid : '0';
+        var forceFlag = force ? '1' : '0';
+        var httpRequestitinecf = new XMLHttpRequest();
+        httpRequestitinecf.open(
+            'GET',
+            window.location.origin + `${APP_ROOT}/programmes/verifitine/`
+                + encodeURIComponent(axe) + '/'
+                + encodeURIComponent(datedepart) + '/'
+                + encodeURIComponent(sg) + '/'
+                + forceFlag,
+            true
+        );
+        httpRequestitinecf.onload = function () {
+            var donitinescf = null;
+            try { donitinescf = JSON.parse(httpRequestitinecf.responseText); } catch (e) { donitinescf = null; }
+            if (typeof onDone === 'function') onDone(donitinescf);
+            else if (typeof window.__confApplyTransitLegs === 'function') window.__confApplyTransitLegs(donitinescf);
+        };
+        httpRequestitinecf.setRequestHeader('Content-Type', 'application/json');
+        httpRequestitinecf.send();
+    }
+
+    /** Remplit départ correspondance confirm (sans option vide sélectionnée). */
+    function __confFillTransitDepart(selectSel, gareIdentif) {
+        var sel = document.querySelector(selectSel);
+        if (!sel) return;
+        sel.options.length = 0;
+        if (gareIdentif == null || gareIdentif === '') return;
+        var http = new XMLHttpRequest();
+        http.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifsousgares/` + encodeURIComponent(gareIdentif), true);
+        http.onload = function () {
+            var rows = null;
+            try { rows = JSON.parse(http.responseText); } catch (e) { rows = null; }
+            sel.options.length = 0;
+            if (!rows || Object.entries(rows).length < 1) return;
+            for (var key in Object.entries(rows)) {
+                var opt = document.createElement('option');
+                opt.value = `${rows[key].idsousgare}`;
+                opt.innerHTML = `${rows[key].nomsousgare}`;
+                sel.add(opt);
+            }
+            if (sel.options.length > 0) sel.selectedIndex = 0;
+        };
+        http.setRequestHeader('Content-Type', 'application/json');
+        http.send();
+    }
+
+    function __confSetVal(id, val) {
+        var el = document.querySelector(id);
+        if (el) el.value = val == null ? '' : String(val);
+    }
+
+    function __confApplyTransit1Fields(p) {
+        if (!p) return;
+        __confSetVal('#programtranscf', p.code_progr);
+        var tf = (p.typetarif != null && String(p.typetarif).trim() !== '') ? p.typetarif : '1';
+        __confSetVal('#tarifattribcf', tf);
+        __confSetVal('#dateprtranscf', p.date_progr);
+        __confSetVal('#deplignetranscf', p.gareidentif);
+        __confSetVal('#intertranscf1', p.intervalle1);
+        __confSetVal('#intertranscf2', p.intervalle2);
+        __confSetVal('#ligntranscf', p.ident_ligne);
+        __confSetVal('#nomitintranscf', p.nom_ligne);
+        __confSetVal('#hertranscf', p.heure);
+        __confSetVal('#catetranscf', p.categori);
+        // Align programme confirm (flux direct) pour cohérence POST.
+        __confSetVal('#programconf', p.code_progr);
+        __confSetVal('#dateconfirme', p.date_progr);
+        __confSetVal('#confheure', p.heure);
+        __confSetVal('#directid', p.nom_ligne);
+        __confSetVal('#caissepvend_', p.intervalle1);
+        __confSetVal('#caissedpvend_', p.intervalle2);
+        __confSetVal('#gareid_dep', p.gareidentif || p.gaexp_lg || '');
+        __confSetVal('#lignehconf', p.id_ligneheure || '');
+        if (p.prix != null && String(p.prix).trim() !== '') {
+            __confSetVal('#prix_axetranscf', p.prix);
+        }
+        if (p.gareidentif) {
+            __confFillTransitDepart('#transitedepargarecf1', p.gareidentif);
+        }
+    }
+
+    function __confProgListFromResponse(don) {
+        if (!don || don === '') return [];
+        if (Array.isArray(don)) return don.filter(Boolean);
+        if (typeof don === 'object') {
+            var keys = Object.keys(don);
+            var out = [];
+            for (var i = 0; i < keys.length; i++) {
+                var k = keys[i];
+                if (don[k] && typeof don[k] === 'object' && don[k].code_progr != null) {
+                    out.push(don[k]);
+                }
+            }
+            return out;
+        }
+        return [];
+    }
+
+    /** Remplit #depsieg via siegdisponible (sans encode — comme vente guichet). */
+    function __confFillDepsiegFromProg() {
+        var dSel = document.querySelector('#depsieg');
+        if (dSel) dSel.options.length = 1;
+        var cd = document.querySelector('#programtranscf') ? document.querySelector('#programtranscf').value : '';
+        var dbit = document.querySelector('#intertranscf1') ? document.querySelector('#intertranscf1').value : '';
+        var fnit = document.querySelector('#intertranscf2') ? document.querySelector('#intertranscf2').value : '';
+        var lgit = document.querySelector('#nomitintranscf') ? document.querySelector('#nomitintranscf').value : '';
+        var timit = document.querySelector('#hertranscf') ? document.querySelector('#hertranscf').value : '';
+        var dProg = document.querySelector('#dateprtranscf') ? document.querySelector('#dateprtranscf').value : '';
+        if (!cd || !dProg || !lgit || !timit || dbit === '' || fnit === '') return;
+        var httpSieg = new XMLHttpRequest();
+        httpSieg.open(
+            'GET',
+            window.location.origin + `${APP_ROOT}/programmes/siegdisponible/`
+                + cd + '/' + dProg + '/' + lgit + '/' + timit + '/' + dbit + '/' + fnit,
+            true
+        );
+        httpSieg.onload = function () {
+            try {
+                var rows = JSON.parse(httpSieg.responseText);
+                if (dSel) dSel.options.length = 1;
+                if (rows && Object.entries(rows).length >= 1) {
+                    for (var key2 in Object.entries(rows)) {
+                        var opt = document.createElement('option');
+                        opt.value = `${rows[key2].siege_num}`;
+                        opt.innerHTML = `${rows[key2].siege_num}`;
+                        if (dSel) dSel.add(opt);
+                    }
+                }
+            } catch (e2) {
+                if (dSel) dSel.options.length = 1;
+            }
+        };
+        httpSieg.setRequestHeader('Content-Type', 'application/json');
+        httpSieg.send();
+    }
+
+    function __confLoadSiegesTransit1(idLigneheure, dptDate) {
+        var tfEl = document.querySelector('#tarifattribcf');
+        var tfbs = tfEl && String(tfEl.value || '').trim() !== '' ? String(tfEl.value).trim() : '1';
+        if (tfEl && String(tfEl.value || '').trim() === '') tfEl.value = tfbs;
+        if (idLigneheure) {
+            var httpPrix = new XMLHttpRequest();
+            httpPrix.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifpriprg/` + idLigneheure + '/' + tfbs, true);
+            httpPrix.onload = function () {
+                try {
+                    var donprix = JSON.parse(httpPrix.responseText);
+                    if (donprix && Object.entries(donprix).length >= 1) {
+                        for (var key in Object.entries(donprix)) {
+                            __confSetVal('#prix_axetranscf', donprix[key].prix);
+                        }
+                    }
+                } catch (e) {}
+            };
+            httpPrix.setRequestHeader('Content-Type', 'application/json');
+            httpPrix.send();
+        }
+        __confFillDepsiegFromProg();
+    }
+
+    /** Charge meta programme par code_progr (fiable, sans filtre sous-gare). */
+    function __confLoadProgByCode(codeProgr, idLh, fallbackGare, done) {
+        if (!codeProgr) {
+            if (typeof done === 'function') done(false);
+            return;
+        }
+        var http = new XMLHttpRequest();
+        http.open('GET', window.location.origin + `${APP_ROOT}/programmes/siegdispotrans/` + codeProgr, true);
+        http.onload = function () {
+            var don = null;
+            try { don = JSON.parse(http.responseText); } catch (e) { don = null; }
+            var list = __confProgListFromResponse(don);
+            if (list.length < 1) {
+                if (typeof done === 'function') done(false);
+                return;
+            }
+            __confApplyTransit1Fields(list[0]);
+            if (!list[0].gareidentif && fallbackGare) {
+                __confFillTransitDepart('#transitedepargarecf1', fallbackGare);
+            }
+            __confLoadSiegesTransit1(idLh || list[0].id_ligneheure, document.querySelector('#actuel') ? document.querySelector('#actuel').value : '');
+            if (typeof done === 'function') done(true);
+        };
+        http.setRequestHeader('Content-Type', 'application/json');
+        http.send();
+    }
+
+    /**
+     * onchange heure jambe 1 transit confirm.
+     * 1) code_progr sur l'option → siegdispotrans (prioritaire)
+     * 2) sinon verifprog (avec sous-gare confirm, puis sans filtre strict via retry code)
+     */
+    function __confOnHeureTransit1Change(fallbackGare) {
+        var hSel = document.querySelector('#heured');
+        if (!hSel || hSel.selectedIndex < 1) return;
+        var hOpt = hSel.options[hSel.selectedIndex];
+        var raw = hOpt ? (hOpt.value || '') : '';
+        var parts = String(raw).split('/');
+        var idLh = parts[0] || '';
+        if (!idLh) return;
+
+        var codeProgr = hOpt.getAttribute('data-code-progr') || '';
+        var gareDep1 = hOpt.getAttribute('data-gareidentif') || fallbackGare;
+        var depl = document.querySelector('#deplignetranscf');
+        if (depl && depl.value) gareDep1 = depl.value;
+        __confFillTransitDepart('#transitedepargarecf1', gareDep1);
+
+        var dSel = document.querySelector('#depsieg');
+        if (dSel) dSel.options.length = 1;
+
+        if (codeProgr) {
+            __confLoadProgByCode(codeProgr, idLh, gareDep1);
+            return;
+        }
+
+        var itinCode = document.querySelector('#itinecodecf') ? document.querySelector('#itinecodecf').value : '';
+        var dptDate = document.querySelector('#actuel') ? document.querySelector('#actuel').value : '';
+        // Sous-gare du modal confirm uniquement (évite le #depargare vente).
+        var sougid = '0';
+        var depCf = document.querySelector('#confirm-0 #depargare') || document.querySelector('#confForm #depargare');
+        if (depCf && depCf.value) {
+            var sp = String(depCf.value).split('/');
+            if (sp[1]) sougid = sp[1];
+        }
+        if (!itinCode || !dptDate) return;
+
+        var http = new XMLHttpRequest();
+        http.open(
+            'GET',
+            window.location.origin + `${APP_ROOT}/programmes/verifprog/`
+                + itinCode + '/' + dptDate + '/' + idLh + '/' + (sougid || '0'),
+            true
+        );
+        http.onload = function () {
+            var don = null;
+            try { don = JSON.parse(http.responseText); } catch (e) { don = null; }
+            var list = __confProgListFromResponse(don);
+            if (list.length >= 1) {
+                __confApplyTransit1Fields(list[0]);
+                __confLoadSiegesTransit1(idLh, dptDate);
+                return;
+            }
+            // Retry sans filtre sous-gare trop strict : reprendre code_progr éventuel du 1er résultat heure.
+            // Dernier recours : rien.
+        };
+        http.setRequestHeader('Content-Type', 'application/json');
+        http.send();
+    }
+
+    /**
+     * Charge heures jambe 1 via verifheureitine (ident_ligne jambe),
+     * attache data-code-progr, puis auto-déclenche siège + départ.
+     */
+    function __confLoadHeuresJambe1AndTrigger(codeItineraire, datedepart, fallbackGare) {
+        var hSel = document.querySelector('#heured');
+        var dSel = document.querySelector('#depsieg');
+        if (hSel) hSel.options.length = 1;
+        if (dSel) dSel.options.length = 1;
+        var depSel = document.querySelector('#transitedepargarecf1');
+        if (depSel) depSel.options.length = 0;
+        if (!codeItineraire || !datedepart) return;
+        var http = new XMLHttpRequest();
+        http.open(
+            'GET',
+            window.location.origin + `${APP_ROOT}/programmes/verifheureitine/`
+                + encodeURIComponent(codeItineraire) + '/'
+                + encodeURIComponent(datedepart),
+            true
+        );
+        http.onload = function () {
+            var rows = null;
+            try { rows = JSON.parse(http.responseText); } catch (e) { rows = null; }
+            if (!hSel) return;
+            hSel.options.length = 1;
+            if (rows && Object.entries(rows).length >= 1) {
+                for (var key in Object.entries(rows)) {
+                    var row = rows[key];
+                    if (!row || row.id_ligneheure == null) continue;
+                    var opt = document.createElement('option');
+                    opt.value = `${row.id_ligneheure}/${row.heure || ''}`;
+                    opt.setAttribute('data-has-programme', '1');
+                    opt.setAttribute('data-transit-leg1', '1');
+                    if (row.code_progr) opt.setAttribute('data-code-progr', String(row.code_progr));
+                    if (row.gareidentif) opt.setAttribute('data-gareidentif', String(row.gareidentif));
+                    opt.innerHTML = row.heure || '';
+                    hSel.add(opt);
+                }
+            }
+            if (hSel.options.length > 1) {
+                hSel.selectedIndex = 1;
+                if (typeof hSel.onchange === 'function') {
+                    hSel.onchange();
+                } else {
+                    __confOnHeureTransit1Change(fallbackGare);
+                }
+            }
+        };
+        http.setRequestHeader('Content-Type', 'application/json');
+        http.send();
+    }
+
+
+
     document.querySelectorAll('.addconfirme').forEach(function (e) {
         document.querySelector('h3#confTitle').innerHTML = `CONFIRMATION`;
 
@@ -78,11 +460,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 document.querySelector('#hdepartitinecf').options.length = 1;
                 document.querySelector('#psiegesitinescf').options.length = 1;
                 document.querySelector('#idcheminsheurcf').options.length = 1;
-                document.querySelector('#transitedepargarecf1').options.length = 1;
-                document.querySelector('#transitedepargarecf2').options.length = 1;
-                document.querySelector('#transitedepargarecf3').options.length = 1;
+                document.querySelector('#transitedepargarecf1').options.length = 0;
+                document.querySelector('#transitedepargarecf2').options.length = 0;
+                document.querySelector('#transitedepargarecf3').options.length = 0;
                 document.querySelector('#iddeptranscf4').style.display = 'none';
-                document.querySelector('#transitedepargarecf4').options.length = 1;
+                document.querySelector('#transitedepargarecf4').options.length = 0;
                 document.querySelector('#idcheminscf').options.length = 1;
                 document.querySelector('#idcheminscf1').options.length = 1;
                 document.querySelector('#idcheminscf2').options.length = 1;
@@ -162,21 +544,21 @@ document.addEventListener('DOMContentLoaded', () => {
                 httpRequetesquart.setRequestHeader('Content-Type', 'application/json');
                 httpRequetesquart.send();
 
-                Requests.open('GET', window.location.origin + `${APP_ROOT}/confirmation/verifconfprog/${heureaxep}/${dateactuel}`, true);
+                // Catalogue heures moderne (même modèle que vente guichet).
+                var sougidcf = __confDepSousGare();
+                Requests.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifheuresvente/${encodeURIComponent(heureaxep)}/${encodeURIComponent(dateactuel)}/${encodeURIComponent(sougidcf || '0')}`, true);
                 Requests.onload = () => {
-                    const data2 = JSON.parse(Requests.responseText);
-                    if (data2 == '') {
-                        
-                        var seltdepcf = document.querySelector('#axeconf').value;
+                    var payloadHvCf = {};
+                    try { payloadHvCf = JSON.parse(Requests.responseText) || {}; } catch (eHvCf) { payloadHvCf = {}; }
+                    var heuresHvCf = Array.isArray(payloadHvCf.heures) ? payloadHvCf.heures : [];
+                    window.__confHasTransit = !!payloadHvCf.has_transit;
+                    window.__confLastHeuresVente = heuresHvCf;
 
-                        //on verifit pour voir si elle n'a pas d'itineraire
-                        let httpRequestitinecf;
-                        httpRequestitinecf = new XMLHttpRequest();
-                        httpRequestitinecf.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifitine/${seltdepcf}`, true);
-                        httpRequestitinecf.onload = () => {
-                        
-                            const donitinescf = JSON.parse(httpRequestitinecf.responseText);
-                            if(donitinescf === null)
+                    __confShowDirectHourUi();
+                    __confFillHeuresVente(heuresHvCf);
+
+                    window.__confApplyTransitLegs = function (donitinescf) {
+                            if(donitinescf === null || donitinescf === '' || (typeof donitinescf === 'object' && !Object.keys(donitinescf).length))
                             {
                                 document.querySelector('#iddeptranscf1').style.display = 'none';
                                 document.querySelector('#transitedepargarecf1').style.display = 'none';
@@ -205,7 +587,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                 document.querySelector('#idquartcf2').style.display = 'none';
                                 document.querySelector('#idquartcf3').style.display = 'none';
 
-                                document.querySelector('#trancf').style.display = 'none';
+                                document.querySelector('#trancf').style.display = 'none'; if (typeof window.__confSetMainEscaleVisible === 'function') window.__confSetMainEscaleVisible(true);
                                 document.querySelector('#heureitincf').style.display = 'none';
                                 document.querySelector('#hdepartitinecf').style.display = 'none';
                                 document.querySelector('#siegitinecf').style.display = 'none';
@@ -313,7 +695,10 @@ document.addEventListener('DOMContentLoaded', () => {
                                             document.querySelector('#iddeptranscf4').style.display = 'block';
                                             document.querySelector('#transitedepargarecf4').style.display = 'block';
                                         }
-                                        document.querySelector('#trancf').style.display = 'block';
+                                        document.querySelector('#trancf').style.display = 'block'; if (typeof window.__confSetMainEscaleVisible === 'function') window.__confSetMainEscaleVisible(false);
+                                        if (document.querySelector('#depsieg')) document.querySelector('#depsieg').options.length = 1;
+                                        if (document.querySelector('#transitedepargarecf1')) document.querySelector('#transitedepargarecf1').options.length = 0;
+                                        if (document.querySelector('#heured')) document.querySelector('#heured').options.length = 1;
                                         document.querySelector('#heureitincf').style.display = 'block';
                                         document.querySelector('#hdepartitinecf').style.display = 'block';
                                         document.querySelector('#lignesitinerairecf').style.display = 'block';
@@ -340,9 +725,11 @@ document.addEventListener('DOMContentLoaded', () => {
                                         document.querySelector('#idcompgcf').value = `${donitinescf[0].id_compaga}`;
                                         document.querySelector('#idcompgcf1').value = `${donitinescf[1].id_compaga}`;
                                         var typgarecf1 = document.querySelector('#itinecodecf').value;
-                                        var post_typgarecf1 = typgarecf1.split('-');
-                                        var seltypgarecf1 = post_typgarecf1[0];
-                                        var typgareselcf = post_typgarecf1[1];
+                                        var post_typgarecf1 = (typgarecf1 || '').split('-');
+                                        var seltypgarecf1 = (donitinescf[0] && (donitinescf[0].gaexp_lg || donitinescf[0].code_gaexp)) ? (donitinescf[0].gaexp_lg || donitinescf[0].code_gaexp) : post_typgarecf1[0];
+                                        var typgareselcf = (donitinescf[0] && donitinescf[0].gadest_lg) ? donitinescf[0].gadest_lg : post_typgarecf1[1];
+                                        var identLigneJambe1cf = (donitinescf[0] && donitinescf[0].id_lignes) ? donitinescf[0].id_lignes : (document.querySelector('#itinecodescf') && document.querySelector('#itinecodescf').value);
+                                        if (document.querySelector('#itinecodescf') && identLigneJambe1cf) document.querySelector('#itinecodescf').value = identLigneJambe1cf;
                                             let httptypequartcf1;
                                             httptypequartcf1 = new XMLHttpRequest();
                                             
@@ -372,166 +759,12 @@ document.addEventListener('DOMContentLoaded', () => {
                                             httptypequartcf1.setRequestHeader('Content-Type', 'application/json');
                                             httptypequartcf1.send();
 
-                                            let httptypequartitincf;
-                                            httptypequartitincf = new XMLHttpRequest();
-                                            var itinprocf = document.querySelector('#itinecodecf').value;
-                                            var datedepartcf = document.querySelector('#actuel').value;
-                                            httptypequartitincf.open('GET', window.location.origin + `${APP_ROOT}/confirmation/verifconfprog/${itinprocf}/${datedepartcf}`, true);
-                                            httptypequartitincf.onload = () => 
-                                            {
-                                                const infositincf = JSON.parse(httptypequartitincf.responseText);
-                                                if (infositincf == null) 
-                                                {
-
-                                                }
-                                                if (Object.entries(infositincf).length >= 1) 
-                                                {
-
-
-                                                        for (let key in Object.entries(infositincf)) {
-                                                            let opt = document.createElement('option');
-                                                            opt.value = `${infositincf[key].code_progr}/${infositincf[key].typetarif}/${infositincf[key].id_ligneheure}`;
-                                                            opt.innerHTML = `${infositincf[key].heure}/${infositincf[key].date_progr}`;
-                                                            document.querySelector('#heured').add(opt);
-                                                        }
-                                                } else 
-                                                {
-                                                    document.querySelector('#heured').options.length = 1;
-                                                }
-                                            };
-                                            httptypequartitincf.setRequestHeader('Content-Type', 'application/json');
-                                            httptypequartitincf.send();
                                         let hrdepartinecf = document.querySelector('#heured');
                                         if (hrdepartinecf !== null) {
-                                            hrdepartinecf.onchange = () => 
-                                            {   
-                                                
-                                                const httpsousgarecf = new XMLHttpRequest();
-                                                httpsousgarecf.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifsousgares/${seltypgarecf1}`, true);
-                                                httpsousgarecf.onload = () => 
-                                                {
-                                                    const donsousgcf = JSON.parse(httpsousgarecf.responseText);
-                                                    console.debug(`${typeof donsousgcf}-${donsousgcf.attributes}`, console.memory);
-                                                    if (Object.entries(donsousgcf).length >= 1) {
-                                                        for (let key in Object.entries(donsousgcf)) 
-                                                        {
-                                                            let opt = document.createElement('option');
-                                                            opt.value = `${donsousgcf[key].idsousgare}`;
-                                                            opt.innerHTML = `${donsousgcf[key].nomsousgare}`;
-                                                            document.querySelector('#transitedepargarecf1').add(opt);
-
-                                                        }
-                                                    }
-                                                };
-                                                httpsousgarecf.setRequestHeader('Content-Type', 'application/json');
-                                                httpsousgarecf.send();
-
-                                                document.querySelector('#psiegesitinescf').options.length = 1;
-                                                const httpRequestitcf = new XMLHttpRequest();
-                                                const seleitinecf = document.querySelector('#heured')
-                                                    .options[document.querySelector('#heured').options.selectedIndex].value;
-
-                                                    var post_lhitinecf = seleitinecf.split('/');
-                                                    var selitinecf = post_lhitinecf[0];
-                                                    var lhselitinecf = post_lhitinecf[1];
-
-                                                    const dpt_dateitinecf = document.querySelector('#actuel').value;
-                                                    var itinproitcf = document.querySelector('#itinecodecf').value;
-                                                httpRequestitcf.open('GET', window.location.origin + `${APP_ROOT}/programmes/siegdispotrans/${selitinecf}`, true);
-                                                httpRequestitcf.onload = () => 
-                                                {
-                                                    const donitcf = JSON.parse(httpRequestitcf.responseText);
-                                                        console.debug(`${typeof donitcf} - ${donitcf.attributes}`, console.memory);
-
-                                                        if (donitcf == '') 
-                                                        {
-                                                            
-                                                                let opt = document.createElement('option');
-                                                                opt.value = '';                                                             
-                                                            
-                                                        } 
-                                                        else 
-                                                        {       
-                                                            if (Object.entries(donitcf).length >= 1) {
-                                                                for (let key in Object.entries(donitcf)) {
-                                                                    document.querySelector('#programtranscf').value = `${donitcf[key].code_progr}`;
-                                                                    document.querySelector('#tarifattribcf').value = `${donitcf[key].typetarif}`;
-                                                                    document.querySelector('#dateprtranscf').value = `${donitcf[key].date_progr}`;
-                                                                    document.querySelector('#deplignetranscf').value = `${donitcf[key].gareidentif}`;
-                                                                    document.querySelector('#intertranscf1').value = `${donitcf[key].intervalle1}`;
-                                                                    document.querySelector('#intertranscf2').value = `${donitcf[key].intervalle2}`;
-                                                                    document.querySelector('#ligntranscf').value = `${donitcf[key].ident_ligne}`;
-                                                                    document.querySelector('#nomitintranscf').value = `${donitcf[key].nom_ligne}`;
-                                                                    document.querySelector('#hertranscf').value = `${donitcf[key].heure}`;
-                                                                    document.querySelector('#catetranscf').value = `${donitcf[key].categori}`;
-                                                                        
-                                                                }
-                                                            } 
-                                                            
-                                                            const httpPrixitcf = new XMLHttpRequest();
-                                                            const seleitinecf = document.querySelector('#heured')
-                                                            .options[document.querySelector('#heured').options.selectedIndex].value;
-
-                                                            var post_lhitinecf = seleitinecf.split('/');
-                                                            var selitinecf = post_lhitinecf[0];
-                                                            var lhselitinecf = post_lhitinecf[1];
-                                                                var tfbscf = document.querySelector('#tarifattribcf').value;
-                                                            httpPrixitcf.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifpriprg/${selitinecf}/${tfbscf}`, true);
-                                                            httpPrixitcf.onload = () => 
-                                                            {
-
-                                                                const donprixitcf = JSON.parse(httpPrixitcf.responseText);
-                                                                console.debug(`${typeof donprixitcf}-${donprixitcf.attributes}`, console.memory);
-                                                                if (Object.entries(donprixitcf).length >= 1) {
-                                                                    for (let key in Object.entries(donprixitcf)) 
-                                                                    {
-                                                                        document.querySelector('#prix_axetranscf').value = `${donprixit[key].prix}`;
-            
-                                                                    }
-                                                                }
-                                                            };
-                                                            httpPrixitcf.setRequestHeader('Content-Type', 'application/json');
-                                                            httpPrixitcf.send();
-                                                            
-                                                            
-                                                            
-                                                            const httpRequetteitcf = new XMLHttpRequest();
-                                                            const cdprogitcf = document.querySelector('#programtranscf').value;
-                                                            const dbitcf = document.querySelector('#intertranscf1').value;
-                                                            const fnitcf = document.querySelector('#intertranscf2').value;
-                                                            const lgitcf = document.querySelector('#nomitintranscf').value;
-                                                            const timitcf = document.querySelector('#hertranscf').value;
-                                                            const dpt_dateitinecf = document.querySelector('#actuel').value;
-                                                            const dpt_dateitineecf = document.querySelector('#dateprtranscf').value;
-                                                            httpRequetteitcf.open('GET', window.location.origin + `${APP_ROOT}/programmes/siegdisponible/${cdprogitcf}/${dpt_dateitineecf}/${lgitcf}/${timitcf}/${dbitcf}/${fnitcf}`, true);
-                                                            httpRequetteitcf.onload = () => {
-                                                                const dattaitcf = JSON.parse(httpRequetteitcf.responseText);
-                                                                console.debug(`${typeof dattaitcf} - ${dattaitcf.attributes}`, console.memory);
-                                                                if (Object.entries(dattaitcf).length >= 1) {
-                                                                    for (let key in Object.entries(dattaitcf)) {
-                                                                        
-                                                                        let opt = document.createElement('option');
-                                                                        opt.value = `${dattaitcf[key].siege_num}`;
-                                                                        opt.innerHTML = `${dattaitcf[key].siege_num}`;
-                                                                        document.querySelector('#depsieg').add(opt);
-                                                                        
-                                                                    }
-                                                                    
-                                                                } else {
-                                                                    document.querySelector('#depsieg').options.length = 1;
-                                                                }
-                                                            };
-                                                            httpRequetteitcf.setRequestHeader('Content-Type', 'application/json');
-                                                            httpRequetteitcf.send();
-
-                                                        }  
-                                                        
-                                                };
-                                                httpRequestitcf.setRequestHeader('Content-Type', 'application/json');
-                                                httpRequestitcf.send();
-                                                 
+                                            hrdepartinecf.onchange = () => {
+                                                __confOnHeureTransit1Change(seltypgarecf1);
                                             };
-                                            
+                                            __confLoadHeuresJambe1AndTrigger((document.querySelector('#itinecodecf') && document.querySelector('#itinecodecf').value) || '', document.querySelector('#actuel').value, seltypgarecf1);
                                     
                                         }
                                         progsiegestranscf = document.querySelector('#depsieg');
@@ -541,24 +774,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                                                 gareidentiftranscf = document.querySelector('#deplignetranscf').value;
                                                     const httpsousgarecf = new XMLHttpRequest();
-                                                    httpsousgarecf.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifsousgares/${gareidentiftranscf}`, true);
-                                                    httpsousgarecf.onload = () => 
-                                                    {
-                                                        const donsousgcf = JSON.parse(httpsousgarecf.responseText);
-                                                        console.debug(`${typeof donsousgcf}-${donsousgcf.attributes}`, console.memory);
-                                                        if (Object.entries(donsousgcf).length >= 1) {
-                                                            for (let key in Object.entries(donsousgcf)) 
-                                                            {
-                                                                let opt = document.createElement('option');
-                                                                opt.value = `${donsousgcf[key].idsousgare}`;
-                                                                opt.innerHTML = `${donsousgcf[key].nomsousgare}`;
-                                                                document.querySelector('#transitedepargarecf1').add(opt);
-
-                                                            }
-                                                        }
-                                                    };
-                                                    httpsousgarecf.setRequestHeader('Content-Type', 'application/json');
-                                                    httpsousgarecf.send();
+                                                    __confFillTransitDepart('#transitedepargarecf1', gareidentiftranscf);
                                                 let httpSiegestranscf;
                                                 httpSiegestranscf = new XMLHttpRequest();
                                                 const sigstranscf = document.querySelector('#depsieg')
@@ -813,7 +1029,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                         document.querySelector('#idcompgcf2').value = `${donitinescf[2].id_compaga}`;
                                         var typgarecf1 = document.querySelector('#itinecodecf').value;
                                         var post_typgarecf1 = typgarecf1.split('-');
-                                        var seltypgarecf1 = post_typgarecf1[0];
+                                        var seltypgarecf1 = (donitinescf[0] && (donitinescf[0].gaexp_lg || donitinescf[0].code_gaexp)) ? (donitinescf[0].gaexp_lg || donitinescf[0].code_gaexp) : post_typgarecf1[0];
                                         var typgareselcf = post_typgarecf1[1];
                                             let httptypequartcf1;
                                             httptypequartcf1 = new XMLHttpRequest();
@@ -845,145 +1061,12 @@ document.addEventListener('DOMContentLoaded', () => {
                                             httptypequartcf1.send();
 
 
-                                            let httptypequartitincf1;
-                                            httptypequartitincf1 = new XMLHttpRequest();
-                                            var itinprocf1 = document.querySelector('#itinecodecf').value;
-                                            var datedepartcf = document.querySelector('#actuel').value;
-                                            httptypequartitincf1.open('GET', window.location.origin + `${APP_ROOT}/confirmation/verifconfprog/${itinprocf1}/${datedepartcf}`, true);
-                                            httptypequartitincf1.onload = () => 
-                                            {
-                                                const infositincf1 = JSON.parse(httptypequartitincf1.responseText);
-                                                if (infositincf1 == null) 
-                                                {
-
-
-                                                }
-                                                if (Object.entries(infositincf1).length >= 1) 
-                                                {
-                                                        
-                                                    
-                                                    for (let key in Object.entries(infositincf1)) {
-                                                            let opt = document.createElement('option');
-                                                            opt.value = `${infositincf1[key].code_progr}/${infositincf1[key].typetarif}/${infositincf1[key].id_ligneheure}`;
-                                                            opt.innerHTML = `${infositincf1[key].heure}/${infositincf1[key].date_progr}`;
-                                                            document.querySelector('#heured').add(opt);
-                                                        }
-                                                } else {
-                                                    document.querySelector('#heured').options.length = 1;
-                                                }
-                                            };
-                                            httptypequartitincf1.setRequestHeader('Content-Type', 'application/json');
-                                            httptypequartitincf1.send();
                                         let hrdepartinecf1 = document.querySelector('#heured');
                                         if (hrdepartinecf1 !== null) {
-                                            hrdepartinecf1.onchange = () => 
-                                            {
-                                                var tfbscf1 = document.querySelector('#tarifattribcf').value;
-                                                document.querySelector('#depsieg').options.length = 1;
-                                                const httpRequestitcf1 = new XMLHttpRequest();
-                                                const seleitinecf1 = document.querySelector('#heured')
-                                                    .options[document.querySelector('#heured').options.selectedIndex].value;
-
-                                                var post_lhitinecf1 = seleitinecf1.split('/');
-                                                var selitinecf1 = post_lhitinecf1[0];
-                                                var lhselitinecf1 = post_lhitinecf1[1];
-
-                                                const dpt_dateitinecf1 = document.querySelector('#actuel').value;
-                                                var itinproitcf1 = document.querySelector('#itinecodecf').value;
-                                                httpRequestitcf1.open('GET', window.location.origin + `${APP_ROOT}/programmes/siegdispotrans/${selitinecf1}`, true);
-                                                httpRequestitcf1.onload = () => 
-                                                {
-                                                    const donitcf1 = JSON.parse(httpRequestitcf1.responseText);
-                                                        console.debug(`${typeof donitcf1} - ${donitcf1.attributes}`, console.memory);
-
-                                                        if (donitcf1 == '') 
-                                                        {
-                                                            
-                                                                let opt = document.createElement('option');
-                                                                opt.value = '';                                                             
-                                                                            
-                                                        } 
-                                                        else 
-                                                        {       
-                                                            if (Object.entries(donitcf1).length >= 1) {
-                                                                for (let key in Object.entries(donitcf1)) {
-                                                                    document.querySelector('#programtranscf').value = `${donitcf1[key].code_progr}`;
-                                                                    document.querySelector('#dateprtranscf').value = `${donitcf1[key].date_progr}`;
-                                                                    document.querySelector('#tarifattribcf').value = `${donitcf1[key].typetarif}`;
-                                                                    document.querySelector('#deplignetranscf').value = `${donitcf1[key].gareidentif}`;
-                                                                    document.querySelector('#intertranscf1').value = `${donitcf1[key].intervalle1}`;
-                                                                    document.querySelector('#intertranscf2').value = `${donitcf1[key].intervalle2}`;
-                                                                    document.querySelector('#ligntranscf').value = `${donitcf1[key].ident_ligne}`;
-                                                                    document.querySelector('#nomitintranscf').value = `${donitcf1[key].nom_ligne}`;
-                                                                    document.querySelector('#hertranscf').value = `${donitcf1[key].heure}`;
-                                                                    document.querySelector('#catetranscf').value = `${donitcf1[key].categori}`;
-
-                                                                }
-                                                            } 
-                                                            
-                                                            const httpPrixitcf = new XMLHttpRequest();
-                                                            const seleitinecf = document.querySelector('#heured')
-                                                            .options[document.querySelector('#heured').options.selectedIndex].value;
-
-                                                            var post_lhitinecf = seleitinecf.split('/');
-                                                            var selitinecf = post_lhitinecf[0];
-                                                            var lhselitinecf = post_lhitinecf[1];
-                                                            var tfbscf2 = document.querySelector('#tarifattribcf').value;
-                                                            httpPrixitcf.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifpriprg/${selitinecf}/${tfbscf2}`, true);
-                                                            httpPrixitcf.onload = () => 
-                                                            {
-                                                                const donprixitcf = JSON.parse(httpPrixitcf.responseText);
-                                                                console.debug(`${typeof donprixitcf}-${donprixitcf.attributes}`, console.memory);
-                                                                if (Object.entries(donprixitcf).length >= 1) {
-                                                                    for (let key in Object.entries(donprixitcf)) 
-                                                                    {
-                                                                        document.querySelector('#prix_axetranscf').value = `${donprixitcf[key].prix}`;
-            
-                                                                    }
-                                                                }
-                                                            };
-                                                            httpPrixitcf.setRequestHeader('Content-Type', 'application/json');
-                                                            httpPrixitcf.send();
-
-                                                            
-
-                                                            const httpRequetteitcf = new XMLHttpRequest();
-                                                            const cdprogitcf = document.querySelector('#programtranscf').value;
-                                                            const dbitcf = document.querySelector('#intertranscf1').value;
-                                                            const fnitcf = document.querySelector('#intertranscf2').value;
-                                                            const lgitcf = document.querySelector('#nomitintranscf').value;
-                                                            const timitcf = document.querySelector('#hertranscf').value;
-                                                            const dpt_dateitinecf = document.querySelector('#actuel').value;
-                                                            const dpt_dateitineecf = document.querySelector('#dateprtranscf').value;
-                                                            
-                                                            httpRequetteitcf.open('GET', window.location.origin + `${APP_ROOT}/programmes/siegdisponible/${cdprogitcf}/${dpt_dateitineecf}/${lgitcf}/${timitcf}/${dbitcf}/${fnitcf}`, true);
-                                                            httpRequetteitcf.onload = () => {
-                                                                const dattaitcf = JSON.parse(httpRequetteitcf.responseText);
-                                                                console.debug(`${typeof dattaitcf} - ${dattaitcf.attributes}`, console.memory);
-                                                                if (Object.entries(dattaitcf).length >= 1) {
-                                                                    for (let key in Object.entries(dattaitcf)) {
-                                                                        
-                                                                        let opt = document.createElement('option');
-                                                                        opt.value = `${dattaitcf[key].siege_num}`;
-                                                                        opt.innerHTML = `${dattaitcf[key].siege_num}`;
-                                                                        document.querySelector('#depsieg').add(opt);
-                                                                        
-                                                                    }
-                                                                    
-                                                                } else {
-                                                                    document.querySelector('#depsieg').options.length = 1;
-                                                                }
-                                                            };
-                                                            httpRequetteitcf.setRequestHeader('Content-Type', 'application/json');
-                                                            httpRequetteitcf.send();
-
-                                                        }  
-                                                        
-                                                };
-                                                httpRequestitcf1.setRequestHeader('Content-Type', 'application/json');
-                                                httpRequestitcf1.send();
-                                                 
-                                            }; 
+                                            hrdepartinecf1.onchange = () => {
+                                                __confOnHeureTransit1Change(seltypgarecf1);
+                                            };
+                                            __confLoadHeuresJambe1AndTrigger((document.querySelector('#itinecodecf') && document.querySelector('#itinecodecf').value) || '', document.querySelector('#actuel').value, seltypgarecf1);
                                     
                                         }
                                         let progsiegestranscf = document.querySelector('#depsieg');
@@ -993,24 +1076,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                                                 const gareidentiftranscf1 = document.querySelector('#deplignetranscf').value;
                                                 const httpsousgarecf = new XMLHttpRequest();
-                                                httpsousgarecf.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifsousgares/${gareidentiftranscf1}`, true);
-                                                httpsousgarecf.onload = () => 
-                                                {
-                                                    const donsousgcf = JSON.parse(httpsousgarecf.responseText);
-                                                    console.debug(`${typeof donsousgcf}-${donsousgcf.attributes}`, console.memory);
-                                                    if (Object.entries(donsousgcf).length >= 1) {
-                                                        for (let key in Object.entries(donsousgcf)) 
-                                                        {
-                                                            let opt = document.createElement('option');
-                                                            opt.value = `${donsousgcf[key].idsousgare}`;
-                                                            opt.innerHTML = `${donsousgcf[key].nomsousgare}`;
-                                                            document.querySelector('#transitedepargarecf1').add(opt);
-
-                                                        }
-                                                    }
-                                                };
-                                                httpsousgarecf.setRequestHeader('Content-Type', 'application/json');
-                                                httpsousgarecf.send();
+                                                __confFillTransitDepart('#transitedepargarecf1', gareidentiftranscf1);
                                                 let httpSiegestranscf1;
                                                 httpSiegestranscf1 = new XMLHttpRequest();
                                                 const sigstranscf = document.querySelector('#depsieg')
@@ -1479,7 +1545,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                         document.querySelector('#idcompgcf3').value = `${donitinescf[3].id_compaga}`;
                                         var typgarecf1 = document.querySelector('#itinecodecf').value;
                                         var post_typgarecf1 = typgarecf1.split('-');
-                                        var seltypgarecf1 = post_typgarecf1[0];
+                                        var seltypgarecf1 = (donitinescf[0] && (donitinescf[0].gaexp_lg || donitinescf[0].code_gaexp)) ? (donitinescf[0].gaexp_lg || donitinescf[0].code_gaexp) : post_typgarecf1[0];
                                         var typgareselcf = post_typgarecf1[1];
                                             let httptypequartcf1;
                                             httptypequartcf1 = new XMLHttpRequest();
@@ -1511,146 +1577,12 @@ document.addEventListener('DOMContentLoaded', () => {
                                             httptypequartcf1.send();
 
 
-                                            let httptypequartitincf1;
-                                            httptypequartitincf1 = new XMLHttpRequest();
-                                            var datedepartcf = document.querySelector('#actuel').value;
-                                            var itinprocf1 = document.querySelector('#itinecodecf').value;
-                                            httptypequartitincf1.open('GET', window.location.origin + `${APP_ROOT}/confirmation/verifconfprog/${itinprocf1}/${datedepartcf}`, true);
-                                            httptypequartitincf1.onload = () => 
-                                            {
-                                                const infositincf1 = JSON.parse(httptypequartitincf1.responseText);
-                                                if (infositincf1 == null) 
-                                                {
-
-
-                                                }
-                                                if (Object.entries(infositincf1).length >= 1) 
-                                                {
-                                                        
-                                                    
-                                                    for (let key in Object.entries(infositincf1)) {
-                                                        let opt = document.createElement('option');
-                                                        opt.value = `${infositincf1[key].code_progr}/${infositincf1[key].typetarif}/${infositincf1[key].id_ligneheure}`;
-                                                        opt.innerHTML = `${infositincf1[key].heure}/${infositincf1[key].date_progr}`;
-                                                        document.querySelector('#heured').add(opt);
-                                                    }
-                                                } else {
-                                                    document.querySelector('#heured').options.length = 1;
-                                                }
-                                            };
-                                            httptypequartitincf1.setRequestHeader('Content-Type', 'application/json');
-                                            httptypequartitincf1.send();
                                         let hrdepartinecf1 = document.querySelector('#heured');
                                         if (hrdepartinecf1 !== null) {
-                                            hrdepartinecf1.onchange = () => 
-                                            {
-                                                document.querySelector('#depsieg').options.length = 1;
-                                                const httpRequestitcf1 = new XMLHttpRequest();
-                                                const seleitinecf1 = document.querySelector('#heured')
-                                                    .options[document.querySelector('#heured').options.selectedIndex].value;
-
-                                                    var post_lhitinecf1 = seleitinecf1.split('/');
-                                                    var selitinecf1 = post_lhitinecf1[0];
-                                                    var lhselitinecf1 = post_lhitinecf1[1];
-                                                    
-                                                    const dpt_dateitinecf1 = document.querySelector('#actuel').value;
-                                                    var itinproitcf1 = document.querySelector('#itinecodecf').value;
-                                                httpRequestitcf1.open('GET', window.location.origin + `${APP_ROOT}/programmes/siegdispotrans/${selitinecf1}`, true);
-                                                httpRequestitcf1.onload = () => 
-                                                {
-                                                    const donitcf1 = JSON.parse(httpRequestitcf1.responseText);
-                                                        console.debug(`${typeof donitcf1} - ${donitcf1.attributes}`, console.memory);
-
-                                                        if (donitcf1 == '') 
-                                                        {
-                                                            
-                                                                let opt = document.createElement('option');
-                                                                opt.value = '';                                                             
-                                                           
-                                                            
-                                                            
-                                                        } 
-                                                        else 
-                                                        {       
-                                                            if (Object.entries(donitcf1).length >= 1) {
-                                                                for (let key in Object.entries(donitcf1)) {
-                                                                    document.querySelector('#programtranscf').value = `${donitcf1[key].code_progr}`;
-                                                                    document.querySelector('#dateprtranscf').value = `${donitcf1[key].date_progr}`;
-                                                                    document.querySelector('#tarifattribcf').value = `${donitcf1[key].typetarif}`;
-                                                                    document.querySelector('#deplignetranscf').value = `${donitcf1[key].gareidentif}`;
-                                                                    document.querySelector('#intertranscf1').value = `${donitcf1[key].intervalle1}`;
-                                                                    document.querySelector('#intertranscf2').value = `${donitcf1[key].intervalle2}`;
-                                                                    document.querySelector('#ligntranscf').value = `${donitcf1[key].ident_ligne}`;
-                                                                    document.querySelector('#nomitintranscf').value = `${donitcf1[key].nom_ligne}`;
-                                                                    document.querySelector('#hertranscf').value = `${donitcf1[key].heure}`;
-                                                                    document.querySelector('#catetranscf').value = `${donitcf1[key].categori}`;
-
-                                                                }
-                                                            } 
-                                                            
-                                                            const httpPrixitcf = new XMLHttpRequest();
-                                                            const seleitinecf = document.querySelector('#heured')
-                                                            .options[document.querySelector('#heured').options.selectedIndex].value;
-
-                                                            var post_lhitinecf = seleitinecf.split('/');
-                                                            var selitinecf = post_lhitinecf[0];
-                                                            var lhselitinecf = post_lhitinecf[1];
-                                                                    var tfbscf1 = document.querySelector('#tarifattribcf').value;
-                                                            httpPrixitcf.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifpriprg/${selitinecf}/${tfbscf1}`, true);
-                                                            httpPrixitcf.onload = () => 
-                                                            {
-                                                                const donprixitcf = JSON.parse(httpPrixitcf.responseText);
-                                                                console.debug(`${typeof donprixitcf}-${donprixitcf.attributes}`, console.memory);
-                                                                if (Object.entries(donprixitcf).length >= 1) {
-                                                                    for (let key in Object.entries(donprixitcf)) 
-                                                                    {
-                                                                        document.querySelector('#prix_axetranscf').value = `${donprixitcf[key].prix}`;
-            
-                                                                    }
-                                                                }
-                                                            };
-                                                            httpPrixitcf.setRequestHeader('Content-Type', 'application/json');
-                                                            httpPrixitcf.send();
-
-                                                            
-
-                                                            const httpRequetteitcf = new XMLHttpRequest();
-                                                            const cdprogitcf = document.querySelector('#programtranscf').value;
-                                                            const dbitcf = document.querySelector('#intertranscf1').value;
-                                                            const fnitcf = document.querySelector('#intertranscf2').value;
-                                                            const lgitcf = document.querySelector('#nomitintranscf').value;
-                                                            const timitcf = document.querySelector('#hertranscf').value;
-                                                            const dpt_dateitinecf = document.querySelector('#actuel').value;
-                                                            const dpt_dateitinecef = document.querySelector('#dateprtranscf').value;
-                                                                httpRequetteitcf.open('GET', window.location.origin + `${APP_ROOT}/programmes/siegdisponible/${cdprogitcf}/${dpt_dateitinecef}/${lgitcf}/${timitcf}/${dbitcf}/${fnitcf}`, true);
-                                                            httpRequetteitcf.onload = () => {
-                                                                const dattaitcf = JSON.parse(httpRequetteitcf.responseText);
-                                                                console.debug(`${typeof dattaitcf} - ${dattaitcf.attributes}`, console.memory);
-                                                                if (Object.entries(dattaitcf).length >= 1) {
-                                                                    for (let key in Object.entries(dattaitcf)) {
-                                                                        
-                                                                        let opt = document.createElement('option');
-                                                                        opt.value = `${dattaitcf[key].siege_num}`;
-                                                                        opt.innerHTML = `${dattaitcf[key].siege_num}`;
-                                                                        document.querySelector('#depsieg').add(opt);
-                                                                        
-                                                                    }
-                                                                    
-                                                                } else {
-                                                                    document.querySelector('#depsieg').options.length = 1;
-                                                                }
-                                                            };
-                                                            httpRequetteitcf.setRequestHeader('Content-Type', 'application/json');
-                                                            httpRequetteitcf.send();
-
-                                                        }  
-                                                        
-                                                };
-                                                httpRequestitcf1.setRequestHeader('Content-Type', 'application/json');
-                                                httpRequestitcf1.send();
-                                                 
+                                            hrdepartinecf1.onchange = () => {
+                                                __confOnHeureTransit1Change(seltypgarecf1);
                                             };
-                                            
+                                            __confLoadHeuresJambe1AndTrigger((document.querySelector('#itinecodecf') && document.querySelector('#itinecodecf').value) || '', document.querySelector('#actuel').value, seltypgarecf1);
                                     
                                         }
                                         let progsiegestranscf = document.querySelector('#depsieg');
@@ -1660,24 +1592,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                                                 const gareidentiftranscf1 = document.querySelector('#deplignetranscf').value;
                                                     const httpsousgarecf = new XMLHttpRequest();
-                                                    httpsousgarecf.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifsousgares/${gareidentiftranscf1}`, true);
-                                                    httpsousgarecf.onload = () => 
-                                                    {
-                                                        const donsousgcf = JSON.parse(httpsousgarecf.responseText);
-                                                        console.debug(`${typeof donsousgcf}-${donsousgcf.attributes}`, console.memory);
-                                                        if (Object.entries(donsousgcf).length >= 1) {
-                                                            for (let key in Object.entries(donsousgcf)) 
-                                                            {
-                                                                let opt = document.createElement('option');
-                                                                opt.value = `${donsousgcf[key].idsousgare}`;
-                                                                opt.innerHTML = `${donsousgcf[key].nomsousgare}`;
-                                                                document.querySelector('#transitedepargarecf1').add(opt);
-    
-                                                            }
-                                                        }
-                                                    };
-                                                httpsousgarecf.setRequestHeader('Content-Type', 'application/json');
-                                                httpsousgarecf.send();
+                                                    __confFillTransitDepart('#transitedepargarecf1', gareidentiftranscf1);
                                                 let httpSiegestranscf1;
                                                 httpSiegestranscf1 = new XMLHttpRequest();
                                                 const sigstranscf = document.querySelector('#depsieg')
@@ -2328,33 +2243,40 @@ document.addEventListener('DOMContentLoaded', () => {
                                         
                                 }
                             }
-                        };
-                        httpRequestitinecf.setRequestHeader('Content-Type', 'application/json');
-                        httpRequestitinecf.send();
-                    }
-                    else
-                    {
-                        if (Object.entries(data2).length >= 1) {
-                            for (let key in Object.entries(data2)) {
-                                let opt = document.createElement('option');
-                                opt.value = `${data2[key].code_progr}/${data2[key].typetarif}/${data2[key].id_ligneheure}`;
-                                opt.innerHTML = `${data2[key].heure}/${data2[key].date_progr}`;
-                                document.querySelector('#heured').add(opt);
-                                
-                            }
-                        }else
-                        {
-                            document.querySelector('#heured').options.length = 1;
-                        }
+
+                        }; // fin __confApplyTransitLegs
+
+                    // Ne pas ouvrir le transit au changement d'axe — seulement au choix d'une heure sans départ.
 
                         let heurdeprt = document.querySelector('#heured');
                         if (heurdeprt !== null)
                             heurdeprt.onchange = () => {
                                 
                                 document.querySelector('#depsieg').options.length = 1;
+                                const hOptCf = document.querySelector('#heured').options[document.querySelector('#heured').options.selectedIndex];
+                                const selectorp = hOptCf ? hOptCf.value : '';
+                                const hasProgHourCf = hOptCf && hOptCf.getAttribute('data-has-programme') === '1';
+
+                                // Heure sans départ → correspondances (modèle vente guichet).
+                                if (selectorp && !hasProgHourCf) {
+                                    var messElCf = document.querySelector('#messconf');
+                                    var errElCf = document.querySelector('#erreurMessconf');
+                                    if (window.__confHasTransit) {
+                                        if (messElCf) messElCf.style.display = 'block';
+                                        if (errElCf) errElCf.innerHTML = 'Pas de départ à cette heure — correspondances proposées.';
+                                        __confRequestTransitLegs(heureaxep, dateactuel, __confDepSousGare(), true);
+                                    } else {
+                                        __confShowDirectHourUi();
+                                        if (messElCf) messElCf.style.display = 'block';
+                                        if (errElCf) errElCf.innerHTML = 'Aucun départ ni correspondance pour cette heure.';
+                                    }
+                                    return;
+                                }
+
+                                // Heure avec départ : flux confirm direct (siegdispo) inchangé.
+                                __confShowDirectHourUi();
+                                if (document.querySelector('#messconf')) document.querySelector('#messconf').style.display = 'none';
                                 const Requeste = new XMLHttpRequest();
-                                const selectorp = document.querySelector('#heured').options[document.querySelector('#heured').
-                                options.selectedIndex].value;
                                 var selectorp1 = selectorp.split('/');
                                 var selectorp2 = selectorp1[0];
                                 var selectorp3 = selectorp1[1];
@@ -2401,7 +2323,6 @@ document.addEventListener('DOMContentLoaded', () => {
                                 Requeste.setRequestHeader('Content-Type', 'application/json');
                                 Requeste.send();
                             };
-                    }
                 };
                 Requests.setRequestHeader('Content-Type', 'application/json');
                 Requests.send();

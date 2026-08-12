@@ -256,23 +256,36 @@ class Sale_passager_service
      * Code programme de la dernière jambe transit (POST idcheminheure*).
      *
      * @param int $nbr nombre de correspondances (2..4)
-     * @param bool $isFid
+     * @param string|bool $kind ''|'fid'|'cf' — bool true = fid (compat)
      * @return string
      */
-    public function escale_last_leg_code_pro($nbr, $isFid = false)
+    public function escale_last_leg_code_pro($nbr, $kind = false)
     {
         $nbr = (int) $nbr;
-        $fieldMap = $isFid
-            ? array(
+        if ($kind === true) {
+            $kind = 'fid';
+        }
+        $kind = (string) $kind;
+        if ($kind === 'fid') {
+            $fieldMap = array(
                 2 => 'idcheminheurefid',
                 3 => 'idcheminheure1fid',
                 4 => 'idcheminheure2fid',
-            )
-            : array(
+            );
+        } elseif ($kind === 'cf') {
+            // Confirm : nbr=2 → heuredeptitinecf (2e jambe), nbr=3/4 → idcheminheurecf*
+            $fieldMap = array(
+                2 => 'heuredeptitinecf',
+                3 => 'idcheminheurecf',
+                4 => 'idcheminheurecf1',
+            );
+        } else {
+            $fieldMap = array(
                 2 => 'idcheminheure',
                 3 => 'idcheminheure1',
                 4 => 'idcheminheure2',
             );
+        }
         if (!isset($fieldMap[$nbr])) {
             return '';
         }
@@ -309,15 +322,69 @@ class Sale_passager_service
     }
 
     /**
-     * Détermine le suffixe POST de l'escale à appliquer à ce passager
-     * ('' = vente directe, '_tr2'..'_tr4' = dernière jambe transit).
+     * Formulaire fidélité soumis ? (champ nombretransitefid présent dans le POST).
      *
-     * Matching transit : par code_pro de la dernière jambe (pas par prix —
-     * sinon 1re et dernière jambe au même tarif reçoivent toutes deux l'escale).
-     *
-     * @param array $data données passager avant insert
-     * @return string|null null = pas d'escale
+     * @return bool
      */
+    public function is_fid_sale_request()
+    {
+        $v = $this->ci->input->post('nombretransitefid');
+        return ($v !== false && $v !== null);
+    }
+
+    /**
+     * Formulaire « confirmer autre ticket » ? (codeconfirm présent).
+     *
+     * @return bool
+     */
+    public function is_conf_sale_request()
+    {
+        $v = $this->ci->input->post('codeconfirm');
+        return ($v !== false && $v !== null && $v !== '');
+    }
+
+    /**
+     * Suffixe de formulaire escale : '' (guichet), 'fid', 'cf'.
+     *
+     * @return string
+     */
+    public function escale_form_kind()
+    {
+        if ($this->is_fid_sale_request()) {
+            return 'fid';
+        }
+        if ($this->is_conf_sale_request()) {
+            return 'cf';
+        }
+        return '';
+    }
+
+    /**
+     * Lit un champ escale POST (guichet, FI « fid », confirm « cf »).
+     *
+     * @param string $base ex. id_escale_vente, code_gadest_vente
+     * @param string $suffix '' ou _tr2.._tr4
+     * @param string|bool $kind ''|'fid'|'cf' — bool true = fid (compat)
+     * @return mixed
+     */
+    public function post_escale_field($base, $suffix = '', $kind = '')
+    {
+        $input = $this->ci->input;
+        $suffix = (string) $suffix;
+        if ($kind === true) {
+            $kind = 'fid';
+        }
+        $kind = (string) $kind;
+        if ($kind === 'fid' || $kind === 'cf') {
+            $key = $base . $suffix . $kind;
+            $v = $input->post($key);
+            if ($v !== false && $v !== null && $v !== '') {
+                return $v;
+            }
+        }
+        return $input->post($base . $suffix);
+    }
+
     public function escale_request_suffix_for_passager(array $data)
     {
         $input = $this->ci->input;
@@ -325,17 +392,29 @@ class Sale_passager_service
             return '';
         }
 
+        $kind = $this->escale_form_kind();
         $nbr = (int) $input->post('nombretransite');
-        $isFid = false;
-        if ($nbr < 2) {
-            $nbr = (int) $input->post('nombretransitefid');
-            $isFid = ($nbr >= 2);
+        if ($kind === 'fid' || $nbr < 2) {
+            $fidNbr = (int) $input->post('nombretransitefid');
+            if ($fidNbr >= 2 || ($kind === 'fid' && $nbr < 2)) {
+                $nbr = $fidNbr;
+                $kind = 'fid';
+            }
+        }
+        if ($kind === 'cf' || ($nbr < 2 && $this->is_conf_sale_request())) {
+            $cfNbr = (int) $input->post('nombretransitecf');
+            if ($cfNbr >= 2 || $kind === 'cf') {
+                if ($cfNbr >= 2) {
+                    $nbr = $cfNbr;
+                }
+                $kind = 'cf';
+            }
         }
 
-        // Vente directe (ou sans multi-transit) : champs sans suffixe.
+        // Vente directe (ou sans multi-transit).
         if ($nbr < 2) {
-            $id = $input->post('id_escale_vente');
-            if ($id !== null && $id !== '' && (int) $id > 0) {
+            $id = $this->post_escale_field('id_escale_vente', '', $kind);
+            if ($id !== false && $id !== null && $id !== '' && (int) $id > 0) {
                 return '';
             }
             return null;
@@ -343,13 +422,13 @@ class Sale_passager_service
 
         // Transit : escale uniquement sur la dernière correspondance (trN).
         $suffix = '_tr' . $nbr;
-        $idLast = $input->post('id_escale_vente' . $suffix);
-        if ($idLast === null || $idLast === '' || (int) $idLast <= 0) {
+        $idLast = $this->post_escale_field('id_escale_vente', $suffix, $kind);
+        if ($idLast === false || $idLast === null || $idLast === '' || (int) $idLast <= 0) {
             return null;
         }
 
         $codePro = isset($data['code_pro']) ? trim((string) $data['code_pro']) : '';
-        $lastCode = $this->escale_last_leg_code_pro($nbr, $isFid);
+        $lastCode = $this->escale_last_leg_code_pro($nbr, $kind);
         if ($codePro === '' || $lastCode === '' || $codePro !== $lastCode) {
             return null;
         }
@@ -371,24 +450,24 @@ class Sale_passager_service
             return $data;
         }
 
-        $input = $this->ci->input;
+        $kind = $this->escale_form_kind();
         $id = !empty($data['id_escale_vente'])
             ? (int) $data['id_escale_vente']
-            : (int) $input->post('id_escale_vente' . $suffix);
+            : (int) $this->post_escale_field('id_escale_vente', $suffix, $kind);
 
         $fields = $this->escale_passager_fields($id);
         if (empty($fields)) {
             // Repli POST si l'id n'est plus actif / introuvable.
-            $code = $input->post('code_gadest_vente' . $suffix);
-            $nom = $input->post('nom_dest_vente' . $suffix);
-            if (($code === null || $code === '') && ($nom === null || $nom === '')) {
+            $code = $this->post_escale_field('code_gadest_vente', $suffix, $kind);
+            $nom = $this->post_escale_field('nom_dest_vente', $suffix, $kind);
+            if (($code === false || $code === null || $code === '') && ($nom === false || $nom === null || $nom === '')) {
                 return $data;
             }
             $data['id_escale_vente'] = $id > 0 ? $id : null;
-            if ($code !== null && $code !== '') {
+            if ($code !== false && $code !== null && $code !== '') {
                 $data['code_gadest_vente'] = $code;
             }
-            if ($nom !== null && $nom !== '') {
+            if ($nom !== false && $nom !== null && $nom !== '') {
                 $data['nom_dest_vente'] = $nom;
             }
             // Pas de quartier sur une vente escale.

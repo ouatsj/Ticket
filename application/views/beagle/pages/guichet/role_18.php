@@ -325,6 +325,7 @@
                         <input type="hidden" id="siegselect1fid">
                         <input type="hidden" id="idtampo1fid">
                         <input type="hidden" id="nbrtransfid" name="nombretransitefid">
+                            <input type="hidden" id="tarifattribfid" name="tarifattribuerfid">
                         <input type="hidden" id="gidtransfid" name="gidtransitefid">
 
                         <input type="hidden" id="catetransit1fid" name="catgorietransit1fid">
@@ -389,6 +390,27 @@
                                         
                                     </select>
                                 </div>
+                                    <div class="form-group col-sm-12" id="escale_dest_wrap_fid">
+                                        <div class="form-check">
+                                            <label class="custom-control custom-checkbox custom-control-inline mb-0">
+                                                <input class="custom-control-input" type="checkbox" id="escale_vente_check_fid" name="escale_vente_check_fid" value="1">
+                                                <span class="custom-control-label" id="escale_dest_label_fid">Vente escale</span>
+                                            </label>
+                                        </div>
+                                        <div id="escale_dest_fields_fid" style="display:none; margin-top:8px;" class="row">
+                                            <div class="form-group col-sm-4 mb-0">
+                                                <label style="display:block" for="escale_dest_select_fid">Destination escale</label>
+                                                <select style="display:block" class="form-control form-control-sm" name="escale_dest_select_fid" id="escale_dest_select_fid">
+                                                    <option value="">Choisissez l&apos;escale</option>
+                                                </select>
+                                                <small class="form-text text-muted" id="escale_dest_help_fid">Choisissez l&apos;escale demandée (quartier non requis).</small>
+                                            </div>
+                                        </div>
+                                        <input type="hidden" name="id_escale_ventefid" id="id_escale_ventefid" value="">
+                                        <input type="hidden" name="code_gadest_ventefid" id="code_gadest_ventefid" value="">
+                                        <input type="hidden" name="nom_dest_ventefid" id="nom_dest_ventefid" value="">
+                                    </div>
+
                                 <div class="form-group col-sm-4">
                                     <label>Date depart</label>
                                     <input class="form-control form-control-sm" type="date" name="datedepartfid" id="date_depheurefid">
@@ -447,7 +469,24 @@
                                     <input class="form-control form-control-sm" style="display:none" type="text" name="lignesitinerairesfid"
                                         id="lignesitinerairefid" disabled="">
                                 </div>
-                                <div class="form-group col-sm-4">
+                                                                    <div class="form-group col-sm-4" id="escale_leg_wrap_tr1fid" style="display:none;">
+                                        <label id="escale_leg_label_tr1fid">Vente escale</label>
+                                        <div class="form-check mb-1">
+                                            <label class="custom-control custom-checkbox custom-control-inline mb-0">
+                                                <input class="custom-control-input" type="checkbox" id="escale_vente_check_tr1fid" name="escale_vente_check_tr1fid" value="1">
+                                                <span class="custom-control-label">Activer</span>
+                                            </label>
+                                        </div>
+                                        <div id="escale_dest_fields_tr1fid" style="display:none;">
+                                            <select class="form-control form-control-sm" name="escale_dest_select_tr1fid" id="escale_dest_select_tr1fid">
+                                                <option value="">Choisissez l&apos;escale</option>
+                                            </select>
+                                        </div>
+                                        <input type="hidden" name="id_escale_vente_tr1fid" id="id_escale_vente_tr1fid" value="">
+                                        <input type="hidden" name="code_gadest_vente_tr1fid" id="code_gadest_vente_tr1fid" value="">
+                                        <input type="hidden" name="nom_dest_vente_tr1fid" id="nom_dest_vente_tr1fid" value="">
+                                    </div>
+<div class="form-group col-sm-4">
                                     <label style="display:none" id="idquart1fid">Quartier</label>
                                     <select style="display:none" name="quartconfirme1fid" class="form-control form-control-sm" id="quartier1fid">
                                             <option value="">Choisissez le quartier</option>
@@ -492,7 +531,24 @@
                                         <option value="">Choisissez la ligne</option>
                                     </select>
                                 </div>
-                                <div class="form-group col-sm-4">
+                                                                    <div class="form-group col-sm-4" id="escale_leg_wrap_tr2fid" style="display:none;">
+                                        <label id="escale_leg_label_tr2fid">Vente escale</label>
+                                        <div class="form-check mb-1">
+                                            <label class="custom-control custom-checkbox custom-control-inline mb-0">
+                                                <input class="custom-control-input" type="checkbox" id="escale_vente_check_tr2fid" name="escale_vente_check_tr2fid" value="1">
+                                                <span class="custom-control-label">Activer</span>
+                                            </label>
+                                        </div>
+                                        <div id="escale_dest_fields_tr2fid" style="display:none;">
+                                            <select class="form-control form-control-sm" name="escale_dest_select_tr2fid" id="escale_dest_select_tr2fid">
+                                                <option value="">Choisissez l&apos;escale</option>
+                                            </select>
+                                        </div>
+                                        <input type="hidden" name="id_escale_vente_tr2fid" id="id_escale_vente_tr2fid" value="">
+                                        <input type="hidden" name="code_gadest_vente_tr2fid" id="code_gadest_vente_tr2fid" value="">
+                                        <input type="hidden" name="nom_dest_vente_tr2fid" id="nom_dest_vente_tr2fid" value="">
+                                    </div>
+<div class="form-group col-sm-4">
                                     <label style="display:none" id="idquart2fid">Quartier</label>
                                     <select style="display:none" name="quartconfirme2fid" class="form-control form-control-sm" id="quartier2fid">
                                             <option value="">Choisissez le quartier</option>
@@ -536,7 +592,24 @@
                                         <option value="">Choisissez la ligne</option>
                                     </select>
                                 </div>
-                                <div class="form-group col-sm-4">
+                                                                    <div class="form-group col-sm-4" id="escale_leg_wrap_tr3fid" style="display:none;">
+                                        <label id="escale_leg_label_tr3fid">Vente escale</label>
+                                        <div class="form-check mb-1">
+                                            <label class="custom-control custom-checkbox custom-control-inline mb-0">
+                                                <input class="custom-control-input" type="checkbox" id="escale_vente_check_tr3fid" name="escale_vente_check_tr3fid" value="1">
+                                                <span class="custom-control-label">Activer</span>
+                                            </label>
+                                        </div>
+                                        <div id="escale_dest_fields_tr3fid" style="display:none;">
+                                            <select class="form-control form-control-sm" name="escale_dest_select_tr3fid" id="escale_dest_select_tr3fid">
+                                                <option value="">Choisissez l&apos;escale</option>
+                                            </select>
+                                        </div>
+                                        <input type="hidden" name="id_escale_vente_tr3fid" id="id_escale_vente_tr3fid" value="">
+                                        <input type="hidden" name="code_gadest_vente_tr3fid" id="code_gadest_vente_tr3fid" value="">
+                                        <input type="hidden" name="nom_dest_vente_tr3fid" id="nom_dest_vente_tr3fid" value="">
+                                    </div>
+<div class="form-group col-sm-4">
                                     <label style="display:none" id="idquart3fid">Quartier</label>
                                     <select style="display:none" name="quartconfirme3fid" class="form-control form-control-sm" id="quartier3fid">
                                             <option value="">Choisissez le quartier</option>
@@ -582,7 +655,24 @@
                                     </select>
                                 </div>
                                 
-                                <div class="form-group col-sm-4">
+                                                                    <div class="form-group col-sm-4" id="escale_leg_wrap_tr4fid" style="display:none;">
+                                        <label id="escale_leg_label_tr4fid">Vente escale</label>
+                                        <div class="form-check mb-1">
+                                            <label class="custom-control custom-checkbox custom-control-inline mb-0">
+                                                <input class="custom-control-input" type="checkbox" id="escale_vente_check_tr4fid" name="escale_vente_check_tr4fid" value="1">
+                                                <span class="custom-control-label">Activer</span>
+                                            </label>
+                                        </div>
+                                        <div id="escale_dest_fields_tr4fid" style="display:none;">
+                                            <select class="form-control form-control-sm" name="escale_dest_select_tr4fid" id="escale_dest_select_tr4fid">
+                                                <option value="">Choisissez l&apos;escale</option>
+                                            </select>
+                                        </div>
+                                        <input type="hidden" name="id_escale_vente_tr4fid" id="id_escale_vente_tr4fid" value="">
+                                        <input type="hidden" name="code_gadest_vente_tr4fid" id="code_gadest_vente_tr4fid" value="">
+                                        <input type="hidden" name="nom_dest_vente_tr4fid" id="nom_dest_vente_tr4fid" value="">
+                                    </div>
+<div class="form-group col-sm-4">
                                     <label style="display:none" id="heureitin3fid">Heure</label>
                                     <select style="display:none" class="form-control form-control-sm" name="idcheminheure2fid" id="idcheminsheur2fid">
                                         <option value="">Choisissez heure départ</option>

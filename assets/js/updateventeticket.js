@@ -191,6 +191,9 @@ document.addEventListener('DOMContentLoaded', () => {
                                                         document.querySelector('#arrsgare').style.display = 'block';
                                                         document.querySelector('#idquart').style.display = 'block';
                                                         document.querySelector('#quartier').style.display = 'block';
+                                                        if (typeof window.__venteSetMainEscaleVisible === 'function') {
+                                                            window.__venteSetMainEscaleVisible(true);
+                                                        }
 
                                                     }
                                                     else
@@ -302,6 +305,14 @@ document.addEventListener('DOMContentLoaded', () => {
                                                                 document.querySelector('#arrsgare').style.display = 'none';
                                                                 document.querySelector('#idquart').style.display = 'none';
                                                                 document.querySelector('#quartier').style.display = 'none';
+                                                                if (typeof window.__venteSetMainEscaleVisible === 'function') {
+                                                                    window.__venteSetMainEscaleVisible(false);
+                                                                } else {
+                                                                    var escWrap = document.querySelector('#escale_dest_wrap');
+                                                                    if (escWrap) escWrap.style.display = 'none';
+                                                                    var escCk = document.querySelector('#escale_vente_check');
+                                                                    if (escCk) escCk.checked = false;
+                                                                }
 
 
                                                                 document.querySelector('#itinecode').value = `${donitines[0].code_itineraires}`;

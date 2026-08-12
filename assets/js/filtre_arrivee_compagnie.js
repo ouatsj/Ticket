@@ -172,8 +172,41 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
+    function placeCompanyBox(box, arriveeSelect) {
+        var targetId = arriveeSelect.id;
+        var scope = arriveeSelect.closest('.modal-container, form, .card-body, .card') || document;
+        var slot = scope.querySelector('[data-compagnies-arrivee-for="' + targetId + '"]');
+        if (!slot) {
+            slot = document.querySelector('[data-compagnies-arrivee-for="' + targetId + '"]');
+        }
+        if (slot) {
+            slot.innerHTML = '';
+            slot.appendChild(box);
+            box.style.marginTop = '0.25rem';
+            box.style.marginBottom = '0.5rem';
+            return;
+        }
+
+        // Fallback ventes : barre pleine largeur au-dessus de la ligne Départ/Arrivée
+        var row = arriveeSelect.closest('.row');
+        if (row && row.parentNode) {
+            var wrap = document.createElement('div');
+            wrap.className = 'px-3 pb-2 col-12';
+            wrap.setAttribute('data-compagnies-arrivee-for', targetId);
+            wrap.appendChild(box);
+            row.parentNode.insertBefore(wrap, row);
+            return;
+        }
+
+        arriveeSelect.parentNode.insertBefore(box, arriveeSelect);
+    }
+
     function enhanceArriveeSelect(arriveeSelect) {
         if (!arriveeSelect || arriveeSelect.getAttribute('data-filtre-arrivee-ready') === '1') {
+            return;
+        }
+        // Hors ventes : formulaires admin lignes
+        if (arriveeSelect.name === 'garearrivee') {
             return;
         }
         if (!arriveeSelect.querySelector('option[data-compagnie]')) {
@@ -236,16 +269,7 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         }
 
-        // Emplacement : ancre sous le choix de ticket si présente, sinon au-dessus d'Arrivée
-        var slot = document.querySelector('[data-compagnies-arrivee-for="' + targetId + '"]');
-        if (slot) {
-            slot.innerHTML = '';
-            slot.appendChild(box);
-            box.style.marginTop = '0.25rem';
-            box.style.marginBottom = '0.5rem';
-        } else {
-            arriveeSelect.parentNode.insertBefore(box, arriveeSelect);
-        }
+        placeCompanyBox(box, arriveeSelect);
 
         box.addEventListener('change', function (e) {
             var t = e.target;

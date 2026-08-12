@@ -233,6 +233,9 @@ document.addEventListener('DOMContentLoaded', () => {
                             var el = document.getElementById(map[m][0]);
                             if (el) el.value = map[m][1] != null ? String(map[m][1]) : '';
                         }
+                        if (cfg.depGare && meta[key].gareidentif) {
+                            __venteFiFillTransitDepart('#' + cfg.depGare, meta[key].gareidentif);
+                        }
                     }
                 }
             } catch (e) {}
@@ -314,6 +317,147 @@ document.addEventListener('DOMContentLoaded', () => {
         heur.onchange = function () { __venteFiOnCheminHeurChange(legKey); };
     }
 
+    /** Remplit un select départ correspondance FI (sans option vide sélectionnée). */
+    function __venteFiFillTransitDepart(selectSel, gareIdentif) {
+        var sel = document.querySelector(selectSel);
+        if (!sel) return;
+        // length=1 sur un select vide crée une option blanche qui reste sélectionnée
+        // et fait échouer la vente (transitedepargare*fid posté vide).
+        sel.options.length = 0;
+        if (gareIdentif == null || gareIdentif === '') return;
+        var http = new XMLHttpRequest();
+        http.open(
+            'GET',
+            window.location.origin + `${APP_ROOT}/programmes/verifsousgares/` + encodeURIComponent(gareIdentif),
+            true
+        );
+        http.onload = function () {
+            var rows = null;
+            try { rows = JSON.parse(http.responseText); } catch (e) { rows = null; }
+            sel.options.length = 0;
+            if (!rows || Object.entries(rows).length < 1) return;
+            for (var key in Object.entries(rows)) {
+                var opt = document.createElement('option');
+                opt.value = `${rows[key].idsousgare}`;
+                opt.innerHTML = `${rows[key].nomsousgare}`;
+                sel.add(opt);
+            }
+            if (sel.options.length > 0) sel.selectedIndex = 0;
+        };
+        http.setRequestHeader('Content-Type', 'application/json');
+        http.send();
+    }
+
+    function __venteFiResetMainEscaleUi() {
+        var ck = document.querySelector('#escale_vente_check_fid');
+        if (ck) ck.checked = false;
+        ['#id_escale_ventefid', '#code_gadest_ventefid', '#nom_dest_ventefid'].forEach(function (s) {
+            var el = document.querySelector(s);
+            if (el) el.value = '';
+        });
+        var fields = document.querySelector('#escale_dest_fields_fid');
+        if (fields) fields.style.display = 'none';
+        var sel = document.querySelector('#escale_dest_select_fid');
+        if (sel) sel.value = '';
+    }
+
+    function __venteFiSetMainEscaleVisible(visible) {
+        var wrap = document.querySelector('#escale_dest_wrap_fid');
+        if (!wrap) return;
+        if (!visible) {
+            __venteFiResetMainEscaleUi();
+            wrap.style.display = 'none';
+        } else {
+            wrap.style.display = '';
+        }
+    }
+    window.__venteFiSetMainEscaleVisible = __venteFiSetMainEscaleVisible;
+
+    window.__venteFiHasTransit = false;
+    window.__venteFiLastHeuresVente = [];
+    window.__venteFiApplyTransitLegs = null;
+
+    function __venteFiFillHeuresVente(heures) {
+        var hSel = document.querySelector('#hdepartfid');
+        if (!hSel) return;
+        hSel.options.length = 1;
+        var list = Array.isArray(heures) ? heures : [];
+        for (var i = 0; i < list.length; i++) {
+            var hr = list[i];
+            if (!hr || hr.id_ligneheure == null || hr.id_ligneheure === '') continue;
+            var opt = document.createElement('option');
+            opt.value = hr.id_ligneheure + '/' + hr.heure;
+            var hasProg = !!(hr.has_programme === true || hr.has_programme === 1 || hr.has_programme === '1');
+            opt.setAttribute('data-has-programme', hasProg ? '1' : '0');
+            opt.innerHTML = hr.heure;
+            hSel.add(opt);
+        }
+    }
+
+    /** Affiche l'UI heures/siège directe FI ; cache le panneau transit. Champs FI (P/O…) inchangés. */
+    function __venteFiShowDirectHourUi() {
+        var hideIds = [
+            'depitin1fid','depargareitine1fid','iddeptrans1fid','transitedepargare1fid',
+            'iddeptrans2fid','transitedepargare2fid','iddeptrans3fid','transitedepargare3fid',
+            'iddeptrans4fid','transitedepargare4fid','arritin1fid','arrsgareitine1fid',
+            'heureitin1fid','hdepartitine1fid','lignesitinerairefid','ligne1fid',
+            'siegitine1fid','psiegesitines1fid','depitin2fid','depargareitine2fid',
+            'arritin2fid','arrsgareitine2fid','heureitin2fid','hdepartitine2fid',
+            'siegitine2fid','psiegesitines2fid','depitin3fid','depargareitine3fid',
+            'arritin3fid','arrsgareitine3fid','heureitin3fid','hdepartitine3fid',
+            'siegitine3fid','psiegesitines3fid','quartier1fid','quartier2fid','quartier3fid',
+            'idquart1fid','idquart2fid','idquart3fid','prix_axetransfid','prix_axetransfid1',
+            'prix_axetransitfid1','prix_axetransitfid','prix_axetransit1fid1','prix_axetransit1fid',
+            'prix_axetransit2fid1','prix_axetransit2fid','heureitinfid','hdepartitinefid',
+            'siegitinefid','psiegesitinesfid','idcheminsfid','idcheminsheurfid',
+            'idchemins1fid','idcheminsheur1fid','idchemins2fid','idcheminsheur2fid'
+        ];
+        for (var i = 0; i < hideIds.length; i++) {
+            var el = document.getElementById(hideIds[i]);
+            if (el) el.style.display = 'none';
+        }
+        var tran = document.querySelector('#tranfid');
+        if (tran) tran.style.display = 'none';
+        if (typeof __venteFiSetMainEscaleVisible === 'function') __venteFiSetMainEscaleVisible(true);
+        ['hridfid','hdepartfid','sigidfid','psiegesfid','iddepfid','depargarefid',
+         'arridfid','arrsgarefid','prix_axefid1','prix_axefid','idquartfid','quartierfid'].forEach(function (id) {
+            var el = document.getElementById(id);
+            if (el) el.style.display = 'block';
+        });
+        __venteFiHideProgSelect();
+        __venteFiHideProgSelectAny('selprog_box_tr1fid', 'selprog_tr1fid');
+        __venteFiHideProgSelectAny('selprog_box_tr2fid', 'selprog_tr2fid');
+        __venteFiHideProgSelectAny('selprog_box_tr3fid', 'selprog_tr3fid');
+        __venteFiHideProgSelectAny('selprog_box_tr4fid', 'selprog_tr4fid');
+    }
+
+    function __venteFiRequestTransitLegs(seltdep, arr, datedepart, sougid, force, onDone) {
+        var sg = (sougid != null && sougid !== '') ? sougid : '0';
+        var forceFlag = force ? '1' : '0';
+        var httpRequestitinefi = new XMLHttpRequest();
+        httpRequestitinefi.open(
+            'GET',
+            window.location.origin + `${APP_ROOT}/programmes/verifitine/`
+                + encodeURIComponent(seltdep + '-' + arr) + '/'
+                + encodeURIComponent(datedepart) + '/'
+                + encodeURIComponent(sg) + '/'
+                + forceFlag,
+            true
+        );
+        httpRequestitinefi.onload = function () {
+            var donitinesfi = null;
+            try { donitinesfi = JSON.parse(httpRequestitinefi.responseText); } catch (e) { donitinesfi = null; }
+            if (typeof onDone === 'function') {
+                onDone(donitinesfi);
+            } else if (typeof window.__venteFiApplyTransitLegs === 'function') {
+                window.__venteFiApplyTransitLegs(donitinesfi);
+            }
+        };
+        httpRequestitinefi.setRequestHeader('Content-Type', 'application/json');
+        httpRequestitinefi.send();
+    }
+
+
     function __venteFiApplyTransit1Fields(p) {
         if (!p) return;
         var set = function (id, val) {
@@ -321,6 +465,9 @@ document.addEventListener('DOMContentLoaded', () => {
             if (el) el.value = val == null ? '' : String(val);
         };
         set('#programtransfid', p.code_progr);
+        // Défaut tarif 1 si absent — sinon verifpriprg / prixtransfid ne partent jamais.
+        var tf = (p.typetarif != null && String(p.typetarif).trim() !== '') ? p.typetarif : '1';
+        set('#tarifattribfid', tf);
         set('#dateprtransfid', p.date_progr);
         set('#deplignetransfid', p.gareidentif);
         set('#intertrans1fid', p.intervalle1);
@@ -329,11 +476,34 @@ document.addEventListener('DOMContentLoaded', () => {
         set('#nomitintransfid', p.nom_ligne);
         set('#hertransfid', p.heure);
         set('#catetransfid', p.categori);
+        if (p.prix != null && String(p.prix).trim() !== '') {
+            set('#prix_axetransfid', p.prix);
+        }
     }
 
     function __venteFiLoadSiegesTransit1(idLh, dptDate) {
         var ps = document.querySelector('#psiegesitinesfid');
         if (ps) ps.options.length = 1;
+        var tfEl = document.querySelector('#tarifattribfid');
+        var tfbs = tfEl && String(tfEl.value || '').trim() !== '' ? String(tfEl.value).trim() : '1';
+        if (tfEl && String(tfEl.value || '').trim() === '') tfEl.value = tfbs;
+        if (idLh) {
+            var httpPrix = new XMLHttpRequest();
+            httpPrix.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifpriprg/${idLh}/${tfbs}`, true);
+            httpPrix.onload = function () {
+                try {
+                    var donprix = JSON.parse(httpPrix.responseText);
+                    if (Object.entries(donprix).length >= 1) {
+                        for (var key in Object.entries(donprix)) {
+                            var px = document.querySelector('#prix_axetransfid');
+                            if (px) px.value = `${donprix[key].prix}`;
+                        }
+                    }
+                } catch (e) {}
+            };
+            httpPrix.setRequestHeader('Content-Type', 'application/json');
+            httpPrix.send();
+        }
         var cd = document.querySelector('#programtransfid') ? document.querySelector('#programtransfid').value : '';
         var db = document.querySelector('#intertrans1fid') ? document.querySelector('#intertrans1fid').value : '';
         var fn = document.querySelector('#intertrans2fid') ? document.querySelector('#intertrans2fid').value : '';
@@ -418,10 +588,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 document.querySelector('#hdepartitinefid').options.length = 1;
                 document.querySelector('#psiegesitinesfid').options.length = 1;
                 document.querySelector('#idcheminsheurfid').options.length = 1;
-                document.querySelector('#transitedepargare1fid').options.length = 1;
-                document.querySelector('#transitedepargare2fid').options.length = 1;
-                document.querySelector('#transitedepargare3fid').options.length = 1;
-                document.querySelector('#transitedepargare4fid').options.length = 1;
+                document.querySelector('#transitedepargare1fid').options.length = 0;
+                document.querySelector('#transitedepargare2fid').options.length = 0;
+                document.querySelector('#transitedepargare3fid').options.length = 0;
+                document.querySelector('#transitedepargare4fid').options.length = 0;
                 document.querySelector('#idcheminsfid').options.length = 1;
                 document.querySelector('#idchemins1fid').options.length = 1;
                 document.querySelector('#idchemins2fid').options.length = 1;
@@ -475,10 +645,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     document.querySelector('#psiegesitinesfid').options.length = 1;
                     document.querySelector('#idcheminsheurfid').options.length = 1;
                     //document.querySelector('#lignesitinerairefid').value = '';
-                    document.querySelector('#transitedepargare1fid').options.length = 1;
-                    document.querySelector('#transitedepargare2fid').options.length = 1;
-                    document.querySelector('#transitedepargare3fid').options.length = 1;
-                    document.querySelector('#transitedepargare4fid').options.length = 1;
+                    document.querySelector('#transitedepargare1fid').options.length = 0;
+                    document.querySelector('#transitedepargare2fid').options.length = 0;
+                    document.querySelector('#transitedepargare3fid').options.length = 0;
+                    document.querySelector('#transitedepargare4fid').options.length = 0;
                     document.querySelector('#idcheminsfid').options.length = 1;
                     document.querySelector('#idchemins1fid').options.length = 1;
                     document.querySelector('#idchemins2fid').options.length = 1;
@@ -517,23 +687,19 @@ document.addEventListener('DOMContentLoaded', () => {
                                 var payloadHvFi = {};
                                 try { payloadHvFi = JSON.parse(httpRequetesfi.responseText) || {}; } catch (eHvFi) { payloadHvFi = {}; }
                                 var heuresHvFi = Array.isArray(payloadHvFi.heures) ? payloadHvFi.heures : [];
-                                // Heures avec départ visible pour cette sous-gare uniquement.
-                                var dataAxefi = heuresHvFi.filter(function (hr) {
-                                    return hr && (hr.has_programme === true || hr.has_programme === 1 || hr.has_programme === '1');
-                                });
-                                
-                                    if (dataAxefi.length === 0) {
-                                        
-                                        document.querySelector('#smsdtfid').style.display = 'none';
-                                        document.querySelector('#date_depheurefid').style.color = "black";
-                                        document.querySelector('#date_depheurefid').style.border = "1px solid";
-                                        //on verifit pour voir si elle n'a pas d'itineraire
-                                        let httpRequestitinefi;
-                                        httpRequestitinefi = new XMLHttpRequest();
-                                        httpRequestitinefi.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifitine/${seltdepfi}-${arrfi}`, true);
-                                        httpRequestitinefi.onload = () => {
-                                                const donitinesfi = JSON.parse(httpRequestitinefi.responseText);
-                                                    if(donitinesfi === null)
+                                window.__venteFiHasTransit = !!payloadHvFi.has_transit;
+                                window.__venteFiLastHeuresVente = heuresHvFi;
+
+                                document.querySelector('#smsdtfid').style.display = 'none';
+                                document.querySelector('#date_depheurefid').style.color = "black";
+                                document.querySelector('#date_depheurefid').style.border = "1px solid";
+
+                                // Aligné guichet : lister les heures à la date ; transit seulement au choix d'une heure sans départ.
+                                __venteFiShowDirectHourUi();
+                                __venteFiFillHeuresVente(heuresHvFi);
+
+                                window.__venteFiApplyTransitLegs = function (donitinesfi) {
+                                                    if(donitinesfi === null || donitinesfi === '' || (typeof donitinesfi === 'object' && !Object.keys(donitinesfi).length))
                                                     {
                                                         document.querySelector('#depitin1fid').style.display = 'none';
                                                         document.querySelector('#depargareitine1fid').style.display = 'none';
@@ -586,7 +752,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                                         document.querySelector('#prix_axetransit1fid').style.display = 'none';
                                                         document.querySelector('#prix_axetransit2fid1').style.display = 'none';
                                                         document.querySelector('#prix_axetransit2fid').style.display = 'none';
-                                                        document.querySelector('#tranfid').style.display = 'none';
+                                                        document.querySelector('#tranfid').style.display = 'none'; if (typeof __venteFiSetMainEscaleVisible === 'function') __venteFiSetMainEscaleVisible(true);
                                                         document.querySelector('#heureitinfid').style.display = 'none';
                                                         document.querySelector('#hdepartitinefid').style.display = 'none';
                                                         document.querySelector('#siegitinefid').style.display = 'none';
@@ -707,7 +873,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                                                 
 
                                                                 }
-                                                                document.querySelector('#tranfid').style.display = 'block';
+                                                                document.querySelector('#tranfid').style.display = 'block'; if (typeof __venteFiSetMainEscaleVisible === 'function') __venteFiSetMainEscaleVisible(false);
                                                                 document.querySelector('#heureitinfid').style.display = 'block';
                                                                 document.querySelector('#hdepartitinefid').style.display = 'block';
                                                                 document.querySelector('#lignesitinerairefid').style.display = 'block';
@@ -809,25 +975,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                                                 if (hrdepartinefi !== null) {
                                                                     hrdepartinefi.onchange = () => 
                                                                     {
-                                                                        const httpsousgarefi = new XMLHttpRequest();
-                                                                        httpsousgarefi.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifsousgares/${seltypgare1fi}`, true);
-                                                                        httpsousgarefi.onload = () => 
-                                                                        {
-                                                                            const donsousgfi = JSON.parse(httpsousgarefi.responseText);
-                                                                            console.debug(`${typeof donsousgfi}-${donsousgfi.attributes}`, console.memory);
-                                                                            if (Object.entries(donsousgfi).length >= 1) {
-                                                                                for (let key in Object.entries(donsousgfi)) 
-                                                                                {
-                                                                                    let opt = document.createElement('option');
-                                                                                    opt.value = `${donsousgfi[key].idsousgare}`;
-                                                                                    opt.innerHTML = `${donsousgfi[key].nomsousgare}`;
-                                                                                    document.querySelector('#transitedepargare1fid').add(opt);
-                        
-                                                                                }
-                                                                            }
-                                                                        };
-                                                                        httpsousgarefi.setRequestHeader('Content-Type', 'application/json');
-                                                                        httpsousgarefi.send();
+                                                                        __venteFiFillTransitDepart('#transitedepargare1fid', seltypgare1fi);
 
                                                                         document.querySelector('#psiegesitinesfid').options.length = 1;
                                                                         const httpRequestitfi = new XMLHttpRequest();
@@ -879,7 +1027,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                                                                     var selitinefi = post_lhitinefi[0];
                                                                                     var lhselitinefi = post_lhitinefi[1];
                                                                                     /*const httpPrixitfi = new XMLHttpRequest();
-                                                                                    httpPrixitfi.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifpriprg/${selitinefi}`, true);
+                                                                                    httpPrixitfi.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifpriprg/${selitinefi}/${(document.querySelector('#tarifattribfid') && document.querySelector('#tarifattribfid').value) || '1'}`, true);
                                                                                     httpPrixitfi.onload = () => 
                                                                                     {
 
@@ -942,25 +1090,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                                                     {
 
                                                                         gareidentiftransfi = document.querySelector('#deplignetransfid').value;
-                                                                            const httpsousgarefi = new XMLHttpRequest();
-                                                                            httpsousgarefi.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifsousgares/${gareidentiftransfi}`, true);
-                                                                            httpsousgarefi.onload = () => 
-                                                                            {
-                                                                                const donsousgfi = JSON.parse(httpsousgarefi.responseText);
-                                                                                console.debug(`${typeof donsousgfi}-${donsousgfi.attributes}`, console.memory);
-                                                                                if (Object.entries(donsousgfi).length >= 1) {
-                                                                                    for (let key in Object.entries(donsousgfi)) 
-                                                                                    {
-                                                                                        let opt = document.createElement('option');
-                                                                                        opt.value = `${donsousgfi[key].idsousgare}`;
-                                                                                        opt.innerHTML = `${donsousgfi[key].nomsousgare}`;
-                                                                                        document.querySelector('#transitedepargare1fid').add(opt);
-                            
-                                                                                    }
-                                                                                }
-                                                                            };
-                                                                            httpsousgarefi.setRequestHeader('Content-Type', 'application/json');
-                                                                            httpsousgarefi.send();
+                                                                            __venteFiFillTransitDepart('#transitedepargare1fid', gareidentiftransfi);
                                                                         let httpSiegestransfi;
                                                                         httpSiegestransfi = new XMLHttpRequest();
                                                                         const sigstransfi = document.querySelector('#psiegesitinesfid')
@@ -1118,25 +1248,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                                                                 var itinetras1fi = post_trans1fi[0];
                                                                                 
                                                                                 gareidentiftrans2fi = document.querySelector('#gidtransfid').value;
-                                                                                const httpsousgare1fi = new XMLHttpRequest();
-                                                                                httpsousgare1fi.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifsousgares/${gareidentiftrans2fi}`, true);
-                                                                                httpsousgare1fi.onload = () => 
-                                                                                {
-                                                                                    const donsousg1fi = JSON.parse(httpsousgare1fi.responseText);
-                                                                                    console.debug(`${typeof donsousg1fi}-${donsousg1fi.attributes}`, console.memory);
-                                                                                    if (Object.entries(donsousg1fi).length >= 1) {
-                                                                                        for (let key in Object.entries(donsousg1fi)) 
-                                                                                        {
-                                                                                            let opt = document.createElement('option');
-                                                                                            opt.value = `${donsousg1fi[key].idsousgare}`;
-                                                                                            opt.innerHTML = `${donsousg1fi[key].nomsousgare}`;
-                                                                                            document.querySelector('#transitedepargare2fid').add(opt);
-                                
-                                                                                        }
-                                                                                    }
-                                                                                };
-                                                                                httpsousgare1fi.setRequestHeader('Content-Type', 'application/json');
-                                                                                httpsousgare1fi.send();
+                                                                                __venteFiFillTransitDepart('#transitedepargare2fid', gareidentiftrans2fi);
                                                                               
                                                                                 let httpSieges1fi;
                                                                                 httpSieges1fi = new XMLHttpRequest();
@@ -1374,25 +1486,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                                                     {
 
                                                                         const gareidentiftrans1fi = document.querySelector('#deplignetransfid').value;
-                                                                        const httpsousgarefi = new XMLHttpRequest();
-                                                                        httpsousgarefi.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifsousgares/${gareidentiftrans1fi}`, true);
-                                                                        httpsousgarefi.onload = () => 
-                                                                        {
-                                                                            const donsousgfi = JSON.parse(httpsousgarefi.responseText);
-                                                                            console.debug(`${typeof donsousgfi}-${donsousgfi.attributes}`, console.memory);
-                                                                            if (Object.entries(donsousgfi).length >= 1) {
-                                                                                for (let key in Object.entries(donsousgfi)) 
-                                                                                {
-                                                                                    let opt = document.createElement('option');
-                                                                                    opt.value = `${donsousgfi[key].idsousgare}`;
-                                                                                    opt.innerHTML = `${donsousgfi[key].nomsousgare}`;
-                                                                                    document.querySelector('#transitedepargare1fid').add(opt);
-                        
-                                                                                }
-                                                                            }
-                                                                        };
-                                                                        httpsousgarefi.setRequestHeader('Content-Type', 'application/json');
-                                                                        httpsousgarefi.send();
+                                                                        __venteFiFillTransitDepart('#transitedepargare1fid', gareidentiftrans1fi);
                                                                         let httpSiegestrans1fi;
                                                                         httpSiegestrans1fi = new XMLHttpRequest();
                                                                         const sigstransfi = document.querySelector('#psiegesitinesfid')
@@ -1573,25 +1667,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                                                             {
 
                                                                               const  gareidentiftrans2fi = document.querySelector('#gidtransfid').value;
-                                                                                    const httpsousgare1fi = new XMLHttpRequest();
-                                                                                    httpsousgare1fi.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifsousgares/${gareidentiftrans2fi}`, true);
-                                                                                    httpsousgare1fi.onload = () => 
-                                                                                    {
-                                                                                        const donsousg1fi = JSON.parse(httpsousgare1fi.responseText);
-                                                                                        console.debug(`${typeof donsousg1fi}-${donsousg1fi.attributes}`, console.memory);
-                                                                                        if (Object.entries(donsousg1fi).length >= 1) {
-                                                                                            for (let key in Object.entries(donsousg1fi)) 
-                                                                                            {
-                                                                                                let opt = document.createElement('option');
-                                                                                                opt.value = `${donsousg1fi[key].idsousgare}`;
-                                                                                                opt.innerHTML = `${donsousg1fi[key].nomsousgare}`;
-                                                                                                document.querySelector('#transitedepargare2fid').add(opt);
-                                    
-                                                                                            }
-                                                                                        }
-                                                                                    };
-                                                                                    httpsousgare1fi.setRequestHeader('Content-Type', 'application/json');
-                                                                                    httpsousgare1fi.send();
+                                                                                    __venteFiFillTransitDepart('#transitedepargare2fid', gareidentiftrans2fi);
                                                                                  const transselitine1fi = document.querySelector('#idcheminsheurfid')
                                                                                 .options[document.querySelector('#idcheminsheurfid').options.selectedIndex].value;
                                                                                 var post_trans1fi = transselitine1fi.split('/');
@@ -1754,24 +1830,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                                                                 var itinetras2fi = post_trans2fi[0];
                                                                                     
                                                                                     const gareidentiftrans4fi = document.querySelector('#gidtrans1fid').value;
-                                                                                    const httpsousgare4fi = new XMLHttpRequest();
-                                                                                    httpsousgare4fi.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifsousgares/${gareidentiftrans4fi}`, true);
-                                                                                    httpsousgare4fi.onload = () => 
-                                                                                    {
-                                                                                        const donsousg4fi = JSON.parse(httpsousgare4fi.responseText);
-                                                                                        if (Object.entries(donsousg4fi).length >= 1) {
-                                                                                            for (let key in Object.entries(donsousg4fi)) 
-                                                                                            {
-                                                                                                let opt = document.createElement('option');
-                                                                                                opt.value = `${donsousg4fi[key].idsousgare}`;
-                                                                                                opt.innerHTML = `${donsousg4fi[key].nomsousgare}`;
-                                                                                                document.querySelector('#transitedepargare3fid').add(opt);
-                                    
-                                                                                            }
-                                                                                        }
-                                                                                    };
-                                                                                    httpsousgare4fi.setRequestHeader('Content-Type', 'application/json');
-                                                                                    httpsousgare4fi.send();
+                                                                                    __venteFiFillTransitDepart('#transitedepargare3fid', gareidentiftrans4fi);
 
                                                                                 let httpSieges2fi;
                                                                                 httpSieges2fi = new XMLHttpRequest();
@@ -2015,25 +2074,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                                                     {
 
                                                                        const gareidentiftrans1fi = document.querySelector('#deplignetransfid').value;
-                                                                                    const httpsousgarefi = new XMLHttpRequest();
-                                                                                    httpsousgarefi.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifsousgares/${gareidentiftrans1fi}`, true);
-                                                                                    httpsousgarefi.onload = () => 
-                                                                                    {
-                                                                                        const donsousgfi = JSON.parse(httpsousgarefi.responseText);
-                                                                                        console.debug(`${typeof donsousgfi}-${donsousgfi.attributes}`, console.memory);
-                                                                                        if (Object.entries(donsousgfi).length >= 1) {
-                                                                                            for (let key in Object.entries(donsousgfi)) 
-                                                                                            {
-                                                                                                let opt = document.createElement('option');
-                                                                                                opt.value = `${donsousgfi[key].idsousgare}`;
-                                                                                                opt.innerHTML = `${donsousgfi[key].nomsousgare}`;
-                                                                                                document.querySelector('#transitedepargare1fid').add(opt);
-                                    
-                                                                                            }
-                                                                                        }
-                                                                                    };
-                                                                                    httpsousgarefi.setRequestHeader('Content-Type', 'application/json');
-                                                                                    httpsousgarefi.send();
+                                                                                    __venteFiFillTransitDepart('#transitedepargare1fid', gareidentiftrans1fi);
                                                                         let httpSiegestrans1fi;
                                                                         httpSiegestrans1fi = new XMLHttpRequest();
                                                                         const sigstransfi = document.querySelector('#psiegesitinesfid')
@@ -2214,25 +2255,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                                                             {
 
                                                                                const gareidentiftrans2fi = document.querySelector('#gidtransfid').value;
-                                                                                    const httpsousgare1fi = new XMLHttpRequest();
-                                                                                    httpsousgare1fi.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifsousgares/${gareidentiftrans2fi}`, true);
-                                                                                    httpsousgare1fi.onload = () => 
-                                                                                    {
-                                                                                        const donsousg1fi = JSON.parse(httpsousgare1fi.responseText);
-                                                                                        console.debug(`${typeof donsousg1fi}-${donsousg1fi.attributes}`, console.memory);
-                                                                                        if (Object.entries(donsousg1fi).length >= 1) {
-                                                                                            for (let key in Object.entries(donsousg1fi)) 
-                                                                                            {
-                                                                                                let opt = document.createElement('option');
-                                                                                                opt.value = `${donsousg1fi[key].idsousgare}`;
-                                                                                                opt.innerHTML = `${donsousg1fi[key].nomsousgare}`;
-                                                                                                document.querySelector('#transitedepargare2fid').add(opt);
-                                    
-                                                                                            }
-                                                                                        }
-                                                                                    };
-                                                                                    httpsousgare1fi.setRequestHeader('Content-Type', 'application/json');
-                                                                                    httpsousgare1fi.send();
+                                                                                    __venteFiFillTransitDepart('#transitedepargare2fid', gareidentiftrans2fi);
                                                                                 
 
                                                                                     const transselitine1fi = document.querySelector('#idcheminsheurfid')
@@ -2418,25 +2441,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                                                             {
 
                                                                                const gareidentiftrans4fi = document.querySelector('#gidtrans1fid').value;
-                                                                                const httpsousgare4fi = new XMLHttpRequest();
-                                                                                httpsousgare4fi.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifsousgares/${gareidentiftrans4fi}`, true);
-                                                                                httpsousgare4fi.onload = () => 
-                                                                                {
-                                                                                    const donsousg4fi = JSON.parse(httpsousgare4fi.responseText);
-                                                                                    console.debug(`${typeof donsousg4fi}-${donsousg4fi.attributes}`, console.memory);
-                                                                                    if (Object.entries(donsousg4fi).length >= 1) {
-                                                                                        for (let key in Object.entries(donsousg4fi)) 
-                                                                                        {
-                                                                                            let opt = document.createElement('option');
-                                                                                            opt.value = `${donsousg4fi[key].idsousgare}`;
-                                                                                            opt.innerHTML = `${donsousg4fi[key].nomsousgare}`;
-                                                                                            document.querySelector('#transitedepargare3fid').add(opt);
-                                
-                                                                                        }
-                                                                                    }
-                                                                                };
-                                                                                httpsousgare4fi.setRequestHeader('Content-Type', 'application/json');
-                                                                                httpsousgare4fi.send();
+                                                                                __venteFiFillTransitDepart('#transitedepargare3fid', gareidentiftrans4fi);
                                                                                     const transselitine2fi = document.querySelector('#idcheminsheur1fid')
                                                                                 .options[document.querySelector('#idcheminsheur1fid').options.selectedIndex].value;
                                                                                 var post_trans2fi = transselitine2fi.split('/');
@@ -2617,24 +2622,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                                                             {
 
                                                                                const gareidentiftrans5fi = document.querySelector('#gidtrans2fid').value;
-                                                                                const httpsousgare5fi = new XMLHttpRequest();
-                                                                                httpsousgare5fi.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifsousgares/${gareidentiftrans5fi}`, true);
-                                                                                httpsousgare5fi.onload = () => 
-                                                                                {
-                                                                                    const donsousg5fi = JSON.parse(httpsousgare5fi.responseText);
-                                                                                    if (Object.entries(donsousg5fi).length >= 1) {
-                                                                                        for (let key in Object.entries(donsousg5fi)) 
-                                                                                        {
-                                                                                            let opt = document.createElement('option');
-                                                                                            opt.value = `${donsousg5fi[key].idsousgare}`;
-                                                                                            opt.innerHTML = `${donsousg5fi[key].nomsousgare}`;
-                                                                                            document.querySelector('#transitedepargare4fid').add(opt);
-                                
-                                                                                        }
-                                                                                    }
-                                                                                };
-                                                                                httpsousgare5fi.setRequestHeader('Content-Type', 'application/json');
-                                                                                httpsousgare5fi.send();
+                                                                                __venteFiFillTransitDepart('#transitedepargare4fid', gareidentiftrans5fi);
                                                                                     const transselitine3fi = document.querySelector('#idcheminsheur2fid')
                                                                                 .options[document.querySelector('#idcheminsheur2fid').options.selectedIndex].value;
                                                                                 var post_trans3fi = transselitine3fi.split('/');
@@ -2693,29 +2681,10 @@ document.addEventListener('DOMContentLoaded', () => {
                                                                 
                                                         }
                                                     }
-                                        };
-                                        httpRequestitinefi.setRequestHeader('Content-Type', 'application/json');
-                                        httpRequestitinefi.send();
-                                    } 
-                                    else 
-                                    {       
-                                        
-                                        document.querySelector('#smsdtfid').style.display = 'none';
-                                        document.querySelector('#date_depheurefid').style.color = "black";
-                                        document.querySelector('#date_depheurefid').style.border = "1px solid";
-                                        document.querySelector('#hdepartfid').options.length = 1;
-                                        if (dataAxefi.length >= 1) {
-                                            for (var iHv = 0; iHv < dataAxefi.length; iHv++) {
-                                                var hrFi = dataAxefi[iHv];
-                                                if (!hrFi || hrFi.id_ligneheure == null || hrFi.id_ligneheure === '') continue;
-                                                var opt = document.createElement('option');
-                                                opt.value = hrFi.id_ligneheure + '/' + hrFi.heure;
-                                                opt.setAttribute('data-has-programme', '1');
-                                                opt.innerHTML = hrFi.heure;
-                                                document.querySelector('#hdepartfid').add(opt);
-                                            }
-                                        }
-                                    }
+
+                                        }; // fin __venteFiApplyTransitLegs
+
+                                // Ne pas ouvrir le transit au clic date.
 
                                         let hrdepartfi = document.querySelector('#hdepartfid');
                                         if (hrdepartfi !== null) {
@@ -2724,9 +2693,30 @@ document.addEventListener('DOMContentLoaded', () => {
                                                 document.querySelector('#psiegesfid').options.length = 1;
                                                 document.querySelector('#typegarefid').value = '';
                                                 __venteFiHideProgSelect();
+                                                const hOptFi = document.querySelector('#hdepartfid').options[document.querySelector('#hdepartfid').options.selectedIndex];
+                                                const selefi = hOptFi ? hOptFi.value : '';
+                                                const hasProgHourFi = hOptFi && hOptFi.getAttribute('data-has-programme') === '1';
+
+                                                // Heure sans départ → correspondances (comme vente guichet).
+                                                if (selefi && !hasProgHourFi) {
+                                                    var messElFi = document.querySelector('#messfid');
+                                                    var errElFi = document.querySelector('#erreurMessfid');
+                                                    if (window.__venteFiHasTransit) {
+                                                        if (messElFi) messElFi.style.display = 'block';
+                                                        if (errElFi) errElFi.innerHTML = 'Pas de départ à cette heure — correspondances proposées.';
+                                                        __venteFiRequestTransitLegs(seltdepfi, arrfi, datedepartfi, sougidfi, true);
+                                                    } else {
+                                                        __venteFiShowDirectHourUi();
+                                                        if (messElFi) messElFi.style.display = 'block';
+                                                        if (errElFi) errElFi.innerHTML = 'Aucun départ ni correspondance pour cette heure.';
+                                                    }
+                                                    return;
+                                                }
+
+                                                // Heure avec départ : vente directe FI (P/O et champs spécifiques conservés).
+                                                __venteFiShowDirectHourUi();
+                                                if (document.querySelector('#messfid')) document.querySelector('#messfid').style.display = 'none';
                                                 const httpRequestfi = new XMLHttpRequest();
-                                                const selefi = document.querySelector('#hdepartfid')
-                                                    .options[document.querySelector('#hdepartfid').options.selectedIndex].value;
 
                                                     var post_lhfi = selefi.split('/');
                                                     var selfi = post_lhfi[0];

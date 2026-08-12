@@ -627,9 +627,7 @@ $compte_arret_grace = !empty($compte_arret_grace);
                                             placeholder="prenom" required>
                                     </div>
                                 </div>
-                                <details class="mb-3" id="client_id_details" style="margin: 0 15px 12px;">
-                                    <summary style="cursor:pointer; font-weight:600; user-select:none;">Pièce d&apos;identité (optionnel)</summary>
-                                    <div class="row mt-2">
+                                <div class="row mt-2">
                                         <div class="form-group col-sm-4">
                                             <label>CNI ou Passeport</label>
                                             <input class="form-control form-control-sm" type="text" name="cnib"
@@ -671,7 +669,7 @@ $compte_arret_grace = !empty($compte_arret_grace);
                                             style="display:none" id="datedocdel">
                                         </div>
                                     </div>
-                                </details>
+
                                 <div class="form-group row">
                                     <div class="modal-footer">
                                         <button class="btn btn-secondary modal-close" type="reset" id="idreset">

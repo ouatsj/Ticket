@@ -174,8 +174,41 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
+    function placeCompanyBox(box, arriveeSelect) {
+        var targetId = arriveeSelect.id;
+        var scope = arriveeSelect.closest('.modal-container, form, .card-body, .card') || document;
+        var slot = scope.querySelector('[data-compagnies-arrivee-for="' + targetId + '"]');
+        if (!slot) {
+            slot = document.querySelector('[data-compagnies-arrivee-for="' + targetId + '"]');
+        }
+        if (slot) {
+            slot.innerHTML = '';
+            slot.appendChild(box);
+            box.style.marginTop = '0.25rem';
+            box.style.marginBottom = '0.5rem';
+            return;
+        }
+
+        // Fallback ventes : barre pleine largeur au-dessus de la ligne Départ/Arrivée
+        var row = arriveeSelect.closest('.row');
+        if (row && row.parentNode) {
+            var wrap = document.createElement('div');
+            wrap.className = 'px-3 pb-2 col-12';
+            wrap.setAttribute('data-compagnies-arrivee-for', targetId);
+            wrap.appendChild(box);
+            row.parentNode.insertBefore(wrap, row);
+            return;
+        }
+
+        arriveeSelect.parentNode.insertBefore(box, arriveeSelect);
+    }
+
     function enhanceArriveeSelect(arriveeSelect) {
         if (!arriveeSelect || arriveeSelect.getAttribute('data-filtre-arrivee-ready') === '1') {
+            return;
+        }
+        // Hors ventes : formulaires admin lignes
+        if (arriveeSelect.name === 'garearrivee') {
             return;
         }
         if (!arriveeSelect.querySelector('option[data-compagnie]')) {
@@ -238,16 +271,7 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         }
 
-        // Emplacement : ancre sous le choix de ticket si présente, sinon au-dessus d'Arrivée
-        var slot = document.querySelector('[data-compagnies-arrivee-for="' + targetId + '"]');
-        if (slot) {
-            slot.innerHTML = '';
-            slot.appendChild(box);
-            box.style.marginTop = '0.25rem';
-            box.style.marginBottom = '0.5rem';
-        } else {
-            arriveeSelect.parentNode.insertBefore(box, arriveeSelect);
-        }
+        placeCompanyBox(box, arriveeSelect);
 
         box.addEventListener('change', function (e) {
             var t = e.target;
@@ -291,7 +315,389 @@ document.addEventListener('DOMContentLoaded', function () {
 ;
 /* --- addconfirme.js --- */
 document.addEventListener('DOMContentLoaded', () => {
-    
+
+    window.__confHasTransit = false;
+    window.__confLastHeuresVente = [];
+    window.__confApplyTransitLegs = null;
+
+    function __confFillHeuresVente(heures) {
+        var hSel = document.querySelector('#heured');
+        if (!hSel) return;
+        hSel.options.length = 1;
+        var list = Array.isArray(heures) ? heures : [];
+        for (var i = 0; i < list.length; i++) {
+            var hr = list[i];
+            if (!hr || hr.id_ligneheure == null || hr.id_ligneheure === '') continue;
+            var opt = document.createElement('option');
+            var hasProg = !!(hr.has_programme === true || hr.has_programme === 1 || hr.has_programme === '1');
+            // Avec programme : format historique confirm (code_progr/tarif/id_lh) pour siegdispo.
+            // Sans programme : id_lh/heure (transit au choix).
+            if (hasProg && hr.code_progr) {
+                opt.value = String(hr.code_progr) + '/1/' + String(hr.id_ligneheure);
+            } else {
+                opt.value = String(hr.id_ligneheure) + '/' + String(hr.heure || '');
+            }
+            opt.setAttribute('data-has-programme', hasProg ? '1' : '0');
+            opt.innerHTML = hr.heure || '';
+            hSel.add(opt);
+        }
+    }
+
+    function __confShowDirectHourUi() {
+        var hideIds = [
+            'iddeptranscf1','transitedepargarecf1','iddeptranscf2','transitedepargarecf2',
+            'iddeptranscf3','transitedepargarecf3','iddeptranscf4','transitedepargarecf4',
+            'arritincf1','arritincf2','arritincf3','heureitincf','heureitincf1','heureitincf2',
+            'hdepartitinecf','hdepartitinecf2','lignesitinerairecf','lignecf1',
+            'siegitinecf','siegitinecf1','siegitinecf2','psiegesitinescf','psiegesitinescf1','psiegesitinescf2',
+            'quartiercf1','quartiercf2','quartiercf3','idquartcf1','idquartcf2','idquartcf3',
+            'idcheminscf','idcheminscf1','idcheminscf2','idcheminsheurcf','idcheminsheurcf1','idcheminsheurcf2'
+        ];
+        for (var i = 0; i < hideIds.length; i++) {
+            var el = document.getElementById(hideIds[i]);
+            if (el) el.style.display = 'none';
+        }
+        var tran = document.querySelector('#trancf');
+        if (tran) tran.style.display = 'none';
+        if (typeof window.__confSetMainEscaleVisible === 'function') window.__confSetMainEscaleVisible(true);
+        ['heured','depsieg'].forEach(function (id) {
+            var el = document.getElementById(id);
+            if (el) el.style.display = 'block';
+        });
+        var nbr = document.querySelector('#nbrtranscf');
+        if (nbr) nbr.value = '';
+    }
+
+    function __confSetMainEscaleVisible(visible) {
+        var wrap = document.querySelector('#escale_dest_wrap_cf');
+        if (!wrap) return;
+        if (!visible) {
+            var ck = document.querySelector('#escale_vente_check_cf');
+            if (ck) ck.checked = false;
+            ['#id_escale_ventecf','#code_gadest_ventecf','#nom_dest_ventecf'].forEach(function (s) {
+                var el = document.querySelector(s);
+                if (el) el.value = '';
+            });
+            var fields = document.querySelector('#escale_dest_fields_cf');
+            if (fields) fields.style.display = 'none';
+            wrap.style.display = 'none';
+        } else {
+            wrap.style.display = '';
+        }
+    }
+    window.__confSetMainEscaleVisible = __confSetMainEscaleVisible;
+
+    function __confDepSousGare() {
+        var dep = document.querySelector('#confirm-0 #depargare') || document.querySelector('#confForm #depargare') || document.querySelector('#depargare');
+        if (!dep || !dep.value) return '0';
+        var parts = String(dep.value).split('/');
+        return parts[1] || '0';
+    }
+
+    function __confRequestTransitLegs(axe, datedepart, sougid, force, onDone) {
+        var sg = (sougid != null && sougid !== '') ? sougid : '0';
+        var forceFlag = force ? '1' : '0';
+        var httpRequestitinecf = new XMLHttpRequest();
+        httpRequestitinecf.open(
+            'GET',
+            window.location.origin + `${APP_ROOT}/programmes/verifitine/`
+                + encodeURIComponent(axe) + '/'
+                + encodeURIComponent(datedepart) + '/'
+                + encodeURIComponent(sg) + '/'
+                + forceFlag,
+            true
+        );
+        httpRequestitinecf.onload = function () {
+            var donitinescf = null;
+            try { donitinescf = JSON.parse(httpRequestitinecf.responseText); } catch (e) { donitinescf = null; }
+            if (typeof onDone === 'function') onDone(donitinescf);
+            else if (typeof window.__confApplyTransitLegs === 'function') window.__confApplyTransitLegs(donitinescf);
+        };
+        httpRequestitinecf.setRequestHeader('Content-Type', 'application/json');
+        httpRequestitinecf.send();
+    }
+
+    /** Remplit départ correspondance confirm (sans option vide sélectionnée). */
+    function __confFillTransitDepart(selectSel, gareIdentif) {
+        var sel = document.querySelector(selectSel);
+        if (!sel) return;
+        sel.options.length = 0;
+        if (gareIdentif == null || gareIdentif === '') return;
+        var http = new XMLHttpRequest();
+        http.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifsousgares/` + encodeURIComponent(gareIdentif), true);
+        http.onload = function () {
+            var rows = null;
+            try { rows = JSON.parse(http.responseText); } catch (e) { rows = null; }
+            sel.options.length = 0;
+            if (!rows || Object.entries(rows).length < 1) return;
+            for (var key in Object.entries(rows)) {
+                var opt = document.createElement('option');
+                opt.value = `${rows[key].idsousgare}`;
+                opt.innerHTML = `${rows[key].nomsousgare}`;
+                sel.add(opt);
+            }
+            if (sel.options.length > 0) sel.selectedIndex = 0;
+        };
+        http.setRequestHeader('Content-Type', 'application/json');
+        http.send();
+    }
+
+    function __confSetVal(id, val) {
+        var el = document.querySelector(id);
+        if (el) el.value = val == null ? '' : String(val);
+    }
+
+    function __confApplyTransit1Fields(p) {
+        if (!p) return;
+        __confSetVal('#programtranscf', p.code_progr);
+        var tf = (p.typetarif != null && String(p.typetarif).trim() !== '') ? p.typetarif : '1';
+        __confSetVal('#tarifattribcf', tf);
+        __confSetVal('#dateprtranscf', p.date_progr);
+        __confSetVal('#deplignetranscf', p.gareidentif);
+        __confSetVal('#intertranscf1', p.intervalle1);
+        __confSetVal('#intertranscf2', p.intervalle2);
+        __confSetVal('#ligntranscf', p.ident_ligne);
+        __confSetVal('#nomitintranscf', p.nom_ligne);
+        __confSetVal('#hertranscf', p.heure);
+        __confSetVal('#catetranscf', p.categori);
+        // Align programme confirm (flux direct) pour cohérence POST.
+        __confSetVal('#programconf', p.code_progr);
+        __confSetVal('#dateconfirme', p.date_progr);
+        __confSetVal('#confheure', p.heure);
+        __confSetVal('#directid', p.nom_ligne);
+        __confSetVal('#caissepvend_', p.intervalle1);
+        __confSetVal('#caissedpvend_', p.intervalle2);
+        __confSetVal('#gareid_dep', p.gareidentif || p.gaexp_lg || '');
+        __confSetVal('#lignehconf', p.id_ligneheure || '');
+        if (p.prix != null && String(p.prix).trim() !== '') {
+            __confSetVal('#prix_axetranscf', p.prix);
+        }
+        if (p.gareidentif) {
+            __confFillTransitDepart('#transitedepargarecf1', p.gareidentif);
+        }
+    }
+
+    function __confProgListFromResponse(don) {
+        if (!don || don === '') return [];
+        if (Array.isArray(don)) return don.filter(Boolean);
+        if (typeof don === 'object') {
+            var keys = Object.keys(don);
+            var out = [];
+            for (var i = 0; i < keys.length; i++) {
+                var k = keys[i];
+                if (don[k] && typeof don[k] === 'object' && don[k].code_progr != null) {
+                    out.push(don[k]);
+                }
+            }
+            return out;
+        }
+        return [];
+    }
+
+    /** Remplit #depsieg via siegdisponible (sans encode — comme vente guichet). */
+    function __confFillDepsiegFromProg() {
+        var dSel = document.querySelector('#depsieg');
+        if (dSel) dSel.options.length = 1;
+        var cd = document.querySelector('#programtranscf') ? document.querySelector('#programtranscf').value : '';
+        var dbit = document.querySelector('#intertranscf1') ? document.querySelector('#intertranscf1').value : '';
+        var fnit = document.querySelector('#intertranscf2') ? document.querySelector('#intertranscf2').value : '';
+        var lgit = document.querySelector('#nomitintranscf') ? document.querySelector('#nomitintranscf').value : '';
+        var timit = document.querySelector('#hertranscf') ? document.querySelector('#hertranscf').value : '';
+        var dProg = document.querySelector('#dateprtranscf') ? document.querySelector('#dateprtranscf').value : '';
+        if (!cd || !dProg || !lgit || !timit || dbit === '' || fnit === '') return;
+        var httpSieg = new XMLHttpRequest();
+        httpSieg.open(
+            'GET',
+            window.location.origin + `${APP_ROOT}/programmes/siegdisponible/`
+                + cd + '/' + dProg + '/' + lgit + '/' + timit + '/' + dbit + '/' + fnit,
+            true
+        );
+        httpSieg.onload = function () {
+            try {
+                var rows = JSON.parse(httpSieg.responseText);
+                if (dSel) dSel.options.length = 1;
+                if (rows && Object.entries(rows).length >= 1) {
+                    for (var key2 in Object.entries(rows)) {
+                        var opt = document.createElement('option');
+                        opt.value = `${rows[key2].siege_num}`;
+                        opt.innerHTML = `${rows[key2].siege_num}`;
+                        if (dSel) dSel.add(opt);
+                    }
+                }
+            } catch (e2) {
+                if (dSel) dSel.options.length = 1;
+            }
+        };
+        httpSieg.setRequestHeader('Content-Type', 'application/json');
+        httpSieg.send();
+    }
+
+    function __confLoadSiegesTransit1(idLigneheure, dptDate) {
+        var tfEl = document.querySelector('#tarifattribcf');
+        var tfbs = tfEl && String(tfEl.value || '').trim() !== '' ? String(tfEl.value).trim() : '1';
+        if (tfEl && String(tfEl.value || '').trim() === '') tfEl.value = tfbs;
+        if (idLigneheure) {
+            var httpPrix = new XMLHttpRequest();
+            httpPrix.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifpriprg/` + idLigneheure + '/' + tfbs, true);
+            httpPrix.onload = function () {
+                try {
+                    var donprix = JSON.parse(httpPrix.responseText);
+                    if (donprix && Object.entries(donprix).length >= 1) {
+                        for (var key in Object.entries(donprix)) {
+                            __confSetVal('#prix_axetranscf', donprix[key].prix);
+                        }
+                    }
+                } catch (e) {}
+            };
+            httpPrix.setRequestHeader('Content-Type', 'application/json');
+            httpPrix.send();
+        }
+        __confFillDepsiegFromProg();
+    }
+
+    /** Charge meta programme par code_progr (fiable, sans filtre sous-gare). */
+    function __confLoadProgByCode(codeProgr, idLh, fallbackGare, done) {
+        if (!codeProgr) {
+            if (typeof done === 'function') done(false);
+            return;
+        }
+        var http = new XMLHttpRequest();
+        http.open('GET', window.location.origin + `${APP_ROOT}/programmes/siegdispotrans/` + codeProgr, true);
+        http.onload = function () {
+            var don = null;
+            try { don = JSON.parse(http.responseText); } catch (e) { don = null; }
+            var list = __confProgListFromResponse(don);
+            if (list.length < 1) {
+                if (typeof done === 'function') done(false);
+                return;
+            }
+            __confApplyTransit1Fields(list[0]);
+            if (!list[0].gareidentif && fallbackGare) {
+                __confFillTransitDepart('#transitedepargarecf1', fallbackGare);
+            }
+            __confLoadSiegesTransit1(idLh || list[0].id_ligneheure, document.querySelector('#actuel') ? document.querySelector('#actuel').value : '');
+            if (typeof done === 'function') done(true);
+        };
+        http.setRequestHeader('Content-Type', 'application/json');
+        http.send();
+    }
+
+    /**
+     * onchange heure jambe 1 transit confirm.
+     * 1) code_progr sur l'option → siegdispotrans (prioritaire)
+     * 2) sinon verifprog (avec sous-gare confirm, puis sans filtre strict via retry code)
+     */
+    function __confOnHeureTransit1Change(fallbackGare) {
+        var hSel = document.querySelector('#heured');
+        if (!hSel || hSel.selectedIndex < 1) return;
+        var hOpt = hSel.options[hSel.selectedIndex];
+        var raw = hOpt ? (hOpt.value || '') : '';
+        var parts = String(raw).split('/');
+        var idLh = parts[0] || '';
+        if (!idLh) return;
+
+        var codeProgr = hOpt.getAttribute('data-code-progr') || '';
+        var gareDep1 = hOpt.getAttribute('data-gareidentif') || fallbackGare;
+        var depl = document.querySelector('#deplignetranscf');
+        if (depl && depl.value) gareDep1 = depl.value;
+        __confFillTransitDepart('#transitedepargarecf1', gareDep1);
+
+        var dSel = document.querySelector('#depsieg');
+        if (dSel) dSel.options.length = 1;
+
+        if (codeProgr) {
+            __confLoadProgByCode(codeProgr, idLh, gareDep1);
+            return;
+        }
+
+        var itinCode = document.querySelector('#itinecodecf') ? document.querySelector('#itinecodecf').value : '';
+        var dptDate = document.querySelector('#actuel') ? document.querySelector('#actuel').value : '';
+        // Sous-gare du modal confirm uniquement (évite le #depargare vente).
+        var sougid = '0';
+        var depCf = document.querySelector('#confirm-0 #depargare') || document.querySelector('#confForm #depargare');
+        if (depCf && depCf.value) {
+            var sp = String(depCf.value).split('/');
+            if (sp[1]) sougid = sp[1];
+        }
+        if (!itinCode || !dptDate) return;
+
+        var http = new XMLHttpRequest();
+        http.open(
+            'GET',
+            window.location.origin + `${APP_ROOT}/programmes/verifprog/`
+                + itinCode + '/' + dptDate + '/' + idLh + '/' + (sougid || '0'),
+            true
+        );
+        http.onload = function () {
+            var don = null;
+            try { don = JSON.parse(http.responseText); } catch (e) { don = null; }
+            var list = __confProgListFromResponse(don);
+            if (list.length >= 1) {
+                __confApplyTransit1Fields(list[0]);
+                __confLoadSiegesTransit1(idLh, dptDate);
+                return;
+            }
+            // Retry sans filtre sous-gare trop strict : reprendre code_progr éventuel du 1er résultat heure.
+            // Dernier recours : rien.
+        };
+        http.setRequestHeader('Content-Type', 'application/json');
+        http.send();
+    }
+
+    /**
+     * Charge heures jambe 1 via verifheureitine (ident_ligne jambe),
+     * attache data-code-progr, puis auto-déclenche siège + départ.
+     */
+    function __confLoadHeuresJambe1AndTrigger(codeItineraire, datedepart, fallbackGare) {
+        var hSel = document.querySelector('#heured');
+        var dSel = document.querySelector('#depsieg');
+        if (hSel) hSel.options.length = 1;
+        if (dSel) dSel.options.length = 1;
+        var depSel = document.querySelector('#transitedepargarecf1');
+        if (depSel) depSel.options.length = 0;
+        if (!codeItineraire || !datedepart) return;
+        var http = new XMLHttpRequest();
+        http.open(
+            'GET',
+            window.location.origin + `${APP_ROOT}/programmes/verifheureitine/`
+                + encodeURIComponent(codeItineraire) + '/'
+                + encodeURIComponent(datedepart),
+            true
+        );
+        http.onload = function () {
+            var rows = null;
+            try { rows = JSON.parse(http.responseText); } catch (e) { rows = null; }
+            if (!hSel) return;
+            hSel.options.length = 1;
+            if (rows && Object.entries(rows).length >= 1) {
+                for (var key in Object.entries(rows)) {
+                    var row = rows[key];
+                    if (!row || row.id_ligneheure == null) continue;
+                    var opt = document.createElement('option');
+                    opt.value = `${row.id_ligneheure}/${row.heure || ''}`;
+                    opt.setAttribute('data-has-programme', '1');
+                    opt.setAttribute('data-transit-leg1', '1');
+                    if (row.code_progr) opt.setAttribute('data-code-progr', String(row.code_progr));
+                    if (row.gareidentif) opt.setAttribute('data-gareidentif', String(row.gareidentif));
+                    opt.innerHTML = row.heure || '';
+                    hSel.add(opt);
+                }
+            }
+            if (hSel.options.length > 1) {
+                hSel.selectedIndex = 1;
+                if (typeof hSel.onchange === 'function') {
+                    hSel.onchange();
+                } else {
+                    __confOnHeureTransit1Change(fallbackGare);
+                }
+            }
+        };
+        http.setRequestHeader('Content-Type', 'application/json');
+        http.send();
+    }
+
+
+
     document.querySelectorAll('.addconfirme').forEach(function (e) {
         document.querySelector('h3#confTitle').innerHTML = `CONFIRMATION`;
 
@@ -370,11 +776,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 document.querySelector('#hdepartitinecf').options.length = 1;
                 document.querySelector('#psiegesitinescf').options.length = 1;
                 document.querySelector('#idcheminsheurcf').options.length = 1;
-                document.querySelector('#transitedepargarecf1').options.length = 1;
-                document.querySelector('#transitedepargarecf2').options.length = 1;
-                document.querySelector('#transitedepargarecf3').options.length = 1;
+                document.querySelector('#transitedepargarecf1').options.length = 0;
+                document.querySelector('#transitedepargarecf2').options.length = 0;
+                document.querySelector('#transitedepargarecf3').options.length = 0;
                 document.querySelector('#iddeptranscf4').style.display = 'none';
-                document.querySelector('#transitedepargarecf4').options.length = 1;
+                document.querySelector('#transitedepargarecf4').options.length = 0;
                 document.querySelector('#idcheminscf').options.length = 1;
                 document.querySelector('#idcheminscf1').options.length = 1;
                 document.querySelector('#idcheminscf2').options.length = 1;
@@ -454,21 +860,21 @@ document.addEventListener('DOMContentLoaded', () => {
                 httpRequetesquart.setRequestHeader('Content-Type', 'application/json');
                 httpRequetesquart.send();
 
-                Requests.open('GET', window.location.origin + `${APP_ROOT}/confirmation/verifconfprog/${heureaxep}/${dateactuel}`, true);
+                // Catalogue heures moderne (même modèle que vente guichet).
+                var sougidcf = __confDepSousGare();
+                Requests.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifheuresvente/${encodeURIComponent(heureaxep)}/${encodeURIComponent(dateactuel)}/${encodeURIComponent(sougidcf || '0')}`, true);
                 Requests.onload = () => {
-                    const data2 = JSON.parse(Requests.responseText);
-                    if (data2 == '') {
-                        
-                        var seltdepcf = document.querySelector('#axeconf').value;
+                    var payloadHvCf = {};
+                    try { payloadHvCf = JSON.parse(Requests.responseText) || {}; } catch (eHvCf) { payloadHvCf = {}; }
+                    var heuresHvCf = Array.isArray(payloadHvCf.heures) ? payloadHvCf.heures : [];
+                    window.__confHasTransit = !!payloadHvCf.has_transit;
+                    window.__confLastHeuresVente = heuresHvCf;
 
-                        //on verifit pour voir si elle n'a pas d'itineraire
-                        let httpRequestitinecf;
-                        httpRequestitinecf = new XMLHttpRequest();
-                        httpRequestitinecf.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifitine/${seltdepcf}`, true);
-                        httpRequestitinecf.onload = () => {
-                        
-                            const donitinescf = JSON.parse(httpRequestitinecf.responseText);
-                            if(donitinescf === null)
+                    __confShowDirectHourUi();
+                    __confFillHeuresVente(heuresHvCf);
+
+                    window.__confApplyTransitLegs = function (donitinescf) {
+                            if(donitinescf === null || donitinescf === '' || (typeof donitinescf === 'object' && !Object.keys(donitinescf).length))
                             {
                                 document.querySelector('#iddeptranscf1').style.display = 'none';
                                 document.querySelector('#transitedepargarecf1').style.display = 'none';
@@ -497,7 +903,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                 document.querySelector('#idquartcf2').style.display = 'none';
                                 document.querySelector('#idquartcf3').style.display = 'none';
 
-                                document.querySelector('#trancf').style.display = 'none';
+                                document.querySelector('#trancf').style.display = 'none'; if (typeof window.__confSetMainEscaleVisible === 'function') window.__confSetMainEscaleVisible(true);
                                 document.querySelector('#heureitincf').style.display = 'none';
                                 document.querySelector('#hdepartitinecf').style.display = 'none';
                                 document.querySelector('#siegitinecf').style.display = 'none';
@@ -605,7 +1011,10 @@ document.addEventListener('DOMContentLoaded', () => {
                                             document.querySelector('#iddeptranscf4').style.display = 'block';
                                             document.querySelector('#transitedepargarecf4').style.display = 'block';
                                         }
-                                        document.querySelector('#trancf').style.display = 'block';
+                                        document.querySelector('#trancf').style.display = 'block'; if (typeof window.__confSetMainEscaleVisible === 'function') window.__confSetMainEscaleVisible(false);
+                                        if (document.querySelector('#depsieg')) document.querySelector('#depsieg').options.length = 1;
+                                        if (document.querySelector('#transitedepargarecf1')) document.querySelector('#transitedepargarecf1').options.length = 0;
+                                        if (document.querySelector('#heured')) document.querySelector('#heured').options.length = 1;
                                         document.querySelector('#heureitincf').style.display = 'block';
                                         document.querySelector('#hdepartitinecf').style.display = 'block';
                                         document.querySelector('#lignesitinerairecf').style.display = 'block';
@@ -632,9 +1041,11 @@ document.addEventListener('DOMContentLoaded', () => {
                                         document.querySelector('#idcompgcf').value = `${donitinescf[0].id_compaga}`;
                                         document.querySelector('#idcompgcf1').value = `${donitinescf[1].id_compaga}`;
                                         var typgarecf1 = document.querySelector('#itinecodecf').value;
-                                        var post_typgarecf1 = typgarecf1.split('-');
-                                        var seltypgarecf1 = post_typgarecf1[0];
-                                        var typgareselcf = post_typgarecf1[1];
+                                        var post_typgarecf1 = (typgarecf1 || '').split('-');
+                                        var seltypgarecf1 = (donitinescf[0] && (donitinescf[0].gaexp_lg || donitinescf[0].code_gaexp)) ? (donitinescf[0].gaexp_lg || donitinescf[0].code_gaexp) : post_typgarecf1[0];
+                                        var typgareselcf = (donitinescf[0] && donitinescf[0].gadest_lg) ? donitinescf[0].gadest_lg : post_typgarecf1[1];
+                                        var identLigneJambe1cf = (donitinescf[0] && donitinescf[0].id_lignes) ? donitinescf[0].id_lignes : (document.querySelector('#itinecodescf') && document.querySelector('#itinecodescf').value);
+                                        if (document.querySelector('#itinecodescf') && identLigneJambe1cf) document.querySelector('#itinecodescf').value = identLigneJambe1cf;
                                             let httptypequartcf1;
                                             httptypequartcf1 = new XMLHttpRequest();
                                             
@@ -664,166 +1075,12 @@ document.addEventListener('DOMContentLoaded', () => {
                                             httptypequartcf1.setRequestHeader('Content-Type', 'application/json');
                                             httptypequartcf1.send();
 
-                                            let httptypequartitincf;
-                                            httptypequartitincf = new XMLHttpRequest();
-                                            var itinprocf = document.querySelector('#itinecodecf').value;
-                                            var datedepartcf = document.querySelector('#actuel').value;
-                                            httptypequartitincf.open('GET', window.location.origin + `${APP_ROOT}/confirmation/verifconfprog/${itinprocf}/${datedepartcf}`, true);
-                                            httptypequartitincf.onload = () => 
-                                            {
-                                                const infositincf = JSON.parse(httptypequartitincf.responseText);
-                                                if (infositincf == null) 
-                                                {
-
-                                                }
-                                                if (Object.entries(infositincf).length >= 1) 
-                                                {
-
-
-                                                        for (let key in Object.entries(infositincf)) {
-                                                            let opt = document.createElement('option');
-                                                            opt.value = `${infositincf[key].code_progr}/${infositincf[key].typetarif}/${infositincf[key].id_ligneheure}`;
-                                                            opt.innerHTML = `${infositincf[key].heure}/${infositincf[key].date_progr}`;
-                                                            document.querySelector('#heured').add(opt);
-                                                        }
-                                                } else 
-                                                {
-                                                    document.querySelector('#heured').options.length = 1;
-                                                }
-                                            };
-                                            httptypequartitincf.setRequestHeader('Content-Type', 'application/json');
-                                            httptypequartitincf.send();
                                         let hrdepartinecf = document.querySelector('#heured');
                                         if (hrdepartinecf !== null) {
-                                            hrdepartinecf.onchange = () => 
-                                            {   
-                                                
-                                                const httpsousgarecf = new XMLHttpRequest();
-                                                httpsousgarecf.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifsousgares/${seltypgarecf1}`, true);
-                                                httpsousgarecf.onload = () => 
-                                                {
-                                                    const donsousgcf = JSON.parse(httpsousgarecf.responseText);
-                                                    console.debug(`${typeof donsousgcf}-${donsousgcf.attributes}`, console.memory);
-                                                    if (Object.entries(donsousgcf).length >= 1) {
-                                                        for (let key in Object.entries(donsousgcf)) 
-                                                        {
-                                                            let opt = document.createElement('option');
-                                                            opt.value = `${donsousgcf[key].idsousgare}`;
-                                                            opt.innerHTML = `${donsousgcf[key].nomsousgare}`;
-                                                            document.querySelector('#transitedepargarecf1').add(opt);
-
-                                                        }
-                                                    }
-                                                };
-                                                httpsousgarecf.setRequestHeader('Content-Type', 'application/json');
-                                                httpsousgarecf.send();
-
-                                                document.querySelector('#psiegesitinescf').options.length = 1;
-                                                const httpRequestitcf = new XMLHttpRequest();
-                                                const seleitinecf = document.querySelector('#heured')
-                                                    .options[document.querySelector('#heured').options.selectedIndex].value;
-
-                                                    var post_lhitinecf = seleitinecf.split('/');
-                                                    var selitinecf = post_lhitinecf[0];
-                                                    var lhselitinecf = post_lhitinecf[1];
-
-                                                    const dpt_dateitinecf = document.querySelector('#actuel').value;
-                                                    var itinproitcf = document.querySelector('#itinecodecf').value;
-                                                httpRequestitcf.open('GET', window.location.origin + `${APP_ROOT}/programmes/siegdispotrans/${selitinecf}`, true);
-                                                httpRequestitcf.onload = () => 
-                                                {
-                                                    const donitcf = JSON.parse(httpRequestitcf.responseText);
-                                                        console.debug(`${typeof donitcf} - ${donitcf.attributes}`, console.memory);
-
-                                                        if (donitcf == '') 
-                                                        {
-                                                            
-                                                                let opt = document.createElement('option');
-                                                                opt.value = '';                                                             
-                                                            
-                                                        } 
-                                                        else 
-                                                        {       
-                                                            if (Object.entries(donitcf).length >= 1) {
-                                                                for (let key in Object.entries(donitcf)) {
-                                                                    document.querySelector('#programtranscf').value = `${donitcf[key].code_progr}`;
-                                                                    document.querySelector('#tarifattribcf').value = `${donitcf[key].typetarif}`;
-                                                                    document.querySelector('#dateprtranscf').value = `${donitcf[key].date_progr}`;
-                                                                    document.querySelector('#deplignetranscf').value = `${donitcf[key].gareidentif}`;
-                                                                    document.querySelector('#intertranscf1').value = `${donitcf[key].intervalle1}`;
-                                                                    document.querySelector('#intertranscf2').value = `${donitcf[key].intervalle2}`;
-                                                                    document.querySelector('#ligntranscf').value = `${donitcf[key].ident_ligne}`;
-                                                                    document.querySelector('#nomitintranscf').value = `${donitcf[key].nom_ligne}`;
-                                                                    document.querySelector('#hertranscf').value = `${donitcf[key].heure}`;
-                                                                    document.querySelector('#catetranscf').value = `${donitcf[key].categori}`;
-                                                                        
-                                                                }
-                                                            } 
-                                                            
-                                                            const httpPrixitcf = new XMLHttpRequest();
-                                                            const seleitinecf = document.querySelector('#heured')
-                                                            .options[document.querySelector('#heured').options.selectedIndex].value;
-
-                                                            var post_lhitinecf = seleitinecf.split('/');
-                                                            var selitinecf = post_lhitinecf[0];
-                                                            var lhselitinecf = post_lhitinecf[1];
-                                                                var tfbscf = document.querySelector('#tarifattribcf').value;
-                                                            httpPrixitcf.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifpriprg/${selitinecf}/${tfbscf}`, true);
-                                                            httpPrixitcf.onload = () => 
-                                                            {
-
-                                                                const donprixitcf = JSON.parse(httpPrixitcf.responseText);
-                                                                console.debug(`${typeof donprixitcf}-${donprixitcf.attributes}`, console.memory);
-                                                                if (Object.entries(donprixitcf).length >= 1) {
-                                                                    for (let key in Object.entries(donprixitcf)) 
-                                                                    {
-                                                                        document.querySelector('#prix_axetranscf').value = `${donprixit[key].prix}`;
-            
-                                                                    }
-                                                                }
-                                                            };
-                                                            httpPrixitcf.setRequestHeader('Content-Type', 'application/json');
-                                                            httpPrixitcf.send();
-                                                            
-                                                            
-                                                            
-                                                            const httpRequetteitcf = new XMLHttpRequest();
-                                                            const cdprogitcf = document.querySelector('#programtranscf').value;
-                                                            const dbitcf = document.querySelector('#intertranscf1').value;
-                                                            const fnitcf = document.querySelector('#intertranscf2').value;
-                                                            const lgitcf = document.querySelector('#nomitintranscf').value;
-                                                            const timitcf = document.querySelector('#hertranscf').value;
-                                                            const dpt_dateitinecf = document.querySelector('#actuel').value;
-                                                            const dpt_dateitineecf = document.querySelector('#dateprtranscf').value;
-                                                            httpRequetteitcf.open('GET', window.location.origin + `${APP_ROOT}/programmes/siegdisponible/${cdprogitcf}/${dpt_dateitineecf}/${lgitcf}/${timitcf}/${dbitcf}/${fnitcf}`, true);
-                                                            httpRequetteitcf.onload = () => {
-                                                                const dattaitcf = JSON.parse(httpRequetteitcf.responseText);
-                                                                console.debug(`${typeof dattaitcf} - ${dattaitcf.attributes}`, console.memory);
-                                                                if (Object.entries(dattaitcf).length >= 1) {
-                                                                    for (let key in Object.entries(dattaitcf)) {
-                                                                        
-                                                                        let opt = document.createElement('option');
-                                                                        opt.value = `${dattaitcf[key].siege_num}`;
-                                                                        opt.innerHTML = `${dattaitcf[key].siege_num}`;
-                                                                        document.querySelector('#depsieg').add(opt);
-                                                                        
-                                                                    }
-                                                                    
-                                                                } else {
-                                                                    document.querySelector('#depsieg').options.length = 1;
-                                                                }
-                                                            };
-                                                            httpRequetteitcf.setRequestHeader('Content-Type', 'application/json');
-                                                            httpRequetteitcf.send();
-
-                                                        }  
-                                                        
-                                                };
-                                                httpRequestitcf.setRequestHeader('Content-Type', 'application/json');
-                                                httpRequestitcf.send();
-                                                 
+                                            hrdepartinecf.onchange = () => {
+                                                __confOnHeureTransit1Change(seltypgarecf1);
                                             };
-                                            
+                                            __confLoadHeuresJambe1AndTrigger((document.querySelector('#itinecodecf') && document.querySelector('#itinecodecf').value) || '', document.querySelector('#actuel').value, seltypgarecf1);
                                     
                                         }
                                         progsiegestranscf = document.querySelector('#depsieg');
@@ -833,24 +1090,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                                                 gareidentiftranscf = document.querySelector('#deplignetranscf').value;
                                                     const httpsousgarecf = new XMLHttpRequest();
-                                                    httpsousgarecf.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifsousgares/${gareidentiftranscf}`, true);
-                                                    httpsousgarecf.onload = () => 
-                                                    {
-                                                        const donsousgcf = JSON.parse(httpsousgarecf.responseText);
-                                                        console.debug(`${typeof donsousgcf}-${donsousgcf.attributes}`, console.memory);
-                                                        if (Object.entries(donsousgcf).length >= 1) {
-                                                            for (let key in Object.entries(donsousgcf)) 
-                                                            {
-                                                                let opt = document.createElement('option');
-                                                                opt.value = `${donsousgcf[key].idsousgare}`;
-                                                                opt.innerHTML = `${donsousgcf[key].nomsousgare}`;
-                                                                document.querySelector('#transitedepargarecf1').add(opt);
-
-                                                            }
-                                                        }
-                                                    };
-                                                    httpsousgarecf.setRequestHeader('Content-Type', 'application/json');
-                                                    httpsousgarecf.send();
+                                                    __confFillTransitDepart('#transitedepargarecf1', gareidentiftranscf);
                                                 let httpSiegestranscf;
                                                 httpSiegestranscf = new XMLHttpRequest();
                                                 const sigstranscf = document.querySelector('#depsieg')
@@ -1105,7 +1345,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                         document.querySelector('#idcompgcf2').value = `${donitinescf[2].id_compaga}`;
                                         var typgarecf1 = document.querySelector('#itinecodecf').value;
                                         var post_typgarecf1 = typgarecf1.split('-');
-                                        var seltypgarecf1 = post_typgarecf1[0];
+                                        var seltypgarecf1 = (donitinescf[0] && (donitinescf[0].gaexp_lg || donitinescf[0].code_gaexp)) ? (donitinescf[0].gaexp_lg || donitinescf[0].code_gaexp) : post_typgarecf1[0];
                                         var typgareselcf = post_typgarecf1[1];
                                             let httptypequartcf1;
                                             httptypequartcf1 = new XMLHttpRequest();
@@ -1137,145 +1377,12 @@ document.addEventListener('DOMContentLoaded', () => {
                                             httptypequartcf1.send();
 
 
-                                            let httptypequartitincf1;
-                                            httptypequartitincf1 = new XMLHttpRequest();
-                                            var itinprocf1 = document.querySelector('#itinecodecf').value;
-                                            var datedepartcf = document.querySelector('#actuel').value;
-                                            httptypequartitincf1.open('GET', window.location.origin + `${APP_ROOT}/confirmation/verifconfprog/${itinprocf1}/${datedepartcf}`, true);
-                                            httptypequartitincf1.onload = () => 
-                                            {
-                                                const infositincf1 = JSON.parse(httptypequartitincf1.responseText);
-                                                if (infositincf1 == null) 
-                                                {
-
-
-                                                }
-                                                if (Object.entries(infositincf1).length >= 1) 
-                                                {
-                                                        
-                                                    
-                                                    for (let key in Object.entries(infositincf1)) {
-                                                            let opt = document.createElement('option');
-                                                            opt.value = `${infositincf1[key].code_progr}/${infositincf1[key].typetarif}/${infositincf1[key].id_ligneheure}`;
-                                                            opt.innerHTML = `${infositincf1[key].heure}/${infositincf1[key].date_progr}`;
-                                                            document.querySelector('#heured').add(opt);
-                                                        }
-                                                } else {
-                                                    document.querySelector('#heured').options.length = 1;
-                                                }
-                                            };
-                                            httptypequartitincf1.setRequestHeader('Content-Type', 'application/json');
-                                            httptypequartitincf1.send();
                                         let hrdepartinecf1 = document.querySelector('#heured');
                                         if (hrdepartinecf1 !== null) {
-                                            hrdepartinecf1.onchange = () => 
-                                            {
-                                                var tfbscf1 = document.querySelector('#tarifattribcf').value;
-                                                document.querySelector('#depsieg').options.length = 1;
-                                                const httpRequestitcf1 = new XMLHttpRequest();
-                                                const seleitinecf1 = document.querySelector('#heured')
-                                                    .options[document.querySelector('#heured').options.selectedIndex].value;
-
-                                                var post_lhitinecf1 = seleitinecf1.split('/');
-                                                var selitinecf1 = post_lhitinecf1[0];
-                                                var lhselitinecf1 = post_lhitinecf1[1];
-
-                                                const dpt_dateitinecf1 = document.querySelector('#actuel').value;
-                                                var itinproitcf1 = document.querySelector('#itinecodecf').value;
-                                                httpRequestitcf1.open('GET', window.location.origin + `${APP_ROOT}/programmes/siegdispotrans/${selitinecf1}`, true);
-                                                httpRequestitcf1.onload = () => 
-                                                {
-                                                    const donitcf1 = JSON.parse(httpRequestitcf1.responseText);
-                                                        console.debug(`${typeof donitcf1} - ${donitcf1.attributes}`, console.memory);
-
-                                                        if (donitcf1 == '') 
-                                                        {
-                                                            
-                                                                let opt = document.createElement('option');
-                                                                opt.value = '';                                                             
-                                                                            
-                                                        } 
-                                                        else 
-                                                        {       
-                                                            if (Object.entries(donitcf1).length >= 1) {
-                                                                for (let key in Object.entries(donitcf1)) {
-                                                                    document.querySelector('#programtranscf').value = `${donitcf1[key].code_progr}`;
-                                                                    document.querySelector('#dateprtranscf').value = `${donitcf1[key].date_progr}`;
-                                                                    document.querySelector('#tarifattribcf').value = `${donitcf1[key].typetarif}`;
-                                                                    document.querySelector('#deplignetranscf').value = `${donitcf1[key].gareidentif}`;
-                                                                    document.querySelector('#intertranscf1').value = `${donitcf1[key].intervalle1}`;
-                                                                    document.querySelector('#intertranscf2').value = `${donitcf1[key].intervalle2}`;
-                                                                    document.querySelector('#ligntranscf').value = `${donitcf1[key].ident_ligne}`;
-                                                                    document.querySelector('#nomitintranscf').value = `${donitcf1[key].nom_ligne}`;
-                                                                    document.querySelector('#hertranscf').value = `${donitcf1[key].heure}`;
-                                                                    document.querySelector('#catetranscf').value = `${donitcf1[key].categori}`;
-
-                                                                }
-                                                            } 
-                                                            
-                                                            const httpPrixitcf = new XMLHttpRequest();
-                                                            const seleitinecf = document.querySelector('#heured')
-                                                            .options[document.querySelector('#heured').options.selectedIndex].value;
-
-                                                            var post_lhitinecf = seleitinecf.split('/');
-                                                            var selitinecf = post_lhitinecf[0];
-                                                            var lhselitinecf = post_lhitinecf[1];
-                                                            var tfbscf2 = document.querySelector('#tarifattribcf').value;
-                                                            httpPrixitcf.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifpriprg/${selitinecf}/${tfbscf2}`, true);
-                                                            httpPrixitcf.onload = () => 
-                                                            {
-                                                                const donprixitcf = JSON.parse(httpPrixitcf.responseText);
-                                                                console.debug(`${typeof donprixitcf}-${donprixitcf.attributes}`, console.memory);
-                                                                if (Object.entries(donprixitcf).length >= 1) {
-                                                                    for (let key in Object.entries(donprixitcf)) 
-                                                                    {
-                                                                        document.querySelector('#prix_axetranscf').value = `${donprixitcf[key].prix}`;
-            
-                                                                    }
-                                                                }
-                                                            };
-                                                            httpPrixitcf.setRequestHeader('Content-Type', 'application/json');
-                                                            httpPrixitcf.send();
-
-                                                            
-
-                                                            const httpRequetteitcf = new XMLHttpRequest();
-                                                            const cdprogitcf = document.querySelector('#programtranscf').value;
-                                                            const dbitcf = document.querySelector('#intertranscf1').value;
-                                                            const fnitcf = document.querySelector('#intertranscf2').value;
-                                                            const lgitcf = document.querySelector('#nomitintranscf').value;
-                                                            const timitcf = document.querySelector('#hertranscf').value;
-                                                            const dpt_dateitinecf = document.querySelector('#actuel').value;
-                                                            const dpt_dateitineecf = document.querySelector('#dateprtranscf').value;
-                                                            
-                                                            httpRequetteitcf.open('GET', window.location.origin + `${APP_ROOT}/programmes/siegdisponible/${cdprogitcf}/${dpt_dateitineecf}/${lgitcf}/${timitcf}/${dbitcf}/${fnitcf}`, true);
-                                                            httpRequetteitcf.onload = () => {
-                                                                const dattaitcf = JSON.parse(httpRequetteitcf.responseText);
-                                                                console.debug(`${typeof dattaitcf} - ${dattaitcf.attributes}`, console.memory);
-                                                                if (Object.entries(dattaitcf).length >= 1) {
-                                                                    for (let key in Object.entries(dattaitcf)) {
-                                                                        
-                                                                        let opt = document.createElement('option');
-                                                                        opt.value = `${dattaitcf[key].siege_num}`;
-                                                                        opt.innerHTML = `${dattaitcf[key].siege_num}`;
-                                                                        document.querySelector('#depsieg').add(opt);
-                                                                        
-                                                                    }
-                                                                    
-                                                                } else {
-                                                                    document.querySelector('#depsieg').options.length = 1;
-                                                                }
-                                                            };
-                                                            httpRequetteitcf.setRequestHeader('Content-Type', 'application/json');
-                                                            httpRequetteitcf.send();
-
-                                                        }  
-                                                        
-                                                };
-                                                httpRequestitcf1.setRequestHeader('Content-Type', 'application/json');
-                                                httpRequestitcf1.send();
-                                                 
-                                            }; 
+                                            hrdepartinecf1.onchange = () => {
+                                                __confOnHeureTransit1Change(seltypgarecf1);
+                                            };
+                                            __confLoadHeuresJambe1AndTrigger((document.querySelector('#itinecodecf') && document.querySelector('#itinecodecf').value) || '', document.querySelector('#actuel').value, seltypgarecf1);
                                     
                                         }
                                         let progsiegestranscf = document.querySelector('#depsieg');
@@ -1285,24 +1392,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                                                 const gareidentiftranscf1 = document.querySelector('#deplignetranscf').value;
                                                 const httpsousgarecf = new XMLHttpRequest();
-                                                httpsousgarecf.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifsousgares/${gareidentiftranscf1}`, true);
-                                                httpsousgarecf.onload = () => 
-                                                {
-                                                    const donsousgcf = JSON.parse(httpsousgarecf.responseText);
-                                                    console.debug(`${typeof donsousgcf}-${donsousgcf.attributes}`, console.memory);
-                                                    if (Object.entries(donsousgcf).length >= 1) {
-                                                        for (let key in Object.entries(donsousgcf)) 
-                                                        {
-                                                            let opt = document.createElement('option');
-                                                            opt.value = `${donsousgcf[key].idsousgare}`;
-                                                            opt.innerHTML = `${donsousgcf[key].nomsousgare}`;
-                                                            document.querySelector('#transitedepargarecf1').add(opt);
-
-                                                        }
-                                                    }
-                                                };
-                                                httpsousgarecf.setRequestHeader('Content-Type', 'application/json');
-                                                httpsousgarecf.send();
+                                                __confFillTransitDepart('#transitedepargarecf1', gareidentiftranscf1);
                                                 let httpSiegestranscf1;
                                                 httpSiegestranscf1 = new XMLHttpRequest();
                                                 const sigstranscf = document.querySelector('#depsieg')
@@ -1771,7 +1861,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                         document.querySelector('#idcompgcf3').value = `${donitinescf[3].id_compaga}`;
                                         var typgarecf1 = document.querySelector('#itinecodecf').value;
                                         var post_typgarecf1 = typgarecf1.split('-');
-                                        var seltypgarecf1 = post_typgarecf1[0];
+                                        var seltypgarecf1 = (donitinescf[0] && (donitinescf[0].gaexp_lg || donitinescf[0].code_gaexp)) ? (donitinescf[0].gaexp_lg || donitinescf[0].code_gaexp) : post_typgarecf1[0];
                                         var typgareselcf = post_typgarecf1[1];
                                             let httptypequartcf1;
                                             httptypequartcf1 = new XMLHttpRequest();
@@ -1803,146 +1893,12 @@ document.addEventListener('DOMContentLoaded', () => {
                                             httptypequartcf1.send();
 
 
-                                            let httptypequartitincf1;
-                                            httptypequartitincf1 = new XMLHttpRequest();
-                                            var datedepartcf = document.querySelector('#actuel').value;
-                                            var itinprocf1 = document.querySelector('#itinecodecf').value;
-                                            httptypequartitincf1.open('GET', window.location.origin + `${APP_ROOT}/confirmation/verifconfprog/${itinprocf1}/${datedepartcf}`, true);
-                                            httptypequartitincf1.onload = () => 
-                                            {
-                                                const infositincf1 = JSON.parse(httptypequartitincf1.responseText);
-                                                if (infositincf1 == null) 
-                                                {
-
-
-                                                }
-                                                if (Object.entries(infositincf1).length >= 1) 
-                                                {
-                                                        
-                                                    
-                                                    for (let key in Object.entries(infositincf1)) {
-                                                        let opt = document.createElement('option');
-                                                        opt.value = `${infositincf1[key].code_progr}/${infositincf1[key].typetarif}/${infositincf1[key].id_ligneheure}`;
-                                                        opt.innerHTML = `${infositincf1[key].heure}/${infositincf1[key].date_progr}`;
-                                                        document.querySelector('#heured').add(opt);
-                                                    }
-                                                } else {
-                                                    document.querySelector('#heured').options.length = 1;
-                                                }
-                                            };
-                                            httptypequartitincf1.setRequestHeader('Content-Type', 'application/json');
-                                            httptypequartitincf1.send();
                                         let hrdepartinecf1 = document.querySelector('#heured');
                                         if (hrdepartinecf1 !== null) {
-                                            hrdepartinecf1.onchange = () => 
-                                            {
-                                                document.querySelector('#depsieg').options.length = 1;
-                                                const httpRequestitcf1 = new XMLHttpRequest();
-                                                const seleitinecf1 = document.querySelector('#heured')
-                                                    .options[document.querySelector('#heured').options.selectedIndex].value;
-
-                                                    var post_lhitinecf1 = seleitinecf1.split('/');
-                                                    var selitinecf1 = post_lhitinecf1[0];
-                                                    var lhselitinecf1 = post_lhitinecf1[1];
-                                                    
-                                                    const dpt_dateitinecf1 = document.querySelector('#actuel').value;
-                                                    var itinproitcf1 = document.querySelector('#itinecodecf').value;
-                                                httpRequestitcf1.open('GET', window.location.origin + `${APP_ROOT}/programmes/siegdispotrans/${selitinecf1}`, true);
-                                                httpRequestitcf1.onload = () => 
-                                                {
-                                                    const donitcf1 = JSON.parse(httpRequestitcf1.responseText);
-                                                        console.debug(`${typeof donitcf1} - ${donitcf1.attributes}`, console.memory);
-
-                                                        if (donitcf1 == '') 
-                                                        {
-                                                            
-                                                                let opt = document.createElement('option');
-                                                                opt.value = '';                                                             
-                                                           
-                                                            
-                                                            
-                                                        } 
-                                                        else 
-                                                        {       
-                                                            if (Object.entries(donitcf1).length >= 1) {
-                                                                for (let key in Object.entries(donitcf1)) {
-                                                                    document.querySelector('#programtranscf').value = `${donitcf1[key].code_progr}`;
-                                                                    document.querySelector('#dateprtranscf').value = `${donitcf1[key].date_progr}`;
-                                                                    document.querySelector('#tarifattribcf').value = `${donitcf1[key].typetarif}`;
-                                                                    document.querySelector('#deplignetranscf').value = `${donitcf1[key].gareidentif}`;
-                                                                    document.querySelector('#intertranscf1').value = `${donitcf1[key].intervalle1}`;
-                                                                    document.querySelector('#intertranscf2').value = `${donitcf1[key].intervalle2}`;
-                                                                    document.querySelector('#ligntranscf').value = `${donitcf1[key].ident_ligne}`;
-                                                                    document.querySelector('#nomitintranscf').value = `${donitcf1[key].nom_ligne}`;
-                                                                    document.querySelector('#hertranscf').value = `${donitcf1[key].heure}`;
-                                                                    document.querySelector('#catetranscf').value = `${donitcf1[key].categori}`;
-
-                                                                }
-                                                            } 
-                                                            
-                                                            const httpPrixitcf = new XMLHttpRequest();
-                                                            const seleitinecf = document.querySelector('#heured')
-                                                            .options[document.querySelector('#heured').options.selectedIndex].value;
-
-                                                            var post_lhitinecf = seleitinecf.split('/');
-                                                            var selitinecf = post_lhitinecf[0];
-                                                            var lhselitinecf = post_lhitinecf[1];
-                                                                    var tfbscf1 = document.querySelector('#tarifattribcf').value;
-                                                            httpPrixitcf.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifpriprg/${selitinecf}/${tfbscf1}`, true);
-                                                            httpPrixitcf.onload = () => 
-                                                            {
-                                                                const donprixitcf = JSON.parse(httpPrixitcf.responseText);
-                                                                console.debug(`${typeof donprixitcf}-${donprixitcf.attributes}`, console.memory);
-                                                                if (Object.entries(donprixitcf).length >= 1) {
-                                                                    for (let key in Object.entries(donprixitcf)) 
-                                                                    {
-                                                                        document.querySelector('#prix_axetranscf').value = `${donprixitcf[key].prix}`;
-            
-                                                                    }
-                                                                }
-                                                            };
-                                                            httpPrixitcf.setRequestHeader('Content-Type', 'application/json');
-                                                            httpPrixitcf.send();
-
-                                                            
-
-                                                            const httpRequetteitcf = new XMLHttpRequest();
-                                                            const cdprogitcf = document.querySelector('#programtranscf').value;
-                                                            const dbitcf = document.querySelector('#intertranscf1').value;
-                                                            const fnitcf = document.querySelector('#intertranscf2').value;
-                                                            const lgitcf = document.querySelector('#nomitintranscf').value;
-                                                            const timitcf = document.querySelector('#hertranscf').value;
-                                                            const dpt_dateitinecf = document.querySelector('#actuel').value;
-                                                            const dpt_dateitinecef = document.querySelector('#dateprtranscf').value;
-                                                                httpRequetteitcf.open('GET', window.location.origin + `${APP_ROOT}/programmes/siegdisponible/${cdprogitcf}/${dpt_dateitinecef}/${lgitcf}/${timitcf}/${dbitcf}/${fnitcf}`, true);
-                                                            httpRequetteitcf.onload = () => {
-                                                                const dattaitcf = JSON.parse(httpRequetteitcf.responseText);
-                                                                console.debug(`${typeof dattaitcf} - ${dattaitcf.attributes}`, console.memory);
-                                                                if (Object.entries(dattaitcf).length >= 1) {
-                                                                    for (let key in Object.entries(dattaitcf)) {
-                                                                        
-                                                                        let opt = document.createElement('option');
-                                                                        opt.value = `${dattaitcf[key].siege_num}`;
-                                                                        opt.innerHTML = `${dattaitcf[key].siege_num}`;
-                                                                        document.querySelector('#depsieg').add(opt);
-                                                                        
-                                                                    }
-                                                                    
-                                                                } else {
-                                                                    document.querySelector('#depsieg').options.length = 1;
-                                                                }
-                                                            };
-                                                            httpRequetteitcf.setRequestHeader('Content-Type', 'application/json');
-                                                            httpRequetteitcf.send();
-
-                                                        }  
-                                                        
-                                                };
-                                                httpRequestitcf1.setRequestHeader('Content-Type', 'application/json');
-                                                httpRequestitcf1.send();
-                                                 
+                                            hrdepartinecf1.onchange = () => {
+                                                __confOnHeureTransit1Change(seltypgarecf1);
                                             };
-                                            
+                                            __confLoadHeuresJambe1AndTrigger((document.querySelector('#itinecodecf') && document.querySelector('#itinecodecf').value) || '', document.querySelector('#actuel').value, seltypgarecf1);
                                     
                                         }
                                         let progsiegestranscf = document.querySelector('#depsieg');
@@ -1952,24 +1908,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                                                 const gareidentiftranscf1 = document.querySelector('#deplignetranscf').value;
                                                     const httpsousgarecf = new XMLHttpRequest();
-                                                    httpsousgarecf.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifsousgares/${gareidentiftranscf1}`, true);
-                                                    httpsousgarecf.onload = () => 
-                                                    {
-                                                        const donsousgcf = JSON.parse(httpsousgarecf.responseText);
-                                                        console.debug(`${typeof donsousgcf}-${donsousgcf.attributes}`, console.memory);
-                                                        if (Object.entries(donsousgcf).length >= 1) {
-                                                            for (let key in Object.entries(donsousgcf)) 
-                                                            {
-                                                                let opt = document.createElement('option');
-                                                                opt.value = `${donsousgcf[key].idsousgare}`;
-                                                                opt.innerHTML = `${donsousgcf[key].nomsousgare}`;
-                                                                document.querySelector('#transitedepargarecf1').add(opt);
-    
-                                                            }
-                                                        }
-                                                    };
-                                                httpsousgarecf.setRequestHeader('Content-Type', 'application/json');
-                                                httpsousgarecf.send();
+                                                    __confFillTransitDepart('#transitedepargarecf1', gareidentiftranscf1);
                                                 let httpSiegestranscf1;
                                                 httpSiegestranscf1 = new XMLHttpRequest();
                                                 const sigstranscf = document.querySelector('#depsieg')
@@ -2620,33 +2559,40 @@ document.addEventListener('DOMContentLoaded', () => {
                                         
                                 }
                             }
-                        };
-                        httpRequestitinecf.setRequestHeader('Content-Type', 'application/json');
-                        httpRequestitinecf.send();
-                    }
-                    else
-                    {
-                        if (Object.entries(data2).length >= 1) {
-                            for (let key in Object.entries(data2)) {
-                                let opt = document.createElement('option');
-                                opt.value = `${data2[key].code_progr}/${data2[key].typetarif}/${data2[key].id_ligneheure}`;
-                                opt.innerHTML = `${data2[key].heure}/${data2[key].date_progr}`;
-                                document.querySelector('#heured').add(opt);
-                                
-                            }
-                        }else
-                        {
-                            document.querySelector('#heured').options.length = 1;
-                        }
+
+                        }; // fin __confApplyTransitLegs
+
+                    // Ne pas ouvrir le transit au changement d'axe — seulement au choix d'une heure sans départ.
 
                         let heurdeprt = document.querySelector('#heured');
                         if (heurdeprt !== null)
                             heurdeprt.onchange = () => {
                                 
                                 document.querySelector('#depsieg').options.length = 1;
+                                const hOptCf = document.querySelector('#heured').options[document.querySelector('#heured').options.selectedIndex];
+                                const selectorp = hOptCf ? hOptCf.value : '';
+                                const hasProgHourCf = hOptCf && hOptCf.getAttribute('data-has-programme') === '1';
+
+                                // Heure sans départ → correspondances (modèle vente guichet).
+                                if (selectorp && !hasProgHourCf) {
+                                    var messElCf = document.querySelector('#messconf');
+                                    var errElCf = document.querySelector('#erreurMessconf');
+                                    if (window.__confHasTransit) {
+                                        if (messElCf) messElCf.style.display = 'block';
+                                        if (errElCf) errElCf.innerHTML = 'Pas de départ à cette heure — correspondances proposées.';
+                                        __confRequestTransitLegs(heureaxep, dateactuel, __confDepSousGare(), true);
+                                    } else {
+                                        __confShowDirectHourUi();
+                                        if (messElCf) messElCf.style.display = 'block';
+                                        if (errElCf) errElCf.innerHTML = 'Aucun départ ni correspondance pour cette heure.';
+                                    }
+                                    return;
+                                }
+
+                                // Heure avec départ : flux confirm direct (siegdispo) inchangé.
+                                __confShowDirectHourUi();
+                                if (document.querySelector('#messconf')) document.querySelector('#messconf').style.display = 'none';
                                 const Requeste = new XMLHttpRequest();
-                                const selectorp = document.querySelector('#heured').options[document.querySelector('#heured').
-                                options.selectedIndex].value;
                                 var selectorp1 = selectorp.split('/');
                                 var selectorp2 = selectorp1[0];
                                 var selectorp3 = selectorp1[1];
@@ -2693,7 +2639,6 @@ document.addEventListener('DOMContentLoaded', () => {
                                 Requeste.setRequestHeader('Content-Type', 'application/json');
                                 Requeste.send();
                             };
-                    }
                 };
                 Requests.setRequestHeader('Content-Type', 'application/json');
                 Requests.send();
@@ -3359,6 +3304,9 @@ document.addEventListener('DOMContentLoaded', () => {
                             var el = document.getElementById(map[m][0]);
                             if (el) el.value = map[m][1] != null ? String(map[m][1]) : '';
                         }
+                        if (cfg.depGare && meta[key].gareidentif) {
+                            __venteFiFillTransitDepart('#' + cfg.depGare, meta[key].gareidentif);
+                        }
                     }
                 }
             } catch (e) {}
@@ -3440,6 +3388,147 @@ document.addEventListener('DOMContentLoaded', () => {
         heur.onchange = function () { __venteFiOnCheminHeurChange(legKey); };
     }
 
+    /** Remplit un select départ correspondance FI (sans option vide sélectionnée). */
+    function __venteFiFillTransitDepart(selectSel, gareIdentif) {
+        var sel = document.querySelector(selectSel);
+        if (!sel) return;
+        // length=1 sur un select vide crée une option blanche qui reste sélectionnée
+        // et fait échouer la vente (transitedepargare*fid posté vide).
+        sel.options.length = 0;
+        if (gareIdentif == null || gareIdentif === '') return;
+        var http = new XMLHttpRequest();
+        http.open(
+            'GET',
+            window.location.origin + `${APP_ROOT}/programmes/verifsousgares/` + encodeURIComponent(gareIdentif),
+            true
+        );
+        http.onload = function () {
+            var rows = null;
+            try { rows = JSON.parse(http.responseText); } catch (e) { rows = null; }
+            sel.options.length = 0;
+            if (!rows || Object.entries(rows).length < 1) return;
+            for (var key in Object.entries(rows)) {
+                var opt = document.createElement('option');
+                opt.value = `${rows[key].idsousgare}`;
+                opt.innerHTML = `${rows[key].nomsousgare}`;
+                sel.add(opt);
+            }
+            if (sel.options.length > 0) sel.selectedIndex = 0;
+        };
+        http.setRequestHeader('Content-Type', 'application/json');
+        http.send();
+    }
+
+    function __venteFiResetMainEscaleUi() {
+        var ck = document.querySelector('#escale_vente_check_fid');
+        if (ck) ck.checked = false;
+        ['#id_escale_ventefid', '#code_gadest_ventefid', '#nom_dest_ventefid'].forEach(function (s) {
+            var el = document.querySelector(s);
+            if (el) el.value = '';
+        });
+        var fields = document.querySelector('#escale_dest_fields_fid');
+        if (fields) fields.style.display = 'none';
+        var sel = document.querySelector('#escale_dest_select_fid');
+        if (sel) sel.value = '';
+    }
+
+    function __venteFiSetMainEscaleVisible(visible) {
+        var wrap = document.querySelector('#escale_dest_wrap_fid');
+        if (!wrap) return;
+        if (!visible) {
+            __venteFiResetMainEscaleUi();
+            wrap.style.display = 'none';
+        } else {
+            wrap.style.display = '';
+        }
+    }
+    window.__venteFiSetMainEscaleVisible = __venteFiSetMainEscaleVisible;
+
+    window.__venteFiHasTransit = false;
+    window.__venteFiLastHeuresVente = [];
+    window.__venteFiApplyTransitLegs = null;
+
+    function __venteFiFillHeuresVente(heures) {
+        var hSel = document.querySelector('#hdepartfid');
+        if (!hSel) return;
+        hSel.options.length = 1;
+        var list = Array.isArray(heures) ? heures : [];
+        for (var i = 0; i < list.length; i++) {
+            var hr = list[i];
+            if (!hr || hr.id_ligneheure == null || hr.id_ligneheure === '') continue;
+            var opt = document.createElement('option');
+            opt.value = hr.id_ligneheure + '/' + hr.heure;
+            var hasProg = !!(hr.has_programme === true || hr.has_programme === 1 || hr.has_programme === '1');
+            opt.setAttribute('data-has-programme', hasProg ? '1' : '0');
+            opt.innerHTML = hr.heure;
+            hSel.add(opt);
+        }
+    }
+
+    /** Affiche l'UI heures/siège directe FI ; cache le panneau transit. Champs FI (P/O…) inchangés. */
+    function __venteFiShowDirectHourUi() {
+        var hideIds = [
+            'depitin1fid','depargareitine1fid','iddeptrans1fid','transitedepargare1fid',
+            'iddeptrans2fid','transitedepargare2fid','iddeptrans3fid','transitedepargare3fid',
+            'iddeptrans4fid','transitedepargare4fid','arritin1fid','arrsgareitine1fid',
+            'heureitin1fid','hdepartitine1fid','lignesitinerairefid','ligne1fid',
+            'siegitine1fid','psiegesitines1fid','depitin2fid','depargareitine2fid',
+            'arritin2fid','arrsgareitine2fid','heureitin2fid','hdepartitine2fid',
+            'siegitine2fid','psiegesitines2fid','depitin3fid','depargareitine3fid',
+            'arritin3fid','arrsgareitine3fid','heureitin3fid','hdepartitine3fid',
+            'siegitine3fid','psiegesitines3fid','quartier1fid','quartier2fid','quartier3fid',
+            'idquart1fid','idquart2fid','idquart3fid','prix_axetransfid','prix_axetransfid1',
+            'prix_axetransitfid1','prix_axetransitfid','prix_axetransit1fid1','prix_axetransit1fid',
+            'prix_axetransit2fid1','prix_axetransit2fid','heureitinfid','hdepartitinefid',
+            'siegitinefid','psiegesitinesfid','idcheminsfid','idcheminsheurfid',
+            'idchemins1fid','idcheminsheur1fid','idchemins2fid','idcheminsheur2fid'
+        ];
+        for (var i = 0; i < hideIds.length; i++) {
+            var el = document.getElementById(hideIds[i]);
+            if (el) el.style.display = 'none';
+        }
+        var tran = document.querySelector('#tranfid');
+        if (tran) tran.style.display = 'none';
+        if (typeof __venteFiSetMainEscaleVisible === 'function') __venteFiSetMainEscaleVisible(true);
+        ['hridfid','hdepartfid','sigidfid','psiegesfid','iddepfid','depargarefid',
+         'arridfid','arrsgarefid','prix_axefid1','prix_axefid','idquartfid','quartierfid'].forEach(function (id) {
+            var el = document.getElementById(id);
+            if (el) el.style.display = 'block';
+        });
+        __venteFiHideProgSelect();
+        __venteFiHideProgSelectAny('selprog_box_tr1fid', 'selprog_tr1fid');
+        __venteFiHideProgSelectAny('selprog_box_tr2fid', 'selprog_tr2fid');
+        __venteFiHideProgSelectAny('selprog_box_tr3fid', 'selprog_tr3fid');
+        __venteFiHideProgSelectAny('selprog_box_tr4fid', 'selprog_tr4fid');
+    }
+
+    function __venteFiRequestTransitLegs(seltdep, arr, datedepart, sougid, force, onDone) {
+        var sg = (sougid != null && sougid !== '') ? sougid : '0';
+        var forceFlag = force ? '1' : '0';
+        var httpRequestitinefi = new XMLHttpRequest();
+        httpRequestitinefi.open(
+            'GET',
+            window.location.origin + `${APP_ROOT}/programmes/verifitine/`
+                + encodeURIComponent(seltdep + '-' + arr) + '/'
+                + encodeURIComponent(datedepart) + '/'
+                + encodeURIComponent(sg) + '/'
+                + forceFlag,
+            true
+        );
+        httpRequestitinefi.onload = function () {
+            var donitinesfi = null;
+            try { donitinesfi = JSON.parse(httpRequestitinefi.responseText); } catch (e) { donitinesfi = null; }
+            if (typeof onDone === 'function') {
+                onDone(donitinesfi);
+            } else if (typeof window.__venteFiApplyTransitLegs === 'function') {
+                window.__venteFiApplyTransitLegs(donitinesfi);
+            }
+        };
+        httpRequestitinefi.setRequestHeader('Content-Type', 'application/json');
+        httpRequestitinefi.send();
+    }
+
+
     function __venteFiApplyTransit1Fields(p) {
         if (!p) return;
         var set = function (id, val) {
@@ -3447,6 +3536,9 @@ document.addEventListener('DOMContentLoaded', () => {
             if (el) el.value = val == null ? '' : String(val);
         };
         set('#programtransfid', p.code_progr);
+        // Défaut tarif 1 si absent — sinon verifpriprg / prixtransfid ne partent jamais.
+        var tf = (p.typetarif != null && String(p.typetarif).trim() !== '') ? p.typetarif : '1';
+        set('#tarifattribfid', tf);
         set('#dateprtransfid', p.date_progr);
         set('#deplignetransfid', p.gareidentif);
         set('#intertrans1fid', p.intervalle1);
@@ -3455,11 +3547,34 @@ document.addEventListener('DOMContentLoaded', () => {
         set('#nomitintransfid', p.nom_ligne);
         set('#hertransfid', p.heure);
         set('#catetransfid', p.categori);
+        if (p.prix != null && String(p.prix).trim() !== '') {
+            set('#prix_axetransfid', p.prix);
+        }
     }
 
     function __venteFiLoadSiegesTransit1(idLh, dptDate) {
         var ps = document.querySelector('#psiegesitinesfid');
         if (ps) ps.options.length = 1;
+        var tfEl = document.querySelector('#tarifattribfid');
+        var tfbs = tfEl && String(tfEl.value || '').trim() !== '' ? String(tfEl.value).trim() : '1';
+        if (tfEl && String(tfEl.value || '').trim() === '') tfEl.value = tfbs;
+        if (idLh) {
+            var httpPrix = new XMLHttpRequest();
+            httpPrix.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifpriprg/${idLh}/${tfbs}`, true);
+            httpPrix.onload = function () {
+                try {
+                    var donprix = JSON.parse(httpPrix.responseText);
+                    if (Object.entries(donprix).length >= 1) {
+                        for (var key in Object.entries(donprix)) {
+                            var px = document.querySelector('#prix_axetransfid');
+                            if (px) px.value = `${donprix[key].prix}`;
+                        }
+                    }
+                } catch (e) {}
+            };
+            httpPrix.setRequestHeader('Content-Type', 'application/json');
+            httpPrix.send();
+        }
         var cd = document.querySelector('#programtransfid') ? document.querySelector('#programtransfid').value : '';
         var db = document.querySelector('#intertrans1fid') ? document.querySelector('#intertrans1fid').value : '';
         var fn = document.querySelector('#intertrans2fid') ? document.querySelector('#intertrans2fid').value : '';
@@ -3544,10 +3659,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 document.querySelector('#hdepartitinefid').options.length = 1;
                 document.querySelector('#psiegesitinesfid').options.length = 1;
                 document.querySelector('#idcheminsheurfid').options.length = 1;
-                document.querySelector('#transitedepargare1fid').options.length = 1;
-                document.querySelector('#transitedepargare2fid').options.length = 1;
-                document.querySelector('#transitedepargare3fid').options.length = 1;
-                document.querySelector('#transitedepargare4fid').options.length = 1;
+                document.querySelector('#transitedepargare1fid').options.length = 0;
+                document.querySelector('#transitedepargare2fid').options.length = 0;
+                document.querySelector('#transitedepargare3fid').options.length = 0;
+                document.querySelector('#transitedepargare4fid').options.length = 0;
                 document.querySelector('#idcheminsfid').options.length = 1;
                 document.querySelector('#idchemins1fid').options.length = 1;
                 document.querySelector('#idchemins2fid').options.length = 1;
@@ -3601,10 +3716,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     document.querySelector('#psiegesitinesfid').options.length = 1;
                     document.querySelector('#idcheminsheurfid').options.length = 1;
                     //document.querySelector('#lignesitinerairefid').value = '';
-                    document.querySelector('#transitedepargare1fid').options.length = 1;
-                    document.querySelector('#transitedepargare2fid').options.length = 1;
-                    document.querySelector('#transitedepargare3fid').options.length = 1;
-                    document.querySelector('#transitedepargare4fid').options.length = 1;
+                    document.querySelector('#transitedepargare1fid').options.length = 0;
+                    document.querySelector('#transitedepargare2fid').options.length = 0;
+                    document.querySelector('#transitedepargare3fid').options.length = 0;
+                    document.querySelector('#transitedepargare4fid').options.length = 0;
                     document.querySelector('#idcheminsfid').options.length = 1;
                     document.querySelector('#idchemins1fid').options.length = 1;
                     document.querySelector('#idchemins2fid').options.length = 1;
@@ -3643,23 +3758,19 @@ document.addEventListener('DOMContentLoaded', () => {
                                 var payloadHvFi = {};
                                 try { payloadHvFi = JSON.parse(httpRequetesfi.responseText) || {}; } catch (eHvFi) { payloadHvFi = {}; }
                                 var heuresHvFi = Array.isArray(payloadHvFi.heures) ? payloadHvFi.heures : [];
-                                // Heures avec départ visible pour cette sous-gare uniquement.
-                                var dataAxefi = heuresHvFi.filter(function (hr) {
-                                    return hr && (hr.has_programme === true || hr.has_programme === 1 || hr.has_programme === '1');
-                                });
-                                
-                                    if (dataAxefi.length === 0) {
-                                        
-                                        document.querySelector('#smsdtfid').style.display = 'none';
-                                        document.querySelector('#date_depheurefid').style.color = "black";
-                                        document.querySelector('#date_depheurefid').style.border = "1px solid";
-                                        //on verifit pour voir si elle n'a pas d'itineraire
-                                        let httpRequestitinefi;
-                                        httpRequestitinefi = new XMLHttpRequest();
-                                        httpRequestitinefi.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifitine/${seltdepfi}-${arrfi}`, true);
-                                        httpRequestitinefi.onload = () => {
-                                                const donitinesfi = JSON.parse(httpRequestitinefi.responseText);
-                                                    if(donitinesfi === null)
+                                window.__venteFiHasTransit = !!payloadHvFi.has_transit;
+                                window.__venteFiLastHeuresVente = heuresHvFi;
+
+                                document.querySelector('#smsdtfid').style.display = 'none';
+                                document.querySelector('#date_depheurefid').style.color = "black";
+                                document.querySelector('#date_depheurefid').style.border = "1px solid";
+
+                                // Aligné guichet : lister les heures à la date ; transit seulement au choix d'une heure sans départ.
+                                __venteFiShowDirectHourUi();
+                                __venteFiFillHeuresVente(heuresHvFi);
+
+                                window.__venteFiApplyTransitLegs = function (donitinesfi) {
+                                                    if(donitinesfi === null || donitinesfi === '' || (typeof donitinesfi === 'object' && !Object.keys(donitinesfi).length))
                                                     {
                                                         document.querySelector('#depitin1fid').style.display = 'none';
                                                         document.querySelector('#depargareitine1fid').style.display = 'none';
@@ -3712,7 +3823,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                                         document.querySelector('#prix_axetransit1fid').style.display = 'none';
                                                         document.querySelector('#prix_axetransit2fid1').style.display = 'none';
                                                         document.querySelector('#prix_axetransit2fid').style.display = 'none';
-                                                        document.querySelector('#tranfid').style.display = 'none';
+                                                        document.querySelector('#tranfid').style.display = 'none'; if (typeof __venteFiSetMainEscaleVisible === 'function') __venteFiSetMainEscaleVisible(true);
                                                         document.querySelector('#heureitinfid').style.display = 'none';
                                                         document.querySelector('#hdepartitinefid').style.display = 'none';
                                                         document.querySelector('#siegitinefid').style.display = 'none';
@@ -3833,7 +3944,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                                                 
 
                                                                 }
-                                                                document.querySelector('#tranfid').style.display = 'block';
+                                                                document.querySelector('#tranfid').style.display = 'block'; if (typeof __venteFiSetMainEscaleVisible === 'function') __venteFiSetMainEscaleVisible(false);
                                                                 document.querySelector('#heureitinfid').style.display = 'block';
                                                                 document.querySelector('#hdepartitinefid').style.display = 'block';
                                                                 document.querySelector('#lignesitinerairefid').style.display = 'block';
@@ -3935,25 +4046,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                                                 if (hrdepartinefi !== null) {
                                                                     hrdepartinefi.onchange = () => 
                                                                     {
-                                                                        const httpsousgarefi = new XMLHttpRequest();
-                                                                        httpsousgarefi.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifsousgares/${seltypgare1fi}`, true);
-                                                                        httpsousgarefi.onload = () => 
-                                                                        {
-                                                                            const donsousgfi = JSON.parse(httpsousgarefi.responseText);
-                                                                            console.debug(`${typeof donsousgfi}-${donsousgfi.attributes}`, console.memory);
-                                                                            if (Object.entries(donsousgfi).length >= 1) {
-                                                                                for (let key in Object.entries(donsousgfi)) 
-                                                                                {
-                                                                                    let opt = document.createElement('option');
-                                                                                    opt.value = `${donsousgfi[key].idsousgare}`;
-                                                                                    opt.innerHTML = `${donsousgfi[key].nomsousgare}`;
-                                                                                    document.querySelector('#transitedepargare1fid').add(opt);
-                        
-                                                                                }
-                                                                            }
-                                                                        };
-                                                                        httpsousgarefi.setRequestHeader('Content-Type', 'application/json');
-                                                                        httpsousgarefi.send();
+                                                                        __venteFiFillTransitDepart('#transitedepargare1fid', seltypgare1fi);
 
                                                                         document.querySelector('#psiegesitinesfid').options.length = 1;
                                                                         const httpRequestitfi = new XMLHttpRequest();
@@ -4005,7 +4098,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                                                                     var selitinefi = post_lhitinefi[0];
                                                                                     var lhselitinefi = post_lhitinefi[1];
                                                                                     /*const httpPrixitfi = new XMLHttpRequest();
-                                                                                    httpPrixitfi.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifpriprg/${selitinefi}`, true);
+                                                                                    httpPrixitfi.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifpriprg/${selitinefi}/${(document.querySelector('#tarifattribfid') && document.querySelector('#tarifattribfid').value) || '1'}`, true);
                                                                                     httpPrixitfi.onload = () => 
                                                                                     {
 
@@ -4068,25 +4161,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                                                     {
 
                                                                         gareidentiftransfi = document.querySelector('#deplignetransfid').value;
-                                                                            const httpsousgarefi = new XMLHttpRequest();
-                                                                            httpsousgarefi.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifsousgares/${gareidentiftransfi}`, true);
-                                                                            httpsousgarefi.onload = () => 
-                                                                            {
-                                                                                const donsousgfi = JSON.parse(httpsousgarefi.responseText);
-                                                                                console.debug(`${typeof donsousgfi}-${donsousgfi.attributes}`, console.memory);
-                                                                                if (Object.entries(donsousgfi).length >= 1) {
-                                                                                    for (let key in Object.entries(donsousgfi)) 
-                                                                                    {
-                                                                                        let opt = document.createElement('option');
-                                                                                        opt.value = `${donsousgfi[key].idsousgare}`;
-                                                                                        opt.innerHTML = `${donsousgfi[key].nomsousgare}`;
-                                                                                        document.querySelector('#transitedepargare1fid').add(opt);
-                            
-                                                                                    }
-                                                                                }
-                                                                            };
-                                                                            httpsousgarefi.setRequestHeader('Content-Type', 'application/json');
-                                                                            httpsousgarefi.send();
+                                                                            __venteFiFillTransitDepart('#transitedepargare1fid', gareidentiftransfi);
                                                                         let httpSiegestransfi;
                                                                         httpSiegestransfi = new XMLHttpRequest();
                                                                         const sigstransfi = document.querySelector('#psiegesitinesfid')
@@ -4244,25 +4319,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                                                                 var itinetras1fi = post_trans1fi[0];
                                                                                 
                                                                                 gareidentiftrans2fi = document.querySelector('#gidtransfid').value;
-                                                                                const httpsousgare1fi = new XMLHttpRequest();
-                                                                                httpsousgare1fi.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifsousgares/${gareidentiftrans2fi}`, true);
-                                                                                httpsousgare1fi.onload = () => 
-                                                                                {
-                                                                                    const donsousg1fi = JSON.parse(httpsousgare1fi.responseText);
-                                                                                    console.debug(`${typeof donsousg1fi}-${donsousg1fi.attributes}`, console.memory);
-                                                                                    if (Object.entries(donsousg1fi).length >= 1) {
-                                                                                        for (let key in Object.entries(donsousg1fi)) 
-                                                                                        {
-                                                                                            let opt = document.createElement('option');
-                                                                                            opt.value = `${donsousg1fi[key].idsousgare}`;
-                                                                                            opt.innerHTML = `${donsousg1fi[key].nomsousgare}`;
-                                                                                            document.querySelector('#transitedepargare2fid').add(opt);
-                                
-                                                                                        }
-                                                                                    }
-                                                                                };
-                                                                                httpsousgare1fi.setRequestHeader('Content-Type', 'application/json');
-                                                                                httpsousgare1fi.send();
+                                                                                __venteFiFillTransitDepart('#transitedepargare2fid', gareidentiftrans2fi);
                                                                               
                                                                                 let httpSieges1fi;
                                                                                 httpSieges1fi = new XMLHttpRequest();
@@ -4500,25 +4557,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                                                     {
 
                                                                         const gareidentiftrans1fi = document.querySelector('#deplignetransfid').value;
-                                                                        const httpsousgarefi = new XMLHttpRequest();
-                                                                        httpsousgarefi.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifsousgares/${gareidentiftrans1fi}`, true);
-                                                                        httpsousgarefi.onload = () => 
-                                                                        {
-                                                                            const donsousgfi = JSON.parse(httpsousgarefi.responseText);
-                                                                            console.debug(`${typeof donsousgfi}-${donsousgfi.attributes}`, console.memory);
-                                                                            if (Object.entries(donsousgfi).length >= 1) {
-                                                                                for (let key in Object.entries(donsousgfi)) 
-                                                                                {
-                                                                                    let opt = document.createElement('option');
-                                                                                    opt.value = `${donsousgfi[key].idsousgare}`;
-                                                                                    opt.innerHTML = `${donsousgfi[key].nomsousgare}`;
-                                                                                    document.querySelector('#transitedepargare1fid').add(opt);
-                        
-                                                                                }
-                                                                            }
-                                                                        };
-                                                                        httpsousgarefi.setRequestHeader('Content-Type', 'application/json');
-                                                                        httpsousgarefi.send();
+                                                                        __venteFiFillTransitDepart('#transitedepargare1fid', gareidentiftrans1fi);
                                                                         let httpSiegestrans1fi;
                                                                         httpSiegestrans1fi = new XMLHttpRequest();
                                                                         const sigstransfi = document.querySelector('#psiegesitinesfid')
@@ -4699,25 +4738,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                                                             {
 
                                                                               const  gareidentiftrans2fi = document.querySelector('#gidtransfid').value;
-                                                                                    const httpsousgare1fi = new XMLHttpRequest();
-                                                                                    httpsousgare1fi.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifsousgares/${gareidentiftrans2fi}`, true);
-                                                                                    httpsousgare1fi.onload = () => 
-                                                                                    {
-                                                                                        const donsousg1fi = JSON.parse(httpsousgare1fi.responseText);
-                                                                                        console.debug(`${typeof donsousg1fi}-${donsousg1fi.attributes}`, console.memory);
-                                                                                        if (Object.entries(donsousg1fi).length >= 1) {
-                                                                                            for (let key in Object.entries(donsousg1fi)) 
-                                                                                            {
-                                                                                                let opt = document.createElement('option');
-                                                                                                opt.value = `${donsousg1fi[key].idsousgare}`;
-                                                                                                opt.innerHTML = `${donsousg1fi[key].nomsousgare}`;
-                                                                                                document.querySelector('#transitedepargare2fid').add(opt);
-                                    
-                                                                                            }
-                                                                                        }
-                                                                                    };
-                                                                                    httpsousgare1fi.setRequestHeader('Content-Type', 'application/json');
-                                                                                    httpsousgare1fi.send();
+                                                                                    __venteFiFillTransitDepart('#transitedepargare2fid', gareidentiftrans2fi);
                                                                                  const transselitine1fi = document.querySelector('#idcheminsheurfid')
                                                                                 .options[document.querySelector('#idcheminsheurfid').options.selectedIndex].value;
                                                                                 var post_trans1fi = transselitine1fi.split('/');
@@ -4880,24 +4901,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                                                                 var itinetras2fi = post_trans2fi[0];
                                                                                     
                                                                                     const gareidentiftrans4fi = document.querySelector('#gidtrans1fid').value;
-                                                                                    const httpsousgare4fi = new XMLHttpRequest();
-                                                                                    httpsousgare4fi.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifsousgares/${gareidentiftrans4fi}`, true);
-                                                                                    httpsousgare4fi.onload = () => 
-                                                                                    {
-                                                                                        const donsousg4fi = JSON.parse(httpsousgare4fi.responseText);
-                                                                                        if (Object.entries(donsousg4fi).length >= 1) {
-                                                                                            for (let key in Object.entries(donsousg4fi)) 
-                                                                                            {
-                                                                                                let opt = document.createElement('option');
-                                                                                                opt.value = `${donsousg4fi[key].idsousgare}`;
-                                                                                                opt.innerHTML = `${donsousg4fi[key].nomsousgare}`;
-                                                                                                document.querySelector('#transitedepargare3fid').add(opt);
-                                    
-                                                                                            }
-                                                                                        }
-                                                                                    };
-                                                                                    httpsousgare4fi.setRequestHeader('Content-Type', 'application/json');
-                                                                                    httpsousgare4fi.send();
+                                                                                    __venteFiFillTransitDepart('#transitedepargare3fid', gareidentiftrans4fi);
 
                                                                                 let httpSieges2fi;
                                                                                 httpSieges2fi = new XMLHttpRequest();
@@ -5141,25 +5145,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                                                     {
 
                                                                        const gareidentiftrans1fi = document.querySelector('#deplignetransfid').value;
-                                                                                    const httpsousgarefi = new XMLHttpRequest();
-                                                                                    httpsousgarefi.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifsousgares/${gareidentiftrans1fi}`, true);
-                                                                                    httpsousgarefi.onload = () => 
-                                                                                    {
-                                                                                        const donsousgfi = JSON.parse(httpsousgarefi.responseText);
-                                                                                        console.debug(`${typeof donsousgfi}-${donsousgfi.attributes}`, console.memory);
-                                                                                        if (Object.entries(donsousgfi).length >= 1) {
-                                                                                            for (let key in Object.entries(donsousgfi)) 
-                                                                                            {
-                                                                                                let opt = document.createElement('option');
-                                                                                                opt.value = `${donsousgfi[key].idsousgare}`;
-                                                                                                opt.innerHTML = `${donsousgfi[key].nomsousgare}`;
-                                                                                                document.querySelector('#transitedepargare1fid').add(opt);
-                                    
-                                                                                            }
-                                                                                        }
-                                                                                    };
-                                                                                    httpsousgarefi.setRequestHeader('Content-Type', 'application/json');
-                                                                                    httpsousgarefi.send();
+                                                                                    __venteFiFillTransitDepart('#transitedepargare1fid', gareidentiftrans1fi);
                                                                         let httpSiegestrans1fi;
                                                                         httpSiegestrans1fi = new XMLHttpRequest();
                                                                         const sigstransfi = document.querySelector('#psiegesitinesfid')
@@ -5340,25 +5326,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                                                             {
 
                                                                                const gareidentiftrans2fi = document.querySelector('#gidtransfid').value;
-                                                                                    const httpsousgare1fi = new XMLHttpRequest();
-                                                                                    httpsousgare1fi.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifsousgares/${gareidentiftrans2fi}`, true);
-                                                                                    httpsousgare1fi.onload = () => 
-                                                                                    {
-                                                                                        const donsousg1fi = JSON.parse(httpsousgare1fi.responseText);
-                                                                                        console.debug(`${typeof donsousg1fi}-${donsousg1fi.attributes}`, console.memory);
-                                                                                        if (Object.entries(donsousg1fi).length >= 1) {
-                                                                                            for (let key in Object.entries(donsousg1fi)) 
-                                                                                            {
-                                                                                                let opt = document.createElement('option');
-                                                                                                opt.value = `${donsousg1fi[key].idsousgare}`;
-                                                                                                opt.innerHTML = `${donsousg1fi[key].nomsousgare}`;
-                                                                                                document.querySelector('#transitedepargare2fid').add(opt);
-                                    
-                                                                                            }
-                                                                                        }
-                                                                                    };
-                                                                                    httpsousgare1fi.setRequestHeader('Content-Type', 'application/json');
-                                                                                    httpsousgare1fi.send();
+                                                                                    __venteFiFillTransitDepart('#transitedepargare2fid', gareidentiftrans2fi);
                                                                                 
 
                                                                                     const transselitine1fi = document.querySelector('#idcheminsheurfid')
@@ -5544,25 +5512,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                                                             {
 
                                                                                const gareidentiftrans4fi = document.querySelector('#gidtrans1fid').value;
-                                                                                const httpsousgare4fi = new XMLHttpRequest();
-                                                                                httpsousgare4fi.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifsousgares/${gareidentiftrans4fi}`, true);
-                                                                                httpsousgare4fi.onload = () => 
-                                                                                {
-                                                                                    const donsousg4fi = JSON.parse(httpsousgare4fi.responseText);
-                                                                                    console.debug(`${typeof donsousg4fi}-${donsousg4fi.attributes}`, console.memory);
-                                                                                    if (Object.entries(donsousg4fi).length >= 1) {
-                                                                                        for (let key in Object.entries(donsousg4fi)) 
-                                                                                        {
-                                                                                            let opt = document.createElement('option');
-                                                                                            opt.value = `${donsousg4fi[key].idsousgare}`;
-                                                                                            opt.innerHTML = `${donsousg4fi[key].nomsousgare}`;
-                                                                                            document.querySelector('#transitedepargare3fid').add(opt);
-                                
-                                                                                        }
-                                                                                    }
-                                                                                };
-                                                                                httpsousgare4fi.setRequestHeader('Content-Type', 'application/json');
-                                                                                httpsousgare4fi.send();
+                                                                                __venteFiFillTransitDepart('#transitedepargare3fid', gareidentiftrans4fi);
                                                                                     const transselitine2fi = document.querySelector('#idcheminsheur1fid')
                                                                                 .options[document.querySelector('#idcheminsheur1fid').options.selectedIndex].value;
                                                                                 var post_trans2fi = transselitine2fi.split('/');
@@ -5743,24 +5693,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                                                             {
 
                                                                                const gareidentiftrans5fi = document.querySelector('#gidtrans2fid').value;
-                                                                                const httpsousgare5fi = new XMLHttpRequest();
-                                                                                httpsousgare5fi.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifsousgares/${gareidentiftrans5fi}`, true);
-                                                                                httpsousgare5fi.onload = () => 
-                                                                                {
-                                                                                    const donsousg5fi = JSON.parse(httpsousgare5fi.responseText);
-                                                                                    if (Object.entries(donsousg5fi).length >= 1) {
-                                                                                        for (let key in Object.entries(donsousg5fi)) 
-                                                                                        {
-                                                                                            let opt = document.createElement('option');
-                                                                                            opt.value = `${donsousg5fi[key].idsousgare}`;
-                                                                                            opt.innerHTML = `${donsousg5fi[key].nomsousgare}`;
-                                                                                            document.querySelector('#transitedepargare4fid').add(opt);
-                                
-                                                                                        }
-                                                                                    }
-                                                                                };
-                                                                                httpsousgare5fi.setRequestHeader('Content-Type', 'application/json');
-                                                                                httpsousgare5fi.send();
+                                                                                __venteFiFillTransitDepart('#transitedepargare4fid', gareidentiftrans5fi);
                                                                                     const transselitine3fi = document.querySelector('#idcheminsheur2fid')
                                                                                 .options[document.querySelector('#idcheminsheur2fid').options.selectedIndex].value;
                                                                                 var post_trans3fi = transselitine3fi.split('/');
@@ -5819,29 +5752,10 @@ document.addEventListener('DOMContentLoaded', () => {
                                                                 
                                                         }
                                                     }
-                                        };
-                                        httpRequestitinefi.setRequestHeader('Content-Type', 'application/json');
-                                        httpRequestitinefi.send();
-                                    } 
-                                    else 
-                                    {       
-                                        
-                                        document.querySelector('#smsdtfid').style.display = 'none';
-                                        document.querySelector('#date_depheurefid').style.color = "black";
-                                        document.querySelector('#date_depheurefid').style.border = "1px solid";
-                                        document.querySelector('#hdepartfid').options.length = 1;
-                                        if (dataAxefi.length >= 1) {
-                                            for (var iHv = 0; iHv < dataAxefi.length; iHv++) {
-                                                var hrFi = dataAxefi[iHv];
-                                                if (!hrFi || hrFi.id_ligneheure == null || hrFi.id_ligneheure === '') continue;
-                                                var opt = document.createElement('option');
-                                                opt.value = hrFi.id_ligneheure + '/' + hrFi.heure;
-                                                opt.setAttribute('data-has-programme', '1');
-                                                opt.innerHTML = hrFi.heure;
-                                                document.querySelector('#hdepartfid').add(opt);
-                                            }
-                                        }
-                                    }
+
+                                        }; // fin __venteFiApplyTransitLegs
+
+                                // Ne pas ouvrir le transit au clic date.
 
                                         let hrdepartfi = document.querySelector('#hdepartfid');
                                         if (hrdepartfi !== null) {
@@ -5850,9 +5764,30 @@ document.addEventListener('DOMContentLoaded', () => {
                                                 document.querySelector('#psiegesfid').options.length = 1;
                                                 document.querySelector('#typegarefid').value = '';
                                                 __venteFiHideProgSelect();
+                                                const hOptFi = document.querySelector('#hdepartfid').options[document.querySelector('#hdepartfid').options.selectedIndex];
+                                                const selefi = hOptFi ? hOptFi.value : '';
+                                                const hasProgHourFi = hOptFi && hOptFi.getAttribute('data-has-programme') === '1';
+
+                                                // Heure sans départ → correspondances (comme vente guichet).
+                                                if (selefi && !hasProgHourFi) {
+                                                    var messElFi = document.querySelector('#messfid');
+                                                    var errElFi = document.querySelector('#erreurMessfid');
+                                                    if (window.__venteFiHasTransit) {
+                                                        if (messElFi) messElFi.style.display = 'block';
+                                                        if (errElFi) errElFi.innerHTML = 'Pas de départ à cette heure — correspondances proposées.';
+                                                        __venteFiRequestTransitLegs(seltdepfi, arrfi, datedepartfi, sougidfi, true);
+                                                    } else {
+                                                        __venteFiShowDirectHourUi();
+                                                        if (messElFi) messElFi.style.display = 'block';
+                                                        if (errElFi) errElFi.innerHTML = 'Aucun départ ni correspondance pour cette heure.';
+                                                    }
+                                                    return;
+                                                }
+
+                                                // Heure avec départ : vente directe FI (P/O et champs spécifiques conservés).
+                                                __venteFiShowDirectHourUi();
+                                                if (document.querySelector('#messfid')) document.querySelector('#messfid').style.display = 'none';
                                                 const httpRequestfi = new XMLHttpRequest();
-                                                const selefi = document.querySelector('#hdepartfid')
-                                                    .options[document.querySelector('#hdepartfid').options.selectedIndex].value;
 
                                                     var post_lhfi = selefi.split('/');
                                                     var selfi = post_lhfi[0];
@@ -6243,3 +6178,918 @@ document.addEventListener('DOMContentLoaded', () => {
     })
 
 });
+;
+/* --- vente-escale-itineraire.js --- */
+/**
+ * Vente guichet / fidélité sur escales (itineraire_escales).
+ * Case « Vente escale » : destination partielle ; pas de quartier (escales sans quartier).
+ * Supporte le formulaire guichet (ids standards) et le formulaire FI (*fid).
+ */
+(function () {
+    'use strict';
+
+    function formatPrix(val) {
+        var n = Number(val);
+        if (!val && val !== 0 && val !== '0') return '';
+        if (isNaN(n)) return String(val);
+        return n.toLocaleString('fr-FR');
+    }
+
+    function appRoot() {
+        return (typeof APP_ROOT !== 'undefined') ? APP_ROOT : '';
+    }
+
+    function $(sel) {
+        return document.querySelector(sel);
+    }
+
+    function codeFromSelect(selId) {
+        var el = $(selId);
+        if (!el || !el.value) {
+            return '';
+        }
+        return String(el.value).split('/')[0].trim();
+    }
+
+    function isPanelVisible(sel) {
+        var tran = $(sel);
+        if (!tran) return false;
+        var d = (tran.style && tran.style.display) || '';
+        if (d === 'none') return false;
+        if (d === 'block' || d === 'flex') return true;
+        return !!(tran.offsetParent || (tran.offsetWidth + tran.offsetHeight > 0));
+    }
+
+    var forms = [
+        {
+            key: 'guichet',
+            tran: '#tran',
+            check: '#escale_vente_check',
+            fields: '#escale_dest_fields',
+            select: '#escale_dest_select',
+            help: '#escale_dest_help',
+            idEsc: '#id_escale_vente',
+            codeEsc: '#code_gadest_vente',
+            nomEsc: '#nom_dest_vente',
+            prix: '#prix_axe',
+            prixAffiche: '#prix_axe_affiche',
+            depargare: '#depargare',
+            arrsgare: '#arrsgare',
+            lign: '#lign',
+            nomitin: '#nomitin',
+            date: '#date_depheure',
+            heure: '#hdepart',
+            quartier: '#quartier',
+            quartierLabel: '#idquart',
+            showQuartier: function () {
+                if (typeof window.__venteShowMainQuartier === 'function') {
+                    window.__venteShowMainQuartier();
+                    return;
+                }
+                setQuartierVisibleRaw(this, true);
+            },
+            hideQuartier: function () {
+                if (typeof window.__venteHideMainQuartier === 'function') {
+                    window.__venteHideMainQuartier();
+                    return;
+                }
+                setQuartierVisibleRaw(this, false);
+            }
+        },
+        {
+            key: 'fi',
+            tran: '#tranfid',
+            check: '#escale_vente_check_fid',
+            fields: '#escale_dest_fields_fid',
+            select: '#escale_dest_select_fid',
+            help: '#escale_dest_help_fid',
+            idEsc: '#id_escale_ventefid',
+            codeEsc: '#code_gadest_ventefid',
+            nomEsc: '#nom_dest_ventefid',
+            prix: '#prix_axefid',
+            prixAffiche: null,
+            depargare: '#depargarefid',
+            arrsgare: '#arrsgarefid',
+            lign: '#lignfid',
+            nomitin: '#nomitinfid',
+            date: '#date_depheurefid',
+            heure: '#hdepartfid',
+            quartier: '#quartierfid',
+            quartierLabel: '#idquartfid',
+            showQuartier: function () {
+                setQuartierVisibleRaw(this, true);
+            },
+            hideQuartier: function () {
+                setQuartierVisibleRaw(this, false);
+            }
+        },
+        {
+            key: 'cf',
+            tran: '#trancf',
+            check: '#escale_vente_check_cf',
+            fields: '#escale_dest_fields_cf',
+            select: '#escale_dest_select_cf',
+            help: '#escale_dest_help_cf',
+            idEsc: '#id_escale_ventecf',
+            codeEsc: '#code_gadest_ventecf',
+            nomEsc: '#nom_dest_ventecf',
+            prix: '#prix_axecf',
+            prixAffiche: null,
+            depargare: '#confirm-0 #depargare',
+            arrsgare: null,
+            lign: '#axeconf',
+            nomitin: '#axeconf',
+            date: '#actuel',
+            heure: '#heured',
+            quartier: '#quartconf',
+            quartierLabel: null,
+            showQuartier: function () { setQuartierVisibleRaw(this, true); },
+            hideQuartier: function () { setQuartierVisibleRaw(this, false); }
+        }
+    ];
+
+    function setQuartierVisibleRaw(form, visible) {
+        var wrap = null;
+        var q = $(form.quartier);
+        if (q) wrap = q.closest('.form-group');
+        var label = $(form.quartierLabel);
+        var sel = q;
+        if (!visible && sel && sel.style.display !== 'none') {
+            if (form.key === 'guichet') {
+                window.__venteSavedQuartierValue = sel.value;
+            } else {
+                window.__venteFiSavedQuartierValue = sel.value;
+            }
+        }
+        if (wrap) wrap.style.display = visible ? '' : 'none';
+        if (label) label.style.display = visible ? 'block' : 'none';
+        if (sel) {
+            sel.style.display = visible ? 'block' : 'none';
+            var saved = form.key === 'guichet' ? window.__venteSavedQuartierValue : window.__venteFiSavedQuartierValue;
+            if (visible && saved != null && saved !== '') {
+                sel.value = saved;
+            }
+        }
+    }
+
+    function createMainController(form) {
+        var lastKey = null;
+        var lastCataloguePrix = '';
+        var cache = {};
+
+        function syncPrixAffiche() {
+            if (!form.prixAffiche) return;
+            var src = $(form.prix);
+            var dst = $(form.prixAffiche);
+            if (!dst) return;
+            var v = src ? String(src.value || '').trim() : '';
+            dst.value = v === '' ? '' : formatPrix(v);
+        }
+
+        function isEscaleMode() {
+            if (isPanelVisible(form.tran)) return false;
+            var ck = $(form.check);
+            return !!(ck && ck.checked);
+        }
+
+        function clearEscaleFields() {
+            var idEl = $(form.idEsc);
+            var codeEl = $(form.codeEsc);
+            var nomEl = $(form.nomEsc);
+            if (idEl) idEl.value = '';
+            if (codeEl) codeEl.value = '';
+            if (nomEl) nomEl.value = '';
+        }
+
+        function applyCataloguePrix() {
+            var prixEl = $(form.prix);
+            if (prixEl && lastCataloguePrix !== '') {
+                prixEl.value = lastCataloguePrix;
+            }
+        }
+
+        function setHelp(text, isWarn) {
+            var help = $(form.help);
+            if (!help) return;
+            help.textContent = text;
+            help.className = isWarn ? 'form-text text-danger' : 'form-text text-muted';
+        }
+
+        function parseList(raw) {
+            if (Array.isArray(raw)) return raw;
+            if (raw && typeof raw === 'object') {
+                return Object.keys(raw).map(function (k) { return raw[k]; });
+            }
+            return [];
+        }
+
+        function hasEscaleSelected() {
+            var idEl = $(form.idEsc);
+            return !!(idEl && String(idEl.value || '').trim() !== '');
+        }
+
+        function syncEscaleVisibility() {
+            var fields = $(form.fields);
+            var sel = $(form.select);
+            if (!fields) return;
+
+            if (isEscaleMode()) {
+                fields.style.display = 'block';
+                refresh(true);
+                if (hasEscaleSelected()) {
+                    form.hideQuartier();
+                } else {
+                    form.showQuartier();
+                }
+            } else {
+                fields.style.display = 'none';
+                if (sel) sel.value = '';
+                clearEscaleFields();
+                applyCataloguePrix();
+                form.showQuartier();
+            }
+        }
+
+        function onEscaleChange() {
+            if (!isEscaleMode()) {
+                clearEscaleFields();
+                applyCataloguePrix();
+                form.showQuartier();
+                return;
+            }
+            var sel = $(form.select);
+            if (!sel) return;
+            var opt = sel.options[sel.selectedIndex];
+            if (!opt || !opt.value) {
+                clearEscaleFields();
+                applyCataloguePrix();
+                form.showQuartier();
+                setHelp('Choisissez l\'escale demandée par le client.', false);
+                return;
+            }
+            $(form.idEsc).value = opt.value;
+            $(form.codeEsc).value = opt.getAttribute('data-code') || '';
+            $(form.nomEsc).value = opt.getAttribute('data-nom') || '';
+            var prix = opt.getAttribute('data-prix');
+            if (prix !== null && $(form.prix)) {
+                $(form.prix).value = prix;
+            }
+            form.hideQuartier();
+            setHelp('Escale sélectionnée — prix ' + Number(prix).toLocaleString('fr-FR') + ' F (sans quartier).', false);
+            syncPrixAffiche();
+        }
+
+        function rememberCataloguePrix() {
+            var prixEl = $(form.prix);
+            var idEsc = $(form.idEsc);
+            if (!prixEl) return;
+            if (idEsc && idEsc.value) return;
+            if (prixEl.value !== '') {
+                lastCataloguePrix = prixEl.value;
+            }
+        }
+
+        function fillSelect(escales, ligneNom) {
+            var sel = $(form.select);
+            if (!sel) return;
+
+            var prev = sel.value;
+            sel.options.length = 0;
+            var placeholder = document.createElement('option');
+            placeholder.value = '';
+            placeholder.textContent = ligneNom
+                ? ('Choisissez l\'escale (' + ligneNom + ')')
+                : 'Choisissez l\'escale';
+            sel.add(placeholder);
+
+            if (!escales || !escales.length) {
+                clearEscaleFields();
+                setHelp('Aucune escale configurée sur ce trajet parent.', true);
+                return;
+            }
+
+            for (var i = 0; i < escales.length; i++) {
+                var e = escales[i];
+                var opt = document.createElement('option');
+                opt.value = e.id_escale;
+                opt.setAttribute('data-code', e.code_gadest || '');
+                opt.setAttribute('data-nom', e.nom_escale || e.arrivee_escale || '');
+                opt.setAttribute('data-prix', e.prix_escale);
+                var label = e.nom_escale || e.arrivee_escale || e.code_gadest;
+                opt.textContent = label + ' — ' + Number(e.prix_escale).toLocaleString('fr-FR') + ' F';
+                sel.add(opt);
+            }
+
+            setHelp(escales.length + ' escale(s) disponible(s) — sans quartier.', false);
+
+            if (prev) {
+                sel.value = prev;
+                if (sel.value === prev) {
+                    onEscaleChange();
+                } else {
+                    clearEscaleFields();
+                }
+            } else {
+                clearEscaleFields();
+            }
+        }
+
+        function loadByOd(gaexp, gadest) {
+            if (!gaexp || !gadest) {
+                fillSelect([], '');
+                setHelp('Choisissez d\'abord l\'arrivée finale (ex. BOBO).', false);
+                return;
+            }
+            var key = 'od:' + gaexp + '>' + gadest;
+            if (cache[key]) {
+                var cached = cache[key];
+                fillSelect(cached, (cached[0] && cached[0].nom_ligne) || '');
+                return;
+            }
+            setHelp('Chargement des escales…', false);
+            var xhr = new XMLHttpRequest();
+            xhr.open(
+                'GET',
+                window.location.origin + appRoot() + '/programmes/verifescalesod/' +
+                    encodeURIComponent(gaexp) + '/' + encodeURIComponent(gadest),
+                true
+            );
+            xhr.onload = function () {
+                var list = [];
+                try {
+                    list = parseList(JSON.parse(xhr.responseText));
+                } catch (err) {
+                    list = [];
+                }
+                cache[key] = list;
+                fillSelect(list, (list[0] && list[0].nom_ligne) || '');
+            };
+            xhr.onerror = function () {
+                setHelp('Impossible de charger les escales.', true);
+            };
+            xhr.send();
+        }
+
+        function loadByLigne(ligne) {
+            if (!ligne) return;
+            var key = 'lg:' + ligne;
+            if (cache[key]) {
+                fillSelect(cache[key], ($(form.nomitin) && $(form.nomitin).value) || ligne);
+                return;
+            }
+            var xhr = new XMLHttpRequest();
+            xhr.open(
+                'GET',
+                window.location.origin + appRoot() + '/programmes/verifescales/' + encodeURIComponent(ligne),
+                true
+            );
+            xhr.onload = function () {
+                var list = [];
+                try {
+                    list = parseList(JSON.parse(xhr.responseText));
+                } catch (err) {
+                    list = [];
+                }
+                cache[key] = list;
+                fillSelect(list, ($(form.nomitin) && $(form.nomitin).value) || ligne);
+            };
+            xhr.send();
+        }
+
+        function refresh(force) {
+            rememberCataloguePrix();
+            syncPrixAffiche();
+
+            if (!isEscaleMode()) {
+                if ($(form.idEsc) && $(form.idEsc).value) {
+                    clearEscaleFields();
+                }
+                return;
+            }
+
+            var gaexp = form.depargare ? codeFromSelect(form.depargare) : '';
+            var gadest = form.arrsgare ? codeFromSelect(form.arrsgare) : '';
+            var lignEl = $(form.lign);
+            var ligne = lignEl ? String(lignEl.value || '').trim() : '';
+            var key = gaexp + '|' + gadest + '|' + ligne;
+
+            if (!force && key === lastKey) {
+                if ($(form.idEsc) && $(form.idEsc).value) {
+                    var sel = $(form.select);
+                    if (sel && sel.value) {
+                        var opt = sel.options[sel.selectedIndex];
+                        if (opt && opt.getAttribute('data-prix') && $(form.prix)) {
+                            $(form.prix).value = opt.getAttribute('data-prix');
+                        }
+                    }
+                }
+                return;
+            }
+            lastKey = key;
+            lastCataloguePrix = lastCataloguePrix || (($(form.prix) && $(form.prix).value) || '');
+
+            if (gaexp && gadest) {
+                loadByOd(gaexp, gadest);
+            } else if (ligne) {
+                loadByLigne(ligne);
+            } else {
+                fillSelect([], '');
+                setHelp('Choisissez d\'abord l\'arrivée finale (ex. BOBO).', false);
+            }
+        }
+
+        function boot() {
+            if (!$(form.check)) return;
+
+            var ck = $(form.check);
+            if (ck && !ck._escaleBound) {
+                ck.addEventListener('change', syncEscaleVisibility);
+                ck._escaleBound = true;
+            }
+
+            var sel = $(form.select);
+            if (sel && !sel._escaleBound) {
+                sel.addEventListener('change', onEscaleChange);
+                sel._escaleBound = true;
+            }
+
+            [form.arrsgare, form.depargare, form.date, form.heure].forEach(function (s) {
+                var el = $(s);
+                if (el && !el._escaleBound) {
+                    el.addEventListener('change', function () {
+                        lastKey = null;
+                        setTimeout(function () { refresh(true); }, 200);
+                    });
+                    el._escaleBound = true;
+                }
+            });
+
+            syncEscaleVisibility();
+            syncPrixAffiche();
+            setInterval(function () { refresh(false); }, 600);
+        }
+
+        return { boot: boot };
+    }
+
+    function bootAll() {
+        forms.forEach(function (f) {
+            createMainController(f).boot();
+        });
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', bootAll);
+    } else {
+        bootAll();
+    }
+})();
+
+
+/**
+ * Escales sur les jambes de transit / correspondances (guichet + FI).
+ * Pas de quartier sur les escales.
+ */
+(function () {
+    'use strict';
+
+    function appRoot() {
+        return (typeof APP_ROOT !== 'undefined') ? APP_ROOT : '';
+    }
+    function $(sel) { return document.querySelector(sel); }
+
+    function isShown(el) {
+        if (!el) return false;
+        if (el.style && el.style.display === 'none') return false;
+        try {
+            var cs = window.getComputedStyle(el);
+            if (cs.display === 'none' || cs.visibility === 'hidden') return false;
+        } catch (e) {}
+        return true;
+    }
+
+    function makeLegs(sfx) {
+        var f = sfx || '';
+        var conf = (f === 'cf');
+        var fid = (f === 'fid');
+        return [
+            {
+                n: 1,
+                sfx: f,
+                nbr: conf ? '#nbrtranscf' : (fid ? '#nbrtransfid' : '#nbrtrans'),
+                tran: conf ? '#trancf' : (fid ? '#tranfid' : '#tran'),
+                ligne: conf ? '#ligntranscf' : (fid ? '#ligntransfid' : '#ligntrans'),
+                lineUi: conf ? ['#lignecf1', '#lignesitinerairecf'] : (fid ? ['#ligne1fid', '#lignesitinerairefid'] : ['#ligne1', '#lignesitineraire']),
+                prix: conf ? '#prix_axetranscf' : (fid ? '#prix_axetransfid' : '#prix_axetrans'),
+                quartier: conf ? '#quartiercf1' : (fid ? '#quartier1fid' : '#quartier1'),
+                quartierLabel: conf ? '#idquartcf1' : (fid ? '#idquart1fid' : '#idquart1'),
+                mainQuartier: conf ? '#quartconf' : (fid ? '#quartierfid' : '#quartier'),
+                mainQuartierLabel: conf ? null : (fid ? '#idquartfid' : '#idquart'),
+                wrap: '#escale_leg_wrap_tr1' + f,
+                check: '#escale_vente_check_tr1' + f,
+                fields: '#escale_dest_fields_tr1' + f,
+                select: '#escale_dest_select_tr1' + f,
+                idEsc: '#id_escale_vente_tr1' + f,
+                codeEsc: '#code_gadest_vente_tr1' + f,
+                nomEsc: '#nom_dest_vente_tr1' + f
+            },
+            {
+                n: 2,
+                sfx: f,
+                nbr: conf ? '#nbrtranscf' : (fid ? '#nbrtransfid' : '#nbrtrans'),
+                tran: conf ? '#trancf' : (fid ? '#tranfid' : '#tran'),
+                ligne: conf ? '#ligntranscf1' : (fid ? '#ligntrans1fid' : '#ligntrans1'),
+                lineUi: conf ? ['#arritincf1', '#idcheminscf'] : (fid ? ['#arritin1fid', '#idcheminsfid'] : ['#arritin1', '#idchemins']),
+                prix: conf ? '#prix_axetransitcf' : (fid ? '#prix_axetransitfid' : '#prix_axetransit'),
+                quartier: conf ? '#quartiercf2' : (fid ? '#quartier2fid' : '#quartier2'),
+                quartierLabel: conf ? '#idquartcf2' : (fid ? '#idquart2fid' : '#idquart2'),
+                mainQuartier: conf ? '#quartconf' : (fid ? '#quartierfid' : '#quartier'),
+                mainQuartierLabel: conf ? null : (fid ? '#idquartfid' : '#idquart'),
+                wrap: '#escale_leg_wrap_tr2' + f,
+                check: '#escale_vente_check_tr2' + f,
+                fields: '#escale_dest_fields_tr2' + f,
+                select: '#escale_dest_select_tr2' + f,
+                idEsc: '#id_escale_vente_tr2' + f,
+                codeEsc: '#code_gadest_vente_tr2' + f,
+                nomEsc: '#nom_dest_vente_tr2' + f
+            },
+            {
+                n: 3,
+                sfx: f,
+                nbr: conf ? '#nbrtranscf' : (fid ? '#nbrtransfid' : '#nbrtrans'),
+                tran: conf ? '#trancf' : (fid ? '#tranfid' : '#tran'),
+                ligne: conf ? '#ligntranscf2' : (fid ? '#ligntrans2fid' : '#ligntrans2'),
+                lineUi: conf ? ['#arritincf2', '#idcheminscf1'] : (fid ? ['#arritin2fid', '#idchemins1fid'] : ['#arritin2', '#idchemins1']),
+                prix: conf ? '#prix_axetransitcf1' : (fid ? '#prix_axetransit1fid' : '#prix_axetransit1'),
+                quartier: conf ? '#quartiercf3' : (fid ? '#quartier3fid' : '#quartier3'),
+                quartierLabel: conf ? '#idquartcf3' : (fid ? '#idquart3fid' : '#idquart3'),
+                mainQuartier: conf ? '#quartconf' : (fid ? '#quartierfid' : '#quartier'),
+                mainQuartierLabel: conf ? null : (fid ? '#idquartfid' : '#idquart'),
+                wrap: '#escale_leg_wrap_tr3' + f,
+                check: '#escale_vente_check_tr3' + f,
+                fields: '#escale_dest_fields_tr3' + f,
+                select: '#escale_dest_select_tr3' + f,
+                idEsc: '#id_escale_vente_tr3' + f,
+                codeEsc: '#code_gadest_vente_tr3' + f,
+                nomEsc: '#nom_dest_vente_tr3' + f
+            },
+            {
+                n: 4,
+                sfx: f,
+                nbr: conf ? '#nbrtranscf' : (fid ? '#nbrtransfid' : '#nbrtrans'),
+                tran: conf ? '#trancf' : (fid ? '#tranfid' : '#tran'),
+                ligne: conf ? '#ligntranscf3' : (fid ? '#ligntrans3fid' : '#ligntrans3'),
+                lineUi: conf ? ['#arritincf3', '#idcheminscf2'] : (fid ? ['#arritin3fid', '#idchemins2fid'] : ['#arritin3', '#idchemins2']),
+                prix: conf ? '#prix_axetransitcf2' : (fid ? '#prix_axetransit2fid' : '#prix_axetransit2'),
+                quartier: null,
+                quartierLabel: null,
+                mainQuartier: conf ? '#quartconf' : (fid ? '#quartierfid' : '#quartier'),
+                mainQuartierLabel: conf ? null : (fid ? '#idquartfid' : '#idquart'),
+                wrap: '#escale_leg_wrap_tr4' + f,
+                check: '#escale_vente_check_tr4' + f,
+                fields: '#escale_dest_fields_tr4' + f,
+                select: '#escale_dest_select_tr4' + f,
+                idEsc: '#id_escale_vente_tr4' + f,
+                codeEsc: '#code_gadest_vente_tr4' + f,
+                nomEsc: '#nom_dest_vente_tr4' + f
+            }
+        ];
+    }
+
+    var cache = {};
+    var legs = makeLegs('').concat(makeLegs('fid')).concat(makeLegs('cf'));
+    var lastLigne = {};
+    var cataloguePrix = {};
+    var hasEscales = {};
+    var loading = {};
+    var savedLegQuartiers = {};
+
+    function parseList(raw) {
+        if (Array.isArray(raw)) return raw;
+        if (raw && typeof raw === 'object') {
+            return Object.keys(raw).map(function (k) { return raw[k]; });
+        }
+        return [];
+    }
+
+    function clearLeg(leg) {
+        var idEl = $(leg.idEsc);
+        var codeEl = $(leg.codeEsc);
+        var nomEl = $(leg.nomEsc);
+        var sel = $(leg.select);
+        if (idEl) idEl.value = '';
+        if (codeEl) codeEl.value = '';
+        if (nomEl) nomEl.value = '';
+        if (sel) sel.value = '';
+    }
+
+    function isTranVisible(leg) {
+        return isShown($(leg.tran));
+    }
+
+    function lineUiVisible(leg) {
+        if (!leg.lineUi || !leg.lineUi.length) return isTranVisible(leg);
+        for (var i = 0; i < leg.lineUi.length; i++) {
+            if (isShown($(leg.lineUi[i]))) return true;
+        }
+        return false;
+    }
+
+    function nbrTrans(leg) {
+        var el = $(leg.nbr);
+        var n = el ? parseInt(el.value, 10) : 0;
+        return isNaN(n) ? 0 : n;
+    }
+
+    function isLastTransitLeg(leg) {
+        var nbr = nbrTrans(leg);
+        if (nbr < 1) return false;
+        return leg.n === nbr;
+    }
+
+    function canShowEscaleLeg(leg) {
+        return isTranVisible(leg) && lineUiVisible(leg) && isLastTransitLeg(leg);
+    }
+
+    function quartierTargets(leg) {
+        var out = [];
+        var nbr = nbrTrans(leg);
+        if (nbr > 0 && leg.n === nbr) {
+            out.push({ sel: leg.mainQuartier, label: leg.mainQuartierLabel });
+        }
+        if (leg.quartier) {
+            out.push({ sel: leg.quartier, label: leg.quartierLabel });
+        }
+        var seen = {};
+        return out.filter(function (t) {
+            if (seen[t.sel]) return false;
+            seen[t.sel] = true;
+            return true;
+        });
+    }
+
+    function hideQuartierForEscale(leg) {
+        var targets = quartierTargets(leg);
+        for (var i = 0; i < targets.length; i++) {
+            var key = targets[i].sel;
+            var q = $(key);
+            var lab = targets[i].label ? $(targets[i].label) : null;
+            var wrap = q ? q.closest('.form-group') : null;
+            var visible = !(wrap && wrap.style.display === 'none') && !(q && q.style.display === 'none');
+            if (q && visible) {
+                savedLegQuartiers[key] = q.value;
+                if (key === '#quartier') {
+                    window.__venteSavedQuartierValue = q.value;
+                }
+                if (key === '#quartierfid') {
+                    window.__venteFiSavedQuartierValue = q.value;
+                }
+            }
+            if (q) q.style.display = 'none';
+            if (lab) lab.style.display = 'none';
+            if (wrap) wrap.style.display = 'none';
+        }
+        if (!leg.sfx && typeof window.__venteHideMainQuartier === 'function') {
+            window.__venteHideMainQuartier();
+        }
+    }
+
+    function showQuartierAfterEscale(leg) {
+        var targets = quartierTargets(leg);
+        for (var i = 0; i < targets.length; i++) {
+            var key = targets[i].sel;
+            var q = $(key);
+            var lab = targets[i].label ? $(targets[i].label) : null;
+            var wrap = q ? q.closest('.form-group') : null;
+            if (q) {
+                q.style.display = 'block';
+                if (savedLegQuartiers[key] != null && savedLegQuartiers[key] !== '') {
+                    q.value = savedLegQuartiers[key];
+                }
+            }
+            if (lab) lab.style.display = 'block';
+            if (wrap) wrap.style.display = '';
+        }
+        if (!leg.sfx && typeof window.__venteShowMainQuartier === 'function') {
+            window.__venteShowMainQuartier();
+        }
+    }
+
+    function showWrap(leg, show) {
+        var wrap = $(leg.wrap);
+        if (!wrap) return;
+        wrap.style.display = show ? 'block' : 'none';
+        if (!show) {
+            var ck = $(leg.check);
+            var fields = $(leg.fields);
+            if (ck) ck.checked = false;
+            if (fields) fields.style.display = 'none';
+            clearLeg(leg);
+        }
+    }
+
+    function applyCatalogue(leg) {
+        var prixEl = $(leg.prix);
+        var ck = leg.sfx + ':' + leg.n;
+        if (prixEl && cataloguePrix[ck] !== undefined && cataloguePrix[ck] !== '') {
+            prixEl.value = cataloguePrix[ck];
+        }
+    }
+
+    function rememberPrix(leg) {
+        var prixEl = $(leg.prix);
+        var idEsc = $(leg.idEsc);
+        var ck = leg.sfx + ':' + leg.n;
+        if (!prixEl) return;
+        if (idEsc && idEsc.value) return;
+        if (prixEl.value !== '') {
+            cataloguePrix[ck] = prixEl.value;
+        }
+    }
+
+    function fillSelect(leg, escales) {
+        var sel = $(leg.select);
+        if (!sel) return;
+
+        var prev = sel.value;
+        sel.options.length = 0;
+        var ph = document.createElement('option');
+        ph.value = '';
+        ph.textContent = 'Choisissez l\'escale';
+        sel.add(ph);
+
+        var hk = leg.sfx + ':' + leg.n;
+        hasEscales[hk] = !!(escales && escales.length);
+
+        if (!hasEscales[hk]) {
+            showWrap(leg, false);
+            return;
+        }
+
+        for (var i = 0; i < escales.length; i++) {
+            var e = escales[i];
+            var opt = document.createElement('option');
+            opt.value = e.id_escale;
+            opt.setAttribute('data-code', e.code_gadest || '');
+            opt.setAttribute('data-nom', e.nom_escale || e.arrivee_escale || '');
+            opt.setAttribute('data-prix', e.prix_escale);
+            var label = e.nom_escale || e.arrivee_escale || e.code_gadest;
+            opt.textContent = label + ' — ' + Number(e.prix_escale).toLocaleString('fr-FR') + ' F';
+            sel.add(opt);
+        }
+
+        showWrap(leg, canShowEscaleLeg(leg));
+
+        if (prev) {
+            sel.value = prev;
+            if (sel.value === prev) onSelect(leg);
+        }
+    }
+
+    function loadEscales(leg, ligne) {
+        if (!ligne) {
+            fillSelect(leg, []);
+            return;
+        }
+        if (cache[ligne]) {
+            fillSelect(leg, cache[ligne]);
+            return;
+        }
+        if (loading[ligne]) return;
+        loading[ligne] = true;
+        var xhr = new XMLHttpRequest();
+        xhr.open('GET', window.location.origin + appRoot() + '/programmes/verifescales/' + encodeURIComponent(ligne), true);
+        xhr.onload = function () {
+            loading[ligne] = false;
+            var list = [];
+            try { list = parseList(JSON.parse(xhr.responseText)); } catch (e) { list = []; }
+            cache[ligne] = list;
+            fillSelect(leg, list);
+        };
+        xhr.onerror = function () { loading[ligne] = false; };
+        xhr.send();
+    }
+
+    function onCheck(leg) {
+        var ck = $(leg.check);
+        var fields = $(leg.fields);
+        if (!ck || !fields) return;
+        if (ck.checked) {
+            fields.style.display = 'block';
+            onSelect(leg);
+        } else {
+            fields.style.display = 'none';
+            clearLeg(leg);
+            applyCatalogue(leg);
+            showQuartierAfterEscale(leg);
+        }
+    }
+
+    function onSelect(leg) {
+        var ck = $(leg.check);
+        if (!ck || !ck.checked) {
+            clearLeg(leg);
+            showQuartierAfterEscale(leg);
+            return;
+        }
+        var sel = $(leg.select);
+        if (!sel) return;
+        var opt = sel.options[sel.selectedIndex];
+        if (!opt || !opt.value) {
+            clearLeg(leg);
+            applyCatalogue(leg);
+            showQuartierAfterEscale(leg);
+            return;
+        }
+        var idEl = $(leg.idEsc);
+        var codeEl = $(leg.codeEsc);
+        var nomEl = $(leg.nomEsc);
+        if (idEl) idEl.value = opt.value;
+        if (codeEl) codeEl.value = opt.getAttribute('data-code') || '';
+        if (nomEl) nomEl.value = opt.getAttribute('data-nom') || '';
+        var prix = opt.getAttribute('data-prix');
+        var prixEl = $(leg.prix);
+        if (prix !== null && prixEl) prixEl.value = prix;
+        hideQuartierForEscale(leg);
+    }
+
+    function tickLeg(leg) {
+        rememberPrix(leg);
+        var lignEl = $(leg.ligne);
+        var ligne = lignEl ? String(lignEl.value || '').trim() : '';
+        var wrap = $(leg.wrap);
+        var visibleContext = canShowEscaleLeg(leg);
+        var hk = leg.sfx + ':' + leg.n;
+        var lk = leg.sfx + ':' + leg.n;
+
+        if (!isLastTransitLeg(leg)) {
+            showWrap(leg, false);
+            return;
+        }
+
+        if (!visibleContext) {
+            if (wrap) wrap.style.display = 'none';
+            return;
+        }
+
+        if (ligne !== (lastLigne[lk] || '')) {
+            lastLigne[lk] = ligne;
+            cataloguePrix[hk] = '';
+            hasEscales[hk] = false;
+            clearLeg(leg);
+            var ck = $(leg.check);
+            if (ck) ck.checked = false;
+            var fields = $(leg.fields);
+            if (fields) fields.style.display = 'none';
+            if (!ligne) {
+                showWrap(leg, false);
+                return;
+            }
+            loadEscales(leg, ligne);
+            return;
+        }
+
+        if (ligne && hasEscales[hk]) {
+            showWrap(leg, true);
+            if ($(leg.check) && $(leg.check).checked) {
+                if ($(leg.idEsc) && $(leg.idEsc).value) {
+                    onSelect(leg);
+                } else {
+                    showQuartierAfterEscale(leg);
+                }
+            }
+        } else if (ligne && cache[ligne]) {
+            fillSelect(leg, cache[ligne]);
+        } else if (ligne && !cache[ligne]) {
+            loadEscales(leg, ligne);
+        } else {
+            showWrap(leg, false);
+        }
+    }
+
+    function boot() {
+        legs.forEach(function (leg) {
+            if (!$(leg.wrap) && !$(leg.check)) return;
+            var ck = $(leg.check);
+            var sel = $(leg.select);
+            if (ck && !ck._escaleTrBound) {
+                ck.addEventListener('change', function () { onCheck(leg); });
+                ck._escaleTrBound = true;
+            }
+            if (sel && !sel._escaleTrBound) {
+                sel.addEventListener('change', function () { onSelect(leg); });
+                sel._escaleTrBound = true;
+            }
+        });
+        setInterval(function () {
+            legs.forEach(tickLeg);
+        }, 400);
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', boot);
+    } else {
+        boot();
+    }
+})();
+
