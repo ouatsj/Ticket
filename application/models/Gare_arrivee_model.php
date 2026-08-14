@@ -38,6 +38,7 @@
                     JOIN compagnies c ON ga.id_compaga = c.cle_compagnie
                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
                     WHERE e.id_entreprise = '$cid'
+                    AND ga.nom_gadest !='OUAGAESCAL'
                     ORDER BY c.nom_compagnie ASC, ga.nom_gadest ASC")->result();
             } else
                 return $this->db->query(
@@ -47,6 +48,7 @@
                     JOIN compagnies c ON ga.id_compaga = c.cle_compagnie
                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
                     WHERE e.id_entreprise = '$cid'
+                    AND ga.nom_gadest !='OUAGAESCAL'
                     AND ga.code_gadest = '$ga_id'
                     ORDER BY ga.nom_gadest")->row();
         }

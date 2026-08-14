@@ -168,12 +168,123 @@ document.addEventListener('DOMContentLoaded', () => {
             + row.id_ligneheure + '/' + (row.prix != null ? row.prix : '');
     }
 
+
+    var __VENTE_FI_TRANSIT_MARGE_MIN = 30;
+
+    function __venteFiHeureToMinutes(h) {
+        if (h == null || h === '') return null;
+        var parts = String(h).trim().split(/[:hH]/);
+        if (!parts || !parts.length) return null;
+        var hh = parseInt(parts[0], 10);
+        if (isNaN(hh)) return null;
+        var mm = (parts[1] != null && parts[1] !== '') ? parseInt(parts[1], 10) : 0;
+        if (isNaN(mm)) mm = 0;
+        return (hh * 60) + mm;
+    }
+
+    function __venteFiFormatDateShort(ymd) {
+        if (!ymd || String(ymd).length < 10) return '';
+        var p = String(ymd).slice(0, 10).split('-');
+        return (p.length === 3) ? (p[2] + '/' + p[1]) : String(ymd).slice(0, 10);
+    }
+
+    function __venteFiClearDownstreamCheminHeures() {
+        ['idcheminsheurfid', 'idcheminsheur1fid', 'idcheminsheur2fid'].forEach(function (id) {
+            var el = document.getElementById(id);
+            if (el) el.options.length = 1;
+        });
+        ['psiegesitines1fid', 'psiegesitines2fid', 'psiegesitines3fid'].forEach(function (id) {
+            var el = document.getElementById(id);
+            if (el) el.options.length = 1;
+        });
+    }
+
+    function __venteFiGetPrevTransitAnchor(nextLegKey) {
+        var voyageDate = document.querySelector('#date_depheurefid')
+            ? String(document.querySelector('#date_depheurefid').value || '').slice(0, 10) : '';
+        var out = { date: voyageDate, heure: '', minutes: null, marge: __VENTE_FI_TRANSIT_MARGE_MIN };
+
+        function fromCheminSelect(heurId) {
+            var hs = document.getElementById(heurId);
+            if (!hs || hs.selectedIndex < 1) return false;
+            var opt = hs.options[hs.selectedIndex];
+            var date = opt.getAttribute('data-date-progr') || '';
+            var heure = opt.getAttribute('data-heure') || '';
+            var gkey = opt.getAttribute('data-group-key') || '';
+            var groups = (window.__venteFiCheminGroups && window.__venteFiCheminGroups[heurId]) || {};
+            var g = groups[gkey] || groups[opt.value] || null;
+            if (g && g.rows && g.rows.length) {
+                if (!date && g.rows[0].date_progr) date = String(g.rows[0].date_progr).slice(0, 10);
+                if (!heure && g.rows[0].heure) heure = String(g.rows[0].heure);
+            }
+            if ((!date || !heure) && String(opt.value).indexOf('/') !== -1) {
+                var code = String(opt.value).split('/')[0];
+                Object.keys(groups).forEach(function (k) {
+                    if (date && heure) return;
+                    var rows = groups[k] && groups[k].rows ? groups[k].rows : [];
+                    for (var i = 0; i < rows.length; i++) {
+                        if (String(rows[i].code_progr) === code) {
+                            date = String(rows[i].date_progr || '').slice(0, 10);
+                            heure = String(rows[i].heure || '');
+                            break;
+                        }
+                    }
+                });
+            }
+            if (!date) date = voyageDate;
+            if (!heure) return false;
+            out.date = date;
+            out.heure = heure;
+            out.minutes = __venteFiHeureToMinutes(heure);
+            return out.minutes != null;
+        }
+
+        if (nextLegKey === 'tr2') {
+            var dEl = document.querySelector('#dateprtransfid');
+            var hEl = document.querySelector('#hertransfid');
+            var date = (dEl && dEl.value) ? String(dEl.value).slice(0, 10) : voyageDate;
+            var heure = (hEl && hEl.value) ? String(hEl.value) : '';
+            if (!heure) {
+                var hs1 = document.getElementById('hdepartitinefid');
+                if (hs1 && hs1.selectedIndex > 0) {
+                    var parts = String(hs1.options[hs1.selectedIndex].value || '').split('/');
+                    if (parts[1]) heure = parts[1];
+                }
+            }
+            out.date = date || voyageDate;
+            out.heure = heure;
+            out.minutes = __venteFiHeureToMinutes(heure);
+            return out;
+        }
+        if (nextLegKey === 'tr3') { fromCheminSelect('idcheminsheurfid'); return out; }
+        if (nextLegKey === 'tr4') { fromCheminSelect('idcheminsheur1fid'); return out; }
+        return out;
+    }
+
+    function __venteFiRowIsAfterPrev(row, prev) {
+        if (!prev || prev.minutes == null || !prev.date) return true;
+        var rd = row && row.date_progr ? String(row.date_progr).slice(0, 10) : '';
+        var rm = __venteFiHeureToMinutes(row && row.heure);
+        if (!rd || rm == null) return false;
+        if (rd > prev.date) return true;
+        if (rd < prev.date) return false;
+        var marge = (prev.marge != null) ? prev.marge : __VENTE_FI_TRANSIT_MARGE_MIN;
+        return rm >= (prev.minutes + marge);
+    }
+
+
     function __venteFiFillCheminHeures(selectId, rows, legKey) {
         var sel = document.getElementById(selectId);
         if (!sel) return;
         sel.options.length = 1;
         var list = Array.isArray(rows) ? rows
             : (rows && typeof rows === 'object' ? Object.keys(rows).map(function (k) { return rows[k]; }) : []);
+        var prev = legKey ? __venteFiGetPrevTransitAnchor(legKey) : null;
+        if (prev && prev.minutes != null && prev.date) {
+            list = list.filter(function (row) { return __venteFiRowIsAfterPrev(row, prev); });
+        }
+        var voyageDate = document.querySelector('#date_depheurefid')
+            ? String(document.querySelector('#date_depheurefid').value || '').slice(0, 10) : '';
         var groups = {};
         var order = [];
         for (var i = 0; i < list.length; i++) {
@@ -181,28 +292,51 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!row || row.code_progr == null || row.code_progr === '') continue;
             var lh = String(row.id_ligneheure != null ? row.id_ligneheure : '');
             if (!lh) continue;
-            if (!groups[lh]) {
-                groups[lh] = { heure: row.heure || '', rows: [] };
-                order.push(lh);
+            var dprog = row.date_progr ? String(row.date_progr).slice(0, 10) : '';
+            var gkey = dprog + '|' + lh;
+            if (!groups[gkey]) {
+                groups[gkey] = {
+                    heure: row.heure || '',
+                    date_progr: dprog,
+                    minutes: __venteFiHeureToMinutes(row.heure),
+                    rows: []
+                };
+                order.push(gkey);
             }
             var exists = false;
-            for (var j = 0; j < groups[lh].rows.length; j++) {
-                if (String(groups[lh].rows[j].code_progr) === String(row.code_progr)) { exists = true; break; }
+            for (var j = 0; j < groups[gkey].rows.length; j++) {
+                if (String(groups[gkey].rows[j].code_progr) === String(row.code_progr)) { exists = true; break; }
             }
-            if (!exists) groups[lh].rows.push(row);
+            if (!exists) groups[gkey].rows.push(row);
         }
+        order.sort(function (a, b) {
+            var ga = groups[a], gb = groups[b];
+            var da = ga.date_progr || '', db = gb.date_progr || '';
+            if (da < db) return -1;
+            if (da > db) return 1;
+            return (ga.minutes != null ? ga.minutes : 0) - (gb.minutes != null ? gb.minutes : 0);
+        });
         if (!window.__venteFiCheminGroups) window.__venteFiCheminGroups = {};
         window.__venteFiCheminGroups[selectId] = groups;
         for (var k = 0; k < order.length; k++) {
-            var idLh = order[k];
-            var g = groups[idLh];
+            var key = order[k];
+            var g = groups[key];
             var opt = document.createElement('option');
-            opt.value = idLh;
-            opt.innerHTML = g.rows.length > 1 ? ((g.heure || idLh) + ' (' + g.rows.length + ' départs)') : (g.heure || idLh);
+            opt.value = key;
+            opt.setAttribute('data-group-key', key);
+            opt.setAttribute('data-date-progr', g.date_progr || '');
+            opt.setAttribute('data-heure', g.heure || '');
+            var label = g.heure || key;
+            if (g.date_progr && voyageDate && g.date_progr !== voyageDate) {
+                label = (g.heure || '') + ' — ' + __venteFiFormatDateShort(g.date_progr);
+            }
+            if (g.rows.length > 1) label = label + ' (' + g.rows.length + ' départs)';
+            opt.innerHTML = label;
             sel.add(opt);
         }
         if (legKey) __venteFiWireCheminHeur(selectId, legKey);
     }
+
 
     function __venteFiLoadSiegesChemin(cfg, row) {
         var ps = document.getElementById(cfg.sieges);
@@ -431,13 +565,200 @@ document.addEventListener('DOMContentLoaded', () => {
         __venteFiHideProgSelectAny('selprog_box_tr4fid', 'selprog_tr4fid');
     }
 
+    function __venteFiEnsureCheminSelector() {
+        var existing = document.getElementById('selchemin_box_fid');
+        if (existing) return existing;
+        var box = document.createElement('div');
+        box.className = 'form-group col-sm-12';
+        box.id = 'selchemin_box_fid';
+        box.style.display = 'none';
+        box.innerHTML = ''
+            + '<label id="selchemin_label_fid">Itinéraire de correspondance</label>'
+            + '<select class="form-control form-control-sm" id="selchemin_transit_fid">'
+            + '<option value="">Choisissez l\'itinéraire</option>'
+            + '</select>'
+            + '<small class="form-text text-muted" id="selchemin_hint_fid"></small>';
+        var anchor = document.getElementById('hdepartitinefid')
+            || document.getElementById('idcheminsfid')
+            || document.getElementById('nbrtransfid');
+        if (anchor && anchor.parentNode && anchor.parentNode.parentNode) {
+            anchor.parentNode.parentNode.insertBefore(box, anchor.parentNode);
+        } else if (anchor && anchor.parentNode) {
+            anchor.parentNode.insertBefore(box, anchor);
+        } else {
+            document.body.appendChild(box);
+        }
+        return box;
+    }
+
+    function __venteFiHideCheminSelector() {
+        var box = document.getElementById('selchemin_box_fid');
+        var sel = document.getElementById('selchemin_transit_fid');
+        var hint = document.getElementById('selchemin_hint_fid');
+        if (box) box.style.display = 'none';
+        if (sel) { sel.options.length = 1; sel.value = ''; sel.onchange = null; }
+        if (hint) hint.textContent = '';
+    }
+
+    function __venteFiFormatAttenteLabel(chemin) {
+        if (!chemin) return '';
+        if (chemin.attente_totale_label) return 'Attente totale : ' + chemin.attente_totale_label;
+        if (chemin.attente_totale_min != null) {
+            var m = parseInt(chemin.attente_totale_min, 10) || 0;
+            var h = Math.floor(m / 60);
+            var mm = m % 60;
+            return 'Attente totale : ' + (h > 0 ? (h + ' h' + (mm ? (' ' + (mm < 10 ? '0' : '') + mm) : '')) : (mm + ' min'));
+        }
+        return chemin.source === 'declaratif' ? 'Composition déclarée' : '';
+    }
+
+
+    function __venteFiNormalizeEtapes(etapes) {
+        if (!etapes) return [];
+        if (Array.isArray(etapes)) return etapes;
+        if (typeof etapes === 'object') {
+            return Object.keys(etapes).map(function (k) { return etapes[k]; }).filter(Boolean);
+        }
+        return [];
+    }
+
+    /**
+     * Correspondance 2/3/4 — ligne : propose la ligne du chemin, sans la sélectionner.
+     */
+    function __venteFiSetCheminLigneOption(selectSel, code, nom) {
+        var sel = typeof selectSel === 'string' ? document.querySelector(selectSel) : selectSel;
+        if (!sel) return;
+        sel.disabled = false;
+        sel.removeAttribute('disabled');
+        sel.options.length = 1;
+        sel.selectedIndex = 0;
+        if (code == null || code === '') return;
+        var opt = document.createElement('option');
+        opt.value = String(code);
+        opt.innerHTML = nom != null ? String(nom) : String(code);
+        if (nom != null) opt.setAttribute('data-nom', String(nom));
+        sel.add(opt);
+        sel.selectedIndex = 0;
+    }
+
+    function __venteFiEnsureLigne1LockedInput() {
+        var el = document.getElementById('lignesitinerairefid');
+        if (!el) return null;
+        if (el.tagName === 'INPUT') {
+            el.disabled = true;
+            el.setAttribute('disabled', 'disabled');
+            el.readOnly = true;
+            return el;
+        }
+        var inp = document.createElement('input');
+        inp.type = 'text';
+        inp.id = 'lignesitinerairefid';
+        inp.name = el.getAttribute('name') || 'lignesitinerairesfid';
+        inp.className = el.className || 'form-control form-control-sm';
+        inp.disabled = true;
+        inp.setAttribute('disabled', 'disabled');
+        inp.readOnly = true;
+        if (el.parentNode) el.parentNode.replaceChild(inp, el);
+        return inp;
+    }
+
+    function __venteFiFillLigne1Locked(etape0, onPick) {
+        if (!etape0) return;
+        var code = etape0.code_itineraires || '';
+        var nom = etape0.nom_itineraires || code;
+        var el = __venteFiEnsureLigne1LockedInput();
+        if (el) el.value = nom;
+        var itc = document.querySelector('#itinecodefid');
+        var ltn = document.querySelector('#lignetinerairefid');
+        if (itc) itc.value = code;
+        if (ltn) ltn.value = nom;
+        if (typeof onPick === 'function') onPick(code, nom);
+    }
+
+    function __venteFiResetTransitFieldsBeforeApply() {
+        [
+            'arritin1fid','idcheminsfid','heureitin1fid','idcheminsheurfid','siegitine1fid','psiegesitines1fid',
+            'arritin2fid','idchemins1fid','heureitin2fid','idcheminsheur1fid','siegitine2fid','psiegesitines2fid',
+            'arritin3fid','idchemins2fid','heureitin3fid','idcheminsheur2fid','siegitine3fid','psiegesitines3fid',
+            'quartier1fid','quartier2fid','quartier3fid','idquart1fid','idquart2fid','idquart3fid',
+            'iddeptrans1fid','transitedepargare1fid','iddeptrans2fid','transitedepargare2fid',
+            'iddeptrans3fid','transitedepargare3fid','iddeptrans4fid','transitedepargare4fid',
+            'tranfid','heureitinfid','hdepartitinefid','lignesitinerairefid','ligne1fid','siegitinefid','psiegesitinesfid'
+        ].forEach(function (id) {
+            var el = document.getElementById(id);
+            if (el) el.style.display = 'none';
+        });
+        [
+            '#idcheminsfid','#idchemins1fid','#idchemins2fid',
+            '#idcheminsheurfid','#idcheminsheur1fid','#idcheminsheur2fid',
+            '#hdepartitinefid','#psiegesitinesfid','#psiegesitines1fid','#psiegesitines2fid','#psiegesitines3fid',
+            '#quartier1fid','#quartier2fid','#quartier3fid'
+        ].forEach(function (s) {
+            var el = document.querySelector(s);
+            if (el && el.options) { el.options.length = 1; el.value = ''; el.onchange = null; }
+        });
+        ['#transitedepargare1fid','#transitedepargare2fid','#transitedepargare3fid','#transitedepargare4fid'].forEach(function (s) {
+            var el = document.querySelector(s);
+            if (el && el.options) el.options.length = 0;
+        });
+        ['#itinecodefid','#itinecodesfid','#lignetinerairefid','#lignesitinerairefid','#nbrtransfid',
+         '#idcompgfid','#idcompg1fid','#idcompg2fid','#idcompg3fid'].forEach(function (s) {
+            var el = document.querySelector(s);
+            if (el) el.value = '';
+        });
+    }
+
+    function __venteFiShowCheminSelector(chemins, onPick) {
+        __venteFiEnsureCheminSelector();
+        var box = document.getElementById('selchemin_box_fid');
+        var sel = document.getElementById('selchemin_transit_fid');
+        var hint = document.getElementById('selchemin_hint_fid');
+        if (!box || !sel) {
+            var et0 = chemins && chemins[0] ? __venteFiNormalizeEtapes(chemins[0].etapes) : [];
+            if (typeof window.__venteFiApplyTransitLegs === 'function') window.__venteFiApplyTransitLegs(et0);
+            else if (typeof onPick === 'function') onPick(et0);
+            return;
+        }
+        sel.options.length = 1;
+        for (var i = 0; i < chemins.length; i++) {
+            var opt = document.createElement('option');
+            opt.value = String(i);
+            opt.textContent = chemins[i].label || ('Chemin ' + (i + 1));
+            sel.add(opt);
+        }
+        box.style.display = 'block';
+        var applyIdx = function (idx) {
+            var ch = chemins[idx];
+            if (hint) hint.textContent = __venteFiFormatAttenteLabel(ch);
+            var etapes = __venteFiNormalizeEtapes(ch && ch.etapes);
+            if (typeof window.__venteFiApplyTransitLegs === 'function') window.__venteFiApplyTransitLegs(etapes);
+            else if (typeof onPick === 'function') onPick(etapes);
+        };
+        sel.onchange = function () {
+            var idx = parseInt(sel.value, 10);
+            if (isNaN(idx) || !chemins[idx]) {
+                if (hint) hint.textContent = '';
+                if (typeof window.__venteFiApplyTransitLegs === 'function') window.__venteFiApplyTransitLegs([]);
+                else if (typeof onPick === 'function') onPick([]);
+                return;
+            }
+            applyIdx(idx);
+        };
+        sel.selectedIndex = 1;
+        applyIdx(0);
+    }
+
     function __venteFiRequestTransitLegs(seltdep, arr, datedepart, sougid, force, onDone) {
         var sg = (sougid != null && sougid !== '') ? sougid : '0';
         var forceFlag = force ? '1' : '0';
+        var done = function (etapes) {
+            if (typeof onDone === 'function') onDone(etapes);
+            else if (typeof window.__venteFiApplyTransitLegs === 'function') window.__venteFiApplyTransitLegs(etapes);
+        };
         var httpRequestitinefi = new XMLHttpRequest();
         httpRequestitinefi.open(
             'GET',
-            window.location.origin + `${APP_ROOT}/programmes/verifitine/`
+            window.location.origin + `${APP_ROOT}/programmes/verifchemins/`
                 + encodeURIComponent(seltdep + '-' + arr) + '/'
                 + encodeURIComponent(datedepart) + '/'
                 + encodeURIComponent(sg) + '/'
@@ -445,13 +766,19 @@ document.addEventListener('DOMContentLoaded', () => {
             true
         );
         httpRequestitinefi.onload = function () {
-            var donitinesfi = null;
-            try { donitinesfi = JSON.parse(httpRequestitinefi.responseText); } catch (e) { donitinesfi = null; }
-            if (typeof onDone === 'function') {
-                onDone(donitinesfi);
-            } else if (typeof window.__venteFiApplyTransitLegs === 'function') {
-                window.__venteFiApplyTransitLegs(donitinesfi);
+            var payload = null;
+            try { payload = JSON.parse(httpRequestitinefi.responseText); } catch (e) { payload = null; }
+            if (Array.isArray(payload)) { __venteFiHideCheminSelector(); done(payload); return; }
+            if (!payload || typeof payload !== 'object') { __venteFiHideCheminSelector(); done([]); return; }
+            if (payload.mode === 'direct' || payload.mode === 'none') { __venteFiHideCheminSelector(); done([]); return; }
+            var chemins = Array.isArray(payload.chemins) ? payload.chemins : [];
+            if (chemins.length > 1) { __venteFiShowCheminSelector(chemins, done); return; }
+            __venteFiHideCheminSelector();
+            if (chemins.length === 1 && chemins[0].etapes) { done(chemins[0].etapes); return; }
+            if (payload.etapes && (Array.isArray(payload.etapes) ? payload.etapes.length : Object.keys(payload.etapes).length)) {
+                done(payload.etapes); return;
             }
+            done([]);
         };
         httpRequestitinefi.setRequestHeader('Content-Type', 'application/json');
         httpRequestitinefi.send();
@@ -479,6 +806,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (p.prix != null && String(p.prix).trim() !== '') {
             set('#prix_axetransfid', p.prix);
         }
+        __venteFiClearDownstreamCheminHeures();
     }
 
     function __venteFiLoadSiegesTransit1(idLh, dptDate) {
@@ -699,6 +1027,8 @@ document.addEventListener('DOMContentLoaded', () => {
                                 __venteFiFillHeuresVente(heuresHvFi);
 
                                 window.__venteFiApplyTransitLegs = function (donitinesfi) {
+                                                    donitinesfi = (typeof __venteFiNormalizeEtapes === 'function')
+                                                        ? __venteFiNormalizeEtapes(donitinesfi) : donitinesfi;
                                                     if(donitinesfi === null || donitinesfi === '' || (typeof donitinesfi === 'object' && !Object.keys(donitinesfi).length))
                                                     {
                                                         document.querySelector('#depitin1fid').style.display = 'none';
@@ -770,6 +1100,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                                     }
                                                     else
                                                     {
+                                                        if (typeof __venteFiResetTransitFieldsBeforeApply === 'function') __venteFiResetTransitFieldsBeforeApply();
                                                         if (Object.entries(donitinesfi).length >= 1) 
                                                         {
                                                             var i = Object.entries(donitinesfi).length;
@@ -891,25 +1222,43 @@ document.addEventListener('DOMContentLoaded', () => {
 
                                                                 document.querySelector('#prix_axefid1').style.display = 'none';
                                                                 document.querySelector('#prix_axefid').style.display = 'none';
-                                                                document.querySelector('#itinecodefid').value = `${donitinesfi[0].code_itineraires}`;
-
-                                                                
-                                                                document.querySelector('#lignetinerairefid').value = `${donitinesfi[0].nom_itineraires}`;
+                                                                __venteFiFillLigne1Locked(donitinesfi[0], function (codeSel) {
+                                                                    if (!codeSel) return;
+                                                                    var hd = document.querySelector('#hdepartitinefid');
+                                                                    if (hd) hd.options.length = 1;
+                                                                    var datedepart = document.querySelector('#date_depheurefid')
+                                                                        ? document.querySelector('#date_depheurefid').value
+                                                                        : (document.querySelector('#date_depheure') ? document.querySelector('#date_depheure').value : '');
+                                                                    var httpH = new XMLHttpRequest();
+                                                                    httpH.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifheureitine/${encodeURIComponent(codeSel)}/${encodeURIComponent(datedepart)}`, true);
+                                                                    httpH.onload = function () {
+                                                                        try {
+                                                                            var infositin = JSON.parse(httpH.responseText);
+                                                                            if (hd) hd.options.length = 1;
+                                                                            if (infositin && Object.entries(infositin).length >= 1) {
+                                                                                for (var key in Object.entries(infositin)) {
+                                                                                    var opt = document.createElement('option');
+                                                                                    opt.value = `${infositin[key].id_ligneheure}/${infositin[key].heure}`;
+                                                                                    opt.innerHTML = `${infositin[key].heure}`;
+                                                                                    if (hd) hd.add(opt);
+                                                                                }
+                                                                            }
+                                                                        } catch (eH) {}
+                                                                    };
+                                                                    httpH.setRequestHeader('Content-Type', 'application/json');
+                                                                    httpH.send();
+                                                                });
                                                             }
                                                             
                                                 
                                                             if(i === 2)
                                                             {
-                                                                let opt = document.createElement('option');
-                                                                opt.value = `${donitinesfi[1].code_itineraires}`;
-                                                                opt.innerHTML = `${donitinesfi[1].nom_itineraires}`;
-                                                                document.querySelector('#idcheminsfid').add(opt);
+                                                                __venteFiSetCheminLigneOption('#idcheminsfid', donitinesfi[1].code_itineraires, donitinesfi[1].nom_itineraires);
 
-                                                                document.querySelector('#lignesitinerairefid').value = `${donitinesfi[0].nom_itineraires}`;
-                                                                document.querySelector('#itinecodesfid').value = `${donitinesfi[0].id_lignes}`;
+                                                                                                                                document.querySelector('#itinecodesfid').value = `${donitinesfi[0].id_lignes}`;
                                                                     
 
-                                                                var typgare1fi = document.querySelector('#itinecodefid').value;
+                                                                var typgare1fi = (donitinesfi[0] && donitinesfi[0].code_itineraires) ? String(donitinesfi[0].code_itineraires) : (document.querySelector('#itinecodefid').value || '');
                                                                 var post_typgare1fi = typgare1fi.split('-');
                                                                 var seltypgare1fi = post_typgare1fi[0];
                                                                 var typgareselfi = post_typgare1fi[1];
@@ -1307,23 +1656,15 @@ document.addEventListener('DOMContentLoaded', () => {
                                                             {
 
                                                                 
-                                                                let opt = document.createElement('option');
-                                                                opt.value = `${donitinesfi[1].code_itineraires}`;
-                                                                opt.innerHTML = `${donitinesfi[1].nom_itineraires}`;
-                                                                
-                                                                document.querySelector('#idcheminsfid').add(opt);
+                                                                __venteFiSetCheminLigneOption('#idcheminsfid', donitinesfi[1].code_itineraires, donitinesfi[1].nom_itineraires);
 
-                                                                document.querySelector('#lignesitinerairefid').value = `${donitinesfi[0].nom_itineraires}`;
-                                                                document.querySelector('#itinecodesfid').value = `${donitinesfi[0].id_lignes}`;
+                                                                                                                                document.querySelector('#itinecodesfid').value = `${donitinesfi[0].id_lignes}`;
                                                                
 
-                                                                let opt1 = document.createElement('option');
-                                                                opt1.value = `${donitinesfi[2].code_itineraires}`;
-                                                                opt1.innerHTML = `${donitinesfi[2].nom_itineraires}`;
-                                                                document.querySelector('#idchemins1fid').add(opt1);
+                                                                __venteFiSetCheminLigneOption('#idchemins1fid', donitinesfi[2].code_itineraires, donitinesfi[2].nom_itineraires);
 
 
-                                                                var typgare1fi = document.querySelector('#itinecodefid').value;
+                                                                var typgare1fi = (donitinesfi[0] && donitinesfi[0].code_itineraires) ? String(donitinesfi[0].code_itineraires) : (document.querySelector('#itinecodefid').value || '');
                                                                 var post_typgare1fi = typgare1fi.split('-');
                                                                 var seltypgare1fi = post_typgare1fi[0];
                                                                 var typgareselfi = post_typgare1fi[1];
@@ -1886,27 +2227,17 @@ document.addEventListener('DOMContentLoaded', () => {
                                                             //troisieme itineraire
                                                             if(i === 4)
                                                             {
-                                                                let opt = document.createElement('option');
-                                                                opt.value = `${donitinesfi[1].code_itineraires}`;
-                                                                opt.innerHTML = `${donitinesfi[1].nom_itineraires}`;
-                                                                document.querySelector('#idcheminsfid').add(opt);
+                                                                __venteFiSetCheminLigneOption('#idcheminsfid', donitinesfi[1].code_itineraires, donitinesfi[1].nom_itineraires);
 
 
-                                                                let opt1 = document.createElement('option');
-                                                                opt1.value = `${donitinesfi[2].code_itineraires}`;
-                                                                opt1.innerHTML = `${donitinesfi[2].nom_itineraires}`;
-                                                                document.querySelector('#idchemins1fid').add(opt1);
+                                                                __venteFiSetCheminLigneOption('#idchemins1fid', donitinesfi[2].code_itineraires, donitinesfi[2].nom_itineraires);
 
-                                                                let opt2 = document.createElement('option');
-                                                                opt2.value = `${donitinesfi[3].code_itineraires}`;
-                                                                opt2.innerHTML = `${donitinesfi[3].nom_itineraires}`;
-                                                                document.querySelector('#idchemins2fid').add(opt2);
+                                                                __venteFiSetCheminLigneOption('#idchemins2fid', donitinesfi[3].code_itineraires, donitinesfi[3].nom_itineraires);
 
-                                                                document.querySelector('#lignesitinerairefid').value = `${donitinesfi[0].nom_itineraires}`;
-                                                               
+                                                                                                                               
                                                                 document.querySelector('#itinecodesfid').value = `${donitinesfi[0].id_lignes}`;
 
-                                                                    var typgare1fi = document.querySelector('#itinecodefid').value;
+                                                                    var typgare1fi = (donitinesfi[0] && donitinesfi[0].code_itineraires) ? String(donitinesfi[0].code_itineraires) : (document.querySelector('#itinecodefid').value || '');
                                                                 var post_typgare1fi = typgare1fi.split('-');
                                                                 var seltypgare1fi = post_typgare1fi[0];
                                                                 var typgareselfi = post_typgare1fi[1];

@@ -29,6 +29,7 @@
                     JOIN compagnies ca ON ga.id_compaga = ca.cle_compagnie
                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
                     WHERE e.id_entreprise = '$cid'
+                    AND ga.nom_gadest !='OUAGAESCAL'
                     ORDER BY ca.nom_compagnie ASC, ga.nom_gadest ASC, lg.nom_ligne ASC")->result();
             } else
                 return $this->db->query(
@@ -46,6 +47,7 @@
                     JOIN compagnies ca ON ga.id_compaga = ca.cle_compagnie
                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
                     WHERE e.id_entreprise = '$cid'
+                    AND ga.nom_gadest !='OUAGAESCAL'
                     AND lg.id_ligne = '$lg_id'
                     ORDER BY lg.nom_ligne")->row();
         }
@@ -115,6 +117,7 @@
                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
                     WHERE e.id_entreprise = '$cid'
                     AND g.idengare = '$gid'
+                    AND ga.nom_gadest !='OUAGAESCAL'
                     ORDER BY lg.nom_ligne")->result();
             } else
                 return $this->db->query(
@@ -128,6 +131,7 @@
                     WHERE e.id_entreprise = '$cid'
                     AND lg.id_ligne = '$lg_id'
                     AND g.idengare = '$gid'
+                    AND ga.nom_gadest !='OUAGAESCAL'
                     ORDER BY lg.nom_ligne")->row();
         }
         public function getlggaread($cid, $lg_id = FALSE)
@@ -142,6 +146,7 @@
                     JOIN compagnies c ON ge.id_compagd = c.cle_compagnie
                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
                     WHERE e.id_entreprise = '$cid'
+                    AND ga.nom_gadest !='OUAGAESCAL'
                     ORDER BY lg.nom_ligne")->result();
             } else
                 return $this->db->query(
@@ -153,6 +158,7 @@
                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
                     WHERE e.id_entreprise = '$cid'
                     AND lg.id_ligne = '$lg_id'
+                    AND ga.nom_gadest !='OUAGAESCAL'
                     ORDER BY lg.nom_ligne")->row();
         }
         
@@ -169,6 +175,7 @@
                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
                     WHERE e.id_entreprise = '$cid'
                     AND g.idengare = '$gd'
+                    AND ga.nom_gadest !='OUAGAESCAL'
                     ORDER BY lg.nom_ligne")->result();
             } else
                 return $this->db->query(
@@ -182,6 +189,7 @@
                     WHERE e.id_entreprise = '$cid'
                     AND g.idengare = '$gd'
                     AND lg.id_ligne = '$lg_id'
+                    AND ga.nom_gadest !='OUAGAESCAL'
                     ORDER BY lg.nom_ligne")->row();
         }
 
@@ -197,6 +205,7 @@
                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
                     WHERE e.id_entreprise = '$cid'
                     AND g.idengare = '$lg_id'
+                    AND ga.nom_gadest !='OUAGAESCAL'
                     ORDER BY lg.nom_ligne")->result();
         }
         
@@ -213,7 +222,8 @@
                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
                     WHERE e.id_entreprise = '$cid'
                     AND ge.code_gaexp = '$gid'
-                    AND ga.type_gare = 'principale'")->result();
+                    AND ga.type_gare = 'principale'
+                    AND ga.nom_gadest !='OUAGAESCAL'")->result();
             } else
                 return $this->db->query(
                     "SELECT * FROM lignes lg
@@ -225,6 +235,7 @@
                     WHERE e.id_entreprise = '$cid'
                     AND ge.code_gaexp = '$gid'
                     AND ga.type_gare = 'principale'
+                    AND ga.nom_gadest !='OUAGAESCAL'
                     AND lg.id_ligne = '$lg_id'")->row();
         }
        
@@ -239,7 +250,8 @@
                     JOIN compagnies c ON ge.id_compagd = c.cle_compagnie
                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
                     WHERE e.id_entreprise = '$cid'
-                    AND ga.type_gare = 'principale'")->result();
+                    AND ga.type_gare = 'principale'
+                    AND ga.nom_gadest !='OUAGAESCAL'")->result();
             } else
                 return $this->db->query(
                     "SELECT * FROM lignes lg
@@ -250,6 +262,7 @@
                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
                     WHERE e.id_entreprise = '$cid'
                     AND ga.type_gare = 'principale'
+                    AND ga.nom_gadest !='OUAGAESCAL'
                     AND lg.id_ligne = '$lg_id'")->row();
         }
         public function create(array $data)

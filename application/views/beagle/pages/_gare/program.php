@@ -327,7 +327,8 @@
                                            data-code="<?= htmlspecialchars($item->code_progr, ENT_QUOTES, 'UTF-8'); ?>"
                                            data-ligne="<?= htmlspecialchars(isset($item->ligne_id) ? $item->ligne_id : (isset($item->ident_ligne) ? $item->ident_ligne : ''), ENT_QUOTES, 'UTF-8'); ?>"
                                            data-nom="<?= htmlspecialchars($item->nom_ligne, ENT_QUOTES, 'UTF-8'); ?>"
-                                           data-heure="<?= htmlspecialchars($item->heure, ENT_QUOTES, 'UTF-8'); ?>">
+                                           data-heure="<?= htmlspecialchars($item->heure, ENT_QUOTES, 'UTF-8'); ?>"
+                                           data-pdate="<?= htmlspecialchars($item->date_progr, ENT_QUOTES, 'UTF-8'); ?>">
                                             <span class="fas fa-exchange-alt <?= !empty($__corr) ? 'text-success' : 'text-info'; ?>"></span>
                                         </a>&nbsp;
                                         <a href="<?= site_url('Gares/activer/' . $this->session->company->ekey . '/' . $item->code_progr. '/' . $item->gareidentif. '/' . $item->statut_prog.'/'.$conex->roleattribut.'/'.$gare_stop->idsousgare);?> "class="btn btn-space btn-secondary">
@@ -1250,38 +1251,47 @@
             <p class="mb-2" id="corr-principal-label"></p>
             <div id="corr-linked-box" class="mb-3" style="display:none;"></div>
             <div id="corr-suggest-box">
-                <p class="text-muted small">Choisir un départ déjà créé à la gare de correspondance. Les sièges du départ hub dérivé seront le miroir des sièges occupés sur ce départ.</p>
+                <p class="text-muted small">Choisir un départ déjà créé à la gare de correspondance (même jour ou lendemain). Les sièges du départ hub dérivé seront le miroir des sièges occupés sur ce départ. La portée s’affiche après ce choix.</p>
                 <div id="corr-suggest-list"></div>
                 <div id="corr-portee-box" class="mt-3" style="display:none;">
                     <hr>
-                    <h6>Portée Banfora (dérivé ± principal)</h6>
+                    <h6 id="corr-portee-principal-title">Portée gare départ (dérivé ± principal)</h6>
                     <label class="mb-1" style="font-weight:400;cursor:pointer;">
-                        <input type="radio" name="corr_scope_ban_mode" value="gare" checked class="js-corr-ban-mode"> Toute portée Banfora
+                        <input type="radio" name="corr_scope_ban_mode" value="gare" checked class="js-corr-ban-mode">
+                        <span id="corr-ban-mode-gare-label">Toute portée</span>
                     </label>
                     <label class="mb-1 ml-3" style="font-weight:400;cursor:pointer;">
-                        <input type="radio" name="corr_scope_ban_mode" value="sousgare" class="js-corr-ban-mode"> Sous-gares Banfora
+                        <input type="radio" name="corr_scope_ban_mode" value="sousgare" class="js-corr-ban-mode">
+                        <span id="corr-ban-mode-sg-label">Sous-gares</span>
                     </label>
-                    <div id="corr-sg-banfora" class="row mt-1" style="opacity:0.55;pointer-events:none;"></div>
+                    <div id="corr-sg-banfora-hint" class="mt-1"><small class="text-muted">Choisissez « Sous-gares » pour sélectionner la portée.</small></div>
+                    <div id="corr-sg-banfora" class="row mt-1" style="display:none;"></div>
                     <div class="mt-2">
                         <label style="font-weight:400;cursor:pointer;">
-                            <input type="checkbox" id="corr-apply-derive" checked> Appliquer au dérivé Banfora→hub (A)
+                            <input type="checkbox" id="corr-apply-derive" checked>
+                            <span id="corr-apply-derive-label">Appliquer au dérivé (hub)</span>
                         </label><br>
                         <label style="font-weight:400;cursor:pointer;">
-                            <input type="checkbox" id="corr-apply-principal" checked> Appliquer aussi au principal Banfora→Ouaga (B)
+                            <input type="checkbox" id="corr-apply-principal" checked>
+                            <span id="corr-apply-principal-label">Appliquer aussi au principal</span>
                         </label>
                     </div>
                     <hr>
-                    <h6>Portée Bobo (suite correspondance)</h6>
+                    <h6 id="corr-portee-suite-title">Portée gare correspondance (suite)</h6>
                     <label class="mb-1" style="font-weight:400;cursor:pointer;">
-                        <input type="radio" name="corr_scope_bob_mode" value="gare" checked class="js-corr-bob-mode"> Toute portée Bobo
+                        <input type="radio" name="corr_scope_bob_mode" value="gare" checked class="js-corr-bob-mode">
+                        <span id="corr-bob-mode-gare-label">Toute portée</span>
                     </label>
                     <label class="mb-1 ml-3" style="font-weight:400;cursor:pointer;">
-                        <input type="radio" name="corr_scope_bob_mode" value="sousgare" class="js-corr-bob-mode"> Sous-gares Bobo
+                        <input type="radio" name="corr_scope_bob_mode" value="sousgare" class="js-corr-bob-mode">
+                        <span id="corr-bob-mode-sg-label">Sous-gares</span>
                     </label>
-                    <div id="corr-sg-bobo" class="row mt-1" style="opacity:0.55;pointer-events:none;"></div>
+                    <div id="corr-sg-bobo-hint" class="mt-1"><small class="text-muted">Choisissez « Sous-gares » pour sélectionner la portée.</small></div>
+                    <div id="corr-sg-bobo" class="row mt-1" style="display:none;"></div>
                     <div class="mt-2">
                         <label style="font-weight:400;cursor:pointer;">
-                            <input type="checkbox" id="corr-apply-suite" checked> Appliquer à la suite Bobo→Ouaga
+                            <input type="checkbox" id="corr-apply-suite" checked>
+                            <span id="corr-apply-suite-label">Appliquer à la suite</span>
                         </label>
                     </div>
                 </div>
@@ -1305,11 +1315,14 @@
 
     var state = {
         principal: null,
+        principalMeta: null,
         suite: null,
         lien: null,
         verrouille: false,
-        sousgaresBanfora: [],
-        sousgaresBobo: []
+        sousgaresPrincipal: [],
+        sousgaresSuite: [],
+        porteePrincipale: [],
+        porteeSuite: []
     };
 
     function $corrModal() {
@@ -1337,11 +1350,14 @@
         }
         state = {
             principal: null,
+            principalMeta: null,
             suite: null,
             lien: null,
             verrouille: false,
-            sousgaresBanfora: [],
-            sousgaresBobo: []
+            sousgaresPrincipal: [],
+            sousgaresSuite: [],
+            porteePrincipale: [],
+            porteeSuite: []
         };
         var saveBtn = document.querySelector('#modal-correspondance .js-corr-save');
         var unlinkBtn = document.querySelector('#modal-correspondance .js-corr-unlink');
@@ -1357,13 +1373,28 @@
         resetPorteeUi();
     }
 
+    function setText(id, text) {
+        var el = document.getElementById(id);
+        if (el) el.textContent = text || '';
+    }
+
     function resetPorteeUi() {
         var portee = document.getElementById('corr-portee-box');
         if (portee) portee.style.display = 'none';
         var ban = document.getElementById('corr-sg-banfora');
         var bob = document.getElementById('corr-sg-bobo');
-        if (ban) ban.innerHTML = '';
-        if (bob) bob.innerHTML = '';
+        if (ban) {
+            ban.innerHTML = '';
+            ban.style.display = 'none';
+        }
+        if (bob) {
+            bob.innerHTML = '';
+            bob.style.display = 'none';
+        }
+        var banHint = document.getElementById('corr-sg-banfora-hint');
+        var bobHint = document.getElementById('corr-sg-bobo-hint');
+        if (banHint) banHint.style.display = 'block';
+        if (bobHint) bobHint.style.display = 'block';
         var banGare = document.querySelector('input[name="corr_scope_ban_mode"][value="gare"]');
         var bobGare = document.querySelector('input[name="corr_scope_bob_mode"][value="gare"]');
         if (banGare) banGare.checked = true;
@@ -1374,35 +1405,55 @@
         if (ad) ad.checked = true;
         if (ap) ap.checked = true;
         if (asu) asu.checked = true;
-        setSgBoxEnabled('corr-sg-banfora', false);
-        setSgBoxEnabled('corr-sg-bobo', false);
+        setText('corr-portee-principal-title', 'Portée gare départ (dérivé ± principal)');
+        setText('corr-ban-mode-gare-label', 'Toute portée');
+        setText('corr-ban-mode-sg-label', 'Sous-gares');
+        setText('corr-apply-derive-label', 'Appliquer au dérivé (hub)');
+        setText('corr-apply-principal-label', 'Appliquer aussi au principal');
+        setText('corr-portee-suite-title', 'Portée gare correspondance (suite)');
+        setText('corr-bob-mode-gare-label', 'Toute portée');
+        setText('corr-bob-mode-sg-label', 'Sous-gares');
+        setText('corr-apply-suite-label', 'Appliquer à la suite');
     }
 
-    function setSgBoxEnabled(id, enabled) {
-        var el = document.getElementById(id);
-        if (!el) return;
-        el.style.opacity = enabled ? '1' : '0.55';
-        el.style.pointerEvents = enabled ? 'auto' : 'none';
-        var checks = el.querySelectorAll('input[type="checkbox"]');
-        Array.prototype.forEach.call(checks, function (c) {
-            c.disabled = !enabled;
-            if (!enabled) c.checked = true;
+    function idsToMap(ids) {
+        var map = {};
+        (ids || []).forEach(function (id) {
+            map[String(id)] = true;
         });
+        return map;
     }
 
-    function renderSgChecks(containerId, list, nameAttr) {
+    /**
+     * Affiche les cases SG seulement en mode sous-gares.
+     * selectedIds : portée actuelle (vide = cocher toutes au passage en sous-gares).
+     */
+    function renderSgChecks(containerId, hintId, list, nameAttr, selectedIds, enabled) {
         var box = document.getElementById(containerId);
+        var hint = document.getElementById(hintId);
         if (!box) return;
+        if (!enabled) {
+            box.innerHTML = '';
+            box.style.display = 'none';
+            if (hint) hint.style.display = 'block';
+            return;
+        }
+        if (hint) hint.style.display = 'none';
+        box.style.display = 'flex';
         if (!list || !list.length) {
             box.innerHTML = '<div class="col-12"><small class="text-muted">Aucune sous-gare.</small></div>';
             return;
         }
+        var selected = idsToMap(selectedIds);
+        var hasSelection = selectedIds && selectedIds.length > 0;
         var html = '';
         list.forEach(function (sg) {
+            var idStr = String(sg.idsousgare);
+            var checked = hasSelection ? !!selected[idStr] : true;
             html += '<div class="form-group col-sm-4 col-md-3 mb-1">'
                 + '<label class="custom-control custom-checkbox mb-0">'
                 + '<input class="custom-control-input" type="checkbox" name="' + nameAttr + '" value="'
-                + sg.idsousgare + '" checked disabled>'
+                + sg.idsousgare + '"' + (checked ? ' checked' : '') + '>'
                 + '<span class="custom-control-label">' + (sg.nomsousgare || ('#' + sg.idsousgare)) + '</span>'
                 + '</label></div>';
         });
@@ -1418,18 +1469,95 @@
         return out;
     }
 
-    function loadSousgaresBobo(gareCode) {
-        state.sousgaresBobo = [];
-        renderSgChecks('corr-sg-bobo', [], 'corr_scope_bobo');
+    function updatePorteeLabels() {
+        var p = state.principalMeta || {};
+        var s = state.suite || {};
+        var gareP = p.gareidentif || 'départ';
+        var nomP = p.nom_ligne || 'principal';
+        var gareS = s.gareidentif || 'correspondance';
+        var nomS = s.nom_ligne || 'suite';
+        setText('corr-portee-principal-title', 'Portée ' + gareP + ' (dérivé ± principal)');
+        setText('corr-ban-mode-gare-label', 'Toute portée ' + gareP);
+        setText('corr-ban-mode-sg-label', 'Sous-gares ' + gareP);
+        setText('corr-apply-derive-label', 'Appliquer au dérivé ' + gareP + '→hub');
+        setText('corr-apply-principal-label', 'Appliquer aussi au principal (' + nomP + ')');
+        setText('corr-portee-suite-title', 'Portée ' + gareS + ' (suite)');
+        setText('corr-bob-mode-gare-label', 'Toute portée ' + gareS);
+        setText('corr-bob-mode-sg-label', 'Sous-gares ' + gareS);
+        setText('corr-apply-suite-label', 'Appliquer à la suite (' + nomS + ')');
+    }
+
+    function applyPrincipalModeUi() {
+        var mode = document.querySelector('input[name="corr_scope_ban_mode"]:checked');
+        var sousgare = mode && mode.value === 'sousgare';
+        renderSgChecks(
+            'corr-sg-banfora',
+            'corr-sg-banfora-hint',
+            state.sousgaresPrincipal,
+            'corr_scope_banfora',
+            state.porteePrincipale,
+            sousgare
+        );
+    }
+
+    function applySuiteModeUi() {
+        var mode = document.querySelector('input[name="corr_scope_bob_mode"]:checked');
+        var sousgare = mode && mode.value === 'sousgare';
+        renderSgChecks(
+            'corr-sg-bobo',
+            'corr-sg-bobo-hint',
+            state.sousgaresSuite,
+            'corr_scope_bobo',
+            state.porteeSuite,
+            sousgare
+        );
+    }
+
+    function initPrincipalScopeMode() {
+        var hasPartial = state.porteePrincipale && state.porteePrincipale.length > 0;
+        var banSg = document.querySelector('input[name="corr_scope_ban_mode"][value="sousgare"]');
+        var banGare = document.querySelector('input[name="corr_scope_ban_mode"][value="gare"]');
+        if (hasPartial && banSg) {
+            banSg.checked = true;
+        } else if (banGare) {
+            banGare.checked = true;
+        }
+        applyPrincipalModeUi();
+    }
+
+    function initSuiteScopeMode() {
+        var hasPartial = state.porteeSuite && state.porteeSuite.length > 0;
+        var bobSg = document.querySelector('input[name="corr_scope_bob_mode"][value="sousgare"]');
+        var bobGare = document.querySelector('input[name="corr_scope_bob_mode"][value="gare"]');
+        if (hasPartial && bobSg) {
+            bobSg.checked = true;
+        } else if (bobGare) {
+            bobGare.checked = true;
+        }
+        applySuiteModeUi();
+    }
+
+    function loadSousgaresSuite(gareCode) {
+        state.sousgaresSuite = [];
+        applySuiteModeUi();
         if (!gareCode) return Promise.resolve();
         return fetch(base + '/sousgares_correspondance/' + encodeURIComponent(ekey) + '/' + encodeURIComponent(gareCode), {
             credentials: 'same-origin',
             headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' }
         }).then(parseJsonResponse).then(function (data) {
-            state.sousgaresBobo = (data && data.sousgares) ? data.sousgares : [];
-            renderSgChecks('corr-sg-bobo', state.sousgaresBobo, 'corr_scope_bobo');
-            var mode = document.querySelector('input[name="corr_scope_bob_mode"]:checked');
-            setSgBoxEnabled('corr-sg-bobo', mode && mode.value === 'sousgare');
+            state.sousgaresSuite = (data && data.sousgares) ? data.sousgares : [];
+            applySuiteModeUi();
+        });
+    }
+
+    function showPorteeAfterSuite() {
+        updatePorteeLabels();
+        var portee = document.getElementById('corr-portee-box');
+        if (portee) portee.style.display = 'block';
+        initPrincipalScopeMode();
+        state.porteeSuite = (state.suite && state.suite.portee_ids) ? state.suite.portee_ids : [];
+        return loadSousgaresSuite(state.suite && state.suite.gareidentif).then(function () {
+            initSuiteScopeMode();
         });
     }
 
@@ -1460,18 +1588,35 @@
         return body;
     }
 
+    function corrErrorLabel(code) {
+        var map = {
+            dates_hors_plage: 'La suite doit être le même jour ou le lendemain du principal.',
+            dates_differentes: 'La suite doit être le même jour ou le lendemain du principal.',
+            marge_horaire: 'La suite doit partir au moins 30 min après le principal.',
+            dates_invalides: 'Date de programme invalide.',
+            deja_lie: 'Ce principal a déjà un lien de correspondance.',
+            programme_introuvable: 'Programme introuvable.',
+            ligne_derive_introuvable: 'Ligne dérivée introuvable.',
+            heure_derive_introuvable: 'Heure dérivée introuvable.',
+            echec_creation_derive: 'Échec création du départ dérivé.'
+        };
+        return map[code] || code || 'Erreur';
+    }
+
     function renderSuggestions(list) {
         var box = document.getElementById('corr-suggest-list');
         if (!list || !list.length) {
-            box.innerHTML = '<p class="text-muted">Aucun départ de correspondance compatible trouvé pour cette date.</p>';
+            box.innerHTML = '<p class="text-muted">Aucun départ de correspondance compatible (même jour ou lendemain).</p>';
             return;
         }
         var html = '<div class="list-group">';
         list.forEach(function (s, i) {
+            var datePart = s.date_progr ? (' · ' + s.date_progr) : '';
+            var tag = s.lendemain ? ' <span class="badge badge-warning">lendemain</span>' : '';
             html += '<label class="list-group-item" style="cursor:pointer;">'
                 + '<input type="radio" name="corr_suite" value="' + s.code_progr + '" data-idx="' + i + '" style="margin-right:8px;">'
-                + '<strong>' + (s.label || s.nom_ligne) + '</strong>'
-                + ' <small class="text-muted">(' + s.code_progr + ' · gare ' + s.gareidentif + ' · sièges '
+                + '<strong>' + (s.label || s.nom_ligne) + '</strong>' + tag
+                + ' <small class="text-muted">(' + s.code_progr + datePart + ' · gare ' + s.gareidentif + ' · sièges '
                 + s.intervalle1 + '-' + s.intervalle2 + ')</small></label>';
         });
         html += '</div>';
@@ -1483,20 +1628,9 @@
                 state.suite = list[idx];
                 var saveBtn = document.querySelector('#modal-correspondance .js-corr-save');
                 if (saveBtn) saveBtn.disabled = !state.suite;
-                loadSousgaresBobo(state.suite && state.suite.gareidentif);
+                showPorteeAfterSuite();
             });
         });
-    }
-
-    function showPorteeBox(sousgaresBanfora) {
-        state.sousgaresBanfora = sousgaresBanfora || [];
-        renderSgChecks('corr-sg-banfora', state.sousgaresBanfora, 'corr_scope_banfora');
-        var portee = document.getElementById('corr-portee-box');
-        if (portee) portee.style.display = 'block';
-        var banMode = document.querySelector('input[name="corr_scope_ban_mode"]:checked');
-        setSgBoxEnabled('corr-sg-banfora', banMode && banMode.value === 'sousgare');
-        var bobMode = document.querySelector('input[name="corr_scope_bob_mode"]:checked');
-        setSgBoxEnabled('corr-sg-bobo', bobMode && bobMode.value === 'sousgare');
     }
 
     function appendScopeToBody(body) {
@@ -1535,10 +1669,12 @@
         html += '<div><strong>Lien actif</strong></div>';
         if (suite) {
             html += '<div>Correspondance : ' + (suite.nom_ligne || '') + ' '
+                + (suite.date_progr ? (suite.date_progr + ' ') : '')
                 + (suite.heure || '') + ' <code>' + lien.code_progr_suite + '</code></div>';
         }
         if (derive) {
             html += '<div>Dérivé (miroir sièges) : ' + (derive.nom_ligne || '') + ' '
+                + (derive.date_progr ? (derive.date_progr + ' ') : '')
                 + (derive.heure || '') + ' <code>' + lien.code_progr_derive + '</code></div>';
         } else if (lien.code_progr_derive) {
             html += '<div>Dérivé : <code>' + lien.code_progr_derive + '</code></div>';
@@ -1567,15 +1703,19 @@
         state.verrouille = verrouille;
     }
 
-    function openFor(code, nom, heure) {
+    function openFor(code, nom, heure, pdate) {
         state.principal = code;
+        state.principalMeta = { nom_ligne: nom || '', gareidentif: '' };
         state.suite = null;
         state.lien = null;
-        state.sousgaresBanfora = [];
-        state.sousgaresBobo = [];
+        state.sousgaresPrincipal = [];
+        state.sousgaresSuite = [];
+        state.porteePrincipale = [];
+        state.porteeSuite = [];
         resetPorteeUi();
+        var datePart = pdate ? (' ' + pdate) : '';
         document.getElementById('corr-principal-label').textContent =
-            'Départ principal : ' + (nom || '') + ' ' + (heure || '') + ' (' + code + ')';
+            'Départ principal : ' + (nom || '') + datePart + ' ' + (heure || '') + ' (' + code + ')';
         document.getElementById('corr-linked-box').style.display = 'none';
         document.getElementById('corr-suggest-box').style.display = 'block';
         document.getElementById('corr-suggest-list').innerHTML = '';
@@ -1609,8 +1749,19 @@
                 setMsg(sug.error || 'Erreur suggestions', true);
                 return;
             }
+            if (sug.principal) {
+                state.principalMeta = sug.principal;
+                var dateP = sug.principal.date_progr ? (' ' + sug.principal.date_progr) : '';
+                document.getElementById('corr-principal-label').textContent =
+                    'Départ principal : ' + (sug.principal.nom_ligne || nom || '')
+                    + dateP + ' ' + (sug.principal.heure || heure || '')
+                    + ' · gare ' + (sug.principal.gareidentif || '')
+                    + ' (' + code + ')';
+            }
+            state.sousgaresPrincipal = sug.sousgares_principal || sug.sousgares_banfora || [];
+            state.porteePrincipale = sug.portee_principale || [];
             renderSuggestions(sug.suggestions || []);
-            showPorteeBox(sug.sousgares_banfora || []);
+            // Portée affichée seulement après choix d'une suite
         }).catch(function (err) {
             setMsg((err && err.message) ? err.message : 'Erreur réseau', true);
         });
@@ -1636,7 +1787,12 @@
         if (btn) {
             e.preventDefault();
             e.stopPropagation();
-            openFor(btn.getAttribute('data-code'), btn.getAttribute('data-nom'), btn.getAttribute('data-heure'));
+            openFor(
+                btn.getAttribute('data-code'),
+                btn.getAttribute('data-nom'),
+                btn.getAttribute('data-heure'),
+                btn.getAttribute('data-pdate')
+            );
             return;
         }
         if (closer) {
@@ -1647,12 +1803,12 @@
 
     Array.prototype.forEach.call(document.querySelectorAll('.js-corr-ban-mode'), function (inp) {
         inp.addEventListener('change', function () {
-            setSgBoxEnabled('corr-sg-banfora', inp.value === 'sousgare');
+            applyPrincipalModeUi();
         });
     });
     Array.prototype.forEach.call(document.querySelectorAll('.js-corr-bob-mode'), function (inp) {
         inp.addEventListener('change', function () {
-            setSgBoxEnabled('corr-sg-bobo', inp.value === 'sousgare');
+            applySuiteModeUi();
         });
     });
 
@@ -1679,7 +1835,7 @@
                 body: body.toString()
             }).then(parseJsonResponse).then(function (data) {
                 if (!data || !data.ok) {
-                    setMsg((data && data.error) || 'Échec du lien', true);
+                    setMsg(corrErrorLabel(data && data.error) || 'Échec du lien', true);
                     btn.disabled = false;
                     return;
                 }

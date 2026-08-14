@@ -8,8 +8,11 @@ class Programme_correspondance_model extends CI_Model
 {
     protected $table = 'programme_correspondance';
 
-    /** Marge min (minutes) pour proposer une suite après l'heure du principal. */
+    /** Marge min (minutes) pour proposer une suite après le départ principal. */
     protected $marge_min = 30;
+
+    /** Écart max (jours) suite après le principal : 0 = même jour, 1 = lendemain. */
+    protected $suite_jours_max = 1;
 
     public function __construct()
     {
@@ -375,7 +378,74 @@ class Programme_correspondance_model extends CI_Model
     }
 
     /**
+     * Minutes absolues (depuis epoch) pour comparer date+heure entre jours.
+     * @param string $date Y-m-d
+     * @param string $heure H:i[:s]
+     * @return int
+     */
+    protected function datetime_to_minutes($date, $heure)
+    {
+        $day = strtotime(trim((string) $date) . ' 00:00:00');
+        if ($day === false) {
+            return $this->heure_to_minutes($heure);
+        }
+        return (int) floor($day / 60) + $this->heure_to_minutes($heure);
+    }
+
+    /**
+     * @param string $date Y-m-d
+     * @param int $days
+     * @return string Y-m-d
+     */
+    protected function date_plus_jours($date, $days)
+    {
+        $t = strtotime(trim((string) $date) . ' 00:00:00');
+        if ($t === false) {
+            return (string) $date;
+        }
+        return date('Y-m-d', strtotime('+' . (int) $days . ' day', $t));
+    }
+
+    /**
+     * Dates suite autorisées : J .. J+suite_jours_max.
+     * @param string $date_principal
+     * @return string[]
+     */
+    protected function dates_suite_autorisees($date_principal)
+    {
+        $out = array();
+        $max = max(0, (int) $this->suite_jours_max);
+        for ($i = 0; $i <= $max; $i++) {
+            $out[] = $this->date_plus_jours($date_principal, $i);
+        }
+        return $out;
+    }
+
+    /**
+     * Suite dans [J, J+max] et datetime >= principal + marge.
+     * @return string|null code erreur ou null si OK
+     */
+    protected function valider_dates_suite($principal, $suite)
+    {
+        $tP = strtotime(trim((string) $principal->date_progr) . ' 00:00:00');
+        $tS = strtotime(trim((string) $suite->date_progr) . ' 00:00:00');
+        if ($tP === false || $tS === false) {
+            return 'dates_invalides';
+        }
+        $delta = (int) round(($tS - $tP) / 86400);
+        if ($delta < 0 || $delta > (int) $this->suite_jours_max) {
+            return 'dates_hors_plage';
+        }
+        $minOk = $this->datetime_to_minutes($principal->date_progr, $principal->heure) + $this->marge_min;
+        if ($this->datetime_to_minutes($suite->date_progr, $suite->heure) < $minOk) {
+            return 'marge_horaire';
+        }
+        return null;
+    }
+
+    /**
      * Suites candidates (programmes déjà créés) pour un principal.
+     * Inclut le même jour et le lendemain (correspondance nuit).
      * @return array
      */
     public function suggest_suites($ekey, $code_progr_principal)
@@ -396,7 +466,9 @@ class Programme_correspondance_model extends CI_Model
             );
         }
 
-        $minMin = $this->heure_to_minutes($principal->heure) + $this->marge_min;
+        $datesOk = $this->dates_suite_autorisees($principal->date_progr);
+        $phDates = implode(',', array_fill(0, count($datesOk), '?'));
+        $minAbs = $this->datetime_to_minutes($principal->date_progr, $principal->heure) + $this->marge_min;
 
         // Lignes suite : 2e étape déclarative, sinon mêmes destinations OD via hub
         $suite_lignes = array();
@@ -418,7 +490,12 @@ class Programme_correspondance_model extends CI_Model
             }
         }
         if (empty($suite_lignes)) {
-            // Programmes même date, autre gare exp, même gadest que le principal
+            // Autre gare exp, même gadest, sur J / J+1
+            $paramsLignes = array_merge(array($ekey), $datesOk, array(
+                $principal->gadest_lg,
+                $principal->gaexp_lg,
+                $principal->ligne_id,
+            ));
             $rows = $this->db->query(
                 "SELECT DISTINCT lg.ident_ligne
                  FROM programme pr
@@ -428,13 +505,13 @@ class Programme_correspondance_model extends CI_Model
                  JOIN compagnies c ON ge.id_compagd = c.cle_compagnie
                  JOIN entreprise e ON c.id_entrep = e.id_entreprise
                  WHERE e.ekey = ?
-                   AND pr.date_progr = ?
+                   AND pr.date_progr IN ($phDates)
                    AND pr.statut_prog = 'actif'
                    AND pr.actif_prog = 0
                    AND lg.gadest_lg = ?
                    AND lg.gaexp_lg <> ?
                    AND lg.ident_ligne <> ?",
-                array($ekey, $principal->date_progr, $principal->gadest_lg, $principal->gaexp_lg, $principal->ligne_id)
+                $paramsLignes
             )->result();
             foreach ($rows as $r) {
                 $suite_lignes[$r->ident_ligne] = true;
@@ -452,9 +529,9 @@ class Programme_correspondance_model extends CI_Model
 
         $ids = array_keys($suite_lignes);
         $ph = implode(',', array_fill(0, count($ids), '?'));
-        $params = array_merge(array($ekey, $principal->date_progr), $ids);
+        $params = array_merge(array($ekey), $datesOk, $ids);
         $cands = $this->db->query(
-            "SELECT pr.code_progr, pr.gareidentif, pr.intervalle1, pr.intervalle2, pr.depart_code,
+            "SELECT pr.code_progr, pr.gareidentif, pr.date_progr, pr.intervalle1, pr.intervalle2, pr.depart_code,
                     lh.id_ligneheure, lh.ligne_id, h.heure, lg.nom_ligne, lg.gaexp_lg, lg.gadest_lg
              FROM programme pr
              JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
@@ -464,18 +541,24 @@ class Programme_correspondance_model extends CI_Model
              JOIN compagnies c ON ge.id_compagd = c.cle_compagnie
              JOIN entreprise e ON c.id_entrep = e.id_entreprise
              WHERE e.ekey = ?
-               AND pr.date_progr = ?
+               AND pr.date_progr IN ($phDates)
                AND pr.statut_prog = 'actif'
                AND pr.actif_prog = 0
                AND lh.ligne_id IN ($ph)
-             ORDER BY h.heure ASC, pr.code_progr ASC",
+             ORDER BY pr.date_progr ASC, h.heure ASC, pr.code_progr ASC",
             $params
         )->result();
 
         $suggestions = array();
         foreach ($cands as $c) {
-            if ($this->heure_to_minutes($c->heure) < $minMin) {
+            if ($this->datetime_to_minutes($c->date_progr, $c->heure) < $minAbs) {
                 continue;
+            }
+            $hhmm = substr((string) $c->heure, 0, 5);
+            $isLendemain = ((string) $c->date_progr !== (string) $principal->date_progr);
+            $label = $c->nom_ligne . ' ' . $c->date_progr . ' ' . $hhmm;
+            if ($isLendemain) {
+                $label .= ' (lendemain)';
             }
             $suggestions[] = array(
                 'code_progr' => $c->code_progr,
@@ -483,9 +566,12 @@ class Programme_correspondance_model extends CI_Model
                 'ligne_id' => $c->ligne_id,
                 'nom_ligne' => $c->nom_ligne,
                 'heure' => $c->heure,
+                'date_progr' => $c->date_progr,
+                'lendemain' => $isLendemain,
                 'intervalle1' => (int) $c->intervalle1,
                 'intervalle2' => (int) $c->intervalle2,
-                'label' => $c->nom_ligne . ' ' . substr((string) $c->heure, 0, 5),
+                'portee_ids' => $this->portee_ids_programme($c->code_progr),
+                'label' => $label,
             );
         }
 
@@ -493,6 +579,7 @@ class Programme_correspondance_model extends CI_Model
             'ok' => true,
             'principal' => $this->_public_prog($principal),
             'suggestions' => $suggestions,
+            'suite_jours_max' => (int) $this->suite_jours_max,
         );
     }
 
@@ -543,6 +630,38 @@ class Programme_correspondance_model extends CI_Model
     }
 
     /**
+     * Ids sous-gares de la portée actuelle d'un programme.
+     * Vide = toute portée (gare).
+     * @return int[]
+     */
+    public function portee_ids_programme($code_progr)
+    {
+        $code = trim((string) $code_progr);
+        if ($code === '') {
+            return array();
+        }
+        $rows = $this->db->query(
+            "SELECT idsousgare FROM programme_sousgare WHERE code_progr = ? ORDER BY idsousgare ASC",
+            array($code)
+        )->result();
+        if (!empty($rows)) {
+            $out = array();
+            foreach ($rows as $r) {
+                $out[] = (int) $r->idsousgare;
+            }
+            return $out;
+        }
+        $pr = $this->db->query(
+            "SELECT idsousgare_prog FROM programme WHERE code_progr = ? LIMIT 1",
+            array($code)
+        )->row();
+        if ($pr && $pr->idsousgare_prog !== null && $pr->idsousgare_prog !== '' && (int) $pr->idsousgare_prog > 0) {
+            return array((int) $pr->idsousgare_prog);
+        }
+        return array();
+    }
+
+    /**
      * Liste sous-gares d'une gare (pour UI portée lien).
      * @return array
      */
@@ -590,8 +709,9 @@ class Programme_correspondance_model extends CI_Model
         if (!$principal || !$suite) {
             return array('ok' => false, 'error' => 'programme_introuvable');
         }
-        if ($principal->date_progr !== $suite->date_progr) {
-            return array('ok' => false, 'error' => 'dates_differentes');
+        $errDates = $this->valider_dates_suite($principal, $suite);
+        if ($errDates !== null) {
+            return array('ok' => false, 'error' => $errDates);
         }
         if ($this->get_by_principal($code_progr_principal)) {
             return array('ok' => false, 'error' => 'deja_lie');

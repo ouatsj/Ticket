@@ -29,6 +29,9 @@ class Graphe_correspondance
             'top_k' => (int) $this->CI->config->item('graphe_correspondance_top_k', 'graphe_correspondance'),
             'max_expand' => (int) $this->CI->config->item('graphe_correspondance_max_edges_expand', 'graphe_correspondance'),
             'boost_declaratif' => $this->CI->config->item('graphe_correspondance_boost_declaratif', 'graphe_correspondance'),
+            'horizon_jours' => (int) $this->CI->config->item('graphe_correspondance_horizon_jours', 'graphe_correspondance'),
+            'poids_attente' => (float) $this->CI->config->item('graphe_correspondance_poids_attente', 'graphe_correspondance'),
+            'anti_revisite' => $this->CI->config->item('graphe_correspondance_anti_revisite', 'graphe_correspondance'),
         );
         if ($this->cfg['prefer_direct'] === null) {
             $this->cfg['prefer_direct'] = TRUE;
@@ -57,6 +60,20 @@ class Graphe_correspondance
             if ($this->cfg['boost_declaratif'] < 0) {
                 $this->cfg['boost_declaratif'] = 0;
             }
+        }
+        if ($this->cfg['horizon_jours'] < 0) {
+            $this->cfg['horizon_jours'] = 0;
+        }
+        if ($this->cfg['horizon_jours'] > 2) {
+            $this->cfg['horizon_jours'] = 2;
+        }
+        if ($this->cfg['poids_attente'] === null || $this->cfg['poids_attente'] <= 0) {
+            $this->cfg['poids_attente'] = 5.0;
+        }
+        if ($this->cfg['anti_revisite'] === null) {
+            $this->cfg['anti_revisite'] = TRUE;
+        } else {
+            $this->cfg['anti_revisite'] = (bool) $this->cfg['anti_revisite'];
         }
     }
 
@@ -342,7 +359,8 @@ class Graphe_correspondance
              FROM gare_dest ga
              JOIN compagnies c ON ga.id_compaga = c.cle_compagnie
              JOIN entreprise e ON c.id_entrep = e.id_entreprise
-             WHERE e.ekey = '{$ekeyEsc}'"
+             WHERE e.ekey = '{$ekeyEsc}'
+             AND ga.nom_gadest != 'OUAGAESCAL'"
         )->result();
 
         $exp_nodes = array();
@@ -360,7 +378,7 @@ class Graphe_correspondance
             $dest_meta[$code] = $r;
         }
 
-        // Départs disponibles du jour (programmes actifs), filtrés sous-gare si fourni
+        // Départs J .. J+horizon (programmes actifs), filtrés sous-gare si fourni
         $sgFilter = '';
         if ($idsousgare !== null && $idsousgare !== '' && (int) $idsousgare > 0) {
             if (!isset($this->CI->m_programme)) {
@@ -369,24 +387,41 @@ class Graphe_correspondance
             $sgFilter = $this->CI->m_programme->sql_filtre_sousgare((int) $idsousgare);
         }
 
+        $horizon = isset($this->cfg['horizon_jours']) ? (int) $this->cfg['horizon_jours'] : 1;
+        $dateList = array();
+        $ts0 = strtotime($dateEsc . ' 12:00:00');
+        if ($ts0 === false) {
+            $ts0 = time();
+        }
+        for ($day = 0; $day <= $horizon; $day++) {
+            $dateList[] = date('Y-m-d', $ts0 + ($day * 86400));
+        }
+        $inDates = array();
+        foreach ($dateList as $dd) {
+            $inDates[] = "'" . $db->escape_str($dd) . "'";
+        }
+        $inDatesSql = implode(',', $inDates);
+
         $deps = $db->query(
             "SELECT lh.ligne_id, lh.id_ligneheure, h.heure, pr.code_progr, pr.idsousgare_prog,
-                    lg.nom_ligne, lg.gaexp_lg, lg.gadest_lg
+                    pr.date_progr, lg.nom_ligne, lg.gaexp_lg, lg.gadest_lg
              FROM programme pr
              JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
              JOIN heures h ON lh.heure_identif = h.id_heure
              JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
+             JOIN gare_dest ga ON lg.gadest_lg = ga.code_gadest
              JOIN gare_exp ge ON lg.gaexp_lg = ge.code_gaexp
              JOIN compagnies c ON ge.id_compagd = c.cle_compagnie
              JOIN entreprise e ON c.id_entrep = e.id_entreprise
              WHERE e.ekey = '{$ekeyEsc}'
-             AND pr.date_progr = '{$dateEsc}'
+             AND pr.date_progr IN ({$inDatesSql})
              AND pr.statut_prog = 'actif'
              AND pr.actif_prog = 0
              AND lh.actif_lh = 1
              AND h.h_active = 1
+             AND ga.nom_gadest != 'OUAGAESCAL'
              {$sgFilter}
-             ORDER BY h.heure ASC, pr.code_progr ASC"
+             ORDER BY pr.date_progr ASC, h.heure ASC, pr.code_progr ASC"
         )->result();
 
         $byLigne = array();
@@ -403,13 +438,38 @@ class Graphe_correspondance
                     'departs' => array(),
                 );
             }
+            $dprog = substr((string) $d->date_progr, 0, 10);
+            $dayOffset = 0;
+            foreach ($dateList as $idx => $dd) {
+                if ($dd === $dprog) {
+                    $dayOffset = (int) $idx;
+                    break;
+                }
+            }
+            $mins = $this->heure_to_minutes($d->heure);
             $byLigne[$lid]['departs'][] = array(
                 'id_ligneheure' => $d->id_ligneheure,
                 'heure' => $d->heure,
-                'minutes' => $this->heure_to_minutes($d->heure),
+                'minutes' => $mins,
+                'day_offset' => $dayOffset,
+                'date_progr' => $dprog,
+                'abs_minutes' => ($mins === null) ? null : (($dayOffset * 1440) + $mins),
                 'code_progr' => $d->code_progr,
             );
         }
+
+        // Trier les départs de chaque arête par abs_minutes
+        foreach ($byLigne as $lid => &$edgeRef) {
+            usort($edgeRef['departs'], function ($a, $b) {
+                $aa = isset($a['abs_minutes']) ? $a['abs_minutes'] : 999999;
+                $bb = isset($b['abs_minutes']) ? $b['abs_minutes'] : 999999;
+                if ($aa == $bb) {
+                    return 0;
+                }
+                return ($aa < $bb) ? -1 : 1;
+            });
+        }
+        unset($edgeRef);
 
         $adj = array(); // from_node => list of edge keys
         foreach ($byLigne as $lid => $edge) {
@@ -432,6 +492,8 @@ class Graphe_correspondance
             'dest_nodes' => $dest_nodes,
             'exp_meta' => $exp_meta,
             'dest_meta' => $dest_meta,
+            'voyage_date' => $dateEsc,
+            'horizon_jours' => $horizon,
         );
     }
 
@@ -448,6 +510,59 @@ class Graphe_correspondance
         $code = strtoupper(trim((string) $code));
         $p = preg_replace('/[0-9].*$/', '', $code);
         return ($p !== null && $p !== '') ? $p : $code;
+    }
+
+    /**
+     * Préfixes ville d'une ligne (BAN3-BOB32 → BAN, BOB).
+     * @param string $ident_ligne
+     * @return array prefix => true
+     */
+    protected function ligne_prefixes($ident_ligne)
+    {
+        $out = array();
+        $parts = explode('-', (string) $ident_ligne);
+        foreach ($parts as $part) {
+            $p = $this->code_prefix($part);
+            if ($p !== '') {
+                $out[$p] = true;
+            }
+        }
+        return $out;
+    }
+
+    /**
+     * Union des préfixes ville d'une liste de lignes.
+     * @param array $codes
+     * @return array prefix => true
+     */
+    protected function chemins_prefixes(array $codes)
+    {
+        $out = array();
+        foreach ($codes as $code) {
+            foreach ($this->ligne_prefixes($code) as $p => $ok) {
+                $out[$p] = true;
+            }
+        }
+        return $out;
+    }
+
+    /**
+     * True si le chemin visite une ville hors de la composition déclarée.
+     * @param array $codesChemin
+     * @param array $allowed prefix => true
+     * @return bool
+     */
+    protected function chemin_a_ville_hors_composition(array $codesChemin, array $allowed)
+    {
+        if (empty($allowed) || empty($codesChemin)) {
+            return false;
+        }
+        foreach ($this->chemins_prefixes($codesChemin) as $p => $ok) {
+            if (!isset($allowed[$p])) {
+                return true;
+            }
+        }
+        return false;
     }
 
     protected function node_for_exp($code, array $exp_nodes)
@@ -490,16 +605,22 @@ class Graphe_correspondance
         $maxJ = $this->cfg['max_jambes'];
         $marge = $this->cfg['marge_min'];
         $maxExpand = $this->cfg['max_expand'];
+        $antiRevisite = !empty($this->cfg['anti_revisite']);
         $edges = $graph['edges'];
         $adj = $graph['adj'];
 
         $found = array();
-        // state: node, path(list of ligne ids), last_minutes, last_gaexp_code (for OD start filter)
+        // state: node, path, last_abs, used lines, visited villes/nœuds
+        $visited0 = array();
+        if ($startNode !== '') {
+            $visited0[$startNode] = true;
+        }
         $queue = array(array(
             'node' => $startNode,
             'path' => array(),
-            'last_min' => null,
+            'last_abs' => null,
             'used' => array(),
+            'visited' => $visited0,
         ));
 
         while (!empty($queue)) {
@@ -527,7 +648,15 @@ class Graphe_correspondance
                     continue;
                 }
 
-                $dep = $this->pick_depart($edge['departs'], $state['last_min'], $marge);
+                $toNode = isset($edge['to']) ? $edge['to'] : '';
+                $isArriveeOd = ($edge['gadest'] === $gadestOd);
+                // Anti-revisite : ne pas repasser par une ville déjà dans le chemin
+                // (sauf arrivée OD exacte, si le nœud but était déjà listé — rare).
+                if ($antiRevisite && $toNode !== '' && !empty($state['visited'][$toNode]) && !$isArriveeOd) {
+                    continue;
+                }
+
+                $dep = $this->pick_depart($edge['departs'], $state['last_abs'], $marge, ($depth === 0));
                 if ($dep === null) {
                     continue;
                 }
@@ -547,7 +676,7 @@ class Graphe_correspondance
                 $used[$ligneId] = true;
 
                 // Arrivée OD : code gadest exact (évite BAM6 vs BAM53)
-                if ($edge['gadest'] === $gadestOd) {
+                if ($isArriveeOd) {
                     if (count($newPath) >= 2) {
                         $found[] = $newPath;
                     }
@@ -555,11 +684,16 @@ class Graphe_correspondance
                 }
 
                 if (count($newPath) < $maxJ) {
+                    $visited = $state['visited'];
+                    if ($toNode !== '') {
+                        $visited[$toNode] = true;
+                    }
                     $queue[] = array(
-                        'node' => $edge['to'],
+                        'node' => $toNode,
                         'path' => $newPath,
-                        'last_min' => $dep['minutes'],
+                        'last_abs' => $dep['abs_minutes'],
                         'used' => $used,
+                        'visited' => $visited,
                     );
                 }
             }
@@ -568,16 +702,29 @@ class Graphe_correspondance
         return $found;
     }
 
-    protected function pick_depart(array $departs, $lastMin, $marge)
+    /**
+     * Choisit le premier départ faisable après lastAbs + marge.
+     * Première jambe : uniquement day_offset = 0 (date voyage).
+     *
+     * @param array $departs
+     * @param int|null $lastAbs minutes absolues depuis J 00:00
+     * @param int $marge
+     * @param bool $firstLeg
+     * @return array|null
+     */
+    protected function pick_depart(array $departs, $lastAbs, $marge, $firstLeg = false)
     {
         foreach ($departs as $d) {
-            if ($d['minutes'] === null) {
+            if (!isset($d['abs_minutes']) || $d['abs_minutes'] === null) {
                 continue;
             }
-            if ($lastMin === null) {
+            if ($firstLeg || $lastAbs === null) {
+                if (isset($d['day_offset']) && (int) $d['day_offset'] !== 0) {
+                    continue;
+                }
                 return $d;
             }
-            if ($d['minutes'] >= ($lastMin + $marge)) {
+            if ($d['abs_minutes'] >= ($lastAbs + $marge)) {
                 return $d;
             }
         }
@@ -586,25 +733,40 @@ class Graphe_correspondance
 
     protected function rank_and_format(array $rawPaths, $axeParent, array $favoris, array $graph)
     {
+        $poidsAttente = isset($this->cfg['poids_attente']) ? (float) $this->cfg['poids_attente'] : 5.0;
+        if ($poidsAttente <= 0) {
+            $poidsAttente = 5.0;
+        }
         $scored = array();
         foreach ($rawPaths as $path) {
             $codes = array();
-            $lastArr = null;
-            $ok = true;
-            foreach ($path as $leg) {
-                $codes[] = $leg['ident_ligne'];
-                if ($lastArr === null) {
-                    $lastArr = $leg['depart']['minutes'];
-                } else {
-                    $lastArr = $leg['depart']['minutes'];
-                }
-            }
-            if (!$ok || count($codes) < 2) {
+            $attentes = array();
+            $totalAttente = 0;
+            $nb = count($path);
+            if ($nb < 2) {
                 continue;
             }
-            $nb = count($codes);
-            $arrive = $path[$nb - 1]['depart']['minutes'];
-            $score = (1000 - ($nb * 100)) - ($arrive / 10.0);
+            for ($i = 0; $i < $nb; $i++) {
+                $codes[] = $path[$i]['ident_ligne'];
+                if ($i === 0) {
+                    continue;
+                }
+                $prevAbs = isset($path[$i - 1]['depart']['abs_minutes'])
+                    ? (int) $path[$i - 1]['depart']['abs_minutes'] : null;
+                $curAbs = isset($path[$i]['depart']['abs_minutes'])
+                    ? (int) $path[$i]['depart']['abs_minutes'] : null;
+                if ($prevAbs === null || $curAbs === null) {
+                    $wait = 0;
+                } else {
+                    $wait = max(0, $curAbs - $prevAbs);
+                }
+                $attentes[] = $wait;
+                $totalAttente += $wait;
+            }
+            $arriveAbs = isset($path[$nb - 1]['depart']['abs_minutes'])
+                ? (int) $path[$nb - 1]['depart']['abs_minutes'] : 0;
+            // Moins de jambes + moins d'attente + arrivée plus tôt
+            $score = 5000 - ($nb * 200) - ($totalAttente / $poidsAttente) - ($arriveAbs / 20.0);
             $boost = isset($this->cfg['boost_declaratif']) ? (float) $this->cfg['boost_declaratif'] : 0;
             if ($boost > 0 && !empty($favoris) && $favoris === $codes) {
                 $score += $boost;
@@ -614,12 +776,18 @@ class Graphe_correspondance
                 'nb_jambes' => $nb,
                 'codes' => $codes,
                 'path' => $path,
+                'attentes_min' => $attentes,
+                'attente_totale_min' => $totalAttente,
+                'arrivee_abs_min' => $arriveAbs,
             );
         }
 
         usort($scored, function ($a, $b) {
             if ($a['score'] == $b['score']) {
-                return $a['nb_jambes'] - $b['nb_jambes'];
+                if ($a['attente_totale_min'] == $b['attente_totale_min']) {
+                    return $a['nb_jambes'] - $b['nb_jambes'];
+                }
+                return ($a['attente_totale_min'] < $b['attente_totale_min']) ? -1 : 1;
             }
             return ($a['score'] < $b['score']) ? 1 : -1;
         });
@@ -633,7 +801,8 @@ class Graphe_correspondance
                 continue;
             }
             $seen[$sig] = true;
-            $row['etapes'] = $this->path_to_etapes($row['path'], $axeParent, $graph);
+            $row['etapes'] = $this->path_to_etapes($row['path'], $axeParent, $graph, $row['attentes_min']);
+            $row['label'] = $this->label_chemin($row);
             $out[] = $row;
             if (count($out) >= $this->cfg['top_k']) {
                 break;
@@ -642,11 +811,51 @@ class Graphe_correspondance
         return $out;
     }
 
-    protected function path_to_etapes(array $path, $axeParent, array $graph)
+    /**
+     * Libellé UI : noms + nb jambes + attente totale.
+     */
+    protected function label_chemin(array $row)
+    {
+        $noms = array();
+        if (!empty($row['path'])) {
+            foreach ($row['path'] as $leg) {
+                $noms[] = isset($leg['nom_ligne']) ? $leg['nom_ligne'] : $leg['ident_ligne'];
+            }
+        }
+        $nb = isset($row['nb_jambes']) ? (int) $row['nb_jambes'] : count($noms);
+        $att = isset($row['attente_totale_min']) ? (int) $row['attente_totale_min'] : 0;
+        $parts = array();
+        if (!empty($noms)) {
+            $parts[] = implode(' → ', $noms);
+        }
+        $parts[] = $nb . ' jambe' . ($nb > 1 ? 's' : '');
+        $parts[] = 'attente ' . $this->format_duree_min($att);
+        return implode(' · ', $parts);
+    }
+
+    /**
+     * @param int $min
+     * @return string
+     */
+    public function format_duree_min($min)
+    {
+        $min = max(0, (int) $min);
+        $h = (int) floor($min / 60);
+        $m = $min % 60;
+        if ($h <= 0) {
+            return $m . ' min';
+        }
+        if ($m === 0) {
+            return $h . ' h';
+        }
+        return $h . ' h ' . sprintf('%02d', $m);
+    }
+
+    protected function path_to_etapes(array $path, $axeParent, array $graph, array $attentes = array())
     {
         $etapes = array();
         $ordre = 1;
-        foreach ($path as $leg) {
+        foreach ($path as $idx => $leg) {
             $gadest = $leg['gadest'];
             $idCompaga = null;
             if (isset($graph['dest_meta'][$gadest])) {
@@ -673,14 +882,173 @@ class Graphe_correspondance
             $o->id_compaga = $idCompaga;
             $o->nom_ligne = $axeParent;
             $o->ident_ligne = $axeParent;
-            // Enrichissement Phase 1 (ignoré par JS actuel)
             $o->_graphe_heure = $leg['depart']['heure'];
             $o->_graphe_id_ligneheure = $leg['depart']['id_ligneheure'];
             $o->_graphe_code_progr = $leg['depart']['code_progr'];
+            $o->_graphe_date_progr = isset($leg['depart']['date_progr']) ? $leg['depart']['date_progr'] : null;
+            $o->_graphe_day_offset = isset($leg['depart']['day_offset']) ? (int) $leg['depart']['day_offset'] : 0;
+            if ($idx > 0 && isset($attentes[$idx - 1])) {
+                $o->_graphe_attente_avant_min = (int) $attentes[$idx - 1];
+            } else {
+                $o->_graphe_attente_avant_min = 0;
+            }
             $etapes[] = $o;
             $ordre++;
         }
         return $etapes;
+    }
+
+    /**
+     * Prépare la payload multi-chemins pour le guichet (verifchemins).
+     * Le chemin = composition déclarative (itineraire_etapes) est placé en tête s'il existe.
+     *
+     * @param array $decision resoudre_pour_vente()
+     * @param array|object[] $declaratif
+     * @return array{mode:string,chemins:array,etapes:array,meta:array}
+     */
+    public function payload_multi_chemins(array $decision, $declaratif = array())
+    {
+        $cheminsOut = array();
+        $list = isset($decision['chemins']) ? $decision['chemins'] : array();
+        foreach ($list as $idx => $c) {
+            $cheminsOut[] = array(
+                'id' => (int) $idx,
+                'label' => isset($c['label']) ? $c['label'] : $this->label_chemin($c),
+                'codes' => isset($c['codes']) ? $c['codes'] : array(),
+                'nb_jambes' => isset($c['nb_jambes']) ? (int) $c['nb_jambes'] : 0,
+                'score' => isset($c['score']) ? $c['score'] : null,
+                'attente_totale_min' => isset($c['attente_totale_min']) ? (int) $c['attente_totale_min'] : 0,
+                'attente_totale_label' => $this->format_duree_min(isset($c['attente_totale_min']) ? $c['attente_totale_min'] : 0),
+                'attentes_min' => isset($c['attentes_min']) ? $c['attentes_min'] : array(),
+                'etapes' => isset($c['etapes']) ? $c['etapes'] : array(),
+                'source' => 'graphe',
+            );
+        }
+
+        $declCodes = $this->etapes_to_codes($declaratif);
+        $sigDecl = implode('>', $declCodes);
+
+        // Composition déclarée :
+        // - 1re jambe = jambe déclarée (pas Banfora→Ouaga pour Banfora→Bobo)
+        // - aucune ville hors composition (pas Bobo→Ouaga→Bamako VIP)
+        if (count($declCodes) >= 2) {
+            $firstDecl = (string) $declCodes[0];
+            $allowed = $this->chemins_prefixes($declCodes);
+            if (!empty($decision['meta']['axe'])) {
+                foreach ($this->ligne_prefixes($decision['meta']['axe']) as $p => $ok) {
+                    $allowed[$p] = true;
+                }
+            }
+            $kept = array();
+            foreach ($cheminsOut as $c) {
+                $codes = isset($c['codes']) ? $c['codes'] : array();
+                if (empty($codes) || (string) $codes[0] !== $firstDecl) {
+                    continue;
+                }
+                if ($this->chemin_a_ville_hors_composition($codes, $allowed)) {
+                    continue;
+                }
+                $kept[] = $c;
+            }
+            $cheminsOut = $kept;
+        }
+
+        $declNoms = array();
+        if (!empty($declaratif)) {
+            foreach ($declaratif as $e) {
+                if (is_object($e) && isset($e->nom_itineraires)) {
+                    $declNoms[] = $e->nom_itineraires;
+                }
+            }
+        }
+
+        // Fallback déclaratif si aucun chemin graphe
+        if (empty($cheminsOut) && count($declCodes) >= 2) {
+            $nb = count($declCodes);
+            $cheminsOut[] = array(
+                'id' => 0,
+                'label' => (!empty($declNoms) ? implode(' → ', $declNoms) . ' · ' : '')
+                    . $nb . ' jambe' . ($nb > 1 ? 's' : '') . ' · composition déclarée',
+                'codes' => $declCodes,
+                'nb_jambes' => $nb,
+                'score' => null,
+                'attente_totale_min' => null,
+                'attente_totale_label' => null,
+                'attentes_min' => array(),
+                'etapes' => array_values(is_array($declaratif) ? $declaratif : array($declaratif)),
+                'source' => 'declaratif',
+            );
+        }
+
+        // Assurer la présence du déclaratif parmi les options graphe (même hors top_k)
+        if (!empty($list) && count($declCodes) >= 2) {
+            $has = false;
+            foreach ($cheminsOut as $c) {
+                if (implode('>', $c['codes']) === $sigDecl) {
+                    $has = true;
+                    break;
+                }
+            }
+            if (!$has) {
+                $nb = count($declCodes);
+                $cheminsOut[] = array(
+                    'id' => count($cheminsOut),
+                    'label' => (!empty($declNoms) ? implode(' → ', $declNoms) . ' · ' : '')
+                        . $nb . ' jambe' . ($nb > 1 ? 's' : '') . ' · composition déclarée',
+                    'codes' => $declCodes,
+                    'nb_jambes' => $nb,
+                    'score' => null,
+                    'attente_totale_min' => null,
+                    'attente_totale_label' => null,
+                    'attentes_min' => array(),
+                    'etapes' => array_values(is_array($declaratif) ? $declaratif : array($declaratif)),
+                    'source' => 'declaratif',
+                );
+            }
+        }
+
+        // A : composition déclarée en tête (préférer la version graphe si horaires présents)
+        if ($sigDecl !== '' && count($declCodes) >= 2 && count($cheminsOut) > 1) {
+            $declIdx = null;
+            foreach ($cheminsOut as $i => $c) {
+                if (implode('>', $c['codes']) === $sigDecl) {
+                    $declIdx = $i;
+                    break;
+                }
+            }
+            if ($declIdx !== null) {
+                $item = $cheminsOut[$declIdx];
+                if (strpos((string) $item['label'], 'composition') === false) {
+                    $item['label'] = rtrim((string) $item['label']) . ' · composition déclarée';
+                }
+                $item['source'] = (!empty($item['source']) && $item['source'] === 'graphe')
+                    ? 'graphe_declaratif'
+                    : (isset($item['source']) ? $item['source'] : 'declaratif');
+                array_splice($cheminsOut, $declIdx, 1);
+                array_unshift($cheminsOut, $item);
+            }
+        }
+
+        // Re-index id
+        foreach ($cheminsOut as $i => &$ch) {
+            $ch['id'] = $i;
+        }
+        unset($ch);
+
+        $etapesBest = array();
+        if (!empty($cheminsOut[0]['etapes'])) {
+            $etapesBest = $cheminsOut[0]['etapes'];
+        } elseif (!empty($decision['etapes'])) {
+            $etapesBest = $decision['etapes'];
+        }
+
+        return array(
+            'mode' => isset($decision['mode']) ? $decision['mode'] : 'none',
+            'meta' => isset($decision['meta']) ? $decision['meta'] : array(),
+            'chemins' => $cheminsOut,
+            'etapes' => $etapesBest,
+            'multi' => count($cheminsOut) > 1,
+        );
     }
 
     protected function load_favoris_codes($ekey, $axe)

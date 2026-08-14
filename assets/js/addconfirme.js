@@ -78,13 +78,198 @@ document.addEventListener('DOMContentLoaded', () => {
         return parts[1] || '0';
     }
 
+    function __confEnsureCheminSelector() {
+        var existing = document.getElementById('selchemin_box_cf');
+        if (existing) return existing;
+        var box = document.createElement('div');
+        box.className = 'form-group col-sm-12';
+        box.id = 'selchemin_box_cf';
+        box.style.display = 'none';
+        box.innerHTML = ''
+            + '<label id="selchemin_label_cf">Itinéraire de correspondance</label>'
+            + '<select class="form-control form-control-sm" id="selchemin_transit_cf">'
+            + '<option value="">Choisissez l\'itinéraire</option>'
+            + '</select>'
+            + '<small class="form-text text-muted" id="selchemin_hint_cf"></small>';
+        var anchor = document.getElementById('heured')
+            || document.getElementById('hdepartitinecf')
+            || document.getElementById('nbrtranscf');
+        if (anchor && anchor.parentNode && anchor.parentNode.parentNode) {
+            anchor.parentNode.parentNode.insertBefore(box, anchor.parentNode);
+        } else if (anchor && anchor.parentNode) {
+            anchor.parentNode.insertBefore(box, anchor);
+        } else {
+            document.body.appendChild(box);
+        }
+        return box;
+    }
+
+    function __confHideCheminSelector() {
+        var box = document.getElementById('selchemin_box_cf');
+        var sel = document.getElementById('selchemin_transit_cf');
+        var hint = document.getElementById('selchemin_hint_cf');
+        if (box) box.style.display = 'none';
+        if (sel) { sel.options.length = 1; sel.value = ''; sel.onchange = null; }
+        if (hint) hint.textContent = '';
+    }
+
+    function __confFormatAttenteLabel(chemin) {
+        if (!chemin) return '';
+        if (chemin.attente_totale_label) return 'Attente totale : ' + chemin.attente_totale_label;
+        if (chemin.attente_totale_min != null) {
+            var m = parseInt(chemin.attente_totale_min, 10) || 0;
+            var h = Math.floor(m / 60);
+            var mm = m % 60;
+            return 'Attente totale : ' + (h > 0 ? (h + ' h' + (mm ? (' ' + (mm < 10 ? '0' : '') + mm) : '')) : (mm + ' min'));
+        }
+        return chemin.source === 'declaratif' ? 'Composition déclarée' : '';
+    }
+
+
+    function __confNormalizeEtapes(etapes) {
+        if (!etapes) return [];
+        if (Array.isArray(etapes)) return etapes;
+        if (typeof etapes === 'object') {
+            return Object.keys(etapes).map(function (k) { return etapes[k]; }).filter(Boolean);
+        }
+        return [];
+    }
+
+    /**
+     * Correspondance 2/3/4 — ligne : propose la ligne du chemin, sans la sélectionner.
+     */
+    function __confSetCheminLigneOption(selectSel, code, nom) {
+        var sel = typeof selectSel === 'string' ? document.querySelector(selectSel) : selectSel;
+        if (!sel) return;
+        sel.disabled = false;
+        sel.removeAttribute('disabled');
+        sel.options.length = 1;
+        sel.selectedIndex = 0;
+        if (code == null || code === '') return;
+        var opt = document.createElement('option');
+        opt.value = String(code);
+        opt.innerHTML = nom != null ? String(nom) : String(code);
+        if (nom != null) opt.setAttribute('data-nom', String(nom));
+        sel.add(opt);
+        sel.selectedIndex = 0;
+    }
+
+    function __confEnsureLigne1LockedInput() {
+        var el = document.getElementById('lignesitinerairecf');
+        if (!el) return null;
+        if (el.tagName === 'INPUT') {
+            el.disabled = true;
+            el.setAttribute('disabled', 'disabled');
+            el.readOnly = true;
+            return el;
+        }
+        var inp = document.createElement('input');
+        inp.type = 'text';
+        inp.id = 'lignesitinerairecf';
+        inp.name = el.getAttribute('name') || 'lignesitinerairescf';
+        inp.className = el.className || 'form-control form-control-sm';
+        inp.disabled = true;
+        inp.setAttribute('disabled', 'disabled');
+        inp.readOnly = true;
+        if (el.parentNode) el.parentNode.replaceChild(inp, el);
+        return inp;
+    }
+
+    function __confFillLigne1Locked(etape0, onPick) {
+        if (!etape0) return;
+        var code = etape0.code_itineraires || '';
+        var nom = etape0.nom_itineraires || code;
+        var el = __confEnsureLigne1LockedInput();
+        if (el) el.value = nom;
+        var itc = document.querySelector('#itinecodecf');
+        var ltn = document.querySelector('#lignetinerairecf');
+        if (itc) itc.value = code;
+        if (ltn) ltn.value = nom;
+        if (typeof onPick === 'function') onPick(code, nom);
+    }
+
+
+    function __confResetTransitFieldsBeforeApply() {
+        [
+            'arritin1cf','idcheminscf','heureitin1cf','idcheminsheurcf','siegitine1cf','psiegesitines1cf',
+            'arritin2cf','idcheminscf1','heureitin2cf','idcheminsheurcf1','siegitine2cf','psiegesitines2cf',
+            'arritin3cf','idcheminscf2','heureitin3cf','idcheminsheurcf','nbrtranscf',
+            'iddeptranscf1','transitedepargarecf1','iddeptranscf2','transitedepargarecf2',
+            'iddeptranscf3','transitedepargarecf3','iddeptranscf4','transitedepargarecf4',
+            'trancf','heureitincf','hdepartitinecf','siegitinecf','psiegesitinescf'
+        ].forEach(function (id) {
+            var el = document.getElementById(id);
+            if (el) el.style.display = 'none';
+        });
+        [
+            '#idcheminscf','#idcheminscf1','#idcheminscf2',
+            '#idcheminsheurcf','#idcheminsheurcf1','#hdepartitinecf',
+            '#psiegesitinescf','#psiegesitines1cf','#psiegesitines2cf'
+        ].forEach(function (s) {
+            var el = document.querySelector(s);
+            if (el && el.options) { el.options.length = 1; el.value = ''; el.onchange = null; }
+        });
+        ['#transitedepargarecf1','#transitedepargarecf2','#transitedepargarecf3','#transitedepargarecf4'].forEach(function (s) {
+            var el = document.querySelector(s);
+            if (el && el.options) el.options.length = 0;
+        });
+        ['#itinecodecf','#itinecodescf','#lignetinerairecf','#nbrtranscf','#idcompgcf','#idcompgcf1','#idcompgcf2','#idcompgcf3'].forEach(function (s) {
+            var el = document.querySelector(s);
+            if (el) el.value = '';
+        });
+    }
+
+    function __confShowCheminSelector(chemins, onPick) {
+        __confEnsureCheminSelector();
+        var box = document.getElementById('selchemin_box_cf');
+        var sel = document.getElementById('selchemin_transit_cf');
+        var hint = document.getElementById('selchemin_hint_cf');
+        if (!box || !sel) {
+            var et0 = chemins && chemins[0] ? __confNormalizeEtapes(chemins[0].etapes) : [];
+            if (typeof window.__confApplyTransitLegs === 'function') window.__confApplyTransitLegs(et0);
+            else if (typeof onPick === 'function') onPick(et0);
+            return;
+        }
+        sel.options.length = 1;
+        for (var i = 0; i < chemins.length; i++) {
+            var opt = document.createElement('option');
+            opt.value = String(i);
+            opt.textContent = chemins[i].label || ('Chemin ' + (i + 1));
+            sel.add(opt);
+        }
+        box.style.display = 'block';
+        var applyIdx = function (idx) {
+            var ch = chemins[idx];
+            if (hint) hint.textContent = __confFormatAttenteLabel(ch);
+            var etapes = __confNormalizeEtapes(ch && ch.etapes);
+            if (typeof window.__confApplyTransitLegs === 'function') window.__confApplyTransitLegs(etapes);
+            else if (typeof onPick === 'function') onPick(etapes);
+        };
+        sel.onchange = function () {
+            var idx = parseInt(sel.value, 10);
+            if (isNaN(idx) || !chemins[idx]) {
+                if (hint) hint.textContent = '';
+                if (typeof window.__confApplyTransitLegs === 'function') window.__confApplyTransitLegs([]);
+                else if (typeof onPick === 'function') onPick([]);
+                return;
+            }
+            applyIdx(idx);
+        };
+        sel.selectedIndex = 1;
+        applyIdx(0);
+    }
+
     function __confRequestTransitLegs(axe, datedepart, sougid, force, onDone) {
         var sg = (sougid != null && sougid !== '') ? sougid : '0';
         var forceFlag = force ? '1' : '0';
+        var done = function (etapes) {
+            if (typeof onDone === 'function') onDone(etapes);
+            else if (typeof window.__confApplyTransitLegs === 'function') window.__confApplyTransitLegs(etapes);
+        };
         var httpRequestitinecf = new XMLHttpRequest();
         httpRequestitinecf.open(
             'GET',
-            window.location.origin + `${APP_ROOT}/programmes/verifitine/`
+            window.location.origin + `${APP_ROOT}/programmes/verifchemins/`
                 + encodeURIComponent(axe) + '/'
                 + encodeURIComponent(datedepart) + '/'
                 + encodeURIComponent(sg) + '/'
@@ -92,10 +277,19 @@ document.addEventListener('DOMContentLoaded', () => {
             true
         );
         httpRequestitinecf.onload = function () {
-            var donitinescf = null;
-            try { donitinescf = JSON.parse(httpRequestitinecf.responseText); } catch (e) { donitinescf = null; }
-            if (typeof onDone === 'function') onDone(donitinescf);
-            else if (typeof window.__confApplyTransitLegs === 'function') window.__confApplyTransitLegs(donitinescf);
+            var payload = null;
+            try { payload = JSON.parse(httpRequestitinecf.responseText); } catch (e) { payload = null; }
+            if (Array.isArray(payload)) { __confHideCheminSelector(); done(payload); return; }
+            if (!payload || typeof payload !== 'object') { __confHideCheminSelector(); done([]); return; }
+            if (payload.mode === 'direct' || payload.mode === 'none') { __confHideCheminSelector(); done([]); return; }
+            var chemins = Array.isArray(payload.chemins) ? payload.chemins : [];
+            if (chemins.length > 1) { __confShowCheminSelector(chemins, done); return; }
+            __confHideCheminSelector();
+            if (chemins.length === 1 && chemins[0].etapes) { done(chemins[0].etapes); return; }
+            if (payload.etapes && (Array.isArray(payload.etapes) ? payload.etapes.length : Object.keys(payload.etapes).length)) {
+                done(payload.etapes); return;
+            }
+            done([]);
         };
         httpRequestitinecf.setRequestHeader('Content-Type', 'application/json');
         httpRequestitinecf.send();
@@ -124,6 +318,92 @@ document.addEventListener('DOMContentLoaded', () => {
         };
         http.setRequestHeader('Content-Type', 'application/json');
         http.send();
+    }
+
+
+    var __CONF_TRANSIT_MARGE_MIN = 30;
+
+    function __confHeureToMinutes(h) {
+        if (h == null || h === '') return null;
+        var parts = String(h).trim().split(/[:hH]/);
+        if (!parts || !parts.length) return null;
+        var hh = parseInt(parts[0], 10);
+        if (isNaN(hh)) return null;
+        var mm = (parts[1] != null && parts[1] !== '') ? parseInt(parts[1], 10) : 0;
+        if (isNaN(mm)) mm = 0;
+        return (hh * 60) + mm;
+    }
+
+    function __confRowIsAfterPrev(row, prevDate, prevMinutes, marge) {
+        if (prevMinutes == null || !prevDate) return true;
+        var rd = row && row.date_progr ? String(row.date_progr).slice(0, 10) : '';
+        var rm = __confHeureToMinutes(row && row.heure);
+        if (!rd || rm == null) return false;
+        if (rd > prevDate) return true;
+        if (rd < prevDate) return false;
+        return rm >= (prevMinutes + (marge != null ? marge : __CONF_TRANSIT_MARGE_MIN));
+    }
+
+    /** Remplit un select heures correspondance confirm, filtré vs jambe précédente. */
+    function __confAppendFilteredCheminOptions(selectId, rowsObj, prevDate, prevHeure) {
+        var sel = document.querySelector(selectId);
+        if (!sel) return;
+        sel.options.length = 1;
+        var list = [];
+        if (Array.isArray(rowsObj)) list = rowsObj;
+        else if (rowsObj && typeof rowsObj === 'object') {
+            Object.keys(rowsObj).forEach(function (k) { list.push(rowsObj[k]); });
+        }
+        var pDate = prevDate ? String(prevDate).slice(0, 10) : '';
+        var pMin = __confHeureToMinutes(prevHeure);
+        list = list.filter(function (row) {
+            return row && row.code_progr != null && __confRowIsAfterPrev(row, pDate, pMin, __CONF_TRANSIT_MARGE_MIN);
+        });
+        list.sort(function (a, b) {
+            var da = String(a.date_progr || '').slice(0, 10);
+            var db = String(b.date_progr || '').slice(0, 10);
+            if (da < db) return -1;
+            if (da > db) return 1;
+            return (__confHeureToMinutes(a.heure) || 0) - (__confHeureToMinutes(b.heure) || 0);
+        });
+        for (var i = 0; i < list.length; i++) {
+            var row = list[i];
+            var opt = document.createElement('option');
+            opt.value = `${row.code_progr}/${row.intervalle1}/${row.intervalle2}/${row.id_ligneheure}/${row.prix}`;
+            opt.setAttribute('data-heure', row.heure || '');
+            opt.setAttribute('data-date-progr', row.date_progr ? String(row.date_progr).slice(0, 10) : '');
+            opt.innerHTML = `${row.heure}/${row.date_progr}`;
+            sel.add(opt);
+        }
+    }
+
+    function __confPrevFromLeg1() {
+        var d = document.querySelector('#dateprtranscf');
+        var h = document.querySelector('#hertranscf');
+        var date = (d && d.value) ? String(d.value).slice(0, 10) : (document.querySelector('#actuel') ? document.querySelector('#actuel').value : '');
+        var heure = (h && h.value) ? String(h.value) : '';
+        if (!heure) {
+            var hs = document.querySelector('#heured');
+            if (hs && hs.selectedIndex > 0) {
+                var parts = String(hs.options[hs.selectedIndex].value || '').split('/');
+                // verifheureitine format id/heure OR code/tarif/id
+                if (parts.length >= 2 && parts[1].indexOf(':') >= 0) heure = parts[1];
+                else if (hs.options[hs.selectedIndex].getAttribute('data-heure')) {
+                    heure = hs.options[hs.selectedIndex].getAttribute('data-heure');
+                }
+            }
+        }
+        return { date: date, heure: heure };
+    }
+
+    function __confPrevFromSelect(selectId) {
+        var hs = document.querySelector(selectId);
+        if (!hs || hs.selectedIndex < 1) return { date: '', heure: '' };
+        var opt = hs.options[hs.selectedIndex];
+        return {
+            date: opt.getAttribute('data-date-progr') || '',
+            heure: opt.getAttribute('data-heure') || ''
+        };
     }
 
     function __confSetVal(id, val) {
@@ -159,6 +439,9 @@ document.addEventListener('DOMContentLoaded', () => {
         if (p.gareidentif) {
             __confFillTransitDepart('#transitedepargarecf1', p.gareidentif);
         }
+        ['#hdepartitinecf','#idcheminsheurcf','#idcheminsheurcf1'].forEach(function (s) {
+            var el = document.querySelector(s); if (el) el.options.length = 1;
+        });
     }
 
     function __confProgListFromResponse(don) {
@@ -558,6 +841,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     __confFillHeuresVente(heuresHvCf);
 
                     window.__confApplyTransitLegs = function (donitinescf) {
+                                                    donitinescf = (typeof __confNormalizeEtapes === 'function')
+                                                        ? __confNormalizeEtapes(donitinescf) : donitinescf;
                             if(donitinescf === null || donitinescf === '' || (typeof donitinescf === 'object' && !Object.keys(donitinescf).length))
                             {
                                 document.querySelector('#iddeptranscf1').style.display = 'none';
@@ -595,8 +880,9 @@ document.addEventListener('DOMContentLoaded', () => {
                                 document.querySelector('#heured').style.display = 'block';
                             }
                             else
-                            {
-                                if (Object.entries(donitinescf).length >= 1) 
+                                                    {
+                                                        if (typeof __confResetTransitFieldsBeforeApply === 'function') __confResetTransitFieldsBeforeApply();
+                                                        if (Object.entries(donitinescf).length >= 1) 
                                 {
                                     var i = Object.entries(donitinescf).length;
                                     
@@ -707,20 +993,15 @@ document.addEventListener('DOMContentLoaded', () => {
                                         document.querySelector('#psiegesitinescf').style.display = 'block';
                                         document.querySelector('#heured').style.display = 'block';
                     
-                                        document.querySelector('#itinecodecf').value = `${donitinescf[0].code_itineraires}`;
-
                                         document.querySelector('#idcompgcf').value = `${donitinescf[0].id_compaga}`;
-                                        document.querySelector('#lignetinerairecf').value = `${donitinescf[0].nom_itineraires}`;
+                                        __confFillLigne1Locked(donitinescf[0]);
                                     }
                         
                                     if(i === 2)
                                     {
-                                        let opt = document.createElement('option');
-                                        opt.value = `${donitinescf[1].code_itineraires}`;
-                                        opt.innerHTML = `${donitinescf[1].nom_itineraires}`;
-                                        document.querySelector('#idcheminscf').add(opt);
+                                        __confSetCheminLigneOption('#idcheminscf', donitinescf[1].code_itineraires, donitinescf[1].nom_itineraires);
 
-                                        document.querySelector('#lignesitinerairecf').value = `${donitinescf[0].nom_itineraires}`;
+                                        __confFillLigne1Locked(donitinescf[0]);
                                         document.querySelector('#itinecodescf').value = `${donitinescf[0].id_lignes}`;
                                         document.querySelector('#idcompgcf').value = `${donitinescf[0].id_compaga}`;
                                         document.querySelector('#idcompgcf1').value = `${donitinescf[1].id_compaga}`;
@@ -849,15 +1130,8 @@ document.addEventListener('DOMContentLoaded', () => {
                                                 {
                                         
                                                     const dongtranschemcf = JSON.parse(httpSiegeschemincf.responseText);
-                                                    if (Object.entries(dongtranschemcf).length >= 1)
-                                                    {
-                                                        for (let key in Object.entries(dongtranschemcf)) {
-                                                            let opt = document.createElement('option');
-                                                            opt.value = `${dongtranschemcf[key].code_progr}/${dongtranschemcf[key].intervalle1}/${dongtranschemcf[key].intervalle2}/${dongtranschemcf[key].id_ligneheure}/${dongtranschemcf[key].prix}`;
-                                                            opt.innerHTML = `${dongtranschemcf[key].heure}/${dongtranschemcf[key].date_progr}`;
-                                                            document.querySelector('#hdepartitinecf').add(opt);
-                                                        }
-                                                    }
+                                                    var __prevCfX = __confPrevFromLeg1();
+                                                        __confAppendFilteredCheminOptions('#hdepartitinecf', dongtranschemcf, __prevCfX.date, __prevCfX.heure);
                                                 };
                                                 httpSiegeschemincf.setRequestHeader('Content-Type', 'application/json');
                                                 httpSiegeschemincf.send();
@@ -1010,20 +1284,13 @@ document.addEventListener('DOMContentLoaded', () => {
                                     //second itineraire
                                     if(i === 3)
                                     {
-                                        let opt = document.createElement('option');
-                                        opt.value = `${donitinescf[1].code_itineraires}`;
-                                        opt.innerHTML = `${donitinescf[1].nom_itineraires}`;
-                                        
-                                        document.querySelector('#idcheminscf').add(opt);
+                                        __confSetCheminLigneOption('#idcheminscf', donitinescf[1].code_itineraires, donitinescf[1].nom_itineraires);
 
-                                        document.querySelector('#lignesitinerairecf').value = `${donitinescf[0].nom_itineraires}`;
+                                        __confFillLigne1Locked(donitinescf[0]);
                                         document.querySelector('#itinecodescf').value = `${donitinescf[0].id_lignes}`;
                                         document.querySelector('#idcompgcf').value = `${donitinescf[0].id_compaga}`;
 
-                                        let opt1 = document.createElement('option');
-                                        opt1.value = `${donitinescf[2].code_itineraires}`;
-                                        opt1.innerHTML = `${donitinescf[2].nom_itineraires}`;
-                                        document.querySelector('#idcheminscf1').add(opt1);
+                                        __confSetCheminLigneOption('#idcheminscf1', donitinescf[2].code_itineraires, donitinescf[2].nom_itineraires);
 
                                         document.querySelector('#idcompgcf1').value = `${donitinescf[1].id_compaga}`;
                                         document.querySelector('#idcompgcf2').value = `${donitinescf[2].id_compaga}`;
@@ -1180,15 +1447,8 @@ document.addEventListener('DOMContentLoaded', () => {
                                                 {
                                         
                                                     const dongtranschemcf = JSON.parse(httpSiegeschemincf.responseText);
-                                                        if (Object.entries(dongtranschemcf).length >= 1)
-                                                        {
-                                                            for (let key in Object.entries(dongtranschemcf)) {
-                                                                let opt = document.createElement('option');
-                                                                opt.value = `${dongtranschemcf[key].code_progr}/${dongtranschemcf[key].intervalle1}/${dongtranschemcf[key].intervalle2}/${dongtranschemcf[key].id_ligneheure}/${dongtranschemcf[key].prix}`;
-                                                                opt.innerHTML = `${dongtranschemcf[key].heure}/${dongtranschemcf[key].date_progr}`;
-                                                                document.querySelector('#hdepartitinecf').add(opt);
-                                                            }
-                                                        }
+                                                        var __prevCfX = __confPrevFromLeg1();
+                                                        __confAppendFilteredCheminOptions('#hdepartitinecf', dongtranschemcf, __prevCfX.date, __prevCfX.heure);
                                                 };
                                                 httpSiegeschemincf.setRequestHeader('Content-Type', 'application/json');
                                                 httpSiegeschemincf.send();
@@ -1361,15 +1621,8 @@ document.addEventListener('DOMContentLoaded', () => {
                                                 {
                                         
                                                     const dongtranschemcf1 = JSON.parse(httpSiegeschemincf1.responseText);
-                                                    if (Object.entries(dongtranschemcf1).length >= 1)
-                                                    {
-                                                        for (let key in Object.entries(dongtranschemcf1)) {
-                                                            let opt = document.createElement('option');
-                                                            opt.value = `${dongtranschemcf1[key].code_progr}/${dongtranschemcf1[key].intervalle1}/${dongtranschemcf1[key].intervalle2}/${dongtranschemcf1[key].id_ligneheure}/${dongtranschemcf1[key].prix}`;
-                                                            opt.innerHTML = `${dongtranschemcf1[key].heure}/${dongtranschemcf1[key].date_progr}`;
-                                                            document.querySelector('#idcheminsheurcf').add(opt);
-                                                        }
-                                                    }
+                                                    var __prevCfX = __confPrevFromSelect('#hdepartitinecf');
+                                                        __confAppendFilteredCheminOptions('#idcheminsheurcf', dongtranschemcf1, __prevCfX.date, __prevCfX.heure);
                                                 };
                                                 httpSiegeschemincf1.setRequestHeader('Content-Type', 'application/json');
                                                 httpSiegeschemincf1.send();
@@ -1520,23 +1773,14 @@ document.addEventListener('DOMContentLoaded', () => {
                                     //troisieme itineraire
                                     if(i === 4)
                                     {
-                                        let opt = document.createElement('option');
-                                        opt.value = `${donitinescf[1].code_itineraires}`;
-                                        opt.innerHTML = `${donitinescf[1].nom_itineraires}`;
-                                        document.querySelector('#idcheminscf').add(opt);
+                                        __confSetCheminLigneOption('#idcheminscf', donitinescf[1].code_itineraires, donitinescf[1].nom_itineraires);
 
 
-                                        let opt1 = document.createElement('option');
-                                        opt1.value = `${donitinescf[2].code_itineraires}`;
-                                        opt1.innerHTML = `${donitinescf[2].nom_itineraires}`;
-                                        document.querySelector('#idcheminscf1').add(opt1);
+                                        __confSetCheminLigneOption('#idcheminscf1', donitinescf[2].code_itineraires, donitinescf[2].nom_itineraires);
 
-                                        let opt2 = document.createElement('option');
-                                        opt2.value = `${donitinescf[3].code_itineraires}`;
-                                        opt2.innerHTML = `${donitinescf[3].nom_itineraires}`;
-                                        document.querySelector('#idcheminscf2').add(opt2);
+                                        __confSetCheminLigneOption('#idcheminscf2', donitinescf[3].code_itineraires, donitinescf[3].nom_itineraires);
 
-                                        document.querySelector('#lignesitinerairecf').value = `${donitinescf[0].nom_itineraires}`;
+                                        __confFillLigne1Locked(donitinescf[0]);
                                        
                                         document.querySelector('#itinecodescf').value = `${donitinescf[0].id_lignes}`;
                                         document.querySelector('#idcompgcf').value = `${donitinescf[0].id_compaga}`;
@@ -1695,15 +1939,8 @@ document.addEventListener('DOMContentLoaded', () => {
                                                 {
                                         
                                                     const dongtranschemcf = JSON.parse(httpSiegeschemincf.responseText);
-                                                    if (Object.entries(dongtranschemcf).length >= 1)
-                                                    {
-                                                        for (let key in Object.entries(dongtranschemcf)) {
-                                                            let opt = document.createElement('option');
-                                                            opt.value = `${dongtranschemcf[key].code_progr}/${dongtranschemcf[key].intervalle1}/${dongtranschemcf[key].intervalle2}/${dongtranschemcf[key].id_ligneheure}/${dongtranschemcf[key].prix}`;
-                                                            opt.innerHTML = `${dongtranschemcf[key].heure}/${dongtranschemcf[key].date_progr}`;
-                                                            document.querySelector('#hdepartitinecf').add(opt);
-                                                        }
-                                                    }
+                                                    var __prevCfX = __confPrevFromLeg1();
+                                                        __confAppendFilteredCheminOptions('#hdepartitinecf', dongtranschemcf, __prevCfX.date, __prevCfX.heure);
                                                 };
                                                 httpSiegeschemincf.setRequestHeader('Content-Type', 'application/json');
                                                 httpSiegeschemincf.send();
@@ -1907,15 +2144,8 @@ document.addEventListener('DOMContentLoaded', () => {
                                                 {
                                         
                                                     const dongtranschemcf1 = JSON.parse(httpSiegeschemincf1.responseText);
-                                                    if (Object.entries(dongtranschemcf1).length >= 1)
-                                                        {
-                                                            for (let key in Object.entries(dongtranschemcf1)) {
-                                                                let opt = document.createElement('option');
-                                                                opt.value = `${dongtranschemcf1[key].code_progr}/${dongtranschemcf1[key].intervalle1}/${dongtranschemcf1[key].intervalle2}/${dongtranschemcf1[key].id_ligneheure}/${dongtranschemcf1[key].prix}`;
-                                                                opt.innerHTML = `${dongtranschemcf1[key].heure}/${dongtranschemcf1[key].date_progr}`;
-                                                                document.querySelector('#idcheminsheurcf').add(opt);
-                                                            }
-                                                        }
+                                                    var __prevCfX = __confPrevFromSelect('#hdepartitinecf');
+                                                        __confAppendFilteredCheminOptions('#idcheminsheurcf', dongtranschemcf1, __prevCfX.date, __prevCfX.heure);
                                                 };
                                                 httpSiegeschemincf1.setRequestHeader('Content-Type', 'application/json');
                                                 httpSiegeschemincf1.send();
@@ -2087,15 +2317,8 @@ document.addEventListener('DOMContentLoaded', () => {
                                                 {
                                         
                                                             const dongtranschemcf2 = JSON.parse(httpSiegeschemincf2.responseText);
-                                                            if (Object.entries(dongtranschemcf2).length >= 1)
-                                                                {
-                                                                    for (let key in Object.entries(dongtranschemcf2)) {
-                                                                        let opt = document.createElement('option');
-                                                                        opt.value = `${dongtranschemcf2[key].code_progr}/${dongtranschemcf2[key].intervalle1}/${dongtranschemcf2[key].intervalle2}/${dongtranschemcf2[key].id_ligneheure}/${dongtranschemcf2[key].prix}`;
-                                                                        opt.innerHTML = `${dongtranschemcf2[key].heure}/${dongtranschemcf2[key].date_progr}`;
-                                                                        document.querySelector('#idcheminsheurcf1').add(opt);
-                                                                    }
-                                                                }
+                                                            var __prevCfX = __confPrevFromSelect('#idcheminsheurcf');
+                                                        __confAppendFilteredCheminOptions('#idcheminsheurcf1', dongtranschemcf2, __prevCfX.date, __prevCfX.heure);
                                                 };
                                                 httpSiegeschemincf2.setRequestHeader('Content-Type', 'application/json');
                                                 httpSiegeschemincf2.send();

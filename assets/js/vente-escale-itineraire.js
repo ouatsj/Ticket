@@ -512,6 +512,7 @@
                 nomEsc: '#nom_dest_vente_tr1' + f
             },
             {
+                // Dernière jambe si nbr=2 : le formulaire n'affiche que quartier1 / cf1 / fid1
                 n: 2,
                 sfx: f,
                 nbr: conf ? '#nbrtranscf' : (fid ? '#nbrtransfid' : '#nbrtrans'),
@@ -519,8 +520,8 @@
                 ligne: conf ? '#ligntranscf1' : (fid ? '#ligntrans1fid' : '#ligntrans1'),
                 lineUi: conf ? ['#arritincf1', '#idcheminscf'] : (fid ? ['#arritin1fid', '#idcheminsfid'] : ['#arritin1', '#idchemins']),
                 prix: conf ? '#prix_axetransitcf' : (fid ? '#prix_axetransitfid' : '#prix_axetransit'),
-                quartier: conf ? '#quartiercf2' : (fid ? '#quartier2fid' : '#quartier2'),
-                quartierLabel: conf ? '#idquartcf2' : (fid ? '#idquart2fid' : '#idquart2'),
+                quartier: conf ? '#quartiercf1' : (fid ? '#quartier1fid' : '#quartier1'),
+                quartierLabel: conf ? '#idquartcf1' : (fid ? '#idquart1fid' : '#idquart1'),
                 mainQuartier: conf ? '#quartconf' : (fid ? '#quartierfid' : '#quartier'),
                 mainQuartierLabel: conf ? null : (fid ? '#idquartfid' : '#idquart'),
                 wrap: '#escale_leg_wrap_tr2' + f,
@@ -532,6 +533,7 @@
                 nomEsc: '#nom_dest_vente_tr2' + f
             },
             {
+                // Dernière jambe si nbr=3 : quartier2 / cf2 (pas quartier3 = « Quartier transite4 »)
                 n: 3,
                 sfx: f,
                 nbr: conf ? '#nbrtranscf' : (fid ? '#nbrtransfid' : '#nbrtrans'),
@@ -539,8 +541,8 @@
                 ligne: conf ? '#ligntranscf2' : (fid ? '#ligntrans2fid' : '#ligntrans2'),
                 lineUi: conf ? ['#arritincf2', '#idcheminscf1'] : (fid ? ['#arritin2fid', '#idchemins1fid'] : ['#arritin2', '#idchemins1']),
                 prix: conf ? '#prix_axetransitcf1' : (fid ? '#prix_axetransit1fid' : '#prix_axetransit1'),
-                quartier: conf ? '#quartiercf3' : (fid ? '#quartier3fid' : '#quartier3'),
-                quartierLabel: conf ? '#idquartcf3' : (fid ? '#idquart3fid' : '#idquart3'),
+                quartier: conf ? '#quartiercf2' : (fid ? '#quartier2fid' : '#quartier2'),
+                quartierLabel: conf ? '#idquartcf2' : (fid ? '#idquart2fid' : '#idquart2'),
                 mainQuartier: conf ? '#quartconf' : (fid ? '#quartierfid' : '#quartier'),
                 mainQuartierLabel: conf ? null : (fid ? '#idquartfid' : '#idquart'),
                 wrap: '#escale_leg_wrap_tr3' + f,
@@ -552,6 +554,7 @@
                 nomEsc: '#nom_dest_vente_tr3' + f
             },
             {
+                // Dernière jambe si nbr=4 : quartier3 / cf3 (« Quartier transite4 »)
                 n: 4,
                 sfx: f,
                 nbr: conf ? '#nbrtranscf' : (fid ? '#nbrtransfid' : '#nbrtrans'),
@@ -559,8 +562,8 @@
                 ligne: conf ? '#ligntranscf3' : (fid ? '#ligntrans3fid' : '#ligntrans3'),
                 lineUi: conf ? ['#arritincf3', '#idcheminscf2'] : (fid ? ['#arritin3fid', '#idchemins2fid'] : ['#arritin3', '#idchemins2']),
                 prix: conf ? '#prix_axetransitcf2' : (fid ? '#prix_axetransit2fid' : '#prix_axetransit2'),
-                quartier: null,
-                quartierLabel: null,
+                quartier: conf ? '#quartiercf3' : (fid ? '#quartier3fid' : '#quartier3'),
+                quartierLabel: conf ? '#idquartcf3' : (fid ? '#idquart3fid' : '#idquart3'),
                 mainQuartier: conf ? '#quartconf' : (fid ? '#quartierfid' : '#quartier'),
                 mainQuartierLabel: conf ? null : (fid ? '#idquartfid' : '#idquart'),
                 wrap: '#escale_leg_wrap_tr4' + f,

@@ -985,6 +985,8 @@
                 $out['sousgares_banfora'] = $gareBan
                     ? $this->m_programme_correspondance->list_sousgares_gare($gareBan)
                     : array();
+                $out['sousgares_principal'] = $out['sousgares_banfora'];
+                $out['portee_principale'] = $this->m_programme_correspondance->portee_ids_programme($code_progr);
             }
             return $this->load->view('beagle/pages/_programme/json', array('json' => $out));
         }
@@ -1417,14 +1419,16 @@
         }
 
         /**
-         * Phase 2 debug : décision graphe (JSON).
-         * GET programmes/verifchemins/{axe}/{date}/{sg?}
+         * Multi-chemins vente : décision graphe + attentes + étapes complètes.
+         * GET programmes/verifchemins/{axe}/{date}/{sg?}/{force?}
+         * force=1 ⇒ correspondances même si un direct existe ailleurs le jour.
          */
-        public function verifchemins($axe, $da = null, $sgid = null)
+        public function verifchemins($axe, $da = null, $sgid = null, $force = null)
         {
             session_release_lock();
             $date = ($da !== null && $da !== '' && $da !== '0') ? $da : mdate('%Y-%m-%d', now());
             $sg = ($sgid !== null && $sgid !== '' && $sgid !== '0') ? (int) $sgid : null;
+            $force_transit = ($force === '1' || $force === 1 || $force === true);
             $this->load->library('graphe_correspondance');
             if (!isset($this->m_itineraire_etape)) {
                 $this->load->model('Itineraire_etape_model', 'm_itineraire_etape');
@@ -1439,24 +1443,23 @@
                 $axe,
                 $date,
                 $sg,
-                $declRows
+                $declRows,
+                $force_transit
             );
+            $payload = $this->graphe_correspondance->payload_multi_chemins($decision, $declRows);
             $out = array(
-                'mode' => $decision['mode'],
-                'meta' => $decision['meta'],
+                'mode' => $payload['mode'],
+                'meta' => $payload['meta'],
                 'declaratif' => $decl,
-                'chemins' => array(),
+                'multi' => !empty($payload['multi']),
+                'chemins' => $payload['chemins'],
+                'etapes' => $payload['etapes'],
                 'etapes_servies' => array(),
             );
-            foreach ($decision['chemins'] as $c) {
-                $out['chemins'][] = array(
-                    'codes' => isset($c['codes']) ? $c['codes'] : array(),
-                    'score' => isset($c['score']) ? $c['score'] : null,
-                    'nb_jambes' => isset($c['nb_jambes']) ? $c['nb_jambes'] : null,
-                );
-            }
-            foreach ($decision['etapes'] as $e) {
-                $out['etapes_servies'][] = isset($e->code_itineraires) ? $e->code_itineraires : null;
+            foreach ($payload['etapes'] as $e) {
+                $out['etapes_servies'][] = is_object($e) && isset($e->code_itineraires)
+                    ? $e->code_itineraires
+                    : (is_array($e) && isset($e['code_itineraires']) ? $e['code_itineraires'] : null);
             }
             return $this->load->view('beagle/pages/_programme/json', array('json' => $out));
         }

@@ -385,13 +385,137 @@ document.addEventListener('DOMContentLoaded', () => {
     window.__venteHideMainQuartier = __venteHideMainQuartier;
     window.__venteShowMainQuartier = __venteShowMainQuartier;
 
-    /** Remplit un select d'heures transit (chemintr) — 1 option par code_progr. */
+
+    /** Marge min. correspondance (alignée graphe_correspondance_marge_min). */
+    var __VENTE_TRANSIT_MARGE_MIN = 30;
+
+    function __venteHeureToMinutes(h) {
+        if (h == null || h === '') return null;
+        var parts = String(h).trim().split(/[:hH]/);
+        if (!parts || !parts.length) return null;
+        var hh = parseInt(parts[0], 10);
+        if (isNaN(hh)) return null;
+        var mm = (parts[1] != null && parts[1] !== '') ? parseInt(parts[1], 10) : 0;
+        if (isNaN(mm)) mm = 0;
+        return (hh * 60) + mm;
+    }
+
+    function __venteFormatDateShort(ymd) {
+        if (!ymd || String(ymd).length < 10) return '';
+        var p = String(ymd).slice(0, 10).split('-');
+        return (p.length === 3) ? (p[2] + '/' + p[1]) : String(ymd).slice(0, 10);
+    }
+
+    function __venteClearDownstreamCheminHeures() {
+        ['idcheminsheur', 'idcheminsheur1', 'idcheminsheur2'].forEach(function (id) {
+            var el = document.getElementById(id);
+            if (el) el.options.length = 1;
+        });
+        ['psiegesitines1', 'psiegesitines2', 'psiegesitines3'].forEach(function (id) {
+            var el = document.getElementById(id);
+            if (el) el.options.length = 1;
+        });
+    }
+
+    /**
+     * Ancre jambe précédente pour filtrer les heures de nextLegKey (tr2|tr3|tr4).
+     * date + minutes + marge.
+     */
+    function __venteGetPrevTransitAnchor(nextLegKey) {
+        var voyageDate = document.querySelector('#date_depheure')
+            ? String(document.querySelector('#date_depheure').value || '').slice(0, 10) : '';
+        var out = { date: voyageDate, heure: '', minutes: null, marge: __VENTE_TRANSIT_MARGE_MIN };
+
+        function fromCheminSelect(heurId) {
+            var hs = document.getElementById(heurId);
+            if (!hs || hs.selectedIndex < 1) return false;
+            var opt = hs.options[hs.selectedIndex];
+            var date = opt.getAttribute('data-date-progr') || '';
+            var heure = opt.getAttribute('data-heure') || '';
+            var gkey = opt.getAttribute('data-group-key') || '';
+            var groups = (window.__venteCheminGroups && window.__venteCheminGroups[heurId]) || {};
+            var g = groups[gkey] || groups[opt.value] || null;
+            if (g && g.rows && g.rows.length) {
+                if (!date && g.rows[0].date_progr) date = String(g.rows[0].date_progr).slice(0, 10);
+                if (!heure && g.rows[0].heure) heure = String(g.rows[0].heure);
+            }
+            // Après choix siège/prog : value = code/i1/i2/lh/prix — retrouver via code_progr.
+            if ((!date || !heure) && String(opt.value).indexOf('/') !== -1) {
+                var code = String(opt.value).split('/')[0];
+                Object.keys(groups).forEach(function (k) {
+                    if (date && heure) return;
+                    var rows = groups[k] && groups[k].rows ? groups[k].rows : [];
+                    for (var i = 0; i < rows.length; i++) {
+                        if (String(rows[i].code_progr) === code) {
+                            date = String(rows[i].date_progr || '').slice(0, 10);
+                            heure = String(rows[i].heure || '');
+                            break;
+                        }
+                    }
+                });
+            }
+            if (!date) date = voyageDate;
+            if (!heure) return false;
+            out.date = date;
+            out.heure = heure;
+            out.minutes = __venteHeureToMinutes(heure);
+            return out.minutes != null;
+        }
+
+        if (nextLegKey === 'tr2') {
+            var dEl = document.querySelector('#dateprtrans');
+            var hEl = document.querySelector('#hertrans');
+            var date = (dEl && dEl.value) ? String(dEl.value).slice(0, 10) : voyageDate;
+            var heure = (hEl && hEl.value) ? String(hEl.value) : '';
+            if (!heure) {
+                var hs1 = document.getElementById('hdepartitine');
+                if (hs1 && hs1.selectedIndex > 0) {
+                    var parts = String(hs1.options[hs1.selectedIndex].value || '').split('/');
+                    if (parts[1]) heure = parts[1];
+                }
+            }
+            out.date = date || voyageDate;
+            out.heure = heure;
+            out.minutes = __venteHeureToMinutes(heure);
+            return out;
+        }
+        if (nextLegKey === 'tr3') {
+            fromCheminSelect('idcheminsheur');
+            return out;
+        }
+        if (nextLegKey === 'tr4') {
+            fromCheminSelect('idcheminsheur1');
+            return out;
+        }
+        return out;
+    }
+
+    /** true si le programme row est après l'ancre (même jour + marge, ou jour suivant). */
+    function __venteRowIsAfterPrev(row, prev) {
+        if (!prev || prev.minutes == null || !prev.date) return true;
+        var rd = row && row.date_progr ? String(row.date_progr).slice(0, 10) : '';
+        var rm = __venteHeureToMinutes(row && row.heure);
+        if (!rd || rm == null) return false;
+        if (rd > prev.date) return true;
+        if (rd < prev.date) return false;
+        var marge = (prev.marge != null) ? prev.marge : __VENTE_TRANSIT_MARGE_MIN;
+        return rm >= (prev.minutes + marge);
+    }
+
+
+    /** Remplit un select d'heures transit (chemintr), filtré vs jambe précédente (marge + J/J+1). */
     function __venteFillCheminHeures(selectSel, rows, legKey) {
         var sel = typeof selectSel === 'string' ? document.querySelector(selectSel) : selectSel;
         if (!sel) return;
         sel.options.length = 1;
         var list = Array.isArray(rows) ? rows
             : (rows && typeof rows === 'object' ? Object.keys(rows).map(function (k) { return rows[k]; }) : []);
+        var prev = legKey ? __venteGetPrevTransitAnchor(legKey) : null;
+        if (prev && prev.minutes != null && prev.date) {
+            list = list.filter(function (row) { return __venteRowIsAfterPrev(row, prev); });
+        }
+        var voyageDate = document.querySelector('#date_depheure')
+            ? String(document.querySelector('#date_depheure').value || '').slice(0, 10) : '';
         var groups = {};
         var order = [];
         for (var i = 0; i < list.length; i++) {
@@ -399,37 +523,61 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!row || row.code_progr == null || row.code_progr === '') continue;
             var lh = String(row.id_ligneheure != null ? row.id_ligneheure : '');
             if (!lh) continue;
-            if (!groups[lh]) {
-                groups[lh] = { heure: row.heure || '', rows: [] };
-                order.push(lh);
+            var dprog = row.date_progr ? String(row.date_progr).slice(0, 10) : '';
+            // Clé date|id_lh : évite de fusionner le même créneau sur J et J+1.
+            var gkey = dprog + '|' + lh;
+            if (!groups[gkey]) {
+                groups[gkey] = {
+                    heure: row.heure || '',
+                    date_progr: dprog,
+                    minutes: __venteHeureToMinutes(row.heure),
+                    rows: []
+                };
+                order.push(gkey);
             }
-            // dédup code_progr dans le groupe
             var exists = false;
-            for (var j = 0; j < groups[lh].rows.length; j++) {
-                if (String(groups[lh].rows[j].code_progr) === String(row.code_progr)) {
+            for (var j = 0; j < groups[gkey].rows.length; j++) {
+                if (String(groups[gkey].rows[j].code_progr) === String(row.code_progr)) {
                     exists = true;
                     break;
                 }
             }
-            if (!exists) groups[lh].rows.push(row);
+            if (!exists) groups[gkey].rows.push(row);
         }
+        order.sort(function (a, b) {
+            var ga = groups[a], gb = groups[b];
+            var da = ga.date_progr || '', db = gb.date_progr || '';
+            if (da < db) return -1;
+            if (da > db) return 1;
+            var ma = ga.minutes != null ? ga.minutes : 0;
+            var mb = gb.minutes != null ? gb.minutes : 0;
+            return ma - mb;
+        });
         if (!window.__venteCheminGroups) window.__venteCheminGroups = {};
         window.__venteCheminGroups[sel.id] = groups;
         for (var k = 0; k < order.length; k++) {
-            var idLh = order[k];
-            var g = groups[idLh];
+            var key = order[k];
+            var g = groups[key];
             var opt = document.createElement('option');
-            opt.value = idLh;
-            opt.innerHTML = g.heure || idLh;
-            if (g.rows.length > 1) {
-                opt.innerHTML = (g.heure || idLh) + ' (' + g.rows.length + ' départs)';
+            opt.value = key;
+            opt.setAttribute('data-group-key', key);
+            opt.setAttribute('data-date-progr', g.date_progr || '');
+            opt.setAttribute('data-heure', g.heure || '');
+            var label = g.heure || key;
+            if (g.date_progr && voyageDate && g.date_progr !== voyageDate) {
+                label = (g.heure || '') + ' — ' + __venteFormatDateShort(g.date_progr);
             }
+            if (g.rows.length > 1) {
+                label = label + ' (' + g.rows.length + ' départs)';
+            }
+            opt.innerHTML = label;
             sel.add(opt);
         }
         if (legKey) {
             __venteWireCheminHeur(sel.id, legKey);
         }
     }
+
 
     window.__venteHasTransit = false;
     window.__venteLastHeuresVente = [];
@@ -884,6 +1032,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if (p.prix != null && String(p.prix).trim() !== '') {
             set('#prix_axetrans', p.prix);
         }
+        // Nouvelle ancre jambe 1 → invalider heures/sièges des correspondances suivantes.
+        __venteClearDownstreamCheminHeures();
     }
 
     function __venteLoadSiegesTransit1(idLigneheure, dptDate) {
@@ -1030,13 +1180,251 @@ document.addEventListener('DOMContentLoaded', () => {
         http.send();
     }
 
+    function __venteEnsureCheminSelector() {
+        var existing = document.getElementById('selchemin_box');
+        if (existing) return existing;
+        var box = document.createElement('div');
+        box.className = 'form-group col-sm-12';
+        box.id = 'selchemin_box';
+        box.style.display = 'none';
+        box.innerHTML = ''
+            + '<label id="selchemin_label">Itinéraire de correspondance</label>'
+            + '<select class="form-control form-control-sm" id="selchemin_transit" name="selchemin_transit">'
+            + '<option value="">Choisissez l\'itinéraire</option>'
+            + '</select>'
+            + '<small class="form-text text-muted" id="selchemin_hint"></small>';
+        var anchor = document.getElementById('hdepartitine')
+            || document.getElementById('idchemins')
+            || document.getElementById('nbrtrans');
+        if (anchor && anchor.parentNode && anchor.parentNode.parentNode) {
+            anchor.parentNode.parentNode.insertBefore(box, anchor.parentNode);
+        } else if (anchor && anchor.parentNode) {
+            anchor.parentNode.insertBefore(box, anchor);
+        } else {
+            document.body.appendChild(box);
+        }
+        return box;
+    }
+
+    function __venteHideCheminSelector() {
+        var box = document.getElementById('selchemin_box');
+        var sel = document.getElementById('selchemin_transit');
+        var hint = document.getElementById('selchemin_hint');
+        if (box) box.style.display = 'none';
+        if (sel) {
+            sel.options.length = 1;
+            sel.value = '';
+            sel.onchange = null;
+        }
+        if (hint) hint.textContent = '';
+        window.__venteCheminsCache = null;
+    }
+
+    function __venteFormatAttenteLabel(chemin) {
+        if (!chemin) return '';
+        if (chemin.attente_totale_label) return 'Attente totale : ' + chemin.attente_totale_label;
+        if (chemin.attente_totale_min != null) {
+            var m = parseInt(chemin.attente_totale_min, 10) || 0;
+            var h = Math.floor(m / 60);
+            var mm = m % 60;
+            var s = h > 0 ? (h + ' h' + (mm ? (' ' + (mm < 10 ? '0' : '') + mm) : '')) : (mm + ' min');
+            return 'Attente totale : ' + s;
+        }
+        return chemin.source === 'declaratif' ? 'Composition déclarée' : '';
+    }
+
+    /** Normalise etapes JSON (array ou objet indexé) en tableau. */
+    function __venteNormalizeEtapes(etapes) {
+        if (!etapes) return [];
+        if (Array.isArray(etapes)) return etapes;
+        if (typeof etapes === 'object') {
+            return Object.keys(etapes).map(function (k) { return etapes[k]; }).filter(Boolean);
+        }
+        return [];
+    }
+
+    /**
+     * Correspondance 2/3/4 — ligne : propose la ligne du chemin, sans la sélectionner.
+     * L'opérateur choisit ; le chargement des heures part sur son onchange.
+     */
+    function __venteSetCheminLigneOption(selectSel, code, nom) {
+        var sel = typeof selectSel === 'string' ? document.querySelector(selectSel) : selectSel;
+        if (!sel) return;
+        sel.disabled = false;
+        sel.removeAttribute('disabled');
+        sel.options.length = 1;
+        sel.selectedIndex = 0;
+        if (code == null || code === '') return;
+        var opt = document.createElement('option');
+        opt.value = String(code);
+        opt.innerHTML = nom != null ? String(nom) : String(code);
+        if (nom != null) opt.setAttribute('data-nom', String(nom));
+        sel.add(opt);
+        sel.selectedIndex = 0;
+    }
+
+    /** Assure que Correspondance 1 — ligne est un input texte (pas un select). */
+    function __venteEnsureLigne1LockedInput() {
+        var el = document.getElementById('lignesitineraire');
+        if (!el) return null;
+        if (el.tagName === 'INPUT') {
+            el.disabled = true;
+            el.setAttribute('disabled', 'disabled');
+            el.readOnly = true;
+            return el;
+        }
+        // Si un select avait remplacé l'input : revenir à un input figé.
+        var inp = document.createElement('input');
+        inp.type = 'text';
+        inp.id = 'lignesitineraire';
+        inp.name = el.getAttribute('name') || 'lignesitineraires';
+        inp.className = el.className || 'form-control form-control-sm';
+        inp.disabled = true;
+        inp.setAttribute('disabled', 'disabled');
+        inp.readOnly = true;
+        if (el.parentNode) el.parentNode.replaceChild(inp, el);
+        return inp;
+    }
+
+    /**
+     * Correspondance 1 — ligne : prédéfinie et non modifiable.
+     * Renseigne aussi #itinecode / #lignetineraire, puis appelle onPick(code, nom).
+     */
+    function __venteFillLigne1Locked(etape0, onPick) {
+        if (!etape0) return;
+        var code = etape0.code_itineraires || '';
+        var nom = etape0.nom_itineraires || code;
+        var el = __venteEnsureLigne1LockedInput();
+        if (el) el.value = nom;
+        var itc = document.querySelector('#itinecode');
+        var ltn = document.querySelector('#lignetineraire');
+        if (itc) itc.value = code;
+        if (ltn) ltn.value = nom;
+        if (typeof onPick === 'function') onPick(code, nom);
+    }
+
+    /**
+     * Remise à zéro UI transit avant d'appliquer un autre chemin multi.
+     * Sans ça, .add(opt) cumule les lignes et les champs restent sur l'ancien itinéraire.
+     */
+    function __venteResetTransitFieldsBeforeApply() {
+        [
+            'arritin1', 'idchemins', 'heureitin1', 'idcheminsheur', 'siegitine1', 'psiegesitines1',
+            'arritin2', 'idchemins1', 'heureitin2', 'idcheminsheur1', 'siegitine2', 'psiegesitines2',
+            'arritin3', 'idchemins2', 'heureitin3', 'idcheminsheur2', 'siegitine3', 'psiegesitines3',
+            'quartier1', 'quartier2', 'quartier3', 'idquart1', 'idquart2', 'idquart3',
+            'iddeptrans1', 'transitedepargare1', 'iddeptrans2', 'transitedepargare2',
+            'iddeptrans3', 'transitedepargare3', 'iddeptrans4', 'transitedepargare4',
+            'tran', 'heureitin', 'hdepartitine', 'lignesitineraire', 'ligne1', 'siegitine', 'psiegesitines'
+        ].forEach(function (id) {
+            var el = document.getElementById(id);
+            if (el) el.style.display = 'none';
+        });
+        __venteSetDisplay('depitin1', 'none');
+        __venteSetDisplay('depargareitine1', 'none');
+        __venteSetDisplay('depitin2', 'none');
+        __venteSetDisplay('depargareitine2', 'none');
+        __venteSetDisplay('depitin3', 'none');
+        __venteSetDisplay('depargareitine3', 'none');
+        __venteSetDisplay('arrsgareitine1', 'none');
+        __venteSetDisplay('arrsgareitine2', 'none');
+        __venteSetDisplay('arrsgareitine3', 'none');
+        __venteSetDisplay('hdepartitine1', 'none');
+        __venteSetDisplay('hdepartitine2', 'none');
+        __venteSetDisplay('hdepartitine3', 'none');
+
+        [
+            '#idchemins', '#idchemins1', '#idchemins2',
+            '#idcheminsheur', '#idcheminsheur1', '#idcheminsheur2',
+            '#hdepartitine', '#psiegesitines', '#psiegesitines1', '#psiegesitines2', '#psiegesitines3',
+            '#quartier1', '#quartier2', '#quartier3'
+        ].forEach(function (s) {
+            var el = document.querySelector(s);
+            if (el && el.options) {
+                el.options.length = 1;
+                el.value = '';
+                el.onchange = null;
+            }
+        });
+        ['#transitedepargare1', '#transitedepargare2', '#transitedepargare3', '#transitedepargare4'].forEach(function (s) {
+            var el = document.querySelector(s);
+            if (el && el.options) el.options.length = 0;
+        });
+        [
+            '#itinecode', '#itinecodes', '#lignetineraire', '#lignesitineraire', '#nbrtrans',
+            '#idcompg', '#idcompg1', '#idcompg2', '#idcompg3',
+            '#prix_axetransit', '#prix_axetransit1', '#prix_axetransit2',
+            '#hertrans', '#dateprtrans', '#program', '#cate', '#catetransit', '#catetransit1', '#catetransit2'
+        ].forEach(function (s) {
+            var el = document.querySelector(s);
+            if (el) el.value = '';
+        });
+        if (typeof __venteHideAllTransitProgSelects === 'function') __venteHideAllTransitProgSelects();
+        if (typeof __venteClearDownstreamCheminHeures === 'function') __venteClearDownstreamCheminHeures();
+    }
+
+    function __venteShowCheminSelector(chemins, onPick) {
+        __venteEnsureCheminSelector();
+        var box = document.getElementById('selchemin_box');
+        var sel = document.getElementById('selchemin_transit');
+        var hint = document.getElementById('selchemin_hint');
+        if (!box || !sel) {
+            var et0 = chemins && chemins[0] ? __venteNormalizeEtapes(chemins[0].etapes) : [];
+            if (typeof window.__venteApplyTransitLegs === 'function') window.__venteApplyTransitLegs(et0);
+            else if (typeof onPick === 'function') onPick(et0);
+            return;
+        }
+        window.__venteCheminsCache = chemins;
+        sel.options.length = 1;
+        for (var i = 0; i < chemins.length; i++) {
+            var c = chemins[i];
+            var opt = document.createElement('option');
+            opt.value = String(i);
+            opt.textContent = c.label || (('Chemin ' + (i + 1)) + ' · ' + (c.nb_jambes || '') + ' jambes');
+            sel.add(opt);
+        }
+        box.style.display = 'block';
+        var applyIdx = function (idx) {
+            var ch = chemins[idx];
+            if (hint) hint.textContent = __venteFormatAttenteLabel(ch);
+            var etapes = __venteNormalizeEtapes(ch && ch.etapes);
+            // Toujours passer par ApplyTransitLegs (recharge champs prédéfinis).
+            if (typeof window.__venteApplyTransitLegs === 'function') {
+                window.__venteApplyTransitLegs(etapes);
+            } else if (typeof onPick === 'function') {
+                onPick(etapes);
+            }
+        };
+        sel.onchange = function () {
+            var idx = parseInt(sel.value, 10);
+            if (isNaN(idx) || !chemins[idx]) {
+                if (hint) hint.textContent = '';
+                if (typeof window.__venteApplyTransitLegs === 'function') window.__venteApplyTransitLegs([]);
+                else if (typeof onPick === 'function') onPick([]);
+                return;
+            }
+            applyIdx(idx);
+        };
+        // Appliquer le 1er (composition déclarée en tête) ; l'agent peut changer.
+        sel.selectedIndex = 1;
+        applyIdx(0);
+    }
+
     function __venteRequestTransitLegs(seltdep, arr, datedepart, sougid, force, onDone) {
         var sg = (sougid != null && sougid !== '') ? sougid : '0';
         var forceFlag = force ? '1' : '0';
+        var done = function (etapes) {
+            etapes = __venteNormalizeEtapes(etapes);
+            if (typeof onDone === 'function') {
+                onDone(etapes);
+            } else if (typeof window.__venteApplyTransitLegs === 'function') {
+                window.__venteApplyTransitLegs(etapes);
+            }
+        };
         var httpRequestitine = new XMLHttpRequest();
         httpRequestitine.open(
             'GET',
-            window.location.origin + `${APP_ROOT}/programmes/verifitine/`
+            window.location.origin + `${APP_ROOT}/programmes/verifchemins/`
                 + encodeURIComponent(seltdep + '-' + arr) + '/'
                 + encodeURIComponent(datedepart) + '/'
                 + encodeURIComponent(sg) + '/'
@@ -1044,13 +1432,39 @@ document.addEventListener('DOMContentLoaded', () => {
             true
         );
         httpRequestitine.onload = function () {
-            var donitines = null;
-            try { donitines = JSON.parse(httpRequestitine.responseText); } catch (e) { donitines = null; }
-            if (typeof onDone === 'function') {
-                onDone(donitines);
-            } else if (typeof window.__venteApplyTransitLegs === 'function') {
-                window.__venteApplyTransitLegs(donitines);
+            var payload = null;
+            try { payload = JSON.parse(httpRequestitine.responseText); } catch (e) { payload = null; }
+            // Compat : ancien verifitine = tableau d'étapes
+            if (Array.isArray(payload)) {
+                __venteHideCheminSelector();
+                done(payload);
+                return;
             }
+            if (!payload || typeof payload !== 'object') {
+                __venteHideCheminSelector();
+                done([]);
+                return;
+            }
+            if (payload.mode === 'direct' || payload.mode === 'none') {
+                __venteHideCheminSelector();
+                done([]);
+                return;
+            }
+            var chemins = Array.isArray(payload.chemins) ? payload.chemins : [];
+            if (chemins.length > 1) {
+                __venteShowCheminSelector(chemins, done);
+                return;
+            }
+            __venteHideCheminSelector();
+            if (chemins.length === 1 && chemins[0].etapes) {
+                done(chemins[0].etapes);
+                return;
+            }
+            if (payload.etapes && (Array.isArray(payload.etapes) ? payload.etapes.length : Object.keys(payload.etapes).length)) {
+                done(payload.etapes);
+                return;
+            }
+            done([]);
         };
         httpRequestitine.setRequestHeader('Content-Type', 'application/json');
         httpRequestitine.send();
@@ -1203,8 +1617,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
                                 // Applique les jambes transit (réutilisé au choix d'une heure sans départ).
                                 window.__venteApplyTransitLegs = function (donitines) {
+                                                    donitines = (typeof __venteNormalizeEtapes === 'function')
+                                                        ? __venteNormalizeEtapes(donitines) : donitines;
                                                     if(donitines === null || donitines === '' || (typeof donitines === 'object' && !Object.keys(donitines).length))
                                                     {
+                                                        if (typeof __venteHideCheminSelector === 'function') __venteHideCheminSelector();
+                                                        if (typeof __venteResetTransitFieldsBeforeApply === 'function') __venteResetTransitFieldsBeforeApply();
                                                         __venteSetDisplay('depitin1', 'none');
                                                         __venteSetDisplay('depargareitine1', 'none');
                                                         document.querySelector('#iddeptrans1').style.display = 'none';
@@ -1265,6 +1683,9 @@ document.addEventListener('DOMContentLoaded', () => {
                                                     }
                                                     else
                                                     {
+                                                        if (typeof __venteResetTransitFieldsBeforeApply === 'function') {
+                                                            __venteResetTransitFieldsBeforeApply();
+                                                        }
                                                         if (Object.entries(donitines).length >= 1) 
                                                         {
                                                             var i = Object.entries(donitines).length;
@@ -1366,24 +1787,41 @@ document.addEventListener('DOMContentLoaded', () => {
                                                                 __venteSetMainEscaleVisible(false);
 
 
-                                                                document.querySelector('#itinecode').value = `${donitines[0].code_itineraires}`;
-
                                                                 document.querySelector('#idcompg').value = `${donitines[0].id_compaga}`;
-                                                                document.querySelector('#lignetineraire').value = `${donitines[0].nom_itineraires}`;
+                                                                __venteFillLigne1Locked(donitines[0], function (codeSel) {
+                                                                    if (!codeSel) return;
+                                                                    var hd = document.querySelector('#hdepartitine');
+                                                                    if (hd) hd.options.length = 1;
+                                                                    var datedepart = document.querySelector('#date_depheure') ? document.querySelector('#date_depheure').value : '';
+                                                                    var httpH = new XMLHttpRequest();
+                                                                    httpH.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifheureitine/${encodeURIComponent(codeSel)}/${encodeURIComponent(datedepart)}`, true);
+                                                                    httpH.onload = function () {
+                                                                        try {
+                                                                            var infositin = JSON.parse(httpH.responseText);
+                                                                            if (hd) hd.options.length = 1;
+                                                                            if (infositin && Object.entries(infositin).length >= 1) {
+                                                                                for (var key in Object.entries(infositin)) {
+                                                                                    var opt = document.createElement('option');
+                                                                                    opt.value = `${infositin[key].id_ligneheure}/${infositin[key].heure}`;
+                                                                                    opt.innerHTML = `${infositin[key].heure}`;
+                                                                                    if (hd) hd.add(opt);
+                                                                                }
+                                                                            }
+                                                                        } catch (eH) {}
+                                                                    };
+                                                                    httpH.setRequestHeader('Content-Type', 'application/json');
+                                                                    httpH.send();
+                                                                });
                                                             }
                                                 
                                                             if(i === 2)
                                                             {
-                                                                let opt = document.createElement('option');
-                                                                opt.value = `${donitines[1].code_itineraires}`;
-                                                                opt.innerHTML = `${donitines[1].nom_itineraires}`;
-                                                                document.querySelector('#idchemins').add(opt);
+                                                                __venteSetCheminLigneOption('#idchemins', donitines[1].code_itineraires, donitines[1].nom_itineraires);
 
-                                                                document.querySelector('#lignesitineraire').value = `${donitines[0].nom_itineraires}`;
                                                                 document.querySelector('#itinecodes').value = `${donitines[0].id_lignes}`;
                                                                 document.querySelector('#idcompg').value = `${donitines[0].id_compaga}`;
                                                                 document.querySelector('#idcompg1').value = `${donitines[1].id_compaga}`;
-                                                                var typgare1 = document.querySelector('#itinecode').value;
+                                                                var typgare1 = (donitines[0] && donitines[0].code_itineraires) ? String(donitines[0].code_itineraires) : (document.querySelector('#itinecode').value || '');
                                                                 var post_typgare1 = typgare1.split('-');
                                                                 var seltypgare1 = post_typgare1[0];
                                                                 var typgaresel = post_typgare1[1];
@@ -1428,10 +1866,9 @@ document.addEventListener('DOMContentLoaded', () => {
                                                                         {
 
                                                                         }
+                                                                        document.querySelector('#hdepartitine').options.length = 1;
                                                                         if (Object.entries(infositin).length >= 1) 
                                                                         {
-                                                                                
-                                                                            
                                                                             for (let key in Object.entries(infositin)) {
                                                                                     let opt = document.createElement('option');
                                                                                     opt.value = `${infositin[key].id_ligneheure}/${infositin[key].heure}`;
@@ -1810,26 +2247,16 @@ document.addEventListener('DOMContentLoaded', () => {
                                                             //second itineraire
                                                             if(i === 3)
                                                             {
+                                                                __venteSetCheminLigneOption('#idchemins', donitines[1].code_itineraires, donitines[1].nom_itineraires);
 
-                                                                
-                                                                let opt = document.createElement('option');
-                                                                opt.value = `${donitines[1].code_itineraires}`;
-                                                                opt.innerHTML = `${donitines[1].nom_itineraires}`;
-                                                                
-                                                                document.querySelector('#idchemins').add(opt);
-
-                                                                document.querySelector('#lignesitineraire').value = `${donitines[0].nom_itineraires}`;
                                                                 document.querySelector('#itinecodes').value = `${donitines[0].id_lignes}`;
                                                                document.querySelector('#idcompg').value = `${donitines[0].id_compaga}`;
 
-                                                                let opt1 = document.createElement('option');
-                                                                opt1.value = `${donitines[2].code_itineraires}`;
-                                                                opt1.innerHTML = `${donitines[2].nom_itineraires}`;
-                                                                document.querySelector('#idchemins1').add(opt1);
+                                                                __venteSetCheminLigneOption('#idchemins1', donitines[2].code_itineraires, donitines[2].nom_itineraires);
 
                                                                 document.querySelector('#idcompg1').value = `${donitines[1].id_compaga}`;
                                                                 document.querySelector('#idcompg2').value = `${donitines[2].id_compaga}`;
-                                                                var typgare1 = document.querySelector('#itinecode').value;
+                                                                var typgare1 = (donitines[0] && donitines[0].code_itineraires) ? String(donitines[0].code_itineraires) : (document.querySelector('#itinecode').value || '');
                                                                 var post_typgare1 = typgare1.split('-');
                                                                 var seltypgare1 = post_typgare1[0];
                                                                 var typgaresel = post_typgare1[1];
@@ -1876,10 +2303,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
                                                                         }
+                                                                        document.querySelector('#hdepartitine').options.length = 1;
                                                                         if (Object.entries(infositin1).length >= 1) 
                                                                         {
-                                                                                
-                                                                            
                                                                             for (let key in Object.entries(infositin1)) {
                                                                                     let opt = document.createElement('option');
                                                                                     opt.value = `${infositin1[key].id_ligneheure}/${infositin1[key].heure}`;
@@ -2424,30 +2850,17 @@ document.addEventListener('DOMContentLoaded', () => {
                                                             //troisieme itineraire
                                                             if(i === 4)
                                                             {
-                                                                let opt = document.createElement('option');
-                                                                opt.value = `${donitines[1].code_itineraires}`;
-                                                                opt.innerHTML = `${donitines[1].nom_itineraires}`;
-                                                                document.querySelector('#idchemins').add(opt);
+                                                                __venteSetCheminLigneOption('#idchemins', donitines[1].code_itineraires, donitines[1].nom_itineraires);
+                                                                __venteSetCheminLigneOption('#idchemins1', donitines[2].code_itineraires, donitines[2].nom_itineraires);
+                                                                __venteSetCheminLigneOption('#idchemins2', donitines[3].code_itineraires, donitines[3].nom_itineraires);
 
-
-                                                                let opt1 = document.createElement('option');
-                                                                opt1.value = `${donitines[2].code_itineraires}`;
-                                                                opt1.innerHTML = `${donitines[2].nom_itineraires}`;
-                                                                document.querySelector('#idchemins1').add(opt1);
-
-                                                                let opt2 = document.createElement('option');
-                                                                opt2.value = `${donitines[3].code_itineraires}`;
-                                                                opt2.innerHTML = `${donitines[3].nom_itineraires}`;
-                                                                document.querySelector('#idchemins2').add(opt2);
-
-                                                                document.querySelector('#lignesitineraire').value = `${donitines[0].nom_itineraires}`;
                                                                
                                                                 document.querySelector('#itinecodes').value = `${donitines[0].id_lignes}`;
                                                                 document.querySelector('#idcompg').value = `${donitines[0].id_compaga}`;
                                                                 document.querySelector('#idcompg1').value = `${donitines[1].id_compaga}`;
                                                                 document.querySelector('#idcompg2').value = `${donitines[2].id_compaga}`;
                                                                 document.querySelector('#idcompg3').value = `${donitines[3].id_compaga}`;
-                                                                var typgare1 = document.querySelector('#itinecode').value;
+                                                                var typgare1 = (donitines[0] && donitines[0].code_itineraires) ? String(donitines[0].code_itineraires) : (document.querySelector('#itinecode').value || '');
                                                                 var post_typgare1 = typgare1.split('-');
                                                                 var seltypgare1 = post_typgare1[0];
                                                                 var typgaresel = post_typgare1[1];
@@ -2495,10 +2908,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
                                                                         }
+                                                                        document.querySelector('#hdepartitine').options.length = 1;
                                                                         if (Object.entries(infositin1).length >= 1) 
                                                                         {
-                                                                                
-                                                                            
                                                                             for (let key in Object.entries(infositin1)) {
                                                                                     let opt = document.createElement('option');
                                                                                     opt.value = `${infositin1[key].id_ligneheure}/${infositin1[key].heure}`;
@@ -4200,6 +4612,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 nomEsc: '#nom_dest_vente_tr1' + f
             },
             {
+                // Dernière jambe si nbr=2 : le formulaire n'affiche que quartier1 / cf1 / fid1
                 n: 2,
                 sfx: f,
                 nbr: conf ? '#nbrtranscf' : (fid ? '#nbrtransfid' : '#nbrtrans'),
@@ -4207,8 +4620,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 ligne: conf ? '#ligntranscf1' : (fid ? '#ligntrans1fid' : '#ligntrans1'),
                 lineUi: conf ? ['#arritincf1', '#idcheminscf'] : (fid ? ['#arritin1fid', '#idcheminsfid'] : ['#arritin1', '#idchemins']),
                 prix: conf ? '#prix_axetransitcf' : (fid ? '#prix_axetransitfid' : '#prix_axetransit'),
-                quartier: conf ? '#quartiercf2' : (fid ? '#quartier2fid' : '#quartier2'),
-                quartierLabel: conf ? '#idquartcf2' : (fid ? '#idquart2fid' : '#idquart2'),
+                quartier: conf ? '#quartiercf1' : (fid ? '#quartier1fid' : '#quartier1'),
+                quartierLabel: conf ? '#idquartcf1' : (fid ? '#idquart1fid' : '#idquart1'),
                 mainQuartier: conf ? '#quartconf' : (fid ? '#quartierfid' : '#quartier'),
                 mainQuartierLabel: conf ? null : (fid ? '#idquartfid' : '#idquart'),
                 wrap: '#escale_leg_wrap_tr2' + f,
@@ -4220,6 +4633,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 nomEsc: '#nom_dest_vente_tr2' + f
             },
             {
+                // Dernière jambe si nbr=3 : quartier2 / cf2 (pas quartier3 = « Quartier transite4 »)
                 n: 3,
                 sfx: f,
                 nbr: conf ? '#nbrtranscf' : (fid ? '#nbrtransfid' : '#nbrtrans'),
@@ -4227,8 +4641,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 ligne: conf ? '#ligntranscf2' : (fid ? '#ligntrans2fid' : '#ligntrans2'),
                 lineUi: conf ? ['#arritincf2', '#idcheminscf1'] : (fid ? ['#arritin2fid', '#idchemins1fid'] : ['#arritin2', '#idchemins1']),
                 prix: conf ? '#prix_axetransitcf1' : (fid ? '#prix_axetransit1fid' : '#prix_axetransit1'),
-                quartier: conf ? '#quartiercf3' : (fid ? '#quartier3fid' : '#quartier3'),
-                quartierLabel: conf ? '#idquartcf3' : (fid ? '#idquart3fid' : '#idquart3'),
+                quartier: conf ? '#quartiercf2' : (fid ? '#quartier2fid' : '#quartier2'),
+                quartierLabel: conf ? '#idquartcf2' : (fid ? '#idquart2fid' : '#idquart2'),
                 mainQuartier: conf ? '#quartconf' : (fid ? '#quartierfid' : '#quartier'),
                 mainQuartierLabel: conf ? null : (fid ? '#idquartfid' : '#idquart'),
                 wrap: '#escale_leg_wrap_tr3' + f,
@@ -4240,6 +4654,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 nomEsc: '#nom_dest_vente_tr3' + f
             },
             {
+                // Dernière jambe si nbr=4 : quartier3 / cf3 (« Quartier transite4 »)
                 n: 4,
                 sfx: f,
                 nbr: conf ? '#nbrtranscf' : (fid ? '#nbrtransfid' : '#nbrtrans'),
@@ -4247,8 +4662,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 ligne: conf ? '#ligntranscf3' : (fid ? '#ligntrans3fid' : '#ligntrans3'),
                 lineUi: conf ? ['#arritincf3', '#idcheminscf2'] : (fid ? ['#arritin3fid', '#idchemins2fid'] : ['#arritin3', '#idchemins2']),
                 prix: conf ? '#prix_axetransitcf2' : (fid ? '#prix_axetransit2fid' : '#prix_axetransit2'),
-                quartier: null,
-                quartierLabel: null,
+                quartier: conf ? '#quartiercf3' : (fid ? '#quartier3fid' : '#quartier3'),
+                quartierLabel: conf ? '#idquartcf3' : (fid ? '#idquart3fid' : '#idquart3'),
                 mainQuartier: conf ? '#quartconf' : (fid ? '#quartierfid' : '#quartier'),
                 mainQuartierLabel: conf ? null : (fid ? '#idquartfid' : '#idquart'),
                 wrap: '#escale_leg_wrap_tr4' + f,
@@ -4771,12 +5186,123 @@ document.addEventListener('DOMContentLoaded', () => {
             + row.id_ligneheure + '/' + (row.prix != null ? row.prix : '');
     }
 
+
+    var __VENTE_FI_TRANSIT_MARGE_MIN = 30;
+
+    function __venteFiHeureToMinutes(h) {
+        if (h == null || h === '') return null;
+        var parts = String(h).trim().split(/[:hH]/);
+        if (!parts || !parts.length) return null;
+        var hh = parseInt(parts[0], 10);
+        if (isNaN(hh)) return null;
+        var mm = (parts[1] != null && parts[1] !== '') ? parseInt(parts[1], 10) : 0;
+        if (isNaN(mm)) mm = 0;
+        return (hh * 60) + mm;
+    }
+
+    function __venteFiFormatDateShort(ymd) {
+        if (!ymd || String(ymd).length < 10) return '';
+        var p = String(ymd).slice(0, 10).split('-');
+        return (p.length === 3) ? (p[2] + '/' + p[1]) : String(ymd).slice(0, 10);
+    }
+
+    function __venteFiClearDownstreamCheminHeures() {
+        ['idcheminsheurfid', 'idcheminsheur1fid', 'idcheminsheur2fid'].forEach(function (id) {
+            var el = document.getElementById(id);
+            if (el) el.options.length = 1;
+        });
+        ['psiegesitines1fid', 'psiegesitines2fid', 'psiegesitines3fid'].forEach(function (id) {
+            var el = document.getElementById(id);
+            if (el) el.options.length = 1;
+        });
+    }
+
+    function __venteFiGetPrevTransitAnchor(nextLegKey) {
+        var voyageDate = document.querySelector('#date_depheurefid')
+            ? String(document.querySelector('#date_depheurefid').value || '').slice(0, 10) : '';
+        var out = { date: voyageDate, heure: '', minutes: null, marge: __VENTE_FI_TRANSIT_MARGE_MIN };
+
+        function fromCheminSelect(heurId) {
+            var hs = document.getElementById(heurId);
+            if (!hs || hs.selectedIndex < 1) return false;
+            var opt = hs.options[hs.selectedIndex];
+            var date = opt.getAttribute('data-date-progr') || '';
+            var heure = opt.getAttribute('data-heure') || '';
+            var gkey = opt.getAttribute('data-group-key') || '';
+            var groups = (window.__venteFiCheminGroups && window.__venteFiCheminGroups[heurId]) || {};
+            var g = groups[gkey] || groups[opt.value] || null;
+            if (g && g.rows && g.rows.length) {
+                if (!date && g.rows[0].date_progr) date = String(g.rows[0].date_progr).slice(0, 10);
+                if (!heure && g.rows[0].heure) heure = String(g.rows[0].heure);
+            }
+            if ((!date || !heure) && String(opt.value).indexOf('/') !== -1) {
+                var code = String(opt.value).split('/')[0];
+                Object.keys(groups).forEach(function (k) {
+                    if (date && heure) return;
+                    var rows = groups[k] && groups[k].rows ? groups[k].rows : [];
+                    for (var i = 0; i < rows.length; i++) {
+                        if (String(rows[i].code_progr) === code) {
+                            date = String(rows[i].date_progr || '').slice(0, 10);
+                            heure = String(rows[i].heure || '');
+                            break;
+                        }
+                    }
+                });
+            }
+            if (!date) date = voyageDate;
+            if (!heure) return false;
+            out.date = date;
+            out.heure = heure;
+            out.minutes = __venteFiHeureToMinutes(heure);
+            return out.minutes != null;
+        }
+
+        if (nextLegKey === 'tr2') {
+            var dEl = document.querySelector('#dateprtransfid');
+            var hEl = document.querySelector('#hertransfid');
+            var date = (dEl && dEl.value) ? String(dEl.value).slice(0, 10) : voyageDate;
+            var heure = (hEl && hEl.value) ? String(hEl.value) : '';
+            if (!heure) {
+                var hs1 = document.getElementById('hdepartitinefid');
+                if (hs1 && hs1.selectedIndex > 0) {
+                    var parts = String(hs1.options[hs1.selectedIndex].value || '').split('/');
+                    if (parts[1]) heure = parts[1];
+                }
+            }
+            out.date = date || voyageDate;
+            out.heure = heure;
+            out.minutes = __venteFiHeureToMinutes(heure);
+            return out;
+        }
+        if (nextLegKey === 'tr3') { fromCheminSelect('idcheminsheurfid'); return out; }
+        if (nextLegKey === 'tr4') { fromCheminSelect('idcheminsheur1fid'); return out; }
+        return out;
+    }
+
+    function __venteFiRowIsAfterPrev(row, prev) {
+        if (!prev || prev.minutes == null || !prev.date) return true;
+        var rd = row && row.date_progr ? String(row.date_progr).slice(0, 10) : '';
+        var rm = __venteFiHeureToMinutes(row && row.heure);
+        if (!rd || rm == null) return false;
+        if (rd > prev.date) return true;
+        if (rd < prev.date) return false;
+        var marge = (prev.marge != null) ? prev.marge : __VENTE_FI_TRANSIT_MARGE_MIN;
+        return rm >= (prev.minutes + marge);
+    }
+
+
     function __venteFiFillCheminHeures(selectId, rows, legKey) {
         var sel = document.getElementById(selectId);
         if (!sel) return;
         sel.options.length = 1;
         var list = Array.isArray(rows) ? rows
             : (rows && typeof rows === 'object' ? Object.keys(rows).map(function (k) { return rows[k]; }) : []);
+        var prev = legKey ? __venteFiGetPrevTransitAnchor(legKey) : null;
+        if (prev && prev.minutes != null && prev.date) {
+            list = list.filter(function (row) { return __venteFiRowIsAfterPrev(row, prev); });
+        }
+        var voyageDate = document.querySelector('#date_depheurefid')
+            ? String(document.querySelector('#date_depheurefid').value || '').slice(0, 10) : '';
         var groups = {};
         var order = [];
         for (var i = 0; i < list.length; i++) {
@@ -4784,28 +5310,51 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!row || row.code_progr == null || row.code_progr === '') continue;
             var lh = String(row.id_ligneheure != null ? row.id_ligneheure : '');
             if (!lh) continue;
-            if (!groups[lh]) {
-                groups[lh] = { heure: row.heure || '', rows: [] };
-                order.push(lh);
+            var dprog = row.date_progr ? String(row.date_progr).slice(0, 10) : '';
+            var gkey = dprog + '|' + lh;
+            if (!groups[gkey]) {
+                groups[gkey] = {
+                    heure: row.heure || '',
+                    date_progr: dprog,
+                    minutes: __venteFiHeureToMinutes(row.heure),
+                    rows: []
+                };
+                order.push(gkey);
             }
             var exists = false;
-            for (var j = 0; j < groups[lh].rows.length; j++) {
-                if (String(groups[lh].rows[j].code_progr) === String(row.code_progr)) { exists = true; break; }
+            for (var j = 0; j < groups[gkey].rows.length; j++) {
+                if (String(groups[gkey].rows[j].code_progr) === String(row.code_progr)) { exists = true; break; }
             }
-            if (!exists) groups[lh].rows.push(row);
+            if (!exists) groups[gkey].rows.push(row);
         }
+        order.sort(function (a, b) {
+            var ga = groups[a], gb = groups[b];
+            var da = ga.date_progr || '', db = gb.date_progr || '';
+            if (da < db) return -1;
+            if (da > db) return 1;
+            return (ga.minutes != null ? ga.minutes : 0) - (gb.minutes != null ? gb.minutes : 0);
+        });
         if (!window.__venteFiCheminGroups) window.__venteFiCheminGroups = {};
         window.__venteFiCheminGroups[selectId] = groups;
         for (var k = 0; k < order.length; k++) {
-            var idLh = order[k];
-            var g = groups[idLh];
+            var key = order[k];
+            var g = groups[key];
             var opt = document.createElement('option');
-            opt.value = idLh;
-            opt.innerHTML = g.rows.length > 1 ? ((g.heure || idLh) + ' (' + g.rows.length + ' départs)') : (g.heure || idLh);
+            opt.value = key;
+            opt.setAttribute('data-group-key', key);
+            opt.setAttribute('data-date-progr', g.date_progr || '');
+            opt.setAttribute('data-heure', g.heure || '');
+            var label = g.heure || key;
+            if (g.date_progr && voyageDate && g.date_progr !== voyageDate) {
+                label = (g.heure || '') + ' — ' + __venteFiFormatDateShort(g.date_progr);
+            }
+            if (g.rows.length > 1) label = label + ' (' + g.rows.length + ' départs)';
+            opt.innerHTML = label;
             sel.add(opt);
         }
         if (legKey) __venteFiWireCheminHeur(selectId, legKey);
     }
+
 
     function __venteFiLoadSiegesChemin(cfg, row) {
         var ps = document.getElementById(cfg.sieges);
@@ -5034,13 +5583,200 @@ document.addEventListener('DOMContentLoaded', () => {
         __venteFiHideProgSelectAny('selprog_box_tr4fid', 'selprog_tr4fid');
     }
 
+    function __venteFiEnsureCheminSelector() {
+        var existing = document.getElementById('selchemin_box_fid');
+        if (existing) return existing;
+        var box = document.createElement('div');
+        box.className = 'form-group col-sm-12';
+        box.id = 'selchemin_box_fid';
+        box.style.display = 'none';
+        box.innerHTML = ''
+            + '<label id="selchemin_label_fid">Itinéraire de correspondance</label>'
+            + '<select class="form-control form-control-sm" id="selchemin_transit_fid">'
+            + '<option value="">Choisissez l\'itinéraire</option>'
+            + '</select>'
+            + '<small class="form-text text-muted" id="selchemin_hint_fid"></small>';
+        var anchor = document.getElementById('hdepartitinefid')
+            || document.getElementById('idcheminsfid')
+            || document.getElementById('nbrtransfid');
+        if (anchor && anchor.parentNode && anchor.parentNode.parentNode) {
+            anchor.parentNode.parentNode.insertBefore(box, anchor.parentNode);
+        } else if (anchor && anchor.parentNode) {
+            anchor.parentNode.insertBefore(box, anchor);
+        } else {
+            document.body.appendChild(box);
+        }
+        return box;
+    }
+
+    function __venteFiHideCheminSelector() {
+        var box = document.getElementById('selchemin_box_fid');
+        var sel = document.getElementById('selchemin_transit_fid');
+        var hint = document.getElementById('selchemin_hint_fid');
+        if (box) box.style.display = 'none';
+        if (sel) { sel.options.length = 1; sel.value = ''; sel.onchange = null; }
+        if (hint) hint.textContent = '';
+    }
+
+    function __venteFiFormatAttenteLabel(chemin) {
+        if (!chemin) return '';
+        if (chemin.attente_totale_label) return 'Attente totale : ' + chemin.attente_totale_label;
+        if (chemin.attente_totale_min != null) {
+            var m = parseInt(chemin.attente_totale_min, 10) || 0;
+            var h = Math.floor(m / 60);
+            var mm = m % 60;
+            return 'Attente totale : ' + (h > 0 ? (h + ' h' + (mm ? (' ' + (mm < 10 ? '0' : '') + mm) : '')) : (mm + ' min'));
+        }
+        return chemin.source === 'declaratif' ? 'Composition déclarée' : '';
+    }
+
+
+    function __venteFiNormalizeEtapes(etapes) {
+        if (!etapes) return [];
+        if (Array.isArray(etapes)) return etapes;
+        if (typeof etapes === 'object') {
+            return Object.keys(etapes).map(function (k) { return etapes[k]; }).filter(Boolean);
+        }
+        return [];
+    }
+
+    /**
+     * Correspondance 2/3/4 — ligne : propose la ligne du chemin, sans la sélectionner.
+     */
+    function __venteFiSetCheminLigneOption(selectSel, code, nom) {
+        var sel = typeof selectSel === 'string' ? document.querySelector(selectSel) : selectSel;
+        if (!sel) return;
+        sel.disabled = false;
+        sel.removeAttribute('disabled');
+        sel.options.length = 1;
+        sel.selectedIndex = 0;
+        if (code == null || code === '') return;
+        var opt = document.createElement('option');
+        opt.value = String(code);
+        opt.innerHTML = nom != null ? String(nom) : String(code);
+        if (nom != null) opt.setAttribute('data-nom', String(nom));
+        sel.add(opt);
+        sel.selectedIndex = 0;
+    }
+
+    function __venteFiEnsureLigne1LockedInput() {
+        var el = document.getElementById('lignesitinerairefid');
+        if (!el) return null;
+        if (el.tagName === 'INPUT') {
+            el.disabled = true;
+            el.setAttribute('disabled', 'disabled');
+            el.readOnly = true;
+            return el;
+        }
+        var inp = document.createElement('input');
+        inp.type = 'text';
+        inp.id = 'lignesitinerairefid';
+        inp.name = el.getAttribute('name') || 'lignesitinerairesfid';
+        inp.className = el.className || 'form-control form-control-sm';
+        inp.disabled = true;
+        inp.setAttribute('disabled', 'disabled');
+        inp.readOnly = true;
+        if (el.parentNode) el.parentNode.replaceChild(inp, el);
+        return inp;
+    }
+
+    function __venteFiFillLigne1Locked(etape0, onPick) {
+        if (!etape0) return;
+        var code = etape0.code_itineraires || '';
+        var nom = etape0.nom_itineraires || code;
+        var el = __venteFiEnsureLigne1LockedInput();
+        if (el) el.value = nom;
+        var itc = document.querySelector('#itinecodefid');
+        var ltn = document.querySelector('#lignetinerairefid');
+        if (itc) itc.value = code;
+        if (ltn) ltn.value = nom;
+        if (typeof onPick === 'function') onPick(code, nom);
+    }
+
+    function __venteFiResetTransitFieldsBeforeApply() {
+        [
+            'arritin1fid','idcheminsfid','heureitin1fid','idcheminsheurfid','siegitine1fid','psiegesitines1fid',
+            'arritin2fid','idchemins1fid','heureitin2fid','idcheminsheur1fid','siegitine2fid','psiegesitines2fid',
+            'arritin3fid','idchemins2fid','heureitin3fid','idcheminsheur2fid','siegitine3fid','psiegesitines3fid',
+            'quartier1fid','quartier2fid','quartier3fid','idquart1fid','idquart2fid','idquart3fid',
+            'iddeptrans1fid','transitedepargare1fid','iddeptrans2fid','transitedepargare2fid',
+            'iddeptrans3fid','transitedepargare3fid','iddeptrans4fid','transitedepargare4fid',
+            'tranfid','heureitinfid','hdepartitinefid','lignesitinerairefid','ligne1fid','siegitinefid','psiegesitinesfid'
+        ].forEach(function (id) {
+            var el = document.getElementById(id);
+            if (el) el.style.display = 'none';
+        });
+        [
+            '#idcheminsfid','#idchemins1fid','#idchemins2fid',
+            '#idcheminsheurfid','#idcheminsheur1fid','#idcheminsheur2fid',
+            '#hdepartitinefid','#psiegesitinesfid','#psiegesitines1fid','#psiegesitines2fid','#psiegesitines3fid',
+            '#quartier1fid','#quartier2fid','#quartier3fid'
+        ].forEach(function (s) {
+            var el = document.querySelector(s);
+            if (el && el.options) { el.options.length = 1; el.value = ''; el.onchange = null; }
+        });
+        ['#transitedepargare1fid','#transitedepargare2fid','#transitedepargare3fid','#transitedepargare4fid'].forEach(function (s) {
+            var el = document.querySelector(s);
+            if (el && el.options) el.options.length = 0;
+        });
+        ['#itinecodefid','#itinecodesfid','#lignetinerairefid','#lignesitinerairefid','#nbrtransfid',
+         '#idcompgfid','#idcompg1fid','#idcompg2fid','#idcompg3fid'].forEach(function (s) {
+            var el = document.querySelector(s);
+            if (el) el.value = '';
+        });
+    }
+
+    function __venteFiShowCheminSelector(chemins, onPick) {
+        __venteFiEnsureCheminSelector();
+        var box = document.getElementById('selchemin_box_fid');
+        var sel = document.getElementById('selchemin_transit_fid');
+        var hint = document.getElementById('selchemin_hint_fid');
+        if (!box || !sel) {
+            var et0 = chemins && chemins[0] ? __venteFiNormalizeEtapes(chemins[0].etapes) : [];
+            if (typeof window.__venteFiApplyTransitLegs === 'function') window.__venteFiApplyTransitLegs(et0);
+            else if (typeof onPick === 'function') onPick(et0);
+            return;
+        }
+        sel.options.length = 1;
+        for (var i = 0; i < chemins.length; i++) {
+            var opt = document.createElement('option');
+            opt.value = String(i);
+            opt.textContent = chemins[i].label || ('Chemin ' + (i + 1));
+            sel.add(opt);
+        }
+        box.style.display = 'block';
+        var applyIdx = function (idx) {
+            var ch = chemins[idx];
+            if (hint) hint.textContent = __venteFiFormatAttenteLabel(ch);
+            var etapes = __venteFiNormalizeEtapes(ch && ch.etapes);
+            if (typeof window.__venteFiApplyTransitLegs === 'function') window.__venteFiApplyTransitLegs(etapes);
+            else if (typeof onPick === 'function') onPick(etapes);
+        };
+        sel.onchange = function () {
+            var idx = parseInt(sel.value, 10);
+            if (isNaN(idx) || !chemins[idx]) {
+                if (hint) hint.textContent = '';
+                if (typeof window.__venteFiApplyTransitLegs === 'function') window.__venteFiApplyTransitLegs([]);
+                else if (typeof onPick === 'function') onPick([]);
+                return;
+            }
+            applyIdx(idx);
+        };
+        sel.selectedIndex = 1;
+        applyIdx(0);
+    }
+
     function __venteFiRequestTransitLegs(seltdep, arr, datedepart, sougid, force, onDone) {
         var sg = (sougid != null && sougid !== '') ? sougid : '0';
         var forceFlag = force ? '1' : '0';
+        var done = function (etapes) {
+            if (typeof onDone === 'function') onDone(etapes);
+            else if (typeof window.__venteFiApplyTransitLegs === 'function') window.__venteFiApplyTransitLegs(etapes);
+        };
         var httpRequestitinefi = new XMLHttpRequest();
         httpRequestitinefi.open(
             'GET',
-            window.location.origin + `${APP_ROOT}/programmes/verifitine/`
+            window.location.origin + `${APP_ROOT}/programmes/verifchemins/`
                 + encodeURIComponent(seltdep + '-' + arr) + '/'
                 + encodeURIComponent(datedepart) + '/'
                 + encodeURIComponent(sg) + '/'
@@ -5048,13 +5784,19 @@ document.addEventListener('DOMContentLoaded', () => {
             true
         );
         httpRequestitinefi.onload = function () {
-            var donitinesfi = null;
-            try { donitinesfi = JSON.parse(httpRequestitinefi.responseText); } catch (e) { donitinesfi = null; }
-            if (typeof onDone === 'function') {
-                onDone(donitinesfi);
-            } else if (typeof window.__venteFiApplyTransitLegs === 'function') {
-                window.__venteFiApplyTransitLegs(donitinesfi);
+            var payload = null;
+            try { payload = JSON.parse(httpRequestitinefi.responseText); } catch (e) { payload = null; }
+            if (Array.isArray(payload)) { __venteFiHideCheminSelector(); done(payload); return; }
+            if (!payload || typeof payload !== 'object') { __venteFiHideCheminSelector(); done([]); return; }
+            if (payload.mode === 'direct' || payload.mode === 'none') { __venteFiHideCheminSelector(); done([]); return; }
+            var chemins = Array.isArray(payload.chemins) ? payload.chemins : [];
+            if (chemins.length > 1) { __venteFiShowCheminSelector(chemins, done); return; }
+            __venteFiHideCheminSelector();
+            if (chemins.length === 1 && chemins[0].etapes) { done(chemins[0].etapes); return; }
+            if (payload.etapes && (Array.isArray(payload.etapes) ? payload.etapes.length : Object.keys(payload.etapes).length)) {
+                done(payload.etapes); return;
             }
+            done([]);
         };
         httpRequestitinefi.setRequestHeader('Content-Type', 'application/json');
         httpRequestitinefi.send();
@@ -5082,6 +5824,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (p.prix != null && String(p.prix).trim() !== '') {
             set('#prix_axetransfid', p.prix);
         }
+        __venteFiClearDownstreamCheminHeures();
     }
 
     function __venteFiLoadSiegesTransit1(idLh, dptDate) {
@@ -5302,6 +6045,8 @@ document.addEventListener('DOMContentLoaded', () => {
                                 __venteFiFillHeuresVente(heuresHvFi);
 
                                 window.__venteFiApplyTransitLegs = function (donitinesfi) {
+                                                    donitinesfi = (typeof __venteFiNormalizeEtapes === 'function')
+                                                        ? __venteFiNormalizeEtapes(donitinesfi) : donitinesfi;
                                                     if(donitinesfi === null || donitinesfi === '' || (typeof donitinesfi === 'object' && !Object.keys(donitinesfi).length))
                                                     {
                                                         document.querySelector('#depitin1fid').style.display = 'none';
@@ -5373,6 +6118,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                                     }
                                                     else
                                                     {
+                                                        if (typeof __venteFiResetTransitFieldsBeforeApply === 'function') __venteFiResetTransitFieldsBeforeApply();
                                                         if (Object.entries(donitinesfi).length >= 1) 
                                                         {
                                                             var i = Object.entries(donitinesfi).length;
@@ -5494,25 +6240,43 @@ document.addEventListener('DOMContentLoaded', () => {
 
                                                                 document.querySelector('#prix_axefid1').style.display = 'none';
                                                                 document.querySelector('#prix_axefid').style.display = 'none';
-                                                                document.querySelector('#itinecodefid').value = `${donitinesfi[0].code_itineraires}`;
-
-                                                                
-                                                                document.querySelector('#lignetinerairefid').value = `${donitinesfi[0].nom_itineraires}`;
+                                                                __venteFiFillLigne1Locked(donitinesfi[0], function (codeSel) {
+                                                                    if (!codeSel) return;
+                                                                    var hd = document.querySelector('#hdepartitinefid');
+                                                                    if (hd) hd.options.length = 1;
+                                                                    var datedepart = document.querySelector('#date_depheurefid')
+                                                                        ? document.querySelector('#date_depheurefid').value
+                                                                        : (document.querySelector('#date_depheure') ? document.querySelector('#date_depheure').value : '');
+                                                                    var httpH = new XMLHttpRequest();
+                                                                    httpH.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifheureitine/${encodeURIComponent(codeSel)}/${encodeURIComponent(datedepart)}`, true);
+                                                                    httpH.onload = function () {
+                                                                        try {
+                                                                            var infositin = JSON.parse(httpH.responseText);
+                                                                            if (hd) hd.options.length = 1;
+                                                                            if (infositin && Object.entries(infositin).length >= 1) {
+                                                                                for (var key in Object.entries(infositin)) {
+                                                                                    var opt = document.createElement('option');
+                                                                                    opt.value = `${infositin[key].id_ligneheure}/${infositin[key].heure}`;
+                                                                                    opt.innerHTML = `${infositin[key].heure}`;
+                                                                                    if (hd) hd.add(opt);
+                                                                                }
+                                                                            }
+                                                                        } catch (eH) {}
+                                                                    };
+                                                                    httpH.setRequestHeader('Content-Type', 'application/json');
+                                                                    httpH.send();
+                                                                });
                                                             }
                                                             
                                                 
                                                             if(i === 2)
                                                             {
-                                                                let opt = document.createElement('option');
-                                                                opt.value = `${donitinesfi[1].code_itineraires}`;
-                                                                opt.innerHTML = `${donitinesfi[1].nom_itineraires}`;
-                                                                document.querySelector('#idcheminsfid').add(opt);
+                                                                __venteFiSetCheminLigneOption('#idcheminsfid', donitinesfi[1].code_itineraires, donitinesfi[1].nom_itineraires);
 
-                                                                document.querySelector('#lignesitinerairefid').value = `${donitinesfi[0].nom_itineraires}`;
-                                                                document.querySelector('#itinecodesfid').value = `${donitinesfi[0].id_lignes}`;
+                                                                                                                                document.querySelector('#itinecodesfid').value = `${donitinesfi[0].id_lignes}`;
                                                                     
 
-                                                                var typgare1fi = document.querySelector('#itinecodefid').value;
+                                                                var typgare1fi = (donitinesfi[0] && donitinesfi[0].code_itineraires) ? String(donitinesfi[0].code_itineraires) : (document.querySelector('#itinecodefid').value || '');
                                                                 var post_typgare1fi = typgare1fi.split('-');
                                                                 var seltypgare1fi = post_typgare1fi[0];
                                                                 var typgareselfi = post_typgare1fi[1];
@@ -5910,23 +6674,15 @@ document.addEventListener('DOMContentLoaded', () => {
                                                             {
 
                                                                 
-                                                                let opt = document.createElement('option');
-                                                                opt.value = `${donitinesfi[1].code_itineraires}`;
-                                                                opt.innerHTML = `${donitinesfi[1].nom_itineraires}`;
-                                                                
-                                                                document.querySelector('#idcheminsfid').add(opt);
+                                                                __venteFiSetCheminLigneOption('#idcheminsfid', donitinesfi[1].code_itineraires, donitinesfi[1].nom_itineraires);
 
-                                                                document.querySelector('#lignesitinerairefid').value = `${donitinesfi[0].nom_itineraires}`;
-                                                                document.querySelector('#itinecodesfid').value = `${donitinesfi[0].id_lignes}`;
+                                                                                                                                document.querySelector('#itinecodesfid').value = `${donitinesfi[0].id_lignes}`;
                                                                
 
-                                                                let opt1 = document.createElement('option');
-                                                                opt1.value = `${donitinesfi[2].code_itineraires}`;
-                                                                opt1.innerHTML = `${donitinesfi[2].nom_itineraires}`;
-                                                                document.querySelector('#idchemins1fid').add(opt1);
+                                                                __venteFiSetCheminLigneOption('#idchemins1fid', donitinesfi[2].code_itineraires, donitinesfi[2].nom_itineraires);
 
 
-                                                                var typgare1fi = document.querySelector('#itinecodefid').value;
+                                                                var typgare1fi = (donitinesfi[0] && donitinesfi[0].code_itineraires) ? String(donitinesfi[0].code_itineraires) : (document.querySelector('#itinecodefid').value || '');
                                                                 var post_typgare1fi = typgare1fi.split('-');
                                                                 var seltypgare1fi = post_typgare1fi[0];
                                                                 var typgareselfi = post_typgare1fi[1];
@@ -6489,27 +7245,17 @@ document.addEventListener('DOMContentLoaded', () => {
                                                             //troisieme itineraire
                                                             if(i === 4)
                                                             {
-                                                                let opt = document.createElement('option');
-                                                                opt.value = `${donitinesfi[1].code_itineraires}`;
-                                                                opt.innerHTML = `${donitinesfi[1].nom_itineraires}`;
-                                                                document.querySelector('#idcheminsfid').add(opt);
+                                                                __venteFiSetCheminLigneOption('#idcheminsfid', donitinesfi[1].code_itineraires, donitinesfi[1].nom_itineraires);
 
 
-                                                                let opt1 = document.createElement('option');
-                                                                opt1.value = `${donitinesfi[2].code_itineraires}`;
-                                                                opt1.innerHTML = `${donitinesfi[2].nom_itineraires}`;
-                                                                document.querySelector('#idchemins1fid').add(opt1);
+                                                                __venteFiSetCheminLigneOption('#idchemins1fid', donitinesfi[2].code_itineraires, donitinesfi[2].nom_itineraires);
 
-                                                                let opt2 = document.createElement('option');
-                                                                opt2.value = `${donitinesfi[3].code_itineraires}`;
-                                                                opt2.innerHTML = `${donitinesfi[3].nom_itineraires}`;
-                                                                document.querySelector('#idchemins2fid').add(opt2);
+                                                                __venteFiSetCheminLigneOption('#idchemins2fid', donitinesfi[3].code_itineraires, donitinesfi[3].nom_itineraires);
 
-                                                                document.querySelector('#lignesitinerairefid').value = `${donitinesfi[0].nom_itineraires}`;
-                                                               
+                                                                                                                               
                                                                 document.querySelector('#itinecodesfid').value = `${donitinesfi[0].id_lignes}`;
 
-                                                                    var typgare1fi = document.querySelector('#itinecodefid').value;
+                                                                    var typgare1fi = (donitinesfi[0] && donitinesfi[0].code_itineraires) ? String(donitinesfi[0].code_itineraires) : (document.querySelector('#itinecodefid').value || '');
                                                                 var post_typgare1fi = typgare1fi.split('-');
                                                                 var seltypgare1fi = post_typgare1fi[0];
                                                                 var typgareselfi = post_typgare1fi[1];
@@ -8254,13 +9000,198 @@ document.addEventListener('DOMContentLoaded', () => {
         return parts[1] || '0';
     }
 
+    function __confEnsureCheminSelector() {
+        var existing = document.getElementById('selchemin_box_cf');
+        if (existing) return existing;
+        var box = document.createElement('div');
+        box.className = 'form-group col-sm-12';
+        box.id = 'selchemin_box_cf';
+        box.style.display = 'none';
+        box.innerHTML = ''
+            + '<label id="selchemin_label_cf">Itinéraire de correspondance</label>'
+            + '<select class="form-control form-control-sm" id="selchemin_transit_cf">'
+            + '<option value="">Choisissez l\'itinéraire</option>'
+            + '</select>'
+            + '<small class="form-text text-muted" id="selchemin_hint_cf"></small>';
+        var anchor = document.getElementById('heured')
+            || document.getElementById('hdepartitinecf')
+            || document.getElementById('nbrtranscf');
+        if (anchor && anchor.parentNode && anchor.parentNode.parentNode) {
+            anchor.parentNode.parentNode.insertBefore(box, anchor.parentNode);
+        } else if (anchor && anchor.parentNode) {
+            anchor.parentNode.insertBefore(box, anchor);
+        } else {
+            document.body.appendChild(box);
+        }
+        return box;
+    }
+
+    function __confHideCheminSelector() {
+        var box = document.getElementById('selchemin_box_cf');
+        var sel = document.getElementById('selchemin_transit_cf');
+        var hint = document.getElementById('selchemin_hint_cf');
+        if (box) box.style.display = 'none';
+        if (sel) { sel.options.length = 1; sel.value = ''; sel.onchange = null; }
+        if (hint) hint.textContent = '';
+    }
+
+    function __confFormatAttenteLabel(chemin) {
+        if (!chemin) return '';
+        if (chemin.attente_totale_label) return 'Attente totale : ' + chemin.attente_totale_label;
+        if (chemin.attente_totale_min != null) {
+            var m = parseInt(chemin.attente_totale_min, 10) || 0;
+            var h = Math.floor(m / 60);
+            var mm = m % 60;
+            return 'Attente totale : ' + (h > 0 ? (h + ' h' + (mm ? (' ' + (mm < 10 ? '0' : '') + mm) : '')) : (mm + ' min'));
+        }
+        return chemin.source === 'declaratif' ? 'Composition déclarée' : '';
+    }
+
+
+    function __confNormalizeEtapes(etapes) {
+        if (!etapes) return [];
+        if (Array.isArray(etapes)) return etapes;
+        if (typeof etapes === 'object') {
+            return Object.keys(etapes).map(function (k) { return etapes[k]; }).filter(Boolean);
+        }
+        return [];
+    }
+
+    /**
+     * Correspondance 2/3/4 — ligne : propose la ligne du chemin, sans la sélectionner.
+     */
+    function __confSetCheminLigneOption(selectSel, code, nom) {
+        var sel = typeof selectSel === 'string' ? document.querySelector(selectSel) : selectSel;
+        if (!sel) return;
+        sel.disabled = false;
+        sel.removeAttribute('disabled');
+        sel.options.length = 1;
+        sel.selectedIndex = 0;
+        if (code == null || code === '') return;
+        var opt = document.createElement('option');
+        opt.value = String(code);
+        opt.innerHTML = nom != null ? String(nom) : String(code);
+        if (nom != null) opt.setAttribute('data-nom', String(nom));
+        sel.add(opt);
+        sel.selectedIndex = 0;
+    }
+
+    function __confEnsureLigne1LockedInput() {
+        var el = document.getElementById('lignesitinerairecf');
+        if (!el) return null;
+        if (el.tagName === 'INPUT') {
+            el.disabled = true;
+            el.setAttribute('disabled', 'disabled');
+            el.readOnly = true;
+            return el;
+        }
+        var inp = document.createElement('input');
+        inp.type = 'text';
+        inp.id = 'lignesitinerairecf';
+        inp.name = el.getAttribute('name') || 'lignesitinerairescf';
+        inp.className = el.className || 'form-control form-control-sm';
+        inp.disabled = true;
+        inp.setAttribute('disabled', 'disabled');
+        inp.readOnly = true;
+        if (el.parentNode) el.parentNode.replaceChild(inp, el);
+        return inp;
+    }
+
+    function __confFillLigne1Locked(etape0, onPick) {
+        if (!etape0) return;
+        var code = etape0.code_itineraires || '';
+        var nom = etape0.nom_itineraires || code;
+        var el = __confEnsureLigne1LockedInput();
+        if (el) el.value = nom;
+        var itc = document.querySelector('#itinecodecf');
+        var ltn = document.querySelector('#lignetinerairecf');
+        if (itc) itc.value = code;
+        if (ltn) ltn.value = nom;
+        if (typeof onPick === 'function') onPick(code, nom);
+    }
+
+
+    function __confResetTransitFieldsBeforeApply() {
+        [
+            'arritin1cf','idcheminscf','heureitin1cf','idcheminsheurcf','siegitine1cf','psiegesitines1cf',
+            'arritin2cf','idcheminscf1','heureitin2cf','idcheminsheurcf1','siegitine2cf','psiegesitines2cf',
+            'arritin3cf','idcheminscf2','heureitin3cf','idcheminsheurcf','nbrtranscf',
+            'iddeptranscf1','transitedepargarecf1','iddeptranscf2','transitedepargarecf2',
+            'iddeptranscf3','transitedepargarecf3','iddeptranscf4','transitedepargarecf4',
+            'trancf','heureitincf','hdepartitinecf','siegitinecf','psiegesitinescf'
+        ].forEach(function (id) {
+            var el = document.getElementById(id);
+            if (el) el.style.display = 'none';
+        });
+        [
+            '#idcheminscf','#idcheminscf1','#idcheminscf2',
+            '#idcheminsheurcf','#idcheminsheurcf1','#hdepartitinecf',
+            '#psiegesitinescf','#psiegesitines1cf','#psiegesitines2cf'
+        ].forEach(function (s) {
+            var el = document.querySelector(s);
+            if (el && el.options) { el.options.length = 1; el.value = ''; el.onchange = null; }
+        });
+        ['#transitedepargarecf1','#transitedepargarecf2','#transitedepargarecf3','#transitedepargarecf4'].forEach(function (s) {
+            var el = document.querySelector(s);
+            if (el && el.options) el.options.length = 0;
+        });
+        ['#itinecodecf','#itinecodescf','#lignetinerairecf','#nbrtranscf','#idcompgcf','#idcompgcf1','#idcompgcf2','#idcompgcf3'].forEach(function (s) {
+            var el = document.querySelector(s);
+            if (el) el.value = '';
+        });
+    }
+
+    function __confShowCheminSelector(chemins, onPick) {
+        __confEnsureCheminSelector();
+        var box = document.getElementById('selchemin_box_cf');
+        var sel = document.getElementById('selchemin_transit_cf');
+        var hint = document.getElementById('selchemin_hint_cf');
+        if (!box || !sel) {
+            var et0 = chemins && chemins[0] ? __confNormalizeEtapes(chemins[0].etapes) : [];
+            if (typeof window.__confApplyTransitLegs === 'function') window.__confApplyTransitLegs(et0);
+            else if (typeof onPick === 'function') onPick(et0);
+            return;
+        }
+        sel.options.length = 1;
+        for (var i = 0; i < chemins.length; i++) {
+            var opt = document.createElement('option');
+            opt.value = String(i);
+            opt.textContent = chemins[i].label || ('Chemin ' + (i + 1));
+            sel.add(opt);
+        }
+        box.style.display = 'block';
+        var applyIdx = function (idx) {
+            var ch = chemins[idx];
+            if (hint) hint.textContent = __confFormatAttenteLabel(ch);
+            var etapes = __confNormalizeEtapes(ch && ch.etapes);
+            if (typeof window.__confApplyTransitLegs === 'function') window.__confApplyTransitLegs(etapes);
+            else if (typeof onPick === 'function') onPick(etapes);
+        };
+        sel.onchange = function () {
+            var idx = parseInt(sel.value, 10);
+            if (isNaN(idx) || !chemins[idx]) {
+                if (hint) hint.textContent = '';
+                if (typeof window.__confApplyTransitLegs === 'function') window.__confApplyTransitLegs([]);
+                else if (typeof onPick === 'function') onPick([]);
+                return;
+            }
+            applyIdx(idx);
+        };
+        sel.selectedIndex = 1;
+        applyIdx(0);
+    }
+
     function __confRequestTransitLegs(axe, datedepart, sougid, force, onDone) {
         var sg = (sougid != null && sougid !== '') ? sougid : '0';
         var forceFlag = force ? '1' : '0';
+        var done = function (etapes) {
+            if (typeof onDone === 'function') onDone(etapes);
+            else if (typeof window.__confApplyTransitLegs === 'function') window.__confApplyTransitLegs(etapes);
+        };
         var httpRequestitinecf = new XMLHttpRequest();
         httpRequestitinecf.open(
             'GET',
-            window.location.origin + `${APP_ROOT}/programmes/verifitine/`
+            window.location.origin + `${APP_ROOT}/programmes/verifchemins/`
                 + encodeURIComponent(axe) + '/'
                 + encodeURIComponent(datedepart) + '/'
                 + encodeURIComponent(sg) + '/'
@@ -8268,10 +9199,19 @@ document.addEventListener('DOMContentLoaded', () => {
             true
         );
         httpRequestitinecf.onload = function () {
-            var donitinescf = null;
-            try { donitinescf = JSON.parse(httpRequestitinecf.responseText); } catch (e) { donitinescf = null; }
-            if (typeof onDone === 'function') onDone(donitinescf);
-            else if (typeof window.__confApplyTransitLegs === 'function') window.__confApplyTransitLegs(donitinescf);
+            var payload = null;
+            try { payload = JSON.parse(httpRequestitinecf.responseText); } catch (e) { payload = null; }
+            if (Array.isArray(payload)) { __confHideCheminSelector(); done(payload); return; }
+            if (!payload || typeof payload !== 'object') { __confHideCheminSelector(); done([]); return; }
+            if (payload.mode === 'direct' || payload.mode === 'none') { __confHideCheminSelector(); done([]); return; }
+            var chemins = Array.isArray(payload.chemins) ? payload.chemins : [];
+            if (chemins.length > 1) { __confShowCheminSelector(chemins, done); return; }
+            __confHideCheminSelector();
+            if (chemins.length === 1 && chemins[0].etapes) { done(chemins[0].etapes); return; }
+            if (payload.etapes && (Array.isArray(payload.etapes) ? payload.etapes.length : Object.keys(payload.etapes).length)) {
+                done(payload.etapes); return;
+            }
+            done([]);
         };
         httpRequestitinecf.setRequestHeader('Content-Type', 'application/json');
         httpRequestitinecf.send();
@@ -8300,6 +9240,92 @@ document.addEventListener('DOMContentLoaded', () => {
         };
         http.setRequestHeader('Content-Type', 'application/json');
         http.send();
+    }
+
+
+    var __CONF_TRANSIT_MARGE_MIN = 30;
+
+    function __confHeureToMinutes(h) {
+        if (h == null || h === '') return null;
+        var parts = String(h).trim().split(/[:hH]/);
+        if (!parts || !parts.length) return null;
+        var hh = parseInt(parts[0], 10);
+        if (isNaN(hh)) return null;
+        var mm = (parts[1] != null && parts[1] !== '') ? parseInt(parts[1], 10) : 0;
+        if (isNaN(mm)) mm = 0;
+        return (hh * 60) + mm;
+    }
+
+    function __confRowIsAfterPrev(row, prevDate, prevMinutes, marge) {
+        if (prevMinutes == null || !prevDate) return true;
+        var rd = row && row.date_progr ? String(row.date_progr).slice(0, 10) : '';
+        var rm = __confHeureToMinutes(row && row.heure);
+        if (!rd || rm == null) return false;
+        if (rd > prevDate) return true;
+        if (rd < prevDate) return false;
+        return rm >= (prevMinutes + (marge != null ? marge : __CONF_TRANSIT_MARGE_MIN));
+    }
+
+    /** Remplit un select heures correspondance confirm, filtré vs jambe précédente. */
+    function __confAppendFilteredCheminOptions(selectId, rowsObj, prevDate, prevHeure) {
+        var sel = document.querySelector(selectId);
+        if (!sel) return;
+        sel.options.length = 1;
+        var list = [];
+        if (Array.isArray(rowsObj)) list = rowsObj;
+        else if (rowsObj && typeof rowsObj === 'object') {
+            Object.keys(rowsObj).forEach(function (k) { list.push(rowsObj[k]); });
+        }
+        var pDate = prevDate ? String(prevDate).slice(0, 10) : '';
+        var pMin = __confHeureToMinutes(prevHeure);
+        list = list.filter(function (row) {
+            return row && row.code_progr != null && __confRowIsAfterPrev(row, pDate, pMin, __CONF_TRANSIT_MARGE_MIN);
+        });
+        list.sort(function (a, b) {
+            var da = String(a.date_progr || '').slice(0, 10);
+            var db = String(b.date_progr || '').slice(0, 10);
+            if (da < db) return -1;
+            if (da > db) return 1;
+            return (__confHeureToMinutes(a.heure) || 0) - (__confHeureToMinutes(b.heure) || 0);
+        });
+        for (var i = 0; i < list.length; i++) {
+            var row = list[i];
+            var opt = document.createElement('option');
+            opt.value = `${row.code_progr}/${row.intervalle1}/${row.intervalle2}/${row.id_ligneheure}/${row.prix}`;
+            opt.setAttribute('data-heure', row.heure || '');
+            opt.setAttribute('data-date-progr', row.date_progr ? String(row.date_progr).slice(0, 10) : '');
+            opt.innerHTML = `${row.heure}/${row.date_progr}`;
+            sel.add(opt);
+        }
+    }
+
+    function __confPrevFromLeg1() {
+        var d = document.querySelector('#dateprtranscf');
+        var h = document.querySelector('#hertranscf');
+        var date = (d && d.value) ? String(d.value).slice(0, 10) : (document.querySelector('#actuel') ? document.querySelector('#actuel').value : '');
+        var heure = (h && h.value) ? String(h.value) : '';
+        if (!heure) {
+            var hs = document.querySelector('#heured');
+            if (hs && hs.selectedIndex > 0) {
+                var parts = String(hs.options[hs.selectedIndex].value || '').split('/');
+                // verifheureitine format id/heure OR code/tarif/id
+                if (parts.length >= 2 && parts[1].indexOf(':') >= 0) heure = parts[1];
+                else if (hs.options[hs.selectedIndex].getAttribute('data-heure')) {
+                    heure = hs.options[hs.selectedIndex].getAttribute('data-heure');
+                }
+            }
+        }
+        return { date: date, heure: heure };
+    }
+
+    function __confPrevFromSelect(selectId) {
+        var hs = document.querySelector(selectId);
+        if (!hs || hs.selectedIndex < 1) return { date: '', heure: '' };
+        var opt = hs.options[hs.selectedIndex];
+        return {
+            date: opt.getAttribute('data-date-progr') || '',
+            heure: opt.getAttribute('data-heure') || ''
+        };
     }
 
     function __confSetVal(id, val) {
@@ -8335,6 +9361,9 @@ document.addEventListener('DOMContentLoaded', () => {
         if (p.gareidentif) {
             __confFillTransitDepart('#transitedepargarecf1', p.gareidentif);
         }
+        ['#hdepartitinecf','#idcheminsheurcf','#idcheminsheurcf1'].forEach(function (s) {
+            var el = document.querySelector(s); if (el) el.options.length = 1;
+        });
     }
 
     function __confProgListFromResponse(don) {
@@ -8734,6 +9763,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     __confFillHeuresVente(heuresHvCf);
 
                     window.__confApplyTransitLegs = function (donitinescf) {
+                                                    donitinescf = (typeof __confNormalizeEtapes === 'function')
+                                                        ? __confNormalizeEtapes(donitinescf) : donitinescf;
                             if(donitinescf === null || donitinescf === '' || (typeof donitinescf === 'object' && !Object.keys(donitinescf).length))
                             {
                                 document.querySelector('#iddeptranscf1').style.display = 'none';
@@ -8771,8 +9802,9 @@ document.addEventListener('DOMContentLoaded', () => {
                                 document.querySelector('#heured').style.display = 'block';
                             }
                             else
-                            {
-                                if (Object.entries(donitinescf).length >= 1) 
+                                                    {
+                                                        if (typeof __confResetTransitFieldsBeforeApply === 'function') __confResetTransitFieldsBeforeApply();
+                                                        if (Object.entries(donitinescf).length >= 1) 
                                 {
                                     var i = Object.entries(donitinescf).length;
                                     
@@ -8883,20 +9915,15 @@ document.addEventListener('DOMContentLoaded', () => {
                                         document.querySelector('#psiegesitinescf').style.display = 'block';
                                         document.querySelector('#heured').style.display = 'block';
                     
-                                        document.querySelector('#itinecodecf').value = `${donitinescf[0].code_itineraires}`;
-
                                         document.querySelector('#idcompgcf').value = `${donitinescf[0].id_compaga}`;
-                                        document.querySelector('#lignetinerairecf').value = `${donitinescf[0].nom_itineraires}`;
+                                        __confFillLigne1Locked(donitinescf[0]);
                                     }
                         
                                     if(i === 2)
                                     {
-                                        let opt = document.createElement('option');
-                                        opt.value = `${donitinescf[1].code_itineraires}`;
-                                        opt.innerHTML = `${donitinescf[1].nom_itineraires}`;
-                                        document.querySelector('#idcheminscf').add(opt);
+                                        __confSetCheminLigneOption('#idcheminscf', donitinescf[1].code_itineraires, donitinescf[1].nom_itineraires);
 
-                                        document.querySelector('#lignesitinerairecf').value = `${donitinescf[0].nom_itineraires}`;
+                                        __confFillLigne1Locked(donitinescf[0]);
                                         document.querySelector('#itinecodescf').value = `${donitinescf[0].id_lignes}`;
                                         document.querySelector('#idcompgcf').value = `${donitinescf[0].id_compaga}`;
                                         document.querySelector('#idcompgcf1').value = `${donitinescf[1].id_compaga}`;
@@ -9025,15 +10052,8 @@ document.addEventListener('DOMContentLoaded', () => {
                                                 {
                                         
                                                     const dongtranschemcf = JSON.parse(httpSiegeschemincf.responseText);
-                                                    if (Object.entries(dongtranschemcf).length >= 1)
-                                                    {
-                                                        for (let key in Object.entries(dongtranschemcf)) {
-                                                            let opt = document.createElement('option');
-                                                            opt.value = `${dongtranschemcf[key].code_progr}/${dongtranschemcf[key].intervalle1}/${dongtranschemcf[key].intervalle2}/${dongtranschemcf[key].id_ligneheure}/${dongtranschemcf[key].prix}`;
-                                                            opt.innerHTML = `${dongtranschemcf[key].heure}/${dongtranschemcf[key].date_progr}`;
-                                                            document.querySelector('#hdepartitinecf').add(opt);
-                                                        }
-                                                    }
+                                                    var __prevCfX = __confPrevFromLeg1();
+                                                        __confAppendFilteredCheminOptions('#hdepartitinecf', dongtranschemcf, __prevCfX.date, __prevCfX.heure);
                                                 };
                                                 httpSiegeschemincf.setRequestHeader('Content-Type', 'application/json');
                                                 httpSiegeschemincf.send();
@@ -9186,20 +10206,13 @@ document.addEventListener('DOMContentLoaded', () => {
                                     //second itineraire
                                     if(i === 3)
                                     {
-                                        let opt = document.createElement('option');
-                                        opt.value = `${donitinescf[1].code_itineraires}`;
-                                        opt.innerHTML = `${donitinescf[1].nom_itineraires}`;
-                                        
-                                        document.querySelector('#idcheminscf').add(opt);
+                                        __confSetCheminLigneOption('#idcheminscf', donitinescf[1].code_itineraires, donitinescf[1].nom_itineraires);
 
-                                        document.querySelector('#lignesitinerairecf').value = `${donitinescf[0].nom_itineraires}`;
+                                        __confFillLigne1Locked(donitinescf[0]);
                                         document.querySelector('#itinecodescf').value = `${donitinescf[0].id_lignes}`;
                                         document.querySelector('#idcompgcf').value = `${donitinescf[0].id_compaga}`;
 
-                                        let opt1 = document.createElement('option');
-                                        opt1.value = `${donitinescf[2].code_itineraires}`;
-                                        opt1.innerHTML = `${donitinescf[2].nom_itineraires}`;
-                                        document.querySelector('#idcheminscf1').add(opt1);
+                                        __confSetCheminLigneOption('#idcheminscf1', donitinescf[2].code_itineraires, donitinescf[2].nom_itineraires);
 
                                         document.querySelector('#idcompgcf1').value = `${donitinescf[1].id_compaga}`;
                                         document.querySelector('#idcompgcf2').value = `${donitinescf[2].id_compaga}`;
@@ -9356,15 +10369,8 @@ document.addEventListener('DOMContentLoaded', () => {
                                                 {
                                         
                                                     const dongtranschemcf = JSON.parse(httpSiegeschemincf.responseText);
-                                                        if (Object.entries(dongtranschemcf).length >= 1)
-                                                        {
-                                                            for (let key in Object.entries(dongtranschemcf)) {
-                                                                let opt = document.createElement('option');
-                                                                opt.value = `${dongtranschemcf[key].code_progr}/${dongtranschemcf[key].intervalle1}/${dongtranschemcf[key].intervalle2}/${dongtranschemcf[key].id_ligneheure}/${dongtranschemcf[key].prix}`;
-                                                                opt.innerHTML = `${dongtranschemcf[key].heure}/${dongtranschemcf[key].date_progr}`;
-                                                                document.querySelector('#hdepartitinecf').add(opt);
-                                                            }
-                                                        }
+                                                        var __prevCfX = __confPrevFromLeg1();
+                                                        __confAppendFilteredCheminOptions('#hdepartitinecf', dongtranschemcf, __prevCfX.date, __prevCfX.heure);
                                                 };
                                                 httpSiegeschemincf.setRequestHeader('Content-Type', 'application/json');
                                                 httpSiegeschemincf.send();
@@ -9537,15 +10543,8 @@ document.addEventListener('DOMContentLoaded', () => {
                                                 {
                                         
                                                     const dongtranschemcf1 = JSON.parse(httpSiegeschemincf1.responseText);
-                                                    if (Object.entries(dongtranschemcf1).length >= 1)
-                                                    {
-                                                        for (let key in Object.entries(dongtranschemcf1)) {
-                                                            let opt = document.createElement('option');
-                                                            opt.value = `${dongtranschemcf1[key].code_progr}/${dongtranschemcf1[key].intervalle1}/${dongtranschemcf1[key].intervalle2}/${dongtranschemcf1[key].id_ligneheure}/${dongtranschemcf1[key].prix}`;
-                                                            opt.innerHTML = `${dongtranschemcf1[key].heure}/${dongtranschemcf1[key].date_progr}`;
-                                                            document.querySelector('#idcheminsheurcf').add(opt);
-                                                        }
-                                                    }
+                                                    var __prevCfX = __confPrevFromSelect('#hdepartitinecf');
+                                                        __confAppendFilteredCheminOptions('#idcheminsheurcf', dongtranschemcf1, __prevCfX.date, __prevCfX.heure);
                                                 };
                                                 httpSiegeschemincf1.setRequestHeader('Content-Type', 'application/json');
                                                 httpSiegeschemincf1.send();
@@ -9696,23 +10695,14 @@ document.addEventListener('DOMContentLoaded', () => {
                                     //troisieme itineraire
                                     if(i === 4)
                                     {
-                                        let opt = document.createElement('option');
-                                        opt.value = `${donitinescf[1].code_itineraires}`;
-                                        opt.innerHTML = `${donitinescf[1].nom_itineraires}`;
-                                        document.querySelector('#idcheminscf').add(opt);
+                                        __confSetCheminLigneOption('#idcheminscf', donitinescf[1].code_itineraires, donitinescf[1].nom_itineraires);
 
 
-                                        let opt1 = document.createElement('option');
-                                        opt1.value = `${donitinescf[2].code_itineraires}`;
-                                        opt1.innerHTML = `${donitinescf[2].nom_itineraires}`;
-                                        document.querySelector('#idcheminscf1').add(opt1);
+                                        __confSetCheminLigneOption('#idcheminscf1', donitinescf[2].code_itineraires, donitinescf[2].nom_itineraires);
 
-                                        let opt2 = document.createElement('option');
-                                        opt2.value = `${donitinescf[3].code_itineraires}`;
-                                        opt2.innerHTML = `${donitinescf[3].nom_itineraires}`;
-                                        document.querySelector('#idcheminscf2').add(opt2);
+                                        __confSetCheminLigneOption('#idcheminscf2', donitinescf[3].code_itineraires, donitinescf[3].nom_itineraires);
 
-                                        document.querySelector('#lignesitinerairecf').value = `${donitinescf[0].nom_itineraires}`;
+                                        __confFillLigne1Locked(donitinescf[0]);
                                        
                                         document.querySelector('#itinecodescf').value = `${donitinescf[0].id_lignes}`;
                                         document.querySelector('#idcompgcf').value = `${donitinescf[0].id_compaga}`;
@@ -9871,15 +10861,8 @@ document.addEventListener('DOMContentLoaded', () => {
                                                 {
                                         
                                                     const dongtranschemcf = JSON.parse(httpSiegeschemincf.responseText);
-                                                    if (Object.entries(dongtranschemcf).length >= 1)
-                                                    {
-                                                        for (let key in Object.entries(dongtranschemcf)) {
-                                                            let opt = document.createElement('option');
-                                                            opt.value = `${dongtranschemcf[key].code_progr}/${dongtranschemcf[key].intervalle1}/${dongtranschemcf[key].intervalle2}/${dongtranschemcf[key].id_ligneheure}/${dongtranschemcf[key].prix}`;
-                                                            opt.innerHTML = `${dongtranschemcf[key].heure}/${dongtranschemcf[key].date_progr}`;
-                                                            document.querySelector('#hdepartitinecf').add(opt);
-                                                        }
-                                                    }
+                                                    var __prevCfX = __confPrevFromLeg1();
+                                                        __confAppendFilteredCheminOptions('#hdepartitinecf', dongtranschemcf, __prevCfX.date, __prevCfX.heure);
                                                 };
                                                 httpSiegeschemincf.setRequestHeader('Content-Type', 'application/json');
                                                 httpSiegeschemincf.send();
@@ -10083,15 +11066,8 @@ document.addEventListener('DOMContentLoaded', () => {
                                                 {
                                         
                                                     const dongtranschemcf1 = JSON.parse(httpSiegeschemincf1.responseText);
-                                                    if (Object.entries(dongtranschemcf1).length >= 1)
-                                                        {
-                                                            for (let key in Object.entries(dongtranschemcf1)) {
-                                                                let opt = document.createElement('option');
-                                                                opt.value = `${dongtranschemcf1[key].code_progr}/${dongtranschemcf1[key].intervalle1}/${dongtranschemcf1[key].intervalle2}/${dongtranschemcf1[key].id_ligneheure}/${dongtranschemcf1[key].prix}`;
-                                                                opt.innerHTML = `${dongtranschemcf1[key].heure}/${dongtranschemcf1[key].date_progr}`;
-                                                                document.querySelector('#idcheminsheurcf').add(opt);
-                                                            }
-                                                        }
+                                                    var __prevCfX = __confPrevFromSelect('#hdepartitinecf');
+                                                        __confAppendFilteredCheminOptions('#idcheminsheurcf', dongtranschemcf1, __prevCfX.date, __prevCfX.heure);
                                                 };
                                                 httpSiegeschemincf1.setRequestHeader('Content-Type', 'application/json');
                                                 httpSiegeschemincf1.send();
@@ -10263,15 +11239,8 @@ document.addEventListener('DOMContentLoaded', () => {
                                                 {
                                         
                                                             const dongtranschemcf2 = JSON.parse(httpSiegeschemincf2.responseText);
-                                                            if (Object.entries(dongtranschemcf2).length >= 1)
-                                                                {
-                                                                    for (let key in Object.entries(dongtranschemcf2)) {
-                                                                        let opt = document.createElement('option');
-                                                                        opt.value = `${dongtranschemcf2[key].code_progr}/${dongtranschemcf2[key].intervalle1}/${dongtranschemcf2[key].intervalle2}/${dongtranschemcf2[key].id_ligneheure}/${dongtranschemcf2[key].prix}`;
-                                                                        opt.innerHTML = `${dongtranschemcf2[key].heure}/${dongtranschemcf2[key].date_progr}`;
-                                                                        document.querySelector('#idcheminsheurcf1').add(opt);
-                                                                    }
-                                                                }
+                                                            var __prevCfX = __confPrevFromSelect('#idcheminsheurcf');
+                                                        __confAppendFilteredCheminOptions('#idcheminsheurcf1', dongtranschemcf2, __prevCfX.date, __prevCfX.heure);
                                                 };
                                                 httpSiegeschemincf2.setRequestHeader('Content-Type', 'application/json');
                                                 httpSiegeschemincf2.send();

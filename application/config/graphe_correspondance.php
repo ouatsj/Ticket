@@ -22,3 +22,15 @@ $config['graphe_correspondance_max_edges_expand'] = 40;
  * Ancien comportement : 500 (écrasait souvent un chemin plus court).
  */
 $config['graphe_correspondance_boost_declaratif'] = 0;
+/** Jours de programmes chargés après la date voyage (0 = jour seul ; 1 = J et J+1). */
+$config['graphe_correspondance_horizon_jours'] = 1;
+/**
+ * Poids relatif de l'attente totale (minutes) dans le score.
+ * Score ≈ 5000 − nb_jambes×200 − attente_totale / poids − arrivée_abs / 20
+ */
+$config['graphe_correspondance_poids_attente'] = 5;
+/**
+ * Interdit de revisiter une ville (nœud) déjà traversée dans le chemin.
+ * Évite les détours du type Bobo→« NIA4 »(mal mappé Banfora)→Banfora→Ouaga.
+ */
+$config['graphe_correspondance_anti_revisite'] = TRUE;

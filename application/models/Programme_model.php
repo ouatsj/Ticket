@@ -487,7 +487,7 @@
                 AND DATE_FORMAT(pr.dateheure_prog, '%Y-%m-%d-%H:%i:%s') >= '$dtoday'
                 GROUP BY pr.code_progr, pr.intervalle1, pr.intervalle2, pr.date_progr,
                          lh.id_ligneheure, h.heure, pr.typetarif
-                ORDER BY h.heure ASC")->result();
+                ORDER BY pr.date_progr ASC, h.heure ASC")->result();
         }
         
         public function get($cd, $pr_id = FALSE)
