@@ -19,6 +19,21 @@
         }
 
         
+        /**
+         * Les nouveaux champs (OD final de la vente transit) peuvent ne pas exister
+         * si la migration n'a pas encore été appliquée.
+         */
+        private function od_final_columns_available()
+        {
+            static $cached = null;
+            if ($cached !== null) {
+                return (bool) $cached;
+            }
+            $q = $this->db->query("SHOW COLUMNS FROM passager LIKE 'lignetineraire_vendu'");
+            $cached = ($q && method_exists($q, 'num_rows') && $q->num_rows() > 0);
+            return (bool) $cached;
+        }
+
         public function create(array $data)
         {
             $data = roleattribut_guard_apply_to_data($data, array('idcptuser'));
@@ -33,6 +48,18 @@
                 $data = $CI->sale_svc->enrich_passager_escale($data);
             }
             $isEscaleSale = !empty($data['id_escale_vente']);
+
+            if (!empty($data['code_pro']) && !empty($data['num_siege_categorie'])) {
+                $ticketPre = isset($data['code_ticket']) ? (string) $data['code_ticket'] : '';
+                if ($ticketPre !== 'R') {
+                    if (!isset($CI->m_programme_reconduction)) {
+                        $CI->load->model('Programme_reconduction_model', 'm_programme_reconduction');
+                    }
+                    if (!$CI->m_programme_reconduction->siege_vendable($data['code_pro'], $data['num_siege_categorie'])) {
+                        return false;
+                    }
+                }
+            }
 
             $isOtherSale = sales_price_controls_enabled()
                 && isset($CI->router)
@@ -65,6 +92,15 @@
             $insertId = $this->db->insert_id();
             if ($insertId && $pricing) {
                 sales_price_snapshot_record($data, $pricing);
+            }
+            if ($insertId && !empty($data['code_pro'])) {
+                $ticket = isset($data['code_ticket']) ? (string) $data['code_ticket'] : '';
+                if ($ticket !== 'R') {
+                    if (!isset($CI->m_programme_reconduction)) {
+                        $CI->load->model('Programme_reconduction_model', 'm_programme_reconduction');
+                    }
+                    $CI->m_programme_reconduction->apres_vente($data['code_pro']);
+                }
             }
             return $insertId;
         }
@@ -2635,7 +2671,23 @@
             $today1 = date("Y-m-d", strtotime("-1 day"));
             $today = mdate("%Y-%m-%d", now('UTC'));
             
-            $rows = $this->db->query("SELECT COUNT(code_passager) AS cd, SUM(prixvente) AS total, lg.ident_ligne, lg.nom_ligne, p.prixvente, dest.id_compaga, ar.roleattribut FROM passager p
+            $useOdFinal = $this->od_final_columns_available();
+            $nomLineExpr = "COALESCE(NULLIF(TRIM(p.lignetineraire_vendu), ''), " .
+                "CASE WHEN p.nom_dest_vente IS NOT NULL AND TRIM(p.nom_dest_vente) <> '' " .
+                "THEN CONCAT(TRIM(ex.nom_gaep), '-', TRIM(p.nom_dest_vente)) " .
+                "ELSE lg.nom_ligne END)";
+            $nomLineSelect = $useOdFinal
+                ? "{$nomLineExpr} AS nom_ligne"
+                : "CASE WHEN p.nom_dest_vente IS NOT NULL AND TRIM(p.nom_dest_vente) <> '' " .
+                  "THEN CONCAT(TRIM(ex.nom_gaep), '-', TRIM(p.nom_dest_vente)) ELSE lg.nom_ligne END AS nom_ligne";
+            $nomLineGroup = $useOdFinal
+                ? $nomLineExpr
+                : "CASE WHEN p.nom_dest_vente IS NOT NULL AND TRIM(p.nom_dest_vente) <> '' " .
+                  "THEN CONCAT(TRIM(ex.nom_gaep), '-', TRIM(p.nom_dest_vente)) ELSE lg.nom_ligne END";
+
+            $rows = $this->db->query("SELECT COUNT(code_passager) AS cd, SUM(prixvente) AS total,
+                {$nomLineSelect},
+                p.prixvente, dest.id_compaga, ar.roleattribut FROM passager p
                 JOIN attributions_role ar ON p.idcptuser = ar.roleattribut
                 JOIN user_login ul ON ar.idgestcompte = ul.uid_login
                 JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
@@ -2659,14 +2711,30 @@
                 AND p.prixvente IS NOT NULL
                 AND p.statut_code = 'vendu'
                 AND cu.date_conect <= '$today'
-                GROUP BY lg.ident_ligne, p.prixvente, dest.id_compaga, ar.roleattribut")->result(); return $this->normalize_ticket_prix_rows($rows);        }
+                GROUP BY {$nomLineGroup}, p.prixvente, dest.id_compaga, ar.roleattribut")->result(); return $this->normalize_ticket_prix_rows($rows);        }
 
         public function rapportrep($cd, $idcox, $comp, $g)
         {
             $today1 = date("Y-m-d", strtotime("-1 day"));
             $today = mdate("%Y-%m-%d", now('UTC'));
 
-            $rows = $this->db->query("SELECT COUNT(code_passager) AS cdrep, lg.ident_ligne, lg.nom_ligne, ar.roleattribut FROM passager p
+            $useOdFinal = $this->od_final_columns_available();
+            $nomLineExpr = "COALESCE(NULLIF(TRIM(p.lignetineraire_vendu), ''), " .
+                "CASE WHEN p.nom_dest_vente IS NOT NULL AND TRIM(p.nom_dest_vente) <> '' " .
+                "THEN CONCAT(TRIM(ex.nom_gaep), '-', TRIM(p.nom_dest_vente)) " .
+                "ELSE lg.nom_ligne END)";
+            $nomLineSelect = $useOdFinal
+                ? "{$nomLineExpr} AS nom_ligne"
+                : "CASE WHEN p.nom_dest_vente IS NOT NULL AND TRIM(p.nom_dest_vente) <> '' " .
+                  "THEN CONCAT(TRIM(ex.nom_gaep), '-', TRIM(p.nom_dest_vente)) ELSE lg.nom_ligne END AS nom_ligne";
+            $nomLineGroup = $useOdFinal
+                ? $nomLineExpr
+                : "CASE WHEN p.nom_dest_vente IS NOT NULL AND TRIM(p.nom_dest_vente) <> '' " .
+                  "THEN CONCAT(TRIM(ex.nom_gaep), '-', TRIM(p.nom_dest_vente)) ELSE lg.nom_ligne END";
+
+            $rows = $this->db->query("SELECT COUNT(code_passager) AS cdrep,
+                {$nomLineSelect},
+                ar.roleattribut FROM passager p
                 JOIN tamponcode tp ON p.code_passager = tp.tamponcod 
                 JOIN report rp ON rp.code_tick_tamp = tp.tamponcod
                 JOIN attributions_role ar ON rp.idcpuserconect = ar.roleattribut
@@ -2690,14 +2758,30 @@
                 AND rp.is_statutreport = 0
                 AND p.statut_reprog = 'repor'
                 AND dest.id_compaga = '$comp'
-                GROUP BY ar.roleattribut, lg.ident_ligne")->result(); return $this->normalize_ticket_prix_rows($rows);        }
+                GROUP BY ar.roleattribut, {$nomLineGroup}")->result(); return $this->normalize_ticket_prix_rows($rows);        }
         //pass confirm
         public function rapportconf($cd, $idcox, $comp, $g)
         {
             $today1 = date("Y-m-d", strtotime("-1 day"));
             $today = mdate("%Y-%m-%d", now('UTC'));
             
-            $rows = $this->db->query("SELECT COUNT(code_passager) AS cdconf, lg.ident_ligne, lg.nom_ligne, ar.roleattribut FROM passager p
+            $useOdFinal = $this->od_final_columns_available();
+            $nomLineExpr = "COALESCE(NULLIF(TRIM(p.lignetineraire_vendu), ''), " .
+                "CASE WHEN p.nom_dest_vente IS NOT NULL AND TRIM(p.nom_dest_vente) <> '' " .
+                "THEN CONCAT(TRIM(ex.nom_gaep), '-', TRIM(p.nom_dest_vente)) " .
+                "ELSE lg.nom_ligne END)";
+            $nomLineSelect = $useOdFinal
+                ? "{$nomLineExpr} AS nom_ligne"
+                : "CASE WHEN p.nom_dest_vente IS NOT NULL AND TRIM(p.nom_dest_vente) <> '' " .
+                  "THEN CONCAT(TRIM(ex.nom_gaep), '-', TRIM(p.nom_dest_vente)) ELSE lg.nom_ligne END AS nom_ligne";
+            $nomLineGroup = $useOdFinal
+                ? $nomLineExpr
+                : "CASE WHEN p.nom_dest_vente IS NOT NULL AND TRIM(p.nom_dest_vente) <> '' " .
+                  "THEN CONCAT(TRIM(ex.nom_gaep), '-', TRIM(p.nom_dest_vente)) ELSE lg.nom_ligne END";
+
+            $rows = $this->db->query("SELECT COUNT(code_passager) AS cdconf,
+                {$nomLineSelect},
+                ar.roleattribut FROM passager p
                 JOIN attributions_role ar ON p.idcptuser = ar.roleattribut
                 JOIN user_login ul ON ar.idgestcompte = ul.uid_login
                 JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
@@ -2720,7 +2804,7 @@
                 AND p.is_valdtick = 0
                 AND p.prixvente IS NULL
                 AND dest.id_compaga = '$comp'
-                GROUP BY ar.roleattribut, lg.ident_ligne")->result(); return $this->normalize_ticket_prix_rows($rows);        }
+                GROUP BY ar.roleattribut, {$nomLineGroup}")->result(); return $this->normalize_ticket_prix_rows($rows);        }
         
         //etat des ventes
         public function vente($cid, $datedb, $datef, $gid)

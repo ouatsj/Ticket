@@ -80,6 +80,8 @@
 
             /** Documentation & QCM formation */
             $route['documentation/(:num)'] = 'Documentation/index/$1';
+            $route['documentation/(:num)/generale'] = 'Documentation/generale/$1';
+            $route['documentation/(:num)/roles'] = 'Documentation/roles/$1';
             $route['documentation/(:num)/manuel/(:any)'] = 'Documentation/manuel/$1/$2';
             $route['documentation/(:num)/qcm/(:any)'] = 'Documentation/qcm/$1/$2';
             $route['documentation/(:num)/qcm_corrige/(:any)'] = 'Documentation/qcm_corrige/$1/$2';
@@ -266,6 +268,11 @@
             $route['programmes/sousgares_correspondance/(:any)/(:any)'] = 'Programmes/sousgares_correspondance/$1/$2';
             $route['programmes/link_correspondance/(:any)'] = 'Programmes/link_correspondance/$1';
             $route['programmes/unlink_correspondance/(:any)'] = 'Programmes/unlink_correspondance/$1';
+            $route['programmes/declare_sortie/(:any)'] = 'Programmes/declare_sortie/$1';
+            $route['programmes/apercu_sortie/(:any)/(:any)'] = 'Programmes/apercu_sortie/$1/$2';
+            $route['programmes/offres_reconduction/(:any)/(:any)'] = 'Programmes/offres_reconduction/$1/$2';
+            $route['programmes/heures_reconduction/(:any)/(:any)/(:any)'] = 'Programmes/heures_reconduction/$1/$2/$3';
+            $route['programmes/creer_reconduction/(:any)'] = 'Programmes/creer_reconduction/$1';
             $route['programmes/(:num)'] = 'Programmes/index/$1';
 
             /* reprogrammes — vérif. code client bagage / transit */

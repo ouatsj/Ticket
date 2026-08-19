@@ -110,6 +110,12 @@ class Graphe_correspondance
             }
             $sgFilter = $this->CI->m_programme->sql_filtre_sousgare((int) $idsousgare);
         }
+        if (!isset($this->CI->m_programme)) {
+            $this->CI->load->model('Programme_model', 'm_programme');
+        }
+        $inLignes = $this->CI->m_programme->sql_in_ident_lignes(
+            $this->CI->m_programme->ident_lignes_od_compatibles($axe)
+        );
         $row = $db->query(
             "SELECT pr.code_progr
              FROM programme pr
@@ -119,14 +125,14 @@ class Graphe_correspondance
              JOIN compagnies c ON ge.id_compagd = c.cle_compagnie
              JOIN entreprise e ON c.id_entrep = e.id_entreprise
              WHERE e.ekey = ?
-             AND lh.ligne_id = ?
+             AND lh.ligne_id IN ({$inLignes})
              AND pr.date_progr = ?
              AND pr.statut_prog = 'actif'
              AND pr.actif_prog = 0
              AND lh.actif_lh = 1
              {$sgFilter}
              LIMIT 1",
-            array($ekey, $axe, $date)
+            array($ekey, $date)
         )->row();
         return !empty($row);
     }

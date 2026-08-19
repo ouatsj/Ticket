@@ -54,17 +54,27 @@
 
         public function getsous($cid, $gid)
         {
-            
-                return $this->db->query(
-                    "SELECT * FROM sousgare s
-                    JOIN gare_exp gd ON s.gareprinceid = gd.code_gaexp
-                    JOIN gares g ON gd.garesid = g.idengare 
-                    JOIN ville v ON gd.id_villegd = v.id_ville
-                    JOIN compagnies c ON gd.id_compagd = c.cle_compagnie
-                    JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                    WHERE e.ekey = '$cid'
-                    AND gd.garesid = '$gid'")->result();
-            
+            $cidEsc = $this->db->escape_str($cid);
+            $gid = trim((string) $gid);
+            if ($gid === '') {
+                return array();
+            }
+            // Vente transit envoie souvent code_gaexp (OUA1), pas garesid numérique.
+            if (ctype_digit($gid)) {
+                $whereGare = 'AND gd.garesid = ' . (int) $gid;
+            } else {
+                $whereGare = "AND gd.code_gaexp = '" . $this->db->escape_str($gid) . "'";
+            }
+            return $this->db->query(
+                "SELECT * FROM sousgare s
+                JOIN gare_exp gd ON s.gareprinceid = gd.code_gaexp
+                JOIN gares g ON gd.garesid = g.idengare
+                JOIN ville v ON gd.id_villegd = v.id_ville
+                JOIN compagnies c ON gd.id_compagd = c.cle_compagnie
+                JOIN entreprise e ON c.id_entrep = e.id_entreprise
+                WHERE e.ekey = '{$cidEsc}'
+                {$whereGare}"
+            )->result();
         }
 
         public function gets($cid, $gid)

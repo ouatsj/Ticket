@@ -91,6 +91,11 @@
                 'unlink_correspondance' => array('m_programme', 'm_programme_correspondance', 'm_entreprises'),
                 'get_correspondance' => array('m_programme', 'm_programme_correspondance', 'm_entreprises'),
                 'sousgares_correspondance' => array('m_programme_correspondance', 'm_entreprises'),
+                'declare_sortie' => array('m_programme', 'm_programme_reconduction', 'm_entreprises'),
+                'apercu_sortie' => array('m_programme_reconduction', 'm_entreprises'),
+                'offres_reconduction' => array('m_programme_reconduction', 'm_entreprises'),
+                'heures_reconduction' => array('m_programme_reconduction', 'm_entreprises'),
+                'creer_reconduction' => array('m_programme', 'm_programme_reconduction', 'm_entreprises'),
             );
         }
 
@@ -1104,6 +1109,151 @@
                 $out['verrouille'] = !empty($lock['verrouille']);
                 $out['nb_ventes'] = isset($lock['nb_ventes']) ? (int) $lock['nb_ventes'] : 0;
             }
+            return $this->load->view('beagle/pages/_programme/json', array('json' => $out));
+        }
+
+        protected function _peut_gerer_programme()
+        {
+            if (!isset($this->m_programme_reconduction)) {
+                $this->load->model('Programme_reconduction_model', 'm_programme_reconduction');
+            }
+            $role = isset($this->session->agent->userole) ? $this->session->agent->userole : '';
+            return $this->m_programme_reconduction->agent_autorise($role);
+        }
+
+        /**
+         * Déclare la sortie d'un départ (places restantes publiées aux gares aval).
+         * POST Programmes/declare_sortie/{ekey}
+         */
+        public function declare_sortie($ckey)
+        {
+            session_release_lock();
+            $this->company = $this->m_entreprises->get_key($ckey);
+            if (!$this->_peut_gerer_programme()) {
+                return $this->load->view('beagle/pages/_programme/json', array(
+                    'json' => array('ok' => false, 'error' => 'droit_insuffisant'),
+                ));
+            }
+            $code = trim((string) $this->input->post('code_progr'));
+            if ($code === '') {
+                $code = trim((string) $this->input->get('code_progr'));
+            }
+            $sieges = $this->input->post('sieges');
+            if (!is_array($sieges)) {
+                $raw = trim((string) $this->input->post('sieges_csv'));
+                $sieges = $raw !== '' ? explode(',', $raw) : null;
+            }
+            $by = isset($this->session->agent->username) ? $this->session->agent->username : null;
+            $out = $this->m_programme_reconduction->declarer_sortie(
+                $this->session->company->ekey,
+                $code,
+                $by,
+                $sieges
+            );
+            return $this->load->view('beagle/pages/_programme/json', array('json' => $out));
+        }
+
+        /**
+         * Plan de sièges avant déclaration de sortie.
+         * GET Programmes/apercu_sortie/{ekey}/{code_progr}
+         */
+        public function apercu_sortie($ckey, $code_progr = null)
+        {
+            session_release_lock();
+            $this->company = $this->m_entreprises->get_key($ckey);
+            if (!$this->_peut_gerer_programme()) {
+                return $this->load->view('beagle/pages/_programme/json', array(
+                    'json' => array('ok' => false, 'error' => 'droit_insuffisant'),
+                ));
+            }
+            if (!$code_progr) {
+                $code_progr = $this->input->get('code_progr');
+            }
+            $out = $this->m_programme_reconduction->apercu_sortie(
+                $this->session->company->ekey,
+                $code_progr
+            );
+            return $this->load->view('beagle/pages/_programme/json', array('json' => $out));
+        }
+
+        /**
+         * Offres de sièges restants pour la gare courante.
+         * GET Programmes/offres_reconduction/{ekey}/{code_gaexp}
+         */
+        public function offres_reconduction($ckey, $code_gaexp = null)
+        {
+            session_release_lock();
+            $this->company = $this->m_entreprises->get_key($ckey);
+            if (!$code_gaexp) {
+                $code_gaexp = $this->input->get('gare');
+            }
+            $list = $this->m_programme_reconduction->offres_pour_gare(
+                $this->session->company->ekey,
+                $code_gaexp
+            );
+            return $this->load->view('beagle/pages/_programme/json', array(
+                'json' => array('ok' => true, 'offres' => $list),
+            ));
+        }
+
+        /**
+         * Heures locales vers la même destination qu'une offre.
+         * GET Programmes/heures_reconduction/{ekey}/{code_gaexp}/{gadest}
+         */
+        public function heures_reconduction($ckey, $code_gaexp = null, $gadest = null)
+        {
+            session_release_lock();
+            $this->company = $this->m_entreprises->get_key($ckey);
+            if (!$code_gaexp) {
+                $code_gaexp = $this->input->get('gare');
+            }
+            if (!$gadest) {
+                $gadest = $this->input->get('gadest');
+            }
+            $list = $this->m_programme_reconduction->heures_compatibles(
+                $this->session->company->ekey,
+                $code_gaexp,
+                $gadest
+            );
+            return $this->load->view('beagle/pages/_programme/json', array(
+                'json' => array('ok' => true, 'heures' => $list),
+            ));
+        }
+
+        /**
+         * Crée un départ aval avec les sièges restants choisis.
+         * POST Programmes/creer_reconduction/{ekey}
+         */
+        public function creer_reconduction($ckey)
+        {
+            session_release_lock();
+            $this->company = $this->m_entreprises->get_key($ckey);
+            if (!$this->_peut_gerer_programme()) {
+                return $this->load->view('beagle/pages/_programme/json', array(
+                    'json' => array('ok' => false, 'error' => 'droit_insuffisant'),
+                ));
+            }
+            $source = trim((string) $this->input->post('code_progr_source'));
+            $gare = trim((string) $this->input->post('gare_cible'));
+            $idHeur = (int) $this->input->post('id_ligneheure');
+            $sieges = $this->input->post('sieges');
+            if (!is_array($sieges)) {
+                $raw = trim((string) $this->input->post('sieges_csv'));
+                $sieges = $raw !== '' ? explode(',', $raw) : array();
+            }
+            $options = array(
+                'typetarif' => $this->input->post('typetarif'),
+                'date_progr' => $this->input->post('date_progr'),
+                'created_by' => isset($this->session->agent->username) ? $this->session->agent->username : null,
+            );
+            $out = $this->m_programme_reconduction->creer_depart_aval(
+                $this->session->company->ekey,
+                $source,
+                $gare,
+                $idHeur,
+                $sieges,
+                $options
+            );
             return $this->load->view('beagle/pages/_programme/json', array('json' => $out));
         }
        
@@ -3159,6 +3309,19 @@
                                                         'datep_create' => mdate("%Y-%m-%d", now('UTC')),
                                                     );
                                                     $passrid = $this->m_passager->create($passagerarray1);
+
+                                                    // Pour le rapport journalier : enregistrer l'OD (et son libellé)
+                                                    // de la vente transit (correspondance globale), pas uniquement la ligne du segment.
+                                                    $hasOdFinalCols = $this->db->query("SHOW COLUMNS FROM passager LIKE 'lignetineraire_vendu'")->num_rows() > 0;
+                                                    if ($hasOdFinalCols && (isset($proposi) || isset($lignetinerair))) {
+                                                        $this->db->where_in('code_passager', array($tampon, $tampon1));
+                                                        $this->db->where('idcptuser', $iduser);
+                                                        $this->db->where('statut_code', 'vendu');
+                                                        $this->db->update('passager', array(
+                                                            'itinecode_vendu' => isset($proposi) ? $proposi : null,
+                                                            'lignetineraire_vendu' => isset($lignetinerair) ? $lignetinerair : null,
+                                                        ));
+                                                    }
 
                                                     
                                                     $cp1 = $h_gdp;

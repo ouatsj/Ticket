@@ -48,8 +48,44 @@ class Documentation extends MY_Controller
         $this->_require_staff_access();
         $this->company = $this->m_entreprises->get_key($ckey);
         $this->property['roles_doc'] = documentation_formation_roles();
+        $this->property['doc_generale'] = documentation_generale_cas_utilisation();
+        $this->property['active_tab'] = 'generale';
         $this->property['can_corrige'] = $this->_can_print_corrige();
         $this->property['pagetitle'] .= ' • Documentation & formation • <strong>'
+            . $this->company->nom_entreprise . '</strong>';
+
+        return $this->layout->view('_documentation/index', $this->property);
+    }
+
+    /**
+     * Onglet / page Documentation générale (cas d'utilisation pour décideurs).
+     */
+    public function generale($ckey)
+    {
+        $this->_require_staff_access();
+        $this->company = $this->m_entreprises->get_key($ckey);
+        $this->property['roles_doc'] = documentation_formation_roles();
+        $this->property['doc_generale'] = documentation_generale_cas_utilisation();
+        $this->property['active_tab'] = 'generale';
+        $this->property['can_corrige'] = $this->_can_print_corrige();
+        $this->property['pagetitle'] .= ' • Documentation générale • <strong>'
+            . $this->company->nom_entreprise . '</strong>';
+
+        return $this->layout->view('_documentation/index', $this->property);
+    }
+
+    /**
+     * Raccourci vers l'onglet Formation par rôle.
+     */
+    public function roles($ckey)
+    {
+        $this->_require_staff_access();
+        $this->company = $this->m_entreprises->get_key($ckey);
+        $this->property['roles_doc'] = documentation_formation_roles();
+        $this->property['doc_generale'] = documentation_generale_cas_utilisation();
+        $this->property['active_tab'] = 'roles';
+        $this->property['can_corrige'] = $this->_can_print_corrige();
+        $this->property['pagetitle'] .= ' • Formation par rôle • <strong>'
             . $this->company->nom_entreprise . '</strong>';
 
         return $this->layout->view('_documentation/index', $this->property);

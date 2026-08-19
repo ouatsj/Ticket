@@ -567,11 +567,11 @@
                         $this->property['progs']
                     );
                     $corr_index = array();
+                    $codes = array();
                     if (!empty($this->property['progs'])) {
                         if (!isset($this->m_programme_correspondance)) {
                             $this->load->model('Programme_correspondance_model', 'm_programme_correspondance');
                         }
-                        $codes = array();
                         foreach ($this->property['progs'] as $__p) {
                             if (!empty($__p->code_progr)) {
                                 $codes[] = $__p->code_progr;
@@ -580,6 +580,15 @@
                         $corr_index = $this->m_programme_correspondance->index_for_codes($codes);
                     }
                     $this->property['corr_index'] = $corr_index;
+                    if (!isset($this->m_programme_reconduction)) {
+                        $this->load->model('Programme_reconduction_model', 'm_programme_reconduction');
+                    }
+                    $reco_codes = !empty($codes) ? $codes : array();
+                    $this->property['reconduction_index'] = $this->m_programme_reconduction->index_for_codes($reco_codes);
+                    $this->property['reconductions_offres'] = $this->m_programme_reconduction->offres_pour_gare(
+                        $this->company->ekey,
+                        $cdg
+                    );
                     $gare_stop = $this->m_sousgare->sget($this->company->ekey, $cdg, $sg);
                         $this->property['gare_stop'] = $gare_stop;
                     

@@ -1,5 +1,16 @@
 <?php defined('BASEPATH') OR exit('No direct script access allowed'); ?>
 
+<?php
+    if (!isset($reconductions_offres) || !is_array($reconductions_offres)) {
+        $reconductions_offres = array();
+    }
+    if (!isset($reconduction_index) || !is_array($reconduction_index)) {
+        $reconduction_index = array();
+    }
+    $__peut_prog = isset($this->session->agent->userole)
+        && in_array((string) $this->session->agent->userole, array('1', '2', '5', '8', '15'), true);
+?>
+
 
     <?php if ($msg = $this->session->flashdata('prog_portee_error')): ?>
     <div class="row mb-2 ml-2 mr-2">
@@ -12,11 +23,23 @@
     <div class="col-12 col-md-10">
         <div class="alert alert-info mb-2 py-2">
             <strong>Départs</strong> —
-            par défaut <strong>toute portée</strong> (toutes les sous-gares). Cochez <strong>Sous-gares</strong> pour activer les cases et restreindre le départ.
+            par défaut <strong>toute gare</strong> (toutes les sous-gares). Cochez <strong>Sous-gares</strong> pour activer les cases et restreindre le départ.
         </div>
     </div>
 </div>
 
+<?php if ($__peut_prog && !empty($reconductions_offres)): ?>
+<div class="row mb-2 ml-2 mr-2">
+    <div class="col-12 col-md-10">
+        <div class="alert alert-warning mb-2 py-2">
+            <strong>Sièges restants</strong> —
+            <?= count($reconductions_offres); ?> départ<?= count($reconductions_offres) > 1 ? 's' : ''; ?>
+            en amont avec places libres.
+            <a href="#" class="alert-link js-reco-open">Créer un départ avec ces sièges</a>
+        </div>
+    </div>
+</div>
+<?php endif; ?>
 
 <script>
 (function () {
@@ -97,6 +120,13 @@
                     data-modal="new-prog">
                 <i class="fas fa-plus text-success"></i>&nbsp;AJOUTER PROGRAMME&nbsp;
             </button>
+            <button class="btn btn-space btn-secondary md-trigger js-reco-open"
+                    data-modal="modal-reconduction">
+                <i class="fas fa-share-square text-warning"></i>&nbsp;SIÈGES RESTANTS&nbsp;
+                <?php if (!empty($reconductions_offres)): ?>
+                    <span class="badge badge-warning"><?= count($reconductions_offres); ?></span>
+                <?php endif; ?>
+            </button>
             <?endif;?>
             <? if ($this->session->agent->userole === '1' OR $this->session->agent->userole === '2' OR $this->session->agent->userole === '5' OR $this->session->agent->userole === '3' OR $this->session->agent->userole === '8' OR $this->session->agent->userole === '15'): ?>
                        
@@ -152,6 +182,8 @@
         $group_keys = array_keys($progs_par_compagnie);
         $first_key = !empty($group_keys) ? reset($group_keys) : null;
         if (!isset($corr_index) || !is_array($corr_index)) { $corr_index = array(); }
+        if (!isset($reconduction_index) || !is_array($reconduction_index)) { $reconduction_index = array(); }
+        if (!isset($reconductions_offres) || !is_array($reconductions_offres)) { $reconductions_offres = array(); }
         $__prog_edit_modal_rendered = false;
     ?>
     <div class="row">
@@ -162,7 +194,7 @@
                 <div class="card-header">
                     <div class="row align-items-center mb-2">
                         <div class="col-md-6">
-                            <strong>Programmes par compagnie d'arrivée</strong>
+                            <strong>Programmes par compagnie</strong>
                         </div>
                         <div class="col-md-6">
                             <input type="search" id="filtre-prog" class="form-control form-control-sm"
@@ -224,6 +256,8 @@
                                     $cid=$this->session->company->ekey;
                                     $__corr = (!empty($corr_index) && isset($corr_index[$item->code_progr]))
                                         ? $corr_index[$item->code_progr] : null;
+                                    $__reco = (!empty($reconduction_index) && isset($reconduction_index[$item->code_progr]))
+                                        ? $reconduction_index[$item->code_progr] : null;
                                     // Compteur = passagers de CE départ uniquement (pas suite∪dérivé).
                                     $__code_esc = $this->db->escape_str($item->code_progr);
                                     $nb = $this->db->query(
@@ -261,6 +295,12 @@
                                                     $this->load->model('Programme_correspondance_model', 'm_programme_correspondance');
                                                 }
                                                 echo $this->m_programme_correspondance->badge_html($__corr);
+                                            }
+                                            if ($__reco) {
+                                                if (!isset($this->m_programme_reconduction)) {
+                                                    $this->load->model('Programme_reconduction_model', 'm_programme_reconduction');
+                                                }
+                                                echo $this->m_programme_reconduction->badge_html($__reco);
                                             }
                                         ?>
                                     </td>
@@ -331,6 +371,21 @@
                                            data-pdate="<?= htmlspecialchars($item->date_progr, ENT_QUOTES, 'UTF-8'); ?>">
                                             <span class="fas fa-exchange-alt <?= !empty($__corr) ? 'text-success' : 'text-info'; ?>"></span>
                                         </a>&nbsp;
+                                        <?php
+                                            $__reco_role = $__reco && isset($__reco['role']) ? $__reco['role'] : '';
+                                            $__deja_sorti = $__reco && !empty($__reco['sorti']);
+                                            if ($__reco_role !== 'cible' && !$__deja_sorti):
+                                        ?>
+                                        <a href="#"
+                                           class="js-sortie-decl"
+                                           title="Déclarer la sortie — choisir les sièges à publier aux gares aval"
+                                           data-code="<?= htmlspecialchars($item->code_progr, ENT_QUOTES, 'UTF-8'); ?>"
+                                           data-nom="<?= htmlspecialchars($item->nom_ligne, ENT_QUOTES, 'UTF-8'); ?>"
+                                           data-heure="<?= htmlspecialchars($item->heure, ENT_QUOTES, 'UTF-8'); ?>"
+                                           data-pdate="<?= htmlspecialchars($item->date_progr, ENT_QUOTES, 'UTF-8'); ?>">
+                                            <span class="fas fa-sign-out-alt text-warning"></span>
+                                        </a>&nbsp;
+                                        <?php endif; ?>
                                         <a href="<?= site_url('Gares/activer/' . $this->session->company->ekey . '/' . $item->code_progr. '/' . $item->gareidentif. '/' . $item->statut_prog.'/'.$conex->roleattribut.'/'.$gare_stop->idsousgare);?> "class="btn btn-space btn-secondary">
                                             <?= ($item->statut_prog === 'actif') ? '<span class="icon mdi text-danger">désactiver</span>' : '<span
                                             class="icon mdi text-success">activer</span>' ?>
@@ -368,7 +423,7 @@
                                                         <div class="mb-2" style="display:flex;flex-wrap:wrap;align-items:center;gap:1.25rem;">
                                                             <label class="mb-0" style="font-weight:400;color:#404040;cursor:pointer;white-space:nowrap;">
                                                                 <input type="radio" class="js-scope-mode" name="scope_depart" value="gare" checked style="margin-right:0.4rem;vertical-align:middle;">
-                                                                Toute port&eacute;e
+                                                                Toute gare
                                                             </label>
                                                             <label class="mb-0" style="font-weight:400;color:#404040;cursor:pointer;white-space:nowrap;">
                                                                 <input type="radio" class="js-scope-mode" name="scope_depart" value="sousgare" style="margin-right:0.4rem;vertical-align:middle;">
@@ -611,6 +666,11 @@
                             <i class="fas fa-edit text-success"></i>
                             CRÉER UN NOUVEAU PROGRAMME
                         </button>
+                        <button class="btn btn-rounded btn-space btn-warning md-trigger js-reco-open"
+                                data-modal="modal-reconduction">
+                            <i class="fas fa-share-square"></i>
+                            SIÈGES RESTANTS
+                        </button>
                     </div>
                     <div class="modal-container colored-header colored-header-success custom-width modal-effect-7"
                          id="new-prog" style="perspective: none;">
@@ -637,7 +697,7 @@
                                     <div class="mb-2" style="display:flex;flex-wrap:wrap;align-items:center;gap:1.25rem;">
                                         <label class="mb-0" style="font-weight:400;color:#404040;cursor:pointer;white-space:nowrap;">
                                             <input type="radio" class="js-scope-mode" name="scope_depart" value="gare" checked style="margin-right:0.4rem;vertical-align:middle;">
-                                            Toute port&eacute;e
+                                            Toute gare
                                         </label>
                                         <label class="mb-0" style="font-weight:400;color:#404040;cursor:pointer;white-space:nowrap;">
                                             <input type="radio" class="js-scope-mode" name="scope_depart" value="sousgare" style="margin-right:0.4rem;vertical-align:middle;">
@@ -773,7 +833,7 @@
                                     <div class="mb-2" style="display:flex;flex-wrap:wrap;align-items:center;gap:1.25rem;">
                                         <label class="mb-0" style="font-weight:400;color:#404040;cursor:pointer;white-space:nowrap;">
                                             <input type="radio" class="js-scope-mode" name="scope_depart" value="gare" checked style="margin-right:0.4rem;vertical-align:middle;">
-                                            Toute port&eacute;e
+                                            Toute gare
                                         </label>
                                         <label class="mb-0" style="font-weight:400;color:#404040;cursor:pointer;white-space:nowrap;">
                                             <input type="radio" class="js-scope-mode" name="scope_depart" value="sousgare" style="margin-right:0.4rem;vertical-align:middle;">
@@ -1251,20 +1311,20 @@
             <p class="mb-2" id="corr-principal-label"></p>
             <div id="corr-linked-box" class="mb-3" style="display:none;"></div>
             <div id="corr-suggest-box">
-                <p class="text-muted small">Choisir un départ déjà créé à la gare de correspondance (même jour ou lendemain). Les sièges du départ hub dérivé seront le miroir des sièges occupés sur ce départ. La portée s’affiche après ce choix.</p>
+                <p class="text-muted small">Choisir un départ déjà créé à la gare de correspondance (même jour ou lendemain). Les sièges du départ hub dérivé seront le miroir des sièges occupés sur ce départ. Les options de gare s’affichent après ce choix.</p>
                 <div id="corr-suggest-list"></div>
                 <div id="corr-portee-box" class="mt-3" style="display:none;">
                     <hr>
-                    <h6 id="corr-portee-principal-title">Portée gare départ (dérivé ± principal)</h6>
+                    <h6 id="corr-portee-principal-title">Gare départ (dérivé ± principal)</h6>
                     <label class="mb-1" style="font-weight:400;cursor:pointer;">
                         <input type="radio" name="corr_scope_ban_mode" value="gare" checked class="js-corr-ban-mode">
-                        <span id="corr-ban-mode-gare-label">Toute portée</span>
+                        <span id="corr-ban-mode-gare-label">Toute gare</span>
                     </label>
                     <label class="mb-1 ml-3" style="font-weight:400;cursor:pointer;">
                         <input type="radio" name="corr_scope_ban_mode" value="sousgare" class="js-corr-ban-mode">
                         <span id="corr-ban-mode-sg-label">Sous-gares</span>
                     </label>
-                    <div id="corr-sg-banfora-hint" class="mt-1"><small class="text-muted">Choisissez « Sous-gares » pour sélectionner la portée.</small></div>
+                    <div id="corr-sg-banfora-hint" class="mt-1"><small class="text-muted">Choisissez « Sous-gares » pour sélectionner des sous-gares.</small></div>
                     <div id="corr-sg-banfora" class="row mt-1" style="display:none;"></div>
                     <div class="mt-2">
                         <label style="font-weight:400;cursor:pointer;">
@@ -1277,16 +1337,16 @@
                         </label>
                     </div>
                     <hr>
-                    <h6 id="corr-portee-suite-title">Portée gare correspondance (suite)</h6>
+                    <h6 id="corr-portee-suite-title">Gare correspondance (suite)</h6>
                     <label class="mb-1" style="font-weight:400;cursor:pointer;">
                         <input type="radio" name="corr_scope_bob_mode" value="gare" checked class="js-corr-bob-mode">
-                        <span id="corr-bob-mode-gare-label">Toute portée</span>
+                        <span id="corr-bob-mode-gare-label">Toute gare</span>
                     </label>
                     <label class="mb-1 ml-3" style="font-weight:400;cursor:pointer;">
                         <input type="radio" name="corr_scope_bob_mode" value="sousgare" class="js-corr-bob-mode">
                         <span id="corr-bob-mode-sg-label">Sous-gares</span>
                     </label>
-                    <div id="corr-sg-bobo-hint" class="mt-1"><small class="text-muted">Choisissez « Sous-gares » pour sélectionner la portée.</small></div>
+                    <div id="corr-sg-bobo-hint" class="mt-1"><small class="text-muted">Choisissez « Sous-gares » pour sélectionner des sous-gares.</small></div>
                     <div id="corr-sg-bobo" class="row mt-1" style="display:none;"></div>
                     <div class="mt-2">
                         <label style="font-weight:400;cursor:pointer;">
@@ -1405,13 +1465,13 @@
         if (ad) ad.checked = true;
         if (ap) ap.checked = true;
         if (asu) asu.checked = true;
-        setText('corr-portee-principal-title', 'Portée gare départ (dérivé ± principal)');
-        setText('corr-ban-mode-gare-label', 'Toute portée');
+        setText('corr-portee-principal-title', 'Gare départ (dérivé ± principal)');
+        setText('corr-ban-mode-gare-label', 'Toute gare');
         setText('corr-ban-mode-sg-label', 'Sous-gares');
         setText('corr-apply-derive-label', 'Appliquer au dérivé (hub)');
         setText('corr-apply-principal-label', 'Appliquer aussi au principal');
-        setText('corr-portee-suite-title', 'Portée gare correspondance (suite)');
-        setText('corr-bob-mode-gare-label', 'Toute portée');
+        setText('corr-portee-suite-title', 'Gare correspondance (suite)');
+        setText('corr-bob-mode-gare-label', 'Toute gare');
         setText('corr-bob-mode-sg-label', 'Sous-gares');
         setText('corr-apply-suite-label', 'Appliquer à la suite');
     }
@@ -1476,13 +1536,13 @@
         var nomP = p.nom_ligne || 'principal';
         var gareS = s.gareidentif || 'correspondance';
         var nomS = s.nom_ligne || 'suite';
-        setText('corr-portee-principal-title', 'Portée ' + gareP + ' (dérivé ± principal)');
-        setText('corr-ban-mode-gare-label', 'Toute portée ' + gareP);
+        setText('corr-portee-principal-title', 'Gare ' + gareP + ' (dérivé ± principal)');
+        setText('corr-ban-mode-gare-label', 'Toute gare ' + gareP);
         setText('corr-ban-mode-sg-label', 'Sous-gares ' + gareP);
         setText('corr-apply-derive-label', 'Appliquer au dérivé ' + gareP + '→hub');
         setText('corr-apply-principal-label', 'Appliquer aussi au principal (' + nomP + ')');
-        setText('corr-portee-suite-title', 'Portée ' + gareS + ' (suite)');
-        setText('corr-bob-mode-gare-label', 'Toute portée ' + gareS);
+        setText('corr-portee-suite-title', 'Gare ' + gareS + ' (suite)');
+        setText('corr-bob-mode-gare-label', 'Toute gare ' + gareS);
         setText('corr-bob-mode-sg-label', 'Sous-gares ' + gareS);
         setText('corr-apply-suite-label', 'Appliquer à la suite (' + nomS + ')');
     }
@@ -1596,8 +1656,8 @@
             dates_invalides: 'Date de programme invalide.',
             deja_lie: 'Ce principal a déjà un lien de correspondance.',
             programme_introuvable: 'Programme introuvable.',
-            ligne_derive_introuvable: 'Ligne dérivée introuvable.',
-            heure_derive_introuvable: 'Heure dérivée introuvable.',
+            ligne_derive_introuvable: 'Aucune ligne hub de la même compagnie (VIP reste VIP, CMT reste CMT).',
+            heure_derive_introuvable: 'Aucun horaire VIP/CMT trouvé pour le départ hub (vérifiez les heures de la ligne hub).',
             echec_creation_derive: 'Échec création du départ dérivé.'
         };
         return map[code] || code || 'Erreur';
@@ -1840,7 +1900,7 @@
                     return;
                 }
                 var warn = (data.portee_warnings && data.portee_warnings.length)
-                    ? ' (portée partielle : ' + data.portee_warnings.join(', ') + ')'
+                    ? ' (sous-gares partielles : ' + data.portee_warnings.join(', ') + ')'
                     : '';
                 setMsg('Lien créé. Départ dérivé : ' + (data.lien && data.lien.code_progr_derive ? data.lien.code_progr_derive : '') + warn, false);
                 setTimeout(function () { window.location.reload(); }, 800);
@@ -1883,6 +1943,543 @@
                 setTimeout(function () { window.location.reload(); }, 600);
             }).catch(function (err) {
                 setMsg((err && err.message) ? err.message : 'Erreur réseau', true);
+            });
+        });
+    }
+})();
+</script>
+
+<div class="modal-container colored-header colored-header-warning custom-width modal-effect-7"
+     id="modal-reconduction" style="perspective: none;">
+    <div class="modal-content">
+        <div class="modal-header modal-header-colored">
+            <h3 class="modal-title">Créer un départ avec sièges restants</h3>
+            <button class="close modal-close js-reco-close" type="button" aria-hidden="true">
+                <span class="mdi mdi-close text-white"></span>
+            </button>
+        </div>
+        <div class="modal-body">
+            <p class="text-muted small mb-2">
+                Un bus en amont a déclaré sa sortie. Choisissez l’offre, les numéros encore libres, puis l’horaire local vers la même destination.
+            </p>
+            <div id="reco-offres-list"></div>
+            <div id="reco-detail" class="mt-3" style="display:none;">
+                <hr>
+                <p class="mb-1"><strong id="reco-detail-label"></strong></p>
+                <div class="form-group">
+                    <label>Départ local (même destination)</label>
+                    <select class="form-control form-control-sm" id="reco-heure"></select>
+                </div>
+                <div class="form-group">
+                    <label>Date</label>
+                    <input type="date" class="form-control form-control-sm" id="reco-date">
+                </div>
+                <div class="mb-2">
+                    <label>Sièges à reconduire</label>
+                    <div>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" id="reco-check-all">Tout cocher</button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" id="reco-uncheck-all">Tout décocher</button>
+                    </div>
+                    <div id="reco-sieges" class="row mt-2"></div>
+                </div>
+            </div>
+            <div id="reco-msg" class="mt-2"></div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary js-reco-close" type="button">Fermer</button>
+            <button class="btn btn-warning js-reco-save" type="button" disabled>Créer le départ</button>
+        </div>
+    </div>
+</div>
+
+<script>
+(function () {
+    var ekey = <?= json_encode($this->session->company->ekey); ?>;
+    var base = <?= json_encode(rtrim(site_url('Programmes'), '/')); ?>;
+    var gareExp = <?= json_encode(isset($bus_stop->code_gaexp) ? $bus_stop->code_gaexp : (isset($gare_stop->idengare) ? $gare_stop->idengare : '')); ?>;
+    var modalEl = document.getElementById('modal-reconduction');
+    if (!modalEl) return;
+
+    var state = { offre: null, sieges: [], heures: [] };
+
+    function $m() {
+        return (window.jQuery && typeof jQuery.fn.niftyModal === 'function')
+            ? jQuery('#modal-reconduction') : null;
+    }
+    function showModal() {
+        var jq = $m();
+        if (jq) { jq.niftyModal('show'); return; }
+        modalEl.classList.add('modal-show');
+        document.body.classList.add('modal-open');
+    }
+    function hideModal() {
+        var jq = $m();
+        if (jq) { jq.niftyModal('hide'); }
+        else {
+            modalEl.classList.remove('modal-show');
+            document.body.classList.remove('modal-open');
+        }
+        state = { offre: null, sieges: [], heures: [] };
+        document.getElementById('reco-detail').style.display = 'none';
+        document.getElementById('reco-msg').innerHTML = '';
+        var save = document.querySelector('.js-reco-save');
+        if (save) save.disabled = true;
+    }
+    function setMsg(text, isErr) {
+        var el = document.getElementById('reco-msg');
+        if (!el) return;
+        el.innerHTML = text
+            ? ('<div class="alert alert-' + (isErr ? 'danger' : 'success') + ' py-1 mb-0">' + text + '</div>')
+            : '';
+    }
+    function parseJsonResponse(r) {
+        return r.text().then(function (t) {
+            try { return JSON.parse(t); }
+            catch (e) { throw new Error('Réponse non JSON (HTTP ' + r.status + ')'); }
+        });
+    }
+    function appendCsrf(body) {
+        var metaToken = document.querySelector('meta[name="csrf-token"]');
+        var metaParam = document.querySelector('meta[name="csrf-param"]');
+        var name = (metaParam && metaParam.getAttribute('content')) || 'csrf_raketa';
+        var hash = metaToken ? metaToken.getAttribute('content') : '';
+        if (hash) body.set(name, hash);
+        return body;
+    }
+    function recoError(code) {
+        var map = {
+            droit_insuffisant: 'Droits insuffisants.',
+            programme_introuvable: 'Programme introuvable.',
+            deja_sorti: 'La sortie de ce départ est déjà déclarée.',
+            sortie_non_declaree: 'La sortie du départ amont n’est pas déclarée.',
+            gare_cible_invalide: 'Gare aval invalide.',
+            aucun_siege: 'Choisissez au moins un siège.',
+            siege_indisponible: 'Un siège choisi n’est plus libre.',
+            heure_incompatible: 'Horaire incompatible (même destination requise).',
+            date_invalide: 'Date invalide.',
+            echec_creation_depart: 'Échec de création du départ.',
+            siege_pris: 'Un siège vient d’être pris par une autre gare.',
+            echec_sortie: 'Impossible de déclarer la sortie.'
+        };
+        return map[code] || code || 'Erreur';
+    }
+
+    function renderOffres(list) {
+        var box = document.getElementById('reco-offres-list');
+        if (!list || !list.length) {
+            box.innerHTML = '<p class="text-muted mb-0">Aucune offre de sièges restants pour cette gare (même destination, départ amont sorti).</p>';
+            return;
+        }
+        var html = '<div class="list-group">';
+        list.forEach(function (o) {
+            var heure = (o.heure || '').toString().substr(0, 5);
+            var label = (o.nom_gaep || o.gareidentif || '') + ' · ' + (o.nom_ligne || '') + ' ' + heure
+                + ' · ' + (o.nb_restants || 0) + ' place(s)';
+            html += '<label class="list-group-item list-group-item-action mb-0" style="cursor:pointer;">'
+                + '<input type="radio" name="reco_offre" class="js-reco-pick mr-2" value="'
+                + String(o.code_progr_source).replace(/"/g, '&quot;') + '"> '
+                + label + '</label>';
+        });
+        html += '</div>';
+        box.innerHTML = html;
+        box.querySelectorAll('.js-reco-pick').forEach(function (inp) {
+            inp.addEventListener('change', function () {
+                var code = inp.value;
+                var offre = null;
+                for (var i = 0; i < list.length; i++) {
+                    if (String(list[i].code_progr_source) === code) { offre = list[i]; break; }
+                }
+                if (offre) selectOffre(offre);
+            });
+        });
+    }
+
+    function selectOffre(offre) {
+        state.offre = offre;
+        document.getElementById('reco-detail').style.display = 'block';
+        document.getElementById('reco-detail-label').textContent =
+            (offre.nom_gaep || '') + ' → ' + (offre.nom_gadest || '') + ' · sièges restants';
+        document.getElementById('reco-date').value = offre.date_progr || '';
+        var sieges = offre.sieges_restants || [];
+        var wrap = document.getElementById('reco-sieges');
+        var html = '';
+        sieges.forEach(function (n) {
+            html += '<div class="col-3 col-md-2 mb-1"><label style="font-weight:400;cursor:pointer;">'
+                + '<input type="checkbox" class="js-reco-siege" value="' + n + '" checked> ' + n
+                + '</label></div>';
+        });
+        wrap.innerHTML = html;
+        var sel = document.getElementById('reco-heure');
+        sel.innerHTML = '<option value="">Chargement…</option>';
+        fetch(base + '/heures_reconduction/' + encodeURIComponent(ekey) + '/'
+            + encodeURIComponent(gareExp) + '/' + encodeURIComponent(offre.gadest_lg || ''), {
+            credentials: 'same-origin',
+            headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' }
+        }).then(parseJsonResponse).then(function (data) {
+            var heures = (data && data.heures) ? data.heures : [];
+            state.heures = heures;
+            if (!heures.length) {
+                sel.innerHTML = '<option value="">Aucun horaire vers cette destination</option>';
+                document.querySelector('.js-reco-save').disabled = true;
+                return;
+            }
+            sel.innerHTML = heures.map(function (h) {
+                var hh = (h.heure || '').toString().substr(0, 5);
+                var cie = h.nom_compagnie_arrivee ? (' · ' + h.nom_compagnie_arrivee) : '';
+                return '<option value="' + h.id_ligneheure + '">' + (h.nom_ligne || '') + ' / ' + hh + cie + '</option>';
+            }).join('');
+            document.querySelector('.js-reco-save').disabled = false;
+        }).catch(function () {
+            sel.innerHTML = '<option value="">Erreur chargement horaires</option>';
+        });
+    }
+
+    function loadOffres() {
+        document.getElementById('reco-offres-list').innerHTML = '<p class="text-muted">Chargement…</p>';
+        fetch(base + '/offres_reconduction/' + encodeURIComponent(ekey) + '/' + encodeURIComponent(gareExp), {
+            credentials: 'same-origin',
+            headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' }
+        }).then(parseJsonResponse).then(function (data) {
+            renderOffres(data && data.offres ? data.offres : []);
+        }).catch(function (err) {
+            document.getElementById('reco-offres-list').innerHTML =
+                '<p class="text-danger">' + ((err && err.message) ? err.message : 'Erreur') + '</p>';
+        });
+    }
+
+    function openReco() {
+        showModal();
+        loadOffres();
+    }
+
+    document.addEventListener('click', function (e) {
+        var t = e.target;
+        var openBtn = null, closeBtn = null;
+        while (t && t !== document) {
+            if (t.classList) {
+                if (t.classList.contains('js-reco-open')) openBtn = t;
+                if (t.classList.contains('js-reco-close')) closeBtn = t;
+            }
+            t = t.parentNode;
+        }
+        if (openBtn) {
+            e.preventDefault();
+            openReco();
+            return;
+        }
+        if (closeBtn) {
+            e.preventDefault();
+            hideModal();
+        }
+    });
+
+    var chkAll = document.getElementById('reco-check-all');
+    var unchk = document.getElementById('reco-uncheck-all');
+    if (chkAll) {
+        chkAll.addEventListener('click', function () {
+            document.querySelectorAll('.js-reco-siege').forEach(function (c) { c.checked = true; });
+        });
+    }
+    if (unchk) {
+        unchk.addEventListener('click', function () {
+            document.querySelectorAll('.js-reco-siege').forEach(function (c) { c.checked = false; });
+        });
+    }
+
+    var saveEl = document.querySelector('.js-reco-save');
+    if (saveEl) {
+        saveEl.addEventListener('click', function () {
+            if (!state.offre) return;
+            var sieges = [];
+            document.querySelectorAll('.js-reco-siege:checked').forEach(function (c) {
+                sieges.push(c.value);
+            });
+            if (!sieges.length) {
+                setMsg('Choisissez au moins un siège.', true);
+                return;
+            }
+            var idH = document.getElementById('reco-heure').value;
+            if (!idH) {
+                setMsg('Choisissez un horaire local.', true);
+                return;
+            }
+            saveEl.disabled = true;
+            setMsg('Création du départ…', false);
+            var body = new URLSearchParams();
+            body.set('code_progr_source', state.offre.code_progr_source);
+            body.set('gare_cible', gareExp);
+            body.set('id_ligneheure', idH);
+            body.set('date_progr', document.getElementById('reco-date').value || '');
+            body.set('sieges_csv', sieges.join(','));
+            sieges.forEach(function (n) { body.append('sieges[]', n); });
+            appendCsrf(body);
+            fetch(base + '/creer_reconduction/' + encodeURIComponent(ekey), {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Accept': 'application/json'
+                },
+                body: body.toString()
+            }).then(parseJsonResponse).then(function (data) {
+                if (!data || !data.ok) {
+                    setMsg(recoError(data && data.error), true);
+                    saveEl.disabled = false;
+                    return;
+                }
+                setMsg('Départ créé : ' + (data.code_progr || ''), false);
+                setTimeout(function () { window.location.reload(); }, 700);
+            }).catch(function (err) {
+                setMsg((err && err.message) ? err.message : 'Erreur réseau', true);
+                saveEl.disabled = false;
+            });
+        });
+    }
+})();
+</script>
+
+<div class="modal-container colored-header colored-header-warning custom-width modal-effect-7"
+     id="modal-sortie" style="perspective: none;">
+    <div class="modal-content">
+        <div class="modal-header modal-header-colored">
+            <h3 class="modal-title">Déclarer la sortie</h3>
+            <button class="close modal-close js-sortie-close" type="button" aria-hidden="true">
+                <span class="mdi mdi-close text-white"></span>
+            </button>
+        </div>
+        <div class="modal-body">
+            <p class="mb-1"><strong id="sortie-label"></strong></p>
+            <p class="text-muted small mb-2">
+                Cochez les sièges encore libres à publier aux gares aval. Les sièges décochés restent à cette gare.
+                Les sièges déjà vendus ne sont pas proposés.
+            </p>
+            <div>
+                <button type="button" class="btn btn-sm btn-outline-secondary" id="sortie-check-all">Tout cocher</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary" id="sortie-uncheck-all">Tout décocher</button>
+                <span class="small text-muted ml-2" id="sortie-count"></span>
+            </div>
+            <div id="sortie-sieges" class="row mt-2"></div>
+            <div id="sortie-msg" class="mt-2"></div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary js-sortie-close" type="button">Annuler</button>
+            <button class="btn btn-warning js-sortie-save" type="button" disabled>Publier et déclarer la sortie</button>
+        </div>
+    </div>
+</div>
+
+<script>
+(function () {
+    var ekey = <?= json_encode($this->session->company->ekey); ?>;
+    var base = <?= json_encode(rtrim(site_url('Programmes'), '/')); ?>;
+    var modalEl = document.getElementById('modal-sortie');
+    if (!modalEl) return;
+
+    var state = { code: null };
+
+    function $m() {
+        return (window.jQuery && typeof jQuery.fn.niftyModal === 'function')
+            ? jQuery('#modal-sortie') : null;
+    }
+    function showModal() {
+        var jq = $m();
+        if (jq) { jq.niftyModal('show'); return; }
+        modalEl.classList.add('modal-show');
+        document.body.classList.add('modal-open');
+    }
+    function hideModal() {
+        var jq = $m();
+        if (jq) { jq.niftyModal('hide'); }
+        else {
+            modalEl.classList.remove('modal-show');
+            document.body.classList.remove('modal-open');
+        }
+        state = { code: null };
+        var msg = document.getElementById('sortie-msg');
+        if (msg) msg.innerHTML = '';
+        var save = document.querySelector('.js-sortie-save');
+        if (save) save.disabled = true;
+    }
+    function setMsg(text, isErr) {
+        var el = document.getElementById('sortie-msg');
+        if (!el) return;
+        el.innerHTML = text
+            ? ('<div class="alert alert-' + (isErr ? 'danger' : 'success') + ' py-1 mb-0">' + text + '</div>')
+            : '';
+    }
+    function parseJsonResponse(r) {
+        return r.text().then(function (t) {
+            try { return JSON.parse(t); }
+            catch (e) { throw new Error('Réponse non JSON (HTTP ' + r.status + ')'); }
+        });
+    }
+    function appendCsrf(body) {
+        var metaToken = document.querySelector('meta[name="csrf-token"]');
+        var metaParam = document.querySelector('meta[name="csrf-param"]');
+        var name = (metaParam && metaParam.getAttribute('content')) || 'csrf_raketa';
+        var hash = metaToken ? metaToken.getAttribute('content') : '';
+        if (hash) body.set(name, hash);
+        return body;
+    }
+    function sortieError(code) {
+        var map = {
+            droit_insuffisant: 'Droits insuffisants.',
+            programme_introuvable: 'Programme introuvable.',
+            deja_sorti: 'La sortie de ce départ est déjà déclarée.',
+            aucun_siege: 'Cochez au moins un siège libre.',
+            siege_indisponible: 'Un siège choisi n’est plus libre.',
+            echec_sortie: 'Impossible de déclarer la sortie.'
+        };
+        return map[code] || code || 'Erreur';
+    }
+    function updateCount() {
+        var n = document.querySelectorAll('#sortie-sieges .js-sortie-siege:checked').length;
+        var el = document.getElementById('sortie-count');
+        if (el) el.textContent = n + ' siège(s) à publier';
+        var save = document.querySelector('.js-sortie-save');
+        if (save) save.disabled = n < 1;
+    }
+    function renderSieges(data) {
+        var wrap = document.getElementById('sortie-sieges');
+        var label = document.getElementById('sortie-label');
+        var heure = (data.heure || '').toString().substr(0, 5);
+        label.textContent = (data.nom_ligne || '') + ' · ' + (data.date_progr || '') + ' ' + heure
+            + (data.nom_gadest ? ' → ' + data.nom_gadest : '');
+        var d = parseInt(data.intervalle1, 10) || 0;
+        var f = parseInt(data.intervalle2, 10) || 0;
+        var occupes = {};
+        (data.sieges_occupes || []).forEach(function (n) { occupes[String(n)] = true; });
+        var libres = {};
+        (data.sieges_restants || []).forEach(function (n) { libres[String(n)] = true; });
+        if (f < d) {
+            wrap.innerHTML = '<div class="col-12"><p class="text-muted mb-0">Aucun plan de sièges.</p></div>';
+            updateCount();
+            return;
+        }
+        var html = '';
+        for (var n = d; n <= f; n++) {
+            var isOcc = !!occupes[String(n)];
+            var isLibre = !!libres[String(n)];
+            if (isOcc) {
+                html += '<div class="col-3 col-md-2 mb-1"><label class="text-muted" style="font-weight:400;">'
+                    + '<input type="checkbox" disabled> ' + n + ' <small>vendu</small></label></div>';
+            } else if (isLibre) {
+                html += '<div class="col-3 col-md-2 mb-1"><label style="font-weight:400;cursor:pointer;">'
+                    + '<input type="checkbox" class="js-sortie-siege" value="' + n + '" checked> ' + n
+                    + '</label></div>';
+            }
+        }
+        if (!html) {
+            html = '<div class="col-12"><p class="text-muted mb-0">Aucun siège restant à publier.</p></div>';
+        }
+        wrap.innerHTML = html;
+        wrap.querySelectorAll('.js-sortie-siege').forEach(function (c) {
+            c.addEventListener('change', updateCount);
+        });
+        updateCount();
+        if (!(data.sieges_restants || []).length) {
+            setMsg('Aucun siège libre : la sortie n’a rien à publier aux gares aval.', true);
+        }
+    }
+    function openSortie(code) {
+        state.code = code;
+        document.getElementById('sortie-sieges').innerHTML = '<div class="col-12"><p class="text-muted">Chargement…</p></div>';
+        document.getElementById('sortie-label').textContent = '';
+        setMsg('', false);
+        showModal();
+        fetch(base + '/apercu_sortie/' + encodeURIComponent(ekey) + '/' + encodeURIComponent(code), {
+            credentials: 'same-origin',
+            headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' }
+        }).then(parseJsonResponse).then(function (data) {
+            if (!data || !data.ok) {
+                setMsg(sortieError(data && data.error), true);
+                document.querySelector('.js-sortie-save').disabled = true;
+                return;
+            }
+            renderSieges(data);
+        }).catch(function (err) {
+            setMsg((err && err.message) ? err.message : 'Erreur réseau', true);
+        });
+    }
+
+    document.addEventListener('click', function (e) {
+        var t = e.target;
+        var openBtn = null, closeBtn = null;
+        while (t && t !== document) {
+            if (t.classList) {
+                if (t.classList.contains('js-sortie-decl')) openBtn = t;
+                if (t.classList.contains('js-sortie-close')) closeBtn = t;
+            }
+            t = t.parentNode;
+        }
+        if (openBtn) {
+            e.preventDefault();
+            var code = openBtn.getAttribute('data-code');
+            if (code) openSortie(code);
+            return;
+        }
+        if (closeBtn) {
+            e.preventDefault();
+            hideModal();
+        }
+    });
+
+    var chkAll = document.getElementById('sortie-check-all');
+    var unchk = document.getElementById('sortie-uncheck-all');
+    if (chkAll) {
+        chkAll.addEventListener('click', function () {
+            document.querySelectorAll('#sortie-sieges .js-sortie-siege').forEach(function (c) { c.checked = true; });
+            updateCount();
+        });
+    }
+    if (unchk) {
+        unchk.addEventListener('click', function () {
+            document.querySelectorAll('#sortie-sieges .js-sortie-siege').forEach(function (c) { c.checked = false; });
+            updateCount();
+        });
+    }
+
+    var saveEl = document.querySelector('.js-sortie-save');
+    if (saveEl) {
+        saveEl.addEventListener('click', function () {
+            if (!state.code) return;
+            var sieges = [];
+            document.querySelectorAll('#sortie-sieges .js-sortie-siege:checked').forEach(function (c) {
+                sieges.push(c.value);
+            });
+            if (!sieges.length) {
+                setMsg('Cochez au moins un siège libre.', true);
+                return;
+            }
+            saveEl.disabled = true;
+            setMsg('Déclaration en cours…', false);
+            var body = new URLSearchParams();
+            body.set('code_progr', state.code);
+            body.set('sieges_csv', sieges.join(','));
+            sieges.forEach(function (n) { body.append('sieges[]', n); });
+            appendCsrf(body);
+            fetch(base + '/declare_sortie/' + encodeURIComponent(ekey), {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Accept': 'application/json'
+                },
+                body: body.toString()
+            }).then(parseJsonResponse).then(function (data) {
+                if (!data || !data.ok) {
+                    setMsg(sortieError(data && data.error), true);
+                    saveEl.disabled = false;
+                    return;
+                }
+                var n = data.nb_restants != null ? data.nb_restants : sieges.length;
+                setMsg('Sortie déclarée. ' + n + ' place(s) publiée(s) aux gares aval.', false);
+                setTimeout(function () { window.location.reload(); }, 700);
+            }).catch(function (err) {
+                setMsg((err && err.message) ? err.message : 'Erreur réseau', true);
+                saveEl.disabled = false;
             });
         });
     }

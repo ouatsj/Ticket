@@ -10,8 +10,8 @@ if (!function_exists('documentation_formation_roles')) {
         return array(
             'general' => array(
                 'code' => 'general',
-                'titre' => 'Vue d\'ensemble',
-                'sous_titre' => 'Comprendre simplement les postes et les responsabilités',
+                'titre' => 'Documentation générale',
+                'sous_titre' => 'Procédures d\'utilisation par cas d\'usage — destinée aux décideurs',
             ),
             '1' => array(
                 'code' => '1',
@@ -173,12 +173,13 @@ if (!function_exists('documentation_formation_fiche_poste_simple')) {
                 'missions' => array(
                     'Créer et organiser les entreprises, gares, compagnies, comptes et postes.',
                     'Accorder uniquement les accès nécessaires à chaque agent.',
+                    'Paramétrer lignes, tarifs, escales et compositions d\'itinéraire pour le catalogue commercial.',
                     'Contrôler les anomalies, assister les utilisateurs et protéger les données.',
                 ),
                 'autorise' => array(
                     array('Créer ou désactiver un compte', 'Oui, avec vérification et motif'),
                     array('Affecter un poste et une gare', 'Oui, selon la décision de la direction'),
-                    array('Régler les programmes, tarifs et référentiels', 'Oui, après contrôle'),
+                    array('Régler les programmes, tarifs, escales et référentiels', 'Oui, après contrôle'),
                     array('Consulter les rapports et audits', 'Oui, pour les besoins de contrôle'),
                     array('Corriger une donnée sensible', 'Seulement avec preuve, sauvegarde et trace écrite'),
                 ),
@@ -191,11 +192,13 @@ if (!function_exists('documentation_formation_fiche_poste_simple')) {
                     'Accorder un accès sans besoin professionnel.',
                     'Modifier ou supprimer une donnée financière sans preuve et sans trace.',
                     'Utiliser les droits d\'un administrateur pour effectuer le travail quotidien d\'un autre agent.',
+                    'Proposer une destination technique (ex. OUAGAESCAL) comme destination commerciale de vente.',
                 ),
                 'controles' => array(
                     'Revue des comptes, gares et postes actifs.',
                     'Suivi des changements importants et des corrections de données.',
                     'Contrôle des alertes de sécurité et des rapports quotidiens.',
+                    'Vérifier que les escales et compositions d\'itinéraire restent cohérentes avec le plan de transport.',
                 ),
             ),
             '2' => array(
@@ -315,12 +318,15 @@ if (!function_exists('documentation_formation_fiche_poste_simple')) {
                 'finalite' => 'Vendre les tickets correctement et remettre un compte exact à la fin de la vacation.',
                 'responsable' => 'Chef de guichet / chef de gare',
                 'missions' => array(
-                    'Choisir le bon voyage, la bonne destination et le bon tarif.',
+                    'Choisir le bon voyage, la bonne destination et le bon tarif (y compris correspondance et escale).',
                     'Enregistrer les informations du voyageur et remettre le ticket.',
+                    'Utiliser « Confirmer autre ticket » lorsque le cas l\'exige.',
                     'Faire son arrêt de vente.',
                 ),
                 'autorise' => array(
                     array('Vendre et imprimer un ticket', 'Oui'),
+                    array('Vendre une correspondance / transit', 'Oui, selon les axes composés'),
+                    array('Vendre à escale', 'Oui, si l\'escale est configurée sur le parent'),
                     array('Voir ses propres ventes', 'Oui'),
                     array('Faire son arrêt de vente', 'Oui'),
                     array('Saisir ou accepter une recette de caisse', 'Non'),
@@ -334,10 +340,12 @@ if (!function_exists('documentation_formation_fiche_poste_simple')) {
                     'Utiliser le compte d\'un collègue.',
                     'Modifier librement une vente déjà arrêtée.',
                     'Continuer à vendre lorsqu\'un arrêt est obligatoire.',
+                    'Forcer un hub ou une destination hors catalogue commercial.',
                 ),
                 'controles' => array(
                     'Comparer les tickets émis avec l\'arrêt de vente.',
                     'Justifier les annulations et réimpressions.',
+                    'Vérifier les chemins de correspondance et les escales choisies.',
                 ),
             ),
             '7' => array(
@@ -372,11 +380,13 @@ if (!function_exists('documentation_formation_fiche_poste_simple')) {
                 'responsable' => 'Direction de l\'exploitation',
                 'missions' => array(
                     'Préparer et suivre les programmes, horaires et départs.',
+                    'Faire lier les correspondances de programmes (même jour ou lendemain) lorsque le plan de transport l\'exige.',
                     'Coordonner le personnel et les moyens de la gare.',
                     'Suivre les ventes et états utiles à l\'exploitation.',
                 ),
                 'autorise' => array(
                     array('Créer ou modifier un programme et ses horaires', 'Oui'),
+                    array('Lier une correspondance de programmes', 'Oui, dans le périmètre de la gare'),
                     array('Voir les listes, départs, tarifs et états locaux', 'Oui'),
                     array('Organiser les bus et le personnel de gare', 'Oui'),
                     array('Accepter une caisse à la place du caissier', 'Non'),
@@ -391,6 +401,7 @@ if (!function_exists('documentation_formation_fiche_poste_simple')) {
                 ),
                 'controles' => array(
                     'Vérifier horaires, bus, destinations et personnel avant publication.',
+                    'Contrôler les liaisons principal → suite (date / sous-gares).',
                     'Informer les équipes de tout changement.',
                 ),
             ),
@@ -557,15 +568,17 @@ if (!function_exists('documentation_formation_fiche_poste_simple')) {
                 ),
             ),
             '15' => array(
-                'finalite' => 'Aider à préparer et mettre à jour les programmes de voyage.',
+                'finalite' => 'Aider à préparer et mettre à jour les programmes de voyage et leurs correspondances.',
                 'responsable' => 'Chef de gare / responsable de programmation',
                 'missions' => array(
                     'Préparer les programmes, horaires et informations de voyage.',
+                    'Lier les programmes en correspondance (même jour ou J+1) selon consignes.',
                     'Contrôler les changements avant publication.',
                     'Aider le responsable dans les tâches de programmation confiées.',
                 ),
                 'autorise' => array(
                     array('Créer ou modifier un programme', 'Oui, dans le périmètre confié'),
+                    array('Lier une correspondance de programmes', 'Oui, après choix de la suite et de la portée'),
                     array('Voir les listes, horaires et tarifs', 'Oui'),
                     array('Utiliser les nombreux écrans commerciaux visibles', 'Seulement avec autorisation écrite'),
                     array('Accepter une caisse', 'Non'),
@@ -577,9 +590,11 @@ if (!function_exists('documentation_formation_fiche_poste_simple')) {
                 'interdits' => array(
                     'Utiliser tous les boutons visibles comme s\'ils étaient automatiquement autorisés.',
                     'Changer un programme sans accord du responsable.',
+                    'Publier une composition d\'itinéraire incohérente avec le plan de transport.',
                 ),
                 'controles' => array(
                     'Faire valider les changements importants.',
+                    'Vérifier date de suite (J / J+1) et sous-gares de portée.',
                     'Revoir les accès commerciaux trop larges de ce poste.',
                 ),
             ),
@@ -615,12 +630,13 @@ if (!function_exists('documentation_formation_fiche_poste_simple')) {
                 'finalite' => 'Servir les voyageurs et traiter les opérations prévues dans une escale.',
                 'responsable' => 'Chef de gare / chef de guichet',
                 'missions' => array(
-                    'Vendre dans l\'escale affectée.',
+                    'Vendre via « Vente escale » sur l\'itinéraire parent dans l\'escale affectée.',
                     'Traiter les bagages ou courriers d\'escale prévus.',
                     'Réimprimer un ticket uniquement lorsqu\'il est autorisé.',
                 ),
                 'autorise' => array(
                     array('Vendre dans son escale', 'Oui'),
+                    array('Utiliser la case Vente escale', 'Oui, sur les parents configurés'),
                     array('Voir ses propres opérations', 'Oui'),
                     array('Réimprimer un ticket', 'Oui, seulement si l\'autorisation existe'),
                     array('Accepter une caisse', 'Non'),
@@ -633,9 +649,11 @@ if (!function_exists('documentation_formation_fiche_poste_simple')) {
                     'Réimprimer sans demande ou sans autorisation.',
                     'Forcer une vente sur une mauvaise escale ou un mauvais voyage.',
                     'Utiliser le compte d\'un autre vendeur.',
+                    'Vendre une destination technique hors catalogue comme escale.',
                 ),
                 'controles' => array(
-                    'Vérifier l\'escale, le voyage et le client.',
+                    'Vérifier l\'escale, le voyage parent et le client.',
+                    'Contrôler le prix d\'escale avant encaissement.',
                     'Justifier chaque réimpression.',
                 ),
             ),
@@ -920,15 +938,19 @@ if (!function_exists('documentation_formation_fiche_poste')) {
             ),
             '6' => array(
                 'intitule' => 'Fiche de poste — Vendeur',
-                'finalite' => 'Vendre les titres de transport correctement et assurer la traçabilité de sa vacation jusqu\'à l\'arrêt vendeur.',
+                'finalite' => 'Vendre les titres de transport correctement (simple, correspondance, escale) et assurer la traçabilité de sa vacation jusqu\'à l\'arrêt vendeur.',
                 'responsable' => 'Chef de guichet / chef de gare',
                 'missions' => array(
                     'Vendre, imprimer et remettre les tickets aux clients.',
-                    'Contrôler programme, destination, tarif et informations passager.',
+                    'Contrôler programme, destination, tarif, chemin de correspondance et éventuelle escale.',
+                    'Utiliser « Confirmer autre ticket » lorsque le client présente un titre à confirmer.',
                     'Effectuer son arrêt vendeur et remettre les éléments au chef.',
                 ),
                 'permissions' => array(
                     array('Vente ticket', 'Autorisé', 'Sur ses programmes, sa gare et sa vacation'),
+                    array('Vente correspondance / transit', 'Autorisé', 'Selon compositions d\'itinéraire et programmes actifs'),
+                    array('Vente escale', 'Autorisé', 'Si escale configurée sur l\'itinéraire parent'),
+                    array('Confirmer autre ticket', 'Autorisé', 'Selon boutons ouverts au rôle'),
                     array('Consultation de ses ventes', 'Autorisé', 'Périmètre personnel'),
                     array('Impression ticket', 'Autorisé', 'Selon l\'état de la vente'),
                     array('Arrêt vendeur', 'Autorisé / obligatoire', 'Selon les règles de la gare'),
@@ -945,24 +967,26 @@ if (!function_exists('documentation_formation_fiche_poste')) {
                     'Inscrire son roleattribut vendeur dans idopera d\'une recette de caisse.',
                     'Modifier librement une vente arrêtée.',
                     'Contourner un blocage d\'arrêt de compte.',
+                    'Forcer un hub hors composition ou une destination technique hors catalogue.',
                 ),
                 'controles' => array(
                     'Concordance entre tickets émis et arrêt vendeur.',
                     'Annulations et réimpressions justifiées.',
+                    'Chemins de correspondance et escales cohérents avec la demande client.',
                     'Arrêt réalisé à la fin de la vacation.',
                 ),
             ),
             '17' => array(
                 'intitule' => 'Fiche de poste — Vendeur escale',
-                'finalite' => 'Traiter les ventes et services clients d\'escale dans le périmètre de la sous-gare attribuée.',
+                'finalite' => 'Traiter les ventes et services clients d\'escale dans le périmètre de la sous-gare attribuée, via la procédure « Vente escale ».',
                 'responsable' => 'Chef de gare / chef de guichet',
                 'missions' => array(
-                    'Traiter les ventes liées à l\'escale et contrôler le programme concerné.',
+                    'Traiter les ventes liées à l\'escale (case Vente escale sur itinéraire parent) et contrôler le programme concerné.',
                     'Effectuer les réimpressions autorisées et conserver leur traçabilité.',
                     'Remonter les incohérences au responsable de gare.',
                 ),
                 'permissions' => array(
-                    array('Vente escale', 'Autorisé', 'Sur la sous-gare et les programmes attribués'),
+                    array('Vente escale', 'Autorisé', 'Sur la sous-gare et les parents / escales attribués'),
                     array('Consultation de ses opérations', 'Autorisé', 'Périmètre de son roleattribut'),
                     array('Réimpression', 'Conditionnelle', 'Uniquement si le ticket est éligible et le droit disponible'),
                     array('Validation caisse', 'Non autorisé', 'Réservée aux caissiers'),
@@ -978,10 +1002,11 @@ if (!function_exists('documentation_formation_fiche_poste')) {
                     'Utiliser le compte d\'un autre vendeur.',
                     'Forcer une vente sur un programme ou une escale incohérents.',
                     'Valider une recette ou une dépense de caisse.',
+                    'Utiliser une destination technique (ex. OUAGAESCAL) comme escale commerciale.',
                 ),
                 'controles' => array(
                     'Journal des réimpressions et droits consommés.',
-                    'Concordance escale, programme et vendeur.',
+                    'Concordance escale, programme parent, prix d\'escale et vendeur.',
                     'Suivi des anomalies remontées au responsable.',
                 ),
             ),
@@ -1057,6 +1082,50 @@ if (!function_exists('documentation_formation_manuel')) {
                             'Faire l\'arrêt de compte avant de quitter le poste',
                             'En cas d\'erreur de montant : faire rejeter puis ressaisir, ne pas « inventer » une ligne',
                             'Contacter le superviseur / admin si message solde incohérent',
+                        ),
+                    ),
+                    array(
+                        'h' => '6. Vente avec correspondance (transit)',
+                        'paras' => array(
+                            'Certains axes commerciaux sont composés de plusieurs jambes (ex. Banfora → Bobo → Bamako).',
+                            'Le système propose des chemins possibles : les compositions déclarées en administration sont prioritaires.',
+                        ),
+                        'bullets' => array(
+                            'Choisir le chemin retenu parmi les propositions (Corr. 2/3/4 ne sont pas présélectionnées : l\'opérateur choisit)',
+                            'Renseigner chaque jambe (horaire, siège) dans l\'ordre du voyage',
+                            'Ne pas forcer un hub hors composition (ex. passer par Ouaga si la composition prévoit Bobo)',
+                        ),
+                    ),
+                    array(
+                        'h' => '7. Vente à escale',
+                        'paras' => array(
+                            'Une escale est une destination intermédiaire paramétrée sur un itinéraire parent, avec son propre prix.',
+                            'Il n\'est pas nécessaire de créer un programme dédié à l\'escale.',
+                        ),
+                        'bullets' => array(
+                            'Sélectionner d\'abord l\'arrivée finale (parent), puis cocher « Vente escale »',
+                            'Choisir l\'escale dans la liste ; le prix d\'escale remplace le tarif terminus',
+                            'Sur un transit à plusieurs jambes, l\'escale s\'applique sur la jambe concernée (quartiers correctement mappés)',
+                        ),
+                    ),
+                    array(
+                        'h' => '8. Destinations techniques exclues du catalogue',
+                        'paras' => array(
+                            'Certaines gares d\'arrivée techniques (ex. OUAGAESCAL) ne doivent pas être proposées à la vente ni comme hub de correspondance.',
+                            'Les vraies escales commerciales passent par le module « Vente escale » / itineraire_escales.',
+                        ),
+                    ),
+                    array(
+                        'h' => '9. Correspondances de programmes (ops)',
+                        'paras' => array(
+                            'En administration programmes, on peut lier un programme principal à une suite le même jour ou le lendemain (J+1).',
+                            'La portée (compagnie / sous-gares) se choisit après la suite, avec libellés dynamiques.',
+                        ),
+                    ),
+                    array(
+                        'h' => '10. Regroupement par compagnie d\'arrivée',
+                        'paras' => array(
+                            'Les listes de gares d\'arrivée, lignes et programmes sont souvent présentées par compagnie d\'arrivée pour faciliter le choix opérateur.',
                         ),
                     ),
                 ),
@@ -1236,26 +1305,54 @@ if (!function_exists('documentation_formation_manuel')) {
                         ),
                     ),
                     array(
-                        'h' => '2. Vente',
+                        'h' => '2. Vente simple',
                         'bullets' => array(
-                            'Sélectionner programme / destination / tarif corrects',
-                            'Vérifier identité et contacts passager',
-                            'Imprimer / remettre le ticket',
+                            'Sélectionner date, axe (ligne) et programme / horaire corrects',
+                            'Vérifier identité et contacts passager, siège et quartier si demandé',
+                            'Contrôler le prix, encaisser, imprimer / remettre le ticket',
                             'Ne pas vendre si le compte est bloqué (arrêt non fait / restrictions)',
                         ),
                     ),
                     array(
-                        'h' => '3. Arrêt vendeur',
+                        'h' => '3. Correspondance / transit',
+                        'paras' => array(
+                            'Pour un axe multi-segments, le système propose des chemins. Les compositions déclarées (ex. Banfora→Bobo→Bamako) sont prioritaires.',
+                        ),
+                        'bullets' => array(
+                            'Lire les propositions de chemin et choisir explicitement celui demandé par le client',
+                            'Compléter chaque jambe (horaire, siège) ; ne pas laisser de jambe vide',
+                            'Si « Pas de départ… » s\'affiche, attendre l\'application du 1er chemin proposé ou en choisir un autre',
+                        ),
+                    ),
+                    array(
+                        'h' => '4. Vente à escale',
+                        'bullets' => array(
+                            'Choisir l\'arrivée finale (itinéraire parent), puis cocher « Vente escale »',
+                            'Sélectionner l\'escale ; le prix d\'escale s\'applique automatiquement',
+                            'Ne pas confondre escale commerciale et destination technique hors catalogue',
+                        ),
+                    ),
+                    array(
+                        'h' => '5. Confirmer autre ticket',
+                        'bullets' => array(
+                            'Utiliser le bouton dédié lorsque le client présente un autre ticket à confirmer',
+                            'Choisir axe, quartier, horaire ; pour un transit, suivre les jambes comme en vente',
+                            'La case escale fonctionne aussi en confirmation (attention au bon quartier sur chaque jambe)',
+                        ),
+                    ),
+                    array(
+                        'h' => '6. Arrêt vendeur',
                         'paras' => array(
                             'L\'arrêt clôture les ventes de la période. La suite (recette consolidée) est traitée côté chef / caissier selon le circuit gare.',
                         ),
                     ),
                     array(
-                        'h' => '4. Interdits',
+                        'h' => '7. Interdits',
                         'bullets' => array(
                             'Ne pas modifier une vente déjà arrêtée sans procédure',
                             'Ne pas utiliser le compte d\'un collègue',
                             'Ne pas ignorer une alerte d\'arrêt obligatoire',
+                            'Ne pas forcer un itinéraire hors composition déclarée sans consigne',
                         ),
                     ),
                 ),
@@ -1266,11 +1363,23 @@ if (!function_exists('documentation_formation_manuel')) {
                     array(
                         'h' => '1. Mission',
                         'paras' => array(
-                            'Gérer les ventes et opérations liées aux escales (passagers escale, réimpression selon droits).',
+                            'Servir les voyageurs sur le périmètre d\'escale / sous-gare attribué : ventes, services prévus, réimpressions autorisées.',
                         ),
                     ),
                     array(
-                        'h' => '2. Réimpression',
+                        'h' => '2. Vente à escale',
+                        'paras' => array(
+                            'L\'escale est vendue à partir d\'un itinéraire parent (arrivée finale) via la case « Vente escale ».',
+                        ),
+                        'bullets' => array(
+                            'Vérifier sous-gare / escale active avant de servir le client',
+                            'Sélectionner le parent, cocher vente escale, choisir la destination d\'escale',
+                            'Contrôler le prix d\'escale affiché avant encaissement',
+                            'Sur un transit, appliquer l\'escale sur la bonne jambe (quartier correspondant)',
+                        ),
+                    ),
+                    array(
+                        'h' => '3. Réimpression',
                         'bullets' => array(
                             'La liste de réimpression est filtrée sur vos opérations (iduseescal)',
                             'Après impression, le droit de réimpression peut être consommé (reimpr)',
@@ -1278,10 +1387,56 @@ if (!function_exists('documentation_formation_manuel')) {
                         ),
                     ),
                     array(
-                        'h' => '3. Bonnes pratiques',
+                        'h' => '4. Bonnes pratiques',
                         'bullets' => array(
-                            'Contrôler escale / sous-gare avant validation client',
-                            'Escalader au chef de gare si incohérence programme',
+                            'Contrôler escale / sous-gare / programme avant validation client',
+                            'Escalader au chef de gare si incohérence programme ou escale absente de la liste',
+                            'Ne pas utiliser une destination technique type OUAGAESCAL comme « escale »',
+                        ),
+                    ),
+                ),
+            ),
+            '15' => array(
+                'titre' => 'Manuel — Aide-programmeur (rôle 15)',
+                'sections' => array(
+                    array(
+                        'h' => '1. Mission',
+                        'paras' => array(
+                            'Préparer et mettre à jour les programmes, horaires et liaisons de correspondance dans le périmètre confié.',
+                        ),
+                    ),
+                    array(
+                        'h' => '2. Programmes',
+                        'bullets' => array(
+                            'Créer / activer les programmes pour les dates et sous-gares concernées',
+                            'Contrôler statut actif avant ouverture des ventes',
+                            'Informer le responsable avant toute annulation impactant des ventes',
+                        ),
+                    ),
+                    array(
+                        'h' => '3. Lier une correspondance de programmes',
+                        'paras' => array(
+                            'Depuis l\'écran programmes, lier un programme principal à une suite le même jour ou le lendemain (J+1).',
+                        ),
+                        'bullets' => array(
+                            'Choisir d\'abord la suite proposée (libellés avec date ; badge lendemain si J+1)',
+                            'Puis définir la portée : compagnie ou sous-gares (cases SG selon le mode choisi)',
+                            'Les sous-gares pré-cochées reflètent la portée réelle du programme',
+                        ),
+                    ),
+                    array(
+                        'h' => '4. Compositions d\'itinéraire',
+                        'paras' => array(
+                            'Les axes multi-segments (conteneurs) doivent avoir une composition déclarée cohérente (ordre géographique des jambes).',
+                            'Cette composition guide le guichet lors des ventes / confirmations en correspondance.',
+                        ),
+                    ),
+                    array(
+                        'h' => '5. Vigilance',
+                        'bullets' => array(
+                            'Ne pas publier un programme sans accord du responsable',
+                            'Ne pas traiter une destination technique hors catalogue comme une arrivée commerciale',
+                            'Faire valider les changements sensibles (tarifs / compositions) par l\'admin ou le chef de gare',
                         ),
                     ),
                 ),
@@ -1786,8 +1941,8 @@ if (!function_exists('documentation_formation_qcm')) {
             ),
             '6' => array(
                 'titre' => 'QCM fin de formation — Vendeur',
-                'duree' => '15 minutes',
-                'bareme' => '1 point par bonne réponse — Total /8 — Seuil indicatif : 6/8',
+                'duree' => '20 minutes',
+                'bareme' => '1 point par bonne réponse — Total /10 — Seuil indicatif : 7/10',
                 'questions' => array(
                     array(
                         'q' => 'Votre activité principale est :',
@@ -1877,12 +2032,34 @@ if (!function_exists('documentation_formation_qcm')) {
                         'answer' => 'B',
                         'tip' => 'Traçabilité.',
                     ),
+                    array(
+                        'q' => 'Pour une vente à escale, la bonne procédure est :',
+                        'choices' => array(
+                            'A' => 'Choisir l\'arrivée finale, cocher « Vente escale », puis choisir l\'escale',
+                            'B' => 'Créer un nouveau programme pour chaque escale',
+                            'C' => 'Vendre toujours au tarif terminus',
+                            'D' => 'Demander au caissier de saisir le ticket',
+                        ),
+                        'answer' => 'A',
+                        'tip' => 'Parent + case Vente escale + choix escale.',
+                    ),
+                    array(
+                        'q' => 'Sur une correspondance multi-jambes :',
+                        'choices' => array(
+                            'A' => 'On laisse les chemins sans choix et on valide',
+                            'B' => 'On choisit le chemin proposé (composition déclarée prioritaire) puis on complète chaque jambe',
+                            'C' => 'On force toujours le passage par Ouaga',
+                            'D' => 'On ne vend jamais de transit',
+                        ),
+                        'answer' => 'B',
+                        'tip' => 'Choix explicite du chemin + jambes complètes.',
+                    ),
                 ),
             ),
             '17' => array(
                 'titre' => 'QCM fin de formation — Vendeur escale',
-                'duree' => '15 minutes',
-                'bareme' => '1 point par bonne réponse — Total /8 — Seuil indicatif : 6/8',
+                'duree' => '20 minutes',
+                'bareme' => '1 point par bonne réponse — Total /10 — Seuil indicatif : 7/10',
                 'questions' => array(
                     array(
                         'q' => 'En réimpression, vous voyez en général :',
@@ -1971,6 +2148,28 @@ if (!function_exists('documentation_formation_qcm')) {
                         ),
                         'answer' => 'B',
                         'tip' => 'Supervision plus large.',
+                    ),
+                    array(
+                        'q' => 'Pour vendre une escale commerciale :',
+                        'choices' => array(
+                            'A' => 'Cocher « Vente escale » après l\'itinéraire parent et choisir l\'escale',
+                            'B' => 'Choisir OUAGAESCAL comme destination',
+                            'C' => 'Créer un programme du jour pour l\'escale',
+                            'D' => 'Demander au caissier de valider d\'abord',
+                        ),
+                        'answer' => 'A',
+                        'tip' => 'Procédure Vente escale sur parent.',
+                    ),
+                    array(
+                        'q' => 'Le prix d\'escale :',
+                        'choices' => array(
+                            'A' => 'Est toujours égal au terminus',
+                            'B' => 'Est appliqué automatiquement à la sélection de l\'escale',
+                            'C' => 'Est saisi par le caissier uniquement',
+                            'D' => 'N\'existe pas',
+                        ),
+                        'answer' => 'B',
+                        'tip' => 'Prix paramétré sur l\'escale, appliqué à la sélection.',
                     ),
                 ),
             ),
@@ -2093,8 +2292,8 @@ if (!function_exists('documentation_formation_qcm')) {
             ),
             'general' => array(
                 'titre' => 'QCM fin de formation — Vue d\'ensemble',
-                'duree' => '15 minutes',
-                'bareme' => '1 point par bonne réponse — Total /8 — Seuil indicatif : 6/8',
+                'duree' => '20 minutes',
+                'bareme' => '1 point par bonne réponse — Total /10 — Seuil indicatif : 7/10',
                 'questions' => array(
                     array(
                         'q' => 'Chaque agent travaille avec :',
@@ -2184,6 +2383,28 @@ if (!function_exists('documentation_formation_qcm')) {
                         'answer' => 'B',
                         'tip' => 'Escalade propre.',
                     ),
+                    array(
+                        'q' => 'Une vente à escale commerciale se fait :',
+                        'choices' => array(
+                            'A' => 'Via la case « Vente escale » sur un itinéraire parent',
+                            'B' => 'En choisissant OUAGAESCAL comme axe',
+                            'C' => 'Uniquement après validation caissier',
+                            'D' => 'Sans programme parent',
+                        ),
+                        'answer' => 'A',
+                        'tip' => 'Escale = parent + case Vente escale.',
+                    ),
+                    array(
+                        'q' => 'Une correspondance de programmes (ops) peut lier :',
+                        'choices' => array(
+                            'A' => 'Un principal à une suite le même jour ou le lendemain (J+1)',
+                            'B' => 'Uniquement des programmes d\'années différentes',
+                            'C' => 'Un ticket à une caisse',
+                            'D' => 'Un vendeur à un caissier',
+                        ),
+                        'answer' => 'A',
+                        'tip' => 'Lien principal → suite J ou J+1.',
+                    ),
                 ),
             ),
         );
@@ -2191,3 +2412,245 @@ if (!function_exists('documentation_formation_qcm')) {
         return isset($qcms[$role_code]) ? $qcms[$role_code] : null;
     }
 }
+
+if (!function_exists('documentation_generale_cas_utilisation')) {
+    /**
+     * Documentation générale pour décideurs : procédures par cas d'utilisation.
+     *
+     * @return array{
+     *   titre:string,
+     *   intro:array<int,string>,
+     *   principes:array<int,string>,
+     *   cas:array<int,array{
+     *     id:string,
+     *     titre:string,
+     *     objectif:string,
+     *     acteurs:array<int,string>,
+     *     etapes:array<int,string>,
+     *     resultat:string,
+     *     controles:array<int,string>
+     *   }>
+     * }
+     */
+    function documentation_generale_cas_utilisation()
+    {
+        return array(
+            'titre' => 'Documentation générale — procédures d\'utilisation',
+            'intro' => array(
+                'Ce document décrit comment utiliser Ticket Rakieta selon les principaux cas d\'usage métier.',
+                'Il s\'adresse aux décideurs et responsables : chaque cas précise l\'objectif, les acteurs, les étapes, le résultat attendu et les points de contrôle.',
+                'Les fiches détaillées par rôle (formation et QCM) restent disponibles dans l\'onglet « Formation par rôle ».',
+            ),
+            'principes' => array(
+                'Un agent travaille toujours avec son propre compte, dans une gare explicitement affectée.',
+                'La personne qui saisit n\'est pas forcément celle qui valide : la séparation des tâches protège les recettes.',
+                'Toute vente, confirmation ou mouvement de caisse doit laisser une trace identifiable (auteur, gare, date).',
+                'En cas d\'écart ou de doute, on alerte le responsable plutôt que de contourner une procédure.',
+            ),
+            'cas' => array(
+                array(
+                    'id' => 'connexion',
+                    'titre' => '1. Connexion et choix de gare',
+                    'objectif' => 'Permettre à un agent d\'accéder uniquement à l\'espace de travail qui lui a été confié.',
+                    'acteurs' => array('Tout agent', 'Administrateur / superviseur (affectation des gares)'),
+                    'etapes' => array(
+                        'L\'agent se connecte avec son identifiant personnel.',
+                        'Il sélectionne la gare active parmi celles qui lui sont affectées.',
+                        'Le système ouvre le menu et les boutons correspondant à son rôle.',
+                    ),
+                    'resultat' => 'L\'agent travaille dans la bonne gare, avec le bon profil, sans accès aux autres postes.',
+                    'controles' => array(
+                        'Vérifier que chaque agent a les bonnes gares et le bon rôle.',
+                        'Désactiver immédiatement un compte ou une affectation devenue inutile.',
+                        'Interdire le partage de mots de passe.',
+                    ),
+                ),
+                array(
+                    'id' => 'vente-guichet',
+                    'titre' => '2. Vente de ticket au guichet',
+                    'objectif' => 'Émettre un billet payant pour un voyageur, sur un programme et un axe valides.',
+                    'acteurs' => array('Vendeur', 'Chef de guichet / aide (organisation)', 'Caissier (contrôle des recettes)'),
+                    'etapes' => array(
+                        'Choisir la date, l\'axe (ligne) et l\'horaire / programme disponibles.',
+                        'Renseigner le passager, le siège et, si besoin, le quartier de destination.',
+                        'Contrôler le prix proposé par le système, encaisser, puis valider la vente.',
+                        'Remettre le ticket imprimé au client.',
+                    ),
+                    'resultat' => 'Un ticket enregistré, un siège réservé, une recette traçable pour la gare.',
+                    'controles' => array(
+                        'Comparer ventes du jour et recettes saisies / validées.',
+                        'Surveiller les ventes hors tarif ou à 0 F via les rapports dédiés.',
+                        'Vérifier que le programme vendu était bien actif.',
+                    ),
+                ),
+                array(
+                    'id' => 'vente-fi',
+                    'titre' => '3. Vente FI (facture / flux dédié)',
+                    'objectif' => 'Traiter une vente selon le circuit FI prévu pour certains rôles ou contextes.',
+                    'acteurs' => array('Agent autorisé FI', 'Responsable de gare'),
+                    'etapes' => array(
+                        'Ouvrir le module FI autorisé pour le rôle.',
+                        'Sélectionner l\'axe, l\'horaire et les informations client comme pour une vente standard.',
+                        'Valider l\'émission et conserver la pièce / trace FI.',
+                    ),
+                    'resultat' => 'Vente FI enregistrée, distincte ou complémentaire selon le paramétrage de l\'entreprise.',
+                    'controles' => array(
+                        'Limiter l\'accès FI aux seuls rôles concernés.',
+                        'Rapprocher les ventes FI des justificatifs et des recettes.',
+                    ),
+                ),
+                array(
+                    'id' => 'confirmer-autre',
+                    'titre' => '4. Confirmer un autre ticket',
+                    'objectif' => 'Reprendre ou confirmer un voyage déjà connu (autre ticket) sur un axe et un horaire choisis.',
+                    'acteurs' => array('Agent de confirmation / guichet autorisé', 'Superviseur (en cas d\'anomalie)'),
+                    'etapes' => array(
+                        'Ouvrir « Confirmer autre ticket ».',
+                        'Choisir la gare de départ concernée, puis l\'axe et le quartier si demandé.',
+                        'Sélectionner l\'horaire, renseigner ou retrouver le passager, puis confirmer.',
+                        'En cas de correspondance, suivre les jambes proposées dans l\'ordre du voyage.',
+                    ),
+                    'resultat' => 'Le voyage est confirmé sur le bon programme, avec traçabilité de l\'opération.',
+                    'controles' => array(
+                        'Contrôler que l\'axe et l\'horaire correspondent au besoin client.',
+                        'Vérifier les confirmations douteuses ou répétées dans les rapports.',
+                    ),
+                ),
+                array(
+                    'id' => 'correspondance',
+                    'titre' => '5. Correspondance / transit (plusieurs jambes)',
+                    'objectif' => 'Vendre ou confirmer un trajet composé de plusieurs segments (ex. Banfora → Bobo → Bamako).',
+                    'acteurs' => array('Vendeur / agent de confirmation', 'Aide-programmeur (préparation des liaisons)'),
+                    'etapes' => array(
+                        'Partir d\'une ligne « conteneur » ou d\'un axe commercial prévu pour la correspondance.',
+                        'Laisser le système proposer les chemins (compositions déclarées en priorité).',
+                        'Choisir le chemin retenu, puis renseigner chaque jambe (horaire, siège, éventuelle escale).',
+                        'Valider l\'ensemble avant encaissement / impression.',
+                    ),
+                    'resultat' => 'Un voyage multi-segments cohérent, avec places et prix par jambe selon les règles métier.',
+                    'controles' => array(
+                        'Vérifier que les compositions d\'itinéraire sont à jour.',
+                        'Contrôler les temps d\'attente entre jambes et les gares de correspondance.',
+                        'Ne pas vendre une destination technique hors catalogue commercial.',
+                    ),
+                ),
+                array(
+                    'id' => 'vente-escale',
+                    'titre' => '6. Vente à escale',
+                    'objectif' => 'Vendre une destination intermédiaire configurée sur un itinéraire parent, sans créer un programme dédié à l\'escale.',
+                    'acteurs' => array('Vendeur / agent autorisé', 'Administrateur (paramétrage des escales et prix)'),
+                    'etapes' => array(
+                        'Sélectionner l\'arrivée finale (itinéraire parent) puis cocher « Vente escale ».',
+                        'Choisir l\'escale proposée dans la liste.',
+                        'Le système applique le prix d\'escale et adapte le quartier si nécessaire.',
+                        'Finaliser la vente comme d\'habitude.',
+                    ),
+                    'resultat' => 'Ticket jusqu\'à l\'escale, au tarif prévu, rattaché à un programme parent valide.',
+                    'controles' => array(
+                        'Maintenir à jour la liste des escales et leurs prix en administration lignes.',
+                        'Contrôler que seules les escales actives sont proposées au guichet.',
+                    ),
+                ),
+                array(
+                    'id' => 'programmes',
+                    'titre' => '7. Programmes et horaires',
+                    'objectif' => 'Mettre à disposition des départs vendables (date, heure, ligne, sous-gare).',
+                    'acteurs' => array('Aide-programmeur', 'Chef de gare / superviseur', 'Administrateur'),
+                    'etapes' => array(
+                        'Créer ou activer les lignes et heures nécessaires.',
+                        'Générer / activer les programmes pour les dates concernées.',
+                        'Lier les correspondances de programmes lorsque le métier l\'exige (même jour ou lendemain).',
+                        'Contrôler le statut actif avant ouverture des ventes.',
+                    ),
+                    'resultat' => 'Des départs visibles et vendables au guichet, cohérents avec le plan de transport.',
+                    'controles' => array(
+                        'Revue quotidienne des programmes actifs / annulés.',
+                        'Vérifier la cohérence sous-gare ↔ gare de vente.',
+                    ),
+                ),
+                array(
+                    'id' => 'tarifs-lignes',
+                    'titre' => '8. Lignes, tarifs et compagnies d\'arrivée',
+                    'objectif' => 'Définir les axes commerciaux, leurs prix et leur rattachement aux compagnies.',
+                    'acteurs' => array('Administrateur', 'Direction commerciale'),
+                    'etapes' => array(
+                        'Créer ou mettre à jour les gares d\'arrivée et les lignes.',
+                        'Paramétrer les tarifs (et escales le cas échéant).',
+                        'S\'assurer que les listes guichet regroupent correctement les axes par compagnie d\'arrivée.',
+                    ),
+                    'resultat' => 'Catalogue commercial clair pour les opérateurs et les clients.',
+                    'controles' => array(
+                        'Contrôle périodique des tarifs et des axes vendables.',
+                        'Exclure du catalogue les destinations techniques non commerciales.',
+                    ),
+                ),
+                array(
+                    'id' => 'caisse-saisie',
+                    'titre' => '9. Caisse — saisie et arrêt de compte',
+                    'objectif' => 'Enregistrer recettes / dépenses / dépôts de la gare, puis clôturer la vacation pour validation.',
+                    'acteurs' => array('Chef de guichet', 'Aide chef de guichet'),
+                    'etapes' => array(
+                        'Saisir les mouvements de la vacation dans le module caisse.',
+                        'Contrôler les totaux avant clôture.',
+                        'Lancer l\'arrêt de compte pour envoyer les lignes en file de validation.',
+                    ),
+                    'resultat' => 'Une file claire de mouvements à valider par la caisse.',
+                    'controles' => array(
+                        'Un arrêt de compte doit précéder la fin de vacation.',
+                        'Ne pas modifier a posteriori l\'auteur d\'une saisie.',
+                    ),
+                ),
+                array(
+                    'id' => 'caisse-validation',
+                    'titre' => '10. Caisse — validation caissier',
+                    'objectif' => 'Contrôler et accepter (ou rejeter) les mouvements saisis par le chef, puis suivre le solde.',
+                    'acteurs' => array('Caissier principal', 'Caissier adjoint'),
+                    'etapes' => array(
+                        'Ouvrir la file de validation de la gare.',
+                        'Valider ou rejeter chaque ligne (ou utiliser la validation de masse si autorisée).',
+                        'Suivre le solde sur la piste caissier concernée (principal ou adjoint).',
+                    ),
+                    'resultat' => 'Recettes et dépenses validées, solde caissier cohérent et exploitable.',
+                    'controles' => array(
+                        'Séparer clairement les pistes caissier principal et adjoint.',
+                        'En cas d\'erreur : rejeter puis faire ressaisir, ne pas inventer une ligne.',
+                        'Alerter en cas de solde incohérent.',
+                    ),
+                ),
+                array(
+                    'id' => 'courrier-bagages',
+                    'titre' => '11. Courrier et bagages',
+                    'objectif' => 'Facturer et suivre les envois / bagages selon les modules ouverts au rôle.',
+                    'acteurs' => array('Agent bagage', 'Superviseur courrier', 'Caissier (si rattachement recettes)'),
+                    'etapes' => array(
+                        'Ouvrir le module courrier ou bagage autorisé.',
+                        'Saisir l\'expédition, la nature, les frais et les informations client.',
+                        'Imprimer / remettre le justificatif et assurer le suivi jusqu\'à la remise.',
+                    ),
+                    'resultat' => 'Opération courrier/bagage tracée, avec frais associés correctement enregistrés.',
+                    'controles' => array(
+                        'Rapprocher les factures courrier/bagage des recettes associées.',
+                        'Contrôler les remises et litiges.',
+                    ),
+                ),
+                array(
+                    'id' => 'supervision',
+                    'titre' => '12. Supervision, audits et rapports',
+                    'objectif' => 'Donner aux décideurs une vision de contrôle sur l\'activité et les anomalies.',
+                    'acteurs' => array('Superviseur', 'Administrateur', 'Comptable', 'Direction'),
+                    'etapes' => array(
+                        'Consulter les rapports d\'activité (ventes, caisse, modifications de tickets, autres ventes).',
+                        'Exploiter le rapport d\'audit quotidien lorsque disponible.',
+                        'Décider des actions correctives (accès, procédures, formations).',
+                    ),
+                    'resultat' => 'Pilotage basé sur des faits mesurables et une chaîne de responsabilités claire.',
+                    'controles' => array(
+                        'Revue régulière des indicateurs et des alertes.',
+                        'Suivi des formations (manuels / QCM) pour les rôles critiques.',
+                    ),
+                ),
+            ),
+        );
+    }
+}
+

@@ -19,6 +19,7 @@ return array(
     'm_passager' => 'Passager_model',
     'm_programme' => 'Programme_model',
     'm_programme_correspondance' => 'Programme_correspondance_model',
+    'm_programme_reconduction' => 'Programme_reconduction_model',
     'm_heure' => 'Heure_model',
     'm_comptes_guichet' => 'Comptes_guichet_model',
     'm_genre_recette' => 'Genre_recette_model',
