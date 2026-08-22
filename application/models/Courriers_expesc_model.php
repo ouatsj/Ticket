@@ -1639,7 +1639,7 @@
             if ($gd === '' AND $cp === '' AND $tycr === '' AND $algn === '') {
                 return $this->db->query(
                     "SELECT * FROM courriers_expesc e
-                    JOIN sousgare sg ON es.courrierdepartgareesc = sg.idsousgare
+                    JOIN sousgare sg ON e.courrierdepartgareesc = sg.idsousgare
                     JOIN code_courriers cd ON e.id_codecourrieresc = cd.codecolisid
                     JOIN expeditreception er ON cd.exprecepident = er.idexprecept 
                     JOIN ligne_heure lh ON e.departcolisesc = lh.id_ligneheure

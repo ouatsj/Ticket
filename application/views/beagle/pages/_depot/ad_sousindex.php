@@ -5,7 +5,7 @@
         <?php $this->load->view('_partials/btn_retour', array(
             'fallback' => retour_caisse_url(
                 $this->session->company->ekey,
-                !empty($caisseident->gexp_caiss) ? $caisseident->gexp_caiss : 0,
+                !empty($caisseident->gexp_caiss) ? $caisseident->gexp_caiss : (!empty($bus_stop->idengare) ? $bus_stop->idengare : 0),
                 $conex->roleattribut,
                 $bus_stop->idsousgare
             ),

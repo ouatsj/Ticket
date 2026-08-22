@@ -1,5 +1,11 @@
 <?php
 defined('BASEPATH') OR exit('No direct script access allowed');
+$retour_caisse_ra = !empty($cashbox_list_roleattribut)
+    ? $cashbox_list_roleattribut
+    : (!empty($cashbox_viewer_roleattribut)
+        ? $cashbox_viewer_roleattribut
+        : (isset($connex->roleattribut) ? $connex->roleattribut : $conex->roleattribut));
+
 $validation_filter_modal = 'tridepot-validation-form';
 $validation_filter_action = "Utilisateurs/depotcaissecptable/{$this->session->company->ekey}/"
     . "{$gare_stop->idengare}/{$cashbox_viewer_roleattribut}/{$gare_stop->idsousgare}";
@@ -7,7 +13,7 @@ $validation_filter_action = "Utilisateurs/depotcaissecptable/{$this->session->co
 <div class="row">
         <p class="mt-0 mb-2 ml-4">
             
-            <a href="<?= site_url("caisses/caissieres/{$this->session->company->ekey}"."/". $conex->roleattribut.'/'.$gare_stop->idengare.'/'.$gare_stop->idsousgare); ?>" class="btn btn-space btn-secondary">
+            <a href="<?= site_url("caisses/caissieres/{$this->session->company->ekey}"."/". $retour_caisse_ra.'/'.$gare_stop->idengare.'/'.$gare_stop->idsousgare); ?>" class="btn btn-space btn-secondary">
                 <i class="fas fa-arrow-circle-left text-info"></i>&nbsp;RETOUR A LA CAISSE&nbsp;
             </a>
             <?php $this->load->view('beagle/pages/_caisse/_validation_filter', array(
@@ -111,6 +117,11 @@ $validation_filter_action = "Utilisateurs/depotcaissecptable/{$this->session->co
                                             <input type="hidden" name="idgar" value="<?= $gare_stop->idengare; ?>">
                                             <input type="hidden" name="iduse" value="<?= $conex->roleattribut; ?>">
                                             <input type="hidden" name="idsousgar" value="<?= $gare_stop->idsousgare; ?>">
+                                            <?php if (!empty($filter_date_start) && !empty($filter_date_end)): ?>
+                                            <input type="hidden" name="datedebut" value="<?= html_escape($filter_date_start); ?>">
+                                            <input type="hidden" name="datefin" value="<?= html_escape($filter_date_end); ?>">
+                                            <input type="hidden" name="_compag" value="<?= html_escape(isset($filter_compagnie) ? $filter_compagnie : ''); ?>">
+                                            <?php endif; ?>
                                                 
                                                 <div class="form-group col-sm-4">
                                                     <label>OBSERVATION</label>
@@ -163,6 +174,11 @@ $validation_filter_action = "Utilisateurs/depotcaissecptable/{$this->session->co
                                             <input type="hidden" name="idgar" value="<?= $gare_stop->idengare; ?>">
                                             <input type="hidden" name="iduse" value="<?= $conex->roleattribut; ?>">
                                             <input type="hidden" name="idsousgar" value="<?= $gare_stop->idsousgare; ?>">
+                                            <?php if (!empty($filter_date_start) && !empty($filter_date_end)): ?>
+                                            <input type="hidden" name="datedebut" value="<?= html_escape($filter_date_start); ?>">
+                                            <input type="hidden" name="datefin" value="<?= html_escape($filter_date_end); ?>">
+                                            <input type="hidden" name="_compag" value="<?= html_escape(isset($filter_compagnie) ? $filter_compagnie : ''); ?>">
+                                            <?php endif; ?>
                                                 
                                                 <div class="form-group col-sm-4">
                                                     <label>OBSERVATION</label>

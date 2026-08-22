@@ -117,13 +117,13 @@ function retour_page_remember()
 /**
  * @param string $ekey
  * @param int|string $idengare
- * @param int|string $cpuser_id
+ * @param int|string $roleattribut  roleattribut de l'agent (pas cpuser_id)
  * @return string
  */
-function retour_sousgare_url($ekey, $idengare, $cpuser_id)
+function retour_sousgare_url($ekey, $idengare, $roleattribut)
 {
     return site_url(
-        'gares/' . $ekey . '/gTs/' . $idengare . '/sousgare/' . $cpuser_id
+        'gares/' . $ekey . '/gTs/' . $idengare . '/sousgare/' . $roleattribut
         . '/' . mdate('%d/%m/%Y', now('UTC'))
     );
 }
@@ -135,8 +135,12 @@ function retour_sousgare_url($ekey, $idengare, $cpuser_id)
  */
 function retour_caisse_url($ekey, $gexp_caiss, $roleattribut, $idsousgare)
 {
+    $gid = ($gexp_caiss !== null && $gexp_caiss !== '' && (string) $gexp_caiss !== '0')
+        ? $gexp_caiss
+        : 0;
+
     return site_url(
-        'gares/' . $ekey . '/gTv/' . ($gexp_caiss ?: 0)
+        'gares/' . $ekey . '/gTv/' . $gid
         . '/cais/' . $roleattribut . '/' . $idsousgare
         . '/' . mdate('%d/%m/%Y', now('UTC'))
     );

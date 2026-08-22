@@ -146,14 +146,14 @@
             el.value = Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 14);
         },
 
-        syncClientMirror: function (pairs) {
-            (pairs || []).forEach(function (p) {
-                var src = document.querySelector(p[0]);
-                var dst = document.querySelector(p[1]);
-                if (src && dst) {
-                    dst.value = src.value;
-                }
-            });
+        /**
+         * No-op volontaire.
+         * Les miroirs (cprclient, etc.) doivent rester sur les valeurs chargées
+         * via verifinfos pour que le serveur crée un NOUVEAU client quand le nom
+         * change à téléphone identique — au lieu d'UPDATE qui écrase les anciens tickets.
+         */
+        syncClientMirror: function (/* pairs */) {
+            return;
         },
 
         /**

@@ -55,7 +55,7 @@
                         <tr><td style="font-size: 40px;">perte ou de vol de billet et de bagages même payés.</td></tr>
                         <tr><td style="font-size: 40px;">Suivez et surveillez bien vos bagages</td></tr>
                     <tr><td style="font-size: 50px;"><b>BON VOYAGE AVEC <?= $item->nom_compagnie;?></b></td></tr>
-                    <tr><td style="font-size: 35px; width:40%;"> <img src="<?php echo site_url('render/Barcode/'.$item->idclescal);?>" width="700" height="170"></td></tr>
+                    <tr><td style="font-size: 35px; width:40%;"> <?= ticket_barcode_img($item->idclescal, 400, 40); ?></td></tr>
                     <tr><td style="font-size: 50px;">emis : <?= $dtoday; ?></td></tr>
                     </table>
                 </body>

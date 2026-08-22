@@ -98,7 +98,7 @@
                             </tr>
                             <tr><td align=left><?= $item->nom_client; ?></td><td td colspan="2" align=left></td><td align=center style="font-size: 15px;"></td><td align=left style="font-size: 15px;">SIEGE:<?= str_pad($item->num_siege_categorie, 2, "0", STR_PAD_LEFT); ?></td><td align=left style="font-size: 15px;">SIEGE:</td>
                             </tr>
-                            <tr><td align=left><?= $item->prenom_client; ?></td><td align=center colspan="3"> <img src="<?php echo site_url('render/Barcode/'.$item->tamponcod);?>" alt="" width="250" height="30"></td><td align=left></td>
+                            <tr><td align=left><?= $item->prenom_client; ?></td><td align=center colspan="3"> <?= ticket_barcode_img($item->tamponcod, 200, 35); ?></td><td align=left></td>
                             </tr>
                             <tr><td align=left><?= $item->contact_client; ?></td><td colspan="3" align=center style="font-size: 8px;">Billet valable 1 mois. Billet non remboursable</td><td align=left colspan="2">CONVOCATION 45 mn avant le départ</td>
                             </tr>
@@ -575,7 +575,7 @@
                             </tr>
                             <tr><td align=left><?= $item->nom_client; ?></td><td td colspan="2" align=left></td><td align=center style="font-size: 15px;"></td><td align=left style="font-size: 15px;">SIEGE:<?= str_pad($itemtrans->num_siege_categorie, 2, "0", STR_PAD_LEFT); ?></td><td align=left style="font-size: 15px;">SIEGE:</td>
                             </tr>
-                            <tr><td align=left><?= $item->prenom_client; ?></td><td align=center colspan="3"> <img src="<?php echo site_url('render/Barcode/'.$itemtrans->tamponcod);?>" alt="" width="250" height="30"></td><td align=left></td>
+                            <tr><td align=left><?= $item->prenom_client; ?></td><td align=center colspan="3"> <?= ticket_barcode_img($itemtrans->tamponcod, 200, 35); ?></td><td align=left></td>
                             </tr>
                             <tr><td align=left><?= $item->contact_client; ?></td><td colspan="3" align=center style="font-size: 8px;">Billet valable 1 mois. Billet non remboursable</td><td align=left colspan="2">CONVOCATION 45 mn avant le départ</td>
                             </tr>
@@ -1051,7 +1051,7 @@
                             </tr>
                             <tr><td align=left><?= $item->nom_client; ?></td><td td colspan="2" align=left></td><td align=center style="font-size: 15px;"></td><td align=left style="font-size: 15px;">SIEGE:<?= str_pad($itemtrans2->num_siege_categorie, 2, "0", STR_PAD_LEFT); ?></td><td align=left style="font-size: 15px;">SIEGE:</td>
                             </tr>
-                            <tr><td align=left><?= $item->prenom_client; ?></td><td align=center colspan="3"> <img src="<?php echo site_url('render/Barcode/'.$itemtrans2->tamponcod);?>" alt="" width="250" height="30"></td><td align=left></td>
+                            <tr><td align=left><?= $item->prenom_client; ?></td><td align=center colspan="3"> <?= ticket_barcode_img($itemtrans2->tamponcod, 200, 35); ?></td><td align=left></td>
                             </tr>
                             <tr><td align=left><?= $item->contact_client; ?></td><td colspan="3" align=center style="font-size: 8px;">Billet valable 1 mois. Billet non remboursable</td><td align=left colspan="2">CONVOCATION 45 mn avant le départ</td>
                             </tr>
@@ -1528,7 +1528,7 @@
                             </tr>
                             <tr><td align=left><?= $item->nom_client; ?></td><td td colspan="2" align=left></td><td align=center style="font-size: 15px;"></td><td align=left style="font-size: 15px;">SIEGE:<?= str_pad($itemtrans3->num_siege_categorie, 2, "0", STR_PAD_LEFT); ?></td><td align=left style="font-size: 15px;">SIEGE:</td>
                             </tr>
-                            <tr><td align=left><?= $item->prenom_client; ?></td><td align=center colspan="3"> <img src="<?php echo site_url('render/Barcode/'.$itemtrans3->tamponcod);?>" alt="" width="250" height="30"></td><td align=left></td>
+                            <tr><td align=left><?= $item->prenom_client; ?></td><td align=center colspan="3"> <?= ticket_barcode_img($itemtrans3->tamponcod, 200, 35); ?></td><td align=left></td>
                             </tr>
                             <tr><td align=left><?= $item->contact_client; ?></td><td colspan="3" align=center style="font-size: 8px;">Billet valable 1 mois. Billet non remboursable</td><td align=left colspan="2">CONVOCATION 45 mn avant le départ</td>
                             </tr>

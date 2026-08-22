@@ -415,7 +415,7 @@
                         'opvalid_cptabledep' => roleattribut_guard_session_ra(),
                     );
                 $depens = $this->m_depense->update($dep, $arraydep);
-                if ($cashboxContext) {
+                if ($cashboxContext && !roleattribut_guard_has_validation_filter_dates($d1, $d2)) {
                     redirect(
                         'utilisateurs/' . $this->company->ekey
                         . '/caisseprincdepense/' . $identifiant_gare
@@ -431,6 +431,12 @@
                 $this->property['conex'] = $conex;
                 $connex = $this->m_compte_user->getusergar($this->company->ekey, $identifiant_gare, $dop);
                 $this->property['connex'] = $connex;
+
+                if ($cashboxContext) {
+                    $this->property['cashbox_viewer_roleattribut'] = (int) $cashboxContext['consultant_ra'];
+                    $this->property['cashbox_list_roleattribut'] = (int) $cashboxContext['consultant_ra'];
+                    $this->property['cashbox_target_roleattribut'] = (int) $cashboxContext['caissier_ra'];
+                }
 
                 $this->property['compagnies'] = $this->m_compagnies->get();
 
@@ -575,7 +581,7 @@
                     'ferme_caisdep' => 0,
                 );
                 $depens = $this->m_depense->update($dep, $arraydep);
-                if ($cashboxContext) {
+                if ($cashboxContext && !roleattribut_guard_has_validation_filter_dates($d1, $d2)) {
                     redirect(
                         'utilisateurs/' . $this->company->ekey
                         . '/caisseprincdepense/' . $identifiant_gare
@@ -592,6 +598,14 @@
                 $this->property['conex'] = $conex;
                 $connex = $this->m_compte_user->getusergar($this->company->ekey, $identifiant_gare, $dop);
                 $this->property['connex'] = $connex;
+
+                if ($cashboxContext) {
+                    $this->property['cashbox_viewer_roleattribut'] = (int) $cashboxContext['consultant_ra'];
+                    $this->property['cashbox_list_roleattribut'] = (int) $cashboxContext['consultant_ra'];
+                    $this->property['cashbox_target_roleattribut'] = (int) $cashboxContext['caissier_ra'];
+                }
+
+                $this->property['compagnies'] = $this->m_compagnies->get();
 
                 $this->property['tridepenses'] = $this->m_depense->validget1($this->company->ekey, $identifiant_gare, $cp, $d1, $d2, $dop);
 

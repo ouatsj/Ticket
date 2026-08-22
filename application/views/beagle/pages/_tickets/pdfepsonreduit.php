@@ -86,7 +86,7 @@
                         <tr><td style="font-size: 60px;">Siege: <?= str_pad($item->num_siege_categorie, 2, "0", STR_PAD_LEFT); ?><b>&nbsp;&nbsp;&nbsp;<?= number_format("{$item->prix}", 0, '', ' '); ?> &nbsp;FCFA </td></tr>
                         <tr><td style="border:2px solid; font-size: 60px;"><b>N° BUS :<?=$x;?></b></td></tr>
                         <tr><td style="font-size: 45px;">BON VOYAGE AVEC <?= $item->nom_compagnie;?> <?= $nge;?></td></tr>
-                        <tr><td style="font-size: 35px; width:40%;"> <img src="<?echo site_url('render/Barcode/'.$item->tamponcod);?>" width="1100" height="200"></td></tr>
+                        <tr><td style="font-size: 35px; width:40%;"> <?= ticket_barcode_img($item->tamponcod, 450, 40); ?></td></tr>
                         <tr><td style="font-size: 60px;">emis : <?= $dtoday; ?></td></tr>
                         </table>
                     </body>

@@ -58,8 +58,8 @@
         {
             return array(
                 'triversement' => array('m_entreprises'),
-                'valversement' => array('m_entreprises', 'm_versements'),
-                'rejetversement' => array('m_entreprises', 'm_versements'),
+                'valversement' => array('m_entreprises', 'm_versements', 'm_sousgare', 'm_compte_user', 'm_compagnies', 'm_typedocument'),
+                'rejetversement' => array('m_entreprises', 'm_versements', 'm_sousgare', 'm_compte_user', 'm_compagnies', 'm_typedocument'),
                 'add' => array('m_entreprises', 'm_recette'),
                 'updaterecette' => array('m_entreprises', 'm_recette'),
                 'updatrecette' => array('m_entreprises', 'm_recette'),
@@ -4791,6 +4791,118 @@
             compte_arret_track_activity_safe();
         }
 
+        /**
+         * Agrège les montants POST de validerec par compagnie (nat + transit + bisinter).
+         * Une ligne n’est créée que si compagnie > 0 et montant >= 0 (pas de comp=0).
+         *
+         * @return array<int,array{comp:int,montant:float,commentaire:string}>
+         */
+        protected function _validerec_aggregate_post_lines()
+        {
+            $by_comp = array();
+
+            $add = function ($comp, $montant, $commentaire) use (&$by_comp) {
+                $comp = (int) $comp;
+                $montant = (float) str_replace(array(' ', ','), array('', '.'), (string) $montant);
+                // Compagnie obligatoire ; montant 0 autorisé (tickets gratuits).
+                if ($comp <= 0 || $montant < 0) {
+                    return;
+                }
+                if (!isset($by_comp[$comp])) {
+                    $by_comp[$comp] = array(
+                        'comp' => $comp,
+                        'montant' => 0.0,
+                        'commentaire' => '',
+                    );
+                }
+                $by_comp[$comp]['montant'] += $montant;
+                $commentaire = trim((string) $commentaire);
+                if ($commentaire !== '' && $by_comp[$comp]['commentaire'] === '') {
+                    $by_comp[$comp]['commentaire'] = $commentaire;
+                }
+            };
+
+            $cdnt = $this->input->post('comppremiernat');
+            $mtnt = $this->input->post('montallernat');
+            $nm = $this->input->post('nomnat');
+            if (is_array($cdnt)) {
+                foreach ($cdnt as $i => $comp) {
+                    $add(
+                        $comp,
+                        isset($mtnt[$i]) ? $mtnt[$i] : 0,
+                        isset($nm[$i]) ? $nm[$i] : ''
+                    );
+                }
+            }
+
+            $cdnttr = $this->input->post('comppremiernattr');
+            $mtnttr = $this->input->post('montallernattr');
+            $nmtr = $this->input->post('nomnattr');
+            if (is_array($cdnttr)) {
+                foreach ($cdnttr as $i => $comp) {
+                    $add(
+                        $comp,
+                        isset($mtnttr[$i]) ? $mtnttr[$i] : 0,
+                        isset($nmtr[$i]) ? $nmtr[$i] : ''
+                    );
+                }
+            } elseif (is_array($mtnttr)) {
+                // Transit sans compagnie explicite : rattacher à la 1re compagnie nat (ex. 5000).
+                $fallback = 0;
+                if (is_array($cdnt) && isset($cdnt[0])) {
+                    $fallback = (int) $cdnt[0];
+                }
+                foreach ($mtnttr as $montant) {
+                    $add($fallback, $montant, '');
+                }
+            }
+
+            $cdbint = $this->input->post('comppremierbisinter');
+            $mtbint = $this->input->post('montallerbisinter');
+            $nmbis = $this->input->post('nombisinter');
+            if (is_array($cdbint)) {
+                foreach ($cdbint as $i => $comp) {
+                    $add(
+                        $comp,
+                        isset($mtbint[$i]) ? $mtbint[$i] : 0,
+                        isset($nmbis[$i]) ? $nmbis[$i] : ''
+                    );
+                }
+            }
+
+            return array_values($by_comp);
+        }
+
+        /**
+         * Flags de validation recette selon le rôle (caissier / adjoint).
+         * Chefs 5/16 : laissés à 0 pour validation caissier.
+         *
+         * @param int|string $recette_id
+         * @param int|string $iduser
+         */
+        protected function _validerec_apply_recette_flags($recette_id, $iduser)
+        {
+            if (empty($recette_id)) {
+                return;
+            }
+            $role = (string) $this->session->agent->userole;
+            if ($role === '4') {
+                $this->m_recette->update($recette_id, array(
+                    'active_recet' => 1,
+                    'is_validerecet' => 1,
+                    'is_actifrecet' => 1,
+                    'operavalid' => $iduser,
+                ));
+            } elseif ($role === '18') {
+                $this->m_recette->update($recette_id, array(
+                    'active_recet' => 1,
+                    'is_validerecet' => 1,
+                    'is_actifrecetad' => 1,
+                    'operavalidad' => $iduser,
+                ));
+            }
+        }
+
        
         public function valideesc($ckey, $idcpt, $d, $gd, $isg)
         {
@@ -5877,6 +5989,7 @@
                             foreach ($arpassbis as $items1bis) {
                             $plarrasbis = array(
                                 'statutvente' => 1,
+                                'is_valdtick' => 1,
                             );
                             $this->m_passager->update($items1bis->code_passager, $items1bis->code_ticket, $plarrasbis);
                         }
@@ -5890,6 +6003,7 @@
                         foreach ($arnonpassbis as $items2bis) {
                             $plarraynbis = array(
                                 'statvente' => 1,
+                                'is_valedtick' => 1,
                             );
                             $valbis = $this->m_non_passager->update($items2bis->code_non_pass, $items2bis->codeticket, $plarraynbis);
                         }
@@ -5905,199 +6019,46 @@
                         );
                         $valrepro = $this->m_report->update($ite3->code_report, $plarrayrpro);
                     }
-                    
-                    $cd = $this->input->post('comppremier');
-                    $mt = $this->input->post('montaller');
-                    $cdr = $this->input->post('compsecond');
-                    $mtr = $this->input->post('montretour');
-                    $sg = $this ->input->post('sousga');
-                    $sgr = $this ->input->post('sousgr');
 
-                    $cdb = $this->input->post('comppremierbis');
-                    $mtb = $this->input->post('montallerbis');
-                    $cdrb = $this->input->post('compsecondbis');
-                    $mtrb = $this->input->post('montretourbis');
-                    $sgb = $this ->input->post('sousgabis');
-                    $sgrb = $this ->input->post('sousgrbis');
-
-                    $cdnt = $this->input->post('comppremiernat');
-                    $mtnt = $this->input->post('montallernat');
-
-                    $cdnttr = $this->input->post('comppremiernattr');
-                    $mtnttr = $this->input->post('montallernattr');
-
-                    $cdbint = $this->input->post('comppremierbisinter');
-                    $mtbint = $this->input->post('montallerbisinter');
-
-                    $nm = $this->input->post('nomnat');
-
-                    $nmbis = $this->input->post('nombisinter');
-                    
+                    // Agrégation par compagnie (nat + transit + bisinter) — pas de ligne fantôme comp=0.
+                    $lignes_ecriture = $this->_validerec_aggregate_post_lines();
+                    $idcaisse = $this->input->post('idcaisse');
+                    $genre = $this->input->post('genre');
                     $nomcais = $this->session->agent->username;
+                    $date_arret = mdate('%Y-%m-%d', now('UTC'));
 
-                    $mtnat = 0;
-                    $cdnat = 0;
-                    $mtnattr = 0;
-                    $mtintnat = 0;
+                    foreach ($lignes_ecriture as $ligne) {
+                        $this->m_comptes_guichet->create(array(
+                            'idusercompt' => $idcpt,
+                            'comp' => $ligne['comp'],
+                            'idsousga' => $sgid,
+                            'montcomtpte' => $ligne['montant'],
+                            'datearretcompt' => $date_arret,
+                        ));
 
-                    $cm1 = '';
-                    $cm2 = '';
-
-                if($arpass != NULL)
-                {    
-                    if($cdnt !== NULL)
-                    {
-                        $i = count($cdnt);
-                    }
-                    else
-                    {
-                        $i = 0;
-                    }
-
-                    if($cdnttr !== NULL)
-                    {
-                        $j = count($cdnttr);
-                    }
-                    else
-                    {
-                        $j = 0;
-                    }
-                    if($cdbint !== NULL)
-                    {
-                        $k = count($cdbint);
-                    }
-                    else
-                    {
-                        $k = 0;
-                    }
-                    if($i!= NULL){
-
-                        for($i=0; $i<count($cdnt); $i++)
-                        {
-                            $mtnat = $mtnt[$i];
-                            $cdnat = $cdnt[$i];
-                            $cm1 = $nm[$i];
-                                                        
-                        }
-
-                    }
-                    if($j!= NULL){
-                        for($j=0; $j<count($cdnttr); $j++)
-                        {
-                            $mtnattr +=$mtnttr[$j];
-                                                        
-                        }
+                        $recette_id = $this->m_recette->create(array(
+                            'idcaisse' => $idcaisse,
+                            'id_genre_recet' => $genre,
+                            'compkey_recet' => $ligne['comp'],
+                            'type_recet' => 'Ticket',
+                            'idopera' => $idcpt,
+                            'recetsgid' => $sgid,
+                            'nom' => $nomcais,
+                            'montant_recet' => $ligne['montant'],
+                            'commentaire_recet' => $ligne['commentaire'],
+                            'date_recet' => $date_arret,
+                            'createdrecet_at' => now('UTC'),
+                        ));
+                        $this->_validerec_apply_recette_flags($recette_id, $iduser);
                     }
 
-                    $mtintnat = $mtnat + $mtnattr;
+                    $this->_track_arret_activity();
 
-                    $arraycompt = array(
-                        'idusercompt' => $idcpt,
-                        'comp' => $cdnat,
-                        'idsousga' => $sgid,
-                        'montcomtpte' => $mtintnat,
-                        'datearretcompt' => mdate("%Y/%m/%d", now('UTC')),
-                    );
-
-                    $this->m_comptes_guichet->create($arraycompt);
-
-                    $arrayrecette = array(
-                        'idcaisse' => $this->input->post('idcaisse'),
-                        'id_genre_recet' => $this->input->post('genre'),
-                        'compkey_recet' => $cdnat,
-                        'type_recet' => 'Ticket',
-                        'idopera' => $idcpt,
-                        'recetsgid' => $sgid,
-                        'nom' => $nomcais,
-                        'montant_recet' => $mtintnat,
-                        'commentaire_recet' => $cm1,
-                        'date_recet' => mdate("%Y/%m/%d", now('UTC')),
-                        'createdrecet_at' => now('UTC'),
-                    );
-                    $recette = $this->m_recette->create($arrayrecette);
-                    
-                    if($this->session->agent->userole === '4')
-                    {
-                        $uprecette = array(
-                            'active_recet' => 1,
-                            'is_validerecet' => 1,
-                            'is_actifrecet' => 1,
-                            'operavalid' => $iduser,
-                        );
-                            $this->m_recette->update($recette, $uprecette);
+                    if ($this->session->agent->userole === '4' OR $this->session->agent->userole === '18') {
+                        redirect('caisses/' . $this->session->company->ekey.'/gTv/'.$gd. '/'. $idc. '/arretcaisseprincipale/'. $idcpt.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
                     }
-
-                    if($this->session->agent->userole === '18')
-                    {
-                        $uprecette = array(
-                            'active_recet' => 1,
-                            'is_validerecet' => 1,
-                            'is_actifrecetad' => 1,
-                            'operavalidad' => $iduser,
-                        );
-                            $this->m_recette->update($recette, $uprecette);
-                    }
-
-                    if($k!= NULL){
-                        for($k=0; $k<count($cdbint); $k++)
-                        {
-                            $arraycompt1[$k] = array(
-                                'idusercompt' => $idcpt,
-                                'comp' => $cdbint[$k],
-                                'idsousga' => $sgid,
-                                'montcomtpte' => $mtbint[$k],
-                                'datearretcompt' => mdate("%Y/%m/%d", now('UTC')),
-                            );
-   
-                               $this->m_comptes_guichet->create($arraycompt1[$k]);
-
-                               $arrayrecette1[$k] = array(
-                                    'idcaisse' => $this->input->post('idcaisse'),
-                                    'id_genre_recet' => $this->input->post('genre'),
-                                    'compkey_recet' => $cdbint[$k],
-                                    'type_recet' => 'Ticket',
-                                    'idopera' => $idcpt,
-                                    'recetsgid' => $sgid,
-                                    'nom' => $nomcais,
-                                    'montant_recet' => $mtbint[$k],
-                                    'commentaire_recet' => $nmbis[$k],
-                                    'date_recet' => mdate("%Y/%m/%d", now('UTC')),
-                                    'createdrecet_at' => now('UTC'),
-                                );
-                                $recette1[$k] = $this->m_recette->create($arrayrecette1[$k]);
-
-                            if($this->session->agent->userole === '4')
-                            {
-                                $uprecette1[$k] = array(
-                                    'active_recet' => 1,
-                                    'is_validerecet' => 1,
-                                    'is_actifrecet' => 1,
-                                    'operavalid' => $iduser,
-                                );
-                                $this->m_recette->update($recette1[$k], $uprecette1[$k]);
-                            }
-
-                            if($this->session->agent->userole === '18')
-                            {
-                                $uprecette1[$k] = array(
-                                    'active_recet' => 1,
-                                    'is_validerecet' => 1,
-                                    'is_actifrecetad' => 1,
-                                    'operavalidad' => $iduser,
-                                );
-                                $this->m_recette->update($recette1[$k], $uprecette1[$k]);
-                            }
-                        }
-                    }
-
-                    if($this->session->agent->userole === '4' OR $this->session->agent->userole === '18')
-                    {
-                       redirect('caisses/' . $this->session->company->ekey.'/gTv/'.$gd. '/'. $idc. '/arretcaisseprincipale/'. $idcpt.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC'))); 
-                    }
-                    else                    
-                    
                     redirect('caisses/' . $this->session->company->ekey.'/cais/'.$gd. '/'. $idc. '/'. $idcpt.'/arretcaisse_adjoint/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
-                }
+                /* fin active validerec — ancien bloc legacy commenté ci-dessous */
                     /*$cdse = $this->input->post('comppremier');
 
                     $i = 0;
@@ -11024,6 +10985,10 @@
             $this->m_versements->update($id, $array);
                        
             $this->property['UPDATE_SUCCESS'] = TRUE;
+
+            if ($this->_render_validation_filter_versements($identifiant_gare, $identifiant_sousgare, $identifiant_use, $opid, $cashboxContext)) {
+                return;
+            }
             
             redirect('utilisateurs/'.$this->session->company->ekey. '/caisseprincversement/'. $identifiant_gare. '/'. ($cashboxContext ? $cashboxContext['consultant_ra'] : $identifiant_use).'/'.$identifiant_sousgare.'/'.($cashboxContext ? $cashboxContext['caissier_ra'] : $opid). '/' . mdate("%d/%m/%Y", now('UTC')));
             
@@ -11058,9 +11023,65 @@
             $this->m_versements->update($id, $array);
                        
             $this->property['UPDATE_SUCCESS'] = TRUE;
+
+            if ($this->_render_validation_filter_versements($identifiant_gare, $identifiant_sousgare, $identifiant_use, $opid, $cashboxContext)) {
+                return;
+            }
             
             redirect('utilisateurs/'.$this->session->company->ekey. '/caisseprincversement/'. $identifiant_gare. '/'. ($cashboxContext ? $cashboxContext['consultant_ra'] : $identifiant_use).'/'.$identifiant_sousgare.'/'.($cashboxContext ? $cashboxContext['caissier_ra'] : $opid). '/' . mdate("%d/%m/%Y", now('UTC')));
             
+        }
+
+        /**
+         * Recharge la liste filtrée après validation/rejet versement (évite de perdre le tri).
+         *
+         * @return bool true si la vue filtrée a été rendue
+         */
+        protected function _render_validation_filter_versements($identifiant_gare, $identifiant_sousgare, $identifiant_use, $opid, $cashboxContext)
+        {
+            $company = $this->input->post('_compag');
+            $d1 = $this->input->post('datedebut');
+            $d2 = $this->input->post('datefin');
+            if (!roleattribut_guard_has_validation_filter_dates($d1, $d2)) {
+                return false;
+            }
+
+            $viewer_ra = $cashboxContext
+                ? (int) $cashboxContext['consultant_ra']
+                : (int) $identifiant_use;
+            $caissier_ra = $cashboxContext
+                ? (int) $cashboxContext['caissier_ra']
+                : (int) $opid;
+            $query_ra = $caissier_ra;
+
+            $rows = $this->m_versements->validfilter(
+                $this->company->ekey,
+                $identifiant_gare,
+                $query_ra,
+                $d1,
+                $d2,
+                $company
+            );
+            $this->property['gare_stop'] = $this->m_sousgare->sget($this->company->ekey, $identifiant_gare, $identifiant_sousgare);
+            $this->property['conex'] = $this->m_compte_user->getusergare($this->company->ekey, $identifiant_gare, $caissier_ra);
+            $this->property['connex'] = $this->m_compte_user->getusergar($this->company->ekey, $identifiant_gare, $viewer_ra);
+            $this->property['cashbox_viewer_roleattribut'] = $viewer_ra;
+            $this->property['cashbox_target_roleattribut'] = $caissier_ra;
+            $this->property['cashbox_list_roleattribut'] = $viewer_ra;
+            $this->property['versements'] = $rows;
+            $this->property['versementsvalid'] = (object) array(
+                'montant_verser' => array_sum(array_map(function ($row) {
+                    return (float) $row->montant_verser;
+                }, $rows)),
+            );
+            $this->property['compagnies'] = $this->m_compagnies->get();
+            $this->property['typedocuments'] = $this->m_typedocument->get();
+            $this->property['filter_date_start'] = $d1;
+            $this->property['filter_date_end'] = $d2;
+            $this->property['filter_compagnie'] = $company;
+            $this->property['pagetitle'] .= "• VALIDATION DES VERSEMENTS•&nbsp;{$this->property['conex']->garenom}<strong>•&nbsp;{$this->company->nom_entreprise}</strong>";
+            $this->layout->view('_caisse/valdversement', $this->property);
+            return true;
         }
 
         public function options($ckey, $cdg, $cid, $icx, $type = 'recette_adjoint', $idsg, $d = FALSE, $m = FALSE, $y = FALSE)

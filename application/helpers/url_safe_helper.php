@@ -48,3 +48,31 @@ function url_segment_heure_affiche($hr)
 
 	return $hr;
 }
+
+/**
+ * URL image code-barres ticket (segment encodé).
+ *
+ * @param string $code tamponcod / code passager
+ * @return string
+ */
+function ticket_barcode_url($code)
+{
+	return site_url('render/Barcode/' . rawurlencode((string) $code));
+}
+
+/**
+ * Balise <img> code-barres pour tickets HTML / Epson.
+ *
+ * @param string $code
+ * @param int $width
+ * @param int $height
+ * @return string
+ */
+function ticket_barcode_img($code, $width = 250, $height = 40)
+{
+	$src = htmlspecialchars(ticket_barcode_url($code), ENT_QUOTES, 'UTF-8');
+	$w = (int) $width;
+	$h = (int) $height;
+
+	return '<img src="' . $src . '" alt="" width="' . $w . '" height="' . $h . '" style="display:block;max-width:100%;height:auto;">';
+}

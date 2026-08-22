@@ -24,25 +24,29 @@
         public function view($ckey, $u, $g, $sg)
         {
             $this->company = $this->m_entreprises->get_key($ckey);
-                $gare_stop = $this->m_sousgare->sget($this->company->ekey, $g, $sg);
+            if (!$this->company) {
+                show_error('Entreprise introuvable.', 404);
+                return;
+            }
+
+            $gare_stop = $this->m_sousgare->sget($this->company->ekey, $g, $sg);
+            $conex = $this->m_compte_user->getusergare($this->company->ekey, $g, $u);
+            if (!$gare_stop || !$conex) {
+                show_error('Gare ou compte introuvable pour cette URL.', 404);
+                return;
+            }
+
             $this->property['gare_stop'] = $gare_stop;
-                        $conex = $this->m_compte_user->getusergare($this->company->ekey, $g, $u);
-                        $this->property['conex'] = $conex;
-                $this->property['pagetitle'] .= "• LISTE DES LIGNES AVEC HEURES<strong>•&nbsp;{$this->company->nom_entreprise}</strong>";
-               
-                $this->property['heures'] = $this->m_heure->get();
-                if ($this->session->agent->userole === '1' OR $this->session->agent->userole === '2'){
+            $this->property['conex'] = $conex;
+            $this->property['pagetitle'] .= "• LISTE DES LIGNES AVEC HEURES<strong>•&nbsp;{$this->company->nom_entreprise}</strong>";
+            $this->property['heures'] = $this->m_heure->get();
 
-                    $this->property['heuresligne'] = $this->m_ligne_heure->getallad($this->company->id_entreprise);
-					 $this->property['lignes'] = $this->m_lignes->getad($this->company->id_entreprise);
-                }
-                else
-                    {
+            // Toujours filtrer par gare (comme Tarifs). getallad() sur toute l'entreprise
+            // génère ~1100 lignes × modale (centaines d'options) → HTML trop lourd / HTTP 500.
+            $this->property['heuresligne'] = $this->m_ligne_heure->getall($this->company->id_entreprise, $g);
+            $this->property['lignes'] = $this->m_lignes->get($this->company->id_entreprise, $g);
 
-                    $this->property['heuresligne'] = $this->m_ligne_heure->getall($this->company->id_entreprise, $g);
-					 $this->property['lignes'] = $this->m_lignes->get($this->company->id_entreprise, $g);
-                }
-                return $this->layout->view('_heure/indexheure', $this->property);
+            return $this->layout->view('_heure/indexheure', $this->property);
         }
 
 
@@ -83,6 +87,7 @@
     
         public function edit_($ckey, $idlh)
         {
+            $this->company = $this->m_entreprises->get_key($ckey);
             $u = $this->input->post('compconnected');
             $g = $this->input->post('gareconnect');
             $sg = $this->input->post('sousgareconnect');
@@ -95,7 +100,7 @@
                 $rlh = $this->m_ligne_heure->update($idlh, $arraylh);
                 
                 $this->property['UPDATE_SUCCESS'] = TRUE;
-                return $this->view($ckey, $iduser, $g, $sg, $this->property);
+                return $this->view($ckey, $iduser, $g, $sg);
             
         }
 
@@ -118,7 +123,7 @@
                     $this->m_ligne_heure->update($id, $upheurelh);
 
                 $this->property['UPDATE_SUCCESS'] = TRUE;
-            return $this->view($ckey, $u, $g, $sg, $this->property);            
+            return $this->view($ckey, $u, $g, $sg);            
         }
         
     }

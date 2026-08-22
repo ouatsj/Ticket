@@ -2840,13 +2840,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     taFormEl.dataset.salePrepared = '1';
                     taFormEl.addEventListener('submit', function () {
                         AppRequestGuard.ensureNonce('#taForm', 'sale_nonce');
-                        AppRequestGuard.syncClientMirror([
-                            ['#rclient', '#rclientcp'],
-                            ['#prnclient', '#prnclientcp'],
-                            ['#cnib', '#cnibcp'],
-                            ['#date_cnib', '#date_cnibcp'],
-                            ['#lieudelivre', '#lieudelivrecp']
-                        ]);
+                        // Ne pas synchroniser les miroirs client : ils servent à détecter
+                        // un changement d'identité (même téléphone, autre passager).
                     });
                 }
 
@@ -5635,13 +5630,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     tafiFormEl.dataset.salePrepared = '1';
                     tafiFormEl.addEventListener('submit', function () {
                         AppRequestGuard.ensureNonce('#tafiForm', 'sale_nonce');
-                        AppRequestGuard.syncClientMirror([
-                            ['#rclientfi', '#rclientcpfi'],
-                            ['#prnclientfi', '#prnclientcpfi'],
-                            ['#cnibfi', '#cnibcpfi'],
-                            ['#date_cnibfi', '#date_cnibcpfi'],
-                            ['#lieudelivrefi', '#lieudelivrecpfi']
-                        ]);
+                        // Ne pas synchroniser les miroirs client : ils servent à détecter
+                        // un changement d'identité (même téléphone, autre passager).
                     });
                 }
 

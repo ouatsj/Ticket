@@ -172,6 +172,7 @@
 
         public function getall($cid, $gid, $lg_id = FALSE)
         {
+            // Filtrer sur idengare (comme Lignes::get), pas seulement code_gaexp.
             if ($lg_id === FALSE) {
                 return $this->db->query(
                     "SELECT * FROM ligne_heure lh
@@ -184,7 +185,7 @@
                     JOIN compagnies c ON ge.id_compagd = c.cle_compagnie
                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
                     WHERE e.id_entreprise = '$cid'
-                    AND ge.code_gaexp = '$gid'
+                    AND g.idengare = '$gid'
                     ORDER BY h.heure ASC")->result();
             } else
                 return $this->db->query(
@@ -198,7 +199,7 @@
                     JOIN compagnies c ON ge.id_compagd = c.cle_compagnie
                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
                     WHERE e.id_entreprise = '$cid'
-                    AND ge.code_gaexp = '$gid'
+                    AND g.idengare = '$gid'
                     AND lh.id_ligneheure = '$lg_id'
                     ORDER BY h.heure ASC")->row();
         }

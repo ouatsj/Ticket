@@ -3,7 +3,7 @@
     <p class="mt-0 mb-2 ml-4">
         <a href="<?= site_url("gares/{$this->session->company->ekey}". "/gTc/".
                     (!empty($bus_stop->idengare) ? $bus_stop->idengare : 0).
-                "/compte/" . $comptejours->roleattribut.'/'.$bus_stop->idsousgare .'/'. mdate("%d/%m/%Y", now('UTC'))); ?>" class="btn btn-space btn-secondary">
+                "/compte/" . $conex->roleattribut.'/'.$bus_stop->idsousgare .'/'. mdate("%d/%m/%Y", now('UTC'))); ?>" class="btn btn-space btn-secondary">
                 <i class="fas fa-arrow-circle-left text-info"></i>&nbsp;RETOUR ACCUEIL&nbsp;
         </a>
         <? if ($this->session->agent->userole === '1' OR $this->session->agent->userole === '10'): ?>

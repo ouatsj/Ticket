@@ -144,96 +144,10 @@
                                         </a>&nbsp;
                                         &nbsp;
                                     <?endif;?>
-                                        
-                                        <div class="modal-container colored-header colored-header-success custom-width modal-effect-7"
-                                            id="prog-edit-0">
-                                            <div class="modal-content">
-                                                <div class="modal-header modal-header-colored">
-                                                    <h3 class="modal-title" id="Titleprog"></h3>
-                                                    <button class="close modal-close" type="button"
-                                                    data-dismiss="modal" aria-hidden="true"><span
-                                                    class="mdi mdi-close text-white"></span>
-                                                    </button>
-                                                </div>
-                                                <?= form_open('', array('class' => 'modal-body form', 'id' => 'formprog')); ?>
-
-                                                <div class="row">
-                                               
-                                                    <input class="form-control form-control-sm" name="ouotancien" id="ouotafinancien"
-                                                    value="" type="hidden" autocomplete="off">
-                                                   
-                                                    <input class="form-control form-control-sm" name="ouotnouveau" id="ouotafinnouveau"
-                                                    value="" type="hidden" autocomplete="off">
-                                                   <input class="form-control form-control-sm" type="hidden" name="gareconnect" value="<?=$gare_stop->idengare;?>">
-                                                <input class="form-control form-control-sm" type="hidden" name="sousgareconnect" value="<?=$gare_stop->idsousgare;?>">
-                                                <input class="form-control form-control-sm" type="hidden" name="userconnected" value="<?=$conex->roleattribut;?>">
-                                                <input class="form-control form-control-sm" type="hidden" name="compconnected" value="<?=$conex->cpuser_id;?>">
-                                                    <div class="form-group col-sm-4">
-                                                        <label>CATEGORIE</label>
-                                                        <select class="form-control form-control-sm" id="idcateg" name="categorie">
-                                                        <option value=""></option>
-                                                            <? foreach ($categories as $categbus): ?>
-                                                                <option value="<?= $categbus->categorie; ?>">
-                                                                <?= $categbus->categorie; ?>
-                                                                </option>
-                                                            <? endforeach; ?>
-                                                        </select>
-                                                    </div>
-
-                                                    <div class="form-group col-sm-4">
-                                                        <label>TYPE TARIF</label>
-                                                            <select class="form-control form-control-sm" id="typetaf" name="tariftype">
-                                                            <option value=""></option>
-                                                            <? foreach ($bases as $typetarif): ?>
-                                                            <option value="<?= $typetarif->id_tarifs; ?>">
-                                                        <?= "{$typetarif->type_tarifs}"; ?>
-                                                            </option>
-                                                        <? endforeach; ?>
-                                                        </select>
-                                                    </div>
-                                                    <div class="form-group col-sm-4">
-                                                        <label>DEAPRT</label>
-                                                        <select class="form-control form-control-sm" id="progh" name="heureprog">
-                                                        <option value=""></option>
-                                                        <? foreach ($lignesheure as $ligne): ?>
-                                                        <option value="<?= $ligne->id_ligneheure. '.' .$ligne->ligne_id. '.' .$ligne->heure; ?>">
-                                                    <?= $ligne->nom_ligne.'/'.$ligne->heure; ?>
-                                                                </option>
-                                                            <? endforeach; ?>
-                                                        </select>
-                                                    </div>
-                                                    
-                                                    <div class="form-group col-sm-3">
-                                                        <label>QUOTA DEBUT</label>
-                                                        <input class="form-control form-control-sm" name="debut" id="ouotadebut"
-                                                        value="" type="text" autocomplete="off">
-                                                    </div>
-                                                    <div class="form-group col-sm-3">
-                                                        <label>QUOTA FIN</label>
-                                                        <input class="form-control form-control-sm" name="fin" id="ouotafin" value="" type="text" autocomplete="off">
-                                                    </div>
-                                                    <div class="form-group col-sm-4">
-                                                        <label>DATE</label>
-                                                            <input class="form-control form-control-sm" type="date" id ="progdate" name="dateprogramme" value="">
-
-                                                    </div>
-                                                </div>
-                                                <div class="modal-footer">
-                                                    <button class="btn btn-secondary modal-close" type="reset"
-                                                            data-dismiss="modal">
-                                                        <i class="icon icon-left mdi mdi-undo"></i>&nbsp;ANNULER&nbsp;
-                                                    </button>
-                                                    <button class="btn btn-success md-trigger" type="submit"
-                                                            data-dismiss="modal">
-                                                        <i class="icon icon-left mdi mdi-check-all"></i>&nbsp;OK&nbsp;
-                                                    </button>
-                                                </div>
-                                                <?= form_close(); ?>
-                                            </div>
-                                        </div>
+                                    <? if ($this->session->agent->userole === '1' OR $this->session->agent->userole === '2' OR $this->session->agent->userole === '5' OR $this->session->agent->userole === '8' OR $this->session->agent->userole === '15'): ?>
                                         <?
                                             $cid = $this->session->company->ekey;
-                                                $ligneh = $this->db->query(
+                                            $ligneh = $this->db->query(
                                                 "SELECT * FROM ligne_heure lh
                                                 JOIN lignes l ON lh.ligne_id = l.ident_ligne
                                                 JOIN heures h ON lh.heure_identif = h.id_heure
@@ -245,7 +159,7 @@
                                                 AND lh.heure_identif = '$item->id_heure'
                                                 AND l.nom_ligne != '$item->nom_ligne'
                                                 AND lh.actif_lh = 1
-                                                ORDER BY l.nom_ligne")->result(); 
+                                                ORDER BY l.nom_ligne")->result();
                                         ?>
                                         <div class="modal-container colored-header colored-header-success custom-width modal-effect-7"
                                             id="prog-ajout-<?= $item->code_progr; ?>">
@@ -303,6 +217,7 @@
                                                 <?= form_close(); ?>
                                             </div>
                                         </div>
+                                    <? endif; ?>
                                     </td>
                                 </tr>
                             
@@ -320,6 +235,95 @@
 
         </div>
     </div>
+
+    <? if ($this->session->agent->userole === '1' OR $this->session->agent->userole === '2' OR $this->session->agent->userole === '5' OR $this->session->agent->userole === '8' OR $this->session->agent->userole === '15'): ?>
+    <div class="modal-container colored-header colored-header-success custom-width modal-effect-7"
+        id="prog-edit-0">
+        <div class="modal-content">
+            <div class="modal-header modal-header-colored">
+                <h3 class="modal-title" id="Titleprog"></h3>
+                <button class="close modal-close" type="button"
+                data-dismiss="modal" aria-hidden="true"><span
+                class="mdi mdi-close text-white"></span>
+                </button>
+            </div>
+            <?= form_open('', array('class' => 'modal-body form', 'id' => 'formprog')); ?>
+
+            <div class="row">
+           
+                <input class="form-control form-control-sm" name="ouotancien" id="ouotafinancien"
+                value="" type="hidden" autocomplete="off">
+               
+                <input class="form-control form-control-sm" name="ouotnouveau" id="ouotafinnouveau"
+                value="" type="hidden" autocomplete="off">
+               <input class="form-control form-control-sm" type="hidden" name="gareconnect" value="<?=$gare_stop->idengare;?>">
+            <input class="form-control form-control-sm" type="hidden" name="sousgareconnect" value="<?=$gare_stop->idsousgare;?>">
+            <input class="form-control form-control-sm" type="hidden" name="userconnected" value="<?=$conex->roleattribut;?>">
+            <input class="form-control form-control-sm" type="hidden" name="compconnected" value="<?=$conex->cpuser_id;?>">
+                <div class="form-group col-sm-4">
+                    <label>CATEGORIE</label>
+                    <select class="form-control form-control-sm" id="idcateg" name="categorie">
+                    <option value=""></option>
+                        <? foreach ($categories as $categbus): ?>
+                            <option value="<?= $categbus->categorie; ?>">
+                            <?= $categbus->categorie; ?>
+                            </option>
+                        <? endforeach; ?>
+                    </select>
+                </div>
+
+                <div class="form-group col-sm-4">
+                    <label>TYPE TARIF</label>
+                        <select class="form-control form-control-sm" id="typetaf" name="tariftype">
+                        <option value=""></option>
+                        <? foreach ($bases as $typetarif): ?>
+                        <option value="<?= $typetarif->id_tarifs; ?>">
+                    <?= "{$typetarif->type_tarifs}"; ?>
+                        </option>
+                    <? endforeach; ?>
+                    </select>
+                </div>
+                <div class="form-group col-sm-4">
+                    <label>DEAPRT</label>
+                    <select class="form-control form-control-sm" id="progh" name="heureprog">
+                    <option value=""></option>
+                    <? foreach ($lignesheure as $ligne): ?>
+                    <option value="<?= $ligne->id_ligneheure. '.' .$ligne->ligne_id. '.' .$ligne->heure; ?>">
+                <?= $ligne->nom_ligne.'/'.$ligne->heure; ?>
+                            </option>
+                        <? endforeach; ?>
+                    </select>
+                </div>
+                
+                <div class="form-group col-sm-3">
+                    <label>QUOTA DEBUT</label>
+                    <input class="form-control form-control-sm" name="debut" id="ouotadebut"
+                    value="" type="text" autocomplete="off">
+                </div>
+                <div class="form-group col-sm-3">
+                    <label>QUOTA FIN</label>
+                    <input class="form-control form-control-sm" name="fin" id="ouotafin" value="" type="text" autocomplete="off">
+                </div>
+                <div class="form-group col-sm-4">
+                    <label>DATE</label>
+                        <input class="form-control form-control-sm" type="date" id ="progdate" name="dateprogramme" value="">
+
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary modal-close" type="reset"
+                        data-dismiss="modal">
+                    <i class="icon icon-left mdi mdi-undo"></i>&nbsp;ANNULER&nbsp;
+                </button>
+                <button class="btn btn-success md-trigger" type="submit"
+                        data-dismiss="modal">
+                    <i class="icon icon-left mdi mdi-check-all"></i>&nbsp;OK&nbsp;
+                </button>
+            </div>
+            <?= form_close(); ?>
+        </div>
+    </div>
+    <? endif; ?>
 <?endif;?>
 <? else: ?>
 <? if ($this->session->agent->userole === '1' OR $this->session->agent->userole === '2' OR $this->session->agent->userole === '5' OR $this->session->agent->userole === '8' OR $this->session->agent->userole === '15'): ?>

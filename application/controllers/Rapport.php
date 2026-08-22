@@ -5841,6 +5841,9 @@
                   $days1 = $dats1[2]. '-'. $dats1[1]. '-' .$dats1[0];
             
                   $recapcourrier = $this->m_courrier_expedieresc->recaptexopligr($this->entreprise->ekey, $dt1, $dt2, $gid, $comp, $tyc, $lign);
+                  $nb_ok = 0;
+                  $nb_ko = 0;
+                  $nb_total = is_array($recapcourrier) ? count($recapcourrier) : 0;
                   foreach ($recapcourrier as $departcr => $lement) {
 
                           $exocours = array(
@@ -5848,13 +5851,20 @@
                           );
 
                       $pacr = $this->m_courrier_expedieresc->update($lement->courrierexpidesc, $lement->num_couresc, $lement->departcolisesc, $exocours);
+                      if ($pacr != FALSE) {
+                          $nb_ok++;
+                      } else {
+                          $nb_ko++;
+                      }
                   }
 
                   
                   $recr = '';
 
-                  if ($pacr != FALSE){
+                  if ($nb_total > 0 && $nb_ko === 0){
                    $recr = 'REUSSIE';
+                  }elseif ($nb_total === 0){
+                   $recr = 'AUCUNE LIGNE';
                   }else{
                    $recr = 'NON REUSSIE';
                   } 
@@ -5898,6 +5908,7 @@
               $pdf->SetFont('courier', '', 9);
                           
               $titre = '<h1 align="center">DECLARATION ESCAL '.$ncomp->nom_compagnie.' '. $ngrd->garenom.' '.$ty3.' DU '. $days .' AU '.$days1.' '.$recr.'</h1>';
+              $them = '<p align="center"><strong>'.$nb_ok.' / '.$nb_total.' plis/colis déclarés</strong></p>';
               
               $pdf->writeHTML($titre, $linebreak = false, $fill = false, $reseth = true, $cell = false, $align = "");
               $pdf->writeHTML($them, $linebreak = true, $fill = false, $reseth = true, $cell = false, $align = "");

@@ -61,7 +61,7 @@
                                 <tr><td style="font-size: 9px;">perte ou de vol de billet et de bagages même payés.</td></tr>
                                 <tr><td style="font-size: 9px;">Suivez et surveillez bien vos bagages</td></tr>
                                 <tr><td>BON VOYAGE AVEC <?= $fiche->nom_compagnie;?></td></tr>
-                                <tr><td style="font-size: 35px; width: 90%;"> <img src="<?echo site_url('render/Barcode/'.$fiche->code_non_pass);?>" width="350" height="45"></td></tr>
+                                <tr><td style="font-size: 35px; width: 90%;"> <?= ticket_barcode_img($fiche->code_non_pass, 250, 40); ?></td></tr>
                                 <tr><td style="font-size: 15px;">emis : <?= $dtoday; ?></td></tr>
                         </table>
                     </body>

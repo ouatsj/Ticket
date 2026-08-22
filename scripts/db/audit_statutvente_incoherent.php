@@ -218,3 +218,4 @@ foreach ($elargi as $row) {
 }
 
 echo "\n=== Fin audit ===\n";
+seydou

@@ -2,7 +2,7 @@
 
     <div class="row">
         <p class="mt-0 mb-2 ml-4">
-            <a href="<?= site_url("gares/{$this->session->company->ekey}"."/gTc/".$gare_stop->idengare."/compte/".$conex->roleattribut.'/'.$gare_stop->idsousgare.'/'. mdate("%d/%m/%Y", now('UTC'))); ?>" class="btn btn-space btn-secondary">
+            <a href="<?= site_url("gares/{$this->session->company->ekey}"."/gTv/".$gare_stop->idengare."/cais/".$conex->roleattribut.'/'.$gare_stop->idsousgare.'/'. mdate("%d/%m/%Y", now('UTC'))); ?>" class="btn btn-space btn-secondary">
                 <i class="fas fa-arrow-circle-left text-info"></i>&nbsp;RETOUR A LA CAISSE&nbsp;
             </a>
         </p>

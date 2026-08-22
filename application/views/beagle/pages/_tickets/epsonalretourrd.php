@@ -112,7 +112,7 @@
                                 <tr><td style="font-size: 20px;"><?= number_format("{$item->prix}", 0, '', ' '); ?> FCFA&nbsp; <?= "{$item->contact_client}"; ?></td></tr>
                                 
                                 <tr><td>BON VOYAGE AVEC <?= $item->nom_compagnie;?> <?= $nge;?></td></tr>
-                                <tr><td style="font-size: 35px; width: 90%;"> <img src="<?echo site_url('render/Barcode/'.$item->tamponcod);?>" width="350" height="45"></td></tr>
+                                <tr><td style="font-size: 35px; width: 90%;"> <?= ticket_barcode_img($item->tamponcod, 250, 40); ?></td></tr>
                                 <tr><td style="font-size: 15px;">emis : <?= $dtoday; ?></td></tr>
                         </table>
                     </body>
@@ -191,7 +191,7 @@
                                 <tr><td style="font-size: 20px;"><?= number_format("{$item->prix}", 0, '', ' '); ?> FCFA&nbsp; <?= "{$item->contact_client}"; ?></td></tr>
                                 <tr><td style="border:2px solid; font-size: 23px;"><b>N° BUS :......</b></td></tr>
                                 <tr><td>BON VOYAGE AVEC <?= $item->nom_compagnie;?></td></tr>
-                                <tr><td style="font-size: 35px; width: 90%;"> <img src="<?echo site_url('render/Barcode/'.$item->tamponcod);?>" width="350" height="45"></td></tr>
+                                <tr><td style="font-size: 35px; width: 90%;"> <?= ticket_barcode_img($item->tamponcod, 250, 40); ?></td></tr>
                                 <tr><td style="font-size: 15px;">emis : <?= $dtoday; ?></td></tr>
                         </table>
                     </body>

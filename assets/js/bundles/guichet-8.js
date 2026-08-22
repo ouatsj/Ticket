@@ -5612,13 +5612,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     tafiFormEl.dataset.salePrepared = '1';
                     tafiFormEl.addEventListener('submit', function () {
                         AppRequestGuard.ensureNonce('#tafiForm', 'sale_nonce');
-                        AppRequestGuard.syncClientMirror([
-                            ['#rclientfi', '#rclientcpfi'],
-                            ['#prnclientfi', '#prnclientcpfi'],
-                            ['#cnibfi', '#cnibcpfi'],
-                            ['#date_cnibfi', '#date_cnibcpfi'],
-                            ['#lieudelivrefi', '#lieudelivrecpfi']
-                        ]);
+                        // Ne pas synchroniser les miroirs client : ils servent à détecter
+                        // un changement d'identité (même téléphone, autre passager).
                     });
                 }
 

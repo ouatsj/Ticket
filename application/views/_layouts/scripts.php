@@ -216,7 +216,7 @@
 <script type="application/javascript" src="<?= base_url('assets/js/adreportpliesc.js');?>"></script>
 
 <script type="application/javascript" src="<?= base_url('assets/js/adverssg.js');?>"></script>
-<script type="application/javascript" src="<?= base_url('assets/js/retour.js'); ?>"></script>
+<script type="application/javascript" src="<?= base_url('assets/js/retour.js'); ?>?v=20260822"></script>
 
 <script type="text/javascript">
     $.fn.niftyModal('setDefaults', {

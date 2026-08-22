@@ -594,17 +594,11 @@
                     }
 
                     $this->property['heures'] = $this->m_heure->get();
-                    
-                    if ($this->session->agent->userole === '1' OR $this->session->agent->userole === '2'){
 
-                        $this->property['alllignes'] = $this->m_lignes->getad($this->company->id_entreprise);
-                        $this->property['lignesheure'] = $this->m_ligne_heure->getad($this->company->id_entreprise);
-                    }
-                    else
-                    {
-                        $this->property['alllignes'] = $this->m_lignes->get($this->company->id_entreprise, $cdg);
-                        $this->property['lignesheure'] = $this->m_ligne_heure->get($this->company->id_entreprise, $cdg);
-                    }
+                    // Toujours filtrer par gare. getad() entreprise entière + modales
+                    // dupliquées par programme → HTML trop lourd / HTTP 500 (rôles 1/2).
+                    $this->property['alllignes'] = $this->m_lignes->get($this->company->id_entreprise, $cdg);
+                    $this->property['lignesheure'] = $this->m_ligne_heure->get($this->company->id_entreprise, $cdg);
                     $this->property['categories'] = $this->m_categories->get();
                     $this->property['chauffeurs'] = $this->m_personnels->getch($this->company->ekey);
                     $this->property['convoyeurs'] = $this->m_personnels->getconv($this->company->ekey);

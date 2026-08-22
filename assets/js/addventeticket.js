@@ -2838,13 +2838,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     taFormEl.dataset.salePrepared = '1';
                     taFormEl.addEventListener('submit', function () {
                         AppRequestGuard.ensureNonce('#taForm', 'sale_nonce');
-                        AppRequestGuard.syncClientMirror([
-                            ['#rclient', '#rclientcp'],
-                            ['#prnclient', '#prnclientcp'],
-                            ['#cnib', '#cnibcp'],
-                            ['#date_cnib', '#date_cnibcp'],
-                            ['#lieudelivre', '#lieudelivrecp']
-                        ]);
+                        // Ne pas synchroniser les miroirs client : ils servent à détecter
+                        // un changement d'identité (même téléphone, autre passager).
                     });
                 }
 

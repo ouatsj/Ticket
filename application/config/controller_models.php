@@ -159,9 +159,12 @@ return array(
     ),
     'Depots' => array(
         'm_banque',
+        'm_compagnies',
+        'm_compte_user',
         'm_depot',
         'm_entreprises',
         'm_genre_depot',
+        'm_sousgare',
         'm_typedocument',
         'm_versements',
     ),

@@ -406,7 +406,7 @@
             );
 
             $recette = $this->m_recette->update($recet, $arrayrecette);
-            if ($cashboxContext) {
+            if ($cashboxContext && !roleattribut_guard_has_validation_filter_dates($d1, $d2)) {
                 redirect(
                     'utilisateurs/' . $this->company->ekey
                     . '/caisseprincrecette/' . $identifiant_gare
@@ -424,6 +424,12 @@
 
                 $connex = $this->m_compte_user->getusergar($this->company->ekey, $identifiant_gare, $con);
                 $this->property['connex'] = $connex;
+
+            if ($cashboxContext) {
+                $this->property['cashbox_viewer_roleattribut'] = (int) $cashboxContext['consultant_ra'];
+                $this->property['cashbox_list_roleattribut'] = (int) $cashboxContext['consultant_ra'];
+                $this->property['cashbox_target_roleattribut'] = (int) $cashboxContext['caissier_ra'];
+            }
 
             $this->property['trirecettes'] = $this->m_recette->validget1($this->company->ekey, $identifiant_gare, $cp, $d1, $d2, $con);
 
@@ -567,7 +573,7 @@
                 'ferme_caisrecet' => 0,
             );
             $recette = $this->m_recette->update($recet, $arrayrecette);
-            if ($cashboxContext) {
+            if ($cashboxContext && !roleattribut_guard_has_validation_filter_dates($d1, $d2)) {
                 redirect(
                     'utilisateurs/' . $this->company->ekey
                     . '/caisseprincrecette/' . $identifiant_gare
@@ -580,10 +586,26 @@
             }
                        
             $this->property['UPDATE_SUCCESS'] = TRUE;
+
+            $conex = $this->m_compte_user->getusergare($this->company->ekey, $identifiant_gare, $identifiant_use);
+            $this->property['conex'] = $conex;
+            $connex = $this->m_compte_user->getusergar($this->company->ekey, $identifiant_gare, $con);
+            $this->property['connex'] = $connex;
+
+            if ($cashboxContext) {
+                $this->property['cashbox_viewer_roleattribut'] = (int) $cashboxContext['consultant_ra'];
+                $this->property['cashbox_list_roleattribut'] = (int) $cashboxContext['consultant_ra'];
+                $this->property['cashbox_target_roleattribut'] = (int) $cashboxContext['caissier_ra'];
+            }
             
             $this->property['compagnies'] = $this->m_compagnies->get();
 
             $this->property['trirecettes'] = $this->m_recette->validget1($this->company->ekey, $identifiant_gare, $cp, $d1, $d2, $con);
+
+            $this->property['dat1'] = $d1;
+            $this->property['dat2'] = $d2;
+            $this->property['cpe'] = $cp;
+            $this->property['uop'] = $con;
             
             $this->property['pagetitle'] .= "• VALIDATION DES RECETTES•&nbsp;{$gare_stop->garenom}<strong>•&nbsp;{$this->company->nom_entreprise}</strong>";
                     

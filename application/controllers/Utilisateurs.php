@@ -269,6 +269,10 @@
                 $this->property['connex'] = $connex;
                 $this->property['cashbox_viewer_roleattribut'] = (int) $bind['viewer_ra'];
                 $this->property['cashbox_target_roleattribut'] = (int) $bind['caissier_ra'];
+                $this->property['cashbox_list_roleattribut'] =
+                    roleattribut_guard_is_cashbox_consultant()
+                        ? (int) $bind['viewer_ra']
+                        : (int) $bind['caissier_ra'];
 
                     $this->property['recettes'] = $this->m_recette->validget($this->company->ekey, $gid, $uc);
                     $this->property['recettesvalid'] = $this->m_recette->validgetmont($this->company->ekey, $gid, $uc);
@@ -295,6 +299,10 @@
                 $this->property['connex'] = $connex;
                 $this->property['cashbox_viewer_roleattribut'] = (int) $bind['viewer_ra'];
                 $this->property['cashbox_target_roleattribut'] = (int) $bind['caissier_ra'];
+                $this->property['cashbox_list_roleattribut'] =
+                    roleattribut_guard_is_cashbox_consultant()
+                        ? (int) $bind['viewer_ra']
+                        : (int) $bind['caissier_ra'];
 
                 $this->property['depenses'] = $this->m_depense->validget($this->company->ekey, $gid, $uc);
                 $this->property['depensesvalid'] = $this->m_depense->validgetmont($this->company->ekey, $gid, $uc);
@@ -337,6 +345,10 @@
                 $this->property['connex'] = $connex;
                 $this->property['cashbox_viewer_roleattribut'] = (int) $bind['viewer_ra'];
                 $this->property['cashbox_target_roleattribut'] = (int) $bind['caissier_ra'];
+                $this->property['cashbox_list_roleattribut'] =
+                    roleattribut_guard_is_cashbox_consultant()
+                        ? (int) $bind['viewer_ra']
+                        : (int) $bind['caissier_ra'];
                 
                 $this->property['tridepenses'] = $this->m_depense->validget1($this->company->ekey, $gid, $cp, $d1, $d2, $con);
                     $this->property['compagnies'] = $this->m_compagnies->get();
@@ -386,6 +398,10 @@
                 $this->property['connex'] = $connex;
                 $this->property['cashbox_viewer_roleattribut'] = (int) $bind['viewer_ra'];
                 $this->property['cashbox_target_roleattribut'] = (int) $bind['caissier_ra'];
+                $this->property['cashbox_list_roleattribut'] =
+                    roleattribut_guard_is_cashbox_consultant()
+                        ? (int) $bind['viewer_ra']
+                        : (int) $bind['caissier_ra'];
 
                 $this->property['trirecettes'] = $this->m_recette->validget1($this->company->ekey, $gid, $cp, $d1, $d2, $con);
                 
@@ -420,6 +436,10 @@
                 $this->property['connex'] = $connex;
                 $this->property['cashbox_viewer_roleattribut'] = (int) $bind['viewer_ra'];
                 $this->property['cashbox_target_roleattribut'] = (int) $bind['caissier_ra'];
+                $this->property['cashbox_list_roleattribut'] =
+                    roleattribut_guard_is_cashbox_consultant()
+                        ? (int) $bind['viewer_ra']
+                        : (int) $bind['caissier_ra'];
                     $this->property['depots'] = $this->m_depot->validget($this->company->ekey, $gid, $uc);
                     $this->property['depotsvalid'] = $this->m_depot->validgetmont($this->company->ekey, $gid, $uc);
                     $this->property['compagnies'] = $this->m_compagnies->get();
@@ -448,6 +468,10 @@
                 $this->property['connex'] = $connex;
                 $this->property['cashbox_viewer_roleattribut'] = (int) $bind['viewer_ra'];
                 $this->property['cashbox_target_roleattribut'] = (int) $bind['caissier_ra'];
+                $this->property['cashbox_list_roleattribut'] =
+                    roleattribut_guard_is_cashbox_consultant()
+                        ? (int) $bind['viewer_ra']
+                        : (int) $bind['caissier_ra'];
                 $this->property['versements'] = $this->m_versements->validget($this->company->ekey, $gid, $uc);
                     $this->property['versementsvalid'] = $this->m_versements->validgetmont($this->company->ekey, $gid, $uc);
                     $this->property['compagnies'] = $this->m_compagnies->get();
@@ -493,6 +517,10 @@
             $this->property['connex'] = $bind['viewer_conex'];
             $this->property['cashbox_viewer_roleattribut'] = (int) $bind['viewer_ra'];
             $this->property['cashbox_target_roleattribut'] = (int) $bind['caissier_ra'];
+                $this->property['cashbox_list_roleattribut'] =
+                    roleattribut_guard_is_cashbox_consultant()
+                        ? (int) $bind['viewer_ra']
+                        : (int) $bind['caissier_ra'];
             $this->property['depots'] = $rows;
             $this->property['depotsvalid'] = (object) array(
                 'montant_depot' => array_sum(array_map(function ($row) {
@@ -503,6 +531,7 @@
             $this->property['typedocuments'] = $this->m_typedocument->get();
             $this->property['filter_date_start'] = $d1;
             $this->property['filter_date_end'] = $d2;
+            $this->property['filter_compagnie'] = $company;
             return $this->layout->view('_caisse/valddept', $this->property);
         }
 
@@ -541,6 +570,10 @@
             $this->property['connex'] = $bind['viewer_conex'];
             $this->property['cashbox_viewer_roleattribut'] = (int) $bind['viewer_ra'];
             $this->property['cashbox_target_roleattribut'] = (int) $bind['caissier_ra'];
+                $this->property['cashbox_list_roleattribut'] =
+                    roleattribut_guard_is_cashbox_consultant()
+                        ? (int) $bind['viewer_ra']
+                        : (int) $bind['caissier_ra'];
             $this->property['versements'] = $rows;
             $this->property['versementsvalid'] = (object) array(
                 'montant_verser' => array_sum(array_map(function ($row) {
@@ -551,6 +584,7 @@
             $this->property['typedocuments'] = $this->m_typedocument->get();
             $this->property['filter_date_start'] = $d1;
             $this->property['filter_date_end'] = $d2;
+            $this->property['filter_compagnie'] = $company;
             return $this->layout->view('_caisse/valdversement', $this->property);
         }
 
