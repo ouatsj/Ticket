@@ -1304,10 +1304,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
                                                                         }
-                                                                        if (Object.entries(infositinfi).length >= 1) 
-                                                                        {
-                                                                                
-                                                                            
+                                                                        if (typeof window.__venteFillHeureItineSelect === 'function') {
+                                                                            window.__venteFillHeureItineSelect('#hdepartitinefid', infositinfi);
+                                                                        } else if (Object.entries(infositinfi).length >= 1) {
                                                                             for (let key in Object.entries(infositinfi)) {
                                                                                     let opt = document.createElement('option');
                                                                                     opt.value = `${infositinfi[key].id_ligneheure}/${infositinfi[key].heure}`;
@@ -1711,10 +1710,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
                                                                         }
-                                                                        if (Object.entries(infositin1fi).length >= 1) 
-                                                                        {
-                                                                                
-                                                                            
+                                                                        if (typeof window.__venteFillHeureItineSelect === 'function') {
+                                                                            window.__venteFillHeureItineSelect('#hdepartitinefid', infositin1fi);
+                                                                        } else if (Object.entries(infositin1fi).length >= 1) {
                                                                             for (let key in Object.entries(infositin1fi)) {
                                                                                     let opt = document.createElement('option');
                                                                                     opt.value = `${infositin1fi[key].id_ligneheure}/${infositin1fi[key].heure}`;
@@ -2285,10 +2283,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
                                                                         }
-                                                                        if (Object.entries(infositin1fi).length >= 1) 
-                                                                        {
-                                                                                
-                                                                            
+                                                                        if (typeof window.__venteFillHeureItineSelect === 'function') {
+                                                                            window.__venteFillHeureItineSelect('#hdepartitinefid', infositin1fi);
+                                                                        } else if (Object.entries(infositin1fi).length >= 1) {
                                                                             for (let key in Object.entries(infositin1fi)) {
                                                                                     let opt = document.createElement('option');
                                                                                     opt.value = `${infositin1fi[key].id_ligneheure}/${infositin1fi[key].heure}`;

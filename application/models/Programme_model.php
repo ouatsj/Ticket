@@ -564,6 +564,7 @@
                 WHERE e.ekey = '$cd'
                 AND lh.ligne_id = '$id'
                 AND pr.date_progr >='$dt'
+                AND pr.date_progr <= DATE_ADD('$dt', INTERVAL 1 DAY)
                 AND pr.statut_prog ='actif'
                 AND h.h_active = 1
                 AND pr.actif_prog = 0
@@ -610,6 +611,7 @@
                 WHERE e.ekey = '$cd'
                 AND lh.ligne_id = '$id'
                 AND pr.date_progr >='$dt'
+                AND pr.date_progr <= DATE_ADD('$dt', INTERVAL 1 DAY)
                 AND pr.statut_prog ='actif'
                 AND h.h_active = 1
                 AND pr.actif_prog = 0
@@ -1122,6 +1124,9 @@
         }
 
 
+        /**
+         * Heures de correspondance (1re jambe) : programmes du jour choisi (J) et de J+1.
+         */
         public function heureligne($cid, $it, $keys)
         {   
             $tim = date('H', time('H'));
@@ -1135,44 +1140,34 @@
                 $dte = date('H:i', time('H:i')-3600);
             }
             $key = mdate("%Y-%m-%d", now());
-            
-            if($keys === $key){
-                return $this->db->query(
-                "SELECT * FROM ligne_heure lh
-                    JOIN programme pr ON pr.id_heur = lh.id_ligneheure
-                    JOIN heures h ON lh.heure_identif = h.id_heure
-                    JOIN lignes lg ON lh.ligne_id = lg.ident_ligne 
-                    JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
-                    JOIN compagnies c ON ex.id_compagd = c.cle_compagnie
-                    JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                    WHERE e.ekey = '$cid'
-                    AND lh.ligne_id = '$it'
-                    AND h.heure >= '$dte'
-                    AND pr.actif_prog = 0
-                    AND pr.date_progr = '$keys'
-                    AND pr.statut_prog = 'actif'
-                    AND lh.actif_lh = 1
-                    AND h.h_active = 1
-                    ORDER BY h.heure ASC")->result();
-            }
-            if($keys > $key){
+            $cidEsc = $this->db->escape_str($cid);
+            $itEsc = $this->db->escape_str($it);
+            $keysEsc = $this->db->escape_str($keys);
+            $dteEsc = $this->db->escape_str($dte);
+
+            $dateFilter = "AND pr.date_progr >= '{$keysEsc}' AND pr.date_progr <= DATE_ADD('{$keysEsc}', INTERVAL 1 DAY)";
+            $timeFilter = ($keys === $key) ? "AND NOT (pr.date_progr = '{$keysEsc}' AND h.heure < '{$dteEsc}')" : '';
+
             return $this->db->query(
-                "SELECT * FROM ligne_heure lh
+                "SELECT lh.id_ligneheure, h.heure, pr.date_progr, pr.code_progr
+                    FROM ligne_heure lh
                     JOIN programme pr ON pr.id_heur = lh.id_ligneheure
                     JOIN heures h ON lh.heure_identif = h.id_heure
                     JOIN lignes lg ON lh.ligne_id = lg.ident_ligne 
                     JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
                     JOIN compagnies c ON ex.id_compagd = c.cle_compagnie
                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                    WHERE e.ekey = '$cid'
-                    AND lh.ligne_id = '$it'
-                    AND pr.date_progr = '$keys'
-                    AND pr.statut_prog = 'actif'
-                    AND h.h_active = 1
+                    WHERE e.ekey = '{$cidEsc}'
+                    AND lh.ligne_id = '{$itEsc}'
+                    {$dateFilter}
+                    {$timeFilter}
                     AND pr.actif_prog = 0
+                    AND pr.statut_prog = 'actif'
                     AND lh.actif_lh = 1
-                    ORDER BY h.heure ASC")->result();
-            }
+                    AND h.h_active = 1
+                    GROUP BY lh.id_ligneheure, h.heure, pr.date_progr, pr.code_progr
+                    ORDER BY pr.date_progr ASC, h.heure ASC"
+            )->result();
         }
 
         public function alltime($cid, $it, $dt, $hp)

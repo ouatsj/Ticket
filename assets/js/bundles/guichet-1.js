@@ -868,6 +868,35 @@ document.addEventListener('DOMContentLoaded', () => {
         return (p.length === 3) ? (p[2] + '/' + p[1]) : String(ymd).slice(0, 10);
     }
 
+    /** Remplit #hdepartitine avec J et J+1 (libellé date si ≠ date voyage). */
+    function __venteFillHeureItineSelect(selectEl, rows) {
+        var sel = typeof selectEl === 'string' ? document.querySelector(selectEl) : selectEl;
+        if (!sel) return;
+        sel.options.length = 1;
+        if (!rows) return;
+        var list = Array.isArray(rows) ? rows
+            : (typeof rows === 'object' ? Object.keys(rows).map(function (k) { return rows[k]; }) : []);
+        var dateEl = document.querySelector('#date_depheure') || document.querySelector('#date_depheurefid');
+        var voyageDate = dateEl ? String(dateEl.value || '').slice(0, 10) : '';
+        for (var i = 0; i < list.length; i++) {
+            var row = list[i];
+            if (!row || row.id_ligneheure == null || row.heure == null) continue;
+            var opt = document.createElement('option');
+            var dprog = row.date_progr ? String(row.date_progr).slice(0, 10) : '';
+            opt.value = String(row.id_ligneheure) + '/' + String(row.heure);
+            if (dprog) {
+                opt.setAttribute('data-date-progr', dprog);
+            }
+            var label = String(row.heure);
+            if (dprog && voyageDate && dprog !== voyageDate) {
+                label = label + ' — ' + __venteFormatDateShort(dprog);
+            }
+            opt.innerHTML = label;
+            sel.add(opt);
+        }
+    }
+    window.__venteFillHeureItineSelect = __venteFillHeureItineSelect;
+
     function __venteClearDownstreamCheminHeures() {
         ['idcheminsheur', 'idcheminsheur1', 'idcheminsheur2'].forEach(function (id) {
             var el = document.getElementById(id);
@@ -2260,15 +2289,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                                                     httpH.onload = function () {
                                                                         try {
                                                                             var infositin = JSON.parse(httpH.responseText);
-                                                                            if (hd) hd.options.length = 1;
-                                                                            if (infositin && Object.entries(infositin).length >= 1) {
-                                                                                for (var key in Object.entries(infositin)) {
-                                                                                    var opt = document.createElement('option');
-                                                                                    opt.value = `${infositin[key].id_ligneheure}/${infositin[key].heure}`;
-                                                                                    opt.innerHTML = `${infositin[key].heure}`;
-                                                                                    if (hd) hd.add(opt);
-                                                                                }
-                                                                            }
+                                                                            __venteFillHeureItineSelect(hd, infositin);
                                                                         } catch (eH) {}
                                                                     };
                                                                     httpH.setRequestHeader('Content-Type', 'application/json');
@@ -2328,18 +2349,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                                                         {
 
                                                                         }
-                                                                        document.querySelector('#hdepartitine').options.length = 1;
-                                                                        if (Object.entries(infositin).length >= 1) 
-                                                                        {
-                                                                            for (let key in Object.entries(infositin)) {
-                                                                                    let opt = document.createElement('option');
-                                                                                    opt.value = `${infositin[key].id_ligneheure}/${infositin[key].heure}`;
-                                                                                    opt.innerHTML = `${infositin[key].heure}`;
-                                                                                    document.querySelector('#hdepartitine').add(opt);
-                                                                                }
-                                                                        } else {
-                                                                            document.querySelector('#hdepartitine').options.length = 1;
-                                                                        }
+                                                                        __venteFillHeureItineSelect('#hdepartitine', infositin);
                                                                     };
                                                                     httptypequartitin.setRequestHeader('Content-Type', 'application/json');
                                                                     httptypequartitin.send();
@@ -2765,18 +2775,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
                                                                         }
-                                                                        document.querySelector('#hdepartitine').options.length = 1;
-                                                                        if (Object.entries(infositin1).length >= 1) 
-                                                                        {
-                                                                            for (let key in Object.entries(infositin1)) {
-                                                                                    let opt = document.createElement('option');
-                                                                                    opt.value = `${infositin1[key].id_ligneheure}/${infositin1[key].heure}`;
-                                                                                    opt.innerHTML = `${infositin1[key].heure}`;
-                                                                                    document.querySelector('#hdepartitine').add(opt);
-                                                                                }
-                                                                        } else {
-                                                                            document.querySelector('#hdepartitine').options.length = 1;
-                                                                        }
+                                                                        __venteFillHeureItineSelect('#hdepartitine', infositin1);
                                                                     };
                                                                     httptypequartitin1.setRequestHeader('Content-Type', 'application/json');
                                                                     httptypequartitin1.send();
@@ -3370,18 +3369,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
                                                                         }
-                                                                        document.querySelector('#hdepartitine').options.length = 1;
-                                                                        if (Object.entries(infositin1).length >= 1) 
-                                                                        {
-                                                                            for (let key in Object.entries(infositin1)) {
-                                                                                    let opt = document.createElement('option');
-                                                                                    opt.value = `${infositin1[key].id_ligneheure}/${infositin1[key].heure}`;
-                                                                                    opt.innerHTML = `${infositin1[key].heure}`;
-                                                                                    document.querySelector('#hdepartitine').add(opt);
-                                                                                }
-                                                                        } else {
-                                                                            document.querySelector('#hdepartitine').options.length = 1;
-                                                                        }
+                                                                        __venteFillHeureItineSelect('#hdepartitine', infositin1);
                                                                     };
                                                                     httptypequartitin1.setRequestHeader('Content-Type', 'application/json');
                                                                     httptypequartitin1.send();
@@ -6714,15 +6702,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                                                     httpH.onload = function () {
                                                                         try {
                                                                             var infositin = JSON.parse(httpH.responseText);
-                                                                            if (hd) hd.options.length = 1;
-                                                                            if (infositin && Object.entries(infositin).length >= 1) {
-                                                                                for (var key in Object.entries(infositin)) {
-                                                                                    var opt = document.createElement('option');
-                                                                                    opt.value = `${infositin[key].id_ligneheure}/${infositin[key].heure}`;
-                                                                                    opt.innerHTML = `${infositin[key].heure}`;
-                                                                                    if (hd) hd.add(opt);
-                                                                                }
-                                                                            }
+                                                                            __venteFillHeureItineSelect(hd, infositin);
                                                                         } catch (eH) {}
                                                                     };
                                                                     httpH.setRequestHeader('Content-Type', 'application/json');
@@ -6784,19 +6764,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
                                                                         }
-                                                                        if (Object.entries(infositinfi).length >= 1) 
-                                                                        {
-                                                                                
-                                                                            
-                                                                            for (let key in Object.entries(infositinfi)) {
-                                                                                    let opt = document.createElement('option');
-                                                                                    opt.value = `${infositinfi[key].id_ligneheure}/${infositinfi[key].heure}`;
-                                                                                    opt.innerHTML = `${infositinfi[key].heure}`;
-                                                                                    document.querySelector('#hdepartitinefid').add(opt);
-                                                                                }
-                                                                        } else {
-                                                                            document.querySelector('#hdepartitinefid').options.length = 1;
-                                                                        }
+                                                                        __venteFillHeureItineSelect('#hdepartitinefid', infositinfi);
                                                                     };
                                                                     httptypequartitinfi.setRequestHeader('Content-Type', 'application/json');
                                                                     httptypequartitinfi.send();
@@ -7191,19 +7159,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
                                                                         }
-                                                                        if (Object.entries(infositin1fi).length >= 1) 
-                                                                        {
-                                                                                
-                                                                            
-                                                                            for (let key in Object.entries(infositin1fi)) {
-                                                                                    let opt = document.createElement('option');
-                                                                                    opt.value = `${infositin1fi[key].id_ligneheure}/${infositin1fi[key].heure}`;
-                                                                                    opt.innerHTML = `${infositin1fi[key].heure}`;
-                                                                                    document.querySelector('#hdepartitinefid').add(opt);
-                                                                                }
-                                                                        } else {
-                                                                            document.querySelector('#hdepartitinefid').options.length = 1;
-                                                                        }
+                                                                        __venteFillHeureItineSelect('#hdepartitinefid', infositin1fi);
                                                                     };
                                                                     httptypequartitin1fi.setRequestHeader('Content-Type', 'application/json');
                                                                     httptypequartitin1fi.send();
@@ -7765,19 +7721,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
                                                                         }
-                                                                        if (Object.entries(infositin1fi).length >= 1) 
-                                                                        {
-                                                                                
-                                                                            
-                                                                            for (let key in Object.entries(infositin1fi)) {
-                                                                                    let opt = document.createElement('option');
-                                                                                    opt.value = `${infositin1fi[key].id_ligneheure}/${infositin1fi[key].heure}`;
-                                                                                    opt.innerHTML = `${infositin1fi[key].heure}`;
-                                                                                    document.querySelector('#hdepartitinefid').add(opt);
-                                                                                }
-                                                                        } else {
-                                                                            document.querySelector('#hdepartitinefid').options.length = 1;
-                                                                        }
+                                                                        __venteFillHeureItineSelect('#hdepartitinefid', infositin1fi);
                                                                     };
                                                                     httptypequartitin1fi.setRequestHeader('Content-Type', 'application/json');
                                                                     httptypequartitin1fi.send();
