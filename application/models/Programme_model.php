@@ -304,6 +304,170 @@
         }
 
         /**
+         * Sièges déjà vendus sur un programme (actifs).
+         * Inclut codes partagés (correspondance) + même depart_code / date.
+         * @return int[]
+         */
+        public function sieges_occupes_programme($code_progr)
+        {
+            $code = trim((string) $code_progr);
+            if ($code === '') {
+                return array();
+            }
+
+            $codes = array($code => true);
+
+            // Correspondance / reconduction
+            try {
+                foreach ($this->codes_sieges_occupes($code) as $c) {
+                    $c = trim((string) $c);
+                    if ($c !== '') {
+                        $codes[$c] = true;
+                    }
+                }
+            } catch (Exception $e) {
+                // ignore
+            }
+
+            // Sous-axes / même bus : même depart_code + date
+            $pr = $this->db->query(
+                "SELECT depart_code, date_progr FROM programme WHERE code_progr = ? LIMIT 1",
+                array($code)
+            )->row();
+            if ($pr && !empty($pr->depart_code) && !empty($pr->date_progr)) {
+                $siblings = $this->db->query(
+                    "SELECT code_progr FROM programme
+                     WHERE depart_code = ? AND date_progr = ?",
+                    array($pr->depart_code, $pr->date_progr)
+                )->result();
+                foreach ($siblings as $s) {
+                    $c = trim((string) $s->code_progr);
+                    if ($c !== '') {
+                        $codes[$c] = true;
+                    }
+                }
+            }
+
+            $in = $this->_sql_in_codes(array_keys($codes));
+            $rows = $this->db->query(
+                "SELECT DISTINCT p.num_siege_categorie AS n
+                 FROM passager p
+                 WHERE p.code_pro IN ({$in})
+                   AND p.num_siege_categorie IS NOT NULL
+                   AND p.num_siege_categorie > 0
+                   AND p.actif_pas = 0"
+            )->result();
+            $out = array();
+            foreach ($rows as $r) {
+                $n = (int) $r->n;
+                if ($n > 0) {
+                    $out[$n] = $n;
+                }
+            }
+            ksort($out);
+            return array_values($out);
+        }
+
+        /**
+         * Libère des sièges vendus (passager conservé, num_siege_categorie = NULL).
+         * Appliqué sur tous les codes sièges partagés du départ.
+         * @param int[] $sieges
+         * @return array{ok:bool,error?:string,liberes?:int[]}
+         */
+        public function liberer_sieges_programme($code_progr, array $sieges)
+        {
+            $code = trim((string) $code_progr);
+            if ($code === '') {
+                return array('ok' => false, 'error' => 'programme_introuvable');
+            }
+            $norm = array();
+            foreach ($sieges as $n) {
+                $n = (int) $n;
+                if ($n > 0) {
+                    $norm[$n] = $n;
+                }
+            }
+            if (empty($norm)) {
+                return array('ok' => true, 'liberes' => array());
+            }
+            $codes = $this->codes_sieges_occupes($code);
+            if (empty($codes)) {
+                $codes = array($code);
+            }
+            $in = $this->_sql_in_codes($codes);
+            $liberes = array();
+            $this->db->trans_begin();
+            foreach ($norm as $n) {
+                $this->db->query(
+                    "UPDATE passager
+                     SET num_siege_categorie = NULL
+                     WHERE code_pro IN ({$in})
+                       AND num_siege_categorie = ?
+                       AND actif_pas = 0",
+                    array((int) $n)
+                );
+                if ($this->db->affected_rows() > 0) {
+                    $liberes[] = (int) $n;
+                }
+            }
+            if ($this->db->trans_status() === FALSE) {
+                $this->db->trans_rollback();
+                return array('ok' => false, 'error' => 'echec_liberation');
+            }
+            $this->db->trans_commit();
+            // OK même si certains numéros n'étaient pas vendus (trou libre ignoré)
+            return array('ok' => true, 'liberes' => $liberes);
+        }
+
+        /**
+         * Valide intervalle1/2 pour création ou édition d'un départ.
+         * @param int[] $sieges_liberer Sièges vendus à libérer (hors quota obligatoire)
+         * @return array{ok:bool,error?:string}
+         */
+        public function valider_quota_depart($debut, $fin, $categorie, $code_progr = null, array $sieges_liberer = array())
+        {
+            $d = (int) $debut;
+            $f = (int) $fin;
+            $cat = trim((string) $categorie);
+            if ($cat === '') {
+                return array('ok' => false, 'error' => 'categorie_manquante');
+            }
+            if ($d <= 0 || $f <= 0 || $f < $d) {
+                return array('ok' => false, 'error' => 'quota_invalide');
+            }
+            $row = $this->db->query(
+                "SELECT nbr_place FROM categorie WHERE categorie = ? LIMIT 1",
+                array($cat)
+            )->row();
+            if (!$row) {
+                return array('ok' => false, 'error' => 'categorie_introuvable');
+            }
+            $max = (int) $row->nbr_place;
+            if ($max <= 0 || $d < 1 || $f > $max) {
+                return array('ok' => false, 'error' => 'quota_hors_bus');
+            }
+            $liberer = array();
+            foreach ($sieges_liberer as $n) {
+                $n = (int) $n;
+                if ($n > 0) {
+                    $liberer[$n] = true;
+                }
+            }
+            $code = trim((string) $code_progr);
+            if ($code !== '') {
+                foreach ($this->sieges_occupes_programme($code) as $n) {
+                    if (!empty($liberer[$n])) {
+                        continue;
+                    }
+                    if ($n < $d || $n > $f) {
+                        return array('ok' => false, 'error' => 'quota_exclut_vendu');
+                    }
+                }
+            }
+            return array('ok' => true, 'intervalle1' => $d, 'intervalle2' => $f);
+        }
+
+        /**
          * Édition multi: la nouvelle sélection doit inclure chaque SG ayant déjà vendu.
          * Sélection vide / toutes = OK.
          */
@@ -1467,7 +1631,23 @@
             if (!isset($this->m_programme_correspondance)) {
                 $this->load->model('Programme_correspondance_model', 'm_programme_correspondance');
             }
-            return $this->m_programme_correspondance->codes_sieges_partages($code);
+            $codes = $this->m_programme_correspondance->codes_sieges_partages($code);
+            if (!isset($this->m_programme_reconduction)) {
+                $this->load->model('Programme_reconduction_model', 'm_programme_reconduction');
+            }
+            $reco = $this->m_programme_reconduction->get_reco_by_cible($code);
+            if ($reco && !empty($reco->code_progr_source)) {
+                $codes[] = $reco->code_progr_source;
+                $codes[] = $code;
+            }
+            $clean = array();
+            foreach ($codes as $c) {
+                $c = trim((string) $c);
+                if ($c !== '') {
+                    $clean[$c] = true;
+                }
+            }
+            return array_keys($clean);
         }
 
         protected function _sql_in_codes(array $codes)

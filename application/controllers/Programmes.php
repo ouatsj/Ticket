@@ -87,12 +87,14 @@
                 'siegdisponiblebus' => array('m_programme'),
                 'siegeoccuper' => array('m_passager'),
                 'suggest_correspondances' => array('m_programme', 'm_programme_correspondance', 'm_itineraire_etape', 'm_entreprises', 'm_sousgare'),
+                'heures_correspondance' => array('m_programme', 'm_programme_correspondance', 'm_itineraire_etape', 'm_entreprises', 'm_sousgare'),
                 'link_correspondance' => array('m_programme', 'm_programme_correspondance', 'm_itineraire_etape', 'm_entreprises', 'm_sousgare'),
                 'unlink_correspondance' => array('m_programme', 'm_programme_correspondance', 'm_entreprises'),
                 'get_correspondance' => array('m_programme', 'm_programme_correspondance', 'm_entreprises'),
                 'sousgares_correspondance' => array('m_programme_correspondance', 'm_entreprises'),
                 'declare_sortie' => array('m_programme', 'm_programme_reconduction', 'm_entreprises'),
                 'apercu_sortie' => array('m_programme_reconduction', 'm_entreprises'),
+                'apercu_quota' => array('m_programme', 'm_programme_reconduction', 'm_entreprises', 'm_categories'),
                 'offres_reconduction' => array('m_programme_reconduction', 'm_entreprises'),
                 'heures_reconduction' => array('m_programme_reconduction', 'm_entreprises'),
                 'creer_reconduction' => array('m_programme', 'm_programme_reconduction', 'm_entreprises'),
@@ -647,6 +649,21 @@
             $cts = $this->input->post('categorie');
             $dts = $this->input->post('datedp');
 
+            $quota = $this->m_programme->valider_quota_depart(
+                $this->input->post('debut'),
+                $this->input->post('fin'),
+                $cts,
+                null
+            );
+            if (empty($quota['ok'])) {
+                $this->session->set_flashdata(
+                    'prog_quota_error',
+                    $this->_message_quota_depart(isset($quota['error']) ? $quota['error'] : 'quota_invalide')
+                );
+                redirect('gares/'.$this->session->company->ekey. '/gTv/'.$gd .'/prog/'.$iduser.'/'.$idsg.'/'.mdate("%d/%m/%Y", now('UTC')));
+                return;
+            }
+
             
             if($gd === 'OUA12')
             {
@@ -679,8 +696,8 @@
                 'idsousgare_prog' => $idsous_prog,
                 'typetarif' => $this->input->post('tariftype'),
                 'categori' => $this->input->post('categorie'),
-                'intervalle1' => $this->input->post('debut'),
-                'intervalle2' => $this->input->post('fin'),
+                'intervalle1' => $quota['intervalle1'],
+                'intervalle2' => $quota['intervalle2'],
                 'dateheure_prog' => $this->input->post('datedp').'-'.$suheure,
                 'date_progr' => $this->input->post('datedp'),
                 'createdatepr' => mdate("%Y-%m-%d", now('UTC')),
@@ -722,6 +739,55 @@
             $cts = $this->input->post('categorie');
             $dts = $this->input->post('dateprogramme');
 
+            $sieges_liberer = $this->input->post('sieges_liberer');
+            if (!is_array($sieges_liberer)) {
+                $sieges_liberer = array();
+            }
+
+            // Les sièges libérés doivent rester dans intervalle1/2 pour être revendables.
+            $debut_quota = (int) $this->input->post('debut');
+            $fin_quota = (int) $this->input->post('fin');
+            foreach ($sieges_liberer as $n_lib) {
+                $n_lib = (int) $n_lib;
+                if ($n_lib <= 0) {
+                    continue;
+                }
+                if ($debut_quota <= 0 || $n_lib < $debut_quota) {
+                    $debut_quota = $n_lib;
+                }
+                if ($fin_quota <= 0 || $n_lib > $fin_quota) {
+                    $fin_quota = $n_lib;
+                }
+            }
+
+            $quota = $this->m_programme->valider_quota_depart(
+                $debut_quota,
+                $fin_quota,
+                $cts,
+                $idpr,
+                $sieges_liberer
+            );
+            if (empty($quota['ok'])) {
+                $this->session->set_flashdata(
+                    'prog_quota_error',
+                    $this->_message_quota_depart(isset($quota['error']) ? $quota['error'] : 'quota_invalide')
+                );
+                redirect('gares/'.$this->session->company->ekey. '/gTv/'. $gd. '/prog/'.$iduser.'/'.$idsg.'/'.  mdate("%d/%m/%Y", now('UTC')));
+                return;
+            }
+
+            if (!empty($sieges_liberer)) {
+                $lib = $this->m_programme->liberer_sieges_programme($idpr, $sieges_liberer);
+                if (empty($lib['ok'])) {
+                    $this->session->set_flashdata(
+                        'prog_quota_error',
+                        $this->_message_quota_depart(isset($lib['error']) ? $lib['error'] : 'echec_liberation')
+                    );
+                    redirect('gares/'.$this->session->company->ekey. '/gTv/'. $gd. '/prog/'.$iduser.'/'.$idsg.'/'.  mdate("%d/%m/%Y", now('UTC')));
+                    return;
+                }
+            }
+
             $compter = $this->db->query("SELECT COUNT(code_progr) AS id FROM programme WHERE createdatepr = '$today' AND gareidentif = '$gd'")->row();
             
             $cgbselect = $this->input->post('ouotnouveau');
@@ -753,15 +819,15 @@
                         'idsousgare_prog' => $idsous_prog,
                         'typetarif' => $this->input->post('tariftype'),
                         'categori' => $this->input->post('categorie'),
-                        'intervalle1' => $this->input->post('debut'),
-                        'intervalle2' => $this->input->post('fin'),
+                        'intervalle1' => $quota['intervalle1'],
+                        'intervalle2' => $quota['intervalle2'],
                         'dateheure_prog' => $this->input->post('dateprogramme').'-'.$suheure,
                         'date_progr' => $this->input->post('dateprogramme'),
                     );
                     if($this->m_programme->update($idpr, $arrayedit) != FALSE)
                     {
                         $this->m_programme->sync_portee_sousgares($idpr, $selected_sg, $total_sg);
-                        $nbp = $this->input->post('fin');
+                        $nbp = $quota['intervalle2'];
                         $cte = $this->input->post('categorie');
                         $d = $this->input->post('dateprogramme');
 
@@ -785,15 +851,15 @@
                             'idsousgare_prog' => $idsous_prog,
                             'typetarif' => $this->input->post('tariftype'),
                             'categori' => $this->input->post('categorie'),
-                            'intervalle1' => $this->input->post('debut'),
-                            'intervalle2' => $this->input->post('fin'),
+                            'intervalle1' => $quota['intervalle1'],
+                            'intervalle2' => $quota['intervalle2'],
                             'dateheure_prog' => $this->input->post('dateprogramme').'-'.$suheure,
                             'date_progr' => $this->input->post('dateprogramme'),
                         );
                         if($this->m_programme->update($idpr, $arrayedit) != FALSE)
                         {
                             $this->m_programme->sync_portee_sousgares($idpr, $selected_sg, $total_sg);
-                            $nbp = $this->input->post('fin');
+                            $nbp = $quota['intervalle2'];
                             $cte = $this->input->post('categorie');
                             $d = $this->input->post('dateprogramme');
         
@@ -958,10 +1024,10 @@
         }
 
         /**
-         * Suggestions de départs de correspondance déjà créés (JSON).
-         * GET Programmes/suggest_correspondances/{ekey}/{code_progr}
+         * Horaires catalogue pour créer le départ suite au hub (JSON).
+         * GET Programmes/heures_correspondance/{ekey}/{code_progr}
          */
-        public function suggest_correspondances($ckey, $code_progr = null)
+        public function heures_correspondance($ckey, $code_progr = null)
         {
             session_release_lock();
             $this->company = $this->m_entreprises->get_key($ckey);
@@ -971,7 +1037,7 @@
             if (!isset($this->m_programme_correspondance)) {
                 $this->load->model('Programme_correspondance_model', 'm_programme_correspondance');
             }
-            $out = $this->m_programme_correspondance->suggest_suites(
+            $out = $this->m_programme_correspondance->heures_correspondance(
                 $this->session->company->ekey,
                 $code_progr
             );
@@ -992,8 +1058,22 @@
                     : array();
                 $out['sousgares_principal'] = $out['sousgares_banfora'];
                 $out['portee_principale'] = $this->m_programme_correspondance->portee_ids_programme($code_progr);
+                $hubGare = !empty($out['hub_gare']) ? $out['hub_gare'] : null;
+                $out['sousgares_suite'] = $hubGare
+                    ? $this->m_programme_correspondance->list_sousgares_gare($hubGare)
+                    : array();
             }
             return $this->load->view('beagle/pages/_programme/json', array('json' => $out));
+        }
+
+        /**
+         * Suggestions de départs de correspondance déjà créés (JSON).
+         * GET Programmes/suggest_correspondances/{ekey}/{code_progr}
+         * @deprecated Alias de heures_correspondance
+         */
+        public function suggest_correspondances($ckey, $code_progr = null)
+        {
+            return $this->heures_correspondance($ckey, $code_progr);
         }
 
         /**
@@ -1019,7 +1099,7 @@
         /**
          * Crée le lien principal ↔ suite + départ dérivé (JSON).
          * POST Programmes/link_correspondance/{ekey}
-         * body: code_progr_principal, code_progr_suite,
+         * body: code_progr_principal, id_ligneheure, date_progr_suite,
          *       scope_banfora[], apply_principal, apply_derive,
          *       scope_bobo[], apply_suite, has_scope_banfora, has_scope_bobo
          */
@@ -1028,8 +1108,9 @@
             session_release_lock();
             $this->company = $this->m_entreprises->get_key($ckey);
             $principal = trim((string) $this->input->post('code_progr_principal'));
-            $suite = trim((string) $this->input->post('code_progr_suite'));
-            if ($principal === '' || $suite === '') {
+            $idLigneheure = (int) $this->input->post('id_ligneheure');
+            $dateSuite = trim((string) $this->input->post('date_progr_suite'));
+            if ($principal === '' || $idLigneheure <= 0 || $dateSuite === '') {
                 return $this->load->view('beagle/pages/_programme/json', array(
                     'json' => array('ok' => false, 'error' => 'params_manquants'),
                 ));
@@ -1046,6 +1127,8 @@
                 $scopeBobo = array();
             }
             $options = array(
+                'id_ligneheure' => $idLigneheure,
+                'date_progr_suite' => $dateSuite,
                 'scope_banfora' => $scopeBanfora,
                 'scope_bobo' => $scopeBobo,
                 'apply_principal' => ($this->input->post('apply_principal') === '0') ? false : true,
@@ -1057,7 +1140,6 @@
             $out = $this->m_programme_correspondance->link(
                 $this->session->company->ekey,
                 $principal,
-                $suite,
                 $options
             );
             return $this->load->view('beagle/pages/_programme/json', array('json' => $out));
@@ -1122,6 +1204,26 @@
         }
 
         /**
+         * Message utilisateur pour erreur quota sièges départ.
+         * @param string $code
+         * @return string
+         */
+        protected function _message_quota_depart($code)
+        {
+            $map = array(
+                'quota_invalide' => 'Quota sièges invalide : vérifiez la plage sélectionnée.',
+                'quota_hors_bus' => 'Le quota dépasse la capacité du bus pour cette catégorie.',
+                'quota_exclut_vendu' => 'Impossible de retirer un siège déjà vendu du quota (décochez-le pour le libérer).',
+                'siege_non_vendu' => 'Un siège à libérer n\'est pas vendu sur ce départ.',
+                'echec_liberation' => 'Échec de la libération des sièges vendus.',
+                'categorie_manquante' => 'Catégorie de bus requise.',
+                'categorie_introuvable' => 'Catégorie de bus introuvable.',
+            );
+            $code = trim((string) $code);
+            return isset($map[$code]) ? $map[$code] : 'Quota sièges invalide.';
+        }
+
+        /**
          * Déclare la sortie d'un départ (places restantes publiées aux gares aval).
          * POST Programmes/declare_sortie/{ekey}
          */
@@ -1151,6 +1253,66 @@
                 $sieges
             );
             return $this->load->view('beagle/pages/_programme/json', array('json' => $out));
+        }
+
+        /**
+         * Quota sièges d'un programme (édition).
+         * GET Programmes/apercu_quota/{ekey}/{code_progr}
+         */
+        public function apercu_quota($ckey, $code_progr = null)
+        {
+            session_release_lock();
+            $this->company = $this->m_entreprises->get_key($ckey);
+            if (!$code_progr) {
+                $code_progr = $this->input->get('code_progr');
+            }
+            $code = trim((string) $code_progr);
+            if ($code === '') {
+                return $this->load->view('beagle/pages/_programme/json', array(
+                    'json' => array('ok' => false, 'error' => 'params_manquants'),
+                ));
+            }
+            $pr = $this->m_programme->get($code);
+            if (!$pr) {
+                return $this->load->view('beagle/pages/_programme/json', array(
+                    'json' => array('ok' => false, 'error' => 'programme_introuvable'),
+                ));
+            }
+            $nbr = 0;
+            if (!empty($pr->categori)) {
+                $catRow = $this->m_categories->max($pr->categori);
+                if ($catRow && isset($catRow->nbr_place)) {
+                    $nbr = (int) $catRow->nbr_place;
+                }
+            }
+
+            $sieges_reconduits = array();
+            $is_reconduction_cible = false;
+            if (!isset($this->m_programme_reconduction)) {
+                $this->load->model('Programme_reconduction_model', 'm_programme_reconduction');
+            }
+            if (isset($this->m_programme_reconduction)) {
+                $reco = $this->m_programme_reconduction->get_reco_by_cible($code);
+                if ($reco) {
+                    $is_reconduction_cible = true;
+                    $sieges_reconduits = $this->m_programme_reconduction->sieges_cibles($code);
+                }
+            }
+
+            return $this->load->view('beagle/pages/_programme/json', array(
+                'json' => array(
+                    'ok' => true,
+                    'code_progr' => $code,
+                    'categori' => $pr->categori,
+                    'intervalle1' => (int) $pr->intervalle1,
+                    'intervalle2' => (int) $pr->intervalle2,
+                    'nbr_place' => $nbr,
+                    'sieges_occupes' => $this->m_programme->sieges_occupes_programme($code),
+                    'is_reconduction_cible' => $is_reconduction_cible,
+                    'sieges_reconduits' => $sieges_reconduits,
+                    'nb_sieges_reconduits' => count($sieges_reconduits),
+                ),
+            ));
         }
 
         /**
@@ -1236,11 +1398,7 @@
             $source = trim((string) $this->input->post('code_progr_source'));
             $gare = trim((string) $this->input->post('gare_cible'));
             $idHeur = (int) $this->input->post('id_ligneheure');
-            $sieges = $this->input->post('sieges');
-            if (!is_array($sieges)) {
-                $raw = trim((string) $this->input->post('sieges_csv'));
-                $sieges = $raw !== '' ? explode(',', $raw) : array();
-            }
+            $sieges = $this->m_programme_reconduction->sieges_restants($source);
             $options = array(
                 'typetarif' => $this->input->post('typetarif'),
                 'date_progr' => $this->input->post('date_progr'),

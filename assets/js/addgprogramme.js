@@ -49,10 +49,11 @@ document.addEventListener('DOMContentLoaded', () => {
             } else {
                 $('#progh').val(`${e.dataset.eure}`);
             }
-            $('#ouotadebut').val(`${e.dataset.inter1}`);
-            $('#ouotafin').val(`${e.dataset.inter2}`);
             $('#progdate').val(`${e.dataset.pdate}`);
-            $('#ouotafinancien').val(`${e.dataset.categnbplace}`);
+            var ouotAncien = document.querySelector('#ouotafinancien');
+            var ouotNouveau = document.querySelector('#ouotafinnouveau');
+            if (ouotAncien) ouotAncien.value = `${e.dataset.categnbplace}`;
+            if (ouotNouveau) ouotNouveau.value = `${e.dataset.categnbplace}`;
             var portee = (e.dataset.porteeSgs || '').trim();
             var ids = portee ? portee.split(',').map(function (x) { return String(x).trim(); }).filter(Boolean) : [];
             var ventes = parseVentesSgs(e.dataset.ventesSgs);
@@ -88,12 +89,25 @@ document.addEventListener('DOMContentLoaded', () => {
                     });
                 }
             }
+
+            if (window.ProgQuotaSieges && typeof window.ProgQuotaSieges.loadEditForForm === 'function') {
+                var soldAttr = (e.dataset.siegesOccupes || '').split(',').map(function (x) {
+                    return parseInt(String(x).trim(), 10);
+                }).filter(function (n) { return !isNaN(n) && n > 0; });
+                window.ProgQuotaSieges.loadEditForForm(
+                    'formprog',
+                    e.dataset.code,
+                    e.dataset.cle_compagnie,
+                    e.dataset.inter1,
+                    e.dataset.inter2,
+                    e.dataset.categorie,
+                    soldAttr
+                );
+            }
         
-                let typcat = document.querySelector('#idcateg');
-                
-                if (typcat !== null) 
-                typcat.onchange = () => 
-                {
+            let typcat = document.querySelector('#idcateg');
+            if (typcat !== null) {
+                typcat.onchange = () => {
                     let Infoscateg;
                     if (window.XMLHttpRequest) {
                         Infoscateg = new XMLHttpRequest();
@@ -101,24 +115,21 @@ document.addEventListener('DOMContentLoaded', () => {
                         Infoscateg = new ActiveXObject("Microsoft.XMLHTTP");
                     }
                     var categchoisi = document.querySelector('#idcateg')
-                    .options[document.querySelector('#idcateg').options.selectedIndex].value;
+                        .options[document.querySelector('#idcateg').options.selectedIndex].value;
                     Infoscateg.open('GET', window.location.origin + `${APP_ROOT}/categories/getnbrplace/${categchoisi}`, true);
                     Infoscateg.onload = () => {
                         const rescat = JSON.parse(Infoscateg.responseText);
-        
-                            if (Object.entries(rescat).length >= 1) {
-                                  
-                                    document.querySelector('#ouotafin').value = `${rescat.nbr_place}`;
-                                    document.querySelector('#ouotafinnouveau').value = `${rescat.nbr_place}`;
-                                
-                            } 
-        
-                        };
-                        
-                        Infoscateg.setRequestHeader('Content-Type', 'application/json');
-                        Infoscateg.send();
-    
+                        if (Object.entries(rescat).length >= 1) {
+                            var ouotFinNouveau = document.querySelector('#ouotafinnouveau');
+                            if (ouotFinNouveau) {
+                                ouotFinNouveau.value = `${rescat.nbr_place}`;
+                            }
+                        }
+                    };
+                    Infoscateg.setRequestHeader('Content-Type', 'application/json');
+                    Infoscateg.send();
                 };
+            }
             prForm.setAttribute('action', `${APP_ROOT}/Programmes/editgare_/${e.dataset.cle_compagnie}/${e.dataset.code}/${e.dataset.departcd}`);
 
         }

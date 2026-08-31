@@ -993,9 +993,14 @@
                     GROUP BY lg.nom_ligne, dest.id_compaga, np.prixretour")->result();
         }*/
 
-        public function reporticketretour($cid, $gid, $dt1, $dt2, $cp, $algn = FALSE)
+        public function reporticketretour($cid, $gid, $dt1, $dt2, $cp, $algn = FALSE, $sg = FALSE)
         {
-            
+            $sg = trim((string) $sg);
+            $sgSql = '';
+            if ($sg !== '' && $sg !== '0') {
+                $sgSql = " AND np.sousgareidentif = '" . $this->db->escape_str($sg) . "'";
+            }
+
             if ($algn === '') 
             {
                 return $this->db->query(
@@ -1018,6 +1023,7 @@
                       )
                       AND ul.guser = '$gid'
                     )
+                    {$sgSql}
                     GROUP BY lg.nom_ligne, np.prixretour")->result();
             }
                 return $this->db->query(
@@ -1041,6 +1047,7 @@
                       )
                       AND ul.guser = '$gid'
                     )
+                    {$sgSql}
                     GROUP BY lg.nom_ligne, np.prixretour")->result();
         }
 

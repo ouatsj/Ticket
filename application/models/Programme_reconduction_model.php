@@ -2,8 +2,9 @@
 
 /**
  * Sortie d'un départ + reconduction des numéros de sièges restants
- * vers un nouveau départ créé à une gare aval (même bus, même destination).
- * Indépendant de programme_correspondance.
+ * vers un nouveau départ à la gare de correspondance :
+ * même catégorie de bus, même depart_code que le principal,
+ * horaire = départ de la gare de correspondance (pas l'heure du principal).
  */
 class Programme_reconduction_model extends CI_Model
 {
@@ -405,9 +406,137 @@ class Programme_reconduction_model extends CI_Model
             }
             $r->sieges_restants = $restants;
             $r->nb_restants = count($restants);
+            $r->sieges_occupes = $this->sieges_occupes($r->code_progr_source);
+            $hor = $this->horaire_aval_correspondance(
+                $ekey,
+                $r->code_progr_source,
+                $gare,
+                isset($r->gadest_lg) ? $r->gadest_lg : ''
+            );
+            $r->heure_principale = isset($r->heure) ? $r->heure : '';
+            $r->heure_correspondance = isset($hor['heure']) ? $hor['heure'] : '';
+            $r->date_correspondance = isset($hor['date_progr']) ? $hor['date_progr'] : '';
+            $r->id_ligneheure_correspondance = isset($hor['id_heur']) ? (int) $hor['id_heur'] : 0;
+            $r->depart_code_principal = isset($hor['depart_code']) ? $hor['depart_code'] : (isset($r->depart_code) ? $r->depart_code : '');
             $out[] = $r;
         }
         return $out;
+    }
+
+    /**
+     * Horaire et depart_code du principal pour créer le départ aval
+     * à l'heure de la gare de correspondance (programme suite), pas à l'heure du principal.
+     *
+     * @return array{depart_code:string,heure:string,date_progr:string,id_heur:int}
+     */
+    public function horaire_aval_correspondance($ekey, $code_progr_source, $gare_cible, $gadest_lg)
+    {
+        $out = array(
+            'depart_code' => '',
+            'heure' => '',
+            'date_progr' => '',
+            'id_heur' => 0,
+        );
+        $source = $this->prog_detail($ekey, $code_progr_source);
+        if ($source && !empty($source->depart_code)) {
+            $out['depart_code'] = $source->depart_code;
+        }
+        if (!isset($this->m_programme_correspondance)) {
+            $this->load->model('Programme_correspondance_model', 'm_programme_correspondance');
+        }
+        $lien = $this->m_programme_correspondance->get_by_any_code($code_progr_source);
+        if ($lien && !empty($lien->code_progr_principal)) {
+            $prin = $this->prog_detail($ekey, $lien->code_progr_principal);
+            if ($prin && !empty($prin->depart_code)) {
+                $out['depart_code'] = $prin->depart_code;
+            }
+        }
+        $suite = null;
+        if ($lien && !empty($lien->code_progr_suite)) {
+            $suite = $this->prog_detail($ekey, $lien->code_progr_suite);
+        }
+        if (!$suite) {
+            return $out;
+        }
+        $out['heure'] = isset($suite->heure) ? (string) $suite->heure : '';
+        $out['date_progr'] = isset($suite->date_progr) ? (string) $suite->date_progr : '';
+        $gareSuite = isset($suite->gareidentif) ? (string) $suite->gareidentif : '';
+        if ($gareSuite === (string) $gare_cible && !empty($suite->id_ligneheure)) {
+            $out['id_heur'] = (int) $suite->id_ligneheure;
+            return $out;
+        }
+
+        $hh = substr(trim($out['heure']), 0, 5);
+        $heures = $this->heures_compatibles($ekey, $gare_cible, $gadest_lg);
+        if ($hh !== '') {
+            foreach ($heures as $h) {
+                if (substr((string) $h->heure, 0, 5) === $hh) {
+                    $out['id_heur'] = (int) $h->id_ligneheure;
+                    return $out;
+                }
+            }
+        }
+        if (!empty($heures)) {
+            $ligneId = $heures[0]->ident_ligne;
+            $idHeur = $this->m_programme_correspondance->resolve_id_heur_derive($ligneId, $out['heure']);
+            if ($idHeur > 0) {
+                $matched = $this->db->query(
+                    "SELECT LEFT(CAST(h.heure AS CHAR), 5) AS hh
+                     FROM ligne_heure lh
+                     JOIN heures h ON lh.heure_identif = h.id_heure
+                     WHERE lh.id_ligneheure = ?
+                     LIMIT 1",
+                    array($idHeur)
+                )->row();
+                if ($matched && $hh !== '' && $matched->hh === $hh) {
+                    $out['id_heur'] = $idHeur;
+                    return $out;
+                }
+            }
+            $idHeureRef = isset($suite->id_heure) ? (int) $suite->id_heure : 0;
+            if ($idHeureRef > 0) {
+                $forced = $this->_assurer_ligne_heure_locale($ligneId, $idHeureRef);
+                if ($forced > 0) {
+                    $out['id_heur'] = $forced;
+                }
+            }
+        }
+        return $out;
+    }
+
+    /**
+     * Garantit un ligne_heure local à l'heure (id_heure) de la correspondance.
+     */
+    protected function _assurer_ligne_heure_locale($ligne_id, $id_heure)
+    {
+        $ligne_id = trim((string) $ligne_id);
+        $id_heure = (int) $id_heure;
+        if ($ligne_id === '' || $id_heure <= 0) {
+            return 0;
+        }
+        $row = $this->db->query(
+            "SELECT id_ligneheure, actif_lh FROM ligne_heure
+             WHERE ligne_id = ? AND heure_identif = ?
+             LIMIT 1",
+            array($ligne_id, $id_heure)
+        )->row();
+        if ($row) {
+            if ((int) $row->actif_lh !== 1) {
+                $this->db->where('id_ligneheure', (int) $row->id_ligneheure)
+                    ->update('ligne_heure', array('actif_lh' => 1));
+            }
+            return (int) $row->id_ligneheure;
+        }
+        $ok = $this->db->insert('ligne_heure', array(
+            'ligne_id' => $ligne_id,
+            'heure_identif' => $id_heure,
+            'actif_lh' => 1,
+            'createlh_at' => now('UTC'),
+        ));
+        if (!$ok) {
+            return 0;
+        }
+        return (int) $this->db->insert_id();
     }
 
     /**
@@ -578,17 +707,22 @@ class Programme_reconduction_model extends CI_Model
             );
         }
         $libres = $this->sieges_libres_source($code_progr);
+        $occupes = $this->sieges_occupes($code_progr);
+        $libreSet = array();
+        foreach ($libres as $n) {
+            $libreSet[(int) $n] = true;
+        }
+        $occSet = array();
+        foreach ($occupes as $n) {
+            $occSet[(int) $n] = true;
+        }
         if (is_array($sieges)) {
             $sieges = $this->_normaliser_sieges($sieges);
             if (empty($sieges)) {
                 return array('ok' => false, 'error' => 'aucun_siege');
             }
-            $libreSet = array();
-            foreach ($libres as $n) {
-                $libreSet[(int) $n] = true;
-            }
             foreach ($sieges as $n) {
-                if (empty($libreSet[(int) $n])) {
+                if (empty($libreSet[(int) $n]) && empty($occSet[(int) $n])) {
                     return array('ok' => false, 'error' => 'siege_indisponible');
                 }
             }
@@ -597,6 +731,19 @@ class Programme_reconduction_model extends CI_Model
         }
 
         $this->db->trans_begin();
+        foreach ($sieges as $n) {
+            if (empty($occSet[(int) $n])) {
+                continue;
+            }
+            $this->db->query(
+                "UPDATE passager
+                 SET num_siege_categorie = NULL
+                 WHERE code_pro = ?
+                   AND num_siege_categorie = ?
+                   AND actif_pas = 0",
+                array($detail->code_progr, (int) $n)
+            );
+        }
         $ok = $this->db->insert($this->table_sortie, array(
             'code_progr_source' => $detail->code_progr,
             'ekey' => $ekey,
@@ -674,6 +821,25 @@ class Programme_reconduction_model extends CI_Model
         }
 
         $idHeur = (int) $id_ligneheure;
+        $hor = $this->horaire_aval_correspondance(
+            $ekey,
+            $code_progr_source,
+            $gare_cible,
+            $source->gadest_lg
+        );
+        if (!empty($hor['id_heur'])) {
+            $idHeur = (int) $hor['id_heur'];
+        } elseif (!empty($hor['heure'])) {
+            return array('ok' => false, 'error' => 'heure_correspondance_introuvable');
+        }
+        if ($idHeur <= 0) {
+            return array('ok' => false, 'error' => 'heure_incompatible');
+        }
+        $departCode = !empty($hor['depart_code']) ? $hor['depart_code'] : $source->depart_code;
+        if (trim((string) $departCode) === '') {
+            return array('ok' => false, 'error' => 'depart_code_manquant');
+        }
+
         $heureOk = $this->db->query(
             "SELECT lh.id_ligneheure, h.heure, lg.gadest_lg, lg.gaexp_lg, lg.nom_ligne
              FROM ligne_heure lh
@@ -699,7 +865,9 @@ class Programme_reconduction_model extends CI_Model
 
         $today = mdate('%Y-%m-%d', now('UTC'));
         $dateProg = !empty($options['date_progr']) ? trim((string) $options['date_progr']) : '';
-        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $dateProg)) {
+        if (!empty($hor['date_progr']) && preg_match('/^\d{4}-\d{2}-\d{2}$/', $hor['date_progr'])) {
+            $dateProg = $hor['date_progr'];
+        } elseif (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $dateProg)) {
             $dateProg = $source->date_progr;
         }
         if ($dateProg < $source->date_progr) {
@@ -720,10 +888,13 @@ class Programme_reconduction_model extends CI_Model
             $seq++;
             $pcd = mdate('%y%m%d', now('UTC')) . $gd4 . $seq;
         }
-        $pc = mdate('%d', now('UTC')) . $gd4 . $seq;
-
-        $minS = min($sieges);
-        $maxS = max($sieges);
+        $pc = $departCode;
+        $minS = (int) $source->intervalle1;
+        $maxS = (int) $source->intervalle2;
+        if ($maxS < $minS) {
+            $minS = min($sieges);
+            $maxS = max($sieges);
+        }
 
         $this->db->trans_begin();
 
@@ -792,6 +963,7 @@ class Programme_reconduction_model extends CI_Model
         return array(
             'ok' => true,
             'code_progr' => $pcd,
+            'depart_code' => $pc,
             'sieges' => $sieges,
             'depart' => $this->prog_detail($ekey, $pcd),
         );

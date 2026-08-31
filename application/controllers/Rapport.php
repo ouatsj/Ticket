@@ -4232,12 +4232,23 @@
               $lign = $this->input->post('axeligne');
               $comp = $this->input->post('_compag');
               $gid = $this->input->post('departgar');
+              $sg = $this->input->post('sousgaretkt');
                 $dats = explode("-", $dt1);
                   $days = $dats[2]. '-'. $dats[1]. '-' .$dats[0];
                   $dats1 = explode("-", $dt2);
                   $days1 = $dats1[2]. '-'. $dats1[1]. '-' .$dats1[0];
-              $reportick = $this->m_passager->reporticket($this->entreprise->ekey, $gid, $dt1, $dt2, $comp, $lign);
-              $reportickreour = $this->m_non_passager->reporticketretour($this->entreprise->ekey, $gid, $dt1, $dt2, $comp, $lign);
+              $reportick = $this->m_passager->reporticket($this->entreprise->ekey, $gid, $dt1, $dt2, $comp, $lign, $sg);
+              $reportickreour = $this->m_non_passager->reporticketretour($this->entreprise->ekey, $gid, $dt1, $dt2, $comp, $lign, $sg);
+
+              $sgTitre = '';
+              $sg = trim((string) $sg);
+              if ($sg !== '' && $sg !== '0') {
+                  $sgEsc = $this->db->escape_str($sg);
+                  $sgrow = $this->db->query("SELECT nomsousgare FROM sousgare WHERE idsousgare = '{$sgEsc}'")->row();
+                  if ($sgrow && trim((string) $sgrow->nomsousgare) !== '') {
+                      $sgTitre = ' ' . htmlspecialchars($sgrow->nomsousgare, ENT_QUOTES, 'UTF-8');
+                  }
+              }
 
               $pdf = new TCPDF(PDF_PAGE_ORIENTATION, PDF_UNIT, PDF_PAGE_FORMAT, true, 'UTF-8', false);
               // set document information
@@ -4276,7 +4287,7 @@
               // GROUPE DE GAUCHE
               $pdf->SetFont('courier', '', 9);
                           
-              $titre = '<h1 align="center">RECAP GLOBAL TICKET DU '. $days.' AU '.$days1.'</h1>';
+              $titre = '<h1 align="center">RECAP GLOBAL TICKET'.$sgTitre.' DU '. $days.' AU '.$days1.'</h1>';
               $them = '<table border="1" cellpadding="0">
                   <thead> 
                       <tr> 
@@ -8208,6 +8219,7 @@
               $comp = $this->input->post('_compagcrgl');
               $gid = $this->input->post('departgarcrgl');
               $tyc = $this->input->post('typcoursgl');
+              $sg = $this->input->post('sousgarecrgl');
 
               $ncomp = $this->m_compagnies->getn($comp);
 
@@ -8228,7 +8240,7 @@
             
                   //$recapcourrier = $this->m_courrier_expedier->recaptpligl($this->entreprise->ekey, $dt1, $dt2, $gid, $tyc, $comp, $lign);
 
-                  $recapcourrier = $this->m_courrier_expedier->trecaptpligl($this->entreprise->ekey, $dt1, $dt2, $comp, $gid, $tyc, $lign);
+                  $recapcourrier = $this->m_courrier_expedier->trecaptpligl($this->entreprise->ekey, $dt1, $dt2, $comp, $gid, $tyc, $lign, $sg);
                 
               $pdf = new TCPDF(PDF_PAGE_ORIENTATION, PDF_UNIT, PDF_PAGE_FORMAT, true, 'UTF-8', false);
               // set document information

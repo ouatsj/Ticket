@@ -1652,9 +1652,13 @@
                         $stat = 0;
                         $comptelogin = array(
                             'activer' => $stat,
-                            'desactivation_motif' => null,
-                            'desactivation_at' => null,
                         );
+                        if ($this->db->field_exists('desactivation_motif', 'compte_user')) {
+                            $comptelogin['desactivation_motif'] = null;
+                        }
+                        if ($this->db->field_exists('desactivation_at', 'compte_user')) {
+                            $comptelogin['desactivation_at'] = null;
+                        }
                     }
                     
                     $this->m_compte_user->update($id, $comptelogin);

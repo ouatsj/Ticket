@@ -1256,7 +1256,7 @@ if (!function_exists('compte_arret_chef_pending_status')) {
             return $open;
         }
 
-        $row = $CI->db->query(
+        $pending_q = $CI->db->query(
             "SELECT MIN(pending_date) AS oldest_date, COALESCE(SUM(nb), 0) AS pending_count
             FROM (
                 SELECT MIN(COALESCE(
@@ -1314,7 +1314,12 @@ if (!function_exists('compte_arret_chef_pending_status')) {
                 $roleattribut, $gare_id,
                 $roleattribut, $gare_id,
             )
-        )->row();
+        );
+        if ($pending_q === false) {
+            log_message('error', 'compte_arret_chef_pending_status: requête pending échouée');
+            return $open;
+        }
+        $row = $pending_q->row();
 
         if (!$row || (int) $row->pending_count <= 0 || empty($row->oldest_date)) {
             return $open;

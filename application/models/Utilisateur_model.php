@@ -51,30 +51,67 @@
                     AND ar.activer_role = 0")->row();
         }
         
+        /**
+         * SELECT compte_user optionnels (colonnes ajoutées par migrations).
+         * @return string
+         */
+        protected function _compte_user_select_extras()
+        {
+            static $extras = null;
+            if ($extras !== null) {
+                return $extras;
+            }
+            $cols = array(
+                'cu.cpuser_id',
+                'cu.username',
+                'cu.activer',
+                'cu.is_conect',
+                'cu.date_deconect',
+            );
+            $optional = array(
+                'derniere_activite_at',
+                'exempt_desactivation_auto',
+                'autorisation_vente_forcee',
+                'autorisation_vente_jusquau',
+                'desactivation_motif',
+                'desactivation_at',
+            );
+            foreach ($optional as $col) {
+                if ($this->db->field_exists($col, 'compte_user')) {
+                    $cols[] = 'cu.' . $col;
+                } else {
+                    $cols[] = 'NULL AS ' . $col;
+                }
+            }
+            $extras = implode(",\n                        ", $cols);
+            return $extras;
+        }
+
         public function get_use($cid, $user_id = FALSE)
         {
+            $cidEsc = $this->db->escape_str($cid);
+            $selectCu = $this->_compte_user_select_extras();
             if ($user_id === FALSE) {
-                return $this->db->query(
-                    "SELECT u.*, cu.cpuser_id, cu.username, cu.activer, cu.is_conect,
-                        cu.derniere_activite_at, cu.exempt_desactivation_auto,
-                        cu.autorisation_vente_forcee, cu.autorisation_vente_jusquau, cu.date_deconect,
-                        cu.desactivation_motif, cu.desactivation_at
+                $q = $this->db->query(
+                    "SELECT u.*, {$selectCu}
                     FROM utilisateurs u
                     JOIN entreprise e ON u.cle_comp = e.ekey
                     LEFT JOIN compte_user cu ON cu.userlog_id = u.uid
-                    WHERE e.ekey = '$cid'")->result();
+                    WHERE e.ekey = '{$cidEsc}'"
+                );
+                return $q ? $q->result() : array();
             }
 
-            return $this->db->query(
-                "SELECT u.*, cu.cpuser_id, cu.username, cu.activer, cu.is_conect,
-                    cu.derniere_activite_at, cu.exempt_desactivation_auto,
-                    cu.autorisation_vente_forcee, cu.autorisation_vente_jusquau, cu.date_deconect,
-                    cu.desactivation_motif, cu.desactivation_at
+            $uidEsc = $this->db->escape_str($user_id);
+            $q = $this->db->query(
+                "SELECT u.*, {$selectCu}
                 FROM utilisateurs u
                 JOIN entreprise e ON u.cle_comp = e.ekey
                 LEFT JOIN compte_user cu ON cu.userlog_id = u.uid
-                WHERE e.ekey = '$cid'
-                AND u.uid = '$user_id'")->row();
+                WHERE e.ekey = '{$cidEsc}'
+                AND u.uid = '{$uidEsc}'"
+            );
+            return $q ? $q->row() : null;
         }
 
 

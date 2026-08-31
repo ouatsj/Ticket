@@ -264,12 +264,14 @@
             $route['programmes/deltamponsieg/(:any)/(:any)'] = 'Programmes/deltamponsieg/$1/$2';
             $route['programmes/deltamponsieg'] = 'Programmes/deltamponsieg';
             $route['programmes/suggest_correspondances/(:any)/(:any)'] = 'Programmes/suggest_correspondances/$1/$2';
+            $route['programmes/heures_correspondance/(:any)/(:any)'] = 'Programmes/heures_correspondance/$1/$2';
             $route['programmes/get_correspondance/(:any)/(:any)'] = 'Programmes/get_correspondance/$1/$2';
             $route['programmes/sousgares_correspondance/(:any)/(:any)'] = 'Programmes/sousgares_correspondance/$1/$2';
             $route['programmes/link_correspondance/(:any)'] = 'Programmes/link_correspondance/$1';
             $route['programmes/unlink_correspondance/(:any)'] = 'Programmes/unlink_correspondance/$1';
             $route['programmes/declare_sortie/(:any)'] = 'Programmes/declare_sortie/$1';
             $route['programmes/apercu_sortie/(:any)/(:any)'] = 'Programmes/apercu_sortie/$1/$2';
+            $route['programmes/apercu_quota/(:any)/(:any)'] = 'Programmes/apercu_quota/$1/$2';
             $route['programmes/offres_reconduction/(:any)/(:any)'] = 'Programmes/offres_reconduction/$1/$2';
             $route['programmes/heures_reconduction/(:any)/(:any)/(:any)'] = 'Programmes/heures_reconduction/$1/$2/$3';
             $route['programmes/creer_reconduction/(:any)'] = 'Programmes/creer_reconduction/$1';

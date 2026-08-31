@@ -6702,7 +6702,15 @@ document.addEventListener('DOMContentLoaded', () => {
                                                                     httpH.onload = function () {
                                                                         try {
                                                                             var infositin = JSON.parse(httpH.responseText);
-                                                                            __venteFillHeureItineSelect(hd, infositin);
+                                                                            if (hd) hd.options.length = 1;
+                                                                            if (infositin && Object.entries(infositin).length >= 1) {
+                                                                                for (var key in Object.entries(infositin)) {
+                                                                                    var opt = document.createElement('option');
+                                                                                    opt.value = `${infositin[key].id_ligneheure}/${infositin[key].heure}`;
+                                                                                    opt.innerHTML = `${infositin[key].heure}`;
+                                                                                    if (hd) hd.add(opt);
+                                                                                }
+                                                                            }
                                                                         } catch (eH) {}
                                                                     };
                                                                     httpH.setRequestHeader('Content-Type', 'application/json');
@@ -6764,7 +6772,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
                                                                         }
-                                                                        __venteFillHeureItineSelect('#hdepartitinefid', infositinfi);
+                                                                        if (typeof window.__venteFillHeureItineSelect === 'function') {
+                                                                            window.__venteFillHeureItineSelect('#hdepartitinefid', infositinfi);
+                                                                        } else if (Object.entries(infositinfi).length >= 1) {
+                                                                            for (let key in Object.entries(infositinfi)) {
+                                                                                    let opt = document.createElement('option');
+                                                                                    opt.value = `${infositinfi[key].id_ligneheure}/${infositinfi[key].heure}`;
+                                                                                    opt.innerHTML = `${infositinfi[key].heure}`;
+                                                                                    document.querySelector('#hdepartitinefid').add(opt);
+                                                                                }
+                                                                        } else {
+                                                                            document.querySelector('#hdepartitinefid').options.length = 1;
+                                                                        }
                                                                     };
                                                                     httptypequartitinfi.setRequestHeader('Content-Type', 'application/json');
                                                                     httptypequartitinfi.send();
@@ -7159,7 +7178,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
                                                                         }
-                                                                        __venteFillHeureItineSelect('#hdepartitinefid', infositin1fi);
+                                                                        if (typeof window.__venteFillHeureItineSelect === 'function') {
+                                                                            window.__venteFillHeureItineSelect('#hdepartitinefid', infositin1fi);
+                                                                        } else if (Object.entries(infositin1fi).length >= 1) {
+                                                                            for (let key in Object.entries(infositin1fi)) {
+                                                                                    let opt = document.createElement('option');
+                                                                                    opt.value = `${infositin1fi[key].id_ligneheure}/${infositin1fi[key].heure}`;
+                                                                                    opt.innerHTML = `${infositin1fi[key].heure}`;
+                                                                                    document.querySelector('#hdepartitinefid').add(opt);
+                                                                                }
+                                                                        } else {
+                                                                            document.querySelector('#hdepartitinefid').options.length = 1;
+                                                                        }
                                                                     };
                                                                     httptypequartitin1fi.setRequestHeader('Content-Type', 'application/json');
                                                                     httptypequartitin1fi.send();
@@ -7721,7 +7751,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
                                                                         }
-                                                                        __venteFillHeureItineSelect('#hdepartitinefid', infositin1fi);
+                                                                        if (typeof window.__venteFillHeureItineSelect === 'function') {
+                                                                            window.__venteFillHeureItineSelect('#hdepartitinefid', infositin1fi);
+                                                                        } else if (Object.entries(infositin1fi).length >= 1) {
+                                                                            for (let key in Object.entries(infositin1fi)) {
+                                                                                    let opt = document.createElement('option');
+                                                                                    opt.value = `${infositin1fi[key].id_ligneheure}/${infositin1fi[key].heure}`;
+                                                                                    opt.innerHTML = `${infositin1fi[key].heure}`;
+                                                                                    document.querySelector('#hdepartitinefid').add(opt);
+                                                                                }
+                                                                        } else {
+                                                                            document.querySelector('#hdepartitinefid').options.length = 1;
+                                                                        }
                                                                     };
                                                                     httptypequartitin1fi.setRequestHeader('Content-Type', 'application/json');
                                                                     httptypequartitin1fi.send();
@@ -14588,6 +14629,51 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
     })
+
+    if (!window.__recapGlTkSousgareBound) {
+        window.__recapGlTkSousgareBound = true;
+        document.querySelectorAll('select[name="sousgaretkt"]').forEach(function (sousSel) {
+            var form = sousSel.closest('form');
+            if (!form) return;
+            var gareSel = form.querySelector('select[name="departgar"]');
+            if (!gareSel) return;
+
+            function resetSousGare() {
+                sousSel.options.length = 0;
+                var allOpt = document.createElement('option');
+                allOpt.value = '';
+                allOpt.innerHTML = 'Toutes';
+                sousSel.add(allOpt);
+            }
+
+            gareSel.addEventListener('change', function () {
+                var gid = gareSel.value;
+                resetSousGare();
+                if (!gid) return;
+                var http = new XMLHttpRequest();
+                http.open(
+                    'GET',
+                    window.location.origin + `${APP_ROOT}/programmes/verifsousgares/` + encodeURIComponent(gid),
+                    true
+                );
+                http.onload = function () {
+                    var rows = null;
+                    try { rows = JSON.parse(http.responseText); } catch (err) { rows = null; }
+                    resetSousGare();
+                    if (!rows) return;
+                    Object.keys(rows).forEach(function (key) {
+                        var row = rows[key];
+                        if (!row || row.idsousgare == null) return;
+                        var opt = document.createElement('option');
+                        opt.value = row.idsousgare;
+                        opt.innerHTML = row.nomsousgare;
+                        sousSel.add(opt);
+                    });
+                };
+                http.send();
+            });
+        });
+    }
 });
 ;
 /* --- adreportglesc.js --- */
@@ -14690,6 +14776,51 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
     })
+
+    if (!window.__recapGlCrSousgareBound) {
+        window.__recapGlCrSousgareBound = true;
+        document.querySelectorAll('select[name="sousgarecrgl"]').forEach(function (sousSel) {
+            var form = sousSel.closest('form');
+            if (!form) return;
+            var gareSel = form.querySelector('select[name="departgarcrgl"]');
+            if (!gareSel) return;
+
+            function resetSousGare() {
+                sousSel.options.length = 0;
+                var allOpt = document.createElement('option');
+                allOpt.value = '';
+                allOpt.innerHTML = 'Toutes';
+                sousSel.add(allOpt);
+            }
+
+            gareSel.addEventListener('change', function () {
+                var gid = gareSel.value;
+                resetSousGare();
+                if (!gid) return;
+                var http = new XMLHttpRequest();
+                http.open(
+                    'GET',
+                    window.location.origin + `${APP_ROOT}/programmes/verifsousgares/` + encodeURIComponent(gid),
+                    true
+                );
+                http.onload = function () {
+                    var rows = null;
+                    try { rows = JSON.parse(http.responseText); } catch (err) { rows = null; }
+                    resetSousGare();
+                    if (!rows) return;
+                    Object.keys(rows).forEach(function (key) {
+                        var row = rows[key];
+                        if (!row || row.idsousgare == null) return;
+                        var opt = document.createElement('option');
+                        opt.value = row.idsousgare;
+                        opt.innerHTML = row.nomsousgare;
+                        sousSel.add(opt);
+                    });
+                };
+                http.send();
+            });
+        });
+    }
 });
 ;
 /* --- adreportglcoursesc.js --- */

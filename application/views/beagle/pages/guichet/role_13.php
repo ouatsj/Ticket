@@ -821,6 +821,12 @@
                                     </select>
                                 </div>
                                 <div class="form-group col-sm-4">
+                                    <label>SOUS-GARE</label>
+                                    <select class="form-control form-control-sm" name="sousgaretkt">
+                                        <option value="">Toutes</option>
+                                    </select>
+                                </div>
+                                <div class="form-group col-sm-4">
                                         <label>DU</label>
                                         <input class="form-control form-control-sm" type="date" name="datedebut"
                                             id="">
@@ -1400,6 +1406,12 @@
                                         <option value="<?= $garedepart->code_gaexp; ?>">
                                             <?= "{$garedepart->nom_gaep}"; ?></option>
                                     <? endforeach; ?>
+                                    </select>
+                                </div>
+                                <div class="form-group col-sm-4">
+                                    <label>SOUS-GARE</label>
+                                    <select class="form-control form-control-sm" name="sousgarecrgl">
+                                        <option value="">Toutes</option>
                                     </select>
                                 </div>
                                 <div class="form-group col-sm-4">

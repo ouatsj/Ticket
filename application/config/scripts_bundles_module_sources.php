@@ -91,6 +91,7 @@ return array(
         'addvoir.js',
         'addprogramme.js',
         'addgprogramme.js',
+        'prog_quota_sieges.js',
         'upprogramme.js',
         'filtre_depart_compagnie.js',
     ),

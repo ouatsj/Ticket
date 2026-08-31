@@ -2489,8 +2489,14 @@
                     GROUP BY dest.id_compaga, lg.nom_ligne, cd.naturecoli, e.prixcolis")->result();
         }
 
-        public function trecaptpligl($cid, $dt1, $dt2, $cp = FALSE, $gd = FALSE, $tycr = FALSE, $algn = FALSE)
-        {        
+        public function trecaptpligl($cid, $dt1, $dt2, $cp = FALSE, $gd = FALSE, $tycr = FALSE, $algn = FALSE, $sg = FALSE)
+        {
+            $sg = trim((string) $sg);
+            $sgSql = '';
+            if ($sg !== '' && $sg !== '0') {
+                $sgSql = " AND e.courrierdepartgare = '" . $this->db->escape_str($sg) . "'";
+            }
+
             if ($cp === '' AND $gd === '' AND $tycr === '' AND $algn === '') {
                 return $this->db->query(
                     "SELECT COUNT(courrierexpid) AS nombres, SUM(prixcolis) AS montant, dest.id_compaga, lg.nom_ligne, cd.naturecoli, e.prixcolis FROM courriers_exp e
@@ -2513,6 +2519,7 @@
                     AND e.dateenvoi BETWEEN '$dt1' AND '$dt2'
                     AND e.prixcolis IS NOT NULL
                     AND e.partocour IS NULL
+                    {$sgSql}
                     GROUP BY dest.id_compaga, lg.nom_ligne, e.prixcolis")->result();
             }
             elseif($gd === '' AND $tycr === '' AND $algn === '') {
@@ -2538,6 +2545,7 @@
                     AND e.dateenvoi BETWEEN '$dt1' AND '$dt2'
                     AND e.prixcolis IS NOT NULL
                     AND e.partocour IS NULL
+                    {$sgSql}
                     GROUP BY dest.id_compaga, lg.nom_ligne, e.prixcolis")->result();
             }
             elseif ($tycr === '' AND $algn === '') {
@@ -2564,6 +2572,7 @@
                     AND e.partocour IS NULL
                     AND ul.guser = '$gd'
                     AND dest.id_compaga = '$cp'
+                    {$sgSql}
                     GROUP BY dest.id_compaga, lg.nom_ligne, e.prixcolis")->result();
             }
             elseif($algn === '')
@@ -2591,6 +2600,7 @@
                     AND e.partocour IS NULL
                     AND ul.guser = '$gd'
                     AND cd.naturecoli = '$tycr'
+                    {$sgSql}
                     GROUP BY dest.id_compaga, lg.nom_ligne, e.prixcolis")->result();
             }
                 return $this->db->query(
@@ -2618,6 +2628,7 @@
                     AND ul.guser = '$gd'
                     AND lg.ident_ligne = '$algn'
                     AND cd.naturecoli = '$tycr'
+                    {$sgSql}
                     GROUP BY dest.id_compaga, lg.nom_ligne, e.prixcolis")->result();
         }
 

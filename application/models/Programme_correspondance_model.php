@@ -207,6 +207,9 @@ class Programme_correspondance_model extends CI_Model
             return array(trim((string) $code_progr));
         }
         $codes = array();
+        if (!empty($lien->code_progr_principal)) {
+            $codes[] = (string) $lien->code_progr_principal;
+        }
         if (!empty($lien->code_progr_suite)) {
             $codes[] = (string) $lien->code_progr_suite;
         }
@@ -752,15 +755,80 @@ class Programme_correspondance_model extends CI_Model
     }
 
     /**
-     * Suites candidates (programmes déjà créés) pour un principal.
-     * Inclut le même jour et le lendemain (correspondance nuit).
+     * Lignes catalogue « suite » (hub → même destination, autre gare exp.).
+     * @return object[]
+     */
+    public function resolve_lignes_suite($ekey, $principal)
+    {
+        if (!$principal) {
+            return array();
+        }
+        $prefComp = $this->_compagnie_arrivee_preferee($principal);
+        $prefNom = $this->_nom_compagnie_preferee($principal);
+        $seen = array();
+        $out = array();
+
+        $etapes = $this->m_itineraire_etape->get_by_parent($ekey, $principal->ligne_id);
+        if (!empty($etapes)) {
+            foreach ($etapes as $et) {
+                $code = isset($et->code_itineraires) ? (string) $et->code_itineraires : '';
+                if ($code === '' || $code === (string) $principal->ligne_id) {
+                    continue;
+                }
+                $lgRow = $this->_ligne_avec_compagnie($code);
+                if ($lgRow
+                    && (string) $lgRow->gaexp_lg !== (string) $principal->gaexp_lg
+                    && $this->_ligne_matche_compagnie($lgRow, $prefComp, $prefNom)
+                    && !isset($seen[$code])) {
+                    $seen[$code] = true;
+                    $out[] = $lgRow;
+                }
+            }
+        }
+
+        if (empty($out)) {
+            $rows = $this->db->query(
+                "SELECT lg.ident_ligne, lg.nom_ligne, lg.gaexp_lg, lg.gadest_lg,
+                        ga.id_compaga, ga.id_villega, ga.nom_gadest,
+                        ca.nom_compagnie AS nom_compagnie_arrivee
+                 FROM lignes lg
+                 JOIN gare_dest ga ON ga.code_gadest = lg.gadest_lg
+                 JOIN compagnies ca ON ga.id_compaga = ca.cle_compagnie
+                 JOIN gare_exp ge ON lg.gaexp_lg = ge.code_gaexp
+                 JOIN compagnies c ON ge.id_compagd = c.cle_compagnie
+                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
+                 WHERE e.ekey = ?
+                   AND lg.gadest_lg = ?
+                   AND lg.gaexp_lg <> ?
+                   AND lg.ident_ligne <> ?
+                 ORDER BY lg.ident_ligne ASC",
+                array($ekey, $principal->gadest_lg, $principal->gaexp_lg, $principal->ligne_id)
+            )->result();
+            foreach ($rows as $row) {
+                $id = isset($row->ident_ligne) ? (string) $row->ident_ligne : '';
+                if ($id === '' || isset($seen[$id])) {
+                    continue;
+                }
+                if (!$this->_ligne_matche_compagnie($row, $prefComp, $prefNom)) {
+                    continue;
+                }
+                $seen[$id] = true;
+                $out[] = $row;
+            }
+        }
+
+        return $out;
+    }
+
+    /**
+     * Horaires catalogue pour créer le départ suite au hub (J … J+max).
      * @return array
      */
-    public function suggest_suites($ekey, $code_progr_principal)
+    public function heures_correspondance($ekey, $code_progr_principal)
     {
         $principal = $this->prog_detail($ekey, $code_progr_principal);
         if (!$principal) {
-            return array('ok' => false, 'error' => 'programme_principal_introuvable', 'suggestions' => array());
+            return array('ok' => false, 'error' => 'programme_principal_introuvable');
         }
 
         $exist = $this->get_by_principal($code_progr_principal);
@@ -770,150 +838,212 @@ class Programme_correspondance_model extends CI_Model
                 'already_linked' => true,
                 'lien' => $exist,
                 'principal' => $this->_public_prog($principal),
-                'suggestions' => array(),
             );
         }
 
-        $datesOk = $this->dates_suite_autorisees($principal->date_progr);
-        $phDates = implode(',', array_fill(0, count($datesOk), '?'));
-        $minAbs = $this->datetime_to_minutes($principal->date_progr, $principal->heure) + $this->marge_min;
-
-        // Lignes suite : 2e étape déclarative, sinon mêmes destinations OD via hub
-        $suite_lignes = array();
-        $etapes = $this->m_itineraire_etape->get_by_parent($ekey, $principal->ligne_id);
-        if (!empty($etapes)) {
-            foreach ($etapes as $et) {
-                $code = isset($et->code_itineraires) ? (string) $et->code_itineraires : '';
-                if ($code === '' || $code === (string) $principal->ligne_id) {
-                    continue;
-                }
-                $lgRow = $this->db->query(
-                    "SELECT lg.gaexp_lg, ga.id_compaga, ca.nom_compagnie AS nom_compagnie_arrivee
-                     FROM lignes lg
-                     JOIN gare_dest ga ON ga.code_gadest = lg.gadest_lg
-                     JOIN compagnies ca ON ga.id_compaga = ca.cle_compagnie
-                     WHERE lg.ident_ligne = ?
-                     LIMIT 1",
-                    array($code)
-                )->row();
-                // Suite = jambe qui part d'une autre gare (hub), même compagnie que le principal
-                if ($lgRow && (string) $lgRow->gaexp_lg !== (string) $principal->gaexp_lg
-                    && $this->_ligne_matche_compagnie($lgRow, $this->_compagnie_arrivee_preferee($principal), $this->_nom_compagnie_preferee($principal))) {
-                    $suite_lignes[$code] = true;
-                }
-            }
-        }
-        if (empty($suite_lignes)) {
-            // Autre gare exp, même gadest, sur J / J+1
-            $paramsLignes = array_merge(array($ekey), $datesOk, array(
-                $principal->gadest_lg,
-                $principal->gaexp_lg,
-                $principal->ligne_id,
-            ));
-            $rows = $this->db->query(
-                "SELECT DISTINCT lg.ident_ligne
-                 FROM programme pr
-                 JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
-                 JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
-                 JOIN gare_exp ge ON lg.gaexp_lg = ge.code_gaexp
-                 JOIN compagnies c ON ge.id_compagd = c.cle_compagnie
-                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                 WHERE e.ekey = ?
-                   AND pr.date_progr IN ($phDates)
-                   AND pr.statut_prog = 'actif'
-                   AND pr.actif_prog = 0
-                   AND lg.gadest_lg = ?
-                   AND lg.gaexp_lg <> ?
-                   AND lg.ident_ligne <> ?",
-                $paramsLignes
-            )->result();
-            foreach ($rows as $r) {
-                $suite_lignes[$r->ident_ligne] = true;
-            }
-        }
-
-        if (empty($suite_lignes)) {
+        $lignes = $this->resolve_lignes_suite($ekey, $principal);
+        if (empty($lignes)) {
             return array(
                 'ok' => true,
                 'principal' => $this->_public_prog($principal),
-                'suggestions' => array(),
                 'message' => 'aucune_ligne_suite',
+                'dates_autorisees' => $this->dates_suite_autorisees($principal->date_progr),
+                'heures_par_date' => array(),
             );
         }
 
-        $ids = array_keys($suite_lignes);
+        $ids = array();
+        foreach ($lignes as $lg) {
+            if (!empty($lg->ident_ligne)) {
+                $ids[] = (string) $lg->ident_ligne;
+            }
+        }
+        $ids = array_values(array_unique($ids));
         $ph = implode(',', array_fill(0, count($ids), '?'));
-        $prefComp = $this->_compagnie_arrivee_preferee($principal);
-        $prefNom = $this->_nom_compagnie_preferee($principal);
-        $params = array_merge(array($ekey), $datesOk, $ids);
-        $cands = $this->db->query(
-            "SELECT pr.code_progr, pr.gareidentif, pr.date_progr, pr.intervalle1, pr.intervalle2, pr.depart_code,
-                    lh.id_ligneheure, lh.ligne_id, h.heure, lg.nom_ligne, lg.gaexp_lg, lg.gadest_lg,
-                    ga.id_compaga, ca.nom_compagnie AS nom_compagnie_arrivee
-             FROM programme pr
-             JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
-             JOIN heures h ON lh.heure_identif = h.id_heure
+        $rows = $this->db->query(
+            "SELECT lh.id_ligneheure, lh.ligne_id, lg.ident_ligne, lg.nom_ligne, lg.gaexp_lg, lg.gadest_lg,
+                    h.heure, ga.id_compaga, ca.nom_compagnie AS nom_compagnie_arrivee
+             FROM ligne_heure lh
              JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
+             JOIN heures h ON lh.heure_identif = h.id_heure
              JOIN gare_dest ga ON lg.gadest_lg = ga.code_gadest
              JOIN compagnies ca ON ga.id_compaga = ca.cle_compagnie
-             JOIN gare_exp ge ON lg.gaexp_lg = ge.code_gaexp
-             JOIN compagnies c ON ge.id_compagd = c.cle_compagnie
-             JOIN entreprise e ON c.id_entrep = e.id_entreprise
-             WHERE e.ekey = ?
-               AND pr.date_progr IN ($phDates)
-               AND pr.statut_prog = 'actif'
-               AND pr.actif_prog = 0
-               AND lh.ligne_id IN ($ph)
-             ORDER BY pr.date_progr ASC, h.heure ASC, pr.code_progr ASC",
-            $params
+             WHERE lh.ligne_id IN ($ph)
+               AND lh.actif_lh = 1
+               AND h.h_active = 1
+             ORDER BY h.heure ASC, lg.ident_ligne ASC",
+            $ids
         )->result();
 
-        $suggestions = array();
-        $suggestionsMemeCie = array();
-        foreach ($cands as $c) {
-            if ($this->datetime_to_minutes($c->date_progr, $c->heure) < $minAbs) {
-                continue;
-            }
-            $hhmm = substr((string) $c->heure, 0, 5);
-            $isLendemain = ((string) $c->date_progr !== (string) $principal->date_progr);
-            $cie = isset($c->nom_compagnie_arrivee) ? trim((string) $c->nom_compagnie_arrivee) : '';
-            $label = $c->nom_ligne . ' ' . $c->date_progr . ' ' . $hhmm;
-            if ($cie !== '') {
-                $label .= ' · ' . $cie;
-            }
-            if ($isLendemain) {
-                $label .= ' (lendemain)';
-            }
-            $item = array(
-                'code_progr' => $c->code_progr,
-                'gareidentif' => $c->gareidentif,
-                'ligne_id' => $c->ligne_id,
-                'nom_ligne' => $c->nom_ligne,
-                'heure' => $c->heure,
-                'date_progr' => $c->date_progr,
-                'lendemain' => $isLendemain,
-                'intervalle1' => (int) $c->intervalle1,
-                'intervalle2' => (int) $c->intervalle2,
-                'id_compaga' => isset($c->id_compaga) ? $c->id_compaga : '',
-                'nom_compagnie_arrivee' => $cie,
-                'portee_ids' => $this->portee_ids_programme($c->code_progr),
-                'label' => $label,
-            );
-            $suggestions[] = $item;
-            if ($this->_ligne_matche_compagnie($c, $prefComp, $prefNom)) {
-                $suggestionsMemeCie[] = $item;
+        $datesOk = $this->dates_suite_autorisees($principal->date_progr);
+        $minAbs = $this->datetime_to_minutes($principal->date_progr, $principal->heure) + $this->marge_min;
+        $heuresParDate = array();
+        foreach ($datesOk as $d) {
+            $heuresParDate[$d] = array();
+        }
+        $seenSlot = array();
+
+        foreach ($rows as $r) {
+            foreach ($datesOk as $date) {
+                if ($this->datetime_to_minutes($date, $r->heure) < $minAbs) {
+                    continue;
+                }
+                $slotKey = $date . '|' . (int) $r->id_ligneheure;
+                if (isset($seenSlot[$slotKey])) {
+                    continue;
+                }
+                $seenSlot[$slotKey] = true;
+                $hhmm = substr((string) $r->heure, 0, 5);
+                $isLendemain = ((string) $date !== (string) $principal->date_progr);
+                $cie = isset($r->nom_compagnie_arrivee) ? trim((string) $r->nom_compagnie_arrivee) : '';
+                $label = $r->nom_ligne . ' ' . $hhmm;
+                if ($cie !== '') {
+                    $label .= ' · ' . $cie;
+                }
+                if ($isLendemain) {
+                    $label .= ' (lendemain)';
+                }
+                $heuresParDate[$date][] = array(
+                    'id_ligneheure' => (int) $r->id_ligneheure,
+                    'ligne_id' => $r->ident_ligne,
+                    'nom_ligne' => $r->nom_ligne,
+                    'heure' => $r->heure,
+                    'gareidentif' => $r->gaexp_lg,
+                    'date_progr' => $date,
+                    'lendemain' => $isLendemain,
+                    'label' => $label,
+                );
             }
         }
-        if ($prefComp !== '' || $prefNom !== '') {
-            $suggestions = $suggestionsMemeCie;
-        }
+
+        $hubGare = isset($lignes[0]->gaexp_lg) ? (string) $lignes[0]->gaexp_lg : '';
 
         return array(
             'ok' => true,
             'principal' => $this->_public_prog($principal),
-            'suggestions' => $suggestions,
+            'hub_gare' => $hubGare,
+            'dates_autorisees' => $datesOk,
+            'heures_par_date' => $heuresParDate,
             'suite_jours_max' => (int) $this->suite_jours_max,
+            'marge_min' => (int) $this->marge_min,
         );
+    }
+
+    /**
+     * @deprecated Utiliser heures_correspondance() — conservé pour compatibilité API.
+     * @return array
+     */
+    public function suggest_suites($ekey, $code_progr_principal)
+    {
+        return $this->heures_correspondance($ekey, $code_progr_principal);
+    }
+
+    /**
+     * Détail d'un créneau suite (ligne_heure au hub).
+     * @return object|null
+     */
+    protected function _detail_ligneheure_suite($ekey, $principal, $id_ligneheure)
+    {
+        $id_ligneheure = (int) $id_ligneheure;
+        if ($id_ligneheure <= 0 || !$principal) {
+            return null;
+        }
+        $lignes = $this->resolve_lignes_suite($ekey, $principal);
+        if (empty($lignes)) {
+            return null;
+        }
+        $ids = array();
+        foreach ($lignes as $lg) {
+            if (!empty($lg->ident_ligne)) {
+                $ids[] = (string) $lg->ident_ligne;
+            }
+        }
+        $ph = implode(',', array_fill(0, count($ids), '?'));
+        $params = array_merge(array($id_ligneheure), $ids);
+        return $this->db->query(
+            "SELECT lh.id_ligneheure, lh.ligne_id, lg.ident_ligne, lg.nom_ligne, lg.gaexp_lg, lg.gadest_lg,
+                    h.heure, ga.id_compaga, ca.nom_compagnie AS nom_compagnie_arrivee
+             FROM ligne_heure lh
+             JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
+             JOIN heures h ON lh.heure_identif = h.id_heure
+             JOIN gare_dest ga ON lg.gadest_lg = ga.code_gadest
+             JOIN compagnies ca ON ga.id_compaga = ca.cle_compagnie
+             WHERE lh.id_ligneheure = ?
+               AND lh.ligne_id IN ($ph)
+               AND lh.actif_lh = 1
+               AND h.h_active = 1
+             LIMIT 1",
+            $params
+        )->row();
+    }
+
+    /**
+     * @return string
+     */
+    protected function _nouveau_code_progr($gareidentif)
+    {
+        $today = mdate('%Y-%m-%d', now('UTC'));
+        $gd = trim((string) $gareidentif);
+        $compter = $this->db->query(
+            "SELECT COUNT(code_progr) AS id FROM programme WHERE createdatepr = ? AND gareidentif = ?",
+            array($today, $gd)
+        )->row();
+        $gd4 = ($gd === 'OUA12') ? 'WUA12' : $gd;
+        return mdate('%y%m%d', now('UTC')) . $gd4 . ((int) $compter->id + 1);
+    }
+
+    /**
+     * Crée un programme aligné sur le principal (même bus, depart_code, intervalles).
+     * @return array{ok:bool,code_progr?:string,error?:string}
+     */
+    protected function _creer_programme_lie($principal, $gareidentif, $id_ligneheure, $date_progr, $heure)
+    {
+        $gd = trim((string) $gareidentif);
+        $date = trim((string) $date_progr);
+        $idHeur = (int) $id_ligneheure;
+        if ($gd === '' || $date === '' || $idHeur <= 0) {
+            return array('ok' => false, 'error' => 'params_manquants');
+        }
+
+        $exist = $this->db->query(
+            "SELECT code_progr FROM programme
+             WHERE gareidentif = ?
+               AND date_progr = ?
+               AND id_heur = ?
+               AND statut_prog = 'actif'
+               AND actif_prog = 0
+             LIMIT 1",
+            array($gd, $date, $idHeur)
+        )->row();
+        if ($exist) {
+            return array('ok' => false, 'error' => 'depart_hub_existe');
+        }
+
+        $pcd = $this->_nouveau_code_progr($gd);
+        $today = mdate('%Y-%m-%d', now('UTC'));
+        $suheure = $heure ? $heure : $principal->heure;
+        $arrayprog = array(
+            'code_progr' => $pcd,
+            'depart_code' => $principal->depart_code,
+            'id_heur' => $idHeur,
+            'gareidentif' => $gd,
+            'idsousgare_prog' => null,
+            'typetarif' => $principal->typetarif,
+            'categori' => $principal->categori,
+            'intervalle1' => (int) $principal->intervalle1,
+            'intervalle2' => (int) $principal->intervalle2,
+            'dateheure_prog' => $date . '-' . $suheure,
+            'date_progr' => $date,
+            'createdatepr' => $today,
+            'createdpg_at' => now('UTC'),
+            'statut_prog' => 'actif',
+            'actif_prog' => 0,
+        );
+        $ok = $this->m_programme->create($arrayprog);
+        if ($ok === null || $ok === FALSE) {
+            return array('ok' => false, 'error' => 'echec_creation_programme');
+        }
+        return array('ok' => true, 'code_progr' => $pcd);
     }
 
     protected function _public_prog($p)
@@ -928,6 +1058,7 @@ class Programme_correspondance_model extends CI_Model
             'gareidentif' => $p->gareidentif,
             'intervalle1' => (int) $p->intervalle1,
             'intervalle2' => (int) $p->intervalle2,
+            'categori' => isset($p->categori) ? $p->categori : null,
         );
     }
 
@@ -1023,31 +1154,50 @@ class Programme_correspondance_model extends CI_Model
     }
 
     /**
-     * Crée le lien + programme dérivé.
-     * - categori = principal (même bus Banfora)
-     * - intervalles = suite (plage sièges Bobo)
+     * Crée le lien + programme suite (hub) + programme dérivé.
+     * - suite et dérivé : categori, depart_code, intervalles = principal
      * - vente dérivé : miroir des sièges déjà occupés sur la suite
-     * - options:
-     *   - scope_banfora: int[] sous-gares Banfora (vide = toute portée)
-     *   - apply_principal: bool (défaut true) — B
-     *   - apply_derive: bool (défaut true) — A
-     *   - scope_bobo: int[] sous-gares Bobo (vide = toute portée)
-     *   - apply_suite: bool (défaut true)
+     * - pool sièges : principal + suite + dérivé
+     * options requises : id_ligneheure, date_progr_suite
      * @return array
      */
-    public function link($ekey, $code_progr_principal, $code_progr_suite, array $options = array())
+    public function link($ekey, $code_progr_principal, array $options = array())
     {
         $principal = $this->prog_detail($ekey, $code_progr_principal);
-        $suite = $this->prog_detail($ekey, $code_progr_suite);
-        if (!$principal || !$suite) {
+        if (!$principal) {
             return array('ok' => false, 'error' => 'programme_introuvable');
         }
-        $errDates = $this->valider_dates_suite($principal, $suite);
-        if ($errDates !== null) {
-            return array('ok' => false, 'error' => $errDates);
+
+        $idHeurSuite = isset($options['id_ligneheure']) ? (int) $options['id_ligneheure'] : 0;
+        $dateSuite = isset($options['date_progr_suite']) ? trim((string) $options['date_progr_suite']) : '';
+        if ($idHeurSuite <= 0 || $dateSuite === '') {
+            return array('ok' => false, 'error' => 'params_manquants');
         }
+        $datesOk = $this->dates_suite_autorisees($principal->date_progr);
+        if (!in_array($dateSuite, $datesOk, true)) {
+            return array('ok' => false, 'error' => 'dates_hors_plage');
+        }
+
         if ($this->get_by_principal($code_progr_principal)) {
             return array('ok' => false, 'error' => 'deja_lie');
+        }
+
+        $lhSuite = $this->_detail_ligneheure_suite($ekey, $principal, $idHeurSuite);
+        if (!$lhSuite) {
+            return array('ok' => false, 'error' => 'heure_incompatible');
+        }
+
+        $suiteStub = (object) array(
+            'date_progr' => $dateSuite,
+            'heure' => $lhSuite->heure,
+            'gaexp_lg' => $lhSuite->gaexp_lg,
+            'gareidentif' => $lhSuite->gaexp_lg,
+            'id_compaga' => isset($lhSuite->id_compaga) ? $lhSuite->id_compaga : '',
+            'nom_compagnie_arrivee' => isset($lhSuite->nom_compagnie_arrivee) ? $lhSuite->nom_compagnie_arrivee : '',
+        );
+        $errDates = $this->valider_dates_suite($principal, $suiteStub);
+        if ($errDates !== null) {
+            return array('ok' => false, 'error' => $errDates);
         }
 
         $applyPrincipal = !isset($options['apply_principal']) || $options['apply_principal'];
@@ -1057,9 +1207,24 @@ class Programme_correspondance_model extends CI_Model
             ? $options['scope_banfora'] : array();
         $scopeBobo = isset($options['scope_bobo']) && is_array($options['scope_bobo'])
             ? $options['scope_bobo'] : array();
-        // true si le client a explicitement choisi une portée (même vide = toute portée)
         $hasScopeBanfora = !empty($options['has_scope_banfora']);
         $hasScopeBobo = !empty($options['has_scope_bobo']);
+
+        $creerSuite = $this->_creer_programme_lie(
+            $principal,
+            $lhSuite->gaexp_lg,
+            $idHeurSuite,
+            $dateSuite,
+            $lhSuite->heure
+        );
+        if (empty($creerSuite['ok'])) {
+            return array('ok' => false, 'error' => isset($creerSuite['error']) ? $creerSuite['error'] : 'echec_creation_suite');
+        }
+        $codeSuite = $creerSuite['code_progr'];
+        $suite = $this->prog_detail($ekey, $codeSuite);
+        if (!$suite) {
+            return array('ok' => false, 'error' => 'echec_creation_suite');
+        }
 
         $pair = $this->resolve_derive_avec_heure($ekey, $principal, $suite);
         if (!$pair || empty($pair['ligne'])) {
@@ -1071,7 +1236,6 @@ class Programme_correspondance_model extends CI_Model
             return array('ok' => false, 'error' => 'heure_derive_introuvable');
         }
 
-        // Déjà un dérivé lié ? ou programme BAN-BOB même jour/heure existant réutilisable
         $existDerive = $this->db->query(
             "SELECT pr.code_progr FROM programme pr
              JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
@@ -1096,55 +1260,39 @@ class Programme_correspondance_model extends CI_Model
         )->row();
 
         $codeDerive = null;
+        $int1 = (int) $principal->intervalle1;
+        $int2 = (int) $principal->intervalle2;
         if ($existDerive) {
             $codeDerive = $existDerive->code_progr;
-            // Intervalles = suite (stock Bobo) ; catégorie = principal (bus Banfora)
             $this->m_programme->update($codeDerive, array(
-                'intervalle1' => (int) $suite->intervalle1,
-                'intervalle2' => (int) $suite->intervalle2,
+                'intervalle1' => $int1,
+                'intervalle2' => $int2,
                 'categori' => $principal->categori,
+                'depart_code' => $principal->depart_code,
             ));
         } else {
-            $today = mdate('%Y-%m-%d', now('UTC'));
-            $gd = $principal->gareidentif;
-            $compter = $this->db->query(
-                "SELECT COUNT(code_progr) AS id FROM programme WHERE createdatepr = ? AND gareidentif = ?",
-                array($today, $gd)
-            )->row();
-            $gd4 = ($gd === 'OUA12') ? 'WUA12' : $gd;
-            $pcd = mdate('%y%m%d', now('UTC')) . $gd4 . ((int) $compter->id + 1);
-
+            $heureDerive = $principal->heure;
             $heureRow = $this->db->query(
                 "SELECT h.heure FROM ligne_heure lh JOIN heures h ON lh.heure_identif = h.id_heure WHERE lh.id_ligneheure = ? LIMIT 1",
                 array($idHeur)
             )->row();
-            $suheure = $heureRow ? $heureRow->heure : $principal->heure;
-
-            $arrayprog = array(
-                'code_progr' => $pcd,
-                'depart_code' => $principal->depart_code,
-                'id_heur' => $idHeur,
-                'gareidentif' => $gd,
-                'idsousgare_prog' => null,
-                'typetarif' => $principal->typetarif,
-                'categori' => $principal->categori,
-                'intervalle1' => (int) $suite->intervalle1,
-                'intervalle2' => (int) $suite->intervalle2,
-                'dateheure_prog' => $principal->date_progr . '-' . $suheure,
-                'date_progr' => $principal->date_progr,
-                'createdatepr' => $today,
-                'createdpg_at' => now('UTC'),
-                'statut_prog' => 'actif',
-                'actif_prog' => 0,
-            );
-            $ok = $this->m_programme->create($arrayprog);
-            if ($ok === null || $ok === FALSE) {
-                return array('ok' => false, 'error' => 'echec_creation_derive');
+            if ($heureRow && !empty($heureRow->heure)) {
+                $heureDerive = $heureRow->heure;
             }
-            $codeDerive = $pcd;
+            $creerDerive = $this->_creer_programme_lie(
+                $principal,
+                $principal->gareidentif,
+                $idHeur,
+                $principal->date_progr,
+                $heureDerive
+            );
+            if (empty($creerDerive['ok'])) {
+                $this->db->where('code_progr', $codeSuite)->delete('programme');
+                return array('ok' => false, 'error' => isset($creerDerive['error']) ? $creerDerive['error'] : 'echec_creation_derive');
+            }
+            $codeDerive = $creerDerive['code_progr'];
         }
 
-        // Portées sous-gares
         $porteeErrors = array();
         if ($hasScopeBanfora) {
             if ($applyDerive && $codeDerive) {
@@ -1160,7 +1308,6 @@ class Programme_correspondance_model extends CI_Model
                 }
             }
         } elseif ($codeDerive) {
-            // Compat: sans choix UI, recopier la portée actuelle du principal sur le dérivé
             $psg = $this->db->query(
                 "SELECT idsousgare FROM programme_sousgare WHERE code_progr = ?",
                 array($principal->code_progr)

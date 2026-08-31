@@ -19,6 +19,14 @@
         </div>
     </div>
 <?php endif; ?>
+    <?php if ($msg = $this->session->flashdata('prog_quota_error')): ?>
+    <div class="row mb-2 ml-2 mr-2">
+        <div class="col-12 col-md-10">
+            <div class="alert alert-danger mb-2 py-2"><?= htmlspecialchars($msg, ENT_QUOTES, 'UTF-8'); ?></div>
+        </div>
+    </div>
+<?php endif; ?>
+<script type="text/javascript">window.__SITE_BASE = <?= json_encode(rtrim(site_url(''), '/')); ?>;</script>
 <div class="row mb-3 ml-2 mr-2" id="mode_depart_toggle">
     <div class="col-12 col-md-10">
         <div class="alert alert-info mb-2 py-2">
@@ -343,17 +351,20 @@
                                                     $__ids[] = (int) $item->idsousgare_prog;
                                                 }
                                                 $__ventes = array();
+                                                $__sieges_occ = array();
                                                 if (!isset($this->m_programme)) {
                                                     $this->load->model('Programme_model', 'm_programme');
                                                 }
                                                 if (isset($this->m_programme)) {
                                                     $__ventes = $this->m_programme->comptes_ventes_par_sousgare($item->code_progr);
+                                                    $__sieges_occ = $this->m_programme->sieges_occupes_programme($item->code_progr);
                                                 }
                                                 $__ventes_attr = array();
                                                 foreach ($__ventes as $__sg => $__nb) {
                                                     $__ventes_attr[] = ((int) $__sg) . ':' . ((int) $__nb);
                                                 }
                                             ?>
+                                            data-sieges-occupes="<?= htmlspecialchars(implode(',', $__sieges_occ), ENT_QUOTES, 'UTF-8'); ?>"
                                             data-portee-sgs="<?= htmlspecialchars(implode(',', $__ids), ENT_QUOTES, 'UTF-8'); ?>"
                                             data-ventes-sgs="<?= htmlspecialchars(implode(',', $__ventes_attr), ENT_QUOTES, 'UTF-8'); ?>"
                                             class="addgprogramme md-trigger"
@@ -493,15 +504,7 @@
                                                         ));
                                                     ?>
                                                     
-                                                    <div class="form-group col-sm-3">
-                                                        <label>QUOTA DEBUT</label>
-                                                        <input class="form-control form-control-sm" name="debut" id="ouotadebut"
-                                                        value="" type="text" autocomplete="off">
-                                                    </div>
-                                                    <div class="form-group col-sm-3">
-                                                        <label>QUOTA FIN</label>
-                                                        <input class="form-control form-control-sm" name="fin" id="ouotafin" value="" type="text" autocomplete="off">
-                                                    </div>
+                                                    <?php $this->load->view('beagle/pages/_gare/_partial_quota_sieges', array('categ_select_id' => 'idcateg', 'quota_mode' => 'edit')); ?>
                                                     <div class="form-group col-sm-4">
                                                         <label>DATE</label>
                                                             <input class="form-control form-control-sm" type="date" id ="progdate" name="dateprogramme" value="">
@@ -730,7 +733,7 @@
 
                                 <div class="form-group col-sm-3">
                                     <label>CATEGORIE</label>
-                                    <select class="form-control form-control-sm" name="categorie">
+                                    <select class="form-control form-control-sm" name="categorie" id="prog-categ-new-empty">
                                     <option value=""></option>
                                         <? foreach ($categories as $categbus): ?>
                                             <option value="<?= $categbus->categorie; ?>">
@@ -761,18 +764,7 @@
                                         'col_dep' => 'col-sm-3',
                                     ));
                                 ?>
-                                <div class="form-group col-sm-3">
-                                    <label>QUOTA DEBUT</label>
-                                    <input class="form-control form-control-sm" name="debut"
-                                            type="text" autocomplete="off"
-                                            placeholder="1">
-                                </div>
-                                <div class="form-group col-sm-3">
-                                    <label>QUOTA FIN</label>
-                                    <input class="form-control form-control-sm" name="fin"
-                                            type="text" autocomplete="off"
-                                            placeholder="65">
-                                </div>
+                                <?php $this->load->view('beagle/pages/_gare/_partial_quota_sieges', array('categ_select_id' => 'prog-categ-new-empty')); ?>
                                 <div class="form-group col-sm-3">
                                     <label>DATE DEPART</label>
                                         <input class="form-control form-control-sm" type="date" name="datedp">
@@ -866,7 +858,7 @@
 
             <div class="form-group col-sm-4">
                 <label>CATEGORIE</label>
-                <select class="form-control form-control-sm" name="categorie">
+                <select class="form-control form-control-sm" name="categorie" id="prog-categ-new-main">
                 <option value=""></option>
                     <? foreach ($categories as $categbus): ?>
                         <option value="<?= $categbus->categorie; ?>">
@@ -897,18 +889,7 @@
                     'col_dep' => 'col-sm-4',
                 ));
             ?>
-            <div class="form-group col-sm-4">
-                <label>QUOTA DEBUT</label>
-                <input class="form-control form-control-sm" name="debut"
-                        type="text" autocomplete="off"
-                        placeholder="1">
-            </div>
-            <div class="form-group col-sm-4">
-                <label>QUOTA FIN</label>
-                <input class="form-control form-control-sm" name="fin"
-                        type="text" autocomplete="off"
-                        placeholder="65">
-            </div>
+            <?php $this->load->view('beagle/pages/_gare/_partial_quota_sieges', array('categ_select_id' => 'prog-categ-new-main')); ?>
             <div class="form-group col-sm-4">
                 <label>DATE DEPART</label>
                     <input class="form-control form-control-sm" type="date" name="datedp">
@@ -1311,7 +1292,23 @@
             <p class="mb-2" id="corr-principal-label"></p>
             <div id="corr-linked-box" class="mb-3" style="display:none;"></div>
             <div id="corr-suggest-box">
-                <p class="text-muted small">Choisir un départ déjà créé à la gare de correspondance (même jour ou lendemain). Les sièges du départ hub dérivé seront le miroir des sièges occupés sur ce départ. Les options de gare s’affichent après ce choix.</p>
+                <p class="text-muted small">Choisir la date et l’heure de départ à la gare de correspondance (même jour ou lendemain, min. 30 min après le principal). Le départ sera créé avec le même bus, le même <code>depart_code</code> et les mêmes sièges que le principal. Les sièges du départ hub dérivé restent le miroir des sièges occupés sur la suite.</p>
+                <div id="corr-heures-form" style="display:none;">
+                    <div class="form-group row">
+                        <label class="col-sm-3 col-form-label">Date</label>
+                        <div class="col-sm-9">
+                            <select id="corr-date-suite" class="form-control"></select>
+                        </div>
+                    </div>
+                    <div class="form-group row">
+                        <label class="col-sm-3 col-form-label">Heure</label>
+                        <div class="col-sm-9">
+                            <select id="corr-heure-suite" class="form-control" disabled>
+                                <option value="">— Choisir une date —</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
                 <div id="corr-suggest-list"></div>
                 <div id="corr-portee-box" class="mt-3" style="display:none;">
                     <hr>
@@ -1361,7 +1358,7 @@
         <div class="modal-footer">
             <button class="btn btn-secondary js-corr-close" type="button">Fermer</button>
             <button class="btn btn-danger js-corr-unlink" type="button" style="display:none;">Supprimer le lien</button>
-            <button class="btn btn-primary js-corr-save" type="button" disabled>Lier + créer départ hub</button>
+            <button class="btn btn-primary js-corr-save" type="button" disabled>Lier + créer départs</button>
         </div>
     </div>
 </div>
@@ -1382,7 +1379,10 @@
         sousgaresPrincipal: [],
         sousgaresSuite: [],
         porteePrincipale: [],
-        porteeSuite: []
+        porteeSuite: [],
+        heuresParDate: {},
+        datesAutorisees: [],
+        hubGare: ''
     };
 
     function $corrModal() {
@@ -1417,7 +1417,10 @@
             sousgaresPrincipal: [],
             sousgaresSuite: [],
             porteePrincipale: [],
-            porteeSuite: []
+            porteeSuite: [],
+            heuresParDate: {},
+            datesAutorisees: [],
+            hubGare: ''
         };
         var saveBtn = document.querySelector('#modal-correspondance .js-corr-save');
         var unlinkBtn = document.querySelector('#modal-correspondance .js-corr-unlink');
@@ -1429,6 +1432,15 @@
         document.getElementById('corr-linked-box').style.display = 'none';
         document.getElementById('corr-suggest-box').style.display = 'block';
         document.getElementById('corr-suggest-list').innerHTML = '';
+        var heuresFormHide = document.getElementById('corr-heures-form');
+        if (heuresFormHide) heuresFormHide.style.display = 'none';
+        var dateSelHide = document.getElementById('corr-date-suite');
+        var heureSelHide = document.getElementById('corr-heure-suite');
+        if (dateSelHide) dateSelHide.innerHTML = '';
+        if (heureSelHide) {
+            heureSelHide.innerHTML = '<option value="">— Choisir une date —</option>';
+            heureSelHide.disabled = true;
+        }
         document.getElementById('corr-msg').innerHTML = '';
         resetPorteeUi();
     }
@@ -1598,6 +1610,10 @@
     }
 
     function loadSousgaresSuite(gareCode) {
+        if (state.sousgaresSuite && state.sousgaresSuite.length) {
+            applySuiteModeUi();
+            return Promise.resolve();
+        }
         state.sousgaresSuite = [];
         applySuiteModeUi();
         if (!gareCode) return Promise.resolve();
@@ -1615,7 +1631,7 @@
         var portee = document.getElementById('corr-portee-box');
         if (portee) portee.style.display = 'block';
         initPrincipalScopeMode();
-        state.porteeSuite = (state.suite && state.suite.portee_ids) ? state.suite.portee_ids : [];
+        state.porteeSuite = [];
         return loadSousgaresSuite(state.suite && state.suite.gareidentif).then(function () {
             initSuiteScopeMode();
         });
@@ -1656,6 +1672,12 @@
             dates_invalides: 'Date de programme invalide.',
             deja_lie: 'Ce principal a déjà un lien de correspondance.',
             programme_introuvable: 'Programme introuvable.',
+            params_manquants: 'Date et heure de correspondance requises.',
+            heure_incompatible: 'Horaire incompatible avec cette liaison.',
+            depart_hub_existe: 'Un départ existe déjà à ce créneau à la gare de correspondance.',
+            echec_creation_suite: 'Échec création du départ à la gare de correspondance.',
+            echec_creation_programme: 'Échec création du programme.',
+            aucune_ligne_suite: 'Aucune ligne de correspondance trouvée pour ce départ.',
             ligne_derive_introuvable: 'Aucune ligne hub de la même compagnie (VIP reste VIP, CMT reste CMT).',
             heure_derive_introuvable: 'Aucun horaire VIP/CMT trouvé pour le départ hub (vérifiez les heures de la ligne hub).',
             echec_creation_derive: 'Échec création du départ dérivé.'
@@ -1663,34 +1685,97 @@
         return map[code] || code || 'Erreur';
     }
 
-    function renderSuggestions(list) {
-        var box = document.getElementById('corr-suggest-list');
-        if (!list || !list.length) {
-            box.innerHTML = '<p class="text-muted">Aucun départ de correspondance compatible (même jour ou lendemain).</p>';
+    function formatDateLabel(dateStr, principalDate) {
+        if (!dateStr) return '';
+        if (dateStr === principalDate) return dateStr + ' (même jour)';
+        return dateStr + ' (lendemain)';
+    }
+
+    function fillHeureSelect(dateStr) {
+        var heureSel = document.getElementById('corr-heure-suite');
+        if (!heureSel) return;
+        var list = (state.heuresParDate && state.heuresParDate[dateStr]) ? state.heuresParDate[dateStr] : [];
+        var html = '<option value="">— Choisir une heure —</option>';
+        list.forEach(function (h, i) {
+            html += '<option value="' + h.id_ligneheure + '" data-idx="' + i + '">'
+                + (h.label || (h.nom_ligne + ' ' + (h.heure || ''))) + '</option>';
+        });
+        heureSel.innerHTML = html;
+        heureSel.disabled = !list.length;
+        state.suite = null;
+        var saveBtn = document.querySelector('#modal-correspondance .js-corr-save');
+        if (saveBtn) saveBtn.disabled = true;
+        var portee = document.getElementById('corr-portee-box');
+        if (portee) portee.style.display = 'none';
+    }
+
+    function onHeureSelected() {
+        var dateSel = document.getElementById('corr-date-suite');
+        var heureSel = document.getElementById('corr-heure-suite');
+        if (!dateSel || !heureSel || !heureSel.value) {
+            state.suite = null;
             return;
         }
-        var html = '<div class="list-group">';
-        list.forEach(function (s, i) {
-            var datePart = s.date_progr ? (' · ' + s.date_progr) : '';
-            var tag = s.lendemain ? ' <span class="badge badge-warning">lendemain</span>' : '';
-            html += '<label class="list-group-item" style="cursor:pointer;">'
-                + '<input type="radio" name="corr_suite" value="' + s.code_progr + '" data-idx="' + i + '" style="margin-right:8px;">'
-                + '<strong>' + (s.label || s.nom_ligne) + '</strong>' + tag
-                + ' <small class="text-muted">(' + s.code_progr + datePart + ' · gare ' + s.gareidentif + ' · sièges '
-                + s.intervalle1 + '-' + s.intervalle2 + ')</small></label>';
+        var dateStr = dateSel.value;
+        var list = (state.heuresParDate && state.heuresParDate[dateStr]) ? state.heuresParDate[dateStr] : [];
+        var idx = heureSel.selectedIndex - 1;
+        if (idx < 0 || !list[idx]) {
+            state.suite = null;
+            return;
+        }
+        var h = list[idx];
+        state.suite = {
+            id_ligneheure: h.id_ligneheure,
+            date_progr: dateStr,
+            gareidentif: h.gareidentif || state.hubGare,
+            nom_ligne: h.nom_ligne,
+            heure: h.heure,
+            label: h.label
+        };
+        var saveBtn = document.querySelector('#modal-correspondance .js-corr-save');
+        if (saveBtn) saveBtn.disabled = !state.suite;
+        showPorteeAfterSuite();
+    }
+
+    function renderHeuresForm(data) {
+        var box = document.getElementById('corr-suggest-list');
+        var form = document.getElementById('corr-heures-form');
+        var dateSel = document.getElementById('corr-date-suite');
+        var heureSel = document.getElementById('corr-heure-suite');
+        if (!box || !form || !dateSel || !heureSel) return;
+
+        state.heuresParDate = data.heures_par_date || {};
+        state.datesAutorisees = data.dates_autorisees || [];
+        state.hubGare = data.hub_gare || '';
+        state.sousgaresSuite = data.sousgares_suite || [];
+
+        var principalDate = (data.principal && data.principal.date_progr) ? data.principal.date_progr : '';
+        var totalHeures = 0;
+        state.datesAutorisees.forEach(function (d) {
+            totalHeures += ((state.heuresParDate[d] || []).length);
         });
-        html += '</div>';
-        box.innerHTML = html;
-        var radios = box.querySelectorAll('input[name="corr_suite"]');
-        Array.prototype.forEach.call(radios, function (inp) {
-            inp.addEventListener('change', function () {
-                var idx = parseInt(inp.getAttribute('data-idx'), 10);
-                state.suite = list[idx];
-                var saveBtn = document.querySelector('#modal-correspondance .js-corr-save');
-                if (saveBtn) saveBtn.disabled = !state.suite;
-                showPorteeAfterSuite();
-            });
+
+        if (!state.datesAutorisees.length || totalHeures === 0) {
+            form.style.display = 'none';
+            var msg = data.message === 'aucune_ligne_suite'
+                ? 'Aucune ligne de correspondance configurée pour ce départ.'
+                : 'Aucun horaire compatible (même jour ou lendemain, min. 30 min après le principal).';
+            box.innerHTML = '<p class="text-muted">' + msg + '</p>';
+            return;
+        }
+
+        box.innerHTML = '';
+        form.style.display = 'block';
+        var dateHtml = '';
+        state.datesAutorisees.forEach(function (d) {
+            if (!(state.heuresParDate[d] || []).length) return;
+            dateHtml += '<option value="' + d + '">' + formatDateLabel(d, principalDate) + '</option>';
         });
+        dateSel.innerHTML = dateHtml;
+        if (dateSel.options.length) {
+            dateSel.selectedIndex = 0;
+            fillHeureSelect(dateSel.value);
+        }
     }
 
     function appendScopeToBody(body) {
@@ -1772,6 +1857,9 @@
         state.sousgaresSuite = [];
         state.porteePrincipale = [];
         state.porteeSuite = [];
+        state.heuresParDate = {};
+        state.datesAutorisees = [];
+        state.hubGare = '';
         resetPorteeUi();
         var datePart = pdate ? (' ' + pdate) : '';
         document.getElementById('corr-principal-label').textContent =
@@ -1779,6 +1867,15 @@
         document.getElementById('corr-linked-box').style.display = 'none';
         document.getElementById('corr-suggest-box').style.display = 'block';
         document.getElementById('corr-suggest-list').innerHTML = '';
+        var heuresFormOpen = document.getElementById('corr-heures-form');
+        if (heuresFormOpen) heuresFormOpen.style.display = 'none';
+        var dateSelOpen = document.getElementById('corr-date-suite');
+        var heureSelOpen = document.getElementById('corr-heure-suite');
+        if (dateSelOpen) dateSelOpen.innerHTML = '';
+        if (heureSelOpen) {
+            heureSelOpen.innerHTML = '<option value="">— Choisir une date —</option>';
+            heureSelOpen.disabled = true;
+        }
         var saveBtn = document.querySelector('#modal-correspondance .js-corr-save');
         var unlinkBtn = document.querySelector('#modal-correspondance .js-corr-unlink');
         if (saveBtn) {
@@ -1798,7 +1895,7 @@
                 renderLinked(data);
                 return null;
             }
-            return fetch(base + '/suggest_correspondances/' + encodeURIComponent(ekey) + '/' + encodeURIComponent(code), {
+            return fetch(base + '/heures_correspondance/' + encodeURIComponent(ekey) + '/' + encodeURIComponent(code), {
                 credentials: 'same-origin',
                 headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' }
             }).then(parseJsonResponse);
@@ -1806,7 +1903,7 @@
             if (!sug) return;
             setMsg('', false);
             if (!sug.ok) {
-                setMsg(sug.error || 'Erreur suggestions', true);
+                setMsg(sug.error || 'Erreur horaires', true);
                 return;
             }
             if (sug.principal) {
@@ -1816,12 +1913,13 @@
                     'Départ principal : ' + (sug.principal.nom_ligne || nom || '')
                     + dateP + ' ' + (sug.principal.heure || heure || '')
                     + ' · gare ' + (sug.principal.gareidentif || '')
+                    + ' · bus ' + (sug.principal.intervalle1 || '') + '-' + (sug.principal.intervalle2 || '')
+                    + ' · ' + (sug.principal.depart_code || '')
                     + ' (' + code + ')';
             }
             state.sousgaresPrincipal = sug.sousgares_principal || sug.sousgares_banfora || [];
             state.porteePrincipale = sug.portee_principale || [];
-            renderSuggestions(sug.suggestions || []);
-            // Portée affichée seulement après choix d'une suite
+            renderHeuresForm(sug);
         }).catch(function (err) {
             setMsg((err && err.message) ? err.message : 'Erreur réseau', true);
         });
@@ -1872,16 +1970,28 @@
         });
     });
 
+    var dateSuiteEl = document.getElementById('corr-date-suite');
+    if (dateSuiteEl) {
+        dateSuiteEl.addEventListener('change', function () {
+            fillHeureSelect(dateSuiteEl.value);
+        });
+    }
+    var heureSuiteEl = document.getElementById('corr-heure-suite');
+    if (heureSuiteEl) {
+        heureSuiteEl.addEventListener('change', onHeureSelected);
+    }
+
     var saveEl = document.querySelector('#modal-correspondance .js-corr-save');
     if (saveEl) {
         saveEl.addEventListener('click', function () {
-            if (!state.principal || !state.suite) return;
+            if (!state.principal || !state.suite || !state.suite.id_ligneheure) return;
             var btn = this;
             btn.disabled = true;
             setMsg('Création du lien…', false);
             var body = new URLSearchParams();
             body.set('code_progr_principal', state.principal);
-            body.set('code_progr_suite', state.suite.code_progr);
+            body.set('id_ligneheure', String(state.suite.id_ligneheure));
+            body.set('date_progr_suite', state.suite.date_progr);
             appendScopeToBody(body);
             appendCsrf(body);
             fetch(base + '/link_correspondance/' + encodeURIComponent(ekey), {
@@ -1902,7 +2012,9 @@
                 var warn = (data.portee_warnings && data.portee_warnings.length)
                     ? ' (sous-gares partielles : ' + data.portee_warnings.join(', ') + ')'
                     : '';
-                setMsg('Lien créé. Départ dérivé : ' + (data.lien && data.lien.code_progr_derive ? data.lien.code_progr_derive : '') + warn, false);
+                var suiteCode = data.suite && data.suite.code_progr ? data.suite.code_progr : '';
+                var deriveCode = data.lien && data.lien.code_progr_derive ? data.lien.code_progr_derive : '';
+                setMsg('Lien créé. Suite : ' + suiteCode + ' · Dérivé : ' + deriveCode + warn, false);
                 setTimeout(function () { window.location.reload(); }, 800);
             }).catch(function (err) {
                 setMsg((err && err.message) ? err.message : 'Erreur réseau', true);
@@ -1960,14 +2072,15 @@
         </div>
         <div class="modal-body">
             <p class="text-muted small mb-2">
-                Un bus en amont a déclaré sa sortie. Choisissez l’offre, les numéros encore libres, puis l’horaire local vers la même destination.
+                Un bus en amont a déclaré sa sortie. Le nouveau départ reprend le même code de départ et la même catégorie de bus,
+                à l’heure de départ de la gare de correspondance (pas l’heure du départ principal).
             </p>
             <div id="reco-offres-list"></div>
             <div id="reco-detail" class="mt-3" style="display:none;">
                 <hr>
                 <p class="mb-1"><strong id="reco-detail-label"></strong></p>
                 <div class="form-group">
-                    <label>Départ local (même destination)</label>
+                    <label>Départ correspondance (horaire local)</label>
                     <select class="form-control form-control-sm" id="reco-heure"></select>
                 </div>
                 <div class="form-group">
@@ -1975,11 +2088,8 @@
                     <input type="date" class="form-control form-control-sm" id="reco-date">
                 </div>
                 <div class="mb-2">
-                    <label>Sièges à reconduire</label>
-                    <div>
-                        <button type="button" class="btn btn-sm btn-outline-secondary" id="reco-check-all">Tout cocher</button>
-                        <button type="button" class="btn btn-sm btn-outline-secondary" id="reco-uncheck-all">Tout décocher</button>
-                    </div>
+                    <label>Sièges (lecture seule en gare aval)</label>
+                    <p class="text-muted small mb-1">Les sièges restants sont reconduits automatiquement ; ils ne sont ni cochables ni décochables. Les sièges déjà vendus restent grisés.</p>
                     <div id="reco-sieges" class="row mt-2"></div>
                 </div>
             </div>
@@ -2055,7 +2165,8 @@
             gare_cible_invalide: 'Gare aval invalide.',
             aucun_siege: 'Choisissez au moins un siège.',
             siege_indisponible: 'Un siège choisi n’est plus libre.',
-            heure_incompatible: 'Horaire incompatible (même destination requise).',
+            heure_correspondance_introuvable: 'Impossible de trouver l’heure de départ de la gare de correspondance.',
+            depart_code_manquant: 'Code de départ du principal introuvable.',
             date_invalide: 'Date invalide.',
             echec_creation_depart: 'Échec de création du départ.',
             siege_pris: 'Un siège vient d’être pris par une autre gare.',
@@ -2072,8 +2183,14 @@
         }
         var html = '<div class="list-group">';
         list.forEach(function (o) {
-            var heure = (o.heure || '').toString().substr(0, 5);
-            var label = (o.nom_gaep || o.gareidentif || '') + ' · ' + (o.nom_ligne || '') + ' ' + heure
+            var heureCorr = (o.heure_correspondance || '').toString().substr(0, 5);
+            var heurePrin = (o.heure_principale || o.heure || '').toString().substr(0, 5);
+            var heureAff = heureCorr || heurePrin;
+            var codeDep = o.depart_code_principal || o.depart_code || '';
+            var label = (o.nom_gaep || o.gareidentif || '') + ' · ' + (o.nom_ligne || '')
+                + (codeDep ? (' · ' + codeDep) : '')
+                + ' · corr. ' + heureAff
+                + (heureCorr && heurePrin && heureCorr !== heurePrin ? (' (départ ' + heurePrin + ')') : '')
                 + ' · ' + (o.nb_restants || 0) + ' place(s)';
             html += '<label class="list-group-item list-group-item-action mb-0" style="cursor:pointer;">'
                 + '<input type="radio" name="reco_offre" class="js-reco-pick mr-2" value="'
@@ -2098,17 +2215,39 @@
         state.offre = offre;
         document.getElementById('reco-detail').style.display = 'block';
         document.getElementById('reco-detail-label').textContent =
-            (offre.nom_gaep || '') + ' → ' + (offre.nom_gadest || '') + ' · sièges restants';
-        document.getElementById('reco-date').value = offre.date_progr || '';
+            (offre.nom_gaep || '') + ' → ' + (offre.nom_gadest || '')
+            + (offre.depart_code_principal ? (' · code ' + offre.depart_code_principal) : '')
+            + ' · sièges restants';
+        document.getElementById('reco-date').value = offre.date_correspondance || offre.date_progr || '';
         var sieges = offre.sieges_restants || [];
+        var occupes = {};
+        (offre.sieges_occupes || []).forEach(function (n) { occupes[String(n)] = true; });
+        var libres = {};
+        sieges.forEach(function (n) { libres[String(n)] = true; });
         var wrap = document.getElementById('reco-sieges');
+        var d = parseInt(offre.intervalle1, 10) || 0;
+        var f = parseInt(offre.intervalle2, 10) || 0;
         var html = '';
-        sieges.forEach(function (n) {
-            html += '<div class="col-3 col-md-2 mb-1"><label style="font-weight:400;cursor:pointer;">'
-                + '<input type="checkbox" class="js-reco-siege" value="' + n + '" checked> ' + n
+        function siegeGrise(n, hint) {
+            return '<div class="col-3 col-md-2 mb-1"><label class="text-muted" style="font-weight:400;cursor:not-allowed;">'
+                + '<input type="checkbox" disabled checked> ' + n
+                + (hint ? ' <small>' + hint + '</small>' : '')
                 + '</label></div>';
-        });
-        wrap.innerHTML = html;
+        }
+        if (f >= d && d > 0) {
+            for (var n = d; n <= f; n++) {
+                if (occupes[String(n)]) {
+                    html += siegeGrise(n, 'vendu');
+                } else if (libres[String(n)]) {
+                    html += siegeGrise(n, 'reconduit');
+                }
+            }
+        } else {
+            sieges.forEach(function (n) {
+                html += siegeGrise(n, 'reconduit');
+            });
+        }
+        wrap.innerHTML = html || '<p class="text-muted mb-0">Aucun siège restant.</p>';
         var sel = document.getElementById('reco-heure');
         sel.innerHTML = '<option value="">Chargement…</option>';
         fetch(base + '/heures_reconduction/' + encodeURIComponent(ekey) + '/'
@@ -2123,11 +2262,26 @@
                 document.querySelector('.js-reco-save').disabled = true;
                 return;
             }
+            var pref = offre.id_ligneheure_correspondance ? String(offre.id_ligneheure_correspondance) : '';
             sel.innerHTML = heures.map(function (h) {
                 var hh = (h.heure || '').toString().substr(0, 5);
                 var cie = h.nom_compagnie_arrivee ? (' · ' + h.nom_compagnie_arrivee) : '';
                 return '<option value="' + h.id_ligneheure + '">' + (h.nom_ligne || '') + ' / ' + hh + cie + '</option>';
             }).join('');
+            if (pref) {
+                var found = false;
+                for (var i = 0; i < sel.options.length; i++) {
+                    if (sel.options[i].value === pref) { found = true; break; }
+                }
+                if (!found) {
+                    var opt = document.createElement('option');
+                    opt.value = pref;
+                    var hc = (offre.heure_correspondance || '').toString().substr(0, 5);
+                    opt.textContent = 'Correspondance / ' + hc;
+                    sel.appendChild(opt);
+                }
+                sel.value = pref;
+            }
             document.querySelector('.js-reco-save').disabled = false;
         }).catch(function () {
             sel.innerHTML = '<option value="">Erreur chargement horaires</option>';
@@ -2173,29 +2327,13 @@
         }
     });
 
-    var chkAll = document.getElementById('reco-check-all');
-    var unchk = document.getElementById('reco-uncheck-all');
-    if (chkAll) {
-        chkAll.addEventListener('click', function () {
-            document.querySelectorAll('.js-reco-siege').forEach(function (c) { c.checked = true; });
-        });
-    }
-    if (unchk) {
-        unchk.addEventListener('click', function () {
-            document.querySelectorAll('.js-reco-siege').forEach(function (c) { c.checked = false; });
-        });
-    }
-
     var saveEl = document.querySelector('.js-reco-save');
     if (saveEl) {
         saveEl.addEventListener('click', function () {
             if (!state.offre) return;
-            var sieges = [];
-            document.querySelectorAll('.js-reco-siege:checked').forEach(function (c) {
-                sieges.push(c.value);
-            });
+            var sieges = (state.offre.sieges_restants || []).slice();
             if (!sieges.length) {
-                setMsg('Choisissez au moins un siège.', true);
+                setMsg('Aucun siège restant à reconduire.', true);
                 return;
             }
             var idH = document.getElementById('reco-heure').value;
@@ -2228,7 +2366,7 @@
                     saveEl.disabled = false;
                     return;
                 }
-                setMsg('Départ créé : ' + (data.code_progr || ''), false);
+                setMsg('Départ créé : ' + (data.code_progr || '') + (data.depart_code ? (' · code ' + data.depart_code) : ''), false);
                 setTimeout(function () { window.location.reload(); }, 700);
             }).catch(function (err) {
                 setMsg((err && err.message) ? err.message : 'Erreur réseau', true);
@@ -2251,8 +2389,9 @@
         <div class="modal-body">
             <p class="mb-1"><strong id="sortie-label"></strong></p>
             <p class="text-muted small mb-2">
-                Cochez les sièges encore libres à publier aux gares aval. Les sièges décochés restent à cette gare.
-                Les sièges déjà vendus ne sont pas proposés.
+                Cochez les sièges libres à publier aux gares aval. Décocher un siège libre le garde ici.
+                Un siège vendu coché = client qui n’a pas voyagé : le n° est détaché (reste NULL sur le passager),
+                la vente n’est pas supprimée, le siège est publié aux gares aval.
             </p>
             <div>
                 <button type="button" class="btn btn-sm btn-outline-secondary" id="sortie-check-all">Tout cocher</button>
@@ -2327,7 +2466,7 @@
             droit_insuffisant: 'Droits insuffisants.',
             programme_introuvable: 'Programme introuvable.',
             deja_sorti: 'La sortie de ce départ est déjà déclarée.',
-            aucun_siege: 'Cochez au moins un siège libre.',
+            aucun_siege: 'Cochez au moins un siège à publier.',
             siege_indisponible: 'Un siège choisi n’est plus libre.',
             echec_sortie: 'Impossible de déclarer la sortie.'
         };
@@ -2362,11 +2501,12 @@
             var isOcc = !!occupes[String(n)];
             var isLibre = !!libres[String(n)];
             if (isOcc) {
-                html += '<div class="col-3 col-md-2 mb-1"><label class="text-muted" style="font-weight:400;">'
-                    + '<input type="checkbox" disabled> ' + n + ' <small>vendu</small></label></div>';
+                html += '<div class="col-3 col-md-2 mb-1"><label style="font-weight:400;cursor:pointer;">'
+                    + '<input type="checkbox" class="js-sortie-siege js-sortie-noshow" value="' + n + '"> '
+                    + n + ' <small class="text-muted">vendu · libérer</small></label></div>';
             } else if (isLibre) {
                 html += '<div class="col-3 col-md-2 mb-1"><label style="font-weight:400;cursor:pointer;">'
-                    + '<input type="checkbox" class="js-sortie-siege" value="' + n + '" checked> ' + n
+                    + '<input type="checkbox" class="js-sortie-siege js-sortie-libre" value="' + n + '" checked> ' + n
                     + '</label></div>';
             }
         }
@@ -2429,13 +2569,13 @@
     var unchk = document.getElementById('sortie-uncheck-all');
     if (chkAll) {
         chkAll.addEventListener('click', function () {
-            document.querySelectorAll('#sortie-sieges .js-sortie-siege').forEach(function (c) { c.checked = true; });
+            document.querySelectorAll('#sortie-sieges .js-sortie-libre').forEach(function (c) { c.checked = true; });
             updateCount();
         });
     }
     if (unchk) {
         unchk.addEventListener('click', function () {
-            document.querySelectorAll('#sortie-sieges .js-sortie-siege').forEach(function (c) { c.checked = false; });
+            document.querySelectorAll('#sortie-sieges .js-sortie-libre').forEach(function (c) { c.checked = false; });
             updateCount();
         });
     }
@@ -2449,7 +2589,7 @@
                 sieges.push(c.value);
             });
             if (!sieges.length) {
-                setMsg('Cochez au moins un siège libre.', true);
+                setMsg('Cochez au moins un siège à publier.', true);
                 return;
             }
             saveEl.disabled = true;

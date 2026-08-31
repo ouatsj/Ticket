@@ -65,11 +65,15 @@ $this->load->view('_layouts/head', $head_extra);
 	</div>
 
 	<!-- BEGIN BASE JS -->
+	<?php
+	$__app_root_path = parse_url(site_url(''), PHP_URL_PATH);
+	$__app_root_path = $__app_root_path ? rtrim($__app_root_path, '/') : '';
+	?>
+	<script type="text/javascript">var APP_ROOT = <?= json_encode($__app_root_path); ?>;</script>
 	<?php $this->load->view('_layouts/' . (isset($scripts_layout) ? $scripts_layout : 'scripts_bundle'), array(
 		'bundle_js' => isset($bundle_js) ? $bundle_js : array(),
 		'bundle_datatables' => !empty($bundle_datatables),
 	)); ?>
-	<script type="text/javascript">var APP_ROOT = '';</script>
 	<?php if (!empty($layout_guichet_banner)) : ?>
 	<script type="text/javascript">
 	(function () {

@@ -65,6 +65,7 @@
 <script type="application/javascript" src="<?= base_url('assets/js/updateticketar.js');?>"></script>
 <script type="application/javascript" src="<?= base_url('assets/js/updatedticket.js');?>"></script>
 <script type="application/javascript" src="<?= base_url('assets/js/addgprogramme.js');?>"></script>
+<script type="application/javascript" src="<?= base_url('assets/js/prog_quota_sieges.js');?>"></script>
 <script type="application/javascript" src="<?= base_url('assets/js/addversebank.js');?>"></script>
 <script type="application/javascript" src="<?= base_url('assets/js/addverseautre.js');?>"></script>
 <script type="application/javascript" src="<?= base_url('assets/js/addbon.js');?>"></script>
