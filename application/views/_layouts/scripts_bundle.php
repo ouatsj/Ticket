@@ -1,6 +1,7 @@
 <?php defined('BASEPATH') OR exit('No direct script access allowed'); ?>
 <?php
 $bundle_js = isset($bundle_js) && is_array($bundle_js) ? $bundle_js : array();
+$bundle_optional_js = isset($bundle_optional_js) && is_array($bundle_optional_js) ? $bundle_optional_js : array();
 $bundle_datatables = !empty($bundle_datatables);
 ?>
 <script src="<?= base_url('assets/lib/jquery/jquery.min.js'); ?>" type="text/javascript"></script>
@@ -9,9 +10,10 @@ $bundle_datatables = !empty($bundle_datatables);
 <script src="<?= base_url('assets/js/app.js'); ?>" type="text/javascript"></script>
 <script src="<?= base_url('assets/lib/datetimepicker/js/bootstrap-datetimepicker.min.js'); ?>" type="text/javascript"></script>
 <script src="<?= base_url('assets/lib/jquery.niftymodals/js/jquery.niftymodals.js'); ?>" type="text/javascript"></script>
-<script type="application/javascript" src="<?= base_url('assets/lib/fa/js/all.min.js'); ?>"></script>
-<script type="application/javascript" src="<?= base_url('assets/lib/sweetalert2/sweetalert2.min.js'); ?>"></script>
-<script type="application/javascript" src="<?= base_url('assets/lib/mprogress/js/mprogress.min.js'); ?>"></script>
+<script type="application/javascript" src="<?= base_url('assets/lib/fa/js/fontawesome.min.js'); ?>"></script>
+<script type="application/javascript" src="<?= base_url('assets/lib/fa/js/solid.min.js'); ?>"></script>
+<script type="application/javascript" src="<?= base_url('assets/lib/sweetalert2/sweetalert2.min.js'); ?>" defer></script>
+<script type="application/javascript" src="<?= base_url('assets/lib/mprogress/js/mprogress.min.js'); ?>" defer></script>
 <?php if ($bundle_datatables): ?>
 <script src="<?= base_url('assets/lib/datatables/datatables.net/js/jquery.dataTables.js'); ?>" type="text/javascript" defer></script>
 <script src="<?= base_url('assets/lib/datatables/datatables.net-bs4/js/dataTables.bootstrap4.js'); ?>" type="text/javascript" defer></script>
@@ -21,9 +23,9 @@ $bundle_datatables = !empty($bundle_datatables);
 <?php endif; ?>
 
 <script type="application/javascript" src="<?= base_url('assets/js/ligne_option.js'); ?>"></script>
-<script type="application/javascript" src="<?= base_url('assets/js/recapglcourrier.js'); ?>?v=20260825"></script>
-<script type="application/javascript" src="<?= base_url('assets/js/recapglticket.js'); ?>?v=20260825"></script>
-<script type="application/javascript" src="<?= base_url('assets/js/retour.js'); ?>?v=20260822"></script>
+<?php foreach ($bundle_optional_js as $js): ?>
+<script type="application/javascript" src="<?= base_url('assets/js/' . $js); ?>?v=<?= @filemtime(FCPATH . 'assets/js/' . $js) ?: time(); ?>"></script>
+<?php endforeach; ?>
 <script type="application/javascript" src="<?= base_url('assets/js/request-guard.js'); ?>"></script>
 <?php foreach ($bundle_js as $js): ?>
 <script type="application/javascript" src="<?= base_url('assets/js/' . $js); ?>?v=<?= @filemtime(FCPATH . 'assets/js/' . $js) ?: time(); ?>"></script>

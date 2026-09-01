@@ -7,6 +7,7 @@
 
 $root = dirname(__DIR__);
 define('BASEPATH', $root . '/');
+require $root . '/scripts/build_js_minify.php';
 $sources = require $root . '/application/config/scripts_bundles_module_sources.php';
 $jsDir = $root . '/assets/js';
 $outDir = $jsDir . '/bundles';
@@ -43,9 +44,13 @@ foreach ($sources as $module => $files) {
     $content = "/* Bundle $module — genere par scripts/build_module_bundles.php */\n"
         . implode("\n;\n", $parts) . "\n";
 
+    $rawSize = strlen($content);
+    $content = build_js_minify($content, $root);
+
     file_put_contents($outFile, $content);
     $built++;
-    echo "OK $module.js (" . count($parts) . " fichiers, " . round(strlen($content) / 1024) . " Ko)\n";
+    echo "OK $module.js (" . count($parts) . " fichiers, "
+        . round($rawSize / 1024) . " Ko → " . round(strlen($content) / 1024) . " Ko min)\n";
 }
 
 echo "Termine: $built bundle(s).\n";

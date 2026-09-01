@@ -9,12 +9,7 @@ return array(
 
     'historique' => array('bundles/historique.js'),
 
-    'admin' => array(
-        'addperso.js',
-        'user-list-filter.js',
-        'filtre_arrivee_compagnie.js',
-        'tarif-edit.js',
-    ),
+    'admin' => array('bundles/admin.js'),
 
     'confirmation' => array('bundles/confirmation.js'),
 

@@ -1,4 +1,8 @@
 # Fichiers guichet critiques + bundles : pas de cache CDN longue durée
+<IfModule mod_deflate.c>
+    AddOutputFilterByType DEFLATE application/javascript text/javascript
+</IfModule>
+
 <IfModule mod_headers.c>
     <FilesMatch "^(addventeticket|addventeticketfi|request-guard)\.js$">
         Header set Cache-Control "no-cache, must-revalidate"

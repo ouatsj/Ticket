@@ -11,7 +11,7 @@ $head_extra = array(
 $this->load->view('_layouts/head', $head_extra);
 ?>
 
-<body class="be-animate"<?php if (!empty($app_retour_url)): ?> data-app-retour-url="<?= htmlspecialchars($app_retour_url, ENT_QUOTES, 'UTF-8'); ?>"<?php endif; ?><?php if (!empty($layout_guichet_banner) && $this->session->userdata('agent')): ?> data-agent-id="<?= (int) $this->session->agent->cpuser_id; ?>" data-whoami-url="<?= htmlspecialchars(site_url('login/whoami'), ENT_QUOTES, 'UTF-8'); ?>"<?php endif; ?>>
+<body class="be-animate"<?php if (!empty($layout_guichet_banner) && $this->session->userdata('agent')): ?> data-agent-id="<?= (int) $this->session->agent->cpuser_id; ?>" data-whoami-url="<?= htmlspecialchars(site_url('login/whoami'), ENT_QUOTES, 'UTF-8'); ?>"<?php endif; ?>>
 
 	<div class="be-wrapper be-collapsible-sidebar be-collapsible-sidebar-hide-logo be-collapsible-sidebar-collapsed<?= !empty($layout_minimal) ? ' be-minimal-chrome' : ''; ?>">
 	    
@@ -72,6 +72,7 @@ $this->load->view('_layouts/head', $head_extra);
 	<script type="text/javascript">var APP_ROOT = <?= json_encode($__app_root_path); ?>;</script>
 	<?php $this->load->view('_layouts/' . (isset($scripts_layout) ? $scripts_layout : 'scripts_bundle'), array(
 		'bundle_js' => isset($bundle_js) ? $bundle_js : array(),
+		'bundle_optional_js' => isset($bundle_optional_js) ? $bundle_optional_js : array(),
 		'bundle_datatables' => !empty($bundle_datatables),
 	)); ?>
 	<?php if (!empty($layout_guichet_banner)) : ?>

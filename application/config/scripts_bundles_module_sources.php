@@ -90,6 +90,7 @@ return array(
         'listetirage.js',
         'addvoir.js',
         'addprogramme.js',
+        'adprograme.js',
         'addgprogramme.js',
         'prog_quota_sieges.js',
         'upprogramme.js',
@@ -100,5 +101,11 @@ return array(
         'updateticket.js',
         'updateclient.js',
         'updatedticket.js',
+    ),
+    'admin' => array(
+        'addperso.js',
+        'user-list-filter.js',
+        'filtre_arrivee_compagnie.js',
+        'tarif-edit.js',
     ),
 );

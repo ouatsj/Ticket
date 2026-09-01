@@ -29,7 +29,9 @@ function scripts_bundle_modules($bundle, $role = null)
 
     if ($bundle === 'guichet') {
         $role = (string) $role;
-        $guichet_boot = array('guichet-defer-dom.js', 'guichet-load-scheduler.js');
+        // guichet-load-scheduler.js seulement : defer-dom cassait les formulaires vente
+        // (addEventListener DOMContentLoaded imbriqués après le premier flush).
+        $guichet_boot = array('guichet-load-scheduler.js');
 
         if (isset($config['guichet'][$role])) {
             return array_merge($guichet_boot, $config['guichet'][$role]);
@@ -42,6 +44,27 @@ function scripts_bundle_modules($bundle, $role = null)
 }
 
 /**
+ * JS optionnels (recap guichet) — non chargés sur login/accueil/caisse légère.
+ *
+ * @param string $bundle
+ * @param string|null $role
+ * @return array
+ */
+function scripts_optional_modules($bundle, $role = null)
+{
+    if ($bundle !== 'guichet') {
+        return array();
+    }
+
+    $role = (string) $role;
+    if (in_array($role, array('1', '2', '13', '14'), true)) {
+        return array('recapglticket.js', 'recapglcourrier.js');
+    }
+
+    return array();
+}
+
+/**
  * @param string $bundle
  * @param string|null $role
  * @return array scripts_layout + bundle_js
@@ -51,6 +74,7 @@ function scripts_bundle_property($bundle, $role = null, $datatables = false)
     return array(
         'scripts_layout' => 'scripts_bundle',
         'bundle_js' => scripts_bundle_modules($bundle, $role),
+        'bundle_optional_js' => scripts_optional_modules($bundle, $role),
         'bundle_datatables' => (bool) $datatables,
     );
 }
@@ -95,6 +119,7 @@ function scripts_resolve_layout(array $pdata)
         return array_merge(array(
             'scripts_layout' => 'scripts_bundle',
             'bundle_js' => array(),
+            'bundle_optional_js' => array(),
             'bundle_datatables' => false,
         ), $pdata);
     }

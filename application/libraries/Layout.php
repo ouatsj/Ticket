@@ -36,9 +36,11 @@
             $params['bundle_js'] = isset($pdata['bundle_js']) && is_array($pdata['bundle_js'])
                 ? $pdata['bundle_js']
                 : array();
+            $params['bundle_optional_js'] = isset($pdata['bundle_optional_js']) && is_array($pdata['bundle_optional_js'])
+                ? $pdata['bundle_optional_js']
+                : array();
             $params['bundle_datatables'] = !empty($pdata['bundle_datatables']);
             $params['title'] = isset($pdata['title']) ? $pdata['title'] : '';
-            $params['app_retour_url'] = retour_url('');
             $params['layout_minimal'] = !empty($pdata['layout_minimal']);
             $params['layout_page'] = $page;
             $params['layout_guichet_banner'] = function_exists('auth_session_show_guichet_banner')
