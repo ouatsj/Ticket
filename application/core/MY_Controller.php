@@ -75,11 +75,12 @@ class MY_Controller extends CI_Controller
 
         if ($class === 'login') {
             $helpers[] = 'passwordhash';
+            $helpers[] = 'super_admin';
         }
         if (in_array($class, array('programmes', 'historique_passagers'), true)) {
             $helpers[] = 'historique_modif_ticket';
         }
-        if (in_array($class, array('super_administration', 'caisses'), true)) {
+        if (in_array($class, array('super_administration', 'caisses', 'historique_passagers'), true)) {
             $helpers[] = 'super_admin';
         }
         if ($this->config->item('sales_price_controls_enabled')
@@ -87,7 +88,7 @@ class MY_Controller extends CI_Controller
             $helpers[] = 'sales_price';
         }
         if ($this->session->userdata('agent') && $this->session->userdata('company')) {
-            $helpers = array_merge($helpers, array('retour', 'recette_role', 'ticket_prix', 'url_safe'));
+            $helpers = array_merge($helpers, array('retour', 'recette_role', 'ticket_prix', 'url_safe', 'sales_price'));
         }
 
         $this->_load_helpers(array_values(array_unique($helpers)));

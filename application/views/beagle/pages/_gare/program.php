@@ -404,7 +404,6 @@
                                             class="icon mdi text-success">activer</span>' ?>
                                         </a>&nbsp;
                                         &nbsp;
-                                    <?endif;?>
                                         
                                         <?php if (!$__prog_edit_modal_rendered): ?>
                                         <div class="modal-container colored-header colored-header-success custom-width modal-effect-7"
