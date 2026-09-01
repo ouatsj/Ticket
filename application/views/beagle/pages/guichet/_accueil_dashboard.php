@@ -1,4 +1,8 @@
 <?php defined('BASEPATH') OR exit('No direct script access allowed'); ?>
+<?php
+$__axes_count = isset($dashboard_axes_count) ? (int) $dashboard_axes_count : 0;
+$__clients_count = isset($dashboard_clients_count) ? (int) $dashboard_clients_count : 0;
+?>
 <div class="col-12 col-lg-6 col-xl-3">
     <div class="widget widget-tile">
         <div class="chart sparkline" id="spark1">
@@ -10,8 +14,8 @@
             <div class="value">
                 <span class="indicator indicator-equal mdi mdi-chevron-right"></span>
                 <span class="number" data-toggle="counter"
-                    data-end="<?= $this->db->count_all_results('lignes'); ?>">
-                    <?= $this->db->count_all_results('lignes'); ?>
+                    data-end="<?= $__axes_count; ?>">
+                    <?= $__axes_count; ?>
                 </span>
             </div>
         </div>
@@ -29,8 +33,8 @@
             <div class="value">
                 <span class="indicator indicator-positive mdi mdi-chevron-up"></span>
                 <span class="number" data-toggle="counter"
-                    data-end="<?= $this->db->count_all_results('client'); ?>">
-                    <?= $this->db->count_all_results('client'); ?>
+                    data-end="<?= $__clients_count; ?>">
+                    <?= $__clients_count; ?>
                 </span>
             </div>
         </div>
@@ -76,23 +80,35 @@
 <script>
 (function () {
     var url = <?= json_encode(site_url('gares/' . $this->session->company->ekey . '/ajax_passagers')); ?>;
-    fetch(url, { credentials: 'same-origin' })
-        .then(function (r) { return r.ok ? r.json() : []; })
-        .then(function (rows) {
-            var tb = document.getElementById('passagers-stats-body');
-            if (!tb) return;
-            if (!rows || !rows.length) {
-                tb.innerHTML = '<tr><td colspan="2">Aucune donnée</td></tr>';
-                return;
-            }
-            tb.innerHTML = rows.map(function (p) {
-                return '<tr><td>' + String(p.nom_ligne).replace(/</g, '&lt;') + '</td><td>' + p.cod + '</td></tr>';
-            }).join('');
-        })
-        .catch(function () {
-            var tb = document.getElementById('passagers-stats-body');
-            if (tb) tb.innerHTML = '<tr><td colspan="2">Erreur de chargement</td></tr>';
+    var run = function () {
+        var fetchFn = (window.GuichetLoadScheduler && GuichetLoadScheduler.deferFetch)
+            ? GuichetLoadScheduler.deferFetch.bind(GuichetLoadScheduler)
+            : function (u, opts) { return fetch(u, opts); };
+        fetchFn(url, { credentials: 'same-origin' }, 800)
+            .then(function (r) { return r.ok ? r.json() : []; })
+            .then(function (rows) {
+                var tb = document.getElementById('passagers-stats-body');
+                if (!tb) return;
+                if (!rows || !rows.length) {
+                    tb.innerHTML = '<tr><td colspan="2">Aucune donnée</td></tr>';
+                    return;
+                }
+                tb.innerHTML = rows.map(function (p) {
+                    return '<tr><td>' + String(p.nom_ligne).replace(/</g, '&lt;') + '</td><td>' + p.cod + '</td></tr>';
+                }).join('');
+            })
+            .catch(function () {
+                var tb = document.getElementById('passagers-stats-body');
+                if (tb) tb.innerHTML = '<tr><td colspan="2">Erreur de chargement</td></tr>';
+            });
+    };
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', function () {
+            setTimeout(run, 400);
         });
+    } else {
+        setTimeout(run, 400);
+    }
 })();
 </script>
 <?php endif; ?>

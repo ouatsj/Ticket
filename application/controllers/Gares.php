@@ -432,16 +432,26 @@
                         });
                         
                         $this->property['allgaredepart'] = $this->m_gare_depart->getbis($cid);
-                        $this->property['cptaller'] = $this->m_passager->compteur($ekey, $cpus, $gid);
-                        $this->property['cptretour'] = $this->m_non_passager->compteur($ekey, $cpus, $gid);
-
-                        $this->property['recettebagages'] = $this->m_bagage->compteur($ekey, $cpus, $gid);
-
-                        $this->property['cptalleresc'] = $this->m_escalclients->compteur($ekey, $cpus, $gid);
-                        $this->property['cptallercd'] = $this->m_passager->compteurcd($ekey, $cpus, $gid);
-                        $this->property['cptallerescd'] = $this->m_escalclients->compteurcd($ekey, $cpus, $gid);
-                        
-                        $this->property['recettebagagescd'] = $this->m_bagage->compteurcd($ekey, $cpus, $gid);
+                        $today_key = mdate('%Y-%m-%d', now('UTC'));
+                        $totaux_key = 'guichet_totaux_' . $ekey . '_' . (int) $cpus . '_' . (int) $gid . '_' . $today_key;
+                        $totaux = app_cache_remember($totaux_key, 90, function () use ($ekey, $cpus, $gid) {
+                            return array(
+                                'cptaller' => $this->m_passager->compteur($ekey, $cpus, $gid),
+                                'cptretour' => $this->m_non_passager->compteur($ekey, $cpus, $gid),
+                                'recettebagages' => $this->m_bagage->compteur($ekey, $cpus, $gid),
+                                'cptalleresc' => $this->m_escalclients->compteur($ekey, $cpus, $gid),
+                                'cptallercd' => $this->m_passager->compteurcd($ekey, $cpus, $gid),
+                                'cptallerescd' => $this->m_escalclients->compteurcd($ekey, $cpus, $gid),
+                                'recettebagagescd' => $this->m_bagage->compteurcd($ekey, $cpus, $gid),
+                            );
+                        });
+                        $this->property['cptaller'] = $totaux['cptaller'];
+                        $this->property['cptretour'] = $totaux['cptretour'];
+                        $this->property['recettebagages'] = $totaux['recettebagages'];
+                        $this->property['cptalleresc'] = $totaux['cptalleresc'];
+                        $this->property['cptallercd'] = $totaux['cptallercd'];
+                        $this->property['cptallerescd'] = $totaux['cptallerescd'];
+                        $this->property['recettebagagescd'] = $totaux['recettebagagescd'];
                         
                         $this->property['typecourriers'] = app_cache_remember('categ_plis_' . $cid, 600, function () use ($cid) {
                             return $this->m_categ->getplis($cid);
@@ -452,6 +462,12 @@
                         });
 
                         if ($this->session->agent->userole === '1' OR $this->session->agent->userole === '2'){
+                            $this->property['dashboard_axes_count'] = app_cache_remember('dash_count_lignes', 600, function () {
+                                return (int) $this->db->count_all('lignes');
+                            });
+                            $this->property['dashboard_clients_count'] = app_cache_remember('dash_count_clients', 600, function () {
+                                return (int) $this->db->count_all('client');
+                            });
                             $this->property['garedeparts'] = $this->m_sousgare->getes($ekey, $gid, $idsg);
                             $this->property['garedepartcomp'] = app_cache_remember('gare_depart_cmp_' . $cid, 300, function () use ($cid) {
                                 return $this->m_gare_depart->cmpgetad($cid);
@@ -559,10 +575,18 @@
             switch ($type) 
             {
                 case 'prog':
+                    $this->load->helper('app_cache');
                     $bus_stop = $this->m_gare_depart->get($this->company->id_entreprise, $cdg);
                             $this->property['bus_stop'] = $bus_stop;
 
                     $this->property['progs'] = $this->m_programme->getall($this->company->id_entreprise, $cdg);
+                    $prog_codes = array();
+                    foreach ($this->property['progs'] as $__prog_row) {
+                        if (!empty($__prog_row->code_progr)) {
+                            $prog_codes[] = $__prog_row->code_progr;
+                        }
+                    }
+                    $this->property['prog_page_stats'] = $this->m_programme->preload_page_stats($prog_codes);
                     $gare_stop = $this->m_sousgare->sget($this->company->ekey, $cdg, $sg);
                         $this->property['gare_stop'] = $gare_stop;
                     
@@ -593,22 +617,48 @@
                         );
                     }
 
-                    $this->property['heures'] = $this->m_heure->get();
+                    $cid = $this->company->id_entreprise;
+                    $ekey = $this->company->ekey;
+                    $this->property['heures'] = app_cache_remember('heures_all', 600, function () {
+                        return $this->m_heure->get();
+                    });
+
+                    // idengare pour ligne_heure / lignes ; $cdg URL = code_gaexp (gTv).
+                    $gare_id = (!empty($bus_stop->garesid)) ? $bus_stop->garesid : $cdg;
 
                     // Toujours filtrer par gare. getad() entreprise entière + modales
                     // dupliquées par programme → HTML trop lourd / HTTP 500 (rôles 1/2).
-                    $this->property['alllignes'] = $this->m_lignes->get($this->company->id_entreprise, $cdg);
-                    $this->property['lignesheure'] = $this->m_ligne_heure->get($this->company->id_entreprise, $cdg);
-                    $this->property['categories'] = $this->m_categories->get();
-                    $this->property['chauffeurs'] = $this->m_personnels->getch($this->company->ekey);
-                    $this->property['convoyeurs'] = $this->m_personnels->getconv($this->company->ekey);
-                    $this->property['typepersonnels'] = $this->m_type_personnel->get();
-                    $this->property['compagnies'] = $this->m_compagnies->get();
-                    $this->property['sousgares'] = $this->m_sousgare->get($this->company->id_entreprise, $cdg);
-                    $this->property['positions'] = $this->m_position->get();
-                    $this->property['lignes'] = $this->m_lignes->getgid($this->company->id_entreprise, $cdg);
-                    $this->property['nonpersonnels'] = $this->m_client->getp();
-                    $this->property['bases'] = $this->m_tarifs->get();
+                    $lignesheure = $this->m_ligne_heure->get($cid, $gare_id);
+                    $this->property['alllignes'] = $this->m_lignes->get($cid, $gare_id);
+                    $this->property['lignesheure'] = $lignesheure;
+                    $this->property['lignesheure_par_compagnie'] = $this->m_ligne_heure->group_by_compagnie_arrivee($lignesheure);
+                    $this->property['progs_par_compagnie'] = $this->m_programme->group_by_compagnie_arrivee($this->property['progs']);
+                    $this->property['categories'] = app_cache_remember('categories_all', 600, function () {
+                        return $this->m_categories->get();
+                    });
+                    $this->property['chauffeurs'] = app_cache_remember('personnels_ch_' . $ekey, 300, function () use ($ekey) {
+                        return $this->m_personnels->getch($ekey);
+                    });
+                    $this->property['convoyeurs'] = app_cache_remember('personnels_conv_' . $ekey, 300, function () use ($ekey) {
+                        return $this->m_personnels->getconv($ekey);
+                    });
+                    $this->property['typepersonnels'] = app_cache_remember('type_personnel_all', 600, function () {
+                        return $this->m_type_personnel->get();
+                    });
+                    $this->property['compagnies'] = app_cache_remember('compagnies_all', 600, function () {
+                        return $this->m_compagnies->get();
+                    });
+                    $this->property['sousgares'] = $this->m_sousgare->get($cid, $cdg);
+                    $this->property['positions'] = app_cache_remember('positions_all', 600, function () {
+                        return $this->m_position->get();
+                    });
+                    $this->property['lignes'] = $this->m_lignes->getgid($cid, $gare_id);
+                    $this->property['nonpersonnels'] = app_cache_remember('clients_p_all', 300, function () {
+                        return $this->m_client->getp();
+                    });
+                    $this->property['bases'] = app_cache_remember('tarifs_all', 600, function () {
+                        return $this->m_tarifs->get();
+                    });
                     $this->property['pagetitle'] .= "• PROGRAMMES • <strong>{$bus_stop->nom_gaep}</strong>&nbsp;•&nbsp;{$bus_stop->nom_ville}<strong>•&nbsp;{$this->company->nom_entreprise}</strong>";
                     $this->property = array_merge($this->property, scripts_bundle_property('program', null, true));
                     return $this->layout->view('_gare/program', $this->property);

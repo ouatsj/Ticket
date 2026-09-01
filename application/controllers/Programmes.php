@@ -1602,8 +1602,13 @@
         }
         public function verifheure($axe, $da)
         {
-            
-            $lgh = $this->m_programme->heureligne($this->session->company->ekey, $axe, $da);
+            $cat = $this->input->get('cat');
+            $lgh = $this->m_programme->heureligne(
+                $this->session->company->ekey,
+                $axe,
+                $da,
+                ($cat !== null && $cat !== '') ? $cat : null
+            );
             return $this->load->view('beagle/pages/_programme/json', array('json' => $lgh));
             
         }
@@ -1799,19 +1804,50 @@
             }
 
             // Prod / hors essai : ne pas servir le graphe tant que serve=false.
-            // Conservé le fallback déclaratif pour ne pas changer le comportement vente.
+            // Même règle prefer_direct que Phase 2 : direct OD ⇒ pas de jambes (sauf force=1).
             if (!$this->graphe_correspondance->is_serve_enabled()) {
-                $decision = array(
-                    'mode' => !empty($declRows) ? 'declaratif' : 'none',
-                    'etapes' => $declRows,
-                    'chemins' => array(),
-                    'meta' => array(
-                        'axe' => $axe,
-                        'date' => $date,
-                        'served' => !empty($declRows),
-                        'reason' => 'serve_disabled_declaratif_fallback',
-                    ),
-                );
+                $ekey = $this->session->company->ekey;
+                $hasDirect = $this->graphe_correspondance->od_a_depart_direct($ekey, $axe, $date, $sg);
+                if ($this->graphe_correspondance->prefer_direct_sans_jambes($ekey, $axe, $date, $sg, $force_transit)) {
+                    $decision = array(
+                        'mode' => 'direct',
+                        'etapes' => array(),
+                        'chemins' => array(),
+                        'meta' => array(
+                            'axe' => $axe,
+                            'date' => $date,
+                            'has_direct' => TRUE,
+                            'served' => TRUE,
+                            'reason' => 'prefer_direct_prod',
+                        ),
+                    );
+                } elseif (!empty($declRows)) {
+                    $decision = array(
+                        'mode' => 'declaratif',
+                        'etapes' => $declRows,
+                        'chemins' => array(),
+                        'meta' => array(
+                            'axe' => $axe,
+                            'date' => $date,
+                            'has_direct' => $hasDirect ? TRUE : FALSE,
+                            'served' => TRUE,
+                            'reason' => 'serve_disabled_declaratif_fallback',
+                        ),
+                    );
+                } else {
+                    $decision = array(
+                        'mode' => 'none',
+                        'etapes' => array(),
+                        'chemins' => array(),
+                        'meta' => array(
+                            'axe' => $axe,
+                            'date' => $date,
+                            'has_direct' => $hasDirect ? TRUE : FALSE,
+                            'served' => FALSE,
+                            'reason' => 'none',
+                        ),
+                    );
+                }
             } else {
                 $decision = $this->graphe_correspondance->resoudre_pour_vente(
                     $this->session->company->ekey,

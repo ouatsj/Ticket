@@ -11,7 +11,9 @@ $mysqli = db_script_connect($argv);
 $indexes = array(
     array('client', 'idx_client_contact', 'contact_client'),
     array('passager', 'idx_passager_date_cpt', 'datep_create, idcptuser'),
+    array('passager', 'idx_passager_compte', 'idcptuser, statut_code, statutvente, datep_create'),
     array('passager', 'idx_passager_pro_siege', 'code_pro, num_siege_categorie'),
+    array('non_passager', 'idx_non_passager_compte', 'cptus, statvente, datevente'),
     array('compte_user', 'idx_compte_username', 'username'),
 );
 

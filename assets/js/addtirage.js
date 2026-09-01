@@ -64,27 +64,33 @@ document.addEventListener('DOMContentLoaded', () => {
                         var verifdate = document.querySelector('#choisirdate').value;
                         const idligne = document.querySelector('#idligne')
                         .options[document.querySelector('#idligne').options.selectedIndex].value;
+                        var pcat = document.querySelector('#idcategoriebus')
+                            .options[document.querySelector('#idcategoriebus').options.selectedIndex].value;
 
-                        httpInfoheure.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifheure/${idligne}/${verifdate}`, true);
+                        document.querySelector('#choisirheure').options.length = 1;
+                        document.querySelector('#idprog').options.length = 1;
+                        document.querySelector('#infosms').style.display = 'none';
+
+                        var heureUrl = window.location.origin
+                            + `${APP_ROOT}/programmes/verifheure/${encodeURIComponent(idligne)}/${encodeURIComponent(verifdate)}`;
+                        if (pcat) {
+                            heureUrl += `?cat=${encodeURIComponent(pcat)}`;
+                        }
+                        httpInfoheure.open('GET', heureUrl, true);
                         httpInfoheure.onload = () => {
                             const resultheure = JSON.parse(httpInfoheure.responseText);
-                            if(resultheure == null){
-
-                                
-                            
+                            if (!resultheure || resultheure === '') {
+                                return;
+                            }
+                            if (Array.isArray(resultheure) && resultheure.length >= 1) {
+                                resultheure.forEach(function (row) {
+                                    let opt = document.createElement('option');
+                                    opt.value = `${row.heure_identif}/${row.heure}`;
+                                    opt.innerHTML = `${row.heure}`;
+                                    document.querySelector('#choisirheure').add(opt);
+                                });
                             } else {
-                                if (Object.entries(resultheure).length >= 1) 
-                                {
-                                    for (let key in Object.entries(resultheure)) {
-                                            let opt = document.createElement('option');
-                                            opt.value = `${resultheure[key].heure_identif}/${resultheure[key].heure}`;
-                                            opt.innerHTML = `${resultheure[key].heure}`;
-                                            document.querySelector('#choisirheure').add(opt);
-                                        }
-                                } else {
-                                    document.querySelector('#choisirheure').options.length = 1;
-                                }
-                                
+                                document.querySelector('#choisirheure').options.length = 1;
                             }
                         };
                         httpInfoheure.setRequestHeader('Content-Type', 'application/json');
@@ -104,6 +110,9 @@ document.addEventListener('DOMContentLoaded', () => {
                         } else if (window.ActiveXObject) {
                             httpInfoscodedep = new ActiveXObject("Microsoft.XMLHTTP");
                         }
+
+                        document.querySelector('#idprog').options.length = 1;
+                        document.querySelector('#infosms').style.display = 'none';
 
                         var veridate = document.querySelector('#choisirdate').value;
                         var verifheu = document.querySelector('#choisirheure')
@@ -128,23 +137,22 @@ document.addEventListener('DOMContentLoaded', () => {
                         httpInfoscodedep.onload = () => 
                         {
                             const codeinfos = JSON.parse(httpInfoscodedep.responseText);
-                            if(codeinfos == ''){
+                            var vide = !codeinfos || codeinfos === ''
+                                || (Array.isArray(codeinfos) && codeinfos.length === 0);
+                            if (vide) {
                                 document.querySelector('#infosms').style.display = 'block';
                                 document.querySelector('#erreurinfo').innerHTML = `Il n'y a pas de programme pour ce bus`;
+                                document.querySelector('#idprog').options.length = 1;
                             } else 
                             {
-                                if (Object.entries(codeinfos).length >= 1) 
-                                {
-                                        document.querySelector('#infosms').style.display = 'none';
-
-                                        for (let key in Object.entries(codeinfos)) {
-
-                                                let opt = document.createElement('option');
-                                                opt.value = `${codeinfos[key].depart_code}/${codeinfos[key].code_progr}`;
-                                                opt.innerHTML = `${codeinfos[key].depart_code}`;
-                                                document.querySelector('#idprog').add(opt);
-                                                console.debug(`${typeof codeinfos[key].depart_code}`, console.memory);
-                                            }
+                                document.querySelector('#infosms').style.display = 'none';
+                                if (Array.isArray(codeinfos) && codeinfos.length >= 1) {
+                                    codeinfos.forEach(function (row) {
+                                        let opt = document.createElement('option');
+                                        opt.value = `${row.depart_code}/${row.code_progr}`;
+                                        opt.innerHTML = `${row.depart_code}`;
+                                        document.querySelector('#idprog').add(opt);
+                                    });
                                 } else {
                                     document.querySelector('#idprog').options.length = 1;
                                 }
