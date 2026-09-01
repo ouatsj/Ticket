@@ -1,0 +1,14 @@
+# Crontab recommandé — ticket.rakietabus.com
+# Installer : crontab -e puis copier les lignes ci-dessous (sans le # en tête de chaque ligne active)
+
+# Audit quotidien (01h00)
+0 1 * * * php /var/www/rakietabus/ticket/scripts/cron/audit_quotidien.php >> /var/log/rakieta-audit-quotidien.log 2>&1
+
+# Purge cache fichier expiré (02h30)
+30 2 * * * php /var/www/rakietabus/ticket/scripts/cron/purge_app_cache.php >> /var/log/rakieta-cache-purge.log 2>&1
+
+# Détection fichiers PHP tronqués (03h00)
+0 3 * * * php /var/www/rakietabus/ticket/scripts/check_truncated_php.php >> /var/log/rakieta-truncate-check.log 2>&1
+
+# Surveillance CDN / bundles (06h00, optionnel si monitor_cdn_health.php présent)
+# 0 6 * * * php /var/www/rakietabus/ticket/scripts/monitor_cdn_health.php >> /var/log/rakieta-cdn-watch.log 2>&1

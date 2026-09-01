@@ -91,3 +91,14 @@ function app_cache_remember($key, $ttl, $callback)
 
     return $value;
 }
+
+/**
+ * @param string $key
+ */
+function app_cache_delete($key)
+{
+    $path = APPPATH . 'cache/data/' . md5($key) . '.cache';
+    if (is_file($path)) {
+        @unlink($path);
+    }
+}
