@@ -1188,6 +1188,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!q) return;
         var keep = window.__venteSavedQuartierValue || q.value || '';
         q.options.length = 1;
+        q.selectedIndex = 0;
         var list = Array.isArray(rows) ? rows
             : (rows && typeof rows === 'object' ? Object.keys(rows).map(function (k) { return rows[k]; }) : []);
         for (var i = 0; i < list.length; i++) {
@@ -1204,15 +1205,22 @@ document.addEventListener('DOMContentLoaded', () => {
             q.value = keep;
             if (q.value === keep) {
                 window.__venteSavedQuartierValue = keep;
+            } else {
+                // Ancienne valeur absente de la nouvelle liste (ex. Marche/Banfora après correction NIA4).
+                q.selectedIndex = 0;
             }
         }
     }
     function __venteLoadQuartiersArrivee() {
         try {
+            var qBefore = document.querySelector('#quartier');
+            if (qBefore && qBefore.value) {
+                window.__venteSavedQuartierValue = qBefore.value;
+            }
             ['#prix_axe','#tarifattrib','#date_depheure','#program','#idcompg','#idcompg1','#idcompg2','#idcompg3'].forEach(function (s) {
                 __venteSafeReset(s, null);
             });
-            ['#hdepart','#quartier','#psieges','#selprog','#hdepartitine','#psiegesitines','#idcheminsheur',
+            ['#hdepart','#psieges','#selprog','#hdepartitine','#psiegesitines','#idcheminsheur',
              '#idchemins','#idchemins1','#idchemins2','#psiegesitines1','#idcheminsheur1',
              '#psiegesitines2','#idcheminsheur2','#psiegesitines3','#quartier1','#quartier2','#quartier3',
              '#transitedepargare1','#transitedepargare2','#transitedepargare3','#transitedepargare4'

@@ -4,11 +4,7 @@
                     <div class="text-center">
                         <p>
                             
-                            <a href="<?= site_url('gares/'. $this->session->company->ekey . '/gTs/'
-                            . $bus_stop->idengare.'/sousgare/'.$conex->roleattribut.'/' . mdate("%d/%m/%Y", now('UTC'))); ?>"
-                                class="btn btn-secondary btn-space md-trigger" data-modal="">
-                                <i class="fas fa-arrow-circle-left text-info"></i>&nbsp;RETOUR GARE&nbsp;
-                            </a>
+                            <?php $this->load->view('_partials/btn_retour_gare'); ?>
                             
                             <a href="#" data-cle_compagnie="<?= $this->session->company->ekey; ?>"
                                 class="btn btn-secondary btn-space addventeticketfi md-trigger" data-modal="ticketallerfi-0">
@@ -172,7 +168,6 @@
                         </div>
 
                             <div class="form-group row">
-                                <input type="hidden" value ="<?= mdate("%Y-%m-%d", now());?>" id="actuel" name="dateactuel">
                                 <div class="form-group col-sm-6">
                                     <label>Code</label>
                                     <input class="form-control form-control-sm" type="text"
@@ -188,7 +183,12 @@
                                 </div>
                             </div>
                             <div class="form-group row">
-                                
+                                <div class="form-group col-sm-4">
+                                    <label>Date depart</label>
+                                    <input class="form-control form-control-sm" type="date"
+                                        name="dateactuel" id="actuel"
+                                        value="<?= mdate("%Y-%m-%d", now()); ?>">
+                                </div>
                                 <div class="form-group col-sm-4">
                                     <select class="form-control form-control-sm" name="depargare" id="depargare">
                                         <? foreach ($garedeparts as $garedepart): ?>

@@ -7,11 +7,7 @@ $compte_arret_only_compte = !empty($compte_arret_only_compte) || !empty($compte_
                     <div class="text-center">
                         <?php $this->load->view('beagle/pages/guichet/_compte_arret_alerts'); ?>
                         <p>
-                            <a href="<?= site_url('gares/'. $this->session->company->ekey . '/gTs/'
-                            . $bus_stop->idengare.'/sousgare/'.$conex->roleattribut.'/' . mdate("%d/%m/%Y", now('UTC'))); ?>"
-                                class="btn btn-secondary btn-space md-trigger" data-modal="">
-                                <i class="fas fa-arrow-circle-left text-info"></i>&nbsp;RETOUR GARE&nbsp;
-                            </a>
+                            <?php $this->load->view('_partials/btn_retour_gare'); ?>
                             
                             <? if (!$compte_arret_only_compte): ?>
                             <a href="#" data-cle_compagnie="<?= $this->session->company->ekey; ?>"
@@ -223,7 +219,6 @@ $compte_arret_only_compte = !empty($compte_arret_only_compte) || !empty($compte_
                         </div>
 
                             <div class="form-group row">
-                                <input type="hidden" value ="<?= mdate("%Y-%m-%d", now());?>" id="actuel" name="dateactuel">
                                 <div class="form-group col-sm-6">
                                     <label>Code</label>
                                     <input class="form-control form-control-sm" type="text"
@@ -239,7 +234,12 @@ $compte_arret_only_compte = !empty($compte_arret_only_compte) || !empty($compte_
                                 </div>
                             </div>
                             <div class="form-group row">
-                                
+                                <div class="form-group col-sm-4">
+                                    <label>Date depart</label>
+                                    <input class="form-control form-control-sm" type="date"
+                                        name="dateactuel" id="actuel"
+                                        value="<?= mdate("%Y-%m-%d", now()); ?>">
+                                </div>
                                 <div class="form-group col-sm-4">
                                     <select class="form-control form-control-sm" name="depargare" id="depargare">
                                         <? foreach ($garedeparts as $garedepart): ?>

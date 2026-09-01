@@ -3,11 +3,7 @@
                 <div class="col-sm-12">
                     <div class="text-center">
                         <p>
-                            <a href="<?= site_url('gares/'. $this->session->company->ekey . '/gTs/'
-                            . $bus_stop->idengare.'/sousgare/'.$conex->roleattribut.'/' . mdate("%d/%m/%Y", now('UTC'))); ?>"
-                                class="btn btn-secondary btn-space md-trigger" data-modal="">
-                                <i class="fas fa-arrow-circle-left text-info"></i>&nbsp;RETOUR GARE&nbsp;
-                            </a>
+                            <?php $this->load->view('_partials/btn_retour_gare'); ?>
                             <button class="btn btn-secondary btn-space adreportjs md-trigger"
                                     data-modal="form-report-0" data-ekey="<?= $this->session->company->ekey; ?>" data-idgares="<?= $bus_stop->idengare; ?>">
                                 <i></i>&nbsp;EXERCICE MENSUEL TICKET GUICHETIER&nbsp;

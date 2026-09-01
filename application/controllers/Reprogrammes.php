@@ -44,6 +44,7 @@
 
         public function verifcodecl($code)
         {
+            session_release_lock();
             $out = $this->m_tamponcode->verifirep($this->session->company->ekey, $code);
             return $this->load->view('beagle/pages/_programme/json', array('json' => $out));
         }

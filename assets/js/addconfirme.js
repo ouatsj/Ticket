@@ -665,6 +665,50 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
 
+    function __confModalRoot() {
+        return document.getElementById('confirm-0');
+    }
+
+    function __confField(id) {
+        var root = __confModalRoot();
+        return root ? root.querySelector('#' + id) : document.getElementById(id);
+    }
+
+    function __confResetUi() {
+        var root = __confModalRoot();
+        if (!root) return;
+        var msg = root.querySelector('#messagep');
+        if (msg) msg.style.display = 'none';
+        var code = root.querySelector('#codeconfirm');
+        if (code) code.value = '';
+        var actuel = root.querySelector('#actuel');
+        if (actuel) actuel.value = new Date().toISOString().slice(0, 10);
+        ['pasnompconf', 'pasprenompconf', 'pascontactpconf', 'pascnibpconf', 'pasdatepconf', 'delivrelieu', 'heured', 'depsieg'].forEach(function (id) {
+            var el = root.querySelector('#' + id);
+            if (el) el.style.display = 'none';
+        });
+        var btnOrd = root.querySelector('#valid');
+        var btnEp = root.querySelector('#validep');
+        if (btnOrd) {
+            btnOrd.style.display = 'none';
+            btnOrd.disabled = true;
+            btnOrd.setAttribute('disabled', 'disabled');
+        }
+        if (btnEp) btnEp.style.display = 'none';
+    }
+
+    function __confBindDateReload(axeselect) {
+        var actuelEl = __confField('actuel');
+        if (!actuelEl || actuelEl.dataset.confDateBound) return;
+        actuelEl.dataset.confDateBound = '1';
+        actuelEl.addEventListener('change', function () {
+            if (axeselect && axeselect.value && typeof axeselect.onchange === 'function') {
+                axeselect.onchange();
+            }
+        });
+    }
+
+
     document.querySelectorAll('.addconfirme').forEach(function (e) {
         document.querySelector('h3#confTitle').innerHTML = `CONFIRMATION`;
 
@@ -681,42 +725,63 @@ document.addEventListener('DOMContentLoaded', () => {
                 Request = new ActiveXObject("Microsoft.XMLHTTP");
             }
             
-            var confir = document.querySelector("#codeconfirm").value;
+            var confir = (__confField('codeconfirm') || {}).value || document.querySelector("#codeconfirm").value;
 
             Request.open('GET', window.location.origin + `${APP_ROOT}/confirmation/verificationcode/${confir}`, true);
             Request.onload = () => {
                 
             const data = JSON.parse(Request.responseText);
             
+            var btnOrdinaire = __confField('valid');
+            var btnEpson = __confField('validep');
+            var showField = function (id) {
+                var el = __confField(id);
+                if (el) el.style.display = 'block';
+            };
+            var hideField = function (id) {
+                var el = __confField(id);
+                if (el) el.style.display = 'none';
+            };
+
             if (data == null) {
                         
-                        document.querySelector('#pasnompconf').style.display = 'block';
-                        document.querySelector('#pasprenompconf').style.display = 'block';
-                        document.querySelector('#pascontactpconf').style.display = 'block';
-                        document.querySelector('#pascnibpconf').style.display = 'block';
-                        document.querySelector('#pasdatepconf').style.display = 'block';
-                        document.querySelector('#delivrelieu').style.display = 'block';
-                        document.querySelector('#heured').style.display = 'block';
-                        document.querySelector('#depsieg').style.display = 'block';
-                        document.querySelector('#valid').style.display = 'block';
-                        document.querySelector('#validep').style.display = 'block';
-                        document.querySelector('#messagep').style.display = 'none';
+                        showField('pasnompconf');
+                        showField('pasprenompconf');
+                        showField('pascontactpconf');
+                        showField('pascnibpconf');
+                        showField('pasdatepconf');
+                        showField('delivrelieu');
+                        showField('heured');
+                        showField('depsieg');
+                        if (btnOrdinaire) {
+                            btnOrdinaire.style.display = 'block';
+                            btnOrdinaire.disabled = false;
+                            btnOrdinaire.removeAttribute('disabled');
+                        }
+                        if (btnEpson) btnEpson.style.display = 'block';
+                        var msgOk = __confField('messagep');
+                        if (msgOk) msgOk.style.display = 'none';
 
                 } else {
                     if (Object.entries(data).length > 1) {
-                        
-                        document.querySelector('#messagep').style.display = 'block';
-                        document.querySelector('#erreurMessagep').innerHTML = `Cet ticket ne peut pas être confirmé .`;
-                        document.querySelector('#pasnompconf').style.display = 'none';
-                        document.querySelector('#pasprenompconf').style.display = 'none';
-                        document.querySelector('#pascontactpconf').style.display = 'none';
-                        document.querySelector('#pascnibpconf').style.display = 'none';
-                        document.querySelector('#pasdatepconf').style.display = 'none';
-                        document.querySelector('#delivrelieu').style.display = 'none';
-                        document.querySelector('#heured').style.display = 'none';
-                        document.querySelector('#depsieg').style.display = 'none';
-                        document.querySelector('#valid').style.display = 'none';
-                        document.querySelector('#validep').style.display = 'none';
+                        var msgErr = __confField('messagep');
+                        if (msgErr) msgErr.style.display = 'block';
+                        var errEl = __confField('erreurMessagep') || document.querySelector('#erreurMessagep');
+                        if (errEl) errEl.innerHTML = 'Cet ticket ne peut pas être confirmé .';
+                        hideField('pasnompconf');
+                        hideField('pasprenompconf');
+                        hideField('pascontactpconf');
+                        hideField('pascnibpconf');
+                        hideField('pasdatepconf');
+                        hideField('delivrelieu');
+                        hideField('heured');
+                        hideField('depsieg');
+                        if (btnOrdinaire) {
+                            btnOrdinaire.style.display = 'none';
+                            btnOrdinaire.disabled = true;
+                            btnOrdinaire.setAttribute('disabled', 'disabled');
+                        }
+                        if (btnEpson) btnEpson.style.display = 'none';
                     }
                       
                 }
@@ -2550,6 +2615,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 Requests.setRequestHeader('Content-Type', 'application/json');
                 Requests.send();
         };
+        __confBindDateReload(axeselect);
         
         let depsiegconf = document.querySelector('#depsieg');
         if (depsiegconf !== null)
@@ -2679,9 +2745,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 httpInfosrequest.setRequestHeader('Content-Type', 'application/json');
                 httpInfosrequest.send();
         };
-        e.onclick = function () {
+        e.addEventListener('click', function () {
+            __confResetUi();
             let confForm = document.querySelector('#confForm');
-            confForm.setAttribute('action', `${APP_ROOT}/Confirmation/confirme/${e.dataset.cle_compagnie}`);
-        }
+            if (confForm) confForm.setAttribute('action', `${APP_ROOT}/Confirmation/confirme/${e.dataset.cle_compagnie}`);
+        });
     })
 });

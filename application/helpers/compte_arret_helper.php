@@ -141,6 +141,11 @@ if (!function_exists('compte_arret_param_ensure_table')) {
      */
     function compte_arret_param_ensure_table($db = null)
     {
+        static $ensured = false;
+        if ($ensured) {
+            return true;
+        }
+
         $sql = "CREATE TABLE IF NOT EXISTS param_compte_restriction (
             cle VARCHAR(64) NOT NULL,
             valeur TEXT NOT NULL,
@@ -148,17 +153,20 @@ if (!function_exists('compte_arret_param_ensure_table')) {
             updated_by INT NULL,
             PRIMARY KEY (cle)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4";
-        $alter = "ALTER TABLE param_compte_restriction MODIFY valeur TEXT NOT NULL";
 
         if ($db instanceof mysqli) {
             $ok = (bool) $db->query($sql);
-            @$db->query($alter);
+            if ($ok) {
+                $ensured = true;
+            }
 
             return $ok;
         }
         if ($db && method_exists($db, 'query')) {
             $ok = (bool) $db->query($sql);
-            @$db->query($alter);
+            if ($ok) {
+                $ensured = true;
+            }
 
             return $ok;
         }
@@ -166,7 +174,9 @@ if (!function_exists('compte_arret_param_ensure_table')) {
             $CI =& get_instance();
             if (is_object($CI) && isset($CI->db)) {
                 $ok = (bool) $CI->db->query($sql);
-                @$CI->db->query($alter);
+                if ($ok) {
+                    $ensured = true;
+                }
 
                 return $ok;
             }

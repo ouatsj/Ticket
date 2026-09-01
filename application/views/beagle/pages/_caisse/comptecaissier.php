@@ -1,8 +1,14 @@
-<?php defined('BASEPATH') OR exit('No direct script access allowed'); ?>
+<?php defined('BASEPATH') OR exit('No direct script access allowed');
+$retour_caisse_ra = !empty($cashbox_list_roleattribut)
+    ? $cashbox_list_roleattribut
+    : (!empty($cashbox_viewer_roleattribut)
+        ? $cashbox_viewer_roleattribut
+        : (isset($connex->roleattribut) ? $connex->roleattribut : $conex->roleattribut));
+?>
 <div class="row">
         <p class="mt-0 mb-2 ml-4">
         
-            <a href="<?= site_url("caisses/caissieres/{$this->session->company->ekey}"."/". $cashbox_list_roleattribut.'/'.$bus_stop->idengare.'/'.$bus_stop->idsousgare); ?>" class="btn btn-space btn-secondary">
+            <a href="<?= site_url("caisses/caissieres/{$this->session->company->ekey}"."/". $retour_caisse_ra.'/'.$bus_stop->idengare.'/'.$bus_stop->idsousgare); ?>" class="btn btn-space btn-secondary">
                 <i class="fas fa-arrow-circle-left text-info"></i>&nbsp;RETOUR A LA CAISSE&nbsp;
             </a>
         

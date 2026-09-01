@@ -3,11 +3,7 @@
 <div class="guichet-accueil-toolbar card card-border-color card-border-color-primary mb-3">
   <div class="card-body p-2">
     <div class="guichet-retour-row">
-      <a href="<?= site_url('gares/'. $this->session->company->ekey . '/gTs/'
-                            . $bus_stop->idengare.'/sousgare/'.$conex->cpuser_id.'/' . mdate("%d/%m/%Y", now('UTC'))); ?>"
-                                class="btn btn-secondary btn-space md-trigger" data-modal="">
-                                <i class="fas fa-arrow-circle-left text-info"></i>&nbsp;RETOUR GARE&nbsp;
-                            </a>
+      <?php $this->load->view('_partials/btn_retour_gare'); ?>
     </div>
     <ul class="nav nav-tabs" role="tablist">
       <li class="nav-item"><a class="nav-link active" data-toggle="tab" href="#guichet-tab-2-vente" role="tab" aria-selected="true"><i class="fas fa-bus mr-1"></i>Vente</a></li>

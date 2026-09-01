@@ -1876,7 +1876,6 @@
                         </div>
 
                             <div class="form-group row">
-                                <input type="hidden" value ="<?= mdate("%Y-%m-%d", now());?>" id="actuel" name="dateactuel">
                                 <div class="form-group col-sm-6">
                                     <label>Code</label>
                                     <input class="form-control form-control-sm" type="text"
@@ -1892,7 +1891,12 @@
                                 </div>
                             </div>
                             <div class="form-group row">
-                                
+                                <div class="form-group col-sm-4">
+                                    <label>Date depart</label>
+                                    <input class="form-control form-control-sm" type="date"
+                                        name="dateactuel" id="actuel"
+                                        value="<?= mdate("%Y-%m-%d", now()); ?>">
+                                </div>
                                 <div class="form-group col-sm-4">
                                     <select class="form-control form-control-sm" name="depargare" id="depargare">
                                         <? foreach ($garedeparts as $garedepart): ?>
