@@ -377,68 +377,94 @@
         
         public function verifcodbagt($cid, $cod)
         {
-            $rows = $this->db->query(
-            "SELECT * FROM tamponcode ctp
-            JOIN passager p ON p.code_passager = ctp.tamponcod 
-            JOIN sousgare sg ON p.departclient_idgare = sg.idsousgare
-            JOIN client cl ON p.id_client_pass = cl.id_client
-            JOIN programme pr ON p.code_pro = pr.code_progr
-            JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
-            JOIN heures h ON lh.heure_identif = h.id_heure
-            JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
-            JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
-            JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
-            JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
-            JOIN entreprise e ON c.id_entrep = e.id_entreprise
-            WHERE e.ekey = '$cid'
-            AND BINARY ctp.tamponcodtr = '$cod'
-            AND p.num_siege_categorie IS NOT NULL
-            AND p.actif_pas = 0
-            ORDER BY CAST(
-                LEFT(
-                    SUBSTRING(p.code_passager,7),
-                CASE
-                    WHEN LOCATE('A', SUBSTRING(p.code_passager,7)) > 0 THEN LOCATE('A', SUBSTRING(p.code_passager,7)) - 1
-                    WHEN LOCATE('B', SUBSTRING(p.code_passager,7)) > 0 THEN LOCATE('B', SUBSTRING(p.code_passager,7)) - 1
-                    WHEN LOCATE('C', SUBSTRING(p.code_passager,7)) > 0 THEN LOCATE('C', SUBSTRING(p.code_passager,7)) - 1
-                    WHEN LOCATE('D', SUBSTRING(p.code_passager,7)) > 0 THEN LOCATE('D', SUBSTRING(p.code_passager,7)) - 1
-                    WHEN LOCATE('E', SUBSTRING(p.code_passager,7)) > 0 THEN LOCATE('E', SUBSTRING(p.code_passager,7)) - 1
-                    WHEN LOCATE('F', SUBSTRING(p.code_passager,7)) > 0 THEN LOCATE('F', SUBSTRING(p.code_passager,7)) - 1
-                    WHEN LOCATE('G', SUBSTRING(p.code_passager,7)) > 0 THEN LOCATE('G', SUBSTRING(p.code_passager,7)) - 1
-                    WHEN LOCATE('H', SUBSTRING(p.code_passager,7)) > 0 THEN LOCATE('H', SUBSTRING(p.code_passager,7)) - 1
-                    WHEN LOCATE('I', SUBSTRING(p.code_passager,7)) > 0 THEN LOCATE('I', SUBSTRING(p.code_passager,7)) - 1
-                    WHEN LOCATE('J', SUBSTRING(p.code_passager,7)) > 0 THEN LOCATE('J', SUBSTRING(p.code_passager,7)) - 1
-                    WHEN LOCATE('K', SUBSTRING(p.code_passager,7)) > 0 THEN LOCATE('K', SUBSTRING(p.code_passager,7)) - 1
-                    WHEN LOCATE('L', SUBSTRING(p.code_passager,7)) > 0 THEN LOCATE('L', SUBSTRING(p.code_passager,7)) - 1
-                    WHEN LOCATE('M', SUBSTRING(p.code_passager,7)) > 0 THEN LOCATE('M', SUBSTRING(p.code_passager,7)) - 1
-                 WHEN LOCATE('N', SUBSTRING(p.code_passager,7)) > 0 THEN LOCATE('N', SUBSTRING(p.code_passager,7)) - 1
-                    WHEN LOCATE('O', SUBSTRING(p.code_passager,7)) > 0 THEN LOCATE('O', SUBSTRING(p.code_passager,7)) - 1
-                    ELSE LENGTH(SUBSTRING(p.code_passager,7))
-                END
-                ) AS UNSIGNED
-            ) ASC;")->result(); return $this->normalize_ticket_prix_rows($rows);        }
+            $cod = trim((string) $cod);
+            if ($cod === '') {
+                return array();
+            }
+
+            $this->load->helper('app_cache');
+            $cache_key = 'verifcodbagt_' . $cid . '_' . md5($cod);
+
+            return app_cache_remember($cache_key, 60, function () use ($cid, $cod) {
+                $rows = $this->db->query(
+                "SELECT * FROM tamponcode ctp
+                JOIN passager p ON p.code_passager = ctp.tamponcod 
+                JOIN sousgare sg ON p.departclient_idgare = sg.idsousgare
+                JOIN client cl ON p.id_client_pass = cl.id_client
+                JOIN programme pr ON p.code_pro = pr.code_progr
+                JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
+                JOIN heures h ON lh.heure_identif = h.id_heure
+                JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
+                JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
+                JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
+                JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
+                JOIN entreprise e ON c.id_entrep = e.id_entreprise
+                WHERE ctp.tamponcodtr = " . $this->db->escape($cod) . "
+                AND e.ekey = " . $this->db->escape($cid) . "
+                AND p.num_siege_categorie IS NOT NULL
+                AND p.actif_pas = 0
+                ORDER BY CAST(
+                    LEFT(
+                        SUBSTRING(p.code_passager,7),
+                    CASE
+                        WHEN LOCATE('A', SUBSTRING(p.code_passager,7)) > 0 THEN LOCATE('A', SUBSTRING(p.code_passager,7)) - 1
+                        WHEN LOCATE('B', SUBSTRING(p.code_passager,7)) > 0 THEN LOCATE('B', SUBSTRING(p.code_passager,7)) - 1
+                        WHEN LOCATE('C', SUBSTRING(p.code_passager,7)) > 0 THEN LOCATE('C', SUBSTRING(p.code_passager,7)) - 1
+                        WHEN LOCATE('D', SUBSTRING(p.code_passager,7)) > 0 THEN LOCATE('D', SUBSTRING(p.code_passager,7)) - 1
+                        WHEN LOCATE('E', SUBSTRING(p.code_passager,7)) > 0 THEN LOCATE('E', SUBSTRING(p.code_passager,7)) - 1
+                        WHEN LOCATE('F', SUBSTRING(p.code_passager,7)) > 0 THEN LOCATE('F', SUBSTRING(p.code_passager,7)) - 1
+                        WHEN LOCATE('G', SUBSTRING(p.code_passager,7)) > 0 THEN LOCATE('G', SUBSTRING(p.code_passager,7)) - 1
+                        WHEN LOCATE('H', SUBSTRING(p.code_passager,7)) > 0 THEN LOCATE('H', SUBSTRING(p.code_passager,7)) - 1
+                        WHEN LOCATE('I', SUBSTRING(p.code_passager,7)) > 0 THEN LOCATE('I', SUBSTRING(p.code_passager,7)) - 1
+                        WHEN LOCATE('J', SUBSTRING(p.code_passager,7)) > 0 THEN LOCATE('J', SUBSTRING(p.code_passager,7)) - 1
+                        WHEN LOCATE('K', SUBSTRING(p.code_passager,7)) > 0 THEN LOCATE('K', SUBSTRING(p.code_passager,7)) - 1
+                        WHEN LOCATE('L', SUBSTRING(p.code_passager,7)) > 0 THEN LOCATE('L', SUBSTRING(p.code_passager,7)) - 1
+                        WHEN LOCATE('M', SUBSTRING(p.code_passager,7)) > 0 THEN LOCATE('M', SUBSTRING(p.code_passager,7)) - 1
+                     WHEN LOCATE('N', SUBSTRING(p.code_passager,7)) > 0 THEN LOCATE('N', SUBSTRING(p.code_passager,7)) - 1
+                        WHEN LOCATE('O', SUBSTRING(p.code_passager,7)) > 0 THEN LOCATE('O', SUBSTRING(p.code_passager,7)) - 1
+                        ELSE LENGTH(SUBSTRING(p.code_passager,7))
+                    END
+                    ) AS UNSIGNED
+                ) ASC")->result();
+
+                return $this->normalize_ticket_prix_rows($rows);
+            });
+        }
 
         public function verifcodbagt2($cid, $cod)
         {
-            $rows = $this->db->query(
-            "SELECT * FROM tamponcode ctp
-            JOIN passager p ON p.code_passager = ctp.tamponcod 
-            JOIN sousgare sg ON p.departclient_idgare = sg.idsousgare
-            JOIN client cl ON p.id_client_pass = cl.id_client
-            JOIN programme pr ON p.code_pro = pr.code_progr
-            JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
-            JOIN heures h ON lh.heure_identif = h.id_heure
-            JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
-            JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
-            JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
-            JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
-            JOIN entreprise e ON c.id_entrep = e.id_entreprise
-            WHERE e.ekey = '$cid'
-            AND BINARY ctp.tamponcodtr = '$cod'
-            AND p.prixvente IS NULL
-            AND p.num_siege_categorie IS NOT NULL
-            AND p.actif_pas = 0
-            ORDER BY ctp.tamponcodtr DESC LIMIT 1")->result(); return $this->normalize_ticket_prix_rows($rows);        }
+            $cod = trim((string) $cod);
+            if ($cod === '') {
+                return array();
+            }
+
+            $this->load->helper('app_cache');
+            $cache_key = 'verifcodbagt2_' . $cid . '_' . md5($cod);
+
+            return app_cache_remember($cache_key, 60, function () use ($cid, $cod) {
+                $rows = $this->db->query(
+                "SELECT * FROM tamponcode ctp
+                JOIN passager p ON p.code_passager = ctp.tamponcod 
+                JOIN sousgare sg ON p.departclient_idgare = sg.idsousgare
+                JOIN client cl ON p.id_client_pass = cl.id_client
+                JOIN programme pr ON p.code_pro = pr.code_progr
+                JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
+                JOIN heures h ON lh.heure_identif = h.id_heure
+                JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
+                JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
+                JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
+                JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
+                JOIN entreprise e ON c.id_entrep = e.id_entreprise
+                WHERE ctp.tamponcodtr = " . $this->db->escape($cod) . "
+                AND e.ekey = " . $this->db->escape($cid) . "
+                AND p.prixvente IS NULL
+                AND p.num_siege_categorie IS NOT NULL
+                AND p.actif_pas = 0
+                ORDER BY ctp.tamponcodtr DESC LIMIT 1")->result();
+
+                return $this->normalize_ticket_prix_rows($rows);
+            });
+        }
         
         public function get1($cid, $p_id, $gid)
         {
@@ -605,31 +631,40 @@
         {
             $today = mdate("%Y-%m-%d", now());
             if ($p_id === FALSE AND $t === FALSE) {
-                $rows = $this->db->query(
-                    "SELECT * FROM tamponcode ctp
-                    JOIN passager p ON p.code_passager = ctp.tamponcod 
-                    JOIN sousgare sg ON p.departclient_idgare = sg.idsousgare
-                    LEFT JOIN non_passager np ON ctp.tamponcod = np.code_non_pass
-                    JOIN client cl ON p.id_client_pass = cl.id_client
-                    JOIN type_client tcl ON cl.type_client = tcl.nom_type
-                    JOIN programme pr ON p.code_pro = pr.code_progr
-                    JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
-                    JOIN heures h ON lh.heure_identif = h.id_heure
-                    JOIN lignes lg ON lh.ligne_id = lg.ident_ligne 
-                    JOIN tarifs t ON pr.typetarif = t.id_tarifs
-                    JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
-                    JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
-                    JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
-                    JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                    WHERE e.ekey = '$cid'
-                    AND p.datep_create = '$today'
-                    AND p.statut_code IS NOT NULL
-                    AND p.statut_confirme IS NULL
-                    AND p.statut_reprog IS NULL
-                    AND h.h_active = 1
-                    AND ctp.is_activecode = 0
-                    AND p.actif_pas = 0")->result(); return $this->normalize_ticket_prix_rows($rows);            } else
-                $row = $this->db->query(
+                $this->load->helper('app_cache');
+                $cache_key = 'getdayad_' . $cid . '_' . $today;
+
+                return app_cache_remember($cache_key, 120, function () use ($cid, $today) {
+                    $rows = $this->db->query(
+                        "SELECT * FROM passager p
+                        JOIN tamponcode ctp ON p.code_passager = ctp.tamponcod
+                        JOIN sousgare sg ON p.departclient_idgare = sg.idsousgare
+                        LEFT JOIN non_passager np ON ctp.tamponcod = np.code_non_pass
+                        JOIN client cl ON p.id_client_pass = cl.id_client
+                        JOIN type_client tcl ON cl.type_client = tcl.nom_type
+                        JOIN programme pr ON p.code_pro = pr.code_progr
+                        JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
+                        JOIN heures h ON lh.heure_identif = h.id_heure
+                        JOIN lignes lg ON lh.ligne_id = lg.ident_ligne 
+                        JOIN tarifs t ON pr.typetarif = t.id_tarifs
+                        JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
+                        JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
+                        JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
+                        JOIN entreprise e ON c.id_entrep = e.id_entreprise
+                        WHERE e.ekey = " . $this->db->escape($cid) . "
+                        AND p.datep_create = " . $this->db->escape($today) . "
+                        AND p.statut_code IS NOT NULL
+                        AND p.statut_confirme IS NULL
+                        AND p.statut_reprog IS NULL
+                        AND h.h_active = 1
+                        AND ctp.is_activecode = 0
+                        AND p.actif_pas = 0")->result();
+
+                    return $this->normalize_ticket_prix_rows($rows);
+                });
+            }
+
+            $row = $this->db->query(
                     "SELECT * FROM tamponcode ctp
                     JOIN passager p ON p.code_passager = ctp.tamponcod
                     JOIN sousgare sg ON p.departclient_idgare = sg.idsousgare 
@@ -645,47 +680,58 @@
                     JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
                     JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                    WHERE e.ekey = '$cid'
-                    AND p.datep_create = '$today'
-                    AND ctp.tamponcod = '$p_id'
+                    WHERE e.ekey = " . $this->db->escape($cid) . "
+                    AND p.datep_create = " . $this->db->escape($today) . "
+                    AND ctp.tamponcod = " . $this->db->escape($p_id) . "
                     AND p.statut_code IS NOT NULL
                     AND p.statut_confirme IS NULL
                     AND p.statut_reprog IS NULL
                     AND h.h_active = 1
                     AND ctp.is_activecode = 0
-                    AND p.actif_pas = 0")->row(); return $this->normalize_ticket_prix_row($row);
+                    AND p.actif_pas = 0")->row();
+
+            return $this->normalize_ticket_prix_row($row);
         }
         
 		public function getday($cid, $gid, $p_id = FALSE, $t = FALSE)
         {
             $today = mdate("%Y-%m-%d", now());
             if ($p_id === FALSE AND $t === FALSE) {
-                $rows = $this->db->query(
-                    "SELECT * FROM tamponcode ctp
-                    JOIN passager p ON p.code_passager = ctp.tamponcod 
-                    JOIN sousgare sg ON p.departclient_idgare = sg.idsousgare
-                    LEFT JOIN non_passager np ON ctp.tamponcod = np.code_non_pass
-                    JOIN client cl ON p.id_client_pass = cl.id_client
-                    JOIN type_client tcl ON cl.type_client = tcl.nom_type
-                    JOIN programme pr ON p.code_pro = pr.code_progr
-                    JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
-                    JOIN heures h ON lh.heure_identif = h.id_heure
-                    JOIN lignes lg ON lh.ligne_id = lg.ident_ligne 
-                    JOIN tarifs t ON pr.typetarif = t.id_tarifs
-                    JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
-                    JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
-                    JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
-                    JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                    WHERE e.ekey = '$cid'
-                    AND p.datep_create = '$today'
-                    AND ex.code_gaexp = '$gid'
-                    AND p.statut_code IS NOT NULL
-                    AND p.statut_confirme IS NULL
-                    AND p.statut_reprog IS NULL
-                    AND h.h_active = 1
-                    AND ctp.is_activecode = 0
-                    AND p.actif_pas = 0")->result(); return $this->normalize_ticket_prix_rows($rows);            } else
-                $row = $this->db->query(
+                $this->load->helper('app_cache');
+                $cache_key = 'getday_' . $cid . '_' . $gid . '_' . $today;
+
+                return app_cache_remember($cache_key, 120, function () use ($cid, $gid, $today) {
+                    $rows = $this->db->query(
+                        "SELECT * FROM passager p
+                        JOIN tamponcode ctp ON p.code_passager = ctp.tamponcod
+                        JOIN sousgare sg ON p.departclient_idgare = sg.idsousgare
+                        LEFT JOIN non_passager np ON ctp.tamponcod = np.code_non_pass
+                        JOIN client cl ON p.id_client_pass = cl.id_client
+                        JOIN type_client tcl ON cl.type_client = tcl.nom_type
+                        JOIN programme pr ON p.code_pro = pr.code_progr
+                        JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
+                        JOIN heures h ON lh.heure_identif = h.id_heure
+                        JOIN lignes lg ON lh.ligne_id = lg.ident_ligne 
+                        JOIN tarifs t ON pr.typetarif = t.id_tarifs
+                        JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
+                        JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
+                        JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
+                        JOIN entreprise e ON c.id_entrep = e.id_entreprise
+                        WHERE e.ekey = " . $this->db->escape($cid) . "
+                        AND p.datep_create = " . $this->db->escape($today) . "
+                        AND ex.code_gaexp = " . $this->db->escape($gid) . "
+                        AND p.statut_code IS NOT NULL
+                        AND p.statut_confirme IS NULL
+                        AND p.statut_reprog IS NULL
+                        AND h.h_active = 1
+                        AND ctp.is_activecode = 0
+                        AND p.actif_pas = 0")->result();
+
+                    return $this->normalize_ticket_prix_rows($rows);
+                });
+            }
+
+            $row = $this->db->query(
                     "SELECT * FROM tamponcode ctp
                     JOIN passager p ON p.code_passager = ctp.tamponcod
                     JOIN sousgare sg ON p.departclient_idgare = sg.idsousgare 
@@ -701,16 +747,18 @@
                     JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
                     JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                    WHERE e.ekey = '$cid'
-                    AND p.datep_create = '$today'
-                    AND ctp.tamponcod = '$p_id'
+                    WHERE e.ekey = " . $this->db->escape($cid) . "
+                    AND p.datep_create = " . $this->db->escape($today) . "
+                    AND ctp.tamponcod = " . $this->db->escape($p_id) . "
                     AND p.statut_code IS NOT NULL
                     AND p.statut_confirme IS NULL
                     AND p.statut_reprog IS NULL
                     AND h.h_active = 1
                     AND ctp.is_activecode = 0
-                    AND ex.code_gaexp = '$gid'
-                    AND p.actif_pas = 0")->row(); return $this->normalize_ticket_prix_row($row);
+                    AND ex.code_gaexp = " . $this->db->escape($gid) . "
+                    AND p.actif_pas = 0")->row();
+
+            return $this->normalize_ticket_prix_row($row);
         }
         //historique passager par heure
         public function reporpass($cid, $cp, $gd, $d1, $d2, $lg = FALSE, $hr = FALSE)
@@ -2716,19 +2764,29 @@
         }
         public function totalpassager($cd)
         {
-            $rows = $this->db->query("SELECT COUNT(code_passager) AS cod, lg.nom_ligne, c.nom_compagnie, dest.id_compaga FROM passager p
-                JOIN programme pr ON p.code_pro = pr.code_progr
-                JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
-                JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
-                JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
-                JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
-                JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
-                JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                WHERE e.ekey = '$cd'
-                AND p.prixvente IS NOT NULL
-                AND p.statut_code = 'vendu'
-                AND p.actif_pas = 0
-                GROUP BY lg.ident_ligne, dest.id_compaga, c.nom_compagnie")->result(); return $this->normalize_ticket_prix_rows($rows);        }
+            $this->load->helper('app_cache');
+            $cache_key = 'totalpassager_' . $cd;
+
+            return app_cache_remember($cache_key, 120, function () use ($cd) {
+                $rows = $this->db->query(
+                    "SELECT COUNT(code_passager) AS cod, lg.nom_ligne, c.nom_compagnie, dest.id_compaga
+                    FROM passager p
+                    JOIN programme pr ON p.code_pro = pr.code_progr
+                    JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
+                    JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
+                    JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
+                    JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
+                    JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
+                    JOIN entreprise e ON c.id_entrep = e.id_entreprise
+                    WHERE e.ekey = " . $this->db->escape($cd) . "
+                    AND p.prixvente IS NOT NULL
+                    AND p.statut_code = 'vendu'
+                    AND p.actif_pas = 0
+                    GROUP BY lg.ident_ligne, dest.id_compaga, c.nom_compagnie")->result();
+
+                return $this->normalize_ticket_prix_rows($rows);
+            });
+        }
         //pass repro
         public function comptrep($cd, $idcox, $g)
         {
