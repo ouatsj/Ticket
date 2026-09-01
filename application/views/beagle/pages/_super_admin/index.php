@@ -50,6 +50,22 @@
         return (string) $value === '1' ? 'checked' : '';
     };
     ?>
+    <?php if (function_exists('fraud_controls_enabled') && fraud_controls_enabled()
+        && function_exists('super_admin_can') && super_admin_can('cashdesk.closure.review')
+    ): ?>
+        <div class="card mb-4">
+            <div class="card-header"><strong>Contrôle des arrêts</strong></div>
+            <div class="card-body">
+                <p class="text-muted mb-2">
+                    Examiner les écarts d’arrêt de compte journalisés (déclaré vs recalculé).
+                </p>
+                <a class="btn btn-primary"
+                   href="<?= site_url('Caisses/closure_reviews/' . $this->session->company->ekey); ?>">
+                    Ouvrir la revue des arrêts
+                </a>
+            </div>
+        </div>
+    <?php endif; ?>
     <div class="card mb-4">
         <div class="card-header"><strong>Réglages des ventes à prix libre</strong></div>
         <div class="card-body">

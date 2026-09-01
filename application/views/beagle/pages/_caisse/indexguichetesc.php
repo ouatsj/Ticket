@@ -66,6 +66,13 @@
                         
                             <p>MONTANT TOTAL:&nbsp;<span><? if (!empty($escalclient)): ?><?= number_format($m, 0, '', ' '); ?><? endif; ?></span></p>        
                         <?endif;?>
+
+                    <?php if (function_exists('fraud_controls_enabled') && fraud_controls_enabled()): ?>
+                    <div class="form-group">
+                        <label for="motif_ecart_arret">Motif d’écart (si le montant transmis diffère du recalcul)</label>
+                        <textarea class="form-control form-control-sm" id="motif_ecart_arret" name="motif_ecart_arret" rows="2" placeholder="Optionnel en mode observation"></textarea>
+                    </div>
+                    <?php endif; ?>
                     
                     <div class="modal-footer">
                             

@@ -79,6 +79,8 @@
                 'upfourversement' => array('m_entreprises', 'm_versements'),
                 'adverscaisse' => array('m_entreprises', 'm_versements'),
                 'upautreversment' => array('m_entreprises', 'm_versements'),
+                'closure_reviews' => array('m_entreprises'),
+                'review_closure' => array('m_entreprises'),
             );
         }
 
@@ -839,8 +841,143 @@
             else
             redirect('gares/'.$this->session->company->ekey. '/gTv/'. $identifiant_gare. '/cais/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
                     
-        }        
+        }
 
+        /**
+         * Revue antifraude des arrêts de compte (écarts déclarés vs recalculés).
+         * N’interrompt jamais le flux d’arrêt classique : lecture + décision a posteriori.
+         */
+        public function closure_reviews($ckey)
+        {
+            $this->company = $this->m_entreprises->get_key($ckey);
+            if (!$this->company
+                || !isset($this->session->company->ekey)
+                || (int) $this->session->company->ekey !== (int) $this->company->ekey
+                || !function_exists('fraud_controls_enabled')
+                || !fraud_controls_enabled()
+                || !$this->db->table_exists('cash_closure_audit')
+            ) {
+                show_404();
+                return;
+            }
+
+            if (function_exists('super_admin_require')) {
+                super_admin_require(
+                    'cashdesk.closure.review',
+                    'Vous n’avez pas la permission de contrôler les arrêts.'
+                );
+            }
+
+            $filter = trim((string) $this->input->get('status'));
+            if (!in_array($filter, array('', 'requires_review', 'reviewed', 'rejected', 'clear'), true)) {
+                $filter = '';
+            }
+
+            $sql = "SELECT cca.*,
+                           COALESCE(u.first_name, '') AS first_name,
+                           COALESCE(u.last_name, '') AS last_name,
+                           COALESCE(cu.username, '') AS username
+                    FROM cash_closure_audit cca
+                    LEFT JOIN attributions_role ar ON cca.roleattribut = ar.roleattribut
+                    LEFT JOIN user_login ul ON ar.idgestcompte = ul.uid_login
+                    LEFT JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
+                    LEFT JOIN utilisateurs u ON cu.userlog_id = u.uid
+                    WHERE cca.company_ekey = ?";
+            $params = array((int) $this->company->ekey);
+            if ($filter !== '') {
+                $sql .= ' AND cca.review_status = ?';
+                $params[] = $filter;
+            }
+            $sql .= " ORDER BY
+                        CASE cca.review_status
+                            WHEN 'requires_review' THEN 0
+                            WHEN 'clear' THEN 1
+                            WHEN 'reviewed' THEN 2
+                            ELSE 3
+                        END,
+                        cca.created_at DESC
+                     LIMIT 200";
+
+            $this->property['pagetitle'] .= ' • CONTRÔLE DES ARRÊTS';
+            $this->property['closure_reviews'] = $this->db->query($sql, $params)->result();
+            $this->property['closure_filter'] = $filter;
+            $this->property['closure_notice'] = $this->session->flashdata('closure_review_success');
+            $this->property['closure_error'] = $this->session->flashdata('closure_review_error');
+            $this->property['fraud_mode'] = function_exists('fraud_controls_mode')
+                ? fraud_controls_mode()
+                : 'off';
+
+            return $this->layout->view('_caisse/closure_reviews', $this->property);
+        }
+
+        public function review_closure($ckey, $auditId)
+        {
+            $this->company = $this->m_entreprises->get_key($ckey);
+            if (!$this->company
+                || !isset($this->session->company->ekey)
+                || (int) $this->session->company->ekey !== (int) $this->company->ekey
+                || !function_exists('fraud_controls_enabled')
+                || !fraud_controls_enabled()
+                || !$this->db->table_exists('cash_closure_audit')
+            ) {
+                show_404();
+                return;
+            }
+
+            if (function_exists('super_admin_require')) {
+                super_admin_require(
+                    'cashdesk.closure.review',
+                    'Vous n’avez pas la permission de contrôler les arrêts.'
+                );
+            }
+
+            $status = trim((string) $this->input->post('review_status'));
+            $reason = trim((string) $this->input->post('review_reason'));
+            if (!in_array($status, array('reviewed', 'rejected'), true) || $reason === '') {
+                $this->session->set_flashdata(
+                    'closure_review_error',
+                    'La décision et son motif sont obligatoires.'
+                );
+                redirect('Caisses/closure_reviews/' . $this->company->ekey);
+                return;
+            }
+
+            $agent = isset($this->session->agent) ? $this->session->agent : null;
+            $this->db
+                ->where('id', (int) $auditId)
+                ->where('company_ekey', (int) $this->company->ekey)
+                ->where('review_status', 'requires_review')
+                ->update('cash_closure_audit', array(
+                    'review_status' => $status,
+                    'reviewed_by_cpuser_id' => $agent && isset($agent->cpuser_id)
+                        ? (int) $agent->cpuser_id
+                        : null,
+                    'reviewed_at' => date('Y-m-d H:i:s'),
+                    'review_reason' => $reason,
+                ));
+
+            if ($this->db->affected_rows() !== 1) {
+                $this->session->set_flashdata(
+                    'closure_review_error',
+                    'Cet arrêt a déjà été traité ou n’existe pas.'
+                );
+                redirect('Caisses/closure_reviews/' . $this->company->ekey);
+                return;
+            }
+
+            if (function_exists('fraud_control_event_record')) {
+                fraud_control_event_record(
+                    'closure_reviewed',
+                    $status === 'rejected' ? 'warning' : 'info',
+                    'cash_closure',
+                    $auditId,
+                    array('decision' => $status, 'reason' => $reason)
+                );
+            }
+
+            $this->session->set_flashdata('closure_review_success', 'Décision enregistrée.');
+            redirect('Caisses/closure_reviews/' . $this->company->ekey);
+        }
 
         //arret des caisses
         public function unstop($ckey, $idcpt, $d)
@@ -1408,6 +1545,11 @@
             $idcpt = $this->_resolve_arret_roleattribut($this->company->ekey, $gd, $idcpt);
             $cus = $this->input->post('compconnected');
             $today = mdate("%Y-%m-%d", now());
+
+            // Totaux attendus AVANT bascule statutvente (sinon expected=0).
+            if (function_exists('sales_closure_totals_prepare')) {
+                sales_closure_totals_prepare($this->company->ekey, $idcpt);
+            }
         
             $sgares = $this->db->query("SELECT count(idsousgare) AS sog FROM sousgare s
                     WHERE s.gareprinceid = '$gd'")->row();
@@ -4799,6 +4941,10 @@
         
             $cus = $this->input->post('compconnected');
             $today = mdate("%Y-%m-%d", now());
+
+            if (function_exists('sales_closure_totals_prepare')) {
+                sales_closure_totals_prepare($this->company->ekey, $idcpt);
+            }
 
             $sgares = $this->db->query("SELECT count(idsousgare) AS sog FROM sousgare s
                     WHERE s.gareprinceid = '$gd'")->row();

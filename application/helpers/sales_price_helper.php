@@ -10,6 +10,205 @@ if (!function_exists('sales_price_controls_enabled')) {
     }
 }
 
+/**
+ * Mode antifraude : off | observe | enforce.
+ * observe = écritures d'audit sans bloquer l'usage métier existant.
+ */
+if (!function_exists('fraud_controls_mode')) {
+    function fraud_controls_mode()
+    {
+        $CI =& get_instance();
+        $mode = strtolower(trim((string) $CI->config->item('fraud_controls_mode')));
+        if (!in_array($mode, array('off', 'observe', 'enforce'), true)) {
+            return 'off';
+        }
+        if ($mode !== 'off' && !sales_price_controls_enabled()) {
+            return 'off';
+        }
+        return $mode;
+    }
+}
+
+if (!function_exists('fraud_controls_enabled')) {
+    function fraud_controls_enabled()
+    {
+        return fraud_controls_mode() !== 'off';
+    }
+}
+
+if (!function_exists('fraud_controls_enforce')) {
+    function fraud_controls_enforce()
+    {
+        return fraud_controls_mode() === 'enforce';
+    }
+}
+
+if (!function_exists('fraud_control_actor_roleattribut')) {
+    function fraud_control_actor_roleattribut()
+    {
+        $CI =& get_instance();
+        if (isset($CI->session->agent) && !empty($CI->session->agent->roleattribut)) {
+            return (int) $CI->session->agent->roleattribut;
+        }
+        return null;
+    }
+}
+
+if (!function_exists('fraud_control_event_record')) {
+    function fraud_control_event_record($eventCode, $severity, $entityType, $entityId, array $details = array())
+    {
+        if (!fraud_controls_enabled()) {
+            return false;
+        }
+
+        $CI =& get_instance();
+        if (!$CI->db->table_exists('fraud_control_events')) {
+            return false;
+        }
+
+        $agent = isset($CI->session->agent) ? $CI->session->agent : null;
+        $roleAttribut = fraud_control_actor_roleattribut();
+
+        try {
+            return (bool) $CI->db->insert('fraud_control_events', array(
+                'company_ekey' => isset($CI->session->company->ekey)
+                    ? (int) $CI->session->company->ekey
+                    : 0,
+                'event_code' => (string) $eventCode,
+                'severity' => (string) $severity,
+                'actor_cpuser_id' => $agent && isset($agent->cpuser_id)
+                    ? (int) $agent->cpuser_id
+                    : null,
+                'roleattribut' => $roleAttribut !== null ? (int) $roleAttribut : null,
+                'entity_type' => $entityType !== null ? (string) $entityType : null,
+                'entity_id' => $entityId !== null ? (string) $entityId : null,
+                'details_json' => $details ? json_encode($details) : null,
+                'created_at' => date('Y-m-d H:i:s'),
+            ));
+        } catch (Exception $e) {
+            log_message('error', 'fraud_control_event_record: ' . $e->getMessage());
+            return false;
+        }
+    }
+}
+
+if (!function_exists('sale_idempotency_hash')) {
+    function sale_idempotency_hash($nonce)
+    {
+        return hash('sha256', (string) $nonce);
+    }
+}
+
+if (!function_exists('sale_idempotency_is_done')) {
+    function sale_idempotency_is_done($nonce)
+    {
+        if (!fraud_controls_enabled()) {
+            return false;
+        }
+        $CI =& get_instance();
+        if (!$CI->db->table_exists('sale_request_idempotency')
+            || !isset($CI->session->company->ekey, $CI->session->agent->cpuser_id)
+        ) {
+            return false;
+        }
+        $nonce = trim((string) $nonce);
+        if ($nonce === '') {
+            return false;
+        }
+        $row = $CI->db
+            ->select('request_status')
+            ->from('sale_request_idempotency')
+            ->where('company_ekey', (int) $CI->session->company->ekey)
+            ->where('actor_cpuser_id', (int) $CI->session->agent->cpuser_id)
+            ->where('nonce_hash', sale_idempotency_hash($nonce))
+            ->limit(1)
+            ->get()
+            ->row();
+        return $row && (string) $row->request_status === 'completed';
+    }
+}
+
+if (!function_exists('sale_idempotency_begin')) {
+    function sale_idempotency_begin($nonce)
+    {
+        if (!fraud_controls_enabled()) {
+            return false;
+        }
+        $CI =& get_instance();
+        if (!$CI->db->table_exists('sale_request_idempotency')
+            || !isset($CI->session->company->ekey, $CI->session->agent->cpuser_id)
+        ) {
+            return false;
+        }
+        $nonce = trim((string) $nonce);
+        if ($nonce === '') {
+            return false;
+        }
+        // INSERT IGNORE : ne bloque jamais une vente en cours / retry.
+        $sql = "INSERT IGNORE INTO sale_request_idempotency
+            (company_ekey, actor_cpuser_id, nonce_hash, request_status, created_at)
+            VALUES (?, ?, ?, 'pending', ?)";
+        return (bool) $CI->db->query($sql, array(
+            (int) $CI->session->company->ekey,
+            (int) $CI->session->agent->cpuser_id,
+            sale_idempotency_hash($nonce),
+            date('Y-m-d H:i:s'),
+        ));
+    }
+}
+
+if (!function_exists('sale_idempotency_complete')) {
+    function sale_idempotency_complete($nonce)
+    {
+        if (!fraud_controls_enabled()) {
+            return false;
+        }
+        $CI =& get_instance();
+        if (!$CI->db->table_exists('sale_request_idempotency')
+            || !isset($CI->session->company->ekey, $CI->session->agent->cpuser_id)
+        ) {
+            return false;
+        }
+        $nonce = trim((string) $nonce);
+        if ($nonce === '') {
+            return false;
+        }
+        return (bool) $CI->db
+            ->where('company_ekey', (int) $CI->session->company->ekey)
+            ->where('actor_cpuser_id', (int) $CI->session->agent->cpuser_id)
+            ->where('nonce_hash', sale_idempotency_hash($nonce))
+            ->update('sale_request_idempotency', array(
+                'request_status' => 'completed',
+                'completed_at' => date('Y-m-d H:i:s'),
+            ));
+    }
+}
+
+if (!function_exists('sale_idempotency_release')) {
+    function sale_idempotency_release($nonce)
+    {
+        if (!fraud_controls_enabled()) {
+            return false;
+        }
+        $CI =& get_instance();
+        if (!$CI->db->table_exists('sale_request_idempotency')
+            || !isset($CI->session->company->ekey, $CI->session->agent->cpuser_id)
+        ) {
+            return false;
+        }
+        $nonce = trim((string) $nonce);
+        if ($nonce === '') {
+            return false;
+        }
+        return (bool) $CI->db
+            ->where('company_ekey', (int) $CI->session->company->ekey)
+            ->where('actor_cpuser_id', (int) $CI->session->agent->cpuser_id)
+            ->where('nonce_hash', sale_idempotency_hash($nonce))
+            ->where('request_status', 'pending')
+            ->delete('sale_request_idempotency');
+    }
+}
+
 if (!function_exists('sales_setting')) {
     function sales_setting($key, $default = null, $companyEkey = null)
     {
@@ -107,7 +306,42 @@ if (!function_exists('sales_price_validate')) {
             }
             $card = sales_valid_travel_card(isset($options['card_number']) ? $options['card_number'] : '');
             if (!$card) {
+                fraud_control_event_record(
+                    'travel_card_rejected',
+                    'warning',
+                    'travel_card',
+                    isset($options['card_number']) ? $options['card_number'] : '',
+                    array('programme_code' => $programmeCode)
+                );
                 return array('ok' => false, 'error' => 'La carte de voyage est inconnue, inactive ou expirée.');
+            }
+            $dailyLimit = (int) sales_setting('sales.card_daily_zero_fare_limit', '0');
+            $CI =& get_instance();
+            if ($dailyLimit > 0
+                && fraud_controls_enabled()
+                && $CI->db->table_exists('travel_card_usage')
+            ) {
+                $dailyUsage = (int) $CI->db
+                    ->where('company_ekey', isset($CI->session->company->ekey)
+                        ? (int) $CI->session->company->ekey
+                        : 0)
+                    ->where('travel_card_id', (string) $card->id_carte)
+                    ->where('usage_status', 'confirmed')
+                    ->where('used_at >=', date('Y-m-d 00:00:00'))
+                    ->where('used_at <=', date('Y-m-d 23:59:59'))
+                    ->count_all_results('travel_card_usage');
+                if ($dailyUsage >= $dailyLimit) {
+                    fraud_control_event_record(
+                        'travel_card_daily_limit',
+                        'warning',
+                        'travel_card',
+                        $card->id_carte,
+                        array('daily_limit' => $dailyLimit, 'programme_code' => $programmeCode)
+                    );
+                    if (fraud_controls_enforce()) {
+                        return array('ok' => false, 'error' => 'La limite quotidienne de cette carte est atteinte.');
+                    }
+                }
             }
         } elseif ($soldPrice === 0.0 && empty($options['zero_confirmed'])) {
             return array('ok' => false, 'error' => 'La vente à 0 F doit être confirmée explicitement.');
@@ -211,6 +445,65 @@ if (!function_exists('sales_price_snapshot_record')) {
                 'print_type' => 'emission',
             ));
         }
+
+        if ($inserted
+            && fraud_controls_enabled()
+            && $pricing['authorization_type'] === 'carte_voyage'
+            && (float) $pricing['sold_price'] === 0.0
+            && !empty($pricing['travel_card_id'])
+            && $CI->db->table_exists('travel_card_usage')
+        ) {
+            $card = $CI->db
+                ->select('num_carte')
+                ->where('id_carte', (string) $pricing['travel_card_id'])
+                ->limit(1)
+                ->get('carte_passager')
+                ->row();
+            $roleAttribut = fraud_control_actor_roleattribut();
+            $CI->db->insert('travel_card_usage', array(
+                'company_ekey' => (int) $CI->session->company->ekey,
+                'travel_card_id' => (string) $pricing['travel_card_id'],
+                'card_number' => $card ? (string) $card->num_carte : '',
+                'code_passager' => (string) $ticketData['code_passager'],
+                'code_ticket' => (string) $ticketData['code_ticket'],
+                'segment_type' => isset($ticketData['segment_type'])
+                    ? $ticketData['segment_type']
+                    : 'aller',
+                'programme_code' => isset($ticketData['code_pro']) ? $ticketData['code_pro'] : null,
+                'seller_cpuser_id' => (int) $agent->cpuser_id,
+                'seller_roleattribut' => $roleAttribut !== null ? (int) $roleAttribut : null,
+                'normal_price' => $pricing['normal_price'],
+                'sold_price' => $pricing['sold_price'],
+                'usage_status' => 'confirmed',
+                'used_at' => date('Y-m-d H:i:s'),
+            ));
+            fraud_control_event_record(
+                'travel_card_used',
+                'info',
+                'travel_card',
+                $pricing['travel_card_id'],
+                array(
+                    'code_passager' => $ticketData['code_passager'],
+                    'code_ticket' => $ticketData['code_ticket'],
+                    'sold_price' => $pricing['sold_price'],
+                )
+            );
+        } elseif ($inserted && !empty($pricing['is_free_price'])) {
+            fraud_control_event_record(
+                'free_price_sale',
+                'info',
+                'ticket',
+                isset($ticketData['code_ticket']) ? $ticketData['code_ticket'] : null,
+                array(
+                    'code_passager' => $ticketData['code_passager'],
+                    'normal_price' => $pricing['normal_price'],
+                    'sold_price' => $pricing['sold_price'],
+                    'nature' => $pricing['nature'],
+                    'reason' => $pricing['reason'],
+                )
+            );
+        }
+
         return $inserted;
     }
 }
@@ -284,5 +577,143 @@ if (!function_exists('sales_closure_total')) {
             return 0.0;
         }
         return $GLOBALS['sales_closure_totals'][$key][$companyCode];
+    }
+}
+
+/**
+ * Prépare le contrôle d'écart à l'arrêt.
+ * En mode observe : ne bloque jamais (retourne le contrôle + journal).
+ * En mode enforce : exige un motif si l'écart dépasse la tolérance.
+ *
+ * @return array|false false uniquement en enforce si motif manquant
+ */
+if (!function_exists('sales_closure_control_prepare')) {
+    function sales_closure_control_prepare($companyEkey, array $data)
+    {
+        if (!fraud_controls_enabled()) {
+            return null;
+        }
+
+        $declared = isset($data['montcomtpte']) ? round((float) $data['montcomtpte'], 2) : 0.0;
+        $expected = sales_closure_total(
+            $companyEkey,
+            isset($data['idusercompt']) ? $data['idusercompt'] : 0,
+            isset($data['comp']) ? $data['comp'] : '',
+            $declared
+        );
+        $expected = round((float) $expected, 2);
+        $difference = round($declared - $expected, 2);
+        $CI =& get_instance();
+        $reason = trim((string) $CI->input->post('motif_ecart_arret'));
+        $tolerance = max(0, (float) sales_setting(
+            'cashdesk.closure_difference_tolerance',
+            '0',
+            $companyEkey
+        ));
+        $threshold = max(0, (float) sales_setting(
+            'cashdesk.closure_large_difference_threshold',
+            '5000',
+            $companyEkey
+        ));
+
+        if (abs($difference) > $tolerance
+            && sales_setting_bool('cashdesk.closure_reason_required', true, $companyEkey)
+            && $reason === ''
+        ) {
+            fraud_control_event_record(
+                'closure_difference_without_reason',
+                'warning',
+                'roleattribut',
+                isset($data['idusercompt']) ? $data['idusercompt'] : null,
+                array(
+                    'declared' => $declared,
+                    'expected' => $expected,
+                    'difference' => $difference,
+                )
+            );
+            if (fraud_controls_enforce()) {
+                show_error(
+                    'Un motif est obligatoire car le montant transmis diffère du montant recalculé.',
+                    422,
+                    'Arrêt refusé'
+                );
+                return false;
+            }
+        }
+
+        return array(
+            'declared_amount' => $declared,
+            'expected_amount' => $expected,
+            'recorded_amount' => $expected,
+            'difference_amount' => $difference,
+            'reason' => $reason !== '' ? $reason : null,
+            'review_status' => abs($difference) > max($tolerance, $threshold)
+                ? 'requires_review'
+                : 'clear',
+        );
+    }
+}
+
+if (!function_exists('sales_closure_audit_record')) {
+    function sales_closure_audit_record($companyEkey, $closureId, array $data, array $control)
+    {
+        if (!fraud_controls_enabled()) {
+            return false;
+        }
+
+        $CI =& get_instance();
+        if (!$CI->db->table_exists('cash_closure_audit')) {
+            return false;
+        }
+
+        $agent = isset($CI->session->agent) ? $CI->session->agent : null;
+        try {
+            $inserted = $CI->db->insert('cash_closure_audit', array(
+                'company_ekey' => (int) $companyEkey,
+                'closure_type' => 'ticket',
+                'legacy_closure_id' => (int) $closureId,
+                'roleattribut' => isset($data['idusercompt']) ? (int) $data['idusercompt'] : 0,
+                'company_code' => isset($data['comp']) ? (string) $data['comp'] : null,
+                'gare_id' => isset($data['idgarecompt']) ? (string) $data['idgarecompt'] : null,
+                'sousgare_id' => isset($data['idsousga']) ? (int) $data['idsousga'] : null,
+                'declared_amount' => $control['declared_amount'],
+                'expected_amount' => $control['expected_amount'],
+                'recorded_amount' => $control['recorded_amount'],
+                'difference_amount' => $control['difference_amount'],
+                'reason' => $control['reason'],
+                'review_status' => $control['review_status'],
+                'created_by_cpuser_id' => $agent && isset($agent->cpuser_id)
+                    ? (int) $agent->cpuser_id
+                    : 0,
+                'created_at' => date('Y-m-d H:i:s'),
+            ));
+        } catch (Exception $e) {
+            log_message('error', 'sales_closure_audit_record: ' . $e->getMessage());
+            return false;
+        }
+
+        if ($inserted && $control['review_status'] === 'requires_review') {
+            fraud_control_event_record(
+                'closure_large_difference',
+                'critical',
+                'cash_closure',
+                $closureId,
+                $control
+            );
+        } elseif ($inserted) {
+            fraud_control_event_record(
+                'cash_closure_recorded',
+                'info',
+                'cash_closure',
+                $closureId,
+                array(
+                    'declared' => $control['declared_amount'],
+                    'expected' => $control['expected_amount'],
+                    'difference' => $control['difference_amount'],
+                )
+            );
+        }
+
+        return $inserted;
     }
 }

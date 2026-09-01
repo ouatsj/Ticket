@@ -104,6 +104,10 @@ if (!function_exists('super_admin_legacy_permission')) {
 
             case 'documentation.view':
                 return $role !== '';
+
+            case 'cashdesk.closure.review':
+                // Admin / chef guichet (historique).
+                return in_array($role, array('1', '2', '5', '16'), true);
         }
 
         return FALSE;

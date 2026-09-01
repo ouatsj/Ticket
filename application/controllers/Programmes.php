@@ -228,11 +228,17 @@
             }
 
             // Bloque uniquement une vente déjà finalisée (double-clic après succès).
-            if (app_cache_get($key) === 'done') {
+            if (app_cache_get($key) === 'done'
+                || (function_exists('sale_idempotency_is_done') && sale_idempotency_is_done($nonce))
+            ) {
                 $this->_addpassager_redirect_back(
                     'Cette vente a déjà été enregistrée. Si le ticket ne s\'est pas imprimé, rouvrez-le depuis l\'historique.'
                 );
                 return true;
+            }
+
+            if (function_exists('sale_idempotency_begin')) {
+                sale_idempotency_begin($nonce);
             }
 
             return false;
@@ -248,6 +254,9 @@
             $key = $this->_sale_nonce_key($nonce);
             if ($key !== '') {
                 app_cache_set($key, 'done', 300);
+            }
+            if (function_exists('sale_idempotency_complete')) {
+                sale_idempotency_complete($nonce);
             }
         }
 
@@ -265,6 +274,9 @@
             $path = APPPATH . 'cache/data/' . md5($key) . '.cache';
             if (is_file($path)) {
                 @unlink($path);
+            }
+            if (function_exists('sale_idempotency_release')) {
+                sale_idempotency_release($nonce);
             }
         }
 

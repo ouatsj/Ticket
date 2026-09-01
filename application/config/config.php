@@ -38,6 +38,11 @@
         ($ci_http_host === 'essaiticket.rakietabus.com');
     $config['sales_price_controls_enabled'] =
         ($ci_http_host === 'essaiticket.rakietabus.com');
+    // Antifraude / audit vente-caisse (tables déjà en base) :
+    // off = désactivé ; observe = écritures + alertes sans bloquer ;
+    // enforce = contrôles bloquants (motif écart, etc.).
+    $config['fraud_controls_mode'] =
+        ($ci_http_host === 'essaiticket.rakietabus.com') ? 'observe' : 'off';
     // Phase 2 graphe correspondances : serve + prefer_direct sur essaiticket (config/graphe_correspondance.php)
     
     /*

@@ -91,6 +91,81 @@ $statements = array(
         PRIMARY KEY (id),
         KEY idx_ticket_audit_ticket (company_ekey, code_passager, code_ticket),
         KEY idx_ticket_audit_actor (actor_cpuser_id, created_at)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8",
+
+    "CREATE TABLE IF NOT EXISTS travel_card_usage (
+        id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+        company_ekey INT NOT NULL,
+        travel_card_id VARCHAR(150) NOT NULL,
+        card_number VARCHAR(150) NOT NULL,
+        code_passager VARCHAR(150) NOT NULL,
+        code_ticket VARCHAR(150) NOT NULL,
+        segment_type VARCHAR(30) NOT NULL DEFAULT 'aller',
+        programme_code VARCHAR(100) NULL,
+        seller_cpuser_id INT NOT NULL,
+        seller_roleattribut INT NULL,
+        normal_price DECIMAL(12,2) NOT NULL DEFAULT 0,
+        sold_price DECIMAL(12,2) NOT NULL DEFAULT 0,
+        usage_status VARCHAR(20) NOT NULL DEFAULT 'confirmed',
+        used_at DATETIME NOT NULL,
+        PRIMARY KEY (id),
+        UNIQUE KEY uq_travel_card_ticket (code_passager, code_ticket, segment_type),
+        KEY idx_travel_card_usage_card (company_ekey, travel_card_id, used_at),
+        KEY idx_travel_card_usage_seller (seller_cpuser_id, used_at)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8",
+
+    "CREATE TABLE IF NOT EXISTS cash_closure_audit (
+        id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+        company_ekey INT NOT NULL,
+        closure_type VARCHAR(30) NOT NULL DEFAULT 'ticket',
+        legacy_closure_id BIGINT UNSIGNED NULL,
+        roleattribut INT NOT NULL,
+        company_code VARCHAR(100) NULL,
+        gare_id VARCHAR(128) NULL,
+        sousgare_id INT NULL,
+        declared_amount DECIMAL(12,2) NOT NULL DEFAULT 0,
+        expected_amount DECIMAL(12,2) NOT NULL DEFAULT 0,
+        recorded_amount DECIMAL(12,2) NOT NULL DEFAULT 0,
+        difference_amount DECIMAL(12,2) NOT NULL DEFAULT 0,
+        reason VARCHAR(500) NULL,
+        review_status VARCHAR(20) NOT NULL DEFAULT 'clear',
+        created_by_cpuser_id INT NOT NULL,
+        reviewed_by_cpuser_id INT NULL,
+        reviewed_at DATETIME NULL,
+        review_reason VARCHAR(500) NULL,
+        created_at DATETIME NOT NULL,
+        PRIMARY KEY (id),
+        KEY idx_closure_audit_review (company_ekey, review_status, created_at),
+        KEY idx_closure_audit_role (roleattribut, created_at)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8",
+
+    "CREATE TABLE IF NOT EXISTS fraud_control_events (
+        id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+        company_ekey INT NOT NULL,
+        event_code VARCHAR(80) NOT NULL,
+        severity VARCHAR(20) NOT NULL DEFAULT 'info',
+        actor_cpuser_id INT NULL,
+        roleattribut INT NULL,
+        entity_type VARCHAR(50) NULL,
+        entity_id VARCHAR(150) NULL,
+        details_json TEXT NULL,
+        created_at DATETIME NOT NULL,
+        PRIMARY KEY (id),
+        KEY idx_fraud_event_company (company_ekey, severity, created_at),
+        KEY idx_fraud_event_actor (actor_cpuser_id, created_at)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8",
+
+    "CREATE TABLE IF NOT EXISTS sale_request_idempotency (
+        id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+        company_ekey INT NOT NULL,
+        actor_cpuser_id INT NOT NULL,
+        nonce_hash CHAR(64) NOT NULL,
+        request_status VARCHAR(20) NOT NULL DEFAULT 'pending',
+        created_at DATETIME NOT NULL,
+        completed_at DATETIME NULL,
+        PRIMARY KEY (id),
+        UNIQUE KEY uq_sale_request_nonce (company_ekey, actor_cpuser_id, nonce_hash),
+        KEY idx_sale_request_status (company_ekey, request_status, created_at)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8"
 );
 
@@ -102,6 +177,8 @@ $permissions = array(
     array('sales.card.zero_fare', 'Cartes voyage', 'Émettre un billet gratuit avec une carte valide', 140),
     array('sales.card.manage_expiry', 'Cartes voyage', 'Gérer la péremption des cartes de voyage', 150),
     array('sales.settings.manage', 'Ventes', 'Gérer les réglages des ventes à prix libre', 160),
+    array('sales.card.quick_create', 'Cartes voyage', 'Créer une carte depuis le formulaire de vente', 170),
+    array('cashdesk.closure.review', 'Caisse', 'Examiner et valider les écarts d’arrêt', 180),
 );
 
 $settings = array(
@@ -112,10 +189,16 @@ $settings = array(
     'sales.valid_card_zero_fare_enabled' => '1',
     'sales.card_expiry_required' => '1',
     'sales.post_print_edit_enabled' => '0',
+    'sales.card_daily_zero_fare_limit' => '0',
+    'cashdesk.closure_difference_tolerance' => '0',
+    'cashdesk.closure_large_difference_threshold' => '5000',
+    'cashdesk.closure_reason_required' => '1',
 );
 
 if (!$apply) {
-    echo "APERÇU : 5 tables additives, 7 permissions et 7 réglages seront créés.\n";
+    echo "APERÇU : " . count($statements) . " tables additives, "
+        . count($permissions) . " permissions et " . count($settings)
+        . " réglages seront créés.\n";
     echo "Aucune donnée de vente existante ne sera modifiée. Relancez avec --apply.\n";
     exit(0);
 }

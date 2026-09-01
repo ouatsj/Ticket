@@ -11,8 +11,36 @@
         
         public function create(array $data)
         {
+            $control = null;
+            $companyEkey = 0;
+            if (function_exists('fraud_controls_enabled')
+                && fraud_controls_enabled()
+                && function_exists('sales_closure_control_prepare')
+            ) {
+                $CI =& get_instance();
+                $companyEkey = isset($CI->session->company->ekey)
+                    ? (int) $CI->session->company->ekey
+                    : 0;
+                if ($companyEkey > 0) {
+                    $control = sales_closure_control_prepare($companyEkey, $data);
+                    // enforce uniquement : prepare peut retourner false et avoir déjà affiché l'erreur
+                    if ($control === false) {
+                        return false;
+                    }
+                }
+            }
+
             $this->db->insert($this->table, $data);
-            return $this->db->insert_id();
+            $insertId = $this->db->insert_id();
+
+            if ($insertId
+                && is_array($control)
+                && function_exists('sales_closure_audit_record')
+            ) {
+                sales_closure_audit_record($companyEkey, $insertId, $data, $control);
+            }
+
+            return $insertId;
         }
             
                 
