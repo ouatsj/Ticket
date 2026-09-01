@@ -10,6 +10,8 @@
 /application/logs/*
 !/application/logs/index.html
 scripts/cron/logs/*.log
+/scripts/node_modules/
+/scripts/package-lock.json
 /application/cache/*
 !/application/cache/index.html
 

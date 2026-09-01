@@ -76,7 +76,7 @@ foreach ($noBundleRoles as $role) {
 }
 
 // Estimation scripts par profil (layout scripts_bundle.php)
-$baseScripts = 12; // jquery…mprogress + ligne_option + retour + request-guard
+$baseScripts = 11; // jquery…mprogress + ligne_option + request-guard (+ FA x2)
 $datatablesScripts = 5;
 foreach (array('accueil', 'historique', 'admin', 'confirmation', 'bagage', 'program', 'caisse') as $profile) {
     $extra = isset($bundles[$profile]) ? count($bundles[$profile]) : 0;
