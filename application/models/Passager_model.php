@@ -3739,9 +3739,13 @@
                 AND lg.ident_ligne = '$algn'
                 GROUP BY lg.nom_ligne, dest.id_compaga, p.prixvente")->result(); return $this->normalize_ticket_prix_rows($rows);    }*/
 
-    public function reporticket($cid, $gid, $dt1, $dt2, $cp, $algn = FALSE)
+    public function reporticket($cid, $gid, $dt1, $dt2, $cp, $algn = FALSE, $sg = FALSE)
     {
-        
+        $sgSql = '';
+        if ($sg !== FALSE && $sg !== null && $sg !== '') {
+            $sgSql = " AND p.departclient_idgare = '" . $this->db->escape_str($sg) . "'";
+        }
+
         if ($algn === '') 
         {
             $rows = $this->db->query(
@@ -3770,6 +3774,7 @@
                   )
                   AND ul.guser = '$gid'
                  )
+                $sgSql
                 GROUP BY lg.nom_ligne, p.prixvente")->result(); return $this->normalize_ticket_prix_rows($rows);        }
             $rows = $this->db->query(
                 "SELECT 
@@ -3798,6 +3803,7 @@
                   )
                   AND ul.guser = '$gid'
                 )
+                $sgSql
                 GROUP BY lg.nom_ligne, p.prixvente")->result(); return $this->normalize_ticket_prix_rows($rows);    }
 
     public function reporticketgr($cid, $gid, $dt1, $dt2, $cp, $algn = FALSE)

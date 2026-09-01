@@ -815,9 +815,15 @@
                                     <select class="form-control form-control-sm" name="departgar">
                                     <option value=""></option>
                                     <? foreach ($garedepartcomp as $garedepart): ?>
-                                        <option value="<?= $garedepart->code_gaexp; ?>">
+                                        <option value="<?= $garedepart->code_gaexp; ?>" data-garesid="<?= $garedepart->garesid; ?>">
                                             <?= "{$garedepart->nom_gaep}"; ?></option>
                                     <? endforeach; ?>
+                                    </select>
+                                </div>
+                                <div class="form-group col-sm-4">
+                                    <label>SOUS-GARE</label>
+                                    <select class="form-control form-control-sm" name="sousgaretgl">
+                                        <option value="">Toutes</option>
                                     </select>
                                 </div>
                                 <div class="form-group col-sm-4">
@@ -1397,9 +1403,15 @@
                                     <select class="form-control form-control-sm" name="departgarcrgl">
                                     <option value=""></option>
                                     <? foreach ($garedepartcomp as $garedepart): ?>
-                                        <option value="<?= $garedepart->code_gaexp; ?>">
+                                        <option value="<?= $garedepart->code_gaexp; ?>" data-garesid="<?= $garedepart->garesid; ?>">
                                             <?= "{$garedepart->nom_gaep}"; ?></option>
                                     <? endforeach; ?>
+                                    </select>
+                                </div>
+                                <div class="form-group col-sm-4">
+                                    <label>SOUS-GARE</label>
+                                    <select class="form-control form-control-sm" name="sousgarecrgl">
+                                        <option value="">Toutes</option>
                                     </select>
                                 </div>
                                 <div class="form-group col-sm-4">

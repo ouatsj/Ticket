@@ -21,6 +21,8 @@ $bundle_datatables = !empty($bundle_datatables);
 <?php endif; ?>
 
 <script type="application/javascript" src="<?= base_url('assets/js/ligne_option.js'); ?>"></script>
+<script type="application/javascript" src="<?= base_url('assets/js/recapglcourrier.js'); ?>?v=20260825"></script>
+<script type="application/javascript" src="<?= base_url('assets/js/recapglticket.js'); ?>?v=20260825"></script>
 <script type="application/javascript" src="<?= base_url('assets/js/retour.js'); ?>?v=20260822"></script>
 <script type="application/javascript" src="<?= base_url('assets/js/request-guard.js'); ?>"></script>
 <?php foreach ($bundle_js as $js): ?>

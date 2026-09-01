@@ -2489,11 +2489,15 @@
                     GROUP BY dest.id_compaga, lg.nom_ligne, cd.naturecoli, e.prixcolis")->result();
         }
 
-        public function trecaptpligl($cid, $dt1, $dt2, $cp = FALSE, $gd = FALSE, $tycr = FALSE, $algn = FALSE)
-        {        
-            if ($cp === '' AND $gd === '' AND $tycr === '' AND $algn === '') {
-                return $this->db->query(
-                    "SELECT COUNT(courrierexpid) AS nombres, SUM(prixcolis) AS montant, dest.id_compaga, lg.nom_ligne, cd.naturecoli, e.prixcolis FROM courriers_exp e
+        public function trecaptpligl($cid, $dt1, $dt2, $cp = FALSE, $gd = FALSE, $tycr = FALSE, $algn = FALSE, $sgid = FALSE)
+        {
+            $filled = function ($v) {
+                return $v !== FALSE && $v !== null && $v !== '';
+            };
+            $cid = $this->db->escape_str($cid);
+            $dt1 = $this->db->escape_str($dt1);
+            $dt2 = $this->db->escape_str($dt2);
+            $sql = "SELECT COUNT(courrierexpid) AS nombres, SUM(prixcolis) AS montant, dest.id_compaga, lg.nom_ligne, cd.naturecoli, e.prixcolis FROM courriers_exp e
                     JOIN attributions_role ar ON e.idoperateur = ar.roleattribut
                     JOIN user_login ul ON ar.idgestcompte = ul.uid_login
                     JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
@@ -2512,113 +2516,24 @@
                     WHERE ep.ekey = '$cid'
                     AND e.dateenvoi BETWEEN '$dt1' AND '$dt2'
                     AND e.prixcolis IS NOT NULL
-                    AND e.partocour IS NULL
-                    GROUP BY dest.id_compaga, lg.nom_ligne, e.prixcolis")->result();
+                    AND e.partocour IS NULL";
+            if ($filled($cp)) {
+                $sql .= " AND dest.id_compaga = '" . $this->db->escape_str($cp) . "'";
             }
-            elseif($gd === '' AND $tycr === '' AND $algn === '') {
-                return $this->db->query(
-                    "SELECT COUNT(courrierexpid) AS nombres, SUM(prixcolis) AS montant, dest.id_compaga, lg.nom_ligne, cd.naturecoli, e.prixcolis FROM courriers_exp e
-                    JOIN attributions_role ar ON e.idoperateur = ar.roleattribut
-                    JOIN user_login ul ON ar.idgestcompte = ul.uid_login
-                    JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
-                    JOIN utilisateurs u ON cu.userlog_id = u.uid
-                    JOIN sousgare sg ON e.courrierdepartgare = sg.idsousgare
-                    JOIN code_courriers cd ON e.id_codecourrier = cd.codecolisid
-                    JOIN expeditreception er ON cd.exprecepident = er.idexprecept 
-                    JOIN programme pr ON e.departcolis = pr.code_progr
-                    JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
-                    JOIN heures h ON lh.heure_identif = h.id_heure
-                    JOIN lignes lg ON cd.idlignes = lg.ident_ligne
-                    JOIN gare_exp gex ON lg.gaexp_lg = gex.code_gaexp
-                    JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
-                    JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
-                    JOIN entreprise ep ON c.id_entrep = ep.id_entreprise
-                    WHERE ep.ekey = '$cid'
-                    AND dest.id_compaga = '$cp'
-                    AND e.dateenvoi BETWEEN '$dt1' AND '$dt2'
-                    AND e.prixcolis IS NOT NULL
-                    AND e.partocour IS NULL
-                    GROUP BY dest.id_compaga, lg.nom_ligne, e.prixcolis")->result();
+            if ($filled($gd)) {
+                $sql .= " AND ul.guser = '" . $this->db->escape_str($gd) . "'";
             }
-            elseif ($tycr === '' AND $algn === '') {
-                return $this->db->query(
-                    "SELECT COUNT(courrierexpid) AS nombres, SUM(prixcolis) AS montant, dest.id_compaga, lg.nom_ligne, cd.naturecoli, e.prixcolis FROM courriers_exp e
-                    JOIN attributions_role ar ON e.idoperateur = ar.roleattribut
-                    JOIN user_login ul ON ar.idgestcompte = ul.uid_login
-                    JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
-                    JOIN utilisateurs u ON cu.userlog_id = u.uid
-                    JOIN sousgare sg ON e.courrierdepartgare = sg.idsousgare
-                    JOIN code_courriers cd ON e.id_codecourrier = cd.codecolisid
-                    JOIN expeditreception er ON cd.exprecepident = er.idexprecept 
-                    JOIN programme pr ON e.departcolis = pr.code_progr
-                    JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
-                    JOIN heures h ON lh.heure_identif = h.id_heure
-                    JOIN lignes lg ON cd.idlignes = lg.ident_ligne
-                    JOIN gare_exp gex ON lg.gaexp_lg = gex.code_gaexp
-                    JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
-                    JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
-                    JOIN entreprise ep ON c.id_entrep = ep.id_entreprise
-                    WHERE ep.ekey = '$cid'
-                    AND e.dateenvoi BETWEEN '$dt1' AND '$dt2'
-                    AND e.prixcolis IS NOT NULL
-                    AND e.partocour IS NULL
-                    AND ul.guser = '$gd'
-                    AND dest.id_compaga = '$cp'
-                    GROUP BY dest.id_compaga, lg.nom_ligne, e.prixcolis")->result();
+            if ($filled($tycr)) {
+                $sql .= " AND cd.naturecoli = '" . $this->db->escape_str($tycr) . "'";
             }
-            elseif($algn === '')
-            {
-                return $this->db->query("SELECT COUNT(courrierexpid) AS nombres, SUM(prixcolis) AS montant, dest.id_compaga, lg.nom_ligne, cd.naturecoli, e.prixcolis FROM courriers_exp e
-                    JOIN attributions_role ar ON e.idoperateur = ar.roleattribut
-                    JOIN user_login ul ON ar.idgestcompte = ul.uid_login
-                    JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
-                    JOIN utilisateurs u ON cu.userlog_id = u.uid
-                    JOIN sousgare sg ON e.courrierdepartgare = sg.idsousgare
-                    JOIN code_courriers cd ON e.id_codecourrier = cd.codecolisid
-                    JOIN expeditreception er ON cd.exprecepident = er.idexprecept 
-                    JOIN programme pr ON e.departcolis = pr.code_progr
-                    JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
-                    JOIN heures h ON lh.heure_identif = h.id_heure
-                    JOIN lignes lg ON cd.idlignes = lg.ident_ligne
-                    JOIN gare_exp gex ON lg.gaexp_lg = gex.code_gaexp
-                    JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
-                    JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
-                    JOIN entreprise ep ON c.id_entrep = ep.id_entreprise
-                    WHERE ep.ekey = '$cid'
-                    AND dest.id_compaga = '$cp'
-                    AND e.dateenvoi BETWEEN '$dt1' AND '$dt2'
-                    AND e.prixcolis IS NOT NULL
-                    AND e.partocour IS NULL
-                    AND ul.guser = '$gd'
-                    AND cd.naturecoli = '$tycr'
-                    GROUP BY dest.id_compaga, lg.nom_ligne, e.prixcolis")->result();
+            if ($filled($algn)) {
+                $sql .= " AND lg.ident_ligne = '" . $this->db->escape_str($algn) . "'";
             }
-                return $this->db->query(
-                    "SELECT COUNT(courrierexpid) AS nombres, SUM(prixcolis) AS montant, dest.id_compaga, lg.nom_ligne, cd.naturecoli, e.prixcolis FROM courriers_exp e
-                    JOIN attributions_role ar ON e.idoperateur = ar.roleattribut
-                    JOIN user_login ul ON ar.idgestcompte = ul.uid_login
-                    JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
-                    JOIN utilisateurs u ON cu.userlog_id = u.uid
-                    JOIN sousgare sg ON e.courrierdepartgare = sg.idsousgare
-                    JOIN code_courriers cd ON e.id_codecourrier = cd.codecolisid
-                    JOIN expeditreception er ON cd.exprecepident = er.idexprecept 
-                    JOIN programme pr ON e.departcolis = pr.code_progr
-                    JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
-                    JOIN heures h ON lh.heure_identif = h.id_heure
-                    JOIN lignes lg ON cd.idlignes = lg.ident_ligne
-                    JOIN gare_exp gex ON lg.gaexp_lg = gex.code_gaexp
-                    JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
-                    JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
-                    JOIN entreprise ep ON c.id_entrep = ep.id_entreprise
-                    WHERE ep.ekey = '$cid'
-                    AND dest.id_compaga = '$cp'
-                    AND e.dateenvoi BETWEEN '$dt1' AND '$dt2'
-                    AND e.prixcolis IS NOT NULL
-                    AND e.partocour IS NULL
-                    AND ul.guser = '$gd'
-                    AND lg.ident_ligne = '$algn'
-                    AND cd.naturecoli = '$tycr'
-                    GROUP BY dest.id_compaga, lg.nom_ligne, e.prixcolis")->result();
+            if ($filled($sgid)) {
+                $sql .= " AND e.courrierdepartgare = '" . $this->db->escape_str($sgid) . "'";
+            }
+            $sql .= " GROUP BY dest.id_compaga, lg.nom_ligne, e.prixcolis";
+            return $this->db->query($sql)->result();
         }
 
         public function texpetatspligl($cid, $dt1, $dt2, $gd = FALSE, $cp = FALSE, $idconx = FALSE, $tycr = FALSE, $algn = FALSE)

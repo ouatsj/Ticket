@@ -99,6 +99,7 @@ document.addEventListener('DOMContentLoaded', () => {
             setVal('#ucnib', e.dataset.cni);
             setVal('#udate_cnib', e.dataset.cnideliver);
             setVal('#ulieudelivre', e.dataset.cnideliverzone);
+            // Toujours préremplir l'id client lié au ticket (évite création silencieuse).
             setVal('#identifyclientid', idClient);
             setVal('#identifycontactid', e.dataset.contact || '');
             setVal('#force_create_client', '0');
@@ -143,32 +144,58 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
 
                 if (infos == null || typeof infos !== 'object') {
-                    if (idEl) { idEl.value = ''; }
-                    if (ctEl) { ctEl.value = ''; }
-                    if (wrap) { wrap.style.display = verificat ? 'block' : 'none'; }
-                    if (forceHidden) { forceHidden.value = (chk && chk.checked) ? '1' : '0'; }
+                    if (idEl) {
+                        idEl.value = '';
+                    }
+                    if (ctEl) {
+                        ctEl.value = '';
+                    }
+                    if (wrap) {
+                        wrap.style.display = verificat ? 'block' : 'none';
+                    }
+                    if (forceHidden) {
+                        forceHidden.value = (chk && chk.checked) ? '1' : '0';
+                    }
                     return;
                 }
 
                 if (Object.entries(infos).length > 1 && infos.contact_client == verificat) {
                     const setVal = (sel, val) => {
                         const el = document.querySelector(sel);
-                        if (el) { el.value = val == null ? '' : String(val); }
+                        if (el) {
+                            el.value = val == null ? '' : String(val);
+                        }
                     };
                     setVal('#uclient', infos.nom_client);
                     setVal('#uprnclient', infos.prenom_client);
                     setVal('#ucnib', infos.num_CNIB);
                     setVal('#udate_cnib', infos.date_delivre);
                     setVal('#ulieudelivre', infos.lieu_delivre);
-                    if (idEl) { idEl.value = `${infos.id_client}`; }
-                    if (ctEl) { ctEl.value = `${infos.contact_client}`; }
-                    if (wrap) { wrap.style.display = 'none'; }
-                    if (chk) { chk.checked = false; }
-                    if (forceHidden) { forceHidden.value = '0'; }
+                    if (idEl) {
+                        idEl.value = `${infos.id_client}`;
+                    }
+                    if (ctEl) {
+                        ctEl.value = `${infos.contact_client}`;
+                    }
+                    if (wrap) {
+                        wrap.style.display = 'none';
+                    }
+                    if (chk) {
+                        chk.checked = false;
+                    }
+                    if (forceHidden) {
+                        forceHidden.value = '0';
+                    }
                 } else {
-                    if (idEl) { idEl.value = ''; }
-                    if (ctEl) { ctEl.value = ''; }
-                    if (wrap) { wrap.style.display = 'block'; }
+                    if (idEl) {
+                        idEl.value = '';
+                    }
+                    if (ctEl) {
+                        ctEl.value = '';
+                    }
+                    if (wrap) {
+                        wrap.style.display = 'block';
+                    }
                 }
             };
             httpInfos.setRequestHeader('Content-Type', 'application/json');
@@ -186,9 +213,17 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 });
+
 ;
-/* --- updateclient.js (unifié, no-op) --- */
-document.addEventListener('DOMContentLoaded', () => {});
+/* --- updateclient.js --- */
+/**
+ * Ancien bouton rouge « MODIFIER CLIENT » — unifié dans updateticket.js.
+ * Conservé vide pour ne pas casser le chargement scripts.php / bundles.
+ */
+document.addEventListener('DOMContentLoaded', () => {
+    // no-op : utiliser .updateticket (Modifier infos client)
+});
+
 ;
 /* --- updatedticket.js --- */
 document.addEventListener('DOMContentLoaded', () => {
