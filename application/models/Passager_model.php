@@ -28,18 +28,48 @@
 
         
         /**
-         * Les nouveaux champs (OD final de la vente transit) peuvent ne pas exister
-         * si la migration n'a pas encore été appliquée.
+         * Colonne passager optionnelle (migration escale / OD final).
          */
-        private function od_final_columns_available()
+        private function passager_column_exists($column)
         {
-            static $cached = null;
-            if ($cached !== null) {
-                return (bool) $cached;
+            static $cache = array();
+            $column = (string) $column;
+            if (!isset($cache[$column])) {
+                $col = $this->db->escape_str($column);
+                $q = $this->db->query("SHOW COLUMNS FROM passager LIKE '{$col}'");
+                $cache[$column] = ($q && method_exists($q, 'num_rows') && $q->num_rows() > 0);
             }
-            $q = $this->db->query("SHOW COLUMNS FROM passager LIKE 'lignetineraire_vendu'");
-            $cached = ($q && method_exists($q, 'num_rows') && $q->num_rows() > 0);
-            return (bool) $cached;
+            return (bool) $cache[$column];
+        }
+
+        /**
+         * Expression SQL nom_ligne pour rapports caisse (compatible schéma partiel).
+         *
+         * @return array{select:string,group:string}
+         */
+        private function rapport_nom_ligne_sql()
+        {
+            $hasLigne = $this->passager_column_exists('lignetineraire_vendu');
+            $hasNomDest = $this->passager_column_exists('nom_dest_vente');
+
+            if ($hasLigne && $hasNomDest) {
+                $expr = "COALESCE(NULLIF(TRIM(p.lignetineraire_vendu), ''), " .
+                    "CASE WHEN p.nom_dest_vente IS NOT NULL AND TRIM(p.nom_dest_vente) <> '' " .
+                    "THEN CONCAT(TRIM(ex.nom_gaep), '-', TRIM(p.nom_dest_vente)) " .
+                    "ELSE lg.nom_ligne END)";
+            } elseif ($hasLigne) {
+                $expr = "COALESCE(NULLIF(TRIM(p.lignetineraire_vendu), ''), lg.nom_ligne)";
+            } elseif ($hasNomDest) {
+                $expr = "CASE WHEN p.nom_dest_vente IS NOT NULL AND TRIM(p.nom_dest_vente) <> '' " .
+                    "THEN CONCAT(TRIM(ex.nom_gaep), '-', TRIM(p.nom_dest_vente)) ELSE lg.nom_ligne END";
+            } else {
+                $expr = 'lg.nom_ligne';
+            }
+
+            return array(
+                'select' => "{$expr} AS nom_ligne",
+                'group' => $expr,
+            );
         }
 
         public function create(array $data)
@@ -2855,19 +2885,9 @@
             $today1 = date("Y-m-d", strtotime("-1 day"));
             $today = mdate("%Y-%m-%d", now('UTC'));
             
-            $useOdFinal = $this->od_final_columns_available();
-            $nomLineExpr = "COALESCE(NULLIF(TRIM(p.lignetineraire_vendu), ''), " .
-                "CASE WHEN p.nom_dest_vente IS NOT NULL AND TRIM(p.nom_dest_vente) <> '' " .
-                "THEN CONCAT(TRIM(ex.nom_gaep), '-', TRIM(p.nom_dest_vente)) " .
-                "ELSE lg.nom_ligne END)";
-            $nomLineSelect = $useOdFinal
-                ? "{$nomLineExpr} AS nom_ligne"
-                : "CASE WHEN p.nom_dest_vente IS NOT NULL AND TRIM(p.nom_dest_vente) <> '' " .
-                  "THEN CONCAT(TRIM(ex.nom_gaep), '-', TRIM(p.nom_dest_vente)) ELSE lg.nom_ligne END AS nom_ligne";
-            $nomLineGroup = $useOdFinal
-                ? $nomLineExpr
-                : "CASE WHEN p.nom_dest_vente IS NOT NULL AND TRIM(p.nom_dest_vente) <> '' " .
-                  "THEN CONCAT(TRIM(ex.nom_gaep), '-', TRIM(p.nom_dest_vente)) ELSE lg.nom_ligne END";
+            $nomLine = $this->rapport_nom_ligne_sql();
+            $nomLineSelect = $nomLine['select'];
+            $nomLineGroup = $nomLine['group'];
 
             $rows = $this->db->query("SELECT COUNT(code_passager) AS cd, SUM(prixvente) AS total,
                 {$nomLineSelect},
@@ -2902,19 +2922,9 @@
             $today1 = date("Y-m-d", strtotime("-1 day"));
             $today = mdate("%Y-%m-%d", now('UTC'));
 
-            $useOdFinal = $this->od_final_columns_available();
-            $nomLineExpr = "COALESCE(NULLIF(TRIM(p.lignetineraire_vendu), ''), " .
-                "CASE WHEN p.nom_dest_vente IS NOT NULL AND TRIM(p.nom_dest_vente) <> '' " .
-                "THEN CONCAT(TRIM(ex.nom_gaep), '-', TRIM(p.nom_dest_vente)) " .
-                "ELSE lg.nom_ligne END)";
-            $nomLineSelect = $useOdFinal
-                ? "{$nomLineExpr} AS nom_ligne"
-                : "CASE WHEN p.nom_dest_vente IS NOT NULL AND TRIM(p.nom_dest_vente) <> '' " .
-                  "THEN CONCAT(TRIM(ex.nom_gaep), '-', TRIM(p.nom_dest_vente)) ELSE lg.nom_ligne END AS nom_ligne";
-            $nomLineGroup = $useOdFinal
-                ? $nomLineExpr
-                : "CASE WHEN p.nom_dest_vente IS NOT NULL AND TRIM(p.nom_dest_vente) <> '' " .
-                  "THEN CONCAT(TRIM(ex.nom_gaep), '-', TRIM(p.nom_dest_vente)) ELSE lg.nom_ligne END";
+            $nomLine = $this->rapport_nom_ligne_sql();
+            $nomLineSelect = $nomLine['select'];
+            $nomLineGroup = $nomLine['group'];
 
             $rows = $this->db->query("SELECT COUNT(code_passager) AS cdrep,
                 {$nomLineSelect},
@@ -2949,19 +2959,9 @@
             $today1 = date("Y-m-d", strtotime("-1 day"));
             $today = mdate("%Y-%m-%d", now('UTC'));
             
-            $useOdFinal = $this->od_final_columns_available();
-            $nomLineExpr = "COALESCE(NULLIF(TRIM(p.lignetineraire_vendu), ''), " .
-                "CASE WHEN p.nom_dest_vente IS NOT NULL AND TRIM(p.nom_dest_vente) <> '' " .
-                "THEN CONCAT(TRIM(ex.nom_gaep), '-', TRIM(p.nom_dest_vente)) " .
-                "ELSE lg.nom_ligne END)";
-            $nomLineSelect = $useOdFinal
-                ? "{$nomLineExpr} AS nom_ligne"
-                : "CASE WHEN p.nom_dest_vente IS NOT NULL AND TRIM(p.nom_dest_vente) <> '' " .
-                  "THEN CONCAT(TRIM(ex.nom_gaep), '-', TRIM(p.nom_dest_vente)) ELSE lg.nom_ligne END AS nom_ligne";
-            $nomLineGroup = $useOdFinal
-                ? $nomLineExpr
-                : "CASE WHEN p.nom_dest_vente IS NOT NULL AND TRIM(p.nom_dest_vente) <> '' " .
-                  "THEN CONCAT(TRIM(ex.nom_gaep), '-', TRIM(p.nom_dest_vente)) ELSE lg.nom_ligne END";
+            $nomLine = $this->rapport_nom_ligne_sql();
+            $nomLineSelect = $nomLine['select'];
+            $nomLineGroup = $nomLine['group'];
 
             $rows = $this->db->query("SELECT COUNT(code_passager) AS cdconf,
                 {$nomLineSelect},

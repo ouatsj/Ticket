@@ -94,15 +94,30 @@
 
         public function getqart1($cid, $idq)
         {
+            if ($idq === 'NIA4') {
+                return $this->db->query(
+                    "SELECT * FROM quartier q
+                    JOIN ville v ON q.id_ville_qua = v.id_ville
+                    JOIN gare_dest ga ON ga.id_villega = v.id_ville
+                    JOIN compagnies c ON ga.id_compaga = c.cle_compagnie
+                    JOIN entreprise e ON c.id_entrep = e.id_entreprise
+                    WHERE e.ekey = ?
+                    AND ga.code_gadest = ?
+                    AND q.nom_quartier = 'Marche'",
+                    array($cid, $idq)
+                )->result();
+            }
+
             return $this->db->query(
                 "SELECT * FROM quartier q
                 JOIN ville v ON q.id_ville_qua = v.id_ville
                 JOIN gare_dest ga ON ga.id_villega = v.id_ville
                 JOIN compagnies c ON ga.id_compaga = c.cle_compagnie
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                WHERE e.ekey = '$cid'
-                AND ga.code_gadest = '$idq'")->result();
-        
+                WHERE e.ekey = ?
+                AND ga.code_gadest = ?",
+                array($cid, $idq)
+            )->result();
         }
 
         public function getqartr($cid, $idqd, $idq)
@@ -257,6 +272,17 @@
                     AND q.nom_quartier IN ('Larle', 'Pattedoie')")->result();
             }
             elseif($idq === 'BOB32'){
+                return $this->db->query(
+                    "SELECT * FROM quartier q
+                    JOIN ville v ON q.id_ville_qua = v.id_ville
+                    JOIN gare_dest ga ON ga.id_villega = v.id_ville
+                    JOIN compagnies c ON ga.id_compaga = c.cle_compagnie
+                    JOIN entreprise e ON c.id_entrep = e.id_entreprise
+                    WHERE e.ekey = '$cid'
+                    AND ga.code_gadest = '$idq'
+                    AND q.nom_quartier = 'Marche'")->result();
+            }
+            elseif($idq === 'NIA4'){
                 return $this->db->query(
                     "SELECT * FROM quartier q
                     JOIN ville v ON q.id_ville_qua = v.id_ville
