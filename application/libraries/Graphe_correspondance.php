@@ -93,6 +93,21 @@ class Graphe_correspondance
     }
 
     /**
+     * Ne pas proposer de jambes transit si un départ direct OD existe (prod + essai).
+     * force_transit=1 : conserver les correspondances (heure sans départ au guichet).
+     */
+    public function prefer_direct_sans_jambes($ekey, $axe, $date, $idsousgare = null, $force_transit = FALSE)
+    {
+        if ($force_transit) {
+            return FALSE;
+        }
+        if (!$this->prefers_direct()) {
+            return FALSE;
+        }
+        return $this->od_a_depart_direct($ekey, $axe, $date, $idsousgare);
+    }
+
+    /**
      * L'OD (axe = gaexp-gadest) a-t-elle ≥1 programme actif à la date ?
      */
     public function od_a_depart_direct($ekey, $axe, $date, $idsousgare = null)

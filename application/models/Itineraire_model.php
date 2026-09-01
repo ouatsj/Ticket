@@ -104,6 +104,16 @@
                 }
             }
 
+            // Production (serve=false) : aligné verifchemins — direct OD ⇒ pas de jambes.
+            if (!empty($etapes) && !$force_transit) {
+                if (!isset($CI->graphe_correspondance)) {
+                    $CI->load->library('graphe_correspondance');
+                }
+                if ($CI->graphe_correspondance->prefer_direct_sans_jambes($cid, $it_id, $d, $idsousgare, $force_transit)) {
+                    return array();
+                }
+            }
+
             return $etapes;
         }
 
