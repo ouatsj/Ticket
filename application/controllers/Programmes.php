@@ -732,18 +732,50 @@
             $iduser = $this->_sale_role_attribut_id();
             $idsg = $this->input->post('sousgareconnect');
             $idcp = $this->input->post('compconnected');
-            $post_heure = strpos($this->input->post('heureprog'), '.');
-            
-            $sub_heure = substr($this->input->post('heureprog'), 0, $post_heure);
-            $subheure = substr($this->input->post('heureprog'), $post_heure + 1, strlen($this->input->post('heureprog')));
-            
+            $gd = trim((string) $this->input->post('gareconnect'));
+            $redirect_prog = function ($flashKey = null, $flashMsg = null) use (&$gd, $iduser, $idsg) {
+                if ($flashKey !== null && $flashMsg !== null && $flashMsg !== '') {
+                    $this->session->set_flashdata($flashKey, $flashMsg);
+                }
+                if ($gd === '') {
+                    $gd = trim((string) $this->input->post('gareconnect'));
+                }
+                if ($gd === '') {
+                    $gd = 'OUA1';
+                }
+                redirect('gares/'.$this->session->company->ekey. '/gTv/'. $gd. '/prog/'.$iduser.'/'.$idsg.'/'.  mdate("%d/%m/%Y", now('UTC')));
+            };
+
+            if ($this->input->method(TRUE) !== 'POST') {
+                $redirect_prog('prog_edit_error', 'Modification programme : ouvrez le programme depuis la liste et validez le formulaire.');
+                return;
+            }
+
+            $heureprog = trim((string) $this->input->post('heureprog'));
+            $post_heure = strpos($heureprog, '.');
+            if ($post_heure === false) {
+                $redirect_prog('prog_edit_error', 'Heure de départ invalide ou manquante.');
+                return;
+            }
+
+            $sub_heure = substr($heureprog, 0, $post_heure);
+            $subheure = substr($heureprog, $post_heure + 1);
+
             $sb = strpos($subheure, '.');
+            if ($sb === false) {
+                $redirect_prog('prog_edit_error', 'Format heureprog invalide.');
+                return;
+            }
             $sub_heu = substr($subheure, 0, $sb);
 
-            $suheure = substr($subheure, $sb + 1, strlen($subheure));
-           
+            $suheure = substr($subheure, $sb + 1);
+
             $lg = strpos($sub_heu, '-');
-            $gd = substr($sub_heu, 0, $lg);
+            if ($lg !== false) {
+                $gd = substr($sub_heu, 0, $lg);
+            } elseif ($gd === '') {
+                $gd = $sub_heu;
+            }
 
             $today = mdate("%Y-%m-%d", now('UTC'));
 
@@ -805,7 +837,7 @@
             $cgbselect = $this->input->post('ouotnouveau');
             $cgb = $this->input->post('ouotancien');
 
-            if($sub_heure != '' AND $tp != '' AND $cts != '' AND $dts >= '$today'){
+            if($sub_heure != '' AND $tp != '' AND $cts != '' AND $dts >= $today){
                 $selected_sg = $this->input->post('scope_sousgares');
                 if (!is_array($selected_sg)) { $selected_sg = array(); }
                 if ($this->input->post('scope_depart') !== 'sousgare') {
@@ -850,7 +882,10 @@
                         $this->property['UPDATE_SUCCESS'] = TRUE;
                     
                         redirect('gares/'.$this->session->company->ekey. '/gTv/'. $gd. '/prog/'.$iduser.'/'.$idsg.'/'.  mdate("%d/%m/%Y", now('UTC')));
+                        return;
                     }
+                    $redirect_prog('prog_edit_error', 'Modification non enregistrée (échec base de données).');
+                    return;
                 }
                 if($cgbselect != '')
                 {
@@ -882,18 +917,22 @@
                             $this->property['UPDATE_SUCCESS'] = TRUE;
                         
                             redirect('gares/'.$this->session->company->ekey. '/gTv/'. $gd. '/prog/'.$iduser.'/'.$idsg.'/'.  mdate("%d/%m/%Y", now('UTC')));
-        
-
+                            return;
                         }
+                        $redirect_prog('prog_edit_error', 'Modification non enregistrée (échec base de données).');
+                        return;
                     }
                     else
                     {
                         redirect('gares/'.$this->session->company->ekey. '/gTv/'. $gd. '/prog/'.$iduser.'/'.$idsg.'/'. mdate("%d/%m/%Y", now('UTC')));
+                        return;
         
                     }
                 }
             
             }
+
+            $redirect_prog('prog_edit_error', 'Modification non enregistrée : vérifiez catégorie, tarif, heure et date.');
         }
 
         public function addsousgare($ckey, $stopgare)

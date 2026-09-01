@@ -648,7 +648,7 @@
         </div>
     </div>
 
-    <? if ($this->session->agent->userole === '1' OR $this->session->agent->userole === '2' OR $this->session->agent->userole === '5' OR $this->session->agent->userole === '8' OR $this->session->agent->userole === '15'): ?>
+    <? if (!$__prog_edit_modal_rendered && ($this->session->agent->userole === '1' OR $this->session->agent->userole === '2' OR $this->session->agent->userole === '5' OR $this->session->agent->userole === '8' OR $this->session->agent->userole === '15')): ?>
     <div class="modal-container colored-header colored-header-success custom-width modal-effect-7"
         id="prog-edit-0">
         <div class="modal-content">
