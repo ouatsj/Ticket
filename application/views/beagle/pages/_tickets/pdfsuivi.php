@@ -149,6 +149,7 @@
                     <p align="left" style="font-size: 40px;">Agent ecrivain bagage : <?= $nam->first_name.' '.$nam->last_name; ?> </p>
                     <p align="left" style="font-size: 40px;"> : <?= urldecode($onprogrambordaxe->busconvoybordbag); ?> </p>
                     <p align="left" style="font-size: 40px;">Agent recepteur : </p>
+                <? } ?>
                 </div>
             </div>
 
