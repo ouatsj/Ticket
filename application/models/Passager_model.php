@@ -18,6 +18,14 @@
             return ticket_impression_prix_rows($rows);
         }
 
+        /** Filtre tampon du jour (évite scan complet de passager ~2,5 M lignes). */
+        private function _tampon_passager_jour_sql()
+        {
+            $today = mdate('%Y-%m-%d', now('UTC'));
+
+            return "AND p.datep_create >= '{$today}' AND ctp.actif_tamp = 0";
+        }
+
         
         /**
          * Les nouveaux champs (OD final de la vente transit) peuvent ne pas exister
@@ -215,26 +223,37 @@
         public function get($cid, $p_id, $tf, $t = FALSE)
         {
             if ($t === FALSE) {
-                $rows = $this->db->query(
-                    "SELECT * FROM tamponcode ctp
-                    JOIN passager p ON  p.code_passager = ctp.tamponcod
-                    JOIN sousgare sg ON p.departclient_idgare = sg.idsousgare
-                    JOIN client cl ON p.id_client_pass = cl.id_client
-                    JOIN type_client tcl ON cl.type_client = tcl.nom_type
-                    JOIN programme pr ON p.code_pro = pr.code_progr
-                    JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
-                    JOIN heures h ON lh.heure_identif = h.id_heure
-                    JOIN lignes lg ON lh.ligne_id = lg.ident_ligne 
-                    JOIN tarifs t ON pr.typetarif = t.id_tarifs
-                    JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
-                    JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
-                    JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
-                    JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                    WHERE e.ekey = '$cid'
-                    AND p.num_siege_categorie IS NOT NULL
-                    AND h.h_active = 1
-                    AND lh.actif_lh = 1
-                    AND p.actif_pas = 0")->result(); return $this->normalize_ticket_prix_rows($rows);            } else
+                $this->load->helper('app_cache');
+                $today = mdate('%Y-%m-%d', now('UTC'));
+                $cache_key = 'tampon_passagers_' . $cid . '_' . $today;
+
+                return app_cache_remember($cache_key, 120, function () use ($cid) {
+                    $jour = $this->_tampon_passager_jour_sql();
+                    $rows = $this->db->query(
+                        "SELECT * FROM passager p
+                        JOIN tamponcode ctp ON p.code_passager = ctp.tamponcod
+                        JOIN sousgare sg ON p.departclient_idgare = sg.idsousgare
+                        JOIN client cl ON p.id_client_pass = cl.id_client
+                        JOIN type_client tcl ON cl.type_client = tcl.nom_type
+                        JOIN programme pr ON p.code_pro = pr.code_progr
+                        JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
+                        JOIN heures h ON lh.heure_identif = h.id_heure
+                        JOIN lignes lg ON lh.ligne_id = lg.ident_ligne 
+                        JOIN tarifs t ON pr.typetarif = t.id_tarifs
+                        JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
+                        JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
+                        JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
+                        JOIN entreprise e ON c.id_entrep = e.id_entreprise
+                        WHERE e.ekey = '{$cid}'
+                        AND p.num_siege_categorie IS NOT NULL
+                        AND h.h_active = 1
+                        AND lh.actif_lh = 1
+                        AND p.actif_pas = 0
+                        {$jour}")->result();
+
+                    return $this->normalize_ticket_prix_rows($rows);
+                });
+            } else
                 $row = $this->db->query(
                     "SELECT * FROM tamponcode ctp
                     JOIN passager p ON p.code_passager = ctp.tamponcod 
@@ -450,26 +469,38 @@
         public function getad($cid, $p_id, $tf, $t = FALSE)
         {
             if ($t === FALSE) {
-                $rows = $this->db->query(
-                    "SELECT * FROM tamponcode ctp
-                    JOIN passager p ON  p.code_passager = ctp.tamponcod
-                    JOIN sousgare sg ON p.departclient_idgare = sg.idsousgare
-                    JOIN client cl ON p.id_client_pass = cl.id_client
-                    JOIN type_client tcl ON cl.type_client = tcl.nom_type
-                    JOIN programme pr ON p.code_pro = pr.code_progr
-                    JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
-                    JOIN heures h ON lh.heure_identif = h.id_heure
-                    JOIN lignes lg ON lh.ligne_id = lg.ident_ligne 
-                    JOIN tarifs t ON pr.typetarif = t.id_tarifs
-                    JOIN tarification tf ON tf.typetarif_id = t.id_tarifs AND tf.ligne_heure_id = lh.id_ligneheure
-                    JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
-                    JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
-                    JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
-                    JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                    WHERE e.ekey = '$cid'
-                    AND p.num_siege_categorie IS NOT NULL
-                    AND h.h_active = 1
-                    AND p.actif_pas = 0")->result(); return $this->normalize_ticket_prix_rows($rows);            } else
+                $this->load->helper('app_cache');
+                $today = mdate('%Y-%m-%d', now('UTC'));
+                $cache_key = 'tampon_passagers_ad_' . $cid . '_' . $today;
+
+                return app_cache_remember($cache_key, 120, function () use ($cid) {
+                    $jour = $this->_tampon_passager_jour_sql();
+                    $rows = $this->db->query(
+                        "SELECT * FROM passager p
+                        JOIN tamponcode ctp ON p.code_passager = ctp.tamponcod
+                        JOIN sousgare sg ON p.departclient_idgare = sg.idsousgare
+                        JOIN client cl ON p.id_client_pass = cl.id_client
+                        JOIN type_client tcl ON cl.type_client = tcl.nom_type
+                        JOIN programme pr ON p.code_pro = pr.code_progr
+                        JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
+                        JOIN heures h ON lh.heure_identif = h.id_heure
+                        JOIN lignes lg ON lh.ligne_id = lg.ident_ligne 
+                        JOIN tarifs t ON pr.typetarif = t.id_tarifs
+                        JOIN tarification tf ON tf.typetarif_id = t.id_tarifs AND tf.ligne_heure_id = lh.id_ligneheure
+                        JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
+                        JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
+                        JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
+                        JOIN entreprise e ON c.id_entrep = e.id_entreprise
+                        WHERE e.ekey = '{$cid}'
+                        AND p.num_siege_categorie IS NOT NULL
+                        AND h.h_active = 1
+                        AND lh.actif_lh = 1
+                        AND p.actif_pas = 0
+                        {$jour}")->result();
+
+                    return $this->normalize_ticket_prix_rows($rows);
+                });
+            } else
                 $row = $this->db->query(
                     "SELECT * FROM tamponcode ctp
                     JOIN passager p ON p.code_passager = ctp.tamponcod 
@@ -2305,10 +2336,11 @@
             
             $row = $this->db->query("SELECT SUM(prixvente) AS total FROM passager p
                 WHERE p.idcptuser = '$idcox'
-                AND p.datep_create <= '$today'
+                AND p.statut_code = 'vendu'
                 AND p.statutvente = 0
+                AND p.datep_create <= '$today'
                 AND p.prixvente IS NOT NULL
-                AND p.statut_code = 'vendu'")->row(); return $this->normalize_ticket_prix_row($row);
+                AND p.actif_pas = 0")->row(); return $this->normalize_ticket_prix_row($row);
         }
         public function comptegroup($cd, $idcox, $g)
         {
@@ -2345,10 +2377,11 @@
                         
             $row = $this->db->query("SELECT SUM(prixvente) AS total FROM passager p
                 WHERE p.idcptuser = '$idcox'
-                AND p.datep_create < '$today'
+                AND p.statut_code = 'vendu'
                 AND p.statutvente = 0
+                AND p.datep_create < '$today'
                 AND p.prixvente IS NOT NULL
-                AND p.statut_code = 'vendu'")->row(); return $this->normalize_ticket_prix_row($row);
+                AND p.actif_pas = 0")->row(); return $this->normalize_ticket_prix_row($row);
         }
 		public function comptes($cd, $idcox, $g, $sg)
         {

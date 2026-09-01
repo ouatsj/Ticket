@@ -29,12 +29,13 @@ function scripts_bundle_modules($bundle, $role = null)
 
     if ($bundle === 'guichet') {
         $role = (string) $role;
+        $guichet_boot = array('guichet-defer-dom.js', 'guichet-load-scheduler.js');
 
         if (isset($config['guichet'][$role])) {
-            return $config['guichet'][$role];
+            return array_merge($guichet_boot, $config['guichet'][$role]);
         }
 
-        return $config['guichet']['default'];
+        return array_merge($guichet_boot, $config['guichet']['default']);
     }
 
     return $config[$bundle];

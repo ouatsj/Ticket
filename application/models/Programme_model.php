@@ -240,6 +240,89 @@
         }
 
         /**
+         * Précharge compteurs / sous-gares / ventes pour la liste programmes (évite N+1 en vue).
+         *
+         * @param string[] $code_progrs
+         * @return array{passager_nbr:array,sousgares:array,ventes_sg:array}
+         */
+        public function preload_page_stats(array $code_progrs)
+        {
+            $codes = array();
+            foreach ($code_progrs as $c) {
+                $c = trim((string) $c);
+                if ($c !== '') {
+                    $codes[$c] = $c;
+                }
+            }
+
+            $empty = array(
+                'passager_nbr' => array(),
+                'sousgares' => array(),
+                'ventes_sg' => array(),
+            );
+            if (empty($codes)) {
+                return $empty;
+            }
+
+            $inParts = array();
+            foreach ($codes as $c) {
+                $inParts[] = "'" . $this->db->escape_str($c) . "'";
+            }
+            $in = implode(',', $inParts);
+
+            $passager_nbr = array();
+            foreach ($this->db->query(
+                "SELECT code_pro, COUNT(code_passager) AS nbr FROM passager
+                 WHERE code_pro IN ({$in})
+                   AND actif_pas = 0
+                   AND num_siege_categorie IS NOT NULL
+                 GROUP BY code_pro"
+            )->result() as $row) {
+                $passager_nbr[$row->code_pro] = (int) $row->nbr;
+            }
+
+            $sousgares = array();
+            foreach ($this->db->query(
+                "SELECT ps.code_progr, ps.idsousgare, sg.nomsousgare
+                 FROM programme_sousgare ps
+                 LEFT JOIN sousgare sg ON sg.idsousgare = ps.idsousgare
+                 WHERE ps.code_progr IN ({$in})"
+            )->result() as $row) {
+                if (!isset($sousgares[$row->code_progr])) {
+                    $sousgares[$row->code_progr] = array();
+                }
+                $sousgares[$row->code_progr][] = $row;
+            }
+
+            $ventes_sg = array();
+            foreach ($this->db->query(
+                "SELECT code_pro, CAST(departclient_idgare AS UNSIGNED) AS sg, COUNT(*) AS nb
+                 FROM passager
+                 WHERE code_pro IN ({$in})
+                   AND departclient_idgare IS NOT NULL
+                   AND departclient_idgare != ''
+                   AND CAST(departclient_idgare AS UNSIGNED) > 0
+                 GROUP BY code_pro, CAST(departclient_idgare AS UNSIGNED)"
+            )->result() as $row) {
+                $sg = (int) $row->sg;
+                $nb = (int) $row->nb;
+                if ($sg <= 0 || $nb <= 0) {
+                    continue;
+                }
+                if (!isset($ventes_sg[$row->code_pro])) {
+                    $ventes_sg[$row->code_pro] = array();
+                }
+                $ventes_sg[$row->code_pro][$sg] = $nb;
+            }
+
+            return array(
+                'passager_nbr' => $passager_nbr,
+                'sousgares' => $sousgares,
+                'ventes_sg' => $ventes_sg,
+            );
+        }
+
+        /**
          * Nombre de ventes (passagers) par sous-gare sur ce programme.
          * @return array<int,int> idsousgare => nb
          */
@@ -1290,8 +1373,9 @@
 
         /**
          * Heures de correspondance (1re jambe) : programmes du jour choisi (J) et de J+1.
+         * @param string|null $categorie Filtre catégorie bus (tirage liste passagers).
          */
-        public function heureligne($cid, $it, $keys)
+        public function heureligne($cid, $it, $keys, $categorie = null)
         {   
             $tim = date('H', time('H'));
 
@@ -1311,9 +1395,14 @@
 
             $dateFilter = "AND pr.date_progr >= '{$keysEsc}' AND pr.date_progr <= DATE_ADD('{$keysEsc}', INTERVAL 1 DAY)";
             $timeFilter = ($keys === $key) ? "AND NOT (pr.date_progr = '{$keysEsc}' AND h.heure < '{$dteEsc}')" : '';
+            $catFilter = '';
+            if ($categorie !== null && $categorie !== '') {
+                $catEsc = $this->db->escape_str($categorie);
+                $catFilter = "AND pr.categori = '{$catEsc}'";
+            }
 
             return $this->db->query(
-                "SELECT lh.id_ligneheure, h.heure, pr.date_progr, pr.code_progr
+                "SELECT lh.id_ligneheure, h.id_heure AS heure_identif, h.heure, pr.date_progr, pr.code_progr
                     FROM ligne_heure lh
                     JOIN programme pr ON pr.id_heur = lh.id_ligneheure
                     JOIN heures h ON lh.heure_identif = h.id_heure
@@ -1325,11 +1414,12 @@
                     AND lh.ligne_id = '{$itEsc}'
                     {$dateFilter}
                     {$timeFilter}
+                    {$catFilter}
                     AND pr.actif_prog = 0
                     AND pr.statut_prog = 'actif'
                     AND lh.actif_lh = 1
                     AND h.h_active = 1
-                    GROUP BY lh.id_ligneheure, h.heure, pr.date_progr, pr.code_progr
+                    GROUP BY lh.id_ligneheure, h.id_heure, h.heure, pr.date_progr, pr.code_progr
                     ORDER BY pr.date_progr ASC, h.heure ASC"
             )->result();
         }
@@ -1616,6 +1706,7 @@
                     AND h.h_active = 1
                     AND lh.actif_lh = 1
                     AND pr.actif_prog = 0
+                    AND pr.statut_prog = 'actif'
                     GROUP BY pr.depart_code, pr.date_progr, pr.code_progr")->result();
         }
         /**

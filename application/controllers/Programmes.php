@@ -1602,8 +1602,13 @@
         }
         public function verifheure($axe, $da)
         {
-            
-            $lgh = $this->m_programme->heureligne($this->session->company->ekey, $axe, $da);
+            $cat = $this->input->get('cat');
+            $lgh = $this->m_programme->heureligne(
+                $this->session->company->ekey,
+                $axe,
+                $da,
+                ($cat !== null && $cat !== '') ? $cat : null
+            );
             return $this->load->view('beagle/pages/_programme/json', array('json' => $lgh));
             
         }

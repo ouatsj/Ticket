@@ -262,27 +262,52 @@
                             <? foreach ($groupe['programmes'] as $item): ?>
                                 <? 
                                     $cid=$this->session->company->ekey;
-                                    $__corr = (!empty($corr_index) && isset($corr_index[$item->code_progr]))
-                                        ? $corr_index[$item->code_progr] : null;
-                                    $__reco = (!empty($reconduction_index) && isset($reconduction_index[$item->code_progr]))
-                                        ? $reconduction_index[$item->code_progr] : null;
-                                    // Compteur = passagers de CE départ uniquement (pas suite∪dérivé).
-                                    $__code_esc = $this->db->escape_str($item->code_progr);
-                                    $nb = $this->db->query(
-                                    "SELECT COUNT(code_passager) AS nbr FROM passager p
-                                    WHERE p.code_pro = '{$__code_esc}'
-                                    AND p.actif_pas = 0
-                                    AND p.num_siege_categorie IS NOT NULL")->row();?>
+                                    $__prog_stats = !empty($prog_page_stats) ? $prog_page_stats : array(
+                                        'passager_nbr' => array(),
+                                        'sousgares' => array(),
+                                        'ventes_sg' => array(),
+                                    );
+                                    $__code_prog = $item->code_progr;
+                                    $__corr = (!empty($corr_index) && isset($corr_index[$__code_prog]))
+                                        ? $corr_index[$__code_prog] : null;
+                                    $__reco = (!empty($reconduction_index) && isset($reconduction_index[$__code_prog]))
+                                        ? $reconduction_index[$__code_prog] : null;
+                                    $nb = (object) array(
+                                        'nbr' => isset($__prog_stats['passager_nbr'][$__code_prog])
+                                            ? (int) $__prog_stats['passager_nbr'][$__code_prog]
+                                            : 0,
+                                    );
+                                    $__psg2 = isset($__prog_stats['sousgares'][$__code_prog])
+                                        ? $__prog_stats['sousgares'][$__code_prog]
+                                        : array();
+                                ?>
                                 <tr>
                                     <td><?= $item->code_progr; ?>/
                                         <span><?= $item->depart_code; ?></span>
                                         <?php
-                                            $__psg2 = $this->db->query(
-                                                "SELECT ps.idsousgare, sg.nomsousgare FROM programme_sousgare ps
-                                                 LEFT JOIN sousgare sg ON sg.idsousgare = ps.idsousgare
-                                                 WHERE ps.code_progr = ?",
-                                                array($item->code_progr)
-                                            )->result();
+                                            $__ids = array();
+                                            foreach ($__psg2 as $__r) {
+                                                if (!empty($__r->idsousgare)) {
+                                                    $__ids[] = (int) $__r->idsousgare;
+                                                }
+                                            }
+                                            if (empty($__ids) && !empty($item->idsousgare_prog)) {
+                                                $__ids[] = (int) $item->idsousgare_prog;
+                                            }
+                                            $__ventes = isset($__prog_stats['ventes_sg'][$__code_prog])
+                                                ? $__prog_stats['ventes_sg'][$__code_prog]
+                                                : array();
+                                            $__sieges_occ = array();
+                                            if (!isset($this->m_programme)) {
+                                                $this->load->model('Programme_model', 'm_programme');
+                                            }
+                                            if (isset($this->m_programme)) {
+                                                $__sieges_occ = $this->m_programme->sieges_occupes_programme($__code_prog);
+                                            }
+                                            $__ventes_attr = array();
+                                            foreach ($__ventes as $__sg => $__nb) {
+                                                $__ventes_attr[] = ((int) $__sg) . ':' . ((int) $__nb);
+                                            }
                                         ?>
                                         <? if (!empty($__psg2)): ?>
                                             <br><small class="text-warning"><?php
@@ -340,30 +365,7 @@
                                             data-inter2="<?= $item->intervalle2; ?>"
                                             data-pdate="<?= $item->date_progr; ?>"
                                             data-idsousgare_prog="<?= !empty($item->idsousgare_prog) ? (int) $item->idsousgare_prog : ''; ?>"
-                                            <?php
-                                                $__psg = $this->db->query(
-                                                    "SELECT idsousgare FROM programme_sousgare WHERE code_progr = ?",
-                                                    array($item->code_progr)
-                                                )->result();
-                                                $__ids = array();
-                                                foreach ($__psg as $__r) { $__ids[] = (int) $__r->idsousgare; }
-                                                if (empty($__ids) && !empty($item->idsousgare_prog)) {
-                                                    $__ids[] = (int) $item->idsousgare_prog;
-                                                }
-                                                $__ventes = array();
-                                                $__sieges_occ = array();
-                                                if (!isset($this->m_programme)) {
-                                                    $this->load->model('Programme_model', 'm_programme');
-                                                }
-                                                if (isset($this->m_programme)) {
-                                                    $__ventes = $this->m_programme->comptes_ventes_par_sousgare($item->code_progr);
-                                                    $__sieges_occ = $this->m_programme->sieges_occupes_programme($item->code_progr);
-                                                }
-                                                $__ventes_attr = array();
-                                                foreach ($__ventes as $__sg => $__nb) {
-                                                    $__ventes_attr[] = ((int) $__sg) . ':' . ((int) $__nb);
-                                                }
-                                            ?>
+                                            <?php /* stats sous-gares / ventes préchargées ($prog_page_stats) */ ?>
                                             data-sieges-occupes="<?= htmlspecialchars(implode(',', $__sieges_occ), ENT_QUOTES, 'UTF-8'); ?>"
                                             data-portee-sgs="<?= htmlspecialchars(implode(',', $__ids), ENT_QUOTES, 'UTF-8'); ?>"
                                             data-ventes-sgs="<?= htmlspecialchars(implode(',', $__ventes_attr), ENT_QUOTES, 'UTF-8'); ?>"
@@ -525,79 +527,6 @@
                                             </div>
                                         </div>
                                         <?php $__prog_edit_modal_rendered = true; endif; ?>
-<? if ($this->session->agent->userole === '1' OR $this->session->agent->userole === '2' OR $this->session->agent->userole === '5' OR $this->session->agent->userole === '8' OR $this->session->agent->userole === '15'): ?>
-                                        <?
-                                            $cid = $this->session->company->ekey;
-                                            $ligneh = $this->db->query(
-                                                "SELECT * FROM ligne_heure lh
-                                                JOIN lignes l ON lh.ligne_id = l.ident_ligne
-                                                JOIN heures h ON lh.heure_identif = h.id_heure
-                                                JOIN gare_exp ge ON l.gaexp_lg = ge.code_gaexp
-                                                JOIN compagnies c ON ge.id_compagd = c.cle_compagnie
-                                                JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                                                WHERE e.ekey = '$cid'
-                                                AND ge.code_gaexp = '$item->code_gaexp'
-                                                AND lh.heure_identif = '$item->id_heure'
-                                                AND l.nom_ligne != '$item->nom_ligne'
-                                                AND lh.actif_lh = 1
-                                                ORDER BY l.nom_ligne")->result();
-                                        ?>
-                                        <div class="modal-container colored-header colored-header-success custom-width modal-effect-7"
-                                            id="prog-ajout-<?= $item->code_progr; ?>">
-                                            <div class="modal-content">
-                                                <div class="modal-header modal-header-colored">
-                                                    <h3 class="modal-title">AJOUTER SOUS AXE AU PROGRAMME</h3>
-                                                    <button class="close modal-close" type="button"
-                                                    data-dismiss="modal" aria-hidden="true"><span
-                                                    class="mdi mdi-close text-white"></span>
-                                                    </button>
-                                                </div>
-                                                <?= form_open("Programmes/gajout_/{$this->session->company->ekey}/{$item->depart_code}/{$item->categorie}/{$item->typetarif}/{$item->date_progr}/{$item->gareidentif}/{$item->dateheure_prog}",
-                                                    array('class' => 'modal-body form')); ?>
-
-                                                <div class="row">
-                                                    
-                                                <input class="form-control form-control-sm" type="hidden" name="gareconnect" value="<?=$gare_stop->idengare;?>">
-                                                <input class="form-control form-control-sm" type="hidden" name="sousgareconnect" value="<?=$gare_stop->idsousgare;?>">
-                                                <input class="form-control form-control-sm" type="hidden" name="userconnected" value="<?=$conex->roleattribut;?>">
-                                                <input class="form-control form-control-sm" type="hidden" name="compconnected" value="<?=$conex->cpuser_id;?>">
-                                                    <div class="form-group col-sm-4">
-
-                                                    <label>DEPART</label>
-                                                    <select class="form-control form-control-sm" name="heureprog">
-                                                    <option value=""></option>
-                                                    <? foreach ($ligneh as $ligne): ?>
-                                                    <option value="<?= $ligne->id_ligneheure. '.' .$ligne->ligne_id. '.' .$ligne->heure; ?>"><?= $ligne->nom_ligne.'/'.$ligne->heure; ?>
-                                                    </option>
-                                                    <? endforeach; ?>
-                                                    </select>
-                                                    </div>
-                                                    <div class="form-group col-sm-4">
-                                                        <label>DEBUT PLACE</label>
-                                                        <input class="form-control form-control-sm" name="debut"
-                                                        type="text" autocomplete="off"
-                                                    placeholder="1">
-                                                    </div>
-                                                    <div class="form-group col-sm-4">
-                                                        <label>FIN PLACE</label>
-                                                        <input class="form-control form-control-sm" name="fin"
-                                                        type="text" autocomplete="off"
-                                                        placeholder="65">
-                                                    </div>
-                                                </div>
-                                                <div class="modal-footer">
-                                                    <button class="btn btn-secondary modal-close" type="button"
-                                                            data-dismiss="modal">
-                                                        <i class="icon icon-left mdi mdi-undo"></i>&nbsp;ANNULER&nbsp;
-                                                    </button>
-                                                    <button class="btn btn-success md-trigger" type="submit"
-                                                            data-dismiss="modal">
-                                                        <i class="icon icon-left mdi mdi-check-all"></i>&nbsp;OK&nbsp;
-                                                    </button>
-                                                </div>
-                                                <?= form_close(); ?>
-                                            </div>
-                                        </div>
                                     <? endif; ?>
                                     </td>
                                 </tr>

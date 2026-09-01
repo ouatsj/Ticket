@@ -90,6 +90,59 @@
     </div>
 </div>
 
+<div class="modal-container colored-header colored-header-success custom-width modal-effect-7"
+     id="tarif-edit-0">
+    <div class="modal-content">
+        <div class="modal-header modal-header-colored">
+            <h3 class="modal-title">MODIFICATION TARIF</h3>
+            <button class="close modal-close" type="button" data-dismiss="modal" aria-hidden="true">
+                <span class="mdi mdi-close text-white"></span>
+            </button>
+        </div>
+        <?= form_open('', array('class' => 'modal-body form', 'id' => 'form-tarif-edit')); ?>
+        <input type="hidden" name="gareconnect" value="<?=$gare_stop->idengare;?>">
+        <input type="hidden" name="sousgareconnect" value="<?=$gare_stop->idsousgare;?>">
+        <input type="hidden" name="compconnected" value="<?=$conex->cpuser_id;?>">
+        <input type="hidden" name="userconnected" value="<?=$conex->roleattribut;?>">
+        <div class="row">
+            <div class="form-group col-sm-4">
+                <label>TARIF</label>
+                <select class="form-control form-control-sm" name="tarifbase">
+                    <? if (!empty($bases)): foreach ($bases as $typetarif): ?>
+                        <option value="<?= $typetarif->id_tarifs; ?>"><?= $typetarif->type_tarifs; ?></option>
+                    <? endforeach; endif; ?>
+                </select>
+            </div>
+            <div class="form-group col-sm-4">
+                <label>TYPE CLIENT</label>
+                <select class="form-control form-control-sm" name="typeclient">
+                    <? if (!empty($typeclients)): foreach ($typeclients as $typeclient): ?>
+                        <option value="<?= $typeclient->idtyp; ?>"><?= $typeclient->nom_type; ?></option>
+                    <? endforeach; endif; ?>
+                </select>
+            </div>
+            <div class="form-group col-sm-4">
+                <label>DEPART</label>
+                <select class="form-control form-control-sm" name="itineraire"></select>
+                <small class="form-text text-muted">Pour changer de départ, créez une nouvelle tarification.</small>
+            </div>
+            <div class="form-group col-sm-4">
+                <label>MONTANT</label>
+                <input class="form-control form-control-sm" name="montanttarif" type="number" autocomplete="off">
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary modal-close" type="button" data-dismiss="modal">
+                <i class="icon icon-left mdi mdi-undo"></i>&nbsp;ANNULER&nbsp;
+            </button>
+            <button class="btn btn-success" type="submit">
+                <i class="icon icon-left mdi mdi-check-all"></i>&nbsp;OK&nbsp;
+            </button>
+        </div>
+        <?= form_close(); ?>
+    </div>
+</div>
+
 <div class="row">
     <div class="col-lg-12">
 
@@ -161,76 +214,25 @@
                                             <td><?= $item->nom_type; ?></td>
                                             <td><?= $item->nom_ligne; ?> / <?= $item->heure; ?></td>
                                             <td class="actions">
-                                                <a href="<?= "#?{$item->id_tarification}&"; ?>"
-                                                   class="md-trigger" data-modal="tarif-edit-<?= $item->id_tarification; ?>">
+                                                <a href="#"
+                                                   class="md-trigger js-tarif-edit"
+                                                   data-modal="tarif-edit-0"
+                                                   data-ekey="<?= htmlspecialchars($this->session->company->ekey, ENT_QUOTES, 'UTF-8'); ?>"
+                                                   data-id="<?= (int) $item->id_tarification; ?>"
+                                                   data-type_tarif="<?= htmlspecialchars($item->type_tarifs, ENT_QUOTES, 'UTF-8'); ?>"
+                                                   data-typetarif_id="<?= (int) $item->typetarif_id; ?>"
+                                                   data-nom_type="<?= htmlspecialchars($item->nom_type, ENT_QUOTES, 'UTF-8'); ?>"
+                                                   data-typeclient_id="<?= (int) $item->typeclient_id; ?>"
+                                                   data-ligne_heure_id="<?= (int) $item->ligne_heure_id; ?>"
+                                                   data-ligne_id="<?= (int) $item->ligne_id; ?>"
+                                                   data-nom_ligne="<?= htmlspecialchars($item->nom_ligne, ENT_QUOTES, 'UTF-8'); ?>"
+                                                   data-heure="<?= htmlspecialchars($item->heure, ENT_QUOTES, 'UTF-8'); ?>"
+                                                   data-prix="<?= htmlspecialchars($item->prix, ENT_QUOTES, 'UTF-8'); ?>">
                                                     <span class="fas fa-edit text-warning"></span>
                                                 </a>
                                                 <a href="<?= site_url('Tarifs/active/' . $this->session->company->ekey . '/' . $item->id_tarification. '/' . $item->actif_taf.'/'.$conex->roleattribut.'/'.$gare_stop->idengare.'/'.$gare_stop->idsousgare);?>" class="btn btn-space btn-secondary">
                                                     <?= ($item->actif_taf === '1') ? '<span class="icon mdi text-danger">désactiver</span>' : '<span class="icon mdi text-success">activer</span>'; ?>
                                                 </a>
-
-                                                <? /* Modal léger : pas de liste complète des 266 départs (causait HTTP 500). */ ?>
-                                                <div class="modal-container colored-header colored-header-success custom-width modal-effect-7"
-                                                     id="tarif-edit-<?= $item->id_tarification; ?>">
-                                                    <div class="modal-content">
-                                                        <div class="modal-header modal-header-colored">
-                                                            <h3 class="modal-title">MODIFICATION SUR <?= $item->type_tarifs;?></h3>
-                                                            <button class="close modal-close" type="button" data-dismiss="modal" aria-hidden="true">
-                                                                <span class="mdi mdi-close text-white"></span>
-                                                            </button>
-                                                        </div>
-                                                        <?= form_open("Tarifs/edit_/{$this->session->company->ekey}/{$item->id_tarification}", array('class' => 'modal-body form')); ?>
-                                                        <input type="hidden" name="gareconnect" value="<?=$gare_stop->idengare;?>">
-                                                        <input type="hidden" name="sousgareconnect" value="<?=$gare_stop->idsousgare;?>">
-                                                        <input type="hidden" name="compconnected" value="<?=$conex->cpuser_id;?>">
-                                                        <input type="hidden" name="userconnected" value="<?=$conex->roleattribut;?>">
-                                                        <div class="row">
-                                                            <div class="form-group col-sm-4">
-                                                                <label>TARIF</label>
-                                                                <select class="form-control form-control-sm" name="tarifbase">
-                                                                    <option value="<?= $item->typetarif_id; ?>"><?= $item->type_tarifs; ?></option>
-                                                                    <? if (!empty($bases)): foreach ($bases as $typetarif): ?>
-                                                                        <? if ((string)$typetarif->id_tarifs === (string)$item->typetarif_id) continue; ?>
-                                                                        <option value="<?= $typetarif->id_tarifs; ?>"><?= $typetarif->type_tarifs; ?></option>
-                                                                    <? endforeach; endif; ?>
-                                                                </select>
-                                                            </div>
-                                                            <div class="form-group col-sm-4">
-                                                                <label>TYPE CLIENT</label>
-                                                                <select class="form-control form-control-sm" name="typeclient">
-                                                                    <option value="<?= $item->typeclient_id; ?>"><?= $item->nom_type; ?></option>
-                                                                    <? if (!empty($typeclients)): foreach ($typeclients as $typeclient): ?>
-                                                                        <? if ((string)$typeclient->idtyp === (string)$item->typeclient_id) continue; ?>
-                                                                        <option value="<?= $typeclient->idtyp; ?>"><?= $typeclient->nom_type; ?></option>
-                                                                    <? endforeach; endif; ?>
-                                                                </select>
-                                                            </div>
-                                                            <div class="form-group col-sm-4">
-                                                                <label>DEPART</label>
-                                                                <select class="form-control form-control-sm" name="itineraire">
-                                                                    <option value="<?= $item->ligne_heure_id. '.' . $item->ligne_id; ?>">
-                                                                        <?= $item->nom_ligne.'/'. $item->heure; ?>
-                                                                    </option>
-                                                                </select>
-                                                                <small class="form-text text-muted">Pour changer de départ, créez une nouvelle tarification.</small>
-                                                            </div>
-                                                            <div class="form-group col-sm-4">
-                                                                <label>MONTANT</label>
-                                                                <input class="form-control form-control-sm" name="montanttarif"
-                                                                       value="<?= $item->prix; ?>" type="number" autocomplete="off">
-                                                            </div>
-                                                        </div>
-                                                        <div class="modal-footer">
-                                                            <button class="btn btn-secondary modal-close" type="button" data-dismiss="modal">
-                                                                <i class="icon icon-left mdi mdi-undo"></i>&nbsp;ANNULER&nbsp;
-                                                            </button>
-                                                            <button class="btn btn-success" type="submit">
-                                                                <i class="icon icon-left mdi mdi-check-all"></i>&nbsp;OK&nbsp;
-                                                            </button>
-                                                        </div>
-                                                        <?= form_close(); ?>
-                                                    </div>
-                                                </div>
                                             </td>
                                             <td>
                                                 <a href="<?= site_url("Tarifs/supprime/{$this->session->company->ekey}/{$item->id_tarification}/{$item->typeclient_id}/{$item->typetarif_id}/{$conex->roleattribut}/{$gare_stop->idengare}/{$gare_stop->idsousgare}"); ?>" title="supprimer">

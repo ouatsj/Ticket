@@ -13,6 +13,7 @@ return array(
         'addperso.js',
         'user-list-filter.js',
         'filtre_arrivee_compagnie.js',
+        'tarif-edit.js',
     ),
 
     'confirmation' => array('bundles/confirmation.js'),

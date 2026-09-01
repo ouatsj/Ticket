@@ -64,6 +64,7 @@
             }
             $log('conex ok ra=' . (isset($conex->roleattribut) ? $conex->roleattribut : '?'));
 
+            $this->load->helper('app_cache');
             $this->property['gare_stop'] = $gare_stop;
             $this->property['conex'] = $conex;
             $this->property['pagetitle'] .= "• LISTE DES TARIFS<strong>•&nbsp;{$this->company->nom_entreprise}</strong>";
@@ -73,11 +74,18 @@
                 : '';
 
             // Filtrer par gare (évite getad entreprise entière × N modals → page trop lourde).
-            $lignesheure = $this->m_ligne_heure->get($this->company->id_entreprise, $g);
-            $tarifications = $this->m_tarifications->get($this->company->id_entreprise, $g);
-            $bases = ($userole === '1' || $userole === '2')
-                ? $this->m_tarifs->get1()
-                : $this->m_tarifs->get();
+            $cache_g = (int) $g;
+            $lignesheure = app_cache_remember('lignes_heure_gare_' . $this->company->id_entreprise . '_' . $cache_g, 300, function () use ($g) {
+                return $this->m_ligne_heure->get($this->company->id_entreprise, $g);
+            });
+            $tarifications = app_cache_remember('tarifications_gare_' . $this->company->id_entreprise . '_' . $cache_g, 120, function () use ($g) {
+                return $this->m_tarifications->get($this->company->id_entreprise, $g);
+            });
+            $bases = app_cache_remember('tarifs_bases_' . $userole, 600, function () use ($userole) {
+                return ($userole === '1' || $userole === '2')
+                    ? $this->m_tarifs->get1()
+                    : $this->m_tarifs->get();
+            });
 
             $this->property['lignesheure'] = is_array($lignesheure) ? $lignesheure : array();
             $this->property['tarifications'] = is_array($tarifications) ? $tarifications : array();
@@ -85,8 +93,12 @@
                 $this->property['tarifications']
             );
             $this->property['bases'] = is_array($bases) ? $bases : array();
-            $typeclients = $this->m_type_client->get();
-            $heures = $this->m_heure->get();
+            $typeclients = app_cache_remember('type_client_all', 600, function () {
+                return $this->m_type_client->get();
+            });
+            $heures = app_cache_remember('heures_all', 600, function () {
+                return $this->m_heure->get();
+            });
             $this->property['typeclients'] = is_array($typeclients) ? $typeclients : array();
             $this->property['heures'] = is_array($heures) ? $heures : array();
 
