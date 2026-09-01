@@ -2,21 +2,22 @@
 # Deploy prod — pull code + SQL du même commit distant (sans fenêtre code-sans-schéma)
 #
 # Ordre :
-#   1) backup DB
-#   2) git fetch
-#   3) extraire migrate_prod_additive_p0_p1.sql depuis origin/<branche> (même ref que le pull)
-#   4) appliquer le SQL
-#   5) vérifier le schéma
-#   6) git pull --ff-only  → le code arrive avec le fichier SQL déjà appliqué
+#   1) mémoriser le commit pré-deploy + tag local de secours
+#   2) backup DB
+#   3) git fetch
+#   4) extraire migrate_prod_additive_p0_p1.sql depuis origin/<branche>
+#   5) appliquer le SQL
+#   6) vérifier le schéma
+#   7) git pull --ff-only
+#   8) écrire last_deploy_rollback.env + kit hors git pour rollback d'urgence
+#
+# Rollback si souci après deploy :
+#   bash /var/www/rakietabus/essaiticket/scripts/rollback_prod.sh --apply
+#   # ou kit : bash /var/www/rakietabus/ticket/scripts/db/backups/rollback_kit/rollback_prod.sh --apply
 #
 # Usage (depuis le serveur) :
-#   # dry-run
-#   bash /var/www/rakietabus/essaiticket/scripts/deploy_prod.sh
-#   # ou, une fois le script déjà sur prod :
-#   cd /var/www/rakietabus/ticket && bash scripts/deploy_prod.sh
-#
-#   # exécution réelle
-#   bash .../deploy_prod.sh --apply
+#   bash /var/www/rakietabus/essaiticket/scripts/deploy_prod.sh           # dry-run
+#   bash /var/www/rakietabus/essaiticket/scripts/deploy_prod.sh --apply   # réel
 #
 # Options :
 #   --apply              exécute vraiment (sinon dry-run)
@@ -59,6 +60,8 @@ done
 SQL_PATH_IN_REPO="scripts/db/migrate_prod_additive_p0_p1.sql"
 DB_PHP="$ROOT/application/config/database.php"
 BACKUP_DIR="$ROOT/scripts/db/backups"
+KIT_DIR="$BACKUP_DIR/rollback_kit"
+STATE_FILE="$BACKUP_DIR/last_deploy_rollback.env"
 STAMP="$(date +%Y%m%d_%H%M%S)"
 SQL_EXTRACT="/tmp/migrate_prod_additive_p0_p1_${STAMP}.sql"
 
@@ -72,6 +75,10 @@ BRANCH="$(git -C "$ROOT" rev-parse --abbrev-ref HEAD)"
 if [[ -z "$REF" ]]; then
   REF="origin/$BRANCH"
 fi
+
+PRE_DEPLOY_SHA="$(git -C "$ROOT" rev-parse HEAD)"
+PRE_DEPLOY_SHORT="$(git -C "$ROOT" rev-parse --short HEAD)"
+ROLLBACK_TAG="prod-pre-deploy-${STAMP}"
 
 # Lit host/user/pass/name/port depuis database.php (prod localhost)
 read_db() {
@@ -105,12 +112,26 @@ log "=== deploy_prod (code + SQL même ref) ==="
 log "root=$ROOT"
 log "db=$DB_NAME@$DB_HOST (user=$DB_USER)"
 log "mode=$([ "$APPLY" -eq 1 ] && echo APPLY || echo DRY-RUN)"
-log "head_local=$(git -C "$ROOT" rev-parse --short HEAD)"
+log "head_local=$PRE_DEPLOY_SHORT (rollback cible)"
 log "branch=$BRANCH  ref=$REF"
+log "rollback_tag=$ROLLBACK_TAG"
 
-# --- 0. Fetch (pour connaître le SQL du commit à déployer) ---
+# --- 0. Point de restauration code ---
 log ""
-log "[0/5] git fetch origin"
+log "[0/6] Enregistrer point de rollback code ($PRE_DEPLOY_SHORT)"
+if [[ "$APPLY" -eq 1 ]]; then
+  mkdir -p "$BACKUP_DIR" "$KIT_DIR"
+  git -C "$ROOT" tag -f "$ROLLBACK_TAG" "$PRE_DEPLOY_SHA"
+  # Alias stable du dernier point de rollback
+  git -C "$ROOT" tag -f prod-pre-deploy-latest "$PRE_DEPLOY_SHA"
+  log "OK tags locaux $ROLLBACK_TAG + prod-pre-deploy-latest"
+else
+  log "(dry-run) git tag -f $ROLLBACK_TAG $PRE_DEPLOY_SHORT"
+fi
+
+# --- 1. Fetch (pour connaître le SQL du commit à déployer) ---
+log ""
+log "[1/6] git fetch origin"
 if [[ "$APPLY" -eq 1 ]]; then
   git -C "$ROOT" fetch origin
 else
@@ -132,12 +153,12 @@ if git -C "$ROOT" rev-parse --verify "$REF" >/dev/null 2>&1; then
 fi
 log "cible=$REF ($TARGET_SHORT)"
 
-# --- 1. Backup ---
+# --- 2. Backup ---
 BACKUP_FILE="$BACKUP_DIR/rakieta_pre_deploy_${STAMP}.sql.gz"
 log ""
-log "[1/5] Backup DB → $BACKUP_FILE"
+log "[2/6] Backup DB → $BACKUP_FILE"
 if [[ "$APPLY" -eq 1 ]]; then
-  mkdir -p "$BACKUP_DIR"
+  mkdir -p "$BACKUP_DIR" "$KIT_DIR"
   "${MYSQLDUMP[@]}" | gzip -c > "$BACKUP_FILE"
   [[ -s "$BACKUP_FILE" ]] || die "backup vide"
   log "OK backup ($(du -h "$BACKUP_FILE" | awk '{print $1}'))"
@@ -145,9 +166,9 @@ else
   log "(dry-run) mysqldump | gzip > $BACKUP_FILE"
 fi
 
-# --- 2. Extraire SQL depuis la ref distante (même commit que le pull) ---
+# --- 3. Extraire SQL depuis la ref distante (même commit que le pull) ---
 log ""
-log "[2/5] Extraire SQL depuis $REF:$SQL_PATH_IN_REPO"
+log "[3/6] Extraire SQL depuis $REF:$SQL_PATH_IN_REPO"
 if [[ "$APPLY" -eq 1 ]]; then
   if git -C "$ROOT" cat-file -e "$REF:$SQL_PATH_IN_REPO" 2>/dev/null; then
     git -C "$ROOT" show "$REF:$SQL_PATH_IN_REPO" > "$SQL_EXTRACT"
@@ -167,9 +188,9 @@ else
   fi
 fi
 
-# --- 3. Migration additive ---
+# --- 4. Migration additive ---
 log ""
-log "[3/5] Appliquer migration additive P0+P1"
+log "[4/6] Appliquer migration additive P0+P1"
 if [[ "$APPLY" -eq 1 ]]; then
   [[ -s "$SQL_EXTRACT" ]] || die "fichier SQL vide: $SQL_EXTRACT"
   "${MYSQL[@]}" < "$SQL_EXTRACT"
@@ -179,9 +200,9 @@ else
   log "(dry-run) mysql < SQL extrait de $REF"
 fi
 
-# --- 4. Vérifs schéma ---
+# --- 5. Vérifs schéma ---
 log ""
-log "[4/5] Vérification schéma"
+log "[5/6] Vérification schéma"
 VERIFY_SQL=$(cat <<'EOF'
 SELECT
   (SELECT COUNT(*) FROM information_schema.COLUMNS
@@ -213,25 +234,67 @@ else
   log "(dry-run) vérif information_schema (8 objets attendus = 1)"
 fi
 
-# --- 5. Pull code (SQL déjà appliqué ; le fichier arrive avec le code) ---
+# --- 6. Pull code (SQL déjà appliqué ; le fichier arrive avec le code) ---
 log ""
-log "[5/5] git pull --ff-only (code + fichier SQL)"
+log "[6/6] git pull --ff-only (code + fichier SQL)"
+POST_DEPLOY_SHA=""
+POST_DEPLOY_SHORT=""
 if [[ "$APPLY" -eq 1 ]]; then
   git -C "$ROOT" pull --ff-only
-  log "OK pull → $(git -C "$ROOT" rev-parse --short HEAD) ($(git -C "$ROOT" rev-parse --abbrev-ref HEAD))"
-  # Contrôle : le SQL est bien présent dans le worktree après pull
+  POST_DEPLOY_SHA="$(git -C "$ROOT" rev-parse HEAD)"
+  POST_DEPLOY_SHORT="$(git -C "$ROOT" rev-parse --short HEAD)"
+  log "OK pull → $POST_DEPLOY_SHORT ($(git -C "$ROOT" rev-parse --abbrev-ref HEAD))"
   [[ -f "$ROOT/$SQL_PATH_IN_REPO" ]] || log "WARN: $SQL_PATH_IN_REPO absent après pull"
+
+  # État de rollback + kit hors dépendance au nouveau code
+  umask 077
+  cat > "$STATE_FILE" <<EOF
+# Généré par deploy_prod.sh — ne pas committer
+DEPLOYED_AT=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+PRE_DEPLOY_SHA=$PRE_DEPLOY_SHA
+PRE_DEPLOY_SHORT=$PRE_DEPLOY_SHORT
+POST_DEPLOY_SHA=$POST_DEPLOY_SHA
+POST_DEPLOY_SHORT=$POST_DEPLOY_SHORT
+BACKUP_FILE=$BACKUP_FILE
+ROLLBACK_TAG=$ROLLBACK_TAG
+BRANCH=$BRANCH
+REF=$REF
+EOF
+  cp -f "$STATE_FILE" "$KIT_DIR/last_deploy_rollback.env"
+  # Copier scripts + SQL revert de secours (dispo même si worktree bancal)
+  for src in \
+    "/var/www/rakietabus/essaiticket/scripts/rollback_prod.sh" \
+    "/var/www/rakietabus/essaiticket/scripts/deploy_prod.sh" \
+    "/var/www/rakietabus/essaiticket/scripts/db/migrate_prod_revert_p0_p1.sql" \
+    "/var/www/rakietabus/essaiticket/scripts/db/migrate_prod_additive_p0_p1.sql" \
+    "$ROOT/scripts/rollback_prod.sh" \
+    "$ROOT/scripts/deploy_prod.sh" \
+    "$ROOT/scripts/db/migrate_prod_revert_p0_p1.sql" \
+    "$ROOT/scripts/db/migrate_prod_additive_p0_p1.sql"
+  do
+    if [[ -f "$src" ]]; then
+      base="$(basename "$src")"
+      cp -f "$src" "$KIT_DIR/$base"
+      if [[ "$base" == *.sh ]]; then
+        chmod +x "$KIT_DIR/$base"
+      fi
+    fi
+  done
+  log "OK état rollback → $STATE_FILE"
+  log "OK kit secours → $KIT_DIR/"
 else
   log "(dry-run) git pull --ff-only"
+  log "(dry-run) écrire $STATE_FILE + kit $KIT_DIR/"
 fi
 
 log ""
 log "=== terminé ==="
 log "Smoke manuel : login, liste programmes, 1 vente, caisse."
-log "Rollback code : git -C $ROOT checkout 09f0a2f"
-if [[ "$APPLY" -eq 1 ]]; then
-  log "Rollback DB : zcat $BACKUP_FILE | mysql -u … $DB_NAME"
-fi
+log "Rollback CODE + SCHÉMA ancien (recommandé si souci métier) :"
+log "  bash /var/www/rakietabus/essaiticket/scripts/rollback_prod.sh --apply --with-schema"
+log "  # ou : bash $KIT_DIR/rollback_prod.sh --apply --with-schema"
+log "Rollback CODE + DB exacte pré-deploy (perd données post-deploy) :"
+log "  bash …/rollback_prod.sh --apply --with-db --i-understand-data-loss"
 if [[ "$APPLY" -eq 0 ]]; then
   log ""
   log "Séquence complète avant --apply :"
