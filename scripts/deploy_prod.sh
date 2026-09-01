@@ -240,7 +240,13 @@ log "[6/6] git pull --ff-only (code + fichier SQL)"
 POST_DEPLOY_SHA=""
 POST_DEPLOY_SHORT=""
 if [[ "$APPLY" -eq 1 ]]; then
-  git -C "$ROOT" pull --ff-only
+  # Prefer explicit remote/branch (worktree prod parfois sans upstream)
+  if git -C "$ROOT" rev-parse --abbrev-ref '@{u}' >/dev/null 2>&1; then
+    git -C "$ROOT" pull --ff-only
+  else
+    git -C "$ROOT" pull --ff-only origin "$BRANCH"
+    git -C "$ROOT" branch --set-upstream-to="origin/$BRANCH" "$BRANCH" 2>/dev/null || true
+  fi
   POST_DEPLOY_SHA="$(git -C "$ROOT" rev-parse HEAD)"
   POST_DEPLOY_SHORT="$(git -C "$ROOT" rev-parse --short HEAD)"
   log "OK pull → $POST_DEPLOY_SHORT ($(git -C "$ROOT" rev-parse --abbrev-ref HEAD))"
