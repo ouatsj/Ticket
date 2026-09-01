@@ -1,44 +1,62 @@
 -- =============================================================================
--- Revert schéma additif PROD (inverse de migrate_prod_additive_p0_p1.sql)
+-- Revert schéma additif PROD — compatible MySQL 8.0
+-- Inverse de migrate_prod_additive_p0_p1.sql
 -- =============================================================================
 -- Usage :
 --   mysql … rakieta < scripts/db/migrate_prod_revert_p0_p1.sql
---   # ou via : bash scripts/rollback_prod.sh --apply --with-schema
---
--- Règles :
---   - Uniquement DROP TABLE IF EXISTS / DROP COLUMN IF EXISTS / DROP INDEX IF EXISTS
---   - Idempotent
---   - Ne touche PAS aux tables métier historiques (passager hors nouvelles colonnes,
---     programme hors idsousgare_prog, etc.)
---
--- Attention :
---   - Perte des données éventuelles dans les objets P0/P1 (liens correspondance,
---     reconductions, escales, portées sous-gare, OD final, id_escale_vente)
---   - Pour un retour DB *exact* pré-deploy (toutes tables), préférer le dump
---     via rollback_prod.sh --with-db --i-understand-data-loss
+--   # ou : bash scripts/rollback_prod.sh --apply --with-schema
 -- =============================================================================
 
--- P1.3 / P1.2 tables
+SET @db := DATABASE();
+
+-- P1 tables
 DROP TABLE IF EXISTS itineraire_etapes;
 DROP TABLE IF EXISTS itineraire_escales;
 
 -- P1 colonnes passager
-ALTER TABLE passager
-  DROP COLUMN IF EXISTS id_escale_vente,
-  DROP COLUMN IF EXISTS lignetineraire_vendu,
-  DROP COLUMN IF EXISTS itinecode_vendu;
+SET @exists := (
+  SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = @db AND TABLE_NAME = 'passager' AND COLUMN_NAME = 'id_escale_vente'
+);
+SET @sql := IF(@exists = 1, 'ALTER TABLE passager DROP COLUMN id_escale_vente', 'SELECT 1');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 
--- P0.3 reconduction / sortie
+SET @exists := (
+  SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = @db AND TABLE_NAME = 'passager' AND COLUMN_NAME = 'lignetineraire_vendu'
+);
+SET @sql := IF(@exists = 1, 'ALTER TABLE passager DROP COLUMN lignetineraire_vendu', 'SELECT 1');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+SET @exists := (
+  SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = @db AND TABLE_NAME = 'passager' AND COLUMN_NAME = 'itinecode_vendu'
+);
+SET @sql := IF(@exists = 1, 'ALTER TABLE passager DROP COLUMN itinecode_vendu', 'SELECT 1');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+-- P0.3
 DROP TABLE IF EXISTS programme_sortie_siege;
 DROP TABLE IF EXISTS programme_reconduction_siege;
 DROP TABLE IF EXISTS programme_reconduction;
 DROP TABLE IF EXISTS programme_sortie;
 
--- P0.2 correspondance
+-- P0.2
 DROP TABLE IF EXISTS programme_correspondance;
 
--- P0.1 sous-gare
+-- P0.1
 DROP TABLE IF EXISTS programme_sousgare;
-DROP INDEX IF EXISTS idx_programme_idsousgare_prog ON programme;
-ALTER TABLE programme
-  DROP COLUMN IF EXISTS idsousgare_prog;
+
+SET @exists := (
+  SELECT COUNT(*) FROM information_schema.STATISTICS
+  WHERE TABLE_SCHEMA = @db AND TABLE_NAME = 'programme' AND INDEX_NAME = 'idx_programme_idsousgare_prog'
+);
+SET @sql := IF(@exists = 1, 'DROP INDEX idx_programme_idsousgare_prog ON programme', 'SELECT 1');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+SET @exists := (
+  SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = @db AND TABLE_NAME = 'programme' AND COLUMN_NAME = 'idsousgare_prog'
+);
+SET @sql := IF(@exists = 1, 'ALTER TABLE programme DROP COLUMN idsousgare_prog', 'SELECT 1');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
