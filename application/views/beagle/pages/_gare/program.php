@@ -192,7 +192,6 @@
         if (!isset($corr_index) || !is_array($corr_index)) { $corr_index = array(); }
         if (!isset($reconduction_index) || !is_array($reconduction_index)) { $reconduction_index = array(); }
         if (!isset($reconductions_offres) || !is_array($reconductions_offres)) { $reconductions_offres = array(); }
-        $__prog_edit_modal_rendered = false;
     ?>
     <div class="row">
         <div class="col-sm-12">
@@ -308,6 +307,11 @@
                                             foreach ($__ventes as $__sg => $__nb) {
                                                 $__ventes_attr[] = ((int) $__sg) . ':' . ((int) $__nb);
                                             }
+                                            $__ventes_total = 0;
+                                            foreach ($__ventes as $__nb_v) {
+                                                $__ventes_total += (int) $__nb_v;
+                                            }
+                                            $__peut_supprimer_prog = ($nb->nbr === 0 && $__ventes_total === 0 && empty($__corr));
                                         ?>
                                         <? if (!empty($__psg2)): ?>
                                             <br><small class="text-warning"><?php
@@ -399,133 +403,21 @@
                                             <span class="fas fa-sign-out-alt text-warning"></span>
                                         </a>&nbsp;
                                         <?php endif; ?>
+                                        <?php if ($__peut_supprimer_prog): ?>
+                                        <a href="#"
+                                           class="js-prog-delete"
+                                           title="Supprimer ce programme (aucun passager)"
+                                           data-code="<?= htmlspecialchars($item->code_progr, ENT_QUOTES, 'UTF-8'); ?>"
+                                           data-nom="<?= htmlspecialchars($item->nom_ligne, ENT_QUOTES, 'UTF-8'); ?>"
+                                           data-heure="<?= htmlspecialchars($item->heure, ENT_QUOTES, 'UTF-8'); ?>">
+                                            <span class="fas fa-trash text-danger"></span>
+                                        </a>&nbsp;
+                                        <?php endif; ?>
                                         <a href="<?= site_url('Gares/activer/' . $this->session->company->ekey . '/' . $item->code_progr. '/' . $item->gareidentif. '/' . $item->statut_prog.'/'.$conex->roleattribut.'/'.$gare_stop->idsousgare);?> "class="btn btn-space btn-secondary">
                                             <?= ($item->statut_prog === 'actif') ? '<span class="icon mdi text-danger">désactiver</span>' : '<span
                                             class="icon mdi text-success">activer</span>' ?>
                                         </a>&nbsp;
                                         &nbsp;
-                                        
-                                        <?php if (!$__prog_edit_modal_rendered): ?>
-                                        <div class="modal-container colored-header colored-header-success custom-width modal-effect-7"
-                                            id="prog-edit-0">
-                                            <div class="modal-content">
-                                                <div class="modal-header modal-header-colored">
-                                                    <h3 class="modal-title" id="Titleprog"></h3>
-                                                    <button class="close modal-close" type="button"
-                                                    data-dismiss="modal" aria-hidden="true"><span
-                                                    class="mdi mdi-close text-white"></span>
-                                                    </button>
-                                                </div>
-                                                <?= form_open('', array('class' => 'modal-body form', 'id' => 'formprog')); ?>
-
-                                                <div class="row">
-                                               
-                                                    <input class="form-control form-control-sm" name="ouotancien" id="ouotafinancien"
-                                                    value="" type="hidden" autocomplete="off">
-                                                   
-                                                    <input class="form-control form-control-sm" name="ouotnouveau" id="ouotafinnouveau"
-                                                    value="" type="hidden" autocomplete="off">
-                                                   <input class="form-control form-control-sm" type="hidden" name="gareconnect" value="<?=$gare_stop->idengare;?>">
-                                                <input class="form-control form-control-sm" type="hidden" name="sousgareconnect" value="<?=$gare_stop->idsousgare;?>">
-                                                <input class="form-control form-control-sm" type="hidden" name="userconnected" value="<?=$conex->roleattribut;?>">
-                                                <input class="form-control form-control-sm" type="hidden" name="compconnected" value="<?=$conex->cpuser_id;?>">
-
-                                                    <div class="form-group col-sm-12" id="portee_sousgares_box_edit">
-                                                        <label>PORTÉE DU DÉPART</label>
-                                                        <div class="mb-2" style="display:flex;flex-wrap:wrap;align-items:center;gap:1.25rem;">
-                                                            <label class="mb-0" style="font-weight:400;color:#404040;cursor:pointer;white-space:nowrap;">
-                                                                <input type="radio" class="js-scope-mode" name="scope_depart" value="gare" checked style="margin-right:0.4rem;vertical-align:middle;">
-                                                                Toute gare
-                                                            </label>
-                                                            <label class="mb-0" style="font-weight:400;color:#404040;cursor:pointer;white-space:nowrap;">
-                                                                <input type="radio" class="js-scope-mode" name="scope_depart" value="sousgare" style="margin-right:0.4rem;vertical-align:middle;">
-                                                                Sous-gares
-                                                            </label>
-                                                        </div>
-                                                        <div class="js-sg-checks-wrap" style="opacity:0.55">
-                                                            <div class="mb-1">
-                                                                <button type="button" class="btn btn-sm btn-outline-secondary js-sg-check-all" disabled>Tout cocher</button>
-                                                                <button type="button" class="btn btn-sm btn-outline-secondary js-sg-uncheck-all" disabled>Tout décocher</button>
-                                                                <small class="text-muted ml-2">Une sous-gare ayant déjà vendu ne peut pas être décochée.</small>
-                                                            </div>
-                                                            <div class="row" id="scope_sousgares_edit_list">
-                                                                <?php if (!empty($sousgares)): ?>
-                                                                    <?php foreach ($sousgares as $sous): ?>
-                                                                        <div class="form-group col-sm-4 col-md-3 mb-1">
-                                                                            <label class="custom-control custom-checkbox mb-0">
-                                                                                <input class="custom-control-input js-sg-check" type="checkbox" name="scope_sousgares[]"
-                                                                                       value="<?= (int) $sous->idsousgare; ?>" checked disabled
-                                                                                       data-locked="0"
-                                                                                       data-sg-name="<?= htmlspecialchars($sous->nomsousgare, ENT_QUOTES, 'UTF-8'); ?>">
-                                                                                <span class="custom-control-label">
-                                                                                    <?= htmlspecialchars($sous->nomsousgare, ENT_QUOTES, 'UTF-8'); ?>
-                                                                                    <small class="js-sg-ventes text-danger font-weight-bold" style="display:none;"></small>
-                                                                                </span>
-                                                                            </label>
-                                                                        </div>
-                                                                    <?php endforeach; ?>
-                                                                <?php endif; ?>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-
-                                                    <div class="form-group col-sm-4">
-                                                        <label>CATEGORIE</label>
-                                                        <select class="form-control form-control-sm" id="idcateg" name="categorie">
-                                                        <option value=""></option>
-                                                            <? foreach ($categories as $categbus): ?>
-                                                                <option value="<?= $categbus->categorie; ?>">
-                                                                <?= $categbus->categorie; ?>
-                                                                </option>
-                                                            <? endforeach; ?>
-                                                        </select>
-                                                    </div>
-
-                                                    <div class="form-group col-sm-4">
-                                                        <label>TYPE TARIF</label>
-                                                            <select class="form-control form-control-sm" id="typetaf" name="tariftype">
-                                                            <option value=""></option>
-                                                            <? foreach ($bases as $typetarif): ?>
-                                                            <option value="<?= $typetarif->id_tarifs; ?>">
-                                                        <?= "{$typetarif->type_tarifs}"; ?>
-                                                            </option>
-                                                        <? endforeach; ?>
-                                                        </select>
-                                                    </div>
-                                                    <?php
-                                                        $this->load->view('beagle/pages/_gare/_partial_depart_compagnie', array(
-                                                            'lignesheure' => !empty($lignesheure) ? $lignesheure : array(),
-                                                            'lignesheure_par_compagnie' => !empty($lignesheure_par_compagnie) ? $lignesheure_par_compagnie : array(),
-                                                            'depart_name' => 'heureprog',
-                                                            'depart_id' => 'progh',
-                                                            'compagnie_id' => 'compagnie-arrivee-edit',
-                                                            'depart_label' => 'DEPART',
-                                                            'col_comp' => 'col-sm-4',
-                                                            'col_dep' => 'col-sm-4',
-                                                        ));
-                                                    ?>
-                                                    
-                                                    <?php $this->load->view('beagle/pages/_gare/_partial_quota_sieges', array('categ_select_id' => 'idcateg', 'quota_mode' => 'edit')); ?>
-                                                    <div class="form-group col-sm-4">
-                                                        <label>DATE</label>
-                                                            <input class="form-control form-control-sm" type="date" id ="progdate" name="dateprogramme" value="">
-
-                                                    </div>
-                                                </div>
-                                                <div class="modal-footer">
-                                                    <button class="btn btn-secondary modal-close" type="reset"
-                                                            data-dismiss="modal">
-                                                        <i class="icon icon-left mdi mdi-undo"></i>&nbsp;ANNULER&nbsp;
-                                                    </button>
-                                                    <button class="btn btn-success md-trigger" type="submit"
-                                                            data-dismiss="modal">
-                                                        <i class="icon icon-left mdi mdi-check-all"></i>&nbsp;OK&nbsp;
-                                                    </button>
-                                                </div>
-                                                <?= form_close(); ?>
-                                            </div>
-                                        </div>
-                                        <?php $__prog_edit_modal_rendered = true; endif; ?>
                                     <? endif; ?>
                                     </td>
                                 </tr>
@@ -573,10 +465,62 @@
             })();
             </script>
 
+            <script>
+            (function () {
+                var ekey = <?= json_encode($this->session->company->ekey); ?>;
+                function progDeleteCsrf(body) {
+                    var metaToken = document.querySelector('meta[name="csrf-token"]');
+                    var metaParam = document.querySelector('meta[name="csrf-param"]');
+                    var name = (metaParam && metaParam.getAttribute('content')) || 'csrf_raketa';
+                    var hash = metaToken ? metaToken.getAttribute('content') : '';
+                    if (hash) body.set(name, hash);
+                    return body;
+                }
+                document.addEventListener('click', function (e) {
+                    var btn = e.target.closest ? e.target.closest('.js-prog-delete') : null;
+                    if (!btn) return;
+                    e.preventDefault();
+                    var code = btn.getAttribute('data-code') || '';
+                    var nom = btn.getAttribute('data-nom') || '';
+                    var heure = btn.getAttribute('data-heure') || '';
+                    if (!code) return;
+                    var msg = 'Supprimer le programme ' + code;
+                    if (nom || heure) {
+                        msg += ' (' + [nom, heure].filter(Boolean).join(' / ') + ')';
+                    }
+                    msg += ' ? Cette action est définitive.';
+                    if (!window.confirm(msg)) return;
+                    var body = progDeleteCsrf(new URLSearchParams());
+                    body.set('code_progr', code);
+                    var base = (window.__SITE_BASE || '').replace(/\/$/, '');
+                    fetch(base + '/Programmes/delete_programme/' + encodeURIComponent(ekey), {
+                        method: 'POST',
+                        credentials: 'same-origin',
+                        headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
+                        body: body.toString()
+                    }).then(function (r) {
+                        return r.text().then(function (t) {
+                            try { return JSON.parse(t); }
+                            catch (err) { throw new Error('Réponse non JSON'); }
+                        });
+                    }).then(function (data) {
+                        if (data && data.ok) {
+                            window.location.reload();
+                            return;
+                        }
+                        var errMsg = (data && (data.message || data.error)) ? (data.message || data.error) : 'Suppression impossible.';
+                        window.alert(errMsg);
+                    }).catch(function () {
+                        window.alert('Erreur réseau lors de la suppression.');
+                    });
+                });
+            })();
+            </script>
+
         </div>
     </div>
 
-    <? if (!$__prog_edit_modal_rendered && ($this->session->agent->userole === '1' OR $this->session->agent->userole === '2' OR $this->session->agent->userole === '5' OR $this->session->agent->userole === '8' OR $this->session->agent->userole === '15')): ?>
+    <?php if ($__peut_prog): ?>
     <div class="modal-container colored-header colored-header-success custom-width modal-effect-7"
         id="prog-edit-0">
         <div class="modal-content">
@@ -590,16 +534,54 @@
             <?= form_open('', array('class' => 'modal-body form', 'id' => 'formprog')); ?>
 
             <div class="row">
-           
                 <input class="form-control form-control-sm" name="ouotancien" id="ouotafinancien"
                 value="" type="hidden" autocomplete="off">
-               
                 <input class="form-control form-control-sm" name="ouotnouveau" id="ouotafinnouveau"
                 value="" type="hidden" autocomplete="off">
                <input class="form-control form-control-sm" type="hidden" name="gareconnect" value="<?=$gare_stop->idengare;?>">
             <input class="form-control form-control-sm" type="hidden" name="sousgareconnect" value="<?=$gare_stop->idsousgare;?>">
             <input class="form-control form-control-sm" type="hidden" name="userconnected" value="<?=$conex->roleattribut;?>">
             <input class="form-control form-control-sm" type="hidden" name="compconnected" value="<?=$conex->cpuser_id;?>">
+
+                <div class="form-group col-sm-12" id="portee_sousgares_box_edit">
+                    <label>PORTÉE DU DÉPART</label>
+                    <div class="mb-2" style="display:flex;flex-wrap:wrap;align-items:center;gap:1.25rem;">
+                        <label class="mb-0" style="font-weight:400;color:#404040;cursor:pointer;white-space:nowrap;">
+                            <input type="radio" class="js-scope-mode" name="scope_depart" value="gare" checked style="margin-right:0.4rem;vertical-align:middle;">
+                            Toute gare
+                        </label>
+                        <label class="mb-0" style="font-weight:400;color:#404040;cursor:pointer;white-space:nowrap;">
+                            <input type="radio" class="js-scope-mode" name="scope_depart" value="sousgare" style="margin-right:0.4rem;vertical-align:middle;">
+                            Sous-gares
+                        </label>
+                    </div>
+                    <div class="js-sg-checks-wrap" style="opacity:0.55">
+                        <div class="mb-1">
+                            <button type="button" class="btn btn-sm btn-outline-secondary js-sg-check-all" disabled>Tout cocher</button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary js-sg-uncheck-all" disabled>Tout décocher</button>
+                            <small class="text-muted ml-2">Une sous-gare ayant déjà vendu ne peut pas être décochée.</small>
+                        </div>
+                        <div class="row" id="scope_sousgares_edit_list">
+                            <?php if (!empty($sousgares)): ?>
+                                <?php foreach ($sousgares as $sous): ?>
+                                    <div class="form-group col-sm-4 col-md-3 mb-1">
+                                        <label class="custom-control custom-checkbox mb-0">
+                                            <input class="custom-control-input js-sg-check" type="checkbox" name="scope_sousgares[]"
+                                                   value="<?= (int) $sous->idsousgare; ?>" checked disabled
+                                                   data-locked="0"
+                                                   data-sg-name="<?= htmlspecialchars($sous->nomsousgare, ENT_QUOTES, 'UTF-8'); ?>">
+                                            <span class="custom-control-label">
+                                                <?= htmlspecialchars($sous->nomsousgare, ENT_QUOTES, 'UTF-8'); ?>
+                                                <small class="js-sg-ventes text-danger font-weight-bold" style="display:none;"></small>
+                                            </span>
+                                        </label>
+                                    </div>
+                                <?php endforeach; ?>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="form-group col-sm-4">
                     <label>CATEGORIE</label>
                     <select class="form-control form-control-sm" id="idcateg" name="categorie">
@@ -623,31 +605,22 @@
                     <? endforeach; ?>
                     </select>
                 </div>
-                <div class="form-group col-sm-4">
-                    <label>DEAPRT</label>
-                    <select class="form-control form-control-sm" id="progh" name="heureprog">
-                    <option value=""></option>
-                    <? foreach ($lignesheure as $ligne): ?>
-                    <option value="<?= $ligne->id_ligneheure. '.' .$ligne->ligne_id. '.' .$ligne->heure; ?>">
-                <?= $ligne->nom_ligne.'/'.$ligne->heure; ?>
-                            </option>
-                        <? endforeach; ?>
-                    </select>
-                </div>
-                
-                <div class="form-group col-sm-3">
-                    <label>QUOTA DEBUT</label>
-                    <input class="form-control form-control-sm" name="debut" id="ouotadebut"
-                    value="" type="text" autocomplete="off">
-                </div>
-                <div class="form-group col-sm-3">
-                    <label>QUOTA FIN</label>
-                    <input class="form-control form-control-sm" name="fin" id="ouotafin" value="" type="text" autocomplete="off">
-                </div>
+                <?php
+                    $this->load->view('beagle/pages/_gare/_partial_depart_compagnie', array(
+                        'lignesheure' => !empty($lignesheure) ? $lignesheure : array(),
+                        'lignesheure_par_compagnie' => !empty($lignesheure_par_compagnie) ? $lignesheure_par_compagnie : array(),
+                        'depart_name' => 'heureprog',
+                        'depart_id' => 'progh',
+                        'compagnie_id' => 'compagnie-arrivee-edit',
+                        'depart_label' => 'DEPART',
+                        'col_comp' => 'col-sm-4',
+                        'col_dep' => 'col-sm-4',
+                    ));
+                ?>
+                <?php $this->load->view('beagle/pages/_gare/_partial_quota_sieges', array('categ_select_id' => 'idcateg', 'quota_mode' => 'edit')); ?>
                 <div class="form-group col-sm-4">
                     <label>DATE</label>
                         <input class="form-control form-control-sm" type="date" id ="progdate" name="dateprogramme" value="">
-
                 </div>
             </div>
             <div class="modal-footer">
@@ -663,7 +636,7 @@
             <?= form_close(); ?>
         </div>
     </div>
-    <? endif; ?>
+    <?php endif; ?>
 <?endif;?>
 <? else: ?>
 <? if ($this->session->agent->userole === '1' OR $this->session->agent->userole === '2' OR $this->session->agent->userole === '5' OR $this->session->agent->userole === '8' OR $this->session->agent->userole === '15'): ?>

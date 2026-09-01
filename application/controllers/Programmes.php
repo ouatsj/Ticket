@@ -1275,6 +1275,86 @@
         }
 
         /**
+         * Supprime un programme sans passager.
+         * POST Programmes/delete_programme/{ekey} — code_progr
+         */
+        public function delete_programme($ckey)
+        {
+            session_release_lock();
+            $this->company = $this->m_entreprises->get_key($ckey);
+            if (!$this->_peut_gerer_programme()) {
+                return $this->load->view('beagle/pages/_programme/json', array(
+                    'json' => array('ok' => false, 'error' => 'droit_insuffisant'),
+                ));
+            }
+            if ($this->input->method(TRUE) !== 'POST') {
+                return $this->load->view('beagle/pages/_programme/json', array(
+                    'json' => array('ok' => false, 'error' => 'method'),
+                ));
+            }
+
+            $code = trim((string) $this->input->post('code_progr'));
+            if ($code === '') {
+                return $this->load->view('beagle/pages/_programme/json', array(
+                    'json' => array('ok' => false, 'error' => 'code_manquant'),
+                ));
+            }
+
+            $check = $this->m_programme->peut_supprimer($code);
+            if (empty($check['ok'])) {
+                $errors = array(
+                    'passagers' => 'Impossible de supprimer : des passagers existent sur ce programme.',
+                    'ventes' => 'Impossible de supprimer : des ventes existent sur ce programme.',
+                    'code_vide' => 'Code programme manquant.',
+                );
+                $reason = isset($check['reason']) ? $check['reason'] : 'refuse';
+                return $this->load->view('beagle/pages/_programme/json', array(
+                    'json' => array(
+                        'ok' => false,
+                        'error' => $reason,
+                        'message' => isset($errors[$reason]) ? $errors[$reason] : 'Suppression refusée.',
+                    ),
+                ));
+            }
+
+            if (!isset($this->m_programme_correspondance)) {
+                $this->load->model('Programme_correspondance_model', 'm_programme_correspondance');
+            }
+            if ($this->m_programme_correspondance->get_by_any_code($code)) {
+                return $this->load->view('beagle/pages/_programme/json', array(
+                    'json' => array(
+                        'ok' => false,
+                        'error' => 'lien_correspondance',
+                        'message' => 'Supprimez d\'abord le lien de correspondance.',
+                    ),
+                ));
+            }
+
+            if (!isset($this->m_programme_reconduction)) {
+                $this->load->model('Programme_reconduction_model', 'm_programme_reconduction');
+            }
+            if ($this->m_programme_reconduction->get_reco_by_cible($code)) {
+                return $this->load->view('beagle/pages/_programme/json', array(
+                    'json' => array(
+                        'ok' => false,
+                        'error' => 'reconduction',
+                        'message' => 'Ce programme est lié à une reconduction de sièges.',
+                    ),
+                ));
+            }
+
+            if (!$this->m_programme->supprimer_programme($code)) {
+                return $this->load->view('beagle/pages/_programme/json', array(
+                    'json' => array('ok' => false, 'error' => 'echec_suppression'),
+                ));
+            }
+
+            return $this->load->view('beagle/pages/_programme/json', array(
+                'json' => array('ok' => true, 'code_progr' => $code),
+            ));
+        }
+
+        /**
          * Déclare la sortie d'un départ (places restantes publiées aux gares aval).
          * POST Programmes/declare_sortie/{ekey}
          */

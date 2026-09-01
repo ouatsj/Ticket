@@ -740,6 +740,50 @@
         {
             return $this->db->where('code_progr', $id)->delete($this->table);
         }
+
+        /**
+         * Vérifie si un programme peut être supprimé (aucun passager / vente).
+         *
+         * @param string $code_progr
+         * @return array{ok:bool, reason?:string}
+         */
+        public function peut_supprimer($code_progr)
+        {
+            $code = trim((string) $code_progr);
+            if ($code === '') {
+                return array('ok' => false, 'reason' => 'code_vide');
+            }
+
+            $row = $this->db->query(
+                "SELECT COUNT(*) AS nbr FROM passager WHERE code_pro = ?",
+                array($code)
+            )->row();
+            if ($row && (int) $row->nbr > 0) {
+                return array('ok' => false, 'reason' => 'passagers');
+            }
+
+            if (!empty($this->comptes_ventes_par_sousgare($code))) {
+                return array('ok' => false, 'reason' => 'ventes');
+            }
+
+            return array('ok' => true);
+        }
+
+        /**
+         * Supprime un programme sans passager (portée sous-gares incluse).
+         *
+         * @param string $code_progr
+         * @return bool
+         */
+        public function supprimer_programme($code_progr)
+        {
+            $code = trim((string) $code_progr);
+            if ($code === '') {
+                return false;
+            }
+            $this->db->where('code_progr', $code)->delete('programme_sousgare');
+            return (bool) $this->del($code);
+        }
         
         public function getpr($cd, $pr_id, $lh)
         {

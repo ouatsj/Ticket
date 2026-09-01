@@ -37,101 +37,108 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    document.querySelectorAll('.addgprogramme').forEach(function (e) {
-        
-        e.onclick = function () {
-            let prForm = document.querySelector('#formprog');
-            document.querySelector('h3#Titleprog').innerHTML = `MODIFICATION DU PROGRAMME`;
-            $('#idcateg').val(`${e.dataset.categorie}`);
-            $('#typetaf').val(`${e.dataset.typtarif}`);
-            if (typeof window.__syncDepartCompagnie === 'function') {
-                window.__syncDepartCompagnie('progh', e.dataset.eure);
-            } else {
-                $('#progh').val(`${e.dataset.eure}`);
-            }
-            $('#progdate').val(`${e.dataset.pdate}`);
-            var ouotAncien = document.querySelector('#ouotafinancien');
-            var ouotNouveau = document.querySelector('#ouotafinnouveau');
-            if (ouotAncien) ouotAncien.value = `${e.dataset.categnbplace}`;
-            if (ouotNouveau) ouotNouveau.value = `${e.dataset.categnbplace}`;
-            var portee = (e.dataset.porteeSgs || '').trim();
-            var ids = portee ? portee.split(',').map(function (x) { return String(x).trim(); }).filter(Boolean) : [];
-            var ventes = parseVentesSgs(e.dataset.ventesSgs);
-            var box = document.querySelector('#portee_sousgares_box_edit');
-            if (box) {
-                var radioGare = box.querySelector('.js-scope-mode[value="gare"]');
-                var radioSg = box.querySelector('.js-scope-mode[value="sousgare"]');
-                var checks = box.querySelectorAll('.js-sg-check');
-                applyVentesLock(box, ventes);
-                if (ids.length === 0) {
-                    if (radioGare) radioGare.checked = true;
-                    checks.forEach(function (c) { c.checked = true; });
-                } else {
-                    if (radioSg) radioSg.checked = true;
-                    checks.forEach(function (c) {
-                        var locked = c.getAttribute('data-locked') === '1';
-                        c.checked = locked || ids.indexOf(String(c.value)) !== -1;
-                    });
-                }
-                if (typeof window.__applyPorteeScopeMode === 'function') {
-                    window.__applyPorteeScopeMode(box);
-                }
-                if (ids.length > 0) {
-                    checks.forEach(function (c) {
-                        var locked = c.getAttribute('data-locked') === '1';
-                        c.checked = locked || ids.indexOf(String(c.value)) !== -1;
-                        c.disabled = locked ? true : !(radioSg && radioSg.checked);
-                    });
-                } else {
-                    checks.forEach(function (c) {
-                        c.checked = true;
-                        c.disabled = true;
-                    });
-                }
-            }
+    function openEditProgramme(e) {
+        var prForm = document.querySelector('#formprog');
+        if (!prForm) return;
 
-            if (window.ProgQuotaSieges && typeof window.ProgQuotaSieges.loadEditForForm === 'function') {
-                var soldAttr = (e.dataset.siegesOccupes || '').split(',').map(function (x) {
-                    return parseInt(String(x).trim(), 10);
-                }).filter(function (n) { return !isNaN(n) && n > 0; });
-                window.ProgQuotaSieges.loadEditForForm(
-                    'formprog',
-                    e.dataset.code,
-                    e.dataset.cle_compagnie,
-                    e.dataset.inter1,
-                    e.dataset.inter2,
-                    e.dataset.categorie,
-                    soldAttr
-                );
-            }
-        
-            let typcat = document.querySelector('#idcateg');
-            if (typcat !== null) {
-                typcat.onchange = () => {
-                    let Infoscateg;
-                    if (window.XMLHttpRequest) {
-                        Infoscateg = new XMLHttpRequest();
-                    } else if (window.ActiveXObject) {
-                        Infoscateg = new ActiveXObject("Microsoft.XMLHTTP");
-                    }
-                    var categchoisi = document.querySelector('#idcateg')
-                        .options[document.querySelector('#idcateg').options.selectedIndex].value;
-                    Infoscateg.open('GET', window.location.origin + `${APP_ROOT}/categories/getnbrplace/${categchoisi}`, true);
-                    Infoscateg.onload = () => {
-                        const rescat = JSON.parse(Infoscateg.responseText);
-                        if (Object.entries(rescat).length >= 1) {
-                            var ouotFinNouveau = document.querySelector('#ouotafinnouveau');
-                            if (ouotFinNouveau) {
-                                ouotFinNouveau.value = `${rescat.nbr_place}`;
-                            }
-                        }
-                    };
-                    Infoscateg.setRequestHeader('Content-Type', 'application/json');
-                    Infoscateg.send();
-                };
-            }
-            prForm.setAttribute('action', `${APP_ROOT}/Programmes/editgare_/${e.dataset.cle_compagnie}/${e.dataset.code}/${e.dataset.departcd}`);
-
+        var titleEl = document.querySelector('h3#Titleprog');
+        if (titleEl) {
+            titleEl.innerHTML = 'MODIFICATION DU PROGRAMME';
         }
-    })
+        $('#idcateg').val(String(e.dataset.categorie || ''));
+        $('#typetaf').val(String(e.dataset.typtarif || ''));
+        if (typeof window.__syncDepartCompagnie === 'function') {
+            window.__syncDepartCompagnie('progh', e.dataset.eure);
+        } else {
+            $('#progh').val(String(e.dataset.eure || ''));
+        }
+        $('#progdate').val(String(e.dataset.pdate || ''));
+        var ouotAncien = document.querySelector('#ouotafinancien');
+        var ouotNouveau = document.querySelector('#ouotafinnouveau');
+        if (ouotAncien) ouotAncien.value = String(e.dataset.categnbplace || '');
+        if (ouotNouveau) ouotNouveau.value = String(e.dataset.categnbplace || '');
+        var portee = (e.dataset.porteeSgs || '').trim();
+        var ids = portee ? portee.split(',').map(function (x) { return String(x).trim(); }).filter(Boolean) : [];
+        var ventes = parseVentesSgs(e.dataset.ventesSgs);
+        var box = document.querySelector('#portee_sousgares_box_edit');
+        if (box) {
+            var radioGare = box.querySelector('.js-scope-mode[value="gare"]');
+            var radioSg = box.querySelector('.js-scope-mode[value="sousgare"]');
+            var checks = box.querySelectorAll('.js-sg-check');
+            applyVentesLock(box, ventes);
+            if (ids.length === 0) {
+                if (radioGare) radioGare.checked = true;
+                checks.forEach(function (c) { c.checked = true; });
+            } else {
+                if (radioSg) radioSg.checked = true;
+                checks.forEach(function (c) {
+                    var locked = c.getAttribute('data-locked') === '1';
+                    c.checked = locked || ids.indexOf(String(c.value)) !== -1;
+                });
+            }
+            if (typeof window.__applyPorteeScopeMode === 'function') {
+                window.__applyPorteeScopeMode(box);
+            }
+            if (ids.length > 0) {
+                checks.forEach(function (c) {
+                    var locked = c.getAttribute('data-locked') === '1';
+                    c.checked = locked || ids.indexOf(String(c.value)) !== -1;
+                    c.disabled = locked ? true : !(radioSg && radioSg.checked);
+                });
+            } else {
+                checks.forEach(function (c) {
+                    c.checked = true;
+                    c.disabled = true;
+                });
+            }
+        }
+
+        if (window.ProgQuotaSieges && typeof window.ProgQuotaSieges.loadEditForForm === 'function') {
+            var soldAttr = (e.dataset.siegesOccupes || '').split(',').map(function (x) {
+                return parseInt(String(x).trim(), 10);
+            }).filter(function (n) { return !isNaN(n) && n > 0; });
+            window.ProgQuotaSieges.loadEditForForm(
+                'formprog',
+                e.dataset.code,
+                e.dataset.cle_compagnie,
+                e.dataset.inter1,
+                e.dataset.inter2,
+                e.dataset.categorie,
+                soldAttr
+            );
+        }
+
+        var typcat = document.querySelector('#idcateg');
+        if (typcat !== null) {
+            typcat.onchange = () => {
+                let Infoscateg;
+                if (window.XMLHttpRequest) {
+                    Infoscateg = new XMLHttpRequest();
+                } else if (window.ActiveXObject) {
+                    Infoscateg = new ActiveXObject("Microsoft.XMLHTTP");
+                }
+                var categchoisi = document.querySelector('#idcateg')
+                    .options[document.querySelector('#idcateg').options.selectedIndex].value;
+                Infoscateg.open('GET', window.location.origin + `${APP_ROOT}/categories/getnbrplace/${categchoisi}`, true);
+                Infoscateg.onload = () => {
+                    const rescat = JSON.parse(Infoscateg.responseText);
+                    if (Object.entries(rescat).length >= 1) {
+                        var ouotFinNouveau = document.querySelector('#ouotafinnouveau');
+                        if (ouotFinNouveau) {
+                            ouotFinNouveau.value = `${rescat.nbr_place}`;
+                        }
+                    }
+                };
+                Infoscateg.setRequestHeader('Content-Type', 'application/json');
+                Infoscateg.send();
+            };
+        }
+        prForm.setAttribute('action', `${APP_ROOT}/Programmes/editgare_/${e.dataset.cle_compagnie}/${e.dataset.code}/${e.dataset.departcd}`);
+    }
+
+    document.addEventListener('click', function (ev) {
+        var btn = ev.target.closest ? ev.target.closest('.addgprogramme') : null;
+        if (!btn) return;
+        openEditProgramme(btn);
+    });
 });
