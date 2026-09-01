@@ -35,9 +35,69 @@ class MY_Controller extends CI_Controller
         return self::$_controller_models;
     }
 
+    /** @var array */
+    private static $_helpers_loaded = array();
+
+    /**
+     * Charge des helpers une seule fois par requête.
+     *
+     * @param string[] $names
+     */
+    protected function _load_helpers(array $names)
+    {
+        $batch = array();
+        foreach ($names as $name) {
+            if (!isset(self::$_helpers_loaded[$name])) {
+                self::$_helpers_loaded[$name] = true;
+                $batch[] = $name;
+            }
+        }
+        if ($batch !== array()) {
+            $this->load->helper($batch);
+        }
+    }
+
+    /**
+     * Helpers requis par MY_Controller (auth, garde-fous, arrêts).
+     */
+    protected function _load_core_helpers()
+    {
+        $this->_load_helpers(array('auth_session', 'roleattribut_guard', 'compte_arret'));
+    }
+
+    /**
+     * Helpers métier chargés selon le contrôleur / config (évite autoload global).
+     */
+    protected function _load_controller_helpers()
+    {
+        $class = strtolower((string) $this->router->fetch_class());
+        $helpers = array();
+
+        if ($class === 'login') {
+            $helpers[] = 'passwordhash';
+        }
+        if (in_array($class, array('programmes', 'historique_passagers'), true)) {
+            $helpers[] = 'historique_modif_ticket';
+        }
+        if (in_array($class, array('super_administration', 'caisses'), true)) {
+            $helpers[] = 'super_admin';
+        }
+        if ($this->config->item('sales_price_controls_enabled')
+            || $this->config->item('fraud_controls_mode') !== 'off') {
+            $helpers[] = 'sales_price';
+        }
+        if ($this->session->userdata('agent') && $this->session->userdata('company')) {
+            $helpers = array_merge($helpers, array('retour', 'recette_role', 'ticket_prix', 'url_safe'));
+        }
+
+        $this->_load_helpers(array_values(array_unique($helpers)));
+    }
+
     public function __construct()
     {
         parent::__construct();
+        $this->_load_core_helpers();
+        $this->_load_controller_helpers();
         $this->_enforce_auth();
         $this->_enforce_roleattribut_uri();
         $this->_enforce_chef_arret_deadline();

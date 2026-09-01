@@ -88,7 +88,10 @@
     |
     |	$autoload['helper'] = array('url', 'file');
     */
-    $autoload['helper'] = array('url', 'form', 'html', 'date', 'string', 'file', 'session', 'retour', 'passwordhash', 'recette_role', 'compte_arret', 'roleattribut_guard', 'auth_session', 'ticket_prix', 'url_safe', 'historique_modif_ticket', 'super_admin', 'sales_price');
+    /*
+    | Noyau léger : helpers métier lourds chargés à la demande dans MY_Controller.
+    */
+    $autoload['helper'] = array('url', 'form', 'html', 'date', 'string', 'file', 'session');
     
     /*
     | -------------------------------------------------------------------
