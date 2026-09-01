@@ -75,12 +75,14 @@
         var grid = block.querySelector('.js-quota-sieges-grid');
         var summary = block.querySelector('.js-quota-summary');
         var libererFields = block.querySelector('.js-quota-liberer-fields');
+        var bloqueFields = block.querySelector('.js-quota-bloque-fields');
         var hintEl = block.querySelector('.js-quota-hint');
         var isEditBlock = block.getAttribute('data-quota-mode') === 'edit';
 
         var state = block._quotaState || {
             nbrPlace: 0,
             sold: {},
+            blocked: {},
             reco: {},
             recoMode: false,
             rangeDebut: 0,
@@ -154,6 +156,23 @@
             return out.sort(function (a, b) { return a - b; });
         }
 
+        function syncBloquesHidden() {
+            if (!bloqueFields || !grid) {
+                return;
+            }
+            bloqueFields.innerHTML = '';
+            grid.querySelectorAll('.js-quota-siege').forEach(function (cb) {
+                if (cb.checked || cb.disabled || cb.getAttribute('data-sold') === '1') {
+                    return;
+                }
+                var inp = document.createElement('input');
+                inp.type = 'hidden';
+                inp.name = 'sieges_bloques[]';
+                inp.value = String(cb.value);
+                bloqueFields.appendChild(inp);
+            });
+        }
+
         function syncLibererHidden(lib) {
             if (!libererFields) {
                 return;
@@ -173,6 +192,7 @@
             var nums = sortedNums(boxes);
             if (!nums.length) {
                 syncLibererHidden([]);
+                syncBloquesHidden();
                 if (debutEl) debutEl.value = '';
                 if (finEl) finEl.value = '';
                 setSummary('Quota : —');
@@ -196,7 +216,16 @@
             if (debutEl) debutEl.value = String(d);
             if (finEl) finEl.value = String(f);
             syncLibererHidden(lib);
+            syncBloquesHidden();
             var soldN = Object.keys(state.sold).length;
+            var blockedN = 0;
+            if (grid) {
+                grid.querySelectorAll('.js-quota-siege').forEach(function (cb) {
+                    if (!cb.checked && !cb.disabled && cb.getAttribute('data-sold') !== '1') {
+                        blockedN++;
+                    }
+                });
+            }
             var parts = [];
             if (state.recoMode) {
                 parts.push('Reconduit : ' + recoCount() + ' siège(s)');
@@ -210,11 +239,14 @@
             if (lib.length) {
                 parts.push(lib.length + ' libéré(s) → revendable(s)');
             }
+            if (blockedN > 0) {
+                parts.push(blockedN + ' bloqué(s) → hors vente');
+            }
             setSummary(parts.join(' · '));
             return true;
         }
 
-        function renderGrid(from, to, checkedFrom, checkedTo, sold, recoList) {
+        function renderGrid(from, to, checkedFrom, checkedTo, sold, recoList, blockedList) {
             if (!grid) {
                 return;
             }
@@ -223,6 +255,13 @@
                 var num = parseInt(n, 10);
                 if (!isNaN(num) && num > 0) {
                     state.sold[String(num)] = true;
+                }
+            });
+            state.blocked = {};
+            (blockedList || []).forEach(function (n) {
+                var num = parseInt(n, 10);
+                if (!isNaN(num) && num > 0) {
+                    state.blocked[String(num)] = true;
                 }
             });
             state.reco = {};
@@ -246,13 +285,20 @@
                     checked = isReco; // uniquement les sièges reconduits
                 } else {
                     checked = (n >= checkedFrom && n <= checkedTo) || isSold;
+                    if (state.blocked[String(n)] && !isSold) {
+                        checked = false;
+                    }
                 }
                 var disabled = state.recoMode && !isReco;
+                var isBlocked = !checked && !isSold && !disabled && state.blocked[String(n)];
                 var wrapStyle;
                 var labelExtra = '';
                 if (isSold) {
                     wrapStyle = 'background:#fff3cd;border:1px solid #ffc107;border-radius:4px;padding:4px 6px;display:block;';
                     labelExtra = ' <span style="color:#856404;font-size:11px;font-weight:600;">VENDU</span>';
+                } else if (isBlocked) {
+                    wrapStyle = 'background:#e2e3e5;border:1px solid #6c757d;border-radius:4px;padding:4px 6px;display:block;opacity:0.75;';
+                    labelExtra = ' <span style="color:#495057;font-size:11px;font-weight:600;">BLOQUÉ</span>';
                 } else if (state.recoMode && isReco) {
                     wrapStyle = 'background:#d1ecf1;border:1px solid #17a2b8;border-radius:4px;padding:4px 6px;display:block;';
                     labelExtra = ' <span style="color:#0c5460;font-size:11px;font-weight:600;">RECONDUIT</span>';
@@ -287,7 +333,7 @@
             syncHidden();
         }
 
-        function renderAll(nbrPlace, rangeDebut, rangeFin, sold, recoList) {
+        function renderAll(nbrPlace, rangeDebut, rangeFin, sold, recoList, blockedList) {
             state.nbrPlace = nbrPlace;
             var d = rangeDebut > 0 ? rangeDebut : 1;
             var f = rangeFin > 0 ? rangeFin : nbrPlace;
@@ -299,7 +345,7 @@
             }
             state.rangeDebut = d;
             state.rangeFin = f;
-            renderGrid(1, nbrPlace, d, f, sold, recoList || null);
+            renderGrid(1, nbrPlace, d, f, sold, recoList || null, blockedList || null);
         }
 
         function onToggle(ev) {
@@ -319,10 +365,11 @@
                 state.reverting = false;
                 setSummary('Au moins un siège requis.');
                 syncLibererHidden([]);
+                syncBloquesHidden();
                 return;
             }
 
-            // Édition / reconduction : trous autorisés (= libération)
+            // Édition / reconduction : trous autorisés (= libération ou blocage)
             if (state.editMode || state.recoMode) {
                 if (cb.getAttribute('data-sold') === '1' && !cb.checked) {
                     var lab = cb.closest('label');
@@ -344,6 +391,31 @@
                         if (tag2) {
                             tag2.textContent = 'VENDU';
                             tag2.style.color = '#856404';
+                        }
+                    }
+                } else if (!cb.checked && cb.getAttribute('data-sold') !== '1') {
+                    state.blocked[String(cb.value)] = true;
+                    var labB = cb.closest('label');
+                    if (labB) {
+                        labB.style.background = '#e2e3e5';
+                        labB.style.borderColor = '#6c757d';
+                        labB.style.opacity = '0.75';
+                        var tagB = labB.querySelector('span');
+                        if (tagB) {
+                            tagB.textContent = 'BLOQUÉ';
+                            tagB.style.color = '#495057';
+                        }
+                    }
+                } else if (cb.checked && cb.getAttribute('data-sold') !== '1') {
+                    delete state.blocked[String(cb.value)];
+                    var labOk = cb.closest('label');
+                    if (labOk && cb.getAttribute('data-reco') !== '1') {
+                        labOk.style.background = '';
+                        labOk.style.borderColor = '';
+                        labOk.style.opacity = '';
+                        var tagOk = labOk.querySelector('span');
+                        if (tagOk && tagOk.textContent === 'BLOQUÉ') {
+                            tagOk.textContent = '';
                         }
                     }
                 } else if (cb.getAttribute('data-reco') === '1' && cb.checked) {
@@ -431,15 +503,20 @@
                         return loadFromCategory(categ, inter1, inter2, sold);
                     }
                     var recoList = null;
+                    var blockedList = null;
                     if (data.is_reconduction_cible && Array.isArray(data.sieges_reconduits) && data.sieges_reconduits.length) {
                         recoList = data.sieges_reconduits;
+                    }
+                    if (Array.isArray(data.sieges_bloques) && data.sieges_bloques.length) {
+                        blockedList = data.sieges_bloques;
                     }
                     renderAll(
                         parseInt(data.nbr_place, 10) || 0,
                         parseInt(data.intervalle1, 10) || parseInt(inter1, 10) || 1,
                         parseInt(data.intervalle2, 10) || parseInt(inter2, 10) || 0,
                         sold,
-                        recoList
+                        recoList,
+                        blockedList
                     );
                     var categSel = findCategSelect(block);
                     if (categSel && data.categori && !categSel.value) {

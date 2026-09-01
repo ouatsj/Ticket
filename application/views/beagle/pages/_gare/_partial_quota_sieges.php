@@ -4,7 +4,7 @@ $categ_select_id = isset($categ_select_id) ? (string) $categ_select_id : '';
 $col_class = isset($col_class) ? (string) $col_class : 'col-sm-12';
 $quota_mode = isset($quota_mode) ? (string) $quota_mode : 'create';
 $quota_hint = ($quota_mode === 'edit')
-    ? 'Fond jaune = VENDU. En reconduction : bleu = siège reconduit, gris = hors reconduction.'
+    ? 'Fond jaune = VENDU, gris = BLOQUÉ (hors vente). En reconduction : bleu = siège reconduit, gris clair = hors reconduction.'
     : 'Plage contiguë uniquement.';
 ?>
 <div class="form-group <?= htmlspecialchars($col_class, ENT_QUOTES, 'UTF-8'); ?> js-quota-sieges-block"
@@ -22,5 +22,6 @@ $quota_hint = ($quota_mode === 'edit')
     <input type="hidden" name="debut" class="js-quota-debut-field" value="">
     <input type="hidden" name="fin" class="js-quota-fin-field" value="">
     <div class="js-quota-liberer-fields"></div>
+    <div class="js-quota-bloque-fields"></div>
     <small class="text-muted d-block mt-1 js-quota-hint"><?= htmlspecialchars($quota_hint, ENT_QUOTES, 'UTF-8'); ?></small>
 </div>

@@ -3,10 +3,119 @@
     class Programme_model extends CI_Model
     {
         protected $table = 'programme';
+        protected $table_siege_bloque = 'programme_siege_bloque';
         
         public function __construct()
         {
             parent::__construct();
+        }
+
+        /**
+         * Sièges décochés à l'édition d'un départ (hors vente).
+         */
+        public function ensure_siege_bloque_table()
+        {
+            $t = $this->table_siege_bloque;
+            $this->db->query(
+                "CREATE TABLE IF NOT EXISTS {$t} (
+                  id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+                  code_progr VARCHAR(128) NOT NULL,
+                  siege_num INT NOT NULL,
+                  PRIMARY KEY (id),
+                  UNIQUE KEY uq_prog_siege (code_progr, siege_num),
+                  KEY idx_code_progr (code_progr)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4"
+            );
+        }
+
+        /**
+         * @return int[]
+         */
+        public function sieges_bloques_programme($code_progr)
+        {
+            $code = trim((string) $code_progr);
+            if ($code === '') {
+                return array();
+            }
+            if (!$this->db->table_exists($this->table_siege_bloque)) {
+                return array();
+            }
+            $rows = $this->db->query(
+                "SELECT siege_num FROM {$this->table_siege_bloque}
+                 WHERE code_progr = ?
+                 ORDER BY siege_num ASC",
+                array($code)
+            )->result();
+            $out = array();
+            foreach ($rows as $r) {
+                $n = (int) $r->siege_num;
+                if ($n > 0) {
+                    $out[] = $n;
+                }
+            }
+            return $out;
+        }
+
+        /**
+         * @param int[] $bloques
+         */
+        public function sync_sieges_bloques_programme($code_progr, array $bloques)
+        {
+            $code = trim((string) $code_progr);
+            if ($code === '') {
+                return false;
+            }
+            $this->ensure_siege_bloque_table();
+            $norm = array();
+            foreach ($bloques as $n) {
+                $n = (int) $n;
+                if ($n > 0) {
+                    $norm[$n] = $n;
+                }
+            }
+            $this->db->delete($this->table_siege_bloque, array('code_progr' => $code));
+            foreach ($norm as $n) {
+                $this->db->insert($this->table_siege_bloque, array(
+                    'code_progr' => $code,
+                    'siege_num' => $n,
+                ));
+            }
+            return true;
+        }
+
+        /**
+         * @return string SQL AND … ou chaîne vide
+         */
+        protected function _cdprog_bloque_and($code_progr)
+        {
+            $bloques = $this->sieges_bloques_programme($code_progr);
+            if (empty($bloques)) {
+                return '';
+            }
+            $nums = array();
+            foreach ($bloques as $n) {
+                $nums[] = (int) $n;
+            }
+            if (empty($nums)) {
+                return '';
+            }
+            return ' AND sc.siege_num NOT IN (' . implode(',', $nums) . ')';
+        }
+
+        /**
+         * Filtre sièges bloqués via pr.code_progr (requêtes multi-programmes).
+         * @return string
+         */
+        protected function _cdprog_bloque_and_pr()
+        {
+            if (!$this->db->table_exists($this->table_siege_bloque)) {
+                return '';
+            }
+            $t = $this->table_siege_bloque;
+            return " AND NOT EXISTS (
+                SELECT 1 FROM {$t} b
+                WHERE b.code_progr = pr.code_progr AND b.siege_num = sc.siege_num
+            )";
         }
         
         public function create(array $data)
@@ -1833,6 +1942,7 @@
             if ($recoAnd === false) {
                 return array();
             }
+            $bloqueAnd = $this->_cdprog_bloque_and($cd);
 
             // Dérivé Banfora→Bobo : miroir des sièges déjà occupés sur la suite Bobo.
             if ($miroir) {
@@ -1865,6 +1975,7 @@
                     AND lh.actif_lh = 1
                     AND pr.actif_prog = 0
                     AND sc.siege_num BETWEEN {$d} AND {$f}
+                    {$bloqueAnd}
                     ORDER BY sc.siege_num ASC"
                 )->result();
             }
@@ -1890,6 +2001,7 @@
                 AND lh.actif_lh = 1
                 AND pr.actif_prog = 0
                 AND sc.siege_num BETWEEN {$d} AND {$f}
+                {$bloqueAnd}
                 {$recoAnd}
                 ORDER BY sc.siege_num ASC"
             )->result();
@@ -1901,7 +2013,7 @@
 
         public function cdprogbus($cid, $cd, $dat, $lg, $hr, $d, $f)
         {
-            
+            $bloquePr = $this->_cdprog_bloque_and_pr();
             return $this->db->query(
                 "SELECT * FROM siege_categorie sc
                 JOIN categorie ct ON sc.idcat_bus = ct.categorie
@@ -1936,6 +2048,7 @@
                 AND lh.actif_lh = 1
                 AND pr.actif_prog = 0
                 AND sc.siege_num BETWEEN $d AND $f
+                {$bloquePr}
                 ORDER BY sc.siege_num ASC")->result();
         }
 
@@ -1996,6 +2109,7 @@
             if ($recoAnd === false) {
                 return array();
             }
+            $bloqueAnd = $this->_cdprog_bloque_and($cd);
 
             if ($miroir) {
                 $suiteEsc = $this->db->escape_str($miroir['suite']);
@@ -2024,6 +2138,7 @@
                     AND lh.actif_lh = 1
                     AND pr.actif_prog = 0
                     AND sc.siege_num BETWEEN {$d} AND {$f}
+                    {$bloqueAnd}
                     ORDER BY sc.siege_num ASC"
                 )->result();
             }
@@ -2046,6 +2161,7 @@
                 AND lh.actif_lh = 1
                 AND pr.actif_prog = 0
                 AND sc.siege_num BETWEEN {$d} AND {$f}
+                {$bloqueAnd}
                 {$recoAnd}
                 ORDER BY sc.siege_num ASC"
             )->result();
@@ -2053,7 +2169,7 @@
 
         public function cdprogtransbus($cid, $cd, $d, $f)
         {
-            
+            $bloquePr = $this->_cdprog_bloque_and_pr();
             return $this->db->query(
                 "SELECT * FROM siege_categorie sc
                 JOIN categorie ct ON sc.idcat_bus=ct.categorie
@@ -2082,6 +2198,7 @@
                 AND lh.actif_lh = 1
                 AND pr.actif_prog = 0
                 AND sc.siege_num BETWEEN $d AND $f
+                {$bloquePr}
                 ORDER BY sc.siege_num ASC")->result();
         }
 

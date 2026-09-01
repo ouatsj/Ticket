@@ -832,6 +832,11 @@
                 }
             }
 
+            $sieges_bloques = $this->input->post('sieges_bloques');
+            if (!is_array($sieges_bloques)) {
+                $sieges_bloques = array();
+            }
+
             $compter = $this->db->query("SELECT COUNT(code_progr) AS id FROM programme WHERE createdatepr = '$today' AND gareidentif = '$gd'")->row();
             
             $cgbselect = $this->input->post('ouotnouveau');
@@ -870,6 +875,7 @@
                     );
                     if($this->m_programme->update($idpr, $arrayedit) != FALSE)
                     {
+                        $this->m_programme->sync_sieges_bloques_programme($idpr, $sieges_bloques);
                         $this->m_programme->sync_portee_sousgares($idpr, $selected_sg, $total_sg);
                         $nbp = $quota['intervalle2'];
                         $cte = $this->input->post('categorie');
@@ -905,6 +911,7 @@
                         );
                         if($this->m_programme->update($idpr, $arrayedit) != FALSE)
                         {
+                            $this->m_programme->sync_sieges_bloques_programme($idpr, $sieges_bloques);
                             $this->m_programme->sync_portee_sousgares($idpr, $selected_sg, $total_sg);
                             $nbp = $quota['intervalle2'];
                             $cte = $this->input->post('categorie');
@@ -982,7 +989,7 @@
             if ($gdp != NULL) {
                 $this->property['INSERT_SUCCESS'] = TRUE;
             }
-            redirect('gares/'.$this->session->company->ekey. '/gTs/'. $stopgare. '/sousgare/'.$idcp.'/'. mdate("%d/%m/%Y", now('UTC')));
+            redirect('gares/'.$this->session->company->ekey. '/gTs/'. $stopgare. '/sousgare/'.$iduser.'/'. mdate("%d/%m/%Y", now('UTC')));
         }
         public function modifsousgare($ckey, $stopgare, $ids)
         {
@@ -1439,6 +1446,7 @@
                     'intervalle2' => (int) $pr->intervalle2,
                     'nbr_place' => $nbr,
                     'sieges_occupes' => $this->m_programme->sieges_occupes_programme($code),
+                    'sieges_bloques' => $this->m_programme->sieges_bloques_programme($code),
                     'is_reconduction_cible' => $is_reconduction_cible,
                     'sieges_reconduits' => $sieges_reconduits,
                     'nb_sieges_reconduits' => count($sieges_reconduits),
