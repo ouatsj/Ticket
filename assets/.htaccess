@@ -1,5 +1,9 @@
 # Assets guichet : cache modéré (évite JS obsolète après correctif + 408 CDN figé)
 
+<IfModule mod_deflate.c>
+    AddOutputFilterByType DEFLATE application/javascript text/javascript text/css application/json
+</IfModule>
+
 <IfModule mod_expires.c>
     ExpiresActive On
     ExpiresByType image/jpeg "access plus 30 days"
