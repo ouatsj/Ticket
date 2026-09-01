@@ -613,6 +613,21 @@ if (!function_exists('roleattribut_guard_main_cashbox_validation_context')) {
     }
 }
 
+if (!function_exists('roleattribut_guard_has_validation_filter_dates')) {
+    /**
+     * Indique si la validation vient d’un résultat de tri (période POST valide).
+     */
+    function roleattribut_guard_has_validation_filter_dates($date_start, $date_end)
+    {
+        $date_start = (string) $date_start;
+        $date_end = (string) $date_end;
+
+        return (bool) preg_match('/^\d{4}-\d{2}-\d{2}$/', $date_start)
+            && (bool) preg_match('/^\d{4}-\d{2}-\d{2}$/', $date_end)
+            && $date_start <= $date_end;
+    }
+}
+
 if (!function_exists('roleattribut_guard_assert_main_cashbox_operation')) {
     /**
      * Empêche de valider par modification d'URL une opération d'une autre gare

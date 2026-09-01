@@ -13,7 +13,7 @@
     <div class="row">
         <div class="col-12 mt-0 mb-2 ml-4 mr-4">
             <a href="<?= site_url("utilisateurs/{$this->session->company->ekey}". "/caissier/".
-                (!empty($caisseident->gexp_caiss) ? $caisseident->gexp_caiss : 0). "/".(!empty($caisseident->id_caiss) ? $caisseident->id_caiss : 0). "/".(!empty($user_connect->roleattribut) ? $user_connect->roleattribut : 0).'/'.$connex->roleattribut.'/'.$bus_stop->idsousgare.
+                (!empty($bus_stop->idengare) ? $bus_stop->idengare : (!empty($caisseident->gexp_caiss) ? $caisseident->gexp_caiss : 0)). "/".(!empty($caisseident->id_caiss) ? $caisseident->id_caiss : 0). "/".(!empty($user_connect->roleattribut) ? $user_connect->roleattribut : 0).'/'.$connex->roleattribut.'/'.$bus_stop->idsousgare.
                 "/" . mdate("%d/%m/%Y", now('UTC'))); ?>" class="btn btn-space btn-secondary">
                     <i class="fas fa-arrow-circle-left text-info"></i>&nbsp;RETOUR&nbsp;
             </a>

@@ -190,13 +190,33 @@
         public function suprime($ckey, $cdp, $ct, $uid, $g, $sg)
         {
             $this->company = $this->m_entreprises->get_key($ckey);
+            $motif = historique_modif_ticket_read_motif_post();
+            if (!$motif['ok']) {
+                $this->session->set_flashdata('sale_error', $motif['error']);
+                return $this->view($ckey, $uid, $g, $sg, $this->property);
+            }
 
-             
+            $before = historique_modif_ticket_row_passager($this->db, $cdp, $ct);
             $delarray = array(
                 'num_siege_categorie' => NULL,
             );
             $this->m_passager->update($cdp, $ct, $delarray);
- 
+
+            $changes = historique_modif_ticket_diff(
+                array('num_siege_categorie' => isset($before['num_siege_categorie']) ? $before['num_siege_categorie'] : null),
+                $delarray
+            );
+            historique_modif_ticket_log($this->db, array(
+                'ekey' => $this->company->ekey,
+                'gare_id' => $g,
+                'type_modif' => 'annulation_siege',
+                'code_passager' => $cdp,
+                'code_ticket' => $ct,
+                'id_client' => isset($before['id_client_pass']) ? (int) $before['id_client_pass'] : null,
+                'changes' => $changes,
+                'motif' => $motif['motif'],
+                'ordre_par' => $motif['ordre_par'],
+            ));
 
                $this->property['UPDATE_SUCCESS'] = TRUE;
                return $this->view($ckey, $uid, $g, $sg, $this->property);
@@ -205,6 +225,11 @@
         //desactiver code d'un ticket
         public function desactivecode($ckey, $cdp, $code, $uid, $g, $sg)
         {
+            $motif = historique_modif_ticket_read_motif_post();
+            if (!$motif['ok']) {
+                $this->session->set_flashdata('sale_error', $motif['error']);
+                return $this->view($ckey, $uid, $g, $sg, $this->property);
+            }
 
             if($code == 0)
             {
@@ -215,10 +240,28 @@
                 $actif = 0;
             }
 
+            $before = historique_modif_ticket_row_tampon($this->db, $cdp);
             $annulearray = array(
                 'is_activecode' => $actif,
             );
             $this->m_tamponcode->update($cdp, $annulearray);
+
+            $changes = historique_modif_ticket_diff(
+                array('is_activecode' => isset($before['is_activecode']) ? $before['is_activecode'] : null),
+                $annulearray
+            );
+            $pass = historique_modif_ticket_row_passager($this->db, $cdp);
+            historique_modif_ticket_log($this->db, array(
+                'ekey' => $ckey,
+                'gare_id' => $g,
+                'type_modif' => 'desactivation_code',
+                'code_passager' => $cdp,
+                'code_ticket' => isset($pass['code_ticket']) ? $pass['code_ticket'] : null,
+                'id_client' => isset($pass['id_client_pass']) ? (int) $pass['id_client_pass'] : null,
+                'changes' => $changes,
+                'motif' => $motif['motif'],
+                'ordre_par' => $motif['ordre_par'],
+            ));
 
                 $this->property['UPDATE_SUCCESS'] = TRUE;
                 return $this->view($ckey, $uid, $g, $sg, $this->property);
@@ -234,7 +277,13 @@
             $g = $this->input->post('stop');
             $uid = $this->_roleattribut_guard_post_id($this->company->ekey, 'stop', 'useridconnected');
             $sg = $this->input->post('sousgd');
-             
+            $motif = historique_modif_ticket_read_motif_post();
+            if (!$motif['ok']) {
+                $this->session->set_flashdata('sale_error', $motif['error']);
+                return $this->view($ckey, $uid, $g, $sg, $this->property);
+            }
+
+            $before = historique_modif_ticket_row_passager($this->db, $cdp, $ct);
             $delarray2 = array(
                 'code_pro'=> $this->input->post('departs'),
                 'num_siege_categorie' => $sub_siege,
@@ -245,6 +294,21 @@
 
             $this->m_passager->update($cdp, $ct, $delarray2);
 
+            $slice = array();
+            foreach ($delarray2 as $k => $v) {
+                $slice[$k] = isset($before[$k]) ? $before[$k] : null;
+            }
+            historique_modif_ticket_log($this->db, array(
+                'ekey' => $this->company->ekey,
+                'gare_id' => $g,
+                'type_modif' => 'depart',
+                'code_passager' => $cdp,
+                'code_ticket' => $ct,
+                'id_client' => isset($before['id_client_pass']) ? (int) $before['id_client_pass'] : null,
+                'changes' => historique_modif_ticket_diff($slice, $delarray2),
+                'motif' => $motif['motif'],
+                'ordre_par' => $motif['ordre_par'],
+            ));
 
                 $this->property['UPDATE_SUCCESS'] = TRUE;
                 return $this->view($ckey, $uid, $g, $sg, $this->property);
@@ -289,6 +353,12 @@
         public function updateticket($ckey, $cdp, $ct, $uid, $g, $sg, $nct = FALSE)
         {
             $this->company = $this->m_entreprises->get_key($ckey);
+            $motif = historique_modif_ticket_read_motif_post();
+            if (!$motif['ok']) {
+                $this->session->set_flashdata('sale_error', $motif['error']);
+                return $this->view($ckey, $uid, $g, $sg, $this->property);
+            }
+
             if (sales_price_controls_enabled()) {
                 if (strtoupper($this->input->method()) !== 'POST'
                     || (string) $this->session->company->ekey !== (string) $ckey
@@ -325,28 +395,25 @@
                     return;
                 }
 
-                $reason = trim((string) $this->input->post('modification_motif'));
-                if ($reason === '') {
-                    show_error('Le motif de modification est obligatoire.', 422);
-                    return;
-                }
                 $pricing = sales_price_validate_or_fail(
                     $ticket->code_pro,
                     $this->input->post('prixticket'),
                     array(
-                        'reason' => $reason,
+                        'reason' => $motif['motif'],
                         'authorization_type' => 'divers',
                         'zero_confirmed' => $this->input->post('confirmation_zero') === '1',
                     )
                 );
                 $newPrice = $pricing['sold_price'];
                 $oldPrice = (float) $ticket->prixvente;
+                $reason = $motif['motif'];
             } else {
                 $newPrice = $this->input->post('prixticket');
                 $oldPrice = null;
-                $reason = null;
+                $reason = $motif['motif'];
             }
 
+            $before = historique_modif_ticket_row_passager($this->db, $cdp, $ct);
             $delarray = array(
                 'prixvente' => $newPrice,
             );
@@ -371,6 +438,22 @@
                 ));
             }
 
+            $changes = historique_modif_ticket_diff(
+                array('prixvente' => isset($before['prixvente']) ? $before['prixvente'] : null),
+                $delarray
+            );
+            historique_modif_ticket_log($this->db, array(
+                'ekey' => $this->company->ekey,
+                'gare_id' => $g,
+                'type_modif' => 'prix',
+                'code_passager' => $cdp,
+                'code_ticket' => $ct,
+                'id_client' => isset($before['id_client_pass']) ? (int) $before['id_client_pass'] : null,
+                'changes' => $changes,
+                'motif' => $motif['motif'],
+                'ordre_par' => $motif['ordre_par'],
+            ));
+
             $this->property['UPDATE_SUCCESS'] = TRUE;
 
                 return $this->view($ckey, $uid, $g, $sg, $this->property);
@@ -378,7 +461,13 @@
         public function upgarequart($ckey, $cdp, $ct, $uid, $g, $sg)
         {
             $this->company = $this->m_entreprises->get_key($ckey);
+            $motif = historique_modif_ticket_read_motif_post();
+            if (!$motif['ok']) {
+                $this->session->set_flashdata('sale_error', $motif['error']);
+                return $this->view($ckey, $uid, $g, $sg, $this->property);
+            }
 
+            $before = historique_modif_ticket_row_passager($this->db, $cdp, $ct);
             $delarrays = array(
 
                 'departclient_idgare' => $this->input->post('deparsousgareidentifs'),
@@ -386,6 +475,22 @@
 
             );
             $this->m_passager->update($cdp, $ct, $delarrays);
+
+            $slice = array(
+                'departclient_idgare' => isset($before['departclient_idgare']) ? $before['departclient_idgare'] : null,
+                'quart' => isset($before['quart']) ? $before['quart'] : null,
+            );
+            historique_modif_ticket_log($this->db, array(
+                'ekey' => $this->company->ekey,
+                'gare_id' => $g,
+                'type_modif' => 'gare_quartier',
+                'code_passager' => $cdp,
+                'code_ticket' => $ct,
+                'id_client' => isset($before['id_client_pass']) ? (int) $before['id_client_pass'] : null,
+                'changes' => historique_modif_ticket_diff($slice, $delarrays),
+                'motif' => $motif['motif'],
+                'ordre_par' => $motif['ordre_par'],
+            ));
 
             $this->property['UPDATE_SUCCESS'] = TRUE;
 
@@ -438,6 +543,11 @@
         public function updateconf($ckey, $clid, $uid, $g, $sg)
         {
             $this->company = $this->m_entreprises->get_key($ckey);
+            $motif = historique_modif_ticket_read_motif_post();
+            if (!$motif['ok']) {
+                $this->session->set_flashdata('sale_error', $motif['error']);
+                return $this->view($ckey, $uid, $g, $sg, $this->property);
+            }
             
             $argv = array(
                 'nom_client' => $this->input->post('rclient'),
@@ -447,6 +557,13 @@
                 'date_delivre' => $this->input->post('date_cnib'),
                 'lieu_delivre' => $this->input->post('lieu'),
             );
+
+            historique_modif_ticket_log_client_fields($this->db, $clid, $argv, array(
+                'ekey' => $this->company->ekey,
+                'gare_id' => $g,
+                'motif' => $motif['motif'],
+                'ordre_par' => $motif['ordre_par'],
+            ));
             
             $clhid = $this->m_client->update($clid, $argv);
             if ($clhid != FALSE)

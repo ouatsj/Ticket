@@ -86,14 +86,27 @@
                 // Vente normale : prix catalogue du programme.
                 // Vente escale : prix déjà fixé via itineraire_escales.prix_escale.
                 $data['prixvente'] = ticket_prix_depuis_programme($data['code_pro'], $data['prixvente']);
+            } elseif (
+                !sales_price_controls_enabled()
+                && isset($CI->router)
+                && strtolower((string) $CI->router->fetch_method()) === 'addpassagerfi'
+                && array_key_exists('prixvente', $data)
+            ) {
+                // Prod / hors contrôles : AUTRES VENTE conserve le prix saisi.
+                $freePrice = trim((string) $data['prixvente']);
+                if ($freePrice === '' || !is_numeric($freePrice) || (float) $freePrice < 0) {
+                    show_error('Le prix libre doit être un montant positif ou égal à zéro.', 400);
+                    return 0;
+                }
+                $data['prixvente'] = round((float) $freePrice, 2);
             }
 
-            $this->db->insert($this->table, $data);
+            $ok = $this->db->insert($this->table, $data);
             $insertId = $this->db->insert_id();
-            if ($insertId && $pricing) {
+            if ($ok && $pricing) {
                 sales_price_snapshot_record($data, $pricing);
             }
-            if ($insertId && !empty($data['code_pro'])) {
+            if ($ok && !empty($data['code_pro'])) {
                 $ticket = isset($data['code_ticket']) ? (string) $data['code_ticket'] : '';
                 if ($ticket !== 'R') {
                     if (!isset($CI->m_programme_reconduction)) {
@@ -102,15 +115,95 @@
                     $CI->m_programme_reconduction->apres_vente($data['code_pro']);
                 }
             }
+            // Phase 1 : journal confirmation (création) — jamais bloquant.
+            if ($ok) {
+                $this->_historique_modif_ticket_safe_log('create', '', '', array(), $data);
+            }
             return $insertId;
         }
         
         public function update($code_passager, $code_ticket, array $data)
         {
-
             $multiClause = array('code_passager' => $code_passager, 'code_ticket' => $code_ticket);
 
-            return $this->db->where($multiClause)->update($this->table, $data);
+            $before = array();
+            $type = null;
+            if (function_exists('historique_modif_ticket_detect_write_type')) {
+                $type = historique_modif_ticket_detect_write_type($data);
+            }
+            if ($type !== null && function_exists('historique_modif_ticket_row_passager')) {
+                try {
+                    $before = historique_modif_ticket_row_passager($this->db, $code_passager, $code_ticket);
+                } catch (Throwable $e) {
+                    $before = array();
+                    if (function_exists('log_message')) {
+                        log_message('error', 'Passager_model historique before: ' . $e->getMessage());
+                    }
+                }
+            }
+
+            $ok = $this->db->where($multiClause)->update($this->table, $data);
+
+            if ($ok && $type !== null) {
+                $this->_historique_modif_ticket_safe_log(
+                    'update',
+                    (string) $code_passager,
+                    (string) $code_ticket,
+                    is_array($before) ? $before : array(),
+                    $data
+                );
+            }
+
+            return $ok;
+        }
+
+        /**
+         * Journal Phase 1 (reprog / confirmation) — isolé du flux métier.
+         *
+         * @param string $mode
+         * @param string $code_passager
+         * @param string $code_ticket
+         * @param array $before
+         * @param array $data
+         * @return void
+         */
+        private function _historique_modif_ticket_safe_log($mode, $code_passager, $code_ticket, array $before, array $data)
+        {
+            try {
+                if (!function_exists('historique_modif_ticket_detect_write_type')
+                    || !function_exists('historique_modif_ticket_try_log_passager_write')
+                ) {
+                    return;
+                }
+                $type = historique_modif_ticket_detect_write_type($data);
+                if ($type === null) {
+                    return;
+                }
+                if ($code_passager === '' && isset($data['code_passager'])) {
+                    $code_passager = (string) $data['code_passager'];
+                }
+                if ($code_ticket === '' && isset($data['code_ticket'])) {
+                    $code_ticket = (string) $data['code_ticket'];
+                }
+                if ($code_passager === '') {
+                    return;
+                }
+                historique_modif_ticket_try_log_passager_write(
+                    $this->db,
+                    $type,
+                    $code_passager,
+                    $code_ticket,
+                    $before,
+                    $data,
+                    array(
+                        'meta' => array('source' => 'passager_' . $mode),
+                    )
+                );
+            } catch (Throwable $e) {
+                if (function_exists('log_message')) {
+                    log_message('error', 'Passager_model _historique_modif_ticket_safe_log: ' . $e->getMessage());
+                }
+            }
         }
 
         public function del($id, $idtick)
@@ -3764,10 +3857,10 @@
 
     public function reporticket($cid, $gid, $dt1, $dt2, $cp, $algn = FALSE, $sg = FALSE)
     {
-        $sg = trim((string) $sg);
+        $sgNorm = ($sg === FALSE || $sg === null) ? '' : trim((string) $sg);
         $sgSql = '';
-        if ($sg !== '' && $sg !== '0') {
-            $sgSql = " AND p.departclient_idgare = '" . $this->db->escape_str($sg) . "'";
+        if ($sgNorm !== '' && $sgNorm !== '0') {
+            $sgSql = " AND p.departclient_idgare = '" . $this->db->escape_str($sgNorm) . "'";
         }
 
         if ($algn === '') 

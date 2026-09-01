@@ -995,10 +995,10 @@
 
         public function reporticketretour($cid, $gid, $dt1, $dt2, $cp, $algn = FALSE, $sg = FALSE)
         {
-            $sg = trim((string) $sg);
+            $sgNorm = ($sg === FALSE || $sg === null) ? '' : trim((string) $sg);
             $sgSql = '';
-            if ($sg !== '' && $sg !== '0') {
-                $sgSql = " AND np.sousgareidentif = '" . $this->db->escape_str($sg) . "'";
+            if ($sgNorm !== '' && $sgNorm !== '0') {
+                $sgSql = " AND np.sousgareidentif = '" . $this->db->escape_str($sgNorm) . "'";
             }
 
             if ($algn === '') 

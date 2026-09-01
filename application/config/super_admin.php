@@ -6,7 +6,7 @@
  * TRUE  : les comptes SuperAdmin et les permissions granulaires sont actifs.
  * FALSE : l'application conserve les règles historiques des rôles.
  *
- * En production, ce fichier sera livré avec FALSE puis activé après validation.
+ * Activé uniquement sur essaiticket ; reste FALSE en production.
  */
-$config['super_admin_enabled'] = TRUE;
-
+$ci_http_host = isset($_SERVER['HTTP_HOST']) ? strtolower((string) $_SERVER['HTTP_HOST']) : '';
+$config['super_admin_enabled'] = ($ci_http_host === 'essaiticket.rakietabus.com');

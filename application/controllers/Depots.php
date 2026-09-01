@@ -317,6 +317,10 @@
             $depo = $this->m_depot->update($idpo, $depoaray);
             
             $this->property['UPDATE_SUCCESS'] = TRUE;
+
+            if ($this->_render_validation_filter_depots($identifiant_gare, $identifiant_sousgare, $identifiant_use, $dop, $cashboxContext)) {
+                return;
+            }
             
                 redirect('utilisateurs/'.$this->session->company->ekey. '/caisseprincdepot/'. $identifiant_gare. '/'. ($cashboxContext ? $cashboxContext['consultant_ra'] : $identifiant_use). '/'.$identifiant_sousgare .'/'.($cashboxContext ? $cashboxContext['caissier_ra'] : $dop). '/' . mdate("%d/%m/%Y", now('UTC')));
             
@@ -350,9 +354,65 @@
             $depo = $this->m_depot->update($idpo, $depoaray);
             
             $this->property['UPDATE_SUCCESS'] = TRUE;
+
+            if ($this->_render_validation_filter_depots($identifiant_gare, $identifiant_sousgare, $identifiant_use, $dop, $cashboxContext)) {
+                return;
+            }
             
                 redirect('utilisateurs/'.$this->session->company->ekey. '/caisseprincdepot/'. $identifiant_gare. '/'. ($cashboxContext ? $cashboxContext['consultant_ra'] : $identifiant_use). '/'.$identifiant_sousgare.'/'. ($cashboxContext ? $cashboxContext['caissier_ra'] : $dop). '/' . mdate("%d/%m/%Y", now('UTC')));
             
+        }
+
+        /**
+         * Recharge la liste filtrée après validation/rejet dépôt (évite de perdre le tri).
+         *
+         * @return bool true si la vue filtrée a été rendue
+         */
+        protected function _render_validation_filter_depots($identifiant_gare, $identifiant_sousgare, $identifiant_use, $dop, $cashboxContext)
+        {
+            $company = $this->input->post('_compag');
+            $d1 = $this->input->post('datedebut');
+            $d2 = $this->input->post('datefin');
+            if (!roleattribut_guard_has_validation_filter_dates($d1, $d2)) {
+                return false;
+            }
+
+            $viewer_ra = $cashboxContext
+                ? (int) $cashboxContext['consultant_ra']
+                : (int) $identifiant_use;
+            $caissier_ra = $cashboxContext
+                ? (int) $cashboxContext['caissier_ra']
+                : (int) $dop;
+            $query_ra = $caissier_ra;
+
+            $rows = $this->m_depot->validfilter(
+                $this->company->ekey,
+                $identifiant_gare,
+                $query_ra,
+                $d1,
+                $d2,
+                $company
+            );
+            $this->property['gare_stop'] = $this->m_sousgare->sget($this->company->ekey, $identifiant_gare, $identifiant_sousgare);
+            $this->property['conex'] = $this->m_compte_user->getusergare($this->company->ekey, $identifiant_gare, $caissier_ra);
+            $this->property['connex'] = $this->m_compte_user->getusergar($this->company->ekey, $identifiant_gare, $viewer_ra);
+            $this->property['cashbox_viewer_roleattribut'] = $viewer_ra;
+            $this->property['cashbox_target_roleattribut'] = $caissier_ra;
+            $this->property['cashbox_list_roleattribut'] = $viewer_ra;
+            $this->property['depots'] = $rows;
+            $this->property['depotsvalid'] = (object) array(
+                'montant_depot' => array_sum(array_map(function ($row) {
+                    return (float) $row->montant_depot;
+                }, $rows)),
+            );
+            $this->property['compagnies'] = $this->m_compagnies->get();
+            $this->property['typedocuments'] = $this->m_typedocument->get();
+            $this->property['filter_date_start'] = $d1;
+            $this->property['filter_date_end'] = $d2;
+            $this->property['filter_compagnie'] = $company;
+            $this->property['pagetitle'] .= "• VALIDATION DES DEPOTS•&nbsp;{$this->property['conex']->garenom}<strong>•&nbsp;{$this->company->nom_entreprise}</strong>";
+            $this->layout->view('_caisse/valddept', $this->property);
+            return true;
         }
         
         //enregistrement autre 

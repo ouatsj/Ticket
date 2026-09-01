@@ -51,7 +51,7 @@
                     <tr><td style="font-size: 70px;"><b><?= "{$day}"; ?>&nbsp;&nbsp; <?= $item->heure; ?></b></td></tr>
                     <tr><td style="font-size: 70px;">Prix : <?= number_format("{$item->prix}", 0, '', ' '); ?> &nbsp;FCFA </td></tr>
                     <tr><td style="font-size: 50px;"><b>BON VOYAGE AVEC <?= $item->nom_compagnie;?></b></td></tr>
-                    <tr><td style="font-size: 35px; width:40%;"> <img src="<?php echo site_url('render/Barcode/'.$item->idclescal);?>" width="700" height="170"></td></tr>
+                    <tr><td style="font-size: 35px; width:40%;"> <?= ticket_barcode_img($item->idclescal, 400, 40); ?></td></tr>
                     <tr><td style="font-size: 50px;">emis : <?= $dtoday; ?></td></tr>
                     </table>
                 </body>

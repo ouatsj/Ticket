@@ -4232,7 +4232,7 @@
               $lign = $this->input->post('axeligne');
               $comp = $this->input->post('_compag');
               $gid = $this->input->post('departgar');
-              $sg = $this->input->post('sousgaretkt');
+              $sg = $this->input->post('sousgaretgl');
                 $dats = explode("-", $dt1);
                   $days = $dats[2]. '-'. $dats[1]. '-' .$dats[0];
                   $dats1 = explode("-", $dt2);
@@ -8241,6 +8241,14 @@
                   //$recapcourrier = $this->m_courrier_expedier->recaptpligl($this->entreprise->ekey, $dt1, $dt2, $gid, $tyc, $comp, $lign);
 
                   $recapcourrier = $this->m_courrier_expedier->trecaptpligl($this->entreprise->ekey, $dt1, $dt2, $comp, $gid, $tyc, $lign, $sg);
+
+              $sgTitre = '';
+              if ($sg !== null && $sg !== '') {
+                  $sgrow = $this->db->get_where('sousgare', array('idsousgare' => $sg))->row();
+                  if ($sgrow && !empty($sgrow->nomsousgare)) {
+                      $sgTitre = ' ' . $sgrow->nomsousgare;
+                  }
+              }
                 
               $pdf = new TCPDF(PDF_PAGE_ORIENTATION, PDF_UNIT, PDF_PAGE_FORMAT, true, 'UTF-8', false);
               // set document information
@@ -8279,7 +8287,7 @@
               // GROUPE DE GAUCHE
               $pdf->SetFont('courier', '', 9);
                           
-              $titre = '<h1 align="center">RECAP GLOBAL COURRIER '.$ty3.' '.$ncomp->compagnie.' DU '. $days .' AU '.$days1.'</h1>';
+              $titre = '<h1 align="center">RECAP GLOBAL COURRIER '.$ty3.' '.$ncomp->compagnie.$sgTitre.' DU '. $days .' AU '.$days1.'</h1>';
               $them = '<table border="1" cellpadding="0">
                   <thead>                          
                         <tr> 

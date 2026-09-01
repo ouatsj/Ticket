@@ -4810,7 +4810,8 @@
                       $pdf->SetSubject('RESERVATIONS');
                       $pdf->SetKeywords('--');
                       
-                      $pdf->SetHeaderData(false, false, $this->entreprise->nom_entreprise, '   ' . $da . '    ' . $hre. '   N° BUS : ' .$x);
+                      $hre_affiche = url_segment_heure_affiche($hre);
+                      $pdf->SetHeaderData(false, false, $this->entreprise->nom_entreprise, '   ' . $da . '    ' . $hre_affiche . '   N° BUS : ' .$x);
 
                       // remove default header/footer
                       $pdf->setPrintHeader(true);
@@ -4938,7 +4939,8 @@
                    $pdf->SetSubject('RESERVATIONS');
                    $pdf->SetKeywords('--');
                    
-                   $pdf->SetHeaderData(false, false, $this->entreprise->nom_entreprise, '   ' . $da);
+                   $plg1_affiche = url_segment_heure_affiche($plg1);
+                   $pdf->SetHeaderData(false, false, $this->entreprise->nom_entreprise, '   ' . $da . '    ' . $plg1_affiche);
                    // remove default header/footer
                    $pdf->setPrintHeader(true);
                    $pdf->setPrintFooter(false);
@@ -4967,7 +4969,7 @@
                    // GROUPE DE GAUCHE
                    $pdf->SetFont('courier', '', 9);
                    
-                   $titre = '<h1 align="center"> LISTE DES PASSAGERS '.$itineraire->nom_ligne.'  '.$plg1.'</h1>';
+                   $titre = '<h1 align="center"> LISTE DES PASSAGERS '.$itineraire->nom_ligne.'  '.$plg1_affiche.'</h1>';
                    $them = '<table border="1" cellpadding="0">
                        <thead> 
                            <tr> 
@@ -5041,7 +5043,8 @@
                     $pdf->SetSubject('RESERVATIONS');
                     $pdf->SetKeywords('--');
                     
-                    $pdf->SetHeaderData(false, false, $this->entreprise->nom_entreprise, '   ' . $da . ' ' . $lhre);
+                    $lhre_affiche = url_segment_heure_affiche($lhre);
+                    $pdf->SetHeaderData(false, false, $this->entreprise->nom_entreprise, '   ' . $da . ' ' . $lhre_affiche);
                     // remove default header/footer
                     $pdf->setPrintHeader(true);
                     $pdf->setPrintFooter(false);
@@ -5156,7 +5159,8 @@
                       $pdf->SetSubject('RESERVATIONS');
                       $pdf->SetKeywords('--');
                       
-                      $pdf->SetHeaderData(false, false, $this->entreprise->nom_entreprise, '   ' . $da . '    ' . $hr. '   N° BUS : ' .$x);
+                      $hr_affiche = url_segment_heure_affiche($hr);
+                      $pdf->SetHeaderData(false, false, $this->entreprise->nom_entreprise, '   ' . $da . '    ' . $hr_affiche . '   N° BUS : ' .$x);
                       // remove default header/footer
                       $pdf->setPrintHeader(true);
                       $pdf->setPrintFooter(false);
@@ -5189,7 +5193,7 @@
                          <h3>CATEGORIE : ' . urldecode($cat) . '  IMMAT DU BUS: ' . urldecode($imat) . '&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;CONVOYEUR: ' . urldecode($cv) . '</h3>';
                       $pdf->writeHTML($htmlhead, $linebreak = false, $fill = false, $reseth = true, $cell = false, $align = "");
                       
-                      $titre = '<h1 align="center"> LISTE DES PASSAGERS '.$lgn.'</h1>';
+                      $titre = '<h1 align="center"> LISTE DES PASSAGERS '.urldecode($lgn).'</h1>';
                       $them = '<table border="1" cellpadding="0">
                           <thead> 
                           <tr> 

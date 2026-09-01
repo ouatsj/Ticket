@@ -95,7 +95,7 @@
                         </tr>
                         <tr><td align=left><?= $item->nom_client; ?></td><td td colspan="3" align=left>TEL:<?= $item->contact_client; ?></td><td align=left>PRIX:<?=$pr;?></td>
                         </tr>
-                        <tr><td align=left width="30%"><?= $item->prenom_client; ?></td><td align=center colspan="3"> <img src="<?php echo site_url('render/Barcode/'.$item->tamponcod);?>" alt="" width="250" height="30"></td><td align=left></td>
+                        <tr><td align=left width="30%"><?= $item->prenom_client; ?></td><td align=center colspan="3"> <?= ticket_barcode_img($item->tamponcod, 200, 35); ?></td><td align=left></td>
                         </tr>
                         <tr><td align=left><?= $item->contact_client; ?></td><td colspan="3" align=center style="font-size: 8px;">Billet valable 1 mois. Billet non remboursable</td><td align=right>CONVOCATION 45 mn avant le départ</td>
                         </tr>

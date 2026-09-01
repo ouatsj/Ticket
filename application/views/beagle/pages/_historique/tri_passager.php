@@ -8,6 +8,13 @@ defined('BASEPATH') OR exit('No direct script access allowed'); ?>
         </a>
     </p>
 </div>
+<?php if ($this->session->flashdata('sale_error')): ?>
+    <div class="row">
+        <div class="col-12 px-4">
+            <div class="alert alert-danger"><?= htmlspecialchars($this->session->flashdata('sale_error')); ?></div>
+        </div>
+    </div>
+<?php endif; ?>
 <div class="row">
     <!-- Liste des passagers -->
     <div class="col-12">
@@ -116,6 +123,7 @@ defined('BASEPATH') OR exit('No direct script access allowed'); ?>
                                         data-passagecod="<?= $item->code_passager; ?>"
                                         data-cdligneh="<?= $item->id_ligneheure; ?>"
                                         data-ticketcod="<?= $item->code_ticket; ?>"
+                                        data-ticketcodnp="<?= isset($item->codeticket) ? $item->codeticket : ''; ?>"
                                         data-nom="<?= $item->nom_client; ?>"
                                         data-prenom="<?= $item->prenom_client; ?>"
                                         data-type="<?= $item->type_client; ?>"
@@ -126,25 +134,6 @@ defined('BASEPATH') OR exit('No direct script access allowed'); ?>
                                         class="updateticket md-trigger" title="MODIFIER INFOS CLIENT"
                                         data-modal="ticket-0">&nbsp;
                                         <span class="fas fa-edit text-warning"></span>
-                                </a>&nbsp;
-                                <a href="<?= "#?{$item->id_client}&&{$item->nom_client}"; ?>"
-                                   data-cle_compagnie="<?= $this->session->company->ekey; ?>"
-                                    data-id_clientp="<?= $item->id_client; ?>"
-                                    data-tamponcodp="<?= $item->tamponcod; ?>"
-                                    data-passagecodp="<?= $item->code_passager; ?>"
-                                    data-cdlignehp="<?= $item->id_ligneheure; ?>"
-                                    data-ticketcodp="<?= $item->code_ticket; ?>"
-                                    data-ticketcodnp="<?= $item->codeticket ; ?>"
-                                    data-nomp="<?= $item->nom_client; ?>"
-                                    data-prenomp="<?= $item->prenom_client; ?>"
-                                    data-typep="<?= $item->type_client; ?>"
-                                    data-contactp="<?= $item->contact_client; ?>"
-                                    data-cnip="<?= $item->num_CNIB; ?>"
-                                    data-cnideliverp="<?= $item->date_delivre; ?>"
-                                    data-cnideliverzonep="<?= $item->lieu_delivre; ?>"
-                                    class="updateclient md-trigger" title="MODIFIER CLIENT"
-                                    data-modal="ticketp-0">&nbsp;
-                                    <span class="fas fa-edit text-danger"></span>
                                 </a>&nbsp;
                                             
                                 <a href="#" class="updatedticket md-trigger" data-cle_compagnie="<?= $this->session->company->ekey; ?>"
@@ -158,12 +147,18 @@ defined('BASEPATH') OR exit('No direct script access allowed'); ?>
                                     data-modal="updepart-0">
                                     <i class="fas fa-edit text-success"></i>
                                 </a>&nbsp;
-                                <a class="icon" title="DESACTIVER TICKET"
-                                    href="<?= site_url('Historique_Passagers/desactivecode/' . $this->session->company->ekey . '/' . $item->tamponcod. '/' . $item->is_activecode.'/'.$conex->roleattribut.'/'.$bus_stop->idengare.'/'.$bus_stop->idsousgare); ?>">
+                                <a href="#" class="md-trigger motif-action"
+                                    title="DESACTIVER TICKET"
+                                    data-modal="motif-action-0"
+                                    data-action="<?= site_url('Historique_Passagers/desactivecode/' . $this->session->company->ekey . '/' . $item->tamponcod. '/' . $item->is_activecode.'/'.$conex->roleattribut.'/'.$bus_stop->idengare.'/'.$bus_stop->idsousgare); ?>"
+                                    data-title="Désactiver / réactiver le code ticket">
                                     <i class="fas fa-trash-alt text-danger"></i>
                                 </a>&nbsp;
-                                <a class="icon" title="ANNULER SIEGE"
-                                    href="<?= site_url('Historique_Passagers/suprime/' . $this->session->company->ekey . '/' . $item->code_passager.'/'.$item->code_ticket.'/'.$conex->roleattribut.'/'.$bus_stop->idengare.'/'.$bus_stop->idsousgare); ?>">
+                                <a href="#" class="md-trigger motif-action"
+                                    title="ANNULER SIEGE"
+                                    data-modal="motif-action-0"
+                                    data-action="<?= site_url('Historique_Passagers/suprime/' . $this->session->company->ekey . '/' . $item->code_passager.'/'.$item->code_ticket.'/'.$conex->roleattribut.'/'.$bus_stop->idengare.'/'.$bus_stop->idsousgare); ?>"
+                                    data-title="Annuler le siège du ticket">
                                     <i class="fas fa-trash-alt text-warning"></i>
                                 </a>&nbsp;
                                 <? if ($this->session->agent->userole === '1'): ?>
@@ -208,17 +203,15 @@ defined('BASEPATH') OR exit('No direct script access allowed'); ?>
                                                         value="<?= $item->prixvente; ?>"
                                                         placeholder="<?= $item->prixvente; ?>"/>
                                                     </div>
-                                                    <div class="form-group col-sm-8">
-                                                        <label>Motif de la modification</label>
-                                                        <input class="form-control form-control-sm" type="text"
-                                                               name="modification_motif" maxlength="500" required>
-                                                    </div>
-                                                    <div class="form-group col-sm-12">
+                                                    <?= historique_modif_ticket_motif_fields_html('prix_' . $item->code_passager); ?>
+                                                    <?php if (function_exists('sales_price_controls_enabled') && sales_price_controls_enabled()): ?>
+<div class="form-group col-sm-12">
                                                         <label>
                                                             <input type="checkbox" name="confirmation_zero" value="1">
                                                             Je confirme une éventuelle modification à 0 F
                                                         </label>
                                                     </div>
+                                                    <?php endif; ?>
                                                 </div>
 
                                                 <div class="modal-footer">
@@ -226,8 +219,7 @@ defined('BASEPATH') OR exit('No direct script access allowed'); ?>
                                                             data-dismiss="modal">
                                                         <i class="icon icon-left mdi mdi-undo"></i>&nbsp;ANNULER&nbsp;
                                                     </button>
-                                                    <button class="btn btn-success modal-close" type="submit"
-                                                            data-dismiss="modal">
+                                                    <button class="btn btn-success" type="submit">
                                                         <i class="icon icon-left mdi mdi-check-all"></i>&nbsp;OK&nbsp;
                                                     </button>
                                                 </div>
@@ -287,13 +279,16 @@ defined('BASEPATH') OR exit('No direct script access allowed'); ?>
                                                 </div>
                                             </div>
 
+                                            <div class="row">
+                                                <?= historique_modif_ticket_motif_fields_html('gq_' . $item->code_passager); ?>
+                                            </div>
+
                                             <div class="modal-footer">
                                             <button class="btn btn-secondary modal-close" type="button"
                                                 data-dismiss="modal">
                                                 <i class="icon icon-left mdi mdi-undo"></i>&nbsp;ANNULER&nbsp;
                                                 </button>
-                                                <button class="btn btn-success modal-close" type="submit"
-                                                data-dismiss="modal">
+                                                <button class="btn btn-success" type="submit">
                                                 <i class="icon icon-left mdi mdi-check-all"></i>&nbsp;OK&nbsp;
                                                 </button>
                                             </div>
@@ -336,6 +331,9 @@ defined('BASEPATH') OR exit('No direct script access allowed'); ?>
                 <input class="form-control-sm" type="hidden" name="useridconn" value="<?=$conex->cpuser_id;?>" />
                 <input class="form-control-sm" type="hidden" name="useridconnected" value="<?=$conex->roleattribut;?>" />
                 <input class="form-control-sm" type="hidden" name="sousgd" value="<?=$bus_stop->idsousgare;?>" />
+                <input class="form-control-sm" type="hidden" name="identifyclient" value="" id="identifyclientid" />
+                <input class="form-control-sm" type="hidden" name="identifycontact" value="" id="identifycontactid" />
+                <input class="form-control-sm" type="hidden" name="force_create_client" value="0" id="force_create_client" />
                 <div class="form-group col-sm-4">
                     <label>Conctact</label>
                     <input class="form-control form-control-sm" type="text"
@@ -386,6 +384,18 @@ defined('BASEPATH') OR exit('No direct script access allowed'); ?>
                             value=""
                             placeholder="">
                 </div>
+                <div class="form-group col-sm-12" id="force_create_client_wrap" style="display:none;">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="force_create_client_chk">
+                        <label class="form-check-label" for="force_create_client_chk">
+                            Contact inconnu : créer une <strong>nouvelle fiche client</strong> et rattacher le ticket
+                        </label>
+                    </div>
+                    <small class="text-muted">
+                        Sans cette case, les infos sont enregistrées sur le client déjà lié au ticket.
+                    </small>
+                </div>
+                <?= historique_modif_ticket_motif_fields_html('infos'); ?>
     
             </div>
     
@@ -394,8 +404,7 @@ defined('BASEPATH') OR exit('No direct script access allowed'); ?>
                         data-dismiss="modal">
                     <i class="icon icon-left mdi mdi-undo"></i>&nbsp;ANNULER&nbsp;
                 </button>
-                <button class="btn btn-success modal-close" type="submit"
-                        data-dismiss="modal">
+                <button class="btn btn-success" type="submit">
                     <i class="icon icon-left mdi mdi-check-all"></i>&nbsp;OK&nbsp;
                 </button>
             </div>
@@ -478,6 +487,7 @@ defined('BASEPATH') OR exit('No direct script access allowed'); ?>
                             value=""
                             placeholder="">
                 </div>
+                <?= historique_modif_ticket_motif_fields_html('client'); ?>
     
             </div>
     
@@ -486,8 +496,7 @@ defined('BASEPATH') OR exit('No direct script access allowed'); ?>
                         data-dismiss="modal">
                     <i class="icon icon-left mdi mdi-undo"></i>&nbsp;ANNULER&nbsp;
                 </button>
-                <button class="btn btn-success modal-close" type="submit"
-                        data-dismiss="modal">
+                <button class="btn btn-success" type="submit">
                     <i class="icon icon-left mdi mdi-check-all"></i>&nbsp;OK&nbsp;
                 </button>
             </div>
@@ -575,6 +584,7 @@ defined('BASEPATH') OR exit('No direct script access allowed'); ?>
                     id="messieg">
                     <p id="erreurmessieg"></p>
                 </div>
+                <?= historique_modif_ticket_motif_fields_html('depart'); ?>
                 
             </div>
     
@@ -583,8 +593,7 @@ defined('BASEPATH') OR exit('No direct script access allowed'); ?>
                         data-dismiss="modal">
                     <i class="icon icon-left mdi mdi-undo"></i>&nbsp;ANNULER&nbsp;
                 </button>
-                <button class="btn btn-success modal-close" type="submit"
-                        data-dismiss="modal">
+                <button class="btn btn-success" type="submit">
                     <i class="icon icon-left mdi mdi-check-all"></i>&nbsp;OK&nbsp;
                 </button>
             </div>
@@ -594,4 +603,49 @@ defined('BASEPATH') OR exit('No direct script access allowed'); ?>
         </div>
 
     </div>
+
+    <div class="modal-container colored-header colored-header-warning custom-width modal-effect-7"
+         id="motif-action-0" style="perspective: none;">
+        <div class="modal-content">
+            <div class="modal-header modal-header-colored">
+                <h3 class="modal-title" id="motifActionTitle">Confirmer la modification</h3>
+                <button class="close modal-close" type="button" data-dismiss="modal" aria-hidden="true">
+                    <span class="mdi mdi-close text-white"></span>
+                </button>
+            </div>
+            <?= form_open('', array('class' => 'modal-body form', 'id' => 'motifActionForm', 'method' => 'post')); ?>
+            <div class="row">
+                <?= historique_modif_ticket_motif_fields_html('action'); ?>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary modal-close" type="button" data-dismiss="modal">
+                    <i class="icon icon-left mdi mdi-undo"></i>&nbsp;ANNULER&nbsp;
+                </button>
+                <button class="btn btn-warning" type="submit">
+                    <i class="icon icon-left mdi mdi-check-all"></i>&nbsp;CONFIRMER&nbsp;
+                </button>
+            </div>
+            <?= form_close(); ?>
+        </div>
+    </div>
 </div>
+<script>
+(function () {
+    document.querySelectorAll('.motif-action').forEach(function (el) {
+        el.addEventListener('click', function () {
+            var form = document.getElementById('motifActionForm');
+            var title = document.getElementById('motifActionTitle');
+            if (form && el.dataset.action) {
+                form.setAttribute('action', el.dataset.action);
+            }
+            if (title && el.dataset.title) {
+                title.textContent = el.dataset.title;
+            }
+            var motif = form ? form.querySelector('[name="motif_modif"]') : null;
+            var ordre = form ? form.querySelector('[name="ordre_par"]') : null;
+            if (motif) { motif.value = ''; }
+            if (ordre) { ordre.value = ''; }
+        });
+    });
+})();
+</script>

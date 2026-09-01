@@ -1758,14 +1758,31 @@
             foreach ($declRows as $r) {
                 $decl[] = $r->code_itineraires;
             }
-            $decision = $this->graphe_correspondance->resoudre_pour_vente(
-                $this->session->company->ekey,
-                $axe,
-                $date,
-                $sg,
-                $declRows,
-                $force_transit
-            );
+
+            // Prod / hors essai : ne pas servir le graphe tant que serve=false.
+            // Conservé le fallback déclaratif pour ne pas changer le comportement vente.
+            if (!$this->graphe_correspondance->is_serve_enabled()) {
+                $decision = array(
+                    'mode' => !empty($declRows) ? 'declaratif' : 'none',
+                    'etapes' => $declRows,
+                    'chemins' => array(),
+                    'meta' => array(
+                        'axe' => $axe,
+                        'date' => $date,
+                        'served' => !empty($declRows),
+                        'reason' => 'serve_disabled_declaratif_fallback',
+                    ),
+                );
+            } else {
+                $decision = $this->graphe_correspondance->resoudre_pour_vente(
+                    $this->session->company->ekey,
+                    $axe,
+                    $date,
+                    $sg,
+                    $declRows,
+                    $force_transit
+                );
+            }
             $payload = $this->graphe_correspondance->payload_multi_chemins($decision, $declRows);
             $out = array(
                 'mode' => $payload['mode'],
@@ -13693,6 +13710,12 @@
             $g= $this->input->post('stop');
             $u= $this->input->post('useridconnected');
             $sg= $this->input->post('sousgd');
+            $motif = historique_modif_ticket_read_motif_post();
+            if (!$motif['ok']) {
+                $this->session->set_flashdata('sale_error', $motif['error']);
+                redirect('historique_passagers/' . $this->session->company->ekey.'/'.$u.'/'.$g.'/'.$sg);
+                return;
+            }
             $argv = array(
                 'nom_client' => $this->input->post('rclient'),
                 'prenom_client' => $this->input->post('prclient'),
@@ -13701,6 +13724,16 @@
                 'date_delivre' => $this->input->post('date_cnib'),
                 'lieu_delivre' => $this->input->post('lieu'),
             );
+
+            $pass = historique_modif_ticket_row_passager($this->db, $codeid);
+            historique_modif_ticket_log_client_fields($this->db, $clid, $argv, array(
+                'ekey' => $this->company->ekey,
+                'gare_id' => $g,
+                'code_passager' => $codeid,
+                'code_ticket' => isset($pass['code_ticket']) ? $pass['code_ticket'] : null,
+                'motif' => $motif['motif'],
+                'ordre_par' => $motif['ordre_par'],
+            ));
             
             $clhid = $this->m_client->update($clid, $argv);
             if ($clhid != FALSE)
@@ -13715,21 +13748,78 @@
             $g = $this->input->post('stop');
             $u = $this->input->post('useridconnected');
             $sg = $this->input->post('sousgd');
-            $clid = $this->input->post('identifyclient');
+            $clid = trim((string) $this->input->post('identifyclient'));
             $clidct = $this->input->post('identifycontact');
+            $force_create = ((string) $this->input->post('force_create_client') === '1');
+
+            // Normalise segment URL (souvent vide au lieu de NULL).
+            if ($codenp === '' || $codenp === 'null' || $codenp === 'NULL' || $codenp === false) {
+                $codenp = NULL;
+            }
+
+            // Champs unifiés : formulaire orange (rclient*) ou ancien rouge (rclientp*).
+            $p_nom = $this->input->post('rclientp');
+            if ($p_nom === null || $p_nom === '') {
+                $p_nom = $this->input->post('rclient');
+            }
+            $p_prenom = $this->input->post('prclientp');
+            if ($p_prenom === null || $p_prenom === '') {
+                $p_prenom = $this->input->post('prclient');
+            }
+            $p_contact = $this->input->post('rclient_contactp');
+            if ($p_contact === null || $p_contact === '') {
+                $p_contact = $this->input->post('rclient_contact');
+            }
+            $p_cnib = $this->input->post('cnibp');
+            if ($p_cnib === null || $p_cnib === '') {
+                $p_cnib = $this->input->post('cnib');
+            }
+            $p_date = $this->input->post('date_cnibp');
+            if ($p_date === null || $p_date === '') {
+                $p_date = $this->input->post('date_cnib');
+            }
+            $p_lieu = $this->input->post('lieup');
+            if ($p_lieu === null || $p_lieu === '') {
+                $p_lieu = $this->input->post('lieu');
+            }
+
+            $motif = historique_modif_ticket_read_motif_post();
+            if (!$motif['ok']) {
+                $this->session->set_flashdata('sale_error', $motif['error']);
+                redirect('historique_passagers/' . $this->session->company->ekey.'/'.$u.'/'.$g.'/'.$sg);
+                return;
+            }
+            $ctx_base = array(
+                'ekey' => $this->company->ekey,
+                'gare_id' => $g,
+                'code_passager' => $codeid,
+                'code_ticket' => $codep,
+                'motif' => $motif['motif'],
+                'ordre_par' => $motif['ordre_par'],
+            );
+
+            // Sécurité prod : pas de création silencieuse — fallback sur le client déjà lié au ticket.
+            if ($clid === '' && !$force_create) {
+                $before_fb = historique_modif_ticket_row_passager($this->db, $codeid, $codep);
+                if (!empty($before_fb['id_client_pass'])) {
+                    $clid = (string) (int) $before_fb['id_client_pass'];
+                }
+            }
 
             if($codenp === NULL AND $clid === '')
             {
 
                 $argvp = array(
                     'type_client' => 'Adulte',
-                    'nom_client' => $this->input->post('rclientp'),
-                    'prenom_client' => $this->input->post('prclientp'),
-                    'contact_client' => $this->input->post('rclient_contactp'),
-                    'num_CNIB' => $this->input->post('cnibp'),
-                    'date_delivre' => $this->input->post('date_cnibp'),
-                    'lieu_delivre' => $this->input->post('lieup'),
+                    'nom_client' => $p_nom,
+                    'prenom_client' => $p_prenom,
+                    'contact_client' => $p_contact,
+                    'num_CNIB' => $p_cnib,
+                    'date_delivre' => $p_date,
+                    'lieu_delivre' => $p_lieu,
                 );
+
+                $before_p = historique_modif_ticket_row_passager($this->db, $codeid, $codep);
                 
                 $clhidp = $this->m_client->create($argvp);
 
@@ -13737,6 +13827,14 @@
                             'id_client_pass' => $clhidp,
                         );
                 $this->m_passager->update($codeid, $codep, $argrepasy);
+
+                historique_modif_ticket_log_client_rebind(
+                    $this->db,
+                    $before_p,
+                    $clhidp,
+                    $argvp,
+                    $ctx_base
+                );
                     
                 if($clhidp != FALSE)
             
@@ -13748,13 +13846,15 @@
             {
                 $argvp = array(
                     'type_client' => 'Adulte',
-                    'nom_client' => $this->input->post('rclientp'),
-                    'prenom_client' => $this->input->post('prclientp'),
-                    'contact_client' => $this->input->post('rclient_contactp'),
-                    'num_CNIB' => $this->input->post('cnibp'),
-                    'date_delivre' => $this->input->post('date_cnibp'),
-                    'lieu_delivre' => $this->input->post('lieup'),
+                    'nom_client' => $p_nom,
+                    'prenom_client' => $p_prenom,
+                    'contact_client' => $p_contact,
+                    'num_CNIB' => $p_cnib,
+                    'date_delivre' => $p_date,
+                    'lieu_delivre' => $p_lieu,
                 );
+
+                $before_p = historique_modif_ticket_row_passager($this->db, $codeid, $codep);
                 
                 $clhidp = $this->m_client->create($argvp);
 
@@ -13770,6 +13870,14 @@
                 );
                 $this->m_non_passager->update($codeid, $codenp, $argrenpasy);
 
+                historique_modif_ticket_log_client_rebind(
+                    $this->db,
+                    $before_p,
+                    $clhidp,
+                    $argvp,
+                    $ctx_base
+                );
+
                 if($clhidp != FALSE)
             
                 $this->property['UPDATE_SUCCESS'] = TRUE;
@@ -13780,13 +13888,29 @@
             elseif($codenp === NULL AND $clid != ''){
 
                 $argvp = array(
-                    'nom_client' => $this->input->post('rclientp'),
-                    'prenom_client' => $this->input->post('prclientp'),
-                    'contact_client' => $this->input->post('rclient_contactp'),
-                    'num_CNIB' => $this->input->post('cnibp'),
-                    'date_delivre' => $this->input->post('date_cnibp'),
-                    'lieu_delivre' => $this->input->post('lieup'),
+                    'nom_client' => $p_nom,
+                    'prenom_client' => $p_prenom,
+                    'contact_client' => $p_contact,
+                    'num_CNIB' => $p_cnib,
+                    'date_delivre' => $p_date,
+                    'lieu_delivre' => $p_lieu,
                 );
+
+                $before_p = historique_modif_ticket_row_passager($this->db, $codeid, $codep);
+                $old_link = isset($before_p['id_client_pass']) ? (int) $before_p['id_client_pass'] : 0;
+                $new_link = (int) $clid;
+
+                if ($old_link > 0 && $old_link !== $new_link) {
+                    historique_modif_ticket_log_client_rebind(
+                        $this->db,
+                        $before_p,
+                        $new_link,
+                        $argvp,
+                        $ctx_base
+                    );
+                } else {
+                    historique_modif_ticket_log_client_fields($this->db, $clid, $argvp, $ctx_base);
+                }
                 
                 $clhidp = $this->m_client->update($clid, $argvp);
 
@@ -13805,13 +13929,29 @@
             elseif($codenp != NULL AND $clid != '')
             {
                 $argvp = array(
-                    'nom_client' => $this->input->post('rclientp'),
-                    'prenom_client' => $this->input->post('prclientp'),
-                    'contact_client' => $this->input->post('rclient_contactp'),
-                    'num_CNIB' => $this->input->post('cnibp'),
-                    'date_delivre' => $this->input->post('date_cnibp'),
-                    'lieu_delivre' => $this->input->post('lieup'),
+                    'nom_client' => $p_nom,
+                    'prenom_client' => $p_prenom,
+                    'contact_client' => $p_contact,
+                    'num_CNIB' => $p_cnib,
+                    'date_delivre' => $p_date,
+                    'lieu_delivre' => $p_lieu,
                 );
+
+                $before_p = historique_modif_ticket_row_passager($this->db, $codeid, $codep);
+                $old_link = isset($before_p['id_client_pass']) ? (int) $before_p['id_client_pass'] : 0;
+                $new_link = (int) $clid;
+
+                if ($old_link > 0 && $old_link !== $new_link) {
+                    historique_modif_ticket_log_client_rebind(
+                        $this->db,
+                        $before_p,
+                        $new_link,
+                        $argvp,
+                        $ctx_base
+                    );
+                } else {
+                    historique_modif_ticket_log_client_fields($this->db, $clid, $argvp, $ctx_base);
+                }
                 
                 $clhidp = $this->m_client->update($clid, $argvp);
 

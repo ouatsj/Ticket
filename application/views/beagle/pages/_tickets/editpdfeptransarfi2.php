@@ -128,7 +128,7 @@
                             <tr><td style="font-size: 9px;">perte ou de vol de billet et de bagages même payés.</td></tr>
                             <tr><td style="font-size: 9px;">Suivez et surveillez bien vos bagages</td></tr>
                             <tr><td>BON VOYAGE AVEC <?= $item->nom_compagnie;?> <?= $nge;?></td></tr>
-                            <tr><td style="font-size: 35px; width: 90%;"> <img src="<?echo site_url('render/Barcode/'.$item->tamponcod);?>" width="350" height="45"></td></tr>
+                            <tr><td style="font-size: 35px; width: 90%;"> <?= ticket_barcode_img($item->tamponcod, 250, 40); ?></td></tr>
                             <tr><td style="font-size: 15px;">emis : <?= $dtoday; ?></td></tr>
                         </table>
                     </body>
@@ -221,7 +221,7 @@
                           <tr><td style="font-size: 9px;">perte ou de vol de billet et de bagages même payés.</td></tr>
                           <tr><td style="font-size: 9px;">Suivez et surveillez bien vos bagages</td></tr>
                           <tr><td>BON VOYAGE AVEC <?= $item->nom_compagnie;?></td></tr>
-                          <tr><td style="font-size: 40px; width: 100%;"> <img src="<?echo site_url('render/Barcode/'.$item->tamponcod);?>" width="350" height="45"></td></tr>
+                          <tr><td style="font-size: 40px; width: 100%;"> <?= ticket_barcode_img($item->tamponcod, 250, 40); ?></td></tr>
                           <tr><td style="font-size: 15px;">emis : <?= $dtoday; ?></td></tr>
                         </table>
                     </body>
@@ -412,7 +412,7 @@
                             <tr><td style="font-size: 9px;">perte ou de vol de billet et de bagages même payés.</td></tr>
                             <tr><td style="font-size: 9px;">Suivez et surveillez bien vos bagages</td></tr>
                             <tr><td>BON VOYAGE AVEC <?= $itemtrans->nom_compagnie;?> <?= $nge1;?></td></tr>
-                            <tr><td style="font-size: 35px; width: 90%;"> <img src="<?echo site_url('render/Barcode/'.$itemtrans->tamponcod);?>" width="350" height="45"></td></tr>
+                            <tr><td style="font-size: 35px; width: 90%;"> <?= ticket_barcode_img($itemtrans->tamponcod, 250, 40); ?></td></tr>
                             <tr><td style="font-size: 15px;">emis : <?= $dtoday; ?></td></tr>
                         </table>
                     </body>
@@ -510,7 +510,7 @@
                               <tr><td style="font-size: 9px;">perte ou de vol de billet et de bagages même payés.</td></tr>
                               <tr><td style="font-size: 9px;">Suivez et surveillez bien vos bagages</td></tr>
                               <tr><td>BON VOYAGE AVEC <?= $itemtrans->nom_compagnie;?></td></tr>
-                              <tr><td style="font-size: 35px; width: 90%;"> <img src="<?echo site_url('render/Barcode/'.$itemtrans->tamponcod);?>" width="350" height="45"></td></tr>
+                              <tr><td style="font-size: 35px; width: 90%;"> <?= ticket_barcode_img($itemtrans->tamponcod, 250, 40); ?></td></tr>
                               <tr><td style="font-size: 15px;">emis : <?= $dtoday; ?></td></tr>
                         </table>
                     </body>
@@ -704,7 +704,7 @@
                             <tr><td style="font-size: 9px;">perte ou de vol de billet et de bagages même payés.</td></tr>
                             <tr><td style="font-size: 9px;">Suivez et surveillez bien vos bagages</td></tr>
                             <tr><td>BON VOYAGE AVEC <?= $itemtrans2->nom_compagnie;?> <?= $nge2;?></td></tr>
-                            <tr><td style="font-size: 35px; width: 90%;"> <img src="<?echo site_url('render/Barcode/'.$itemtrans2->tamponcod);?>" width="350" height="45"></td></tr>
+                            <tr><td style="font-size: 35px; width: 90%;"> <?= ticket_barcode_img($itemtrans2->tamponcod, 250, 40); ?></td></tr>
                             <tr><td style="font-size: 15px;">emis : <?= $dtoday; ?></td></tr>
                         </table>
                     </body>
@@ -803,7 +803,7 @@
                               <tr><td style="font-size: 9px;">perte ou de vol de billet et de bagages même payés.</td></tr>
                               <tr><td style="font-size: 9px;">Suivez et surveillez bien vos bagages</td></tr>
                               <tr><td>BON VOYAGE AVEC <?= $itemtrans2->nom_compagnie;?></td></tr>
-                              <tr><td style="font-size: 35px; width: 90%;"> <img src="<?echo site_url('render/Barcode/'.$itemtrans2->tamponcod);?>" width="350" height="45"></td></tr>
+                              <tr><td style="font-size: 35px; width: 90%;"> <?= ticket_barcode_img($itemtrans2->tamponcod, 250, 40); ?></td></tr>
                               <tr><td style="font-size: 15px;">emis : <?= $dtoday; ?></td></tr>
                         </table>
                     </body>

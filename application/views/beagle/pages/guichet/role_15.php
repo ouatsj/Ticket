@@ -8,7 +8,7 @@ $compte_arret_only_compte = !empty($compte_arret_only_compte) || !empty($compte_
                         <?php $this->load->view('beagle/pages/guichet/_compte_arret_alerts'); ?>
                         <p>
                             <a href="<?= site_url('gares/'. $this->session->company->ekey . '/gTs/'
-                            . $bus_stop->idengare.'/sousgare/'.$conex->cpuser_id.'/' . mdate("%d/%m/%Y", now('UTC'))); ?>"
+                            . $bus_stop->idengare.'/sousgare/'.$conex->roleattribut.'/' . mdate("%d/%m/%Y", now('UTC'))); ?>"
                                 class="btn btn-secondary btn-space md-trigger" data-modal="">
                                 <i class="fas fa-arrow-circle-left text-info"></i>&nbsp;RETOUR GARE&nbsp;
                             </a>

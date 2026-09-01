@@ -4,7 +4,7 @@
                     <div class="text-center">
                         <p>
                             <a href="<?= site_url('gares/'. $this->session->company->ekey . '/gTs/'
-                            . $bus_stop->idengare.'/sousgare/'.$conex->cpuser_id.'/' . mdate("%d/%m/%Y", now('UTC'))); ?>"
+                            . $bus_stop->idengare.'/sousgare/'.$conex->roleattribut.'/' . mdate("%d/%m/%Y", now('UTC'))); ?>"
                                 class="btn btn-secondary btn-space md-trigger" data-modal="">
                                 <i class="fas fa-arrow-circle-left text-info"></i>&nbsp;RETOUR GARE&nbsp;
                             </a>
@@ -815,14 +815,14 @@
                                     <select class="form-control form-control-sm" name="departgar">
                                     <option value=""></option>
                                     <? foreach ($garedepartcomp as $garedepart): ?>
-                                        <option value="<?= $garedepart->code_gaexp; ?>">
+                                        <option value="<?= $garedepart->code_gaexp; ?>" data-garesid="<?= $garedepart->garesid; ?>">
                                             <?= "{$garedepart->nom_gaep}"; ?></option>
                                     <? endforeach; ?>
                                     </select>
                                 </div>
                                 <div class="form-group col-sm-4">
                                     <label>SOUS-GARE</label>
-                                    <select class="form-control form-control-sm" name="sousgaretkt">
+                                    <select class="form-control form-control-sm" name="sousgaretgl">
                                         <option value="">Toutes</option>
                                     </select>
                                 </div>
@@ -1403,7 +1403,7 @@
                                     <select class="form-control form-control-sm" name="departgarcrgl">
                                     <option value=""></option>
                                     <? foreach ($garedepartcomp as $garedepart): ?>
-                                        <option value="<?= $garedepart->code_gaexp; ?>">
+                                        <option value="<?= $garedepart->code_gaexp; ?>" data-garesid="<?= $garedepart->garesid; ?>">
                                             <?= "{$garedepart->nom_gaep}"; ?></option>
                                     <? endforeach; ?>
                                     </select>
