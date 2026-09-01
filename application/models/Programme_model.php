@@ -57,6 +57,19 @@
         }
 
         /**
+         * Siège marqué hors vente à l'édition du programme.
+         */
+        public function siege_est_bloque_programme($code_progr, $siege_num)
+        {
+            $n = (int) $siege_num;
+            if ($n <= 0) {
+                return false;
+            }
+            $bloques = $this->sieges_bloques_programme($code_progr);
+            return in_array($n, $bloques, true);
+        }
+
+        /**
          * @param int[] $bloques
          */
         public function sync_sieges_bloques_programme($code_progr, array $bloques)
@@ -88,18 +101,19 @@
          */
         protected function _cdprog_bloque_and($code_progr)
         {
-            $bloques = $this->sieges_bloques_programme($code_progr);
-            if (empty($bloques)) {
+            if (!$this->db->table_exists($this->table_siege_bloque)) {
                 return '';
             }
-            $nums = array();
-            foreach ($bloques as $n) {
-                $nums[] = (int) $n;
-            }
-            if (empty($nums)) {
+            $code = trim((string) $code_progr);
+            if ($code === '') {
                 return '';
             }
-            return ' AND sc.siege_num NOT IN (' . implode(',', $nums) . ')';
+            $codeEsc = $this->db->escape_str($code);
+            $t = $this->table_siege_bloque;
+            return " AND NOT EXISTS (
+                SELECT 1 FROM {$t} b
+                WHERE b.code_progr = '{$codeEsc}' AND b.siege_num = sc.siege_num
+            )";
         }
 
         /**

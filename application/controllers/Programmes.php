@@ -309,6 +309,53 @@
             return false;
         }
 
+        /**
+         * Bloque la vente sur un siège marqué hors quota (Programmes par compagnie).
+         */
+        protected function _sale_siege_bloque_guard()
+        {
+            if (!$this->session->userdata('company')) {
+                return false;
+            }
+            if (!isset($this->m_programme)) {
+                $this->load->model('Programme_model', 'm_programme');
+            }
+
+            $pairs = array(
+                array('program', 'passagersieges'),
+                array('program', 'passagersiegesmob'),
+                array('progcodfid', 'passagersiegesfid'),
+                array('progcodfi', 'passagersiegesfi'),
+                array('programtrans', 'passagersiegesitines'),
+                array('programtrans', 'passagersiegesitines1'),
+                array('programtrans', 'passagersiegesitines2'),
+                array('programtrans', 'passagersiegesitines3'),
+                array('progcodtransfid', 'passagersiegesitinesfid'),
+                array('progcodtransfid', 'passagersiegesitines1fid'),
+                array('progcodtransfid', 'passagersiegesitines2fid'),
+                array('progcodtransfid', 'passagersiegesitines3fid'),
+                array('progcodtranscf', 'passagersiegesitinescf'),
+                array('progcodtranscf', 'passagersiegesitinescf1'),
+                array('progcodtranscf', 'passagersiegesitinescf2'),
+            );
+
+            foreach ($pairs as $pair) {
+                $code = trim((string) $this->input->post($pair[0]));
+                $siege = (int) $this->input->post($pair[1]);
+                if ($code === '' || $siege <= 0) {
+                    continue;
+                }
+                if ($this->m_programme->siege_est_bloque_programme($code, $siege)) {
+                    $this->_addpassager_redirect_back(
+                        'Le siège ' . $siege . ' est bloqué à la vente pour ce départ.'
+                    );
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
         protected function _sale_redirect($url)
         {
             $this->_sale_nonce_complete();
@@ -575,8 +622,14 @@
         }
 
         public function creersiege($pro, $ns)
-        {            
-            
+        {
+            if (!isset($this->m_programme)) {
+                $this->load->model('Programme_model', 'm_programme');
+            }
+            if ($this->m_programme->siege_est_bloque_programme($pro, (int) $ns)) {
+                return $this->load->view('beagle/pages/_programme/json', array('json' => null));
+            }
+
             $arraysieg = array(
                 'codepro' => $pro,
                 'numsieg' => $ns,
@@ -1848,9 +1901,21 @@
         //insertion des données du passager et client 
         public function siegepassager($dpclient, $p_sieg)
         {
-            
+            if (!isset($this->m_programme)) {
+                $this->load->model('Programme_model', 'm_programme');
+            }
+            if ($this->m_programme->siege_est_bloque_programme($dpclient, (int) $p_sieg)) {
+                return $this->load->view('beagle/pages/_programme/json', array(
+                    'json' => (object) array(
+                        'code_pro' => $dpclient,
+                        'num_siege_categorie' => (int) $p_sieg,
+                        'siege_bloque' => 1,
+                    ),
+                ));
+            }
+
             $siegeoccuper = $this->m_passager->verifiersiege($this->session->company->ekey, $dpclient, $p_sieg);
-            return $this->load->view('beagle/pages/_programme/json', array('json' => $siegeoccuper));  
+            return $this->load->view('beagle/pages/_programme/json', array('json' => $siegeoccuper));
                             
         }
 
@@ -2061,6 +2126,10 @@
             }
 
             if ($this->_sale_roleattribut_guard()) {
+                return;
+            }
+
+            if ($this->_sale_siege_bloque_guard()) {
                 return;
             }
 
@@ -14234,6 +14303,10 @@
             }
 
             if ($this->_sale_roleattribut_guard()) {
+                return;
+            }
+
+            if ($this->_sale_siege_bloque_guard()) {
                 return;
             }
 
