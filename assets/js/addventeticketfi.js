@@ -1,4 +1,43 @@
 document.addEventListener('DOMContentLoaded', () => {
+
+    /** Autre vente FI : prix saisis à la main (0 = ticket gratuit), jamais écrasés par le tarif programme. */
+    window.__venteFiPrixManuel = true;
+
+    function __venteFiShouldSkipAutoPrix() {
+        return window.__venteFiPrixManuel !== false;
+    }
+
+    function __venteFiClearTransitPrixFields() {
+        ['prix_axetransfid', 'prix_axetransitfid', 'prix_axetransit1fid', 'prix_axetransit2fid'].forEach(function (id) {
+            var el = document.getElementById(id);
+            if (el) el.value = '';
+        });
+    }
+
+    function __venteFiValidateTransitPrixBeforeSubmit() {
+        if (!__venteFiShouldSkipAutoPrix()) return true;
+        var tran = document.getElementById('tranfid');
+        if (!tran || tran.style.display === 'none') return true;
+        var checks = [
+            { id: 'prix_axetransfid', label: 'Correspondance 1' },
+            { id: 'prix_axetransitfid', label: 'Correspondance 2' },
+            { id: 'prix_axetransit1fid', label: 'Correspondance 3' },
+            { id: 'prix_axetransit2fid', label: 'Correspondance 4' }
+        ];
+        for (var i = 0; i < checks.length; i++) {
+            var px = document.getElementById(checks[i].id);
+            if (!px || px.style.display === 'none') continue;
+            if (String(px.value).trim() === '') {
+                var mess = document.querySelector('#messfid');
+                var err = document.querySelector('#erreurMessfid');
+                if (mess) mess.style.display = 'block';
+                if (err) err.innerHTML = 'Saisissez le prix pour ' + checks[i].label + ' (0 = gratuit).';
+                px.focus();
+                return false;
+            }
+        }
+        return true;
+    }
     
     function __venteFiProgListFromResponse(don) {
         if (don == null || don === '') return [];
@@ -335,6 +374,100 @@ document.addEventListener('DOMContentLoaded', () => {
             sel.add(opt);
         }
         if (legKey) __venteFiWireCheminHeur(selectId, legKey);
+        if (window.__venteFiCheminCascadeStarted && legKey) {
+            __venteFiPreselectCheminHeurFromEtape(sel, __venteFiCheminEtapeForLeg(legKey), legKey);
+            __venteFiAdvanceCheminCascade(legKey);
+        }
+    }
+
+    function __venteFiCheminEtapeForLeg(legKey) {
+        var etapes = window.__venteFiCheminEtapes;
+        if (!etapes || !etapes.length) return null;
+        if (legKey === 'tr2') return etapes[1] || null;
+        if (legKey === 'tr3') return etapes[2] || null;
+        if (legKey === 'tr4') return etapes[3] || null;
+        return null;
+    }
+
+    function __venteFiPreselectCheminHeurFromEtape(heurSel, etape, legKey) {
+        var sel = typeof heurSel === 'string' ? document.getElementById(heurSel) : heurSel;
+        if (!sel || !legKey) return false;
+        var cfg = __venteFiCheminLegCfg[legKey];
+        if (!cfg) return false;
+        var targetCode = (etape && etape._graphe_code_progr != null) ? String(etape._graphe_code_progr) : '';
+        var targetLh = (etape && etape._graphe_id_ligneheure != null) ? String(etape._graphe_id_ligneheure) : '';
+        var targetHeure = (etape && etape._graphe_heure != null) ? String(etape._graphe_heure) : '';
+        var targetDate = (etape && etape._graphe_date_progr) ? String(etape._graphe_date_progr).slice(0, 10) : '';
+        var groups = (window.__venteFiCheminGroups && window.__venteFiCheminGroups[sel.id]) || {};
+        for (var idx = 1; idx < sel.options.length; idx++) {
+            var opt = sel.options[idx];
+            var g = groups[opt.value] || groups[opt.getAttribute('data-group-key')];
+            if (!g || !g.rows || !g.rows.length) continue;
+            var pickRow = null;
+            for (var r = 0; r < g.rows.length; r++) {
+                var row = g.rows[r];
+                if (targetCode && String(row.code_progr) === targetCode) {
+                    pickRow = row;
+                    break;
+                }
+                if (!pickRow && targetLh && String(row.id_ligneheure) === targetLh) {
+                    if (!targetHeure || String(row.heure) === targetHeure) pickRow = row;
+                }
+            }
+            if (pickRow && targetDate && String(pickRow.date_progr || '').slice(0, 10) !== targetDate) {
+                pickRow = null;
+            }
+            if (!pickRow) continue;
+            sel.selectedIndex = idx;
+            if (g.rows.length === 1) {
+                __venteFiLoadSiegesChemin(cfg, pickRow);
+            } else {
+                __venteFiOnCheminHeurChange(legKey);
+                var selProg = document.getElementById(cfg.progSel);
+                if (selProg && targetCode) {
+                    for (var pi = 1; pi < selProg.options.length; pi++) {
+                        if (g.rows[pi - 1] && String(g.rows[pi - 1].code_progr) === targetCode) {
+                            selProg.selectedIndex = pi;
+                            if (typeof selProg.onchange === 'function') selProg.onchange();
+                            break;
+                        }
+                    }
+                }
+            }
+            return true;
+        }
+        if (sel.options.length > 1) {
+            sel.selectedIndex = 1;
+            __venteFiOnCheminHeurChange(legKey);
+            return true;
+        }
+        return false;
+    }
+
+    function __venteFiAdvanceCheminCascade(completedLegKey) {
+        if (!window.__venteFiCheminCascadeStarted) return;
+        var etapes = window.__venteFiCheminEtapes;
+        if (!etapes || etapes.length < 2) return;
+        if (completedLegKey === 'tr2' && etapes.length >= 3 && etapes[2]) {
+            __venteFiSetCheminLigneOption('#idchemins1fid', etapes[2].code_itineraires, etapes[2].nom_itineraires);
+        } else if (completedLegKey === 'tr3' && etapes.length >= 4 && etapes[3]) {
+            __venteFiSetCheminLigneOption('#idchemins2fid', etapes[3].code_itineraires, etapes[3].nom_itineraires);
+        }
+    }
+
+    function __venteFiStartDownstreamCheminLegs(donitines) {
+        donitines = (typeof __venteFiNormalizeEtapes === 'function')
+            ? __venteFiNormalizeEtapes(donitines) : donitines;
+        if (!donitines || donitines.length < 2 || !donitines[1]) return;
+        window.__venteFiCheminEtapes = donitines;
+        window.__venteFiCheminCascadeStarted = true;
+        __venteFiSetCheminLigneOption('#idcheminsfid', donitines[1].code_itineraires, donitines[1].nom_itineraires);
+    }
+
+    function __venteFiMaybeStartCheminCascade() {
+        if (window.__venteFiCheminEtapes && window.__venteFiCheminEtapes.length >= 2 && !window.__venteFiCheminCascadeStarted) {
+            __venteFiStartDownstreamCheminLegs(window.__venteFiCheminEtapes);
+        }
     }
 
 
@@ -342,7 +475,7 @@ document.addEventListener('DOMContentLoaded', () => {
         var ps = document.getElementById(cfg.sieges);
         if (ps) ps.options.length = 1;
         if (!row || !row.code_progr) return;
-        if (cfg.prix && row.prix != null) {
+        if (!__venteFiShouldSkipAutoPrix() && cfg.prix && row.prix != null) {
             var px = document.getElementById(cfg.prix);
             if (px) px.value = String(row.prix);
         }
@@ -507,6 +640,110 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     window.__venteFiSetMainEscaleVisible = __venteFiSetMainEscaleVisible;
 
+    function __venteFiReleaseTamponSiege(idtampoId, siegselectId) {
+        return new Promise(function (resolve) {
+            var idEl = document.getElementById(idtampoId);
+            var sigEl = document.getElementById(siegselectId);
+            if (!idEl || !sigEl) {
+                resolve();
+                return;
+            }
+            var idv = String(idEl.value || '').trim();
+            var sv = String(sigEl.value || '').trim();
+            if (!idv || !sv) {
+                idEl.value = '';
+                sigEl.value = '';
+                resolve();
+                return;
+            }
+            var http = new XMLHttpRequest();
+            http.open(
+                'GET',
+                window.location.origin + `${APP_ROOT}/programmes/deltamponsieg/` + encodeURIComponent(idv) + '/' + encodeURIComponent(sv),
+                true
+            );
+            http.onload = function () {
+                idEl.value = '';
+                sigEl.value = '';
+                resolve();
+            };
+            http.onerror = function () {
+                idEl.value = '';
+                sigEl.value = '';
+                resolve();
+            };
+            http.setRequestHeader('Content-Type', 'application/json');
+            http.send();
+        });
+    }
+
+    var __venteFiTamponSiegePairs = [
+        ['idtampofid', 'siegselectfid'],
+        ['idtampotransfid', 'siegselecttransfid'],
+        ['idtampo1fid', 'siegselect1fid'],
+        ['idtampo2fid', 'siegselect2fid'],
+        ['idtampo3fid', 'siegselect3fid']
+    ];
+
+    function __venteFiReleaseAllTamponSieges() {
+        var chain = Promise.resolve();
+        __venteFiTamponSiegePairs.forEach(function (p) {
+            chain = chain.then(function () {
+                return __venteFiReleaseTamponSiege(p[0], p[1]);
+            });
+        });
+        return chain;
+    }
+
+    function __venteFiResetSaleUiAfterCancel() {
+        window.__venteFiHasTransit = false;
+        window.__venteFiLastHeuresVente = [];
+        window.__venteSelectedHour = null;
+        window.__venteFiCheminGroups = {};
+        window.__venteFiCheminEtapes = null;
+        window.__venteFiCheminCascadeStarted = false;
+
+        if (typeof __venteFiHideCheminSelector === 'function') __venteFiHideCheminSelector();
+        if (typeof __venteFiResetTransitFieldsBeforeApply === 'function') __venteFiResetTransitFieldsBeforeApply();
+        if (typeof __venteFiShowDirectHourUi === 'function') __venteFiShowDirectHourUi();
+        if (typeof __venteFiResetMainEscaleUi === 'function') __venteFiResetMainEscaleUi();
+        if (typeof __venteFiHideProgSelect === 'function') __venteFiHideProgSelect();
+        if (typeof __venteFiClearTransitPrixFields === 'function') __venteFiClearTransitPrixFields();
+
+        ['#hdepartfid', '#psiegesfid', '#quartierfid'].forEach(function (s) {
+            var el = document.querySelector(s);
+            if (el && el.options) {
+                el.options.length = 1;
+                el.selectedIndex = 0;
+                el.value = '';
+                el.onchange = null;
+            }
+        });
+
+        var mess = document.querySelector('#messfid');
+        if (mess) mess.style.display = 'none';
+        var err = document.querySelector('#erreurMessfid');
+        if (err) err.innerHTML = '';
+
+        var form = document.getElementById('tafiForm');
+        if (form) form.reset();
+    }
+
+    function __venteFiCancelSale(ev) {
+        if (ev && ev.preventDefault) ev.preventDefault();
+        __venteFiReleaseAllTamponSieges().then(function () {
+            __venteFiResetSaleUiAfterCancel();
+        });
+    }
+
+    function __venteFiWireCancelButton(btnId) {
+        var btn = document.getElementById(btnId);
+        if (!btn || btn.dataset.venteCancelWired === '1') return;
+        btn.dataset.venteCancelWired = '1';
+        btn.type = 'button';
+        btn.addEventListener('click', __venteFiCancelSale);
+    }
+
     window.__venteFiHasTransit = false;
     window.__venteFiLastHeuresVente = [];
     window.__venteFiApplyTransitLegs = null;
@@ -625,7 +862,7 @@ document.addEventListener('DOMContentLoaded', () => {
     /**
      * Correspondance 2/3/4 — ligne : propose la ligne du chemin, sans la sélectionner.
      */
-    function __venteFiSetCheminLigneOption(selectSel, code, nom) {
+    function __venteFiSetCheminLigneOption(selectSel, code, nom, fireChange) {
         var sel = typeof selectSel === 'string' ? document.querySelector(selectSel) : selectSel;
         if (!sel) return;
         sel.disabled = false;
@@ -638,7 +875,10 @@ document.addEventListener('DOMContentLoaded', () => {
         opt.innerHTML = nom != null ? String(nom) : String(code);
         if (nom != null) opt.setAttribute('data-nom', String(nom));
         sel.add(opt);
-        sel.selectedIndex = 0;
+        sel.selectedIndex = 1;
+        if (fireChange !== false && typeof sel.onchange === 'function') {
+            sel.onchange();
+        }
     }
 
     function __venteFiEnsureLigne1LockedInput() {
@@ -706,6 +946,9 @@ document.addEventListener('DOMContentLoaded', () => {
             var el = document.querySelector(s);
             if (el) el.value = '';
         });
+        if (typeof __venteFiClearTransitPrixFields === 'function') __venteFiClearTransitPrixFields();
+        window.__venteFiCheminEtapes = null;
+        window.__venteFiCheminCascadeStarted = false;
     }
 
     function __venteFiShowCheminSelector(chemins, onPick) {
@@ -744,8 +987,12 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             applyIdx(idx);
         };
-        sel.selectedIndex = 1;
-        applyIdx(0);
+        var defaultIdx = 0;
+        for (var d = 0; d < chemins.length; d++) {
+            if (chemins[d].source !== 'direct') { defaultIdx = d; break; }
+        }
+        sel.selectedIndex = defaultIdx + 1;
+        applyIdx(defaultIdx);
     }
 
     function __venteFiRequestTransitLegs(seltdep, arr, datedepart, sougid, force, onDone) {
@@ -772,6 +1019,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!payload || typeof payload !== 'object') { __venteFiHideCheminSelector(); done([]); return; }
             if (payload.mode === 'direct' || payload.mode === 'none') { __venteFiHideCheminSelector(); done([]); return; }
             var chemins = Array.isArray(payload.chemins) ? payload.chemins : [];
+            chemins = chemins.filter(function (c) { return c && c.source !== 'direct'; });
             if (chemins.length > 1) { __venteFiShowCheminSelector(chemins, done); return; }
             __venteFiHideCheminSelector();
             if (chemins.length === 1 && chemins[0].etapes) { done(chemins[0].etapes); return; }
@@ -803,10 +1051,11 @@ document.addEventListener('DOMContentLoaded', () => {
         set('#nomitintransfid', p.nom_ligne);
         set('#hertransfid', p.heure);
         set('#catetransfid', p.categori);
-        if (p.prix != null && String(p.prix).trim() !== '') {
+        if (!__venteFiShouldSkipAutoPrix() && p.prix != null && String(p.prix).trim() !== '') {
             set('#prix_axetransfid', p.prix);
         }
         __venteFiClearDownstreamCheminHeures();
+        __venteFiMaybeStartCheminCascade();
     }
 
     function __venteFiLoadSiegesTransit1(idLh, dptDate) {
@@ -815,7 +1064,7 @@ document.addEventListener('DOMContentLoaded', () => {
         var tfEl = document.querySelector('#tarifattribfid');
         var tfbs = tfEl && String(tfEl.value || '').trim() !== '' ? String(tfEl.value).trim() : '1';
         if (tfEl && String(tfEl.value || '').trim() === '') tfEl.value = tfbs;
-        if (idLh) {
+        if (idLh && !__venteFiShouldSkipAutoPrix()) {
             var httpPrix = new XMLHttpRequest();
             httpPrix.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifpriprg/${idLh}/${tfbs}`, true);
             httpPrix.onload = function () {
@@ -1101,6 +1350,9 @@ document.addEventListener('DOMContentLoaded', () => {
                                                     else
                                                     {
                                                         if (typeof __venteFiResetTransitFieldsBeforeApply === 'function') __venteFiResetTransitFieldsBeforeApply();
+                                                        window.__venteFiCheminEtapes = donitinesfi;
+                                                        window.__venteFiCheminCascadeStarted = false;
+                                                        __venteFiClearTransitPrixFields();
                                                         if (Object.entries(donitinesfi).length >= 1) 
                                                         {
                                                             var i = Object.entries(donitinesfi).length;
@@ -1234,13 +1486,15 @@ document.addEventListener('DOMContentLoaded', () => {
                                                                     httpH.onload = function () {
                                                                         try {
                                                                             var infositin = JSON.parse(httpH.responseText);
-                                                                            if (hd) hd.options.length = 1;
-                                                                            if (infositin && Object.entries(infositin).length >= 1) {
+                                                                            if (typeof window.__venteFillHeureItineSelect === 'function') {
+                                                                                window.__venteFillHeureItineSelect(hd, infositin, window.__venteSelectedHour);
+                                                                            } else if (hd && infositin && Object.entries(infositin).length >= 1) {
+                                                                                hd.options.length = 1;
                                                                                 for (var key in Object.entries(infositin)) {
                                                                                     var opt = document.createElement('option');
                                                                                     opt.value = `${infositin[key].id_ligneheure}/${infositin[key].heure}`;
                                                                                     opt.innerHTML = `${infositin[key].heure}`;
-                                                                                    if (hd) hd.add(opt);
+                                                                                    hd.add(opt);
                                                                                 }
                                                                             }
                                                                         } catch (eH) {}
@@ -1253,9 +1507,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                                 
                                                             if(i === 2)
                                                             {
-                                                                __venteFiSetCheminLigneOption('#idcheminsfid', donitinesfi[1].code_itineraires, donitinesfi[1].nom_itineraires);
-
-                                                                                                                                document.querySelector('#itinecodesfid').value = `${donitinesfi[0].id_lignes}`;
+                                                                document.querySelector('#itinecodesfid').value = `${donitinesfi[0].id_lignes}`;
                                                                     
 
                                                                 var typgare1fi = (donitinesfi[0] && donitinesfi[0].code_itineraires) ? String(donitinesfi[0].code_itineraires) : (document.querySelector('#itinecodefid').value || '');
@@ -1291,34 +1543,6 @@ document.addEventListener('DOMContentLoaded', () => {
                                                                     httptypequart1fi.setRequestHeader('Content-Type', 'application/json');
                                                                     httptypequart1fi.send();
 
-                                                                        let httptypequartitinfi;
-                                                                        httptypequartitinfi = new XMLHttpRequest();
-                                                                        var itinprofi = document.querySelector('#itinecodefid').value;
-                                                                        var datedepartfi = document.querySelector('#date_depheurefid').value;
-                                                                        httptypequartitinfi.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifheureitine/${itinprofi}/${datedepartfi}`, true);
-                                                                    httptypequartitinfi.onload = () => 
-                                                                    {
-                                                                        const infositinfi = JSON.parse(httptypequartitinfi.responseText);
-                                                                        if (infositinfi == null) 
-                                                                        {
-
-
-                                                                        }
-                                                                        if (typeof window.__venteFillHeureItineSelect === 'function') {
-                                                                            window.__venteFillHeureItineSelect('#hdepartitinefid', infositinfi);
-                                                                        } else if (Object.entries(infositinfi).length >= 1) {
-                                                                            for (let key in Object.entries(infositinfi)) {
-                                                                                    let opt = document.createElement('option');
-                                                                                    opt.value = `${infositinfi[key].id_ligneheure}/${infositinfi[key].heure}`;
-                                                                                    opt.innerHTML = `${infositinfi[key].heure}`;
-                                                                                    document.querySelector('#hdepartitinefid').add(opt);
-                                                                                }
-                                                                        } else {
-                                                                            document.querySelector('#hdepartitinefid').options.length = 1;
-                                                                        }
-                                                                    };
-                                                                    httptypequartitinfi.setRequestHeader('Content-Type', 'application/json');
-                                                                    httptypequartitinfi.send();
                                                                 let hrdepartinefi = document.querySelector('#hdepartitinefid');
                                                                 if (hrdepartinefi !== null) {
                                                                     hrdepartinefi.onchange = () => 
@@ -1365,6 +1589,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                                                                             document.querySelector('#catetransfid').value = `${donitfi[key].categori}`;
 
                                                                                         }
+                                                                                        __venteFiMaybeStartCheminCascade();
                                                                                     } 
                                                                                     
                                                                                     
@@ -1654,14 +1879,8 @@ document.addEventListener('DOMContentLoaded', () => {
                                                             if(i === 3)
                                                             {
 
-                                                                
-                                                                __venteFiSetCheminLigneOption('#idcheminsfid', donitinesfi[1].code_itineraires, donitinesfi[1].nom_itineraires);
-
-                                                                                                                                document.querySelector('#itinecodesfid').value = `${donitinesfi[0].id_lignes}`;
+                                                                document.querySelector('#itinecodesfid').value = `${donitinesfi[0].id_lignes}`;
                                                                
-
-                                                                __venteFiSetCheminLigneOption('#idchemins1fid', donitinesfi[2].code_itineraires, donitinesfi[2].nom_itineraires);
-
 
                                                                 var typgare1fi = (donitinesfi[0] && donitinesfi[0].code_itineraires) ? String(donitinesfi[0].code_itineraires) : (document.querySelector('#itinecodefid').value || '');
                                                                 var post_typgare1fi = typgare1fi.split('-');
@@ -1696,35 +1915,6 @@ document.addEventListener('DOMContentLoaded', () => {
                                                                     httptypequart1fi.setRequestHeader('Content-Type', 'application/json');
                                                                     httptypequart1fi.send();
 
-
-                                                                        let httptypequartitin1fi;
-                                                                        httptypequartitin1fi = new XMLHttpRequest();
-                                                                        var itinpro1fi = document.querySelector('#itinecodefid').value;
-                                                                        var datedepartfi = document.querySelector('#date_depheurefid').value;
-                                                                        httptypequartitin1fi.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifheureitine/${itinpro1fi}/${datedepartfi}`, true);
-                                                                    httptypequartitin1fi.onload = () => 
-                                                                    {
-                                                                        const infositin1fi = JSON.parse(httptypequartitin1fi.responseText);
-                                                                        if (infositin1fi == null) 
-                                                                        {
-
-
-                                                                        }
-                                                                        if (typeof window.__venteFillHeureItineSelect === 'function') {
-                                                                            window.__venteFillHeureItineSelect('#hdepartitinefid', infositin1fi);
-                                                                        } else if (Object.entries(infositin1fi).length >= 1) {
-                                                                            for (let key in Object.entries(infositin1fi)) {
-                                                                                    let opt = document.createElement('option');
-                                                                                    opt.value = `${infositin1fi[key].id_ligneheure}/${infositin1fi[key].heure}`;
-                                                                                    opt.innerHTML = `${infositin1fi[key].heure}`;
-                                                                                    document.querySelector('#hdepartitinefid').add(opt);
-                                                                                }
-                                                                        } else {
-                                                                            document.querySelector('#hdepartitinefid').options.length = 1;
-                                                                        }
-                                                                    };
-                                                                    httptypequartitin1fi.setRequestHeader('Content-Type', 'application/json');
-                                                                    httptypequartitin1fi.send();
                                                                 let hrdepartine1fi = document.querySelector('#hdepartitinefid');
                                                                 if (hrdepartine1fi !== null) {
                                                                     hrdepartine1fi.onchange = () => 
@@ -1771,6 +1961,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                                                                             document.querySelector('#catetransfid').value = `${donit1fi[key].categori}`;
 
                                                                                         }
+                                                                                        __venteFiMaybeStartCheminCascade();
                                                                                     } 
                                                                                     
                                                                                     
@@ -2225,14 +2416,6 @@ document.addEventListener('DOMContentLoaded', () => {
                                                             //troisieme itineraire
                                                             if(i === 4)
                                                             {
-                                                                __venteFiSetCheminLigneOption('#idcheminsfid', donitinesfi[1].code_itineraires, donitinesfi[1].nom_itineraires);
-
-
-                                                                __venteFiSetCheminLigneOption('#idchemins1fid', donitinesfi[2].code_itineraires, donitinesfi[2].nom_itineraires);
-
-                                                                __venteFiSetCheminLigneOption('#idchemins2fid', donitinesfi[3].code_itineraires, donitinesfi[3].nom_itineraires);
-
-                                                                                                                               
                                                                 document.querySelector('#itinecodesfid').value = `${donitinesfi[0].id_lignes}`;
 
                                                                     var typgare1fi = (donitinesfi[0] && donitinesfi[0].code_itineraires) ? String(donitinesfi[0].code_itineraires) : (document.querySelector('#itinecodefid').value || '');
@@ -2268,36 +2451,6 @@ document.addEventListener('DOMContentLoaded', () => {
                                                                     httptypequart1fi.setRequestHeader('Content-Type', 'application/json');
                                                                     httptypequart1fi.send();
 
-
-
-                                                                        let httptypequartitin1fi;
-                                                                        httptypequartitin1fi = new XMLHttpRequest();
-                                                                        var datedepartfi = document.querySelector('#date_depheurefid').value;
-                                                                        var itinpro1fi = document.querySelector('#itinecodefid').value;
-                                                                        httptypequartitin1fi.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifheureitine/${itinpro1fi}/${datedepartfi}`, true);
-                                                                    httptypequartitin1fi.onload = () => 
-                                                                    {
-                                                                        const infositin1fi = JSON.parse(httptypequartitin1fi.responseText);
-                                                                        if (infositin1fi == null) 
-                                                                        {
-
-
-                                                                        }
-                                                                        if (typeof window.__venteFillHeureItineSelect === 'function') {
-                                                                            window.__venteFillHeureItineSelect('#hdepartitinefid', infositin1fi);
-                                                                        } else if (Object.entries(infositin1fi).length >= 1) {
-                                                                            for (let key in Object.entries(infositin1fi)) {
-                                                                                    let opt = document.createElement('option');
-                                                                                    opt.value = `${infositin1fi[key].id_ligneheure}/${infositin1fi[key].heure}`;
-                                                                                    opt.innerHTML = `${infositin1fi[key].heure}`;
-                                                                                    document.querySelector('#hdepartitinefid').add(opt);
-                                                                                }
-                                                                        } else {
-                                                                            document.querySelector('#hdepartitinefid').options.length = 1;
-                                                                        }
-                                                                    };
-                                                                    httptypequartitin1fi.setRequestHeader('Content-Type', 'application/json');
-                                                                    httptypequartitin1fi.send();
                                                                 let hrdepartine1fi = document.querySelector('#hdepartitinefid');
                                                                 if (hrdepartine1fi !== null) {
                                                                     hrdepartine1fi.onchange = () => 
@@ -2344,6 +2497,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                                                                             document.querySelector('#catetransfid').value = `${donit1fi[key].categori}`;
 
                                                                                         }
+                                                                                        __venteFiMaybeStartCheminCascade();
                                                                                     } 
                                                                                     
                                                                                     
@@ -3030,6 +3184,13 @@ document.addEventListener('DOMContentLoaded', () => {
                                                     var messElFi = document.querySelector('#messfid');
                                                     var errElFi = document.querySelector('#erreurMessfid');
                                                     if (window.__venteFiHasTransit) {
+                                                        var postLhFi = selefi.split('/');
+                                                        window.__venteSelectedHour = {
+                                                            value: selefi,
+                                                            idLh: postLhFi[0] || '',
+                                                            heure: postLhFi[1] || '',
+                                                            hasProg: false
+                                                        };
                                                         if (messElFi) messElFi.style.display = 'block';
                                                         if (errElFi) errElFi.innerHTML = 'Pas de départ à cette heure — correspondances proposées.';
                                                         __venteFiRequestTransitLegs(seltdepfi, arrfi, datedepartfi, sougidfi, true);
@@ -3383,28 +3544,8 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
             
-            let butonclicfi = document.querySelector('#idresetfid');
-            if (butonclicfi !== null) {
-                butonclicfi.onclick = () => 
-                {
-                    let httpSiegeselectfi;
-                    httpSiegeselectfi = new XMLHttpRequest();
-                    const siegselectfi = document.querySelector('#siegselectfid').value;
-                    const idtapfi = document.querySelector('#idtampofid').value;
-                    httpSiegeselectfi.open('GET', window.location.origin + `${APP_ROOT}/programmes/deltamponsieg/${idtapfi}/${siegselectfi}`, true);
-                    httpSiegeselectfi.onload = () => 
-                    {
-                        const donselectfi= JSON.parse(httpSiegeselectfi.responseText);
-                        console.debug(`${typeof donselectfi} - ${donselectfi.attributes}`, console.memory);
-                        document.querySelector('#messfid').style.display = 'none';
-                        
-                    };
-                    httpSiegeselectfi.setRequestHeader('Content-Type', 'application/json');
-                    httpSiegeselectfi.send();
-
-                
-                };
-            }
+            __venteFiWireCancelButton('idresetfid');
+            __venteFiWireCancelButton('idresetfi');
                 
                 e.onclick = function () {   
                     let taFormfi = document.querySelector('#tafiForm');
@@ -3417,10 +3558,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 var tafiFormEl = document.querySelector('#tafiForm');
                 if (tafiFormEl && !tafiFormEl.dataset.salePrepared) {
                     tafiFormEl.dataset.salePrepared = '1';
-                    tafiFormEl.addEventListener('submit', function () {
+                    tafiFormEl.addEventListener('submit', function (ev) {
                         AppRequestGuard.ensureNonce('#tafiForm', 'sale_nonce');
-                        // Ne pas synchroniser les miroirs client : ils servent à détecter
-                        // un changement d'identité (même téléphone, autre passager).
+                        if (!__venteFiValidateTransitPrixBeforeSubmit()) {
+                            ev.preventDefault();
+                            return false;
+                        }
                     });
                 }
 

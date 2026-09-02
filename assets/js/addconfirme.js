@@ -151,7 +151,10 @@ document.addEventListener('DOMContentLoaded', () => {
         opt.innerHTML = nom != null ? String(nom) : String(code);
         if (nom != null) opt.setAttribute('data-nom', String(nom));
         sel.add(opt);
-        sel.selectedIndex = 0;
+        sel.selectedIndex = 1;
+        if (typeof sel.onchange === 'function') {
+            sel.onchange();
+        }
     }
 
     function __confEnsureLigne1LockedInput() {

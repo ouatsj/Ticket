@@ -7,6 +7,10 @@
  * - Nœuds = ville (id) ou préfixe lettre du code gare (ex. BOB32 / BOB1 → BOB)
  * - Recherche BFS bornée (≤ 4 jambes), score + boost optionnel si = composition déclarative
  * - Sortie compatible get_by_parent / verifitine (code_itineraires, nom_itineraires, …)
+ *
+ * Guichet vente : verifchemins + chemintr (parcours OD multi-jambes).
+ * Admin programmes : Programme_correspondance_model / heures_correspondance (lien hub principal↔suite).
+ * Ne pas confondre les deux : heures_correspondance ne sert pas le formulaire guichet.
  */
 class Graphe_correspondance
 {
@@ -32,6 +36,8 @@ class Graphe_correspondance
             'horizon_jours' => (int) $this->CI->config->item('graphe_correspondance_horizon_jours', 'graphe_correspondance'),
             'poids_attente' => (float) $this->CI->config->item('graphe_correspondance_poids_attente', 'graphe_correspondance'),
             'anti_revisite' => $this->CI->config->item('graphe_correspondance_anti_revisite', 'graphe_correspondance'),
+            'duree_trajet_defaut_min' => (int) $this->CI->config->item('graphe_correspondance_duree_trajet_defaut_min', 'graphe_correspondance'),
+            'vitesse_kmh' => (float) $this->CI->config->item('graphe_correspondance_vitesse_kmh', 'graphe_correspondance'),
         );
         if ($this->cfg['prefer_direct'] === null) {
             $this->cfg['prefer_direct'] = TRUE;
@@ -75,6 +81,58 @@ class Graphe_correspondance
         } else {
             $this->cfg['anti_revisite'] = (bool) $this->cfg['anti_revisite'];
         }
+        if ($this->cfg['duree_trajet_defaut_min'] === null || $this->cfg['duree_trajet_defaut_min'] <= 0) {
+            $this->cfg['duree_trajet_defaut_min'] = 60;
+        }
+        if ($this->cfg['vitesse_kmh'] === null || $this->cfg['vitesse_kmh'] <= 0) {
+            $this->cfg['vitesse_kmh'] = 50.0;
+        }
+    }
+
+    /** @var array<string,int> */
+    protected $duree_trajet_cache = array();
+
+    /**
+     * Durée estimée d'une jambe (exp → dest), en minutes (attente en gare).
+     *
+     * @param string $ident_ligne
+     * @return int
+     */
+    public function duree_trajet_minutes($ident_ligne)
+    {
+        $ident = trim((string) $ident_ligne);
+        if ($ident === '') {
+            return (int) $this->cfg['duree_trajet_defaut_min'];
+        }
+        if (isset($this->duree_trajet_cache[$ident])) {
+            return $this->duree_trajet_cache[$ident];
+        }
+        $defaut = (int) $this->cfg['duree_trajet_defaut_min'];
+        $vitesse = (float) $this->cfg['vitesse_kmh'];
+        $row = $this->CI->db->query(
+            'SELECT distancekm FROM lignes WHERE ident_ligne = ? LIMIT 1',
+            array($ident)
+        )->row();
+        $km = ($row && $row->distancekm !== null && $row->distancekm !== '') ? (float) $row->distancekm : 0.0;
+        if ($km > 0 && $vitesse > 0) {
+            $mins = (int) max(15, round(($km / $vitesse) * 60));
+        } else {
+            $mins = $defaut;
+        }
+        $this->duree_trajet_cache[$ident] = $mins;
+        return $mins;
+    }
+
+    /**
+     * @param string|null $heure_label
+     * @return int|null minutes J 00:00
+     */
+    protected function heure_ancre_minutes($heure_label)
+    {
+        if ($heure_label === null || trim((string) $heure_label) === '') {
+            return null;
+        }
+        return $this->heure_to_minutes($heure_label);
     }
 
     public function is_shadow_enabled()
@@ -152,11 +210,186 @@ class Graphe_correspondance
     }
 
     /**
+     * Chemin « direct » (1 jambe OD) pour le sélecteur d'itinéraires guichet.
+     *
+     * @param string $ekey
+     * @param string $axe
+     * @param string|null $heure_label
+     * @return array|null
+     */
+    public function chemin_direct_payload($ekey, $axe, $heure_label = null)
+    {
+        $axe = trim((string) $axe);
+        if ($axe === '') {
+            return null;
+        }
+        $etape = $this->etape_depuis_ident_ligne($ekey, $axe);
+        if ($etape === null) {
+            return null;
+        }
+        $label = 'Direct · 1 jambe';
+        if ($heure_label !== null && trim((string) $heure_label) !== '') {
+            $label = 'Direct · ' . trim((string) $heure_label) . ' · 1 jambe';
+        }
+        return array(
+            'id' => 0,
+            'label' => $label,
+            'codes' => array($axe),
+            'nb_jambes' => 1,
+            'score' => null,
+            'attente_totale_min' => 0,
+            'attente_totale_label' => null,
+            'attentes_min' => array(),
+            'etapes' => array($etape),
+            'source' => 'direct',
+        );
+    }
+
+    /**
+     * Étape unique depuis ident_ligne OD (forme attendue par le guichet).
+     *
+     * @param string $ekey
+     * @param string $ident_ligne
+     * @return object|null
+     */
+    public function etape_depuis_ident_ligne($ekey, $ident_ligne)
+    {
+        $ident = trim((string) $ident_ligne);
+        if ($ident === '') {
+            return null;
+        }
+        if (!isset($this->CI->m_programme)) {
+            $this->CI->load->model('Programme_model', 'm_programme');
+        }
+        $inLignes = $this->CI->m_programme->sql_in_ident_lignes(array($ident));
+        return $this->CI->db->query(
+            "SELECT
+                lg.ident_ligne AS code_itineraires,
+                lg.nom_ligne AS nom_itineraires,
+                lg.ident_ligne AS ident_ligne,
+                lg.ident_ligne AS id_lignes,
+                ge.nom_gaep AS depart_itine,
+                ga.nom_gadest AS arrive_itine,
+                ge.code_gaexp,
+                ga.code_gadest,
+                ga.id_compaga
+             FROM lignes lg
+             JOIN gare_exp ge ON lg.gaexp_lg = ge.code_gaexp
+             JOIN gare_dest ga ON lg.gadest_lg = ga.code_gadest
+             JOIN compagnies c ON ge.id_compagd = c.cle_compagnie
+             JOIN entreprise e ON c.id_entrep = e.id_entreprise
+             WHERE e.ekey = ?
+             AND lg.ident_ligne IN ({$inLignes})
+             LIMIT 1",
+            array($ekey)
+        )->row();
+    }
+
+    /**
+     * Ajoute l'option direct en tête si absente (vente guichet, force=1).
+     *
+     * @param array $chemins
+     * @param array|null $direct
+     * @return array
+     */
+    public function prepend_chemin_direct(array $chemins, $direct)
+    {
+        if (empty($direct) || !is_array($direct)) {
+            return $chemins;
+        }
+        foreach ($chemins as $c) {
+            if (is_array($c) && isset($c['source']) && $c['source'] === 'direct') {
+                return $chemins;
+            }
+        }
+        array_unshift($chemins, $direct);
+        foreach ($chemins as $i => &$ch) {
+            $ch['id'] = (int) $i;
+        }
+        unset($ch);
+        return $chemins;
+    }
+
+    /**
+     * Évaluation unifiée transit OD (catalogue heures + verifchemins).
+     *
+     * @param string $ekey
+     * @param string $axe ident_ligne OD
+     * @param string $date Y-m-d
+     * @param int|null $idsousgare
+     * @return array{has_transit:bool,sources:array,declaratif:array}
+     */
+    public function evaluer_transit_od($ekey, $axe, $date, $idsousgare = null)
+    {
+        $sources = array();
+        if (!isset($this->CI->m_itineraire_etape)) {
+            $this->CI->load->model('Itineraire_etape_model', 'm_itineraire_etape');
+        }
+        $decl = $this->CI->m_itineraire_etape->get_by_parent($ekey, $axe);
+        if (count($decl) >= 2) {
+            $sources[] = 'declaratif';
+        }
+        if ($this->is_serve_enabled()) {
+            $res = $this->chercher_chemins($ekey, $axe, $date, $idsousgare, TRUE);
+            if (!empty($res['chemins'])) {
+                $sources[] = 'graphe';
+            }
+        }
+        if (empty($sources)) {
+            if (!isset($this->CI->m_itineraire)) {
+                $this->CI->load->model('Itineraire_model', 'm_itineraire');
+            }
+            $legacy = $this->CI->m_itineraire->getitine($ekey, $axe, $date, $idsousgare, TRUE);
+            if (!empty($legacy)) {
+                $sources[] = 'legacy_getitine';
+            }
+        }
+        return array(
+            'has_transit' => !empty($sources),
+            'sources' => $sources,
+            'declaratif' => is_array($decl) ? $decl : array(),
+        );
+    }
+
+    /**
+     * L'OD peut-elle proposer du transit (graphe programmes ou composition déclarée) ?
+     *
+     * @param string $ekey
+     * @param string $axe
+     * @param string $date
+     * @param int|null $idsousgare
+     * @return bool
+     */
+    public function od_peut_avoir_transit($ekey, $axe, $date, $idsousgare = null)
+    {
+        $eval = $this->evaluer_transit_od($ekey, $axe, $date, $idsousgare);
+        return !empty($eval['has_transit']);
+    }
+
+    /**
+     * Étapes legacy (verifitine) depuis payload verifchemins.
+     *
+     * @param array $payload
+     * @return array
+     */
+    public function etapes_legacy_from_payload(array $payload)
+    {
+        if (!empty($payload['etapes'])) {
+            $et = $payload['etapes'];
+            return array_values(is_array($et) ? $et : array($et));
+        }
+        if (!empty($payload['chemins'][0]['etapes'])) {
+            return array_values($payload['chemins'][0]['etapes']);
+        }
+        return array();
+    }
+
+    /**
      * Phase 2 : décision vente pour une OD.
      * @return array{mode:string,etapes:array,meta:array,chemins:array}
      *  mode = direct | graphe | declaratif | none
      */
-    public function resoudre_pour_vente($ekey, $axe, $date, $idsousgare = null, $declaratif = null, $ignore_prefer_direct = FALSE)
+    public function resoudre_pour_vente($ekey, $axe, $date, $idsousgare = null, $declaratif = null, $ignore_prefer_direct = FALSE, $heure_ancre = null)
     {
         $date = $date ? $date : mdate('%Y-%m-%d', now());
         $meta = array(
@@ -192,7 +425,7 @@ class Graphe_correspondance
             );
         }
 
-        $res = $this->chercher_chemins($ekey, $axe, $date, $idsousgare);
+        $res = $this->chercher_chemins($ekey, $axe, $date, $idsousgare, $ignore_prefer_direct, $heure_ancre);
         $meta = array_merge($meta, isset($res['meta']) ? $res['meta'] : array());
         $meta['has_direct'] = $hasDirect;
 
@@ -234,7 +467,7 @@ class Graphe_correspondance
      * @param int|null $idsousgare
      * @return array{chemins:array,meta:array}
      */
-    public function chercher_chemins($ekey, $axe, $date, $idsousgare = null)
+    public function chercher_chemins($ekey, $axe, $date, $idsousgare = null, $ignore_prefer_direct = FALSE, $heure_ancre = null)
     {
         $meta = array(
             'axe' => $axe,
@@ -263,8 +496,8 @@ class Graphe_correspondance
             return array('chemins' => array(), 'meta' => $meta);
         }
 
-        // Même règle dans le moteur : pas de multi-jambes si direct dispo
-        if ($this->prefers_direct() && $this->od_a_depart_direct($ekey, $axe, $date, $idsousgare)) {
+        // Même règle dans le moteur : pas de multi-jambes si direct dispo (sauf force guichet).
+        if (!$ignore_prefer_direct && $this->prefers_direct() && $this->od_a_depart_direct($ekey, $axe, $date, $idsousgare)) {
             $meta['has_direct'] = TRUE;
             $meta['skipped_for_direct'] = TRUE;
             $meta['ms'] = (int) round((microtime(true) - $t0) * 1000);
@@ -284,7 +517,8 @@ class Graphe_correspondance
         }
 
         $favoris = $this->load_favoris_codes($ekey, $axe);
-        $raw = $this->bfs_chemins($graph, $startNode, $goalNode, $gaexp, $gadest);
+        $ancreMin = $this->heure_ancre_minutes($heure_ancre);
+        $raw = $this->bfs_chemins($graph, $startNode, $goalNode, $gaexp, $gadest, $ancreMin);
         $chemins = $this->rank_and_format($raw, $axe, $favoris, $graph);
 
         $meta['nb_chemins'] = count($chemins);
@@ -620,7 +854,7 @@ class Graphe_correspondance
     // Search
     // -------------------------------------------------------------------------
 
-    protected function bfs_chemins(array $graph, $startNode, $goalNode, $gaexpOd, $gadestOd)
+    protected function bfs_chemins(array $graph, $startNode, $goalNode, $gaexpOd, $gadestOd, $heureAncreMin = null)
     {
         $maxJ = $this->cfg['max_jambes'];
         $marge = $this->cfg['marge_min'];
@@ -630,7 +864,7 @@ class Graphe_correspondance
         $adj = $graph['adj'];
 
         $found = array();
-        // state: node, path, last_abs, used lines, visited villes/nœuds
+        // state: node, path, last_arrive_abs (fin trajet jambe précédente), used lines, visited
         $visited0 = array();
         if ($startNode !== '') {
             $visited0[$startNode] = true;
@@ -638,7 +872,7 @@ class Graphe_correspondance
         $queue = array(array(
             'node' => $startNode,
             'path' => array(),
-            'last_abs' => null,
+            'last_arrive_abs' => null,
             'used' => array(),
             'visited' => $visited0,
         ));
@@ -676,7 +910,13 @@ class Graphe_correspondance
                     continue;
                 }
 
-                $dep = $this->pick_depart($edge['departs'], $state['last_abs'], $marge, ($depth === 0));
+                $dep = $this->pick_depart(
+                    $edge['departs'],
+                    $state['last_arrive_abs'],
+                    $marge,
+                    ($depth === 0),
+                    ($depth === 0) ? $heureAncreMin : null
+                );
                 if ($dep === null) {
                     continue;
                 }
@@ -694,6 +934,7 @@ class Graphe_correspondance
                 );
                 $used = $state['used'];
                 $used[$ligneId] = true;
+                $arriveAbs = (int) $dep['abs_minutes'] + $this->duree_trajet_minutes($ligneId);
 
                 // Arrivée OD : code gadest exact (évite BAM6 vs BAM53)
                 if ($isArriveeOd) {
@@ -711,7 +952,7 @@ class Graphe_correspondance
                     $queue[] = array(
                         'node' => $toNode,
                         'path' => $newPath,
-                        'last_abs' => $dep['abs_minutes'],
+                        'last_arrive_abs' => $arriveAbs,
                         'used' => $used,
                         'visited' => $visited,
                     );
@@ -723,28 +964,33 @@ class Graphe_correspondance
     }
 
     /**
-     * Choisit le premier départ faisable après lastAbs + marge.
-     * Première jambe : uniquement day_offset = 0 (date voyage).
+     * Choisit le premier départ faisable.
+     * Jambe 2+ : départ ≥ arrivée jambe précédente + marge.
+     * Première jambe : jour J, optionnellement ≥ heure ancre guichet.
      *
      * @param array $departs
-     * @param int|null $lastAbs minutes absolues depuis J 00:00
+     * @param int|null $lastArriveAbs fin trajet jambe précédente (minutes abs J/J+1)
      * @param int $marge
      * @param bool $firstLeg
+     * @param int|null $minFirstAbs plancher 1re jambe (minutes J)
      * @return array|null
      */
-    protected function pick_depart(array $departs, $lastAbs, $marge, $firstLeg = false)
+    protected function pick_depart(array $departs, $lastArriveAbs, $marge, $firstLeg = false, $minFirstAbs = null)
     {
         foreach ($departs as $d) {
             if (!isset($d['abs_minutes']) || $d['abs_minutes'] === null) {
                 continue;
             }
-            if ($firstLeg || $lastAbs === null) {
+            if ($firstLeg || $lastArriveAbs === null) {
                 if (isset($d['day_offset']) && (int) $d['day_offset'] !== 0) {
+                    continue;
+                }
+                if ($minFirstAbs !== null && (int) $d['abs_minutes'] < (int) $minFirstAbs) {
                     continue;
                 }
                 return $d;
             }
-            if ($d['abs_minutes'] >= ($lastAbs + $marge)) {
+            if ($d['abs_minutes'] >= ((int) $lastArriveAbs + $marge)) {
                 return $d;
             }
         }
@@ -771,14 +1017,16 @@ class Graphe_correspondance
                 if ($i === 0) {
                     continue;
                 }
-                $prevAbs = isset($path[$i - 1]['depart']['abs_minutes'])
+                $prevLeg = isset($path[$i - 1]['ident_ligne']) ? (string) $path[$i - 1]['ident_ligne'] : '';
+                $prevDepartAbs = isset($path[$i - 1]['depart']['abs_minutes'])
                     ? (int) $path[$i - 1]['depart']['abs_minutes'] : null;
                 $curAbs = isset($path[$i]['depart']['abs_minutes'])
                     ? (int) $path[$i]['depart']['abs_minutes'] : null;
-                if ($prevAbs === null || $curAbs === null) {
+                if ($prevDepartAbs === null || $curAbs === null || $prevLeg === '') {
                     $wait = 0;
                 } else {
-                    $wait = max(0, $curAbs - $prevAbs);
+                    $arriveHub = $prevDepartAbs + $this->duree_trajet_minutes($prevLeg);
+                    $wait = max(0, $curAbs - $arriveHub);
                 }
                 $attentes[] = $wait;
                 $totalAttente += $wait;

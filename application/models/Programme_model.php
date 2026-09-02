@@ -1331,17 +1331,10 @@
             $mode = 'hybride';
 
             $CI =& get_instance();
-            if (!isset($CI->m_itineraire_etape)) {
-                $CI->load->model('Itineraire_etape_model', 'm_itineraire_etape');
-            }
-            $etapesTransit = $CI->m_itineraire_etape->get_by_parent($cid, $axe);
-            if (empty($etapesTransit)) {
-                if (!isset($CI->m_itineraire)) {
-                    $CI->load->model('Itineraire_model', 'm_itineraire');
-                }
-                $etapesTransit = $CI->m_itineraire->getitine($cid, $axe, $date, $sg, TRUE);
-            }
-            $has_transit = !empty($etapesTransit);
+            $CI->load->library('graphe_correspondance');
+            $evalTransit = $CI->graphe_correspondance->evaluer_transit_od($cid, $axe, $date, $sg);
+            $has_transit = !empty($evalTransit['has_transit']);
+            $transit_sources = !empty($evalTransit['sources']) ? $evalTransit['sources'] : array();
 
             // Programmes sur l'OD (jumeaux même ville/compagnie dest, heure réelle).
             $progs = $this->db->query(
@@ -1490,6 +1483,7 @@
                 'ligne' => $axe,
                 'mode_depart' => $mode,
                 'has_transit' => $has_transit ? TRUE : FALSE,
+                'transit_sources' => $transit_sources,
                 'heures' => $heures,
             );
         }

@@ -1,18 +1,32 @@
 <?php defined('BASEPATH') OR exit('No direct script access allowed');
 
 /**
- * Graphe correspondances — essai.
- * Phase 1 : shadow (log)
- * Phase 2 : serve + règle « direct dispo ⇒ pas d'intermédiaire »
+ * Graphe correspondances (vente guichet multi-jambes).
+ * serve=true : calcul des chemins via programmes du jour (verifchemins).
+ * shadow=true : journalisation diagnostic (essai / staging).
  */
 $ci_http_host = isset($_SERVER['HTTP_HOST']) ? strtolower((string) $_SERVER['HTTP_HOST']) : '';
 $is_essai = ($ci_http_host === 'essaiticket.rakietabus.com');
 
+$serve_env = getenv('GRAPHE_CORRESPONDANCE_SERVE');
+if ($serve_env === '0' || $serve_env === 'false') {
+    $graphe_serve = FALSE;
+} elseif ($serve_env === '1' || $serve_env === 'true') {
+    $graphe_serve = TRUE;
+} else {
+    // Prod + essai + autres hôtes : graphe actif (désactivable via env).
+    $graphe_serve = TRUE;
+}
+
+$config['graphe_correspondance_serve'] = $graphe_serve;
 $config['graphe_correspondance_shadow'] = $is_essai;
-$config['graphe_correspondance_serve'] = $is_essai;
 /** Si l'OD a ≥1 départ programmé direct : ne pas proposer de multi-jambes. */
 $config['graphe_correspondance_prefer_direct'] = TRUE;
 $config['graphe_correspondance_marge_min'] = 30;
+/** Durée trajet estimée (min) si distancekm absente sur la ligne (attente en gare). */
+$config['graphe_correspondance_duree_trajet_defaut_min'] = 60;
+/** Vitesse moyenne (km/h) pour estimer la durée depuis lignes.distancekm. */
+$config['graphe_correspondance_vitesse_kmh'] = 50;
 $config['graphe_correspondance_max_jambes'] = 4;
 $config['graphe_correspondance_top_k'] = 5;
 $config['graphe_correspondance_max_edges_expand'] = 40;

@@ -1,8 +1,9 @@
 <?php defined('BASEPATH') OR exit('No direct script access allowed');
 
 /**
- * Lien ops : départ direct (principal) ↔ départ correspondance (suite)
- * + départ dérivé Banfora→hub créé à la gare de départ, sièges partagés avec suite.
+ * Lien ops ADMIN (écran programme / hub) : départ direct (principal) ↔ départ correspondance (suite).
+ * API : heures_correspondance, link_correspondance, get_correspondance.
+ * Ne pas utiliser pour la vente guichet multi-jambes → verifchemins + chemintr (Graphe_correspondance).
  */
 class Programme_correspondance_model extends CI_Model
 {

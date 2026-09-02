@@ -1238,7 +1238,8 @@
         }
 
         /**
-         * Horaires catalogue pour créer le départ suite au hub (JSON).
+         * Horaires catalogue ADMIN — lien hub principal ↔ départ suite (program.php).
+         * Ne sert pas la vente guichet multi-jambes (→ verifchemins / chemintr).
          * GET Programmes/heures_correspondance/{ekey}/{code_progr}
          */
         public function heures_correspondance($ckey, $code_progr = null)
@@ -2012,33 +2013,18 @@
             ));
         }
 
-        public function verifitine($axe, $da = null, $sgid = null, $force = null)
-        {
-            // $da / $sgid optionnels ; $force=1 ⇒ correspondances même si un direct existe ailleurs le jour.
-            $date = ($da !== null && $da !== '' && $da !== '0') ? $da : null;
-            $sg = ($sgid !== null && $sgid !== '' && $sgid !== '0') ? (int) $sgid : null;
-            $force_transit = ($force === '1' || $force === 1 || $force === true);
-            $outitin = $this->m_itineraire->getitine(
-                $this->session->company->ekey,
-                $axe,
-                $date,
-                $sg,
-                $force_transit
-            );
-            return $this->load->view('beagle/pages/_programme/json', array('json' => $outitin));
-        }
-
         /**
-         * Multi-chemins vente : décision graphe + attentes + étapes complètes.
-         * GET programmes/verifchemins/{axe}/{date}/{sg?}/{force?}
-         * force=1 ⇒ correspondances même si un direct existe ailleurs le jour.
+         * Payload JSON guichet : chemins transit (source unique verifchemins / verifitine).
+         *
+         * @param string $axe
+         * @param string $date Y-m-d
+         * @param int|null $sg
+         * @param bool $force_transit
+         * @param string|null $heure_label libellé heure choisie (option direct)
+         * @return array
          */
-        public function verifchemins($axe, $da = null, $sgid = null, $force = null)
+        protected function _payload_verifchemins_guichet($axe, $date, $sg, $force_transit, $heure_label = null)
         {
-            session_release_lock();
-            $date = ($da !== null && $da !== '' && $da !== '0') ? $da : mdate('%Y-%m-%d', now());
-            $sg = ($sgid !== null && $sgid !== '' && $sgid !== '0') ? (int) $sgid : null;
-            $force_transit = ($force === '1' || $force === 1 || $force === true);
             $this->load->library('graphe_correspondance');
             if (!isset($this->m_itineraire_etape)) {
                 $this->load->model('Itineraire_etape_model', 'm_itineraire_etape');
@@ -2049,10 +2035,19 @@
                 $decl[] = $r->code_itineraires;
             }
 
-            // Prod / hors essai : ne pas servir le graphe tant que serve=false.
-            // Même règle prefer_direct que Phase 2 : direct OD ⇒ pas de jambes (sauf force=1).
-            if (!$this->graphe_correspondance->is_serve_enabled()) {
-                $ekey = $this->session->company->ekey;
+            $ekey = $this->session->company->ekey;
+
+            if ($this->graphe_correspondance->is_serve_enabled()) {
+                $decision = $this->graphe_correspondance->resoudre_pour_vente(
+                    $ekey,
+                    $axe,
+                    $date,
+                    $sg,
+                    $declRows,
+                    $force_transit,
+                    $force_transit ? $heure_label : null
+                );
+            } else {
                 $hasDirect = $this->graphe_correspondance->od_a_depart_direct($ekey, $axe, $date, $sg);
                 if ($this->graphe_correspondance->prefer_direct_sans_jambes($ekey, $axe, $date, $sg, $force_transit)) {
                     $decision = array(
@@ -2064,7 +2059,7 @@
                             'date' => $date,
                             'has_direct' => TRUE,
                             'served' => TRUE,
-                            'reason' => 'prefer_direct_prod',
+                            'reason' => 'prefer_direct_serve_off',
                         ),
                     );
                 } elseif (!empty($declRows)) {
@@ -2094,17 +2089,10 @@
                         ),
                     );
                 }
-            } else {
-                $decision = $this->graphe_correspondance->resoudre_pour_vente(
-                    $this->session->company->ekey,
-                    $axe,
-                    $date,
-                    $sg,
-                    $declRows,
-                    $force_transit
-                );
             }
+
             $payload = $this->graphe_correspondance->payload_multi_chemins($decision, $declRows);
+            $evalTransit = $this->graphe_correspondance->evaluer_transit_od($ekey, $axe, $date, $sg);
             $out = array(
                 'mode' => $payload['mode'],
                 'meta' => $payload['meta'],
@@ -2113,12 +2101,57 @@
                 'chemins' => $payload['chemins'],
                 'etapes' => $payload['etapes'],
                 'etapes_servies' => array(),
+                'has_transit' => !empty($evalTransit['has_transit']),
+                'transit_sources' => !empty($evalTransit['sources']) ? $evalTransit['sources'] : array(),
             );
             foreach ($payload['etapes'] as $e) {
                 $out['etapes_servies'][] = is_object($e) && isset($e->code_itineraires)
                     ? $e->code_itineraires
                     : (is_array($e) && isset($e['code_itineraires']) ? $e['code_itineraires'] : null);
             }
+
+            if ($force_transit && $this->graphe_correspondance->od_a_depart_direct($ekey, $axe, $date, $sg)) {
+                $direct = $this->graphe_correspondance->chemin_direct_payload($ekey, $axe, $heure_label);
+                if ($direct !== null) {
+                    $out['chemins'] = $this->graphe_correspondance->prepend_chemin_direct($out['chemins'], $direct);
+                    $out['multi'] = count($out['chemins']) > 1;
+                }
+            }
+
+            return $out;
+        }
+
+        /**
+         * Legacy : étapes transit pour anciens clients (tableau d'étapes).
+         * Délègue au même moteur que verifchemins.
+         * GET programmes/verifitine/{axe}/{date?}/{sg?}/{force?}
+         */
+        public function verifitine($axe, $da = null, $sgid = null, $force = null)
+        {
+            session_release_lock();
+            $date = ($da !== null && $da !== '' && $da !== '0') ? $da : mdate('%Y-%m-%d', now());
+            $sg = ($sgid !== null && $sgid !== '' && $sgid !== '0') ? (int) $sgid : null;
+            $force_transit = ($force === '1' || $force === 1 || $force === true);
+            $payload = $this->_payload_verifchemins_guichet($axe, $date, $sg, $force_transit, null);
+            $this->load->library('graphe_correspondance');
+            $outitin = $this->graphe_correspondance->etapes_legacy_from_payload($payload);
+            return $this->load->view('beagle/pages/_programme/json', array('json' => $outitin));
+        }
+
+        /**
+         * Multi-chemins vente guichet (source unique transit OD).
+         * GET programmes/verifchemins/{axe}/{date}/{sg?}/{force?}
+         * force=1 ⇒ direct + multi-jambes même si un départ direct existe ce jour.
+         * Ne pas confondre avec heures_correspondance (admin hub programme↔suite).
+         */
+        public function verifchemins($axe, $da = null, $sgid = null, $force = null)
+        {
+            session_release_lock();
+            $date = ($da !== null && $da !== '' && $da !== '0') ? $da : mdate('%Y-%m-%d', now());
+            $sg = ($sgid !== null && $sgid !== '' && $sgid !== '0') ? (int) $sgid : null;
+            $force_transit = ($force === '1' || $force === 1 || $force === true);
+            $heure_label = $this->input->get('heure');
+            $out = $this->_payload_verifchemins_guichet($axe, $date, $sg, $force_transit, $heure_label);
             return $this->load->view('beagle/pages/_programme/json', array('json' => $out));
         }
 
@@ -2131,7 +2164,7 @@
 
         public function chemintr($ax, $d, $t)
         {
-            
+            // Guichet transit jambe 2+ : heures programme filtrées par tarif (≠ heures_correspondance admin).
             $outcht = $this->m_programme->getchtr($this->session->company->ekey, $ax, $d, $t);
             return $this->load->view('beagle/pages/_programme/json', array('json' => $outcht));
         }
