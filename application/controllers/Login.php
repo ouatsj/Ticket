@@ -367,14 +367,18 @@
 
             $agent = $this->session->userdata('agent');
 
-            if (empty($agent) || $o !== $this->session->session_id || $a !== $agent->cpuser_id) {
-                auth_session_purge();
+            // Segments URL = string ; cpuser_id session peut être int → !== faisait
+            // échouer la vérif, puis purge PHP seule sans is_conect=0 (reste « En ligne »).
+            if (!empty($agent) && !empty($agent->cpuser_id)) {
+                // Session agent présente = déconnexion réelle :
+                // hors ligne (is_conect=0) + invalidation jeton + activeattrib=0 + destroy session.
+                auth_session_force_logout(true);
                 redirect('login/ins/');
                 return;
             }
 
-            auth_session_force_logout(true);
-
+            // Pas de session agent : ne pas faire confiance au seul id URL (abus possible).
+            auth_session_purge();
             redirect('login/ins/');
         }
 

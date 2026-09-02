@@ -1,14 +1,20 @@
 #!/usr/bin/env bash
 # Deploy prod — pull code + SQL du même commit distant (sans fenêtre code-sans-schéma)
 #
+# Isolation environnements (règle dure) :
+#   - database.php n'est PAS versionné (.gitignore) : test et prod gardent CHACUN
+#     leur propre fichier local (host/user/pass/nom de base). Le pull ne l'écrase jamais.
+#   - Seul le SCHÉMA migre en prod (CREATE TABLE / ADD COLUMN / INDEX idempotents).
+#   - Aucune donnée de test n'est copiée (pas de dump test→prod, pas de seed/INSERT métier).
+#
 # Ordre :
 #   1) mémoriser le commit pré-deploy + tag local de secours
-#   2) backup DB
+#   2) backup DB prod (données prod intactes hors DDL)
 #   3) git fetch
 #   4) extraire migrate_prod_additive_p0_p1.sql depuis origin/<branche>
-#   5) appliquer le SQL
+#   5) garde-fou anti-DML puis appliquer le SQL schéma
 #   6) vérifier le schéma
-#   7) git pull --ff-only
+#   7) git pull --ff-only (database.php local conservé)
 #   8) écrire last_deploy_rollback.env + kit hors git pour rollback d'urgence
 #
 # Rollback si souci après deploy :
@@ -188,16 +194,31 @@ else
   fi
 fi
 
-# --- 4. Migration additive ---
+# --- 4. Migration additive (schéma uniquement) ---
 log ""
-log "[4/6] Appliquer migration additive P0+P1"
+log "[4/6] Appliquer migration additive P0+P1 (schéma only)"
+assert_schema_only_sql() {
+  local f="$1"
+  # Refuse tout DML / dump de données (les commentaires -- sont ignorés ligne à ligne)
+  if grep -Eiv '^[[:space:]]*--' "$f" | grep -Eiq \
+    '^[[:space:]]*(INSERT|UPDATE|DELETE|REPLACE|TRUNCATE|LOAD[[:space:]]+DATA|CALL)[[:space:]]'; then
+    die "SQL refusé: contient du DML/données — prod n'accepte que DDL schéma (CREATE/ALTER/INDEX)"
+  fi
+}
 if [[ "$APPLY" -eq 1 ]]; then
   [[ -s "$SQL_EXTRACT" ]] || die "fichier SQL vide: $SQL_EXTRACT"
+  assert_schema_only_sql "$SQL_EXTRACT"
+  # database.php local prod inchangé ; on applique uniquement sur la DB lue depuis ce fichier
+  [[ -f "$DB_PHP" ]] || die "database.php prod manquant (ne doit pas venir de git): $DB_PHP"
   "${MYSQL[@]}" < "$SQL_EXTRACT"
-  log "OK migration"
+  log "OK migration schéma (aucune donnée test importée)"
   rm -f "$SQL_EXTRACT"
 else
-  log "(dry-run) mysql < SQL extrait de $REF"
+  if [[ -f "$SQL_EXTRACT" ]]; then
+    assert_schema_only_sql "$SQL_EXTRACT"
+    log "(dry-run) garde-fou DML OK"
+  fi
+  log "(dry-run) mysql < SQL schéma extrait de $REF — database.php local non touché"
 fi
 
 # --- 5. Vérifs schéma ---
