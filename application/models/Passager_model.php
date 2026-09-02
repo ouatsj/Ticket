@@ -1292,18 +1292,32 @@
                 $CI->load->library('sale_passager_service', null, 'sale_svc');
             }
 
-            $assert = $CI->sale_svc->assert_siege_vendable($cdp, $num, array('preflight' => true));
-            if (!empty($assert['ok'])) {
+            $etat = $CI->sale_svc->etat_siege_vente($cdp, $num);
+            if (!empty($etat['ok'])) {
                 return null;
             }
 
-            $row = (object) array(
-                'code_pro' => trim((string) $cdp),
-                'num_siege_categorie' => $num,
-                'siege_refus_code' => $assert['code'],
-                'siege_refus_reason' => $assert['reason'],
-            );
+            $row = (object) $etat;
+            $row->siege_refus_code = $etat['code'];
+            $row->siege_refus_reason = $etat['reason'];
             return $this->normalize_ticket_prix_row($row);
+        }
+
+        /**
+         * État structuré siège (API JSON).
+         *
+         * @param string $cid
+         * @param string $cdp
+         * @param int|string $num_sieg
+         * @return array
+         */
+        public function verifiersiege_etat($cid, $cdp, $num_sieg)
+        {
+            $CI =& get_instance();
+            if (!isset($CI->sale_svc)) {
+                $CI->load->library('sale_passager_service', null, 'sale_svc');
+            }
+            return $CI->sale_svc->etat_siege_vente($cdp, (int) $num_sieg);
         }
 
         //report

@@ -129,6 +129,16 @@
         }
 
         /**
+         * Retour guichet lorsque le contrôle siège(s) échoue (occupé, tampon tiers, quota…).
+         */
+        protected function _addpassager_redirect_siege_indisponible()
+        {
+            $this->_addpassager_redirect_back(
+                'Vente non enregistrée : le siège n\'est plus disponible. Choisissez un autre siège puis cliquez EPSON.'
+            );
+        }
+
+        /**
          * Identifiant opérateur guichet pour passager.idcptuser (= attributions_role.roleattribut).
          * Ne pas utiliser cpuser_id ici : compteurs, rapports et jointures SQL attendent roleattribut.
          */
@@ -369,6 +379,35 @@
                 $this->load->library('sale_passager_service', null, 'sale_svc');
             }
             return $this->sale_svc->occupe_legacy_row($code_pro, $num_siege);
+        }
+
+        /**
+         * Contrôle multi-sièges (transit / reprogrammation).
+         *
+         * @param array<int,array{0:string,1:int|string}> $pairs
+         * @return bool
+         */
+        protected function _sale_sieges_sont_libres(array $pairs)
+        {
+            if (!isset($this->sale_svc)) {
+                $this->load->library('sale_passager_service', null, 'sale_svc');
+            }
+            return $this->sale_svc->sieges_sont_vendables($pairs, array('allow_tampon' => true));
+        }
+
+        /**
+         * Réponse JSON standard siegepassager.
+         *
+         * @param string $code_pro
+         * @param int|string $num_siege
+         * @return object
+         */
+        protected function _sale_siegepassager_json($code_pro, $num_siege)
+        {
+            if (!isset($this->sale_svc)) {
+                $this->load->library('sale_passager_service', null, 'sale_svc');
+            }
+            return $this->sale_svc->siegepassager_payload($code_pro, $num_siege);
         }
 
         protected function _sale_redirect($url)
@@ -737,11 +776,18 @@
             $cts = $this->input->post('categorie');
             $dts = $this->input->post('datedp');
 
+            $sieges_bloques = $this->input->post('sieges_bloques');
+            if (!is_array($sieges_bloques)) {
+                $sieges_bloques = array();
+            }
+
             $quota = $this->m_programme->valider_quota_depart(
                 $this->input->post('debut'),
                 $this->input->post('fin'),
                 $cts,
-                null
+                null,
+                array(),
+                $sieges_bloques
             );
             if (empty($quota['ok'])) {
                 $this->session->set_flashdata(
@@ -750,6 +796,9 @@
                 );
                 redirect('gares/'.$this->session->company->ekey. '/gTv/'.$gd .'/prog/'.$iduser.'/'.$idsg.'/'.mdate("%d/%m/%Y", now('UTC')));
                 return;
+            }
+            if (isset($quota['sieges_bloques']) && is_array($quota['sieges_bloques'])) {
+                $sieges_bloques = $quota['sieges_bloques'];
             }
 
             
@@ -796,6 +845,7 @@
                 $pr = $this->m_programme->create($arrayprog);
                 if ($pr != NULL) {
                     $this->m_programme->sync_portee_sousgares($pcd2, $selected_sg, $total_sg);
+                    $this->m_programme->sync_sieges_bloques_programme($pcd2, $sieges_bloques);
                     $this->property['INSERT_SUCCESS'] = TRUE;
                 }
             }
@@ -864,6 +914,11 @@
                 $sieges_liberer = array();
             }
 
+            $sieges_bloques = $this->input->post('sieges_bloques');
+            if (!is_array($sieges_bloques)) {
+                $sieges_bloques = array();
+            }
+
             // Les sièges libérés doivent rester dans intervalle1/2 pour être revendables.
             $debut_quota = (int) $this->input->post('debut');
             $fin_quota = (int) $this->input->post('fin');
@@ -885,7 +940,8 @@
                 $fin_quota,
                 $cts,
                 $idpr,
-                $sieges_liberer
+                $sieges_liberer,
+                $sieges_bloques
             );
             if (empty($quota['ok'])) {
                 $this->session->set_flashdata(
@@ -894,6 +950,9 @@
                 );
                 redirect('gares/'.$this->session->company->ekey. '/gTv/'. $gd. '/prog/'.$iduser.'/'.$idsg.'/'.  mdate("%d/%m/%Y", now('UTC')));
                 return;
+            }
+            if (isset($quota['sieges_bloques']) && is_array($quota['sieges_bloques'])) {
+                $sieges_bloques = $quota['sieges_bloques'];
             }
 
             if (!empty($sieges_liberer)) {
@@ -906,11 +965,6 @@
                     redirect('gares/'.$this->session->company->ekey. '/gTv/'. $gd. '/prog/'.$iduser.'/'.$idsg.'/'.  mdate("%d/%m/%Y", now('UTC')));
                     return;
                 }
-            }
-
-            $sieges_bloques = $this->input->post('sieges_bloques');
-            if (!is_array($sieges_bloques)) {
-                $sieges_bloques = array();
             }
 
             $compter = $this->db->query("SELECT COUNT(code_progr) AS id FROM programme WHERE createdatepr = '$today' AND gareidentif = '$gd'")->row();
@@ -1105,6 +1159,31 @@
             $gd = substr($sub_heure, 0, $lg);
 
             $today = mdate("%Y-%m-%d", now('UTC'));
+
+            $sieges_bloques = $this->input->post('sieges_bloques');
+            if (!is_array($sieges_bloques)) {
+                $sieges_bloques = array();
+            }
+
+            $quota = $this->m_programme->valider_quota_depart(
+                $this->input->post('debut'),
+                $this->input->post('fin'),
+                $cat,
+                null,
+                array(),
+                $sieges_bloques
+            );
+            if (empty($quota['ok'])) {
+                $this->session->set_flashdata(
+                    'prog_quota_error',
+                    $this->_message_quota_depart(isset($quota['error']) ? $quota['error'] : 'quota_invalide')
+                );
+                redirect('gares/'.$this->session->company->ekey. '/gTv/'. $gt. '/prog/'.$iduser.'/'.$idsg.'/'.  mdate("%d/%m/%Y", now('UTC')));
+                return;
+            }
+            if (isset($quota['sieges_bloques']) && is_array($quota['sieges_bloques'])) {
+                $sieges_bloques = $quota['sieges_bloques'];
+            }
             
             $compter = $this->db->query("SELECT COUNT(code_progr) AS id FROM programme WHERE createdatepr = '$today' AND gareidentif = '$gt'")->row();
 
@@ -1138,8 +1217,8 @@
                 'idsousgare_prog' => $idsous_prog,
                 'typetarif' => $taf,
                 'categori' => $cat,
-                'intervalle1' => $this->input->post('debut'),
-                'intervalle2' => $this->input->post('fin'),
+                'intervalle1' => $quota['intervalle1'],
+                'intervalle2' => $quota['intervalle2'],
                 'dateheure_prog' => $dthp,
                 'date_progr' => $dtp,
                 'createdatepr' => mdate("%Y-%m-%d", now('UTC')),
@@ -1150,6 +1229,7 @@
                 $praxe = $this->m_programme->create($arrayprog);
                 if ($praxe != NULL) {
                     $this->m_programme->sync_portee_sousgares($cp3, $selected_sg, $total_sg);
+                    $this->m_programme->sync_sieges_bloques_programme($cp3, $sieges_bloques);
                     $this->property['INSERT_SUCCESS'] = TRUE;
                 }
             }
@@ -1348,6 +1428,7 @@
                 'quota_invalide' => 'Quota sièges invalide : vérifiez la plage sélectionnée.',
                 'quota_hors_bus' => 'Le quota dépasse la capacité du bus pour cette catégorie.',
                 'quota_exclut_vendu' => 'Impossible de retirer un siège déjà vendu du quota (décochez-le pour le libérer).',
+                'bloque_vendu' => 'Impossible de bloquer un siège déjà vendu. Libérez-le d\'abord ou conservez-le dans le quota.',
                 'siege_non_vendu' => 'Un siège à libérer n\'est pas vendu sur ce départ.',
                 'echec_liberation' => 'Échec de la libération des sièges vendus.',
                 'categorie_manquante' => 'Catégorie de bus requise.',
@@ -1888,9 +1969,11 @@
 
         public function siegeoccuper($d, $prog_id)
         {
-            $outut = $this->m_passager->siegepasse($this->session->company->ekey, $d, $prog_id);
+            if (!isset($this->sale_svc)) {
+                $this->load->library('sale_passager_service', null, 'sale_svc');
+            }
+            $outut = $this->sale_svc->siegepassager_payload($d, (int) $prog_id);
             return $this->load->view('beagle/pages/_programme/json', array('json' => $outut), FALSE);
-            
         }
         //information du client repro pour vendeuse
         public function verifcodecl($code)
@@ -1924,22 +2007,9 @@
         //insertion des données du passager et client 
         public function siegepassager($dpclient, $p_sieg)
         {
-            if (!isset($this->m_programme)) {
-                $this->load->model('Programme_model', 'm_programme');
-            }
-            if ($this->m_programme->siege_est_bloque_programme($dpclient, (int) $p_sieg)) {
-                return $this->load->view('beagle/pages/_programme/json', array(
-                    'json' => (object) array(
-                        'code_pro' => $dpclient,
-                        'num_siege_categorie' => (int) $p_sieg,
-                        'siege_bloque' => 1,
-                    ),
-                ));
-            }
-
-            $siegeoccuper = $this->m_passager->verifiersiege($this->session->company->ekey, $dpclient, $p_sieg);
-            return $this->load->view('beagle/pages/_programme/json', array('json' => $siegeoccuper));
-                            
+            return $this->load->view('beagle/pages/_programme/json', array(
+                'json' => $this->_sale_siegepassager_json($dpclient, $p_sieg),
+            ));
         }
 
         public function verifitine($axe, $da = null, $sgid = null, $force = null)
@@ -2254,9 +2324,7 @@
                                 AND $rcn === $this->input->post('cnib') AND $tycl === $this->input->post('type') AND $rcd === $this->input->post('date_cnib') AND $rl === $this->input->post('lieu'))
                                 {
                                 
-                                    $siegeoccuper = $this->_sale_siege_occupe_legacy($dpclient, $p_sieg);
-                                    
-                                    if($siegeoccuper == NULL ) 
+                                    if ($this->_sale_sieges_sont_libres(array(array($dpclient, $p_sieg)))) 
                                     {
 
                                         $argup = array(
@@ -2360,15 +2428,13 @@
 
                                     else
                                     {
-                                        redirect('gares/'.$this->session->company->ekey.'/gTc/'. $gid.'/compte/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                                        $this->_addpassager_redirect_siege_indisponible(); return;
                                     }
                                     
                                 }
                                 else
                                 {
-                                    $siegeoccuper = $this->_sale_siege_occupe_legacy($dpclient, $p_sieg);
-                                    
-                                    if($siegeoccuper == NULL )
+                                    if ($this->_sale_sieges_sont_libres(array(array($dpclient, $p_sieg))))
                                     {
                                         $arraycodetampotr = array(
                                             'codtampon' => $tampo,
@@ -2471,14 +2537,14 @@
                                     }
                                     else
                                     {
-                                        redirect('gares/'.$this->session->company->ekey.'/gTc/'. $gid.'/compte/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                                        $this->_addpassager_redirect_siege_indisponible(); return;
                                     }
                                 } 
                             }
                             
                             else
                             {
-                                redirect('gares/'.$this->session->company->ekey.'/gTc/'. $gid.'/compte/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                                $this->_addpassager_redirect_siege_indisponible(); return;
                             } 
 
                         }
@@ -2534,9 +2600,7 @@
                                 AND $rcn === $this->input->post('cnib') AND $tycl === $this->input->post('type') AND $rcd === $this->input->post('date_cnib') AND $rl === $this->input->post('lieu'))
                                 {
                                 
-                                    $siegeoccuper = $this->_sale_siege_occupe_legacy($dpclient, $p_sieg);
-                                    
-                                    if($siegeoccuper == NULL ) 
+                                    if ($this->_sale_sieges_sont_libres(array(array($dpclient, $p_sieg)))) 
                                     {
 
                                         $argup = array(
@@ -2641,15 +2705,13 @@
 
                                     else
                                     {
-                                        redirect('gares/'.$this->session->company->ekey.'/gTc/'. $gid.'/compte/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                                        $this->_addpassager_redirect_siege_indisponible(); return;
                                     }
                                     
                                 }
                                 else
                                 {
-                                    $siegeoccuper = $this->_sale_siege_occupe_legacy($dpclient, $p_sieg);
-                                    
-                                    if($siegeoccuper == NULL )
+                                    if ($this->_sale_sieges_sont_libres(array(array($dpclient, $p_sieg))))
                                     {
                                         $argv = array(
                                             'nom_client' => $this->input->post('rclient'),
@@ -2749,7 +2811,7 @@
                                     }
                                     else
                                     {
-                                        redirect('gares/'.$this->session->company->ekey.'/gTc/'. $gid.'/compte/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                                        $this->_addpassager_redirect_siege_indisponible(); return;
                                     }
                                 } 
                             }
@@ -2842,9 +2904,7 @@
                                     if($this->input->post('clientcomp') != '' AND $rcl === $this->input->post('rclient') AND $rcp === $this->input->post('prclient') 
                                     AND $rcn === $this->input->post('cnib') AND $rcd === $this->input->post('date_cnib') AND $rl === $this->input->post('lieu'))
                                     {
-                                        $siegeoccuper = $this->_sale_siege_occupe_legacy($dpclient, $p_sieg);
-                                            
-                                            if($siegeoccuper == NULL )
+                                        if ($this->_sale_sieges_sont_libres(array(array($dpclient, $p_sieg))))
                                             {
                                                 $argup = array(
                                                     'nom_client' => $this->input->post('rclient'),
@@ -2994,15 +3054,13 @@
                                             }
                                             else
                                             {
-                                                redirect('gares/'.$this->session->company->ekey.'/gTc/'. $gid.'/compte/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                                                $this->_addpassager_redirect_siege_indisponible(); return;
                                             }
                                             
                                     }
                                     else
                                     {
-                                            $siegeoccuper = $this->_sale_siege_occupe_legacy($dpclient, $p_sieg);
-                                            
-                                            if($siegeoccuper == NULL )
+                                            if ($this->_sale_sieges_sont_libres(array(array($dpclient, $p_sieg))))
                                             {
                                                 $argv = array(
                                                     'nom_client' => $this->input->post('rclient'),
@@ -3149,7 +3207,7 @@
                                             }
                                             else
                                             {
-                                                redirect('gares/'.$this->session->company->ekey.'/gTc/'. $gid.'/compte/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                                                $this->_addpassager_redirect_siege_indisponible(); return;
                                             }
                                     }
                                 
@@ -3157,7 +3215,7 @@
                                 
                                 else
                                 {
-                                    redirect('gares/'.$this->session->company->ekey.'/gTc/'. $gid.'/compte/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                                    $this->_addpassager_redirect_siege_indisponible(); return;
                                 } 
                                     
                         }
@@ -3242,9 +3300,7 @@
                                     if($this->input->post('clientcomp') != '' AND $rcl === $this->input->post('rclient') AND $rcp === $this->input->post('prclient') 
                                     AND $rcn === $this->input->post('cnib') AND $rcd === $this->input->post('date_cnib') AND $rl === $this->input->post('lieu'))
                                     {
-                                        $siegeoccuper = $this->_sale_siege_occupe_legacy($dpclient, $p_sieg);
-                                            
-                                            if($siegeoccuper == NULL )
+                                        if ($this->_sale_sieges_sont_libres(array(array($dpclient, $p_sieg))))
                                             {
                                                 $argup = array(
                                                     'nom_client' => $this->input->post('rclient'),
@@ -3391,15 +3447,13 @@
                                             }
                                             else
                                             {
-                                                redirect('gares/'.$this->session->company->ekey.'/gTc/'. $gid.'/compte/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                                                $this->_addpassager_redirect_siege_indisponible(); return;
                                             }
                                             
                                     }
                                     else
                                     {
-                                            $siegeoccuper = $this->_sale_siege_occupe_legacy($dpclient, $p_sieg);
-                                            
-                                            if($siegeoccuper == NULL )
+                                            if ($this->_sale_sieges_sont_libres(array(array($dpclient, $p_sieg))))
                                             {
                                                 $argv = array(
                                                     'nom_client' => $this->input->post('rclient'),
@@ -3545,7 +3599,7 @@
                                             }
                                             else
                                             {
-                                                redirect('gares/'.$this->session->company->ekey.'/gTc/'. $gid.'/compte/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                                                $this->_addpassager_redirect_siege_indisponible(); return;
                                             }
                                     }
                                 
@@ -3553,7 +3607,7 @@
                                 
                                 else
                                 {
-                                    redirect('gares/'.$this->session->company->ekey.'/gTc/'. $gid.'/compte/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                                    $this->_addpassager_redirect_siege_indisponible(); return;
                                 } 
                                     
                         }
@@ -3655,11 +3709,10 @@
                                         
                                         if($this->input->post('transitedepargare1') != '' AND $this->input->post('passagersiegesitines') != '' AND $this->input->post('transitedepargare2') != '' AND $this->input->post('passagersiegesitines1') != '' AND $this->input->post('prixtrans') != NULL AND $this->input->post('prixtransit') != NULL)
                                         {
-                                            $siegeoccuper = $this->_sale_siege_occupe_legacy($dpclient, $p_sieg);
-
-                                            $siegeoccuper2 = $this->_sale_siege_occupe_legacy($dpclient2, $p_sieg2);
-                            
-                                           if($siegeoccuper == NULL AND $siegeoccuper2 == NULL) 
+                                            if ($this->_sale_sieges_sont_libres(array(
+                                           array($dpclient, $p_sieg),
+                                           array($dpclient2, $p_sieg2),
+                                       ))) 
                                             {
 
                                                 $arraycodetampotr = array(
@@ -3872,13 +3925,13 @@
 
                                             else
                                             {
-                                                redirect('gares/'.$this->session->company->ekey.'/gTc/'. $gid.'/compte/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                                                $this->_addpassager_redirect_siege_indisponible(); return;
                                             }
                                         }
 
                                         else
                                         {
-                                            redirect('gares/'.$this->session->company->ekey.'/gTc/'. $gid.'/compte/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                                            $this->_addpassager_redirect_siege_indisponible(); return;
 
                                         }
                                         
@@ -3893,12 +3946,11 @@
                                         AND $this->input->post('transitedepargare3') != '' AND $this->input->post('passagersiegesitines2') != '' AND $this->input->post('prixtrans') != NULL AND $this->input->post('prixtransit') != NULL AND $this->input->post('prixtransit1') != NULL)
                                         {
 
-                                            $siegeoccuper = $this->_sale_siege_occupe_legacy($dpclient, $p_sieg);
-
-                                            $siegeoccuper2 = $this->_sale_siege_occupe_legacy($dpclient2, $p_sieg2);
-                                            $siegeoccuper3 = $this->_sale_siege_occupe_legacy($dpclient3, $p_sieg3);
-                                            
-                                            if($siegeoccuper == NULL AND $siegeoccuper2 == NULL AND $siegeoccuper3 == NULL) 
+                                            if ($this->_sale_sieges_sont_libres(array(
+                                            array($dpclient, $p_sieg),
+                                            array($dpclient2, $p_sieg2),
+                                            array($dpclient3, $p_sieg3),
+                                        ))) 
                                             {
                                                 $arraycodetampotr = array(
                                                     'codtampon' => $tampo,
@@ -4211,12 +4263,12 @@
                                             }
                                             else
                                             {
-                                                redirect('gares/'.$this->session->company->ekey.'/gTc/'. $gid.'/compte/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                                                $this->_addpassager_redirect_siege_indisponible(); return;
                                             }
                                         }
                                         else
                                         {
-                                            redirect('gares/'.$this->session->company->ekey.'/gTc/'. $gid.'/compte/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                                            $this->_addpassager_redirect_siege_indisponible(); return;
                                         }
                                     }
                                     
@@ -4227,13 +4279,12 @@
                                         if($this->input->post('transitedepargare1') != '' AND $this->input->post('passagersiegesitines') != '' AND $this->input->post('transitedepargare2') != '' AND $this->input->post('passagersiegesitines1') != '' 
                                            AND $this->input->post('transitedepargare3') != '' AND $this->input->post('passagersiegesitines2') != '' AND $this->input->post('transitedepargare4') != '' AND $this->input->post('passagersiegesitines3') != '' AND $this->input->post('prixtrans') != NULL AND $this->input->post('prixtransit') != NULL AND $this->input->post('prixtransit1') != NULL AND $this->input->post('prixtransit2') != NULL)
                                         {
-                                                $siegeoccuper = $this->_sale_siege_occupe_legacy($dpclient, $p_sieg);
-
-                                                $siegeoccuper2 = $this->_sale_siege_occupe_legacy($dpclient2, $p_sieg2);
-                                                $siegeoccuper3 = $this->_sale_siege_occupe_legacy($dpclient3, $p_sieg3);
-                                                $siegeoccuper4 = $this->_sale_siege_occupe_legacy($dpclient4, $p_sieg4);
-                                            
-                                                if($siegeoccuper == NULL AND $siegeoccuper2 == NULL AND $siegeoccuper3 == NULL AND $siegeoccuper4 == NULL) 
+                                                if ($this->_sale_sieges_sont_libres(array(
+                                                array($dpclient, $p_sieg),
+                                                array($dpclient2, $p_sieg2),
+                                                array($dpclient3, $p_sieg3),
+                                                array($dpclient4, $p_sieg4),
+                                            ))) 
                                                 {
                                                     $arraycodetampotr = array(
                                                         'codtampon' => $tampo,
@@ -4655,14 +4706,14 @@
                                                 else
                                                 {
                                                     
-                                                  redirect('gares/'.$this->session->company->ekey.'/gTc/'. $gid.'/compte/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                                                  $this->_addpassager_redirect_siege_indisponible(); return;
                                                 }
                                         }
 
                                         else
                                         {
                                             
-                                          redirect('gares/'.$this->session->company->ekey.'/gTc/'. $gid.'/compte/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                                          $this->_addpassager_redirect_siege_indisponible(); return;
                                         }
                                     }
                                         
@@ -4690,11 +4741,10 @@
                                     {
                                         if($this->input->post('transitedepargare1') != '' AND $this->input->post('passagersiegesitines') != '' AND $this->input->post('transitedepargare2') != '' AND  $this->input->post('passagersiegesitines1') != '' AND $this->input->post('prixtrans') != NULL AND $this->input->post('prixtransit') != NULL)
                                         {
-                                            $siegeoccuper = $this->_sale_siege_occupe_legacy($dpclient, $p_sieg);
-
-                                            $siegeoccuper2 = $this->_sale_siege_occupe_legacy($dpclient2, $p_sieg2);
-                                
-                                            if($siegeoccuper == NULL AND $siegeoccuper2 == NULL) 
+                                            if ($this->_sale_sieges_sont_libres(array(
+                                           array($dpclient, $p_sieg),
+                                           array($dpclient2, $p_sieg2),
+                                       ))) 
                                             {
                                                 $arraycodetampotr = array(
                                                     'codtampon' => $tampo,
@@ -4892,13 +4942,13 @@
 
                                             else
                                             {
-                                                redirect('gares/'.$this->session->company->ekey.'/gTc/'. $gid.'/compte/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                                                $this->_addpassager_redirect_siege_indisponible(); return;
                                             }
                                         }
 
                                         else
                                         {
-                                            redirect('gares/'.$this->session->company->ekey.'/gTc/'. $gid.'/compte/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                                            $this->_addpassager_redirect_siege_indisponible(); return;
                                         }
                                     }
 
@@ -4910,12 +4960,11 @@
                                         if($this->input->post('transitedepargare1') != '' AND $this->input->post('passagersiegesitines') != '' AND $this->input->post('transitedepargare2') != '' AND $this->input->post('passagersiegesitines1') != ''
                                         AND $this->input->post('transitedepargare3') != '' AND $this->input->post('passagersiegesitines2') != '' AND $this->input->post('prixtrans') != NULL AND $this->input->post('prixtransit') != NULL AND $this->input->post('prixtransit1') != NULL)
                                         {
-                                            $siegeoccuper = $this->_sale_siege_occupe_legacy($dpclient, $p_sieg);
-
-                                            $siegeoccuper2 = $this->_sale_siege_occupe_legacy($dpclient2, $p_sieg2);
-                                            $siegeoccuper3 = $this->_sale_siege_occupe_legacy($dpclient3, $p_sieg3);
-                                            
-                                            if($siegeoccuper == NULL AND $siegeoccuper2 == NULL AND $siegeoccuper3 == NULL) 
+                                            if ($this->_sale_sieges_sont_libres(array(
+                                            array($dpclient, $p_sieg),
+                                            array($dpclient2, $p_sieg2),
+                                            array($dpclient3, $p_sieg3),
+                                        ))) 
                                             {
                                                 $arraycodetampotr = array(
                                                     'codtampon' => $tampo,
@@ -5229,13 +5278,13 @@
 
                                                 else
                                                 {
-                                                    redirect('gares/'.$this->session->company->ekey.'/gTc/'. $gid.'/compte/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                                                    $this->_addpassager_redirect_siege_indisponible(); return;
                                                 }
                                             }
 
                                             else
                                             {
-                                                redirect('gares/'.$this->session->company->ekey.'/gTc/'. $gid.'/compte/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                                                $this->_addpassager_redirect_siege_indisponible(); return;
                                             }
                                     }
                                     //troisieme transite
@@ -5245,13 +5294,12 @@
                                         if($this->input->post('transitedepargare1') != '' AND $this->input->post('passagersiegesitines') != '' AND $this->input->post('transitedepargare2') != '' AND $this->input->post('passagersiegesitines1') != '' 
                                         AND $this->input->post('transitedepargare3') != '' AND $this->input->post('passagersiegesitines2') != '' AND $this->input->post('transitedepargare4') != '' AND $this->input->post('passagersiegesitines3') != '' AND $this->input->post('prixtrans') != NULL AND $this->input->post('prixtransit') != NULL AND $this->input->post('prixtransit1') != NULL AND $this->input->post('prixtransit2') != NULL)
                                         {
-                                            $siegeoccuper = $this->_sale_siege_occupe_legacy($dpclient, $p_sieg);
-
-                                                $siegeoccuper2 = $this->_sale_siege_occupe_legacy($dpclient2, $p_sieg2);
-                                                $siegeoccuper3 = $this->_sale_siege_occupe_legacy($dpclient3, $p_sieg3);
-                                                $siegeoccuper4 = $this->_sale_siege_occupe_legacy($dpclient4, $p_sieg4);
-                                            
-                                                if($siegeoccuper == NULL AND $siegeoccuper2 == NULL AND $siegeoccuper3 == NULL AND $siegeoccuper4 == NULL) 
+                                            if ($this->_sale_sieges_sont_libres(array(
+                                                array($dpclient, $p_sieg),
+                                                array($dpclient2, $p_sieg2),
+                                                array($dpclient3, $p_sieg3),
+                                                array($dpclient4, $p_sieg4),
+                                            ))) 
                                                 {
 
                                                     $arraycodetampotr = array(
@@ -5674,13 +5722,13 @@
 
                                                 else
                                                 {
-                                                    redirect('gares/'.$this->session->company->ekey.'/gTc/'. $gid.'/compte/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                                                    $this->_addpassager_redirect_siege_indisponible(); return;
                                                 }
                                         }
 
                                         else
                                         {
-                                            redirect('gares/'.$this->session->company->ekey.'/gTc/'. $gid.'/compte/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                                            $this->_addpassager_redirect_siege_indisponible(); return;
                                         }
                                     }
                                     
@@ -5689,7 +5737,7 @@
                             
                             else
                             {
-                                redirect('gares/'.$this->session->company->ekey.'/gTc/'. $gid.'/compte/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                                $this->_addpassager_redirect_siege_indisponible(); return;
                                 
                             } 
 
@@ -5785,11 +5833,10 @@
                                         if($this->input->post('transitedepargare1') != '' AND $this->input->post('passagersiegesitines') != '' AND $this->input->post('transitedepargare2') != '' AND  $this->input->post('passagersiegesitines1') != '' AND $this->input->post('prixtrans') != NULL AND $this->input->post('prixtransit') != NULL)
                                         {
 
-                                            $siegeoccuper = $this->_sale_siege_occupe_legacy($dpclient, $p_sieg);
-
-                                            $siegeoccuper2 = $this->_sale_siege_occupe_legacy($dpclient2, $p_sieg2);
-                            
-                                           if($siegeoccuper == NULL AND $siegeoccuper2 == NULL) 
+                                            if ($this->_sale_sieges_sont_libres(array(
+                                           array($dpclient, $p_sieg),
+                                           array($dpclient2, $p_sieg2),
+                                       ))) 
                                             {
                                                 $arraycodetampotr = array(
                                                     'codtampon' => $tampo,
@@ -6014,12 +6061,11 @@
                                         if($this->input->post('transitedepargare1') != '' AND $this->input->post('passagersiegesitines') != '' AND $this->input->post('transitedepargare2') != '' AND $this->input->post('passagersiegesitines1') != ''
                                         AND $this->input->post('transitedepargare3') != '' AND $this->input->post('passagersiegesitines2') != '' AND $this->input->post('prixtrans') != NULL AND $this->input->post('prixtransit') != NULL AND $this->input->post('prixtransit1') != NULL)
                                         {
-                                            $siegeoccuper = $this->_sale_siege_occupe_legacy($dpclient, $p_sieg);
-
-                                            $siegeoccuper2 = $this->_sale_siege_occupe_legacy($dpclient2, $p_sieg2);
-                                            $siegeoccuper3 = $this->_sale_siege_occupe_legacy($dpclient3, $p_sieg3);
-                                            
-                                            if($siegeoccuper == NULL AND $siegeoccuper2 == NULL AND $siegeoccuper3 == NULL) 
+                                            if ($this->_sale_sieges_sont_libres(array(
+                                            array($dpclient, $p_sieg),
+                                            array($dpclient2, $p_sieg2),
+                                            array($dpclient3, $p_sieg3),
+                                        ))) 
                                             {
                                                 $arraycodetampotr = array(
                                                     'codtampon' => $tampo,
@@ -6329,12 +6375,12 @@
                                     
                                                     else
                                                     {
-                                                        redirect('gares/'.$this->session->company->ekey.'/gTc/'. $gid.'/compte/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                                                        $this->_addpassager_redirect_siege_indisponible(); return;
                                                     }
                                             }
                                             else
                                             {
-                                                redirect('gares/'.$this->session->company->ekey.'/gTc/'. $gid.'/compte/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                                                $this->_addpassager_redirect_siege_indisponible(); return;
                                             }
                                     }
                                     //troisieme transite
@@ -6345,13 +6391,12 @@
                                         AND $this->input->post('transitedepargare3') != '' AND $this->input->post('passagersiegesitines2') != '' AND $this->input->post('transitedepargare4') != '' AND $this->input->post('passagersiegesitines3') != '' AND $this->input->post('prixtrans') != NULL AND $this->input->post('prixtransit') != NULL AND $this->input->post('prixtransit1') != NULL AND $this->input->post('prixtransit2') != NULL)
                                         {
 
-                                            $siegeoccuper = $this->_sale_siege_occupe_legacy($dpclient, $p_sieg);
-
-                                                $siegeoccuper2 = $this->_sale_siege_occupe_legacy($dpclient2, $p_sieg2);
-                                                $siegeoccuper3 = $this->_sale_siege_occupe_legacy($dpclient3, $p_sieg3);
-                                                $siegeoccuper4 = $this->_sale_siege_occupe_legacy($dpclient4, $p_sieg4);
-                                            
-                                                if($siegeoccuper == NULL AND $siegeoccuper2 == NULL AND $siegeoccuper3 == NULL AND $siegeoccuper4 == NULL) 
+                                            if ($this->_sale_sieges_sont_libres(array(
+                                                array($dpclient, $p_sieg),
+                                                array($dpclient2, $p_sieg2),
+                                                array($dpclient3, $p_sieg3),
+                                                array($dpclient4, $p_sieg4),
+                                            ))) 
                                                 {   
                                                     $arraycodetampotr = array(
                                                     'codtampon' => $tampo,
@@ -6766,14 +6811,14 @@
 
                                                 else
                                                 {
-                                                    redirect('gares/'.$this->session->company->ekey.'/gTc/'. $gid.'/compte/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                                                    $this->_addpassager_redirect_siege_indisponible(); return;
                                                     
                                                 }
                                             }
 
                                             else
                                             {
-                                                redirect('gares/'.$this->session->company->ekey.'/gTc/'. $gid.'/compte/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                                                $this->_addpassager_redirect_siege_indisponible(); return;
                                                 
                                             }
                                     }
@@ -6781,8 +6826,6 @@
                                 }
                                 else
                                 {
-                                    $siegeoccuper = $this->_sale_siege_occupe_legacy($dpclient, $p_sieg);
-                                    
                                     $argv = array(
                                         'nom_client' => $this->input->post('rclient'),
                                         'type_client' => $this->input->post('type'),
@@ -6801,11 +6844,10 @@
                                     {
                                         if($this->input->post('transitedepargare1') != '' AND $this->input->post('passagersiegesitines') != '' AND $this->input->post('transitedepargare2') != '' AND $this->input->post('passagersiegesitines1') != '' AND $this->input->post('prixtrans') != NULL AND $this->input->post('prixtransit') != NULL)
                                         { 
-                                            $siegeoccuper = $this->_sale_siege_occupe_legacy($dpclient, $p_sieg);
-
-                                                $siegeoccuper2 = $this->_sale_siege_occupe_legacy($dpclient2, $p_sieg2);
-                                
-                                               if($siegeoccuper == NULL AND $siegeoccuper2 == NULL) 
+                                            if ($this->_sale_sieges_sont_libres(array(
+                                           array($dpclient, $p_sieg),
+                                           array($dpclient2, $p_sieg2),
+                                       ))) 
                                                 {
                                                     $arraycodetampotr = array(
                                                         'codtampon' => $tampo,
@@ -6998,13 +7040,13 @@
 
                                                 else
                                                 {
-                                                    redirect('gares/'.$this->session->company->ekey.'/gTc/'. $gid.'/compte/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                                                    $this->_addpassager_redirect_siege_indisponible(); return;
                                                 }
                                             }
 
                                             else
                                             {
-                                                redirect('gares/'.$this->session->company->ekey.'/gTc/'. $gid.'/compte/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                                                $this->_addpassager_redirect_siege_indisponible(); return;
                                             }
                                     }
 
@@ -7015,12 +7057,11 @@
                                         if($this->input->post('transitedepargare1') != '' AND $this->input->post('passagersiegesitines') != '' AND $this->input->post('transitedepargare2') != '' AND $this->input->post('passagersiegesitines1') != ''
                                         AND $this->input->post('transitedepargare3') != '' AND $this->input->post('passagersiegesitines2') != '' AND $this->input->post('prixtrans') != NULL AND $this->input->post('prixtransit') != NULL AND $this->input->post('prixtransit1') != NULL)
                                         {
-                                            $siegeoccuper = $this->_sale_siege_occupe_legacy($dpclient, $p_sieg);
-
-                                            $siegeoccuper2 = $this->_sale_siege_occupe_legacy($dpclient2, $p_sieg2);
-                                            $siegeoccuper3 = $this->_sale_siege_occupe_legacy($dpclient3, $p_sieg3);
-                                            
-                                            if($siegeoccuper == NULL AND $siegeoccuper2 == NULL AND $siegeoccuper3 == NULL) 
+                                            if ($this->_sale_sieges_sont_libres(array(
+                                            array($dpclient, $p_sieg),
+                                            array($dpclient2, $p_sieg2),
+                                            array($dpclient3, $p_sieg3),
+                                        ))) 
                                             {
                                                 $arraycodetampotr = array(
                                                     'codtampon' => $tampo,
@@ -7326,13 +7367,13 @@
 
                                                 else
                                                 {
-                                                    redirect('gares/'.$this->session->company->ekey.'/gTc/'. $gid.'/compte/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                                                    $this->_addpassager_redirect_siege_indisponible(); return;
                                                 }
                                             }
 
                                             else
                                             {
-                                                redirect('gares/'.$this->session->company->ekey.'/gTc/'. $gid.'/compte/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                                                $this->_addpassager_redirect_siege_indisponible(); return;
                                             }
                                     }
                                     //troisieme transite
@@ -7342,13 +7383,12 @@
                                         if($this->input->post('transitedepargare1') != '' AND $this->input->post('passagersiegesitines') != '' AND $this->input->post('transitedepargare2') != '' AND $this->input->post('passagersiegesitines1') != '' 
                                         AND $this->input->post('transitedepargare3') != '' AND $this->input->post('passagersiegesitines2') != '' AND $this->input->post('transitedepargare4') != '' AND  $this->input->post('passagersiegesitines3') != '' AND $this->input->post('prixtrans') != NULL AND $this->input->post('prixtransit') != NULL AND $this->input->post('prixtransit1') != NULL AND $this->input->post('prixtransit2') != NULL)
                                         {
-                                            $siegeoccuper = $this->_sale_siege_occupe_legacy($dpclient, $p_sieg);
-
-                                                $siegeoccuper2 = $this->_sale_siege_occupe_legacy($dpclient2, $p_sieg2);
-                                                $siegeoccuper3 = $this->_sale_siege_occupe_legacy($dpclient3, $p_sieg3);
-                                                $siegeoccuper4 = $this->_sale_siege_occupe_legacy($dpclient4, $p_sieg4);
-                                            
-                                                if($siegeoccuper == NULL AND $siegeoccuper2 == NULL AND $siegeoccuper3 == NULL AND $siegeoccuper4 == NULL) 
+                                            if ($this->_sale_sieges_sont_libres(array(
+                                                array($dpclient, $p_sieg),
+                                                array($dpclient2, $p_sieg2),
+                                                array($dpclient3, $p_sieg3),
+                                                array($dpclient4, $p_sieg4),
+                                            ))) 
                                                 {
                                                     $arraycodetampotr = array(
                                                         'codtampon' => $tampo,
@@ -7737,12 +7777,12 @@
                                                         }
                                                         else
                                                         {
-                                                            redirect('gares/'.$this->session->company->ekey.'/gTc/'. $gid.'/compte/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                                                            $this->_addpassager_redirect_siege_indisponible(); return;
                                                         }
                                                 }
                                                 else
                                                 {
-                                                    redirect('gares/'.$this->session->company->ekey.'/gTc/'. $gid.'/compte/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                                                    $this->_addpassager_redirect_siege_indisponible(); return;
                                                 }
                                     }
                                     
@@ -7871,11 +7911,10 @@
 
                                             if($this->input->post('transitedepargare1') != '' AND $this->input->post('passagersiegesitines') != '' AND $this->input->post('transitedepargare2') != '' AND $this->input->post('passagersiegesitines1') != '' AND $this->input->post('prixtrans') != NULL AND $this->input->post('prixtransit') != NULL)
                                             {
-                                                $siegeoccuper = $this->_sale_siege_occupe_legacy($dpclient, $p_sieg);
-
-                                                $siegeoccuper2 = $this->_sale_siege_occupe_legacy($dpclient2, $p_sieg2);
-                                
-                                               if($siegeoccuper == NULL AND $siegeoccuper2 == NULL) 
+                                                if ($this->_sale_sieges_sont_libres(array(
+                                           array($dpclient, $p_sieg),
+                                           array($dpclient2, $p_sieg2),
+                                       ))) 
                                                 {
                                                     $arraycodetampotr = array(
                                                         'codtampon' => $tampo,
@@ -8176,12 +8215,12 @@
                                                 }
                                                 else
                                                 {
-                                                    redirect('gares/'.$this->session->company->ekey.'/gTc/'. $gid.'/compte/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                                                    $this->_addpassager_redirect_siege_indisponible(); return;
                                                 }
                                             }
                                             else
                                             {
-                                                redirect('gares/'.$this->session->company->ekey.'/gTc/'. $gid.'/compte/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                                                $this->_addpassager_redirect_siege_indisponible(); return;
                                             }
                                         }
 
@@ -8191,12 +8230,11 @@
                                             AND $this->input->post('transitedepargare3') != '' AND $this->input->post('passagersiegesitines2') != '' AND $this->input->post('prixtrans') != NULL AND $this->input->post('prixtransit') != NULL AND $this->input->post('prixtransit1') != NULL)
                                             {
 
-                                                $siegeoccuper = $this->_sale_siege_occupe_legacy($dpclient, $p_sieg);
-
-                                                $siegeoccuper2 = $this->_sale_siege_occupe_legacy($dpclient2, $p_sieg2);
-                                                $siegeoccuper3 = $this->_sale_siege_occupe_legacy($dpclient3, $p_sieg3);
-                                                
-                                                if($siegeoccuper == NULL AND $siegeoccuper2 == NULL AND $siegeoccuper3 == NULL) 
+                                                if ($this->_sale_sieges_sont_libres(array(
+                                            array($dpclient, $p_sieg),
+                                            array($dpclient2, $p_sieg2),
+                                            array($dpclient3, $p_sieg3),
+                                        ))) 
                                                 {
                                                     $arraycodetampotr = array(
                                                         'codtampon' => $tampo,
@@ -8674,13 +8712,13 @@
                                                 }
                                                 else
                                                 {
-                                                    redirect('gares/'.$this->session->company->ekey.'/gTc/'. $gid.'/compte/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                                                    $this->_addpassager_redirect_siege_indisponible(); return;
                                                     
                                                 }
                                             }
                                             else
                                             {
-                                                redirect('gares/'.$this->session->company->ekey.'/gTc/'. $gid.'/compte/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                                                $this->_addpassager_redirect_siege_indisponible(); return;
                                                 
                                             }
                                         }
@@ -8692,13 +8730,12 @@
                                             AND $this->input->post('transitedepargare3') != '' AND $this->input->post('passagersiegesitines2') != '' AND $this->input->post('transitedepargare4') != '' AND $this->input->post('passagersiegesitines3') != '' AND $this->input->post('prixtrans') != NULL AND $this->input->post('prixtransit') != NULL AND $this->input->post('prixtransit1') != NULL AND $this->input->post('prixtransit2') != NULL)
                                             {
 
-                                                $siegeoccuper = $this->_sale_siege_occupe_legacy($dpclient, $p_sieg);
-
-                                                $siegeoccuper2 = $this->_sale_siege_occupe_legacy($dpclient2, $p_sieg2);
-                                                $siegeoccuper3 = $this->_sale_siege_occupe_legacy($dpclient3, $p_sieg3);
-                                                $siegeoccuper4 = $this->_sale_siege_occupe_legacy($dpclient4, $p_sieg4);
-                                        
-                                                if($siegeoccuper == NULL AND $siegeoccuper2 == NULL AND $siegeoccuper3 == NULL AND $siegeoccuper4 == NULL) 
+                                                if ($this->_sale_sieges_sont_libres(array(
+                                                array($dpclient, $p_sieg),
+                                                array($dpclient2, $p_sieg2),
+                                                array($dpclient3, $p_sieg3),
+                                                array($dpclient4, $p_sieg4),
+                                            ))) 
                                                 {
                                                     $arraycodetampotr = array(
                                                         'codtampon' => $tampo,
@@ -9347,12 +9384,12 @@
                                                 }
                                                 else
                                                 {
-                                                    redirect('gares/'.$this->session->company->ekey.'/gTc/'. $gid.'/compte/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                                                    $this->_addpassager_redirect_siege_indisponible(); return;
                                                 }
                                             }
                                             else
                                             {
-                                                redirect('gares/'.$this->session->company->ekey.'/gTc/'. $gid.'/compte/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                                                $this->_addpassager_redirect_siege_indisponible(); return;
                                             }
                                         }
                                             
@@ -9378,11 +9415,10 @@
                                         {
                                             if($this->input->post('transitedepargare1') != '' AND $this->input->post('passagersiegesitines') != '' AND $this->input->post('transitedepargare2') != '' AND $this->input->post('passagersiegesitines1') != '' AND $this->input->post('prixtrans') != NULL AND $this->input->post('prixtransit') != NULL)
                                             {
-                                                $siegeoccuper = $this->_sale_siege_occupe_legacy($dpclient, $p_sieg);
-
-                                                $siegeoccuper2 = $this->_sale_siege_occupe_legacy($dpclient2, $p_sieg2);
-                                
-                                               if($siegeoccuper == NULL AND $siegeoccuper2 == NULL) 
+                                                if ($this->_sale_sieges_sont_libres(array(
+                                           array($dpclient, $p_sieg),
+                                           array($dpclient2, $p_sieg2),
+                                       ))) 
                                                 {
                                                     $arraycodetampotr = array(
                                                     'codtampon' => $tampo,
@@ -9681,12 +9717,12 @@
                                                 }
                                                 else
                                                 {
-                                                    redirect('gares/'.$this->session->company->ekey.'/gTc/'. $gid.'/compte/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                                                    $this->_addpassager_redirect_siege_indisponible(); return;
                                                 }
                                             }
                                             else
                                             {
-                                                redirect('gares/'.$this->session->company->ekey.'/gTc/'. $gid.'/compte/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                                                $this->_addpassager_redirect_siege_indisponible(); return;
                                             }
                                         }
 
@@ -9697,12 +9733,11 @@
                                             if($this->input->post('transitedepargare1') != '' AND $this->input->post('passagersiegesitines') != '' AND $this->input->post('transitedepargare2') != '' AND $this->input->post('passagersiegesitines1') != ''
                                             AND $this->input->post('transitedepargare3') != '' AND $this->input->post('passagersiegesitines2') != '' AND $this->input->post('prixtrans') != NULL AND $this->input->post('prixtransit') != NULL AND $this->input->post('prixtransit1') != NULL)
                                             {
-                                                $siegeoccuper = $this->_sale_siege_occupe_legacy($dpclient, $p_sieg);
-
-                                                $siegeoccuper2 = $this->_sale_siege_occupe_legacy($dpclient2, $p_sieg2);
-                                                $siegeoccuper3 = $this->_sale_siege_occupe_legacy($dpclient3, $p_sieg3);
-                                                
-                                                if($siegeoccuper == NULL AND $siegeoccuper2 == NULL AND $siegeoccuper3 == NULL) 
+                                                if ($this->_sale_sieges_sont_libres(array(
+                                            array($dpclient, $p_sieg),
+                                            array($dpclient2, $p_sieg2),
+                                            array($dpclient3, $p_sieg3),
+                                        ))) 
                                                 {
                                                     $arraycodetampotr = array(
                                                         'codtampon' => $tampo,
@@ -10176,13 +10211,13 @@
                                                 }
                                                 else
                                                 {
-                                                    redirect('gares/'.$this->session->company->ekey.'/gTc/'. $gid.'/compte/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                                                    $this->_addpassager_redirect_siege_indisponible(); return;
                                                     
                                                 }
                                             }
                                             else
                                             {
-                                                redirect('gares/'.$this->session->company->ekey.'/gTc/'. $gid.'/compte/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                                                $this->_addpassager_redirect_siege_indisponible(); return;
                                                 
                                             }   
                                         }
@@ -10193,13 +10228,12 @@
                                             if($this->input->post('transitedepargare1') != '' AND $this->input->post('passagersiegesitines') != '' AND $this->input->post('transitedepargare2') != '' AND $this->input->post('passagersiegesitines1') != '' 
                                             AND $this->input->post('transitedepargare3') != '' AND  $this->input->post('passagersiegesitines2') != '' AND $this->input->post('transitedepargare4') != '' AND $this->input->post('passagersiegesitines3') != '' AND $this->input->post('prixtrans') != NULL AND $this->input->post('prixtransit') != NULL AND $this->input->post('prixtransit1') != NULL AND $this->input->post('prixtransit2') != NULL)
                                             {
-                                                 $siegeoccuper = $this->_sale_siege_occupe_legacy($dpclient, $p_sieg);
-
-                                                $siegeoccuper2 = $this->_sale_siege_occupe_legacy($dpclient2, $p_sieg2);
-                                                $siegeoccuper3 = $this->_sale_siege_occupe_legacy($dpclient3, $p_sieg3);
-                                                $siegeoccuper4 = $this->_sale_siege_occupe_legacy($dpclient4, $p_sieg4);
-                                        
-                                                if($siegeoccuper == NULL AND $siegeoccuper2 == NULL AND $siegeoccuper3 == NULL AND $siegeoccuper4 == NULL) 
+                                                 if ($this->_sale_sieges_sont_libres(array(
+                                                array($dpclient, $p_sieg),
+                                                array($dpclient2, $p_sieg2),
+                                                array($dpclient3, $p_sieg3),
+                                                array($dpclient4, $p_sieg4),
+                                            ))) 
                                                 {
                                                     $arraycodetampotr = array(
                                                         'codtampon' => $tampo,
@@ -10843,12 +10877,12 @@
                                                 }
                                                 else
                                                 {
-                                                    redirect('gares/'.$this->session->company->ekey.'/gTc/'. $gid.'/compte/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                                                    $this->_addpassager_redirect_siege_indisponible(); return;
                                                 }
                                             }
                                             else
                                             {
-                                                redirect('gares/'.$this->session->company->ekey.'/gTc/'. $gid.'/compte/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                                                $this->_addpassager_redirect_siege_indisponible(); return;
                                             }
                                         }
                                             
@@ -10858,7 +10892,7 @@
                                 
                                 else
                                 {
-                                    redirect('gares/'.$this->session->company->ekey.'/gTc/'. $gid.'/compte/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                                    $this->_addpassager_redirect_siege_indisponible(); return;
                                 }        
                         }
                     }
@@ -10968,11 +11002,10 @@
                                         {
                                             if($this->input->post('transitedepargare1') != '' AND $this->input->post('passagersiegesitines') != '' AND $this->input->post('transitedepargare2') != '' AND $this->input->post('passagersiegesitines1') != '' AND $this->input->post('prixtrans') != NULL AND $this->input->post('prixtransit') != NULL)
                                             {
-                                                $siegeoccuper = $this->_sale_siege_occupe_legacy($dpclient, $p_sieg);
-
-                                                $siegeoccuper2 = $this->_sale_siege_occupe_legacy($dpclient2, $p_sieg2);
-                                
-                                               if($siegeoccuper == NULL AND $siegeoccuper2 == NULL) 
+                                                if ($this->_sale_sieges_sont_libres(array(
+                                           array($dpclient, $p_sieg),
+                                           array($dpclient2, $p_sieg2),
+                                       ))) 
                                                 {
                                                     $arraycodetampotr = array(
                                                         'codtampon' => $tampo,
@@ -11273,12 +11306,12 @@
                                                 }
                                                 else
                                                 {
-                                                    redirect('gares/'.$this->session->company->ekey.'/gTc/'. $gid.'/compte/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                                                    $this->_addpassager_redirect_siege_indisponible(); return;
                                                 }
                                             }
                                             else
                                             {
-                                                redirect('gares/'.$this->session->company->ekey.'/gTc/'. $gid.'/compte/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                                                $this->_addpassager_redirect_siege_indisponible(); return;
                                             }
                                         }
 
@@ -11287,12 +11320,11 @@
                                             if($this->input->post('transitedepargare1') != '' AND $this->input->post('passagersiegesitines') != '' AND $this->input->post('transitedepargare2') != '' AND $this->input->post('passagersiegesitines1') != ''
                                             AND $this->input->post('transitedepargare3') != '' AND $this->input->post('passagersiegesitines2') != '' AND $this->input->post('prixtrans') != NULL AND $this->input->post('prixtransit') != NULL AND $this->input->post('prixtransit1') != NULL)
                                             {
-                                                $siegeoccuper = $this->_sale_siege_occupe_legacy($dpclient, $p_sieg);
-
-                                                $siegeoccuper2 = $this->_sale_siege_occupe_legacy($dpclient2, $p_sieg2);
-                                                $siegeoccuper3 = $this->_sale_siege_occupe_legacy($dpclient3, $p_sieg3);
-                                                
-                                                if($siegeoccuper == NULL AND $siegeoccuper2 == NULL AND $siegeoccuper3 == NULL) 
+                                                if ($this->_sale_sieges_sont_libres(array(
+                                            array($dpclient, $p_sieg),
+                                            array($dpclient2, $p_sieg2),
+                                            array($dpclient3, $p_sieg3),
+                                        ))) 
                                                 {
                                                     $arraycodetampotr = array(
                                                         'codtampon' => $tampo,
@@ -11767,12 +11799,12 @@
                                                 }
                                                 else
                                                 {
-                                                    redirect('gares/'.$this->session->company->ekey.'/gTc/'. $gid.'/compte/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                                                    $this->_addpassager_redirect_siege_indisponible(); return;
                                                 }
                                             }
                                             else
                                             {
-                                                redirect('gares/'.$this->session->company->ekey.'/gTc/'. $gid.'/compte/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                                                $this->_addpassager_redirect_siege_indisponible(); return;
                                             }
                                         }
 
@@ -11782,13 +11814,12 @@
                                             if($this->input->post('transitedepargare1') != '' AND $this->input->post('passagersiegesitines') != '' AND $this->input->post('transitedepargare2') != '' AND $this->input->post('passagersiegesitines1') != '' 
                                             AND $this->input->post('transitedepargare3') != '' AND $this->input->post('passagersiegesitines2') != '' AND $this->input->post('transitedepargare4') != '' AND $this->input->post('passagersiegesitines3') != '' AND $this->input->post('prixtrans') != NULL AND $this->input->post('prixtransit') != NULL AND $this->input->post('prixtransit1') != NULL AND $this->input->post('prixtransit2') != NULL)
                                             {
-                                                $siegeoccuper = $this->_sale_siege_occupe_legacy($dpclient, $p_sieg);
-
-                                                $siegeoccuper2 = $this->_sale_siege_occupe_legacy($dpclient2, $p_sieg2);
-                                                $siegeoccuper3 = $this->_sale_siege_occupe_legacy($dpclient3, $p_sieg3);
-                                                $siegeoccuper4 = $this->_sale_siege_occupe_legacy($dpclient4, $p_sieg4);
-                                        
-                                                if($siegeoccuper == NULL AND $siegeoccuper2 == NULL AND $siegeoccuper3 == NULL AND $siegeoccuper4 == NULL) 
+                                                if ($this->_sale_sieges_sont_libres(array(
+                                                array($dpclient, $p_sieg),
+                                                array($dpclient2, $p_sieg2),
+                                                array($dpclient3, $p_sieg3),
+                                                array($dpclient4, $p_sieg4),
+                                            ))) 
                                                 {
                                                     $arraycodetampotr = array(
                                                         'codtampon' => $tampo,
@@ -12432,12 +12463,12 @@
                                                 }
                                                 else
                                                 {
-                                                    redirect('gares/'.$this->session->company->ekey.'/gTc/'. $gid.'/compte/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                                                    $this->_addpassager_redirect_siege_indisponible(); return;
                                                 }
                                             }
                                             else
                                             {
-                                                redirect('gares/'.$this->session->company->ekey.'/gTc/'. $gid.'/compte/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                                                $this->_addpassager_redirect_siege_indisponible(); return;
                                             }
                                         }
                                             
@@ -12464,11 +12495,10 @@
 
                                             if($this->input->post('transitedepargare1') != '' AND $this->input->post('passagersiegesitines') != '' AND $this->input->post('transitedepargare2') != '' AND $this->input->post('passagersiegesitines1') != '' AND $this->input->post('prixtrans') != NULL AND $this->input->post('prixtransit') != NULL)
                                             {
-                                                $siegeoccuper = $this->_sale_siege_occupe_legacy($dpclient, $p_sieg);
-
-                                                $siegeoccuper2 = $this->_sale_siege_occupe_legacy($dpclient2, $p_sieg2);
-                                
-                                               if($siegeoccuper == NULL AND $siegeoccuper2 == NULL) 
+                                                if ($this->_sale_sieges_sont_libres(array(
+                                           array($dpclient, $p_sieg),
+                                           array($dpclient2, $p_sieg2),
+                                       ))) 
                                                 {
                                                     $arraycodetampotr = array(
                                                         'codtampon' => $tampo,
@@ -12770,12 +12800,12 @@
                                                     }
                                                     else
                                                     {
-                                                        redirect('gares/'.$this->session->company->ekey.'/gTc/'. $gid.'/compte/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                                                        $this->_addpassager_redirect_siege_indisponible(); return;
                                                     }
                                                 }
                                                 else
                                                 {
-                                                    redirect('gares/'.$this->session->company->ekey.'/gTc/'. $gid.'/compte/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                                                    $this->_addpassager_redirect_siege_indisponible(); return;
                                                 }
                                         }
 
@@ -12786,12 +12816,11 @@
                                             if($this->input->post('transitedepargare1') != '' AND $this->input->post('passagersiegesitines') != '' AND $this->input->post('transitedepargare2') != '' AND $this->input->post('passagersiegesitines1') != ''
                                             AND $this->input->post('transitedepargare3') != '' AND $this->input->post('passagersiegesitines2') != '' AND $this->input->post('prixtrans') != NULL AND $this->input->post('prixtransit') != NULL AND $this->input->post('prixtransit1') != NULL)
                                             {
-                                                $siegeoccuper = $this->_sale_siege_occupe_legacy($dpclient, $p_sieg);
-
-                                                $siegeoccuper2 = $this->_sale_siege_occupe_legacy($dpclient2, $p_sieg2);
-                                                $siegeoccuper3 = $this->_sale_siege_occupe_legacy($dpclient3, $p_sieg3);
-                                                
-                                                if($siegeoccuper == NULL AND $siegeoccuper2 == NULL AND $siegeoccuper3 == NULL) 
+                                                if ($this->_sale_sieges_sont_libres(array(
+                                            array($dpclient, $p_sieg),
+                                            array($dpclient2, $p_sieg2),
+                                            array($dpclient3, $p_sieg3),
+                                        ))) 
                                                 {
                                                     $arraycodetampotr = array(
                                                         'codtampon' => $tampo,
@@ -13264,12 +13293,12 @@
                                                 else
                                                 {
                                                     
-                                                    redirect('gares/'.$this->session->company->ekey.'/gTc/'. $gid.'/compte/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                                                    $this->_addpassager_redirect_siege_indisponible(); return;
                                                 }
                                             }
                                             else
                                             {
-                                                redirect('gares/'.$this->session->company->ekey.'/gTc/'. $gid.'/compte/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                                                $this->_addpassager_redirect_siege_indisponible(); return;
                                             }
                                         }
 
@@ -13279,13 +13308,12 @@
                                             if($this->input->post('transitedepargare1') != '' AND $this->input->post('passagersiegesitines') != '' AND $this->input->post('transitedepargare2') != '' AND $this->input->post('passagersiegesitines1') != '' 
                                             AND $this->input->post('transitedepargare3') != '' AND $this->input->post('passagersiegesitines2') != '' AND $this->input->post('transitedepargare4') != '' AND $this->input->post('passagersiegesitines3') != '' AND $this->input->post('prixtrans') != NULL AND $this->input->post('prixtransit') != NULL AND $this->input->post('prixtransit1') != NULL AND $this->input->post('prixtransit2') != NULL)
                                             {
-                                                $siegeoccuper = $this->_sale_siege_occupe_legacy($dpclient, $p_sieg);
-
-                                                $siegeoccuper2 = $this->_sale_siege_occupe_legacy($dpclient2, $p_sieg2);
-                                                $siegeoccuper3 = $this->_sale_siege_occupe_legacy($dpclient3, $p_sieg3);
-                                                $siegeoccuper4 = $this->_sale_siege_occupe_legacy($dpclient4, $p_sieg4);
-                                        
-                                                if($siegeoccuper == NULL AND $siegeoccuper2 == NULL AND $siegeoccuper3 == NULL AND $siegeoccuper4 == NULL) 
+                                                if ($this->_sale_sieges_sont_libres(array(
+                                                array($dpclient, $p_sieg),
+                                                array($dpclient2, $p_sieg2),
+                                                array($dpclient3, $p_sieg3),
+                                                array($dpclient4, $p_sieg4),
+                                            ))) 
                                                 {
                                                     $arraycodetampotr = array(
                                                         'codtampon' => $tampo,
@@ -13920,12 +13948,12 @@
                                                     }
                                                     else
                                                     {
-                                                        redirect('gares/'.$this->session->company->ekey.'/gTc/'. $gid.'/compte/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                                                        $this->_addpassager_redirect_siege_indisponible(); return;
                                                     }
                                                 }
                                                 else
                                                 {
-                                                    redirect('gares/'.$this->session->company->ekey.'/gTc/'. $gid.'/compte/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                                                    $this->_addpassager_redirect_siege_indisponible(); return;
                                                 }
                                         }
                                             
@@ -13935,7 +13963,7 @@
                                 
                                 else
                                 {
-                                    redirect('gares/'.$this->session->company->ekey.'/gTc/'. $gid.'/compte/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                                    $this->_addpassager_redirect_siege_indisponible(); return;
                                 } 
                                     
                         }
@@ -14403,9 +14431,7 @@
                                 AND $rcn === $this->input->post('cnibfid') AND $tycl === $this->input->post('typefid') AND $rcd === $this->input->post('date_cnibfid') AND $rl === $this->input->post('lieufid'))
                                 {
                                 
-                                    $siegeoccuper = $this->_sale_siege_occupe_legacy($dpclient, $p_sieg);
-                                    
-                                    if($siegeoccuper == NULL ) 
+                                    if ($this->_sale_sieges_sont_libres(array(array($dpclient, $p_sieg)))) 
                                     {
 
                                         $argup = array(
@@ -14482,15 +14508,13 @@
 
                                     else
                                     {
-                                        redirect('gares/'.$this->session->company->ekey.'/gTc/'. $gidc.'/compte/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                                        $this->_addpassager_redirect_siege_indisponible(); return;
                                     }
                                     
                                 }
                                 else
                                 {
-                                    $siegeoccuper = $this->_sale_siege_occupe_legacy($dpclient, $p_sieg);
-                                    
-                                    if($siegeoccuper == NULL )
+                                    if ($this->_sale_sieges_sont_libres(array(array($dpclient, $p_sieg))))
                                     {
                                         $arraycodetampotr = array(
                                             'codtampon' => $tampo,
@@ -14563,14 +14587,14 @@
                                     }
                                     else
                                     {
-                                        redirect('gares/'.$this->session->company->ekey.'/gTc/'. $gidc.'/compte/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                                        $this->_addpassager_redirect_siege_indisponible(); return;
                                     }
                                 } 
                             }
                             
                             else
                             {
-                                redirect('gares/'.$this->session->company->ekey.'/gTc/'. $gidc.'/compte/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                                $this->_addpassager_redirect_siege_indisponible(); return;
                             } 
 
                 
@@ -14615,9 +14639,7 @@
                                 AND $rcn === $this->input->post('cnibfid') AND $tycl === $this->input->post('typefid') AND $rcd === $this->input->post('date_cnibfid') AND $rl === $this->input->post('lieufid'))
                                 {
                                 
-                                    $siegeoccuper = $this->_sale_siege_occupe_legacy($dpclient, $p_sieg);
-                                    
-                                    if($siegeoccuper == NULL ) 
+                                    if ($this->_sale_sieges_sont_libres(array(array($dpclient, $p_sieg)))) 
                                     {
 
                                         $argup = array(
@@ -14694,15 +14716,13 @@
 
                                     else
                                     {
-                                        redirect('gares/'.$this->session->company->ekey.'/gTc/'. $gidc.'/compte/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                                        $this->_addpassager_redirect_siege_indisponible(); return;
                                     }
                                     
                                 }
                                 else
                                 {
-                                    $siegeoccuper = $this->_sale_siege_occupe_legacy($dpclient, $p_sieg);
-                                    
-                                    if($siegeoccuper == NULL )
+                                    if ($this->_sale_sieges_sont_libres(array(array($dpclient, $p_sieg))))
                                     {
                                         $argv = array(
                                             'nom_client' => $this->input->post('rclientfid'),
@@ -14774,14 +14794,14 @@
                                     }
                                     else
                                     {
-                                        redirect('gares/'.$this->session->company->ekey.'/gTc/'. $gidc.'/compte/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                                        $this->_addpassager_redirect_siege_indisponible(); return;
                                     }
                                 } 
                             }
                             
                             else
                             {
-                                redirect('gares/'.$this->session->company->ekey.'/gTc/'. $gidc.'/compte/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                                $this->_addpassager_redirect_siege_indisponible(); return;
                             } 
 
                 
@@ -14837,9 +14857,7 @@
                                     if($this->input->post('clientcompfid') != '' AND $rcl === $this->input->post('rclientfid') AND $rcp === $this->input->post('prclientfid') 
                                     AND $rcn === $this->input->post('cnibfid') AND $rcd === $this->input->post('date_cnibfid') AND $rl === $this->input->post('lieufid'))
                                     {
-                                        $siegeoccuper = $this->_sale_siege_occupe_legacy($dpclient, $p_sieg);
-                                            
-                                            if($siegeoccuper == NULL )
+                                        if ($this->_sale_sieges_sont_libres(array(array($dpclient, $p_sieg))))
                                             {
                                                 $argup = array(
                                                     'nom_client' => $this->input->post('rclientfid'),
@@ -14930,15 +14948,13 @@
                                             }
                                             else
                                             {
-                                                redirect('gares/'.$this->session->company->ekey.'/gTc/'. $gidc.'/compte/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                                                $this->_addpassager_redirect_siege_indisponible(); return;
                                             }
                                             
                                     }
                                     else
                                     {
-                                            $siegeoccuper = $this->_sale_siege_occupe_legacy($dpclient, $p_sieg);
-                                            
-                                            if($siegeoccuper == NULL )
+                                            if ($this->_sale_sieges_sont_libres(array(array($dpclient, $p_sieg))))
                                             {
                                                 $argv = array(
                                                     'nom_client' => $this->input->post('rclientfid'),
@@ -15029,7 +15045,7 @@
                                             }
                                             else
                                             {
-                                                redirect('gares/'.$this->session->company->ekey.'/gTc/'. $gidc.'/compte/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                                                $this->_addpassager_redirect_siege_indisponible(); return;
                                             }
                                     }
                                 
@@ -15037,7 +15053,7 @@
                                 
                                 else
                                 {
-                                    redirect('gares/'.$this->session->company->ekey.'/gTc/'. $gidc.'/compte/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                                    $this->_addpassager_redirect_siege_indisponible(); return;
                                 } 
                                     
                         }
@@ -15096,9 +15112,7 @@
                                     if($this->input->post('clientcompfid') != '' AND $rcl === $this->input->post('rclientfid') AND $rcp === $this->input->post('prclientfid') 
                                     AND $rcn === $this->input->post('cnibfid') AND $rcd === $this->input->post('date_cnibfid') AND $rl === $this->input->post('lieufid'))
                                     {
-                                        $siegeoccuper = $this->_sale_siege_occupe_legacy($dpclient, $p_sieg);
-                                            
-                                            if($siegeoccuper == NULL )
+                                        if ($this->_sale_sieges_sont_libres(array(array($dpclient, $p_sieg))))
                                             {
                                                 $argup = array(
                                                     'nom_client' => $this->input->post('rclientfid'),
@@ -15188,15 +15202,13 @@
                                             }
                                             else
                                             {
-                                                redirect('gares/'.$this->session->company->ekey.'/gTc/'. $gidc.'/compte/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                                                $this->_addpassager_redirect_siege_indisponible(); return;
                                             }
                                             
                                     }
                                     else
                                     {
-                                            $siegeoccuper = $this->_sale_siege_occupe_legacy($dpclient, $p_sieg);
-                                            
-                                            if($siegeoccuper == NULL )
+                                            if ($this->_sale_sieges_sont_libres(array(array($dpclient, $p_sieg))))
                                             {
                                                 $argv = array(
                                                     'nom_client' => $this->input->post('rclientfid'),
@@ -15285,7 +15297,7 @@
                                             }
                                             else
                                             {
-                                                redirect('gares/'.$this->session->company->ekey.'/gTc/'. $gidc.'/compte/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                                                $this->_addpassager_redirect_siege_indisponible(); return;
                                             }
                                     }
                                 
@@ -15293,7 +15305,7 @@
                                 
                                 else
                                 {
-                                    redirect('gares/'.$this->session->company->ekey.'/gTc/'. $gidc.'/compte/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                                    $this->_addpassager_redirect_siege_indisponible(); return;
                                 } 
                                     
                         }
@@ -15377,11 +15389,10 @@
                                         {
                                             if($this->input->post('transitedepargare1fid') != '' AND $this->input->post('passagersiegesitinesfid') != '' AND $this->input->post('transitedepargare2fid') != '' AND $this->input->post('passagersiegesitines1fid') != '' AND $this->input->post('prixtransfid') != NULL AND $this->input->post('prixtransitfid') != NULL)
                                             {
-                                                $siegeoccuper = $this->_sale_siege_occupe_legacy($dpclient, $p_sieg);
-
-                                                $siegeoccuper2 = $this->_sale_siege_occupe_legacy($dpclient2, $p_sieg2);
-                                                
-                                                if($siegeoccuper == NULL AND $siegeoccuper2 == NULL) 
+                                                if ($this->_sale_sieges_sont_libres(array(
+                                           array($dpclient, $p_sieg),
+                                           array($dpclient2, $p_sieg2),
+                                       ))) 
                                                 {
                                                     $arraycodetampotr = array(
                                                         'codtampon' => $tampo,
@@ -15510,14 +15521,14 @@
 
                                                 else
                                                 {
-                                                    redirect('gares/'.$this->session->company->ekey.'/gTc/'. $gidc.'/compte/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                                                    $this->_addpassager_redirect_siege_indisponible(); return;
                                                     
                                                 }
                                             }
 
                                             else
                                             {
-                                                redirect('gares/'.$this->session->company->ekey.'/gTc/'. $gidc.'/compte/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                                                $this->_addpassager_redirect_siege_indisponible(); return;
                                                 
                                             }
                                         }
@@ -15533,12 +15544,11 @@
                                             AND $this->input->post('transitedepargare3fid') != '' AND $this->input->post('passagersiegesitines2fid') != '' AND $this->input->post('prixtransfid') != NULL AND $this->input->post('prixtransitfid') != NULL AND $this->input->post('prixtransit1fid') != NULL)
                                             {
 
-                                                $siegeoccuper = $this->_sale_siege_occupe_legacy($dpclient, $p_sieg);
-
-                                                $siegeoccuper2 = $this->_sale_siege_occupe_legacy($dpclient2, $p_sieg2);
-                                                $siegeoccuper3 = $this->_sale_siege_occupe_legacy($dpclient3, $p_sieg3);
-                                                
-                                                if($siegeoccuper == NULL AND $siegeoccuper2 == NULL AND $siegeoccuper3 == NULL) 
+                                                if ($this->_sale_sieges_sont_libres(array(
+                                            array($dpclient, $p_sieg),
+                                            array($dpclient2, $p_sieg2),
+                                            array($dpclient3, $p_sieg3),
+                                        ))) 
                                                 {
                                                     $arraycodetampotr = array(
                                                         'codtampon' => $tampo,
@@ -15739,13 +15749,13 @@
 
                                                 else
                                                 {
-                                                    redirect('gares/'.$this->session->company->ekey.'/gTc/'. $gidc.'/compte/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                                                    $this->_addpassager_redirect_siege_indisponible(); return;
                                                 }
                                             }
 
                                             else
                                             {
-                                                redirect('gares/'.$this->session->company->ekey.'/gTc/'. $gidc.'/compte/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                                                $this->_addpassager_redirect_siege_indisponible(); return;
                                             }
                                         }
                                         
@@ -15760,13 +15770,12 @@
                                             if($this->input->post('transitedepargare1fid') != '' AND $this->input->post('passagersiegesitinesfid') != '' AND $this->input->post('transitedepargare2fid') != '' AND $this->input->post('passagersiegesitines1fid') != '' 
                                             AND $this->input->post('transitedepargare3fid') != '' AND $this->input->post('passagersiegesitines2fid') != '' AND $this->input->post('transitedepargare4fid') != '' AND $this->input->post('passagersiegesitines3fid') != '' AND $this->input->post('prixtransfid') != NULL AND $this->input->post('prixtransitfid') != NULL AND $this->input->post('prixtransit1fid') != NULL AND $this->input->post('prixtransit2fid') != NULL)
                                             {
-                                                    $siegeoccuper = $this->_sale_siege_occupe_legacy($dpclient, $p_sieg);
-
-                                                    $siegeoccuper2 = $this->_sale_siege_occupe_legacy($dpclient2, $p_sieg2);
-                                                    $siegeoccuper3 = $this->_sale_siege_occupe_legacy($dpclient3, $p_sieg3);
-                                                    $siegeoccuper4 = $this->_sale_siege_occupe_legacy($dpclient4, $p_sieg4);
-                                                
-                                                    if($siegeoccuper == NULL AND $siegeoccuper2 == NULL AND $siegeoccuper3 == NULL AND $siegeoccuper4 == NULL) 
+                                                    if ($this->_sale_sieges_sont_libres(array(
+                                                array($dpclient, $p_sieg),
+                                                array($dpclient2, $p_sieg2),
+                                                array($dpclient3, $p_sieg3),
+                                                array($dpclient4, $p_sieg4),
+                                            ))) 
                                                     {
                                                         $arraycodetampotr = array(
                                                             'codtampon' => $tampo,
@@ -16024,13 +16033,13 @@
 
                                                     else
                                                     {
-                                                        redirect('gares/'.$this->session->company->ekey.'/gTc/'. $gidc.'/compte/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                                                        $this->_addpassager_redirect_siege_indisponible(); return;
                                                     }
                                             }
 
                                             else
                                             {
-                                                redirect('gares/'.$this->session->company->ekey.'/gTc/'. $gidc.'/compte/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                                                $this->_addpassager_redirect_siege_indisponible(); return;
                                             }
                                         }
                                         
@@ -16059,11 +16068,10 @@
                                             if($this->input->post('transitedepargare1fid') != '' AND $this->input->post('passagersiegesitinesfid') != '' AND $this->input->post('transitedepargare2fid') != '' AND  $this->input->post('passagersiegesitines1fid') != '' AND $this->input->post('prixtransfid') != NULL AND $this->input->post('prixtransitfid') != NULL)
                                             {
 
-                                                    $siegeoccuper = $this->_sale_siege_occupe_legacy($dpclient, $p_sieg);
-
-                                                    $siegeoccuper2 = $this->_sale_siege_occupe_legacy($dpclient2, $p_sieg2);
-                                                
-                                                if($siegeoccuper == NULL AND $siegeoccuper2 == NULL)
+                                                    if ($this->_sale_sieges_sont_libres(array(
+                                           array($dpclient, $p_sieg),
+                                           array($dpclient2, $p_sieg2),
+                                       )))
                                                 {
                                                     $arraycodetampotr = array(
                                                         'codtampon' => $tampo,
@@ -16190,13 +16198,13 @@
 
                                                     else
                                                     {
-                                                        redirect('gares/'.$this->session->company->ekey.'/gTc/'. $gidc.'/compte/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                                                        $this->_addpassager_redirect_siege_indisponible(); return;
                                                     }
                                                 }
 
                                                 else
                                                 {
-                                                    redirect('gares/'.$this->session->company->ekey.'/gTc/'. $gidc.'/compte/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                                                    $this->_addpassager_redirect_siege_indisponible(); return;
                                                 }
                                         }
 
@@ -16210,12 +16218,11 @@
                                                 AND $this->input->post('transitedepargare3fid') != '' AND $this->input->post('passagersiegesitines2fid') != '' AND $this->input->post('prixtransfid') != NULL AND $this->input->post('prixtransitfid') != NULL AND $this->input->post('prixtransit1fid') != NULL)
                                             {
 
-                                                $siegeoccuper = $this->_sale_siege_occupe_legacy($dpclient, $p_sieg);
-
-                                                $siegeoccuper2 = $this->_sale_siege_occupe_legacy($dpclient2, $p_sieg2);
-                                                $siegeoccuper3 = $this->_sale_siege_occupe_legacy($dpclient3, $p_sieg3);
-                                                
-                                                if($siegeoccuper == NULL AND $siegeoccuper2 == NULL AND $siegeoccuper3 == NULL) 
+                                                if ($this->_sale_sieges_sont_libres(array(
+                                            array($dpclient, $p_sieg),
+                                            array($dpclient2, $p_sieg2),
+                                            array($dpclient3, $p_sieg3),
+                                        ))) 
                                                 {
                                                     $arraycodetampotr = array(
                                                         'codtampon' => $tampo,
@@ -16410,13 +16417,13 @@
 
                                                     else
                                                     {
-                                                        redirect('gares/'.$this->session->company->ekey.'/gTc/'. $gidc.'/compte/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                                                        $this->_addpassager_redirect_siege_indisponible(); return;
                                                     }
                                             }
 
                                             else
                                             {
-                                                redirect('gares/'.$this->session->company->ekey.'/gTc/'. $gidc.'/compte/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                                                $this->_addpassager_redirect_siege_indisponible(); return;
                                             }
                                         }
                                         //troisieme transite
@@ -16431,13 +16438,12 @@
                                             if($this->input->post('transitedepargare1fid') != '' AND $this->input->post('passagersiegesitinesfid') != '' AND $this->input->post('transitedepargare2fid') != '' AND $this->input->post('passagersiegesitines1fid') != '' 
                                                 AND $this->input->post('transitedepargare3fid') != '' AND $this->input->post('passagersiegesitines2fid') != '' AND $this->input->post('transitedepargare4fid') != '' AND $this->input->post('passagersiegesitines3fid') != '' AND $this->input->post('prixtransfid') != NULL AND $this->input->post('prixtransitfid') != NULL AND $this->input->post('prixtransit1fid') != NULL AND $this->input->post('prixtransit2fid') != NULL)
                                             {
-                                                $siegeoccuper = $this->_sale_siege_occupe_legacy($dpclient, $p_sieg);
-
-                                                $siegeoccuper2 = $this->_sale_siege_occupe_legacy($dpclient2, $p_sieg2);
-                                                $siegeoccuper3 = $this->_sale_siege_occupe_legacy($dpclient3, $p_sieg3);
-                                                $siegeoccuper4 = $this->_sale_siege_occupe_legacy($dpclient4, $p_sieg4);
-                                                
-                                                if($siegeoccuper == NULL AND $siegeoccuper2 == NULL AND $siegeoccuper3 == NULL AND $siegeoccuper4 == NULL) 
+                                                if ($this->_sale_sieges_sont_libres(array(
+                                                array($dpclient, $p_sieg),
+                                                array($dpclient2, $p_sieg2),
+                                                array($dpclient3, $p_sieg3),
+                                                array($dpclient4, $p_sieg4),
+                                            ))) 
                                                 {
                                                     $arraycodetampotr = array(
                                                         'codtampon' => $tampo,
@@ -16701,14 +16707,14 @@
 
                                                 else
                                                 {
-                                                    redirect('gares/'.$this->session->company->ekey.'/gTc/'. $gidc.'/compte/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                                                    $this->_addpassager_redirect_siege_indisponible(); return;
                                                 }
 
                                             }
 
                                             else
                                             {
-                                                redirect('gares/'.$this->session->company->ekey.'/gTc/'. $gidc.'/compte/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                                                $this->_addpassager_redirect_siege_indisponible(); return;
                                             }
                                             
                                         }
@@ -16718,7 +16724,7 @@
                             
                             else
                             {
-                                redirect('gares/'.$this->session->company->ekey.'/gTc/'. $gidc.'/compte/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                                $this->_addpassager_redirect_siege_indisponible(); return;
                             } 
 
                 
@@ -16802,11 +16808,10 @@
 
                                             if($this->input->post('transitedepargare1fid') != '' AND $this->input->post('passagersiegesitinesfid') != '' AND $this->input->post('transitedepargare2fid') != '' AND  $this->input->post('passagersiegesitines1fid') != '' AND $this->input->post('prixtransfid') != NULL AND $this->input->post('prixtransitfid') != NULL)
                                             {
-                                                $siegeoccuper = $this->_sale_siege_occupe_legacy($dpclient, $p_sieg);
-
-                                                $siegeoccuper2 = $this->_sale_siege_occupe_legacy($dpclient2, $p_sieg2);
-                                                
-                                                if($siegeoccuper == NULL AND $siegeoccuper2 == NULL)
+                                                if ($this->_sale_sieges_sont_libres(array(
+                                           array($dpclient, $p_sieg),
+                                           array($dpclient2, $p_sieg2),
+                                       )))
                                                 {
 
                                                     $arraycodetampotr = array(
@@ -16937,13 +16942,13 @@
                                 
                                                 else
                                                 {
-                                                    redirect('gares/'.$this->session->company->ekey.'/gTc/'. $gidc.'/compte/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                                                    $this->_addpassager_redirect_siege_indisponible(); return;
                                                 }
                                             }
                             
                                             else
                                             {
-                                                redirect('gares/'.$this->session->company->ekey.'/gTc/'. $gidc.'/compte/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                                                $this->_addpassager_redirect_siege_indisponible(); return;
                                             } 
                                         }
 
@@ -16956,12 +16961,11 @@
                                             AND $this->input->post('transitedepargare3fid') != '' AND $this->input->post('passagersiegesitines2fid') != '' AND $this->input->post('prixtransfid') != NULL AND $this->input->post('prixtransitfid') != NULL AND $this->input->post('prixtransit1fid') != NULL)
                                             {
 
-                                                $siegeoccuper = $this->_sale_siege_occupe_legacy($dpclient, $p_sieg);
-
-                                                $siegeoccuper2 = $this->_sale_siege_occupe_legacy($dpclient2, $p_sieg2);
-                                                $siegeoccuper3 = $this->_sale_siege_occupe_legacy($dpclient3, $p_sieg3);
-                                                
-                                                if($siegeoccuper == NULL AND $siegeoccuper2 == NULL AND $siegeoccuper3 == NULL) 
+                                                if ($this->_sale_sieges_sont_libres(array(
+                                            array($dpclient, $p_sieg),
+                                            array($dpclient2, $p_sieg2),
+                                            array($dpclient3, $p_sieg3),
+                                        ))) 
                                                 {
 
                                                     $arraycodetampotr = array(
@@ -17163,13 +17167,13 @@
                                 
                                                 else
                                                 {
-                                                    redirect('gares/'.$this->session->company->ekey.'/gTc/'. $gidc.'/compte/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                                                    $this->_addpassager_redirect_siege_indisponible(); return;
                                                 }
                                             }
                                 
                                             else
                                             {
-                                                redirect('gares/'.$this->session->company->ekey.'/gTc/'. $gidc.'/compte/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                                                $this->_addpassager_redirect_siege_indisponible(); return;
                                             } 
                                         }
                                         //troisieme transite
@@ -17180,13 +17184,12 @@
                                             AND $this->input->post('transitedepargare3fid') != '' AND $this->input->post('passagersiegesitines2fid') != '' AND $this->input->post('transitedepargare4fid') != '' AND $this->input->post('passagersiegesitines3fid') != '' AND $this->input->post('prixtransfid') != NULL AND $this->input->post('prixtransitfid') != NULL AND $this->input->post('prixtransit1fid') != NULL AND $this->input->post('prixtransit2fid') != NULL)
                                             {
                                                     
-                                                $siegeoccuper = $this->_sale_siege_occupe_legacy($dpclient, $p_sieg);
-
-                                                    $siegeoccuper2 = $this->_sale_siege_occupe_legacy($dpclient2, $p_sieg2);
-                                                $siegeoccuper3 = $this->_sale_siege_occupe_legacy($dpclient3, $p_sieg3);
-                                                $siegeoccuper4 = $this->_sale_siege_occupe_legacy($dpclient4, $p_sieg4);
-                                                
-                                                if($siegeoccuper == NULL AND $siegeoccuper2 == NULL AND $siegeoccuper3 == NULL AND $siegeoccuper4 == NULL) 
+                                                if ($this->_sale_sieges_sont_libres(array(
+                                                array($dpclient, $p_sieg),
+                                                array($dpclient2, $p_sieg2),
+                                                array($dpclient3, $p_sieg3),
+                                                array($dpclient4, $p_sieg4),
+                                            ))) 
                                                 {
                                                     $arraycodetampotr = array(
                                                         'codtampon' => $tampo,
@@ -17450,13 +17453,13 @@
 
                                                 else
                                                 {
-                                                    redirect('gares/'.$this->session->company->ekey.'/gTc/'. $gidc.'/compte/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                                                    $this->_addpassager_redirect_siege_indisponible(); return;
                                                 }
                                             }
 
                                             else
                                             {
-                                                redirect('gares/'.$this->session->company->ekey.'/gTc/'. $gidc.'/compte/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                                                $this->_addpassager_redirect_siege_indisponible(); return;
                                             }
                                         }
                                     
@@ -17484,11 +17487,10 @@
                                         {
                                             if($this->input->post('transitedepargare1fid') != '' AND $this->input->post('passagersiegesitinesfid') != '' AND $this->input->post('transitedepargare2fid') != '' AND $this->input->post('passagersiegesitines1fid') != '' AND $this->input->post('prixtransfid') != NULL AND $this->input->post('prixtransitfid') != NULL)
                                             { 
-                                                $siegeoccuper = $this->_sale_siege_occupe_legacy($dpclient, $p_sieg);
-
-                                                $siegeoccuper2 = $this->_sale_siege_occupe_legacy($dpclient2, $p_sieg2);
-                                                
-                                                if($siegeoccuper == NULL AND $siegeoccuper2== NULL)
+                                                if ($this->_sale_sieges_sont_libres(array(
+                                           array($dpclient, $p_sieg),
+                                           array($dpclient2, $p_sieg2),
+                                       )))
                                                 {
                                                     $arraycodetampotr = array(
                                                         'codtampon' => $tampo,
@@ -17616,13 +17618,13 @@
 
                                                 else
                                                 {
-                                                    redirect('gares/'.$this->session->company->ekey.'/gTc/'. $gidc.'/compte/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                                                    $this->_addpassager_redirect_siege_indisponible(); return;
                                                 }
                                             }
 
                                             else
                                             {
-                                                redirect('gares/'.$this->session->company->ekey.'/gTc/'. $gidc.'/compte/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                                                $this->_addpassager_redirect_siege_indisponible(); return;
                                             }
                                         }
 
@@ -17633,12 +17635,11 @@
                                             if($this->input->post('transitedepargare1fid') != '' AND $this->input->post('passagersiegesitinesfid') != '' AND $this->input->post('transitedepargare2fid') != '' AND $this->input->post('passagersiegesitines1fid') != ''
                                             AND $this->input->post('transitedepargare3fid') != '' AND $this->input->post('passagersiegesitines2fid') != '' AND $this->input->post('prixtransfid') != NULL AND $this->input->post('prixtransitfid') != NULL AND $this->input->post('prixtransit1fid') != NULL)
                                             {
-                                                $siegeoccuper = $this->_sale_siege_occupe_legacy($dpclient, $p_sieg);
-
-                                                $siegeoccuper2 = $this->_sale_siege_occupe_legacy($dpclient2, $p_sieg2);
-                                                $siegeoccuper3 = $this->_sale_siege_occupe_legacy($dpclient3, $p_sieg3);
-                                                
-                                                if($siegeoccuper == NULL AND $siegeoccuper2 == NULL AND $siegeoccuper3 == NULL) 
+                                                if ($this->_sale_sieges_sont_libres(array(
+                                            array($dpclient, $p_sieg),
+                                            array($dpclient2, $p_sieg2),
+                                            array($dpclient3, $p_sieg3),
+                                        ))) 
                                                 {
                                                     $arraycodetampotr = array(
                                                         'codtampon' => $tampo,
@@ -17833,13 +17834,13 @@
 
                                                 else
                                                 {
-                                                    redirect('gares/'.$this->session->company->ekey.'/gTc/'. $gidc.'/compte/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                                                    $this->_addpassager_redirect_siege_indisponible(); return;
                                                 }
                                             }
 
                                             else
                                             {
-                                                redirect('gares/'.$this->session->company->ekey.'/gTc/'. $gidc.'/compte/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                                                $this->_addpassager_redirect_siege_indisponible(); return;
                                             }
                                         }
                                         //troisieme transite
@@ -17849,13 +17850,12 @@
                                             if($this->input->post('transitedepargare1fid') != '' AND $this->input->post('passagersiegesitinesfid') != '' AND $this->input->post('transitedepargare2fid') != '' AND $this->input->post('passagersiegesitines1') != '' 
                                             AND $this->input->post('transitedepargare3fid') != '' AND $this->input->post('passagersiegesitines2fid') != '' AND $this->input->post('transitedepargare4fid') != '' AND  $this->input->post('passagersiegesitines3fid') != '' AND $this->input->post('prixtransfid') != NULL AND $this->input->post('prixtransitfid') != NULL AND $this->input->post('prixtransit1fid') != NULL AND $this->input->post('prixtransit2fid') != NULL)
                                             {
-                                                $siegeoccuper = $this->_sale_siege_occupe_legacy($dpclient, $p_sieg);
-
-                                                    $siegeoccuper2 = $this->_sale_siege_occupe_legacy($dpclient2, $p_sieg2);
-                                                $siegeoccuper3 = $this->_sale_siege_occupe_legacy($dpclient3, $p_sieg3);
-                                                $siegeoccuper4 = $this->_sale_siege_occupe_legacy($dpclient4, $p_sieg4);
-                                                
-                                                if($siegeoccuper == NULL AND $siegeoccuper2 == NULL AND $siegeoccuper3 == NULL AND $siegeoccuper4 == NULL) 
+                                                if ($this->_sale_sieges_sont_libres(array(
+                                                array($dpclient, $p_sieg),
+                                                array($dpclient2, $p_sieg2),
+                                                array($dpclient3, $p_sieg3),
+                                                array($dpclient4, $p_sieg4),
+                                            ))) 
                                                 {
 
                                                     $arraycodetampotr = array(
@@ -18117,12 +18117,12 @@
                                                 }
                                                 else
                                                 {
-                                                    redirect('gares/'.$this->session->company->ekey.'/gTc/'. $gidc.'/compte/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                                                    $this->_addpassager_redirect_siege_indisponible(); return;
                                                 }
                                             }
                                             else
                                             {
-                                                redirect('gares/'.$this->session->company->ekey.'/gTc/'. $gidc.'/compte/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                                                $this->_addpassager_redirect_siege_indisponible(); return;
                                             }
                                         }
                                     
@@ -18131,7 +18131,7 @@
                             
                             else
                             {
-                                redirect('gares/'.$this->session->company->ekey.'/gTc/'. $gidc.'/compte/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                                $this->_addpassager_redirect_siege_indisponible(); return;
                             } 
 
                 
@@ -18220,11 +18220,10 @@
 
                                                     if($this->input->post('transitedepargare1fid') != '' AND $this->input->post('passagersiegesitinesfid') != '' AND $this->input->post('transitedepargare2fid') != '' AND $this->input->post('passagersiegesitines1fid') != '' AND $this->input->post('prixtransfid') != NULL AND $this->input->post('prixtransitfid') != NULL)
                                                     {
-                                                        $siegeoccuper = $this->_sale_siege_occupe_legacy($dpclient, $p_sieg);
-
-                                                        $siegeoccuper2 = $this->_sale_siege_occupe_legacy($dpclient2, $p_sieg2);
-                                                        
-                                                        if($siegeoccuper == NULL AND $siegeoccuper2 == NULL) 
+                                                        if ($this->_sale_sieges_sont_libres(array(
+                                           array($dpclient, $p_sieg),
+                                           array($dpclient2, $p_sieg2),
+                                       ))) 
                                                         {
                                                             $arraycodetampotr = array(
                                                                 'codtampon' => $tampo,
@@ -18386,12 +18385,12 @@
                                                         }
                                                         else
                                                         {
-                                                            redirect('gares/'.$this->session->company->ekey.'/gTc/'. $gidc.'/compte/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                                                            $this->_addpassager_redirect_siege_indisponible(); return;
                                                         }
                                                     }
                                                     else
                                                     {
-                                                        redirect('gares/'.$this->session->company->ekey.'/gTc/'. $gidc.'/compte/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                                                        $this->_addpassager_redirect_siege_indisponible(); return;
                                                     }
                                                 }
 
@@ -18401,12 +18400,11 @@
                                                     AND $this->input->post('transitedepargare3fid') != '' AND $this->input->post('passagersiegesitines2fid') != '' AND $this->input->post('prixtransfid') != NULL AND $this->input->post('prixtransitfid') != NULL AND $this->input->post('prixtransit1fid') != NULL)
                                                     {
 
-                                                        $siegeoccuper = $this->_sale_siege_occupe_legacy($dpclient, $p_sieg);
-
-                                                        $siegeoccuper2 = $this->_sale_siege_occupe_legacy($dpclient2, $p_sieg2);
-                                                        $siegeoccuper3 = $this->_sale_siege_occupe_legacy($dpclient3, $p_sieg3);
-                                                        
-                                                        if($siegeoccuper == NULL AND $siegeoccuper2 == NULL AND $siegeoccuper3 == NULL) 
+                                                        if ($this->_sale_sieges_sont_libres(array(
+                                            array($dpclient, $p_sieg),
+                                            array($dpclient2, $p_sieg2),
+                                            array($dpclient3, $p_sieg3),
+                                        ))) 
                                                         {
                                                             $arraycodetampotr = array(
                                                                 'codtampon' => $tampo,
@@ -18656,12 +18654,12 @@
                                                         }
                                                         else
                                                         {
-                                                            redirect('gares/'.$this->session->company->ekey.'/gTc/'. $gidc.'/compte/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                                                            $this->_addpassager_redirect_siege_indisponible(); return;
                                                         }
                                                     }
                                                     else
                                                     {
-                                                        redirect('gares/'.$this->session->company->ekey.'/gTc/'. $gidc.'/compte/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                                                        $this->_addpassager_redirect_siege_indisponible(); return;
                                                 
                                                     }
                                                 }
@@ -18672,13 +18670,12 @@
                                                     if($this->input->post('transitedepargare1fid') != '' AND $this->input->post('passagersiegesitinesfid') != '' AND $this->input->post('transitedepargare2fid') != '' AND $this->input->post('passagersiegesitines1fid') != '' 
                                                     AND $this->input->post('transitedepargare3fid') != '' AND $this->input->post('passagersiegesitines2fid') != '' AND $this->input->post('transitedepargare4fid') != '' AND $this->input->post('passagersiegesitines3fid') != '' AND $this->input->post('prixtransfid') != NULL AND $this->input->post('prixtransitfid') != NULL AND $this->input->post('prixtransit1fid') != NULL AND $this->input->post('prixtransit2fid') != NULL)
                                                     {
-                                                        $siegeoccuper = $this->_sale_siege_occupe_legacy($dpclient, $p_sieg);
-
-                                                        $siegeoccuper2 = $this->_sale_siege_occupe_legacy($dpclient2, $p_sieg2);
-                                                        $siegeoccuper3 = $this->_sale_siege_occupe_legacy($dpclient3, $p_sieg3);
-                                                        $siegeoccuper4 = $this->_sale_siege_occupe_legacy($dpclient4, $p_sieg4);
-                                                
-                                                        if($siegeoccuper == NULL AND $siegeoccuper2 == NULL AND $siegeoccuper3 == NULL AND $siegeoccuper4 == NULL) 
+                                                        if ($this->_sale_sieges_sont_libres(array(
+                                                array($dpclient, $p_sieg),
+                                                array($dpclient2, $p_sieg2),
+                                                array($dpclient3, $p_sieg3),
+                                                array($dpclient4, $p_sieg4),
+                                            ))) 
                                                         {
                                                             $arraycodetampotr = array(
                                                                 'codtampon' => $tampo,
@@ -19014,12 +19011,12 @@
                                                         }
                                                         else
                                                         {
-                                                            redirect('gares/'.$this->session->company->ekey.'/gTc/'. $gidc.'/compte/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                                                            $this->_addpassager_redirect_siege_indisponible(); return;
                                                         }
                                                     }
                                                     else
                                                     {
-                                                        redirect('gares/'.$this->session->company->ekey.'/gTc/'. $gidc.'/compte/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                                                        $this->_addpassager_redirect_siege_indisponible(); return;
                                                     }
                                                 }
                                             
@@ -19046,11 +19043,10 @@
                                                 {
                                                     if($this->input->post('transitedepargare1fid') != '' AND $this->input->post('passagersiegesitinesfid') != '' AND $this->input->post('transitedepargare2fid') != '' AND $this->input->post('passagersiegesitines1fid') != '' AND $this->input->post('prixtransfid') != NULL AND $this->input->post('prixtransitfid') != NULL)
                                                     {
-                                                        $siegeoccuper = $this->_sale_siege_occupe_legacy($dpclient, $p_sieg);
-
-                                                        $siegeoccuper2 = $this->_sale_siege_occupe_legacy($dpclient2, $p_sieg2);
-                                                        
-                                                        if($siegeoccuper == NULL AND $siegeoccuper2 == NULL) 
+                                                        if ($this->_sale_sieges_sont_libres(array(
+                                           array($dpclient, $p_sieg),
+                                           array($dpclient2, $p_sieg2),
+                                       ))) 
                                                         {
                                                             $arraycodetampotr = array(
                                                                 'codtampon' => $tampo,
@@ -19214,12 +19210,12 @@
                                                         }
                                                         else
                                                         {
-                                                            redirect('gares/'.$this->session->company->ekey.'/gTc/'. $gidc.'/compte/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                                                            $this->_addpassager_redirect_siege_indisponible(); return;
                                                         }
                                                     }
                                                     else
                                                     {
-                                                        redirect('gares/'.$this->session->company->ekey.'/gTc/'. $gidc.'/compte/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                                                        $this->_addpassager_redirect_siege_indisponible(); return;
                                                     }
                                                 }
 
@@ -19230,12 +19226,11 @@
                                                     if($this->input->post('transitedepargare1fid') != '' AND $this->input->post('passagersiegesitinesfid') != '' AND $this->input->post('transitedepargare2fid') != '' AND $this->input->post('passagersiegesitines1fid') != ''
                                                     AND $this->input->post('transitedepargare3fid') != '' AND $this->input->post('passagersiegesitines2fid') != '' AND $this->input->post('prixtransfid') != NULL AND $this->input->post('prixtransitfid') != NULL AND $this->input->post('prixtransit1fid') != NULL)
                                                     {
-                                                        $siegeoccuper = $this->_sale_siege_occupe_legacy($dpclient, $p_sieg);
-
-                                                        $siegeoccuper2 = $this->_sale_siege_occupe_legacy($dpclient2, $p_sieg2);
-                                                        $siegeoccuper3 = $this->_sale_siege_occupe_legacy($dpclient3, $p_sieg3);
-                                                        
-                                                        if($siegeoccuper == NULL AND $siegeoccuper2 == NULL AND $siegeoccuper3 == NULL) 
+                                                        if ($this->_sale_sieges_sont_libres(array(
+                                            array($dpclient, $p_sieg),
+                                            array($dpclient2, $p_sieg2),
+                                            array($dpclient3, $p_sieg3),
+                                        ))) 
                                                         {
                                                             $arraycodetampotr = array(
                                                                 'codtampon' => $tampo,
@@ -19485,12 +19480,12 @@
                                                         }
                                                         else
                                                         {
-                                                            redirect('gares/'.$this->session->company->ekey.'/gTc/'. $gidc.'/compte/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                                                            $this->_addpassager_redirect_siege_indisponible(); return;
                                                         }
                                                     }
                                                     else
                                                     {
-                                                        redirect('gares/'.$this->session->company->ekey.'/gTc/'. $gidc.'/compte/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                                                        $this->_addpassager_redirect_siege_indisponible(); return;
                                                     }   
                                                 }
 
@@ -19500,13 +19495,12 @@
                                                     if($this->input->post('transitedepargare1fid') != '' AND $this->input->post('passagersiegesitinesfid') != '' AND $this->input->post('transitedepargare2fid') != '' AND $this->input->post('passagersiegesitines1fid') != '' 
                                                     AND $this->input->post('transitedepargare3fid') != '' AND  $this->input->post('passagersiegesitines2fid') != '' AND $this->input->post('transitedepargare4fid') != '' AND $this->input->post('passagersiegesitines3fid') != '' AND $this->input->post('prixtransfid') != NULL AND $this->input->post('prixtransitfid') != NULL AND $this->input->post('prixtransit1fid') != NULL AND $this->input->post('prixtransit2fid') != NULL)
                                                     {
-                                                        $siegeoccuper = $this->_sale_siege_occupe_legacy($dpclient, $p_sieg);
-
-                                                        $siegeoccuper2 = $this->_sale_siege_occupe_legacy($dpclient2, $p_sieg2);
-                                                        $siegeoccuper3 = $this->_sale_siege_occupe_legacy($dpclient3, $p_sieg3);
-                                                        $siegeoccuper4 = $this->_sale_siege_occupe_legacy($dpclient4, $p_sieg4);
-                                                
-                                                        if($siegeoccuper == NULL AND $siegeoccuper2 == NULL AND $siegeoccuper3 == NULL AND $siegeoccuper4 == NULL) 
+                                                        if ($this->_sale_sieges_sont_libres(array(
+                                                array($dpclient, $p_sieg),
+                                                array($dpclient2, $p_sieg2),
+                                                array($dpclient3, $p_sieg3),
+                                                array($dpclient4, $p_sieg4),
+                                            ))) 
                                                         {
                                                             $arraycodetampotr = array(
                                                                 'codtampon' => $tampo,
@@ -19846,12 +19840,12 @@
                                                         }
                                                         else
                                                         {
-                                                            redirect('gares/'.$this->session->company->ekey.'/gTc/'. $gidc.'/compte/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                                                            $this->_addpassager_redirect_siege_indisponible(); return;
                                                         }
                                                     }
                                                     else
                                                     {
-                                                        redirect('gares/'.$this->session->company->ekey.'/gTc/'. $gidc.'/compte/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                                                        $this->_addpassager_redirect_siege_indisponible(); return;
                                                     }
                                                 }
                                     }
@@ -19860,7 +19854,7 @@
                                 
                                 else
                                 {
-                                    redirect('gares/'.$this->session->company->ekey.'/gTc/'. $gidc.'/compte/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                                    $this->_addpassager_redirect_siege_indisponible(); return;
                                 } 
                                     
                         }
@@ -19949,11 +19943,10 @@
                                                 {
                                                     if($this->input->post('transitedepargare1fid') != '' AND $this->input->post('passagersiegesitinesfid') != '' AND $this->input->post('transitedepargare2fid') != '' AND $this->input->post('passagersiegesitines1fid') != '' AND $this->input->post('prixtransfid') != NULL AND $this->input->post('prixtransitfid') != NULL)
                                                     {
-                                                        $siegeoccuper = $this->_sale_siege_occupe_legacy($dpclient, $p_sieg);
-
-                                                        $siegeoccuper2 = $this->_sale_siege_occupe_legacy($dpclient2, $p_sieg2);
-                                                        
-                                                        if($siegeoccuper == NULL AND $siegeoccuper2 == NULL) 
+                                                        if ($this->_sale_sieges_sont_libres(array(
+                                           array($dpclient, $p_sieg),
+                                           array($dpclient2, $p_sieg2),
+                                       ))) 
                                                         {
                                                             $arraycodetampotr = array(
                                                                 'codtampon' => $tampo,
@@ -20113,12 +20106,12 @@
                                                         }
                                                         else
                                                         {
-                                                            redirect('gares/'.$this->session->company->ekey.'/gTc/'. $gidc.'/compte/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                                                            $this->_addpassager_redirect_siege_indisponible(); return;
                                                         }
                                                     }
                                                     else
                                                     {
-                                                        redirect('gares/'.$this->session->company->ekey.'/gTc/'. $gidc.'/compte/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                                                        $this->_addpassager_redirect_siege_indisponible(); return;
                                                     }
                                                 }
 
@@ -20127,12 +20120,11 @@
                                                     if($this->input->post('transitedepargare1fid') != '' AND $this->input->post('passagersiegesitinesfid') != '' AND $this->input->post('transitedepargare2fid') != '' AND $this->input->post('passagersiegesitines1fid') != ''
                                                     AND $this->input->post('transitedepargare3fid') != '' AND $this->input->post('passagersiegesitines2fid') != '' AND $this->input->post('prixtransfid') != NULL AND $this->input->post('prixtransitfid') != NULL AND $this->input->post('prixtransit1fid') != NULL)
                                                     {
-                                                        $siegeoccuper = $this->_sale_siege_occupe_legacy($dpclient, $p_sieg);
-
-                                                        $siegeoccuper2 = $this->_sale_siege_occupe_legacy($dpclient2, $p_sieg2);
-                                                        $siegeoccuper3 = $this->_sale_siege_occupe_legacy($dpclient3, $p_sieg3);
-                                                        
-                                                        if($siegeoccuper == NULL AND $siegeoccuper2 == NULL AND $siegeoccuper3 == NULL) 
+                                                        if ($this->_sale_sieges_sont_libres(array(
+                                            array($dpclient, $p_sieg),
+                                            array($dpclient2, $p_sieg2),
+                                            array($dpclient3, $p_sieg3),
+                                        ))) 
                                                         {
                                                             $arraycodetampotr = array(
                                                                 'codtampon' => $tampo,
@@ -20383,12 +20375,12 @@
                                                         }
                                                         else
                                                         {
-                                                            redirect('gares/'.$this->session->company->ekey.'/gTc/'. $gidc.'/compte/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                                                            $this->_addpassager_redirect_siege_indisponible(); return;
                                                         }
                                                     }
                                                     else
                                                     {
-                                                        redirect('gares/'.$this->session->company->ekey.'/gTc/'. $gidc.'/compte/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                                                        $this->_addpassager_redirect_siege_indisponible(); return;
                                                     }
                                                 }
 
@@ -20398,13 +20390,12 @@
                                                     if($this->input->post('transitedepargare1fid') != '' AND $this->input->post('passagersiegesitinesfid') != '' AND $this->input->post('transitedepargare2fid') != '' AND $this->input->post('passagersiegesitines1fid') != '' 
                                                     AND $this->input->post('transitedepargare3fid') != '' AND $this->input->post('passagersiegesitines2fid') != '' AND $this->input->post('transitedepargare4fid') != '' AND $this->input->post('passagersiegesitines3fid') != '' AND $this->input->post('prixtransfid') != NULL AND $this->input->post('prixtransitfid') != NULL AND $this->input->post('prixtransit1fid') != NULL AND $this->input->post('prixtransit2fid') != NULL)
                                                     {
-                                                        $siegeoccuper = $this->_sale_siege_occupe_legacy($dpclient, $p_sieg);
-
-                                                        $siegeoccuper2 = $this->_sale_siege_occupe_legacy($dpclient2, $p_sieg2);
-                                                        $siegeoccuper3 = $this->_sale_siege_occupe_legacy($dpclient3, $p_sieg3);
-                                                        $siegeoccuper4 = $this->_sale_siege_occupe_legacy($dpclient4, $p_sieg4);
-                                                
-                                                        if($siegeoccuper == NULL AND $siegeoccuper2 == NULL AND $siegeoccuper3 == NULL AND $siegeoccuper4 == NULL) 
+                                                        if ($this->_sale_sieges_sont_libres(array(
+                                                array($dpclient, $p_sieg),
+                                                array($dpclient2, $p_sieg2),
+                                                array($dpclient3, $p_sieg3),
+                                                array($dpclient4, $p_sieg4),
+                                            ))) 
                                                         {
                                                             $arraycodetampotr = array(
                                                                 'codtampon' => $tampo,
@@ -20742,12 +20733,12 @@
                                                         }
                                                         else
                                                         {
-                                                            redirect('gares/'.$this->session->company->ekey.'/gTc/'. $gidc.'/compte/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                                                            $this->_addpassager_redirect_siege_indisponible(); return;
                                                         }
                                                     }
                                                     else
                                                     {
-                                                        redirect('gares/'.$this->session->company->ekey.'/gTc/'. $gidc.'/compte/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                                                        $this->_addpassager_redirect_siege_indisponible(); return;
                                                         
                                                     }
                                                 }
@@ -20776,11 +20767,10 @@
 
                                                     if($this->input->post('transitedepargare1fid') != '' AND $this->input->post('passagersiegesitinesfid') != '' AND $this->input->post('transitedepargare2fid') != '' AND $this->input->post('passagersiegesitines1fid') != '' AND $this->input->post('prixtransfid') != NULL AND $this->input->post('prixtransitfid') != NULL)
                                                     {
-                                                        $siegeoccuper = $this->_sale_siege_occupe_legacy($dpclient, $p_sieg);
-
-                                                        $siegeoccuper2 = $this->_sale_siege_occupe_legacy($dpclient2, $p_sieg2);
-                                                        
-                                                        if($siegeoccuper == NULL AND $siegeoccuper2 == NULL) 
+                                                        if ($this->_sale_sieges_sont_libres(array(
+                                           array($dpclient, $p_sieg),
+                                           array($dpclient2, $p_sieg2),
+                                       ))) 
                                                         {
                                                             $arraycodetampotr = array(
                                                                 'codtampon' => $tampo,
@@ -20956,12 +20946,12 @@
                                                         }
                                                         else
                                                         {
-                                                            redirect('gares/'.$this->session->company->ekey.'/gTc/'. $gidc.'/compte/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                                                            $this->_addpassager_redirect_siege_indisponible(); return;
                                                         }
                                                     }
                                                     else
                                                     {
-                                                        redirect('gares/'.$this->session->company->ekey.'/gTc/'. $gidc.'/compte/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                                                        $this->_addpassager_redirect_siege_indisponible(); return;
                                                     }
                                                 }
 
@@ -20972,12 +20962,11 @@
                                                     if($this->input->post('transitedepargare1fid') != '' AND $this->input->post('passagersiegesitinesfid') != '' AND $this->input->post('transitedepargare2fid') != '' AND $this->input->post('passagersiegesitines1fid') != ''
                                                     AND $this->input->post('transitedepargare3fid') != '' AND $this->input->post('passagersiegesitines2fid') != '' AND $this->input->post('prixtransfid') != NULL AND $this->input->post('prixtransitfid') != NULL AND $this->input->post('prixtransit1fid') != NULL)
                                                     {
-                                                        $siegeoccuper = $this->_sale_siege_occupe_legacy($dpclient, $p_sieg);
-
-                                                        $siegeoccuper2 = $this->_sale_siege_occupe_legacy($dpclient2, $p_sieg2);
-                                                        $siegeoccuper3 = $this->_sale_siege_occupe_legacy($dpclient3, $p_sieg3);
-                                                        
-                                                        if($siegeoccuper == NULL AND $siegeoccuper2 == NULL AND $siegeoccuper3 == NULL) 
+                                                        if ($this->_sale_sieges_sont_libres(array(
+                                            array($dpclient, $p_sieg),
+                                            array($dpclient2, $p_sieg2),
+                                            array($dpclient3, $p_sieg3),
+                                        ))) 
                                                         {
                                                             $arraycodetampotr = array(
                                                                 'codtampon' => $tampo,
@@ -21246,12 +21235,12 @@
                                                         }
                                                         else
                                                         {
-                                                            redirect('gares/'.$this->session->company->ekey.'/gTc/'. $gidc.'/compte/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                                                            $this->_addpassager_redirect_siege_indisponible(); return;
                                                         }
                                                     }
                                                     else
                                                     {
-                                                        redirect('gares/'.$this->session->company->ekey.'/gTc/'. $gidc.'/compte/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                                                        $this->_addpassager_redirect_siege_indisponible(); return;
                                                     }
                                                 }
 
@@ -21261,13 +21250,12 @@
                                                     if($this->input->post('transitedepargare1fid') != '' AND $this->input->post('passagersiegesitinesfid') != '' AND $this->input->post('transitedepargare2fid') != '' AND $this->input->post('passagersiegesitines1fid') != '' 
                                                     AND $this->input->post('transitedepargare3fid') != '' AND $this->input->post('passagersiegesitines2fid') != '' AND $this->input->post('transitedepargare4fid') != '' AND $this->input->post('passagersiegesitines3fid') != '' AND $this->input->post('prixtransfid') != NULL AND $this->input->post('prixtransitfid') != NULL AND $this->input->post('prixtransit1fid') != NULL AND $this->input->post('prixtransit2fid') != NULL)
                                                     {
-                                                        $siegeoccuper = $this->_sale_siege_occupe_legacy($dpclient, $p_sieg);
-
-                                                        $siegeoccuper2 = $this->_sale_siege_occupe_legacy($dpclient2, $p_sieg2);
-                                                        $siegeoccuper3 = $this->_sale_siege_occupe_legacy($dpclient3, $p_sieg3);
-                                                        $siegeoccuper4 = $this->_sale_siege_occupe_legacy($dpclient4, $p_sieg4);
-                                                
-                                                        if($siegeoccuper == NULL AND $siegeoccuper2 == NULL AND $siegeoccuper3 == NULL AND $siegeoccuper4 == NULL) 
+                                                        if ($this->_sale_sieges_sont_libres(array(
+                                                array($dpclient, $p_sieg),
+                                                array($dpclient2, $p_sieg2),
+                                                array($dpclient3, $p_sieg3),
+                                                array($dpclient4, $p_sieg4),
+                                            ))) 
                                                         {
                                                             $arraycodetampotr = array(
                                                                 'codtampon' => $tampo,
@@ -21623,14 +21611,14 @@
                                                         }
                                                         else
                                                         {
-                                                            redirect('gares/'.$this->session->company->ekey.'/gTc/'. $gidc.'/compte/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                                                            $this->_addpassager_redirect_siege_indisponible(); return;
 
                                                             
                                                         }
                                                     }
                                                     else
                                                     {
-                                                        redirect('gares/'.$this->session->company->ekey.'/gTc/'. $gidc.'/compte/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                                                        $this->_addpassager_redirect_siege_indisponible(); return;
                                                     }
                                                 }
                                             
@@ -21640,7 +21628,7 @@
                                 
                                 else
                                 {
-                                    redirect('gares/'.$this->session->company->ekey.'/gTc/'. $gidc.'/compte/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                                    $this->_addpassager_redirect_siege_indisponible(); return;
                                 } 
                                     
                         }
@@ -21715,9 +21703,7 @@
                                 if($this->input->post('clientcompmob') != '' AND $rcl === $this->input->post('rclientmob') AND $rcp === $this->input->post('prclientmob'))
                                 {
                                 
-                                    $siegeoccuper = $this->_sale_siege_occupe_legacy($dpclient, $p_sieg);
-                                    
-                                    if($siegeoccuper == NULL ) 
+                                    if ($this->_sale_sieges_sont_libres(array(array($dpclient, $p_sieg)))) 
                                     {
 
                                         $argup = array(
@@ -21831,15 +21817,13 @@
 
                                     else
                                     {
-                                        redirect('gares/'.$this->session->company->ekey.'/gTc/'. $gid.'/compte/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                                        $this->_addpassager_redirect_siege_indisponible(); return;
                                     }
                                     
                                 }
                                 else
                                 {
-                                    $siegeoccuper = $this->_sale_siege_occupe_legacy($dpclient, $p_sieg);
-                                    
-                                    if($siegeoccuper == NULL )
+                                    if ($this->_sale_sieges_sont_libres(array(array($dpclient, $p_sieg))))
                                     {
                                         $argv = array(
                                             'nom_client' => $this->input->post('rclientmob'),
@@ -21948,14 +21932,14 @@
                                     }
                                     else
                                     {
-                                        redirect('gares/'.$this->session->company->ekey.'/gTc/'. $gid.'/compte/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                                        $this->_addpassager_redirect_siege_indisponible(); return;
                                     }
                                 } 
                             }
                             
                             else
                             {
-                                redirect('gares/'.$this->session->company->ekey.'/gTc/'. $gid.'/compte/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                                $this->_addpassager_redirect_siege_indisponible(); return;
                             }
                         
                     }

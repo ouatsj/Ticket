@@ -650,6 +650,79 @@ class Sale_passager_service
     }
 
     /**
+     * État structuré d'un siège pour l'UI (siegepassager, verifiersiege).
+     *
+     * @param string $code_progr
+     * @param int $num_siege
+     * @param array $opts options assert_siege_vendable
+     * @return array{ok:bool,libre:bool,occupe:bool,bloque:bool,hors_quota:bool,tampon:bool,code:string,reason:string,code_pro:string,num_siege_categorie:int}
+     */
+    public function etat_siege_vente($code_progr, $num_siege, array $opts = array())
+    {
+        $code = trim((string) $code_progr);
+        $num = (int) $num_siege;
+        $defaults = array('preflight' => true);
+        $assert = $this->assert_siege_vendable($code, $num, array_merge($defaults, $opts));
+        $ref = isset($assert['code']) ? (string) $assert['code'] : 'invalid';
+
+        $etat = array(
+            'ok' => !empty($assert['ok']),
+            'libre' => !empty($assert['ok']),
+            'occupe' => ($ref === 'occupied'),
+            'bloque' => ($ref === 'blocked'),
+            'hors_quota' => ($ref === 'hors_quota'),
+            'tampon' => ($ref === 'tampon'),
+            'reconduction' => ($ref === 'reconduction'),
+            'miroir' => ($ref === 'miroir'),
+            'code' => $ref,
+            'reason' => isset($assert['reason']) ? (string) $assert['reason'] : '',
+            'code_pro' => $code,
+            'num_siege_categorie' => $num,
+        );
+        if ($etat['bloque']) {
+            $etat['siege_bloque'] = 1;
+        }
+        return $etat;
+    }
+
+    /**
+     * Payload JSON siegepassager (toujours un objet, champs legacy + structurés).
+     *
+     * @param string $code_progr
+     * @param int $num_siege
+     * @param array $opts
+     * @return object
+     */
+    public function siegepassager_payload($code_progr, $num_siege, array $opts = array())
+    {
+        return (object) $this->etat_siege_vente($code_progr, $num_siege, $opts);
+    }
+
+    /**
+     * Plusieurs paires programme/siège vendables ?
+     *
+     * @param array<int,array{0:string,1:int|string}> $pairs
+     * @param array $opts
+     * @return bool
+     */
+    public function sieges_sont_vendables(array $pairs, array $opts = array())
+    {
+        foreach ($pairs as $pair) {
+            if (!is_array($pair) || count($pair) < 2) {
+                return false;
+            }
+            $assert = $this->assert_siege_vendable($pair[0], (int) $pair[1], array_merge(
+                array('preflight' => true),
+                $opts
+            ));
+            if (empty($assert['ok'])) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /**
      * Compatibilité addpassager : retourne un objet si le siège n'est PAS vendable, null si libre.
      *
      * @param string $code_progr
@@ -658,17 +731,15 @@ class Sale_passager_service
      */
     public function occupe_legacy_row($code_progr, $num_siege)
     {
-        $r = $this->assert_siege_vendable($code_progr, (int) $num_siege, array('preflight' => true));
-        if (!empty($r['ok'])) {
+        $etat = $this->etat_siege_vente($code_progr, (int) $num_siege);
+        if (!empty($etat['ok'])) {
             return null;
         }
 
-        return (object) array(
-            'code_pro' => trim((string) $code_progr),
-            'num_siege_categorie' => (int) $num_siege,
-            'siege_refus_code' => $r['code'],
-            'siege_refus_reason' => $r['reason'],
-        );
+        $row = (object) $etat;
+        $row->siege_refus_code = $etat['code'];
+        $row->siege_refus_reason = $etat['reason'];
+        return $row;
     }
 
     /**

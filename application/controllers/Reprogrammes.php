@@ -31,6 +31,22 @@
             }
             return $this->sale_svc->occupe_legacy_row($code_pro, $num_siege);
         }
+
+        protected function _sale_sieges_sont_libres(array $pairs)
+        {
+            if (!isset($this->sale_svc)) {
+                $this->load->library('sale_passager_service', null, 'sale_svc');
+            }
+            return $this->sale_svc->sieges_sont_vendables($pairs, array('allow_tampon' => true));
+        }
+
+        protected function _sale_siegepassager_json($code_pro, $num_siege)
+        {
+            if (!isset($this->sale_svc)) {
+                $this->load->library('sale_passager_service', null, 'sale_svc');
+            }
+            return $this->sale_svc->siegepassager_payload($code_pro, $num_siege);
+        }
         
         /**
          *
@@ -46,22 +62,9 @@
 
         public function siegepassager($d, $prog_id)
         {
-            if (!isset($this->m_programme)) {
-                $this->load->model('Programme_model', 'm_programme');
-            }
-            if ($this->m_programme->siege_est_bloque_programme($d, (int) $prog_id)) {
-                return $this->load->view('beagle/pages/_programme/json', array(
-                    'json' => (object) array(
-                        'code_pro' => $d,
-                        'num_siege_categorie' => (int) $prog_id,
-                        'siege_bloque' => 1,
-                    ),
-                ), FALSE);
-            }
-
-            $outut = $this->m_passager->verifiersiege($this->session->company->ekey, $d, $prog_id);
-            return $this->load->view('beagle/pages/_programme/json', array('json' => $outut), FALSE);
-            
+            return $this->load->view('beagle/pages/_programme/json', array(
+                'json' => $this->_sale_siegepassager_json($d, $prog_id),
+            ), FALSE);
         }
         //information du client repro pour vendeuse
         public function adminverifcodecl($code)
@@ -222,9 +225,7 @@
 
                     $codrep = $reg.mdate("%y%m%d", now('UTC')).($repors->id + 1).$usen.$iduser;
 
-                            $siegeoccuper = $this->_sale_siege_occupe_legacy($dpclient, $p_sieg);
-                                    
-                        if($siegeoccuper == NULL )
+                            if ($this->_sale_sieges_sont_libres(array(array($dpclient, $p_sieg))))
                         {
 
                                 $passagerarray = array(
@@ -330,9 +331,7 @@
 
                     $codrep = $reg.mdate("%y%m%d", now('UTC')).($repors->id + 1).$usen.$iduser;
 
-                            $siegeoccuper = $this->_sale_siege_occupe_legacy($dpclient, $p_sieg);
-                                    
-                        if($siegeoccuper == NULL )
+                            if ($this->_sale_sieges_sont_libres(array(array($dpclient, $p_sieg))))
                         {
 
                             
@@ -461,10 +460,7 @@
 
                     $codrep = $reg.mdate("%y%m%d", now('UTC')).($repors->id + 1).$usen.$iduser;
 
-                        $siegeoccuper = $this->_sale_siege_occupe_legacy($dpclient, $p_sieg);
-                                    
-                        
-                        if($siegeoccuper == NULL )
+                        if ($this->_sale_sieges_sont_libres(array(array($dpclient, $p_sieg))))
                         {
 
                             $cdrpo = $this->input->post('compgcftranst');
@@ -736,9 +732,7 @@
 
                     $codrep = $reg.mdate("%y%m%d", now('UTC')).($repors->id + 1).$usen.$iduser;
 
-                            $siegeoccuper = $this->_sale_siege_occupe_legacy($dpclient, $p_sieg);
-                                    
-                        if($siegeoccuper == NULL )
+                            if ($this->_sale_sieges_sont_libres(array(array($dpclient, $p_sieg))))
                         {
 
                                 $passagerarray = array(
@@ -845,9 +839,7 @@
 
                     $codrep = $reg.mdate("%y%m%d", now('UTC')).($repors->id + 1).$usen.$iduser;
 
-                            $siegeoccuper = $this->_sale_siege_occupe_legacy($dpclient, $p_sieg);
-                                    
-                        if($siegeoccuper == NULL )
+                            if ($this->_sale_sieges_sont_libres(array(array($dpclient, $p_sieg))))
                         {
 
                             

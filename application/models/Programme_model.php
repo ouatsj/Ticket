@@ -703,9 +703,10 @@
         /**
          * Valide intervalle1/2 pour création ou édition d'un départ.
          * @param int[] $sieges_liberer Sièges vendus à libérer (hors quota obligatoire)
-         * @return array{ok:bool,error?:string}
+         * @param int[] $sieges_bloques Sièges décochés hors vente
+         * @return array{ok:bool,error?:string,intervalle1?:int,intervalle2?:int,sieges_bloques?:int[]}
          */
-        public function valider_quota_depart($debut, $fin, $categorie, $code_progr = null, array $sieges_liberer = array())
+        public function valider_quota_depart($debut, $fin, $categorie, $code_progr = null, array $sieges_liberer = array(), array $sieges_bloques = array())
         {
             $d = (int) $debut;
             $f = (int) $fin;
@@ -734,9 +735,12 @@
                     $liberer[$n] = true;
                 }
             }
+
+            $occupes = array();
             $code = trim((string) $code_progr);
             if ($code !== '') {
                 foreach ($this->sieges_occupes_programme($code) as $n) {
+                    $occupes[$n] = true;
                     if (!empty($liberer[$n])) {
                         continue;
                     }
@@ -745,7 +749,32 @@
                     }
                 }
             }
-            return array('ok' => true, 'intervalle1' => $d, 'intervalle2' => $f);
+
+            // Normalise les bloqués : hors capacité / invalides exclus ; vendus = refus.
+            $bloquesNorm = array();
+            foreach ($sieges_bloques as $n) {
+                $n = (int) $n;
+                if ($n <= 0 || $n > $max) {
+                    continue;
+                }
+                if (!empty($liberer[$n])) {
+                    // Libéré puis décoché : hors vente OK.
+                    $bloquesNorm[$n] = $n;
+                    continue;
+                }
+                if (!empty($occupes[$n])) {
+                    return array('ok' => false, 'error' => 'bloque_vendu');
+                }
+                $bloquesNorm[$n] = $n;
+            }
+            ksort($bloquesNorm);
+
+            return array(
+                'ok' => true,
+                'intervalle1' => $d,
+                'intervalle2' => $f,
+                'sieges_bloques' => array_values($bloquesNorm),
+            );
         }
 
         /**
@@ -2111,9 +2140,23 @@
 
         public function cdprogbus($cid, $cd, $dat, $lg, $hr, $d, $f)
         {
+            $cidEsc = $this->db->escape_str($cid);
+            $cdEsc = $this->db->escape_str($cd);
+            $datEsc = $this->db->escape_str($dat);
+            $lgEsc = $this->db->escape_str($lg);
+            $hrEsc = $this->db->escape_str($hr);
+            $d = (int) $d;
+            $f = (int) $f;
+
+            $stockCodes = $this->_codes_stock_depart_bus($cid, $cd, $dat, $lg, $hr);
+            if (empty($stockCodes)) {
+                return array();
+            }
+            $occupes = $this->_sql_in_codes($stockCodes);
             $bloquePr = $this->_cdprog_bloque_and_pr();
-            $tamponPr = $this->_cdprog_tampon_and_pr();
+            $tamponAnd = $this->_cdprog_tampon_and($stockCodes);
             $actifPas = $this->_cdprog_actif_pas_and('p');
+
             return $this->db->query(
                 "SELECT * FROM siege_categorie sc
                 JOIN categorie ct ON sc.idcat_bus = ct.categorie
@@ -2121,37 +2164,81 @@
                 JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
                 JOIN lignes l ON lh.ligne_id = l.ident_ligne
                 JOIN heures h ON lh.heure_identif = h.id_heure
-                WHERE siege_num NOT IN (SELECT p.num_siege_categorie FROM passager p
-                                          JOIN programme pr ON p.code_pro = pr.code_progr
-                                          JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
-                                          JOIN lignes l ON lh.ligne_id = l.ident_ligne
-                                          JOIN heures h ON lh.heure_identif = h.id_heure
-                                          JOIN gare_exp ex ON l.gaexp_lg = ex.code_gaexp
-                                          JOIN compagnies c ON ex.id_compagd = c.cle_compagnie
-                                          JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                                          WHERE e.ekey = '$cid'
-                                          AND pr.depart_code = '$cd'
-                                          AND pr.date_progr = '$dat'
-                                          AND l.nom_ligne = '$lg'
-                                          AND h.heure = '$hr'
-                                          AND h.h_active = 1
-                                          AND lh.actif_lh = 1
-                                          AND pr.actif_prog = 0
-                                          AND p.num_siege_categorie IS NOT NULL
-                                          AND sc.siege_num BETWEEN $d AND $f
-                                          {$actifPas})
-                    
-                AND pr.depart_code = '$cd'
-                AND pr.date_progr = '$dat'
-                AND l.nom_ligne = '$lg'
-                AND h.heure = '$hr'
+                WHERE siege_num NOT IN (
+                    SELECT p.num_siege_categorie FROM passager p
+                    WHERE p.code_pro IN ({$occupes})
+                      AND p.num_siege_categorie IS NOT NULL
+                      AND p.num_siege_categorie BETWEEN {$d} AND {$f}
+                      {$actifPas}
+                )
+                AND pr.depart_code = '{$cdEsc}'
+                AND pr.date_progr = '{$datEsc}'
+                AND l.nom_ligne = '{$lgEsc}'
+                AND h.heure = '{$hrEsc}'
                 AND h.h_active = 1
                 AND lh.actif_lh = 1
                 AND pr.actif_prog = 0
-                AND sc.siege_num BETWEEN $d AND $f
+                AND sc.siege_num BETWEEN {$d} AND {$f}
                 {$bloquePr}
-                {$tamponPr}
-                ORDER BY sc.siege_num ASC")->result();
+                {$tamponAnd}
+                ORDER BY sc.siege_num ASC"
+            )->result();
+        }
+
+        /**
+         * Codes programmes du stock sièges pour un départ bus (depart_code + date + ligne + heure).
+         *
+         * @return string[]
+         */
+        protected function _codes_stock_depart_bus($cid, $depart_code, $dat = null, $lg = null, $hr = null)
+        {
+            $depart_code = trim((string) $depart_code);
+            if ($depart_code === '') {
+                return array();
+            }
+
+            $sql = "SELECT DISTINCT pr.code_progr
+                    FROM programme pr
+                    JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
+                    JOIN lignes l ON lh.ligne_id = l.ident_ligne
+                    JOIN heures h ON lh.heure_identif = h.id_heure
+                    JOIN gare_exp ex ON l.gaexp_lg = ex.code_gaexp
+                    JOIN compagnies c ON ex.id_compagd = c.cle_compagnie
+                    JOIN entreprise e ON c.id_entrep = e.id_entreprise
+                    WHERE e.ekey = ?
+                      AND pr.depart_code = ?
+                      AND h.h_active = 1
+                      AND lh.actif_lh = 1
+                      AND pr.actif_prog = 0";
+            $params = array($cid, $depart_code);
+            if ($dat !== null && $dat !== '') {
+                $sql .= " AND pr.date_progr = ?";
+                $params[] = $dat;
+            }
+            if ($lg !== null && $lg !== '') {
+                $sql .= " AND l.nom_ligne = ?";
+                $params[] = $lg;
+            }
+            if ($hr !== null && $hr !== '') {
+                $sql .= " AND h.heure = ?";
+                $params[] = $hr;
+            }
+
+            $rows = $this->db->query($sql, $params)->result();
+            $codes = array();
+            foreach ($rows as $r) {
+                $c = trim((string) $r->code_progr);
+                if ($c === '') {
+                    continue;
+                }
+                foreach ($this->codes_siege_stock($c) as $sc) {
+                    $sc = trim((string) $sc);
+                    if ($sc !== '') {
+                        $codes[$sc] = true;
+                    }
+                }
+            }
+            return array_keys($codes);
         }
 
         
@@ -2280,9 +2367,19 @@
 
         public function cdprogtransbus($cid, $cd, $d, $f)
         {
+            $cdEsc = $this->db->escape_str($cd);
+            $d = (int) $d;
+            $f = (int) $f;
+
+            $stockCodes = $this->_codes_stock_depart_bus($cid, $cd);
+            if (empty($stockCodes)) {
+                return array();
+            }
+            $occupes = $this->_sql_in_codes($stockCodes);
             $bloquePr = $this->_cdprog_bloque_and_pr();
-            $tamponPr = $this->_cdprog_tampon_and_pr();
+            $tamponAnd = $this->_cdprog_tampon_and($stockCodes);
             $actifPas = $this->_cdprog_actif_pas_and('p');
+
             return $this->db->query(
                 "SELECT * FROM siege_categorie sc
                 JOIN categorie ct ON sc.idcat_bus=ct.categorie
@@ -2290,31 +2387,22 @@
                 JOIN ligne_heure lh ON pr.id_heur=lh.id_ligneheure
                 JOIN lignes l ON lh.ligne_id=l.ident_ligne
                 JOIN heures h ON lh.heure_identif=h.id_heure
-                WHERE siege_num NOT IN (SELECT p.num_siege_categorie FROM passager p
-                                          JOIN programme pr ON p.code_pro=pr.code_progr
-                                          JOIN ligne_heure lh ON pr.id_heur=lh.id_ligneheure
-                                          JOIN lignes l ON lh.ligne_id=l.ident_ligne
-                                          JOIN heures h ON lh.heure_identif=h.id_heure
-                                          JOIN gare_exp ex ON l.gaexp_lg=ex.code_gaexp
-                                          JOIN compagnies c ON ex.id_compagd=c.cle_compagnie
-                                          JOIN entreprise e ON c.id_entrep=e.id_entreprise
-                                          WHERE e.ekey='$cid'
-                                          AND pr.depart_code='$cd'
-                                          AND h.h_active = 1
-                                          AND lh.actif_lh = 1
-                                          AND p.num_siege_categorie IS NOT NULL
-                                          AND pr.actif_prog = 0
-                                          AND sc.siege_num BETWEEN $d AND $f
-                                          {$actifPas})
-                    
-                AND pr.depart_code='$cd'
+                WHERE siege_num NOT IN (
+                    SELECT p.num_siege_categorie FROM passager p
+                    WHERE p.code_pro IN ({$occupes})
+                      AND p.num_siege_categorie IS NOT NULL
+                      AND p.num_siege_categorie BETWEEN {$d} AND {$f}
+                      {$actifPas}
+                )
+                AND pr.depart_code='{$cdEsc}'
                 AND h.h_active = 1
                 AND lh.actif_lh = 1
                 AND pr.actif_prog = 0
-                AND sc.siege_num BETWEEN $d AND $f
+                AND sc.siege_num BETWEEN {$d} AND {$f}
                 {$bloquePr}
-                {$tamponPr}
-                ORDER BY sc.siege_num ASC")->result();
+                {$tamponAnd}
+                ORDER BY sc.siege_num ASC"
+            )->result();
         }
 
         /*public function indexprog($cid, $cd)
