@@ -108,25 +108,37 @@
 
             if ($lg_id === FALSE) {
                 return $this->db->query(
-                    "SELECT * FROM lignes lg
+                    "SELECT lg.*, ga.*, ge.*, g.*, v.*, e.*,
+                            c.nom_compagnie AS nom_compagnie_depart,
+                            c.cle_compagnie AS cle_compagnie_depart,
+                            ca.nom_compagnie AS nom_compagnie_arrivee,
+                            ca.cle_compagnie AS cle_compagnie_arrivee
+                    FROM lignes lg
                     JOIN gare_dest ga ON lg.gadest_lg = ga.code_gadest
                     JOIN gare_exp ge ON lg.gaexp_lg = ge.code_gaexp
                     JOIN gares g ON ge.garesid = g.idengare
                     JOIN ville v ON ga.id_villega = v.id_ville
                     JOIN compagnies c ON ge.id_compagd = c.cle_compagnie
+                    JOIN compagnies ca ON ga.id_compaga = ca.cle_compagnie
                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
                     WHERE e.id_entreprise = '$cid'
                     AND g.idengare = '$gid'
                     AND ga.nom_gadest !='OUAGAESCAL'
-                    ORDER BY lg.nom_ligne")->result();
+                    ORDER BY ca.nom_compagnie ASC, lg.nom_ligne ASC")->result();
             } else
                 return $this->db->query(
-                    "SELECT * FROM lignes lg
+                    "SELECT lg.*, ga.*, ge.*, g.*, v.*, e.*,
+                            c.nom_compagnie AS nom_compagnie_depart,
+                            c.cle_compagnie AS cle_compagnie_depart,
+                            ca.nom_compagnie AS nom_compagnie_arrivee,
+                            ca.cle_compagnie AS cle_compagnie_arrivee
+                    FROM lignes lg
                     JOIN gare_dest ga ON lg.gadest_lg = ga.code_gadest
                     JOIN gare_exp ge ON lg.gaexp_lg = ge.code_gaexp
                     JOIN gares g ON ge.garesid = g.idengare
                     JOIN ville v ON ga.id_villega = v.id_ville
                     JOIN compagnies c ON ge.id_compagd = c.cle_compagnie
+                    JOIN compagnies ca ON ga.id_compaga = ca.cle_compagnie
                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
                     WHERE e.id_entreprise = '$cid'
                     AND lg.id_ligne = '$lg_id'

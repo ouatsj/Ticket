@@ -1,59 +1,80 @@
 document.addEventListener('DOMContentLoaded', () => {
+
+    function __tirageResetDownstreamFromLigne() {
+        var heure = document.querySelector('#choisirheure');
+        if (heure) heure.options.length = 1;
+        var prog = document.querySelector('#idprog');
+        if (prog) prog.options.length = 1;
+        var cat = document.querySelector('#idcategoriebus');
+        if (cat) cat.options.length = 1;
+        var mess = document.querySelector('#infosms');
+        if (mess) mess.style.display = 'none';
+    }
+
+    function __tirageLoadCategorieFromBus() {
+        var httpInfosinfobusid;
+        if (window.XMLHttpRequest) {
+            httpInfosinfobusid = new XMLHttpRequest();
+        } else if (window.ActiveXObject) {
+            httpInfosinfobusid = new ActiveXObject('Microsoft.XMLHTTP');
+        }
+
+        var catSel = document.querySelector('#idcategoriebus');
+        if (catSel) catSel.options.length = 1;
+
+        var verificatbu = document.querySelector('#busid');
+        if (!verificatbu || !String(verificatbu.value || '').trim()) {
+            return;
+        }
+
+        httpInfosinfobusid.open(
+            'GET',
+            window.location.origin + `${APP_ROOT}/bus/verificategorie/${encodeURIComponent(verificatbu.value)}`,
+            true
+        );
+        httpInfosinfobusid.onload = () => {
+            try {
+                const infosbu = JSON.parse(httpInfosinfobusid.responseText);
+                if (infosbu && Object.entries(infosbu).length >= 1 && infosbu.categorie) {
+                    let opt = document.createElement('option');
+                    opt.value = `${infosbu.categorie}`;
+                    opt.innerHTML = `${infosbu.categorie}`;
+                    if (catSel) catSel.add(opt);
+                }
+            } catch (e) {}
+        };
+        httpInfosinfobusid.setRequestHeader('Content-Type', 'application/json');
+        httpInfosinfobusid.send();
+    }
     
     document.querySelectorAll('.addtirage').forEach(function (e) 
     {
         document.querySelector('h3#ltTitle').innerHTML = `TIRAGE DE LISTE DES PASSAGERS`;
 
-            /*let infobus = document.querySelector('#busid');
-            if (infobus !== null)
-            infobus.onkeyup = () => {
-                document.querySelector('#choisirdate').value = '';
-                document.querySelector('#idprog').options.length = 1;
-                document.querySelector('#idligne').options.length = 1;
-                document.querySelector('#idcategoriebus').options.length = 1;
-                document.querySelector('#choisirheure').options.length = 1;
-            };*/
+                let infCompagnie = document.querySelector('#compagnie_tirage');
+                if (infCompagnie !== null && !infCompagnie.dataset.tirageBound) {
+                    infCompagnie.dataset.tirageBound = '1';
+                    infCompagnie.addEventListener('change', function () {
+                        __tirageResetDownstreamFromLigne();
+                        var ligne = document.querySelector('#idligne');
+                        if (ligne) ligne.value = '';
+                    });
+                }
+
                 let infligne = document.querySelector('#idligne');
-                if (infligne !== null)
-                    infligne.onchange = () => 
-                    {
-                        let httpInfosinfobusid;
-                        if (window.XMLHttpRequest) {
-                            httpInfosinfobusid = new XMLHttpRequest();
-                        } else if (window.ActiveXObject) {
-                            httpInfosinfobusid = new ActiveXObject("Microsoft.XMLHTTP");
+                if (infligne !== null && !infligne.dataset.tirageBound) {
+                    infligne.dataset.tirageBound = '1';
+                    infligne.addEventListener('change', function () {
+                        __tirageResetDownstreamFromLigne();
+                        if (infligne.value) {
+                            __tirageLoadCategorieFromBus();
                         }
-
-                        document.querySelector('#choisirheure').options.length = 1;
-
-                        
-                        var verificatbu = document.querySelector('#busid').value;
-                        
-                        httpInfosinfobusid.open('GET', window.location.origin + `${APP_ROOT}/bus/verificategorie/${verificatbu}`, true);
-                        httpInfosinfobusid.onload = () => 
-                        {
-                            const infosbu = JSON.parse(httpInfosinfobusid.responseText);
-                            
-                                    if (Object.entries(infosbu).length >= 1) 
-                                    {
-
-                                                    let opt = document.createElement('option');
-                                                    opt.value = `${infosbu.categorie}`;
-                                                    opt.innerHTML = `${infosbu.categorie}`;
-                                                    document.querySelector('#idcategoriebus').add(opt);
-                                            
-                                    } else {
-                                        document.querySelector('#idcategoriebus').options.length = 1;
-                                    }
-                            
-                                
-                        };
-                        httpInfosinfobusid.setRequestHeader('Content-Type', 'application/json');
-                        httpInfosinfobusid.send();       
-                    };
+                    });
+                }
 
                     let infidcategoriebus = document.querySelector('#idcategoriebus');
-                    if (infidcategoriebus !== null)
+                    if (infidcategoriebus !== null && !infidcategoriebus.dataset.tirageBound) {
+                    infidcategoriebus.dataset.tirageBound = '1';
                     infidcategoriebus.onchange = () => {
                         let httpInfoheure;
                         if (window.XMLHttpRequest) {
@@ -71,6 +92,10 @@ document.addEventListener('DOMContentLoaded', () => {
                         document.querySelector('#idprog').options.length = 1;
                         document.querySelector('#infosms').style.display = 'none';
 
+                        if (!idligne || !verifdate) {
+                            return;
+                        }
+
                         var heureUrl = window.location.origin
                             + `${APP_ROOT}/programmes/verifheure/${encodeURIComponent(idligne)}/${encodeURIComponent(verifdate)}`;
                         if (pcat) {
@@ -78,18 +103,22 @@ document.addEventListener('DOMContentLoaded', () => {
                         }
                         httpInfoheure.open('GET', heureUrl, true);
                         httpInfoheure.onload = () => {
-                            const resultheure = JSON.parse(httpInfoheure.responseText);
-                            if (!resultheure || resultheure === '') {
-                                return;
-                            }
-                            if (Array.isArray(resultheure) && resultheure.length >= 1) {
-                                resultheure.forEach(function (row) {
-                                    let opt = document.createElement('option');
-                                    opt.value = `${row.heure_identif}/${row.heure}`;
-                                    opt.innerHTML = `${row.heure}`;
-                                    document.querySelector('#choisirheure').add(opt);
-                                });
-                            } else {
+                            try {
+                                const resultheure = JSON.parse(httpInfoheure.responseText);
+                                if (!resultheure || resultheure === '') {
+                                    return;
+                                }
+                                if (Array.isArray(resultheure) && resultheure.length >= 1) {
+                                    resultheure.forEach(function (row) {
+                                        let opt = document.createElement('option');
+                                        opt.value = `${row.heure_identif}/${row.heure}`;
+                                        opt.innerHTML = `${row.heure}`;
+                                        document.querySelector('#choisirheure').add(opt);
+                                    });
+                                } else {
+                                    document.querySelector('#choisirheure').options.length = 1;
+                                }
+                            } catch (eH) {
                                 document.querySelector('#choisirheure').options.length = 1;
                             }
                         };
@@ -97,10 +126,12 @@ document.addEventListener('DOMContentLoaded', () => {
                         httpInfoheure.send();
                                             
                     };
+                    }
                 
                     let infaxe = document.querySelector('#choisirheure');
                     
-                    if (infaxe !== null) 
+                    if (infaxe !== null && !infaxe.dataset.tirageBound) {
+                    infaxe.dataset.tirageBound = '1';
                     infaxe.onchange = () => 
                     {
                     
@@ -120,6 +151,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
                                 var pcat = document.querySelector('#idcategoriebus')
                                 .options[document.querySelector('#idcategoriebus').options.selectedIndex].value;
+                        if (!verifheu) {
+                            return;
+                        }
                         var post_verifheu = verifheu.split('/');
                         var heu = post_verifheu[0];
                         const idlign = document.querySelector('#idligne')
@@ -136,34 +170,42 @@ document.addEventListener('DOMContentLoaded', () => {
                         );
                         httpInfoscodedep.onload = () => 
                         {
-                            const codeinfos = JSON.parse(httpInfoscodedep.responseText);
-                            var vide = !codeinfos || codeinfos === ''
-                                || (Array.isArray(codeinfos) && codeinfos.length === 0);
-                            if (vide) {
-                                document.querySelector('#infosms').style.display = 'block';
-                                document.querySelector('#erreurinfo').innerHTML = `Il n'y a pas de programme pour ce bus`;
-                                document.querySelector('#idprog').options.length = 1;
-                            } else 
-                            {
-                                document.querySelector('#infosms').style.display = 'none';
-                                if (Array.isArray(codeinfos) && codeinfos.length >= 1) {
-                                    codeinfos.forEach(function (row) {
-                                        let opt = document.createElement('option');
-                                        opt.value = `${row.depart_code}/${row.code_progr}`;
-                                        opt.innerHTML = `${row.depart_code}`;
-                                        document.querySelector('#idprog').add(opt);
-                                    });
-                                } else {
+                            try {
+                                const codeinfos = JSON.parse(httpInfoscodedep.responseText);
+                                var vide = !codeinfos || codeinfos === ''
+                                    || (Array.isArray(codeinfos) && codeinfos.length === 0);
+                                if (vide) {
+                                    document.querySelector('#infosms').style.display = 'block';
+                                    document.querySelector('#erreurinfo').innerHTML = `Il n'y a pas de programme pour ce bus`;
                                     document.querySelector('#idprog').options.length = 1;
+                                } else 
+                                {
+                                    document.querySelector('#infosms').style.display = 'none';
+                                    if (Array.isArray(codeinfos) && codeinfos.length >= 1) {
+                                        codeinfos.forEach(function (row) {
+                                            let opt = document.createElement('option');
+                                            opt.value = `${row.depart_code}/${row.code_progr}`;
+                                            opt.innerHTML = `${row.depart_code}`;
+                                            document.querySelector('#idprog').add(opt);
+                                        });
+                                    } else {
+                                        document.querySelector('#idprog').options.length = 1;
+                                    }
                                 }
-                            }   
+                            } catch (eC) {
+                                document.querySelector('#infosms').style.display = 'block';
+                                document.querySelector('#erreurinfo').innerHTML = `Impossible de charger les programmes`;
+                                document.querySelector('#idprog').options.length = 1;
+                            }
                         };
                         httpInfoscodedep.setRequestHeader('Content-Type', 'application/json');
                         httpInfoscodedep.send();
                     };
+                    }
                     
                    let infchauf = document.querySelector('#typpersoid');
-                    if (infchauf !== null)
+                    if (infchauf !== null && !infchauf.dataset.tirageBound) {
+                    infchauf.dataset.tirageBound = '1';
                     infchauf.onchange = () => 
                     {
                         document.querySelector('#idchauf').options.length = 1;
@@ -234,9 +276,11 @@ document.addEventListener('DOMContentLoaded', () => {
                         }
                         
                     };
+                    }
 
                     let infconvoi = document.querySelector('#typpersoid1');
-                    if (infconvoi !== null)
+                    if (infconvoi !== null && !infconvoi.dataset.tirageBound) {
+                    infconvoi.dataset.tirageBound = '1';
                     infconvoi.onchange = () => 
                     {
                         document.querySelector('#idconvoi').options.length = 1;
@@ -307,10 +351,53 @@ document.addEventListener('DOMContentLoaded', () => {
                             httpInfosinfopersos.send();   
                         }
                     };
-        e.onclick = function (){
-            let listeForm = document.querySelector('#listeForm');
-            listeForm.setAttribute('action', `${APP_ROOT}/Ticket/liste/${e.dataset.cle_compagnie}`);
-        }
+                    }
 
-    })
+        e.onclick = function () {
+            let listeForm = document.querySelector('#listeForm');
+            if (!listeForm) return;
+            listeForm.setAttribute('action', `${APP_ROOT}/Ticket/liste/${e.dataset.cle_compagnie}`);
+            listeForm.setAttribute('method', 'post');
+            listeForm.setAttribute('target', '_blank');
+        };
+
+    });
+
+    var listeFormEl = document.querySelector('#listeForm');
+    if (listeFormEl && !listeFormEl.dataset.tirageSubmitBound) {
+        listeFormEl.dataset.tirageSubmitBound = '1';
+        listeFormEl.addEventListener('submit', function (ev) {
+            var action = listeFormEl.getAttribute('action') || '';
+            if (!action || action === '' || action === window.location.href) {
+                var btn = document.querySelector('.addtirage');
+                if (btn && btn.dataset.cle_compagnie) {
+                    listeFormEl.setAttribute(
+                        'action',
+                        `${APP_ROOT}/Ticket/liste/${btn.dataset.cle_compagnie}`
+                    );
+                    listeFormEl.setAttribute('method', 'post');
+                    listeFormEl.setAttribute('target', '_blank');
+                } else {
+                    ev.preventDefault();
+                    alert('Impossible de lancer le tirage : action du formulaire manquante.');
+                    return false;
+                }
+            }
+            var compagnie = document.querySelector('#compagnie_tirage');
+            var ligne = document.querySelector('#idligne');
+            if (compagnie && !compagnie.value) {
+                ev.preventDefault();
+                alert('Choisissez la compagnie d\'arrivée.');
+                compagnie.focus();
+                return false;
+            }
+            if (ligne && !ligne.value) {
+                ev.preventDefault();
+                alert('Choisissez la ligne.');
+                ligne.focus();
+                return false;
+            }
+            return true;
+        });
+    }
 });

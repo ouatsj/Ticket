@@ -932,16 +932,53 @@
                     <input type="text" name="bus" id="busid" class="form-control form-control-sm" autocomplete="off" requered>
                 
             </div>
+            <?php
+                $lignes_par_compagnie_arrivee = !empty($lignes_par_compagnie_arrivee)
+                    ? $lignes_par_compagnie_arrivee
+                    : array();
+                if (empty($lignes_par_compagnie_arrivee) && !empty($alllignes) && isset($this->m_lignes)) {
+                    $lignes_par_compagnie_arrivee = $this->m_lignes->group_by_compagnie_arrivee($alllignes);
+                }
+            ?>
             <div class="form-group col-sm-4">
-                <label>LIGNE</label>
-                <select class="form-control form-control-sm" name="ligne" id="idligne" required>
-                    <option value="">Choisissez la ligne</option>
-                    <? foreach ($alllignes as $ligneitem): ?>
-                        <option value="<?= $ligneitem->ident_ligne; ?>">
-                            <?= $ligneitem->nom_ligne; ?>
+                <label>COMPAGNIE D&apos;ARRIV&Eacute;E</label>
+                <select class="form-control form-control-sm js-filtre-compagnie-arrivee"
+                        id="compagnie_tirage"
+                        name="compagnie_tirage"
+                        data-target-depart="idligne"
+                        required>
+                    <option value="">— Choisir une compagnie —</option>
+                    <? foreach ($lignes_par_compagnie_arrivee as $cle => $groupe):
+                        $comp_label = !empty($groupe['nom_compagnie']) ? $groupe['nom_compagnie'] : 'Sans compagnie';
+                        $nb = !empty($groupe['lignes']) ? count($groupe['lignes']) : 0;
+                    ?>
+                        <option value="<?= htmlspecialchars((string) $cle, ENT_QUOTES, 'UTF-8'); ?>">
+                            <?= htmlspecialchars($comp_label, ENT_QUOTES, 'UTF-8'); ?> (<?= (int) $nb; ?>)
                         </option>
                     <? endforeach; ?>
                 </select>
+            </div>
+            <div class="form-group col-sm-4">
+                <label>LIGNE</label>
+                <select class="form-control form-control-sm js-depart-filtre" name="ligne" id="idligne" required>
+                    <option value="">Choisissez la ligne</option>
+                    <? foreach ($alllignes as $ligneitem):
+                        $cle_ca = isset($ligneitem->cle_compagnie_arrivee) ? (string) $ligneitem->cle_compagnie_arrivee : '';
+                        if ($cle_ca === '' && isset($ligneitem->id_compaga)) {
+                            $cle_ca = (string) $ligneitem->id_compaga;
+                        }
+                        if ($cle_ca === '') {
+                            $cle_ca = '_sans';
+                        }
+                    ?>
+                        <option value="<?= htmlspecialchars($ligneitem->ident_ligne, ENT_QUOTES, 'UTF-8'); ?>"
+                                data-compagnie="<?= htmlspecialchars($cle_ca, ENT_QUOTES, 'UTF-8'); ?>"
+                                hidden disabled>
+                            <?= htmlspecialchars($ligneitem->nom_ligne, ENT_QUOTES, 'UTF-8'); ?>
+                        </option>
+                    <? endforeach; ?>
+                </select>
+                <small class="form-text text-muted">Sélectionnez d&apos;abord la compagnie d&apos;arrivée.</small>
             </div>
             <div class="form-group col-sm-4">
                 <label>OUARTIER</label>
@@ -1029,8 +1066,7 @@
                         data-dismiss="modal">
                     <i class="icon icon-left mdi mdi-undo"></i>&nbsp;ANNULER&nbsp;
                 </button>
-                <button class="btn btn-success md-trigger" type="submit"
-                        data-dismiss="modal">
+                <button class="btn btn-success" type="submit" id="listeFormSubmit">
                     <i class="icon icon-left mdi mdi-check-all"></i>&nbsp;OK&nbsp;
                 </button>
             </div>

@@ -629,7 +629,9 @@
                     // Toujours filtrer par gare. getad() entreprise entière + modales
                     // dupliquées par programme → HTML trop lourd / HTTP 500 (rôles 1/2).
                     $lignesheure = $this->m_ligne_heure->get($cid, $gare_id);
-                    $this->property['alllignes'] = $this->m_lignes->get($cid, $gare_id);
+                    $alllignes = $this->m_lignes->get($cid, $gare_id);
+                    $this->property['alllignes'] = $alllignes;
+                    $this->property['lignes_par_compagnie_arrivee'] = $this->m_lignes->group_by_compagnie_arrivee($alllignes);
                     $this->property['lignesheure'] = $lignesheure;
                     $this->property['lignesheure_par_compagnie'] = $this->m_ligne_heure->group_by_compagnie_arrivee($lignesheure);
                     $this->property['progs_par_compagnie'] = $this->m_programme->group_by_compagnie_arrivee($this->property['progs']);
