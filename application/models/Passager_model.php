@@ -87,17 +87,9 @@
             }
             $isEscaleSale = !empty($data['id_escale_vente']);
 
-            if (!empty($data['code_pro']) && !empty($data['num_siege_categorie'])) {
-                $ticketPre = isset($data['code_ticket']) ? (string) $data['code_ticket'] : '';
-                if ($ticketPre !== 'R') {
-                    if (!isset($CI->m_programme_reconduction)) {
-                        $CI->load->model('Programme_reconduction_model', 'm_programme_reconduction');
-                    }
-                    if (!$CI->m_programme_reconduction->siege_vendable($data['code_pro'], $data['num_siege_categorie'])) {
-                        return false;
-                    }
-                }
-            }
+            $needsSiegeGuard = !empty($data['code_pro']) && !empty($data['num_siege_categorie']);
+            $ticketPre = isset($data['code_ticket']) ? (string) $data['code_ticket'] : '';
+            $isReservation = ($ticketPre === 'R');
 
             $isOtherSale = sales_price_controls_enabled()
                 && isset($CI->router)
@@ -139,8 +131,44 @@
                 $data['prixvente'] = round((float) $freePrice, 2);
             }
 
+            $this->db->trans_start();
+
+            if ($needsSiegeGuard && !$isReservation) {
+                $assert = $CI->sale_svc->assert_siege_vendable(
+                    $data['code_pro'],
+                    (int) $data['num_siege_categorie'],
+                    array('lock' => true)
+                );
+                if (empty($assert['ok'])) {
+                    $this->db->trans_rollback();
+                    if (function_exists('log_message')) {
+                        log_message(
+                            'error',
+                            'Passager_model::create siège refusé (' . $assert['code'] . '): ' . $assert['reason']
+                        );
+                    }
+                    return false;
+                }
+            }
+
             $ok = $this->db->insert($this->table, $data);
             $insertId = $this->db->insert_id();
+
+            if (!$ok && $needsSiegeGuard && !$isReservation
+                && method_exists($CI->sale_svc, 'insert_failed_duplicate_siege')
+                && $CI->sale_svc->insert_failed_duplicate_siege()) {
+                $this->db->trans_rollback();
+                if (function_exists('log_message')) {
+                    log_message('error', 'Passager_model::create doublon siège (contrainte UNIQUE).');
+                }
+                return false;
+            }
+
+            $this->db->trans_complete();
+            if ($this->db->trans_status() === false || !$ok) {
+                return false;
+            }
+
             if ($ok && $pricing) {
                 sales_price_snapshot_record($data, $pricing);
             }
@@ -180,7 +208,55 @@
                 }
             }
 
+            $CI =& get_instance();
+            $assignsSiege = array_key_exists('num_siege_categorie', $data)
+                && $data['num_siege_categorie'] !== null
+                && $data['num_siege_categorie'] !== ''
+                && (int) $data['num_siege_categorie'] > 0;
+            if ($assignsSiege) {
+                if (!isset($CI->sale_svc)) {
+                    $CI->load->library('sale_passager_service', null, 'sale_svc');
+                }
+                $codePro = isset($data['code_pro']) ? trim((string) $data['code_pro']) : '';
+                if ($codePro === '' && !empty($before['code_pro'])) {
+                    $codePro = trim((string) $before['code_pro']);
+                }
+                if ($codePro === '') {
+                    $cur = $this->db->query(
+                        "SELECT code_pro FROM passager WHERE code_passager = ? AND code_ticket = ? LIMIT 1",
+                        array($code_passager, $code_ticket)
+                    )->row();
+                    if ($cur && !empty($cur->code_pro)) {
+                        $codePro = trim((string) $cur->code_pro);
+                    }
+                }
+                if ($codePro !== '') {
+                    $this->db->trans_start();
+                    $assert = $CI->sale_svc->assert_siege_vendable(
+                        $codePro,
+                        (int) $data['num_siege_categorie'],
+                        array('lock' => true)
+                    );
+                    if (empty($assert['ok'])) {
+                        $this->db->trans_rollback();
+                        return false;
+                    }
+                }
+            }
+
             $ok = $this->db->where($multiClause)->update($this->table, $data);
+
+            if ($assignsSiege) {
+                if (!$ok && method_exists($CI->sale_svc, 'insert_failed_duplicate_siege')
+                    && $CI->sale_svc->insert_failed_duplicate_siege()) {
+                    $this->db->trans_rollback();
+                    return false;
+                }
+                $this->db->trans_complete();
+                if ($this->db->trans_status() === false) {
+                    return false;
+                }
+            }
 
             if ($ok && $type !== null) {
                 $this->_historique_modif_ticket_safe_log(
@@ -1200,7 +1276,28 @@
        
 
         public function verifiersiege($cid, $cdp, $num_sieg){
-            $row = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$cdp' AND ps.num_siege_categorie = '$num_sieg'")->row(); return $this->normalize_ticket_prix_row($row);
+            $num = (int) $num_sieg;
+            if ($num <= 0 || trim((string) $cdp) === '') {
+                return null;
+            }
+
+            $CI =& get_instance();
+            if (!isset($CI->sale_svc)) {
+                $CI->load->library('sale_passager_service', null, 'sale_svc');
+            }
+
+            $assert = $CI->sale_svc->assert_siege_vendable($cdp, $num, array('preflight' => true));
+            if (!empty($assert['ok'])) {
+                return null;
+            }
+
+            $row = (object) array(
+                'code_pro' => trim((string) $cdp),
+                'num_siege_categorie' => $num,
+                'siege_refus_code' => $assert['code'],
+                'siege_refus_reason' => $assert['reason'],
+            );
+            return $this->normalize_ticket_prix_row($row);
         }
 
         //report

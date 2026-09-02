@@ -510,11 +510,11 @@
         }
 
         /**
-         * Sièges déjà vendus sur un programme (actifs).
-         * Inclut codes partagés (correspondance) + même depart_code / date.
-         * @return int[]
+         * Codes programmes partageant le stock sièges (correspondance, reconduction, même bus/jour).
+         *
+         * @return string[]
          */
-        public function sieges_occupes_programme($code_progr)
+        public function codes_siege_stock($code_progr)
         {
             $code = trim((string) $code_progr);
             if ($code === '') {
@@ -523,7 +523,6 @@
 
             $codes = array($code => true);
 
-            // Correspondance / reconduction
             try {
                 foreach ($this->codes_sieges_occupes($code) as $c) {
                     $c = trim((string) $c);
@@ -535,7 +534,6 @@
                 // ignore
             }
 
-            // Sous-axes / même bus : même depart_code + date
             $pr = $this->db->query(
                 "SELECT depart_code, date_progr FROM programme WHERE code_progr = ? LIMIT 1",
                 array($code)
@@ -554,7 +552,22 @@
                 }
             }
 
-            $in = $this->_sql_in_codes(array_keys($codes));
+            return array_keys($codes);
+        }
+
+        /**
+         * Sièges déjà vendus sur un programme (actifs).
+         * Inclut codes partagés (correspondance) + même depart_code / date.
+         * @return int[]
+         */
+        public function sieges_occupes_programme($code_progr)
+        {
+            $codes = $this->codes_siege_stock($code_progr);
+            if (empty($codes)) {
+                return array();
+            }
+
+            $in = $this->_sql_in_codes($codes);
             $rows = $this->db->query(
                 "SELECT DISTINCT p.num_siege_categorie AS n
                  FROM passager p

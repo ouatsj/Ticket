@@ -16,6 +16,21 @@
             setlocale(LC_TIME, 'fr_FR', 'fra');
             $this->property['pagetitle'] = utf8_encode(strftime("%d %b %G", now()));
         }
+
+        /**
+         * Pré-contrôle siège (stock partagé, bloqués, quota).
+         *
+         * @param string $code_pro
+         * @param int|string $num_siege
+         * @return object|null
+         */
+        protected function _sale_siege_occupe_legacy($code_pro, $num_siege)
+        {
+            if (!isset($this->sale_svc)) {
+                $this->load->library('sale_passager_service', null, 'sale_svc');
+            }
+            return $this->sale_svc->occupe_legacy_row($code_pro, $num_siege);
+        }
         
         /**
          *
@@ -31,6 +46,19 @@
 
         public function siegepassager($d, $prog_id)
         {
+            if (!isset($this->m_programme)) {
+                $this->load->model('Programme_model', 'm_programme');
+            }
+            if ($this->m_programme->siege_est_bloque_programme($d, (int) $prog_id)) {
+                return $this->load->view('beagle/pages/_programme/json', array(
+                    'json' => (object) array(
+                        'code_pro' => $d,
+                        'num_siege_categorie' => (int) $prog_id,
+                        'siege_bloque' => 1,
+                    ),
+                ), FALSE);
+            }
+
             $outut = $this->m_passager->verifiersiege($this->session->company->ekey, $d, $prog_id);
             return $this->load->view('beagle/pages/_programme/json', array('json' => $outut), FALSE);
             
@@ -194,7 +222,7 @@
 
                     $codrep = $reg.mdate("%y%m%d", now('UTC')).($repors->id + 1).$usen.$iduser;
 
-                            $siegeoccuper = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient' AND ps.num_siege_categorie = '$p_sieg'")->row();
+                            $siegeoccuper = $this->_sale_siege_occupe_legacy($dpclient, $p_sieg);
                                     
                         if($siegeoccuper == NULL )
                         {
@@ -302,7 +330,7 @@
 
                     $codrep = $reg.mdate("%y%m%d", now('UTC')).($repors->id + 1).$usen.$iduser;
 
-                            $siegeoccuper = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient' AND ps.num_siege_categorie = '$p_sieg'")->row();
+                            $siegeoccuper = $this->_sale_siege_occupe_legacy($dpclient, $p_sieg);
                                     
                         if($siegeoccuper == NULL )
                         {
@@ -433,7 +461,7 @@
 
                     $codrep = $reg.mdate("%y%m%d", now('UTC')).($repors->id + 1).$usen.$iduser;
 
-                        $siegeoccuper = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient' AND ps.num_siege_categorie = '$p_sieg'")->row();
+                        $siegeoccuper = $this->_sale_siege_occupe_legacy($dpclient, $p_sieg);
                                     
                         
                         if($siegeoccuper == NULL )
@@ -708,7 +736,7 @@
 
                     $codrep = $reg.mdate("%y%m%d", now('UTC')).($repors->id + 1).$usen.$iduser;
 
-                            $siegeoccuper = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient' AND ps.num_siege_categorie = '$p_sieg'")->row();
+                            $siegeoccuper = $this->_sale_siege_occupe_legacy($dpclient, $p_sieg);
                                     
                         if($siegeoccuper == NULL )
                         {
@@ -817,7 +845,7 @@
 
                     $codrep = $reg.mdate("%y%m%d", now('UTC')).($repors->id + 1).$usen.$iduser;
 
-                            $siegeoccuper = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient' AND ps.num_siege_categorie = '$p_sieg'")->row();
+                            $siegeoccuper = $this->_sale_siege_occupe_legacy($dpclient, $p_sieg);
                                     
                         if($siegeoccuper == NULL )
                         {

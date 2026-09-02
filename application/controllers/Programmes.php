@@ -356,6 +356,21 @@
             return false;
         }
 
+        /**
+         * Pré-contrôle siège (remplace l'ancienne requête passager mono-code).
+         *
+         * @param string $code_pro
+         * @param int|string $num_siege
+         * @return object|null objet si non vendable, null si libre
+         */
+        protected function _sale_siege_occupe_legacy($code_pro, $num_siege)
+        {
+            if (!isset($this->sale_svc)) {
+                $this->load->library('sale_passager_service', null, 'sale_svc');
+            }
+            return $this->sale_svc->occupe_legacy_row($code_pro, $num_siege);
+        }
+
         protected function _sale_redirect($url)
         {
             $this->_sale_nonce_complete();
@@ -2231,7 +2246,7 @@
                                 AND $rcn === $this->input->post('cnib') AND $tycl === $this->input->post('type') AND $rcd === $this->input->post('date_cnib') AND $rl === $this->input->post('lieu'))
                                 {
                                 
-                                    $siegeoccuper = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient' AND ps.num_siege_categorie = '$p_sieg'")->row();
+                                    $siegeoccuper = $this->_sale_siege_occupe_legacy($dpclient, $p_sieg);
                                     
                                     if($siegeoccuper == NULL ) 
                                     {
@@ -2343,7 +2358,7 @@
                                 }
                                 else
                                 {
-                                    $siegeoccuper = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient' AND ps.num_siege_categorie = '$p_sieg'")->row();
+                                    $siegeoccuper = $this->_sale_siege_occupe_legacy($dpclient, $p_sieg);
                                     
                                     if($siegeoccuper == NULL )
                                     {
@@ -2511,7 +2526,7 @@
                                 AND $rcn === $this->input->post('cnib') AND $tycl === $this->input->post('type') AND $rcd === $this->input->post('date_cnib') AND $rl === $this->input->post('lieu'))
                                 {
                                 
-                                    $siegeoccuper = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient' AND ps.num_siege_categorie = '$p_sieg'")->row();
+                                    $siegeoccuper = $this->_sale_siege_occupe_legacy($dpclient, $p_sieg);
                                     
                                     if($siegeoccuper == NULL ) 
                                     {
@@ -2624,7 +2639,7 @@
                                 }
                                 else
                                 {
-                                    $siegeoccuper = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient' AND ps.num_siege_categorie = '$p_sieg'")->row();
+                                    $siegeoccuper = $this->_sale_siege_occupe_legacy($dpclient, $p_sieg);
                                     
                                     if($siegeoccuper == NULL )
                                     {
@@ -2819,7 +2834,7 @@
                                     if($this->input->post('clientcomp') != '' AND $rcl === $this->input->post('rclient') AND $rcp === $this->input->post('prclient') 
                                     AND $rcn === $this->input->post('cnib') AND $rcd === $this->input->post('date_cnib') AND $rl === $this->input->post('lieu'))
                                     {
-                                        $siegeoccuper = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient' AND ps.num_siege_categorie = '$p_sieg'")->row();
+                                        $siegeoccuper = $this->_sale_siege_occupe_legacy($dpclient, $p_sieg);
                                             
                                             if($siegeoccuper == NULL )
                                             {
@@ -2977,7 +2992,7 @@
                                     }
                                     else
                                     {
-                                            $siegeoccuper = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient' AND ps.num_siege_categorie = '$p_sieg'")->row();
+                                            $siegeoccuper = $this->_sale_siege_occupe_legacy($dpclient, $p_sieg);
                                             
                                             if($siegeoccuper == NULL )
                                             {
@@ -3219,7 +3234,7 @@
                                     if($this->input->post('clientcomp') != '' AND $rcl === $this->input->post('rclient') AND $rcp === $this->input->post('prclient') 
                                     AND $rcn === $this->input->post('cnib') AND $rcd === $this->input->post('date_cnib') AND $rl === $this->input->post('lieu'))
                                     {
-                                        $siegeoccuper = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient' AND ps.num_siege_categorie = '$p_sieg'")->row();
+                                        $siegeoccuper = $this->_sale_siege_occupe_legacy($dpclient, $p_sieg);
                                             
                                             if($siegeoccuper == NULL )
                                             {
@@ -3374,7 +3389,7 @@
                                     }
                                     else
                                     {
-                                            $siegeoccuper = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient' AND ps.num_siege_categorie = '$p_sieg'")->row();
+                                            $siegeoccuper = $this->_sale_siege_occupe_legacy($dpclient, $p_sieg);
                                             
                                             if($siegeoccuper == NULL )
                                             {
@@ -3632,9 +3647,9 @@
                                         
                                         if($this->input->post('transitedepargare1') != '' AND $this->input->post('passagersiegesitines') != '' AND $this->input->post('transitedepargare2') != '' AND $this->input->post('passagersiegesitines1') != '' AND $this->input->post('prixtrans') != NULL AND $this->input->post('prixtransit') != NULL)
                                         {
-                                            $siegeoccuper = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient' AND ps.num_siege_categorie = '$p_sieg'")->row();
+                                            $siegeoccuper = $this->_sale_siege_occupe_legacy($dpclient, $p_sieg);
 
-                                            $siegeoccuper2 = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient2' AND ps.num_siege_categorie = '$p_sieg2'")->row();
+                                            $siegeoccuper2 = $this->_sale_siege_occupe_legacy($dpclient2, $p_sieg2);
                             
                                            if($siegeoccuper == NULL AND $siegeoccuper2 == NULL) 
                                             {
@@ -3870,10 +3885,10 @@
                                         AND $this->input->post('transitedepargare3') != '' AND $this->input->post('passagersiegesitines2') != '' AND $this->input->post('prixtrans') != NULL AND $this->input->post('prixtransit') != NULL AND $this->input->post('prixtransit1') != NULL)
                                         {
 
-                                            $siegeoccuper = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient' AND ps.num_siege_categorie = '$p_sieg'")->row();
+                                            $siegeoccuper = $this->_sale_siege_occupe_legacy($dpclient, $p_sieg);
 
-                                            $siegeoccuper2 = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient2' AND ps.num_siege_categorie = '$p_sieg2'")->row();
-                                            $siegeoccuper3 = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient3' AND ps.num_siege_categorie = '$p_sieg3'")->row();
+                                            $siegeoccuper2 = $this->_sale_siege_occupe_legacy($dpclient2, $p_sieg2);
+                                            $siegeoccuper3 = $this->_sale_siege_occupe_legacy($dpclient3, $p_sieg3);
                                             
                                             if($siegeoccuper == NULL AND $siegeoccuper2 == NULL AND $siegeoccuper3 == NULL) 
                                             {
@@ -3979,7 +3994,7 @@
                                                                 'numsieg' => $this->input->post('passagersiegesitines1'),
                                                             );
                                                             
-                                                            $this->m_tampon_siege->del($results->idtamp, $delarray1);
+                                                            $this->m_tampon_siege->del($results1->idtamp, $delarray1);
                                                     
                                                 
                                                         $reg2 = $this->input->post('gidtransite1');
@@ -4204,11 +4219,11 @@
                                         if($this->input->post('transitedepargare1') != '' AND $this->input->post('passagersiegesitines') != '' AND $this->input->post('transitedepargare2') != '' AND $this->input->post('passagersiegesitines1') != '' 
                                            AND $this->input->post('transitedepargare3') != '' AND $this->input->post('passagersiegesitines2') != '' AND $this->input->post('transitedepargare4') != '' AND $this->input->post('passagersiegesitines3') != '' AND $this->input->post('prixtrans') != NULL AND $this->input->post('prixtransit') != NULL AND $this->input->post('prixtransit1') != NULL AND $this->input->post('prixtransit2') != NULL)
                                         {
-                                                $siegeoccuper = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient' AND ps.num_siege_categorie = '$p_sieg'")->row();
+                                                $siegeoccuper = $this->_sale_siege_occupe_legacy($dpclient, $p_sieg);
 
-                                                $siegeoccuper2 = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient2' AND ps.num_siege_categorie = '$p_sieg2'")->row();
-                                                $siegeoccuper3 = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient3' AND ps.num_siege_categorie = '$p_sieg3'")->row();
-                                                $siegeoccuper4 = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient4' AND ps.num_siege_categorie = '$p_sieg4'")->row();
+                                                $siegeoccuper2 = $this->_sale_siege_occupe_legacy($dpclient2, $p_sieg2);
+                                                $siegeoccuper3 = $this->_sale_siege_occupe_legacy($dpclient3, $p_sieg3);
+                                                $siegeoccuper4 = $this->_sale_siege_occupe_legacy($dpclient4, $p_sieg4);
                                             
                                                 if($siegeoccuper == NULL AND $siegeoccuper2 == NULL AND $siegeoccuper3 == NULL AND $siegeoccuper4 == NULL) 
                                                 {
@@ -4667,9 +4682,9 @@
                                     {
                                         if($this->input->post('transitedepargare1') != '' AND $this->input->post('passagersiegesitines') != '' AND $this->input->post('transitedepargare2') != '' AND  $this->input->post('passagersiegesitines1') != '' AND $this->input->post('prixtrans') != NULL AND $this->input->post('prixtransit') != NULL)
                                         {
-                                            $siegeoccuper = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient' AND ps.num_siege_categorie = '$p_sieg'")->row();
+                                            $siegeoccuper = $this->_sale_siege_occupe_legacy($dpclient, $p_sieg);
 
-                                            $siegeoccuper2 = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient2' AND ps.num_siege_categorie = '$p_sieg2'")->row();
+                                            $siegeoccuper2 = $this->_sale_siege_occupe_legacy($dpclient2, $p_sieg2);
                                 
                                             if($siegeoccuper == NULL AND $siegeoccuper2 == NULL) 
                                             {
@@ -4887,10 +4902,10 @@
                                         if($this->input->post('transitedepargare1') != '' AND $this->input->post('passagersiegesitines') != '' AND $this->input->post('transitedepargare2') != '' AND $this->input->post('passagersiegesitines1') != ''
                                         AND $this->input->post('transitedepargare3') != '' AND $this->input->post('passagersiegesitines2') != '' AND $this->input->post('prixtrans') != NULL AND $this->input->post('prixtransit') != NULL AND $this->input->post('prixtransit1') != NULL)
                                         {
-                                            $siegeoccuper = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient' AND ps.num_siege_categorie = '$p_sieg'")->row();
+                                            $siegeoccuper = $this->_sale_siege_occupe_legacy($dpclient, $p_sieg);
 
-                                            $siegeoccuper2 = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient2' AND ps.num_siege_categorie = '$p_sieg2'")->row();
-                                            $siegeoccuper3 = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient3' AND ps.num_siege_categorie = '$p_sieg3'")->row();
+                                            $siegeoccuper2 = $this->_sale_siege_occupe_legacy($dpclient2, $p_sieg2);
+                                            $siegeoccuper3 = $this->_sale_siege_occupe_legacy($dpclient3, $p_sieg3);
                                             
                                             if($siegeoccuper == NULL AND $siegeoccuper2 == NULL AND $siegeoccuper3 == NULL) 
                                             {
@@ -5222,11 +5237,11 @@
                                         if($this->input->post('transitedepargare1') != '' AND $this->input->post('passagersiegesitines') != '' AND $this->input->post('transitedepargare2') != '' AND $this->input->post('passagersiegesitines1') != '' 
                                         AND $this->input->post('transitedepargare3') != '' AND $this->input->post('passagersiegesitines2') != '' AND $this->input->post('transitedepargare4') != '' AND $this->input->post('passagersiegesitines3') != '' AND $this->input->post('prixtrans') != NULL AND $this->input->post('prixtransit') != NULL AND $this->input->post('prixtransit1') != NULL AND $this->input->post('prixtransit2') != NULL)
                                         {
-                                            $siegeoccuper = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient' AND ps.num_siege_categorie = '$p_sieg'")->row();
+                                            $siegeoccuper = $this->_sale_siege_occupe_legacy($dpclient, $p_sieg);
 
-                                                $siegeoccuper2 = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient2' AND ps.num_siege_categorie = '$p_sieg2'")->row();
-                                                $siegeoccuper3 = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient3' AND ps.num_siege_categorie = '$p_sieg3'")->row();
-                                                $siegeoccuper4 = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient4' AND ps.num_siege_categorie = '$p_sieg4'")->row();
+                                                $siegeoccuper2 = $this->_sale_siege_occupe_legacy($dpclient2, $p_sieg2);
+                                                $siegeoccuper3 = $this->_sale_siege_occupe_legacy($dpclient3, $p_sieg3);
+                                                $siegeoccuper4 = $this->_sale_siege_occupe_legacy($dpclient4, $p_sieg4);
                                             
                                                 if($siegeoccuper == NULL AND $siegeoccuper2 == NULL AND $siegeoccuper3 == NULL AND $siegeoccuper4 == NULL) 
                                                 {
@@ -5762,9 +5777,9 @@
                                         if($this->input->post('transitedepargare1') != '' AND $this->input->post('passagersiegesitines') != '' AND $this->input->post('transitedepargare2') != '' AND  $this->input->post('passagersiegesitines1') != '' AND $this->input->post('prixtrans') != NULL AND $this->input->post('prixtransit') != NULL)
                                         {
 
-                                            $siegeoccuper = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient' AND ps.num_siege_categorie = '$p_sieg'")->row();
+                                            $siegeoccuper = $this->_sale_siege_occupe_legacy($dpclient, $p_sieg);
 
-                                            $siegeoccuper2 = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient2' AND ps.num_siege_categorie = '$p_sieg2'")->row();
+                                            $siegeoccuper2 = $this->_sale_siege_occupe_legacy($dpclient2, $p_sieg2);
                             
                                            if($siegeoccuper == NULL AND $siegeoccuper2 == NULL) 
                                             {
@@ -5991,10 +6006,10 @@
                                         if($this->input->post('transitedepargare1') != '' AND $this->input->post('passagersiegesitines') != '' AND $this->input->post('transitedepargare2') != '' AND $this->input->post('passagersiegesitines1') != ''
                                         AND $this->input->post('transitedepargare3') != '' AND $this->input->post('passagersiegesitines2') != '' AND $this->input->post('prixtrans') != NULL AND $this->input->post('prixtransit') != NULL AND $this->input->post('prixtransit1') != NULL)
                                         {
-                                            $siegeoccuper = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient' AND ps.num_siege_categorie = '$p_sieg'")->row();
+                                            $siegeoccuper = $this->_sale_siege_occupe_legacy($dpclient, $p_sieg);
 
-                                            $siegeoccuper2 = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient2' AND ps.num_siege_categorie = '$p_sieg2'")->row();
-                                            $siegeoccuper3 = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient3' AND ps.num_siege_categorie = '$p_sieg3'")->row();
+                                            $siegeoccuper2 = $this->_sale_siege_occupe_legacy($dpclient2, $p_sieg2);
+                                            $siegeoccuper3 = $this->_sale_siege_occupe_legacy($dpclient3, $p_sieg3);
                                             
                                             if($siegeoccuper == NULL AND $siegeoccuper2 == NULL AND $siegeoccuper3 == NULL) 
                                             {
@@ -6322,11 +6337,11 @@
                                         AND $this->input->post('transitedepargare3') != '' AND $this->input->post('passagersiegesitines2') != '' AND $this->input->post('transitedepargare4') != '' AND $this->input->post('passagersiegesitines3') != '' AND $this->input->post('prixtrans') != NULL AND $this->input->post('prixtransit') != NULL AND $this->input->post('prixtransit1') != NULL AND $this->input->post('prixtransit2') != NULL)
                                         {
 
-                                            $siegeoccuper = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient' AND ps.num_siege_categorie = '$p_sieg'")->row();
+                                            $siegeoccuper = $this->_sale_siege_occupe_legacy($dpclient, $p_sieg);
 
-                                                $siegeoccuper2 = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient2' AND ps.num_siege_categorie = '$p_sieg2'")->row();
-                                                $siegeoccuper3 = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient3' AND ps.num_siege_categorie = '$p_sieg3'")->row();
-                                                $siegeoccuper4 = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient4' AND ps.num_siege_categorie = '$p_sieg4'")->row();
+                                                $siegeoccuper2 = $this->_sale_siege_occupe_legacy($dpclient2, $p_sieg2);
+                                                $siegeoccuper3 = $this->_sale_siege_occupe_legacy($dpclient3, $p_sieg3);
+                                                $siegeoccuper4 = $this->_sale_siege_occupe_legacy($dpclient4, $p_sieg4);
                                             
                                                 if($siegeoccuper == NULL AND $siegeoccuper2 == NULL AND $siegeoccuper3 == NULL AND $siegeoccuper4 == NULL) 
                                                 {   
@@ -6758,7 +6773,7 @@
                                 }
                                 else
                                 {
-                                    $siegeoccuper = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient' AND ps.num_siege_categorie = '$p_sieg'")->row();
+                                    $siegeoccuper = $this->_sale_siege_occupe_legacy($dpclient, $p_sieg);
                                     
                                     $argv = array(
                                         'nom_client' => $this->input->post('rclient'),
@@ -6778,9 +6793,9 @@
                                     {
                                         if($this->input->post('transitedepargare1') != '' AND $this->input->post('passagersiegesitines') != '' AND $this->input->post('transitedepargare2') != '' AND $this->input->post('passagersiegesitines1') != '' AND $this->input->post('prixtrans') != NULL AND $this->input->post('prixtransit') != NULL)
                                         { 
-                                            $siegeoccuper = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient' AND ps.num_siege_categorie = '$p_sieg'")->row();
+                                            $siegeoccuper = $this->_sale_siege_occupe_legacy($dpclient, $p_sieg);
 
-                                                $siegeoccuper2 = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient2' AND ps.num_siege_categorie = '$p_sieg2'")->row();
+                                                $siegeoccuper2 = $this->_sale_siege_occupe_legacy($dpclient2, $p_sieg2);
                                 
                                                if($siegeoccuper == NULL AND $siegeoccuper2 == NULL) 
                                                 {
@@ -6992,10 +7007,10 @@
                                         if($this->input->post('transitedepargare1') != '' AND $this->input->post('passagersiegesitines') != '' AND $this->input->post('transitedepargare2') != '' AND $this->input->post('passagersiegesitines1') != ''
                                         AND $this->input->post('transitedepargare3') != '' AND $this->input->post('passagersiegesitines2') != '' AND $this->input->post('prixtrans') != NULL AND $this->input->post('prixtransit') != NULL AND $this->input->post('prixtransit1') != NULL)
                                         {
-                                            $siegeoccuper = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient' AND ps.num_siege_categorie = '$p_sieg'")->row();
+                                            $siegeoccuper = $this->_sale_siege_occupe_legacy($dpclient, $p_sieg);
 
-                                            $siegeoccuper2 = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient2' AND ps.num_siege_categorie = '$p_sieg2'")->row();
-                                            $siegeoccuper3 = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient3' AND ps.num_siege_categorie = '$p_sieg3'")->row();
+                                            $siegeoccuper2 = $this->_sale_siege_occupe_legacy($dpclient2, $p_sieg2);
+                                            $siegeoccuper3 = $this->_sale_siege_occupe_legacy($dpclient3, $p_sieg3);
                                             
                                             if($siegeoccuper == NULL AND $siegeoccuper2 == NULL AND $siegeoccuper3 == NULL) 
                                             {
@@ -7319,11 +7334,11 @@
                                         if($this->input->post('transitedepargare1') != '' AND $this->input->post('passagersiegesitines') != '' AND $this->input->post('transitedepargare2') != '' AND $this->input->post('passagersiegesitines1') != '' 
                                         AND $this->input->post('transitedepargare3') != '' AND $this->input->post('passagersiegesitines2') != '' AND $this->input->post('transitedepargare4') != '' AND  $this->input->post('passagersiegesitines3') != '' AND $this->input->post('prixtrans') != NULL AND $this->input->post('prixtransit') != NULL AND $this->input->post('prixtransit1') != NULL AND $this->input->post('prixtransit2') != NULL)
                                         {
-                                            $siegeoccuper = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient' AND ps.num_siege_categorie = '$p_sieg'")->row();
+                                            $siegeoccuper = $this->_sale_siege_occupe_legacy($dpclient, $p_sieg);
 
-                                                $siegeoccuper2 = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient2' AND ps.num_siege_categorie = '$p_sieg2'")->row();
-                                                $siegeoccuper3 = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient3' AND ps.num_siege_categorie = '$p_sieg3'")->row();
-                                                $siegeoccuper4 = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient4' AND ps.num_siege_categorie = '$p_sieg4'")->row();
+                                                $siegeoccuper2 = $this->_sale_siege_occupe_legacy($dpclient2, $p_sieg2);
+                                                $siegeoccuper3 = $this->_sale_siege_occupe_legacy($dpclient3, $p_sieg3);
+                                                $siegeoccuper4 = $this->_sale_siege_occupe_legacy($dpclient4, $p_sieg4);
                                             
                                                 if($siegeoccuper == NULL AND $siegeoccuper2 == NULL AND $siegeoccuper3 == NULL AND $siegeoccuper4 == NULL) 
                                                 {
@@ -7848,9 +7863,9 @@
 
                                             if($this->input->post('transitedepargare1') != '' AND $this->input->post('passagersiegesitines') != '' AND $this->input->post('transitedepargare2') != '' AND $this->input->post('passagersiegesitines1') != '' AND $this->input->post('prixtrans') != NULL AND $this->input->post('prixtransit') != NULL)
                                             {
-                                                $siegeoccuper = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient' AND ps.num_siege_categorie = '$p_sieg'")->row();
+                                                $siegeoccuper = $this->_sale_siege_occupe_legacy($dpclient, $p_sieg);
 
-                                                $siegeoccuper2 = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient2' AND ps.num_siege_categorie = '$p_sieg2'")->row();
+                                                $siegeoccuper2 = $this->_sale_siege_occupe_legacy($dpclient2, $p_sieg2);
                                 
                                                if($siegeoccuper == NULL AND $siegeoccuper2 == NULL) 
                                                 {
@@ -8168,10 +8183,10 @@
                                             AND $this->input->post('transitedepargare3') != '' AND $this->input->post('passagersiegesitines2') != '' AND $this->input->post('prixtrans') != NULL AND $this->input->post('prixtransit') != NULL AND $this->input->post('prixtransit1') != NULL)
                                             {
 
-                                                $siegeoccuper = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient' AND ps.num_siege_categorie = '$p_sieg'")->row();
+                                                $siegeoccuper = $this->_sale_siege_occupe_legacy($dpclient, $p_sieg);
 
-                                                $siegeoccuper2 = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient2' AND ps.num_siege_categorie = '$p_sieg2'")->row();
-                                                $siegeoccuper3 = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient3' AND ps.num_siege_categorie = '$p_sieg3'")->row();
+                                                $siegeoccuper2 = $this->_sale_siege_occupe_legacy($dpclient2, $p_sieg2);
+                                                $siegeoccuper3 = $this->_sale_siege_occupe_legacy($dpclient3, $p_sieg3);
                                                 
                                                 if($siegeoccuper == NULL AND $siegeoccuper2 == NULL AND $siegeoccuper3 == NULL) 
                                                 {
@@ -8669,11 +8684,11 @@
                                             AND $this->input->post('transitedepargare3') != '' AND $this->input->post('passagersiegesitines2') != '' AND $this->input->post('transitedepargare4') != '' AND $this->input->post('passagersiegesitines3') != '' AND $this->input->post('prixtrans') != NULL AND $this->input->post('prixtransit') != NULL AND $this->input->post('prixtransit1') != NULL AND $this->input->post('prixtransit2') != NULL)
                                             {
 
-                                                $siegeoccuper = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient' AND ps.num_siege_categorie = '$p_sieg'")->row();
+                                                $siegeoccuper = $this->_sale_siege_occupe_legacy($dpclient, $p_sieg);
 
-                                                $siegeoccuper2 = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient2' AND ps.num_siege_categorie = '$p_sieg2'")->row();
-                                                $siegeoccuper3 = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient3' AND ps.num_siege_categorie = '$p_sieg3'")->row();
-                                                $siegeoccuper4 = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient4' AND ps.num_siege_categorie = '$p_sieg4'")->row();
+                                                $siegeoccuper2 = $this->_sale_siege_occupe_legacy($dpclient2, $p_sieg2);
+                                                $siegeoccuper3 = $this->_sale_siege_occupe_legacy($dpclient3, $p_sieg3);
+                                                $siegeoccuper4 = $this->_sale_siege_occupe_legacy($dpclient4, $p_sieg4);
                                         
                                                 if($siegeoccuper == NULL AND $siegeoccuper2 == NULL AND $siegeoccuper3 == NULL AND $siegeoccuper4 == NULL) 
                                                 {
@@ -9355,9 +9370,9 @@
                                         {
                                             if($this->input->post('transitedepargare1') != '' AND $this->input->post('passagersiegesitines') != '' AND $this->input->post('transitedepargare2') != '' AND $this->input->post('passagersiegesitines1') != '' AND $this->input->post('prixtrans') != NULL AND $this->input->post('prixtransit') != NULL)
                                             {
-                                                $siegeoccuper = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient' AND ps.num_siege_categorie = '$p_sieg'")->row();
+                                                $siegeoccuper = $this->_sale_siege_occupe_legacy($dpclient, $p_sieg);
 
-                                                $siegeoccuper2 = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient2' AND ps.num_siege_categorie = '$p_sieg2'")->row();
+                                                $siegeoccuper2 = $this->_sale_siege_occupe_legacy($dpclient2, $p_sieg2);
                                 
                                                if($siegeoccuper == NULL AND $siegeoccuper2 == NULL) 
                                                 {
@@ -9674,10 +9689,10 @@
                                             if($this->input->post('transitedepargare1') != '' AND $this->input->post('passagersiegesitines') != '' AND $this->input->post('transitedepargare2') != '' AND $this->input->post('passagersiegesitines1') != ''
                                             AND $this->input->post('transitedepargare3') != '' AND $this->input->post('passagersiegesitines2') != '' AND $this->input->post('prixtrans') != NULL AND $this->input->post('prixtransit') != NULL AND $this->input->post('prixtransit1') != NULL)
                                             {
-                                                $siegeoccuper = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient' AND ps.num_siege_categorie = '$p_sieg'")->row();
+                                                $siegeoccuper = $this->_sale_siege_occupe_legacy($dpclient, $p_sieg);
 
-                                                $siegeoccuper2 = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient2' AND ps.num_siege_categorie = '$p_sieg2'")->row();
-                                                $siegeoccuper3 = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient3' AND ps.num_siege_categorie = '$p_sieg3'")->row();
+                                                $siegeoccuper2 = $this->_sale_siege_occupe_legacy($dpclient2, $p_sieg2);
+                                                $siegeoccuper3 = $this->_sale_siege_occupe_legacy($dpclient3, $p_sieg3);
                                                 
                                                 if($siegeoccuper == NULL AND $siegeoccuper2 == NULL AND $siegeoccuper3 == NULL) 
                                                 {
@@ -10170,11 +10185,11 @@
                                             if($this->input->post('transitedepargare1') != '' AND $this->input->post('passagersiegesitines') != '' AND $this->input->post('transitedepargare2') != '' AND $this->input->post('passagersiegesitines1') != '' 
                                             AND $this->input->post('transitedepargare3') != '' AND  $this->input->post('passagersiegesitines2') != '' AND $this->input->post('transitedepargare4') != '' AND $this->input->post('passagersiegesitines3') != '' AND $this->input->post('prixtrans') != NULL AND $this->input->post('prixtransit') != NULL AND $this->input->post('prixtransit1') != NULL AND $this->input->post('prixtransit2') != NULL)
                                             {
-                                                 $siegeoccuper = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient' AND ps.num_siege_categorie = '$p_sieg'")->row();
+                                                 $siegeoccuper = $this->_sale_siege_occupe_legacy($dpclient, $p_sieg);
 
-                                                $siegeoccuper2 = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient2' AND ps.num_siege_categorie = '$p_sieg2'")->row();
-                                                $siegeoccuper3 = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient3' AND ps.num_siege_categorie = '$p_sieg3'")->row();
-                                                $siegeoccuper4 = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient4' AND ps.num_siege_categorie = '$p_sieg4'")->row();
+                                                $siegeoccuper2 = $this->_sale_siege_occupe_legacy($dpclient2, $p_sieg2);
+                                                $siegeoccuper3 = $this->_sale_siege_occupe_legacy($dpclient3, $p_sieg3);
+                                                $siegeoccuper4 = $this->_sale_siege_occupe_legacy($dpclient4, $p_sieg4);
                                         
                                                 if($siegeoccuper == NULL AND $siegeoccuper2 == NULL AND $siegeoccuper3 == NULL AND $siegeoccuper4 == NULL) 
                                                 {
@@ -10945,9 +10960,9 @@
                                         {
                                             if($this->input->post('transitedepargare1') != '' AND $this->input->post('passagersiegesitines') != '' AND $this->input->post('transitedepargare2') != '' AND $this->input->post('passagersiegesitines1') != '' AND $this->input->post('prixtrans') != NULL AND $this->input->post('prixtransit') != NULL)
                                             {
-                                                $siegeoccuper = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient' AND ps.num_siege_categorie = '$p_sieg'")->row();
+                                                $siegeoccuper = $this->_sale_siege_occupe_legacy($dpclient, $p_sieg);
 
-                                                $siegeoccuper2 = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient2' AND ps.num_siege_categorie = '$p_sieg2'")->row();
+                                                $siegeoccuper2 = $this->_sale_siege_occupe_legacy($dpclient2, $p_sieg2);
                                 
                                                if($siegeoccuper == NULL AND $siegeoccuper2 == NULL) 
                                                 {
@@ -11264,10 +11279,10 @@
                                             if($this->input->post('transitedepargare1') != '' AND $this->input->post('passagersiegesitines') != '' AND $this->input->post('transitedepargare2') != '' AND $this->input->post('passagersiegesitines1') != ''
                                             AND $this->input->post('transitedepargare3') != '' AND $this->input->post('passagersiegesitines2') != '' AND $this->input->post('prixtrans') != NULL AND $this->input->post('prixtransit') != NULL AND $this->input->post('prixtransit1') != NULL)
                                             {
-                                                $siegeoccuper = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient' AND ps.num_siege_categorie = '$p_sieg'")->row();
+                                                $siegeoccuper = $this->_sale_siege_occupe_legacy($dpclient, $p_sieg);
 
-                                                $siegeoccuper2 = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient2' AND ps.num_siege_categorie = '$p_sieg2'")->row();
-                                                $siegeoccuper3 = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient3' AND ps.num_siege_categorie = '$p_sieg3'")->row();
+                                                $siegeoccuper2 = $this->_sale_siege_occupe_legacy($dpclient2, $p_sieg2);
+                                                $siegeoccuper3 = $this->_sale_siege_occupe_legacy($dpclient3, $p_sieg3);
                                                 
                                                 if($siegeoccuper == NULL AND $siegeoccuper2 == NULL AND $siegeoccuper3 == NULL) 
                                                 {
@@ -11759,11 +11774,11 @@
                                             if($this->input->post('transitedepargare1') != '' AND $this->input->post('passagersiegesitines') != '' AND $this->input->post('transitedepargare2') != '' AND $this->input->post('passagersiegesitines1') != '' 
                                             AND $this->input->post('transitedepargare3') != '' AND $this->input->post('passagersiegesitines2') != '' AND $this->input->post('transitedepargare4') != '' AND $this->input->post('passagersiegesitines3') != '' AND $this->input->post('prixtrans') != NULL AND $this->input->post('prixtransit') != NULL AND $this->input->post('prixtransit1') != NULL AND $this->input->post('prixtransit2') != NULL)
                                             {
-                                                $siegeoccuper = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient' AND ps.num_siege_categorie = '$p_sieg'")->row();
+                                                $siegeoccuper = $this->_sale_siege_occupe_legacy($dpclient, $p_sieg);
 
-                                                $siegeoccuper2 = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient2' AND ps.num_siege_categorie = '$p_sieg2'")->row();
-                                                $siegeoccuper3 = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient3' AND ps.num_siege_categorie = '$p_sieg3'")->row();
-                                                $siegeoccuper4 = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient4' AND ps.num_siege_categorie = '$p_sieg4'")->row();
+                                                $siegeoccuper2 = $this->_sale_siege_occupe_legacy($dpclient2, $p_sieg2);
+                                                $siegeoccuper3 = $this->_sale_siege_occupe_legacy($dpclient3, $p_sieg3);
+                                                $siegeoccuper4 = $this->_sale_siege_occupe_legacy($dpclient4, $p_sieg4);
                                         
                                                 if($siegeoccuper == NULL AND $siegeoccuper2 == NULL AND $siegeoccuper3 == NULL AND $siegeoccuper4 == NULL) 
                                                 {
@@ -12441,9 +12456,9 @@
 
                                             if($this->input->post('transitedepargare1') != '' AND $this->input->post('passagersiegesitines') != '' AND $this->input->post('transitedepargare2') != '' AND $this->input->post('passagersiegesitines1') != '' AND $this->input->post('prixtrans') != NULL AND $this->input->post('prixtransit') != NULL)
                                             {
-                                                $siegeoccuper = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient' AND ps.num_siege_categorie = '$p_sieg'")->row();
+                                                $siegeoccuper = $this->_sale_siege_occupe_legacy($dpclient, $p_sieg);
 
-                                                $siegeoccuper2 = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient2' AND ps.num_siege_categorie = '$p_sieg2'")->row();
+                                                $siegeoccuper2 = $this->_sale_siege_occupe_legacy($dpclient2, $p_sieg2);
                                 
                                                if($siegeoccuper == NULL AND $siegeoccuper2 == NULL) 
                                                 {
@@ -12763,10 +12778,10 @@
                                             if($this->input->post('transitedepargare1') != '' AND $this->input->post('passagersiegesitines') != '' AND $this->input->post('transitedepargare2') != '' AND $this->input->post('passagersiegesitines1') != ''
                                             AND $this->input->post('transitedepargare3') != '' AND $this->input->post('passagersiegesitines2') != '' AND $this->input->post('prixtrans') != NULL AND $this->input->post('prixtransit') != NULL AND $this->input->post('prixtransit1') != NULL)
                                             {
-                                                $siegeoccuper = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient' AND ps.num_siege_categorie = '$p_sieg'")->row();
+                                                $siegeoccuper = $this->_sale_siege_occupe_legacy($dpclient, $p_sieg);
 
-                                                $siegeoccuper2 = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient2' AND ps.num_siege_categorie = '$p_sieg2'")->row();
-                                                $siegeoccuper3 = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient3' AND ps.num_siege_categorie = '$p_sieg3'")->row();
+                                                $siegeoccuper2 = $this->_sale_siege_occupe_legacy($dpclient2, $p_sieg2);
+                                                $siegeoccuper3 = $this->_sale_siege_occupe_legacy($dpclient3, $p_sieg3);
                                                 
                                                 if($siegeoccuper == NULL AND $siegeoccuper2 == NULL AND $siegeoccuper3 == NULL) 
                                                 {
@@ -13256,11 +13271,11 @@
                                             if($this->input->post('transitedepargare1') != '' AND $this->input->post('passagersiegesitines') != '' AND $this->input->post('transitedepargare2') != '' AND $this->input->post('passagersiegesitines1') != '' 
                                             AND $this->input->post('transitedepargare3') != '' AND $this->input->post('passagersiegesitines2') != '' AND $this->input->post('transitedepargare4') != '' AND $this->input->post('passagersiegesitines3') != '' AND $this->input->post('prixtrans') != NULL AND $this->input->post('prixtransit') != NULL AND $this->input->post('prixtransit1') != NULL AND $this->input->post('prixtransit2') != NULL)
                                             {
-                                                $siegeoccuper = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient' AND ps.num_siege_categorie = '$p_sieg'")->row();
+                                                $siegeoccuper = $this->_sale_siege_occupe_legacy($dpclient, $p_sieg);
 
-                                                $siegeoccuper2 = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient2' AND ps.num_siege_categorie = '$p_sieg2'")->row();
-                                                $siegeoccuper3 = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient3' AND ps.num_siege_categorie = '$p_sieg3'")->row();
-                                                $siegeoccuper4 = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient4' AND ps.num_siege_categorie = '$p_sieg4'")->row();
+                                                $siegeoccuper2 = $this->_sale_siege_occupe_legacy($dpclient2, $p_sieg2);
+                                                $siegeoccuper3 = $this->_sale_siege_occupe_legacy($dpclient3, $p_sieg3);
+                                                $siegeoccuper4 = $this->_sale_siege_occupe_legacy($dpclient4, $p_sieg4);
                                         
                                                 if($siegeoccuper == NULL AND $siegeoccuper2 == NULL AND $siegeoccuper3 == NULL AND $siegeoccuper4 == NULL) 
                                                 {
@@ -14380,7 +14395,7 @@
                                 AND $rcn === $this->input->post('cnibfid') AND $tycl === $this->input->post('typefid') AND $rcd === $this->input->post('date_cnibfid') AND $rl === $this->input->post('lieufid'))
                                 {
                                 
-                                    $siegeoccuper = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient' AND ps.num_siege_categorie = '$p_sieg'")->row();
+                                    $siegeoccuper = $this->_sale_siege_occupe_legacy($dpclient, $p_sieg);
                                     
                                     if($siegeoccuper == NULL ) 
                                     {
@@ -14465,7 +14480,7 @@
                                 }
                                 else
                                 {
-                                    $siegeoccuper = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient' AND ps.num_siege_categorie = '$p_sieg'")->row();
+                                    $siegeoccuper = $this->_sale_siege_occupe_legacy($dpclient, $p_sieg);
                                     
                                     if($siegeoccuper == NULL )
                                     {
@@ -14592,7 +14607,7 @@
                                 AND $rcn === $this->input->post('cnibfid') AND $tycl === $this->input->post('typefid') AND $rcd === $this->input->post('date_cnibfid') AND $rl === $this->input->post('lieufid'))
                                 {
                                 
-                                    $siegeoccuper = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient' AND ps.num_siege_categorie = '$p_sieg'")->row();
+                                    $siegeoccuper = $this->_sale_siege_occupe_legacy($dpclient, $p_sieg);
                                     
                                     if($siegeoccuper == NULL ) 
                                     {
@@ -14677,7 +14692,7 @@
                                 }
                                 else
                                 {
-                                    $siegeoccuper = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient' AND ps.num_siege_categorie = '$p_sieg'")->row();
+                                    $siegeoccuper = $this->_sale_siege_occupe_legacy($dpclient, $p_sieg);
                                     
                                     if($siegeoccuper == NULL )
                                     {
@@ -14814,7 +14829,7 @@
                                     if($this->input->post('clientcompfid') != '' AND $rcl === $this->input->post('rclientfid') AND $rcp === $this->input->post('prclientfid') 
                                     AND $rcn === $this->input->post('cnibfid') AND $rcd === $this->input->post('date_cnibfid') AND $rl === $this->input->post('lieufid'))
                                     {
-                                        $siegeoccuper = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient' AND ps.num_siege_categorie = '$p_sieg'")->row();
+                                        $siegeoccuper = $this->_sale_siege_occupe_legacy($dpclient, $p_sieg);
                                             
                                             if($siegeoccuper == NULL )
                                             {
@@ -14913,7 +14928,7 @@
                                     }
                                     else
                                     {
-                                            $siegeoccuper = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient' AND ps.num_siege_categorie = '$p_sieg'")->row();
+                                            $siegeoccuper = $this->_sale_siege_occupe_legacy($dpclient, $p_sieg);
                                             
                                             if($siegeoccuper == NULL )
                                             {
@@ -15073,7 +15088,7 @@
                                     if($this->input->post('clientcompfid') != '' AND $rcl === $this->input->post('rclientfid') AND $rcp === $this->input->post('prclientfid') 
                                     AND $rcn === $this->input->post('cnibfid') AND $rcd === $this->input->post('date_cnibfid') AND $rl === $this->input->post('lieufid'))
                                     {
-                                        $siegeoccuper = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient' AND ps.num_siege_categorie = '$p_sieg'")->row();
+                                        $siegeoccuper = $this->_sale_siege_occupe_legacy($dpclient, $p_sieg);
                                             
                                             if($siegeoccuper == NULL )
                                             {
@@ -15171,7 +15186,7 @@
                                     }
                                     else
                                     {
-                                            $siegeoccuper = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient' AND ps.num_siege_categorie = '$p_sieg'")->row();
+                                            $siegeoccuper = $this->_sale_siege_occupe_legacy($dpclient, $p_sieg);
                                             
                                             if($siegeoccuper == NULL )
                                             {
@@ -15354,9 +15369,9 @@
                                         {
                                             if($this->input->post('transitedepargare1fid') != '' AND $this->input->post('passagersiegesitinesfid') != '' AND $this->input->post('transitedepargare2fid') != '' AND $this->input->post('passagersiegesitines1fid') != '' AND $this->input->post('prixtransfid') != NULL AND $this->input->post('prixtransitfid') != NULL)
                                             {
-                                                $siegeoccuper = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient' AND ps.num_siege_categorie = '$p_sieg'")->row();
+                                                $siegeoccuper = $this->_sale_siege_occupe_legacy($dpclient, $p_sieg);
 
-                                                $siegeoccuper2 = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient2' AND ps.num_siege_categorie = '$p_sieg2'")->row();
+                                                $siegeoccuper2 = $this->_sale_siege_occupe_legacy($dpclient2, $p_sieg2);
                                                 
                                                 if($siegeoccuper == NULL AND $siegeoccuper2 == NULL) 
                                                 {
@@ -15510,10 +15525,10 @@
                                             AND $this->input->post('transitedepargare3fid') != '' AND $this->input->post('passagersiegesitines2fid') != '' AND $this->input->post('prixtransfid') != NULL AND $this->input->post('prixtransitfid') != NULL AND $this->input->post('prixtransit1fid') != NULL)
                                             {
 
-                                                $siegeoccuper = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient' AND ps.num_siege_categorie = '$p_sieg'")->row();
+                                                $siegeoccuper = $this->_sale_siege_occupe_legacy($dpclient, $p_sieg);
 
-                                                $siegeoccuper2 = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient2' AND ps.num_siege_categorie = '$p_sieg2'")->row();
-                                                $siegeoccuper3 = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient3' AND ps.num_siege_categorie = '$p_sieg3'")->row();
+                                                $siegeoccuper2 = $this->_sale_siege_occupe_legacy($dpclient2, $p_sieg2);
+                                                $siegeoccuper3 = $this->_sale_siege_occupe_legacy($dpclient3, $p_sieg3);
                                                 
                                                 if($siegeoccuper == NULL AND $siegeoccuper2 == NULL AND $siegeoccuper3 == NULL) 
                                                 {
@@ -15737,11 +15752,11 @@
                                             if($this->input->post('transitedepargare1fid') != '' AND $this->input->post('passagersiegesitinesfid') != '' AND $this->input->post('transitedepargare2fid') != '' AND $this->input->post('passagersiegesitines1fid') != '' 
                                             AND $this->input->post('transitedepargare3fid') != '' AND $this->input->post('passagersiegesitines2fid') != '' AND $this->input->post('transitedepargare4fid') != '' AND $this->input->post('passagersiegesitines3fid') != '' AND $this->input->post('prixtransfid') != NULL AND $this->input->post('prixtransitfid') != NULL AND $this->input->post('prixtransit1fid') != NULL AND $this->input->post('prixtransit2fid') != NULL)
                                             {
-                                                    $siegeoccuper = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient' AND ps.num_siege_categorie = '$p_sieg'")->row();
+                                                    $siegeoccuper = $this->_sale_siege_occupe_legacy($dpclient, $p_sieg);
 
-                                                    $siegeoccuper2 = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient2' AND ps.num_siege_categorie = '$p_sieg2'")->row();
-                                                    $siegeoccuper3 = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient3' AND ps.num_siege_categorie = '$p_sieg3'")->row();
-                                                    $siegeoccuper4 = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient4' AND ps.num_siege_categorie = '$p_sieg4'")->row();
+                                                    $siegeoccuper2 = $this->_sale_siege_occupe_legacy($dpclient2, $p_sieg2);
+                                                    $siegeoccuper3 = $this->_sale_siege_occupe_legacy($dpclient3, $p_sieg3);
+                                                    $siegeoccuper4 = $this->_sale_siege_occupe_legacy($dpclient4, $p_sieg4);
                                                 
                                                     if($siegeoccuper == NULL AND $siegeoccuper2 == NULL AND $siegeoccuper3 == NULL AND $siegeoccuper4 == NULL) 
                                                     {
@@ -16036,9 +16051,9 @@
                                             if($this->input->post('transitedepargare1fid') != '' AND $this->input->post('passagersiegesitinesfid') != '' AND $this->input->post('transitedepargare2fid') != '' AND  $this->input->post('passagersiegesitines1fid') != '' AND $this->input->post('prixtransfid') != NULL AND $this->input->post('prixtransitfid') != NULL)
                                             {
 
-                                                    $siegeoccuper = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient' AND ps.num_siege_categorie = '$p_sieg'")->row();
+                                                    $siegeoccuper = $this->_sale_siege_occupe_legacy($dpclient, $p_sieg);
 
-                                                    $siegeoccuper2 = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient2' AND ps.num_siege_categorie = '$p_sieg2'")->row();
+                                                    $siegeoccuper2 = $this->_sale_siege_occupe_legacy($dpclient2, $p_sieg2);
                                                 
                                                 if($siegeoccuper == NULL AND $siegeoccuper2 == NULL)
                                                 {
@@ -16187,10 +16202,10 @@
                                                 AND $this->input->post('transitedepargare3fid') != '' AND $this->input->post('passagersiegesitines2fid') != '' AND $this->input->post('prixtransfid') != NULL AND $this->input->post('prixtransitfid') != NULL AND $this->input->post('prixtransit1fid') != NULL)
                                             {
 
-                                                $siegeoccuper = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient' AND ps.num_siege_categorie = '$p_sieg'")->row();
+                                                $siegeoccuper = $this->_sale_siege_occupe_legacy($dpclient, $p_sieg);
 
-                                                $siegeoccuper2 = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient2' AND ps.num_siege_categorie = '$p_sieg2'")->row();
-                                                $siegeoccuper3 = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient3' AND ps.num_siege_categorie = '$p_sieg3'")->row();
+                                                $siegeoccuper2 = $this->_sale_siege_occupe_legacy($dpclient2, $p_sieg2);
+                                                $siegeoccuper3 = $this->_sale_siege_occupe_legacy($dpclient3, $p_sieg3);
                                                 
                                                 if($siegeoccuper == NULL AND $siegeoccuper2 == NULL AND $siegeoccuper3 == NULL) 
                                                 {
@@ -16408,11 +16423,11 @@
                                             if($this->input->post('transitedepargare1fid') != '' AND $this->input->post('passagersiegesitinesfid') != '' AND $this->input->post('transitedepargare2fid') != '' AND $this->input->post('passagersiegesitines1fid') != '' 
                                                 AND $this->input->post('transitedepargare3fid') != '' AND $this->input->post('passagersiegesitines2fid') != '' AND $this->input->post('transitedepargare4fid') != '' AND $this->input->post('passagersiegesitines3fid') != '' AND $this->input->post('prixtransfid') != NULL AND $this->input->post('prixtransitfid') != NULL AND $this->input->post('prixtransit1fid') != NULL AND $this->input->post('prixtransit2fid') != NULL)
                                             {
-                                                $siegeoccuper = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient' AND ps.num_siege_categorie = '$p_sieg'")->row();
+                                                $siegeoccuper = $this->_sale_siege_occupe_legacy($dpclient, $p_sieg);
 
-                                                $siegeoccuper2 = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient2' AND ps.num_siege_categorie = '$p_sieg2'")->row();
-                                                $siegeoccuper3 = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient3' AND ps.num_siege_categorie = '$p_sieg3'")->row();
-                                                $siegeoccuper4 = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient4' AND ps.num_siege_categorie = '$p_sieg4'")->row();
+                                                $siegeoccuper2 = $this->_sale_siege_occupe_legacy($dpclient2, $p_sieg2);
+                                                $siegeoccuper3 = $this->_sale_siege_occupe_legacy($dpclient3, $p_sieg3);
+                                                $siegeoccuper4 = $this->_sale_siege_occupe_legacy($dpclient4, $p_sieg4);
                                                 
                                                 if($siegeoccuper == NULL AND $siegeoccuper2 == NULL AND $siegeoccuper3 == NULL AND $siegeoccuper4 == NULL) 
                                                 {
@@ -16779,9 +16794,9 @@
 
                                             if($this->input->post('transitedepargare1fid') != '' AND $this->input->post('passagersiegesitinesfid') != '' AND $this->input->post('transitedepargare2fid') != '' AND  $this->input->post('passagersiegesitines1fid') != '' AND $this->input->post('prixtransfid') != NULL AND $this->input->post('prixtransitfid') != NULL)
                                             {
-                                                $siegeoccuper = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient' AND ps.num_siege_categorie = '$p_sieg'")->row();
+                                                $siegeoccuper = $this->_sale_siege_occupe_legacy($dpclient, $p_sieg);
 
-                                                $siegeoccuper2 = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient2' AND ps.num_siege_categorie = '$p_sieg2'")->row();
+                                                $siegeoccuper2 = $this->_sale_siege_occupe_legacy($dpclient2, $p_sieg2);
                                                 
                                                 if($siegeoccuper == NULL AND $siegeoccuper2 == NULL)
                                                 {
@@ -16933,10 +16948,10 @@
                                             AND $this->input->post('transitedepargare3fid') != '' AND $this->input->post('passagersiegesitines2fid') != '' AND $this->input->post('prixtransfid') != NULL AND $this->input->post('prixtransitfid') != NULL AND $this->input->post('prixtransit1fid') != NULL)
                                             {
 
-                                                $siegeoccuper = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient' AND ps.num_siege_categorie = '$p_sieg'")->row();
+                                                $siegeoccuper = $this->_sale_siege_occupe_legacy($dpclient, $p_sieg);
 
-                                                $siegeoccuper2 = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient2' AND ps.num_siege_categorie = '$p_sieg2'")->row();
-                                                $siegeoccuper3 = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient3' AND ps.num_siege_categorie = '$p_sieg3'")->row();
+                                                $siegeoccuper2 = $this->_sale_siege_occupe_legacy($dpclient2, $p_sieg2);
+                                                $siegeoccuper3 = $this->_sale_siege_occupe_legacy($dpclient3, $p_sieg3);
                                                 
                                                 if($siegeoccuper == NULL AND $siegeoccuper2 == NULL AND $siegeoccuper3 == NULL) 
                                                 {
@@ -17157,11 +17172,11 @@
                                             AND $this->input->post('transitedepargare3fid') != '' AND $this->input->post('passagersiegesitines2fid') != '' AND $this->input->post('transitedepargare4fid') != '' AND $this->input->post('passagersiegesitines3fid') != '' AND $this->input->post('prixtransfid') != NULL AND $this->input->post('prixtransitfid') != NULL AND $this->input->post('prixtransit1fid') != NULL AND $this->input->post('prixtransit2fid') != NULL)
                                             {
                                                     
-                                                $siegeoccuper = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient' AND ps.num_siege_categorie = '$p_sieg'")->row();
+                                                $siegeoccuper = $this->_sale_siege_occupe_legacy($dpclient, $p_sieg);
 
-                                                    $siegeoccuper2 = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient2' AND ps.num_siege_categorie = '$p_sieg2'")->row();
-                                                $siegeoccuper3 = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient3' AND ps.num_siege_categorie = '$p_sieg3'")->row();
-                                                $siegeoccuper4 = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient4' AND ps.num_siege_categorie = '$p_sieg4'")->row();
+                                                    $siegeoccuper2 = $this->_sale_siege_occupe_legacy($dpclient2, $p_sieg2);
+                                                $siegeoccuper3 = $this->_sale_siege_occupe_legacy($dpclient3, $p_sieg3);
+                                                $siegeoccuper4 = $this->_sale_siege_occupe_legacy($dpclient4, $p_sieg4);
                                                 
                                                 if($siegeoccuper == NULL AND $siegeoccuper2 == NULL AND $siegeoccuper3 == NULL AND $siegeoccuper4 == NULL) 
                                                 {
@@ -17461,9 +17476,9 @@
                                         {
                                             if($this->input->post('transitedepargare1fid') != '' AND $this->input->post('passagersiegesitinesfid') != '' AND $this->input->post('transitedepargare2fid') != '' AND $this->input->post('passagersiegesitines1fid') != '' AND $this->input->post('prixtransfid') != NULL AND $this->input->post('prixtransitfid') != NULL)
                                             { 
-                                                $siegeoccuper = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient' AND ps.num_siege_categorie = '$p_sieg'")->row();
+                                                $siegeoccuper = $this->_sale_siege_occupe_legacy($dpclient, $p_sieg);
 
-                                                $siegeoccuper2 = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient2' AND ps.num_siege_categorie = '$p_sieg2'")->row();
+                                                $siegeoccuper2 = $this->_sale_siege_occupe_legacy($dpclient2, $p_sieg2);
                                                 
                                                 if($siegeoccuper == NULL AND $siegeoccuper2== NULL)
                                                 {
@@ -17610,10 +17625,10 @@
                                             if($this->input->post('transitedepargare1fid') != '' AND $this->input->post('passagersiegesitinesfid') != '' AND $this->input->post('transitedepargare2fid') != '' AND $this->input->post('passagersiegesitines1fid') != ''
                                             AND $this->input->post('transitedepargare3fid') != '' AND $this->input->post('passagersiegesitines2fid') != '' AND $this->input->post('prixtransfid') != NULL AND $this->input->post('prixtransitfid') != NULL AND $this->input->post('prixtransit1fid') != NULL)
                                             {
-                                                $siegeoccuper = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient' AND ps.num_siege_categorie = '$p_sieg'")->row();
+                                                $siegeoccuper = $this->_sale_siege_occupe_legacy($dpclient, $p_sieg);
 
-                                                $siegeoccuper2 = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient2' AND ps.num_siege_categorie = '$p_sieg2'")->row();
-                                                $siegeoccuper3 = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient3' AND ps.num_siege_categorie = '$p_sieg3'")->row();
+                                                $siegeoccuper2 = $this->_sale_siege_occupe_legacy($dpclient2, $p_sieg2);
+                                                $siegeoccuper3 = $this->_sale_siege_occupe_legacy($dpclient3, $p_sieg3);
                                                 
                                                 if($siegeoccuper == NULL AND $siegeoccuper2 == NULL AND $siegeoccuper3 == NULL) 
                                                 {
@@ -17826,11 +17841,11 @@
                                             if($this->input->post('transitedepargare1fid') != '' AND $this->input->post('passagersiegesitinesfid') != '' AND $this->input->post('transitedepargare2fid') != '' AND $this->input->post('passagersiegesitines1') != '' 
                                             AND $this->input->post('transitedepargare3fid') != '' AND $this->input->post('passagersiegesitines2fid') != '' AND $this->input->post('transitedepargare4fid') != '' AND  $this->input->post('passagersiegesitines3fid') != '' AND $this->input->post('prixtransfid') != NULL AND $this->input->post('prixtransitfid') != NULL AND $this->input->post('prixtransit1fid') != NULL AND $this->input->post('prixtransit2fid') != NULL)
                                             {
-                                                $siegeoccuper = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient' AND ps.num_siege_categorie = '$p_sieg'")->row();
+                                                $siegeoccuper = $this->_sale_siege_occupe_legacy($dpclient, $p_sieg);
 
-                                                    $siegeoccuper2 = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient2' AND ps.num_siege_categorie = '$p_sieg2'")->row();
-                                                $siegeoccuper3 = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient3' AND ps.num_siege_categorie = '$p_sieg3'")->row();
-                                                $siegeoccuper4 = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient4' AND ps.num_siege_categorie = '$p_sieg4'")->row();
+                                                    $siegeoccuper2 = $this->_sale_siege_occupe_legacy($dpclient2, $p_sieg2);
+                                                $siegeoccuper3 = $this->_sale_siege_occupe_legacy($dpclient3, $p_sieg3);
+                                                $siegeoccuper4 = $this->_sale_siege_occupe_legacy($dpclient4, $p_sieg4);
                                                 
                                                 if($siegeoccuper == NULL AND $siegeoccuper2 == NULL AND $siegeoccuper3 == NULL AND $siegeoccuper4 == NULL) 
                                                 {
@@ -18197,9 +18212,9 @@
 
                                                     if($this->input->post('transitedepargare1fid') != '' AND $this->input->post('passagersiegesitinesfid') != '' AND $this->input->post('transitedepargare2fid') != '' AND $this->input->post('passagersiegesitines1fid') != '' AND $this->input->post('prixtransfid') != NULL AND $this->input->post('prixtransitfid') != NULL)
                                                     {
-                                                        $siegeoccuper = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient' AND ps.num_siege_categorie = '$p_sieg'")->row();
+                                                        $siegeoccuper = $this->_sale_siege_occupe_legacy($dpclient, $p_sieg);
 
-                                                        $siegeoccuper2 = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient2' AND ps.num_siege_categorie = '$p_sieg2'")->row();
+                                                        $siegeoccuper2 = $this->_sale_siege_occupe_legacy($dpclient2, $p_sieg2);
                                                         
                                                         if($siegeoccuper == NULL AND $siegeoccuper2 == NULL) 
                                                         {
@@ -18378,10 +18393,10 @@
                                                     AND $this->input->post('transitedepargare3fid') != '' AND $this->input->post('passagersiegesitines2fid') != '' AND $this->input->post('prixtransfid') != NULL AND $this->input->post('prixtransitfid') != NULL AND $this->input->post('prixtransit1fid') != NULL)
                                                     {
 
-                                                        $siegeoccuper = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient' AND ps.num_siege_categorie = '$p_sieg'")->row();
+                                                        $siegeoccuper = $this->_sale_siege_occupe_legacy($dpclient, $p_sieg);
 
-                                                        $siegeoccuper2 = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient2' AND ps.num_siege_categorie = '$p_sieg2'")->row();
-                                                        $siegeoccuper3 = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient3' AND ps.num_siege_categorie = '$p_sieg3'")->row();
+                                                        $siegeoccuper2 = $this->_sale_siege_occupe_legacy($dpclient2, $p_sieg2);
+                                                        $siegeoccuper3 = $this->_sale_siege_occupe_legacy($dpclient3, $p_sieg3);
                                                         
                                                         if($siegeoccuper == NULL AND $siegeoccuper2 == NULL AND $siegeoccuper3 == NULL) 
                                                         {
@@ -18649,11 +18664,11 @@
                                                     if($this->input->post('transitedepargare1fid') != '' AND $this->input->post('passagersiegesitinesfid') != '' AND $this->input->post('transitedepargare2fid') != '' AND $this->input->post('passagersiegesitines1fid') != '' 
                                                     AND $this->input->post('transitedepargare3fid') != '' AND $this->input->post('passagersiegesitines2fid') != '' AND $this->input->post('transitedepargare4fid') != '' AND $this->input->post('passagersiegesitines3fid') != '' AND $this->input->post('prixtransfid') != NULL AND $this->input->post('prixtransitfid') != NULL AND $this->input->post('prixtransit1fid') != NULL AND $this->input->post('prixtransit2fid') != NULL)
                                                     {
-                                                        $siegeoccuper = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient' AND ps.num_siege_categorie = '$p_sieg'")->row();
+                                                        $siegeoccuper = $this->_sale_siege_occupe_legacy($dpclient, $p_sieg);
 
-                                                        $siegeoccuper2 = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient2' AND ps.num_siege_categorie = '$p_sieg2'")->row();
-                                                        $siegeoccuper3 = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient3' AND ps.num_siege_categorie = '$p_sieg3'")->row();
-                                                        $siegeoccuper4 = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient4' AND ps.num_siege_categorie = '$p_sieg4'")->row();
+                                                        $siegeoccuper2 = $this->_sale_siege_occupe_legacy($dpclient2, $p_sieg2);
+                                                        $siegeoccuper3 = $this->_sale_siege_occupe_legacy($dpclient3, $p_sieg3);
+                                                        $siegeoccuper4 = $this->_sale_siege_occupe_legacy($dpclient4, $p_sieg4);
                                                 
                                                         if($siegeoccuper == NULL AND $siegeoccuper2 == NULL AND $siegeoccuper3 == NULL AND $siegeoccuper4 == NULL) 
                                                         {
@@ -19023,9 +19038,9 @@
                                                 {
                                                     if($this->input->post('transitedepargare1fid') != '' AND $this->input->post('passagersiegesitinesfid') != '' AND $this->input->post('transitedepargare2fid') != '' AND $this->input->post('passagersiegesitines1fid') != '' AND $this->input->post('prixtransfid') != NULL AND $this->input->post('prixtransitfid') != NULL)
                                                     {
-                                                        $siegeoccuper = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient' AND ps.num_siege_categorie = '$p_sieg'")->row();
+                                                        $siegeoccuper = $this->_sale_siege_occupe_legacy($dpclient, $p_sieg);
 
-                                                        $siegeoccuper2 = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient2' AND ps.num_siege_categorie = '$p_sieg2'")->row();
+                                                        $siegeoccuper2 = $this->_sale_siege_occupe_legacy($dpclient2, $p_sieg2);
                                                         
                                                         if($siegeoccuper == NULL AND $siegeoccuper2 == NULL) 
                                                         {
@@ -19207,10 +19222,10 @@
                                                     if($this->input->post('transitedepargare1fid') != '' AND $this->input->post('passagersiegesitinesfid') != '' AND $this->input->post('transitedepargare2fid') != '' AND $this->input->post('passagersiegesitines1fid') != ''
                                                     AND $this->input->post('transitedepargare3fid') != '' AND $this->input->post('passagersiegesitines2fid') != '' AND $this->input->post('prixtransfid') != NULL AND $this->input->post('prixtransitfid') != NULL AND $this->input->post('prixtransit1fid') != NULL)
                                                     {
-                                                        $siegeoccuper = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient' AND ps.num_siege_categorie = '$p_sieg'")->row();
+                                                        $siegeoccuper = $this->_sale_siege_occupe_legacy($dpclient, $p_sieg);
 
-                                                        $siegeoccuper2 = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient2' AND ps.num_siege_categorie = '$p_sieg2'")->row();
-                                                        $siegeoccuper3 = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient3' AND ps.num_siege_categorie = '$p_sieg3'")->row();
+                                                        $siegeoccuper2 = $this->_sale_siege_occupe_legacy($dpclient2, $p_sieg2);
+                                                        $siegeoccuper3 = $this->_sale_siege_occupe_legacy($dpclient3, $p_sieg3);
                                                         
                                                         if($siegeoccuper == NULL AND $siegeoccuper2 == NULL AND $siegeoccuper3 == NULL) 
                                                         {
@@ -19477,11 +19492,11 @@
                                                     if($this->input->post('transitedepargare1fid') != '' AND $this->input->post('passagersiegesitinesfid') != '' AND $this->input->post('transitedepargare2fid') != '' AND $this->input->post('passagersiegesitines1fid') != '' 
                                                     AND $this->input->post('transitedepargare3fid') != '' AND  $this->input->post('passagersiegesitines2fid') != '' AND $this->input->post('transitedepargare4fid') != '' AND $this->input->post('passagersiegesitines3fid') != '' AND $this->input->post('prixtransfid') != NULL AND $this->input->post('prixtransitfid') != NULL AND $this->input->post('prixtransit1fid') != NULL AND $this->input->post('prixtransit2fid') != NULL)
                                                     {
-                                                        $siegeoccuper = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient' AND ps.num_siege_categorie = '$p_sieg'")->row();
+                                                        $siegeoccuper = $this->_sale_siege_occupe_legacy($dpclient, $p_sieg);
 
-                                                        $siegeoccuper2 = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient2' AND ps.num_siege_categorie = '$p_sieg2'")->row();
-                                                        $siegeoccuper3 = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient3' AND ps.num_siege_categorie = '$p_sieg3'")->row();
-                                                        $siegeoccuper4 = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient4' AND ps.num_siege_categorie = '$p_sieg4'")->row();
+                                                        $siegeoccuper2 = $this->_sale_siege_occupe_legacy($dpclient2, $p_sieg2);
+                                                        $siegeoccuper3 = $this->_sale_siege_occupe_legacy($dpclient3, $p_sieg3);
+                                                        $siegeoccuper4 = $this->_sale_siege_occupe_legacy($dpclient4, $p_sieg4);
                                                 
                                                         if($siegeoccuper == NULL AND $siegeoccuper2 == NULL AND $siegeoccuper3 == NULL AND $siegeoccuper4 == NULL) 
                                                         {
@@ -19926,9 +19941,9 @@
                                                 {
                                                     if($this->input->post('transitedepargare1fid') != '' AND $this->input->post('passagersiegesitinesfid') != '' AND $this->input->post('transitedepargare2fid') != '' AND $this->input->post('passagersiegesitines1fid') != '' AND $this->input->post('prixtransfid') != NULL AND $this->input->post('prixtransitfid') != NULL)
                                                     {
-                                                        $siegeoccuper = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient' AND ps.num_siege_categorie = '$p_sieg'")->row();
+                                                        $siegeoccuper = $this->_sale_siege_occupe_legacy($dpclient, $p_sieg);
 
-                                                        $siegeoccuper2 = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient2' AND ps.num_siege_categorie = '$p_sieg2'")->row();
+                                                        $siegeoccuper2 = $this->_sale_siege_occupe_legacy($dpclient2, $p_sieg2);
                                                         
                                                         if($siegeoccuper == NULL AND $siegeoccuper2 == NULL) 
                                                         {
@@ -20104,10 +20119,10 @@
                                                     if($this->input->post('transitedepargare1fid') != '' AND $this->input->post('passagersiegesitinesfid') != '' AND $this->input->post('transitedepargare2fid') != '' AND $this->input->post('passagersiegesitines1fid') != ''
                                                     AND $this->input->post('transitedepargare3fid') != '' AND $this->input->post('passagersiegesitines2fid') != '' AND $this->input->post('prixtransfid') != NULL AND $this->input->post('prixtransitfid') != NULL AND $this->input->post('prixtransit1fid') != NULL)
                                                     {
-                                                        $siegeoccuper = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient' AND ps.num_siege_categorie = '$p_sieg'")->row();
+                                                        $siegeoccuper = $this->_sale_siege_occupe_legacy($dpclient, $p_sieg);
 
-                                                        $siegeoccuper2 = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient2' AND ps.num_siege_categorie = '$p_sieg2'")->row();
-                                                        $siegeoccuper3 = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient3' AND ps.num_siege_categorie = '$p_sieg3'")->row();
+                                                        $siegeoccuper2 = $this->_sale_siege_occupe_legacy($dpclient2, $p_sieg2);
+                                                        $siegeoccuper3 = $this->_sale_siege_occupe_legacy($dpclient3, $p_sieg3);
                                                         
                                                         if($siegeoccuper == NULL AND $siegeoccuper2 == NULL AND $siegeoccuper3 == NULL) 
                                                         {
@@ -20375,11 +20390,11 @@
                                                     if($this->input->post('transitedepargare1fid') != '' AND $this->input->post('passagersiegesitinesfid') != '' AND $this->input->post('transitedepargare2fid') != '' AND $this->input->post('passagersiegesitines1fid') != '' 
                                                     AND $this->input->post('transitedepargare3fid') != '' AND $this->input->post('passagersiegesitines2fid') != '' AND $this->input->post('transitedepargare4fid') != '' AND $this->input->post('passagersiegesitines3fid') != '' AND $this->input->post('prixtransfid') != NULL AND $this->input->post('prixtransitfid') != NULL AND $this->input->post('prixtransit1fid') != NULL AND $this->input->post('prixtransit2fid') != NULL)
                                                     {
-                                                        $siegeoccuper = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient' AND ps.num_siege_categorie = '$p_sieg'")->row();
+                                                        $siegeoccuper = $this->_sale_siege_occupe_legacy($dpclient, $p_sieg);
 
-                                                        $siegeoccuper2 = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient2' AND ps.num_siege_categorie = '$p_sieg2'")->row();
-                                                        $siegeoccuper3 = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient3' AND ps.num_siege_categorie = '$p_sieg3'")->row();
-                                                        $siegeoccuper4 = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient4' AND ps.num_siege_categorie = '$p_sieg4'")->row();
+                                                        $siegeoccuper2 = $this->_sale_siege_occupe_legacy($dpclient2, $p_sieg2);
+                                                        $siegeoccuper3 = $this->_sale_siege_occupe_legacy($dpclient3, $p_sieg3);
+                                                        $siegeoccuper4 = $this->_sale_siege_occupe_legacy($dpclient4, $p_sieg4);
                                                 
                                                         if($siegeoccuper == NULL AND $siegeoccuper2 == NULL AND $siegeoccuper3 == NULL AND $siegeoccuper4 == NULL) 
                                                         {
@@ -20753,9 +20768,9 @@
 
                                                     if($this->input->post('transitedepargare1fid') != '' AND $this->input->post('passagersiegesitinesfid') != '' AND $this->input->post('transitedepargare2fid') != '' AND $this->input->post('passagersiegesitines1fid') != '' AND $this->input->post('prixtransfid') != NULL AND $this->input->post('prixtransitfid') != NULL)
                                                     {
-                                                        $siegeoccuper = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient' AND ps.num_siege_categorie = '$p_sieg'")->row();
+                                                        $siegeoccuper = $this->_sale_siege_occupe_legacy($dpclient, $p_sieg);
 
-                                                        $siegeoccuper2 = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient2' AND ps.num_siege_categorie = '$p_sieg2'")->row();
+                                                        $siegeoccuper2 = $this->_sale_siege_occupe_legacy($dpclient2, $p_sieg2);
                                                         
                                                         if($siegeoccuper == NULL AND $siegeoccuper2 == NULL) 
                                                         {
@@ -20949,10 +20964,10 @@
                                                     if($this->input->post('transitedepargare1fid') != '' AND $this->input->post('passagersiegesitinesfid') != '' AND $this->input->post('transitedepargare2fid') != '' AND $this->input->post('passagersiegesitines1fid') != ''
                                                     AND $this->input->post('transitedepargare3fid') != '' AND $this->input->post('passagersiegesitines2fid') != '' AND $this->input->post('prixtransfid') != NULL AND $this->input->post('prixtransitfid') != NULL AND $this->input->post('prixtransit1fid') != NULL)
                                                     {
-                                                        $siegeoccuper = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient' AND ps.num_siege_categorie = '$p_sieg'")->row();
+                                                        $siegeoccuper = $this->_sale_siege_occupe_legacy($dpclient, $p_sieg);
 
-                                                        $siegeoccuper2 = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient2' AND ps.num_siege_categorie = '$p_sieg2'")->row();
-                                                        $siegeoccuper3 = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient3' AND ps.num_siege_categorie = '$p_sieg3'")->row();
+                                                        $siegeoccuper2 = $this->_sale_siege_occupe_legacy($dpclient2, $p_sieg2);
+                                                        $siegeoccuper3 = $this->_sale_siege_occupe_legacy($dpclient3, $p_sieg3);
                                                         
                                                         if($siegeoccuper == NULL AND $siegeoccuper2 == NULL AND $siegeoccuper3 == NULL) 
                                                         {
@@ -21238,11 +21253,11 @@
                                                     if($this->input->post('transitedepargare1fid') != '' AND $this->input->post('passagersiegesitinesfid') != '' AND $this->input->post('transitedepargare2fid') != '' AND $this->input->post('passagersiegesitines1fid') != '' 
                                                     AND $this->input->post('transitedepargare3fid') != '' AND $this->input->post('passagersiegesitines2fid') != '' AND $this->input->post('transitedepargare4fid') != '' AND $this->input->post('passagersiegesitines3fid') != '' AND $this->input->post('prixtransfid') != NULL AND $this->input->post('prixtransitfid') != NULL AND $this->input->post('prixtransit1fid') != NULL AND $this->input->post('prixtransit2fid') != NULL)
                                                     {
-                                                        $siegeoccuper = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient' AND ps.num_siege_categorie = '$p_sieg'")->row();
+                                                        $siegeoccuper = $this->_sale_siege_occupe_legacy($dpclient, $p_sieg);
 
-                                                        $siegeoccuper2 = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient2' AND ps.num_siege_categorie = '$p_sieg2'")->row();
-                                                        $siegeoccuper3 = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient3' AND ps.num_siege_categorie = '$p_sieg3'")->row();
-                                                        $siegeoccuper4 = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient4' AND ps.num_siege_categorie = '$p_sieg4'")->row();
+                                                        $siegeoccuper2 = $this->_sale_siege_occupe_legacy($dpclient2, $p_sieg2);
+                                                        $siegeoccuper3 = $this->_sale_siege_occupe_legacy($dpclient3, $p_sieg3);
+                                                        $siegeoccuper4 = $this->_sale_siege_occupe_legacy($dpclient4, $p_sieg4);
                                                 
                                                         if($siegeoccuper == NULL AND $siegeoccuper2 == NULL AND $siegeoccuper3 == NULL AND $siegeoccuper4 == NULL) 
                                                         {
@@ -21692,7 +21707,7 @@
                                 if($this->input->post('clientcompmob') != '' AND $rcl === $this->input->post('rclientmob') AND $rcp === $this->input->post('prclientmob'))
                                 {
                                 
-                                    $siegeoccuper = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient' AND ps.num_siege_categorie = '$p_sieg'")->row();
+                                    $siegeoccuper = $this->_sale_siege_occupe_legacy($dpclient, $p_sieg);
                                     
                                     if($siegeoccuper == NULL ) 
                                     {
@@ -21814,7 +21829,7 @@
                                 }
                                 else
                                 {
-                                    $siegeoccuper = $this->db->query("SELECT * FROM passager ps WHERE ps.code_pro = '$dpclient' AND ps.num_siege_categorie = '$p_sieg'")->row();
+                                    $siegeoccuper = $this->_sale_siege_occupe_legacy($dpclient, $p_sieg);
                                     
                                     if($siegeoccuper == NULL )
                                     {

@@ -495,4 +495,235 @@ class Sale_passager_service
 
         return $data;
     }
+
+    /**
+     * Vérifie qu'un siège peut être vendu (source de vérité P0).
+     *
+     * Options :
+     * - lock (bool) : SELECT … FOR UPDATE dans une transaction ouverte
+     * - preflight (bool) : lecture seule, sans verrou
+     * - skip_blocked (bool) : ne pas tester programme_siege_bloque
+     * - skip_quota (bool) : ne pas tester intervalle1/intervalle2
+     *
+     * @param string $code_progr
+     * @param int $num_siege
+     * @param array $opts
+     * @return array{ok:bool, code:string, reason:string}
+     */
+    public function assert_siege_vendable($code_progr, $num_siege, array $opts = array())
+    {
+        $code = trim((string) $code_progr);
+        $num = (int) $num_siege;
+        $lock = !empty($opts['lock']);
+        $skipBlocked = !empty($opts['skip_blocked']);
+        $skipQuota = !empty($opts['skip_quota']);
+
+        if ($num <= 0) {
+            return array('ok' => true, 'code' => 'no_seat', 'reason' => '');
+        }
+        if ($code === '') {
+            return array('ok' => false, 'code' => 'invalid', 'reason' => 'Programme manquant.');
+        }
+
+        if (!isset($this->ci->m_programme)) {
+            $this->ci->load->model('Programme_model', 'm_programme');
+        }
+
+        if (!$skipBlocked && $this->ci->m_programme->siege_est_bloque_programme($code, $num)) {
+            return array(
+                'ok' => false,
+                'code' => 'blocked',
+                'reason' => 'Le siège ' . $num . ' est bloqué à la vente pour ce départ.',
+            );
+        }
+
+        $quota = $this->ci->db->query(
+            "SELECT intervalle1, intervalle2 FROM programme WHERE code_progr = ? LIMIT 1",
+            array($code)
+        )->row();
+        if (!$quota) {
+            return array('ok' => false, 'code' => 'invalid', 'reason' => 'Programme introuvable.');
+        }
+
+        $d = (int) $quota->intervalle1;
+        $f = (int) $quota->intervalle2;
+        if (!$skipQuota && ($d <= 0 || $f <= 0 || $num < $d || $num > $f)) {
+            return array(
+                'ok' => false,
+                'code' => 'hors_quota',
+                'reason' => 'Le siège ' . $num . ' est hors du quota autorisé (' . $d . '–' . $f . ').',
+            );
+        }
+
+        if (!isset($this->ci->m_programme_reconduction)) {
+            $this->ci->load->model('Programme_reconduction_model', 'm_programme_reconduction');
+        }
+        if (!$this->ci->m_programme_reconduction->siege_vendable($code, $num)) {
+            return array(
+                'ok' => false,
+                'code' => 'reconduction',
+                'reason' => 'Ce siège n\'est pas vendable sur ce programme (reconduction).',
+            );
+        }
+
+        if (!isset($this->ci->m_programme_correspondance)) {
+            $this->ci->load->model('Programme_correspondance_model', 'm_programme_correspondance');
+        }
+        $miroir = $this->ci->m_programme_correspondance->miroir_derive_info($code);
+        if ($miroir && (string) $miroir['derive'] === $code) {
+            $suite = (string) $miroir['suite'];
+            $derive = (string) $miroir['derive'];
+            if ($this->_siege_actif_occupe($derive, $num, array($derive), $lock)) {
+                return array(
+                    'ok' => false,
+                    'code' => 'occupied',
+                    'reason' => 'Le siège ' . $num . ' est déjà vendu sur ce départ.',
+                );
+            }
+            if (!$this->_siege_actif_occupe($suite, $num, array($suite), $lock)) {
+                return array(
+                    'ok' => false,
+                    'code' => 'miroir',
+                    'reason' => 'Le siège ' . $num . ' n\'est pas disponible sur la correspondance miroir.',
+                );
+            }
+            return array('ok' => true, 'code' => 'ok', 'reason' => '');
+        }
+
+        $stockCodes = $this->ci->m_programme->codes_siege_stock($code);
+        if ($lock) {
+            $this->_lock_programme_row($code);
+            $this->_lock_siege_stock($stockCodes, $num);
+        }
+
+        if ($this->_siege_actif_occupe($code, $num, $stockCodes, false)) {
+            return array(
+                'ok' => false,
+                'code' => 'occupied',
+                'reason' => 'Le siège ' . $num . ' est déjà vendu.',
+            );
+        }
+
+        return array('ok' => true, 'code' => 'ok', 'reason' => '');
+    }
+
+    /**
+     * Compatibilité addpassager : retourne un objet si le siège n'est PAS vendable, null si libre.
+     *
+     * @param string $code_progr
+     * @param int|string $num_siege
+     * @return object|null
+     */
+    public function occupe_legacy_row($code_progr, $num_siege)
+    {
+        $r = $this->assert_siege_vendable($code_progr, (int) $num_siege, array('preflight' => true));
+        if (!empty($r['ok'])) {
+            return null;
+        }
+
+        return (object) array(
+            'code_pro' => trim((string) $code_progr),
+            'num_siege_categorie' => (int) $num_siege,
+            'siege_refus_code' => $r['code'],
+            'siege_refus_reason' => $r['reason'],
+        );
+    }
+
+    /**
+     * @param string[] $codes
+     * @param int $num
+     */
+    protected function _lock_siege_stock(array $codes, $num)
+    {
+        $num = (int) $num;
+        if ($num <= 0 || empty($codes)) {
+            return;
+        }
+        $in = $this->_sql_in_codes($codes);
+        $this->ci->db->query(
+            "SELECT code_passager FROM passager
+             WHERE code_pro IN ({$in})
+               AND num_siege_categorie = ?
+               AND actif_pas = 0
+             FOR UPDATE",
+            array($num)
+        );
+    }
+
+    /**
+     * @param string $code_progr
+     */
+    protected function _lock_programme_row($code_progr)
+    {
+        $code = trim((string) $code_progr);
+        if ($code === '') {
+            return;
+        }
+        $this->ci->db->query(
+            "SELECT code_progr FROM programme WHERE code_progr = ? FOR UPDATE",
+            array($code)
+        );
+    }
+
+    /**
+     * @param string $code_progr
+     * @param int $num
+     * @param string[] $stockCodes
+     * @param bool $lock
+     */
+    protected function _siege_actif_occupe($code_progr, $num, array $stockCodes, $lock = false)
+    {
+        $num = (int) $num;
+        if ($num <= 0) {
+            return false;
+        }
+        $codes = !empty($stockCodes) ? $stockCodes : array(trim((string) $code_progr));
+        $in = $this->_sql_in_codes($codes);
+        $sql = "SELECT 1 AS o FROM passager
+                WHERE code_pro IN ({$in})
+                  AND num_siege_categorie = ?
+                  AND actif_pas = 0
+                LIMIT 1";
+        if ($lock) {
+            $sql = "SELECT code_passager FROM passager
+                    WHERE code_pro IN ({$in})
+                      AND num_siege_categorie = ?
+                      AND actif_pas = 0
+                    LIMIT 1 FOR UPDATE";
+        }
+        $row = $this->ci->db->query($sql, array($num))->row();
+        return ($row !== null);
+    }
+
+    /**
+     * @param string[] $codes
+     * @return string
+     */
+    protected function _sql_in_codes(array $codes)
+    {
+        $esc = array();
+        foreach ($codes as $c) {
+            $c = trim((string) $c);
+            if ($c !== '') {
+                $esc[] = $this->ci->db->escape($c);
+            }
+        }
+        return !empty($esc) ? implode(',', $esc) : "''";
+    }
+
+    /**
+     * Détecte une violation d'unicité siège après INSERT.
+     *
+     * @return bool
+     */
+    public function insert_failed_duplicate_siege()
+    {
+        $err = $this->ci->db->error();
+        if (!empty($err['code']) && (int) $err['code'] === 1062) {
+            return true;
+        }
+        $msg = isset($err['message']) ? (string) $err['message'] : '';
+        return (stripos($msg, 'uq_passager_siege_actif') !== false
+            || stripos($msg, 'Duplicate entry') !== false);
+    }
 }
