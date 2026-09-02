@@ -504,6 +504,8 @@ class Sale_passager_service
      * - preflight (bool) : lecture seule, sans verrou
      * - skip_blocked (bool) : ne pas tester programme_siege_bloque
      * - skip_quota (bool) : ne pas tester intervalle1/intervalle2
+     * - skip_tampon (bool) : ne pas tester tampon_siege
+     * - allow_tampon (bool) : autoriser le tampon en cours (finalisation vente)
      *
      * @param string $code_progr
      * @param int $num_siege
@@ -517,6 +519,8 @@ class Sale_passager_service
         $lock = !empty($opts['lock']);
         $skipBlocked = !empty($opts['skip_blocked']);
         $skipQuota = !empty($opts['skip_quota']);
+        $skipTampon = !empty($opts['skip_tampon']);
+        $allowTampon = !empty($opts['allow_tampon']);
 
         if ($num <= 0) {
             return array('ok' => true, 'code' => 'no_seat', 'reason' => '');
@@ -587,6 +591,10 @@ class Sale_passager_service
                     'reason' => 'Le siège ' . $num . ' n\'est pas disponible sur la correspondance miroir.',
                 );
             }
+            $tamponFail = $this->_assert_tampon_libre($code, $num, $skipTampon, $allowTampon);
+            if ($tamponFail !== null) {
+                return $tamponFail;
+            }
             return array('ok' => true, 'code' => 'ok', 'reason' => '');
         }
 
@@ -604,7 +612,41 @@ class Sale_passager_service
             );
         }
 
+        $tamponFail = $this->_assert_tampon_libre($code, $num, $skipTampon, $allowTampon);
+        if ($tamponFail !== null) {
+            return $tamponFail;
+        }
+
         return array('ok' => true, 'code' => 'ok', 'reason' => '');
+    }
+
+    /**
+     * @param string $code_progr
+     * @param int $num
+     * @param bool $skipTampon
+     * @param bool $allowTampon
+     * @return array|null
+     */
+    protected function _assert_tampon_libre($code_progr, $num, $skipTampon, $allowTampon)
+    {
+        if ($skipTampon || $allowTampon) {
+            return null;
+        }
+        if (!isset($this->ci->m_tampon_siege)) {
+            $this->ci->load->model('Tampon_siege_model', 'm_tampon_siege');
+        }
+        if (!isset($this->ci->m_programme)) {
+            $this->ci->load->model('Programme_model', 'm_programme');
+        }
+        $stockCodes = $this->ci->m_programme->codes_siege_stock($code_progr);
+        if ($this->ci->m_tampon_siege->siege_en_tampon($stockCodes, (int) $num)) {
+            return array(
+                'ok' => false,
+                'code' => 'tampon',
+                'reason' => 'Le siège ' . (int) $num . ' est en cours de réservation sur un autre guichet.',
+            );
+        }
+        return null;
     }
 
     /**

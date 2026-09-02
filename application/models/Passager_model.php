@@ -137,7 +137,10 @@
                 $assert = $CI->sale_svc->assert_siege_vendable(
                     $data['code_pro'],
                     (int) $data['num_siege_categorie'],
-                    array('lock' => true)
+                    array(
+                        'lock' => true,
+                        'allow_tampon' => true,
+                    )
                 );
                 if (empty($assert['ok'])) {
                     $this->db->trans_rollback();
@@ -235,7 +238,10 @@
                     $assert = $CI->sale_svc->assert_siege_vendable(
                         $codePro,
                         (int) $data['num_siege_categorie'],
-                        array('lock' => true)
+                        array(
+                            'lock' => true,
+                            'allow_tampon' => true,
+                        )
                     );
                     if (empty($assert['ok'])) {
                         $this->db->trans_rollback();

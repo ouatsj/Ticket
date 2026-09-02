@@ -7,6 +7,9 @@
 # Purge cache fichier expiré (02h30)
 30 2 * * * php /var/www/rakietabus/ticket/scripts/cron/purge_app_cache.php >> /var/log/rakieta-cache-purge.log 2>&1
 
+# Purge tampons siège expirés (toutes les 15 min)
+*/15 * * * * php /var/www/rakietabus/ticket/scripts/cron/purge_tampon_siege.php >> /var/log/rakieta-tampon-purge.log 2>&1
+
 # Détection fichiers PHP tronqués (03h00)
 0 3 * * * php /var/www/rakietabus/ticket/scripts/check_truncated_php.php >> /var/log/rakieta-truncate-check.log 2>&1
 

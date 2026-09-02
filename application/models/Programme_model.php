@@ -131,6 +131,68 @@
                 WHERE b.code_progr = pr.code_progr AND b.siege_num = sc.siege_num
             )";
         }
+
+        /**
+         * Filtre passager actif uniquement (actif_pas = 0).
+         *
+         * @param string $alias ex. p, p2
+         * @return string
+         */
+        protected function _cdprog_actif_pas_and($alias = 'p')
+        {
+            $a = preg_replace('/[^a-zA-Z0-9_]/', '', (string) $alias);
+            if ($a === '') {
+                $a = 'p';
+            }
+            return " AND {$a}.actif_pas = 0";
+        }
+
+        /**
+         * Exclut les sièges réservés en tampon (autre guichet / session).
+         *
+         * @param string[] $codes
+         * @param string $aliasNum ex. sc.siege_num
+         * @return string
+         */
+        protected function _cdprog_tampon_and(array $codes, $aliasNum = 'sc.siege_num')
+        {
+            if (!$this->db->table_exists('tampon_siege')) {
+                return '';
+            }
+            $in = $this->_sql_in_codes($codes);
+            if ($in === "''") {
+                return '';
+            }
+            $aliasNum = preg_replace('/[^a-zA-Z0-9_.]/', '', (string) $aliasNum);
+            if ($aliasNum === '') {
+                $aliasNum = 'sc.siege_num';
+            }
+            return " AND NOT EXISTS (
+                SELECT 1 FROM tampon_siege t
+                WHERE t.codepro IN ({$in}) AND t.numsieg = {$aliasNum}
+            )";
+        }
+
+        /**
+         * Exclut tampon via pr.code_progr (requêtes multi-programmes / bus).
+         *
+         * @param string $aliasNum
+         * @return string
+         */
+        protected function _cdprog_tampon_and_pr($aliasNum = 'sc.siege_num')
+        {
+            if (!$this->db->table_exists('tampon_siege')) {
+                return '';
+            }
+            $aliasNum = preg_replace('/[^a-zA-Z0-9_.]/', '', (string) $aliasNum);
+            if ($aliasNum === '') {
+                $aliasNum = 'sc.siege_num';
+            }
+            return " AND NOT EXISTS (
+                SELECT 1 FROM tampon_siege t
+                WHERE t.codepro = pr.code_progr AND t.numsieg = {$aliasNum}
+            )";
+        }
         
         public function create(array $data)
         {
@@ -1970,6 +2032,10 @@
                 return array();
             }
             $bloqueAnd = $this->_cdprog_bloque_and($cd);
+            $stockCodes = $this->codes_siege_stock($cd);
+            $tamponAnd = $this->_cdprog_tampon_and($stockCodes);
+            $actifPas = $this->_cdprog_actif_pas_and('p');
+            $actifPas2 = $this->_cdprog_actif_pas_and('p2');
 
             // Dérivé Banfora→Bobo : miroir des sièges déjà occupés sur la suite Bobo.
             if ($miroir) {
@@ -1987,12 +2053,14 @@
                         WHERE p.code_pro = '{$suiteEsc}'
                           AND p.num_siege_categorie IS NOT NULL
                           AND p.num_siege_categorie BETWEEN {$d} AND {$f}
+                          {$actifPas}
                     )
                     AND sc.siege_num NOT IN (
                         SELECT p2.num_siege_categorie FROM passager p2
                         WHERE p2.code_pro = '{$deriveEsc}'
                           AND p2.num_siege_categorie IS NOT NULL
                           AND p2.num_siege_categorie BETWEEN {$d} AND {$f}
+                          {$actifPas2}
                     )
                     AND pr.code_progr='{$cdEsc}'
                     AND pr.date_progr='{$datEsc}'
@@ -2003,6 +2071,7 @@
                     AND pr.actif_prog = 0
                     AND sc.siege_num BETWEEN {$d} AND {$f}
                     {$bloqueAnd}
+                    {$tamponAnd}
                     ORDER BY sc.siege_num ASC"
                 )->result();
             }
@@ -2019,7 +2088,8 @@
                 WHERE siege_num NOT IN (SELECT p.num_siege_categorie FROM passager p
                                           WHERE p.code_pro IN ({$occupes})
                                           AND p.num_siege_categorie IS NOT NULL
-                                          AND p.num_siege_categorie BETWEEN {$d} AND {$f})
+                                          AND p.num_siege_categorie BETWEEN {$d} AND {$f}
+                                          {$actifPas})
                 AND pr.code_progr='{$cdEsc}'
                 AND pr.date_progr='{$datEsc}'
                 AND l.nom_ligne='{$lgEsc}'
@@ -2029,6 +2099,7 @@
                 AND pr.actif_prog = 0
                 AND sc.siege_num BETWEEN {$d} AND {$f}
                 {$bloqueAnd}
+                {$tamponAnd}
                 {$recoAnd}
                 ORDER BY sc.siege_num ASC"
             )->result();
@@ -2041,6 +2112,8 @@
         public function cdprogbus($cid, $cd, $dat, $lg, $hr, $d, $f)
         {
             $bloquePr = $this->_cdprog_bloque_and_pr();
+            $tamponPr = $this->_cdprog_tampon_and_pr();
+            $actifPas = $this->_cdprog_actif_pas_and('p');
             return $this->db->query(
                 "SELECT * FROM siege_categorie sc
                 JOIN categorie ct ON sc.idcat_bus = ct.categorie
@@ -2065,7 +2138,8 @@
                                           AND lh.actif_lh = 1
                                           AND pr.actif_prog = 0
                                           AND p.num_siege_categorie IS NOT NULL
-                                          AND sc.siege_num BETWEEN $d AND $f)
+                                          AND sc.siege_num BETWEEN $d AND $f
+                                          {$actifPas})
                     
                 AND pr.depart_code = '$cd'
                 AND pr.date_progr = '$dat'
@@ -2076,6 +2150,7 @@
                 AND pr.actif_prog = 0
                 AND sc.siege_num BETWEEN $d AND $f
                 {$bloquePr}
+                {$tamponPr}
                 ORDER BY sc.siege_num ASC")->result();
         }
 
@@ -2137,6 +2212,10 @@
                 return array();
             }
             $bloqueAnd = $this->_cdprog_bloque_and($cd);
+            $stockCodes = $this->codes_siege_stock($cd);
+            $tamponAnd = $this->_cdprog_tampon_and($stockCodes);
+            $actifPas = $this->_cdprog_actif_pas_and('p');
+            $actifPas2 = $this->_cdprog_actif_pas_and('p2');
 
             if ($miroir) {
                 $suiteEsc = $this->db->escape_str($miroir['suite']);
@@ -2153,12 +2232,14 @@
                         WHERE p.code_pro = '{$suiteEsc}'
                           AND p.num_siege_categorie IS NOT NULL
                           AND p.num_siege_categorie BETWEEN {$d} AND {$f}
+                          {$actifPas}
                     )
                     AND sc.siege_num NOT IN (
                         SELECT p2.num_siege_categorie FROM passager p2
                         WHERE p2.code_pro = '{$deriveEsc}'
                           AND p2.num_siege_categorie IS NOT NULL
                           AND p2.num_siege_categorie BETWEEN {$d} AND {$f}
+                          {$actifPas2}
                     )
                     AND pr.code_progr='{$cdEsc}'
                     AND h.h_active = 1
@@ -2166,6 +2247,7 @@
                     AND pr.actif_prog = 0
                     AND sc.siege_num BETWEEN {$d} AND {$f}
                     {$bloqueAnd}
+                    {$tamponAnd}
                     ORDER BY sc.siege_num ASC"
                 )->result();
             }
@@ -2182,13 +2264,15 @@
                 WHERE siege_num NOT IN (SELECT p.num_siege_categorie FROM passager p
                                           WHERE p.code_pro IN ({$occupes})
                                           AND p.num_siege_categorie IS NOT NULL
-                                          AND p.num_siege_categorie BETWEEN {$d} AND {$f})
+                                          AND p.num_siege_categorie BETWEEN {$d} AND {$f}
+                                          {$actifPas})
                 AND pr.code_progr='{$cdEsc}'
                 AND h.h_active = 1
                 AND lh.actif_lh = 1
                 AND pr.actif_prog = 0
                 AND sc.siege_num BETWEEN {$d} AND {$f}
                 {$bloqueAnd}
+                {$tamponAnd}
                 {$recoAnd}
                 ORDER BY sc.siege_num ASC"
             )->result();
@@ -2197,6 +2281,8 @@
         public function cdprogtransbus($cid, $cd, $d, $f)
         {
             $bloquePr = $this->_cdprog_bloque_and_pr();
+            $tamponPr = $this->_cdprog_tampon_and_pr();
+            $actifPas = $this->_cdprog_actif_pas_and('p');
             return $this->db->query(
                 "SELECT * FROM siege_categorie sc
                 JOIN categorie ct ON sc.idcat_bus=ct.categorie
@@ -2218,7 +2304,8 @@
                                           AND lh.actif_lh = 1
                                           AND p.num_siege_categorie IS NOT NULL
                                           AND pr.actif_prog = 0
-                                          AND sc.siege_num BETWEEN $d AND $f)
+                                          AND sc.siege_num BETWEEN $d AND $f
+                                          {$actifPas})
                     
                 AND pr.depart_code='$cd'
                 AND h.h_active = 1
@@ -2226,6 +2313,7 @@
                 AND pr.actif_prog = 0
                 AND sc.siege_num BETWEEN $d AND $f
                 {$bloquePr}
+                {$tamponPr}
                 ORDER BY sc.siege_num ASC")->result();
         }
 

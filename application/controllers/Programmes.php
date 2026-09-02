@@ -641,16 +641,24 @@
             if (!isset($this->m_programme)) {
                 $this->load->model('Programme_model', 'm_programme');
             }
-            if ($this->m_programme->siege_est_bloque_programme($pro, (int) $ns)) {
+            if (!isset($this->sale_svc)) {
+                $this->load->library('sale_passager_service', null, 'sale_svc');
+            }
+
+            $num = (int) $ns;
+            if ($this->m_programme->siege_est_bloque_programme($pro, $num)) {
                 return $this->load->view('beagle/pages/_programme/json', array('json' => null));
             }
 
-            $arraysieg = array(
-                'codepro' => $pro,
-                'numsieg' => $ns,
-            );
-            $t = $this->m_tampon_siege->create($arraysieg);
-            $tp = $this->m_tampon_siege->get($pro, $ns);
+            $assert = $this->sale_svc->assert_siege_vendable($pro, $num, array(
+                'preflight' => true,
+                'skip_tampon' => true,
+            ));
+            if (empty($assert['ok'])) {
+                return $this->load->view('beagle/pages/_programme/json', array('json' => null));
+            }
+
+            $tp = $this->m_tampon_siege->reserve($pro, $num);
             return $this->load->view('beagle/pages/_programme/json', array('json' => $tp));
 
         }
