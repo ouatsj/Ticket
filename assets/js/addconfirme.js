@@ -9,21 +9,32 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!hSel) return;
         hSel.options.length = 1;
         var list = Array.isArray(heures) ? heures : [];
+        var bySlot = {};
+        var order = [];
         for (var i = 0; i < list.length; i++) {
             var hr = list[i];
             if (!hr || hr.id_ligneheure == null || hr.id_ligneheure === '') continue;
+            var hh = String(hr.heure || '').trim();
+            var slot = hh + '|' + String(hr.id_ligneheure);
+            // Sans date côté vente directe : dédupliquer par heure (libellé affiché).
+            var slotVis = hh || slot;
+            if (bySlot[slotVis]) continue;
+            bySlot[slotVis] = hr;
+            order.push(slotVis);
+        }
+        for (var j = 0; j < order.length; j++) {
+            var hr2 = bySlot[order[j]];
             var opt = document.createElement('option');
-            var hasProg = !!(hr.has_programme === true || hr.has_programme === 1 || hr.has_programme === '1');
-            // Avec programme : format historique confirm (code_progr/tarif/id_lh) pour siegdispo.
-            // Sans programme : id_lh/heure (transit au choix).
-            if (hasProg && hr.code_progr) {
-                var tfHv = (hr.typetarif != null && String(hr.typetarif).trim() !== '') ? String(hr.typetarif) : '1';
-                opt.value = String(hr.code_progr) + '/' + tfHv + '/' + String(hr.id_ligneheure);
+            var hasProg = !!(hr2.has_programme === true || hr2.has_programme === 1 || hr2.has_programme === '1');
+            if (hasProg && hr2.code_progr) {
+                var tfHv = (hr2.typetarif != null && String(hr2.typetarif).trim() !== '') ? String(hr2.typetarif) : '1';
+                opt.value = String(hr2.code_progr) + '/' + tfHv + '/' + String(hr2.id_ligneheure);
             } else {
-                opt.value = String(hr.id_ligneheure) + '/' + String(hr.heure || '');
+                opt.value = String(hr2.id_ligneheure) + '/' + String(hr2.heure || '');
             }
             opt.setAttribute('data-has-programme', hasProg ? '1' : '0');
-            opt.innerHTML = hr.heure || '';
+            if (hr2.heure) opt.setAttribute('data-heure', String(hr2.heure));
+            opt.innerHTML = hr2.heure || '';
             hSel.add(opt);
         }
     }
@@ -443,30 +454,34 @@ document.addEventListener('DOMContentLoaded', () => {
         list = list.filter(function (row) {
             return row && row.code_progr != null && __confRowIsAfterPrev(row, pDate, pMin, __CONF_TRANSIT_MARGE_MIN);
         });
-        // Filet anti-doublon (même créneau / même programme — ex. ancien endpoint chemin).
-        var seen = {};
-        list = list.filter(function (row) {
-            var dprog = row.date_progr ? String(row.date_progr).slice(0, 10) : '';
-            var lh = String(row.id_ligneheure != null ? row.id_ligneheure : '');
-            var key = dprog + '|' + lh + '|' + String(row.code_progr);
-            if (seen[key]) return false;
-            seen[key] = true;
-            return true;
-        });
-        list.sort(function (a, b) {
-            var da = String(a.date_progr || '').slice(0, 10);
-            var db = String(b.date_progr || '').slice(0, 10);
-            if (da < db) return -1;
-            if (da > db) return 1;
-            return (__confHeureToMinutes(a.heure) || 0) - (__confHeureToMinutes(b.heure) || 0);
-        });
+        // Une option par créneau (date + heure) : plusieurs code_progr = même libellé sinon.
+        var bySlot = {};
+        var order = [];
         for (var i = 0; i < list.length; i++) {
             var row = list[i];
+            var dprog = row.date_progr ? String(row.date_progr).slice(0, 10) : '';
+            var hh = String(row.heure || '').trim();
+            var slot = dprog + '|' + hh;
+            if (!bySlot[slot]) {
+                bySlot[slot] = row;
+                order.push(slot);
+            }
+        }
+        order.sort(function (a, b) {
+            var ra = bySlot[a], rb = bySlot[b];
+            var da = String(ra.date_progr || '').slice(0, 10);
+            var db = String(rb.date_progr || '').slice(0, 10);
+            if (da < db) return -1;
+            if (da > db) return 1;
+            return (__confHeureToMinutes(ra.heure) || 0) - (__confHeureToMinutes(rb.heure) || 0);
+        });
+        for (var j = 0; j < order.length; j++) {
+            var r = bySlot[order[j]];
             var opt = document.createElement('option');
-            opt.value = `${row.code_progr}/${row.intervalle1}/${row.intervalle2}/${row.id_ligneheure}/${row.prix}`;
-            opt.setAttribute('data-heure', row.heure || '');
-            opt.setAttribute('data-date-progr', row.date_progr ? String(row.date_progr).slice(0, 10) : '');
-            opt.innerHTML = `${row.heure}/${row.date_progr}`;
+            opt.value = `${r.code_progr}/${r.intervalle1}/${r.intervalle2}/${r.id_ligneheure}/${r.prix}`;
+            opt.setAttribute('data-heure', r.heure || '');
+            opt.setAttribute('data-date-progr', r.date_progr ? String(r.date_progr).slice(0, 10) : '');
+            opt.innerHTML = `${r.heure}/${r.date_progr}`;
             sel.add(opt);
         }
         if (sel.options.length > 1) {
@@ -737,26 +752,50 @@ document.addEventListener('DOMContentLoaded', () => {
             try { rows = JSON.parse(http.responseText); } catch (e) { rows = null; }
             if (!hSel) return;
             hSel.options.length = 1;
-            if (rows && Object.entries(rows).length >= 1) {
-                for (var key in Object.entries(rows)) {
-                    var row = rows[key];
-                    if (!row || row.id_ligneheure == null) continue;
-                    var opt = document.createElement('option');
-                    if (row.code_progr) {
-                        var tfL1 = (row.typetarif != null && String(row.typetarif).trim() !== '') ? String(row.typetarif) : '1';
-                        opt.value = String(row.code_progr) + '/' + tfL1 + '/' + String(row.id_ligneheure);
-                    } else {
-                        opt.value = `${row.id_ligneheure}/${row.heure || ''}`;
-                    }
-                    opt.setAttribute('data-has-programme', '1');
-                    opt.setAttribute('data-transit-leg1', '1');
-                    opt.setAttribute('data-heure', row.heure || '');
-                    if (row.date_progr) opt.setAttribute('data-date-progr', String(row.date_progr).slice(0, 10));
-                    if (row.code_progr) opt.setAttribute('data-code-progr', String(row.code_progr));
-                    if (row.gareidentif) opt.setAttribute('data-gareidentif', String(row.gareidentif));
-                    opt.innerHTML = row.heure || '';
-                    hSel.add(opt);
+            var list = [];
+            if (Array.isArray(rows)) list = rows;
+            else if (rows && typeof rows === 'object') {
+                Object.keys(rows).forEach(function (k) { list.push(rows[k]); });
+            }
+            // Une option par créneau (date + heure) — verifheureitine peut renvoyer N programmes.
+            var bySlot = {};
+            var order = [];
+            for (var i = 0; i < list.length; i++) {
+                var row = list[i];
+                if (!row || row.id_ligneheure == null) continue;
+                var dprog = row.date_progr ? String(row.date_progr).slice(0, 10) : '';
+                var hh = String(row.heure || '').trim();
+                var slot = dprog + '|' + hh;
+                if (!bySlot[slot]) {
+                    bySlot[slot] = row;
+                    order.push(slot);
                 }
+            }
+            order.sort(function (a, b) {
+                var ra = bySlot[a], rb = bySlot[b];
+                var da = String(ra.date_progr || '').slice(0, 10);
+                var db = String(rb.date_progr || '').slice(0, 10);
+                if (da < db) return -1;
+                if (da > db) return 1;
+                return (__confHeureToMinutes(ra.heure) || 0) - (__confHeureToMinutes(rb.heure) || 0);
+            });
+            for (var j = 0; j < order.length; j++) {
+                var r = bySlot[order[j]];
+                var opt = document.createElement('option');
+                if (r.code_progr) {
+                    var tfL1 = (r.typetarif != null && String(r.typetarif).trim() !== '') ? String(r.typetarif) : '1';
+                    opt.value = String(r.code_progr) + '/' + tfL1 + '/' + String(r.id_ligneheure);
+                } else {
+                    opt.value = `${r.id_ligneheure}/${r.heure || ''}`;
+                }
+                opt.setAttribute('data-has-programme', '1');
+                opt.setAttribute('data-transit-leg1', '1');
+                opt.setAttribute('data-heure', r.heure || '');
+                if (r.date_progr) opt.setAttribute('data-date-progr', String(r.date_progr).slice(0, 10));
+                if (r.code_progr) opt.setAttribute('data-code-progr', String(r.code_progr));
+                if (r.gareidentif) opt.setAttribute('data-gareidentif', String(r.gareidentif));
+                opt.innerHTML = r.heure || '';
+                hSel.add(opt);
             }
             if (hSel.options.length > 1) {
                 hSel.selectedIndex = 1;
@@ -1058,19 +1097,13 @@ document.addEventListener('DOMContentLoaded', () => {
                                                         if (Object.entries(donitinescf).length >= 1) 
                                 {
                                     var i = Object.entries(donitinescf).length;
-                                    
-                                    for (let key in Object.entries(donitinescf)) 
-                                    {
-                                        
-                                        document.querySelector('#nbrtranscf').value = Object.entries(donitinescf).length;
-                                        __confShowTransitLegsUi(i);
-                                        if (document.querySelector('#psiegesitinescf')) document.querySelector('#psiegesitinescf').options.length = 1;
-                                        if (document.querySelector('#transitedepargarecf1')) document.querySelector('#transitedepargarecf1').options.length = 0;
-                                        if (document.querySelector('#hdepartitinecf')) document.querySelector('#hdepartitinecf').options.length = 1;
-                    
-                                        document.querySelector('#idcompgcf').value = `${donitinescf[0].id_compaga}`;
-                                        __confFillLigne1Locked(donitinescf[0]);
-                                    }
+                                    document.querySelector('#nbrtranscf').value = i;
+                                    __confShowTransitLegsUi(i);
+                                    if (document.querySelector('#psiegesitinescf')) document.querySelector('#psiegesitinescf').options.length = 1;
+                                    if (document.querySelector('#transitedepargarecf1')) document.querySelector('#transitedepargarecf1').options.length = 0;
+                                    if (document.querySelector('#hdepartitinecf')) document.querySelector('#hdepartitinecf').options.length = 1;
+                                    document.querySelector('#idcompgcf').value = `${donitinescf[0].id_compaga}`;
+                                    __confFillLigne1Locked(donitinescf[0]);
                         
                                     if(i === 2)
                                     {
