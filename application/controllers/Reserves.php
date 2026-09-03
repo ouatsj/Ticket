@@ -208,112 +208,73 @@
         }
 
         /**
-         * Ligne R d'origine : caisse et date déjà posées à la réservation.
-         *
-         * @return array{idcptuser:string,datep_create:string,code_passager:string}
+         * N° ticket vente séquentiel du validateur (même logique qu'addpassager).
+         * Format : mmdd + seq_jour + initiale + roleattribut.
          */
-        protected function _reserve_caisse_from_passager($cdpass)
+        protected function _reserve_sale_ticket_code($iduser, $usen)
         {
-            $row = $this->db->query(
-                "SELECT p.idcptuser, p.datep_create, p.createpas_at, p.code_passager FROM passager p
-                 WHERE p.code_passager = ? AND p.code_ticket = 'R' LIMIT 1",
-                array($cdpass)
+            $today = mdate("%Y-%m-%d", now('UTC'));
+            $pascompter = $this->db->query(
+                "SELECT COUNT(code_passager) AS id FROM passager p WHERE p.datep_create = ?",
+                array($today)
             )->row();
-            $id = ($row && isset($row->idcptuser) && (string) $row->idcptuser !== '' && (string) $row->idcptuser !== '0')
-                ? (string) $row->idcptuser
-                : '';
-            $dt = '';
-            if ($row && !empty($row->datep_create) && $row->datep_create !== '0000-00-00') {
-                $dt = str_replace('/', '-', substr((string) $row->datep_create, 0, 10));
-            } elseif ($row && !empty($row->createpas_at) && $row->createpas_at !== '0000-00-00 00:00:00') {
-                $ts = strtotime((string) $row->createpas_at);
-                if ($ts) {
-                    $dt = date('Y-m-d', $ts);
-                }
-            }
-            $cp = ($row && !empty($row->code_passager)) ? (string) $row->code_passager : (string) $cdpass;
-            return array('idcptuser' => $id, 'datep_create' => $dt, 'code_passager' => $cp);
-        }
-
-        /**
-         * Initiale du login du titulaire (compte_user), pour le n° coupon retour.
-         */
-        protected function _reserve_username_initial($idCaisse)
-        {
-            $u = $this->db->query(
-                "SELECT LEFT(cu.username, 1) AS ini
-                 FROM attributions_role ar
-                 JOIN user_login ul ON ar.idgestcompte = ul.uid_login
-                 JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
-                 WHERE ar.roleattribut = ?
-                 LIMIT 1",
-                array($idCaisse)
-            )->row();
-            if ($u && isset($u->ini) && $u->ini !== '') {
-                return (string) $u->ini;
-            }
-            return '';
-        }
-
-        /**
-         * N° coupon retour (non_passager) sur la caisse du réservant.
-         */
-        protected function _reserve_np_ticket_code($idCaisse, $usen, $dateYmd)
-        {
-            $idCaisse = (string) (int) $idCaisse;
-            $day = $dateYmd !== '' ? $dateYmd : mdate("%Y-%m-%d", now('UTC'));
-            $day = str_replace('/', '-', $day);
-            $comtnp = $this->db->query(
-                "SELECT COUNT(code_non_pass) AS id FROM non_passager np
-                 WHERE DATE(np.datevente) = DATE(?)
-                 AND np.cptus = ?",
-                array($day, $idCaisse)
-            )->row();
-            $seq = ($comtnp && isset($comtnp->id)) ? ((int) $comtnp->id + 1) : 1;
-            $parts = explode('-', $day);
-            $mmdd = (count($parts) === 3) ? ($parts[1] . $parts[2]) : mdate("%m%d", now('UTC'));
+            $seq = ($pascompter && isset($pascompter->id)) ? ((int) $pascompter->id + 1) : 1;
             if ($usen === '') {
                 $usen = 'U';
             }
-            return $mmdd . 'N' . $seq . $usen . $idCaisse;
+            return mdate("%m%d", now('UTC')) . $seq . $usen . $iduser;
         }
 
         /**
-         * Conversion R → vendu : pas de nouvel idcptuser, pas de nouveau n° (réutilise code_passager).
-         * datep_create du R est conservée ; on ne la pose que si elle était vide.
+         * N° coupon retour (non_passager) sur la caisse du validateur.
          */
-        protected function _reserve_pasarrays_vente($codePassager, $cl, $cprog, $datepKeep)
+        protected function _reserve_np_ticket_code($iduser, $usen)
         {
-            $pasarrays = array(
-                'code_ticket' => $codePassager,
+            $today = mdate("%Y-%m-%d", now('UTC'));
+            $comtnp = $this->db->query(
+                "SELECT COUNT(code_non_pass) AS id FROM non_passager np WHERE np.datevente = ?",
+                array($today)
+            )->row();
+            $seq = ($comtnp && isset($comtnp->id)) ? ((int) $comtnp->id + 1) : 1;
+            if ($usen === '') {
+                $usen = 'U';
+            }
+            return mdate("%m%d", now('UTC')) . 'N' . $seq . $usen . $iduser;
+        }
+
+        /**
+         * Conversion R → vente caisse du validateur (n° séquentiel + recette à son nom).
+         * Ne pas renvoyer le siège : il est déjà sur la ligne R ; le reposer déclenche
+         * assert_siege_vendable (« déjà vendu ») et l’update échoue → le client reste listé.
+         */
+        protected function _reserve_pasarrays_vente($codeTicket, $iduser, $cl, $cprog)
+        {
+            return array(
+                'code_ticket' => $codeTicket,
+                'idcptuser' => $iduser,
                 'id_client_pass' => $cl,
                 'code_pro' => $cprog,
-                'num_siege_categorie' => $this->input->post('numerosieg'),
-                'num_cat' => $this->input->post('catbus'),
                 'statut_code' => 'vendu',
                 'prixvente' => $this->input->post('tickprix'),
+                'createpas_at' => now('UTC'),
+                'datep_create' => mdate("%Y/%m/%d", now('UTC')),
             );
-            // Ne pas écraser datep_create déjà posée à la réservation.
-            if ($datepKeep === '') {
-                $pasarrays['datep_create'] = mdate("%Y/%m/%d", now('UTC'));
-            }
-            return $pasarrays;
         }
 
         /**
-         * Force cptus du coupon retour sur le réservant (le guard peut le remapper au validateur).
+         * Force cptus du coupon retour sur le validateur (le guard peut le remapper).
          */
-        protected function _reserve_force_np_caisse($codeNonPass, $codeTicket, $idCaisse)
+        protected function _reserve_force_np_caisse($codeNonPass, $codeTicket, $iduser)
         {
-            if ($codeNonPass === '' || $codeTicket === '' || $idCaisse === '') {
+            if ($codeNonPass === '' || $codeTicket === '' || $iduser === '') {
                 return;
             }
             $this->db->where('code_non_pass', $codeNonPass)
                 ->where('codeticket', $codeTicket)
-                ->update('non_passager', array('cptus' => $idCaisse));
+                ->update('non_passager', array('cptus' => $iduser));
         }
 
-         //valider reservation
+         //valider reservation = vente caisse du validateur (pas une confirmation)
         public function valideconfirmation($ckey, $cl, $cdpass, $reg, $cprog, $h, $tf)
         {
             $this->company = $this->m_entreprises->get_key($ckey);
@@ -325,14 +286,6 @@
             $idcmpt = $this->input->post('compconnected');
 
             $usen = substr($this->session->agent->username, 0, 1);
-            $titulaire = $this->_reserve_caisse_from_passager($cdpass);
-            $idCaisse = ($titulaire['idcptuser'] !== '') ? $titulaire['idcptuser'] : (string) $iduser;
-            $datepKeep = $titulaire['datep_create'];
-            $codeIdentite = ($titulaire['code_passager'] !== '') ? $titulaire['code_passager'] : (string) $cdpass;
-            $usenCaisse = $this->_reserve_username_initial($idCaisse);
-            if ($usenCaisse === '') {
-                $usenCaisse = $usen;
-            }
 
             $imprimeordinaire = $this->input->post('ordinaire');
             $imprimeepson = $this->input->post('epson');
@@ -359,7 +312,7 @@
                                 AND p.datep_create = '$today' ORDER BY date_emis DESC LIMIT 1")->row();
 
 
-                            $codtickreserv = $codeIdentite;
+                            $codtickreserv = $this->_reserve_sale_ticket_code($iduser, $usen);
 
                             $argvuti = array(
                                 'nom_client' => $this->input->post('nomcl'),
@@ -375,7 +328,7 @@
                             $clconfirm = $this->m_client->update($cl, $argvuti);
                                 //insertion des données dans la table passager
                             $r = 'R';
-                            $pasarrays = $this->_reserve_pasarrays_vente($codtickreserv, $cl, $cprog, $datepKeep);
+                            $pasarrays = $this->_reserve_pasarrays_vente($codtickreserv, $iduser, $cl, $cprog);
                             $this->m_passager->update($cdpass, $r, $pasarrays);
 
                             $dte = date('H:i', time('H:i')+3600);
@@ -493,8 +446,8 @@
                                 AND np.datevente = '$today' ORDER BY datenp_create DESC LIMIT 1")->row();
 
                             
-                                $cdnonptick = $this->_reserve_np_ticket_code($idCaisse, $usenCaisse, $datepKeep);
-                            $cdnump = $codeIdentite;
+                                $cdnonptick = $this->_reserve_np_ticket_code($iduser, $usen);
+                            $cdnump = $this->_reserve_sale_ticket_code($iduser, $usen);
                                     
                             $argvuti = array(
                                 'nom_client' => $this->input->post('nomcl'),
@@ -510,23 +463,23 @@
                             $clconfirm = $this->m_client->update($cl, $argvuti);
 
                         
-                            $pasarrays = $this->_reserve_pasarrays_vente($cdnump, $cl, $cprog, $datepKeep);
+                            $pasarrays = $this->_reserve_pasarrays_vente($cdnump, $iduser, $cl, $cprog);
                             $this->m_passager->update($cdpass, $r, $pasarrays);
 
                             $nonarray = array(
                                 'code_non_pass' => $cdpass,
                                 'codeticket' => $cdnonptick,
-                                'cptus' => $idCaisse,
+                                'cptus' => $iduser,
                                 'sousgareidentif' => $sgid,
                                 'id_client_npass' => $cl,
                                 'id_ligne_pass' => $this->input->post('lignecode'),
                                 'nom_ligne' => $this->input->post('garename'),
                                 'prixretour' => $this->input->post('tickprix'),
-                                'datevente' => ($datepKeep !== '') ? str_replace('-', '/', $datepKeep) : mdate("%Y/%m/%d", now('UTC')),
+                                'datevente' => mdate("%Y/%m/%d", now('UTC')),
                                 'creatednp_at' => now('UTC'),
                             );
                             $nonrid = $this->m_non_passager->create($nonarray);
-                            $this->_reserve_force_np_caisse($cdpass, $cdnonptick, $idCaisse);
+                            $this->_reserve_force_np_caisse($cdpass, $cdnonptick, $iduser);
 
                             
                             if ($nonrid != FALSE)
@@ -664,7 +617,7 @@
 
 
                             $r = 'R';
-                            $codtickreserv = $codeIdentite;
+                            $codtickreserv = $this->_reserve_sale_ticket_code($iduser, $usen);
 
                             $argvuti = array(
                                 'nom_client' => $this->input->post('nomcl'),
@@ -680,7 +633,7 @@
                             $clconfirm = $this->m_client->update($cl, $argvuti);
                                                     //insertion des données dans la table passager
                         
-                            $pasarrays = $this->_reserve_pasarrays_vente($codtickreserv, $cl, $cprog, $datepKeep);
+                            $pasarrays = $this->_reserve_pasarrays_vente($codtickreserv, $iduser, $cl, $cprog);
                             $this->m_passager->update($cdpass, $r, $pasarrays);
 
                             
@@ -801,8 +754,8 @@
                                 AND np.datevente = '$today' ORDER BY datenp_create DESC LIMIT 1")->row();
 
 
-                            $cdnonptick = $this->_reserve_np_ticket_code($idCaisse, $usenCaisse, $datepKeep);
-                            $cdnump = $codeIdentite;
+                            $cdnonptick = $this->_reserve_np_ticket_code($iduser, $usen);
+                            $cdnump = $this->_reserve_sale_ticket_code($iduser, $usen);
                                     
                             $argvuti = array(
                                 'nom_client' => $this->input->post('nomcl'),
@@ -817,23 +770,23 @@
                             $clconfirm = $this->m_client->update($cl, $argvuti);
 
                         
-                            $pasarrays = $this->_reserve_pasarrays_vente($cdnump, $cl, $cprog, $datepKeep);
+                            $pasarrays = $this->_reserve_pasarrays_vente($cdnump, $iduser, $cl, $cprog);
                             $this->m_passager->update($cdpass, $r, $pasarrays);
 
                             $nonarray = array(
                                 'code_non_pass' => $cdpass,
                                 'codeticket' => $cdnonptick,
-                                'cptus' => $idCaisse,
+                                'cptus' => $iduser,
                                 'sousgareidentif' => $sgid,
                                 'id_client_npass' => $cl,
                                 'id_ligne_pass' => $this->input->post('lignecode'),
                                 'nom_ligne' => $this->input->post('garename'),
                                 'prixretour' => $this->input->post('tickprix'),
-                                'datevente' => ($datepKeep !== '') ? str_replace('-', '/', $datepKeep) : mdate("%Y/%m/%d", now('UTC')),
+                                'datevente' => mdate("%Y/%m/%d", now('UTC')),
                                 'creatednp_at' => now('UTC'),
                             );
                             $nonrid = $this->m_non_passager->create($nonarray);
-                            $this->_reserve_force_np_caisse($cdpass, $cdnonptick, $idCaisse);
+                            $this->_reserve_force_np_caisse($cdpass, $cdnonptick, $iduser);
 
                             
                             if ($nonrid != FALSE)
@@ -993,8 +946,7 @@
                         'idcptuser' => $iduser,
                         'id_client_pass' => $cl,
                         'code_pro' => $cprog,
-                        'num_siege_categorie' => $this->input->post('numerosieg'),
-                        'num_cat' => $this->input->post('catbus'),
+                        // Siège déjà posé sur la ligne R — ne pas le reposer (sinon assert siège échoue).
                         'statut_code' => NULL,
                         'prixvente' => NULL,
                         'createpas_at' => now('UTC'),
@@ -1070,8 +1022,7 @@
                             'idcptuser' => $iduser,
                             'id_client_pass' => $cl,
                             'code_pro' => $cprog,
-                            'num_siege_categorie' => $this->input->post('numerosieg'),
-                            'num_cat' => $this->input->post('catbus'),
+                            // Siège déjà posé sur la ligne R — ne pas le reposer (sinon assert siège échoue).
                             'statut_code' => NULL,
                             'prixvente' => NULL,
                             'createpas_at' => now('UTC'),

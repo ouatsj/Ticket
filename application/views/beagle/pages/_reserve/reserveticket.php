@@ -26,7 +26,9 @@
                 </div>
 
                 <div class="title">Reservations</div>
-
+                <p class="mb-0 mt-1 text-muted" style="font-size:13px;">
+                    Dès qu&apos;une réservation est <strong>validée</strong> (vente) ou <strong>confirmée</strong>, le client disparaît de cette liste.
+                </p>
             </div>
 
             <div class="card-body">

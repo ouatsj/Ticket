@@ -225,6 +225,7 @@
             }
 
             $CI =& get_instance();
+            $siegeTxStarted = false;
             $assignsSiege = array_key_exists('num_siege_categorie', $data)
                 && $data['num_siege_categorie'] !== null
                 && $data['num_siege_categorie'] !== ''
@@ -237,17 +238,30 @@
                 if ($codePro === '' && !empty($before['code_pro'])) {
                     $codePro = trim((string) $before['code_pro']);
                 }
-                if ($codePro === '') {
-                    $cur = $this->db->query(
-                        "SELECT code_pro FROM passager WHERE code_passager = ? AND code_ticket = ? LIMIT 1",
+                $curSiege = null;
+                if ($codePro === '' || empty($before)) {
+                    $curSiege = $this->db->query(
+                        "SELECT code_pro, num_siege_categorie FROM passager WHERE code_passager = ? AND code_ticket = ? LIMIT 1",
                         array($code_passager, $code_ticket)
                     )->row();
-                    if ($cur && !empty($cur->code_pro)) {
-                        $codePro = trim((string) $cur->code_pro);
+                    if ($codePro === '' && $curSiege && !empty($curSiege->code_pro)) {
+                        $codePro = trim((string) $curSiege->code_pro);
                     }
                 }
-                if ($codePro !== '') {
+                // Même siège déjà tenu par cette ligne (ex. validation / confirmation R) : ne pas re-asserter.
+                $sameSeatHeld = false;
+                $existingSeat = null;
+                if (!empty($before['num_siege_categorie'])) {
+                    $existingSeat = (int) $before['num_siege_categorie'];
+                } elseif ($curSiege && isset($curSiege->num_siege_categorie)) {
+                    $existingSeat = (int) $curSiege->num_siege_categorie;
+                }
+                if ($existingSeat !== null && $existingSeat === (int) $data['num_siege_categorie']) {
+                    $sameSeatHeld = true;
+                }
+                if ($codePro !== '' && !$sameSeatHeld) {
                     $this->db->trans_start();
+                    $siegeTxStarted = true;
                     $assert = $CI->sale_svc->assert_siege_vendable(
                         $codePro,
                         (int) $data['num_siege_categorie'],
@@ -265,7 +279,7 @@
 
             $ok = $this->db->where($multiClause)->update($this->table, $data);
 
-            if ($assignsSiege) {
+            if ($siegeTxStarted) {
                 if (!$ok && method_exists($CI->sale_svc, 'insert_failed_duplicate_siege')
                     && $CI->sale_svc->insert_failed_duplicate_siege()) {
                     $this->db->trans_rollback();
