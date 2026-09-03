@@ -27,29 +27,99 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    function __confSetDisp(id, on) {
+        var el = document.getElementById(id);
+        if (el) el.style.display = on ? 'block' : 'none';
+    }
+
     function __confShowDirectHourUi() {
         var hideIds = [
             'iddeptranscf1','transitedepargarecf1','iddeptranscf2','transitedepargarecf2',
             'iddeptranscf3','transitedepargarecf3','iddeptranscf4','transitedepargarecf4',
-            'arritincf1','arritincf2','arritincf3','heureitincf','heureitincf1','heureitincf2',
+            'arritincf1','arritincf2','arritincf3','heureitincf','heureitincf1','heureitincf2','heureitincf3',
             'hdepartitinecf','hdepartitinecf2','lignesitinerairecf','lignecf1',
-            'siegitinecf','siegitinecf1','siegitinecf2','psiegesitinescf','psiegesitinescf1','psiegesitinescf2',
+            'siegitinecf','siegitinecf1','siegitinecf2','siegitinecf3',
+            'psiegesitinescf','psiegesitinescf1','psiegesitinescf2','psiegesitinescf3',
             'quartiercf1','quartiercf2','quartiercf3','idquartcf1','idquartcf2','idquartcf3',
-            'idcheminscf','idcheminscf1','idcheminscf2','idcheminsheurcf','idcheminsheurcf1','idcheminsheurcf2'
+            'idcheminscf','idcheminscf1','idcheminscf2','idcheminsheurcf','idcheminsheurcf1','idcheminsheurcf2',
+            'heureleg1cf','siegleg1cf'
         ];
         for (var i = 0; i < hideIds.length; i++) {
-            var el = document.getElementById(hideIds[i]);
-            if (el) el.style.display = 'none';
+            __confSetDisp(hideIds[i], false);
         }
         var tran = document.querySelector('#trancf');
         if (tran) tran.style.display = 'none';
         if (typeof window.__confSetMainEscaleVisible === 'function') window.__confSetMainEscaleVisible(true);
-        ['heured','depsieg'].forEach(function (id) {
-            var el = document.getElementById(id);
-            if (el) el.style.display = 'block';
-        });
+        ['heured','depsieg'].forEach(function (id) { __confSetDisp(id, true); });
         var nbr = document.querySelector('#nbrtranscf');
         if (nbr) nbr.value = '';
+    }
+
+    /** Même schéma que la vente guichet : masquer heure/siège directs, afficher chaque jambe. */
+    function __confShowTransitLegsUi(n) {
+        n = parseInt(n, 10) || 0;
+        var savedNbr = document.querySelector('#nbrtranscf') ? document.querySelector('#nbrtranscf').value : '';
+        __confShowDirectHourUi();
+        var nbrEl = document.querySelector('#nbrtranscf');
+        if (nbrEl) nbrEl.value = savedNbr;
+        if (n < 2) return;
+        // Plus de siegdispo d'axe : #heured/#depsieg deviennent heure/siège de la jambe 1.
+        ['heured','depsieg'].forEach(function (id) { __confSetDisp(id, true); });
+        var h1 = document.getElementById('heured');
+        if (h1 && h1.parentNode && !document.getElementById('heureleg1cf')) {
+            var lab1 = document.createElement('label');
+            lab1.id = 'heureleg1cf';
+            lab1.textContent = 'Heure transite1';
+            h1.parentNode.insertBefore(lab1, h1);
+        }
+        var s1 = document.getElementById('depsieg');
+        if (s1 && s1.parentNode && !document.getElementById('siegleg1cf')) {
+            var labS = document.createElement('label');
+            labS.id = 'siegleg1cf';
+            labS.textContent = 'Siège transite1';
+            s1.parentNode.insertBefore(labS, s1);
+        }
+        var labels = {
+            heureitincf: 'Heure transite2', siegitinecf: 'Siège transite2',
+            heureitincf1: 'Heure transite3', siegitinecf1: 'Siège transite3',
+            heureitincf2: 'Heure transite4', siegitinecf2: 'Siège transite4'
+        };
+        Object.keys(labels).forEach(function (id) {
+            var el = document.getElementById(id);
+            if (el) el.textContent = labels[id];
+        });
+        var show = [
+            'trancf','lignecf1','lignesitinerairecf','idquartcf1','quartiercf1',
+            'heured','depsieg',
+            'iddeptranscf1','transitedepargarecf1',
+            'arritincf1','idcheminscf',
+            'heureitincf','hdepartitinecf','siegitinecf','psiegesitinescf',
+            'iddeptranscf2','transitedepargarecf2'
+        ];
+        if (n >= 3) {
+            show = show.concat([
+                'arritincf2','idcheminscf1','idquartcf2','quartiercf2',
+                'heureitincf1','idcheminsheurcf','siegitinecf1','psiegesitinescf1',
+                'iddeptranscf3','transitedepargarecf3'
+            ]);
+        }
+        if (n >= 4) {
+            show = show.concat([
+                'arritincf3','idcheminscf2','idquartcf3','quartiercf3',
+                'heureitincf2','idcheminsheurcf1','siegitinecf2','psiegesitinescf2',
+                'iddeptranscf4','transitedepargarecf4',
+                'heureitincf3','idcheminsheurcf2','siegitinecf3','psiegesitinescf3'
+            ]);
+        }
+        for (var i = 0; i < show.length; i++) __confSetDisp(show[i], true);
+        if (typeof window.__confSetMainEscaleVisible === 'function') window.__confSetMainEscaleVisible(false);
+    }
+
+    function __confKickCheminSelect(selId) {
+        var sel = document.querySelector(selId);
+        if (sel && typeof sel.onchange === 'function' && sel.selectedIndex > 0) {
+            sel.onchange();
+        }
     }
 
     function __confSetMainEscaleVisible(visible) {
@@ -206,8 +276,8 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         [
             '#idcheminscf','#idcheminscf1','#idcheminscf2',
-            '#idcheminsheurcf','#idcheminsheurcf1','#hdepartitinecf',
-            '#psiegesitinescf','#psiegesitines1cf','#psiegesitines2cf'
+            '#idcheminsheurcf','#idcheminsheurcf1','#idcheminsheurcf2','#hdepartitinecf',
+            '#psiegesitinescf','#psiegesitinescf1','#psiegesitinescf2','#psiegesitinescf3'
         ].forEach(function (s) {
             var el = document.querySelector(s);
             if (el && el.options) { el.options.length = 1; el.value = ''; el.onchange = null; }
@@ -378,6 +448,12 @@ document.addEventListener('DOMContentLoaded', () => {
             opt.innerHTML = `${row.heure}/${row.date_progr}`;
             sel.add(opt);
         }
+        if (sel.options.length > 1) {
+            sel.selectedIndex = 1;
+            if (typeof sel.onchange === 'function') sel.onchange();
+        }
+        if (selectId === '#hdepartitinecf') __confKickCheminSelect('#idcheminscf1');
+        if (selectId === '#idcheminsheurcf') __confKickCheminSelect('#idcheminscf2');
     }
 
     function __confPrevFromLeg1() {
@@ -388,11 +464,11 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!heure) {
             var hs = document.querySelector('#heured');
             if (hs && hs.selectedIndex > 0) {
-                var parts = String(hs.options[hs.selectedIndex].value || '').split('/');
-                // verifheureitine format id/heure OR code/tarif/id
-                if (parts.length >= 2 && parts[1].indexOf(':') >= 0) heure = parts[1];
-                else if (hs.options[hs.selectedIndex].getAttribute('data-heure')) {
-                    heure = hs.options[hs.selectedIndex].getAttribute('data-heure');
+                var opt = hs.options[hs.selectedIndex];
+                if (opt.getAttribute('data-heure')) heure = opt.getAttribute('data-heure');
+                else {
+                    var parts = String(opt.value || '').split('/');
+                    if (parts.length >= 2 && parts[1].indexOf(':') >= 0) heure = parts[1];
                 }
             }
         }
@@ -442,7 +518,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (p.gareidentif) {
             __confFillTransitDepart('#transitedepargarecf1', p.gareidentif);
         }
-        ['#hdepartitinecf','#idcheminsheurcf','#idcheminsheurcf1'].forEach(function (s) {
+        ['#hdepartitinecf','#idcheminsheurcf','#idcheminsheurcf1','#idcheminsheurcf2'].forEach(function (s) {
             var el = document.querySelector(s); if (el) el.options.length = 1;
         });
     }
@@ -464,7 +540,7 @@ document.addEventListener('DOMContentLoaded', () => {
         return [];
     }
 
-    /** Remplit #depsieg via siegdisponible (sans encode — comme vente guichet). */
+    /** Remplit #depsieg via siegdisponible (jambe 1 transite). */
     function __confFillDepsiegFromProg() {
         var dSel = document.querySelector('#depsieg');
         if (dSel) dSel.options.length = 1;
@@ -546,6 +622,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 __confFillTransitDepart('#transitedepargarecf1', fallbackGare);
             }
             __confLoadSiegesTransit1(idLh || list[0].id_ligneheure, document.querySelector('#actuel') ? document.querySelector('#actuel').value : '');
+            __confKickCheminSelect('#idcheminscf');
             if (typeof done === 'function') done(true);
         };
         http.setRequestHeader('Content-Type', 'application/json');
@@ -647,6 +724,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     opt.value = `${row.id_ligneheure}/${row.heure || ''}`;
                     opt.setAttribute('data-has-programme', '1');
                     opt.setAttribute('data-transit-leg1', '1');
+                    opt.setAttribute('data-heure', row.heure || '');
+                    if (row.date_progr) opt.setAttribute('data-date-progr', String(row.date_progr).slice(0, 10));
                     if (row.code_progr) opt.setAttribute('data-code-progr', String(row.code_progr));
                     if (row.gareidentif) opt.setAttribute('data-gareidentif', String(row.gareidentif));
                     opt.innerHTML = row.heure || '';
@@ -958,108 +1037,10 @@ document.addEventListener('DOMContentLoaded', () => {
                                     {
                                         
                                         document.querySelector('#nbrtranscf').value = Object.entries(donitinescf).length;
-                                        if(i === 2){
-                                            document.querySelector('#idcheminscf').style.display = 'block';
-                                            document.querySelector('#heured').style.display = 'block';
-                                            document.querySelector('#heureitincf').style.display = 'block';
-                                            document.querySelector('#hdepartitinecf').style.display = 'block';
-                                            document.querySelector('#siegitinecf').style.display = 'block';
-                                            document.querySelector('#psiegesitinescf').style.display = 'block';
-                                            document.querySelector('#depsieg').style.display = 'block';
-                                            document.querySelector('#quartiercf1').style.display = 'block';
-                                            document.querySelector('#idquartcf1').style.display = 'block';
-                                            document.querySelector('#lignecf1').style.display = 'block';
-                                            document.querySelector('#lignesitinerairecf').style.display = 'block';
-                                            document.querySelector('#iddeptranscf1').style.display = 'block';
-                                            document.querySelector('#arritincf1').style.display = 'block';
-                                            document.querySelector('#transitedepargarecf1').style.display = 'block';
-                                            document.querySelector('#iddeptranscf2').style.display = 'block';
-                                            document.querySelector('#transitedepargarecf2').style.display = 'block';
-                                        }
-                                        
-                                        if(i === 3){
-                                            document.querySelector('#idcheminscf').style.display = 'block';
-                                            document.querySelector('#heureitincf').style.display = 'block';
-                                            document.querySelector('#hdepartitinecf').style.display = 'block';
-                                            document.querySelector('#siegitinecf').style.display = 'block';
-                                            document.querySelector('#psiegesitinescf').style.display = 'block';
-                                            document.querySelector('#depsieg').style.display = 'block';
-                                            document.querySelector('#quartiercf1').style.display = 'block';
-                                            document.querySelector('#idquartcf1').style.display = 'block';
-                                            document.querySelector('#lignecf1').style.display = 'block';
-                                            document.querySelector('#lignesitinerairecf').style.display = 'block';
-                                            document.querySelector('#heured').style.display = 'block';
-                                            document.querySelector('#iddeptranscf1').style.display = 'block';
-                                            document.querySelector('#arritincf1').style.display = 'block';
-                                            document.querySelector('#transitedepargarecf1').style.display = 'block';
-                                            
-                                            document.querySelector('#arritincf2').style.display = 'block';
-                                            document.querySelector('#idcheminscf1').style.display = 'block';
-                                            document.querySelector('#idquartcf2').style.display = 'block';
-                                            document.querySelector('#quartiercf2').style.display = 'block';
-                                            document.querySelector('#heureitincf1').style.display = 'block';
-                                            document.querySelector('#idcheminsheurcf').style.display = 'block';
-                                            document.querySelector('#siegitinecf1').style.display = 'block';
-                                            document.querySelector('#psiegesitinescf1').style.display = 'block';
-                                            document.querySelector('#iddeptranscf2').style.display = 'block';
-                                            document.querySelector('#transitedepargarecf2').style.display = 'block';
-                                            document.querySelector('#iddeptranscf3').style.display = 'block';
-                                            document.querySelector('#transitedepargarecf3').style.display = 'block';
-                                        }if(i === 4){
-
-                                            document.querySelector('#idcheminscf').style.display = 'block';
-                                            document.querySelector('#heureitincf').style.display = 'block';
-                                            document.querySelector('#hdepartitinecf').style.display = 'block';
-                                            document.querySelector('#siegitinecf').style.display = 'block';
-                                            document.querySelector('#psiegesitinescf').style.display = 'block';
-                                            document.querySelector('#depsieg').style.display = 'block';
-                                            document.querySelector('#quartiercf1').style.display = 'block';
-                                            document.querySelector('#idquartcf1').style.display = 'block';
-                                            document.querySelector('#lignecf1').style.display = 'block';
-                                            document.querySelector('#lignesitinerairecf').style.display = 'block';
-                                            document.querySelector('#heured').style.display = 'block';
-                                            document.querySelector('#iddeptranscf1').style.display = 'block';
-                                            document.querySelector('#arritincf1').style.display = 'block';
-                                            document.querySelector('#transitedepargarecf1').style.display = 'block';
-
-
-                                            document.querySelector('#arritincf2').style.display = 'block';
-                                            document.querySelector('#idcheminscf1').style.display = 'block';
-                                            
-                                            document.querySelector('#idcheminscf2').style.display = 'block';
-                                            document.querySelector('#idquartcf2').style.display = 'block';
-                                            document.querySelector('#quartiercf2').style.display = 'block';
-                                            document.querySelector('#heureitincf1').style.display = 'block';
-                                            document.querySelector('#idcheminsheurcf').style.display = 'block';
-                                            document.querySelector('#siegitinecf1').style.display = 'block';
-                                            document.querySelector('#psiegesitinescf1').style.display = 'block';
-                                            document.querySelector('#iddeptranscf2').style.display = 'block';
-                                            document.querySelector('#transitedepargarecf2').style.display = 'block';
-
-
-                                            document.querySelector('#arritincf3').style.display = 'block';
-                                            document.querySelector('#idquartcf3').style.display = 'block';
-                                            document.querySelector('#quartiercf3').style.display = 'block';
-                                            document.querySelector('#heureitincf2').style.display = 'block';
-                                            document.querySelector('#idcheminsheurcf1').style.display = 'block';
-                                            document.querySelector('#siegitinecf2').style.display = 'block';
-                                            document.querySelector('#psiegesitinescf2').style.display = 'block';
-                                            document.querySelector('#iddeptranscf3').style.display = 'block';
-                                            document.querySelector('#transitedepargarecf3').style.display = 'block';
-                                            document.querySelector('#iddeptranscf4').style.display = 'block';
-                                            document.querySelector('#transitedepargarecf4').style.display = 'block';
-                                        }
-                                        document.querySelector('#trancf').style.display = 'block'; if (typeof window.__confSetMainEscaleVisible === 'function') window.__confSetMainEscaleVisible(false);
-                                        if (document.querySelector('#depsieg')) document.querySelector('#depsieg').options.length = 1;
+                                        __confShowTransitLegsUi(i);
+                                        if (document.querySelector('#psiegesitinescf')) document.querySelector('#psiegesitinescf').options.length = 1;
                                         if (document.querySelector('#transitedepargarecf1')) document.querySelector('#transitedepargarecf1').options.length = 0;
-                                        if (document.querySelector('#heured')) document.querySelector('#heured').options.length = 1;
-                                        document.querySelector('#heureitincf').style.display = 'block';
-                                        document.querySelector('#hdepartitinecf').style.display = 'block';
-                                        document.querySelector('#lignesitinerairecf').style.display = 'block';
-                                        document.querySelector('#lignecf1').style.display = 'block';
-                                        document.querySelector('#siegitinecf').style.display = 'block';
-                                        document.querySelector('#psiegesitinescf').style.display = 'block';
-                                        document.querySelector('#heured').style.display = 'block';
+                                        if (document.querySelector('#hdepartitinecf')) document.querySelector('#hdepartitinecf').options.length = 1;
                     
                                         document.querySelector('#idcompgcf').value = `${donitinescf[0].id_compaga}`;
                                         __confFillLigne1Locked(donitinescf[0]);

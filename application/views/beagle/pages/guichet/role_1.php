@@ -3959,7 +3959,19 @@
                                     <label style="display:none" id="iddeptranscf4">Départ transite4</label>
                                     <select style="display:none" class="form-control form-control-sm" name="transitedepargarecf4" id="transitedepargarecf4">
                                     </select>
-                                </div> 
+                                </div>
+                                <div class="form-group col-sm-4">
+                                    <label style="display:none" id="heureitincf3">Heure transite4</label>
+                                    <select style="display:none" class="form-control form-control-sm" name="idcheminheurecf2" id="idcheminsheurcf2">
+                                        <option value="">Choisissez heure départ</option>
+                                    </select>
+                                </div>
+                                <div class="form-group col-sm-4">
+                                    <label style="display:none;" id="siegitinecf3">Siège transite4</label>
+                                    <select style="display:none" class="form-control form-control-sm" name="passagersiegesitinescf3" id="psiegesitinescf3">
+                                        <option value="">Choisissez le siège</option>
+                                    </select>
+                                </div>
                             </div>
                             <div class="card-header text-center">Information du client</div>
                             <div class="row">
