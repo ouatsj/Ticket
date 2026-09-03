@@ -540,9 +540,16 @@ document.addEventListener('DOMContentLoaded', () => {
         btn.addEventListener('click', __venteCancelSale);
     }
 
+    function __venteNotifyPrixAffiche() {
+        if (typeof window.__venteSyncPrixAffiche === 'function') {
+            try { window.__venteSyncPrixAffiche(); } catch (e) {}
+        }
+    }
+
     function __venteHideTransitPanel() {
         var tran = document.querySelector('#tran');
         if (tran) tran.style.display = 'none';
+        __venteNotifyPrixAffiche();
         ['#hdepartitine','#psiegesitines','#lignesitineraire','#ligne1','#siegitine',
          '#heureitin','#idchemins','#idcheminsheur','#psiegesitines1','#idchemins1',
          '#idcheminsheur1','#psiegesitines2','#idchemins2','#idcheminsheur2','#psiegesitines3',
@@ -1286,12 +1293,13 @@ document.addEventListener('DOMContentLoaded', () => {
         [
             '#itinecode', '#itinecodes', '#lignetineraire', '#lignesitineraire', '#nbrtrans',
             '#idcompg', '#idcompg1', '#idcompg2', '#idcompg3',
-            '#prix_axetransit', '#prix_axetransit1', '#prix_axetransit2',
+            '#prix_axetrans', '#prix_axetransit', '#prix_axetransit1', '#prix_axetransit2',
             '#hertrans', '#dateprtrans', '#program', '#cate', '#catetransit', '#catetransit1', '#catetransit2'
         ].forEach(function (s) {
             var el = document.querySelector(s);
             if (el) el.value = '';
         });
+        __venteNotifyPrixAffiche();
         if (typeof __venteHideAllTransitProgSelects === 'function') __venteHideAllTransitProgSelects();
         if (typeof __venteClearDownstreamCheminHeures === 'function') __venteClearDownstreamCheminHeures();
         window.__venteCheminEtapes = null;
@@ -1927,6 +1935,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                                         document.querySelector('#hrid').style.display = 'block';
                                                         document.querySelector('#hdepart').style.display = 'block';
                                                         document.querySelector('#sigid').style.display = 'block';
+                                                        __venteNotifyPrixAffiche();
                                                         document.querySelector('#psieges').style.display = 'block';
                                                         document.querySelector('#iddep').style.display = 'block';
                                                         document.querySelector('#depargare').style.display = 'block';
@@ -2041,6 +2050,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                                                 document.querySelector('#arrid').style.display = 'none';
                                                                 document.querySelector('#arrsgare').style.display = 'none';
                                                                 __venteSetMainEscaleVisible(false);
+                                                                __venteNotifyPrixAffiche();
 
 
                                                                 document.querySelector('#idcompg').value = `${donitines[0].id_compaga}`;

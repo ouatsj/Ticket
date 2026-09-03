@@ -1,1 +1,9749 @@
-document.addEventListener("DOMContentLoaded",function(){function e(e){if(e&&e._snap){var t=e.getAttribute("data-target-arrivee"),n=t?document.getElementById(t):e._arriveeSelect;if(n){var o=function(e,t,n){var o=e.value;e.innerHTML="";var r=document.createElement("option");if(r.value=t.placeholder?t.placeholder.value:"",r.textContent=t.placeholder&&t.placeholder.text?t.placeholder.text:"Choisissez l'arrivée",e.appendChild(r),!n)return e.value="",""!==o;var i=!1;return t.groups.forEach(function(t){if(String(t.cle)===String(n)){var r=document.createElement("optgroup");r.label=t.nom,r.setAttribute("data-compagnie",t.cle),t.options.forEach(function(e){var t=document.createElement("option");t.value=e.value,t.textContent=e.text,t.setAttribute("data-compagnie",e.compagnie),t.setAttribute("data-nom-compagnie",e.nomCompagnie),r.appendChild(t),e.value===o&&(i=!0)}),e.appendChild(r)}}),i?(e.value=o,!1):(e.value="",""!==o)}(n,e._snap,function(e){var t=e.querySelector(".js-filtre-compagnie-check:checked");return t?String(t.value):""}(e));o&&(void 0!==window.jQuery?window.jQuery(n).trigger("change"):n.dispatchEvent(new Event("change",{bubbles:!0})))}}}function t(e,t){if(e&&t)if(t.parentNode&&t.parentNode.getAttribute("data-compagnies-arrivee-for"))t.style.display="";else{var n=e.style.display;t.style.display="none"===n?"none":n||""}}function n(n){if(n&&"1"!==n.getAttribute("data-filtre-arrivee-ready")&&"garearrivee"!==n.name&&n.querySelector("option[data-compagnie]")){var o=function(e){var t={},n=[];return e.querySelectorAll("option[data-compagnie]").forEach(function(e){var o=String(e.getAttribute("data-compagnie")||"");if(o&&!t[o]){var r=e.getAttribute("data-nom-compagnie")||e.parentNode&&e.parentNode.label||o;t[o]=r,n.push(o)}}),{map:t,order:n}}(n);if(o.order.length){var r=function(e){var t=null,n=[],o={};return Array.prototype.forEach.call(e.children,function(e){if("OPTION"!==e.tagName){if("OPTGROUP"===e.tagName){var r=String(e.getAttribute("data-compagnie")||""),i=e.getAttribute("label")||r;if(!r){var c=e.querySelector("option[data-compagnie]");c&&(r=String(c.getAttribute("data-compagnie")||""))}if(!r)return;o[r]||(o[r]={cle:r,nom:i,options:[]},n.push(o[r])),Array.prototype.forEach.call(e.querySelectorAll("option"),function(e){o[r].options.push({value:e.value,text:e.textContent,compagnie:String(e.getAttribute("data-compagnie")||r),nomCompagnie:e.getAttribute("data-nom-compagnie")||i})})}}else e.getAttribute("data-compagnie")||t||(t={value:e.value,text:e.textContent,html:e.outerHTML})}),e.querySelectorAll(":scope > option[data-compagnie]").forEach(function(e){var t=String(e.getAttribute("data-compagnie")||"");if(t){if(!o[t]){var r=e.getAttribute("data-nom-compagnie")||t;o[t]={cle:t,nom:r,options:[]},n.push(o[t])}o[t].options.push({value:e.value,text:e.textContent,compagnie:t,nomCompagnie:e.getAttribute("data-nom-compagnie")||o[t].nom})}}),{placeholder:t,groups:n}}(n);n.setAttribute("data-filtre-arrivee-ready","1"),n.classList.add("js-arrivee-filtre");var i=n.id||"arrivee-auto-"+Math.random().toString(36).slice(2,9);n.id||(n.id=i);var c=document.createElement("div");c.className="js-filtre-compagnie-arrivee-vente mb-2",c.setAttribute("data-target-arrivee",i),c.setAttribute("aria-label","Compagnies d'arrivée"),c.style.cssText="display:flex;flex-wrap:wrap;gap:0.35rem 1rem;align-items:center;",c._arriveeSelect=n,c._snap=r;var l=document.createElement("small");l.className="text-muted w-100 mb-0",l.textContent="Compagnies d'arrivée",l.style.flexBasis="100%",c.appendChild(l),o.order.forEach(function(e){var t=o.map[e],n=document.createElement("label");n.className="mb-0",n.style.cssText="font-weight:400;cursor:pointer;white-space:nowrap;";var r=document.createElement("input");r.type="checkbox",r.className="js-filtre-compagnie-check",r.value=e,r.checked=function(e){var t=String(e||"").trim().toUpperCase();return!!t&&("CBT"===t||/(^|[^A-Z0-9])CBT([^A-Z0-9]|$)/.test(t))}(t),r.style.marginRight="0.35rem",r.setAttribute("data-nom-compagnie",t),n.appendChild(r),n.appendChild(document.createTextNode(t)),c.appendChild(n)});var d=c.querySelectorAll(".js-filtre-compagnie-check:checked");if(d.length>1)for(var s=1;s<d.length;s++)d[s].checked=!1;if(function(e,t){var n=t.id,o=(t.closest(".modal-container, form, .card-body, .card")||document).querySelector('[data-compagnies-arrivee-for="'+n+'"]');if(o||(o=document.querySelector('[data-compagnies-arrivee-for="'+n+'"]')),o)return o.innerHTML="",o.appendChild(e),e.style.marginTop="0.25rem",void(e.style.marginBottom="0.5rem");var r=t.closest(".row");if(r&&r.parentNode){var i=document.createElement("div");return i.className="px-3 pb-2 col-12",i.setAttribute("data-compagnies-arrivee-for",n),i.appendChild(e),void r.parentNode.insertBefore(i,r)}t.parentNode.insertBefore(e,t)}(c,n),c.addEventListener("change",function(t){var n=t.target;n&&n.classList.contains("js-filtre-compagnie-check")&&(n.checked&&c.querySelectorAll(".js-filtre-compagnie-check").forEach(function(e){e!==n&&(e.checked=!1)}),e(c))}),e(c),t(n,c),window.MutationObserver)new MutationObserver(function(){t(n,c)}).observe(n,{attributes:!0,attributeFilter:["style"]})}}}function o(e){(e=e||document).querySelectorAll("select").forEach(function(e){e.closest&&e.closest(".js-filtre-compagnie-arrivee-vente")||e.querySelector("option[data-compagnie]")&&n(e)})}o(document),window.__bindFiltreArriveeCompagnie=o}),document.addEventListener("DOMContentLoaded",()=>{function e(){return!1!==window.__venteFiPrixManuel}function t(){["prix_axetransfid","prix_axetransitfid","prix_axetransit1fid","prix_axetransit2fid"].forEach(function(e){var t=document.getElementById(e);t&&(t.value="")})}function n(e){return null==e||""===e?[]:Array.isArray(e)?e.filter(Boolean):"object"==typeof e?Object.keys(e).map(function(t){return e[t]}).filter(Boolean):[]}function o(){var e=document.getElementById("selprog_box_fid"),t=document.getElementById("selprogfid");e&&(e.style.display="none"),t&&(t.options.length=1,t.value="",t.onchange=null)}function r(e){if(!e)return"";var t=[];return e.code_progr&&t.push(String(e.code_progr)),e.depart_code&&t.push(String(e.depart_code)),e.categori&&t.push(String(e.categori)),null!=e.intervalle1&&null!=e.intervalle2&&t.push("s."+e.intervalle1+"-"+e.intervalle2),t.join(" · ")}function i(e){if(e){var t=function(e,t){var n=document.querySelector(e);n&&(n.value=null==t?"":String(t))};t("#programfid",e.code_progr),t("#dateprfid",e.date_progr),t("#deplignefid",e.gareidentif),t("#inter1fid",e.intervalle1),t("#inter2fid",e.intervalle2),t("#lignfid",e.ident_ligne),t("#nomitinfid",e.nom_ligne),t("#herfid",e.heure),t("#catefid",e.categori)}}function c(e){var t=document.querySelector("#psiegesfid");t&&(t.options.length=1);var n=document.querySelector("#programfid")?document.querySelector("#programfid").value:"",o=document.querySelector("#inter1fid")?document.querySelector("#inter1fid").value:"",r=document.querySelector("#inter2fid")?document.querySelector("#inter2fid").value:"",i=document.querySelector("#nomitinfid")?document.querySelector("#nomitinfid").value:"",c=document.querySelector("#herfid")?document.querySelector("#herfid").value:"";if(n){var l=new XMLHttpRequest;l.open("GET",window.location.origin+`${APP_ROOT}/programmes/siegdisponible/${n}/${e}/${i}/${c}/${o}/${r}`,!0),l.onload=function(){try{var e=JSON.parse(l.responseText);if(t&&(t.options.length=1),Object.entries(e).length>=1)for(var n in Object.entries(e)){var o=document.createElement("option");o.value=`${e[n].siege_num}`,o.innerHTML=`${e[n].siege_num}`,t&&t.add(o)}}catch(e){t&&(t.options.length=1)}},l.setRequestHeader("Content-Type","application/json"),l.send()}}function l(e,t){var n=document.getElementById(e),o=document.getElementById(t);n&&(n.style.display="none"),o&&(o.options.length=1,o.value="",o.onchange=null,o.style.display="")}function r(e){if(!e)return"";var t=[];return e.code_progr&&t.push(String(e.code_progr)),e.depart_code&&t.push(String(e.depart_code)),e.categori&&t.push(String(e.categori)),null!=e.intervalle1&&null!=e.intervalle2&&t.push("s."+e.intervalle1+"-"+e.intervalle2),t.join(" · ")}window.__venteFiPrixManuel=!0;var d={tr2:{heur:"idcheminsheurfid",progBox:"selprog_box_tr2fid",progSel:"selprog_tr2fid",sieges:"psiegesitines1fid",prix:"prix_axetransitfid",cate:"catetransitfid",gid:"gidtransfid",nom:"nomitintrans1fid",lign:"ligntrans1fid",depGare:"transitedepargare2fid"},tr3:{heur:"idcheminsheur1fid",progBox:"selprog_box_tr3fid",progSel:"selprog_tr3fid",sieges:"psiegesitines2fid",prix:"prix_axetransit1fid",cate:"catetransit1fid",gid:"gidtrans1fid",nom:"nomitintrans2fid",lign:"ligntrans2fid",depGare:"transitedepargare3fid"},tr4:{heur:"idcheminsheur2fid",progBox:"selprog_box_tr4fid",progSel:"selprog_tr4fid",sieges:"psiegesitines3fid",prix:"prix_axetransit2fid",cate:"catetransit2fid",gid:"gidtrans2fid",nom:"nomitintrans3fid",lign:"ligntrans3fid",depGare:"transitedepargare4fid"}};function s(e){if(null==e||""===e)return null;var t=String(e).trim().split(/[:hH]/);if(!t||!t.length)return null;var n=parseInt(t[0],10);if(isNaN(n))return null;var o=null!=t[1]&&""!==t[1]?parseInt(t[1],10):0;return isNaN(o)&&(o=0),60*n+o}function u(e){if(!e||String(e).length<10)return"";var t=String(e).slice(0,10).split("-");return 3===t.length?t[2]+"/"+t[1]:String(e).slice(0,10)}function a(e,t,n){var o=document.getElementById(e);if(o){o.options.length=1;var r=Array.isArray(t)?t:t&&"object"==typeof t?Object.keys(t).map(function(e){return t[e]}):[],i=n?function(e){var t=document.querySelector("#date_depheurefid")?String(document.querySelector("#date_depheurefid").value||"").slice(0,10):"",n={date:t,heure:"",minutes:null,marge:30};function o(e){var o=document.getElementById(e);if(!o||o.selectedIndex<1)return!1;var r=o.options[o.selectedIndex],i=r.getAttribute("data-date-progr")||"",c=r.getAttribute("data-heure")||"",l=r.getAttribute("data-group-key")||"",d=window.__venteFiCheminGroups&&window.__venteFiCheminGroups[e]||{},u=d[l]||d[r.value]||null;if(u&&u.rows&&u.rows.length&&(!i&&u.rows[0].date_progr&&(i=String(u.rows[0].date_progr).slice(0,10)),!c&&u.rows[0].heure&&(c=String(u.rows[0].heure))),!(i&&c||-1===String(r.value).indexOf("/"))){var a=String(r.value).split("/")[0];Object.keys(d).forEach(function(e){if(!i||!c)for(var t=d[e]&&d[e].rows?d[e].rows:[],n=0;n<t.length;n++)if(String(t[n].code_progr)===a){i=String(t[n].date_progr||"").slice(0,10),c=String(t[n].heure||"");break}})}return i||(i=t),!!c&&(n.date=i,n.heure=c,n.minutes=s(c),null!=n.minutes)}if("tr2"===e){var r=document.querySelector("#dateprtransfid"),i=document.querySelector("#hertransfid"),c=r&&r.value?String(r.value).slice(0,10):t,l=i&&i.value?String(i.value):"";if(!l){var d=document.getElementById("hdepartitinefid");if(d&&d.selectedIndex>0){var u=String(d.options[d.selectedIndex].value||"").split("/");u[1]&&(l=u[1])}}return n.date=c||t,n.heure=l,n.minutes=s(l),n}return"tr3"===e?(o("idcheminsheurfid"),n):"tr4"===e?(o("idcheminsheur1fid"),n):n}(n):null;i&&null!=i.minutes&&i.date&&(r=r.filter(function(e){return function(e,t){if(!t||null==t.minutes||!t.date)return!0;var n=e&&e.date_progr?String(e.date_progr).slice(0,10):"",o=s(e&&e.heure);if(!n||null==o)return!1;if(n>t.date)return!0;if(n<t.date)return!1;var r=null!=t.marge?t.marge:30;return o>=t.minutes+r}(e,i)}));for(var c=document.querySelector("#date_depheurefid")?String(document.querySelector("#date_depheurefid").value||"").slice(0,10):"",l={},a=[],p=0;p<r.length;p++){var g=r[p];if(g&&null!=g.code_progr&&""!==g.code_progr){var q=String(null!=g.id_ligneheure?g.id_ligneheure:"");if(q){var S=g.date_progr?String(g.date_progr).slice(0,10):"",v=S+"|"+q;l[v]||(l[v]={heure:g.heure||"",date_progr:S,minutes:s(g.heure),rows:[]},a.push(v));for(var h=!1,_=0;_<l[v].rows.length;_++)if(String(l[v].rows[_].code_progr)===String(g.code_progr)){h=!0;break}h||l[v].rows.push(g)}}}a.sort(function(e,t){var n=l[e],o=l[t],r=n.date_progr||"",i=o.date_progr||"";return r<i?-1:r>i?1:(null!=n.minutes?n.minutes:0)-(null!=o.minutes?o.minutes:0)}),window.__venteFiCheminGroups||(window.__venteFiCheminGroups={}),window.__venteFiCheminGroups[e]=l;for(var $=0;$<a.length;$++){var b=a[$],T=l[b],O=document.createElement("option");O.value=b,O.setAttribute("data-group-key",b),O.setAttribute("data-date-progr",T.date_progr||""),O.setAttribute("data-heure",T.heure||"");var x=T.heure||b;T.date_progr&&c&&T.date_progr!==c&&(x=(T.heure||"")+" — "+u(T.date_progr)),T.rows.length>1&&(x=x+" ("+T.rows.length+" départs)"),O.innerHTML=x,o.add(O)}n&&f(e,n),window.__venteFiCheminCascadeStarted&&n&&(function(e,t,n){var o="string"==typeof e?document.getElementById(e):e;if(!o||!n)return!1;var r=d[n];if(!r)return!1;for(var i=t&&null!=t._graphe_code_progr?String(t._graphe_code_progr):"",c=t&&null!=t._graphe_id_ligneheure?String(t._graphe_id_ligneheure):"",l=t&&null!=t._graphe_heure?String(t._graphe_heure):"",s=t&&t._graphe_date_progr?String(t._graphe_date_progr).slice(0,10):"",u=window.__venteFiCheminGroups&&window.__venteFiCheminGroups[o.id]||{},a=1;a<o.options.length;a++){var p=o.options[a],f=u[p.value]||u[p.getAttribute("data-group-key")];if(f&&f.rows&&f.rows.length){for(var g=null,q=0;q<f.rows.length;q++){var S=f.rows[q];if(i&&String(S.code_progr)===i){g=S;break}!g&&c&&String(S.id_ligneheure)===c&&(l&&String(S.heure)!==l||(g=S))}if(g&&s&&String(g.date_progr||"").slice(0,10)!==s&&(g=null),g){if(o.selectedIndex=a,1===f.rows.length)m(r,g);else{y(n);var v=document.getElementById(r.progSel);if(v&&i)for(var h=1;h<v.options.length;h++)if(f.rows[h-1]&&String(f.rows[h-1].code_progr)===i){v.selectedIndex=h,"function"==typeof v.onchange&&v.onchange();break}}return!0}}}if(o.options.length>1)return o.selectedIndex=1,y(n),!0}(o,function(e){var t=window.__venteFiCheminEtapes;return t&&t.length?"tr2"===e?t[1]||null:"tr3"===e?t[2]||null:"tr4"===e&&t[3]||null:null}(n),n),function(e){if(!window.__venteFiCheminCascadeStarted)return;var t=window.__venteFiCheminEtapes;if(!t||t.length<2)return;"tr2"===e&&t.length>=3&&t[2]?w("#idchemins1fid",t[2].code_itineraires,t[2].nom_itineraires):"tr3"===e&&t.length>=4&&t[3]&&w("#idchemins2fid",t[3].code_itineraires,t[3].nom_itineraires)}(n))}}function p(){var e;window.__venteFiCheminEtapes&&window.__venteFiCheminEtapes.length>=2&&!window.__venteFiCheminCascadeStarted&&(!(e=O(e=window.__venteFiCheminEtapes))||e.length<2||!e[1]||(window.__venteFiCheminEtapes=e,window.__venteFiCheminCascadeStarted=!0,w("#idcheminsfid",e[1].code_itineraires,e[1].nom_itineraires)))}function m(t,n){var o=document.getElementById(t.sieges);if(o&&(o.options.length=1),n&&n.code_progr){if(!e()&&t.prix&&null!=n.prix){var r=document.getElementById(t.prix);r&&(r.value=String(n.prix))}var i=document.getElementById(t.heur);i&&i.selectedIndex>=0&&(i.options[i.selectedIndex].value=function(e){return e?String(e.code_progr)+"/"+e.intervalle1+"/"+e.intervalle2+"/"+e.id_ligneheure+"/"+(null!=e.prix?e.prix:""):""}(n));var c=new XMLHttpRequest;c.open("GET",window.location.origin+`${APP_ROOT}/programmes/siegdispotrans/${encodeURIComponent(n.code_progr)}`,!0),c.onload=function(){try{var e=JSON.parse(c.responseText);if(Object.entries(e).length>=1)for(var r in Object.entries(e)){for(var i=[[t.cate,e[r].categori],[t.gid,e[r].gareidentif],[t.nom,e[r].nom_ligne],[t.lign,e[r].ident_ligne]],l=0;l<i.length;l++){var d=document.getElementById(i[l][0]);d&&(d.value=null!=i[l][1]?String(i[l][1]):"")}t.depGare&&e[r].gareidentif&&g("#"+t.depGare,e[r].gareidentif)}}catch(e){}var s=new XMLHttpRequest;s.open("GET",window.location.origin+`${APP_ROOT}/programmes/siegdisponibletrans/${encodeURIComponent(n.code_progr)}/${n.intervalle1}/${n.intervalle2}`,!0),s.onload=function(){try{var e=JSON.parse(s.responseText);if(o&&(o.options.length=1),Object.entries(e).length>=1)for(var t in Object.entries(e)){var n=document.createElement("option");n.value=`${e[t].siege_num}`,n.innerHTML=`${e[t].siege_num}`,o&&o.add(n)}}catch(e){o&&(o.options.length=1)}},s.setRequestHeader("Content-Type","application/json"),s.send()},c.setRequestHeader("Content-Type","application/json"),c.send()}}function y(e){var t=d[e];if(t){var n=document.getElementById(t.heur);if(n){l(t.progBox,t.progSel);var o=document.getElementById(t.sieges);o&&(o.options.length=1);var i=n.value;if(i)if(-1===String(i).indexOf("/")){var c=(window.__venteFiCheminGroups&&window.__venteFiCheminGroups[t.heur]||{})[i],s=c&&c.rows?c.rows:[];if(s.length)if(1!==s.length){var u=document.getElementById(t.progBox),a=document.getElementById(t.progSel);if(a){u&&(u.style.display="block"),a&&(a.style.display="block"),a.options.length=1;for(var p=0;p<s.length;p++){var y=document.createElement("option");y.value=String(p),y.innerHTML=r(s[p]),a.add(y)}a.onchange=function(){o&&(o.options.length=1);var e=parseInt(a.value,10);!isNaN(e)&&s[e]&&m(t,s[e])}}else m(t,s[0])}else m(t,s[0])}else{var f=String(i).split("/");m(t,{code_progr:f[0],intervalle1:f[1],intervalle2:f[2],id_ligneheure:f[3],prix:f[4]})}}}}function f(e,t){var n=document.getElementById(e);n&&(n.onchange=function(){y(t)})}function g(e,t){var n=document.querySelector(e);if(n&&(n.options.length=0,null!=t&&""!==t)){var o=new XMLHttpRequest;o.open("GET",window.location.origin+`${APP_ROOT}/programmes/verifsousgares/`+encodeURIComponent(t),!0),o.onload=function(){var e=null;try{e=JSON.parse(o.responseText)}catch(t){e=null}if(n.options.length=0,e&&!(Object.entries(e).length<1)){for(var t in Object.entries(e)){var r=document.createElement("option");r.value=`${e[t].idsousgare}`,r.innerHTML=`${e[t].nomsousgare}`,n.add(r)}n.options.length>0&&(n.selectedIndex=0)}},o.setRequestHeader("Content-Type","application/json"),o.send()}}function q(){var e=document.querySelector("#escale_vente_check_fid");e&&(e.checked=!1),["#id_escale_ventefid","#code_gadest_ventefid","#nom_dest_ventefid"].forEach(function(e){var t=document.querySelector(e);t&&(t.value="")});var t=document.querySelector("#escale_dest_fields_fid");t&&(t.style.display="none");var n=document.querySelector("#escale_dest_select_fid");n&&(n.value="")}function S(e){var t=document.querySelector("#escale_dest_wrap_fid");t&&(e?t.style.display="":(q(),t.style.display="none"))}window.__venteFiSetMainEscaleVisible=S;var v=[["idtampofid","siegselectfid"],["idtampotransfid","siegselecttransfid"],["idtampo1fid","siegselect1fid"],["idtampo2fid","siegselect2fid"],["idtampo3fid","siegselect3fid"]];function h(){var e=Promise.resolve();return v.forEach(function(t){e=e.then(function(){return e=t[0],n=t[1],new Promise(function(t){var o=document.getElementById(e),r=document.getElementById(n);if(o&&r){var i=String(o.value||"").trim(),c=String(r.value||"").trim();if(!i||!c)return o.value="",r.value="",void t();var l=new XMLHttpRequest;l.open("GET",window.location.origin+`${APP_ROOT}/programmes/deltamponsieg/`+encodeURIComponent(i)+"/"+encodeURIComponent(c),!0),l.onload=function(){o.value="",r.value="",t()},l.onerror=function(){o.value="",r.value="",t()},l.setRequestHeader("Content-Type","application/json"),l.send()}else t()});var e,n})}),e}function _(e){e&&e.preventDefault&&e.preventDefault(),h().then(function(){!function(){window.__venteFiHasTransit=!1,window.__venteFiLastHeuresVente=[],window.__venteSelectedHour=null,window.__venteFiCheminGroups={},window.__venteFiCheminEtapes=null,window.__venteFiCheminCascadeStarted=!1,T(),R(),b(),q(),o(),t(),["#hdepartfid","#psiegesfid","#quartierfid"].forEach(function(e){var t=document.querySelector(e);t&&t.options&&(t.options.length=1,t.selectedIndex=0,t.value="",t.onchange=null)});var e=document.querySelector("#messfid");e&&(e.style.display="none");var n=document.querySelector("#erreurMessfid");n&&(n.innerHTML="");var r=document.getElementById("tafiForm");r&&r.reset()}()})}function $(e){var t=document.getElementById(e);t&&"1"!==t.dataset.venteCancelWired&&(t.dataset.venteCancelWired="1",t.type="button",t.addEventListener("click",_))}function b(){for(var e=["depitin1fid","depargareitine1fid","iddeptrans1fid","transitedepargare1fid","iddeptrans2fid","transitedepargare2fid","iddeptrans3fid","transitedepargare3fid","iddeptrans4fid","transitedepargare4fid","arritin1fid","arrsgareitine1fid","heureitin1fid","hdepartitine1fid","lignesitinerairefid","ligne1fid","siegitine1fid","psiegesitines1fid","depitin2fid","depargareitine2fid","arritin2fid","arrsgareitine2fid","heureitin2fid","hdepartitine2fid","siegitine2fid","psiegesitines2fid","depitin3fid","depargareitine3fid","arritin3fid","arrsgareitine3fid","heureitin3fid","hdepartitine3fid","siegitine3fid","psiegesitines3fid","quartier1fid","quartier2fid","quartier3fid","idquart1fid","idquart2fid","idquart3fid","prix_axetransfid","prix_axetransfid1","prix_axetransitfid1","prix_axetransitfid","prix_axetransit1fid1","prix_axetransit1fid","prix_axetransit2fid1","prix_axetransit2fid","heureitinfid","hdepartitinefid","siegitinefid","psiegesitinesfid","idcheminsfid","idcheminsheurfid","idchemins1fid","idcheminsheur1fid","idchemins2fid","idcheminsheur2fid"],t=0;t<e.length;t++){var n=document.getElementById(e[t]);n&&(n.style.display="none")}var r=document.querySelector("#tranfid");r&&(r.style.display="none"),S(!0),["hridfid","hdepartfid","sigidfid","psiegesfid","iddepfid","depargarefid","arridfid","arrsgarefid","prix_axefid1","prix_axefid","idquartfid","quartierfid"].forEach(function(e){var t=document.getElementById(e);t&&(t.style.display="block")}),o(),l("selprog_box_tr1fid","selprog_tr1fid"),l("selprog_box_tr2fid","selprog_tr2fid"),l("selprog_box_tr3fid","selprog_tr3fid"),l("selprog_box_tr4fid","selprog_tr4fid")}function T(){var e=document.getElementById("selchemin_box_fid"),t=document.getElementById("selchemin_transit_fid"),n=document.getElementById("selchemin_hint_fid");e&&(e.style.display="none"),t&&(t.options.length=1,t.value="",t.onchange=null),n&&(n.textContent="")}function O(e){return e?Array.isArray(e)?e:"object"==typeof e?Object.keys(e).map(function(t){return e[t]}).filter(Boolean):[]:[]}function w(e,t,n,o){var r="string"==typeof e?document.querySelector(e):e;if(r&&(r.disabled=!1,r.removeAttribute("disabled"),r.options.length=1,r.selectedIndex=0,null!=t&&""!==t)){var i=document.createElement("option");i.value=String(t),i.innerHTML=String(null!=n?n:t),null!=n&&i.setAttribute("data-nom",String(n)),r.add(i),r.selectedIndex=1,!1!==o&&"function"==typeof r.onchange&&r.onchange()}}function x(e,t){if(e){var n=e.code_itineraires||"",o=e.nom_itineraires||n,r=function(){var e=document.getElementById("lignesitinerairefid");if(!e)return null;if("INPUT"===e.tagName)return e.disabled=!0,e.setAttribute("disabled","disabled"),e.readOnly=!0,e;var t=document.createElement("input");return t.type="text",t.id="lignesitinerairefid",t.name=e.getAttribute("name")||"lignesitinerairesfid",t.className=e.className||"form-control form-control-sm",t.disabled=!0,t.setAttribute("disabled","disabled"),t.readOnly=!0,e.parentNode&&e.parentNode.replaceChild(t,e),t}();r&&(r.value=o);var i=document.querySelector("#itinecodefid"),c=document.querySelector("#lignetinerairefid");i&&(i.value=n),c&&(c.value=o),"function"==typeof t&&t(n,o)}}function R(){["arritin1fid","idcheminsfid","heureitin1fid","idcheminsheurfid","siegitine1fid","psiegesitines1fid","arritin2fid","idchemins1fid","heureitin2fid","idcheminsheur1fid","siegitine2fid","psiegesitines2fid","arritin3fid","idchemins2fid","heureitin3fid","idcheminsheur2fid","siegitine3fid","psiegesitines3fid","quartier1fid","quartier2fid","quartier3fid","idquart1fid","idquart2fid","idquart3fid","iddeptrans1fid","transitedepargare1fid","iddeptrans2fid","transitedepargare2fid","iddeptrans3fid","transitedepargare3fid","iddeptrans4fid","transitedepargare4fid","tranfid","heureitinfid","hdepartitinefid","lignesitinerairefid","ligne1fid","siegitinefid","psiegesitinesfid"].forEach(function(e){var t=document.getElementById(e);t&&(t.style.display="none")}),["#idcheminsfid","#idchemins1fid","#idchemins2fid","#idcheminsheurfid","#idcheminsheur1fid","#idcheminsheur2fid","#hdepartitinefid","#psiegesitinesfid","#psiegesitines1fid","#psiegesitines2fid","#psiegesitines3fid","#quartier1fid","#quartier2fid","#quartier3fid"].forEach(function(e){var t=document.querySelector(e);t&&t.options&&(t.options.length=1,t.value="",t.onchange=null)}),["#transitedepargare1fid","#transitedepargare2fid","#transitedepargare3fid","#transitedepargare4fid"].forEach(function(e){var t=document.querySelector(e);t&&t.options&&(t.options.length=0)}),["#itinecodefid","#itinecodesfid","#lignetinerairefid","#lignesitinerairefid","#nbrtransfid","#idcompgfid","#idcompg1fid","#idcompg2fid","#idcompg3fid"].forEach(function(e){var t=document.querySelector(e);t&&(t.value="")}),t(),window.__venteFiCheminEtapes=null,window.__venteFiCheminCascadeStarted=!1}function H(e,t){!function(){var e=document.getElementById("selchemin_box_fid");if(e)return e;var t=document.createElement("div");t.className="form-group col-sm-12",t.id="selchemin_box_fid",t.style.display="none",t.innerHTML='<label id="selchemin_label_fid">Itinéraire de correspondance</label><select class="form-control form-control-sm" id="selchemin_transit_fid"><option value="">Choisissez l\'itinéraire</option></select><small class="form-text text-muted" id="selchemin_hint_fid"></small>';var n=document.getElementById("hdepartitinefid")||document.getElementById("idcheminsfid")||document.getElementById("nbrtransfid");n&&n.parentNode&&n.parentNode.parentNode?n.parentNode.parentNode.insertBefore(t,n.parentNode):n&&n.parentNode?n.parentNode.insertBefore(t,n):document.body.appendChild(t)}();var n=document.getElementById("selchemin_box_fid"),o=document.getElementById("selchemin_transit_fid"),r=document.getElementById("selchemin_hint_fid");if(n&&o){o.options.length=1;for(var i=0;i<e.length;i++){var c=document.createElement("option");c.value=String(i),c.textContent=e[i].label||"Chemin "+(i+1),o.add(c)}n.style.display="block";var l=function(n){var o=e[n];r&&(r.textContent=function(e){if(!e)return"";if(e.attente_totale_label)return"Attente totale : "+e.attente_totale_label;if(null!=e.attente_totale_min){var t=parseInt(e.attente_totale_min,10)||0,n=Math.floor(t/60),o=t%60;return"Attente totale : "+(n>0?n+" h"+(o?" "+(o<10?"0":"")+o:""):o+" min")}return"declaratif"===e.source?"Composition déclarée":""}(o));var i=O(o&&o.etapes);"function"==typeof window.__venteFiApplyTransitLegs?window.__venteFiApplyTransitLegs(i):"function"==typeof t&&t(i)};o.onchange=function(){var n=parseInt(o.value,10);if(isNaN(n)||!e[n])return r&&(r.textContent=""),void("function"==typeof window.__venteFiApplyTransitLegs?window.__venteFiApplyTransitLegs([]):"function"==typeof t&&t([]));l(n)};for(var d=0,s=0;s<e.length;s++)if("direct"!==e[s].source){d=s;break}o.selectedIndex=d+1,l(d)}else{var u=e&&e[0]?O(e[0].etapes):[];"function"==typeof window.__venteFiApplyTransitLegs?window.__venteFiApplyTransitLegs(u):"function"==typeof t&&t(u)}}function j(t){if(t){var n=function(e,t){var n=document.querySelector(e);n&&(n.value=null==t?"":String(t))};n("#programtransfid",t.code_progr),n("#tarifattribfid",null!=t.typetarif&&""!==String(t.typetarif).trim()?t.typetarif:"1"),n("#dateprtransfid",t.date_progr),n("#deplignetransfid",t.gareidentif),n("#intertrans1fid",t.intervalle1),n("#intertrans2fid",t.intervalle2),n("#ligntransfid",t.ident_ligne),n("#nomitintransfid",t.nom_ligne),n("#hertransfid",t.heure),n("#catetransfid",t.categori),e()||null==t.prix||""===String(t.prix).trim()||n("#prix_axetransfid",t.prix),["idcheminsheurfid","idcheminsheur1fid","idcheminsheur2fid"].forEach(function(e){var t=document.getElementById(e);t&&(t.options.length=1)}),["psiegesitines1fid","psiegesitines2fid","psiegesitines3fid"].forEach(function(e){var t=document.getElementById(e);t&&(t.options.length=1)}),p()}}function M(t,n){var o=document.querySelector("#psiegesitinesfid");o&&(o.options.length=1);var r=document.querySelector("#tarifattribfid"),i=r&&""!==String(r.value||"").trim()?String(r.value).trim():"1";if(r&&""===String(r.value||"").trim()&&(r.value=i),t&&!e()){var c=new XMLHttpRequest;c.open("GET",window.location.origin+`${APP_ROOT}/programmes/verifpriprg/${t}/${i}`,!0),c.onload=function(){try{var e=JSON.parse(c.responseText);if(Object.entries(e).length>=1)for(var t in Object.entries(e)){var n=document.querySelector("#prix_axetransfid");n&&(n.value=`${e[t].prix}`)}}catch(e){}},c.setRequestHeader("Content-Type","application/json"),c.send()}var l=document.querySelector("#programtransfid")?document.querySelector("#programtransfid").value:"",d=document.querySelector("#intertrans1fid")?document.querySelector("#intertrans1fid").value:"",s=document.querySelector("#intertrans2fid")?document.querySelector("#intertrans2fid").value:"",u=document.querySelector("#nomitintransfid")?document.querySelector("#nomitintransfid").value:"",a=document.querySelector("#hertransfid")?document.querySelector("#hertransfid").value:"";if(l){var p=new XMLHttpRequest;p.open("GET",window.location.origin+`${APP_ROOT}/programmes/siegdisponible/${l}/${n}/${u}/${a}/${d}/${s}`,!0),p.onload=function(){try{var e=JSON.parse(p.responseText);if(o&&(o.options.length=1),Object.entries(e).length>=1)for(var t in Object.entries(e)){var n=document.createElement("option");n.value=`${e[t].siege_num}`,n.innerHTML=`${e[t].siege_num}`,o&&o.add(n)}}catch(e){o&&(o.options.length=1)}},p.setRequestHeader("Content-Type","application/json"),p.send()}}function E(e,t,o){var i=n(e);l("selprog_box_tr1fid","selprog_tr1fid");var c=document.querySelector("#psiegesitinesfid");if(c&&(c.options.length=1),!i.length)return!1;if(1===i.length)return j(i[0]),M(t,o),!0;var d=document.getElementById("selprog_box_tr1fid"),s=document.getElementById("selprog_tr1fid");if(!s)return j(i[0]),M(t,o),!0;d&&(d.style.display="block"),s&&(s.style.display="block"),s.options.length=1;for(var u=0;u<i.length;u++){var a=document.createElement("option");a.value=String(u),a.innerHTML=r(i[u]),s.add(a)}return s.onchange=function(){c&&(c.options.length=1);var e=parseInt(s.value,10);!isNaN(e)&&i[e]&&(j(i[e]),M(t,o))},!0}window.__venteFiHasTransit=!1,window.__venteFiLastHeuresVente=[],window.__venteFiApplyTransitLegs=null,document.querySelectorAll(".addventeticketfi").forEach(function(d){document.querySelector("h3#tafiTitle").innerHTML="VENTE DE FIDELITE";let s=document.querySelector("#arrsgarefid");null!==s&&(s.onchange=()=>{document.querySelector("#prix_axefid").value="",document.querySelector("#prix_axefid").value="",document.querySelector("#date_depheurefid").value="",document.querySelector("#hdepartfid").options.length=1,document.querySelector("#quartierfid").options.length=1,document.querySelector("#psiegesfid").options.length=1,o(),l("selprog_box_tr1fid","selprog_tr1fid"),l("selprog_box_tr2fid","selprog_tr2fid"),l("selprog_box_tr3fid","selprog_tr3fid"),l("selprog_box_tr4fid","selprog_tr4fid"),document.querySelector("#hdepartitinefid").options.length=1,document.querySelector("#psiegesitinesfid").options.length=1,document.querySelector("#idcheminsheurfid").options.length=1,document.querySelector("#transitedepargare1fid").options.length=0,document.querySelector("#transitedepargare2fid").options.length=0,document.querySelector("#transitedepargare3fid").options.length=0,document.querySelector("#transitedepargare4fid").options.length=0,document.querySelector("#idcheminsfid").options.length=1,document.querySelector("#idchemins1fid").options.length=1,document.querySelector("#idchemins2fid").options.length=1,document.querySelector("#psiegesitines1fid").options.length=1,document.querySelector("#idcheminsheur1fid").options.length=1,document.querySelector("#psiegesitines2fid").options.length=1,document.querySelector("#idcheminsheur2fid").options.length=1,document.querySelector("#psiegesitines3fid").options.length=1,document.querySelector("#quartier1fid").options.length=1,document.querySelector("#quartier2fid").options.length=1,document.querySelector("#quartier3fid").options.length=1;const e=document.querySelector("#arrsgarefid").value;let t;t=new XMLHttpRequest,t.open("GET",window.location.origin+`${APP_ROOT}/programmes/verifquart/${e}`,!0),t.onload=()=>{const e=JSON.parse(t.responseText);if(""==e)document.querySelector("#quartierfid").options.length=1;else if(Object.entries(e).length>=1)for(let t in Object.entries(e)){let n=document.createElement("option");n.value=`${e[t].nom_quartier}`,n.innerHTML=`${e[t].nom_quartier}`,document.querySelector("#quartierfid").add(n)}else document.querySelector("#quartierfid").options.length=1},t.setRequestHeader("Content-Type","application/json"),t.send()});let u=document.querySelector("#date_depheurefid");null!==u&&(u.onchange=()=>{let e;document.querySelector("#hdepartfid").options.length=1,document.querySelector("#psiegesfid").options.length=1,document.querySelector("#hdepartitinefid").options.length=1,document.querySelector("#psiegesitinesfid").options.length=1,document.querySelector("#idcheminsheurfid").options.length=1,document.querySelector("#transitedepargare1fid").options.length=0,document.querySelector("#transitedepargare2fid").options.length=0,document.querySelector("#transitedepargare3fid").options.length=0,document.querySelector("#transitedepargare4fid").options.length=0,document.querySelector("#idcheminsfid").options.length=1,document.querySelector("#idchemins1fid").options.length=1,document.querySelector("#idchemins2fid").options.length=1,document.querySelector("#psiegesitines1fid").options.length=1,document.querySelector("#idcheminsheur1fid").options.length=1,document.querySelector("#psiegesitines2fid").options.length=1,document.querySelector("#idcheminsheur2fid").options.length=1,document.querySelector("#psiegesitines3fid").options.length=1,document.querySelector("#quartier1fid").options.length=1,document.querySelector("#quartier2fid").options.length=1,document.querySelector("#quartier3fid").options.length=1,window.XMLHttpRequest?e=new XMLHttpRequest:window.ActiveXObject&&(e=new ActiveXObject("Microsoft.XMLHTTP"));var l=document.querySelector("#depargarefid").value,d=document.querySelector("#arrsgarefid").value,s=document.querySelector("#date_depheurefid").value,u=document.querySelector("#actufid").value,m=l.split("/"),y=m[0],q=m[1];if(s>=u){let e;e=new XMLHttpRequest,e.open("GET",window.location.origin+`${APP_ROOT}/programmes/verifheuresvente/${y}-${d}/${s}/${q||"0"}`,!0),e.onload=()=>{var l={};try{l=JSON.parse(e.responseText)||{}}catch(e){l={}}var u=Array.isArray(l.heures)?l.heures:[];window.__venteFiHasTransit=!!l.has_transit,window.__venteFiLastHeuresVente=u,document.querySelector("#smsdtfid").style.display="none",document.querySelector("#date_depheurefid").style.color="black",document.querySelector("#date_depheurefid").style.border="1px solid",b(),function(e){var t=document.querySelector("#hdepartfid");if(t){t.options.length=1;for(var n=Array.isArray(e)?e:[],o=0;o<n.length;o++){var r=n[o];if(r&&null!=r.id_ligneheure&&""!==r.id_ligneheure){var i=document.createElement("option");i.value=r.id_ligneheure+"/"+r.heure;var c=!(!0!==r.has_programme&&1!==r.has_programme&&"1"!==r.has_programme);i.setAttribute("data-has-programme",c?"1":"0"),i.innerHTML=r.heure,t.add(i)}}}}(u),window.__venteFiApplyTransitLegs=function(e){if(null===(e=O(e))||""===e||"object"==typeof e&&!Object.keys(e).length)document.querySelector("#depitin1fid").style.display="none",document.querySelector("#depargareitine1fid").style.display="none",document.querySelector("#iddeptrans1fid").style.display="none",document.querySelector("#transitedepargare1fid").style.display="none",document.querySelector("#iddeptrans2fid").style.display="none",document.querySelector("#transitedepargare2fid").style.display="none",document.querySelector("#iddeptrans3fid").style.display="none",document.querySelector("#transitedepargare3fid").style.display="none",document.querySelector("#iddeptrans4fid").style.display="none",document.querySelector("#transitedepargare4fid").style.display="none",document.querySelector("#arritin1fid").style.display="none",document.querySelector("#arrsgareitine1fid").style.display="none",document.querySelector("#arritin1fid").style.display="none",document.querySelector("#arrsgareitine1fid").style.display="none",document.querySelector("#heureitin1fid").style.display="none",document.querySelector("#hdepartitine1fid").style.display="none",document.querySelector("#lignesitinerairefid").style.display="none",document.querySelector("#ligne1fid").style.display="none",document.querySelector("#siegitine1fid").style.display="none",document.querySelector("#psiegesitines1fid").style.display="none",document.querySelector("#depitin2fid").style.display="none",document.querySelector("#depargareitine2fid").style.display="none",document.querySelector("#arritin2fid").style.display="none",document.querySelector("#arrsgareitine2fid").style.display="none",document.querySelector("#heureitin2fid").style.display="none",document.querySelector("#hdepartitine2fid").style.display="none",document.querySelector("#siegitine2fid").style.display="none",document.querySelector("#psiegesitines2fid").style.display="none",document.querySelector("#depitin3fid").style.display="none",document.querySelector("#depargareitine3fid").style.display="none",document.querySelector("#arritin3fid").style.display="none",document.querySelector("#arrsgareitine3fid").style.display="none",document.querySelector("#heureitin3fid").style.display="none",document.querySelector("#hdepartitine3fid").style.display="none",document.querySelector("#siegitine3fid").style.display="none",document.querySelector("#psiegesitines3fid").style.display="none",document.querySelector("#quartier1fid").style.display="none",document.querySelector("#quartier2fid").style.display="none",document.querySelector("#quartier3fid").style.display="none",document.querySelector("#idquart1fid").style.display="none",document.querySelector("#idquart2fid").style.display="none",document.querySelector("#idquart3fid").style.display="none",document.querySelector("#prix_axetransfid").style.display="none",document.querySelector("#prix_axetransfid1").style.display="none",document.querySelector("#prix_axetransitfid1").style.display="none",document.querySelector("#prix_axetransitfid").style.display="none",document.querySelector("#prix_axetransit1fid1").style.display="none",document.querySelector("#prix_axetransit1fid").style.display="none",document.querySelector("#prix_axetransit2fid1").style.display="none",document.querySelector("#prix_axetransit2fid").style.display="none",document.querySelector("#tranfid").style.display="none",S(!0),document.querySelector("#heureitinfid").style.display="none",document.querySelector("#hdepartitinefid").style.display="none",document.querySelector("#siegitinefid").style.display="none",document.querySelector("#psiegesitinesfid").style.display="none",document.querySelector("#hridfid").style.display="block",document.querySelector("#hdepartfid").style.display="block",document.querySelector("#sigidfid").style.display="block",document.querySelector("#psiegesfid").style.display="block",document.querySelector("#iddepfid").style.display="block",document.querySelector("#depargarefid").style.display="block",document.querySelector("#arridfid").style.display="block",document.querySelector("#arrsgarefid").style.display="block",document.querySelector("#prix_axefid1").style.display="block",document.querySelector("#prix_axefid").style.display="block";else if(R(),window.__venteFiCheminEtapes=e,window.__venteFiCheminCascadeStarted=!1,t(),Object.entries(e).length>=1){var n=Object.entries(e).length;for(let t in Object.entries(e))document.querySelector("#nbrtransfid").value=Object.entries(e).length,2===n&&(document.querySelector("#arritin1fid").style.display="block",document.querySelector("#idcheminsfid").style.display="block",document.querySelector("#heureitin1fid").style.display="block",document.querySelector("#idcheminsheurfid").style.display="block",document.querySelector("#siegitine1fid").style.display="block",document.querySelector("#psiegesitines1fid").style.display="block",document.querySelector("#quartier1fid").style.display="block",document.querySelector("#idquart1fid").style.display="block",document.querySelector("#iddeptrans1fid").style.display="block",document.querySelector("#transitedepargare1fid").style.display="block",document.querySelector("#iddeptrans2fid").style.display="block",document.querySelector("#transitedepargare2fid").style.display="block",document.querySelector("#prix_axetransfid").style.display="block",document.querySelector("#prix_axetransfid1").style.display="block",document.querySelector("#prix_axetransitfid1").style.display="block",document.querySelector("#prix_axetransitfid").style.display="block"),3===n&&(document.querySelector("#iddeptrans1fid").style.display="block",document.querySelector("#transitedepargare1fid").style.display="block",document.querySelector("#iddeptrans2fid").style.display="block",document.querySelector("#transitedepargare2fid").style.display="block",document.querySelector("#iddeptrans3fid").style.display="block",document.querySelector("#transitedepargare3fid").style.display="block",document.querySelector("#arritin1fid").style.display="block",document.querySelector("#idcheminsfid").style.display="block",document.querySelector("#heureitin1fid").style.display="block",document.querySelector("#idcheminsheurfid").style.display="block",document.querySelector("#siegitine1fid").style.display="block",document.querySelector("#psiegesitines1fid").style.display="block",document.querySelector("#idquart1fid").style.display="block",document.querySelector("#idquart2fid").style.display="block",document.querySelector("#arritin2fid").style.display="block",document.querySelector("#idchemins1fid").style.display="block",document.querySelector("#heureitin2fid").style.display="block",document.querySelector("#idcheminsheur1fid").style.display="block",document.querySelector("#siegitine2fid").style.display="block",document.querySelector("#psiegesitines2fid").style.display="block",document.querySelector("#quartier1fid").style.display="block",document.querySelector("#quartier2fid").style.display="block",document.querySelector("#prix_axetransfid").style.display="block",document.querySelector("#prix_axetransfid1").style.display="block",document.querySelector("#prix_axetransitfid1").style.display="block",document.querySelector("#prix_axetransitfid").style.display="block",document.querySelector("#prix_axetransit1fid1").style.display="block",document.querySelector("#prix_axetransit1fid").style.display="block"),4===n&&(document.querySelector("#iddeptrans1fid").style.display="block",document.querySelector("#transitedepargare1fid").style.display="block",document.querySelector("#iddeptrans2fid").style.display="block",document.querySelector("#transitedepargare2fid").style.display="block",document.querySelector("#iddeptrans3fid").style.display="block",document.querySelector("#transitedepargare3fid").style.display="block",document.querySelector("#iddeptrans4fid").style.display="block",document.querySelector("#transitedepargare4fid").style.display="block",document.querySelector("#arritin1fid").style.display="block",document.querySelector("#idcheminsfid").style.display="block",document.querySelector("#heureitin1fid").style.display="block",document.querySelector("#idcheminsheurfid").style.display="block",document.querySelector("#siegitine1fid").style.display="block",document.querySelector("#psiegesitines1fid").style.display="block",document.querySelector("#arritin2fid").style.display="block",document.querySelector("#idchemins1fid").style.display="block",document.querySelector("#heureitin2fid").style.display="block",document.querySelector("#idcheminsheur1fid").style.display="block",document.querySelector("#siegitine2fid").style.display="block",document.querySelector("#psiegesitines2fid").style.display="block",document.querySelector("#arritin3fid").style.display="block",document.querySelector("#idchemins2fid").style.display="block",document.querySelector("#heureitin3fid").style.display="block",document.querySelector("#idcheminsheur2fid").style.display="block",document.querySelector("#siegitine3fid").style.display="block",document.querySelector("#psiegesitines3fid").style.display="block",document.querySelector("#quartier1fid").style.display="block",document.querySelector("#quartier2fid").style.display="block",document.querySelector("#quartier3fid").style.display="block",document.querySelector("#idquart1fid").style.display="block",document.querySelector("#idquart2fid").style.display="block",document.querySelector("#idquart3fid").style.display="block",document.querySelector("#prix_axetransfid").style.display="block",document.querySelector("#prix_axetransfid1").style.display="block",document.querySelector("#prix_axetransitfid1").style.display="block",document.querySelector("#prix_axetransitfid").style.display="block",document.querySelector("#prix_axetransit1fid1").style.display="block",document.querySelector("#prix_axetransit1fid").style.display="block",document.querySelector("#prix_axetransit2fid1").style.display="block",document.querySelector("#prix_axetransit2fid").style.display="block"),document.querySelector("#tranfid").style.display="block",S(!1),document.querySelector("#heureitinfid").style.display="block",document.querySelector("#hdepartitinefid").style.display="block",document.querySelector("#lignesitinerairefid").style.display="block",document.querySelector("#ligne1fid").style.display="block",document.querySelector("#siegitinefid").style.display="block",document.querySelector("#psiegesitinesfid").style.display="block",document.querySelector("#hridfid").style.display="none",document.querySelector("#hdepartfid").style.display="none",document.querySelector("#sigidfid").style.display="none",document.querySelector("#psiegesfid").style.display="none",document.querySelector("#iddepfid").style.display="none",document.querySelector("#depargarefid").style.display="none",document.querySelector("#arridfid").style.display="none",document.querySelector("#arrsgarefid").style.display="none",document.querySelector("#prix_axefid1").style.display="none",document.querySelector("#prix_axefid").style.display="none",x(e[0],function(e){if(e){var t=document.querySelector("#hdepartitinefid");t&&(t.options.length=1);var n=document.querySelector("#date_depheurefid")?document.querySelector("#date_depheurefid").value:document.querySelector("#date_depheure")?document.querySelector("#date_depheure").value:"",o=new XMLHttpRequest;o.open("GET",window.location.origin+`${APP_ROOT}/programmes/verifheureitine/${encodeURIComponent(e)}/${encodeURIComponent(n)}`,!0),o.onload=function(){try{var e=JSON.parse(o.responseText);if("function"==typeof window.__venteFillHeureItineSelect)window.__venteFillHeureItineSelect(t,e,window.__venteSelectedHour);else if(t&&e&&Object.entries(e).length>=1)for(var n in t.options.length=1,Object.entries(e)){var r=document.createElement("option");r.value=`${e[n].id_ligneheure}/${e[n].heure}`,r.innerHTML=`${e[n].heure}`,t.add(r)}}catch(e){}},o.setRequestHeader("Content-Type","application/json"),o.send()}});if(2===n){document.querySelector("#itinecodesfid").value=`${e[0].id_lignes}`;var o=(i=(e[0]&&e[0].code_itineraires?String(e[0].code_itineraires):document.querySelector("#itinecodefid").value||"").split("-"))[0],r=i[1];let t;t=new XMLHttpRequest,t.open("GET",window.location.origin+`${APP_ROOT}/programmes/verifquartr/${r}`,!0),t.onload=()=>{const e=JSON.parse(t.responseText);if(""==e)document.querySelector("#quartier1fid").options.length=1;else if(Object.entries(e).length>=1)for(let t in Object.entries(e)){let n=document.createElement("option");n.value=`${e[t].nom_quartier}`,n.innerHTML=`${e[t].nom_quartier}`,document.querySelector("#quartier1fid").add(n)}else document.querySelector("#quartier1fid").options.length=1},t.setRequestHeader("Content-Type","application/json"),t.send();let n=document.querySelector("#hdepartitinefid");null!==n&&(n.onchange=()=>{g("#transitedepargare1fid",o),document.querySelector("#psiegesitinesfid").options.length=1;const e=new XMLHttpRequest;var t=document.querySelector("#hdepartitinefid").options[document.querySelector("#hdepartitinefid").options.selectedIndex].value.split("/"),n=t[0];t[1];const r=document.querySelector("#date_depheurefid").value;var i=document.querySelector("#itinecodefid").value;e.open("GET",window.location.origin+`${APP_ROOT}/programmes/verifprog/${i}/${r}/${n}`,!0),e.onload=()=>{const t=JSON.parse(e.responseText);if(console.debug(`${typeof t} - ${t.attributes}`,console.memory),!E(t,o,r))if(""==t){document.createElement("option").value=""}else{if(Object.entries(t).length>=1){for(let e in Object.entries(t))document.querySelector("#programtransfid").value=`${t[e].code_progr}`,document.querySelector("#dateprtransfid").value=`${t[e].date_progr}`,document.querySelector("#deplignetransfid").value=`${t[e].gareidentif}`,document.querySelector("#intertrans1fid").value=`${t[e].intervalle1}`,document.querySelector("#intertrans2fid").value=`${t[e].intervalle2}`,document.querySelector("#ligntransfid").value=`${t[e].ident_ligne}`,document.querySelector("#nomitintransfid").value=`${t[e].nom_ligne}`,document.querySelector("#hertransfid").value=`${t[e].heure}`,document.querySelector("#catetransfid").value=`${t[e].categori}`;p()}var n=document.querySelector("#hdepartitinefid").options[document.querySelector("#hdepartitinefid").options.selectedIndex].value.split("/"),o=n[0];n[1];const e=new XMLHttpRequest,r=document.querySelector("#programtransfid").value,i=document.querySelector("#intertrans1fid").value,c=document.querySelector("#intertrans2fid").value,l=document.querySelector("#nomitintransfid").value,d=document.querySelector("#hertransfid").value,s=document.querySelector("#date_depheurefid").value;e.open("GET",window.location.origin+`${APP_ROOT}/programmes/siegdisponible/${r}/${s}/${l}/${d}/${i}/${c}`,!0),e.onload=()=>{const t=JSON.parse(e.responseText);if(console.debug(`${typeof t} - ${t.attributes}`,console.memory),Object.entries(t).length>=1)for(let e in Object.entries(t)){let n=document.createElement("option");n.value=`${t[e].siege_num}`,n.innerHTML=`${t[e].siege_num}`,document.querySelector("#psiegesitinesfid").add(n)}else document.querySelector("#psiegesitinesfid").options.length=1},e.setRequestHeader("Content-Type","application/json"),e.send()}},e.setRequestHeader("Content-Type","application/json"),e.send()}),progsiegestransfi=document.querySelector("#psiegesitinesfid"),null!==progsiegestransfi&&(progsiegestransfi.onchange=()=>{let e;gareidentiftransfi=document.querySelector("#deplignetransfid").value,g("#transitedepargare1fid",gareidentiftransfi),e=new XMLHttpRequest;const t=document.querySelector("#psiegesitinesfid").options[document.querySelector("#psiegesitinesfid").options.selectedIndex].value,n=document.querySelector("#programtransfid").value;e.open("GET",window.location.origin+`${APP_ROOT}/programmes/verifisieges/${n}/${t}`,!0),e.onload=()=>{const o=JSON.parse(e.responseText);if(console.debug(`${typeof o} - ${o.attributes}`,console.memory),""==o){let e;e=new XMLHttpRequest,e.open("GET",window.location.origin+`${APP_ROOT}/programmes/creersiege/${n}/${t}`,!0),e.onload=()=>{const t=JSON.parse(e.responseText);if(document.querySelector("#messfid").style.display="none",Object.entries(t).length>=1)for(let e in Object.entries(t))document.querySelector("#idtampotransfid").value=`${t[e].idtamp}`,document.querySelector("#siegselecttransfid").value=`${t[e].numsieg}`},e.setRequestHeader("Content-Type","application/json"),e.send()}else{if(document.querySelector("#psiegesitinesfid").value="",Object.entries(o).length>=1)for(let e in Object.entries(o))document.querySelector("#idtampotransfid").value=`${o[e].idtamp}`,document.querySelector("#siegselecttransfid").value=`${o[e].numsieg}`;document.querySelector("#messfid").style.display="block",document.querySelector("#erreurMessfid").innerHTML="Siege déjà utilisé."}},e.setRequestHeader("Content-Type","application/json"),e.send()});let c=document.querySelector("#idcheminsfid");if(null!==c){c.onchange=()=>{let e;document.querySelector("#idcheminsheurfid").options.length=1,document.querySelector("#psiegesitines1fid").options.length=1,e=new XMLHttpRequest;const t=document.querySelector("#idcheminsfid").options[document.querySelector("#idcheminsfid").options.selectedIndex].value;var n=t.split("-"),o=(n[0],n[1],document.querySelector("#date_depheurefid").value);e.open("GET",window.location.origin+`${APP_ROOT}/programmes/chemin/${t}/${o}`,!0),e.onload=()=>{a("idcheminsheurfid",JSON.parse(e.responseText),"tr2")},e.setRequestHeader("Content-Type","application/json"),e.send()};let e=document.querySelector("#idcheminsheurfid");null!==e&&f("idcheminsheurfid","tr2"),progsieges1fi=document.querySelector("#psiegesitines1fid"),null!==progsieges1fi&&(progsieges1fi.onchange=()=>{var e=document.querySelector("#idcheminsheurfid").options[document.querySelector("#idcheminsheurfid").options.selectedIndex].value.split("/")[0];let t;gareidentiftrans2fi=document.querySelector("#gidtransfid").value,g("#transitedepargare2fid",gareidentiftrans2fi),t=new XMLHttpRequest;const n=document.querySelector("#psiegesitines1fid").options[document.querySelector("#psiegesitines1fid").options.selectedIndex].value;t.open("GET",window.location.origin+`${APP_ROOT}/programmes/verifisieges/${e}/${n}`,!0),t.onload=()=>{const o=JSON.parse(t.responseText);if(console.debug(`${typeof o} - ${o.attributes}`,console.memory),""==o){let t;t=new XMLHttpRequest,t.open("GET",window.location.origin+`${APP_ROOT}/programmes/creersiege/${e}/${n}`,!0),t.onload=()=>{const e=JSON.parse(t.responseText);if(document.querySelector("#messfid").style.display="none",Object.entries(e).length>=1)for(let t in Object.entries(e))document.querySelector("#idtampo1fid").value=`${e[t].idtamp}`,document.querySelector("#siegselect1fid").value=`${e[t].numsieg}`},t.setRequestHeader("Content-Type","application/json"),t.send()}else{if(document.querySelector("#psiegesitines1fid").value="",Object.entries(o).length>=1)for(let e in Object.entries(o))document.querySelector("#idtampo1fid").value=`${o[e].idtamp}`,document.querySelector("#siegselect1fid").value=`${o[e].numsieg}`;document.querySelector("#messfid").style.display="block",document.querySelector("#erreurMessfid").innerHTML="Siege déjà utilisé."}},t.setRequestHeader("Content-Type","application/json"),t.send()})}}if(3===n){document.querySelector("#itinecodesfid").value=`${e[0].id_lignes}`;o=(i=(e[0]&&e[0].code_itineraires?String(e[0].code_itineraires):document.querySelector("#itinecodefid").value||"").split("-"))[0],r=i[1];let t;t=new XMLHttpRequest,t.open("GET",window.location.origin+`${APP_ROOT}/programmes/verifquartr/${r}`,!0),t.onload=()=>{const e=JSON.parse(t.responseText);if(""==e)document.querySelector("#quartier1fid").options.length=1;else if(Object.entries(e).length>=1)for(let t in Object.entries(e)){let n=document.createElement("option");n.value=`${e[t].nom_quartier}`,n.innerHTML=`${e[t].nom_quartier}`,document.querySelector("#quartier1fid").add(n)}else document.querySelector("#quartier1fid").options.length=1},t.setRequestHeader("Content-Type","application/json"),t.send();let n=document.querySelector("#hdepartitinefid");null!==n&&(n.onchange=()=>{document.querySelector("#psiegesitinesfid").options.length=1;const e=new XMLHttpRequest;var t=document.querySelector("#hdepartitinefid").options[document.querySelector("#hdepartitinefid").options.selectedIndex].value.split("/"),n=t[0];t[1];const o=document.querySelector("#date_depheurefid").value;var r=document.querySelector("#itinecodefid").value;e.open("GET",window.location.origin+`${APP_ROOT}/programmes/verifprog/${r}/${o}/${n}`,!0),e.onload=()=>{const t=JSON.parse(e.responseText);if(console.debug(`${typeof t} - ${t.attributes}`,console.memory),!E(t,n,o))if(""==t){document.createElement("option").value=""}else{if(Object.entries(t).length>=1){for(let e in Object.entries(t))document.querySelector("#programtransfid").value=`${t[e].code_progr}`,document.querySelector("#dateprtransfid").value=`${t[e].date_progr}`,document.querySelector("#deplignetransfid").value=`${t[e].gareidentif}`,document.querySelector("#intertrans1fid").value=`${t[e].intervalle1}`,document.querySelector("#intertrans2fid").value=`${t[e].intervalle2}`,document.querySelector("#ligntransfid").value=`${t[e].ident_ligne}`,document.querySelector("#nomitintransfid").value=`${t[e].nom_ligne}`,document.querySelector("#hertransfid").value=`${t[e].heure}`,document.querySelector("#catetransfid").value=`${t[e].categori}`;p()}var r=document.querySelector("#hdepartitinefid").options[document.querySelector("#hdepartitinefid").options.selectedIndex].value.split("/");r[0],r[1];const e=new XMLHttpRequest,n=document.querySelector("#programtransfid").value,o=document.querySelector("#intertrans1fid").value,i=document.querySelector("#intertrans2fid").value,c=document.querySelector("#nomitintransfid").value,l=document.querySelector("#hertransfid").value,d=document.querySelector("#date_depheurefid").value;e.open("GET",window.location.origin+`${APP_ROOT}/programmes/siegdisponible/${n}/${d}/${c}/${l}/${o}/${i}`,!0),e.onload=()=>{const t=JSON.parse(e.responseText);if(console.debug(`${typeof t} - ${t.attributes}`,console.memory),Object.entries(t).length>=1)for(let e in Object.entries(t)){let n=document.createElement("option");n.value=`${t[e].siege_num}`,n.innerHTML=`${t[e].siege_num}`,document.querySelector("#psiegesitinesfid").add(n)}else document.querySelector("#psiegesitinesfid").options.length=1},e.setRequestHeader("Content-Type","application/json"),e.send()}},e.setRequestHeader("Content-Type","application/json"),e.send()});let c=document.querySelector("#psiegesitinesfid");null!==c&&(c.onchange=()=>{let e;g("#transitedepargare1fid",document.querySelector("#deplignetransfid").value),e=new XMLHttpRequest;const t=document.querySelector("#psiegesitinesfid").options[document.querySelector("#psiegesitinesfid").options.selectedIndex].value,n=document.querySelector("#programtransfid").value;e.open("GET",window.location.origin+`${APP_ROOT}/programmes/verifisieges/${n}/${t}`,!0),e.onload=()=>{const o=JSON.parse(e.responseText);if(console.debug(`${typeof o} - ${o.attributes}`,console.memory),""==o){let e;e=new XMLHttpRequest,e.open("GET",window.location.origin+`${APP_ROOT}/programmes/creersiege/${n}/${t}`,!0),e.onload=()=>{const t=JSON.parse(e.responseText);if(document.querySelector("#messfid").style.display="none",Object.entries(t).length>=1)for(let e in Object.entries(t))document.querySelector("#idtampotransfid").value=`${t[e].idtamp}`,document.querySelector("#siegselecttransfid").value=`${t[e].numsieg}`},e.setRequestHeader("Content-Type","application/json"),e.send()}else{if(document.querySelector("#psiegesitinesfid").value="",Object.entries(o).length>=1)for(let e in Object.entries(o))document.querySelector("#idtampotransfid").value=`${o[e].idtamp}`,document.querySelector("#siegselecttransfid").value=`${o[e].numsieg}`;document.querySelector("#messfid").style.display="block",document.querySelector("#erreurMessfid").innerHTML="Siege déjà utilisé."}},e.setRequestHeader("Content-Type","application/json"),e.send()});let l=document.querySelector("#idcheminsfid");if(null!==l){l.onchange=()=>{document.querySelector("#idcheminsheurfid").options.length=1,document.querySelector("#psiegesitines1fid").options.length=1;const e=document.querySelector("#idcheminsfid").options[document.querySelector("#idcheminsfid").options.selectedIndex].value;var t=e.split("-"),n=(t[0],t[1]);let o,r;o=new XMLHttpRequest,o.open("GET",window.location.origin+`${APP_ROOT}/programmes/verifquartr/${n}`,!0),o.onload=()=>{const e=JSON.parse(o.responseText);if(""==e)document.querySelector("#quartier2fid").options.length=1;else if(Object.entries(e).length>=1)for(let t in Object.entries(e)){let n=document.createElement("option");n.value=`${e[t].nom_quartier}`,n.innerHTML=`${e[t].nom_quartier}`,document.querySelector("#quartier2fid").add(n)}else document.querySelector("#quartier2fid").options.length=1},o.setRequestHeader("Content-Type","application/json"),o.send(),r=new XMLHttpRequest;var i=document.querySelector("#date_depheurefid").value;r.open("GET",window.location.origin+`${APP_ROOT}/programmes/chemin/${e}/${i}`,!0),r.onload=()=>{a("idcheminsheurfid",JSON.parse(r.responseText),"tr2")},r.setRequestHeader("Content-Type","application/json"),r.send()};let e=document.querySelector("#idcheminsheurfid");null!==e&&f("idcheminsheurfid","tr2");let t=document.querySelector("#psiegesitines1fid");null!==t&&(t.onchange=()=>{g("#transitedepargare2fid",document.querySelector("#gidtransfid").value);var e=document.querySelector("#idcheminsheurfid").options[document.querySelector("#idcheminsheurfid").options.selectedIndex].value.split("/")[0];let t;t=new XMLHttpRequest;const n=document.querySelector("#psiegesitines1fid").options[document.querySelector("#psiegesitines1fid").options.selectedIndex].value;t.open("GET",window.location.origin+`${APP_ROOT}/programmes/verifisieges/${e}/${n}`,!0),t.onload=()=>{const o=JSON.parse(t.responseText);if(console.debug(`${typeof o} - ${o.attributes}`,console.memory),""==o){let t;t=new XMLHttpRequest,t.open("GET",window.location.origin+`${APP_ROOT}/programmes/creersiege/${e}/${n}`,!0),t.onload=()=>{const e=JSON.parse(t.responseText);if(document.querySelector("#messfid").style.display="none",Object.entries(e).length>=1)for(let t in Object.entries(e))document.querySelector("#idtampo1fid").value=`${e[t].idtamp}`,document.querySelector("#siegselect1fid").value=`${e[t].numsieg}`},t.setRequestHeader("Content-Type","application/json"),t.send()}else{if(document.querySelector("#psiegesitines1fid").value="",Object.entries(o).length>=1)for(let e in Object.entries(o))document.querySelector("#idtampo1fid").value=`${o[e].idtamp}`,document.querySelector("#siegselect1fid").value=`${o[e].numsieg}`;document.querySelector("#messfid").style.display="block",document.querySelector("#erreurMessfid").innerHTML="Siege déjà utilisé."}},t.setRequestHeader("Content-Type","application/json"),t.send()})}let d=document.querySelector("#idchemins1fid");if(null!==d){d.onchange=()=>{document.querySelector("#idcheminsheur1fid").options.length=1,document.querySelector("#psiegesitines2fid").options.length=1;var e=document.querySelector("#idchemins1fid").options[document.querySelector("#idchemins1fid").options.selectedIndex].value.split("-");e[0],e[1];let t;t=new XMLHttpRequest;var n=document.querySelector("#date_depheurefid").value;const o=document.querySelector("#idchemins1fid").options[document.querySelector("#idchemins1fid").options.selectedIndex].value;t.open("GET",window.location.origin+`${APP_ROOT}/programmes/chemin/${o}/${n}`,!0),t.onload=()=>{a("idcheminsheur1fid",JSON.parse(t.responseText),"tr3")},t.setRequestHeader("Content-Type","application/json"),t.send()};let e=document.querySelector("#idcheminsheur1fid");null!==e&&f("idcheminsheur1fid","tr3");let t=document.querySelector("#psiegesitines2fid");null!==t&&(t.onchange=()=>{var e=document.querySelector("#idcheminsheur1fid").options[document.querySelector("#idcheminsheur1fid").options.selectedIndex].value.split("/")[0];let t;g("#transitedepargare3fid",document.querySelector("#gidtrans1fid").value),t=new XMLHttpRequest;const n=document.querySelector("#psiegesitines2fid").options[document.querySelector("#psiegesitines2fid").options.selectedIndex].value;t.open("GET",window.location.origin+`${APP_ROOT}/programmes/verifisieges/${e}/${n}`,!0),t.onload=()=>{const o=JSON.parse(t.responseText);if(""==o){let t;t=new XMLHttpRequest,t.open("GET",window.location.origin+`${APP_ROOT}/programmes/creersiege/${e}/${n}`,!0),t.onload=()=>{const e=JSON.parse(t.responseText);if(document.querySelector("#messfid").style.display="none",Object.entries(e).length>=1)for(let t in Object.entries(e))document.querySelector("#idtampo2fid").value=`${e[t].idtamp}`,document.querySelector("#siegselect2fid").value=`${e[t].numsieg}`},t.setRequestHeader("Content-Type","application/json"),t.send()}else{if(document.querySelector("#psiegesitines2fid").value="",Object.entries(o).length>=1)for(let e in Object.entries(o))document.querySelector("#idtampo2fid").value=`${o[e].idtamp}`,document.querySelector("#siegselect2fid").value=`${o[e].numsieg}`;document.querySelector("#messfid").style.display="block",document.querySelector("#erreurMessfid").innerHTML="Siege déjà utilisé."}},t.setRequestHeader("Content-Type","application/json"),t.send()})}}if(4===n){document.querySelector("#itinecodesfid").value=`${e[0].id_lignes}`;var i;o=(i=(e[0]&&e[0].code_itineraires?String(e[0].code_itineraires):document.querySelector("#itinecodefid").value||"").split("-"))[0],r=i[1];let t;t=new XMLHttpRequest,t.open("GET",window.location.origin+`${APP_ROOT}/programmes/verifquartr/${r}`,!0),t.onload=()=>{const e=JSON.parse(t.responseText);if(""==e)document.querySelector("#quartier1fid").options.length=1;else if(Object.entries(e).length>=1)for(let t in Object.entries(e)){let n=document.createElement("option");n.value=`${e[t].nom_quartier}`,n.innerHTML=`${e[t].nom_quartier}`,document.querySelector("#quartier1fid").add(n)}else document.querySelector("#quartier1fid").options.length=1},t.setRequestHeader("Content-Type","application/json"),t.send();let n=document.querySelector("#hdepartitinefid");null!==n&&(n.onchange=()=>{document.querySelector("#psiegesitinesfid").options.length=1;const e=new XMLHttpRequest;var t=document.querySelector("#hdepartitinefid").options[document.querySelector("#hdepartitinefid").options.selectedIndex].value.split("/"),n=t[0];t[1];const o=document.querySelector("#date_depheurefid").value;var r=document.querySelector("#itinecodefid").value;e.open("GET",window.location.origin+`${APP_ROOT}/programmes/verifprog/${r}/${o}/${n}`,!0),e.onload=()=>{const t=JSON.parse(e.responseText);if(console.debug(`${typeof t} - ${t.attributes}`,console.memory),!E(t,n,o))if(""==t){document.createElement("option").value=""}else{if(Object.entries(t).length>=1){for(let e in Object.entries(t))document.querySelector("#programtransfid").value=`${t[e].code_progr}`,document.querySelector("#dateprtransfid").value=`${t[e].date_progr}`,document.querySelector("#deplignetransfid").value=`${t[e].gareidentif}`,document.querySelector("#intertrans1fid").value=`${t[e].intervalle1}`,document.querySelector("#intertrans2fid").value=`${t[e].intervalle2}`,document.querySelector("#ligntransfid").value=`${t[e].ident_ligne}`,document.querySelector("#nomitintransfid").value=`${t[e].nom_ligne}`,document.querySelector("#hertransfid").value=`${t[e].heure}`,document.querySelector("#catetransfid").value=`${t[e].categori}`;p()}var r=document.querySelector("#hdepartitinefid").options[document.querySelector("#hdepartitinefid").options.selectedIndex].value.split("/");r[0],r[1];const e=new XMLHttpRequest,n=document.querySelector("#programtransfid").value,o=document.querySelector("#intertrans1fid").value,i=document.querySelector("#intertrans2fid").value,c=document.querySelector("#nomitintransfid").value,l=document.querySelector("#hertransfid").value,d=document.querySelector("#date_depheurefid").value;e.open("GET",window.location.origin+`${APP_ROOT}/programmes/siegdisponible/${n}/${d}/${c}/${l}/${o}/${i}`,!0),e.onload=()=>{const t=JSON.parse(e.responseText);if(console.debug(`${typeof t} - ${t.attributes}`,console.memory),Object.entries(t).length>=1)for(let e in Object.entries(t)){let n=document.createElement("option");n.value=`${t[e].siege_num}`,n.innerHTML=`${t[e].siege_num}`,document.querySelector("#psiegesitinesfid").add(n)}else document.querySelector("#psiegesitinesfid").options.length=1},e.setRequestHeader("Content-Type","application/json"),e.send()}},e.setRequestHeader("Content-Type","application/json"),e.send()});let c=document.querySelector("#psiegesitinesfid");null!==c&&(c.onchange=()=>{let e;g("#transitedepargare1fid",document.querySelector("#deplignetransfid").value),e=new XMLHttpRequest;const t=document.querySelector("#psiegesitinesfid").options[document.querySelector("#psiegesitinesfid").options.selectedIndex].value,n=document.querySelector("#programtransfid").value;e.open("GET",window.location.origin+`${APP_ROOT}/programmes/verifisieges/${n}/${t}`,!0),e.onload=()=>{const o=JSON.parse(e.responseText);if(console.debug(`${typeof o} - ${o.attributes}`,console.memory),""==o){let e;e=new XMLHttpRequest,e.open("GET",window.location.origin+`${APP_ROOT}/programmes/creersiege/${n}/${t}`,!0),e.onload=()=>{const t=JSON.parse(e.responseText);if(document.querySelector("#messfid").style.display="none",Object.entries(t).length>=1)for(let e in Object.entries(t))document.querySelector("#idtampotransfid").value=`${t[e].idtamp}`,document.querySelector("#siegselecttransfid").value=`${t[e].numsieg}`},e.setRequestHeader("Content-Type","application/json"),e.send()}else{if(document.querySelector("#psiegesitinesfid").value="",Object.entries(o).length>=1)for(let e in Object.entries(o))document.querySelector("#idtampotransfid").value=`${o[e].idtamp}`,document.querySelector("#siegselecttransfid").value=`${o[e].numsieg}`;document.querySelector("#messfid").style.display="block",document.querySelector("#erreurMessfid").innerHTML="Siege déjà utilisé."}},e.setRequestHeader("Content-Type","application/json"),e.send()});let l=document.querySelector("#idcheminsfid");if(null!==l){l.onchange=()=>{document.querySelector("#idcheminsheurfid").options.length=1,document.querySelector("#psiegesitines1fid").options.length=1;var e=document.querySelector("#date_depheurefid").value;const t=document.querySelector("#idcheminsfid").options[document.querySelector("#idcheminsfid").options.selectedIndex].value;var n=t.split("-"),o=(n[0],n[1]);let r,i;r=new XMLHttpRequest,r.open("GET",window.location.origin+`${APP_ROOT}/programmes/verifquartr/${o}`,!0),r.onload=()=>{const e=JSON.parse(r.responseText);if(""==e)document.querySelector("#quartier2fid").options.length=1;else if(Object.entries(e).length>=1)for(let t in Object.entries(e)){let n=document.createElement("option");n.value=`${e[t].nom_quartier}`,n.innerHTML=`${e[t].nom_quartier}`,document.querySelector("#quartier2fid").add(n)}else document.querySelector("#quartier2fid").options.length=1},r.setRequestHeader("Content-Type","application/json"),r.send(),i=new XMLHttpRequest,i.open("GET",window.location.origin+`${APP_ROOT}/programmes/chemin/${t}/${e}`,!0),i.onload=()=>{a("idcheminsheurfid",JSON.parse(i.responseText),"tr2")},i.setRequestHeader("Content-Type","application/json"),i.send()};let e=document.querySelector("#idcheminsheurfid");null!==e&&f("idcheminsheurfid","tr2");let t=document.querySelector("#psiegesitines1fid");null!==t&&(t.onchange=()=>{g("#transitedepargare2fid",document.querySelector("#gidtransfid").value);var e=document.querySelector("#idcheminsheurfid").options[document.querySelector("#idcheminsheurfid").options.selectedIndex].value.split("/")[0];let t;t=new XMLHttpRequest;const n=document.querySelector("#psiegesitines1fid").options[document.querySelector("#psiegesitines1fid").options.selectedIndex].value;t.open("GET",window.location.origin+`${APP_ROOT}/programmes/verifisieges/${e}/${n}`,!0),t.onload=()=>{const o=JSON.parse(t.responseText);if(console.debug(`${typeof o} - ${o.attributes}`,console.memory),""==o){let t;t=new XMLHttpRequest,t.open("GET",window.location.origin+`${APP_ROOT}/programmes/creersiege/${e}/${n}`,!0),t.onload=()=>{const e=JSON.parse(t.responseText);if(document.querySelector("#messfid").style.display="none",Object.entries(e).length>=1)for(let t in Object.entries(e))document.querySelector("#idtampo1fid").value=`${e[t].idtamp}`,document.querySelector("#siegselect1fid").value=`${e[t].numsieg}`},t.setRequestHeader("Content-Type","application/json"),t.send()}else{if(document.querySelector("#psiegesitines1fid").value="",Object.entries(o).length>=1)for(let e in Object.entries(o))document.querySelector("#idtampo1fid").value=`${o[e].idtamp}`,document.querySelector("#siegselect1fid").value=`${o[e].numsieg}`;document.querySelector("#messfid").style.display="block",document.querySelector("#erreurMessfid").innerHTML="Siege déjà utilisé."}},t.setRequestHeader("Content-Type","application/json"),t.send()})}let d=document.querySelector("#idchemins1fid");if(null!==d){d.onchange=()=>{document.querySelector("#idcheminsheur1fid").options.length=1,document.querySelector("#psiegesitines2fid").options.length=1;var e=document.querySelector("#idchemins1fid").options[document.querySelector("#idchemins1fid").options.selectedIndex].value.split("-"),t=(e[0],e[1]);let n,o;n=new XMLHttpRequest,n.open("GET",window.location.origin+`${APP_ROOT}/programmes/verifquartr/${t}`,!0),n.onload=()=>{const e=JSON.parse(n.responseText);if(""==e)document.querySelector("#quartier3fid").options.length=1;else if(Object.entries(e).length>=1)for(let t in Object.entries(e)){let n=document.createElement("option");n.value=`${e[t].nom_quartier}`,n.innerHTML=`${e[t].nom_quartier}`,document.querySelector("#quartier3fid").add(n)}else document.querySelector("#quartier3fid").options.length=1},n.setRequestHeader("Content-Type","application/json"),n.send(),o=new XMLHttpRequest;var r=document.querySelector("#date_depheurefid").value;const i=document.querySelector("#idchemins1fid").options[document.querySelector("#idchemins1fid").options.selectedIndex].value;o.open("GET",window.location.origin+`${APP_ROOT}/programmes/chemin/${i}/${r}`,!0),o.onload=()=>{a("idcheminsheur1fid",JSON.parse(o.responseText),"tr3")},o.setRequestHeader("Content-Type","application/json"),o.send()};let e=document.querySelector("#idcheminsheur1fid");null!==e&&f("idcheminsheur1fid","tr3");let t=document.querySelector("#psiegesitines2fid");null!==t&&(t.onchange=()=>{g("#transitedepargare3fid",document.querySelector("#gidtrans1fid").value);var e=document.querySelector("#idcheminsheur1fid").options[document.querySelector("#idcheminsheur1fid").options.selectedIndex].value.split("/")[0];let t;t=new XMLHttpRequest;const n=document.querySelector("#psiegesitines2fid").options[document.querySelector("#psiegesitines2fid").options.selectedIndex].value;t.open("GET",window.location.origin+`${APP_ROOT}/programmes/verifisieges/${e}/${n}`,!0),t.onload=()=>{const o=JSON.parse(t.responseText);if(""==o){let t;t=new XMLHttpRequest,t.open("GET",window.location.origin+`${APP_ROOT}/programmes/creersiege/${e}/${n}`,!0),t.onload=()=>{const e=JSON.parse(t.responseText);if(document.querySelector("#messfid").style.display="none",Object.entries(e).length>=1)for(let t in Object.entries(e))document.querySelector("#idtampo2fid").value=`${e[t].idtamp}`,document.querySelector("#siegselect2fid").value=`${e[t].numsieg}`},t.setRequestHeader("Content-Type","application/json"),t.send()}else{if(document.querySelector("#psiegesitines2fid").value="",Object.entries(o).length>=1)for(let e in Object.entries(o))document.querySelector("#idtampo2fid").value=`${o[e].idtamp}`,document.querySelector("#siegselect2fid").value=`${o[e].numsieg}`;document.querySelector("#messfid").style.display="block",document.querySelector("#erreurMessfid").innerHTML="Siege déjà utilisé."}},t.setRequestHeader("Content-Type","application/json"),t.send()})}let s=document.querySelector("#idchemins2fid");if(null!==s){s.onchange=()=>{document.querySelector("#idcheminsheur2fid").options.length=1,document.querySelector("#psiegesitines3fid").options.length=1;var e=document.querySelector("#idchemins2fid").options[document.querySelector("#idchemins2fid").options.selectedIndex].value.split("-"),t=(e[0],e[1]),n=document.querySelector("#quartierfid");if(t&&n&&n.options.length<=1){var o=new XMLHttpRequest;o.open("GET",window.location.origin+`${APP_ROOT}/programmes/verifquartr/${t}`,!0),o.onload=()=>{var e=[];try{e=JSON.parse(o.responseText)||[]}catch(t){e=[]}n.options.length=1;var t=n.value||"";if(e&&Object.entries(e).length>=1)for(let t in Object.entries(e)){let o=document.createElement("option");o.value=`${e[t].nom_quartier}`,o.innerHTML=`${e[t].nom_quartier}`,n.add(o)}t&&(n.value=t)},o.setRequestHeader("Content-Type","application/json"),o.send()}let r;r=new XMLHttpRequest;const i=document.querySelector("#idchemins2fid").options[document.querySelector("#idchemins2fid").options.selectedIndex].value;var c=document.querySelector("#date_depheurefid").value;r.open("GET",window.location.origin+`${APP_ROOT}/programmes/chemin/${i}/${c}`,!0),r.onload=()=>{a("idcheminsheur2fid",JSON.parse(r.responseText),"tr4")},r.setRequestHeader("Content-Type","application/json"),r.send()};let e=document.querySelector("#idcheminsheur2fid");null!==e&&f("idcheminsheur2fid","tr4");let t=document.querySelector("#psiegesitines3fid");null!==t&&(t.onchange=()=>{g("#transitedepargare4fid",document.querySelector("#gidtrans2fid").value);var e=document.querySelector("#idcheminsheur2fid").options[document.querySelector("#idcheminsheur2fid").options.selectedIndex].value.split("/")[0];let t;t=new XMLHttpRequest;const n=document.querySelector("#psiegesitines3fid").options[document.querySelector("#psiegesitines3fid").options.selectedIndex].value;t.open("GET",window.location.origin+`${APP_ROOT}/programmes/verifisieges/${e}/${n}`,!0),t.onload=()=>{const o=JSON.parse(t.responseText);if(""==o){let t;t=new XMLHttpRequest,t.open("GET",window.location.origin+`${APP_ROOT}/programmes/creersiege/${e}/${n}`,!0),t.onload=()=>{const e=JSON.parse(t.responseText);if(document.querySelector("#messfid").style.display="none",Object.entries(e).length>=1)for(let t in Object.entries(e))document.querySelector("#idtampo3fid").value=`${e[t].idtamp}`,document.querySelector("#siegselect3fid").value=`${e[t].numsieg}`},t.setRequestHeader("Content-Type","application/json"),t.send()}else{if(document.querySelector("#psiegesitines3fid").value="",Object.entries(o).length>=1)for(let e in Object.entries(o))document.querySelector("#idtampo3fid").value=`${o[e].idtamp}`,document.querySelector("#siegselect3fid").value=`${o[e].numsieg}`;document.querySelector("#messfid").style.display="block",document.querySelector("#erreurMessfid").innerHTML="Siege déjà utilisé."}},t.setRequestHeader("Content-Type","application/json"),t.send()})}}}};let m=document.querySelector("#hdepartfid");null!==m&&(m.onchange=()=>{document.querySelector("#psiegesfid").options.length=1,document.querySelector("#typegarefid").value="",o();const e=document.querySelector("#hdepartfid").options[document.querySelector("#hdepartfid").options.selectedIndex],t=e?e.value:"",l=e&&"1"===e.getAttribute("data-has-programme");if(t&&!l){var u=document.querySelector("#messfid"),a=document.querySelector("#erreurMessfid");if(window.__venteFiHasTransit){var p=t.split("/");window.__venteSelectedHour={value:t,idLh:p[0]||"",heure:p[1]||"",hasProg:!1},u&&(u.style.display="block"),a&&(a.innerHTML="Pas de départ à cette heure — correspondances proposées."),m=y,f=d,g=s,h=null!=(S=q)&&""!==S?S:"0",_=!0?"1":"0",$=function(e){"function"==typeof v?v(e):"function"==typeof window.__venteFiApplyTransitLegs&&window.__venteFiApplyTransitLegs(e)},(O=new XMLHttpRequest).open("GET",window.location.origin+`${APP_ROOT}/programmes/verifchemins/`+encodeURIComponent(m+"-"+f)+"/"+encodeURIComponent(g)+"/"+encodeURIComponent(h)+"/"+_,!0),O.onload=function(){var e=null;try{e=JSON.parse(O.responseText)}catch(t){e=null}if(Array.isArray(e))return T(),void $(e);if(!e||"object"!=typeof e)return T(),void $([]);if("direct"===e.mode||"none"===e.mode)return T(),void $([]);var t=Array.isArray(e.chemins)?e.chemins:[];(t=t.filter(function(e){return e&&"direct"!==e.source})).length>1?H(t,$):(T(),1===t.length&&t[0].etapes?$(t[0].etapes):e.etapes&&(Array.isArray(e.etapes)?e.etapes.length:Object.keys(e.etapes).length)?$(e.etapes):$([]))},O.setRequestHeader("Content-Type","application/json"),O.send()}else b(),u&&(u.style.display="block"),a&&(a.innerHTML="Aucun départ ni correspondance pour cette heure.");return}var m,f,g,S,v,h,_,$,O;b(),document.querySelector("#messfid")&&(document.querySelector("#messfid").style.display="none");const w=new XMLHttpRequest;var x=t.split("/"),R=x[0],j=x[1];const M=document.querySelector("#date_depheurefid").value;var E=document.querySelector("#arrsgarefid").value;const L=new XMLHttpRequest;L.open("GET",window.location.origin+`${APP_ROOT}/programmes/gareprincipale/${E}/${j}`,!0),L.onload=()=>{const e=JSON.parse(L.responseText);if(Object.entries(e).length>=1)for(let t in Object.entries(e))document.querySelector("#typegarefid").value=`${e[t].typestatutgare}`},L.setRequestHeader("Content-Type","application/json"),L.send(),w.open("GET",window.location.origin+`${APP_ROOT}/programmes/verifprog/${y}-${d}/${M}/${R}/${q||"0"}`,!0),w.onload=()=>{var e=document.querySelector("#typegarefid").value;const t=JSON.parse(w.responseText);if(!function(e,t){var l=n(e);o();var d=document.querySelector("#psiegesfid");if(d&&(d.options.length=1),0===l.length)return!1;if(1===l.length)return i(l[0]),c(t),!0;var s=document.getElementById("selprog_box_fid"),u=document.getElementById("selprogfid");if(!u)return i(l[0]),c(t),!0;s&&(s.style.display="block"),u&&(u.style.display="block"),u.options.length=1;for(var a=0;a<l.length;a++){var p=document.createElement("option");p.value=String(a),p.innerHTML=r(l[a]),u.add(p)}return u.onchange=function(){d&&(d.options.length=1);var e=parseInt(u.value,10);!isNaN(e)&&l[e]?(i(l[e]),c(t)):i({})},!0}(t,M)&&(""==t||0===n(t).length))if("Principale"==e){let e=document.createElement("option");e.value=1,e.innerHTML=1,document.querySelector("#psiegesfid").add(e),departpsiegesfi=document.querySelector("#psiegesfid"),null!==departpsiegesfi&&(departpsiegesfi.onchange=()=>{let e;e=new XMLHttpRequest,e.open("GET",window.location.origin+`${APP_ROOT}/programmes/creedepart/${y}/${M}/${R}/${j}`,!0),e.onload=()=>{const t=JSON.parse(e.responseText);if(Object.entries(t).length>=1){for(let e in Object.entries(t))document.querySelector("#programfid").value=`${t[e].code_progr}`,document.querySelector("#catefid").value=`${t[e].categorie}`,document.querySelector("#deplignefid").value=`${t[e].gareidentif}`,document.querySelector("#lignfid").value=`${t[e].ident_ligne}`,document.querySelector("#nomitinfid").value=`${t[e].nom_ligne}`;let e;e=new XMLHttpRequest;const n=document.querySelector("#psiegesfid").options[document.querySelector("#psiegesfid").options.selectedIndex].value,o=document.querySelector("#programfid").value;e.open("GET",window.location.origin+`${APP_ROOT}/programmes/verifisieges/${o}/${n}`,!0),e.onload=()=>{const t=JSON.parse(e.responseText);if(console.debug(`${typeof t} - ${t.attributes}`,console.memory),""==t){let e;e=new XMLHttpRequest,e.open("GET",window.location.origin+`${APP_ROOT}/programmes/creersiege/${o}/${n}`,!0),e.onload=()=>{const t=JSON.parse(e.responseText);if(document.querySelector("#messfid").style.display="none",Object.entries(t).length>=1)for(let e in Object.entries(t))document.querySelector("#idtampofid").value=`${t[e].idtamp}`,document.querySelector("#siegselectfid").value=`${t[e].numsieg}`},e.setRequestHeader("Content-Type","application/json"),e.send()}else{if(document.querySelector("#psiegesfid").value="",Object.entries(t).length>=1)for(let e in Object.entries(t))document.querySelector("#idtampofid").value=`${t[e].idtamp}`,document.querySelector("#siegselectfid").value=`${t[e].numsieg}`;document.querySelector("#messfid").style.display="block",document.querySelector("#erreurMessfid").innerHTML="Siege déjà utilisé."}},e.setRequestHeader("Content-Type","application/json"),e.send()}},e.setRequestHeader("Content-Type","application/json"),e.send()})}else{document.createElement("option").value=""}},w.setRequestHeader("Content-Type","application/json"),w.send()})},e.setRequestHeader("Content-Type","application/json"),e.send()}else document.querySelector("#date_depheurefid").style.color="#FF0000",document.querySelector("#date_depheurefid").style.border="2px solid #FF0000",document.querySelector("#smsdtfid").style.display="block",document.querySelector("#erreurSmsdtfid").innerHTML="Date non valide."});let m=document.querySelector("#psiegesfid");null!==m&&(m.onchange=()=>{let e;e=new XMLHttpRequest;const t=document.querySelector("#psiegesfid").options[document.querySelector("#psiegesfid").options.selectedIndex].value,n=document.querySelector("#programfid").value;e.open("GET",window.location.origin+`${APP_ROOT}/programmes/verifisieges/${n}/${t}`,!0),e.onload=()=>{const o=JSON.parse(e.responseText);if(console.debug(`${typeof o} - ${o.attributes}`,console.memory),""==o){let e;e=new XMLHttpRequest,e.open("GET",window.location.origin+`${APP_ROOT}/programmes/creersiege/${n}/${t}`,!0),e.onload=()=>{const t=JSON.parse(e.responseText);if(document.querySelector("#messfid").style.display="none",Object.entries(t).length>=1)for(let e in Object.entries(t))document.querySelector("#idtampofid").value=`${t[e].idtamp}`,document.querySelector("#siegselectfid").value=`${t[e].numsieg}`},e.setRequestHeader("Content-Type","application/json"),e.send()}else{if(document.querySelector("#psiegesfid").value="",Object.entries(o).length>=1)for(let e in Object.entries(o))document.querySelector("#idtampofid").value=`${o[e].idtamp}`,document.querySelector("#siegselectfid").value=`${o[e].numsieg}`;document.querySelector("#messfid").style.display="block",document.querySelector("#erreurMessfid").innerHTML="Siege déjà utilisé."}},e.setRequestHeader("Content-Type","application/json"),e.send()});let y=document.querySelector("#cltypefid");null!==y&&(y.onchange=()=>{let e;window.XMLHttpRequest?e=new XMLHttpRequest:window.ActiveXObject&&(e=new ActiveXObject("Microsoft.XMLHTTP"));var t=document.querySelector("#cltypefid").value;"Adulte"==t&&(document.querySelector("#motiffid").style.display="none",document.querySelector("#motifrefusfid").style.display="none",document.querySelector("#docfid").style.display="none",document.querySelector("#docdelivrefid").style.display="none",document.querySelector("#datedocdelfid").style.display="none",document.querySelector("#num_docfid").style.display="none",document.querySelector("#rclientfid").style.display="block",document.querySelector("#prnclientfid").style.display="block",document.querySelector("#cnibfid").style.display="block",document.querySelector("#date_cnibfid").style.display="block",document.querySelector("#lieudelivrefid").style.display="block",console.debug(`${documfid}`,console.memory)),"Etudiant"==t&&(document.querySelector("#docfid").style.display="block",document.querySelector("#num_docfid").style.display="block",document.querySelector("#docdelivrefid").style.display="block",document.querySelector("#datedocdelfid").style.display="block",document.querySelector("#rclientfid").style.display="block",document.querySelector("#prnclientfid").style.display="block",document.querySelector("#cnibfid").style.display="none",document.querySelector("#date_cnibfid").style.display="none",document.querySelector("#lieudelivrefid").style.display="none",console.debug(`${t}`,console.memory)),"Elève"==t&&(document.querySelector("#docfid").style.display="block",document.querySelector("#num_docfid").style.display="block",document.querySelector("#docdelivrefid").style.display="block",document.querySelector("#datedocdelfid").style.display="block",document.querySelector("#rclientfid").style.display="block",document.querySelector("#prnclientfid").style.display="block",document.querySelector("#cnibfid").style.display="none",document.querySelector("#date_cnibfid").style.display="none",document.querySelector("#lieudelivrefid").style.display="none",console.debug(`${t}`,console.memory)),"Enfant"==t&&(document.querySelector("#docfidfid").style.display="block",document.querySelector("#num_docfid").style.display="block",document.querySelector("#docdelivrefid").style.display="block",document.querySelector("#datedocdelfid").style.display="block",document.querySelector("#rclientfid").style.display="block",document.querySelector("#prnclientfid").style.display="block",document.querySelector("#cnibfid").style.display="none",document.querySelector("#date_cnibfid").style.display="none",document.querySelector("#lieudelivrefid").style.display="none",console.debug(`${t}`,console.memory)),"Autres"==t&&(document.querySelector("#motiffid").style.display="block",document.querySelector("#motifrefusfid").style.display="block",document.querySelector("#rclientfid").style.display="block",document.querySelector("#prnclientfid").style.display="block",document.querySelector("#cnibfid").style.display="none",document.querySelector("#date_cnibfid").style.display="none",document.querySelector("#lieudelivrefid").style.display="none",document.querySelector("#docfid").style.display="none",document.querySelector("#num_docfid").style.display="none",document.querySelector("#docdelivrefid").style.display="none",document.querySelector("#datedocdelfid").style.display="none",console.debug(`${t}`,console.memory))});let q=document.querySelector("#rnclient_contactfid");null!==q&&"1"!==q.dataset.guarded&&(q.dataset.guarded="1",q.addEventListener("keyup",()=>{const e=q.value.trim();AppRequestGuard.phoneDigits(e).length<7||AppRequestGuard.debounce("verifinfosfi",()=>{AppRequestGuard.getJson(window.location.origin+`${APP_ROOT}/programmes/verifinfos/${encodeURIComponent(e)}`,"verifinfosfi",t=>{let n=null;try{n=JSON.parse(t.responseText)}catch(e){return}null==n||Object.keys(n).length<1?document.querySelector("#pascompagniefid").value="":AppRequestGuard.phonesMatch(n.contact_client,e)?(document.querySelector("#rclientfid").value=`${n.nom_client||""}`,document.querySelector("#prnclientfid").value=`${n.prenom_client||""}`,document.querySelector("#cnibfid").value=`${n.num_CNIB||""}`,document.querySelector("#date_cnibfid").value=`${n.date_delivre||""}`,document.querySelector("#lieudelivrefid").value=`${n.lieu_delivre||""}`,document.querySelector("#pascompagniefid").value=`${n.id_client||""}`,document.querySelector("#rclientcpfid").value=`${n.nom_client||""}`,document.querySelector("#prnclientcpfid").value=`${n.prenom_client||""}`,document.querySelector("#cnibcpfid").value=`${n.num_CNIB||""}`,document.querySelector("#date_cnibcpfid").value=`${n.date_delivre||""}`,document.querySelector("#lieudelivrecpfid").value=`${n.lieu_delivre||""}`):document.querySelector("#pascompagniefid").value=""})},400)})),$("idresetfid"),$("idresetfi"),d.onclick=function(){document.querySelector("#tafiForm").setAttribute("action",`${APP_ROOT}/Programmes/addpassagerfi/${d.dataset.cle_compagnie}`),AppRequestGuard.ensureNonce("#tafiForm","sale_nonce"),AppRequestGuard.guardForm("#tafiForm")};var v=document.querySelector("#tafiForm");v&&!v.dataset.salePrepared&&(v.dataset.salePrepared="1",v.addEventListener("submit",function(t){if(AppRequestGuard.ensureNonce("#tafiForm","sale_nonce"),!function(){if(!e())return!0;var t=document.getElementById("tranfid");if(!t||"none"===t.style.display)return!0;for(var n=[{id:"prix_axetransfid",label:"Correspondance 1"},{id:"prix_axetransitfid",label:"Correspondance 2"},{id:"prix_axetransit1fid",label:"Correspondance 3"},{id:"prix_axetransit2fid",label:"Correspondance 4"}],o=0;o<n.length;o++){var r=document.getElementById(n[o].id);if(r&&"none"!==r.style.display&&""===String(r.value).trim()){var i=document.querySelector("#messfid"),c=document.querySelector("#erreurMessfid");return i&&(i.style.display="block"),c&&(c.innerHTML="Saisissez le prix pour "+n[o].label+" (0 = gratuit)."),r.focus(),!1}}return!0}())return t.preventDefault(),!1})),AppRequestGuard.guardForm("#tafiForm"),AppRequestGuard.ensureNonce("#tafiForm","sale_nonce")})}),function(){"use strict";function e(){return"undefined"!=typeof APP_ROOT?APP_ROOT:""}function t(e){return document.querySelector(e)}function n(e){var n=t(e);return n&&n.value?String(n.value).split("/")[0].trim():""}var o=[{key:"guichet",tran:"#tran",check:"#escale_vente_check",fields:"#escale_dest_fields",select:"#escale_dest_select",help:"#escale_dest_help",idEsc:"#id_escale_vente",codeEsc:"#code_gadest_vente",nomEsc:"#nom_dest_vente",prix:"#prix_axe",prixAffiche:"#prix_axe_affiche",depargare:"#depargare",arrsgare:"#arrsgare",lign:"#lign",nomitin:"#nomitin",date:"#date_depheure",heure:"#hdepart",quartier:"#quartier",quartierLabel:"#idquart",showQuartier:function(){"function"!=typeof window.__venteShowMainQuartier?r(this,!0):window.__venteShowMainQuartier()},hideQuartier:function(){"function"!=typeof window.__venteHideMainQuartier?r(this,!1):window.__venteHideMainQuartier()}},{key:"fi",tran:"#tranfid",check:"#escale_vente_check_fid",fields:"#escale_dest_fields_fid",select:"#escale_dest_select_fid",help:"#escale_dest_help_fid",idEsc:"#id_escale_ventefid",codeEsc:"#code_gadest_ventefid",nomEsc:"#nom_dest_ventefid",prix:"#prix_axefid",prixAffiche:null,depargare:"#depargarefid",arrsgare:"#arrsgarefid",lign:"#lignfid",nomitin:"#nomitinfid",date:"#date_depheurefid",heure:"#hdepartfid",quartier:"#quartierfid",quartierLabel:"#idquartfid",showQuartier:function(){r(this,!0)},hideQuartier:function(){r(this,!1)}},{key:"cf",tran:"#trancf",check:"#escale_vente_check_cf",fields:"#escale_dest_fields_cf",select:"#escale_dest_select_cf",help:"#escale_dest_help_cf",idEsc:"#id_escale_ventecf",codeEsc:"#code_gadest_ventecf",nomEsc:"#nom_dest_ventecf",prix:"#prix_axecf",prixAffiche:null,depargare:"#confirm-0 #depargare",arrsgare:null,lign:"#axeconf",nomitin:"#axeconf",date:"#actuel",heure:"#heured",quartier:"#quartconf",quartierLabel:null,showQuartier:function(){r(this,!0)},hideQuartier:function(){r(this,!1)}}];function r(e,n){var o=null,r=t(e.quartier);r&&(o=r.closest(".form-group"));var i=t(e.quartierLabel),c=r;if(!n&&c&&"none"!==c.style.display&&("guichet"===e.key?window.__venteSavedQuartierValue=c.value:window.__venteFiSavedQuartierValue=c.value),o&&(o.style.display=n?"":"none"),i&&(i.style.display=n?"block":"none"),c){c.style.display=n?"block":"none";var l="guichet"===e.key?window.__venteSavedQuartierValue:window.__venteFiSavedQuartierValue;n&&null!=l&&""!==l&&(c.value=l)}}function i(o){var r=null,i="",c={};function l(){if(o.prixAffiche){var e=t(o.prix),n=t(o.prixAffiche);if(n){var r,i,c=e?String(e.value||"").trim():"";n.value=""===c?"":(r=c,i=Number(r),r||0===r||"0"===r?isNaN(i)?String(r):i.toLocaleString("fr-FR"):"")}}}function d(){if(function(e){var n=t(e);if(!n)return!1;var o=n.style&&n.style.display||"";return"none"!==o&&("block"===o||"flex"===o||!!(n.offsetParent||n.offsetWidth+n.offsetHeight>0))}(o.tran))return!1;var e=t(o.check);return!(!e||!e.checked)}function s(){var e=t(o.idEsc),n=t(o.codeEsc),r=t(o.nomEsc);e&&(e.value=""),n&&(n.value=""),r&&(r.value="")}function u(){var e=t(o.prix);e&&""!==i&&(e.value=i)}function a(e,n){var r=t(o.help);r&&(r.textContent=e,r.className=n?"form-text text-danger":"form-text text-muted")}function p(e){return Array.isArray(e)?e:e&&"object"==typeof e?Object.keys(e).map(function(t){return e[t]}):[]}function m(){var e,n=t(o.fields),r=t(o.select);n&&(d()?(n.style.display="block",g(!0),(e=t(o.idEsc))&&""!==String(e.value||"").trim()?o.hideQuartier():o.showQuartier()):(n.style.display="none",r&&(r.value=""),s(),u(),o.showQuartier()))}function y(){if(!d())return s(),u(),void o.showQuartier();var e=t(o.select);if(e){var n=e.options[e.selectedIndex];if(!n||!n.value)return s(),u(),o.showQuartier(),void a("Choisissez l'escale demandée par le client.",!1);t(o.idEsc).value=n.value,t(o.codeEsc).value=n.getAttribute("data-code")||"",t(o.nomEsc).value=n.getAttribute("data-nom")||"";var r=n.getAttribute("data-prix");null!==r&&t(o.prix)&&(t(o.prix).value=r),o.hideQuartier(),a("Escale sélectionnée — prix "+Number(r).toLocaleString("fr-FR")+" F (sans quartier).",!1),l()}}function f(e,n){var r=t(o.select);if(r){var i=r.value;r.options.length=0;var c=document.createElement("option");if(c.value="",c.textContent=n?"Choisissez l'escale ("+n+")":"Choisissez l'escale",r.add(c),!e||!e.length)return s(),void a("Aucune escale configurée sur ce trajet parent.",!0);for(var l=0;l<e.length;l++){var d=e[l],u=document.createElement("option");u.value=d.id_escale,u.setAttribute("data-code",d.code_gadest||""),u.setAttribute("data-nom",d.nom_escale||d.arrivee_escale||""),u.setAttribute("data-prix",d.prix_escale);var p=d.nom_escale||d.arrivee_escale||d.code_gadest;u.textContent=p+" — "+Number(d.prix_escale).toLocaleString("fr-FR")+" F",r.add(u)}a(e.length+" escale(s) disponible(s) — sans quartier.",!1),i?(r.value=i,r.value===i?y():s()):s()}}function g(u){var m,y;if(m=t(o.prix),y=t(o.idEsc),m&&(y&&y.value||""!==m.value&&(i=m.value)),l(),d()){var g=o.depargare?n(o.depargare):"",q=o.arrsgare?n(o.arrsgare):"",S=t(o.lign),v=S?String(S.value||"").trim():"",h=g+"|"+q+"|"+v;if(u||h!==r)r=h,i=i||t(o.prix)&&t(o.prix).value||"",g&&q?function(t,n){if(!t||!n)return f([],""),void a("Choisissez d'abord l'arrivée finale (ex. BOBO).",!1);var o="od:"+t+">"+n;if(c[o]){var r=c[o];f(r,r[0]&&r[0].nom_ligne||"")}else{a("Chargement des escales…",!1);var i=new XMLHttpRequest;i.open("GET",window.location.origin+e()+"/programmes/verifescalesod/"+encodeURIComponent(t)+"/"+encodeURIComponent(n),!0),i.onload=function(){var e=[];try{e=p(JSON.parse(i.responseText))}catch(t){e=[]}c[o]=e,f(e,e[0]&&e[0].nom_ligne||"")},i.onerror=function(){a("Impossible de charger les escales.",!0)},i.send()}}(g,q):v?function(n){if(n){var r="lg:"+n;if(c[r])f(c[r],t(o.nomitin)&&t(o.nomitin).value||n);else{var i=new XMLHttpRequest;i.open("GET",window.location.origin+e()+"/programmes/verifescales/"+encodeURIComponent(n),!0),i.onload=function(){var e=[];try{e=p(JSON.parse(i.responseText))}catch(t){e=[]}c[r]=e,f(e,t(o.nomitin)&&t(o.nomitin).value||n)},i.send()}}}(v):(f([],""),a("Choisissez d'abord l'arrivée finale (ex. BOBO).",!1));else if(t(o.idEsc)&&t(o.idEsc).value){var _=t(o.select);if(_&&_.value){var $=_.options[_.selectedIndex];$&&$.getAttribute("data-prix")&&t(o.prix)&&(t(o.prix).value=$.getAttribute("data-prix"))}}}else t(o.idEsc)&&t(o.idEsc).value&&s()}return{boot:function(){if(t(o.check)){var e=t(o.check);e&&!e._escaleBound&&(e.addEventListener("change",m),e._escaleBound=!0);var n=t(o.select);n&&!n._escaleBound&&(n.addEventListener("change",y),n._escaleBound=!0),[o.arrsgare,o.depargare,o.date,o.heure].forEach(function(e){var n=t(e);n&&!n._escaleBound&&(n.addEventListener("change",function(){r=null,setTimeout(function(){g(!0)},200)}),n._escaleBound=!0)}),m(),l(),setInterval(function(){g(!1)},600)}}}}function c(){o.forEach(function(e){i(e).boot()})}"loading"===document.readyState?document.addEventListener("DOMContentLoaded",c):c()}(),function(){"use strict";function e(e){return document.querySelector(e)}function t(e){if(!e)return!1;if(e.style&&"none"===e.style.display)return!1;try{var t=window.getComputedStyle(e);if("none"===t.display||"hidden"===t.visibility)return!1}catch(e){}return!0}function n(e){var t=e||"",n="cf"===t,o="fid"===t;return[{n:1,sfx:t,nbr:n?"#nbrtranscf":o?"#nbrtransfid":"#nbrtrans",tran:n?"#trancf":o?"#tranfid":"#tran",ligne:n?"#ligntranscf":o?"#ligntransfid":"#ligntrans",lineUi:n?["#lignecf1","#lignesitinerairecf"]:o?["#ligne1fid","#lignesitinerairefid"]:["#ligne1","#lignesitineraire"],prix:n?"#prix_axetranscf":o?"#prix_axetransfid":"#prix_axetrans",quartier:n?"#quartiercf1":o?"#quartier1fid":"#quartier1",quartierLabel:n?"#idquartcf1":o?"#idquart1fid":"#idquart1",mainQuartier:n?"#quartconf":o?"#quartierfid":"#quartier",mainQuartierLabel:n?null:o?"#idquartfid":"#idquart",wrap:"#escale_leg_wrap_tr1"+t,check:"#escale_vente_check_tr1"+t,fields:"#escale_dest_fields_tr1"+t,select:"#escale_dest_select_tr1"+t,idEsc:"#id_escale_vente_tr1"+t,codeEsc:"#code_gadest_vente_tr1"+t,nomEsc:"#nom_dest_vente_tr1"+t},{n:2,sfx:t,nbr:n?"#nbrtranscf":o?"#nbrtransfid":"#nbrtrans",tran:n?"#trancf":o?"#tranfid":"#tran",ligne:n?"#ligntranscf1":o?"#ligntrans1fid":"#ligntrans1",lineUi:n?["#arritincf1","#idcheminscf"]:o?["#arritin1fid","#idcheminsfid"]:["#arritin1","#idchemins"],prix:n?"#prix_axetransitcf":o?"#prix_axetransitfid":"#prix_axetransit",quartier:n?"#quartiercf1":o?"#quartier1fid":"#quartier1",quartierLabel:n?"#idquartcf1":o?"#idquart1fid":"#idquart1",mainQuartier:n?"#quartconf":o?"#quartierfid":"#quartier",mainQuartierLabel:n?null:o?"#idquartfid":"#idquart",wrap:"#escale_leg_wrap_tr2"+t,check:"#escale_vente_check_tr2"+t,fields:"#escale_dest_fields_tr2"+t,select:"#escale_dest_select_tr2"+t,idEsc:"#id_escale_vente_tr2"+t,codeEsc:"#code_gadest_vente_tr2"+t,nomEsc:"#nom_dest_vente_tr2"+t},{n:3,sfx:t,nbr:n?"#nbrtranscf":o?"#nbrtransfid":"#nbrtrans",tran:n?"#trancf":o?"#tranfid":"#tran",ligne:n?"#ligntranscf2":o?"#ligntrans2fid":"#ligntrans2",lineUi:n?["#arritincf2","#idcheminscf1"]:o?["#arritin2fid","#idchemins1fid"]:["#arritin2","#idchemins1"],prix:n?"#prix_axetransitcf1":o?"#prix_axetransit1fid":"#prix_axetransit1",quartier:n?"#quartiercf2":o?"#quartier2fid":"#quartier2",quartierLabel:n?"#idquartcf2":o?"#idquart2fid":"#idquart2",mainQuartier:n?"#quartconf":o?"#quartierfid":"#quartier",mainQuartierLabel:n?null:o?"#idquartfid":"#idquart",wrap:"#escale_leg_wrap_tr3"+t,check:"#escale_vente_check_tr3"+t,fields:"#escale_dest_fields_tr3"+t,select:"#escale_dest_select_tr3"+t,idEsc:"#id_escale_vente_tr3"+t,codeEsc:"#code_gadest_vente_tr3"+t,nomEsc:"#nom_dest_vente_tr3"+t},{n:4,sfx:t,nbr:n?"#nbrtranscf":o?"#nbrtransfid":"#nbrtrans",tran:n?"#trancf":o?"#tranfid":"#tran",ligne:n?"#ligntranscf3":o?"#ligntrans3fid":"#ligntrans3",lineUi:n?["#arritincf3","#idcheminscf2"]:o?["#arritin3fid","#idchemins2fid"]:["#arritin3","#idchemins2"],prix:n?"#prix_axetransitcf2":o?"#prix_axetransit2fid":"#prix_axetransit2",quartier:n?"#quartiercf3":o?"#quartier3fid":"#quartier3",quartierLabel:n?"#idquartcf3":o?"#idquart3fid":"#idquart3",mainQuartier:n?"#quartconf":o?"#quartierfid":"#quartier",mainQuartierLabel:n?null:o?"#idquartfid":"#idquart",wrap:"#escale_leg_wrap_tr4"+t,check:"#escale_vente_check_tr4"+t,fields:"#escale_dest_fields_tr4"+t,select:"#escale_dest_select_tr4"+t,idEsc:"#id_escale_vente_tr4"+t,codeEsc:"#code_gadest_vente_tr4"+t,nomEsc:"#nom_dest_vente_tr4"+t}]}var o={},r=n("").concat(n("fid")).concat(n("cf")),i={},c={},l={},d={},s={};function u(t){var n=e(t.idEsc),o=e(t.codeEsc),r=e(t.nomEsc),i=e(t.select);n&&(n.value=""),o&&(o.value=""),r&&(r.value=""),i&&(i.value="")}function a(n){return t(e(n.tran))}function p(t){var n=e(t.nbr),o=n?parseInt(n.value,10):0;return isNaN(o)?0:o}function m(e){var t=p(e);return!(t<1)&&e.n===t}function y(n){return a(n)&&function(n){if(!n.lineUi||!n.lineUi.length)return a(n);for(var o=0;o<n.lineUi.length;o++)if(t(e(n.lineUi[o])))return!0;return!1}(n)&&m(n)}function f(e){var t=[],n=p(e);n>0&&e.n===n&&t.push({sel:e.mainQuartier,label:e.mainQuartierLabel}),e.quartier&&t.push({sel:e.quartier,label:e.quartierLabel});var o={};return t.filter(function(e){return!o[e.sel]&&(o[e.sel]=!0,!0)})}function g(t){for(var n=f(t),o=0;o<n.length;o++){var r=n[o].sel,i=e(r),c=n[o].label?e(n[o].label):null,l=i?i.closest(".form-group"):null;i&&(i.style.display="block",null!=s[r]&&""!==s[r]&&(i.value=s[r])),c&&(c.style.display="block"),l&&(l.style.display="")}t.sfx||"function"!=typeof window.__venteShowMainQuartier||window.__venteShowMainQuartier()}function q(t,n){var o=e(t.wrap);if(o&&(o.style.display=n?"block":"none",!n)){var r=e(t.check),i=e(t.fields);r&&(r.checked=!1),i&&(i.style.display="none"),u(t)}}function S(t){var n=e(t.prix),o=t.sfx+":"+t.n;n&&void 0!==c[o]&&""!==c[o]&&(n.value=c[o])}function v(t,n){var o=e(t.select);if(o){var r=o.value;o.options.length=0;var i=document.createElement("option");i.value="",i.textContent="Choisissez l'escale",o.add(i);var c=t.sfx+":"+t.n;if(l[c]=!(!n||!n.length),l[c]){for(var d=0;d<n.length;d++){var s=n[d],u=document.createElement("option");u.value=s.id_escale,u.setAttribute("data-code",s.code_gadest||""),u.setAttribute("data-nom",s.nom_escale||s.arrivee_escale||""),u.setAttribute("data-prix",s.prix_escale);var a=s.nom_escale||s.arrivee_escale||s.code_gadest;u.textContent=a+" — "+Number(s.prix_escale).toLocaleString("fr-FR")+" F",o.add(u)}q(t,y(t)),r&&(o.value=r,o.value===r&&_(t))}else q(t,!1)}}function h(e,t){if(t){if(o[t])v(e,o[t]);else if(!d[t]){d[t]=!0;var n=new XMLHttpRequest;n.open("GET",window.location.origin+("undefined"!=typeof APP_ROOT?APP_ROOT:"")+"/programmes/verifescales/"+encodeURIComponent(t),!0),n.onload=function(){d[t]=!1;var r,i=[];try{r=JSON.parse(n.responseText),i=Array.isArray(r)?r:r&&"object"==typeof r?Object.keys(r).map(function(e){return r[e]}):[]}catch(e){i=[]}o[t]=i,v(e,i)},n.onerror=function(){d[t]=!1},n.send()}}else v(e,[])}function _(t){var n=e(t.check);if(!n||!n.checked)return u(t),void g(t);var o=e(t.select);if(o){var r=o.options[o.selectedIndex];if(!r||!r.value)return u(t),S(t),void g(t);var i=e(t.idEsc),c=e(t.codeEsc),l=e(t.nomEsc);i&&(i.value=r.value),c&&(c.value=r.getAttribute("data-code")||""),l&&(l.value=r.getAttribute("data-nom")||"");var d=r.getAttribute("data-prix"),a=e(t.prix);null!==d&&a&&(a.value=d),function(t){for(var n=f(t),o=0;o<n.length;o++){var r=n[o].sel,i=e(r),c=n[o].label?e(n[o].label):null,l=i?i.closest(".form-group"):null,d=!(l&&"none"===l.style.display||i&&"none"===i.style.display);i&&d&&(s[r]=i.value,"#quartier"===r&&(window.__venteSavedQuartierValue=i.value),"#quartierfid"===r&&(window.__venteFiSavedQuartierValue=i.value)),i&&(i.style.display="none"),c&&(c.style.display="none"),l&&(l.style.display="none")}t.sfx||"function"!=typeof window.__venteHideMainQuartier||window.__venteHideMainQuartier()}(t)}}function $(t){!function(t){var n=e(t.prix),o=e(t.idEsc),r=t.sfx+":"+t.n;n&&(o&&o.value||""!==n.value&&(c[r]=n.value))}(t);var n=e(t.ligne),r=n?String(n.value||"").trim():"",d=e(t.wrap),s=y(t),a=t.sfx+":"+t.n,p=t.sfx+":"+t.n;if(m(t))if(s){if(r!==(i[p]||"")){i[p]=r,c[a]="",l[a]=!1,u(t);var f=e(t.check);f&&(f.checked=!1);var S=e(t.fields);return S&&(S.style.display="none"),r?void h(t,r):void q(t,!1)}r&&l[a]?(q(t,!0),e(t.check)&&e(t.check).checked&&(e(t.idEsc)&&e(t.idEsc).value?_(t):g(t))):r&&o[r]?v(t,o[r]):r&&!o[r]?h(t,r):q(t,!1)}else d&&(d.style.display="none");else q(t,!1)}function b(){r.forEach(function(t){if(e(t.wrap)||e(t.check)){var n=e(t.check),o=e(t.select);n&&!n._escaleTrBound&&(n.addEventListener("change",function(){!function(t){var n=e(t.check),o=e(t.fields);n&&o&&(n.checked?(o.style.display="block",_(t)):(o.style.display="none",u(t),S(t),g(t)))}(t)}),n._escaleTrBound=!0),o&&!o._escaleTrBound&&(o.addEventListener("change",function(){_(t)}),o._escaleTrBound=!0)}}),setInterval(function(){r.forEach($)},400)}"loading"===document.readyState?document.addEventListener("DOMContentLoaded",b):b()}(),document.addEventListener("DOMContentLoaded",()=>{function e(){for(var e=["iddeptranscf1","transitedepargarecf1","iddeptranscf2","transitedepargarecf2","iddeptranscf3","transitedepargarecf3","iddeptranscf4","transitedepargarecf4","arritincf1","arritincf2","arritincf3","heureitincf","heureitincf1","heureitincf2","hdepartitinecf","hdepartitinecf2","lignesitinerairecf","lignecf1","siegitinecf","siegitinecf1","siegitinecf2","psiegesitinescf","psiegesitinescf1","psiegesitinescf2","quartiercf1","quartiercf2","quartiercf3","idquartcf1","idquartcf2","idquartcf3","idcheminscf","idcheminscf1","idcheminscf2","idcheminsheurcf","idcheminsheurcf1","idcheminsheurcf2"],t=0;t<e.length;t++){var n=document.getElementById(e[t]);n&&(n.style.display="none")}var o=document.querySelector("#trancf");o&&(o.style.display="none"),"function"==typeof window.__confSetMainEscaleVisible&&window.__confSetMainEscaleVisible(!0),["heured","depsieg"].forEach(function(e){var t=document.getElementById(e);t&&(t.style.display="block")});var r=document.querySelector("#nbrtranscf");r&&(r.value="")}function t(){var e=document.querySelector("#confirm-0 #depargare")||document.querySelector("#confForm #depargare")||document.querySelector("#depargare");return e&&e.value&&String(e.value).split("/")[1]||"0"}function n(){var e=document.getElementById("selchemin_box_cf"),t=document.getElementById("selchemin_transit_cf"),n=document.getElementById("selchemin_hint_cf");e&&(e.style.display="none"),t&&(t.options.length=1,t.value="",t.onchange=null),n&&(n.textContent="")}function o(e){return e?Array.isArray(e)?e:"object"==typeof e?Object.keys(e).map(function(t){return e[t]}).filter(Boolean):[]:[]}function r(e,t,n){var o="string"==typeof e?document.querySelector(e):e;if(o&&(o.disabled=!1,o.removeAttribute("disabled"),o.options.length=1,o.selectedIndex=0,null!=t&&""!==t)){var r=document.createElement("option");r.value=String(t),r.innerHTML=String(null!=n?n:t),null!=n&&r.setAttribute("data-nom",String(n)),o.add(r),o.selectedIndex=1,"function"==typeof o.onchange&&o.onchange()}}function i(e,t){if(e){var n=e.code_itineraires||"",o=e.nom_itineraires||n,r=function(){var e=document.getElementById("lignesitinerairecf");if(!e)return null;if("INPUT"===e.tagName)return e.disabled=!0,e.setAttribute("disabled","disabled"),e.readOnly=!0,e;var t=document.createElement("input");return t.type="text",t.id="lignesitinerairecf",t.name=e.getAttribute("name")||"lignesitinerairescf",t.className=e.className||"form-control form-control-sm",t.disabled=!0,t.setAttribute("disabled","disabled"),t.readOnly=!0,e.parentNode&&e.parentNode.replaceChild(t,e),t}();r&&(r.value=o);var i=document.querySelector("#itinecodecf"),c=document.querySelector("#lignetinerairecf");i&&(i.value=n),c&&(c.value=o),"function"==typeof t&&t(n,o)}}function c(){["arritin1cf","idcheminscf","heureitin1cf","idcheminsheurcf","siegitine1cf","psiegesitines1cf","arritin2cf","idcheminscf1","heureitin2cf","idcheminsheurcf1","siegitine2cf","psiegesitines2cf","arritin3cf","idcheminscf2","heureitin3cf","idcheminsheurcf","nbrtranscf","iddeptranscf1","transitedepargarecf1","iddeptranscf2","transitedepargarecf2","iddeptranscf3","transitedepargarecf3","iddeptranscf4","transitedepargarecf4","trancf","heureitincf","hdepartitinecf","siegitinecf","psiegesitinescf"].forEach(function(e){var t=document.getElementById(e);t&&(t.style.display="none")}),["#idcheminscf","#idcheminscf1","#idcheminscf2","#idcheminsheurcf","#idcheminsheurcf1","#hdepartitinecf","#psiegesitinescf","#psiegesitines1cf","#psiegesitines2cf"].forEach(function(e){var t=document.querySelector(e);t&&t.options&&(t.options.length=1,t.value="",t.onchange=null)}),["#transitedepargarecf1","#transitedepargarecf2","#transitedepargarecf3","#transitedepargarecf4"].forEach(function(e){var t=document.querySelector(e);t&&t.options&&(t.options.length=0)}),["#itinecodecf","#itinecodescf","#lignetinerairecf","#nbrtranscf","#idcompgcf","#idcompgcf1","#idcompgcf2","#idcompgcf3"].forEach(function(e){var t=document.querySelector(e);t&&(t.value="")})}function l(e,t){!function(){var e=document.getElementById("selchemin_box_cf");if(e)return e;var t=document.createElement("div");t.className="form-group col-sm-12",t.id="selchemin_box_cf",t.style.display="none",t.innerHTML='<label id="selchemin_label_cf">Itinéraire de correspondance</label><select class="form-control form-control-sm" id="selchemin_transit_cf"><option value="">Choisissez l\'itinéraire</option></select><small class="form-text text-muted" id="selchemin_hint_cf"></small>';var n=document.getElementById("heured")||document.getElementById("hdepartitinecf")||document.getElementById("nbrtranscf");n&&n.parentNode&&n.parentNode.parentNode?n.parentNode.parentNode.insertBefore(t,n.parentNode):n&&n.parentNode?n.parentNode.insertBefore(t,n):document.body.appendChild(t)}();var n=document.getElementById("selchemin_box_cf"),r=document.getElementById("selchemin_transit_cf"),i=document.getElementById("selchemin_hint_cf");if(n&&r){r.options.length=1;for(var c=0;c<e.length;c++){var l=document.createElement("option");l.value=String(c),l.textContent=e[c].label||"Chemin "+(c+1),r.add(l)}n.style.display="block";var d=function(n){var r=e[n];i&&(i.textContent=function(e){if(!e)return"";if(e.attente_totale_label)return"Attente totale : "+e.attente_totale_label;if(null!=e.attente_totale_min){var t=parseInt(e.attente_totale_min,10)||0,n=Math.floor(t/60),o=t%60;return"Attente totale : "+(n>0?n+" h"+(o?" "+(o<10?"0":"")+o:""):o+" min")}return"declaratif"===e.source?"Composition déclarée":""}(r));var c=o(r&&r.etapes);"function"==typeof window.__confApplyTransitLegs?window.__confApplyTransitLegs(c):"function"==typeof t&&t(c)};r.onchange=function(){var n=parseInt(r.value,10);if(isNaN(n)||!e[n])return i&&(i.textContent=""),void("function"==typeof window.__confApplyTransitLegs?window.__confApplyTransitLegs([]):"function"==typeof t&&t([]));d(n)},r.selectedIndex=1,d(0)}else{var s=e&&e[0]?o(e[0].etapes):[];"function"==typeof window.__confApplyTransitLegs?window.__confApplyTransitLegs(s):"function"==typeof t&&t(s)}}function d(e,t){var n=document.querySelector(e);if(n&&(n.options.length=0,null!=t&&""!==t)){var o=new XMLHttpRequest;o.open("GET",window.location.origin+`${APP_ROOT}/programmes/verifsousgares/`+encodeURIComponent(t),!0),o.onload=function(){var e=null;try{e=JSON.parse(o.responseText)}catch(t){e=null}if(n.options.length=0,e&&!(Object.entries(e).length<1)){for(var t in Object.entries(e)){var r=document.createElement("option");r.value=`${e[t].idsousgare}`,r.innerHTML=`${e[t].nomsousgare}`,n.add(r)}n.options.length>0&&(n.selectedIndex=0)}},o.setRequestHeader("Content-Type","application/json"),o.send()}}window.__confHasTransit=!1,window.__confLastHeuresVente=[],window.__confApplyTransitLegs=null,window.__confSetMainEscaleVisible=function(e){var t=document.querySelector("#escale_dest_wrap_cf");if(t)if(e)t.style.display="";else{var n=document.querySelector("#escale_vente_check_cf");n&&(n.checked=!1),["#id_escale_ventecf","#code_gadest_ventecf","#nom_dest_ventecf"].forEach(function(e){var t=document.querySelector(e);t&&(t.value="")});var o=document.querySelector("#escale_dest_fields_cf");o&&(o.style.display="none"),t.style.display="none"}};function s(e){if(null==e||""===e)return null;var t=String(e).trim().split(/[:hH]/);if(!t||!t.length)return null;var n=parseInt(t[0],10);if(isNaN(n))return null;var o=null!=t[1]&&""!==t[1]?parseInt(t[1],10):0;return isNaN(o)&&(o=0),60*n+o}function u(e,t,n,o){var r=document.querySelector(e);if(r){r.options.length=1;var i=[];Array.isArray(t)?i=t:t&&"object"==typeof t&&Object.keys(t).forEach(function(e){i.push(t[e])});var c=n?String(n).slice(0,10):"",l=s(o);i=i.filter(function(e){return e&&null!=e.code_progr&&function(e,t,n,o){if(null==n||!t)return!0;var r=e&&e.date_progr?String(e.date_progr).slice(0,10):"",i=s(e&&e.heure);return!(!r||null==i)&&(r>t||!(r<t)&&i>=n+(null!=o?o:30))}(e,c,l,30)}),i.sort(function(e,t){var n=String(e.date_progr||"").slice(0,10),o=String(t.date_progr||"").slice(0,10);return n<o?-1:n>o?1:(s(e.heure)||0)-(s(t.heure)||0)});for(var d=0;d<i.length;d++){var u=i[d],a=document.createElement("option");a.value=`${u.code_progr}/${u.intervalle1}/${u.intervalle2}/${u.id_ligneheure}/${u.prix}`,a.setAttribute("data-heure",u.heure||""),a.setAttribute("data-date-progr",u.date_progr?String(u.date_progr).slice(0,10):""),a.innerHTML=`${u.heure}/${u.date_progr}`,r.add(a)}}}function a(){var e=document.querySelector("#dateprtranscf"),t=document.querySelector("#hertranscf"),n=e&&e.value?String(e.value).slice(0,10):document.querySelector("#actuel")?document.querySelector("#actuel").value:"",o=t&&t.value?String(t.value):"";if(!o){var r=document.querySelector("#heured");if(r&&r.selectedIndex>0){var i=String(r.options[r.selectedIndex].value||"").split("/");i.length>=2&&i[1].indexOf(":")>=0?o=i[1]:r.options[r.selectedIndex].getAttribute("data-heure")&&(o=r.options[r.selectedIndex].getAttribute("data-heure"))}}return{date:n,heure:o}}function p(e){var t=document.querySelector(e);if(!t||t.selectedIndex<1)return{date:"",heure:""};var n=t.options[t.selectedIndex];return{date:n.getAttribute("data-date-progr")||"",heure:n.getAttribute("data-heure")||""}}function m(e,t){var n=document.querySelector(e);n&&(n.value=null==t?"":String(t))}function y(e){e&&(m("#programtranscf",e.code_progr),m("#tarifattribcf",null!=e.typetarif&&""!==String(e.typetarif).trim()?e.typetarif:"1"),m("#dateprtranscf",e.date_progr),m("#deplignetranscf",e.gareidentif),m("#intertranscf1",e.intervalle1),m("#intertranscf2",e.intervalle2),m("#ligntranscf",e.ident_ligne),m("#nomitintranscf",e.nom_ligne),m("#hertranscf",e.heure),m("#catetranscf",e.categori),m("#programconf",e.code_progr),m("#dateconfirme",e.date_progr),m("#confheure",e.heure),m("#directid",e.nom_ligne),m("#caissepvend_",e.intervalle1),m("#caissedpvend_",e.intervalle2),m("#gareid_dep",e.gareidentif||e.gaexp_lg||""),m("#lignehconf",e.id_ligneheure||""),null!=e.prix&&""!==String(e.prix).trim()&&m("#prix_axetranscf",e.prix),e.gareidentif&&d("#transitedepargarecf1",e.gareidentif),["#hdepartitinecf","#idcheminsheurcf","#idcheminsheurcf1"].forEach(function(e){var t=document.querySelector(e);t&&(t.options.length=1)}))}function f(e){if(!e||""===e)return[];if(Array.isArray(e))return e.filter(Boolean);if("object"==typeof e){for(var t=Object.keys(e),n=[],o=0;o<t.length;o++){var r=t[o];e[r]&&"object"==typeof e[r]&&null!=e[r].code_progr&&n.push(e[r])}return n}return[]}function g(e,t){var n=document.querySelector("#tarifattribcf"),o=n&&""!==String(n.value||"").trim()?String(n.value).trim():"1";if(n&&""===String(n.value||"").trim()&&(n.value=o),e){var r=new XMLHttpRequest;r.open("GET",window.location.origin+`${APP_ROOT}/programmes/verifpriprg/`+e+"/"+o,!0),r.onload=function(){try{var e=JSON.parse(r.responseText);if(e&&Object.entries(e).length>=1)for(var t in Object.entries(e))m("#prix_axetranscf",e[t].prix)}catch(e){}},r.setRequestHeader("Content-Type","application/json"),r.send()}!function(){var e=document.querySelector("#depsieg");e&&(e.options.length=1);var t=document.querySelector("#programtranscf")?document.querySelector("#programtranscf").value:"",n=document.querySelector("#intertranscf1")?document.querySelector("#intertranscf1").value:"",o=document.querySelector("#intertranscf2")?document.querySelector("#intertranscf2").value:"",r=document.querySelector("#nomitintranscf")?document.querySelector("#nomitintranscf").value:"",i=document.querySelector("#hertranscf")?document.querySelector("#hertranscf").value:"",c=document.querySelector("#dateprtranscf")?document.querySelector("#dateprtranscf").value:"";if(t&&c&&r&&i&&""!==n&&""!==o){var l=new XMLHttpRequest;l.open("GET",window.location.origin+`${APP_ROOT}/programmes/siegdisponible/`+t+"/"+c+"/"+r+"/"+i+"/"+n+"/"+o,!0),l.onload=function(){try{var t=JSON.parse(l.responseText);if(e&&(e.options.length=1),t&&Object.entries(t).length>=1)for(var n in Object.entries(t)){var o=document.createElement("option");o.value=`${t[n].siege_num}`,o.innerHTML=`${t[n].siege_num}`,e&&e.add(o)}}catch(t){e&&(e.options.length=1)}},l.setRequestHeader("Content-Type","application/json"),l.send()}}()}function q(e){var t=document.querySelector("#heured");if(t&&!(t.selectedIndex<1)){var n=t.options[t.selectedIndex],o=n&&n.value||"",r=String(o).split("/")[0]||"";if(r){var i=n.getAttribute("data-code-progr")||"",c=n.getAttribute("data-gareidentif")||e,l=document.querySelector("#deplignetranscf");l&&l.value&&(c=l.value),d("#transitedepargarecf1",c);var s=document.querySelector("#depsieg");if(s&&(s.options.length=1),i)!function(e,t,n,o){if(e){var r=new XMLHttpRequest;r.open("GET",window.location.origin+`${APP_ROOT}/programmes/siegdispotrans/`+e,!0),r.onload=function(){var e=null;try{e=JSON.parse(r.responseText)}catch(t){e=null}var i=f(e);i.length<1?"function"==typeof o&&o(!1):(y(i[0]),!i[0].gareidentif&&n&&d("#transitedepargarecf1",n),g(t||i[0].id_ligneheure,document.querySelector("#actuel")&&document.querySelector("#actuel").value),"function"==typeof o&&o(!0))},r.setRequestHeader("Content-Type","application/json"),r.send()}else"function"==typeof o&&o(!1)}(i,r,c);else{var u=document.querySelector("#itinecodecf")?document.querySelector("#itinecodecf").value:"",a=document.querySelector("#actuel")?document.querySelector("#actuel").value:"",p="0",m=document.querySelector("#confirm-0 #depargare")||document.querySelector("#confForm #depargare");if(m&&m.value){var q=String(m.value).split("/");q[1]&&(p=q[1])}if(u&&a){var S=new XMLHttpRequest;S.open("GET",window.location.origin+`${APP_ROOT}/programmes/verifprog/`+u+"/"+a+"/"+r+"/"+(p||"0"),!0),S.onload=function(){var e=null;try{e=JSON.parse(S.responseText)}catch(t){e=null}var t=f(e);if(t.length>=1)return y(t[0]),void g(r)},S.setRequestHeader("Content-Type","application/json"),S.send()}}}}}function S(e,t,n){var o=document.querySelector("#heured"),r=document.querySelector("#depsieg");o&&(o.options.length=1),r&&(r.options.length=1);var i=document.querySelector("#transitedepargarecf1");if(i&&(i.options.length=0),e&&t){var c=new XMLHttpRequest;c.open("GET",window.location.origin+`${APP_ROOT}/programmes/verifheureitine/`+encodeURIComponent(e)+"/"+encodeURIComponent(t),!0),c.onload=function(){var e=null;try{e=JSON.parse(c.responseText)}catch(t){e=null}if(o){if(o.options.length=1,e&&Object.entries(e).length>=1)for(var t in Object.entries(e)){var r=e[t];if(r&&null!=r.id_ligneheure){var i=document.createElement("option");i.value=`${r.id_ligneheure}/${r.heure||""}`,i.setAttribute("data-has-programme","1"),i.setAttribute("data-transit-leg1","1"),r.code_progr&&i.setAttribute("data-code-progr",String(r.code_progr)),r.gareidentif&&i.setAttribute("data-gareidentif",String(r.gareidentif)),i.innerHTML=r.heure||"",o.add(i)}}o.options.length>1&&(o.selectedIndex=1,"function"==typeof o.onchange?o.onchange():q(n))}},c.setRequestHeader("Content-Type","application/json"),c.send()}}function v(){return document.getElementById("confirm-0")}function h(e){var t=v();return t?t.querySelector("#"+e):document.getElementById(e)}document.querySelectorAll(".addconfirme").forEach(function(s){document.querySelector("h3#confTitle").innerHTML="CONFIRMATION";let m,y=document.querySelector("#confirmer_infos");null!==y&&(y.onclick=()=>{let e;window.XMLHttpRequest?e=new XMLHttpRequest:window.ActiveXObject&&(e=new ActiveXObject("Microsoft.XMLHTTP"));var t=(h("codeconfirm")||{}).value||document.querySelector("#codeconfirm").value;e.open("GET",window.location.origin+`${APP_ROOT}/confirmation/verificationcode/${t}`,!0),e.onload=()=>{const t=JSON.parse(e.responseText);var n=h("valid"),o=h("validep"),r=function(e){var t=h(e);t&&(t.style.display="block")},i=function(e){var t=h(e);t&&(t.style.display="none")};if(null==t){r("pasnompconf"),r("pasprenompconf"),r("pascontactpconf"),r("pascnibpconf"),r("pasdatepconf"),r("delivrelieu"),r("heured"),r("depsieg"),n&&(n.style.display="block",n.disabled=!1,n.removeAttribute("disabled")),o&&(o.style.display="block");var c=h("messagep");c&&(c.style.display="none")}else if(Object.entries(t).length>1){var l=h("messagep");l&&(l.style.display="block");var d=h("erreurMessagep")||document.querySelector("#erreurMessagep");d&&(d.innerHTML="Cet ticket ne peut pas être confirmé ."),i("pasnompconf"),i("pasprenompconf"),i("pascontactpconf"),i("pascnibpconf"),i("pasdatepconf"),i("delivrelieu"),i("heured"),i("depsieg"),n&&(n.style.display="none",n.disabled=!0,n.setAttribute("disabled","disabled")),o&&(o.style.display="none")}},e.setRequestHeader("Content-Type","application/json"),e.send()}),window.XMLHttpRequest?m=new XMLHttpRequest:window.ActiveXObject&&(m=new ActiveXObject("Microsoft.XMLHTTP"));let f=document.querySelector("#axeconf");null!==f&&(f.onchange=()=>{var s=document.querySelector("#axeconf").value,y=document.querySelector("#actuel").value;document.querySelector("#heured").options.length=1,document.querySelector("#depsieg").options.length=1,document.querySelector("#quartconf").options.length=1,document.querySelector("#hdepartitinecf").options.length=1,document.querySelector("#psiegesitinescf").options.length=1,document.querySelector("#idcheminsheurcf").options.length=1,document.querySelector("#transitedepargarecf1").options.length=0,document.querySelector("#transitedepargarecf2").options.length=0,document.querySelector("#transitedepargarecf3").options.length=0,document.querySelector("#iddeptranscf4").style.display="none",document.querySelector("#transitedepargarecf4").options.length=0,document.querySelector("#idcheminscf").options.length=1,document.querySelector("#idcheminscf1").options.length=1,document.querySelector("#idcheminscf2").options.length=1,document.querySelector("#idcompgcf").value="",document.querySelector("#idcompgcf1").value="",document.querySelector("#idcompgcf2").value="",document.querySelector("#idcompgcf3").value="",document.querySelector("#psiegesitinescf1").options.length=1,document.querySelector("#idcheminsheurcf1").options.length=1,document.querySelector("#psiegesitinescf2").options.length=1,document.querySelector("#idcheminsheurcf1").options.length=1,document.querySelector("#quartiercf1").options.length=1,document.querySelector("#quartiercf2").options.length=1,document.querySelector("#quartiercf3").options.length=1,document.querySelector("#iddeptranscf1").style.display="none",document.querySelector("#transitedepargarecf1").style.display="none",document.querySelector("#iddeptranscf2").style.display="none",document.querySelector("#transitedepargarecf2").style.display="none",document.querySelector("#iddeptranscf3").style.display="none",document.querySelector("#transitedepargarecf3").style.display="none",document.querySelector("#arritincf1").style.display="none",document.querySelector("#heureitincf1").style.display="none",document.querySelector("#lignesitinerairecf").style.display="none",document.querySelector("#lignecf1").style.display="none",document.querySelector("#siegitinecf1").style.display="none",document.querySelector("#psiegesitinescf1").style.display="none",document.querySelector("#arritincf2").style.display="none",document.querySelector("#siegitinecf2").style.display="none",document.querySelector("#psiegesitinescf2").style.display="none",document.querySelector("#arritincf3").style.display="none",document.querySelector("#quartiercf1").style.display="none",document.querySelector("#quartiercf2").style.display="none",document.querySelector("#quartiercf3").style.display="none",document.querySelector("#idquartcf1").style.display="none",document.querySelector("#idquartcf2").style.display="none",document.querySelector("#idquartcf3").style.display="none",document.querySelector("#idquartcf2").style.display="none",document.querySelector("#idcheminscf2").style.display="none",document.querySelector("#idcheminsheurcf1").style.display="none",document.querySelector("#heureitincf2").style.display="none",document.querySelector("#idcheminsheurcf").style.display="none",document.querySelector("#idcheminscf1").style.display="none",document.querySelector("#transitedepargarecf4").style.display="none",document.querySelector("#trancf").style.display="none",document.querySelector("#heureitincf").style.display="none",document.querySelector("#hdepartitinecf").style.display="none",document.querySelector("#siegitinecf").style.display="none",document.querySelector("#psiegesitinescf").style.display="none",document.querySelector("#heured").style.display="block",document.querySelector("#depsieg").style.display="block",document.querySelector("#programcf").value="";let f=new XMLHttpRequest;f.open("GET",window.location.origin+`${APP_ROOT}/confirmation/verifconfquart/${s}`,!0),f.onload=()=>{const e=JSON.parse(f.responseText);if(""==e)document.querySelector("#quartconf").options.length=1;else if(Object.entries(e).length>=1)for(let t in Object.entries(e)){let n=document.createElement("option");n.value=`${e[t].nom_quartier}`,n.innerHTML=`${e[t].nom_quartier}`,document.querySelector("#quartconf").add(n)}else document.querySelector("#quartconf").options.length=1},f.setRequestHeader("Content-Type","application/json"),f.send();var g=t();m.open("GET",window.location.origin+`${APP_ROOT}/programmes/verifheuresvente/${encodeURIComponent(s)}/${encodeURIComponent(y)}/${encodeURIComponent(g||"0")}`,!0),m.onload=()=>{var f={};try{f=JSON.parse(m.responseText)||{}}catch(e){f={}}var g=Array.isArray(f.heures)?f.heures:[];window.__confHasTransit=!!f.has_transit,window.__confLastHeuresVente=g,e(),function(e){var t=document.querySelector("#heured");if(t){t.options.length=1;for(var n=Array.isArray(e)?e:[],o=0;o<n.length;o++){var r=n[o];if(r&&null!=r.id_ligneheure&&""!==r.id_ligneheure){var i=document.createElement("option"),c=!(!0!==r.has_programme&&1!==r.has_programme&&"1"!==r.has_programme);c&&r.code_progr?i.value=String(r.code_progr)+"/1/"+String(r.id_ligneheure):i.value=String(r.id_ligneheure)+"/"+String(r.heure||""),i.setAttribute("data-has-programme",c?"1":"0"),i.innerHTML=r.heure||"",t.add(i)}}}}(g),window.__confApplyTransitLegs=function(e){if(null===(e=o(e))||""===e||"object"==typeof e&&!Object.keys(e).length)document.querySelector("#iddeptranscf1").style.display="none",document.querySelector("#transitedepargarecf1").style.display="none",document.querySelector("#iddeptranscf2").style.display="none",document.querySelector("#transitedepargarecf2").style.display="none",document.querySelector("#iddeptranscf3").style.display="none",document.querySelector("#transitedepargarecf3").style.display="none",document.querySelector("#iddeptranscf4").style.display="none",document.querySelector("#transitedepargarecf4").style.display="none",document.querySelector("#arritincf1").style.display="none",document.querySelector("#heureitincf1").style.display="none",document.querySelector("#lignesitinerairecf").style.display="none",document.querySelector("#lignecf1").style.display="none",document.querySelector("#siegitinecf1").style.display="none",document.querySelector("#psiegesitinescf1").style.display="none",document.querySelector("#arritincf2").style.display="none",document.querySelector("#heureitincf2").style.display="none",document.querySelector("#hdepartitinecf2").style.display="none",document.querySelector("#siegitinecf2").style.display="none",document.querySelector("#psiegesitinescf2").style.display="none",document.querySelector("#arritincf3").style.display="none",document.querySelector("#quartiercf1").style.display="none",document.querySelector("#quartiercf2").style.display="none",document.querySelector("#quartiercf3").style.display="none",document.querySelector("#idquartcf1").style.display="none",document.querySelector("#idquartcf2").style.display="none",document.querySelector("#idquartcf3").style.display="none",document.querySelector("#trancf").style.display="none","function"==typeof window.__confSetMainEscaleVisible&&window.__confSetMainEscaleVisible(!0),document.querySelector("#heureitincf").style.display="none",document.querySelector("#hdepartitinecf").style.display="none",document.querySelector("#siegitinecf").style.display="none",document.querySelector("#psiegesitinescf").style.display="none",document.querySelector("#heured").style.display="block";else if(c(),Object.entries(e).length>=1){var t=Object.entries(e).length;for(let n in Object.entries(e))document.querySelector("#nbrtranscf").value=Object.entries(e).length,2===t&&(document.querySelector("#idcheminscf").style.display="block",document.querySelector("#heured").style.display="block",document.querySelector("#heureitincf").style.display="block",document.querySelector("#hdepartitinecf").style.display="block",document.querySelector("#siegitinecf").style.display="block",document.querySelector("#psiegesitinescf").style.display="block",document.querySelector("#depsieg").style.display="block",document.querySelector("#quartiercf1").style.display="block",document.querySelector("#idquartcf1").style.display="block",document.querySelector("#lignecf1").style.display="block",document.querySelector("#lignesitinerairecf").style.display="block",document.querySelector("#iddeptranscf1").style.display="block",document.querySelector("#arritincf1").style.display="block",document.querySelector("#transitedepargarecf1").style.display="block",document.querySelector("#iddeptranscf2").style.display="block",document.querySelector("#transitedepargarecf2").style.display="block"),3===t&&(document.querySelector("#idcheminscf").style.display="block",document.querySelector("#heureitincf").style.display="block",document.querySelector("#hdepartitinecf").style.display="block",document.querySelector("#siegitinecf").style.display="block",document.querySelector("#psiegesitinescf").style.display="block",document.querySelector("#depsieg").style.display="block",document.querySelector("#quartiercf1").style.display="block",document.querySelector("#idquartcf1").style.display="block",document.querySelector("#lignecf1").style.display="block",document.querySelector("#lignesitinerairecf").style.display="block",document.querySelector("#heured").style.display="block",document.querySelector("#iddeptranscf1").style.display="block",document.querySelector("#arritincf1").style.display="block",document.querySelector("#transitedepargarecf1").style.display="block",document.querySelector("#arritincf2").style.display="block",document.querySelector("#idcheminscf1").style.display="block",document.querySelector("#idquartcf2").style.display="block",document.querySelector("#quartiercf2").style.display="block",document.querySelector("#heureitincf1").style.display="block",document.querySelector("#idcheminsheurcf").style.display="block",document.querySelector("#siegitinecf1").style.display="block",document.querySelector("#psiegesitinescf1").style.display="block",document.querySelector("#iddeptranscf2").style.display="block",document.querySelector("#transitedepargarecf2").style.display="block",document.querySelector("#iddeptranscf3").style.display="block",document.querySelector("#transitedepargarecf3").style.display="block"),4===t&&(document.querySelector("#idcheminscf").style.display="block",document.querySelector("#heureitincf").style.display="block",document.querySelector("#hdepartitinecf").style.display="block",document.querySelector("#siegitinecf").style.display="block",document.querySelector("#psiegesitinescf").style.display="block",document.querySelector("#depsieg").style.display="block",document.querySelector("#quartiercf1").style.display="block",document.querySelector("#idquartcf1").style.display="block",document.querySelector("#lignecf1").style.display="block",document.querySelector("#lignesitinerairecf").style.display="block",document.querySelector("#heured").style.display="block",document.querySelector("#iddeptranscf1").style.display="block",document.querySelector("#arritincf1").style.display="block",document.querySelector("#transitedepargarecf1").style.display="block",document.querySelector("#arritincf2").style.display="block",document.querySelector("#idcheminscf1").style.display="block",document.querySelector("#idcheminscf2").style.display="block",document.querySelector("#idquartcf2").style.display="block",document.querySelector("#quartiercf2").style.display="block",document.querySelector("#heureitincf1").style.display="block",document.querySelector("#idcheminsheurcf").style.display="block",document.querySelector("#siegitinecf1").style.display="block",document.querySelector("#psiegesitinescf1").style.display="block",document.querySelector("#iddeptranscf2").style.display="block",document.querySelector("#transitedepargarecf2").style.display="block",document.querySelector("#arritincf3").style.display="block",document.querySelector("#idquartcf3").style.display="block",document.querySelector("#quartiercf3").style.display="block",document.querySelector("#heureitincf2").style.display="block",document.querySelector("#idcheminsheurcf1").style.display="block",document.querySelector("#siegitinecf2").style.display="block",document.querySelector("#psiegesitinescf2").style.display="block",document.querySelector("#iddeptranscf3").style.display="block",document.querySelector("#transitedepargarecf3").style.display="block",document.querySelector("#iddeptranscf4").style.display="block",document.querySelector("#transitedepargarecf4").style.display="block"),document.querySelector("#trancf").style.display="block","function"==typeof window.__confSetMainEscaleVisible&&window.__confSetMainEscaleVisible(!1),document.querySelector("#depsieg")&&(document.querySelector("#depsieg").options.length=1),document.querySelector("#transitedepargarecf1")&&(document.querySelector("#transitedepargarecf1").options.length=0),document.querySelector("#heured")&&(document.querySelector("#heured").options.length=1),document.querySelector("#heureitincf").style.display="block",document.querySelector("#hdepartitinecf").style.display="block",document.querySelector("#lignesitinerairecf").style.display="block",document.querySelector("#lignecf1").style.display="block",document.querySelector("#siegitinecf").style.display="block",document.querySelector("#psiegesitinescf").style.display="block",document.querySelector("#heured").style.display="block",document.querySelector("#idcompgcf").value=`${e[0].id_compaga}`,i(e[0]);if(2===t){r("#idcheminscf",e[1].code_itineraires,e[1].nom_itineraires),i(e[0]),document.querySelector("#itinecodescf").value=`${e[0].id_lignes}`,document.querySelector("#idcompgcf").value=`${e[0].id_compaga}`,document.querySelector("#idcompgcf1").value=`${e[1].id_compaga}`;var n=(document.querySelector("#itinecodecf").value||"").split("-"),l=e[0]&&(e[0].gaexp_lg||e[0].code_gaexp)?e[0].gaexp_lg||e[0].code_gaexp:n[0],s=e[0]&&e[0].gadest_lg?e[0].gadest_lg:n[1],m=e[0]&&e[0].id_lignes?e[0].id_lignes:document.querySelector("#itinecodescf")&&document.querySelector("#itinecodescf").value;let t;document.querySelector("#itinecodescf")&&m&&(document.querySelector("#itinecodescf").value=m),t=new XMLHttpRequest,t.open("GET",window.location.origin+`${APP_ROOT}/programmes/verifquartr/${s}`,!0),t.onload=()=>{const e=JSON.parse(t.responseText);if(""==e)document.querySelector("#quartiercf1").options.length=1;else if(Object.entries(e).length>=1)for(let t in Object.entries(e)){let n=document.createElement("option");n.value=`${e[t].nom_quartier}`,n.innerHTML=`${e[t].nom_quartier}`,document.querySelector("#quartiercf1").add(n)}else document.querySelector("#quartiercf1").options.length=1},t.setRequestHeader("Content-Type","application/json"),t.send();let o=document.querySelector("#heured");null!==o&&(o.onchange=()=>{q(l)},S(document.querySelector("#itinecodecf")&&document.querySelector("#itinecodecf").value||"",document.querySelector("#actuel").value,l)),progsiegestranscf=document.querySelector("#depsieg"),null!==progsiegestranscf&&(progsiegestranscf.onchange=()=>{gareidentiftranscf=document.querySelector("#deplignetranscf").value;new XMLHttpRequest;let e;d("#transitedepargarecf1",gareidentiftranscf),e=new XMLHttpRequest;const t=document.querySelector("#depsieg").options[document.querySelector("#depsieg").options.selectedIndex].value,n=document.querySelector("#programtranscf").value;e.open("GET",window.location.origin+`${APP_ROOT}/programmes/verifisieges/${n}/${t}`,!0),e.onload=()=>{const o=JSON.parse(e.responseText);if(console.debug(`${typeof o} - ${o.attributes}`,console.memory),""==o){let e;e=new XMLHttpRequest,e.open("GET",window.location.origin+`${APP_ROOT}/programmes/creersiege/${n}/${t}`,!0),e.onload=()=>{const t=JSON.parse(e.responseText);if(document.querySelector("#messconf").style.display="none",Object.entries(t).length>=1)for(let e in Object.entries(t))document.querySelector("#idtampotranscf").value=`${t[e].idtamp}`,document.querySelector("#siegselecttranscf").value=`${t[e].numsieg}`},e.setRequestHeader("Content-Type","application/json"),e.send()}else{if(document.querySelector("#depsieg").value="",Object.entries(o).length>=1)for(let e in Object.entries(o))document.querySelector("#idtampotranscf").value=`${o[e].idtamp}`,document.querySelector("#siegselecttranscf").value=`${o[e].numsieg}`;document.querySelector("#messconf").style.display="block",document.querySelector("#erreurMessconf").innerHTML="Siege déjà utilisé."}},e.setRequestHeader("Content-Type","application/json"),e.send()});let c=document.querySelector("#idcheminscf");if(null!==c){c.onchange=()=>{let e;e=new XMLHttpRequest;const t=document.querySelector("#idcheminscf").options[document.querySelector("#idcheminscf").options.selectedIndex].value;var n=t.split("-"),o=(n[0],n[1],document.querySelector("#actuel").value);e.open("GET",window.location.origin+`${APP_ROOT}/programmes/chemin/${t}/${o}`,!0),e.onload=()=>{const t=JSON.parse(e.responseText);var n=a();u("#hdepartitinecf",t,n.date,n.heure)},e.setRequestHeader("Content-Type","application/json"),e.send()};let e=document.querySelector("#hdepartitinecf");null!==e&&(e.onchange=()=>{const e=new XMLHttpRequest;var t=document.querySelector("#hdepartitinecf").options[document.querySelector("#hdepartitinecf").options.selectedIndex].value.split("/"),n=t[0],o=t[1],r=t[2],i=(t[3],t[4]);e.open("GET",window.location.origin+`${APP_ROOT}/programmes/siegdispotrans/${n}`,!0),e.onload=()=>{const t=JSON.parse(e.responseText);if(console.debug(`${typeof t}-${t.attributes}`,console.memory),Object.entries(t).length>=1)for(let e in Object.entries(t))document.querySelector("#prix_axetransitcf").value=`${i}`,document.querySelector("#catetransitcf").value=`${t[e].categori}`,document.querySelector("#gidtranscf").value=`${t[e].gareidentif}`,document.querySelector("#nomitintranscf1").value=`${t[e].nom_ligne}`,document.querySelector("#ligntranscf1").value=`${t[e].ident_ligne}`},e.setRequestHeader("Content-Type","application/json"),e.send();const c=new XMLHttpRequest;c.open("GET",window.location.origin+`${APP_ROOT}/programmes/siegdisponibletrans/${n}/${o}/${r}`,!0),c.onload=()=>{const e=JSON.parse(c.responseText);if(console.debug(`${typeof e} - ${e.attributes}`,console.memory),Object.entries(e).length>=1)for(let t in Object.entries(e)){let n=document.createElement("option");n.value=`${e[t].siege_num}`,n.innerHTML=`${e[t].siege_num}`,document.querySelector("#psiegesitinescf").add(n)}else document.querySelector("#psiegesitinescf").options.length=1},c.setRequestHeader("Content-Type","application/json"),c.send()}),progsiegescf1=document.querySelector("#psiegesitinescf"),null!==progsiegescf1&&(progsiegescf1.onchange=()=>{var e=document.querySelector("#hdepartitinecf").options[document.querySelector("#hdepartitinecf").options.selectedIndex].value.split("/")[0];gareidentiftranscf2=document.querySelector("#gidtranscf").value;const t=new XMLHttpRequest;let n;t.open("GET",window.location.origin+`${APP_ROOT}/programmes/verifsousgares/${gareidentiftranscf2}`,!0),t.onload=()=>{const e=JSON.parse(t.responseText);if(console.debug(`${typeof e}-${e.attributes}`,console.memory),Object.entries(e).length>=1)for(let t in Object.entries(e)){let n=document.createElement("option");n.value=`${e[t].idsousgare}`,n.innerHTML=`${e[t].nomsousgare}`,document.querySelector("#transitedepargarecf2").add(n)}},t.setRequestHeader("Content-Type","application/json"),t.send(),n=new XMLHttpRequest;const o=document.querySelector("#psiegesitinescf").options[document.querySelector("#psiegesitinescf").options.selectedIndex].value;n.open("GET",window.location.origin+`${APP_ROOT}/programmes/verifisieges/${e}/${o}`,!0),n.onload=()=>{const t=JSON.parse(n.responseText);if(console.debug(`${typeof t} - ${t.attributes}`,console.memory),""==t){let t;t=new XMLHttpRequest,t.open("GET",window.location.origin+`${APP_ROOT}/programmes/creersiege/${e}/${o}`,!0),t.onload=()=>{const e=JSON.parse(t.responseText);if(document.querySelector("#messconf").style.display="none",Object.entries(e).length>=1)for(let t in Object.entries(e))document.querySelector("#idtampocf1").value=`${e[t].idtamp}`,document.querySelector("#siegselectcf1").value=`${e[t].numsieg}`},t.setRequestHeader("Content-Type","application/json"),t.send()}else{if(document.querySelector("#psiegesitinescf").value="",Object.entries(t).length>=1)for(let e in Object.entries(t))document.querySelector("#idtampocf1").value=`${t[e].idtamp}`,document.querySelector("#siegselectcf1").value=`${t[e].numsieg}`;document.querySelector("#messconf").style.display="block",document.querySelector("#erreurMessconf").innerHTML="Siege déjà utilisé."}},n.setRequestHeader("Content-Type","application/json"),n.send()})}}if(3===t){r("#idcheminscf",e[1].code_itineraires,e[1].nom_itineraires),i(e[0]),document.querySelector("#itinecodescf").value=`${e[0].id_lignes}`,document.querySelector("#idcompgcf").value=`${e[0].id_compaga}`,r("#idcheminscf1",e[2].code_itineraires,e[2].nom_itineraires),document.querySelector("#idcompgcf1").value=`${e[1].id_compaga}`,document.querySelector("#idcompgcf2").value=`${e[2].id_compaga}`;n=document.querySelector("#itinecodecf").value.split("-"),l=e[0]&&(e[0].gaexp_lg||e[0].code_gaexp)?e[0].gaexp_lg||e[0].code_gaexp:n[0],s=n[1];let t;t=new XMLHttpRequest,t.open("GET",window.location.origin+`${APP_ROOT}/programmes/verifquartr/${s}`,!0),t.onload=()=>{const e=JSON.parse(t.responseText);if(""==e)document.querySelector("#quartiercf1").options.length=1;else if(Object.entries(e).length>=1)for(let t in Object.entries(e)){let n=document.createElement("option");n.value=`${e[t].nom_quartier}`,n.innerHTML=`${e[t].nom_quartier}`,document.querySelector("#quartiercf1").add(n)}else document.querySelector("#quartiercf1").options.length=1},t.setRequestHeader("Content-Type","application/json"),t.send();let o=document.querySelector("#heured");null!==o&&(o.onchange=()=>{q(l)},S(document.querySelector("#itinecodecf")&&document.querySelector("#itinecodecf").value||"",document.querySelector("#actuel").value,l));let c=document.querySelector("#depsieg");null!==c&&(c.onchange=()=>{const e=document.querySelector("#deplignetranscf").value;new XMLHttpRequest;let t;d("#transitedepargarecf1",e),t=new XMLHttpRequest;const n=document.querySelector("#depsieg").options[document.querySelector("#depsieg").options.selectedIndex].value,o=document.querySelector("#programtranscf").value;t.open("GET",window.location.origin+`${APP_ROOT}/programmes/verifisieges/${o}/${n}`,!0),t.onload=()=>{const e=JSON.parse(t.responseText);if(console.debug(`${typeof e} - ${e.attributes}`,console.memory),""==e){let e;e=new XMLHttpRequest,e.open("GET",window.location.origin+`${APP_ROOT}/programmes/creersiege/${o}/${n}`,!0),e.onload=()=>{const t=JSON.parse(e.responseText);if(document.querySelector("#messconf").style.display="none",Object.entries(t).length>=1)for(let e in Object.entries(t))document.querySelector("#idtampotranscf").value=`${t[e].idtamp}`,document.querySelector("#siegselecttranscf").value=`${t[e].numsieg}`},e.setRequestHeader("Content-Type","application/json"),e.send()}else{if(document.querySelector("#depsieg").value="",Object.entries(e).length>=1)for(let t in Object.entries(e))document.querySelector("#idtampotranscf").value=`${e[t].idtamp}`,document.querySelector("#siegselecttranscf").value=`${e[t].numsieg}`;document.querySelector("#messconf").style.display="block",document.querySelector("#erreurMessconf").innerHTML="Siege déjà utilisé."}},t.setRequestHeader("Content-Type","application/json"),t.send()});let m=document.querySelector("#idcheminscf");if(null!==m){m.onchange=()=>{const e=document.querySelector("#idcheminscf").options[document.querySelector("#idcheminscf").options.selectedIndex].value;var t=e.split("-"),n=(t[0],t[1]);let o,r;o=new XMLHttpRequest,o.open("GET",window.location.origin+`${APP_ROOT}/programmes/verifquartr/${n}`,!0),o.onload=()=>{const e=JSON.parse(o.responseText);if(""==e)document.querySelector("#quartiercf2").options.length=1;else if(Object.entries(e).length>=1)for(let t in Object.entries(e)){let n=document.createElement("option");n.value=`${e[t].nom_quartier}`,n.innerHTML=`${e[t].nom_quartier}`,document.querySelector("#quartiercf2").add(n)}else document.querySelector("#quartiercf2").options.length=1},o.setRequestHeader("Content-Type","application/json"),o.send(),r=new XMLHttpRequest;var i=document.querySelector("#actuel").value;r.open("GET",window.location.origin+`${APP_ROOT}/programmes/chemin/${e}/${i}`,!0),r.onload=()=>{const e=JSON.parse(r.responseText);var t=a();u("#hdepartitinecf",e,t.date,t.heure)},r.setRequestHeader("Content-Type","application/json"),r.send()};let e=document.querySelector("#hdepartitinecf");null!==e&&(e.onchange=()=>{const e=new XMLHttpRequest;var t=document.querySelector("#hdepartitinecf").options[document.querySelector("#hdepartitinecf").options.selectedIndex].value.split("/"),n=t[0],o=t[1],r=t[2],i=(t[3],t[4]);e.open("GET",window.location.origin+`${APP_ROOT}/programmes/siegdispotrans/${n}`,!0),e.onload=()=>{const t=JSON.parse(e.responseText);if(console.debug(`${typeof t}-${t.attributes}`,console.memory),Object.entries(t).length>=1)for(let e in Object.entries(t))document.querySelector("#prix_axetransitcf").value=`${i}`,document.querySelector("#catetransitcf").value=`${t[e].categori}`,document.querySelector("#gidtranscf").value=`${t[e].gareidentif}`,document.querySelector("#nomitintranscf1").value=`${t[e].nom_ligne}`,document.querySelector("#ligntranscf1").value=`${t[e].ident_ligne}`},e.setRequestHeader("Content-Type","application/json"),e.send();const c=new XMLHttpRequest;c.open("GET",window.location.origin+`${APP_ROOT}/programmes/siegdisponibletrans/${n}/${o}/${r}`,!0),c.onload=()=>{const e=JSON.parse(c.responseText);if(console.debug(`${typeof e} - ${e.attributes}`,console.memory),Object.entries(e).length>=1)for(let t in Object.entries(e)){let n=document.createElement("option");n.value=`${e[t].siege_num}`,n.innerHTML=`${e[t].siege_num}`,document.querySelector("#psiegesitinescf").add(n)}else document.querySelector("#psiegesitinescf").options.length=1},c.setRequestHeader("Content-Type","application/json"),c.send()});let t=document.querySelector("#psiegesitinescf");null!==t&&(t.onchange=()=>{const e=document.querySelector("#gidtranscf").value,t=new XMLHttpRequest;t.open("GET",window.location.origin+`${APP_ROOT}/programmes/verifsousgares/${e}`,!0),t.onload=()=>{const e=JSON.parse(t.responseText);if(console.debug(`${typeof e}-${e.attributes}`,console.memory),Object.entries(e).length>=1)for(let t in Object.entries(e)){let n=document.createElement("option");n.value=`${e[t].idsousgare}`,n.innerHTML=`${e[t].nomsousgare}`,document.querySelector("#transitedepargarecf2").add(n)}},t.setRequestHeader("Content-Type","application/json"),t.send();var n=document.querySelector("#hdepartitinecf").options[document.querySelector("#hdepartitinecf").options.selectedIndex].value.split("/")[0];let o;o=new XMLHttpRequest;const r=document.querySelector("#psiegesitinescf").options[document.querySelector("#psiegesitinescf").options.selectedIndex].value;o.open("GET",window.location.origin+`${APP_ROOT}/programmes/verifisieges/${n}/${r}`,!0),o.onload=()=>{const e=JSON.parse(o.responseText);if(console.debug(`${typeof e} - ${e.attributes}`,console.memory),""==e){let e;e=new XMLHttpRequest,e.open("GET",window.location.origin+`${APP_ROOT}/programmes/creersiege/${n}/${r}`,!0),e.onload=()=>{const t=JSON.parse(e.responseText);if(document.querySelector("#messconf").style.display="none",Object.entries(t).length>=1)for(let e in Object.entries(t))document.querySelector("#idtampocf1").value=`${t[e].idtamp}`,document.querySelector("#siegselectcf1").value=`${t[e].numsieg}`},e.setRequestHeader("Content-Type","application/json"),e.send()}else{if(document.querySelector("#psiegesitinescf").value="",Object.entries(e).length>=1)for(let t in Object.entries(e))document.querySelector("#idtampocf1").value=`${e[t].idtamp}`,document.querySelector("#siegselectcf1").value=`${e[t].numsieg}`;document.querySelector("#messconf").style.display="block",document.querySelector("#erreurMessconf").innerHTML="Siege déjà utilisé."}},o.setRequestHeader("Content-Type","application/json"),o.send()})}let y=document.querySelector("#idcheminscf1");if(null!==y){y.onchange=()=>{var e=document.querySelector("#idcheminscf1").options[document.querySelector("#idcheminscf1").options.selectedIndex].value.split("-");e[0],e[1];let t;t=new XMLHttpRequest;var n=document.querySelector("#actuel").value;const o=document.querySelector("#idcheminscf1").options[document.querySelector("#idcheminscf1").options.selectedIndex].value;t.open("GET",window.location.origin+`${APP_ROOT}/programmes/chemin/${o}/${n}`,!0),t.onload=()=>{const e=JSON.parse(t.responseText);var n=p("#hdepartitinecf");u("#idcheminsheurcf",e,n.date,n.heure)},t.setRequestHeader("Content-Type","application/json"),t.send()};let e=document.querySelector("#idcheminsheurcf");null!==e&&(e.onchange=()=>{const e=new XMLHttpRequest;var t=document.querySelector("#idcheminsheurcf").options[document.querySelector("#idcheminsheurcf").options.selectedIndex].value.split("/"),n=t[0],o=t[1],r=t[2],i=(t[3],t[4]);e.open("GET",window.location.origin+`${APP_ROOT}/programmes/siegdispotrans/${n}`,!0),e.onload=()=>{const t=JSON.parse(e.responseText);if(Object.entries(t).length>=1)for(let e in Object.entries(t))document.querySelector("#prix_axetransitcf1").value=`${i}`,document.querySelector("#catetransitcf1").value=`${t[e].categori}`,document.querySelector("#gidtranscf1").value=`${t[e].gareidentif}`,document.querySelector("#nomitintranscf2").value=`${t[e].nom_ligne}`,document.querySelector("#ligntranscf2").value=`${t[e].ident_ligne}`},e.setRequestHeader("Content-Type","application/json"),e.send();const c=new XMLHttpRequest;c.open("GET",window.location.origin+`${APP_ROOT}/programmes/siegdisponibletrans/${n}/${o}/${r}`,!0),c.onload=()=>{const e=JSON.parse(c.responseText);if(console.debug(`${typeof e} - ${e.attributes}`,console.memory),Object.entries(e).length>=1)for(let t in Object.entries(e)){let n=document.createElement("option");n.value=`${e[t].siege_num}`,n.innerHTML=`${e[t].siege_num}`,document.querySelector("#psiegesitinescf1").add(n)}else document.querySelector("#psiegesitinescf1").options.length=1},c.setRequestHeader("Content-Type","application/json"),c.send()});let t=document.querySelector("#psiegesitinescf1");null!==t&&(t.onchange=()=>{var e=document.querySelector("#idcheminsheurcf").options[document.querySelector("#idcheminsheurcf").options.selectedIndex].value.split("/")[0];const t=document.querySelector("#gidtranscf1").value,n=new XMLHttpRequest;let o;n.open("GET",window.location.origin+`${APP_ROOT}/programmes/verifsousgares/${t}`,!0),n.onload=()=>{const e=JSON.parse(n.responseText);if(console.debug(`${typeof e}-${e.attributes}`,console.memory),Object.entries(e).length>=1)for(let t in Object.entries(e)){let n=document.createElement("option");n.value=`${e[t].idsousgare}`,n.innerHTML=`${e[t].nomsousgare}`,document.querySelector("#transitedepargarecf3").add(n)}},n.setRequestHeader("Content-Type","application/json"),n.send(),o=new XMLHttpRequest;const r=document.querySelector("#psiegesitinescf1").options[document.querySelector("#psiegesitinescf1").options.selectedIndex].value;o.open("GET",window.location.origin+`${APP_ROOT}/programmes/verifisieges/${e}/${r}`,!0),o.onload=()=>{const t=JSON.parse(o.responseText);if(""==t){let t;t=new XMLHttpRequest,t.open("GET",window.location.origin+`${APP_ROOT}/programmes/creersiege/${e}/${r}`,!0),t.onload=()=>{const e=JSON.parse(t.responseText);if(document.querySelector("#messconf").style.display="none",Object.entries(e).length>=1)for(let t in Object.entries(e))document.querySelector("#idtampocf2").value=`${e[t].idtamp}`,document.querySelector("#siegselectcf2").value=`${e[t].numsieg}`},t.setRequestHeader("Content-Type","application/json"),t.send()}else{if(document.querySelector("#psiegesitinescf1").value="",Object.entries(t).length>=1)for(let e in Object.entries(t))document.querySelector("#idtampocf2").value=`${t[e].idtamp}`,document.querySelector("#siegselectcf2").value=`${t[e].numsieg}`;document.querySelector("#messconf").style.display="block",document.querySelector("#erreurMessconf").innerHTML="Siege déjà utilisé."}},o.setRequestHeader("Content-Type","application/json"),o.send()})}}if(4===t){r("#idcheminscf",e[1].code_itineraires,e[1].nom_itineraires),r("#idcheminscf1",e[2].code_itineraires,e[2].nom_itineraires),r("#idcheminscf2",e[3].code_itineraires,e[3].nom_itineraires),i(e[0]),document.querySelector("#itinecodescf").value=`${e[0].id_lignes}`,document.querySelector("#idcompgcf").value=`${e[0].id_compaga}`,document.querySelector("#idcompgcf1").value=`${e[1].id_compaga}`,document.querySelector("#idcompgcf2").value=`${e[2].id_compaga}`,document.querySelector("#idcompgcf3").value=`${e[3].id_compaga}`;n=document.querySelector("#itinecodecf").value.split("-"),l=e[0]&&(e[0].gaexp_lg||e[0].code_gaexp)?e[0].gaexp_lg||e[0].code_gaexp:n[0],s=n[1];let t;t=new XMLHttpRequest,t.open("GET",window.location.origin+`${APP_ROOT}/programmes/verifquartr/${s}`,!0),t.onload=()=>{const e=JSON.parse(t.responseText);if(""==e)document.querySelector("#quartiercf1").options.length=1;else if(Object.entries(e).length>=1)for(let t in Object.entries(e)){let n=document.createElement("option");n.value=`${e[t].nom_quartier}`,n.innerHTML=`${e[t].nom_quartier}`,document.querySelector("#quartiercf1").add(n)}else document.querySelector("#quartiercf1").options.length=1},t.setRequestHeader("Content-Type","application/json"),t.send();let o=document.querySelector("#heured");null!==o&&(o.onchange=()=>{q(l)},S(document.querySelector("#itinecodecf")&&document.querySelector("#itinecodecf").value||"",document.querySelector("#actuel").value,l));let c=document.querySelector("#depsieg");null!==c&&(c.onchange=()=>{const e=document.querySelector("#deplignetranscf").value;new XMLHttpRequest;let t;d("#transitedepargarecf1",e),t=new XMLHttpRequest;const n=document.querySelector("#depsieg").options[document.querySelector("#depsieg").options.selectedIndex].value,o=document.querySelector("#programtranscf").value;t.open("GET",window.location.origin+`${APP_ROOT}/programmes/verifisieges/${o}/${n}`,!0),t.onload=()=>{const e=JSON.parse(t.responseText);if(console.debug(`${typeof e} - ${e.attributes}`,console.memory),""==e){let e;e=new XMLHttpRequest,e.open("GET",window.location.origin+`${APP_ROOT}/programmes/creersiege/${o}/${n}`,!0),e.onload=()=>{const t=JSON.parse(e.responseText);if(document.querySelector("#messconf").style.display="none",Object.entries(t).length>=1)for(let e in Object.entries(t))document.querySelector("#idtampotranscf").value=`${t[e].idtamp}`,document.querySelector("#siegselecttranscf").value=`${t[e].numsieg}`},e.setRequestHeader("Content-Type","application/json"),e.send()}else{if(document.querySelector("#depsieg").value="",Object.entries(e).length>=1)for(let t in Object.entries(e))document.querySelector("#idtampotranscf").value=`${e[t].idtamp}`,document.querySelector("#siegselecttranscf").value=`${e[t].numsieg}`;document.querySelector("#messconf").style.display="block",document.querySelector("#erreurMessconf").innerHTML="Siege déjà utilisé."}},t.setRequestHeader("Content-Type","application/json"),t.send()});let m=document.querySelector("#idcheminscf");if(null!==m){m.onchange=()=>{var e=document.querySelector("#actuel").value;const t=document.querySelector("#idcheminscf").options[document.querySelector("#idcheminscf").options.selectedIndex].value;var n=t.split("-"),o=(n[0],n[1]);let r,i;r=new XMLHttpRequest,r.open("GET",window.location.origin+`${APP_ROOT}/programmes/verifquartr/${o}`,!0),r.onload=()=>{const e=JSON.parse(r.responseText);if(""==e)document.querySelector("#quartiercf2").options.length=1;else if(Object.entries(e).length>=1)for(let t in Object.entries(e)){let n=document.createElement("option");n.value=`${e[t].nom_quartier}`,n.innerHTML=`${e[t].nom_quartier}`,document.querySelector("#quartiercf2").add(n)}else document.querySelector("#quartiercf2").options.length=1},r.setRequestHeader("Content-Type","application/json"),r.send(),i=new XMLHttpRequest,i.open("GET",window.location.origin+`${APP_ROOT}/programmes/chemin/${t}/${e}`,!0),i.onload=()=>{const e=JSON.parse(i.responseText);var t=a();u("#hdepartitinecf",e,t.date,t.heure)},i.setRequestHeader("Content-Type","application/json"),i.send()};let e=document.querySelector("#hdepartitinecf");null!==e&&(e.onchange=()=>{const e=new XMLHttpRequest;var t=document.querySelector("#hdepartitinecf").options[document.querySelector("#hdepartitinecf").options.selectedIndex].value.split("/"),n=t[0],o=t[1],r=t[2],i=(t[3],t[4]);e.open("GET",window.location.origin+`${APP_ROOT}/programmes/siegdispotrans/${n}`,!0),e.onload=()=>{const t=JSON.parse(e.responseText);if(console.debug(`${typeof t}-${t.attributes}`,console.memory),Object.entries(t).length>=1)for(let e in Object.entries(t))document.querySelector("#prix_axetransitcf").value=`${i}`,document.querySelector("#catetransitcf").value=`${t[e].categori}`,document.querySelector("#gidtranscf").value=`${t[e].gareidentif}`,document.querySelector("#nomitintranscf1").value=`${t[e].nom_ligne}`,document.querySelector("#ligntranscf1").value=`${t[e].ident_ligne}`},e.setRequestHeader("Content-Type","application/json"),e.send();const c=new XMLHttpRequest;c.open("GET",window.location.origin+`${APP_ROOT}/programmes/siegdisponibletrans/${n}/${o}/${r}`,!0),c.onload=()=>{const e=JSON.parse(c.responseText);if(console.debug(`${typeof e} - ${e.attributes}`,console.memory),Object.entries(e).length>=1)for(let t in Object.entries(e)){let n=document.createElement("option");n.value=`${e[t].siege_num}`,n.innerHTML=`${e[t].siege_num}`,document.querySelector("#psiegesitinescf").add(n)}else document.querySelector("#psiegesitinescf").options.length=1},c.setRequestHeader("Content-Type","application/json"),c.send()});let t=document.querySelector("#psiegesitinescf");null!==t&&(t.onchange=()=>{const e=document.querySelector("#gidtranscf").value,t=new XMLHttpRequest;t.open("GET",window.location.origin+`${APP_ROOT}/programmes/verifsousgares/${e}`,!0),t.onload=()=>{const e=JSON.parse(t.responseText);if(console.debug(`${typeof e}-${e.attributes}`,console.memory),Object.entries(e).length>=1)for(let t in Object.entries(e)){let n=document.createElement("option");n.value=`${e[t].idsousgare}`,n.innerHTML=`${e[t].nomsousgare}`,document.querySelector("#transitedepargarecf2").add(n)}},t.setRequestHeader("Content-Type","application/json"),t.send();var n=document.querySelector("#hdepartitinecf").options[document.querySelector("#hdepartitinecf").options.selectedIndex].value.split("/")[0];let o;o=new XMLHttpRequest;const r=document.querySelector("#psiegesitinescf").options[document.querySelector("#psiegesitinescf").options.selectedIndex].value;o.open("GET",window.location.origin+`${APP_ROOT}/programmes/verifisieges/${n}/${r}`,!0),o.onload=()=>{const e=JSON.parse(o.responseText);if(console.debug(`${typeof e} - ${e.attributes}`,console.memory),""==e){let e;e=new XMLHttpRequest,e.open("GET",window.location.origin+`${APP_ROOT}/programmes/creersiege/${n}/${r}`,!0),e.onload=()=>{const t=JSON.parse(e.responseText);if(document.querySelector("#messconf").style.display="none",Object.entries(t).length>=1)for(let e in Object.entries(t))document.querySelector("#idtampocf1").value=`${t[e].idtamp}`,document.querySelector("#siegselectcf1").value=`${t[e].numsieg}`},e.setRequestHeader("Content-Type","application/json"),e.send()}else{if(document.querySelector("#psiegesitinescf").value="",Object.entries(e).length>=1)for(let t in Object.entries(e))document.querySelector("#idtampocf1").value=`${e[t].idtamp}`,document.querySelector("#siegselectcf1").value=`${e[t].numsieg}`;document.querySelector("#messconf").style.display="block",document.querySelector("#erreurMessconf").innerHTML="Siege déjà utilisé."}},o.setRequestHeader("Content-Type","application/json"),o.send()})}let y=document.querySelector("#idcheminscf1");if(null!==y){y.onchange=()=>{var e=document.querySelector("#idcheminscf1").options[document.querySelector("#idcheminscf1").options.selectedIndex].value.split("-"),t=(e[0],e[1]);let n,o;n=new XMLHttpRequest,n.open("GET",window.location.origin+`${APP_ROOT}/programmes/verifquartr/${t}`,!0),n.onload=()=>{const e=JSON.parse(n.responseText);if(""==e)document.querySelector("#quartiercf3").options.length=1;else if(Object.entries(e).length>=1)for(let t in Object.entries(e)){let n=document.createElement("option");n.value=`${e[t].nom_quartier}`,n.innerHTML=`${e[t].nom_quartier}`,document.querySelector("#quartiercf3").add(n)}else document.querySelector("#quartiercf3").options.length=1},n.setRequestHeader("Content-Type","application/json"),n.send(),o=new XMLHttpRequest;var r=document.querySelector("#actuel").value;const i=document.querySelector("#idcheminscf1").options[document.querySelector("#idcheminscf1").options.selectedIndex].value;o.open("GET",window.location.origin+`${APP_ROOT}/programmes/chemin/${i}/${r}`,!0),o.onload=()=>{const e=JSON.parse(o.responseText);var t=p("#hdepartitinecf");u("#idcheminsheurcf",e,t.date,t.heure)},o.setRequestHeader("Content-Type","application/json"),o.send()};let e=document.querySelector("#idcheminsheurcf");null!==e&&(e.onchange=()=>{const e=new XMLHttpRequest;var t=document.querySelector("#idcheminsheurcf").options[document.querySelector("#idcheminsheurcf").options.selectedIndex].value.split("/"),n=t[0],o=t[1],r=t[2],i=(t[3],t[4]);e.open("GET",window.location.origin+`${APP_ROOT}/programmes/siegdispotrans/${n}`,!0),e.onload=()=>{const t=JSON.parse(e.responseText);if(Object.entries(t).length>=1)for(let e in Object.entries(t))document.querySelector("#prix_axetransitcf1").value=`${i}`,document.querySelector("#catetransitcf1").value=`${t[e].categori}`,document.querySelector("#gidtranscf1").value=`${t[e].gareidentif}`,document.querySelector("#nomitintranscf2").value=`${t[e].nom_ligne}`,document.querySelector("#ligntranscf2").value=`${t[e].ident_ligne}`},e.setRequestHeader("Content-Type","application/json"),e.send();const c=new XMLHttpRequest;c.open("GET",window.location.origin+`${APP_ROOT}/programmes/siegdisponibletrans/${n}/${o}/${r}`,!0),c.onload=()=>{const e=JSON.parse(c.responseText);if(console.debug(`${typeof e} - ${e.attributes}`,console.memory),Object.entries(e).length>=1)for(let t in Object.entries(e)){let n=document.createElement("option");n.value=`${e[t].siege_num}`,n.innerHTML=`${e[t].siege_num}`,document.querySelector("#psiegesitinescf1").add(n)}else document.querySelector("#psiegesitinescf1").options.length=1},c.setRequestHeader("Content-Type","application/json"),c.send()});let t=document.querySelector("#psiegesitinescf1");null!==t&&(t.onchange=()=>{const e=document.querySelector("#gidtranscf1").value,t=new XMLHttpRequest;t.open("GET",window.location.origin+`${APP_ROOT}/programmes/verifsousgares/${e}`,!0),t.onload=()=>{const e=JSON.parse(t.responseText);if(console.debug(`${typeof e}-${e.attributes}`,console.memory),Object.entries(e).length>=1)for(let t in Object.entries(e)){let n=document.createElement("option");n.value=`${e[t].idsousgare}`,n.innerHTML=`${e[t].nomsousgare}`,document.querySelector("#transitedepargarecf3").add(n)}},t.setRequestHeader("Content-Type","application/json"),t.send();var n=document.querySelector("#idcheminsheurcf").options[document.querySelector("#idcheminsheurcf").options.selectedIndex].value.split("/")[0];let o;o=new XMLHttpRequest;const r=document.querySelector("#psiegesitinescf1").options[document.querySelector("#psiegesitinescf1").options.selectedIndex].value;o.open("GET",window.location.origin+`${APP_ROOT}/programmes/verifisieges/${n}/${r}`,!0),o.onload=()=>{const e=JSON.parse(o.responseText);if(""==e){let e;e=new XMLHttpRequest,e.open("GET",window.location.origin+`${APP_ROOT}/programmes/creersiege/${n}/${r}`,!0),e.onload=()=>{const t=JSON.parse(e.responseText);if(document.querySelector("#messconf").style.display="none",Object.entries(t).length>=1)for(let e in Object.entries(t))document.querySelector("#idtampocf2").value=`${t[e].idtamp}`,document.querySelector("#siegselectcf2").value=`${t[e].numsieg}`},e.setRequestHeader("Content-Type","application/json"),e.send()}else{if(document.querySelector("#psiegesitinescf1").value="",Object.entries(e).length>=1)for(let t in Object.entries(e))document.querySelector("#idtampocf2").value=`${e[t].idtamp}`,document.querySelector("#siegselectcf2").value=`${e[t].numsieg}`;document.querySelector("#messconf").style.display="block",document.querySelector("#erreurMessconf").innerHTML="Siege déjà utilisé."}},o.setRequestHeader("Content-Type","application/json"),o.send()})}let f=document.querySelector("#idcheminscf2");if(null!==f){f.onchange=()=>{var e=document.querySelector("#idcheminscf2").options[document.querySelector("#idcheminscf2").options.selectedIndex].value.split("-");e[0],e[1];let t;t=new XMLHttpRequest;var n=document.querySelector("#actuel").value;const o=document.querySelector("#idcheminscf2").options[document.querySelector("#idcheminscf2").options.selectedIndex].value;t.open("GET",window.location.origin+`${APP_ROOT}/programmes/chemin/${o}/${n}`,!0),t.onload=()=>{const e=JSON.parse(t.responseText);var n=p("#idcheminsheurcf");u("#idcheminsheurcf1",e,n.date,n.heure)},t.setRequestHeader("Content-Type","application/json"),t.send()};let e=document.querySelector("#idcheminsheurcf1");null!==e&&(e.onchange=()=>{const e=new XMLHttpRequest;var t=document.querySelector("#idcheminsheurcf1").options[document.querySelector("#idcheminsheurcf1").options.selectedIndex].value.split("/"),n=t[0],o=t[1],r=t[2],i=(t[3],t[4]);e.open("GET",window.location.origin+`${APP_ROOT}/programmes/siegdispotrans/${n}`,!0),e.onload=()=>{const t=JSON.parse(e.responseText);if(Object.entries(t).length>=1)for(let e in Object.entries(t))document.querySelector("#prix_axetransitcf2").value=`${i}`,document.querySelector("#catetransitcf2").value=`${t[e].categori}`,document.querySelector("#gidtranscf2").value=`${t[e].gareidentif}`,document.querySelector("#nomitintranscf3").value=`${t[e].nom_ligne}`,document.querySelector("#ligntranscf3").value=`${t[e].ident_ligne}`},e.setRequestHeader("Content-Type","application/json"),e.send();const c=new XMLHttpRequest;c.open("GET",window.location.origin+`${APP_ROOT}/programmes/siegdisponibletrans/${n}/${o}/${r}`,!0),c.onload=()=>{const e=JSON.parse(c.responseText);if(console.debug(`${typeof e} - ${e.attributes}`,console.memory),Object.entries(e).length>=1)for(let t in Object.entries(e)){let n=document.createElement("option");n.value=`${e[t].siege_num}`,n.innerHTML=`${e[t].siege_num}`,document.querySelector("#psiegesitinescf2").add(n)}else document.querySelector("#psiegesitinescf2").options.length=1},c.setRequestHeader("Content-Type","application/json"),c.send()});let t=document.querySelector("#psiegesitinescf2");null!==t&&(t.onchange=()=>{const e=document.querySelector("#gidtranscf2").value,t=new XMLHttpRequest;t.open("GET",window.location.origin+`${APP_ROOT}/programmes/verifsousgares/${e}`,!0),t.onload=()=>{const e=JSON.parse(t.responseText);if(console.debug(`${typeof e}-${e.attributes}`,console.memory),Object.entries(e).length>=1)for(let t in Object.entries(e)){let n=document.createElement("option");n.value=`${e[t].idsousgare}`,n.innerHTML=`${e[t].nomsousgare}`,document.querySelector("#transitedepargarecf4").add(n)}},t.setRequestHeader("Content-Type","application/json"),t.send();var n=document.querySelector("#idcheminsheurcf1").options[document.querySelector("#idcheminsheurcf1").options.selectedIndex].value.split("/")[0];let o;o=new XMLHttpRequest;const r=document.querySelector("#psiegesitinescf2").options[document.querySelector("#psiegesitinescf2").options.selectedIndex].value;o.open("GET",window.location.origin+`${APP_ROOT}/programmes/verifisieges/${n}/${r}`,!0),o.onload=()=>{const e=JSON.parse(o.responseText);if(""==e){let e;e=new XMLHttpRequest,e.open("GET",window.location.origin+`${APP_ROOT}/programmes/creersiege/${n}/${r}`,!0),e.onload=()=>{const t=JSON.parse(e.responseText);if(document.querySelector("#messconf").style.display="none",Object.entries(t).length>=1)for(let e in Object.entries(t))document.querySelector("#idtampocf3").value=`${t[e].idtamp}`,document.querySelector("#siegselectcf3").value=`${t[e].numsieg}`},e.setRequestHeader("Content-Type","application/json"),e.send()}else{if(document.querySelector("#psiegesitinescf2").value="",Object.entries(e).length>=1)for(let t in Object.entries(e))document.querySelector("#idtampocf3").value=`${e[t].idtamp}`,document.querySelector("#siegselectcf3").value=`${e[t].numsieg}`;document.querySelector("#messconf").style.display="block",document.querySelector("#erreurMessconf").innerHTML="Siege déjà utilisé."}},o.setRequestHeader("Content-Type","application/json"),o.send()})}}}};let v=document.querySelector("#heured");null!==v&&(v.onchange=()=>{document.querySelector("#depsieg").options.length=1;const o=document.querySelector("#heured").options[document.querySelector("#heured").options.selectedIndex],r=o?o.value:"",i=o&&"1"===o.getAttribute("data-has-programme");if(r&&!i){var c=document.querySelector("#messconf"),d=document.querySelector("#erreurMessconf");return void(window.__confHasTransit?(c&&(c.style.display="block"),d&&(d.innerHTML="Pas de départ à cette heure — correspondances proposées."),u=s,a=y,p=t(),f=null!=p&&""!==p?p:"0",g=!0?"1":"0",q=function(e){"function"==typeof m?m(e):"function"==typeof window.__confApplyTransitLegs&&window.__confApplyTransitLegs(e)},(S=new XMLHttpRequest).open("GET",window.location.origin+`${APP_ROOT}/programmes/verifchemins/`+encodeURIComponent(u)+"/"+encodeURIComponent(a)+"/"+encodeURIComponent(f)+"/"+g,!0),S.onload=function(){var e=null;try{e=JSON.parse(S.responseText)}catch(t){e=null}if(Array.isArray(e))return n(),void q(e);if(!e||"object"!=typeof e)return n(),void q([]);if("direct"===e.mode||"none"===e.mode)return n(),void q([]);var t=Array.isArray(e.chemins)?e.chemins:[];t.length>1?l(t,q):(n(),1===t.length&&t[0].etapes?q(t[0].etapes):e.etapes&&(Array.isArray(e.etapes)?e.etapes.length:Object.keys(e.etapes).length)?q(e.etapes):q([]))},S.setRequestHeader("Content-Type","application/json"),S.send()):(e(),c&&(c.style.display="block"),d&&(d.innerHTML="Aucun départ ni correspondance pour cette heure.")))}var u,a,p,m,f,g,q,S;e(),document.querySelector("#messconf")&&(document.querySelector("#messconf").style.display="none");const v=new XMLHttpRequest;var h=r.split("/"),_=h[0];h[1];v.open("GET",window.location.origin+`${APP_ROOT}/reprogrammes/siegdispo/${_}`,!0),v.onload=()=>{const e=JSON.parse(v.responseText);if(Object.entries(e).length>=1)for(let t in Object.entries(e))document.querySelector("#caissepvend_").value=`${e[t].intervalle1}`,document.querySelector("#caissedpvend_").value=`${e[t].intervalle2}`,document.querySelector("#directid").value=`${e[t].nom_ligne}`,document.querySelector("#confheure").value=`${e[t].heure}`,document.querySelector("#gareid_dep").value=`${e[t].gaexp_lg}`,document.querySelector("#dateconfirme").value=`${e[t].date_progr}`,document.querySelector("#catconfirme").value=`${e[t].categori}`,document.querySelector("#lignehconf").value=`${e[t].id_ligneheure}`,document.querySelector("#programconf").value=`${e[t].code_progr}`;const t=new XMLHttpRequest,n=document.querySelector("#caissepvend_").value,o=document.querySelector("#caissedpvend_").value,r=document.querySelector("#directid").value,i=document.querySelector("#confheure").value,c=document.querySelector("#dateconfirme").value;t.open("GET",window.location.origin+`${APP_ROOT}/programmes/siegdisponible/${_}/${c}/${r}/${i}/${n}/${o}`,!0),t.onload=()=>{const e=JSON.parse(t.responseText);if(Object.entries(e).length>=1)for(let t in Object.entries(e)){let n=document.createElement("option");n.value=`${e[t].siege_num}`,n.innerHTML=`${e[t].siege_num}`,document.querySelector("#depsieg").add(n)}else document.querySelector("#depsieg").options.length=1},t.setRequestHeader("Content-Type","application/json"),t.send()},v.setRequestHeader("Content-Type","application/json"),v.send()})},m.setRequestHeader("Content-Type","application/json"),m.send()}),function(e){var t=h("actuel");t&&!t.dataset.confDateBound&&(t.dataset.confDateBound="1",t.addEventListener("change",function(){e&&e.value&&"function"==typeof e.onchange&&e.onchange()}))}(f);let g=document.querySelector("#depsieg");null!==g&&(g.onchange=()=>{let e;window.XMLHttpRequest?e=new XMLHttpRequest:window.ActiveXObject&&(e=new ActiveXObject("Microsoft.XMLHTTP"));const t=document.querySelector("#programconf").value,n=document.querySelector("#depsieg").options[document.querySelector("#depsieg").options.selectedIndex].value;e.open("GET",window.location.origin+`${APP_ROOT}/programmes/verifisieges/${t}/${n}`,!0),e.onload=()=>{const o=JSON.parse(e.responseText);if(""==o){let e;e=new XMLHttpRequest,e.open("GET",window.location.origin+`${APP_ROOT}/programmes/creersiege/${t}/${n}`,!0),e.onload=()=>{const t=JSON.parse(e.responseText);if(document.querySelector("#messconf").style.display="none",Object.entries(t).length>=1)for(let e in Object.entries(t))document.querySelector("#idtampoconf").value=`${t[e].idtamp}`,document.querySelector("#siegselectconf").value=`${t[e].numsieg}`},e.setRequestHeader("Content-Type","application/json"),e.send()}else{if(document.querySelector("#depsieg").value="",Object.entries(o).length>=1)for(let e in Object.entries(o))document.querySelector("#idtampoconf").value=`${o[e].idtamp}`,document.querySelector("#siegselectconf").value=`${o[e].numsieg}`;document.querySelector("#messconf").style.display="block",document.querySelector("#erreurMessconf").innerHTML="Siege déjà utilisé."}},e.setRequestHeader("content-Type","text/json"),e.send()}),butoncliconf=document.querySelector("#confreset"),null!==butoncliconf&&(butoncliconf.onclick=()=>{let e;e=new XMLHttpRequest;const t=document.querySelector("#siegselectconf").value,n=document.querySelector("#idtampoconf").value;e.open("GET",window.location.origin+`${APP_ROOT}/programmes/deltamponsieg/${n}/${t}`,!0),e.onload=()=>{const t=JSON.parse(e.responseText);console.debug(`${typeof t} - ${t.attributes}`,console.memory),document.querySelector("#messconf").style.display="none"},e.setRequestHeader("Content-Type","application/json"),e.send()});let _=document.querySelector("#pascontactpconf");null!==_&&(_.onkeyup=()=>{let e;window.XMLHttpRequest?e=new XMLHttpRequest:window.ActiveXObject&&(e=new ActiveXObject("Microsoft.XMLHTTP"));var t=document.querySelector("#pascontactpconf").value;e.open("GET",window.location.origin+`${APP_ROOT}/programmes/verifinfos/${t}`,!0),e.onload=()=>{const n=JSON.parse(e.responseText);null==n?(document.querySelector("#pasnompconf").value="",document.querySelector("#pasprenompconf").value="",document.querySelector("#pascnibpconf").value="",document.querySelector("#pasdatepconf").value="",document.querySelector("#delivrelieu").value="",document.querySelector("#clientconfirmeid").value=""):Object.entries(n).length>1&&(n.contact_client==t?(document.querySelector("#pasnompconf").value=`${n.nom_client}`,document.querySelector("#pasprenompconf").value=`${n.prenom_client}`,document.querySelector("#pascnibpconf").value=`${n.num_CNIB}`,document.querySelector("#pasdatepconf").value=`${n.date_delivre}`,document.querySelector("#delivrelieu").value=`${n.lieu_delivre}`,document.querySelector("#clientconfirmeid").value=`${n.id_client}`,document.querySelector("#pasnompconfcp").value=`${n.nom_client}`,document.querySelector("#pasprenompconfcp").value=`${n.prenom_client}`,document.querySelector("#pascnibpconfcp").value=`${n.num_CNIB}`,document.querySelector("#pasdatepconfcp").value=`${n.date_delivre}`,document.querySelector("#lieucnibconf").value=`${n.lieu_delivre}`):(document.querySelector("#pasnompconf").value="",document.querySelector("#pasprenompconf").value="",document.querySelector("#pascnibpconf").value="",document.querySelector("#pasdatepconf").value="",document.querySelector("#delivrelieu").value="",document.querySelector("#clientconfirmeid").value=""))},e.setRequestHeader("Content-Type","application/json"),e.send()}),s.addEventListener("click",function(){!function(){var e=v();if(e){var t=e.querySelector("#messagep");t&&(t.style.display="none");var n=e.querySelector("#codeconfirm");n&&(n.value="");var o=e.querySelector("#actuel");o&&(o.value=(new Date).toISOString().slice(0,10)),["pasnompconf","pasprenompconf","pascontactpconf","pascnibpconf","pasdatepconf","delivrelieu","heured","depsieg"].forEach(function(t){var n=e.querySelector("#"+t);n&&(n.style.display="none")});var r=e.querySelector("#valid"),i=e.querySelector("#validep");r&&(r.style.display="none",r.disabled=!0,r.setAttribute("disabled","disabled")),i&&(i.style.display="none")}}();let e=document.querySelector("#confForm");e&&e.setAttribute("action",`${APP_ROOT}/Confirmation/confirme/${s.dataset.cle_compagnie}`)})})}),document.addEventListener("DOMContentLoaded",()=>{document.querySelectorAll(".addreserve").forEach(function(e){document.querySelector("h3#reTitle").innerHTML="RESERVATION";let t=document.querySelector("#axereserve");null!==t&&(t.onchange=()=>{let e;document.querySelector("#heuredepart").options.length=1,document.querySelector("#passgsieges").options.length=1,document.querySelector("#tarifattribtime").value="",window.XMLHttpRequest?e=new XMLHttpRequest:window.ActiveXObject&&(e=new ActiveXObject("Microsoft.XMLHTTP"));var t=document.querySelector("#axereserve").value,n=document.querySelector("#actueldate").value;let o=new XMLHttpRequest;o.open("GET",window.location.origin+`${APP_ROOT}/confirmation/verifconfquart/${t}`,!0),o.onload=()=>{const e=JSON.parse(o.responseText);if(""==e)document.querySelector("#quartreser").options.length=1;else if(Object.entries(e).length>=1)for(let t in Object.entries(e)){let n=document.createElement("option");n.value=`${e[t].nom_quartier}`,n.innerHTML=`${e[t].nom_quartier}`,document.querySelector("#quartreser").add(n)}else document.querySelector("#quartreser").options.length=1},o.setRequestHeader("Content-Type","application/json"),o.send(),e.open("GET",window.location.origin+`${APP_ROOT}/confirmation/verifconfprog/${t}/${n}`,!0),e.onload=()=>{const t=JSON.parse(e.responseText);if(Object.entries(t).length>=1)for(let e in Object.entries(t)){let n=document.createElement("option");n.value=`${t[e].code_progr}`,n.innerHTML=`${t[e].heure}/${t[e].date_progr}`,document.querySelector("#heuredepart").add(n)}else document.querySelector("#heuredepart").options.length=1},e.setRequestHeader("Content-Type","application/json"),e.send()});let n=document.querySelector("#heuredepart");null!==n&&(n.onchange=()=>{document.querySelector("#passgsieges").options.length=1;const e=new XMLHttpRequest,t=document.querySelector("#heuredepart").options[document.querySelector("#heuredepart").options.selectedIndex].value;e.open("GET",window.location.origin+`${APP_ROOT}/reprogrammes/siegdispo/${t}`,!0),e.onload=()=>{const n=JSON.parse(e.responseText);if(console.debug(`${typeof n} - ${n.attributes}`,console.memory),Object.entries(n).length>0)for(let e in Object.entries(n))document.querySelector("#pfinvendable").value=`${n[e].intervalle2}`,document.querySelector("#siegfinvendable").value=`${n[e].intervalle1}`,document.querySelector("#reservetime").value=`${n[e].code_progr}`,document.querySelector("#tarifattribtime").value=`${n[e].typetarif}`,document.querySelector("#timeaxeid").value=`${n[e].ident_ligne}`,document.querySelector("#directreserve").value=`${n[e].nom_ligne}`,document.querySelector("#reserveheure").value=`${n[e].heure}`,document.querySelector("#gareid_reserve").value=`${n[e].gaexp_lg}`,document.querySelector("#datereserve").value=`${n[e].date_progr}`,document.querySelector("#lhreserve").value=`${n[e].id_heur}`,document.querySelector("#categbus").value=`${n[e].categori}`,console.debug(`${n[e].intervalle1} - ${n[e].intervalle2}`,console.memory);const o=new XMLHttpRequest,r=document.querySelector("#lhreserve").value,i=document.querySelector("#tarifattribtime").value;o.open("GET",window.location.origin+`${APP_ROOT}/programmes/verifpriprg/${r}/${i}`,!0),o.onload=()=>{const e=JSON.parse(o.responseText);if(console.debug(`${typeof e}-${e.attributes}`,console.memory),Object.entries(e).length>=1)for(let t in Object.entries(e))document.querySelector("#prixtick").value=`${e[t].prix}`},o.setRequestHeader("Content-Type","application/json"),o.send();const c=new XMLHttpRequest,l=document.querySelector("#pfinvendable").value,d=document.querySelector("#siegfinvendable").value,s=document.querySelector("#directreserve").value,u=document.querySelector("#reserveheure").value,a=document.querySelector("#datereserve").value;c.open("GET",window.location.origin+`${APP_ROOT}/programmes/siegdisponible/${t}/${a}/${s}/${u}/${d}/${l}`,!0),c.onload=()=>{const e=JSON.parse(c.responseText);if(console.debug(`${typeof e} - ${e.attributes}`,console.memory),Object.entries(e).length>=1)for(let t in Object.entries(e)){let n=document.createElement("option");n.value=`${e[t].siege_num}`,n.innerHTML=`${e[t].siege_num}`,document.querySelector("#passgsieges").add(n)}else document.querySelector("#passgsieges").options.length=1},c.setRequestHeader("Content-Type","application/json"),c.send()},e.setRequestHeader("Content-Type","application/json"),e.send()});let o=document.querySelector("#passgsieges");null!==o&&(o.onchange=()=>{let e;window.XMLHttpRequest?e=new XMLHttpRequest:window.ActiveXObject&&(e=new ActiveXObject("Microsoft.XMLHTTP"));const t=document.querySelector("#reservetime").value,n=document.querySelector("#passgsieges").options[document.querySelector("#passgsieges").options.selectedIndex].value;e.open("GET",window.location.origin+`${APP_ROOT}/programmes/verifisieges/${t}/${n}`,!0),e.onload=()=>{const t=JSON.parse(e.responseText);if(""==t){let e;e=new XMLHttpRequest;const t=document.querySelector("#reservetime").value,n=document.querySelector("#passgsieges").options[document.querySelector("#passgsieges").options.selectedIndex].value;e.open("GET",window.location.origin+`${APP_ROOT}/programmes/creersiege/${t}/${n}`,!0),e.onload=()=>{const t=JSON.parse(e.responseText);if(document.querySelector("#messreserv").style.display="none",Object.entries(t).length>=1)for(let e in Object.entries(t))document.querySelector("#idtamporeserve").value=`${t[e].idtamp}`,document.querySelector("#siegselectreserve").value=`${t[e].numsieg}`},e.setRequestHeader("Content-Type","application/json"),e.send()}else{if(document.querySelector("#passgsieges").value="",Object.entries(t).length>=1)for(let e in Object.entries(t))document.querySelector("#idtamporeserve").value=`${t[e].idtamp}`,document.querySelector("#siegselectreserve").value=`${t[e].numsieg}`;document.querySelector("#messreserv").style.display="block",document.querySelector("#erreurMessreserv").innerHTML="Siege déjà utilisé."}},e.setRequestHeader("content-Type","text/json"),e.send()}),butonclireserv=document.querySelector("#idreserv"),null!==butonclireserv&&(butonclireserv.onclick=()=>{let e;e=new XMLHttpRequest;const t=document.querySelector("#siegselectreserve").value,n=document.querySelector("#idtamporeserve").value;e.open("GET",window.location.origin+`${APP_ROOT}/programmes/deltamponsieg/${n}/${t}`,!0),e.onload=()=>{const t=JSON.parse(e.responseText);console.debug(`${typeof t} - ${t.attributes}`,console.memory),document.querySelector("#messreserv").style.display="none"},e.setRequestHeader("Content-Type","application/json"),e.send()});let r=document.querySelector("#idcontactcl");null!==r&&(r.onkeyup=()=>{let e;window.XMLHttpRequest?e=new XMLHttpRequest:window.ActiveXObject&&(e=new ActiveXObject("Microsoft.XMLHTTP"));var t=document.querySelector("#idcontactcl").value;e.open("GET",window.location.origin+`${APP_ROOT}/programmes/verifinfos/${t}`,!0),e.onload=()=>{const n=JSON.parse(e.responseText);null==n?(document.querySelector("#idnomcl").value="",document.querySelector("#idprenomcl").value="",document.querySelector("#idclientcomp").value=""):Object.entries(n).length>1&&(n.contact_client==t?(document.querySelector("#idnomcl").value=`${n.nom_client}`,document.querySelector("#idprenomcl").value=`${n.prenom_client}`,document.querySelector("#idclientcomp").value=`${n.id_client}`,document.querySelector("#cpidnomcl").value=`${n.nom_client}`,document.querySelector("#cpidprenomcl").value=`${n.prenom_client}`):(document.querySelector("#idnomcl").value="",document.querySelector("#idprenomcl").value="",document.querySelector("#idclientcomp").value=""))},e.setRequestHeader("Content-Type","application/json"),e.send()}),e.onclick=function(){document.querySelector("#reForm").setAttribute("action",`${APP_ROOT}/Reserves/addreserve/${e.dataset.cle_compagnie}`)}})}),document.addEventListener("DOMContentLoaded",()=>{document.querySelectorAll(".addconfirmreserve").forEach(function(e){e.onclick=function(){document.querySelector("#confForm").setAttribute("action",`${APP_ROOT}/Reserves/valideconfirm/${e.dataset.cle_compagnie}/${e.dataset.id_client}/${e.dataset.code_pass}/${e.dataset.gareident}/${e.dataset.code_p}/${e.dataset.cdlignh}/${e.dataset.tfb}`),document.querySelector("h3#reconfTitle").innerHTML=`CONFIRMER RESERVATION AVEC TICKET ${e.dataset.rnom}`,$("#ridcontact").val(`${e.dataset.contac}`),$("#ridnom").val(`${e.dataset.rnom}`),$("#ridprenom").val(`${e.dataset.pren}`),$("#ridcontact").val(`${e.dataset.contac}`),$("#numsieg").val(`${e.dataset.numsie}`),$("#lges").val(`${e.dataset.lge}`),$("#nomlg").val(`${e.dataset.nomlge}`),$("#catbuslg").val(`${e.dataset.catbuslge}`),$("#idcnibcf").val(`${e.dataset.num_CNIB}`),$("#dateidcf").val(`${e.dataset.date_delivre}`),$("#lieucf").val(`${e.dataset.lieu_delivre}`);let t=document.querySelector("#confirme_infos");null!==t&&(t.onclick=()=>{let e;window.XMLHttpRequest?e=new XMLHttpRequest:window.ActiveXObject&&(e=new ActiveXObject("Microsoft.XMLHTTP"));var t=document.querySelector("#confirmcode").value;e.open("GET",window.location.origin+`${APP_ROOT}/confirmation/verificationcode/${t}`,!0),e.onload=()=>{const t=JSON.parse(e.responseText);null==t?(document.querySelector("#boutonsubmit").style.display="block",document.querySelector("#messageconf").style.display="none",document.querySelector("#epsonsubmit").style.display="block"):Object.entries(t).length>1&&(document.querySelector("#messageconf").style.display="block",document.querySelector("#erreurMessageconf").innerHTML="Cet ticket ne peut pas être confirmé.",document.querySelector("#boutonsubmit").style.display="none",document.querySelector("#epsonsubmit").style.display="none")},e.setRequestHeader("Content-Type","application/json"),e.send()})}})}),document.addEventListener("DOMContentLoaded",()=>{const e=document.querySelector("h3#rTitle");function t(e){return e?Array.isArray(e)?e:Object.values(e):[]}e&&(e.innerHTML="REPROGRAMMATION");const n=document.querySelector("#reprogrammer_infos");null!==n&&(n.onclick=()=>{const e=document.querySelector("#codeclientp").value,n=new XMLHttpRequest;n.open("GET",window.location.origin+`${APP_ROOT}/reprogrammes/verifcodecl/${e}`,!0),n.onload=()=>{const e=JSON.parse(n.responseText),o=document.querySelector("#heuredepartp"),r=document.querySelector("#numsiegep");if(null==e)return document.querySelector("#smsp").style.display="block",document.querySelector("#erreurSmsp").innerHTML="Cet ticket ne peut pas être reprogrammé ici.",document.querySelector("#nomclp").innerHTML="",document.querySelector("#prenomclp").innerHTML="",document.querySelector("#contactclp").innerHTML="",document.querySelector("#refclp").innerHTML="",document.querySelector("#directionclp").innerHTML="",document.querySelector("#codeclp").innerHTML="",document.querySelector("#heureclp").innerHTML="",o&&(o.style.display="none",o.options.length=1),r&&(r.style.display="none"),void(document.querySelector("#billetrep").style.display="none");if(!(Object.entries(e).length>=1))return o&&(o.style.display="none"),void(r&&(r.style.display="none"));document.querySelector("#smsp").style.display="none",document.querySelector("#billetrep").style.display="none",o&&(o.style.display="block",o.options.length=1),r&&(r.style.display="block",r.options.length=1),document.querySelector("#nomclp").innerHTML=`NOM: ${e.nom_client}`,document.querySelector("#prenomclp").innerHTML=`PRENOM: ${e.prenom_client}`,document.querySelector("#contactclp").innerHTML=`CONTACT: ${e.contact_client}`,document.querySelector("#refclp").innerHTML=`REFERENCE CNIB: ${e.num_CNIB}`,document.querySelector("#directionclp").innerHTML=`AXE: ${e.nom_ligne}`,document.querySelector("#codeclp").innerHTML=`CODE TICKET: ${e.code_passager}`,document.querySelector("#heureclp").innerHTML=`HEURE: ${e.heure} SIEGE :${e.num_siege_categorie}`,document.querySelector("#passerp").value=`${e.code_passager}`,document.querySelector("#idclpasserid").value=`${e.ligne_id}`,document.querySelector("#client_idp").value=`${e.id_client_pass}`,document.querySelector("#pasnomp").value=`${e.nom_client}`,document.querySelector("#pasprenomp").value=`${e.prenom_client}`,document.querySelector("#pascontactp").value=`${e.contact_client}`,document.querySelector("#pascnibp").value=`${e.num_CNIB}`,document.querySelector("#pasdatep").value=`${e.date_delivre}`,document.querySelector("#nsiegep").value=`${e.num_siege_categorie}`,document.querySelector("#delivrelie").value=`${e.lieu_delivre}`,document.querySelector("#depold").value=`${e.code_pro}`,document.querySelector("#codeid").value=`${e.code_passager}`,document.querySelector("#codetickets").value=`${e.tamponcod}`,document.querySelector("#codenonp").value=`${e.code_non_pass}`,document.querySelector("#statconf").value=`${e.statut_confirme}`,document.querySelector("#statrep").value=`${e.statut_reprog}`,document.querySelector("#programrep").value=`${e.code_progr}`,document.querySelector("#depgid").value=`${e.gaexp_lg}`,document.querySelector("#dateventerep").value=`${e.datep_create}`;const i=document.querySelector("#dateventerep").value,c=document.querySelector("#actueldaterep").value,l=new Date(i);if((new Date(c).getTime()-l.getTime())/864e5<31){const n=`${e.ligne_id}`,r=`${e.code_progr}`,i=`${e.heure_identif}`,c=new XMLHttpRequest;c.open("GET",window.location.origin+`${APP_ROOT}/reprogrammes/hdepartprepro/${n}/${r}/${i}`,!0),c.onload=()=>{const e=JSON.parse(c.responseText);o&&(o.options.length=1,t(e).forEach(function(e){if(!e||null==e.code_progr)return;const t=document.createElement("option");t.value=`${e.code_progr}/${e.id_ligneheure}/${e.typetarif}`,t.innerHTML=`${e.heure}/${e.date_progr}`,o.add(t)}))},c.setRequestHeader("Content-Type","application/json"),c.send()}else document.querySelector("#nomclp").innerHTML="",document.querySelector("#prenomclp").innerHTML="",document.querySelector("#contactclp").innerHTML="",document.querySelector("#refclp").innerHTML="",document.querySelector("#directionclp").innerHTML="",document.querySelector("#codeclp").innerHTML="",document.querySelector("#heureclp").innerHTML="",o&&(o.style.display="none"),r&&(r.style.display="none"),document.querySelector("#billetrep").style.display="block",document.querySelector("#billetSmsrep").innerHTML="Billet non valable, la durée de validité est dépassée."},n.setRequestHeader("Content-Type","application/json"),n.send()});const o=document.querySelector("#heuredepartp");null!==o&&(o.onchange=()=>{document.querySelector("#numsiegep").options.length=1;const e=document.querySelector("#heuredepartp").options[document.querySelector("#heuredepartp").options.selectedIndex].value;if(!e)return;const n=e.split("/")[0],o=new XMLHttpRequest;o.open("GET",window.location.origin+`${APP_ROOT}/reprogrammes/siegdispo/${n}`,!0),o.onload=()=>{t(JSON.parse(o.responseText)).forEach(function(e){e&&(document.querySelector("#placevendu").value=`${e.intervalle1}`,document.querySelector("#dplacevendu").value=`${e.intervalle2}`,document.querySelector("#replign").value=`${e.nom_ligne}`,document.querySelector("#repher").value=`${e.heure}`,document.querySelector("#datereprogramme").value=`${e.date_progr}`,document.querySelector("#catreprogramme").value=`${e.categori}`)});const e=document.querySelector("#placevendu").value,r=document.querySelector("#dplacevendu").value,i=document.querySelector("#replign").value,c=document.querySelector("#repher").value,l=document.querySelector("#datereprogramme").value,d=new XMLHttpRequest;d.open("GET",window.location.origin+`${APP_ROOT}/programmes/siegdisponible/${n}/${l}/${i}/${c}/${e}/${r}`,!0),d.onload=()=>{const e=JSON.parse(d.responseText),n=document.querySelector("#numsiegep");n&&(n.options.length=1,t(e).forEach(function(e){if(!e||null==e.siege_num)return;const t=document.createElement("option");t.value=`${e.siege_num}`,t.innerHTML=`${e.siege_num}`,n.add(t)}))},d.setRequestHeader("Content-Type","application/json"),d.send()},o.setRequestHeader("Content-Type","application/json"),o.send()});const r=document.querySelector("#numsiegep");null!==r&&(r.onchange=()=>{const e=document.querySelector("#programrep").value,n=document.querySelector("#numsiegep").options[document.querySelector("#numsiegep").options.selectedIndex].value,o=new XMLHttpRequest;o.open("GET",window.location.origin+`${APP_ROOT}/programmes/verifisieges/${e}/${n}`,!0),o.onload=()=>{const r=JSON.parse(o.responseText);if(""==r){const o=new XMLHttpRequest;o.open("GET",window.location.origin+`${APP_ROOT}/programmes/creersiege/${e}/${n}`,!0),o.onload=()=>{const e=JSON.parse(o.responseText);document.querySelector("#erreursieg").style.display="none",t(e).forEach(function(e){e&&(document.querySelector("#idtamporep").value=`${e.idtamp}`,document.querySelector("#siegselectrep").value=`${e.numsieg}`)})},o.setRequestHeader("Content-Type","application/json"),o.send()}else document.querySelector("#numsiegep").value="",t(r).forEach(function(e){e&&(document.querySelector("#idtamporep").value=`${e.idtamp}`,document.querySelector("#siegselectrep").value=`${e.numsieg}`)}),document.querySelector("#erreursieg").style.display="block",document.querySelector("#erreurSiege").innerHTML="Siege déjà utilisé."},o.setRequestHeader("content-Type","text/json"),o.send()});const i=document.querySelector("#rese");null!==i&&(i.onclick=()=>{const e=new XMLHttpRequest,t=document.querySelector("#siegselectrep").value,n=document.querySelector("#idtamporep").value;e.open("GET",window.location.origin+`${APP_ROOT}/programmes/deltamponsieg/${n}/${t}`,!0),e.onload=()=>{document.querySelector("#erreursieg").style.display="none"},e.setRequestHeader("Content-Type","application/json"),e.send()}),document.querySelectorAll(".addreprogramme").forEach(function(e){e.addEventListener("click",function(){const t=document.querySelector("#rForm");t&&t.setAttribute("action",`${APP_ROOT}/Reprogrammes/update/${e.dataset.cle_compagnie}`)})})}),document.addEventListener("DOMContentLoaded",()=>{document.querySelectorAll(".addreprogadmin").forEach(function(e){document.querySelector("h3#adminrTitle").innerHTML="REPROGRAMMATION";let t=document.querySelector("#adminreprogrammer_infos");null!==t&&(t.onclick=()=>{let e;window.XMLHttpRequest?e=new XMLHttpRequest:window.ActiveXObject&&(e=new ActiveXObject("Microsoft.XMLHTTP"));var t=document.querySelector("#admincodeclientp").value;e.open("GET",window.location.origin+`${APP_ROOT}/reprogrammes/adminverifcodecl/${t}`,!0),e.onload=()=>{const t=JSON.parse(e.responseText);if(null==t)document.querySelector("#adminsmsp").style.display="block",document.querySelector("#adminerreurSmsp").innerHTML="Cet ticket ne peut pas être reprogrammé ici.",document.querySelector("#adminnomclp").innerHTML="",document.querySelector("#adminprenomclp").innerHTML="",document.querySelector("#admincontactclp").innerHTML="",document.querySelector("#adminrefclp").innerHTML="",document.querySelector("#admindirectionclp").innerHTML="",document.querySelector("#admincodeclp").innerHTML="",document.querySelector("#adminheureclp").innerHTML="",document.querySelector("#adminheuredepartp").style.display="none",document.querySelector("#adminnumsiegep").style.display="none",document.querySelector("#adminheuredepartp").options.length=1,document.querySelector("#admincdpassager").value="";else{Object.entries(t).length>=1?(document.querySelector("#adminsmsp").style.display="none",document.querySelector("#adminheuredepartp").style.display="block",document.querySelector("#adminnumsiegep").style.display="block",document.querySelector("#adminnomclp").innerHTML=`NOM: ${t.nom_client}`,document.querySelector("#adminprenomclp").innerHTML=`PRENOM: ${t.prenom_client}`,document.querySelector("#admincontactclp").innerHTML=`CONTACT: ${t.contact_client}`,document.querySelector("#adminrefclp").innerHTML=`REFERENCE CNIB: ${t.num_CNIB}`,document.querySelector("#admindirectionclp").innerHTML=`AXE: ${t.nom_ligne}`,document.querySelector("#admincodeclp").innerHTML=`CODE TICKET: ${t.code_passager}`,document.querySelector("#adminheureclp").innerHTML=`HEURE: ${t.heure} SIEGE: ${t.num_siege_categorie}`,document.querySelector("#adminpasserp").value=`${t.code_passager}`,document.querySelector("#adminidclpasserid").value=`${t.ligne_id}`,document.querySelector("#adminclient_idp").value=`${t.id_client_pass}`,document.querySelector("#adminpasnomp").value=`${t.nom_client}`,document.querySelector("#adminpasprenomp").value=`${t.prenom_client}`,document.querySelector("#adminpascontactp").value=`${t.contact_client}`,document.querySelector("#adminpascnibp").value=`${t.num_CNIB}`,document.querySelector("#adminpasdatep").value=`${t.date_delivre}`,document.querySelector("#adminnsiegep").value=`${t.num_siege_categorie}`,document.querySelector("#admindelivrelie").value=`${t.lieu_delivre}`,document.querySelector("#admindepold").value=`${t.code_pro}`,document.querySelector("#admincodeid").value=`${t.code_passager}`,document.querySelector("#admincodetickets").value=`${t.tamponcod}`,document.querySelector("#admincodenonp").value=`${t.code_non_pass}`,document.querySelector("#adminstatconf").value=`${t.statut_confirme}`,document.querySelector("#adminstatrep").value=`${t.statut_reprog}`,document.querySelector("#adminprogramrep").value=`${t.code_progr}`,document.querySelector("#admindepgid").value=`${t.gaexp_lg}`,document.querySelector("#dateventerep").value=`${t.datep_create}`,document.querySelector("#admincdpassager").value=`${t.code_ticket}`):(document.querySelector("#adminheuredepartp").style.display="none",document.querySelector("#adminnumsiegep").style.display="none");var n=document.querySelector("#dateventerep").value,o=document.querySelector("#actueldaterep").value,r=new Date(n);const e=(new Date(o).getTime()-r.getTime())/864e5;if(e<28||e<29||e<30||e<31){const e=`${t.ligne_id}`,n=`${t.code_progr}`,o=`${t.heure_identif}`;let r;window.XMLHttpRequest?r=new XMLHttpRequest:window.ActiveXObject&&(r=new ActiveXObject("Microsoft.XMLHTTP")),r.open("GET",window.location.origin+`${APP_ROOT}/reprogrammes/hdepartprepro/${e}/${n}/${o}`,!0),r.onload=()=>{const e=JSON.parse(r.responseText);if(console.debug(`${typeof e} - ${e.attributes}`,console.memory),Object.entries(e).length>=1)for(let t in Object.entries(e)){let n=document.createElement("option");n.value=`${e[t].code_progr}/${e[t].id_ligneheure}/${e[t].typetarif}`,n.innerHTML=`${e[t].heure}/${e[t].date_progr}`,document.querySelector("#adminheuredepartp").add(n)}else document.querySelector("#adminheuredepartp").options.length=1},r.setRequestHeader("Content-Type","application/json"),r.send()}else document.querySelector("#adminnomclp").innerHTML="",document.querySelector("#adminprenomclp").innerHTML="",document.querySelector("#admincontactclp").innerHTML="",document.querySelector("#adminrefclp").innerHTML="",document.querySelector("#admindirectionclp").innerHTML="",document.querySelector("#admincodeclp").innerHTML="",document.querySelector("#adminheureclp").innerHTML="",document.querySelector("#adminheuredepartp").style.display="none",document.querySelector("#adminnumsiegep").style.display="none",document.querySelector("#adbilletrep").style.display="block",document.querySelector("#adbilletSmsrep").innerHTML="Billet non valable, la durée de validité est dépassée."}},e.setRequestHeader("Content-Type","application/json"),e.send()});let n=document.querySelector("#adminheuredepartp");null!==n&&(n.onchange=()=>{document.querySelector("#adminnumsiegep").options.length=1;const e=new XMLHttpRequest;var t=document.querySelector("#adminheuredepartp").options[document.querySelector("#adminheuredepartp").options.selectedIndex].value.split("/"),n=t[0],o=t[1].split("/");o[0],o[1];e.open("GET",window.location.origin+`${APP_ROOT}/reprogrammes/siegdispo/${n}`,!0),e.onload=()=>{const t=JSON.parse(e.responseText);if(console.debug(`${typeof t} - ${t.attributes}`,console.memory),Object.entries(t).length>0)for(let e in Object.entries(t))document.querySelector("#adminplacevendu").value=`${t[e].intervalle1}`,document.querySelector("#admindplacevendu").value=`${t[e].intervalle2}`,document.querySelector("#adminreplign").value=`${t[e].nom_ligne}`,document.querySelector("#adminrepher").value=`${t[e].heure}`,document.querySelector("#admindatereprogramme").value=`${t[e].date_progr}`,document.querySelector("#admincatreprogramme").value=`${t[e].categori}`;const o=new XMLHttpRequest,r=document.querySelector("#adminplacevendu").value,i=document.querySelector("#admindplacevendu").value,c=document.querySelector("#adminreplign").value,l=document.querySelector("#adminrepher").value,d=document.querySelector("#admindatereprogramme").value;o.open("GET",window.location.origin+`${APP_ROOT}/programmes/siegdisponible/${n}/${d}/${c}/${l}/${r}/${i}`,!0),o.onload=()=>{const e=JSON.parse(o.responseText);if(console.debug(`${typeof e} - ${e.attributes}`,console.memory),Object.entries(e).length>=1)for(let t in Object.entries(e)){let n=document.createElement("option");n.value=`${e[t].siege_num}`,n.innerHTML=`${e[t].siege_num}`,document.querySelector("#adminnumsiegep").add(n),console.debug(`${e[t].siege_num}`,console.memory)}else document.querySelector("#adminnumsiegep").options.length=1},o.setRequestHeader("Content-Type","application/json"),o.send()},e.setRequestHeader("Content-Type","application/json"),e.send()});let o=document.querySelector("#adminnumsiegep");null!==o&&(o.onchange=()=>{let e;window.XMLHttpRequest?e=new XMLHttpRequest:window.ActiveXObject&&(e=new ActiveXObject("Microsoft.XMLHTTP"));const t=document.querySelector("#adminprogramrep").value,n=document.querySelector("#adminnumsiegep").options[document.querySelector("#numsiegep").options.selectedIndex].value;e.open("GET",window.location.origin+`${APP_ROOT}/programmes/verifisieges/${t}/${n}`,!0),e.onload=()=>{const o=JSON.parse(e.responseText);if(""==o){let e;e=new XMLHttpRequest,e.open("GET",window.location.origin+`${APP_ROOT}/programmes/creersiege/${t}/${n}`,!0),e.onload=()=>{const t=JSON.parse(e.responseText);if(document.querySelector("#adminerreursieg").style.display="none",Object.entries(t).length>=1)for(let e in Object.entries(t))document.querySelector("#adminidtamporep").value=`${t[e].idtamp}`,document.querySelector("#adminsiegselectrep").value=`${t[e].numsieg}`},e.setRequestHeader("Content-Type","application/json"),e.send()}else{if(document.querySelector("#adminnumsiegep").value="",Object.entries(o).length>=1)for(let e in Object.entries(o))document.querySelector("#adminidtamporep").value=`${o[e].idtamp}`,document.querySelector("#adminsiegselectrep").value=`${o[e].numsieg}`;document.querySelector("#adminerreursieg").style.display="block",document.querySelector("#adminerreurSiege").innerHTML="Siege déjà utilisé."}},e.setRequestHeader("content-Type","text/json"),e.send()}),butonclicrep=document.querySelector("#adminrese"),null!==butonclicrep&&(butonclicrep.onclick=()=>{let e;e=new XMLHttpRequest;const t=document.querySelector("#adminsiegselectrep").value,n=document.querySelector("#adminidtamporep").value;e.open("GET",window.location.origin+`${APP_ROOT}/programmes/deltamponsieg/${n}/${t}`,!0),e.onload=()=>{const t=JSON.parse(e.responseText);console.debug(`${typeof t} - ${t.attributes}`,console.memory),document.querySelector("#adminerreursieg").style.display="none"},e.setRequestHeader("Content-Type","application/json"),e.send()}),e.onclick=function(){document.querySelector("#adminrForm").setAttribute("action",`${APP_ROOT}/Reprogrammes/adupdate/${e.dataset.cle_compagnie}`)}})}),document.addEventListener("DOMContentLoaded",()=>{document.querySelectorAll(".addconfirmadmin").forEach(function(e){document.querySelector("h3#admincTitle").innerHTML="CONFIRMATION";let t=document.querySelector("#adminconfirme_info");null!==t&&(t.onclick=()=>{let e;window.XMLHttpRequest?e=new XMLHttpRequest:window.ActiveXObject&&(e=new ActiveXObject("Microsoft.XMLHTTP"));var t=document.querySelector("#admincodeconfirm").value;e.open("GET",window.location.origin+`${APP_ROOT}/confirmation/verifcodeconf/${t}`,!0),e.onload=()=>{const t=JSON.parse(e.responseText);if(null==t)document.querySelector("#adminmessagep").style.display="block",document.querySelector("#adminerreurMessagep").innerHTML="Cet ticket ne peut pas être confirmé ici.",document.querySelector("#adminheured").style.display="none",document.querySelector("#admindepsieg").style.display="none",document.querySelector("#adminquartconf").style.display="none",document.querySelector("#adminnomp").innerText="",document.querySelector("#adminprenomp").innerText="",document.querySelector("#admincontactp").innerHTML="",document.querySelector("#adminrefp").innerHTML="",document.querySelector("#admindirectionp").innerHTML="",document.querySelector("#admincodecp").innerHTML="",document.querySelector("#axeconfirm").style.display="none",document.querySelector("#ligneconflg").value="";else{Object.entries(t).length>=1?(document.querySelector("#adminerreurMessagep").innerHTML="",document.querySelector("#adminheured").style.display="block",document.querySelector("#admindepsieg").style.display="block",document.querySelector("#adminquartconf").style.display="block",document.querySelector("#axeconfirm").style.display="block",document.querySelector("#adminnomp").innerText=`NOM: ${t.nom_client}`,document.querySelector("#adminprenomp").innerText=`PRENOM: ${t.prenom_client}`,document.querySelector("#admincontactp").innerHTML=`CONTACT: ${t.contact_client}`,document.querySelector("#adminrefp").innerHTML=`REFERENCE CNIB: ${t.num_CNIB}`,document.querySelector("#admindirectionp").innerHTML=`AXE: ${t.nom_ligne}`,document.querySelector("#admincodecp").innerHTML=`CODE VENTE: ${t.code_non_pass}`,document.querySelector("#adminpassep").value=`${t.code_non_pass}`,document.querySelector("#adminpascodetick").value=`${t.codeticket}`,document.querySelector("#adminclientidp").value=`${t.id_client_npass}`,document.querySelector("#adminpasnomp").value=`${t.nom_client}`,document.querySelector("#adminpasprenomp").value=`${t.prenom_client}`,document.querySelector("#adminpascontactp").value=`${t.contact_client}`,document.querySelector("#adminpascnibp").value=`${t.num_CNIB}`,document.querySelector("#adminpasdatep").value=`${t.date_delivre}`,document.querySelector("#adcommentclient").value=`${t.comment_client}`,document.querySelector("#adminlieu").value=`${t.lieu_delivre}`,document.querySelector("#admimtype").value=`${t.type_client}`,document.querySelector("#dateventeconf").value=`${t.datevente}`,document.querySelector("#axeligneconf").value=`${t.id_ligne_pass}`,document.querySelector("#ligneconflg").value=`${t.nom_ligne}`,document.querySelector("#admincodecpas").value=`${t.code_non_pass}`,document.querySelector("#adlignehconf").value=`${t.id_ligneheure}`,document.querySelector("#admincodeconfi").value=`${t.tamponcod}`):(document.querySelector("#adminheured").style.display="none",document.querySelector("#admindepsieg").style.display="none",document.querySelector("#adminquartconf").style.display="none",document.querySelector("#axeconfirm").style.display="none");let e=new XMLHttpRequest;var n=document.querySelector("#ligneconflg").value.split("-"),o=n[0],r=n[1];e.open("GET",window.location.origin+`${APP_ROOT}/confirmation/veriflignelg/${r}-${o}`,!0),e.onload=()=>{const t=JSON.parse(e.responseText);if(Object.entries(t).length>=1)for(let e in Object.entries(t)){let e=document.createElement("option");e.value=`${t.ident_ligne}`,e.innerHTML=`${t.nom_ligne}`,document.querySelector("#axeconfirm").add(e)}else document.querySelector("#axeconfirm").options.length=1},e.setRequestHeader("Content-Type","application/json"),e.send();let i=document.querySelector("#axeconfirm");null!==i&&(i.onchange=()=>{var e=document.querySelector("#dateventeconf").value,t=document.querySelector("#datactu").value,n=new Date(e);const o=(new Date(t).getTime()-n.getTime())/864e5;if(o<28||o<29||o<30||o<31){const e=document.querySelector("#axeconfirm").options[document.querySelector("#axeconfirm").options.selectedIndex].value;let t=new XMLHttpRequest;const n=document.querySelector("#axeconfirm").options[document.querySelector("#axeconfirm").options.selectedIndex].value;var r=document.querySelector("#datactu").value;t.open("GET",window.location.origin+`${APP_ROOT}/confirmation/verifconfprog/${n}/${r}`,!0),t.onload=()=>{const e=JSON.parse(t.responseText);if(Object.entries(e).length>=1)for(let t in Object.entries(e)){let n=document.createElement("option");n.value=`${e[t].code_progr}/${e[t].typetarif}`,n.innerHTML=`${e[t].heure}/${e[t].date_progr}`,document.querySelector("#adminheured").add(n)}else document.querySelector("#adminheured").options.length=1},t.setRequestHeader("Content-Type","application/json"),t.send();r=document.querySelector("#datactu").value;let o=new XMLHttpRequest;o.open("GET",window.location.origin+`${APP_ROOT}/confirmation/verifconfquart/${e}`,!0),o.onload=()=>{const e=JSON.parse(o.responseText);if(""==e)document.querySelector("#adminquartconf").options.length=1;else if(Object.entries(e).length>=1)for(let t in Object.entries(e)){let n=document.createElement("option");n.value=`${e[t].nom_quartier}`,n.innerHTML=`${e[t].nom_quartier}`,document.querySelector("#adminquartconf").add(n)}else document.querySelector("#adminquartconf").options.length=1},o.setRequestHeader("Content-Type","application/json"),o.send()}else document.querySelector("#adminheured").style.display="none",document.querySelector("#admindepsieg").style.display="none",document.querySelector("#adminquartconf").style.display="none",document.querySelector("#adminnomp").innerText="",document.querySelector("#adminprenomp").innerText="",document.querySelector("#admincontactp").innerHTML="",document.querySelector("#adminrefp").innerHTML="",document.querySelector("#admindirectionp").innerHTML="",document.querySelector("#admincodecp").innerHTML="",document.querySelector("#billet").style.display="block",document.querySelector("#billetSms").innerHTML="Billet non valable, la durée de validité est dépassée."})}},e.setRequestHeader("Content-Type","application/json"),e.send()});let n=document.querySelector("#adminheured");null!==n&&(n.onchange=()=>{document.querySelector("#admindepsieg").options.length=1;const e=new XMLHttpRequest;var t=document.querySelector("#adminheured").options[document.querySelector("#adminheured").options.selectedIndex].value.split("/"),n=t[0];t[1];e.open("GET",window.location.origin+`${APP_ROOT}/reprogrammes/siegdispo/${n}`,!0),e.onload=()=>{const t=JSON.parse(e.responseText);if(Object.entries(t).length>=1)for(let e in Object.entries(t))document.querySelector("#adcaissepvend_").value=`${t[e].intervalle1}`,document.querySelector("#adcaissedpvend_").value=`${t[e].intervalle2}`,document.querySelector("#addirectid").value=`${t[e].nom_ligne}`,document.querySelector("#adconfheure").value=`${t[e].heure}`,document.querySelector("#addateconfirme").value=`${t[e].date_progr}`,document.querySelector("#adcatego").value=`${t[e].categori}`,document.querySelector("#adlignehconf").value=`${t[e].id_ligneheure}`,document.querySelector("#adprogramconf").value=`${t[e].code_progr}`;const o=new XMLHttpRequest,r=document.querySelector("#adcaissepvend_").value,i=document.querySelector("#adcaissedpvend_").value,c=document.querySelector("#addirectid").value,l=document.querySelector("#adconfheure").value,d=document.querySelector("#addateconfirme").value;o.open("GET",window.location.origin+`${APP_ROOT}/programmes/siegdisponible/${n}/${d}/${c}/${l}/${r}/${i}`,!0),o.onload=()=>{const e=JSON.parse(o.responseText);if(Object.entries(e).length>=1)for(let t in Object.entries(e)){let n=document.createElement("option");n.value=`${e[t].siege_num}`,n.innerHTML=`${e[t].siege_num}`,document.querySelector("#admindepsieg").add(n)}else document.querySelector("#admindepsieg").options.length=1},o.setRequestHeader("Content-Type","application/json"),o.send()},e.setRequestHeader("Content-Type","application/json"),e.send()});let o=document.querySelector("#admindepsieg");null!==o&&(o.onchange=()=>{let e;window.XMLHttpRequest?e=new XMLHttpRequest:window.ActiveXObject&&(e=new ActiveXObject("Microsoft.XMLHTTP"));const t=document.querySelector("#adprogramconf").value,n=document.querySelector("#admindepsieg").options[document.querySelector("#admindepsieg").options.selectedIndex].value;e.open("GET",window.location.origin+`${APP_ROOT}/programmes/verifisieges/${t}/${n}`,!0),e.onload=()=>{const o=JSON.parse(e.responseText);if(""==o){let e;e=new XMLHttpRequest,e.open("GET",window.location.origin+`${APP_ROOT}/programmes/creersiege/${t}/${n}`,!0),e.onload=()=>{const t=JSON.parse(e.responseText);if(document.querySelector("#adminmessconf").style.display="none",Object.entries(t).length>=1)for(let e in Object.entries(t))document.querySelector("#adminidtampoconf").value=`${t[e].idtamp}`,document.querySelector("#adminsiegselectconf").value=`${t[e].numsieg}`},e.setRequestHeader("Content-Type","application/json"),e.send()}else{if(document.querySelector("#admindepsieg").value="",Object.entries(o).length>=1)for(let e in Object.entries(o))document.querySelector("#adminidtampoconf").value=`${o[e].idtamp}`,document.querySelector("#adminsiegselectconf").value=`${o[e].numsieg}`;document.querySelector("#adminmessconf").style.display="block",document.querySelector("#adminerreurMessconf").innerHTML="Siege déjà utilisé."}},e.setRequestHeader("content-Type","text/json"),e.send()}),butoncliconf=document.querySelector("#adminconfreset"),null!==butoncliconf&&(butoncliconf.onclick=()=>{let e;e=new XMLHttpRequest;const t=document.querySelector("#adminsiegselectconf").value,n=document.querySelector("#adminidtampoconf").value;e.open("GET",window.location.origin+`${APP_ROOT}/programmes/deltamponsieg/${n}/${t}`,!0),e.onload=()=>{const t=JSON.parse(e.responseText);console.debug(`${typeof t} - ${t.attributes}`,console.memory),document.querySelector("#adminmessconf").style.display="none"},e.setRequestHeader("Content-Type","application/json"),e.send()}),e.onclick=function(){document.querySelector("#admincForm").setAttribute("action",`${APP_ROOT}/Confirmation/adminconfirme/${e.dataset.ckey}`)}})}),document.addEventListener("DOMContentLoaded",()=>{document.querySelectorAll(".addconfirmbon").forEach(function(e){document.querySelector("h3#bonconfTitle").innerHTML="CONFIRMATION BON";let t=document.querySelector("#bonconfirme_info");null!==t&&(t.onclick=()=>{let e;window.XMLHttpRequest?e=new XMLHttpRequest:window.ActiveXObject&&(e=new ActiveXObject("Microsoft.XMLHTTP"));var t=document.querySelector("#boncodeconfirm").value;e.open("GET",window.location.origin+`${APP_ROOT}/confirmation/verifcodebon/${t}`,!0),e.onload=()=>{const t=JSON.parse(e.responseText);if(null==t)document.querySelector("#bonmessagep").style.display="block",document.querySelector("#bonerreurMessagep").innerHTML="Cet bon ne peut pas être confirmé ici.",document.querySelector("#bonheured").style.display="none",document.querySelector("#bondepsieg").style.display="none",document.querySelector("#bonquartconf").style.display="none",document.querySelector("#bonnomp").innerText="",document.querySelector("#bonprenomp").innerText="",document.querySelector("#boncontactp").innerHTML="",document.querySelector("#bonrefp").innerHTML="",document.querySelector("#bondirectionp").innerHTML="",document.querySelector("#boncodecp").innerHTML="",document.querySelector("#bonaxeconfirm").style.display="none",document.querySelector("#bonligneconflg").value="",document.querySelector("#bonlignehconf").value="";else{Object.entries(t).length>=1?(document.querySelector("#bonerreurMessagep").innerHTML="",document.querySelector("#bonheured").style.display="block",document.querySelector("#bondepsieg").style.display="block",document.querySelector("#bonquartconf").style.display="block",document.querySelector("#bonaxeconfirm").style.display="block",document.querySelector("#bonnomp").innerText=`NOM: ${t.nom_client}`,document.querySelector("#bonprenomp").innerText=`PRENOM: ${t.prenom_client}`,document.querySelector("#boncontactp").innerHTML=`CONTACT: ${t.contact_client}`,document.querySelector("#bonrefp").innerHTML=`REFERENCE CNIB: ${t.num_CNIB}`,document.querySelector("#bondirectionp").innerHTML=`AXE: ${t.nom_gaep}-${t.nom_gadest}`,document.querySelector("#boncodecp").innerHTML=`CODE BON: ${t.bonsecondid}-${t.code_bon}`,document.querySelector("#bonpassep").value=`${t.idbon}`,document.querySelector("#bonpascodetick").value=`${t.bonsecondid}`,document.querySelector("#bonclientidp").value=`${t.id_client_bon}`,document.querySelector("#bonpasnomp").value=`${t.nom_client}`,document.querySelector("#bonpasprenomp").value=`${t.prenom_client}`,document.querySelector("#bonpascontactp").value=`${t.contact_client}`,document.querySelector("#bonpascnibp").value=`${t.num_CNIB}`,document.querySelector("#bonpasdatep").value=`${t.date_delivre}`,document.querySelector("#boncommentclient").value=`${t.comment_client}`,document.querySelector("#bonlieu").value=`${t.lieu_delivre}`,document.querySelector("#bontype").value=`${t.type_client}`,document.querySelector("#boncode").value=`${t.bonsecondid}`,document.querySelector("#bonaxeligneconf").value=`${t.ligne_depart}-${t.ligne_dest}`,document.querySelector("#bonligneconflg").value=`${t.nom_gaep}-${t.nom_gadest}`,document.querySelector("#boncodecpas").value=`${t.bonsecondid}`,document.querySelector("#bonlignehconf").value=`${t.id_ligneheure}`,document.querySelector("#boncodeconfi").value=`${t.idbon}`):(document.querySelector("#bonheured").style.display="none",document.querySelector("#bondepsieg").style.display="none",document.querySelector("#bonquartconf").style.display="none",document.querySelector("#bonaxeconfirm").style.display="none");let e=new XMLHttpRequest;const n=document.querySelector("#bonligneconflg").value;e.open("GET",window.location.origin+`${APP_ROOT}/confirmation/veriflignelg/${n}`,!0),e.onload=()=>{const t=JSON.parse(e.responseText);if(Object.entries(t).length>=1)for(let e in Object.entries(t)){let e=document.createElement("option");e.value=`${t.ident_ligne}`,e.innerHTML=`${t.nom_ligne}`,document.querySelector("#bonaxeconfirm").add(e)}else document.querySelector("#bonaxeconfirm").options.length=1},e.setRequestHeader("Content-Type","application/json"),e.send();let o=document.querySelector("#bonaxeconfirm");null!==o&&(o.onchange=()=>{const e=document.querySelector("#bonaxeconfirm").options[document.querySelector("#bonaxeconfirm").options.selectedIndex].value;let t=new XMLHttpRequest;const n=document.querySelector("#bonaxeconfirm").options[document.querySelector("#bonaxeconfirm").options.selectedIndex].value;var o=document.querySelector("#bondatactu").value;t.open("GET",window.location.origin+`${APP_ROOT}/confirmation/verifconfprog/${n}/${o}`,!0),t.onload=()=>{const e=JSON.parse(t.responseText);if(Object.entries(e).length>=1)for(let t in Object.entries(e)){let n=document.createElement("option");n.value=`${e[t].code_progr}/${e[t].typetarif}`,n.innerHTML=`${e[t].heure}/${e[t].date_progr}`,document.querySelector("#bonheured").add(n)}else document.querySelector("#bonheured").options.length=1},t.setRequestHeader("Content-Type","application/json"),t.send();o=document.querySelector("#bondatactu").value;let r=new XMLHttpRequest;r.open("GET",window.location.origin+`${APP_ROOT}/confirmation/verifconfquart/${e}`,!0),r.onload=()=>{const e=JSON.parse(r.responseText);if(""==e)document.querySelector("#bonquartconf").options.length=1;else if(Object.entries(e).length>=1)for(let t in Object.entries(e)){let n=document.createElement("option");n.value=`${e[t].nom_quartier}`,n.innerHTML=`${e[t].nom_quartier}`,document.querySelector("#bonquartconf").add(n)}else document.querySelector("#bonquartconf").options.length=1},r.setRequestHeader("Content-Type","application/json"),r.send()})}},e.setRequestHeader("Content-Type","application/json"),e.send()});let n=document.querySelector("#bonheured");null!==n&&(n.onchange=()=>{document.querySelector("#bondepsieg").options.length=1;const e=new XMLHttpRequest;var t=document.querySelector("#bonheured").options[document.querySelector("#bonheured").options.selectedIndex].value.split("/"),n=t[0];t[1];e.open("GET",window.location.origin+`${APP_ROOT}/reprogrammes/siegdispo/${n}`,!0),e.onload=()=>{const t=JSON.parse(e.responseText);if(Object.entries(t).length>=1)for(let e in Object.entries(t))document.querySelector("#boncaissepvend_").value=`${t[e].intervalle1}`,document.querySelector("#boncaissedpvend_").value=`${t[e].intervalle2}`,document.querySelector("#bondirectid").value=`${t[e].nom_ligne}`,document.querySelector("#bonconfheure").value=`${t[e].heure}`,document.querySelector("#bondateconfirme").value=`${t[e].date_progr}`,document.querySelector("#boncatego").value=`${t[e].categori}`,document.querySelector("#bonlignehconf").value=`${t[e].id_ligneheure}`,document.querySelector("#bonprogramconf").value=`${t[e].code_progr}`;const o=new XMLHttpRequest,r=document.querySelector("#boncaissepvend_").value,i=document.querySelector("#boncaissedpvend_").value,c=document.querySelector("#bondirectid").value,l=document.querySelector("#bonconfheure").value,d=document.querySelector("#bondateconfirme").value;o.open("GET",window.location.origin+`${APP_ROOT}/programmes/siegdisponible/${n}/${d}/${c}/${l}/${r}/${i}`,!0),o.onload=()=>{const e=JSON.parse(o.responseText);if(Object.entries(e).length>=1)for(let t in Object.entries(e)){let n=document.createElement("option");n.value=`${e[t].siege_num}`,n.innerHTML=`${e[t].siege_num}`,document.querySelector("#bondepsieg").add(n)}else document.querySelector("#bondepsieg").options.length=1},o.setRequestHeader("Content-Type","application/json"),o.send()},e.setRequestHeader("Content-Type","application/json"),e.send()});let o=document.querySelector("#bondepsieg");null!==o&&(o.onchange=()=>{let e;window.XMLHttpRequest?e=new XMLHttpRequest:window.ActiveXObject&&(e=new ActiveXObject("Microsoft.XMLHTTP"));const t=document.querySelector("#bonprogramconf").value,n=document.querySelector("#bondepsieg").options[document.querySelector("#bondepsieg").options.selectedIndex].value;e.open("GET",window.location.origin+`${APP_ROOT}/programmes/verifisieges/${t}/${n}`,!0),e.onload=()=>{const o=JSON.parse(e.responseText);if(""==o){let e;e=new XMLHttpRequest,e.open("GET",window.location.origin+`${APP_ROOT}/programmes/creersiege/${t}/${n}`,!0),e.onload=()=>{const t=JSON.parse(e.responseText);if(document.querySelector("#bonmessconf").style.display="none",Object.entries(t).length>=1)for(let e in Object.entries(t))document.querySelector("#bonidtampoconf").value=`${t[e].idtamp}`,document.querySelector("#bonsiegselectconf").value=`${t[e].numsieg}`},e.setRequestHeader("Content-Type","application/json"),e.send()}else{if(document.querySelector("#bondepsieg").value="",Object.entries(o).length>=1)for(let e in Object.entries(o))document.querySelector("#bonidtampoconf").value=`${o[e].idtamp}`,document.querySelector("#bonsiegselectconf").value=`${o[e].numsieg}`;document.querySelector("#bonmessconf").style.display="block",document.querySelector("#bonerreurMessconf").innerHTML="Siege déjà utilisé."}},e.setRequestHeader("content-Type","text/json"),e.send()}),butoncliconfbon=document.querySelector("#bonconfreset"),null!==butoncliconfbon&&(butoncliconfbon.onclick=()=>{let e;e=new XMLHttpRequest;const t=document.querySelector("#bonsiegselectconf").value,n=document.querySelector("#bonidtampoconf").value;e.open("GET",window.location.origin+`${APP_ROOT}/programmes/deltamponsieg/${n}/${t}`,!0),e.onload=()=>{const t=JSON.parse(e.responseText);console.debug(`${typeof t} - ${t.attributes}`,console.memory),document.querySelector("#bonmessconf").style.display="none"},e.setRequestHeader("Content-Type","application/json"),e.send()}),e.onclick=function(){document.querySelector("#boncForm").setAttribute("action",`${APP_ROOT}/Confirmation/bonconfirme/${e.dataset.cle_compagnie}`)}})}),document.addEventListener("DOMContentLoaded",()=>{document.querySelectorAll(".addconfirmcarte").forEach(function(e){document.querySelector("h3#carteconfTitle").innerHTML="CONFIRMATION CARTE";let t=document.querySelector("#carteconfirme_info");null!==t&&(t.onclick=()=>{let e;window.XMLHttpRequest?e=new XMLHttpRequest:window.ActiveXObject&&(e=new ActiveXObject("Microsoft.XMLHTTP"));var t=document.querySelector("#cartecodeconfirm").value;e.open("GET",window.location.origin+`${APP_ROOT}/confirmation/verifcodecarte/${t}`,!0),e.onload=()=>{const t=JSON.parse(e.responseText);null==t?(document.querySelector("#cartemessagep").style.display="block",document.querySelector("#carteerreurMessagep").innerHTML="Cette carte ne peut pas être confirmée ici.",document.querySelector("#carteheured").style.display="none",document.querySelector("#cartedepsieg").style.display="none",document.querySelector("#cartequartconf").style.display="none",document.querySelector("#cartenomp").innerText="",document.querySelector("#carteprenomp").innerText="",document.querySelector("#cartecontactp").innerHTML="",document.querySelector("#carterefp").innerHTML="",document.querySelector("#cartecodecp").innerHTML="",document.querySelector("#carteaxeconfirm").style.display="none",document.querySelector("#carteligneconflg").value="",document.querySelector("#cartelignehconf").value="",document.querySelector("#creditcarteid").value=""):Object.entries(t).length>=1?(document.querySelector("#carteerreurMessagep").innerHTML="",document.querySelector("#carteheured").style.display="block",document.querySelector("#cartedepsieg").style.display="block",document.querySelector("#cartequartconf").style.display="block",document.querySelector("#carteaxeconfirm").style.display="block",document.querySelector("#cartenomp").innerText=`NOM: ${t.nom_client}`,document.querySelector("#carteprenomp").innerText=`PRENOM: ${t.prenom_client}`,document.querySelector("#cartecontactp").innerHTML=`CONTACT: ${t.contact_client}`,document.querySelector("#carterefp").innerHTML=`REFERENCE CNIB: ${t.num_CNIB}`,document.querySelector("#cartecodecp").innerHTML=`CODE CARTE: ${t.id_carte}-${t.num_carte}`,document.querySelector("#cartepassep").value=`${t.id_carte}`,document.querySelector("#cartepascodetick").value=`${t.num_carte}`,document.querySelector("#carteclientidp").value=`${t.idcarte_client}`,document.querySelector("#cartetype").value=`${t.type_client}`,document.querySelector("#cartecode").value=`${t.num_carte}`,document.querySelector("#cartecodecpas").value=`${t.num_carte}`,document.querySelector("#cartelignehconf").value=`${t.id_ligneheure}`,document.querySelector("#cartecodeconfi").value=`${t.id_carte}`,document.querySelector("#cartecomptid").value=`${t.comptidcl}`,document.querySelector("#creditcarteid").value=`${t.debitecompte}`):(document.querySelector("#carteheured").style.display="none",document.querySelector("#cartedepsieg").style.display="none",document.querySelector("#cartequartconf").style.display="none",document.querySelector("#carteaxeconfirm").style.display="none")},e.setRequestHeader("Content-Type","application/json"),e.send()});let n=document.querySelector("#carteaxeconfirm");null!==n&&(n.onchange=()=>{document.querySelector("#cartequartconf").options.length=1;const e=document.querySelector("#carteaxeconfirm").options[document.querySelector("#carteaxeconfirm").options.selectedIndex].value;let t=new XMLHttpRequest;const n=document.querySelector("#carteaxeconfirm").options[document.querySelector("#carteaxeconfirm").options.selectedIndex].value;var o=document.querySelector("#cartedatactu").value;t.open("GET",window.location.origin+`${APP_ROOT}/confirmation/verifconfprog/${n}/${o}`,!0),t.onload=()=>{const e=JSON.parse(t.responseText);if(Object.entries(e).length>=1)for(let t in Object.entries(e)){let n=document.createElement("option");n.value=`${e[t].code_progr}/${e[t].typetarif}`,n.innerHTML=`${e[t].heure}/${e[t].date_progr}`,document.querySelector("#carteheured").add(n)}else document.querySelector("#carteheured").options.length=1},t.setRequestHeader("Content-Type","application/json"),t.send();o=document.querySelector("#cartedatactu").value;let r=new XMLHttpRequest;r.open("GET",window.location.origin+`${APP_ROOT}/confirmation/verifconfquart/${e}`,!0),r.onload=()=>{const e=JSON.parse(r.responseText);if(""==e)document.querySelector("#cartequartconf").options.length=1;else if(Object.entries(e).length>=1)for(let t in Object.entries(e)){let n=document.createElement("option");n.value=`${e[t].nom_quartier}`,n.innerHTML=`${e[t].nom_quartier}`,document.querySelector("#cartequartconf").add(n)}else document.querySelector("#cartequartconf").options.length=1},r.setRequestHeader("Content-Type","application/json"),r.send()});let o=document.querySelector("#carteheured");null!==o&&(o.onchange=()=>{document.querySelector("#cartedepsieg").options.length=1;const e=new XMLHttpRequest;var t=document.querySelector("#carteheured").options[document.querySelector("#carteheured").options.selectedIndex].value.split("/"),n=t[0];t[1];e.open("GET",window.location.origin+`${APP_ROOT}/reprogrammes/siegdispo/${n}`,!0),e.onload=()=>{const t=JSON.parse(e.responseText);if(Object.entries(t).length>=1)for(let e in Object.entries(t))document.querySelector("#cartecaissepvend_").value=`${t[e].intervalle1}`,document.querySelector("#cartecaissedpvend_").value=`${t[e].intervalle2}`,document.querySelector("#cartedirectid").value=`${t[e].nom_ligne}`,document.querySelector("#carteconfheure").value=`${t[e].heure}`,document.querySelector("#cartedateconfirme").value=`${t[e].date_progr}`,document.querySelector("#cartecatego").value=`${t[e].categori}`,document.querySelector("#cartelignehconf").value=`${t[e].id_ligneheure}`,document.querySelector("#carteprogramconf").value=`${t[e].code_progr}`;const o=new XMLHttpRequest,r=document.querySelector("#cartecaissepvend_").value,i=document.querySelector("#cartecaissedpvend_").value,c=document.querySelector("#cartedirectid").value,l=document.querySelector("#carteconfheure").value,d=document.querySelector("#cartedateconfirme").value;o.open("GET",window.location.origin+`${APP_ROOT}/programmes/siegdisponible/${n}/${d}/${c}/${l}/${r}/${i}`,!0),o.onload=()=>{const e=JSON.parse(o.responseText);if(Object.entries(e).length>=1)for(let t in Object.entries(e)){let n=document.createElement("option");n.value=`${e[t].siege_num}`,n.innerHTML=`${e[t].siege_num}`,document.querySelector("#cartedepsieg").add(n)}else document.querySelector("#cartedepsieg").options.length=1},o.setRequestHeader("Content-Type","application/json"),o.send()},e.setRequestHeader("Content-Type","application/json"),e.send()});let r=document.querySelector("#cartedepsieg");null!==r&&(r.onchange=()=>{let e;window.XMLHttpRequest?e=new XMLHttpRequest:window.ActiveXObject&&(e=new ActiveXObject("Microsoft.XMLHTTP"));const t=document.querySelector("#carteprogramconf").value,n=document.querySelector("#cartedepsieg").options[document.querySelector("#cartedepsieg").options.selectedIndex].value;e.open("GET",window.location.origin+`${APP_ROOT}/programmes/verifisieges/${t}/${n}`,!0),e.onload=()=>{const o=JSON.parse(e.responseText);if(""==o){let e;e=new XMLHttpRequest,e.open("GET",window.location.origin+`${APP_ROOT}/programmes/creersiege/${t}/${n}`,!0),e.onload=()=>{const t=JSON.parse(e.responseText);if(document.querySelector("#cartemessconf").style.display="none",Object.entries(t).length>=1)for(let e in Object.entries(t))document.querySelector("#carteidtampoconf").value=`${t[e].idtamp}`,document.querySelector("#cartesiegselectconf").value=`${t[e].numsieg}`},e.setRequestHeader("Content-Type","application/json"),e.send()}else{if(document.querySelector("#cartedepsieg").value="",Object.entries(o).length>=1)for(let e in Object.entries(o))document.querySelector("#carteidtampoconf").value=`${o[e].idtamp}`,document.querySelector("#cartesiegselectconf").value=`${o[e].numsieg}`;document.querySelector("#cartemessconf").style.display="block",document.querySelector("#carteerreurMessconf").innerHTML="Siege déjà utilisé."}},e.setRequestHeader("content-Type","text/json"),e.send()}),butoncliconfcart=document.querySelector("#carteconfreset"),null!==butoncliconfcart&&(butoncliconfcart.onclick=()=>{let e;e=new XMLHttpRequest;const t=document.querySelector("#cartesiegselectconf").value,n=document.querySelector("#carteidtampoconf").value;e.open("GET",window.location.origin+`${APP_ROOT}/programmes/deltamponsieg/${n}/${t}`,!0),e.onload=()=>{const t=JSON.parse(e.responseText);console.debug(`${typeof t} - ${t.attributes}`,console.memory),document.querySelector("#cartemessconf").style.display="none"},e.setRequestHeader("Content-Type","application/json"),e.send()}),e.onclick=function(){document.querySelector("#cartecForm").setAttribute("action",`${APP_ROOT}/Confirmation/carteconfirme/${e.dataset.cle_compagnie}`)}})}),document.addEventListener("DOMContentLoaded",()=>{document.querySelectorAll(".addrecu").forEach(function(e){document.querySelector("h3#recuTitle").innerHTML="FAIRE RECU";let t=document.querySelector("#recu_infos");null!==t&&(t.onclick=()=>{let e;window.XMLHttpRequest?e=new XMLHttpRequest:window.ActiveXObject&&(e=new ActiveXObject("Microsoft.XMLHTTP"));var t=document.querySelector("#codeclientprecu").value,n=document.querySelector("#gareconnectrecu").value;e.open("GET",window.location.origin+`${APP_ROOT}/reprogrammes/verifcoderecu/${n}/${t}`,!0),e.onload=()=>{const t=JSON.parse(e.responseText);null==t?(document.querySelector("#validrecu").style.display="none",document.querySelector("#billetrecu").style.display="block",document.querySelector("#billetSmsrecu").innerHTML="Ce client a déjà pris son reçu merci!",document.querySelector("#nomclprecu").innerHTML="",document.querySelector("#prenomclprecu").innerHTML="",document.querySelector("#contactclprecu").innerHTML="",document.querySelector("#refclprecu").innerHTML="",document.querySelector("#directionclprecu").innerHTML="",document.querySelector("#codeclprecu").innerHTML="",document.querySelector("#heureclprecu").innerHTML="",document.querySelector("#passerprecu").value="",document.querySelector("#idclpasseridrecu").value="",document.querySelector("#client_idprecu").value="",document.querySelector("#pasnomprecu").value="",document.querySelector("#pasprenomprecu").value="",document.querySelector("#pascontactprecu").value="",document.querySelector("#pascnibprecu").value="",document.querySelector("#pasdateprecu").value="",document.querySelector("#delivrelierecu").value="",document.querySelector("#codetamponrecus").value="",document.querySelector("#passaxeprecu").value="",document.querySelector("#prixrecu").value="",document.querySelector("#codenonprecu").value=""):Object.entries(t).length>=1&&(document.querySelector("#billetrecu").style.display="none",document.querySelector("#billetSmsrecu").style.display="block",document.querySelector("#validrecu").style.display="block",document.querySelector("#nomclprecu").innerHTML=`NOM: ${t.nom_client}`,document.querySelector("#prenomclprecu").innerHTML=`PRENOM: ${t.prenom_client}`,document.querySelector("#contactclprecu").innerHTML=`CONTACT: ${t.contact_client}`,document.querySelector("#refclprecu").innerHTML=`REFERENCE CNIB: ${t.num_CNIB}`,document.querySelector("#directionclprecu").innerHTML=`AXE: ${t.nom_ligne}`,document.querySelector("#codeclprecu").innerHTML=`CODE TICKET: ${t.code_passager}`,document.querySelector("#heureclprecu").innerHTML=`HEURE: ${t.heure} SIEGE :${t.num_siege_categorie}`,document.querySelector("#passerprecu").value=`${t.code_ticket}`,document.querySelector("#codenonprecu").value=`${t.codeticket}`,document.querySelector("#idclpasseridrecu").value=`${t.ligne_id}`,document.querySelector("#client_idprecu").value=`${t.id_client_pass}`,document.querySelector("#pasnomprecu").value=`${t.nom_client}`,document.querySelector("#pasprenomprecu").value=`${t.prenom_client}`,document.querySelector("#pascontactprecu").value=`${t.contact_client}`,document.querySelector("#pascnibprecu").value=`${t.num_CNIB}`,document.querySelector("#pasdateprecu").value=`${t.date_delivre}`,document.querySelector("#delivrelierecu").value=`${t.lieu_delivre}`,document.querySelector("#codetamponrecus").value=`${t.tamponcod}`,document.querySelector("#passaxeprecu").value=`${t.nom_ligne}`,document.querySelector("#prixrecu").value=`${t.prixvente}`)},e.setRequestHeader("Content-Type","application/json"),e.send()}),e.onclick=function(){document.querySelector("#recuForm").setAttribute("action",`${APP_ROOT}/Reprogrammes/recuclient/${e.dataset.cle_compagnie}`)}})}),document.addEventListener("DOMContentLoaded",()=>{document.querySelectorAll(".addbon").forEach(function(e){document.querySelector("h3#bonTitle").innerHTML="ENREGISTREMENT BON MILITAIRE";let t=document.querySelector("#idcontactbon");null!==t&&(t.onkeyup=()=>{let e;window.XMLHttpRequest?e=new XMLHttpRequest:window.ActiveXObject&&(e=new ActiveXObject("Microsoft.XMLHTTP"));var t=document.querySelector("#idcontactbon").value;e.open("GET",window.location.origin+`${APP_ROOT}/programmes/verifinfos/${t}`,!0),e.onload=()=>{const n=JSON.parse(e.responseText);null==n?(document.querySelector("#idnombon").value="",document.querySelector("#idprenombon").value="",document.querySelector("#bon").value="",document.querySelector("#date_carte").value="",document.querySelector("#lieudelivre_cart").value="",document.querySelector("#clientbonid").value=""):Object.entries(n).length>1&&(n.contact_client==t?(document.querySelector("#idnombon").value=`${n.nom_client}`,document.querySelector("#idprenombon").value=`${n.prenom_client}`,document.querySelector("#bon").value=`${n.num_CNIB}`,document.querySelector("#date_carte").value=`${n.date_delivre}`,document.querySelector("#lieudelivre_cart").value=`${n.lieu_delivre}`,document.querySelector("#clientbonid").value=`${n.id_client}`,document.querySelector("#pasnompbon").value=`${n.nom_client}`,document.querySelector("#pasprenompbon").value=`${n.prenom_client}`,document.querySelector("#pascnibpbon").value=`${n.num_CNIB}`,document.querySelector("#pasdatepbon").value=`${n.date_delivre}`,document.querySelector("#lieubon").value=`${n.lieu_delivre}`):(document.querySelector("#idnombon").value="",document.querySelector("#idprenombon").value="",document.querySelector("#bon").value="",document.querySelector("#date_carte").value="",document.querySelector("#lieudelivre_cart").value="",document.querySelector("#clientbonid").value=""))},e.setRequestHeader("Content-Type","application/json"),e.send()}),e.onclick=function(){document.querySelector("#bonForm").setAttribute("action",`${APP_ROOT}/Bon_Millitaire/addbon/${e.dataset.cle_compagnie}`)}})}),document.addEventListener("DOMContentLoaded",()=>{document.querySelectorAll(".addcarte").forEach(function(e){document.querySelector("h3#carteTitle").innerHTML="ENREGISTRER CARTE DE VOYAGE";let t=document.querySelector("#idcontactcarte");null!==t&&(t.onkeyup=()=>{let e;window.XMLHttpRequest?e=new XMLHttpRequest:window.ActiveXObject&&(e=new ActiveXObject("Microsoft.XMLHTTP"));var t=document.querySelector("#idcontactcarte").value;e.open("GET",window.location.origin+`${APP_ROOT}/programmes/verifinfos/${t}`,!0),e.onload=()=>{const n=JSON.parse(e.responseText);null==n?(document.querySelector("#idnomcarte").value="",document.querySelector("#idprenomcarte").value="",document.querySelector("#carte").value="",document.querySelector("#datecartev").value="",document.querySelector("#lieudelivrecarte").value="",document.querySelector("#clientcarteid").value=""):Object.entries(n).length>1&&n.contact_client==t&&(document.querySelector("#idnomcarte").value=`${n.nom_client}`,document.querySelector("#idprenomcarte").value=`${n.prenom_client}`,document.querySelector("#carte").value=`${n.num_CNIB}`,document.querySelector("#datecartev").value=`${n.date_delivre}`,document.querySelector("#lieudelivrecarte").value=`${n.lieu_delivre}`,document.querySelector("#clientcarteid").value=`${n.id_client}`,document.querySelector("#nomcarte_voyageid").value=`${n.nom_client}`,document.querySelector("#prenomcartevoyageid").value=`${n.prenom_client}`,document.querySelector("#cnibcartevoyageid").value=`${n.num_CNIB}`,document.querySelector("#datecartevoyageid").value=`${n.date_delivre}`,document.querySelector("#lieucartevoyageid").value=`${n.lieu_delivre}`)},e.setRequestHeader("Content-Type","application/json"),e.send()}),e.onclick=function(){document.querySelector("#carteForm").setAttribute("action",`${APP_ROOT}/Cartes_Voyage/addcarte/${e.dataset.cle_compagnie}`)}})});
+/* Bundle guichet role=15 — genere par scripts/build_guichet_bundles.php */
+/* --- filtre_arrivee_compagnie.js --- */
+/**
+ * Filtre les selects gares d'arrivée par checkboxes compagnies.
+ * Une seule compagnie à la fois : seules ses gares apparaissent dans Arrivée.
+ * Par défaut : CBT cochée.
+ */
+document.addEventListener('DOMContentLoaded', function () {
+    function isCbtCompany(nom) {
+        var n = String(nom || '').trim().toUpperCase();
+        if (!n) return false;
+        if (n === 'CBT') return true;
+        return /(^|[^A-Z0-9])CBT([^A-Z0-9]|$)/.test(n);
+    }
+
+    function uniqueCompanies(arriveeSelect) {
+        var map = {};
+        var order = [];
+        arriveeSelect.querySelectorAll('option[data-compagnie]').forEach(function (opt) {
+            var cle = String(opt.getAttribute('data-compagnie') || '');
+            if (!cle || map[cle]) return;
+            var nom = opt.getAttribute('data-nom-compagnie')
+                || (opt.parentNode && opt.parentNode.label)
+                || cle;
+            map[cle] = nom;
+            order.push(cle);
+        });
+        return { map: map, order: order };
+    }
+
+    /**
+     * Snapshot du select : placeholder + groupes {cle, nom, options:[{value,text,attrs}]}
+     */
+    function snapshotArrivee(arriveeSelect) {
+        var placeholder = null;
+        var groups = [];
+        var groupMap = {};
+
+        Array.prototype.forEach.call(arriveeSelect.children, function (child) {
+            if (child.tagName === 'OPTION') {
+                if (!child.getAttribute('data-compagnie')) {
+                    if (!placeholder) {
+                        placeholder = {
+                            value: child.value,
+                            text: child.textContent,
+                            html: child.outerHTML
+                        };
+                    }
+                }
+                return;
+            }
+            if (child.tagName === 'OPTGROUP') {
+                var cle = String(child.getAttribute('data-compagnie') || '');
+                var nom = child.getAttribute('label') || cle;
+                if (!cle) {
+                    var first = child.querySelector('option[data-compagnie]');
+                    if (first) cle = String(first.getAttribute('data-compagnie') || '');
+                }
+                if (!cle) return;
+                if (!groupMap[cle]) {
+                    groupMap[cle] = { cle: cle, nom: nom, options: [] };
+                    groups.push(groupMap[cle]);
+                }
+                Array.prototype.forEach.call(child.querySelectorAll('option'), function (opt) {
+                    groupMap[cle].options.push({
+                        value: opt.value,
+                        text: opt.textContent,
+                        compagnie: String(opt.getAttribute('data-compagnie') || cle),
+                        nomCompagnie: opt.getAttribute('data-nom-compagnie') || nom
+                    });
+                });
+            }
+        });
+
+        // Options hors optgroup avec data-compagnie
+        arriveeSelect.querySelectorAll(':scope > option[data-compagnie]').forEach(function (opt) {
+            var cle = String(opt.getAttribute('data-compagnie') || '');
+            if (!cle) return;
+            if (!groupMap[cle]) {
+                var nom = opt.getAttribute('data-nom-compagnie') || cle;
+                groupMap[cle] = { cle: cle, nom: nom, options: [] };
+                groups.push(groupMap[cle]);
+            }
+            groupMap[cle].options.push({
+                value: opt.value,
+                text: opt.textContent,
+                compagnie: cle,
+                nomCompagnie: opt.getAttribute('data-nom-compagnie') || groupMap[cle].nom
+            });
+        });
+
+        return { placeholder: placeholder, groups: groups };
+    }
+
+    function rebuildArrivee(arriveeSelect, snap, activeCle) {
+        var prev = arriveeSelect.value;
+        arriveeSelect.innerHTML = '';
+
+        var ph = document.createElement('option');
+        ph.value = snap.placeholder ? snap.placeholder.value : '';
+        ph.textContent = snap.placeholder && snap.placeholder.text
+            ? snap.placeholder.text
+            : 'Choisissez l\'arrivée';
+        arriveeSelect.appendChild(ph);
+
+        if (!activeCle) {
+            arriveeSelect.value = '';
+            return prev !== '';
+        }
+
+        var kept = false;
+        snap.groups.forEach(function (g) {
+            if (String(g.cle) !== String(activeCle)) return;
+            var og = document.createElement('optgroup');
+            og.label = g.nom;
+            og.setAttribute('data-compagnie', g.cle);
+            g.options.forEach(function (o) {
+                var opt = document.createElement('option');
+                opt.value = o.value;
+                opt.textContent = o.text;
+                opt.setAttribute('data-compagnie', o.compagnie);
+                opt.setAttribute('data-nom-compagnie', o.nomCompagnie);
+                og.appendChild(opt);
+                if (o.value === prev) kept = true;
+            });
+            arriveeSelect.appendChild(og);
+        });
+
+        if (kept) {
+            arriveeSelect.value = prev;
+            return false;
+        }
+        arriveeSelect.value = '';
+        return prev !== '';
+    }
+
+    function activeCleFromBox(box) {
+        var checked = box.querySelector('.js-filtre-compagnie-check:checked');
+        return checked ? String(checked.value) : '';
+    }
+
+    function applyArriveeFilter(box) {
+        if (!box || !box._snap) return;
+        var targetId = box.getAttribute('data-target-arrivee');
+        var arriveeSelect = targetId
+            ? document.getElementById(targetId)
+            : box._arriveeSelect;
+        if (!arriveeSelect) return;
+
+        var cleared = rebuildArrivee(arriveeSelect, box._snap, activeCleFromBox(box));
+        if (cleared) {
+            if (typeof window.jQuery !== 'undefined') {
+                window.jQuery(arriveeSelect).trigger('change');
+            } else {
+                arriveeSelect.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+        }
+    }
+
+    function syncFiltreVisibility(arriveeSelect, box) {
+        if (!arriveeSelect || !box) return;
+        // Ancré sous le choix ticket : toujours visible (indépendant du masquage Arrivée en transit)
+        if (box.parentNode && box.parentNode.getAttribute('data-compagnies-arrivee-for')) {
+            box.style.display = '';
+            return;
+        }
+        var disp = arriveeSelect.style.display;
+        if (disp === 'none') {
+            box.style.display = 'none';
+        } else if (disp) {
+            box.style.display = disp;
+        } else {
+            box.style.display = '';
+        }
+    }
+
+    function placeCompanyBox(box, arriveeSelect) {
+        var targetId = arriveeSelect.id;
+        var scope = arriveeSelect.closest('.modal-container, form, .card-body, .card') || document;
+        var slot = scope.querySelector('[data-compagnies-arrivee-for="' + targetId + '"]');
+        if (!slot) {
+            slot = document.querySelector('[data-compagnies-arrivee-for="' + targetId + '"]');
+        }
+        if (slot) {
+            slot.innerHTML = '';
+            slot.appendChild(box);
+            box.style.marginTop = '0.25rem';
+            box.style.marginBottom = '0.5rem';
+            return;
+        }
+
+        // Fallback ventes : barre pleine largeur au-dessus de la ligne Départ/Arrivée
+        var row = arriveeSelect.closest('.row');
+        if (row && row.parentNode) {
+            var wrap = document.createElement('div');
+            wrap.className = 'px-3 pb-2 col-12';
+            wrap.setAttribute('data-compagnies-arrivee-for', targetId);
+            wrap.appendChild(box);
+            row.parentNode.insertBefore(wrap, row);
+            return;
+        }
+
+        arriveeSelect.parentNode.insertBefore(box, arriveeSelect);
+    }
+
+    function enhanceArriveeSelect(arriveeSelect) {
+        if (!arriveeSelect || arriveeSelect.getAttribute('data-filtre-arrivee-ready') === '1') {
+            return;
+        }
+        // Hors ventes : formulaires admin lignes
+        if (arriveeSelect.name === 'garearrivee') {
+            return;
+        }
+        if (!arriveeSelect.querySelector('option[data-compagnie]')) {
+            return;
+        }
+
+        var companies = uniqueCompanies(arriveeSelect);
+        if (!companies.order.length) {
+            return;
+        }
+
+        var snap = snapshotArrivee(arriveeSelect);
+
+        arriveeSelect.setAttribute('data-filtre-arrivee-ready', '1');
+        arriveeSelect.classList.add('js-arrivee-filtre');
+
+        var targetId = arriveeSelect.id || ('arrivee-auto-' + Math.random().toString(36).slice(2, 9));
+        if (!arriveeSelect.id) {
+            arriveeSelect.id = targetId;
+        }
+
+        var box = document.createElement('div');
+        box.className = 'js-filtre-compagnie-arrivee-vente mb-2';
+        box.setAttribute('data-target-arrivee', targetId);
+        box.setAttribute('aria-label', 'Compagnies d\'arrivée');
+        box.style.cssText = 'display:flex;flex-wrap:wrap;gap:0.35rem 1rem;align-items:center;';
+        box._arriveeSelect = arriveeSelect;
+        box._snap = snap;
+
+        var title = document.createElement('small');
+        title.className = 'text-muted w-100 mb-0';
+        title.textContent = 'Compagnies d\'arrivée';
+        title.style.flexBasis = '100%';
+        box.appendChild(title);
+
+        companies.order.forEach(function (cle) {
+            var nom = companies.map[cle];
+            var label = document.createElement('label');
+            label.className = 'mb-0';
+            label.style.cssText = 'font-weight:400;cursor:pointer;white-space:nowrap;';
+
+            var input = document.createElement('input');
+            input.type = 'checkbox';
+            input.className = 'js-filtre-compagnie-check';
+            input.value = cle;
+            input.checked = isCbtCompany(nom);
+            input.style.marginRight = '0.35rem';
+            input.setAttribute('data-nom-compagnie', nom);
+
+            label.appendChild(input);
+            label.appendChild(document.createTextNode(nom));
+            box.appendChild(label);
+        });
+
+        // Une seule compagnie active : si plusieurs CBT match, garder la première cochée
+        var checked = box.querySelectorAll('.js-filtre-compagnie-check:checked');
+        if (checked.length > 1) {
+            for (var i = 1; i < checked.length; i++) {
+                checked[i].checked = false;
+            }
+        }
+
+        placeCompanyBox(box, arriveeSelect);
+
+        box.addEventListener('change', function (e) {
+            var t = e.target;
+            if (!t || !t.classList.contains('js-filtre-compagnie-check')) return;
+
+            // Exclusif : cocher une compagnie décoche les autres
+            if (t.checked) {
+                box.querySelectorAll('.js-filtre-compagnie-check').forEach(function (c) {
+                    if (c !== t) c.checked = false;
+                });
+            }
+
+            applyArriveeFilter(box);
+        });
+
+        applyArriveeFilter(box);
+        syncFiltreVisibility(arriveeSelect, box);
+
+        if (window.MutationObserver) {
+            var mo = new MutationObserver(function () {
+                syncFiltreVisibility(arriveeSelect, box);
+            });
+            mo.observe(arriveeSelect, { attributes: true, attributeFilter: ['style'] });
+        }
+    }
+
+    function bindAll(root) {
+        root = root || document;
+        root.querySelectorAll('select').forEach(function (sel) {
+            if (sel.closest && sel.closest('.js-filtre-compagnie-arrivee-vente')) return;
+            if (sel.querySelector('option[data-compagnie]')) {
+                enhanceArriveeSelect(sel);
+            }
+        });
+    }
+
+    bindAll(document);
+    window.__bindFiltreArriveeCompagnie = bindAll;
+});
+
+;
+/* --- addventeticketfi.js --- */
+document.addEventListener('DOMContentLoaded', () => {
+
+    /** Autre vente FI : prix saisis à la main (0 = ticket gratuit), jamais écrasés par le tarif programme. */
+    window.__venteFiPrixManuel = true;
+
+    function __venteFiShouldSkipAutoPrix() {
+        return window.__venteFiPrixManuel !== false;
+    }
+
+    function __venteFiClearTransitPrixFields() {
+        ['prix_axetransfid', 'prix_axetransitfid', 'prix_axetransit1fid', 'prix_axetransit2fid'].forEach(function (id) {
+            var el = document.getElementById(id);
+            if (el) el.value = '';
+        });
+    }
+
+    function __venteFiValidateTransitPrixBeforeSubmit() {
+        if (!__venteFiShouldSkipAutoPrix()) return true;
+        var tran = document.getElementById('tranfid');
+        if (!tran || tran.style.display === 'none') return true;
+        var checks = [
+            { id: 'prix_axetransfid', label: 'Correspondance 1' },
+            { id: 'prix_axetransitfid', label: 'Correspondance 2' },
+            { id: 'prix_axetransit1fid', label: 'Correspondance 3' },
+            { id: 'prix_axetransit2fid', label: 'Correspondance 4' }
+        ];
+        for (var i = 0; i < checks.length; i++) {
+            var px = document.getElementById(checks[i].id);
+            if (!px || px.style.display === 'none') continue;
+            if (String(px.value).trim() === '') {
+                var mess = document.querySelector('#messfid');
+                var err = document.querySelector('#erreurMessfid');
+                if (mess) mess.style.display = 'block';
+                if (err) err.innerHTML = 'Saisissez le prix pour ' + checks[i].label + ' (0 = gratuit).';
+                px.focus();
+                return false;
+            }
+        }
+        return true;
+    }
+    
+    function __venteFiProgListFromResponse(don) {
+        if (don == null || don === '') return [];
+        if (Array.isArray(don)) return don.filter(Boolean);
+        if (typeof don === 'object') {
+            return Object.keys(don).map(function (k) { return don[k]; }).filter(Boolean);
+        }
+        return [];
+    }
+
+    function __venteFiHideProgSelect() {
+        var box = document.getElementById('selprog_box_fid');
+        var sel = document.getElementById('selprogfid');
+        if (box) box.style.display = 'none';
+        if (sel) {
+            sel.options.length = 1;
+            sel.value = '';
+            sel.onchange = null;
+        }
+    }
+
+    function __venteFiLabelProg(p) {
+        if (!p) return '';
+        var parts = [];
+        if (p.code_progr) parts.push(String(p.code_progr));
+        if (p.depart_code) parts.push(String(p.depart_code));
+        if (p.categori) parts.push(String(p.categori));
+        if (p.intervalle1 != null && p.intervalle2 != null) {
+            parts.push('s.' + p.intervalle1 + '-' + p.intervalle2);
+        }
+        return parts.join(' · ');
+    }
+
+    function __venteFiApplyProgFields(p) {
+        if (!p) return;
+        var set = function (id, val) {
+            var el = document.querySelector(id);
+            if (el) el.value = val == null ? '' : String(val);
+        };
+        set('#programfid', p.code_progr);
+        set('#dateprfid', p.date_progr);
+        set('#deplignefid', p.gareidentif);
+        set('#inter1fid', p.intervalle1);
+        set('#inter2fid', p.intervalle2);
+        set('#lignfid', p.ident_ligne);
+        set('#nomitinfid', p.nom_ligne);
+        set('#herfid', p.heure);
+        set('#catefid', p.categori);
+    }
+
+    function __venteFiLoadSieges(dptDate) {
+        var ps = document.querySelector('#psiegesfid');
+        if (ps) ps.options.length = 1;
+        var cdprog = document.querySelector('#programfid') ? document.querySelector('#programfid').value : '';
+        var db = document.querySelector('#inter1fid') ? document.querySelector('#inter1fid').value : '';
+        var fn = document.querySelector('#inter2fid') ? document.querySelector('#inter2fid').value : '';
+        var lg = document.querySelector('#nomitinfid') ? document.querySelector('#nomitinfid').value : '';
+        var tim = document.querySelector('#herfid') ? document.querySelector('#herfid').value : '';
+        if (!cdprog) return;
+        var httpRequettefi = new XMLHttpRequest();
+        httpRequettefi.open('GET', window.location.origin + `${APP_ROOT}/programmes/siegdisponible/${cdprog}/${dptDate}/${lg}/${tim}/${db}/${fn}`, true);
+        httpRequettefi.onload = function () {
+            try {
+                var dattafi = JSON.parse(httpRequettefi.responseText);
+                if (ps) ps.options.length = 1;
+                if (Object.entries(dattafi).length >= 1) {
+                    for (var key in Object.entries(dattafi)) {
+                        var opt = document.createElement('option');
+                        opt.value = `${dattafi[key].siege_num}`;
+                        opt.innerHTML = `${dattafi[key].siege_num}`;
+                        if (ps) ps.add(opt);
+                    }
+                }
+            } catch (e) {
+                if (ps) ps.options.length = 1;
+            }
+        };
+        httpRequettefi.setRequestHeader('Content-Type', 'application/json');
+        httpRequettefi.send();
+    }
+
+    function __venteFiHandleProgList(don, dptDate) {
+        var list = __venteFiProgListFromResponse(don);
+        __venteFiHideProgSelect();
+        var ps = document.querySelector('#psiegesfid');
+        if (ps) ps.options.length = 1;
+        if (list.length === 0) return false;
+        if (list.length === 1) {
+            __venteFiApplyProgFields(list[0]);
+            __venteFiLoadSieges(dptDate);
+            return true;
+        }
+        var box = document.getElementById('selprog_box_fid');
+        var sel = document.getElementById('selprogfid');
+        if (!sel) {
+            __venteFiApplyProgFields(list[0]);
+            __venteFiLoadSieges(dptDate);
+            return true;
+        }
+        if (box) box.style.display = 'block';
+        if (sel) sel.style.display = 'block';
+        sel.options.length = 1;
+        for (var i = 0; i < list.length; i++) {
+            var opt = document.createElement('option');
+            opt.value = String(i);
+            opt.innerHTML = __venteFiLabelProg(list[i]);
+            sel.add(opt);
+        }
+        sel.onchange = function () {
+            if (ps) ps.options.length = 1;
+            var idx = parseInt(sel.value, 10);
+            if (isNaN(idx) || !list[idx]) {
+                __venteFiApplyProgFields({});
+                return;
+            }
+            __venteFiApplyProgFields(list[idx]);
+            __venteFiLoadSieges(dptDate);
+        };
+        return true;
+    }
+
+    function __venteFiHideProgSelectAny(boxId, selId) {
+        var box = document.getElementById(boxId);
+        var sel = document.getElementById(selId);
+        if (box) box.style.display = 'none';
+        if (sel) {
+            sel.options.length = 1;
+            sel.value = '';
+            sel.onchange = null;
+            sel.style.display = '';
+        }
+    }
+
+    function __venteFiLabelProg(p) {
+        if (!p) return '';
+        var parts = [];
+        if (p.code_progr) parts.push(String(p.code_progr));
+        if (p.depart_code) parts.push(String(p.depart_code));
+        if (p.categori) parts.push(String(p.categori));
+        if (p.intervalle1 != null && p.intervalle2 != null) {
+            parts.push('s.' + p.intervalle1 + '-' + p.intervalle2);
+        }
+        return parts.join(' · ');
+    }
+
+    var __venteFiCheminLegCfg = {
+        tr2: {
+            heur: 'idcheminsheurfid', progBox: 'selprog_box_tr2fid', progSel: 'selprog_tr2fid',
+            sieges: 'psiegesitines1fid', prix: 'prix_axetransitfid', cate: 'catetransitfid',
+            gid: 'gidtransfid', nom: 'nomitintrans1fid', lign: 'ligntrans1fid', depGare: 'transitedepargare2fid'
+        },
+        tr3: {
+            heur: 'idcheminsheur1fid', progBox: 'selprog_box_tr3fid', progSel: 'selprog_tr3fid',
+            sieges: 'psiegesitines2fid', prix: 'prix_axetransit1fid', cate: 'catetransit1fid',
+            gid: 'gidtrans1fid', nom: 'nomitintrans2fid', lign: 'ligntrans2fid', depGare: 'transitedepargare3fid'
+        },
+        tr4: {
+            heur: 'idcheminsheur2fid', progBox: 'selprog_box_tr4fid', progSel: 'selprog_tr4fid',
+            sieges: 'psiegesitines3fid', prix: 'prix_axetransit2fid', cate: 'catetransit2fid',
+            gid: 'gidtrans2fid', nom: 'nomitintrans3fid', lign: 'ligntrans3fid', depGare: 'transitedepargare4fid'
+        }
+    };
+
+    function __venteFiCheminRowValue(row) {
+        if (!row) return '';
+        return String(row.code_progr) + '/' + row.intervalle1 + '/' + row.intervalle2 + '/'
+            + row.id_ligneheure + '/' + (row.prix != null ? row.prix : '');
+    }
+
+
+    var __VENTE_FI_TRANSIT_MARGE_MIN = 30;
+
+    function __venteFiHeureToMinutes(h) {
+        if (h == null || h === '') return null;
+        var parts = String(h).trim().split(/[:hH]/);
+        if (!parts || !parts.length) return null;
+        var hh = parseInt(parts[0], 10);
+        if (isNaN(hh)) return null;
+        var mm = (parts[1] != null && parts[1] !== '') ? parseInt(parts[1], 10) : 0;
+        if (isNaN(mm)) mm = 0;
+        return (hh * 60) + mm;
+    }
+
+    function __venteFiFormatDateShort(ymd) {
+        if (!ymd || String(ymd).length < 10) return '';
+        var p = String(ymd).slice(0, 10).split('-');
+        return (p.length === 3) ? (p[2] + '/' + p[1]) : String(ymd).slice(0, 10);
+    }
+
+    function __venteFiClearDownstreamCheminHeures() {
+        ['idcheminsheurfid', 'idcheminsheur1fid', 'idcheminsheur2fid'].forEach(function (id) {
+            var el = document.getElementById(id);
+            if (el) el.options.length = 1;
+        });
+        ['psiegesitines1fid', 'psiegesitines2fid', 'psiegesitines3fid'].forEach(function (id) {
+            var el = document.getElementById(id);
+            if (el) el.options.length = 1;
+        });
+    }
+
+    function __venteFiGetPrevTransitAnchor(nextLegKey) {
+        var voyageDate = document.querySelector('#date_depheurefid')
+            ? String(document.querySelector('#date_depheurefid').value || '').slice(0, 10) : '';
+        var out = { date: voyageDate, heure: '', minutes: null, marge: __VENTE_FI_TRANSIT_MARGE_MIN };
+
+        function fromCheminSelect(heurId) {
+            var hs = document.getElementById(heurId);
+            if (!hs || hs.selectedIndex < 1) return false;
+            var opt = hs.options[hs.selectedIndex];
+            var date = opt.getAttribute('data-date-progr') || '';
+            var heure = opt.getAttribute('data-heure') || '';
+            var gkey = opt.getAttribute('data-group-key') || '';
+            var groups = (window.__venteFiCheminGroups && window.__venteFiCheminGroups[heurId]) || {};
+            var g = groups[gkey] || groups[opt.value] || null;
+            if (g && g.rows && g.rows.length) {
+                if (!date && g.rows[0].date_progr) date = String(g.rows[0].date_progr).slice(0, 10);
+                if (!heure && g.rows[0].heure) heure = String(g.rows[0].heure);
+            }
+            if ((!date || !heure) && String(opt.value).indexOf('/') !== -1) {
+                var code = String(opt.value).split('/')[0];
+                Object.keys(groups).forEach(function (k) {
+                    if (date && heure) return;
+                    var rows = groups[k] && groups[k].rows ? groups[k].rows : [];
+                    for (var i = 0; i < rows.length; i++) {
+                        if (String(rows[i].code_progr) === code) {
+                            date = String(rows[i].date_progr || '').slice(0, 10);
+                            heure = String(rows[i].heure || '');
+                            break;
+                        }
+                    }
+                });
+            }
+            if (!date) date = voyageDate;
+            if (!heure) return false;
+            out.date = date;
+            out.heure = heure;
+            out.minutes = __venteFiHeureToMinutes(heure);
+            return out.minutes != null;
+        }
+
+        if (nextLegKey === 'tr2') {
+            var dEl = document.querySelector('#dateprtransfid');
+            var hEl = document.querySelector('#hertransfid');
+            var date = (dEl && dEl.value) ? String(dEl.value).slice(0, 10) : voyageDate;
+            var heure = (hEl && hEl.value) ? String(hEl.value) : '';
+            if (!heure) {
+                var hs1 = document.getElementById('hdepartitinefid');
+                if (hs1 && hs1.selectedIndex > 0) {
+                    var parts = String(hs1.options[hs1.selectedIndex].value || '').split('/');
+                    if (parts[1]) heure = parts[1];
+                }
+            }
+            out.date = date || voyageDate;
+            out.heure = heure;
+            out.minutes = __venteFiHeureToMinutes(heure);
+            return out;
+        }
+        if (nextLegKey === 'tr3') { fromCheminSelect('idcheminsheurfid'); return out; }
+        if (nextLegKey === 'tr4') { fromCheminSelect('idcheminsheur1fid'); return out; }
+        return out;
+    }
+
+    function __venteFiRowIsAfterPrev(row, prev) {
+        if (!prev || prev.minutes == null || !prev.date) return true;
+        var rd = row && row.date_progr ? String(row.date_progr).slice(0, 10) : '';
+        var rm = __venteFiHeureToMinutes(row && row.heure);
+        if (!rd || rm == null) return false;
+        if (rd > prev.date) return true;
+        if (rd < prev.date) return false;
+        var marge = (prev.marge != null) ? prev.marge : __VENTE_FI_TRANSIT_MARGE_MIN;
+        return rm >= (prev.minutes + marge);
+    }
+
+
+    function __venteFiFillCheminHeures(selectId, rows, legKey) {
+        var sel = document.getElementById(selectId);
+        if (!sel) return;
+        sel.options.length = 1;
+        var list = Array.isArray(rows) ? rows
+            : (rows && typeof rows === 'object' ? Object.keys(rows).map(function (k) { return rows[k]; }) : []);
+        var prev = legKey ? __venteFiGetPrevTransitAnchor(legKey) : null;
+        if (prev && prev.minutes != null && prev.date) {
+            list = list.filter(function (row) { return __venteFiRowIsAfterPrev(row, prev); });
+        }
+        var voyageDate = document.querySelector('#date_depheurefid')
+            ? String(document.querySelector('#date_depheurefid').value || '').slice(0, 10) : '';
+        var groups = {};
+        var order = [];
+        for (var i = 0; i < list.length; i++) {
+            var row = list[i];
+            if (!row || row.code_progr == null || row.code_progr === '') continue;
+            var lh = String(row.id_ligneheure != null ? row.id_ligneheure : '');
+            if (!lh) continue;
+            var dprog = row.date_progr ? String(row.date_progr).slice(0, 10) : '';
+            var gkey = dprog + '|' + lh;
+            if (!groups[gkey]) {
+                groups[gkey] = {
+                    heure: row.heure || '',
+                    date_progr: dprog,
+                    minutes: __venteFiHeureToMinutes(row.heure),
+                    rows: []
+                };
+                order.push(gkey);
+            }
+            var exists = false;
+            for (var j = 0; j < groups[gkey].rows.length; j++) {
+                if (String(groups[gkey].rows[j].code_progr) === String(row.code_progr)) { exists = true; break; }
+            }
+            if (!exists) groups[gkey].rows.push(row);
+        }
+        order.sort(function (a, b) {
+            var ga = groups[a], gb = groups[b];
+            var da = ga.date_progr || '', db = gb.date_progr || '';
+            if (da < db) return -1;
+            if (da > db) return 1;
+            return (ga.minutes != null ? ga.minutes : 0) - (gb.minutes != null ? gb.minutes : 0);
+        });
+        if (!window.__venteFiCheminGroups) window.__venteFiCheminGroups = {};
+        window.__venteFiCheminGroups[selectId] = groups;
+        for (var k = 0; k < order.length; k++) {
+            var key = order[k];
+            var g = groups[key];
+            var opt = document.createElement('option');
+            opt.value = key;
+            opt.setAttribute('data-group-key', key);
+            opt.setAttribute('data-date-progr', g.date_progr || '');
+            opt.setAttribute('data-heure', g.heure || '');
+            var label = g.heure || key;
+            if (g.date_progr && voyageDate && g.date_progr !== voyageDate) {
+                label = (g.heure || '') + ' — ' + __venteFiFormatDateShort(g.date_progr);
+            }
+            if (g.rows.length > 1) label = label + ' (' + g.rows.length + ' départs)';
+            opt.innerHTML = label;
+            sel.add(opt);
+        }
+        if (legKey) __venteFiWireCheminHeur(selectId, legKey);
+        if (window.__venteFiCheminCascadeStarted && legKey) {
+            __venteFiPreselectCheminHeurFromEtape(sel, __venteFiCheminEtapeForLeg(legKey), legKey);
+            __venteFiAdvanceCheminCascade(legKey);
+        }
+    }
+
+    function __venteFiCheminEtapeForLeg(legKey) {
+        var etapes = window.__venteFiCheminEtapes;
+        if (!etapes || !etapes.length) return null;
+        if (legKey === 'tr2') return etapes[1] || null;
+        if (legKey === 'tr3') return etapes[2] || null;
+        if (legKey === 'tr4') return etapes[3] || null;
+        return null;
+    }
+
+    function __venteFiPreselectCheminHeurFromEtape(heurSel, etape, legKey) {
+        var sel = typeof heurSel === 'string' ? document.getElementById(heurSel) : heurSel;
+        if (!sel || !legKey) return false;
+        var cfg = __venteFiCheminLegCfg[legKey];
+        if (!cfg) return false;
+        var targetCode = (etape && etape._graphe_code_progr != null) ? String(etape._graphe_code_progr) : '';
+        var targetLh = (etape && etape._graphe_id_ligneheure != null) ? String(etape._graphe_id_ligneheure) : '';
+        var targetHeure = (etape && etape._graphe_heure != null) ? String(etape._graphe_heure) : '';
+        var targetDate = (etape && etape._graphe_date_progr) ? String(etape._graphe_date_progr).slice(0, 10) : '';
+        var groups = (window.__venteFiCheminGroups && window.__venteFiCheminGroups[sel.id]) || {};
+        for (var idx = 1; idx < sel.options.length; idx++) {
+            var opt = sel.options[idx];
+            var g = groups[opt.value] || groups[opt.getAttribute('data-group-key')];
+            if (!g || !g.rows || !g.rows.length) continue;
+            var pickRow = null;
+            for (var r = 0; r < g.rows.length; r++) {
+                var row = g.rows[r];
+                if (targetCode && String(row.code_progr) === targetCode) {
+                    pickRow = row;
+                    break;
+                }
+                if (!pickRow && targetLh && String(row.id_ligneheure) === targetLh) {
+                    if (!targetHeure || String(row.heure) === targetHeure) pickRow = row;
+                }
+            }
+            if (pickRow && targetDate && String(pickRow.date_progr || '').slice(0, 10) !== targetDate) {
+                pickRow = null;
+            }
+            if (!pickRow) continue;
+            sel.selectedIndex = idx;
+            if (g.rows.length === 1) {
+                __venteFiLoadSiegesChemin(cfg, pickRow);
+            } else {
+                __venteFiOnCheminHeurChange(legKey);
+                var selProg = document.getElementById(cfg.progSel);
+                if (selProg && targetCode) {
+                    for (var pi = 1; pi < selProg.options.length; pi++) {
+                        if (g.rows[pi - 1] && String(g.rows[pi - 1].code_progr) === targetCode) {
+                            selProg.selectedIndex = pi;
+                            if (typeof selProg.onchange === 'function') selProg.onchange();
+                            break;
+                        }
+                    }
+                }
+            }
+            return true;
+        }
+        if (sel.options.length > 1) {
+            sel.selectedIndex = 1;
+            __venteFiOnCheminHeurChange(legKey);
+            return true;
+        }
+        return false;
+    }
+
+    function __venteFiAdvanceCheminCascade(completedLegKey) {
+        if (!window.__venteFiCheminCascadeStarted) return;
+        var etapes = window.__venteFiCheminEtapes;
+        if (!etapes || etapes.length < 2) return;
+        if (completedLegKey === 'tr2' && etapes.length >= 3 && etapes[2]) {
+            __venteFiSetCheminLigneOption('#idchemins1fid', etapes[2].code_itineraires, etapes[2].nom_itineraires);
+        } else if (completedLegKey === 'tr3' && etapes.length >= 4 && etapes[3]) {
+            __venteFiSetCheminLigneOption('#idchemins2fid', etapes[3].code_itineraires, etapes[3].nom_itineraires);
+        }
+    }
+
+    function __venteFiStartDownstreamCheminLegs(donitines) {
+        donitines = (typeof __venteFiNormalizeEtapes === 'function')
+            ? __venteFiNormalizeEtapes(donitines) : donitines;
+        if (!donitines || donitines.length < 2 || !donitines[1]) return;
+        window.__venteFiCheminEtapes = donitines;
+        window.__venteFiCheminCascadeStarted = true;
+        __venteFiSetCheminLigneOption('#idcheminsfid', donitines[1].code_itineraires, donitines[1].nom_itineraires);
+    }
+
+    function __venteFiMaybeStartCheminCascade() {
+        if (window.__venteFiCheminEtapes && window.__venteFiCheminEtapes.length >= 2 && !window.__venteFiCheminCascadeStarted) {
+            __venteFiStartDownstreamCheminLegs(window.__venteFiCheminEtapes);
+        }
+    }
+
+
+    function __venteFiLoadSiegesChemin(cfg, row) {
+        var ps = document.getElementById(cfg.sieges);
+        if (ps) ps.options.length = 1;
+        if (!row || !row.code_progr) return;
+        if (!__venteFiShouldSkipAutoPrix() && cfg.prix && row.prix != null) {
+            var px = document.getElementById(cfg.prix);
+            if (px) px.value = String(row.prix);
+        }
+        var heur = document.getElementById(cfg.heur);
+        if (heur && heur.selectedIndex >= 0) {
+            heur.options[heur.selectedIndex].value = __venteFiCheminRowValue(row);
+        }
+        var httpMeta = new XMLHttpRequest();
+        httpMeta.open('GET', window.location.origin + `${APP_ROOT}/programmes/siegdispotrans/${encodeURIComponent(row.code_progr)}`, true);
+        httpMeta.onload = function () {
+            try {
+                var meta = JSON.parse(httpMeta.responseText);
+                if (Object.entries(meta).length >= 1) {
+                    for (var key in Object.entries(meta)) {
+                        var map = [
+                            [cfg.cate, meta[key].categori],
+                            [cfg.gid, meta[key].gareidentif],
+                            [cfg.nom, meta[key].nom_ligne],
+                            [cfg.lign, meta[key].ident_ligne]
+                        ];
+                        for (var m = 0; m < map.length; m++) {
+                            var el = document.getElementById(map[m][0]);
+                            if (el) el.value = map[m][1] != null ? String(map[m][1]) : '';
+                        }
+                        if (cfg.depGare && meta[key].gareidentif) {
+                            __venteFiFillTransitDepart('#' + cfg.depGare, meta[key].gareidentif);
+                        }
+                    }
+                }
+            } catch (e) {}
+            var httpS = new XMLHttpRequest();
+            httpS.open('GET', window.location.origin + `${APP_ROOT}/programmes/siegdisponibletrans/${encodeURIComponent(row.code_progr)}/${row.intervalle1}/${row.intervalle2}`, true);
+            httpS.onload = function () {
+                try {
+                    var dat = JSON.parse(httpS.responseText);
+                    if (ps) ps.options.length = 1;
+                    if (Object.entries(dat).length >= 1) {
+                        for (var k2 in Object.entries(dat)) {
+                            var opt = document.createElement('option');
+                            opt.value = `${dat[k2].siege_num}`;
+                            opt.innerHTML = `${dat[k2].siege_num}`;
+                            if (ps) ps.add(opt);
+                        }
+                    }
+                } catch (e2) { if (ps) ps.options.length = 1; }
+            };
+            httpS.setRequestHeader('Content-Type', 'application/json');
+            httpS.send();
+        };
+        httpMeta.setRequestHeader('Content-Type', 'application/json');
+        httpMeta.send();
+    }
+
+    function __venteFiOnCheminHeurChange(legKey) {
+        var cfg = __venteFiCheminLegCfg[legKey];
+        if (!cfg) return;
+        var heur = document.getElementById(cfg.heur);
+        if (!heur) return;
+        __venteFiHideProgSelectAny(cfg.progBox, cfg.progSel);
+        var ps = document.getElementById(cfg.sieges);
+        if (ps) ps.options.length = 1;
+        var idLh = heur.value;
+        if (!idLh) return;
+        if (String(idLh).indexOf('/') !== -1) {
+            var parts = String(idLh).split('/');
+            __venteFiLoadSiegesChemin(cfg, {
+                code_progr: parts[0], intervalle1: parts[1], intervalle2: parts[2],
+                id_ligneheure: parts[3], prix: parts[4]
+            });
+            return;
+        }
+        var groups = (window.__venteFiCheminGroups && window.__venteFiCheminGroups[cfg.heur]) || {};
+        var g = groups[idLh];
+        var list = (g && g.rows) ? g.rows : [];
+        if (!list.length) return;
+        if (list.length === 1) {
+            __venteFiLoadSiegesChemin(cfg, list[0]);
+            return;
+        }
+        var box = document.getElementById(cfg.progBox);
+        var sel = document.getElementById(cfg.progSel);
+        if (!sel) {
+            __venteFiLoadSiegesChemin(cfg, list[0]);
+            return;
+        }
+        if (box) box.style.display = 'block';
+        if (sel) sel.style.display = 'block';
+        sel.options.length = 1;
+        for (var i = 0; i < list.length; i++) {
+            var opt = document.createElement('option');
+            opt.value = String(i);
+            opt.innerHTML = __venteFiLabelProg(list[i]);
+            sel.add(opt);
+        }
+        sel.onchange = function () {
+            if (ps) ps.options.length = 1;
+            var idx = parseInt(sel.value, 10);
+            if (isNaN(idx) || !list[idx]) return;
+            __venteFiLoadSiegesChemin(cfg, list[idx]);
+        };
+    }
+
+    function __venteFiWireCheminHeur(heurId, legKey) {
+        var heur = document.getElementById(heurId);
+        if (!heur) return;
+        heur.onchange = function () { __venteFiOnCheminHeurChange(legKey); };
+    }
+
+    /** Remplit un select départ correspondance FI (sans option vide sélectionnée). */
+    function __venteFiFillTransitDepart(selectSel, gareIdentif) {
+        var sel = document.querySelector(selectSel);
+        if (!sel) return;
+        // length=1 sur un select vide crée une option blanche qui reste sélectionnée
+        // et fait échouer la vente (transitedepargare*fid posté vide).
+        sel.options.length = 0;
+        if (gareIdentif == null || gareIdentif === '') return;
+        var http = new XMLHttpRequest();
+        http.open(
+            'GET',
+            window.location.origin + `${APP_ROOT}/programmes/verifsousgares/` + encodeURIComponent(gareIdentif),
+            true
+        );
+        http.onload = function () {
+            var rows = null;
+            try { rows = JSON.parse(http.responseText); } catch (e) { rows = null; }
+            sel.options.length = 0;
+            if (!rows || Object.entries(rows).length < 1) return;
+            for (var key in Object.entries(rows)) {
+                var opt = document.createElement('option');
+                opt.value = `${rows[key].idsousgare}`;
+                opt.innerHTML = `${rows[key].nomsousgare}`;
+                sel.add(opt);
+            }
+            if (sel.options.length > 0) sel.selectedIndex = 0;
+        };
+        http.setRequestHeader('Content-Type', 'application/json');
+        http.send();
+    }
+
+    function __venteFiResetMainEscaleUi() {
+        var ck = document.querySelector('#escale_vente_check_fid');
+        if (ck) ck.checked = false;
+        ['#id_escale_ventefid', '#code_gadest_ventefid', '#nom_dest_ventefid'].forEach(function (s) {
+            var el = document.querySelector(s);
+            if (el) el.value = '';
+        });
+        var fields = document.querySelector('#escale_dest_fields_fid');
+        if (fields) fields.style.display = 'none';
+        var sel = document.querySelector('#escale_dest_select_fid');
+        if (sel) sel.value = '';
+    }
+
+    function __venteFiSetMainEscaleVisible(visible) {
+        var wrap = document.querySelector('#escale_dest_wrap_fid');
+        if (!wrap) return;
+        if (!visible) {
+            __venteFiResetMainEscaleUi();
+            wrap.style.display = 'none';
+        } else {
+            wrap.style.display = '';
+        }
+    }
+    window.__venteFiSetMainEscaleVisible = __venteFiSetMainEscaleVisible;
+
+    function __venteFiReleaseTamponSiege(idtampoId, siegselectId) {
+        return new Promise(function (resolve) {
+            var idEl = document.getElementById(idtampoId);
+            var sigEl = document.getElementById(siegselectId);
+            if (!idEl || !sigEl) {
+                resolve();
+                return;
+            }
+            var idv = String(idEl.value || '').trim();
+            var sv = String(sigEl.value || '').trim();
+            if (!idv || !sv) {
+                idEl.value = '';
+                sigEl.value = '';
+                resolve();
+                return;
+            }
+            var http = new XMLHttpRequest();
+            http.open(
+                'GET',
+                window.location.origin + `${APP_ROOT}/programmes/deltamponsieg/` + encodeURIComponent(idv) + '/' + encodeURIComponent(sv),
+                true
+            );
+            http.onload = function () {
+                idEl.value = '';
+                sigEl.value = '';
+                resolve();
+            };
+            http.onerror = function () {
+                idEl.value = '';
+                sigEl.value = '';
+                resolve();
+            };
+            http.setRequestHeader('Content-Type', 'application/json');
+            http.send();
+        });
+    }
+
+    var __venteFiTamponSiegePairs = [
+        ['idtampofid', 'siegselectfid'],
+        ['idtampotransfid', 'siegselecttransfid'],
+        ['idtampo1fid', 'siegselect1fid'],
+        ['idtampo2fid', 'siegselect2fid'],
+        ['idtampo3fid', 'siegselect3fid']
+    ];
+
+    function __venteFiReleaseAllTamponSieges() {
+        var chain = Promise.resolve();
+        __venteFiTamponSiegePairs.forEach(function (p) {
+            chain = chain.then(function () {
+                return __venteFiReleaseTamponSiege(p[0], p[1]);
+            });
+        });
+        return chain;
+    }
+
+    function __venteFiResetSaleUiAfterCancel() {
+        window.__venteFiHasTransit = false;
+        window.__venteFiLastHeuresVente = [];
+        window.__venteSelectedHour = null;
+        window.__venteFiCheminGroups = {};
+        window.__venteFiCheminEtapes = null;
+        window.__venteFiCheminCascadeStarted = false;
+
+        if (typeof __venteFiHideCheminSelector === 'function') __venteFiHideCheminSelector();
+        if (typeof __venteFiResetTransitFieldsBeforeApply === 'function') __venteFiResetTransitFieldsBeforeApply();
+        if (typeof __venteFiShowDirectHourUi === 'function') __venteFiShowDirectHourUi();
+        if (typeof __venteFiResetMainEscaleUi === 'function') __venteFiResetMainEscaleUi();
+        if (typeof __venteFiHideProgSelect === 'function') __venteFiHideProgSelect();
+        if (typeof __venteFiClearTransitPrixFields === 'function') __venteFiClearTransitPrixFields();
+
+        ['#hdepartfid', '#psiegesfid', '#quartierfid'].forEach(function (s) {
+            var el = document.querySelector(s);
+            if (el && el.options) {
+                el.options.length = 1;
+                el.selectedIndex = 0;
+                el.value = '';
+                el.onchange = null;
+            }
+        });
+
+        var mess = document.querySelector('#messfid');
+        if (mess) mess.style.display = 'none';
+        var err = document.querySelector('#erreurMessfid');
+        if (err) err.innerHTML = '';
+
+        var form = document.getElementById('tafiForm');
+        if (form) form.reset();
+    }
+
+    function __venteFiCancelSale(ev) {
+        if (ev && ev.preventDefault) ev.preventDefault();
+        __venteFiReleaseAllTamponSieges().then(function () {
+            __venteFiResetSaleUiAfterCancel();
+        });
+    }
+
+    function __venteFiWireCancelButton(btnId) {
+        var btn = document.getElementById(btnId);
+        if (!btn || btn.dataset.venteCancelWired === '1') return;
+        btn.dataset.venteCancelWired = '1';
+        btn.type = 'button';
+        btn.addEventListener('click', __venteFiCancelSale);
+    }
+
+    window.__venteFiHasTransit = false;
+    window.__venteFiLastHeuresVente = [];
+    window.__venteFiApplyTransitLegs = null;
+
+    function __venteFiFillHeuresVente(heures) {
+        var hSel = document.querySelector('#hdepartfid');
+        if (!hSel) return;
+        hSel.options.length = 1;
+        var list = Array.isArray(heures) ? heures : [];
+        for (var i = 0; i < list.length; i++) {
+            var hr = list[i];
+            if (!hr || hr.id_ligneheure == null || hr.id_ligneheure === '') continue;
+            var opt = document.createElement('option');
+            opt.value = hr.id_ligneheure + '/' + hr.heure;
+            var hasProg = !!(hr.has_programme === true || hr.has_programme === 1 || hr.has_programme === '1');
+            opt.setAttribute('data-has-programme', hasProg ? '1' : '0');
+            opt.innerHTML = hr.heure;
+            hSel.add(opt);
+        }
+    }
+
+    /** Affiche l'UI heures/siège directe FI ; cache le panneau transit. Champs FI (P/O…) inchangés. */
+    function __venteFiShowDirectHourUi() {
+        var hideIds = [
+            'depitin1fid','depargareitine1fid','iddeptrans1fid','transitedepargare1fid',
+            'iddeptrans2fid','transitedepargare2fid','iddeptrans3fid','transitedepargare3fid',
+            'iddeptrans4fid','transitedepargare4fid','arritin1fid','arrsgareitine1fid',
+            'heureitin1fid','hdepartitine1fid','lignesitinerairefid','ligne1fid',
+            'siegitine1fid','psiegesitines1fid','depitin2fid','depargareitine2fid',
+            'arritin2fid','arrsgareitine2fid','heureitin2fid','hdepartitine2fid',
+            'siegitine2fid','psiegesitines2fid','depitin3fid','depargareitine3fid',
+            'arritin3fid','arrsgareitine3fid','heureitin3fid','hdepartitine3fid',
+            'siegitine3fid','psiegesitines3fid','quartier1fid','quartier2fid','quartier3fid',
+            'idquart1fid','idquart2fid','idquart3fid','prix_axetransfid','prix_axetransfid1',
+            'prix_axetransitfid1','prix_axetransitfid','prix_axetransit1fid1','prix_axetransit1fid',
+            'prix_axetransit2fid1','prix_axetransit2fid','heureitinfid','hdepartitinefid',
+            'siegitinefid','psiegesitinesfid','idcheminsfid','idcheminsheurfid',
+            'idchemins1fid','idcheminsheur1fid','idchemins2fid','idcheminsheur2fid'
+        ];
+        for (var i = 0; i < hideIds.length; i++) {
+            var el = document.getElementById(hideIds[i]);
+            if (el) el.style.display = 'none';
+        }
+        var tran = document.querySelector('#tranfid');
+        if (tran) tran.style.display = 'none';
+        if (typeof __venteFiSetMainEscaleVisible === 'function') __venteFiSetMainEscaleVisible(true);
+        ['hridfid','hdepartfid','sigidfid','psiegesfid','iddepfid','depargarefid',
+         'arridfid','arrsgarefid','prix_axefid1','prix_axefid','idquartfid','quartierfid'].forEach(function (id) {
+            var el = document.getElementById(id);
+            if (el) el.style.display = 'block';
+        });
+        __venteFiHideProgSelect();
+        __venteFiHideProgSelectAny('selprog_box_tr1fid', 'selprog_tr1fid');
+        __venteFiHideProgSelectAny('selprog_box_tr2fid', 'selprog_tr2fid');
+        __venteFiHideProgSelectAny('selprog_box_tr3fid', 'selprog_tr3fid');
+        __venteFiHideProgSelectAny('selprog_box_tr4fid', 'selprog_tr4fid');
+    }
+
+    function __venteFiEnsureCheminSelector() {
+        var existing = document.getElementById('selchemin_box_fid');
+        if (existing) return existing;
+        var box = document.createElement('div');
+        box.className = 'form-group col-sm-12';
+        box.id = 'selchemin_box_fid';
+        box.style.display = 'none';
+        box.innerHTML = ''
+            + '<label id="selchemin_label_fid">Itinéraire de correspondance</label>'
+            + '<select class="form-control form-control-sm" id="selchemin_transit_fid">'
+            + '<option value="">Choisissez l\'itinéraire</option>'
+            + '</select>'
+            + '<small class="form-text text-muted" id="selchemin_hint_fid"></small>';
+        var anchor = document.getElementById('hdepartitinefid')
+            || document.getElementById('idcheminsfid')
+            || document.getElementById('nbrtransfid');
+        if (anchor && anchor.parentNode && anchor.parentNode.parentNode) {
+            anchor.parentNode.parentNode.insertBefore(box, anchor.parentNode);
+        } else if (anchor && anchor.parentNode) {
+            anchor.parentNode.insertBefore(box, anchor);
+        } else {
+            document.body.appendChild(box);
+        }
+        return box;
+    }
+
+    function __venteFiHideCheminSelector() {
+        var box = document.getElementById('selchemin_box_fid');
+        var sel = document.getElementById('selchemin_transit_fid');
+        var hint = document.getElementById('selchemin_hint_fid');
+        if (box) box.style.display = 'none';
+        if (sel) { sel.options.length = 1; sel.value = ''; sel.onchange = null; }
+        if (hint) hint.textContent = '';
+    }
+
+    function __venteFiFormatAttenteLabel(chemin) {
+        if (!chemin) return '';
+        if (chemin.attente_totale_label) return 'Attente totale : ' + chemin.attente_totale_label;
+        if (chemin.attente_totale_min != null) {
+            var m = parseInt(chemin.attente_totale_min, 10) || 0;
+            var h = Math.floor(m / 60);
+            var mm = m % 60;
+            return 'Attente totale : ' + (h > 0 ? (h + ' h' + (mm ? (' ' + (mm < 10 ? '0' : '') + mm) : '')) : (mm + ' min'));
+        }
+        return chemin.source === 'declaratif' ? 'Composition déclarée' : '';
+    }
+
+
+    function __venteFiNormalizeEtapes(etapes) {
+        if (!etapes) return [];
+        if (Array.isArray(etapes)) return etapes;
+        if (typeof etapes === 'object') {
+            return Object.keys(etapes).map(function (k) { return etapes[k]; }).filter(Boolean);
+        }
+        return [];
+    }
+
+    /**
+     * Correspondance 2/3/4 — ligne : propose la ligne du chemin, sans la sélectionner.
+     */
+    function __venteFiSetCheminLigneOption(selectSel, code, nom, fireChange) {
+        var sel = typeof selectSel === 'string' ? document.querySelector(selectSel) : selectSel;
+        if (!sel) return;
+        sel.disabled = false;
+        sel.removeAttribute('disabled');
+        sel.options.length = 1;
+        sel.selectedIndex = 0;
+        if (code == null || code === '') return;
+        var opt = document.createElement('option');
+        opt.value = String(code);
+        opt.innerHTML = nom != null ? String(nom) : String(code);
+        if (nom != null) opt.setAttribute('data-nom', String(nom));
+        sel.add(opt);
+        sel.selectedIndex = 1;
+        if (fireChange !== false && typeof sel.onchange === 'function') {
+            sel.onchange();
+        }
+    }
+
+    function __venteFiEnsureLigne1LockedInput() {
+        var el = document.getElementById('lignesitinerairefid');
+        if (!el) return null;
+        if (el.tagName === 'INPUT') {
+            el.disabled = true;
+            el.setAttribute('disabled', 'disabled');
+            el.readOnly = true;
+            return el;
+        }
+        var inp = document.createElement('input');
+        inp.type = 'text';
+        inp.id = 'lignesitinerairefid';
+        inp.name = el.getAttribute('name') || 'lignesitinerairesfid';
+        inp.className = el.className || 'form-control form-control-sm';
+        inp.disabled = true;
+        inp.setAttribute('disabled', 'disabled');
+        inp.readOnly = true;
+        if (el.parentNode) el.parentNode.replaceChild(inp, el);
+        return inp;
+    }
+
+    function __venteFiFillLigne1Locked(etape0, onPick) {
+        if (!etape0) return;
+        var code = etape0.code_itineraires || '';
+        var nom = etape0.nom_itineraires || code;
+        var el = __venteFiEnsureLigne1LockedInput();
+        if (el) el.value = nom;
+        var itc = document.querySelector('#itinecodefid');
+        var ltn = document.querySelector('#lignetinerairefid');
+        if (itc) itc.value = code;
+        if (ltn) ltn.value = nom;
+        if (typeof onPick === 'function') onPick(code, nom);
+    }
+
+    function __venteFiResetTransitFieldsBeforeApply() {
+        [
+            'arritin1fid','idcheminsfid','heureitin1fid','idcheminsheurfid','siegitine1fid','psiegesitines1fid',
+            'arritin2fid','idchemins1fid','heureitin2fid','idcheminsheur1fid','siegitine2fid','psiegesitines2fid',
+            'arritin3fid','idchemins2fid','heureitin3fid','idcheminsheur2fid','siegitine3fid','psiegesitines3fid',
+            'quartier1fid','quartier2fid','quartier3fid','idquart1fid','idquart2fid','idquart3fid',
+            'iddeptrans1fid','transitedepargare1fid','iddeptrans2fid','transitedepargare2fid',
+            'iddeptrans3fid','transitedepargare3fid','iddeptrans4fid','transitedepargare4fid',
+            'tranfid','heureitinfid','hdepartitinefid','lignesitinerairefid','ligne1fid','siegitinefid','psiegesitinesfid'
+        ].forEach(function (id) {
+            var el = document.getElementById(id);
+            if (el) el.style.display = 'none';
+        });
+        [
+            '#idcheminsfid','#idchemins1fid','#idchemins2fid',
+            '#idcheminsheurfid','#idcheminsheur1fid','#idcheminsheur2fid',
+            '#hdepartitinefid','#psiegesitinesfid','#psiegesitines1fid','#psiegesitines2fid','#psiegesitines3fid',
+            '#quartier1fid','#quartier2fid','#quartier3fid'
+        ].forEach(function (s) {
+            var el = document.querySelector(s);
+            if (el && el.options) { el.options.length = 1; el.value = ''; el.onchange = null; }
+        });
+        ['#transitedepargare1fid','#transitedepargare2fid','#transitedepargare3fid','#transitedepargare4fid'].forEach(function (s) {
+            var el = document.querySelector(s);
+            if (el && el.options) el.options.length = 0;
+        });
+        ['#itinecodefid','#itinecodesfid','#lignetinerairefid','#lignesitinerairefid','#nbrtransfid',
+         '#idcompgfid','#idcompg1fid','#idcompg2fid','#idcompg3fid'].forEach(function (s) {
+            var el = document.querySelector(s);
+            if (el) el.value = '';
+        });
+        if (typeof __venteFiClearTransitPrixFields === 'function') __venteFiClearTransitPrixFields();
+        window.__venteFiCheminEtapes = null;
+        window.__venteFiCheminCascadeStarted = false;
+    }
+
+    function __venteFiShowCheminSelector(chemins, onPick) {
+        __venteFiEnsureCheminSelector();
+        var box = document.getElementById('selchemin_box_fid');
+        var sel = document.getElementById('selchemin_transit_fid');
+        var hint = document.getElementById('selchemin_hint_fid');
+        if (!box || !sel) {
+            var et0 = chemins && chemins[0] ? __venteFiNormalizeEtapes(chemins[0].etapes) : [];
+            if (typeof window.__venteFiApplyTransitLegs === 'function') window.__venteFiApplyTransitLegs(et0);
+            else if (typeof onPick === 'function') onPick(et0);
+            return;
+        }
+        sel.options.length = 1;
+        for (var i = 0; i < chemins.length; i++) {
+            var opt = document.createElement('option');
+            opt.value = String(i);
+            opt.textContent = chemins[i].label || ('Chemin ' + (i + 1));
+            sel.add(opt);
+        }
+        box.style.display = 'block';
+        var applyIdx = function (idx) {
+            var ch = chemins[idx];
+            if (hint) hint.textContent = __venteFiFormatAttenteLabel(ch);
+            var etapes = __venteFiNormalizeEtapes(ch && ch.etapes);
+            if (typeof window.__venteFiApplyTransitLegs === 'function') window.__venteFiApplyTransitLegs(etapes);
+            else if (typeof onPick === 'function') onPick(etapes);
+        };
+        sel.onchange = function () {
+            var idx = parseInt(sel.value, 10);
+            if (isNaN(idx) || !chemins[idx]) {
+                if (hint) hint.textContent = '';
+                if (typeof window.__venteFiApplyTransitLegs === 'function') window.__venteFiApplyTransitLegs([]);
+                else if (typeof onPick === 'function') onPick([]);
+                return;
+            }
+            applyIdx(idx);
+        };
+        var defaultIdx = 0;
+        for (var d = 0; d < chemins.length; d++) {
+            if (chemins[d].source !== 'direct') { defaultIdx = d; break; }
+        }
+        sel.selectedIndex = defaultIdx + 1;
+        applyIdx(defaultIdx);
+    }
+
+    function __venteFiRequestTransitLegs(seltdep, arr, datedepart, sougid, force, onDone) {
+        var sg = (sougid != null && sougid !== '') ? sougid : '0';
+        var forceFlag = force ? '1' : '0';
+        var done = function (etapes) {
+            if (typeof onDone === 'function') onDone(etapes);
+            else if (typeof window.__venteFiApplyTransitLegs === 'function') window.__venteFiApplyTransitLegs(etapes);
+        };
+        var httpRequestitinefi = new XMLHttpRequest();
+        httpRequestitinefi.open(
+            'GET',
+            window.location.origin + `${APP_ROOT}/programmes/verifchemins/`
+                + encodeURIComponent(seltdep + '-' + arr) + '/'
+                + encodeURIComponent(datedepart) + '/'
+                + encodeURIComponent(sg) + '/'
+                + forceFlag,
+            true
+        );
+        httpRequestitinefi.onload = function () {
+            var payload = null;
+            try { payload = JSON.parse(httpRequestitinefi.responseText); } catch (e) { payload = null; }
+            if (Array.isArray(payload)) { __venteFiHideCheminSelector(); done(payload); return; }
+            if (!payload || typeof payload !== 'object') { __venteFiHideCheminSelector(); done([]); return; }
+            if (payload.mode === 'direct' || payload.mode === 'none') { __venteFiHideCheminSelector(); done([]); return; }
+            var chemins = Array.isArray(payload.chemins) ? payload.chemins : [];
+            chemins = chemins.filter(function (c) { return c && c.source !== 'direct'; });
+            if (chemins.length > 1) { __venteFiShowCheminSelector(chemins, done); return; }
+            __venteFiHideCheminSelector();
+            if (chemins.length === 1 && chemins[0].etapes) { done(chemins[0].etapes); return; }
+            if (payload.etapes && (Array.isArray(payload.etapes) ? payload.etapes.length : Object.keys(payload.etapes).length)) {
+                done(payload.etapes); return;
+            }
+            done([]);
+        };
+        httpRequestitinefi.setRequestHeader('Content-Type', 'application/json');
+        httpRequestitinefi.send();
+    }
+
+
+    function __venteFiApplyTransit1Fields(p) {
+        if (!p) return;
+        var set = function (id, val) {
+            var el = document.querySelector(id);
+            if (el) el.value = val == null ? '' : String(val);
+        };
+        set('#programtransfid', p.code_progr);
+        // Défaut tarif 1 si absent — sinon verifpriprg / prixtransfid ne partent jamais.
+        var tf = (p.typetarif != null && String(p.typetarif).trim() !== '') ? p.typetarif : '1';
+        set('#tarifattribfid', tf);
+        set('#dateprtransfid', p.date_progr);
+        set('#deplignetransfid', p.gareidentif);
+        set('#intertrans1fid', p.intervalle1);
+        set('#intertrans2fid', p.intervalle2);
+        set('#ligntransfid', p.ident_ligne);
+        set('#nomitintransfid', p.nom_ligne);
+        set('#hertransfid', p.heure);
+        set('#catetransfid', p.categori);
+        if (!__venteFiShouldSkipAutoPrix() && p.prix != null && String(p.prix).trim() !== '') {
+            set('#prix_axetransfid', p.prix);
+        }
+        __venteFiClearDownstreamCheminHeures();
+        __venteFiMaybeStartCheminCascade();
+    }
+
+    function __venteFiLoadSiegesTransit1(idLh, dptDate) {
+        var ps = document.querySelector('#psiegesitinesfid');
+        if (ps) ps.options.length = 1;
+        var tfEl = document.querySelector('#tarifattribfid');
+        var tfbs = tfEl && String(tfEl.value || '').trim() !== '' ? String(tfEl.value).trim() : '1';
+        if (tfEl && String(tfEl.value || '').trim() === '') tfEl.value = tfbs;
+        if (idLh && !__venteFiShouldSkipAutoPrix()) {
+            var httpPrix = new XMLHttpRequest();
+            httpPrix.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifpriprg/${idLh}/${tfbs}`, true);
+            httpPrix.onload = function () {
+                try {
+                    var donprix = JSON.parse(httpPrix.responseText);
+                    if (Object.entries(donprix).length >= 1) {
+                        for (var key in Object.entries(donprix)) {
+                            var px = document.querySelector('#prix_axetransfid');
+                            if (px) px.value = `${donprix[key].prix}`;
+                        }
+                    }
+                } catch (e) {}
+            };
+            httpPrix.setRequestHeader('Content-Type', 'application/json');
+            httpPrix.send();
+        }
+        var cd = document.querySelector('#programtransfid') ? document.querySelector('#programtransfid').value : '';
+        var db = document.querySelector('#intertrans1fid') ? document.querySelector('#intertrans1fid').value : '';
+        var fn = document.querySelector('#intertrans2fid') ? document.querySelector('#intertrans2fid').value : '';
+        var lg = document.querySelector('#nomitintransfid') ? document.querySelector('#nomitintransfid').value : '';
+        var tim = document.querySelector('#hertransfid') ? document.querySelector('#hertransfid').value : '';
+        if (!cd) return;
+        var http = new XMLHttpRequest();
+        http.open('GET', window.location.origin + `${APP_ROOT}/programmes/siegdisponible/${cd}/${dptDate}/${lg}/${tim}/${db}/${fn}`, true);
+        http.onload = function () {
+            try {
+                var dat = JSON.parse(http.responseText);
+                if (ps) ps.options.length = 1;
+                if (Object.entries(dat).length >= 1) {
+                    for (var key in Object.entries(dat)) {
+                        var opt = document.createElement('option');
+                        opt.value = `${dat[key].siege_num}`;
+                        opt.innerHTML = `${dat[key].siege_num}`;
+                        if (ps) ps.add(opt);
+                    }
+                }
+            } catch (e) { if (ps) ps.options.length = 1; }
+        };
+        http.setRequestHeader('Content-Type', 'application/json');
+        http.send();
+    }
+
+    function __venteFiHandleTransit1ProgList(don, idLh, dptDate) {
+        var list = __venteFiProgListFromResponse(don);
+        __venteFiHideProgSelectAny('selprog_box_tr1fid', 'selprog_tr1fid');
+        var ps = document.querySelector('#psiegesitinesfid');
+        if (ps) ps.options.length = 1;
+        if (!list.length) return false;
+        if (list.length === 1) {
+            __venteFiApplyTransit1Fields(list[0]);
+            __venteFiLoadSiegesTransit1(idLh, dptDate);
+            return true;
+        }
+        var box = document.getElementById('selprog_box_tr1fid');
+        var sel = document.getElementById('selprog_tr1fid');
+        if (!sel) {
+            __venteFiApplyTransit1Fields(list[0]);
+            __venteFiLoadSiegesTransit1(idLh, dptDate);
+            return true;
+        }
+        if (box) box.style.display = 'block';
+        if (sel) sel.style.display = 'block';
+        sel.options.length = 1;
+        for (var i = 0; i < list.length; i++) {
+            var opt = document.createElement('option');
+            opt.value = String(i);
+            opt.innerHTML = __venteFiLabelProg(list[i]);
+            sel.add(opt);
+        }
+        sel.onchange = function () {
+            if (ps) ps.options.length = 1;
+            var idx = parseInt(sel.value, 10);
+            if (isNaN(idx) || !list[idx]) return;
+            __venteFiApplyTransit1Fields(list[idx]);
+            __venteFiLoadSiegesTransit1(idLh, dptDate);
+        };
+        return true;
+    }
+
+    document.querySelectorAll('.addventeticketfi').forEach(function (e) 
+    {
+        document.querySelector('h3#tafiTitle').innerHTML = `VENTE DE FIDELITE`;
+
+            let arfi= document.querySelector('#arrsgarefid');
+            if (arfi !== null)
+            arfi.onchange = () => {
+                document.querySelector('#prix_axefid').value = '';
+                document.querySelector('#prix_axefid').value = '';
+                document.querySelector('#date_depheurefid').value = '';
+                document.querySelector('#hdepartfid').options.length = 1;
+                document.querySelector('#quartierfid').options.length = 1;
+                document.querySelector('#psiegesfid').options.length = 1;
+                __venteFiHideProgSelect();
+                __venteFiHideProgSelectAny('selprog_box_tr1fid', 'selprog_tr1fid');
+                __venteFiHideProgSelectAny('selprog_box_tr2fid', 'selprog_tr2fid');
+                __venteFiHideProgSelectAny('selprog_box_tr3fid', 'selprog_tr3fid');
+                __venteFiHideProgSelectAny('selprog_box_tr4fid', 'selprog_tr4fid');
+                document.querySelector('#hdepartitinefid').options.length = 1;
+                document.querySelector('#psiegesitinesfid').options.length = 1;
+                document.querySelector('#idcheminsheurfid').options.length = 1;
+                document.querySelector('#transitedepargare1fid').options.length = 0;
+                document.querySelector('#transitedepargare2fid').options.length = 0;
+                document.querySelector('#transitedepargare3fid').options.length = 0;
+                document.querySelector('#transitedepargare4fid').options.length = 0;
+                document.querySelector('#idcheminsfid').options.length = 1;
+                document.querySelector('#idchemins1fid').options.length = 1;
+                document.querySelector('#idchemins2fid').options.length = 1;
+                document.querySelector('#psiegesitines1fid').options.length = 1;
+                document.querySelector('#idcheminsheur1fid').options.length = 1;
+                document.querySelector('#psiegesitines2fid').options.length = 1;
+                document.querySelector('#idcheminsheur2fid').options.length = 1;
+                document.querySelector('#psiegesitines3fid').options.length = 1;
+                document.querySelector('#quartier1fid').options.length = 1;
+                document.querySelector('#quartier2fid').options.length = 1;
+                document.querySelector('#quartier3fid').options.length = 1;
+                    const typgarefi = document.querySelector('#arrsgarefid').value;
+                    let httptypequartfi;
+                    httptypequartfi = new XMLHttpRequest();
+                    
+                    httptypequartfi.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifquart/${typgarefi}`, true);
+                    httptypequartfi.onload = () => 
+                    {
+                        const donquafi = JSON.parse(httptypequartfi.responseText);
+                        if (donquafi == '') {
+                            document.querySelector('#quartierfid').options.length = 1;
+                        }
+                        else{
+                            if (Object.entries(donquafi).length >= 1) {
+                                            
+                                for (let key in Object.entries(donquafi)) {
+                                    let opt = document.createElement('option');
+                                    opt.value = `${donquafi[key].nom_quartier}`;
+                                    opt.innerHTML = `${donquafi[key].nom_quartier}`;
+                                    document.querySelector('#quartierfid').add(opt);
+                                }
+                            } else {
+                                document.querySelector('#quartierfid').options.length = 1;
+                            }
+                        }
+                        
+
+                    };
+                    httptypequartfi.setRequestHeader('Content-Type', 'application/json');
+                    httptypequartfi.send();
+            };
+            
+            let dafi = document.querySelector('#date_depheurefid');
+            if (dafi !== null){
+                dafi.onchange = () => 
+                {
+                    
+                    document.querySelector('#hdepartfid').options.length = 1;
+                    document.querySelector('#psiegesfid').options.length = 1;
+                    document.querySelector('#hdepartitinefid').options.length = 1;
+                    document.querySelector('#psiegesitinesfid').options.length = 1;
+                    document.querySelector('#idcheminsheurfid').options.length = 1;
+                    //document.querySelector('#lignesitinerairefid').value = '';
+                    document.querySelector('#transitedepargare1fid').options.length = 0;
+                    document.querySelector('#transitedepargare2fid').options.length = 0;
+                    document.querySelector('#transitedepargare3fid').options.length = 0;
+                    document.querySelector('#transitedepargare4fid').options.length = 0;
+                    document.querySelector('#idcheminsfid').options.length = 1;
+                    document.querySelector('#idchemins1fid').options.length = 1;
+                    document.querySelector('#idchemins2fid').options.length = 1;
+                    document.querySelector('#psiegesitines1fid').options.length = 1;
+                    document.querySelector('#idcheminsheur1fid').options.length = 1;
+                    document.querySelector('#psiegesitines2fid').options.length = 1;
+                    document.querySelector('#idcheminsheur2fid').options.length = 1;
+                    document.querySelector('#psiegesitines3fid').options.length = 1;
+                    document.querySelector('#quartier1fid').options.length = 1;
+                    document.querySelector('#quartier2fid').options.length = 1;
+                    document.querySelector('#quartier3fid').options.length = 1;
+
+
+                    let httpRequetesfid;
+                    
+                    if (window.XMLHttpRequest) {
+                        httpRequetesfid = new XMLHttpRequest();
+                    } else if (window.ActiveXObject) {
+                        httpRequetesfid = new ActiveXObject("Microsoft.XMLHTTP");
+                    }
+                    
+                        var depafi = document.querySelector('#depargarefid').value;
+                        var arrfi = document.querySelector('#arrsgarefid').value;
+                        var datedepartfi = document.querySelector('#date_depheurefid').value;
+                        var dateactufi = document.querySelector('#actufid').value;
+                                         
+                        var post_lhdepfi = depafi.split('/');
+                        var seltdepfi = post_lhdepfi[0];
+                        var sougidfi = post_lhdepfi[1];
+                        if(datedepartfi >= dateactufi)
+                        {
+                            let httpRequetesfi;
+                            httpRequetesfi = new XMLHttpRequest();
+                            httpRequetesfi.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifheuresvente/${seltdepfi}-${arrfi}/${datedepartfi}/${sougidfi || '0'}`, true);
+                            httpRequetesfi.onload = () => {
+                                var payloadHvFi = {};
+                                try { payloadHvFi = JSON.parse(httpRequetesfi.responseText) || {}; } catch (eHvFi) { payloadHvFi = {}; }
+                                var heuresHvFi = Array.isArray(payloadHvFi.heures) ? payloadHvFi.heures : [];
+                                window.__venteFiHasTransit = !!payloadHvFi.has_transit;
+                                window.__venteFiLastHeuresVente = heuresHvFi;
+
+                                document.querySelector('#smsdtfid').style.display = 'none';
+                                document.querySelector('#date_depheurefid').style.color = "black";
+                                document.querySelector('#date_depheurefid').style.border = "1px solid";
+
+                                // Aligné guichet : lister les heures à la date ; transit seulement au choix d'une heure sans départ.
+                                __venteFiShowDirectHourUi();
+                                __venteFiFillHeuresVente(heuresHvFi);
+
+                                window.__venteFiApplyTransitLegs = function (donitinesfi) {
+                                                    donitinesfi = (typeof __venteFiNormalizeEtapes === 'function')
+                                                        ? __venteFiNormalizeEtapes(donitinesfi) : donitinesfi;
+                                                    if(donitinesfi === null || donitinesfi === '' || (typeof donitinesfi === 'object' && !Object.keys(donitinesfi).length))
+                                                    {
+                                                        document.querySelector('#depitin1fid').style.display = 'none';
+                                                        document.querySelector('#depargareitine1fid').style.display = 'none';
+                                                        document.querySelector('#iddeptrans1fid').style.display = 'none';
+                                                        document.querySelector('#transitedepargare1fid').style.display = 'none';
+                                                        document.querySelector('#iddeptrans2fid').style.display = 'none';
+                                                        document.querySelector('#transitedepargare2fid').style.display = 'none';
+                                                        document.querySelector('#iddeptrans3fid').style.display = 'none';
+                                                        document.querySelector('#transitedepargare3fid').style.display = 'none';
+                                                        document.querySelector('#iddeptrans4fid').style.display = 'none';
+                                                        document.querySelector('#transitedepargare4fid').style.display = 'none';
+                                                        document.querySelector('#arritin1fid').style.display = 'none';
+                                                        document.querySelector('#arrsgareitine1fid').style.display = 'none';
+                                                        document.querySelector('#arritin1fid').style.display = 'none';
+                                                        document.querySelector('#arrsgareitine1fid').style.display = 'none';
+                                                        document.querySelector('#heureitin1fid').style.display = 'none';
+                                                        document.querySelector('#hdepartitine1fid').style.display = 'none';
+                                                        document.querySelector('#lignesitinerairefid').style.display = 'none';
+                                                        document.querySelector('#ligne1fid').style.display = 'none';
+                                                        document.querySelector('#siegitine1fid').style.display = 'none';
+                                                        document.querySelector('#psiegesitines1fid').style.display = 'none';
+                                                        document.querySelector('#depitin2fid').style.display = 'none';
+                                                        document.querySelector('#depargareitine2fid').style.display = 'none';
+                                                        document.querySelector('#arritin2fid').style.display = 'none';
+                                                        document.querySelector('#arrsgareitine2fid').style.display = 'none';
+                                                        document.querySelector('#heureitin2fid').style.display = 'none';
+                                                        document.querySelector('#hdepartitine2fid').style.display = 'none';
+                                                        document.querySelector('#siegitine2fid').style.display = 'none';
+                                                        document.querySelector('#psiegesitines2fid').style.display = 'none';
+                                                        document.querySelector('#depitin3fid').style.display = 'none';
+                                                        document.querySelector('#depargareitine3fid').style.display = 'none';
+                                                        document.querySelector('#arritin3fid').style.display = 'none';
+                                                        document.querySelector('#arrsgareitine3fid').style.display = 'none';
+                                                        document.querySelector('#heureitin3fid').style.display = 'none';
+                                                        document.querySelector('#hdepartitine3fid').style.display = 'none';
+                                                        document.querySelector('#siegitine3fid').style.display = 'none';
+                                                        document.querySelector('#psiegesitines3fid').style.display = 'none';
+                                                        document.querySelector('#quartier1fid').style.display = 'none';
+                                                        document.querySelector('#quartier2fid').style.display = 'none';
+                                                        document.querySelector('#quartier3fid').style.display = 'none';
+                                                        document.querySelector('#idquart1fid').style.display = 'none';
+                                                        document.querySelector('#idquart2fid').style.display = 'none';
+                                                        document.querySelector('#idquart3fid').style.display = 'none';
+
+                                                        document.querySelector('#prix_axetransfid').style.display = 'none';
+                                                        document.querySelector('#prix_axetransfid1').style.display = 'none';
+                                                        document.querySelector('#prix_axetransitfid1').style.display = 'none';
+                                                        document.querySelector('#prix_axetransitfid').style.display = 'none';
+                                                        document.querySelector('#prix_axetransit1fid1').style.display = 'none';
+                                                        document.querySelector('#prix_axetransit1fid').style.display = 'none';
+                                                        document.querySelector('#prix_axetransit2fid1').style.display = 'none';
+                                                        document.querySelector('#prix_axetransit2fid').style.display = 'none';
+                                                        document.querySelector('#tranfid').style.display = 'none'; if (typeof __venteFiSetMainEscaleVisible === 'function') __venteFiSetMainEscaleVisible(true);
+                                                        document.querySelector('#heureitinfid').style.display = 'none';
+                                                        document.querySelector('#hdepartitinefid').style.display = 'none';
+                                                        document.querySelector('#siegitinefid').style.display = 'none';
+                                                        document.querySelector('#psiegesitinesfid').style.display = 'none';
+                                                        document.querySelector('#hridfid').style.display = 'block';
+                                                        document.querySelector('#hdepartfid').style.display = 'block';
+                                                        document.querySelector('#sigidfid').style.display = 'block';
+                                                        document.querySelector('#psiegesfid').style.display = 'block';
+                                                        document.querySelector('#iddepfid').style.display = 'block';
+                                                        document.querySelector('#depargarefid').style.display = 'block';
+                                                        document.querySelector('#arridfid').style.display = 'block';
+                                                        document.querySelector('#arrsgarefid').style.display = 'block';
+                                                        document.querySelector('#prix_axefid1').style.display = 'block';
+                                                        document.querySelector('#prix_axefid').style.display = 'block';
+                                                    }
+                                                    else
+                                                    {
+                                                        if (typeof __venteFiResetTransitFieldsBeforeApply === 'function') __venteFiResetTransitFieldsBeforeApply();
+                                                        window.__venteFiCheminEtapes = donitinesfi;
+                                                        window.__venteFiCheminCascadeStarted = false;
+                                                        __venteFiClearTransitPrixFields();
+                                                        if (Object.entries(donitinesfi).length >= 1) 
+                                                        {
+                                                            var i = Object.entries(donitinesfi).length;
+                                                            
+                                                            for (let key in Object.entries(donitinesfi)) 
+                                                            {
+                                                                
+                                                                document.querySelector('#nbrtransfid').value = Object.entries(donitinesfi).length;;
+                                                                if(i === 2){
+                                                                    document.querySelector('#arritin1fid').style.display = 'block';
+                                                                    document.querySelector('#idcheminsfid').style.display = 'block';
+                                                                    document.querySelector('#heureitin1fid').style.display = 'block';
+                                                                    document.querySelector('#idcheminsheurfid').style.display = 'block';
+                                                                    document.querySelector('#siegitine1fid').style.display = 'block';
+                                                                    document.querySelector('#psiegesitines1fid').style.display = 'block';
+                                                                    document.querySelector('#quartier1fid').style.display = 'block';
+                                                                    document.querySelector('#idquart1fid').style.display = 'block';
+                                                                    document.querySelector('#iddeptrans1fid').style.display = 'block';
+                                                                    document.querySelector('#transitedepargare1fid').style.display = 'block';
+                                                                    document.querySelector('#iddeptrans2fid').style.display = 'block';
+                                                                    document.querySelector('#transitedepargare2fid').style.display = 'block';
+                                                                    document.querySelector('#prix_axetransfid').style.display = 'block';
+                                                                    document.querySelector('#prix_axetransfid1').style.display = 'block';
+                                                                    document.querySelector('#prix_axetransitfid1').style.display = 'block';
+                                                                    document.querySelector('#prix_axetransitfid').style.display = 'block';
+                                                                    
+                                                                }
+                                                                
+                                                                if(i === 3){
+                                                                    document.querySelector('#iddeptrans1fid').style.display = 'block';
+                                                                    document.querySelector('#transitedepargare1fid').style.display = 'block';
+                                                                    document.querySelector('#iddeptrans2fid').style.display = 'block';
+                                                                    document.querySelector('#transitedepargare2fid').style.display = 'block';
+                                                                    document.querySelector('#iddeptrans3fid').style.display = 'block';
+                                                                    document.querySelector('#transitedepargare3fid').style.display = 'block';
+                                                                    document.querySelector('#arritin1fid').style.display = 'block';
+                                                                    document.querySelector('#idcheminsfid').style.display = 'block';
+                                                                    document.querySelector('#heureitin1fid').style.display = 'block';
+                                                                    document.querySelector('#idcheminsheurfid').style.display = 'block';
+                                                                    document.querySelector('#siegitine1fid').style.display = 'block';
+                                                                    document.querySelector('#psiegesitines1fid').style.display = 'block';
+                                                                    document.querySelector('#idquart1fid').style.display = 'block';
+                                                                    document.querySelector('#idquart2fid').style.display = 'block';
+                                                                                                                 document.querySelector('#arritin2fid').style.display = 'block';
+                                                                    document.querySelector('#idchemins1fid').style.display = 'block';
+                                                                    document.querySelector('#heureitin2fid').style.display = 'block';
+                                                                    document.querySelector('#idcheminsheur1fid').style.display = 'block';
+                                                                    document.querySelector('#siegitine2fid').style.display = 'block';
+                                                                    document.querySelector('#psiegesitines2fid').style.display = 'block';
+                                                                    document.querySelector('#quartier1fid').style.display = 'block';
+                                                                    document.querySelector('#quartier2fid').style.display = 'block';
+                                                                    
+                                                                    document.querySelector('#prix_axetransfid').style.display = 'block';
+                                                                    document.querySelector('#prix_axetransfid1').style.display = 'block';
+                                                                    document.querySelector('#prix_axetransitfid1').style.display = 'block';
+                                                                    document.querySelector('#prix_axetransitfid').style.display = 'block';
+                                                                    document.querySelector('#prix_axetransit1fid1').style.display = 'block';
+                                                                    document.querySelector('#prix_axetransit1fid').style.display = 'block';
+                                                                    }if(i === 4){
+                                                                    
+                                                                    document.querySelector('#iddeptrans1fid').style.display = 'block';
+                                                                    document.querySelector('#transitedepargare1fid').style.display = 'block';
+                                                                    document.querySelector('#iddeptrans2fid').style.display = 'block';
+                                                                    document.querySelector('#transitedepargare2fid').style.display = 'block';
+                                                                    document.querySelector('#iddeptrans3fid').style.display = 'block';
+                                                                    document.querySelector('#transitedepargare3fid').style.display = 'block';
+                                                                    document.querySelector('#iddeptrans4fid').style.display = 'block';
+                                                                    document.querySelector('#transitedepargare4fid').style.display = 'block';
+                                                                    document.querySelector('#arritin1fid').style.display = 'block';
+                                                                    document.querySelector('#idcheminsfid').style.display = 'block';
+                                                                    document.querySelector('#heureitin1fid').style.display = 'block';
+                                                                    document.querySelector('#idcheminsheurfid').style.display = 'block';
+                                                                    document.querySelector('#siegitine1fid').style.display = 'block';
+                                                                    document.querySelector('#psiegesitines1fid').style.display = 'block';
+                                                                    document.querySelector('#arritin2fid').style.display = 'block';
+                                                                    document.querySelector('#idchemins1fid').style.display = 'block';
+                                                                    document.querySelector('#heureitin2fid').style.display = 'block';
+                                                                    document.querySelector('#idcheminsheur1fid').style.display = 'block';
+                                                                    document.querySelector('#siegitine2fid').style.display = 'block';
+                                                                    document.querySelector('#psiegesitines2fid').style.display = 'block';
+                                                                    document.querySelector('#arritin3fid').style.display = 'block';
+                                                                    document.querySelector('#idchemins2fid').style.display = 'block';
+                                                                    document.querySelector('#heureitin3fid').style.display = 'block';
+                                                                    document.querySelector('#idcheminsheur2fid').style.display = 'block';
+                                                                    document.querySelector('#siegitine3fid').style.display = 'block';
+                                                                    document.querySelector('#psiegesitines3fid').style.display = 'block';
+                                                                    document.querySelector('#quartier1fid').style.display = 'block';
+                                                                    document.querySelector('#quartier2fid').style.display = 'block';
+                                                                    document.querySelector('#quartier3fid').style.display = 'block';
+                                                                    document.querySelector('#idquart1fid').style.display = 'block';
+                                                                    document.querySelector('#idquart2fid').style.display = 'block';
+                                                                    document.querySelector('#idquart3fid').style.display = 'block';
+                                                                    document.querySelector('#prix_axetransfid').style.display = 'block';
+                                                                    document.querySelector('#prix_axetransfid1').style.display = 'block';
+                                                                    document.querySelector('#prix_axetransitfid1').style.display = 'block';
+                                                                    document.querySelector('#prix_axetransitfid').style.display = 'block';
+                                                                    document.querySelector('#prix_axetransit1fid1').style.display = 'block';
+                                                                    document.querySelector('#prix_axetransit1fid').style.display = 'block';
+                                                                    document.querySelector('#prix_axetransit2fid1').style.display = 'block';
+                                                                    document.querySelector('#prix_axetransit2fid').style.display = 'block';
+                                                                
+
+                                                                }
+                                                                document.querySelector('#tranfid').style.display = 'block'; if (typeof __venteFiSetMainEscaleVisible === 'function') __venteFiSetMainEscaleVisible(false);
+                                                                document.querySelector('#heureitinfid').style.display = 'block';
+                                                                document.querySelector('#hdepartitinefid').style.display = 'block';
+                                                                document.querySelector('#lignesitinerairefid').style.display = 'block';
+                                                                document.querySelector('#ligne1fid').style.display = 'block';
+                                                                document.querySelector('#siegitinefid').style.display = 'block';
+                                                                document.querySelector('#psiegesitinesfid').style.display = 'block';
+                                                                document.querySelector('#hridfid').style.display = 'none';
+                                                                document.querySelector('#hdepartfid').style.display = 'none';
+                                                                document.querySelector('#sigidfid').style.display = 'none';
+                                                                document.querySelector('#psiegesfid').style.display = 'none';
+                                                                document.querySelector('#iddepfid').style.display = 'none';
+                                                                document.querySelector('#depargarefid').style.display = 'none';
+                                                                document.querySelector('#arridfid').style.display = 'none';
+                                                                document.querySelector('#arrsgarefid').style.display = 'none';
+
+                                                                document.querySelector('#prix_axefid1').style.display = 'none';
+                                                                document.querySelector('#prix_axefid').style.display = 'none';
+                                                                __venteFiFillLigne1Locked(donitinesfi[0], function (codeSel) {
+                                                                    if (!codeSel) return;
+                                                                    var hd = document.querySelector('#hdepartitinefid');
+                                                                    if (hd) hd.options.length = 1;
+                                                                    var datedepart = document.querySelector('#date_depheurefid')
+                                                                        ? document.querySelector('#date_depheurefid').value
+                                                                        : (document.querySelector('#date_depheure') ? document.querySelector('#date_depheure').value : '');
+                                                                    var httpH = new XMLHttpRequest();
+                                                                    httpH.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifheureitine/${encodeURIComponent(codeSel)}/${encodeURIComponent(datedepart)}`, true);
+                                                                    httpH.onload = function () {
+                                                                        try {
+                                                                            var infositin = JSON.parse(httpH.responseText);
+                                                                            if (typeof window.__venteFillHeureItineSelect === 'function') {
+                                                                                window.__venteFillHeureItineSelect(hd, infositin, window.__venteSelectedHour);
+                                                                            } else if (hd && infositin && Object.entries(infositin).length >= 1) {
+                                                                                hd.options.length = 1;
+                                                                                for (var key in Object.entries(infositin)) {
+                                                                                    var opt = document.createElement('option');
+                                                                                    opt.value = `${infositin[key].id_ligneheure}/${infositin[key].heure}`;
+                                                                                    opt.innerHTML = `${infositin[key].heure}`;
+                                                                                    hd.add(opt);
+                                                                                }
+                                                                            }
+                                                                        } catch (eH) {}
+                                                                    };
+                                                                    httpH.setRequestHeader('Content-Type', 'application/json');
+                                                                    httpH.send();
+                                                                });
+                                                            }
+                                                            
+                                                
+                                                            if(i === 2)
+                                                            {
+                                                                document.querySelector('#itinecodesfid').value = `${donitinesfi[0].id_lignes}`;
+                                                                    
+
+                                                                var typgare1fi = (donitinesfi[0] && donitinesfi[0].code_itineraires) ? String(donitinesfi[0].code_itineraires) : (document.querySelector('#itinecodefid').value || '');
+                                                                var post_typgare1fi = typgare1fi.split('-');
+                                                                var seltypgare1fi = post_typgare1fi[0];
+                                                                var typgareselfi = post_typgare1fi[1];
+                                                                    let httptypequart1fi;
+                                                                    httptypequart1fi = new XMLHttpRequest();
+                                                                    
+                                                                    httptypequart1fi.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifquartr/${typgareselfi}`, true);
+                                                                    httptypequart1fi.onload = () => 
+                                                                    {
+                                                                        const donqua1fi = JSON.parse(httptypequart1fi.responseText);
+                                                                        if (donqua1fi == '') {
+                                                                            document.querySelector('#quartier1fid').options.length = 1;
+                                                                        }
+                                                                        else{
+                                                                            if (Object.entries(donqua1fi).length >= 1) {
+                                                                                            
+                                                                                for (let key in Object.entries(donqua1fi)) {
+                                                                                    let optq = document.createElement('option');
+                                                                                    optq.value = `${donqua1fi[key].nom_quartier}`;
+                                                                                    optq.innerHTML = `${donqua1fi[key].nom_quartier}`;
+                                                                                    document.querySelector('#quartier1fid').add(optq);
+                                                                                }
+                                                                            } else {
+                                                                                document.querySelector('#quartier1fid').options.length = 1;
+                                                                            }
+                                                                        }
+                                                                        
+
+                                                                    };
+                                                                    httptypequart1fi.setRequestHeader('Content-Type', 'application/json');
+                                                                    httptypequart1fi.send();
+
+                                                                let hrdepartinefi = document.querySelector('#hdepartitinefid');
+                                                                if (hrdepartinefi !== null) {
+                                                                    hrdepartinefi.onchange = () => 
+                                                                    {
+                                                                        __venteFiFillTransitDepart('#transitedepargare1fid', seltypgare1fi);
+
+                                                                        document.querySelector('#psiegesitinesfid').options.length = 1;
+                                                                        const httpRequestitfi = new XMLHttpRequest();
+                                                                        const seleitinefi = document.querySelector('#hdepartitinefid')
+                                                                            .options[document.querySelector('#hdepartitinefid').options.selectedIndex].value;
+
+                                                                            var post_lhitinefi = seleitinefi.split('/');
+                                                                            var selitinefi = post_lhitinefi[0];
+                                                                            var lhselitinefi = post_lhitinefi[1];
+
+                                                                            const dpt_dateitinefi = document.querySelector('#date_depheurefid').value;
+                                                                            var itinproitfi = document.querySelector('#itinecodefid').value;
+                                                                        httpRequestitfi.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifprog/${itinproitfi}/${dpt_dateitinefi}/${selitinefi}`, true);
+                                                                        httpRequestitfi.onload = () => 
+                                                                        {
+                                                                            const donitfi = JSON.parse(httpRequestitfi.responseText);
+                                                                                console.debug(`${typeof donitfi} - ${donitfi.attributes}`, console.memory);
+
+                                                                                if (__venteFiHandleTransit1ProgList(donitfi, selitinefi, dpt_dateitinefi)) { return; }
+                                                                                if (donitfi == '') 
+                                                                                {
+                                                                                    
+                                                                                        let opt = document.createElement('option');
+                                                                                        opt.value = '';                                                             
+                                                                                    
+                                                                                } 
+                                                                                else 
+                                                                                {       
+                                                                                    if (Object.entries(donitfi).length >= 1) {
+                                                                                        for (let key in Object.entries(donitfi)) {
+                                                                                            document.querySelector('#programtransfid').value = `${donitfi[key].code_progr}`;
+                                                                                            document.querySelector('#dateprtransfid').value = `${donitfi[key].date_progr}`;
+                                                                                            document.querySelector('#deplignetransfid').value = `${donitfi[key].gareidentif}`;
+                                                                                            document.querySelector('#intertrans1fid').value = `${donitfi[key].intervalle1}`;
+                                                                                            document.querySelector('#intertrans2fid').value = `${donitfi[key].intervalle2}`;
+                                                                                            document.querySelector('#ligntransfid').value = `${donitfi[key].ident_ligne}`;
+                                                                                            document.querySelector('#nomitintransfid').value = `${donitfi[key].nom_ligne}`;
+                                                                                            document.querySelector('#hertransfid').value = `${donitfi[key].heure}`;
+                                                                                            document.querySelector('#catetransfid').value = `${donitfi[key].categori}`;
+
+                                                                                        }
+                                                                                        __venteFiMaybeStartCheminCascade();
+                                                                                    } 
+                                                                                    
+                                                                                    
+                                                                                    const seleitinefi = document.querySelector('#hdepartitinefid')
+                                                                                    .options[document.querySelector('#hdepartitinefid').options.selectedIndex].value;
+
+                                                                                    var post_lhitinefi = seleitinefi.split('/');
+                                                                                    var selitinefi = post_lhitinefi[0];
+                                                                                    var lhselitinefi = post_lhitinefi[1];
+                                                                                    /*const httpPrixitfi = new XMLHttpRequest();
+                                                                                    httpPrixitfi.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifpriprg/${selitinefi}/${(document.querySelector('#tarifattribfid') && document.querySelector('#tarifattribfid').value) || '1'}`, true);
+                                                                                    httpPrixitfi.onload = () => 
+                                                                                    {
+
+                                                                                        const donprixitfi = JSON.parse(httpPrixitfi.responseText);
+                                                                                        console.debug(`${typeof donprixitfi}-${donprixitfi.attributes}`, console.memory);
+                                                                                        if (Object.entries(donprixitfi).length >= 1) {
+                                                                                            for (let key in Object.entries(donprixitfi)) 
+                                                                                            {
+                                                                                                document.querySelector('#prix_axetransfid').value = `${donprixitfi[key].prix}`;
+                                    
+                                                                                            }
+                                                                                        }
+                                                                                    };
+                                                                                    httpPrixitfi.setRequestHeader('Content-Type', 'application/json');
+                                                                                    httpPrixitfi.send();*/
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                                    const httpRequetteitfi = new XMLHttpRequest();
+                                                                                    const cdprogitfi = document.querySelector('#programtransfid').value;
+                                                                                    const dbitfi = document.querySelector('#intertrans1fid').value;
+                                                                                    const fnitfi = document.querySelector('#intertrans2fid').value;
+                                                                                    const lgitfi = document.querySelector('#nomitintransfid').value;
+                                                                                    const timitfi = document.querySelector('#hertransfid').value;
+                                                                                    const dpt_dateitinefi = document.querySelector('#date_depheurefid').value;
+                                                                                        httpRequetteitfi.open('GET', window.location.origin + `${APP_ROOT}/programmes/siegdisponible/${cdprogitfi}/${dpt_dateitinefi}/${lgitfi}/${timitfi}/${dbitfi}/${fnitfi}`, true);
+                                                                                    httpRequetteitfi.onload = () => {
+                                                                                        const dattaitfi = JSON.parse(httpRequetteitfi.responseText);
+                                                                                        console.debug(`${typeof dattaitfi} - ${dattaitfi.attributes}`, console.memory);
+                                                                                        if (Object.entries(dattaitfi).length >= 1) {
+                                                                                            for (let key in Object.entries(dattaitfi)) {
+                                                                                                
+                                                                                                let opt = document.createElement('option');
+                                                                                                opt.value = `${dattaitfi[key].siege_num}`;
+                                                                                                opt.innerHTML = `${dattaitfi[key].siege_num}`;
+                                                                                                document.querySelector('#psiegesitinesfid').add(opt);
+                                                                                                
+                                                                                            }
+                                                                                            
+                                                                                        } else {
+                                                                                            document.querySelector('#psiegesitinesfid').options.length = 1;
+                                                                                        }
+                                                                                    };
+                                                                                    httpRequetteitfi.setRequestHeader('Content-Type', 'application/json');
+                                                                                    httpRequetteitfi.send();
+
+                                                                                }  
+                                                                                
+                                                                        };
+                                                                        httpRequestitfi.setRequestHeader('Content-Type', 'application/json');
+                                                                        httpRequestitfi.send();
+                                                                         
+                                                                    };
+                                                                    
+                                                            
+                                                                }
+                                                                progsiegestransfi = document.querySelector('#psiegesitinesfid');
+                                                                if (progsiegestransfi !== null) {
+                                                                    progsiegestransfi.onchange = () => 
+                                                                    {
+
+                                                                        gareidentiftransfi = document.querySelector('#deplignetransfid').value;
+                                                                            __venteFiFillTransitDepart('#transitedepargare1fid', gareidentiftransfi);
+                                                                        let httpSiegestransfi;
+                                                                        httpSiegestransfi = new XMLHttpRequest();
+                                                                        const sigstransfi = document.querySelector('#psiegesitinesfid')
+                                                                        .options[document.querySelector('#psiegesitinesfid').options.selectedIndex].value;
+                                                                        const prostransfi = document.querySelector('#programtransfid').value;
+
+                                                                        httpSiegestransfi.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifisieges/${prostransfi}/${sigstransfi}`, true);
+                                                                        httpSiegestransfi.onload = () => 
+                                                                        {
+                                                                            const donsgetransfi = JSON.parse(httpSiegestransfi.responseText);
+                                                                            console.debug(`${typeof donsgetransfi} - ${donsgetransfi.attributes}`, console.memory);
+                                                                            if(donsgetransfi == '')
+                                                                            {
+                                                                                let httpSiegstransfi;
+                                                                                httpSiegstransfi = new XMLHttpRequest();
+
+                                                                                httpSiegstransfi.open('GET', window.location.origin + `${APP_ROOT}/programmes/creersiege/${prostransfi}/${sigstransfi}`, true);
+                                                                                httpSiegstransfi.onload = () => 
+                                                                                {
+                                                                                    const dongtransfi = JSON.parse(httpSiegstransfi.responseText);
+                                                                                    document.querySelector('#messfid').style.display = 'none';
+                                                                                    if (Object.entries(dongtransfi).length >= 1)
+                                                                                        {
+                                                                                            for (let key in Object.entries(dongtransfi)) {
+                                                                                                document.querySelector('#idtampotransfid').value = `${dongtransfi[key].idtamp}`;                    
+                                                                                                document.querySelector('#siegselecttransfid').value = `${dongtransfi[key].numsieg}`;
+                                                                                            }
+                                                                                        }
+                                                                                };
+                                                                                httpSiegstransfi.setRequestHeader('Content-Type', 'application/json');
+                                                                                httpSiegstransfi.send();
+                                                                            }
+                                                                            else {
+                                                                                document.querySelector('#psiegesitinesfid').value = '';     
+                                                                                if (Object.entries(donsgetransfi).length >= 1)
+                                                                                {
+                                                                                    for (let key in Object.entries(donsgetransfi)) {
+                                                                                        document.querySelector('#idtampotransfid').value = `${donsgetransfi[key].idtamp}`;                    
+                                                                                        document.querySelector('#siegselecttransfid').value = `${donsgetransfi[key].numsieg}`;
+                                                                                    }
+
+                                                                                }
+                                                                                document.querySelector('#messfid').style.display = 'block';
+                                                                                document.querySelector('#erreurMessfid').innerHTML = `Siege déjà utilisé.`;                                                                   }
+                                                                        };
+                                                                        httpSiegestransfi.setRequestHeader('Content-Type', 'application/json');
+                                                                        httpSiegestransfi.send();
+
+                                                                    
+                                                                    };
+                                                                }
+
+                                                                let progcheminfi = document.querySelector('#idcheminsfid');
+                                                                if (progcheminfi !== null) 
+                                                                {
+                                                                    progcheminfi.onchange = () => 
+                                                                    {
+                                                                        document.querySelector('#idcheminsheurfid').options.length = 1;
+                                                                        document.querySelector('#psiegesitines1fid').options.length = 1;
+                                                                        
+                                                                        let httpSiegescheminfi;
+                                                                        httpSiegescheminfi = new XMLHttpRequest();
+                                                                        
+                                                                        const prostranscheminfi = document.querySelector('#idcheminsfid')
+                                                                        .options[document.querySelector('#idcheminsfid').options.selectedIndex].value;
+
+                                                                        var post_typgare2fi = prostranscheminfi.split('-');
+                                                                        var seltypgare2fi = post_typgare2fi[0];
+                                                                        var typgaresel1fi = post_typgare2fi[1];
+ 
+                                                                        var datedepartfi = document.querySelector('#date_depheurefid').value;
+                                                                        httpSiegescheminfi.open('GET', window.location.origin + `${APP_ROOT}/programmes/chemin/${prostranscheminfi}/${datedepartfi}`, true);
+                                                                        httpSiegescheminfi.onload = () => 
+                                                                        {
+                                                                
+                                                                                    const dongtranschemfi = JSON.parse(httpSiegescheminfi.responseText);
+                                                                                    __venteFiFillCheminHeures('idcheminsheurfid', dongtranschemfi, 'tr2');
+                                                                        };
+                                                                        httpSiegescheminfi.setRequestHeader('Content-Type', 'application/json');
+                                                                        httpSiegescheminfi.send();
+
+                                                                    };
+                                                                        let prochemintrafi = document.querySelector('#idcheminsheurfid');
+                                                                    if (prochemintrafi !== null)
+                                                                        __venteFiWireCheminHeur('idcheminsheurfid', 'tr2'); if (false) prochemintrafi.onchange = () => 
+                                                                        {  
+                                                                            
+                                                                            document.querySelector('#psiegesitines1fid').options.length = 1;
+
+                                                                            const httpPrixittransitefi = new XMLHttpRequest();
+                                                                                const transselitinefi = document.querySelector('#idcheminsheurfid')
+                                                                            .options[document.querySelector('#idcheminsheurfid').options.selectedIndex].value;
+                                                                                var post_transfi = transselitinefi.split('/');
+                                                                            var itinetrasfi = post_transfi[0];
+                                                                            var dbitrafi = post_transfi[1];
+                                                                            var fnitrafi = post_transfi[2];
+                                                                            var lhertrafi = post_transfi[3];
+                                                                            var prixtrafi = post_transfi[4];
+
+                                                                                httpPrixittransitefi.open('GET', window.location.origin + `${APP_ROOT}/programmes/siegdispotrans/${itinetrasfi}`, true);
+                                                                                httpPrixittransitefi.onload = () => 
+                                                                                {
+                                                                                    const donprixitranfi = JSON.parse(httpPrixittransitefi.responseText);
+                                                                                    console.debug(`${typeof donprixitranfi}-${donprixitranfi.attributes}`, console.memory);
+                                                                                    if (Object.entries(donprixitranfi).length >= 1) {
+                                                                                        for (let key in Object.entries(donprixitranfi)) 
+                                                                                        {
+                                                                                            document.querySelector('#catetransitfid').value = `${donprixitranfi[key].categori}`;
+                                                                                            document.querySelector('#gidtransfid').value =  `${donprixitranfi[key].gareidentif}`;
+                                                                                            document.querySelector('#nomitintrans1fid').value = `${donprixitranfi[key].nom_ligne}`;
+                                                                                            document.querySelector('#ligntrans1fid').value = `${donprixitranfi[key].ident_ligne}`;
+
+                                                                                        }
+                                                                                    }
+                                                                                };
+                                                                                httpPrixittransitefi.setRequestHeader('Content-Type', 'application/json');
+                                                                                httpPrixittransitefi.send();
+                                                                                
+                                                                                      
+                                                                                    
+                                                                                const httpRequetteitrafi = new XMLHttpRequest();
+                                                                        
+                                                                                    httpRequetteitrafi.open('GET', window.location.origin + `${APP_ROOT}/programmes/siegdisponibletrans/${itinetrasfi}/${dbitrafi}/${fnitrafi}`, true);
+                                                                                httpRequetteitrafi.onload = () => {
+                                                                                    const dattaitrafi = JSON.parse(httpRequetteitrafi.responseText);
+                                                                                    console.debug(`${typeof dattaitrafi} - ${dattaitrafi.attributes}`, console.memory);
+                                                                                    if (Object.entries(dattaitrafi).length >= 1) {
+                                                                                        for (let key in Object.entries(dattaitrafi)) {
+                                                                                            
+                                                                                            let opt = document.createElement('option');
+                                                                                            opt.value = `${dattaitrafi[key].siege_num}`;
+                                                                                            opt.innerHTML = `${dattaitrafi[key].siege_num}`;
+                                                                                            document.querySelector('#psiegesitines1fid').add(opt);
+                                                                                            
+                                                                                        }
+                                                                                        
+                                                                                    } else {
+                                                                                        document.querySelector('#psiegesitines1fid').options.length = 1;
+                                                                                    }
+                                                                                };
+                                                                                httpRequetteitrafi.setRequestHeader('Content-Type', 'application/json');
+                                                                                httpRequetteitrafi.send();
+                                                                        };
+
+                                                                        progsieges1fi = document.querySelector('#psiegesitines1fid');
+                                                                        if (progsieges1fi !== null) 
+                                                                        {
+                                                                            progsieges1fi.onchange = () => 
+                                                                            {
+                                                                                
+
+                                                                                const transselitine1fi = document.querySelector('#idcheminsheurfid')
+                                                                                .options[document.querySelector('#idcheminsheurfid').options.selectedIndex].value;
+                                                                                var post_trans1fi = transselitine1fi.split('/');
+                                                                                var itinetras1fi = post_trans1fi[0];
+                                                                                
+                                                                                gareidentiftrans2fi = document.querySelector('#gidtransfid').value;
+                                                                                __venteFiFillTransitDepart('#transitedepargare2fid', gareidentiftrans2fi);
+                                                                              
+                                                                                let httpSieges1fi;
+                                                                                httpSieges1fi = new XMLHttpRequest();
+                                                                                const sigs1fi = document.querySelector('#psiegesitines1fid')
+                                                                                .options[document.querySelector('#psiegesitines1fid').options.selectedIndex].value;
+                                                                                //const pros1 = document.querySelector('#program').value;
+
+                                                                                httpSieges1fi.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifisieges/${itinetras1fi}/${sigs1fi}`, true);
+                                                                                httpSieges1fi.onload = () => 
+                                                                                {
+                                                                                    const donsge1fi = JSON.parse(httpSieges1fi.responseText);
+                                                                                    console.debug(`${typeof donsge1fi} - ${donsge1fi.attributes}`, console.memory);
+                                                                                    if(donsge1fi == '')
+                                                                                    {
+                                                                                        let httpSiegs1fi;
+                                                                                        httpSiegs1fi = new XMLHttpRequest();
+
+                                                                                        httpSiegs1fi.open('GET', window.location.origin + `${APP_ROOT}/programmes/creersiege/${itinetras1fi}/${sigs1fi}`, true);
+                                                                                        httpSiegs1fi.onload = () => 
+                                                                                        {
+                                                                                            const dong1fi = JSON.parse(httpSiegs1fi.responseText);
+                                                                                            document.querySelector('#messfid').style.display = 'none';
+                                                                                            if (Object.entries(dong1fi).length >= 1)
+                                                                                                {
+                                                                                                    for (let key in Object.entries(dong1fi)) {
+                                                                                                        document.querySelector('#idtampo1fid').value = `${dong1fi[key].idtamp}`;                    
+                                                                                                        document.querySelector('#siegselect1fid').value = `${dong1fi[key].numsieg}`;
+                                                                                                    }
+                                                                                                }
+                                                                                        };
+                                                                                        httpSiegs1fi.setRequestHeader('Content-Type', 'application/json');
+                                                                                        httpSiegs1fi.send();
+                                                                                    }
+                                                                                    else {
+                                                                                        document.querySelector('#psiegesitines1fid').value = '';     
+                                                                                        if (Object.entries(donsge1fi).length >= 1)
+                                                                                        {
+                                                                                            for (let key in Object.entries(donsge1fi)) {
+                                                                                                document.querySelector('#idtampo1fid').value = `${donsge1fi[key].idtamp}`;                    
+                                                                                                document.querySelector('#siegselect1fid').value = `${donsge1fi[key].numsieg}`;
+                                                                                            }
+
+                                                                                        }
+                                                                                        document.querySelector('#messfid').style.display = 'block';
+                                                                                        document.querySelector('#erreurMessfid').innerHTML = `Siege déjà utilisé.`;                                                                   }
+                                                                                };
+                                                                                httpSieges1fi.setRequestHeader('Content-Type', 'application/json');
+                                                                                httpSieges1fi.send();
+
+                                                                            };
+                                                                        }
+                                                                }               
+                                                            }
+                                                            //second itineraire
+                                                            if(i === 3)
+                                                            {
+
+                                                                document.querySelector('#itinecodesfid').value = `${donitinesfi[0].id_lignes}`;
+                                                               
+
+                                                                var typgare1fi = (donitinesfi[0] && donitinesfi[0].code_itineraires) ? String(donitinesfi[0].code_itineraires) : (document.querySelector('#itinecodefid').value || '');
+                                                                var post_typgare1fi = typgare1fi.split('-');
+                                                                var seltypgare1fi = post_typgare1fi[0];
+                                                                var typgareselfi = post_typgare1fi[1];
+                                                                    let httptypequart1fi;
+                                                                    httptypequart1fi = new XMLHttpRequest();
+                                                                    
+                                                                    httptypequart1fi.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifquartr/${typgareselfi}`, true);
+                                                                    httptypequart1fi.onload = () => 
+                                                                    {
+                                                                        const donqua1fi = JSON.parse(httptypequart1fi.responseText);
+                                                                        if (donqua1fi == '') {
+                                                                            document.querySelector('#quartier1fid').options.length = 1;
+                                                                        }
+                                                                        else{
+                                                                            if (Object.entries(donqua1fi).length >= 1) {
+                                                                                            
+                                                                                for (let key in Object.entries(donqua1fi)) {
+                                                                                    let optq = document.createElement('option');
+                                                                                    optq.value = `${donqua1fi[key].nom_quartier}`;
+                                                                                    optq.innerHTML = `${donqua1fi[key].nom_quartier}`;
+                                                                                    document.querySelector('#quartier1fid').add(optq);
+                                                                                }
+                                                                            } else {
+                                                                                document.querySelector('#quartier1fid').options.length = 1;
+                                                                            }
+                                                                        }
+                                                                        
+
+                                                                    };
+                                                                    httptypequart1fi.setRequestHeader('Content-Type', 'application/json');
+                                                                    httptypequart1fi.send();
+
+                                                                let hrdepartine1fi = document.querySelector('#hdepartitinefid');
+                                                                if (hrdepartine1fi !== null) {
+                                                                    hrdepartine1fi.onchange = () => 
+                                                                    {
+                                                                        document.querySelector('#psiegesitinesfid').options.length = 1;
+                                                                        const httpRequestit1fi = new XMLHttpRequest();
+                                                                        const seleitine1fi = document.querySelector('#hdepartitinefid')
+                                                                            .options[document.querySelector('#hdepartitinefid').options.selectedIndex].value;
+
+                                                                            var post_lhitine1fi = seleitine1fi.split('/');
+                                                                            var selitine1fi = post_lhitine1fi[0];
+                                                                            var lhselitine1fi = post_lhitine1fi[1];
+
+                                                                            const dpt_dateitine1fi = document.querySelector('#date_depheurefid').value;
+                                                                            var itinproit1fi = document.querySelector('#itinecodefid').value;
+                                                                        httpRequestit1fi.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifprog/${itinproit1fi}/${dpt_dateitine1fi}/${selitine1fi}`, true);
+                                                                        httpRequestit1fi.onload = () => 
+                                                                        {
+                                                                            const donit1fi = JSON.parse(httpRequestit1fi.responseText);
+                                                                                console.debug(`${typeof donit1fi} - ${donit1fi.attributes}`, console.memory);
+
+                                                                                if (__venteFiHandleTransit1ProgList(donit1fi, selitine1fi, dpt_dateitine1fi)) { return; }
+                                                                                if (donit1fi == '') 
+                                                                                {
+                                                                                    
+                                                                                        let opt = document.createElement('option');
+                                                                                        opt.value = '';                                                             
+                                                                                   
+                                                                                    
+                                                                                    
+                                                                                } 
+                                                                                else 
+                                                                                {       
+                                                                                    if (Object.entries(donit1fi).length >= 1) {
+                                                                                        for (let key in Object.entries(donit1fi)) {
+                                                                                            document.querySelector('#programtransfid').value = `${donit1fi[key].code_progr}`;
+                                                                                            document.querySelector('#dateprtransfid').value = `${donit1fi[key].date_progr}`;
+                                                                                            document.querySelector('#deplignetransfid').value = `${donit1fi[key].gareidentif}`;
+                                                                                            document.querySelector('#intertrans1fid').value = `${donit1fi[key].intervalle1}`;
+                                                                                            document.querySelector('#intertrans2fid').value = `${donit1fi[key].intervalle2}`;
+                                                                                            document.querySelector('#ligntransfid').value = `${donit1fi[key].ident_ligne}`;
+                                                                                            document.querySelector('#nomitintransfid').value = `${donit1fi[key].nom_ligne}`;
+                                                                                            document.querySelector('#hertransfid').value = `${donit1fi[key].heure}`;
+                                                                                            document.querySelector('#catetransfid').value = `${donit1fi[key].categori}`;
+
+                                                                                        }
+                                                                                        __venteFiMaybeStartCheminCascade();
+                                                                                    } 
+                                                                                    
+                                                                                    
+                                                                                    const seleitinefi = document.querySelector('#hdepartitinefid')
+                                                                                    .options[document.querySelector('#hdepartitinefid').options.selectedIndex].value;
+
+                                                                                    var post_lhitinefi = seleitinefi.split('/');
+                                                                                    var selitinefi = post_lhitinefi[0];
+                                                                                    var lhselitinefi = post_lhitinefi[1];
+                                                                                    
+                                                                                    const httpRequetteitfi = new XMLHttpRequest();
+                                                                                    const cdprogitfi = document.querySelector('#programtransfid').value;
+                                                                                    const dbitfi = document.querySelector('#intertrans1fid').value;
+                                                                                    const fnitfi = document.querySelector('#intertrans2fid').value;
+                                                                                    const lgitfi = document.querySelector('#nomitintransfid').value;
+                                                                                    const timitfi = document.querySelector('#hertransfid').value;
+                                                                                    const dpt_dateitinefi = document.querySelector('#date_depheurefid').value;
+                                                                                        httpRequetteitfi.open('GET', window.location.origin + `${APP_ROOT}/programmes/siegdisponible/${cdprogitfi}/${dpt_dateitinefi}/${lgitfi}/${timitfi}/${dbitfi}/${fnitfi}`, true);
+                                                                                    httpRequetteitfi.onload = () => {
+                                                                                        const dattaitfi = JSON.parse(httpRequetteitfi.responseText);
+                                                                                        console.debug(`${typeof dattaitfi} - ${dattaitfi.attributes}`, console.memory);
+                                                                                        if (Object.entries(dattaitfi).length >= 1) {
+                                                                                            for (let key in Object.entries(dattaitfi)) {
+                                                                                                
+                                                                                                let opt = document.createElement('option');
+                                                                                                opt.value = `${dattaitfi[key].siege_num}`;
+                                                                                                opt.innerHTML = `${dattaitfi[key].siege_num}`;
+                                                                                                document.querySelector('#psiegesitinesfid').add(opt);
+                                                                                                
+                                                                                            }
+                                                                                            
+                                                                                        } else {
+                                                                                            document.querySelector('#psiegesitinesfid').options.length = 1;
+                                                                                        }
+                                                                                    };
+                                                                                    httpRequetteitfi.setRequestHeader('Content-Type', 'application/json');
+                                                                                    httpRequetteitfi.send();
+
+                                                                                }  
+                                                                                
+                                                                        };
+                                                                        httpRequestit1fi.setRequestHeader('Content-Type', 'application/json');
+                                                                        httpRequestit1fi.send();
+                                                                         
+                                                                    };
+                                                                    
+                                                            
+                                                                }
+                                                                let progsiegestransfi = document.querySelector('#psiegesitinesfid');
+                                                                if (progsiegestransfi !== null) {
+                                                                    progsiegestransfi.onchange = () => 
+                                                                    {
+
+                                                                        const gareidentiftrans1fi = document.querySelector('#deplignetransfid').value;
+                                                                        __venteFiFillTransitDepart('#transitedepargare1fid', gareidentiftrans1fi);
+                                                                        let httpSiegestrans1fi;
+                                                                        httpSiegestrans1fi = new XMLHttpRequest();
+                                                                        const sigstransfi = document.querySelector('#psiegesitinesfid')
+                                                                        .options[document.querySelector('#psiegesitinesfid').options.selectedIndex].value;
+                                                                        const prostransfi = document.querySelector('#programtransfid').value;
+
+                                                                        httpSiegestrans1fi.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifisieges/${prostransfi}/${sigstransfi}`, true);
+                                                                        httpSiegestrans1fi.onload = () => 
+                                                                        {
+                                                                            const donsgetransfi = JSON.parse(httpSiegestrans1fi.responseText);
+                                                                            console.debug(`${typeof donsgetransfi} - ${donsgetransfi.attributes}`, console.memory);
+                                                                            if(donsgetransfi == '')
+                                                                            {
+                                                                                let httpSiegstransfi;
+                                                                                httpSiegstransfi = new XMLHttpRequest();
+
+                                                                                httpSiegstransfi.open('GET', window.location.origin + `${APP_ROOT}/programmes/creersiege/${prostransfi}/${sigstransfi}`, true);
+                                                                                httpSiegstransfi.onload = () => 
+                                                                                {
+                                                                                    const dongtransfi = JSON.parse(httpSiegstransfi.responseText);
+                                                                                    document.querySelector('#messfid').style.display = 'none';
+                                                                                    if (Object.entries(dongtransfi).length >= 1)
+                                                                                        {
+                                                                                            for (let key in Object.entries(dongtransfi)) {
+                                                                                                document.querySelector('#idtampotransfid').value = `${dongtransfi[key].idtamp}`;                    
+                                                                                                document.querySelector('#siegselecttransfid').value = `${dongtransfi[key].numsieg}`;
+                                                                                            }
+                                                                                        }
+                                                                                };
+                                                                                httpSiegstransfi.setRequestHeader('Content-Type', 'application/json');
+                                                                                httpSiegstransfi.send();
+                                                                            }
+                                                                            else {
+                                                                                document.querySelector('#psiegesitinesfid').value = '';     
+                                                                                if (Object.entries(donsgetransfi).length >= 1)
+                                                                                {
+                                                                                    for (let key in Object.entries(donsgetransfi)) {
+                                                                                        document.querySelector('#idtampotransfid').value = `${donsgetransfi[key].idtamp}`;                    
+                                                                                        document.querySelector('#siegselecttransfid').value = `${donsgetransfi[key].numsieg}`;
+                                                                                    }
+
+                                                                                }
+                                                                                document.querySelector('#messfid').style.display = 'block';
+                                                                                document.querySelector('#erreurMessfid').innerHTML = `Siege déjà utilisé.`;                                                                   }
+                                                                        };
+                                                                        httpSiegestrans1fi.setRequestHeader('Content-Type', 'application/json');
+                                                                        httpSiegestrans1fi.send();
+
+                                                                    
+                                                                    };
+                                                                }
+                                                                //premier transite
+                                                                let progcheminfi = document.querySelector('#idcheminsfid');
+                                                                if (progcheminfi !== null) 
+                                                                {
+                                                                    progcheminfi.onchange = () => 
+                                                                    {
+                                                                        document.querySelector('#idcheminsheurfid').options.length = 1;
+                                                                        document.querySelector('#psiegesitines1fid').options.length = 1;
+
+                                                                        const prostranscheminfi = document.querySelector('#idcheminsfid')
+                                                                        .options[document.querySelector('#idcheminsfid').options.selectedIndex].value;
+
+                                                                        var post_typgare2fi = prostranscheminfi.split('-');
+                                                                        var seltypgare2fi = post_typgare2fi[0];
+                                                                        var typgaresel1fi = post_typgare2fi[1];
+                                                                        let httptypequart2fi;
+                                                                        httptypequart2fi = new XMLHttpRequest();
+                                                                        
+                                                                        httptypequart2fi.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifquartr/${typgaresel1fi}`, true);
+                                                                        httptypequart2fi.onload = () => 
+                                                                        {
+                                                                            const donqua2fi = JSON.parse(httptypequart2fi.responseText);
+                                                                            if (donqua2fi == '') {
+                                                                                document.querySelector('#quartier2fid').options.length = 1;
+                                                                            }
+                                                                            else{
+                                                                                if (Object.entries(donqua2fi).length >= 1) {
+                                                                                                
+                                                                                    for (let key in Object.entries(donqua2fi)) {
+                                                                                        let optq1 = document.createElement('option');
+                                                                                        optq1.value = `${donqua2fi[key].nom_quartier}`;
+                                                                                        optq1.innerHTML = `${donqua2fi[key].nom_quartier}`;
+                                                                                        document.querySelector('#quartier2fid').add(optq1);
+                                                                                    }
+                                                                                } else {
+                                                                                    document.querySelector('#quartier2fid').options.length = 1;
+                                                                                }
+                                                                            }
+                                                                            
+
+                                                                        };
+                                                                        httptypequart2fi.setRequestHeader('Content-Type', 'application/json');
+                                                                        httptypequart2fi.send();
+
+                                                                        let httpSiegescheminfi;
+                                                                        httpSiegescheminfi = new XMLHttpRequest();
+
+                                                                        var datedepartfi = document.querySelector('#date_depheurefid').value;
+                                                                        
+                                                                        httpSiegescheminfi.open('GET', window.location.origin + `${APP_ROOT}/programmes/chemin/${prostranscheminfi}/${datedepartfi}`, true);
+                                                                        httpSiegescheminfi.onload = () => 
+                                                                        {
+                                                                
+                                                                                    const dongtranschemfi = JSON.parse(httpSiegescheminfi.responseText);
+                                                                                    __venteFiFillCheminHeures('idcheminsheurfid', dongtranschemfi, 'tr2');
+                                                                        };
+                                                                        httpSiegescheminfi.setRequestHeader('Content-Type', 'application/json');
+                                                                        httpSiegescheminfi.send();
+
+                                                                    };
+                                                                       let prochemintrafi = document.querySelector('#idcheminsheurfid');
+                                                                    if (prochemintrafi !== null)
+                                                                        __venteFiWireCheminHeur('idcheminsheurfid', 'tr2'); if (false) prochemintrafi.onchange = () => 
+                                                                        {  
+                                                                           
+                                                                            document.querySelector('#psiegesitines1fid').options.length = 1;
+
+                                                                            const httpPrixittransitefi = new XMLHttpRequest();
+                                                                                const transselitinefi = document.querySelector('#idcheminsheurfid')
+                                                                            .options[document.querySelector('#idcheminsheurfid').options.selectedIndex].value;
+                                                                                var post_transfi = transselitinefi.split('/');
+                                                                            var itinetrasfi = post_transfi[0];
+                                                                            var dbitrafi = post_transfi[1];
+                                                                            var fnitrafi = post_transfi[2];
+                                                                            var lhertrafi = post_transfi[3];
+                                                                            var prixtrafi = post_transfi[4];
+
+                                                                                httpPrixittransitefi.open('GET', window.location.origin + `${APP_ROOT}/programmes/siegdispotrans/${itinetrasfi}`, true);
+                                                                                httpPrixittransitefi.onload = () => 
+                                                                                {
+                                                                                    const donprixitranfi = JSON.parse(httpPrixittransitefi.responseText);
+                                                                                    console.debug(`${typeof donprixitranfi}-${donprixitranfi.attributes}`, console.memory);
+                                                                                    if (Object.entries(donprixitranfi).length >= 1) {
+                                                                                        for (let key in Object.entries(donprixitranfi)) 
+                                                                                        {
+                                                                                            document.querySelector('#catetransitfid').value = `${donprixitranfi[key].categori}`;
+                                                                                            document.querySelector('#gidtransfid').value =  `${donprixitranfi[key].gareidentif}`;
+                                                                                            document.querySelector('#nomitintrans1fid').value = `${donprixitranfi[key].nom_ligne}`; 
+                                                                                        document.querySelector('#ligntrans1fid').value = `${donprixitranfi[key].ident_ligne}`;
+                                                                                        }
+                                                                                    }
+                                                                                };
+                                                                                httpPrixittransitefi.setRequestHeader('Content-Type', 'application/json');
+                                                                                httpPrixittransitefi.send();
+
+
+                                                                                
+
+                                                                                const httpRequetteitrafi = new XMLHttpRequest();
+                                                                        
+                                                                                    httpRequetteitrafi.open('GET', window.location.origin + `${APP_ROOT}/programmes/siegdisponibletrans/${itinetrasfi}/${dbitrafi}/${fnitrafi}`, true);
+                                                                                httpRequetteitrafi.onload = () => {
+                                                                                    const dattaitrafi = JSON.parse(httpRequetteitrafi.responseText);
+                                                                                    console.debug(`${typeof dattaitrafi} - ${dattaitrafi.attributes}`, console.memory);
+                                                                                    if (Object.entries(dattaitrafi).length >= 1) {
+                                                                                        for (let key in Object.entries(dattaitrafi)) {
+                                                                                            
+                                                                                            let opt = document.createElement('option');
+                                                                                            opt.value = `${dattaitrafi[key].siege_num}`;
+                                                                                            opt.innerHTML = `${dattaitrafi[key].siege_num}`;
+                                                                                            document.querySelector('#psiegesitines1fid').add(opt);
+                                                                                            
+                                                                                        }
+                                                                                        
+                                                                                    } else {
+                                                                                        document.querySelector('#psiegesitines1fid').options.length = 1;
+                                                                                    }
+                                                                                };
+                                                                                httpRequetteitrafi.setRequestHeader('Content-Type', 'application/json');
+                                                                                httpRequetteitrafi.send();
+                                                                        };
+
+                                                                        let progsieges1fi = document.querySelector('#psiegesitines1fid');
+                                                                        if (progsieges1fi !== null) 
+                                                                        {
+                                                                            progsieges1fi.onchange = () => 
+                                                                            {
+
+                                                                              const  gareidentiftrans2fi = document.querySelector('#gidtransfid').value;
+                                                                                    __venteFiFillTransitDepart('#transitedepargare2fid', gareidentiftrans2fi);
+                                                                                 const transselitine1fi = document.querySelector('#idcheminsheurfid')
+                                                                                .options[document.querySelector('#idcheminsheurfid').options.selectedIndex].value;
+                                                                                var post_trans1fi = transselitine1fi.split('/');
+                                                                                var itinetras1fi = post_trans1fi[0];
+                                                                    
+                                                                                
+
+                                                                                let httpSieges1fi;
+                                                                                httpSieges1fi = new XMLHttpRequest();
+                                                                                const sigs1fi = document.querySelector('#psiegesitines1fid')
+                                                                                .options[document.querySelector('#psiegesitines1fid').options.selectedIndex].value;
+
+                                                                                httpSieges1fi.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifisieges/${itinetras1fi}/${sigs1fi}`, true);
+                                                                                httpSieges1fi.onload = () => 
+                                                                                {
+                                                                                    const donsge1fi = JSON.parse(httpSieges1fi.responseText);
+                                                                                    console.debug(`${typeof donsge1fi} - ${donsge1fi.attributes}`, console.memory);
+                                                                                    if(donsge1fi == '')
+                                                                                    {
+                                                                                        let httpSiegs1fi;
+                                                                                        httpSiegs1fi = new XMLHttpRequest();
+
+                                                                                        httpSiegs1fi.open('GET', window.location.origin + `${APP_ROOT}/programmes/creersiege/${itinetras1fi}/${sigs1fi}`, true);
+                                                                                        httpSiegs1fi.onload = () => 
+                                                                                        {
+                                                                                            const dong1fi = JSON.parse(httpSiegs1fi.responseText);
+                                                                                            document.querySelector('#messfid').style.display = 'none';
+                                                                                            if (Object.entries(dong1fi).length >= 1)
+                                                                                                {
+                                                                                                    for (let key in Object.entries(dong1fi)) {
+                                                                                                        document.querySelector('#idtampo1fid').value = `${dong1fi[key].idtamp}`;                    
+                                                                                                        document.querySelector('#siegselect1fid').value = `${dong1fi[key].numsieg}`;
+                                                                                                    }
+                                                                                                }
+                                                                                        };
+                                                                                        httpSiegs1fi.setRequestHeader('Content-Type', 'application/json');
+                                                                                        httpSiegs1fi.send();
+                                                                                    }
+                                                                                    else {
+                                                                                        document.querySelector('#psiegesitines1fid').value = '';     
+                                                                                        if (Object.entries(donsge1fi).length >= 1)
+                                                                                        {
+                                                                                            for (let key in Object.entries(donsge1fi)) {
+                                                                                                document.querySelector('#idtampo1fid').value = `${donsge1fi[key].idtamp}`;                    
+                                                                                                document.querySelector('#siegselect1fid').value = `${donsge1fi[key].numsieg}`;
+                                                                                            }
+
+                                                                                        }
+                                                                                        document.querySelector('#messfid').style.display = 'block';
+                                                                                        document.querySelector('#erreurMessfid').innerHTML = `Siege déjà utilisé.`;                                                                   }
+                                                                                };
+                                                                                httpSieges1fi.setRequestHeader('Content-Type', 'application/json');
+                                                                                httpSieges1fi.send();
+
+                                                                            };
+                                                                        }
+                                                                }
+                                                                let progchemin1fi = document.querySelector('#idchemins1fid');
+                                                                if (progchemin1fi !== null) 
+                                                                {
+                                                                    progchemin1fi.onchange = () => 
+                                                                    {
+                                                                        document.querySelector('#idcheminsheur1fid').options.length = 1;
+                                                                        document.querySelector('#psiegesitines2fid').options.length = 1;
+                                                                       
+                                                                        const prostranschemin32fi = document.querySelector('#idchemins1fid')
+                                                                        .options[document.querySelector('#idchemins1fid').options.selectedIndex].value;
+
+                                                                        var post_typgare32fi = prostranschemin32fi.split('-');
+                                                                        var seltypgare32fi = post_typgare32fi[0];
+                                                                        var typgaresel31fi = post_typgare32fi[1];
+                                                                        
+                                                                        let httpSiegeschemin1fi;
+                                                                        httpSiegeschemin1fi = new XMLHttpRequest();
+
+                                                                        var datedepartfi = document.querySelector('#date_depheurefid').value;
+                                                                        const prostranschemin1fi = document.querySelector('#idchemins1fid')
+                                                                        .options[document.querySelector('#idchemins1fid').options.selectedIndex].value;
+
+                                                                        httpSiegeschemin1fi.open('GET', window.location.origin + `${APP_ROOT}/programmes/chemin/${prostranschemin1fi}/${datedepartfi}`, true);
+                                                                        httpSiegeschemin1fi.onload = () => 
+                                                                        {
+                                                                
+                                                                                    const dongtranschem1fi = JSON.parse(httpSiegeschemin1fi.responseText);
+                                                                                    __venteFiFillCheminHeures('idcheminsheur1fid', dongtranschem1fi, 'tr3');
+                                                                        };
+                                                                        httpSiegeschemin1fi.setRequestHeader('Content-Type', 'application/json');
+                                                                        httpSiegeschemin1fi.send();
+
+                                                                    };
+                                                                      let prochemintra1fi = document.querySelector('#idcheminsheur1fid');
+                                                                    if (prochemintra1fi !== null)
+                                                                        __venteFiWireCheminHeur('idcheminsheur1fid', 'tr3'); if (false) prochemintra1fi.onchange = () => 
+                                                                        {  
+                                                                           
+                                                                            document.querySelector('#psiegesitines2fid').options.length = 1;
+                                                                       
+
+                                                                            const httpPrixittransite1fi = new XMLHttpRequest();
+                                                                                const transselitine1fi = document.querySelector('#idcheminsheur1fid')
+                                                                            .options[document.querySelector('#idcheminsheur1fid').options.selectedIndex].value;
+                                                                                var post_trans1fi = transselitine1fi.split('/');
+                                                                            var itinetras1fi = post_trans1fi[0];
+                                                                            var dbitra1fi = post_trans1fi[1];
+                                                                            var fnitra1fi = post_trans1fi[2];
+                                                                            var lhertra1fi = post_trans1fi[3];
+                                                                            var prixtra1fi = post_trans1fi[4];
+
+                                                                                httpPrixittransite1fi.open('GET', window.location.origin + `${APP_ROOT}/programmes/siegdispotrans/${itinetras1fi}`, true);
+                                                                                httpPrixittransite1fi.onload = () => 
+                                                                                {
+                                                                                    const donprixitran1fi = JSON.parse(httpPrixittransite1fi.responseText);
+                                                                                    if (Object.entries(donprixitran1fi).length >= 1) {
+                                                                                        for (let key in Object.entries(donprixitran1fi)) 
+                                                                                        {
+                                                                                            document.querySelector('#catetransit1fid').value = `${donprixitran1fi[key].categori}`;
+                                                                                            document.querySelector('#gidtrans1fid').value =  `${donprixitran1fi[key].gareidentif}`;
+                                                                                            document.querySelector('#nomitintrans2fid').value = `${donprixitran1fi[key].nom_ligne}`;
+                                                                                            document.querySelector('#ligntrans2fid').value = `${donprixitran1fi[key].ident_ligne}`;
+                                                                                        }
+                                                                                    }
+                                                                                };
+                                                                                httpPrixittransite1fi.setRequestHeader('Content-Type', 'application/json');
+                                                                                httpPrixittransite1fi.send();
+                                                                      
+                                                                              
+                                                                               
+                                                                                const httpRequetteitra1fi = new XMLHttpRequest();
+                                                                        
+                                                                                    httpRequetteitra1fi.open('GET', window.location.origin + `${APP_ROOT}/programmes/siegdisponibletrans/${itinetras1fi}/${dbitra1fi}/${fnitra1fi}`, true);
+                                                                                httpRequetteitra1fi.onload = () => {
+                                                                                    const dattaitra1fi = JSON.parse(httpRequetteitra1fi.responseText);
+                                                                                    console.debug(`${typeof dattaitra1fi} - ${dattaitra1fi.attributes}`, console.memory);
+                                                                                    if (Object.entries(dattaitra1fi).length >= 1) {
+                                                                                        for (let key in Object.entries(dattaitra1fi)) {
+                                                                                            
+                                                                                            let opt = document.createElement('option');
+                                                                                            opt.value = `${dattaitra1fi[key].siege_num}`;
+                                                                                            opt.innerHTML = `${dattaitra1fi[key].siege_num}`;
+                                                                                            document.querySelector('#psiegesitines2fid').add(opt);
+                                                                                            
+                                                                                        }
+                                                                                        
+                                                                                    } else {
+                                                                                        document.querySelector('#psiegesitines2fid').options.length = 1;
+                                                                                    }
+                                                                                };
+                                                                                httpRequetteitra1fi.setRequestHeader('Content-Type', 'application/json');
+                                                                                httpRequetteitra1fi.send();
+                                                                        };
+
+                                                                        let progsieges2fi = document.querySelector('#psiegesitines2fid');
+                                                                        if (progsieges2fi !== null) 
+                                                                        {
+                                                                            progsieges2fi.onchange = () => 
+                                                                            {
+                                                                                    const transselitine2fi = document.querySelector('#idcheminsheur1fid')
+                                                                                .options[document.querySelector('#idcheminsheur1fid').options.selectedIndex].value;
+                                                                                var post_trans2fi = transselitine2fi.split('/');
+                                                                                var itinetras2fi = post_trans2fi[0];
+                                                                                    
+                                                                                    const gareidentiftrans4fi = document.querySelector('#gidtrans1fid').value;
+                                                                                    __venteFiFillTransitDepart('#transitedepargare3fid', gareidentiftrans4fi);
+
+                                                                                let httpSieges2fi;
+                                                                                httpSieges2fi = new XMLHttpRequest();
+                                                                                const sigs2fi = document.querySelector('#psiegesitines2fid')
+                                                                                .options[document.querySelector('#psiegesitines2fid').options.selectedIndex].value;
+
+                                                                                httpSieges2fi.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifisieges/${itinetras2fi}/${sigs2fi}`, true);
+                                                                                httpSieges2fi.onload = () => 
+                                                                                {
+                                                                                    const donsge2fi = JSON.parse(httpSieges2fi.responseText);
+                                                                                    if(donsge2fi == '')
+                                                                                    {
+                                                                                        let httpSiegs2fi;
+                                                                                        httpSiegs2fi = new XMLHttpRequest();
+
+                                                                                        httpSiegs2fi.open('GET', window.location.origin + `${APP_ROOT}/programmes/creersiege/${itinetras2fi}/${sigs2fi}`, true);
+                                                                                        httpSiegs2fi.onload = () => 
+                                                                                        {
+                                                                                            const dong2fi = JSON.parse(httpSiegs2fi.responseText);
+                                                                                            document.querySelector('#messfid').style.display = 'none';
+                                                                                            if (Object.entries(dong2fi).length >= 1)
+                                                                                                {
+                                                                                                    for (let key in Object.entries(dong2fi)) {
+                                                                                                        document.querySelector('#idtampo2fid').value = `${dong2fi[key].idtamp}`;                    
+                                                                                                        document.querySelector('#siegselect2fid').value = `${dong2fi[key].numsieg}`;
+                                                                                                    }
+                                                                                                }
+                                                                                        };
+                                                                                        httpSiegs2fi.setRequestHeader('Content-Type', 'application/json');
+                                                                                        httpSiegs2fi.send();
+                                                                                    }
+                                                                                    else {
+                                                                                        document.querySelector('#psiegesitines2fid').value = '';     
+                                                                                        if (Object.entries(donsge2fi).length >= 1)
+                                                                                        {
+                                                                                            for (let key in Object.entries(donsge2fi)) {
+                                                                                                document.querySelector('#idtampo2fid').value = `${donsge2fi[key].idtamp}`;                    
+                                                                                                document.querySelector('#siegselect2fid').value = `${donsge2fi[key].numsieg}`;
+                                                                                            }
+
+                                                                                        }
+                                                                                        document.querySelector('#messfid').style.display = 'block';
+                                                                                        document.querySelector('#erreurMessfid').innerHTML = `Siege déjà utilisé.`;                                                                   }
+                                                                                };
+                                                                                httpSieges2fi.setRequestHeader('Content-Type', 'application/json');
+                                                                                httpSieges2fi.send();
+
+                                                                            };
+                                                                        }
+                                                                }               
+                                                            }
+
+                                                            //troisieme itineraire
+                                                            if(i === 4)
+                                                            {
+                                                                document.querySelector('#itinecodesfid').value = `${donitinesfi[0].id_lignes}`;
+
+                                                                    var typgare1fi = (donitinesfi[0] && donitinesfi[0].code_itineraires) ? String(donitinesfi[0].code_itineraires) : (document.querySelector('#itinecodefid').value || '');
+                                                                var post_typgare1fi = typgare1fi.split('-');
+                                                                var seltypgare1fi = post_typgare1fi[0];
+                                                                var typgareselfi = post_typgare1fi[1];
+                                                                    let httptypequart1fi;
+                                                                    httptypequart1fi = new XMLHttpRequest();
+                                                                    
+                                                                    httptypequart1fi.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifquartr/${typgareselfi}`, true);
+                                                                    httptypequart1fi.onload = () => 
+                                                                    {
+                                                                        const donqua1fi = JSON.parse(httptypequart1fi.responseText);
+                                                                        if (donqua1fi == '') {
+                                                                            document.querySelector('#quartier1fid').options.length = 1;
+                                                                        }
+                                                                        else{
+                                                                            if (Object.entries(donqua1fi).length >= 1) {
+                                                                                            
+                                                                                for (let key in Object.entries(donqua1fi)) {
+                                                                                    let optq = document.createElement('option');
+                                                                                    optq.value = `${donqua1fi[key].nom_quartier}`;
+                                                                                    optq.innerHTML = `${donqua1fi[key].nom_quartier}`;
+                                                                                    document.querySelector('#quartier1fid').add(optq);
+                                                                                }
+                                                                            } else {
+                                                                                document.querySelector('#quartier1fid').options.length = 1;
+                                                                            }
+                                                                        }
+                                                                        
+
+                                                                    };
+                                                                    httptypequart1fi.setRequestHeader('Content-Type', 'application/json');
+                                                                    httptypequart1fi.send();
+
+                                                                let hrdepartine1fi = document.querySelector('#hdepartitinefid');
+                                                                if (hrdepartine1fi !== null) {
+                                                                    hrdepartine1fi.onchange = () => 
+                                                                    {
+                                                                        document.querySelector('#psiegesitinesfid').options.length = 1;
+                                                                        const httpRequestit1fi = new XMLHttpRequest();
+                                                                        const seleitine1fi = document.querySelector('#hdepartitinefid')
+                                                                            .options[document.querySelector('#hdepartitinefid').options.selectedIndex].value;
+
+                                                                            var post_lhitine1fi = seleitine1fi.split('/');
+                                                                            var selitine1fi = post_lhitine1fi[0];
+                                                                            var lhselitine1fi = post_lhitine1fi[1];
+
+                                                                            const dpt_dateitine1fi = document.querySelector('#date_depheurefid').value;
+                                                                            var itinproit1fi = document.querySelector('#itinecodefid').value;
+                                                                        httpRequestit1fi.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifprog/${itinproit1fi}/${dpt_dateitine1fi}/${selitine1fi}`, true);
+                                                                        httpRequestit1fi.onload = () => 
+                                                                        {
+                                                                            const donit1fi = JSON.parse(httpRequestit1fi.responseText);
+                                                                                console.debug(`${typeof donit1fi} - ${donit1fi.attributes}`, console.memory);
+
+                                                                                if (__venteFiHandleTransit1ProgList(donit1fi, selitine1fi, dpt_dateitine1fi)) { return; }
+                                                                                if (donit1fi == '') 
+                                                                                {
+                                                                                    
+                                                                                        let opt = document.createElement('option');
+                                                                                        opt.value = '';                                                             
+                                                                                   
+                                                                                    
+                                                                                    
+                                                                                } 
+                                                                                else 
+                                                                                {       
+                                                                                    if (Object.entries(donit1fi).length >= 1) {
+                                                                                        for (let key in Object.entries(donit1fi)) {
+                                                                                            document.querySelector('#programtransfid').value = `${donit1fi[key].code_progr}`;
+                                                                                            document.querySelector('#dateprtransfid').value = `${donit1fi[key].date_progr}`;
+                                                                                            document.querySelector('#deplignetransfid').value = `${donit1fi[key].gareidentif}`;
+                                                                                            document.querySelector('#intertrans1fid').value = `${donit1fi[key].intervalle1}`;
+                                                                                            document.querySelector('#intertrans2fid').value = `${donit1fi[key].intervalle2}`;
+                                                                                            document.querySelector('#ligntransfid').value = `${donit1fi[key].ident_ligne}`;
+                                                                                            document.querySelector('#nomitintransfid').value = `${donit1fi[key].nom_ligne}`;
+                                                                                            document.querySelector('#hertransfid').value = `${donit1fi[key].heure}`;
+                                                                                            document.querySelector('#catetransfid').value = `${donit1fi[key].categori}`;
+
+                                                                                        }
+                                                                                        __venteFiMaybeStartCheminCascade();
+                                                                                    } 
+                                                                                    
+                                                                                    
+                                                                                    const seleitinefi = document.querySelector('#hdepartitinefid')
+                                                                                    .options[document.querySelector('#hdepartitinefid').options.selectedIndex].value;
+
+                                                                                    var post_lhitinefi = seleitinefi.split('/');
+                                                                                    var selitinefi = post_lhitinefi[0];
+                                                                                    var lhselitinefi = post_lhitinefi[1];
+
+                                                                                    
+
+                                                                                    
+
+                                                                                    const httpRequetteitfi = new XMLHttpRequest();
+                                                                                    const cdprogitfi = document.querySelector('#programtransfid').value;
+                                                                                    const dbitfi = document.querySelector('#intertrans1fid').value;
+                                                                                    const fnitfi = document.querySelector('#intertrans2fid').value;
+                                                                                    const lgitfi = document.querySelector('#nomitintransfid').value;
+                                                                                    const timitfi = document.querySelector('#hertransfid').value;
+                                                                                    const dpt_dateitinefi = document.querySelector('#date_depheurefid').value;
+                                                                                        httpRequetteitfi.open('GET', window.location.origin + `${APP_ROOT}/programmes/siegdisponible/${cdprogitfi}/${dpt_dateitinefi}/${lgitfi}/${timitfi}/${dbitfi}/${fnitfi}`, true);
+                                                                                    httpRequetteitfi.onload = () => {
+                                                                                        const dattaitfi = JSON.parse(httpRequetteitfi.responseText);
+                                                                                        console.debug(`${typeof dattaitfi} - ${dattaitfi.attributes}`, console.memory);
+                                                                                        if (Object.entries(dattaitfi).length >= 1) {
+                                                                                            for (let key in Object.entries(dattaitfi)) {
+                                                                                                
+                                                                                                let opt = document.createElement('option');
+                                                                                                opt.value = `${dattaitfi[key].siege_num}`;
+                                                                                                opt.innerHTML = `${dattaitfi[key].siege_num}`;
+                                                                                                document.querySelector('#psiegesitinesfid').add(opt);
+                                                                                                
+                                                                                            }
+                                                                                            
+                                                                                        } else {
+                                                                                            document.querySelector('#psiegesitinesfid').options.length = 1;
+                                                                                        }
+                                                                                    };
+                                                                                    httpRequetteitfi.setRequestHeader('Content-Type', 'application/json');
+                                                                                    httpRequetteitfi.send();
+
+                                                                                }  
+                                                                                
+                                                                        };
+                                                                        httpRequestit1fi.setRequestHeader('Content-Type', 'application/json');
+                                                                        httpRequestit1fi.send();
+                                                                         
+                                                                    };
+                                                                    
+                                                            
+                                                                }
+                                                                let progsiegestransfi = document.querySelector('#psiegesitinesfid');
+                                                                if (progsiegestransfi !== null) {
+                                                                    progsiegestransfi.onchange = () => 
+                                                                    {
+
+                                                                       const gareidentiftrans1fi = document.querySelector('#deplignetransfid').value;
+                                                                                    __venteFiFillTransitDepart('#transitedepargare1fid', gareidentiftrans1fi);
+                                                                        let httpSiegestrans1fi;
+                                                                        httpSiegestrans1fi = new XMLHttpRequest();
+                                                                        const sigstransfi = document.querySelector('#psiegesitinesfid')
+                                                                        .options[document.querySelector('#psiegesitinesfid').options.selectedIndex].value;
+                                                                        const prostransfi = document.querySelector('#programtransfid').value;
+
+                                                                        httpSiegestrans1fi.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifisieges/${prostransfi}/${sigstransfi}`, true);
+                                                                        httpSiegestrans1fi.onload = () => 
+                                                                        {
+                                                                            const donsgetransfi = JSON.parse(httpSiegestrans1fi.responseText);
+                                                                            console.debug(`${typeof donsgetransfi} - ${donsgetransfi.attributes}`, console.memory);
+                                                                            if(donsgetransfi == '')
+                                                                            {
+                                                                                let httpSiegstransfi;
+                                                                                httpSiegstransfi = new XMLHttpRequest();
+
+                                                                                httpSiegstransfi.open('GET', window.location.origin + `${APP_ROOT}/programmes/creersiege/${prostransfi}/${sigstransfi}`, true);
+                                                                                httpSiegstransfi.onload = () => 
+                                                                                {
+                                                                                    const dongtransfi = JSON.parse(httpSiegstransfi.responseText);
+                                                                                    document.querySelector('#messfid').style.display = 'none';
+                                                                                    if (Object.entries(dongtransfi).length >= 1)
+                                                                                        {
+                                                                                            for (let key in Object.entries(dongtransfi)) {
+                                                                                                document.querySelector('#idtampotransfid').value = `${dongtransfi[key].idtamp}`;                    
+                                                                                                document.querySelector('#siegselecttransfid').value = `${dongtransfi[key].numsieg}`;
+                                                                                            }
+                                                                                        }
+                                                                                };
+                                                                                httpSiegstransfi.setRequestHeader('Content-Type', 'application/json');
+                                                                                httpSiegstransfi.send();
+                                                                            }
+                                                                            else {
+                                                                                document.querySelector('#psiegesitinesfid').value = '';     
+                                                                                if (Object.entries(donsgetransfi).length >= 1)
+                                                                                {
+                                                                                    for (let key in Object.entries(donsgetransfi)) {
+                                                                                        document.querySelector('#idtampotransfid').value = `${donsgetransfi[key].idtamp}`;                    
+                                                                                        document.querySelector('#siegselecttransfid').value = `${donsgetransfi[key].numsieg}`;
+                                                                                    }
+
+                                                                                }
+                                                                                document.querySelector('#messfid').style.display = 'block';
+                                                                                document.querySelector('#erreurMessfid').innerHTML = `Siege déjà utilisé.`;                                                                   }
+                                                                        };
+                                                                        httpSiegestrans1fi.setRequestHeader('Content-Type', 'application/json');
+                                                                        httpSiegestrans1fi.send();
+
+                                                                    
+                                                                    };
+                                                                }
+                                                                //premier transite
+                                                                let progcheminfi = document.querySelector('#idcheminsfid');
+                                                                if (progcheminfi !== null) 
+                                                                {
+                                                                    progcheminfi.onchange = () => 
+                                                                    {
+
+                                                                        document.querySelector('#idcheminsheurfid').options.length = 1;
+                                                                        document.querySelector('#psiegesitines1fid').options.length = 1;
+                                                                       
+
+                                                                        var datedepartfi = document.querySelector('#date_depheurefid').value;
+                                                                        
+                                                                        const prostranscheminfi = document.querySelector('#idcheminsfid')
+                                                                        .options[document.querySelector('#idcheminsfid').options.selectedIndex].value;
+
+                                                                        var post_typgare2fi = prostranscheminfi.split('-');
+                                                                        var seltypgare2fi = post_typgare2fi[0];
+                                                                        var typgaresel1fi = post_typgare2fi[1];
+                                                                        let httptypequart2fi;
+                                                                        httptypequart2fi = new XMLHttpRequest();
+                                                                        
+                                                                        httptypequart2fi.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifquartr/${typgaresel1fi}`, true);
+                                                                        httptypequart2fi.onload = () => 
+                                                                        {
+                                                                            const donqua2fi = JSON.parse(httptypequart2fi.responseText);
+                                                                            if (donqua2fi == '') {
+                                                                                document.querySelector('#quartier2fid').options.length = 1;
+                                                                            }
+                                                                            else{
+                                                                                if (Object.entries(donqua2fi).length >= 1) {
+                                                                                                
+                                                                                    for (let key in Object.entries(donqua2fi)) {
+                                                                                        let optq1 = document.createElement('option');
+                                                                                        optq1.value = `${donqua2fi[key].nom_quartier}`;
+                                                                                        optq1.innerHTML = `${donqua2fi[key].nom_quartier}`;
+                                                                                        document.querySelector('#quartier2fid').add(optq1);
+                                                                                    }
+                                                                                } else {
+                                                                                    document.querySelector('#quartier2fid').options.length = 1;
+                                                                                }
+                                                                            }
+                                                                            
+
+                                                                        };
+                                                                        httptypequart2fi.setRequestHeader('Content-Type', 'application/json');
+                                                                        httptypequart2fi.send();
+                                                                        
+                                                                        let httpSiegescheminfi;
+                                                                        httpSiegescheminfi = new XMLHttpRequest();
+                                                                        
+                                                                        httpSiegescheminfi.open('GET', window.location.origin + `${APP_ROOT}/programmes/chemin/${prostranscheminfi}/${datedepartfi}`, true);
+                                                                        httpSiegescheminfi.onload = () => 
+                                                                        {
+                                                                
+                                                                                    const dongtranschemfi = JSON.parse(httpSiegescheminfi.responseText);
+                                                                                    __venteFiFillCheminHeures('idcheminsheurfid', dongtranschemfi, 'tr2');
+                                                                        };
+                                                                        httpSiegescheminfi.setRequestHeader('Content-Type', 'application/json');
+                                                                        httpSiegescheminfi.send();
+
+                                                                    };
+                                                                        let prochemintrafi = document.querySelector('#idcheminsheurfid');
+                                                                        if (prochemintrafi !== null){
+                                                                            __venteFiWireCheminHeur('idcheminsheurfid', 'tr2'); if (false) prochemintrafi.onchange = () => 
+                                                                            {  
+                                                                                
+                                                                                document.querySelector('#psiegesitines1fid').options.length = 1;
+                                                                                const httpPrixittransitefi = new XMLHttpRequest();
+                                                                                    const transselitinefi = document.querySelector('#idcheminsheurfid')
+                                                                                .options[document.querySelector('#idcheminsheurfid').options.selectedIndex].value;
+                                                                                    var post_transfi = transselitinefi.split('/');
+                                                                                var itinetrasfi = post_transfi[0];
+                                                                                var dbitrafi = post_transfi[1];
+                                                                                var fnitrafi = post_transfi[2];
+                                                                                var lhertrafi = post_transfi[3];
+                                                                                var prixtrafi = post_transfi[4];
+
+                                                                                    httpPrixittransitefi.open('GET', window.location.origin + `${APP_ROOT}/programmes/siegdispotrans/${itinetrasfi}`, true);
+                                                                                    httpPrixittransitefi.onload = () => 
+                                                                                    {
+                                                                                        const donprixitranfi = JSON.parse(httpPrixittransitefi.responseText);
+                                                                                        console.debug(`${typeof donprixitranfi}-${donprixitranfi.attributes}`, console.memory);
+                                                                                        if (Object.entries(donprixitranfi).length >= 1) {
+                                                                                            for (let key in Object.entries(donprixitranfi)) 
+                                                                                            {
+                                                                                                document.querySelector('#catetransitfid').value = `${donprixitranfi[key].categori}`;
+                                                                                                document.querySelector('#gidtransfid').value =  `${donprixitranfi[key].gareidentif}`;
+                                                                                                document.querySelector('#nomitintrans1fid').value = `${donprixitranfi[key].nom_ligne}`;
+                                                                                                document.querySelector('#ligntrans1fid').value = `${donprixitranfi[key].ident_ligne}`;
+                                                                                            }
+                                                                                        }
+                                                                                    };
+                                                                                    httpPrixittransitefi.setRequestHeader('Content-Type', 'application/json');
+                                                                                    httpPrixittransitefi.send();
+                                                                          
+
+                                                                                    
+                                                                                    const httpRequetteitrafi = new XMLHttpRequest();
+                                                                            
+                                                                                        httpRequetteitrafi.open('GET', window.location.origin + `${APP_ROOT}/programmes/siegdisponibletrans/${itinetrasfi}/${dbitrafi}/${fnitrafi}`, true);
+                                                                                    httpRequetteitrafi.onload = () => {
+                                                                                        const dattaitrafi = JSON.parse(httpRequetteitrafi.responseText);
+                                                                                        console.debug(`${typeof dattaitrafi} - ${dattaitrafi.attributes}`, console.memory);
+                                                                                        if (Object.entries(dattaitrafi).length >= 1) {
+                                                                                            for (let key in Object.entries(dattaitrafi)) {
+                                                                                                
+                                                                                                let opt = document.createElement('option');
+                                                                                                opt.value = `${dattaitrafi[key].siege_num}`;
+                                                                                                opt.innerHTML = `${dattaitrafi[key].siege_num}`;
+                                                                                                document.querySelector('#psiegesitines1fid').add(opt);
+                                                                                                
+                                                                                            }
+                                                                                            
+                                                                                        } else {
+                                                                                            document.querySelector('#psiegesitines1fid').options.length = 1;
+                                                                                        }
+                                                                                    };
+                                                                                    httpRequetteitrafi.setRequestHeader('Content-Type', 'application/json');
+                                                                                    httpRequetteitrafi.send();
+                                                                            };
+                                                                        }
+                                                                        let progsieges1fi = document.querySelector('#psiegesitines1fid');
+                                                                        if (progsieges1fi !== null) 
+                                                                        {
+                                                                            progsieges1fi.onchange = () => 
+                                                                            {
+
+                                                                               const gareidentiftrans2fi = document.querySelector('#gidtransfid').value;
+                                                                                    __venteFiFillTransitDepart('#transitedepargare2fid', gareidentiftrans2fi);
+                                                                                
+
+                                                                                    const transselitine1fi = document.querySelector('#idcheminsheurfid')
+                                                                                .options[document.querySelector('#idcheminsheurfid').options.selectedIndex].value;
+                                                                                var post_trans1fi = transselitine1fi.split('/');
+                                                                                var itinetras1fi = post_trans1fi[0];
+                                                                    
+                                                                                let httpSieges1fi;
+                                                                                httpSieges1fi = new XMLHttpRequest();
+                                                                                const sigs1fi = document.querySelector('#psiegesitines1fid')
+                                                                                .options[document.querySelector('#psiegesitines1fid').options.selectedIndex].value;
+
+                                                                                httpSieges1fi.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifisieges/${itinetras1fi}/${sigs1fi}`, true);
+                                                                                httpSieges1fi.onload = () => 
+                                                                                {
+                                                                                    const donsge1fi = JSON.parse(httpSieges1fi.responseText);
+                                                                                    console.debug(`${typeof donsge1fi} - ${donsge1fi.attributes}`, console.memory);
+                                                                                    if(donsge1fi == '')
+                                                                                    {
+                                                                                        let httpSiegs1fi;
+                                                                                        httpSiegs1fi = new XMLHttpRequest();
+
+                                                                                        httpSiegs1fi.open('GET', window.location.origin + `${APP_ROOT}/programmes/creersiege/${itinetras1fi}/${sigs1fi}`, true);
+                                                                                        httpSiegs1fi.onload = () => 
+                                                                                        {
+                                                                                            const dong1fi = JSON.parse(httpSiegs1fi.responseText);
+                                                                                            document.querySelector('#messfid').style.display = 'none';
+                                                                                            if (Object.entries(dong1fi).length >= 1)
+                                                                                                {
+                                                                                                    for (let key in Object.entries(dong1fi)) {
+                                                                                                        document.querySelector('#idtampo1fid').value = `${dong1fi[key].idtamp}`;                    
+                                                                                                        document.querySelector('#siegselect1fid').value = `${dong1fi[key].numsieg}`;
+                                                                                                    }
+                                                                                                }
+                                                                                        };
+                                                                                        httpSiegs1fi.setRequestHeader('Content-Type', 'application/json');
+                                                                                        httpSiegs1fi.send();
+                                                                                    }
+                                                                                    else {
+                                                                                        document.querySelector('#psiegesitines1fid').value = '';     
+                                                                                        if (Object.entries(donsge1fi).length >= 1)
+                                                                                        {
+                                                                                            for (let key in Object.entries(donsge1fi)) {
+                                                                                                document.querySelector('#idtampo1fid').value = `${donsge1fi[key].idtamp}`;                    
+                                                                                                document.querySelector('#siegselect1fid').value = `${donsge1fi[key].numsieg}`;
+                                                                                            }
+
+                                                                                        }
+                                                                                        document.querySelector('#messfid').style.display = 'block';
+                                                                                        document.querySelector('#erreurMessfid').innerHTML = `Siege déjà utilisé.`;                                                                   }
+                                                                                };
+                                                                                httpSieges1fi.setRequestHeader('Content-Type', 'application/json');
+                                                                                httpSieges1fi.send();
+
+                                                                            };
+                                                                        }
+                                                                }
+                                                                //deuxieme transite
+                                                                let progchemin1fi = document.querySelector('#idchemins1fid');
+                                                                if (progchemin1fi !== null) 
+                                                                {
+                                                                    progchemin1fi.onchange = () => 
+                                                                    {
+                                                                        document.querySelector('#idcheminsheur1fid').options.length = 1;
+                                                                        document.querySelector('#psiegesitines2fid').options.length = 1;
+
+                                                                        const prostranschemin32fi = document.querySelector('#idchemins1fid')
+                                                                        .options[document.querySelector('#idchemins1fid').options.selectedIndex].value;
+
+                                                                        var post_typgare32fi = prostranschemin32fi.split('-');
+                                                                        var seltypgare32fi = post_typgare32fi[0];
+                                                                        var typgaresel31fi = post_typgare32fi[1];
+                                                                        let httptypequart32fi;
+                                                                        httptypequart32fi = new XMLHttpRequest();
+                                                                        
+                                                                        httptypequart32fi.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifquartr/${typgaresel31fi}`, true);
+                                                                        httptypequart32fi.onload = () => 
+                                                                        {
+                                                                            const donqua32fi = JSON.parse(httptypequart32fi.responseText);
+                                                                            if (donqua32fi == '') {
+                                                                                document.querySelector('#quartier3fid').options.length = 1;
+                                                                            }
+                                                                            else{
+                                                                                if (Object.entries(donqua32fi).length >= 1) {
+                                                                                                
+                                                                                    for (let key in Object.entries(donqua32fi)) {
+                                                                                        let optq31 = document.createElement('option');
+                                                                                        optq31.value = `${donqua32fi[key].nom_quartier}`;
+                                                                                        optq31.innerHTML = `${donqua32fi[key].nom_quartier}`;
+                                                                                        document.querySelector('#quartier3fid').add(optq31);
+                                                                                    }
+                                                                                } else {
+                                                                                    document.querySelector('#quartier3fid').options.length = 1;
+                                                                                }
+                                                                            }
+                                                                            
+
+                                                                        };
+                                                                        httptypequart32fi.setRequestHeader('Content-Type', 'application/json');
+                                                                        httptypequart32fi.send();
+                                                                        
+                                                                        let httpSiegeschemin1fi;
+                                                                        httpSiegeschemin1fi = new XMLHttpRequest();
+                                                                        
+                                                                        var datedepartfi = document.querySelector('#date_depheurefid').value;
+                                                                        const prostranschemin1fi = document.querySelector('#idchemins1fid')
+                                                                        .options[document.querySelector('#idchemins1fid').options.selectedIndex].value;
+
+                                                                        httpSiegeschemin1fi.open('GET', window.location.origin + `${APP_ROOT}/programmes/chemin/${prostranschemin1fi}/${datedepartfi}`, true);
+                                                                        httpSiegeschemin1fi.onload = () => 
+                                                                        {
+                                                                
+                                                                                    const dongtranschem1fi = JSON.parse(httpSiegeschemin1fi.responseText);
+                                                                                    __venteFiFillCheminHeures('idcheminsheur1fid', dongtranschem1fi, 'tr3');
+                                                                        };
+                                                                        httpSiegeschemin1fi.setRequestHeader('Content-Type', 'application/json');
+                                                                        httpSiegeschemin1fi.send();
+
+                                                                    };
+                                                                       let prochemintra1fi = document.querySelector('#idcheminsheur1fid');
+                                                                    if (prochemintra1fi !== null)
+                                                                        __venteFiWireCheminHeur('idcheminsheur1fid', 'tr3'); if (false) prochemintra1fi.onchange = () => 
+                                                                        {  
+                                                                            
+                                                                            document.querySelector('#psiegesitines2fid').options.length = 1;
+
+                                                                            const httpPrixittransite1fi = new XMLHttpRequest();
+                                                                                const transselitine1fi = document.querySelector('#idcheminsheur1fid')
+                                                                            .options[document.querySelector('#idcheminsheur1fid').options.selectedIndex].value;
+                                                                                var post_trans1fi = transselitine1fi.split('/');
+                                                                            var itinetras1fi = post_trans1fi[0];
+                                                                            var dbitra1fi = post_trans1fi[1];
+                                                                            var fnitra1fi = post_trans1fi[2];
+                                                                            var lhertra1fi = post_trans1fi[3];
+                                                                            var prixtra1fi = post_trans1fi[4];
+
+                                                                                httpPrixittransite1fi.open('GET', window.location.origin + `${APP_ROOT}/programmes/siegdispotrans/${itinetras1fi}`, true);
+                                                                                httpPrixittransite1fi.onload = () => 
+                                                                                {
+                                                                                    const donprixitran1fi = JSON.parse(httpPrixittransite1fi.responseText);
+                                                                                    if (Object.entries(donprixitran1fi).length >= 1) {
+                                                                                        for (let key in Object.entries(donprixitran1fi)) 
+                                                                                        {
+                                                                                            document.querySelector('#catetransit1fid').value = `${donprixitran1fi[key].categori}`;
+                                                                                            document.querySelector('#gidtrans1fid').value =  `${donprixitran1fi[key].gareidentif}`;
+                                                                                            document.querySelector('#nomitintrans2fid').value = `${donprixitran1fi[key].nom_ligne}`;
+                                                                                            document.querySelector('#ligntrans2fid').value = `${donprixitran1fi[key].ident_ligne}`;
+                                                                                        }
+                                                                                    }
+                                                                                };
+                                                                                httpPrixittransite1fi.setRequestHeader('Content-Type', 'application/json');
+                                                                                httpPrixittransite1fi.send();
+                                                                      
+                                                                                
+
+                                                                                const httpRequetteitra1fi = new XMLHttpRequest();
+                                                                        
+                                                                                    httpRequetteitra1fi.open('GET', window.location.origin + `${APP_ROOT}/programmes/siegdisponibletrans/${itinetras1fi}/${dbitra1fi}/${fnitra1fi}`, true);
+                                                                                httpRequetteitra1fi.onload = () => {
+                                                                                    const dattaitra1fi = JSON.parse(httpRequetteitra1fi.responseText);
+                                                                                    if (Object.entries(dattaitra1fi).length >= 1) {
+                                                                                        for (let key in Object.entries(dattaitra1fi)) {
+                                                                                            
+                                                                                            let opt = document.createElement('option');
+                                                                                            opt.value = `${dattaitra1fi[key].siege_num}`;
+                                                                                            opt.innerHTML = `${dattaitra1fi[key].siege_num}`;
+                                                                                            document.querySelector('#psiegesitines2fid').add(opt);
+                                                                                            
+                                                                                        }
+                                                                                        
+                                                                                    } else {
+                                                                                        document.querySelector('#psiegesitines2fid').options.length = 1;
+                                                                                    }
+                                                                                };
+                                                                                httpRequetteitra1fi.setRequestHeader('Content-Type', 'application/json');
+                                                                                httpRequetteitra1fi.send();
+                                                                        };
+
+                                                                       let progsieges2fi = document.querySelector('#psiegesitines2fid');
+                                                                        if (progsieges2fi !== null) 
+                                                                        {
+                                                                            progsieges2fi.onchange = () => 
+                                                                            {
+
+                                                                               const gareidentiftrans4fi = document.querySelector('#gidtrans1fid').value;
+                                                                                __venteFiFillTransitDepart('#transitedepargare3fid', gareidentiftrans4fi);
+                                                                                    const transselitine2fi = document.querySelector('#idcheminsheur1fid')
+                                                                                .options[document.querySelector('#idcheminsheur1fid').options.selectedIndex].value;
+                                                                                var post_trans2fi = transselitine2fi.split('/');
+                                                                                var itinetras2fi = post_trans2fi[0];
+                                                                    
+                                                                                let httpSieges2fi;
+                                                                                httpSieges2fi = new XMLHttpRequest();
+                                                                                const sigs2fi = document.querySelector('#psiegesitines2fid')
+                                                                                .options[document.querySelector('#psiegesitines2fid').options.selectedIndex].value;
+
+                                                                                httpSieges2fi.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifisieges/${itinetras2fi}/${sigs2fi}`, true);
+                                                                                httpSieges2fi.onload = () => 
+                                                                                {
+                                                                                    const donsge2fi = JSON.parse(httpSieges2fi.responseText);
+                                                                                    if(donsge2fi == '')
+                                                                                    {
+                                                                                        let httpSiegs2fi;
+                                                                                        httpSiegs2fi = new XMLHttpRequest();
+
+                                                                                        httpSiegs2fi.open('GET', window.location.origin + `${APP_ROOT}/programmes/creersiege/${itinetras2fi}/${sigs2fi}`, true);
+                                                                                        httpSiegs2fi.onload = () => 
+                                                                                        {
+                                                                                            const dong2fi = JSON.parse(httpSiegs2fi.responseText);
+                                                                                            document.querySelector('#messfid').style.display = 'none';
+                                                                                            if (Object.entries(dong2fi).length >= 1)
+                                                                                                {
+                                                                                                    for (let key in Object.entries(dong2fi)) {
+                                                                                                        document.querySelector('#idtampo2fid').value = `${dong2fi[key].idtamp}`;                    
+                                                                                                        document.querySelector('#siegselect2fid').value = `${dong2fi[key].numsieg}`;
+                                                                                                    }
+                                                                                                }
+                                                                                        };
+                                                                                        httpSiegs2fi.setRequestHeader('Content-Type', 'application/json');
+                                                                                        httpSiegs2fi.send();
+                                                                                    }
+                                                                                    else {
+                                                                                        document.querySelector('#psiegesitines2fid').value = '';     
+                                                                                        if (Object.entries(donsge2fi).length >= 1)
+                                                                                        {
+                                                                                            for (let key in Object.entries(donsge2fi)) {
+                                                                                                document.querySelector('#idtampo2fid').value = `${donsge2fi[key].idtamp}`;                    
+                                                                                                document.querySelector('#siegselect2fid').value = `${donsge2fi[key].numsieg}`;
+                                                                                            }
+
+                                                                                        }
+                                                                                        document.querySelector('#messfid').style.display = 'block';
+                                                                                        document.querySelector('#erreurMessfid').innerHTML = `Siege déjà utilisé.`;                                                                   }
+                                                                                };
+                                                                                httpSieges2fi.setRequestHeader('Content-Type', 'application/json');
+                                                                                httpSieges2fi.send();
+
+                                                                            };
+                                                                        }
+                                                                }   
+
+                                                                //troisieme transite
+                                                               let progchemin2fi = document.querySelector('#idchemins2fid');
+                                                                if (progchemin2fi !== null) 
+                                                                {
+                                                                    progchemin2fi.onchange = () => 
+                                                                    {
+                                                                        document.querySelector('#idcheminsheur2fid').options.length = 1;
+                                                                        document.querySelector('#psiegesitines3fid').options.length = 1;
+
+                                                                        const prostranschemin42fi = document.querySelector('#idchemins2fid')
+                                                                        .options[document.querySelector('#idchemins2fid').options.selectedIndex].value;
+
+                                                                        var post_typgare42fi = prostranschemin42fi.split('-');
+                                                                        var seltypgare42fi = post_typgare42fi[0];
+                                                                        var typgaresel41fi = post_typgare42fi[1];
+
+                                                                        // Jambe 4 FID : #quartierfid déjà chargé via arrivée — ne pas écraser la sélection.
+                                                                        var qMain4fi = document.querySelector('#quartierfid');
+                                                                        if (typgaresel41fi && qMain4fi && qMain4fi.options.length <= 1) {
+                                                                            var httptypequart4fi = new XMLHttpRequest();
+                                                                            httptypequart4fi.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifquartr/${typgaresel41fi}`, true);
+                                                                            httptypequart4fi.onload = () => {
+                                                                                var donqua4fi = [];
+                                                                                try { donqua4fi = JSON.parse(httptypequart4fi.responseText) || []; } catch (e4) { donqua4fi = []; }
+                                                                                qMain4fi.options.length = 1;
+                                                                                var keep4fi = qMain4fi.value || '';
+                                                                                if (donqua4fi && Object.entries(donqua4fi).length >= 1) {
+                                                                                    for (let key in Object.entries(donqua4fi)) {
+                                                                                        let optq4 = document.createElement('option');
+                                                                                        optq4.value = `${donqua4fi[key].nom_quartier}`;
+                                                                                        optq4.innerHTML = `${donqua4fi[key].nom_quartier}`;
+                                                                                        qMain4fi.add(optq4);
+                                                                                    }
+                                                                                }
+                                                                                if (keep4fi) qMain4fi.value = keep4fi;
+                                                                            };
+                                                                            httptypequart4fi.setRequestHeader('Content-Type', 'application/json');
+                                                                            httptypequart4fi.send();
+                                                                        }
+
+                                                                        let httpSiegeschemin2fi;
+                                                                        httpSiegeschemin2fi = new XMLHttpRequest();
+                                                                        const prostranschemin2fi = document.querySelector('#idchemins2fid')
+                                                                        .options[document.querySelector('#idchemins2fid').options.selectedIndex].value;
+
+                                                                        var datedepartfi = document.querySelector('#date_depheurefid').value;
+                                                                        
+                                                                        httpSiegeschemin2fi.open('GET', window.location.origin + `${APP_ROOT}/programmes/chemin/${prostranschemin2fi}/${datedepartfi}`, true);
+                                                                        httpSiegeschemin2fi.onload = () => 
+                                                                        {
+                                                                
+                                                                                    const dongtranschem2fi = JSON.parse(httpSiegeschemin2fi.responseText);
+                                                                                    __venteFiFillCheminHeures('idcheminsheur2fid', dongtranschem2fi, 'tr4');
+                                                                        };
+                                                                        httpSiegeschemin2fi.setRequestHeader('Content-Type', 'application/json');
+                                                                        httpSiegeschemin2fi.send();
+
+                                                                    };
+                                                                      let prochemintra2fi = document.querySelector('#idcheminsheur2fid');
+                                                                    if (prochemintra2fi !== null)
+                                                                        __venteFiWireCheminHeur('idcheminsheur2fid', 'tr4'); if (false) prochemintra2fi.onchange = () => 
+                                                                        {  
+                                                                            
+                                                                            document.querySelector('#psiegesitines3fid').options.length = 1;
+
+                                                                            const httpPrixittransite2fi = new XMLHttpRequest();
+                                                                                const transselitine2fi = document.querySelector('#idcheminsheur2fid')
+                                                                            .options[document.querySelector('#idcheminsheur2fid').options.selectedIndex].value;
+                                                                                var post_trans2fi = transselitine2fi.split('/');
+                                                                            var itinetras2fi = post_trans2fi[0];
+                                                                            var dbitra2fi = post_trans2fi[1];
+                                                                            var fnitra2fi = post_trans2fi[2];
+                                                                            var lhertra2fi = post_trans2fi[3];
+                                                                            var prixtra2fi = post_trans2fi[4];
+
+                                                                                httpPrixittransite2fi.open('GET', window.location.origin + `${APP_ROOT}/programmes/siegdispotrans/${itinetras2fi}`, true);
+                                                                                httpPrixittransite2fi.onload = () => 
+                                                                                {
+                                                                                    const donprixitran2fi = JSON.parse(httpPrixittransite2fi.responseText);
+                                                                                    if (Object.entries(donprixitran2fi).length >= 1) {
+                                                                                        for (let key in Object.entries(donprixitran2fi)) 
+                                                                                        {
+                                                                                            document.querySelector('#catetransit2fid').value = `${donprixitran2fi[key].categori}`;
+                                                                                            document.querySelector('#gidtrans2fid').value =  `${donprixitran2fi[key].gareidentif}`;
+                                                                                            document.querySelector('#nomitintrans3fid').value = `${donprixitran2fi[key].nom_ligne}`;
+                                                                                            document.querySelector('#ligntrans3fid').value = `${donprixitran2fi[key].ident_ligne}`;
+                                                                                        }
+                                                                                    }
+                                                                                };
+                                                                                httpPrixittransite2fi.setRequestHeader('Content-Type', 'application/json');
+                                                                                httpPrixittransite2fi.send();
+                                                                      
+                                                                                
+
+                                                                                const httpRequetteitra2fi = new XMLHttpRequest();
+                                                                        
+                                                                                    httpRequetteitra2fi.open('GET', window.location.origin + `${APP_ROOT}/programmes/siegdisponibletrans/${itinetras2fi}/${dbitra2fi}/${fnitra2fi}`, true);
+                                                                                httpRequetteitra2fi.onload = () => {
+                                                                                    const dattaitra2fi = JSON.parse(httpRequetteitra2fi.responseText);
+                                                                                    console.debug(`${typeof dattaitra2fi} - ${dattaitra2fi.attributes}`, console.memory);
+                                                                                    if (Object.entries(dattaitra2fi).length >= 1) {
+                                                                                        for (let key in Object.entries(dattaitra2fi)) {
+                                                                                            
+                                                                                            let opt = document.createElement('option');
+                                                                                            opt.value = `${dattaitra2fi[key].siege_num}`;
+                                                                                            opt.innerHTML = `${dattaitra2fi[key].siege_num}`;
+                                                                                            document.querySelector('#psiegesitines3fid').add(opt);
+                                                                                            
+                                                                                        }
+                                                                                        
+                                                                                    } else {
+                                                                                        document.querySelector('#psiegesitines3fid').options.length = 1;
+                                                                                    }
+                                                                                };
+                                                                                httpRequetteitra2fi.setRequestHeader('Content-Type', 'application/json');
+                                                                                httpRequetteitra2fi.send();
+                                                                        };
+
+                                                                       let progsieges3fi = document.querySelector('#psiegesitines3fid');
+                                                                        if (progsieges3fi !== null) 
+                                                                        {
+                                                                            progsieges3fi.onchange = () => 
+                                                                            {
+
+                                                                               const gareidentiftrans5fi = document.querySelector('#gidtrans2fid').value;
+                                                                                __venteFiFillTransitDepart('#transitedepargare4fid', gareidentiftrans5fi);
+                                                                                    const transselitine3fi = document.querySelector('#idcheminsheur2fid')
+                                                                                .options[document.querySelector('#idcheminsheur2fid').options.selectedIndex].value;
+                                                                                var post_trans3fi = transselitine3fi.split('/');
+                                                                                var itinetras3fi = post_trans3fi[0];
+                                                                    
+                                                                                let httpSieges3fi;
+                                                                                httpSieges3fi = new XMLHttpRequest();
+                                                                                const sigs3fi = document.querySelector('#psiegesitines3fid')
+                                                                                .options[document.querySelector('#psiegesitines3fid').options.selectedIndex].value;
+
+                                                                                httpSieges3fi.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifisieges/${itinetras3fi}/${sigs3fi}`, true);
+                                                                                httpSieges3fi.onload = () => 
+                                                                                {
+                                                                                    const donsge3fi = JSON.parse(httpSieges3fi.responseText);
+                                                                                    if(donsge3fi == '')
+                                                                                    {
+                                                                                        let httpSiegs3fi;
+                                                                                        httpSiegs3fi = new XMLHttpRequest();
+
+                                                                                        httpSiegs3fi.open('GET', window.location.origin + `${APP_ROOT}/programmes/creersiege/${itinetras3fi}/${sigs3fi}`, true);
+                                                                                        httpSiegs3fi.onload = () => 
+                                                                                        {
+                                                                                            const dong3fi = JSON.parse(httpSiegs3fi.responseText);
+                                                                                            document.querySelector('#messfid').style.display = 'none';
+                                                                                            if (Object.entries(dong3fi).length >= 1)
+                                                                                                {
+                                                                                                    for (let key in Object.entries(dong3fi)) {
+                                                                                                        document.querySelector('#idtampo3fid').value = `${dong3fi[key].idtamp}`;                    
+                                                                                                        document.querySelector('#siegselect3fid').value = `${dong3fi[key].numsieg}`;
+                                                                                                    }
+                                                                                                }
+                                                                                        };
+                                                                                        httpSiegs3fi.setRequestHeader('Content-Type', 'application/json');
+                                                                                        httpSiegs3fi.send();
+                                                                                    }
+                                                                                    else {
+                                                                                        document.querySelector('#psiegesitines3fid').value = '';     
+                                                                                        if (Object.entries(donsge3fi).length >= 1)
+                                                                                        {
+                                                                                            for (let key in Object.entries(donsge3fi)) {
+                                                                                                document.querySelector('#idtampo3fid').value = `${donsge3fi[key].idtamp}`;                    
+                                                                                                document.querySelector('#siegselect3fid').value = `${donsge3fi[key].numsieg}`;
+                                                                                            }
+
+                                                                                        }
+                                                                                        document.querySelector('#messfid').style.display = 'block';
+                                                                                        document.querySelector('#erreurMessfid').innerHTML = `Siege déjà utilisé.`;                                                                   }
+                                                                                };
+                                                                                httpSieges3fi.setRequestHeader('Content-Type', 'application/json');
+                                                                                httpSieges3fi.send();
+
+                                                                            };
+                                                                        }
+                                                                }            
+                                                            }
+                                                                
+                                                        }
+                                                    }
+
+                                        }; // fin __venteFiApplyTransitLegs
+
+                                // Ne pas ouvrir le transit au clic date.
+
+                                        let hrdepartfi = document.querySelector('#hdepartfid');
+                                        if (hrdepartfi !== null) {
+                                            hrdepartfi.onchange = () => 
+                                            {
+                                                document.querySelector('#psiegesfid').options.length = 1;
+                                                document.querySelector('#typegarefid').value = '';
+                                                __venteFiHideProgSelect();
+                                                const hOptFi = document.querySelector('#hdepartfid').options[document.querySelector('#hdepartfid').options.selectedIndex];
+                                                const selefi = hOptFi ? hOptFi.value : '';
+                                                const hasProgHourFi = hOptFi && hOptFi.getAttribute('data-has-programme') === '1';
+
+                                                // Heure sans départ → correspondances (comme vente guichet).
+                                                if (selefi && !hasProgHourFi) {
+                                                    var messElFi = document.querySelector('#messfid');
+                                                    var errElFi = document.querySelector('#erreurMessfid');
+                                                    if (window.__venteFiHasTransit) {
+                                                        var postLhFi = selefi.split('/');
+                                                        window.__venteSelectedHour = {
+                                                            value: selefi,
+                                                            idLh: postLhFi[0] || '',
+                                                            heure: postLhFi[1] || '',
+                                                            hasProg: false
+                                                        };
+                                                        if (messElFi) messElFi.style.display = 'block';
+                                                        if (errElFi) errElFi.innerHTML = 'Pas de départ à cette heure — correspondances proposées.';
+                                                        __venteFiRequestTransitLegs(seltdepfi, arrfi, datedepartfi, sougidfi, true);
+                                                    } else {
+                                                        __venteFiShowDirectHourUi();
+                                                        if (messElFi) messElFi.style.display = 'block';
+                                                        if (errElFi) errElFi.innerHTML = 'Aucun départ ni correspondance pour cette heure.';
+                                                    }
+                                                    return;
+                                                }
+
+                                                // Heure avec départ : vente directe FI (P/O et champs spécifiques conservés).
+                                                __venteFiShowDirectHourUi();
+                                                if (document.querySelector('#messfid')) document.querySelector('#messfid').style.display = 'none';
+                                                const httpRequestfi = new XMLHttpRequest();
+
+                                                    var post_lhfi = selefi.split('/');
+                                                    var selfi = post_lhfi[0];
+                                                    var lhselfi = post_lhfi[1];
+
+                                                    const dpt_datefi = document.querySelector('#date_depheurefid').value;
+                                                    var typgarefi = document.querySelector('#arrsgarefid').value;
+                                                    const httptypegarefi = new XMLHttpRequest();
+                                                    httptypegarefi.open('GET', window.location.origin + `${APP_ROOT}/programmes/gareprincipale/${typgarefi}/${lhselfi}`, true);
+                                                    httptypegarefi.onload = () => 
+                                                    {
+                                                        const dongarefi = JSON.parse(httptypegarefi.responseText);
+                                                        if (Object.entries(dongarefi).length >= 1)
+                                                        for (let key in Object.entries(dongarefi)) 
+                                                        document.querySelector('#typegarefid').value = `${dongarefi[key].typestatutgare}`;
+                                                    };
+                                                    httptypegarefi.setRequestHeader('Content-Type', 'application/json');
+                                                    httptypegarefi.send();
+
+                                                
+
+
+                                                httpRequestfi.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifprog/${seltdepfi}-${arrfi}/${dpt_datefi}/${selfi}/${sougidfi || '0'}`, true);
+                                                httpRequestfi.onload = () => 
+                                                {
+                                                    var typ_garefi = document.querySelector('#typegarefid').value;    
+                                                    const donfi = JSON.parse(httpRequestfi.responseText);
+                                                        if (__venteFiHandleProgList(donfi, dpt_datefi)) {
+                                                            return;
+                                                        }
+                                                        if (donfi == '' || __venteFiProgListFromResponse(donfi).length === 0) 
+                                                        {
+                                                            if(typ_garefi == 'Principale'){
+                                                                
+                                                                    let opt = document.createElement('option');
+                                                                    opt.value = 1;
+                                                                    opt.innerHTML = 1;
+                                                                    document.querySelector('#psiegesfid').add(opt);
+                                                            
+                                                                    departpsiegesfi = document.querySelector('#psiegesfid');
+                                                                    if (departpsiegesfi !== null) {
+                                                                        departpsiegesfi.onchange = () => 
+                                                                        {
+                                                                            let httpProgfi;
+                                                                            httpProgfi = new XMLHttpRequest();
+                                                                            httpProgfi.open('GET', window.location.origin + `${APP_ROOT}/programmes/creedepart/${seltdepfi}/${dpt_datefi}/${selfi}/${lhselfi}`, true);
+                                                                            httpProgfi.onload = () => 
+                                                                            {
+                                                                                const donsfi = JSON.parse(httpProgfi.responseText);
+                                                                                if (Object.entries(donsfi).length >= 1) {
+                                                                                    for (let key in Object.entries(donsfi)) {
+                                                                                        document.querySelector('#programfid').value = `${donsfi[key].code_progr}`;
+                                                                                        document.querySelector('#catefid').value = `${donsfi[key].categorie}`;
+                                                                                        document.querySelector('#deplignefid').value = `${donsfi[key].gareidentif}`;
+                                                                                        document.querySelector('#lignfid').value = `${donsfi[key].ident_ligne}`;
+                                                                                        document.querySelector('#nomitinfid').value = `${donsfi[key].nom_ligne}`;
+                                                                                    }
+                                                                                        let httpSiegefi;
+                                                                                        httpSiegefi = new XMLHttpRequest();
+                                                                                        const sigfi = document.querySelector('#psiegesfid')
+                                                                                        .options[document.querySelector('#psiegesfid').options.selectedIndex].value;
+                                                                                        const profi = document.querySelector('#programfid').value;
+                                                                                        httpSiegefi.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifisieges/${profi}/${sigfi}`, true);
+                                                                                        httpSiegefi.onload = () => 
+                                                                                        {
+                                                                                            const donsgfi = JSON.parse(httpSiegefi.responseText);
+                                                                                            console.debug(`${typeof donsgfi} - ${donsgfi.attributes}`, console.memory);
+                                                                                            if(donsgfi == '')
+                                                                                            {
+                                                                                                let httpSiegfi;
+                                                                                                httpSiegfi = new XMLHttpRequest();
+                    
+                                                                                                httpSiegfi.open('GET', window.location.origin + `${APP_ROOT}/programmes/creersiege/${profi}/${sigfi}`, true);
+                                                                                                httpSiegfi.onload = () => 
+                                                                                                {
+                                                                                                    const donsg2fi = JSON.parse(httpSiegfi.responseText);
+                                                                                                    document.querySelector('#messfid').style.display = 'none';
+                                                                                                    if (Object.entries(donsg2fi).length >= 1)
+                                                                                                        {
+                                                                                                            for (let key in Object.entries(donsg2fi)) {
+                                                                                                                document.querySelector('#idtampofid').value = `${donsg2fi[key].idtamp}`;                    
+                                                                                                                document.querySelector('#siegselectfid').value = `${donsg2fi[key].numsieg}`;
+                                                                                                            }
+                                                                                                        }
+                                                                                                };
+                                                                                                httpSiegfi.setRequestHeader('Content-Type', 'application/json');
+                                                                                                httpSiegfi.send();
+                                                                                            }
+                                                                                            else 
+                                                                                            {
+                                                                                                document.querySelector('#psiegesfid').value = ''; 
+                                                                                                if (Object.entries(donsgfi).length >= 1)
+                                                                                                {
+                                                                                                    for (let key in Object.entries(donsgfi)) 
+                                                                                                    {
+                                                                                                        document.querySelector('#idtampofid').value = `${donsgfi[key].idtamp}`;                    
+                                                                                                        document.querySelector('#siegselectfid').value = `${donsgfi[key].numsieg}`;
+                                                                                                    }
+        
+                                                                                                }
+                                                                                                document.querySelector('#messfid').style.display = 'block';
+                                                                                                document.querySelector('#erreurMessfid').innerHTML = `Siege déjà utilisé.`;                   
+                                                                                            }
+                                                                                        };
+                                                                                        httpSiegefi.setRequestHeader('Content-Type', 'application/json');
+                                                                                        httpSiegefi.send();
+                    
+                                                                                   
+                                                                                }
+                                                                            };
+                                                                            httpProgfi.setRequestHeader('Content-Type', 'application/json');
+                                                                            httpProgfi.send();
+        
+                                                                            
+                                                                        
+                                                                        };
+        
+                                                                        
+                                                                    }
+                                                            }else{
+                                                                let opt = document.createElement('option');
+                                                                opt.value = '';                                                             
+                                                            }
+                                                            
+                                                            
+                                                        }  
+                                                        
+                                                    };
+                                                    httpRequestfi.setRequestHeader('Content-Type', 'application/json');
+                                                    httpRequestfi.send();
+                                                     
+                                                };
+                                                
+                                        
+                                            }
+                                };
+                                httpRequetesfi.setRequestHeader('Content-Type', 'application/json');
+                                httpRequetesfi.send();
+                        }
+                        else
+                        {
+                            document.querySelector('#date_depheurefid').style.color = "#FF0000";
+                            document.querySelector('#date_depheurefid').style.border = "2px solid #FF0000";
+                            document.querySelector('#smsdtfid').style.display = 'block';
+                            document.querySelector('#erreurSmsdtfid').innerHTML = `Date non valide.`;
+                        }
+                    
+
+                };
+                
+            }
+            let progsiegesfi = document.querySelector('#psiegesfid');
+            if (progsiegesfi !== null) {
+                progsiegesfi.onchange = () => 
+                {
+                    let httpSiegesfi;
+                    httpSiegesfi = new XMLHttpRequest();
+                    const sigsfi = document.querySelector('#psiegesfid')
+                    .options[document.querySelector('#psiegesfid').options.selectedIndex].value;
+                    const prosfi = document.querySelector('#programfid').value;
+
+                    httpSiegesfi.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifisieges/${prosfi}/${sigsfi}`, true);
+                    httpSiegesfi.onload = () => 
+                    {
+                        const donsgefi = JSON.parse(httpSiegesfi.responseText);
+                        console.debug(`${typeof donsgefi} - ${donsgefi.attributes}`, console.memory);
+                        if(donsgefi == '')
+                        {
+                            let httpSiegsfi;
+                            httpSiegsfi = new XMLHttpRequest();
+
+                            httpSiegsfi.open('GET', window.location.origin + `${APP_ROOT}/programmes/creersiege/${prosfi}/${sigsfi}`, true);
+                            httpSiegsfi.onload = () => 
+                            {
+                                const dongfi = JSON.parse(httpSiegsfi.responseText);
+                                document.querySelector('#messfid').style.display = 'none';
+                                if (Object.entries(dongfi).length >= 1)
+                                    {
+                                        for (let key in Object.entries(dongfi)) {
+                                            document.querySelector('#idtampofid').value = `${dongfi[key].idtamp}`;                    
+                                            document.querySelector('#siegselectfid').value = `${dongfi[key].numsieg}`;
+                                        }
+                                    }
+                            };
+                            httpSiegsfi.setRequestHeader('Content-Type', 'application/json');
+                            httpSiegsfi.send();
+                        }
+                        else {
+                            document.querySelector('#psiegesfid').value = '';     
+                            if (Object.entries(donsgefi).length >= 1)
+                            {
+                                for (let key in Object.entries(donsgefi)) {
+                                    document.querySelector('#idtampofid').value = `${donsgefi[key].idtamp}`;                    
+                                    document.querySelector('#siegselectfid').value = `${donsgefi[key].numsieg}`;
+                                }
+
+                            }
+                            document.querySelector('#messfid').style.display = 'block';
+                            document.querySelector('#erreurMessfid').innerHTML = `Siege déjà utilisé.`;                                                                   }
+                    };
+                    httpSiegesfi.setRequestHeader('Content-Type', 'application/json');
+                    httpSiegesfi.send();
+
+                
+                };
+            }
+           
+            let infdocfi = document.querySelector('#cltypefid');
+        if (infdocfi !== null)
+            infdocfi.onchange = () => 
+            {
+                let httpDocsfi;
+                if (window.XMLHttpRequest) {
+                    httpDocsfi = new XMLHttpRequest();
+                } else if (window.ActiveXObject) {
+                    httpDocsfi = new ActiveXObject("Microsoft.XMLHTTP");
+                }
+                var documfi = document.querySelector('#cltypefid').value;
+                
+                if (documfi == 'Adulte') {
+                    document.querySelector('#motiffid').style.display = 'none';
+                    document.querySelector('#motifrefusfid').style.display = 'none';
+                    document.querySelector('#docfid').style.display = 'none';
+                    document.querySelector('#docdelivrefid').style.display = 'none';
+                    document.querySelector('#datedocdelfid').style.display = 'none';
+                    document.querySelector('#num_docfid').style.display = 'none';
+                    document.querySelector('#rclientfid').style.display = 'block';
+                    document.querySelector('#prnclientfid').style.display = 'block';
+                    document.querySelector('#cnibfid').style.display = 'block';
+                    document.querySelector('#date_cnibfid').style.display = 'block';
+                    document.querySelector('#lieudelivrefid').style.display = 'block';
+                    console.debug(`${documfid}`, console.memory);
+
+                } 
+                    if (documfi == 'Etudiant') {
+                        document.querySelector('#docfid').style.display = 'block';
+                        document.querySelector('#num_docfid').style.display = 'block';
+                        document.querySelector('#docdelivrefid').style.display = 'block';
+                        document.querySelector('#datedocdelfid').style.display = 'block';
+                        document.querySelector('#rclientfid').style.display = 'block';
+                        document.querySelector('#prnclientfid').style.display = 'block';
+                        document.querySelector('#cnibfid').style.display = 'none';
+                        document.querySelector('#date_cnibfid').style.display = 'none';
+                        document.querySelector('#lieudelivrefid').style.display = 'none';
+                        console.debug(`${documfi}`, console.memory);
+
+                    } 
+                    if (documfi == 'Elève') {
+                        document.querySelector('#docfid').style.display = 'block';
+                        document.querySelector('#num_docfid').style.display = 'block';
+                        document.querySelector('#docdelivrefid').style.display = 'block';
+                        document.querySelector('#datedocdelfid').style.display = 'block';
+                        document.querySelector('#rclientfid').style.display = 'block';
+                        document.querySelector('#prnclientfid').style.display = 'block';
+                        document.querySelector('#cnibfid').style.display = 'none';
+                        document.querySelector('#date_cnibfid').style.display = 'none';
+                        document.querySelector('#lieudelivrefid').style.display = 'none';
+                        console.debug(`${documfi}`, console.memory);
+
+                    } 
+                    if (documfi == 'Enfant') {
+                        document.querySelector('#docfidfid').style.display = 'block';
+                        document.querySelector('#num_docfid').style.display = 'block';
+                        document.querySelector('#docdelivrefid').style.display = 'block';
+                        document.querySelector('#datedocdelfid').style.display = 'block';
+                        document.querySelector('#rclientfid').style.display = 'block';
+                        document.querySelector('#prnclientfid').style.display = 'block';
+                        document.querySelector('#cnibfid').style.display = 'none';
+                        document.querySelector('#date_cnibfid').style.display = 'none';
+                        document.querySelector('#lieudelivrefid').style.display = 'none';
+                        console.debug(`${documfi}`, console.memory);
+
+                    } 
+                    if (documfi == 'Autres') {
+                        document.querySelector('#motiffid').style.display = 'block';
+                        document.querySelector('#motifrefusfid').style.display = 'block';
+                        document.querySelector('#rclientfid').style.display = 'block';
+                        document.querySelector('#prnclientfid').style.display = 'block';
+                        document.querySelector('#cnibfid').style.display = 'none';
+                        document.querySelector('#date_cnibfid').style.display = 'none';
+                        document.querySelector('#lieudelivrefid').style.display = 'none';
+                        document.querySelector('#docfid').style.display = 'none';
+                        document.querySelector('#num_docfid').style.display = 'none';
+                        document.querySelector('#docdelivrefid').style.display = 'none';
+                        document.querySelector('#datedocdelfid').style.display = 'none';
+                        console.debug(`${documfi}`, console.memory);
+
+                    } 
+                    
+            };
+
+            
+        //recherche d'information du client depart principal
+        let inffi = document.querySelector('#rnclient_contactfid');
+        if (inffi !== null && inffi.dataset.guarded !== '1') {
+            inffi.dataset.guarded = '1';
+            inffi.addEventListener('keyup', () => {
+                const rawPhone = inffi.value.trim();
+                const digits = AppRequestGuard.phoneDigits(rawPhone);
+                if (digits.length < 7) {
+                    return;
+                }
+                AppRequestGuard.debounce('verifinfosfi', () => {
+                    AppRequestGuard.getJson(
+                        window.location.origin + `${APP_ROOT}/programmes/verifinfos/${encodeURIComponent(rawPhone)}`,
+                        'verifinfosfi',
+                        (httpInfosfi) => {
+                            let infosfi = null;
+                            try {
+                                infosfi = JSON.parse(httpInfosfi.responseText);
+                            } catch (err) {
+                                return;
+                            }
+                            if (infosfi == null || Object.keys(infosfi).length < 1) {
+                                document.querySelector('#pascompagniefid').value = '';
+                                return;
+                            }
+                            if (AppRequestGuard.phonesMatch(infosfi.contact_client, rawPhone)) {
+                                document.querySelector('#rclientfid').value = `${infosfi.nom_client || ''}`;
+                                document.querySelector('#prnclientfid').value = `${infosfi.prenom_client || ''}`;
+                                document.querySelector('#cnibfid').value = `${infosfi.num_CNIB || ''}`;
+                                document.querySelector('#date_cnibfid').value = `${infosfi.date_delivre || ''}`;
+                                document.querySelector('#lieudelivrefid').value = `${infosfi.lieu_delivre || ''}`;
+                                document.querySelector('#pascompagniefid').value = `${infosfi.id_client || ''}`;
+                                document.querySelector('#rclientcpfid').value = `${infosfi.nom_client || ''}`;
+                                document.querySelector('#prnclientcpfid').value = `${infosfi.prenom_client || ''}`;
+                                document.querySelector('#cnibcpfid').value = `${infosfi.num_CNIB || ''}`;
+                                document.querySelector('#date_cnibcpfid').value = `${infosfi.date_delivre || ''}`;
+                                document.querySelector('#lieudelivrecpfid').value = `${infosfi.lieu_delivre || ''}`;
+                            } else {
+                                document.querySelector('#pascompagniefid').value = '';
+                            }
+                        }
+                    );
+                }, 400);
+            });
+        }
+            
+            __venteFiWireCancelButton('idresetfid');
+            __venteFiWireCancelButton('idresetfi');
+                
+                e.onclick = function () {   
+                    let taFormfi = document.querySelector('#tafiForm');
+                    
+                    taFormfi.setAttribute('action', `${APP_ROOT}/Programmes/addpassagerfi/${e.dataset.cle_compagnie}`);
+                    AppRequestGuard.ensureNonce('#tafiForm', 'sale_nonce');
+                    AppRequestGuard.guardForm('#tafiForm');
+                }
+
+                var tafiFormEl = document.querySelector('#tafiForm');
+                if (tafiFormEl && !tafiFormEl.dataset.salePrepared) {
+                    tafiFormEl.dataset.salePrepared = '1';
+                    tafiFormEl.addEventListener('submit', function (ev) {
+                        AppRequestGuard.ensureNonce('#tafiForm', 'sale_nonce');
+                        if (!__venteFiValidateTransitPrixBeforeSubmit()) {
+                            ev.preventDefault();
+                            return false;
+                        }
+                    });
+                }
+
+                AppRequestGuard.guardForm('#tafiForm');
+                AppRequestGuard.ensureNonce('#tafiForm', 'sale_nonce');
+                
+    })
+
+});
+;
+/* --- vente-escale-itineraire.js --- */
+/**
+ * Vente guichet / fidélité sur escales (itineraire_escales).
+ * Case « Vente escale » : destination partielle ; pas de quartier (escales sans quartier).
+ * Supporte le formulaire guichet (ids standards) et le formulaire FI (*fid).
+ */
+(function () {
+    'use strict';
+
+    function formatPrix(val) {
+        var n = Number(val);
+        if (!val && val !== 0 && val !== '0') return '';
+        if (isNaN(n)) return String(val);
+        return n.toLocaleString('fr-FR');
+    }
+
+    function appRoot() {
+        return (typeof APP_ROOT !== 'undefined') ? APP_ROOT : '';
+    }
+
+    function $(sel) {
+        return document.querySelector(sel);
+    }
+
+    function codeFromSelect(selId) {
+        var el = $(selId);
+        if (!el || !el.value) {
+            return '';
+        }
+        return String(el.value).split('/')[0].trim();
+    }
+
+    function isPanelVisible(sel) {
+        var tran = $(sel);
+        if (!tran) return false;
+        var d = (tran.style && tran.style.display) || '';
+        if (d === 'none') return false;
+        if (d === 'block' || d === 'flex') return true;
+        return !!(tran.offsetParent || (tran.offsetWidth + tran.offsetHeight > 0));
+    }
+
+    /**
+     * Champ Prix visible (#prix_axe_affiche) :
+     * - vente directe → prix_axe
+     * - correspondance → somme des prix des jambes déjà remplies (selon #nbrtrans)
+     */
+    function syncGuichetPrixAffiche() {
+        var dst = $('#prix_axe_affiche');
+        if (!dst) return;
+
+        var parseMontant = function (raw) {
+            if (raw === null || raw === undefined) return null;
+            var s = String(raw).trim().replace(/\s/g, '').replace(',', '.');
+            if (s === '') return null;
+            var n = Number(s);
+            return isNaN(n) ? null : n;
+        };
+
+        if (isPanelVisible('#tran')) {
+            var nbrEl = $('#nbrtrans');
+            var nbr = nbrEl ? parseInt(nbrEl.value, 10) : 0;
+            if (nbr >= 2) {
+                var ids = [
+                    '#prix_axetrans',
+                    '#prix_axetransit',
+                    '#prix_axetransit1',
+                    '#prix_axetransit2'
+                ];
+                var total = 0;
+                var any = false;
+                var max = Math.min(nbr, ids.length);
+                for (var i = 0; i < max; i++) {
+                    var el = $(ids[i]);
+                    var n = parseMontant(el ? el.value : '');
+                    if (n === null) continue;
+                    total += n;
+                    any = true;
+                }
+                dst.value = any ? formatPrix(total) : '';
+                return;
+            }
+        }
+
+        var src = $('#prix_axe');
+        var v = src ? String(src.value || '').trim() : '';
+        var direct = parseMontant(v);
+        dst.value = direct === null ? '' : formatPrix(direct);
+    }
+
+    window.__venteSyncPrixAffiche = syncGuichetPrixAffiche;
+
+    /** Intercepte les affectations .value sur les champs prix pour maj immédiate de l'affiche. */
+    function watchGuichetPrixInputs() {
+        var proto = HTMLInputElement.prototype;
+        var desc = Object.getOwnPropertyDescriptor(proto, 'value');
+        if (!desc || !desc.set || !desc.get) return;
+
+        var ids = [
+            'prix_axe',
+            'prix_axetrans',
+            'prix_axetransit',
+            'prix_axetransit1',
+            'prix_axetransit2'
+        ];
+
+        ids.forEach(function (id) {
+            var el = document.getElementById(id);
+            if (!el || el._ventePrixWatch) return;
+            el._ventePrixWatch = true;
+            Object.defineProperty(el, 'value', {
+                configurable: true,
+                enumerable: desc.enumerable,
+                get: function () {
+                    return desc.get.call(this);
+                },
+                set: function (v) {
+                    desc.set.call(this, v);
+                    try {
+                        syncGuichetPrixAffiche();
+                    } catch (e) {}
+                }
+            });
+            el.addEventListener('input', syncGuichetPrixAffiche);
+            el.addEventListener('change', syncGuichetPrixAffiche);
+        });
+
+        var nbr = document.getElementById('nbrtrans');
+        if (nbr && !nbr._ventePrixWatch) {
+            nbr._ventePrixWatch = true;
+            nbr.addEventListener('change', syncGuichetPrixAffiche);
+            nbr.addEventListener('input', syncGuichetPrixAffiche);
+        }
+
+        // Passage direct ↔ correspondance (display #tran) → recalcul immédiat.
+        var tran = document.getElementById('tran');
+        if (tran && !tran._ventePrixWatch && typeof MutationObserver !== 'undefined') {
+            tran._ventePrixWatch = true;
+            var mo = new MutationObserver(function () {
+                syncGuichetPrixAffiche();
+            });
+            mo.observe(tran, { attributes: true, attributeFilter: ['style', 'class', 'hidden'] });
+        }
+    }
+
+    var forms = [
+        {
+            key: 'guichet',
+            tran: '#tran',
+            check: '#escale_vente_check',
+            fields: '#escale_dest_fields',
+            select: '#escale_dest_select',
+            help: '#escale_dest_help',
+            idEsc: '#id_escale_vente',
+            codeEsc: '#code_gadest_vente',
+            nomEsc: '#nom_dest_vente',
+            prix: '#prix_axe',
+            prixAffiche: '#prix_axe_affiche',
+            depargare: '#depargare',
+            arrsgare: '#arrsgare',
+            lign: '#lign',
+            nomitin: '#nomitin',
+            date: '#date_depheure',
+            heure: '#hdepart',
+            quartier: '#quartier',
+            quartierLabel: '#idquart',
+            showQuartier: function () {
+                if (typeof window.__venteShowMainQuartier === 'function') {
+                    window.__venteShowMainQuartier();
+                    return;
+                }
+                setQuartierVisibleRaw(this, true);
+            },
+            hideQuartier: function () {
+                if (typeof window.__venteHideMainQuartier === 'function') {
+                    window.__venteHideMainQuartier();
+                    return;
+                }
+                setQuartierVisibleRaw(this, false);
+            }
+        },
+        {
+            key: 'fi',
+            tran: '#tranfid',
+            check: '#escale_vente_check_fid',
+            fields: '#escale_dest_fields_fid',
+            select: '#escale_dest_select_fid',
+            help: '#escale_dest_help_fid',
+            idEsc: '#id_escale_ventefid',
+            codeEsc: '#code_gadest_ventefid',
+            nomEsc: '#nom_dest_ventefid',
+            prix: '#prix_axefid',
+            prixAffiche: null,
+            depargare: '#depargarefid',
+            arrsgare: '#arrsgarefid',
+            lign: '#lignfid',
+            nomitin: '#nomitinfid',
+            date: '#date_depheurefid',
+            heure: '#hdepartfid',
+            quartier: '#quartierfid',
+            quartierLabel: '#idquartfid',
+            showQuartier: function () {
+                setQuartierVisibleRaw(this, true);
+            },
+            hideQuartier: function () {
+                setQuartierVisibleRaw(this, false);
+            }
+        },
+        {
+            key: 'cf',
+            tran: '#trancf',
+            check: '#escale_vente_check_cf',
+            fields: '#escale_dest_fields_cf',
+            select: '#escale_dest_select_cf',
+            help: '#escale_dest_help_cf',
+            idEsc: '#id_escale_ventecf',
+            codeEsc: '#code_gadest_ventecf',
+            nomEsc: '#nom_dest_ventecf',
+            prix: '#prix_axecf',
+            prixAffiche: null,
+            depargare: '#confirm-0 #depargare',
+            arrsgare: null,
+            lign: '#axeconf',
+            nomitin: '#axeconf',
+            date: '#actuel',
+            heure: '#heured',
+            quartier: '#quartconf',
+            quartierLabel: null,
+            showQuartier: function () { setQuartierVisibleRaw(this, true); },
+            hideQuartier: function () { setQuartierVisibleRaw(this, false); }
+        }
+    ];
+
+    function setQuartierVisibleRaw(form, visible) {
+        var wrap = null;
+        var q = $(form.quartier);
+        if (q) wrap = q.closest('.form-group');
+        var label = $(form.quartierLabel);
+        var sel = q;
+        if (!visible && sel && sel.style.display !== 'none') {
+            if (form.key === 'guichet') {
+                window.__venteSavedQuartierValue = sel.value;
+            } else {
+                window.__venteFiSavedQuartierValue = sel.value;
+            }
+        }
+        if (wrap) wrap.style.display = visible ? '' : 'none';
+        if (label) label.style.display = visible ? 'block' : 'none';
+        if (sel) {
+            sel.style.display = visible ? 'block' : 'none';
+            var saved = form.key === 'guichet' ? window.__venteSavedQuartierValue : window.__venteFiSavedQuartierValue;
+            if (visible && saved != null && saved !== '') {
+                sel.value = saved;
+            }
+        }
+    }
+
+    function createMainController(form) {
+        var lastKey = null;
+        var lastCataloguePrix = '';
+        var cache = {};
+
+        function syncPrixAffiche() {
+            if (!form.prixAffiche) return;
+            if (form.key === 'guichet') {
+                syncGuichetPrixAffiche();
+                return;
+            }
+            var src = $(form.prix);
+            var dst = $(form.prixAffiche);
+            if (!dst) return;
+            var v = src ? String(src.value || '').trim() : '';
+            dst.value = v === '' ? '' : formatPrix(v);
+        }
+
+        function isEscaleMode() {
+            if (isPanelVisible(form.tran)) return false;
+            var ck = $(form.check);
+            return !!(ck && ck.checked);
+        }
+
+        function clearEscaleFields() {
+            var idEl = $(form.idEsc);
+            var codeEl = $(form.codeEsc);
+            var nomEl = $(form.nomEsc);
+            if (idEl) idEl.value = '';
+            if (codeEl) codeEl.value = '';
+            if (nomEl) nomEl.value = '';
+        }
+
+        function applyCataloguePrix() {
+            var prixEl = $(form.prix);
+            if (prixEl && lastCataloguePrix !== '') {
+                prixEl.value = lastCataloguePrix;
+            }
+        }
+
+        function setHelp(text, isWarn) {
+            var help = $(form.help);
+            if (!help) return;
+            help.textContent = text;
+            help.className = isWarn ? 'form-text text-danger' : 'form-text text-muted';
+        }
+
+        function parseList(raw) {
+            if (Array.isArray(raw)) return raw;
+            if (raw && typeof raw === 'object') {
+                return Object.keys(raw).map(function (k) { return raw[k]; });
+            }
+            return [];
+        }
+
+        function hasEscaleSelected() {
+            var idEl = $(form.idEsc);
+            return !!(idEl && String(idEl.value || '').trim() !== '');
+        }
+
+        function syncEscaleVisibility() {
+            var fields = $(form.fields);
+            var sel = $(form.select);
+            if (!fields) return;
+
+            if (isEscaleMode()) {
+                fields.style.display = 'block';
+                refresh(true);
+                if (hasEscaleSelected()) {
+                    form.hideQuartier();
+                } else {
+                    form.showQuartier();
+                }
+            } else {
+                fields.style.display = 'none';
+                if (sel) sel.value = '';
+                clearEscaleFields();
+                applyCataloguePrix();
+                form.showQuartier();
+            }
+        }
+
+        function onEscaleChange() {
+            if (!isEscaleMode()) {
+                clearEscaleFields();
+                applyCataloguePrix();
+                form.showQuartier();
+                return;
+            }
+            var sel = $(form.select);
+            if (!sel) return;
+            var opt = sel.options[sel.selectedIndex];
+            if (!opt || !opt.value) {
+                clearEscaleFields();
+                applyCataloguePrix();
+                form.showQuartier();
+                setHelp('Choisissez l\'escale demandée par le client.', false);
+                return;
+            }
+            $(form.idEsc).value = opt.value;
+            $(form.codeEsc).value = opt.getAttribute('data-code') || '';
+            $(form.nomEsc).value = opt.getAttribute('data-nom') || '';
+            var prix = opt.getAttribute('data-prix');
+            if (prix !== null && $(form.prix)) {
+                $(form.prix).value = prix;
+            }
+            form.hideQuartier();
+            setHelp('Escale sélectionnée — prix ' + Number(prix).toLocaleString('fr-FR') + ' F (sans quartier).', false);
+            syncPrixAffiche();
+        }
+
+        function rememberCataloguePrix() {
+            var prixEl = $(form.prix);
+            var idEsc = $(form.idEsc);
+            if (!prixEl) return;
+            if (idEsc && idEsc.value) return;
+            if (prixEl.value !== '') {
+                lastCataloguePrix = prixEl.value;
+            }
+        }
+
+        function fillSelect(escales, ligneNom) {
+            var sel = $(form.select);
+            if (!sel) return;
+
+            var prev = sel.value;
+            sel.options.length = 0;
+            var placeholder = document.createElement('option');
+            placeholder.value = '';
+            placeholder.textContent = ligneNom
+                ? ('Choisissez l\'escale (' + ligneNom + ')')
+                : 'Choisissez l\'escale';
+            sel.add(placeholder);
+
+            if (!escales || !escales.length) {
+                clearEscaleFields();
+                setHelp('Aucune escale configurée sur ce trajet parent.', true);
+                return;
+            }
+
+            for (var i = 0; i < escales.length; i++) {
+                var e = escales[i];
+                var opt = document.createElement('option');
+                opt.value = e.id_escale;
+                opt.setAttribute('data-code', e.code_gadest || '');
+                opt.setAttribute('data-nom', e.nom_escale || e.arrivee_escale || '');
+                opt.setAttribute('data-prix', e.prix_escale);
+                var label = e.nom_escale || e.arrivee_escale || e.code_gadest;
+                opt.textContent = label + ' — ' + Number(e.prix_escale).toLocaleString('fr-FR') + ' F';
+                sel.add(opt);
+            }
+
+            setHelp(escales.length + ' escale(s) disponible(s) — sans quartier.', false);
+
+            if (prev) {
+                sel.value = prev;
+                if (sel.value === prev) {
+                    onEscaleChange();
+                } else {
+                    clearEscaleFields();
+                }
+            } else {
+                clearEscaleFields();
+            }
+        }
+
+        function loadByOd(gaexp, gadest) {
+            if (!gaexp || !gadest) {
+                fillSelect([], '');
+                setHelp('Choisissez d\'abord l\'arrivée finale (ex. BOBO).', false);
+                return;
+            }
+            var key = 'od:' + gaexp + '>' + gadest;
+            if (cache[key]) {
+                var cached = cache[key];
+                fillSelect(cached, (cached[0] && cached[0].nom_ligne) || '');
+                return;
+            }
+            setHelp('Chargement des escales…', false);
+            var xhr = new XMLHttpRequest();
+            xhr.open(
+                'GET',
+                window.location.origin + appRoot() + '/programmes/verifescalesod/' +
+                    encodeURIComponent(gaexp) + '/' + encodeURIComponent(gadest),
+                true
+            );
+            xhr.onload = function () {
+                var list = [];
+                try {
+                    list = parseList(JSON.parse(xhr.responseText));
+                } catch (err) {
+                    list = [];
+                }
+                cache[key] = list;
+                fillSelect(list, (list[0] && list[0].nom_ligne) || '');
+            };
+            xhr.onerror = function () {
+                setHelp('Impossible de charger les escales.', true);
+            };
+            xhr.send();
+        }
+
+        function loadByLigne(ligne) {
+            if (!ligne) return;
+            var key = 'lg:' + ligne;
+            if (cache[key]) {
+                fillSelect(cache[key], ($(form.nomitin) && $(form.nomitin).value) || ligne);
+                return;
+            }
+            var xhr = new XMLHttpRequest();
+            xhr.open(
+                'GET',
+                window.location.origin + appRoot() + '/programmes/verifescales/' + encodeURIComponent(ligne),
+                true
+            );
+            xhr.onload = function () {
+                var list = [];
+                try {
+                    list = parseList(JSON.parse(xhr.responseText));
+                } catch (err) {
+                    list = [];
+                }
+                cache[key] = list;
+                fillSelect(list, ($(form.nomitin) && $(form.nomitin).value) || ligne);
+            };
+            xhr.send();
+        }
+
+        function refresh(force) {
+            rememberCataloguePrix();
+            syncPrixAffiche();
+
+            if (!isEscaleMode()) {
+                if ($(form.idEsc) && $(form.idEsc).value) {
+                    clearEscaleFields();
+                }
+                return;
+            }
+
+            var gaexp = form.depargare ? codeFromSelect(form.depargare) : '';
+            var gadest = form.arrsgare ? codeFromSelect(form.arrsgare) : '';
+            var lignEl = $(form.lign);
+            var ligne = lignEl ? String(lignEl.value || '').trim() : '';
+            var key = gaexp + '|' + gadest + '|' + ligne;
+
+            if (!force && key === lastKey) {
+                if ($(form.idEsc) && $(form.idEsc).value) {
+                    var sel = $(form.select);
+                    if (sel && sel.value) {
+                        var opt = sel.options[sel.selectedIndex];
+                        if (opt && opt.getAttribute('data-prix') && $(form.prix)) {
+                            $(form.prix).value = opt.getAttribute('data-prix');
+                        }
+                    }
+                }
+                return;
+            }
+            lastKey = key;
+            lastCataloguePrix = lastCataloguePrix || (($(form.prix) && $(form.prix).value) || '');
+
+            if (gaexp && gadest) {
+                loadByOd(gaexp, gadest);
+            } else if (ligne) {
+                loadByLigne(ligne);
+            } else {
+                fillSelect([], '');
+                setHelp('Choisissez d\'abord l\'arrivée finale (ex. BOBO).', false);
+            }
+        }
+
+        function boot() {
+            if (!$(form.check)) return;
+
+            var ck = $(form.check);
+            if (ck && !ck._escaleBound) {
+                ck.addEventListener('change', syncEscaleVisibility);
+                ck._escaleBound = true;
+            }
+
+            var sel = $(form.select);
+            if (sel && !sel._escaleBound) {
+                sel.addEventListener('change', onEscaleChange);
+                sel._escaleBound = true;
+            }
+
+            [form.arrsgare, form.depargare, form.date, form.heure].forEach(function (s) {
+                var el = $(s);
+                if (el && !el._escaleBound) {
+                    el.addEventListener('change', function () {
+                        lastKey = null;
+                        setTimeout(function () { refresh(true); }, 200);
+                    });
+                    el._escaleBound = true;
+                }
+            });
+
+            syncEscaleVisibility();
+            syncPrixAffiche();
+            setInterval(function () { refresh(false); }, 600);
+        }
+
+        return { boot: boot };
+    }
+
+    function bootAll() {
+        forms.forEach(function (f) {
+            createMainController(f).boot();
+        });
+        watchGuichetPrixInputs();
+        syncGuichetPrixAffiche();
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', bootAll);
+    } else {
+        bootAll();
+    }
+})();
+
+
+/**
+ * Escales sur les jambes de transit / correspondances (guichet + FI).
+ * Pas de quartier sur les escales.
+ */
+(function () {
+    'use strict';
+
+    function appRoot() {
+        return (typeof APP_ROOT !== 'undefined') ? APP_ROOT : '';
+    }
+    function $(sel) { return document.querySelector(sel); }
+
+    function isShown(el) {
+        if (!el) return false;
+        if (el.style && el.style.display === 'none') return false;
+        try {
+            var cs = window.getComputedStyle(el);
+            if (cs.display === 'none' || cs.visibility === 'hidden') return false;
+        } catch (e) {}
+        return true;
+    }
+
+    function makeLegs(sfx) {
+        var f = sfx || '';
+        var conf = (f === 'cf');
+        var fid = (f === 'fid');
+        return [
+            {
+                n: 1,
+                sfx: f,
+                nbr: conf ? '#nbrtranscf' : (fid ? '#nbrtransfid' : '#nbrtrans'),
+                tran: conf ? '#trancf' : (fid ? '#tranfid' : '#tran'),
+                ligne: conf ? '#ligntranscf' : (fid ? '#ligntransfid' : '#ligntrans'),
+                lineUi: conf ? ['#lignecf1', '#lignesitinerairecf'] : (fid ? ['#ligne1fid', '#lignesitinerairefid'] : ['#ligne1', '#lignesitineraire']),
+                prix: conf ? '#prix_axetranscf' : (fid ? '#prix_axetransfid' : '#prix_axetrans'),
+                quartier: conf ? '#quartiercf1' : (fid ? '#quartier1fid' : '#quartier1'),
+                quartierLabel: conf ? '#idquartcf1' : (fid ? '#idquart1fid' : '#idquart1'),
+                mainQuartier: conf ? '#quartconf' : (fid ? '#quartierfid' : '#quartier'),
+                mainQuartierLabel: conf ? null : (fid ? '#idquartfid' : '#idquart'),
+                wrap: '#escale_leg_wrap_tr1' + f,
+                check: '#escale_vente_check_tr1' + f,
+                fields: '#escale_dest_fields_tr1' + f,
+                select: '#escale_dest_select_tr1' + f,
+                idEsc: '#id_escale_vente_tr1' + f,
+                codeEsc: '#code_gadest_vente_tr1' + f,
+                nomEsc: '#nom_dest_vente_tr1' + f
+            },
+            {
+                // Dernière jambe si nbr=2 : le formulaire n'affiche que quartier1 / cf1 / fid1
+                n: 2,
+                sfx: f,
+                nbr: conf ? '#nbrtranscf' : (fid ? '#nbrtransfid' : '#nbrtrans'),
+                tran: conf ? '#trancf' : (fid ? '#tranfid' : '#tran'),
+                ligne: conf ? '#ligntranscf1' : (fid ? '#ligntrans1fid' : '#ligntrans1'),
+                lineUi: conf ? ['#arritincf1', '#idcheminscf'] : (fid ? ['#arritin1fid', '#idcheminsfid'] : ['#arritin1', '#idchemins']),
+                prix: conf ? '#prix_axetransitcf' : (fid ? '#prix_axetransitfid' : '#prix_axetransit'),
+                quartier: conf ? '#quartiercf1' : (fid ? '#quartier1fid' : '#quartier1'),
+                quartierLabel: conf ? '#idquartcf1' : (fid ? '#idquart1fid' : '#idquart1'),
+                mainQuartier: conf ? '#quartconf' : (fid ? '#quartierfid' : '#quartier'),
+                mainQuartierLabel: conf ? null : (fid ? '#idquartfid' : '#idquart'),
+                wrap: '#escale_leg_wrap_tr2' + f,
+                check: '#escale_vente_check_tr2' + f,
+                fields: '#escale_dest_fields_tr2' + f,
+                select: '#escale_dest_select_tr2' + f,
+                idEsc: '#id_escale_vente_tr2' + f,
+                codeEsc: '#code_gadest_vente_tr2' + f,
+                nomEsc: '#nom_dest_vente_tr2' + f
+            },
+            {
+                // Dernière jambe si nbr=3 : quartier2 / cf2 (pas quartier3 = « Quartier transite4 »)
+                n: 3,
+                sfx: f,
+                nbr: conf ? '#nbrtranscf' : (fid ? '#nbrtransfid' : '#nbrtrans'),
+                tran: conf ? '#trancf' : (fid ? '#tranfid' : '#tran'),
+                ligne: conf ? '#ligntranscf2' : (fid ? '#ligntrans2fid' : '#ligntrans2'),
+                lineUi: conf ? ['#arritincf2', '#idcheminscf1'] : (fid ? ['#arritin2fid', '#idchemins1fid'] : ['#arritin2', '#idchemins1']),
+                prix: conf ? '#prix_axetransitcf1' : (fid ? '#prix_axetransit1fid' : '#prix_axetransit1'),
+                quartier: conf ? '#quartiercf2' : (fid ? '#quartier2fid' : '#quartier2'),
+                quartierLabel: conf ? '#idquartcf2' : (fid ? '#idquart2fid' : '#idquart2'),
+                mainQuartier: conf ? '#quartconf' : (fid ? '#quartierfid' : '#quartier'),
+                mainQuartierLabel: conf ? null : (fid ? '#idquartfid' : '#idquart'),
+                wrap: '#escale_leg_wrap_tr3' + f,
+                check: '#escale_vente_check_tr3' + f,
+                fields: '#escale_dest_fields_tr3' + f,
+                select: '#escale_dest_select_tr3' + f,
+                idEsc: '#id_escale_vente_tr3' + f,
+                codeEsc: '#code_gadest_vente_tr3' + f,
+                nomEsc: '#nom_dest_vente_tr3' + f
+            },
+            {
+                // Dernière jambe si nbr=4 : quartier3 / cf3 (« Quartier transite4 »)
+                n: 4,
+                sfx: f,
+                nbr: conf ? '#nbrtranscf' : (fid ? '#nbrtransfid' : '#nbrtrans'),
+                tran: conf ? '#trancf' : (fid ? '#tranfid' : '#tran'),
+                ligne: conf ? '#ligntranscf3' : (fid ? '#ligntrans3fid' : '#ligntrans3'),
+                lineUi: conf ? ['#arritincf3', '#idcheminscf2'] : (fid ? ['#arritin3fid', '#idchemins2fid'] : ['#arritin3', '#idchemins2']),
+                prix: conf ? '#prix_axetransitcf2' : (fid ? '#prix_axetransit2fid' : '#prix_axetransit2'),
+                quartier: conf ? '#quartiercf3' : (fid ? '#quartier3fid' : '#quartier3'),
+                quartierLabel: conf ? '#idquartcf3' : (fid ? '#idquart3fid' : '#idquart3'),
+                mainQuartier: conf ? '#quartconf' : (fid ? '#quartierfid' : '#quartier'),
+                mainQuartierLabel: conf ? null : (fid ? '#idquartfid' : '#idquart'),
+                wrap: '#escale_leg_wrap_tr4' + f,
+                check: '#escale_vente_check_tr4' + f,
+                fields: '#escale_dest_fields_tr4' + f,
+                select: '#escale_dest_select_tr4' + f,
+                idEsc: '#id_escale_vente_tr4' + f,
+                codeEsc: '#code_gadest_vente_tr4' + f,
+                nomEsc: '#nom_dest_vente_tr4' + f
+            }
+        ];
+    }
+
+    var cache = {};
+    var legs = makeLegs('').concat(makeLegs('fid')).concat(makeLegs('cf'));
+    var lastLigne = {};
+    var cataloguePrix = {};
+    var hasEscales = {};
+    var loading = {};
+    var savedLegQuartiers = {};
+
+    function parseList(raw) {
+        if (Array.isArray(raw)) return raw;
+        if (raw && typeof raw === 'object') {
+            return Object.keys(raw).map(function (k) { return raw[k]; });
+        }
+        return [];
+    }
+
+    function clearLeg(leg) {
+        var idEl = $(leg.idEsc);
+        var codeEl = $(leg.codeEsc);
+        var nomEl = $(leg.nomEsc);
+        var sel = $(leg.select);
+        if (idEl) idEl.value = '';
+        if (codeEl) codeEl.value = '';
+        if (nomEl) nomEl.value = '';
+        if (sel) sel.value = '';
+    }
+
+    function isTranVisible(leg) {
+        return isShown($(leg.tran));
+    }
+
+    function lineUiVisible(leg) {
+        if (!leg.lineUi || !leg.lineUi.length) return isTranVisible(leg);
+        for (var i = 0; i < leg.lineUi.length; i++) {
+            if (isShown($(leg.lineUi[i]))) return true;
+        }
+        return false;
+    }
+
+    function nbrTrans(leg) {
+        var el = $(leg.nbr);
+        var n = el ? parseInt(el.value, 10) : 0;
+        return isNaN(n) ? 0 : n;
+    }
+
+    function isLastTransitLeg(leg) {
+        var nbr = nbrTrans(leg);
+        if (nbr < 1) return false;
+        return leg.n === nbr;
+    }
+
+    function canShowEscaleLeg(leg) {
+        return isTranVisible(leg) && lineUiVisible(leg) && isLastTransitLeg(leg);
+    }
+
+    function quartierTargets(leg) {
+        var out = [];
+        var nbr = nbrTrans(leg);
+        if (nbr > 0 && leg.n === nbr) {
+            out.push({ sel: leg.mainQuartier, label: leg.mainQuartierLabel });
+        }
+        if (leg.quartier) {
+            out.push({ sel: leg.quartier, label: leg.quartierLabel });
+        }
+        var seen = {};
+        return out.filter(function (t) {
+            if (seen[t.sel]) return false;
+            seen[t.sel] = true;
+            return true;
+        });
+    }
+
+    function hideQuartierForEscale(leg) {
+        var targets = quartierTargets(leg);
+        for (var i = 0; i < targets.length; i++) {
+            var key = targets[i].sel;
+            var q = $(key);
+            var lab = targets[i].label ? $(targets[i].label) : null;
+            var wrap = q ? q.closest('.form-group') : null;
+            var visible = !(wrap && wrap.style.display === 'none') && !(q && q.style.display === 'none');
+            if (q && visible) {
+                savedLegQuartiers[key] = q.value;
+                if (key === '#quartier') {
+                    window.__venteSavedQuartierValue = q.value;
+                }
+                if (key === '#quartierfid') {
+                    window.__venteFiSavedQuartierValue = q.value;
+                }
+            }
+            if (q) q.style.display = 'none';
+            if (lab) lab.style.display = 'none';
+            if (wrap) wrap.style.display = 'none';
+        }
+        if (!leg.sfx && typeof window.__venteHideMainQuartier === 'function') {
+            window.__venteHideMainQuartier();
+        }
+    }
+
+    function showQuartierAfterEscale(leg) {
+        var targets = quartierTargets(leg);
+        for (var i = 0; i < targets.length; i++) {
+            var key = targets[i].sel;
+            var q = $(key);
+            var lab = targets[i].label ? $(targets[i].label) : null;
+            var wrap = q ? q.closest('.form-group') : null;
+            if (q) {
+                q.style.display = 'block';
+                if (savedLegQuartiers[key] != null && savedLegQuartiers[key] !== '') {
+                    q.value = savedLegQuartiers[key];
+                }
+            }
+            if (lab) lab.style.display = 'block';
+            if (wrap) wrap.style.display = '';
+        }
+        if (!leg.sfx && typeof window.__venteShowMainQuartier === 'function') {
+            window.__venteShowMainQuartier();
+        }
+    }
+
+    function showWrap(leg, show) {
+        var wrap = $(leg.wrap);
+        if (!wrap) return;
+        wrap.style.display = show ? 'block' : 'none';
+        if (!show) {
+            var ck = $(leg.check);
+            var fields = $(leg.fields);
+            if (ck) ck.checked = false;
+            if (fields) fields.style.display = 'none';
+            clearLeg(leg);
+        }
+    }
+
+    function applyCatalogue(leg) {
+        var prixEl = $(leg.prix);
+        var ck = leg.sfx + ':' + leg.n;
+        if (prixEl && cataloguePrix[ck] !== undefined && cataloguePrix[ck] !== '') {
+            prixEl.value = cataloguePrix[ck];
+        }
+    }
+
+    function rememberPrix(leg) {
+        var prixEl = $(leg.prix);
+        var idEsc = $(leg.idEsc);
+        var ck = leg.sfx + ':' + leg.n;
+        if (!prixEl) return;
+        if (idEsc && idEsc.value) return;
+        if (prixEl.value !== '') {
+            cataloguePrix[ck] = prixEl.value;
+        }
+    }
+
+    function fillSelect(leg, escales) {
+        var sel = $(leg.select);
+        if (!sel) return;
+
+        var prev = sel.value;
+        sel.options.length = 0;
+        var ph = document.createElement('option');
+        ph.value = '';
+        ph.textContent = 'Choisissez l\'escale';
+        sel.add(ph);
+
+        var hk = leg.sfx + ':' + leg.n;
+        hasEscales[hk] = !!(escales && escales.length);
+
+        if (!hasEscales[hk]) {
+            showWrap(leg, false);
+            return;
+        }
+
+        for (var i = 0; i < escales.length; i++) {
+            var e = escales[i];
+            var opt = document.createElement('option');
+            opt.value = e.id_escale;
+            opt.setAttribute('data-code', e.code_gadest || '');
+            opt.setAttribute('data-nom', e.nom_escale || e.arrivee_escale || '');
+            opt.setAttribute('data-prix', e.prix_escale);
+            var label = e.nom_escale || e.arrivee_escale || e.code_gadest;
+            opt.textContent = label + ' — ' + Number(e.prix_escale).toLocaleString('fr-FR') + ' F';
+            sel.add(opt);
+        }
+
+        showWrap(leg, canShowEscaleLeg(leg));
+
+        if (prev) {
+            sel.value = prev;
+            if (sel.value === prev) onSelect(leg);
+        }
+    }
+
+    function loadEscales(leg, ligne) {
+        if (!ligne) {
+            fillSelect(leg, []);
+            return;
+        }
+        if (cache[ligne]) {
+            fillSelect(leg, cache[ligne]);
+            return;
+        }
+        if (loading[ligne]) return;
+        loading[ligne] = true;
+        var xhr = new XMLHttpRequest();
+        xhr.open('GET', window.location.origin + appRoot() + '/programmes/verifescales/' + encodeURIComponent(ligne), true);
+        xhr.onload = function () {
+            loading[ligne] = false;
+            var list = [];
+            try { list = parseList(JSON.parse(xhr.responseText)); } catch (e) { list = []; }
+            cache[ligne] = list;
+            fillSelect(leg, list);
+        };
+        xhr.onerror = function () { loading[ligne] = false; };
+        xhr.send();
+    }
+
+    function onCheck(leg) {
+        var ck = $(leg.check);
+        var fields = $(leg.fields);
+        if (!ck || !fields) return;
+        if (ck.checked) {
+            fields.style.display = 'block';
+            onSelect(leg);
+        } else {
+            fields.style.display = 'none';
+            clearLeg(leg);
+            applyCatalogue(leg);
+            showQuartierAfterEscale(leg);
+        }
+    }
+
+    function onSelect(leg) {
+        var ck = $(leg.check);
+        if (!ck || !ck.checked) {
+            clearLeg(leg);
+            showQuartierAfterEscale(leg);
+            return;
+        }
+        var sel = $(leg.select);
+        if (!sel) return;
+        var opt = sel.options[sel.selectedIndex];
+        if (!opt || !opt.value) {
+            clearLeg(leg);
+            applyCatalogue(leg);
+            showQuartierAfterEscale(leg);
+            return;
+        }
+        var idEl = $(leg.idEsc);
+        var codeEl = $(leg.codeEsc);
+        var nomEl = $(leg.nomEsc);
+        if (idEl) idEl.value = opt.value;
+        if (codeEl) codeEl.value = opt.getAttribute('data-code') || '';
+        if (nomEl) nomEl.value = opt.getAttribute('data-nom') || '';
+        var prix = opt.getAttribute('data-prix');
+        var prixEl = $(leg.prix);
+        if (prix !== null && prixEl) prixEl.value = prix;
+        hideQuartierForEscale(leg);
+    }
+
+    function tickLeg(leg) {
+        rememberPrix(leg);
+        var lignEl = $(leg.ligne);
+        var ligne = lignEl ? String(lignEl.value || '').trim() : '';
+        var wrap = $(leg.wrap);
+        var visibleContext = canShowEscaleLeg(leg);
+        var hk = leg.sfx + ':' + leg.n;
+        var lk = leg.sfx + ':' + leg.n;
+
+        if (!isLastTransitLeg(leg)) {
+            showWrap(leg, false);
+            return;
+        }
+
+        if (!visibleContext) {
+            if (wrap) wrap.style.display = 'none';
+            return;
+        }
+
+        if (ligne !== (lastLigne[lk] || '')) {
+            lastLigne[lk] = ligne;
+            cataloguePrix[hk] = '';
+            hasEscales[hk] = false;
+            clearLeg(leg);
+            var ck = $(leg.check);
+            if (ck) ck.checked = false;
+            var fields = $(leg.fields);
+            if (fields) fields.style.display = 'none';
+            if (!ligne) {
+                showWrap(leg, false);
+                return;
+            }
+            loadEscales(leg, ligne);
+            return;
+        }
+
+        if (ligne && hasEscales[hk]) {
+            showWrap(leg, true);
+            if ($(leg.check) && $(leg.check).checked) {
+                if ($(leg.idEsc) && $(leg.idEsc).value) {
+                    onSelect(leg);
+                } else {
+                    showQuartierAfterEscale(leg);
+                }
+            }
+        } else if (ligne && cache[ligne]) {
+            fillSelect(leg, cache[ligne]);
+        } else if (ligne && !cache[ligne]) {
+            loadEscales(leg, ligne);
+        } else {
+            showWrap(leg, false);
+        }
+    }
+
+    function boot() {
+        legs.forEach(function (leg) {
+            if (!$(leg.wrap) && !$(leg.check)) return;
+            var ck = $(leg.check);
+            var sel = $(leg.select);
+            if (ck && !ck._escaleTrBound) {
+                ck.addEventListener('change', function () { onCheck(leg); });
+                ck._escaleTrBound = true;
+            }
+            if (sel && !sel._escaleTrBound) {
+                sel.addEventListener('change', function () { onSelect(leg); });
+                sel._escaleTrBound = true;
+            }
+        });
+        setInterval(function () {
+            legs.forEach(tickLeg);
+        }, 400);
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', boot);
+    } else {
+        boot();
+    }
+})();
+
+;
+/* --- addconfirme.js --- */
+document.addEventListener('DOMContentLoaded', () => {
+
+    window.__confHasTransit = false;
+    window.__confLastHeuresVente = [];
+    window.__confApplyTransitLegs = null;
+
+    function __confFillHeuresVente(heures) {
+        var hSel = document.querySelector('#heured');
+        if (!hSel) return;
+        hSel.options.length = 1;
+        var list = Array.isArray(heures) ? heures : [];
+        for (var i = 0; i < list.length; i++) {
+            var hr = list[i];
+            if (!hr || hr.id_ligneheure == null || hr.id_ligneheure === '') continue;
+            var opt = document.createElement('option');
+            var hasProg = !!(hr.has_programme === true || hr.has_programme === 1 || hr.has_programme === '1');
+            // Avec programme : format historique confirm (code_progr/tarif/id_lh) pour siegdispo.
+            // Sans programme : id_lh/heure (transit au choix).
+            if (hasProg && hr.code_progr) {
+                opt.value = String(hr.code_progr) + '/1/' + String(hr.id_ligneheure);
+            } else {
+                opt.value = String(hr.id_ligneheure) + '/' + String(hr.heure || '');
+            }
+            opt.setAttribute('data-has-programme', hasProg ? '1' : '0');
+            opt.innerHTML = hr.heure || '';
+            hSel.add(opt);
+        }
+    }
+
+    function __confShowDirectHourUi() {
+        var hideIds = [
+            'iddeptranscf1','transitedepargarecf1','iddeptranscf2','transitedepargarecf2',
+            'iddeptranscf3','transitedepargarecf3','iddeptranscf4','transitedepargarecf4',
+            'arritincf1','arritincf2','arritincf3','heureitincf','heureitincf1','heureitincf2',
+            'hdepartitinecf','hdepartitinecf2','lignesitinerairecf','lignecf1',
+            'siegitinecf','siegitinecf1','siegitinecf2','psiegesitinescf','psiegesitinescf1','psiegesitinescf2',
+            'quartiercf1','quartiercf2','quartiercf3','idquartcf1','idquartcf2','idquartcf3',
+            'idcheminscf','idcheminscf1','idcheminscf2','idcheminsheurcf','idcheminsheurcf1','idcheminsheurcf2'
+        ];
+        for (var i = 0; i < hideIds.length; i++) {
+            var el = document.getElementById(hideIds[i]);
+            if (el) el.style.display = 'none';
+        }
+        var tran = document.querySelector('#trancf');
+        if (tran) tran.style.display = 'none';
+        if (typeof window.__confSetMainEscaleVisible === 'function') window.__confSetMainEscaleVisible(true);
+        ['heured','depsieg'].forEach(function (id) {
+            var el = document.getElementById(id);
+            if (el) el.style.display = 'block';
+        });
+        var nbr = document.querySelector('#nbrtranscf');
+        if (nbr) nbr.value = '';
+    }
+
+    function __confSetMainEscaleVisible(visible) {
+        var wrap = document.querySelector('#escale_dest_wrap_cf');
+        if (!wrap) return;
+        if (!visible) {
+            var ck = document.querySelector('#escale_vente_check_cf');
+            if (ck) ck.checked = false;
+            ['#id_escale_ventecf','#code_gadest_ventecf','#nom_dest_ventecf'].forEach(function (s) {
+                var el = document.querySelector(s);
+                if (el) el.value = '';
+            });
+            var fields = document.querySelector('#escale_dest_fields_cf');
+            if (fields) fields.style.display = 'none';
+            wrap.style.display = 'none';
+        } else {
+            wrap.style.display = '';
+        }
+    }
+    window.__confSetMainEscaleVisible = __confSetMainEscaleVisible;
+
+    function __confDepSousGare() {
+        var dep = document.querySelector('#confirm-0 #depargare') || document.querySelector('#confForm #depargare') || document.querySelector('#depargare');
+        if (!dep || !dep.value) return '0';
+        var parts = String(dep.value).split('/');
+        return parts[1] || '0';
+    }
+
+    function __confEnsureCheminSelector() {
+        var existing = document.getElementById('selchemin_box_cf');
+        if (existing) return existing;
+        var box = document.createElement('div');
+        box.className = 'form-group col-sm-12';
+        box.id = 'selchemin_box_cf';
+        box.style.display = 'none';
+        box.innerHTML = ''
+            + '<label id="selchemin_label_cf">Itinéraire de correspondance</label>'
+            + '<select class="form-control form-control-sm" id="selchemin_transit_cf">'
+            + '<option value="">Choisissez l\'itinéraire</option>'
+            + '</select>'
+            + '<small class="form-text text-muted" id="selchemin_hint_cf"></small>';
+        var anchor = document.getElementById('heured')
+            || document.getElementById('hdepartitinecf')
+            || document.getElementById('nbrtranscf');
+        if (anchor && anchor.parentNode && anchor.parentNode.parentNode) {
+            anchor.parentNode.parentNode.insertBefore(box, anchor.parentNode);
+        } else if (anchor && anchor.parentNode) {
+            anchor.parentNode.insertBefore(box, anchor);
+        } else {
+            document.body.appendChild(box);
+        }
+        return box;
+    }
+
+    function __confHideCheminSelector() {
+        var box = document.getElementById('selchemin_box_cf');
+        var sel = document.getElementById('selchemin_transit_cf');
+        var hint = document.getElementById('selchemin_hint_cf');
+        if (box) box.style.display = 'none';
+        if (sel) { sel.options.length = 1; sel.value = ''; sel.onchange = null; }
+        if (hint) hint.textContent = '';
+    }
+
+    function __confFormatAttenteLabel(chemin) {
+        if (!chemin) return '';
+        if (chemin.attente_totale_label) return 'Attente totale : ' + chemin.attente_totale_label;
+        if (chemin.attente_totale_min != null) {
+            var m = parseInt(chemin.attente_totale_min, 10) || 0;
+            var h = Math.floor(m / 60);
+            var mm = m % 60;
+            return 'Attente totale : ' + (h > 0 ? (h + ' h' + (mm ? (' ' + (mm < 10 ? '0' : '') + mm) : '')) : (mm + ' min'));
+        }
+        return chemin.source === 'declaratif' ? 'Composition déclarée' : '';
+    }
+
+
+    function __confNormalizeEtapes(etapes) {
+        if (!etapes) return [];
+        if (Array.isArray(etapes)) return etapes;
+        if (typeof etapes === 'object') {
+            return Object.keys(etapes).map(function (k) { return etapes[k]; }).filter(Boolean);
+        }
+        return [];
+    }
+
+    /**
+     * Correspondance 2/3/4 — ligne : propose la ligne du chemin, sans la sélectionner.
+     */
+    function __confSetCheminLigneOption(selectSel, code, nom) {
+        var sel = typeof selectSel === 'string' ? document.querySelector(selectSel) : selectSel;
+        if (!sel) return;
+        sel.disabled = false;
+        sel.removeAttribute('disabled');
+        sel.options.length = 1;
+        sel.selectedIndex = 0;
+        if (code == null || code === '') return;
+        var opt = document.createElement('option');
+        opt.value = String(code);
+        opt.innerHTML = nom != null ? String(nom) : String(code);
+        if (nom != null) opt.setAttribute('data-nom', String(nom));
+        sel.add(opt);
+        sel.selectedIndex = 1;
+        if (typeof sel.onchange === 'function') {
+            sel.onchange();
+        }
+    }
+
+    function __confEnsureLigne1LockedInput() {
+        var el = document.getElementById('lignesitinerairecf');
+        if (!el) return null;
+        if (el.tagName === 'INPUT') {
+            el.disabled = true;
+            el.setAttribute('disabled', 'disabled');
+            el.readOnly = true;
+            return el;
+        }
+        var inp = document.createElement('input');
+        inp.type = 'text';
+        inp.id = 'lignesitinerairecf';
+        inp.name = el.getAttribute('name') || 'lignesitinerairescf';
+        inp.className = el.className || 'form-control form-control-sm';
+        inp.disabled = true;
+        inp.setAttribute('disabled', 'disabled');
+        inp.readOnly = true;
+        if (el.parentNode) el.parentNode.replaceChild(inp, el);
+        return inp;
+    }
+
+    function __confFillLigne1Locked(etape0, onPick) {
+        if (!etape0) return;
+        var code = etape0.code_itineraires || '';
+        var nom = etape0.nom_itineraires || code;
+        var el = __confEnsureLigne1LockedInput();
+        if (el) el.value = nom;
+        var itc = document.querySelector('#itinecodecf');
+        var ltn = document.querySelector('#lignetinerairecf');
+        if (itc) itc.value = code;
+        if (ltn) ltn.value = nom;
+        if (typeof onPick === 'function') onPick(code, nom);
+    }
+
+
+    function __confResetTransitFieldsBeforeApply() {
+        [
+            'arritin1cf','idcheminscf','heureitin1cf','idcheminsheurcf','siegitine1cf','psiegesitines1cf',
+            'arritin2cf','idcheminscf1','heureitin2cf','idcheminsheurcf1','siegitine2cf','psiegesitines2cf',
+            'arritin3cf','idcheminscf2','heureitin3cf','idcheminsheurcf','nbrtranscf',
+            'iddeptranscf1','transitedepargarecf1','iddeptranscf2','transitedepargarecf2',
+            'iddeptranscf3','transitedepargarecf3','iddeptranscf4','transitedepargarecf4',
+            'trancf','heureitincf','hdepartitinecf','siegitinecf','psiegesitinescf'
+        ].forEach(function (id) {
+            var el = document.getElementById(id);
+            if (el) el.style.display = 'none';
+        });
+        [
+            '#idcheminscf','#idcheminscf1','#idcheminscf2',
+            '#idcheminsheurcf','#idcheminsheurcf1','#hdepartitinecf',
+            '#psiegesitinescf','#psiegesitines1cf','#psiegesitines2cf'
+        ].forEach(function (s) {
+            var el = document.querySelector(s);
+            if (el && el.options) { el.options.length = 1; el.value = ''; el.onchange = null; }
+        });
+        ['#transitedepargarecf1','#transitedepargarecf2','#transitedepargarecf3','#transitedepargarecf4'].forEach(function (s) {
+            var el = document.querySelector(s);
+            if (el && el.options) el.options.length = 0;
+        });
+        ['#itinecodecf','#itinecodescf','#lignetinerairecf','#nbrtranscf','#idcompgcf','#idcompgcf1','#idcompgcf2','#idcompgcf3'].forEach(function (s) {
+            var el = document.querySelector(s);
+            if (el) el.value = '';
+        });
+    }
+
+    function __confShowCheminSelector(chemins, onPick) {
+        __confEnsureCheminSelector();
+        var box = document.getElementById('selchemin_box_cf');
+        var sel = document.getElementById('selchemin_transit_cf');
+        var hint = document.getElementById('selchemin_hint_cf');
+        if (!box || !sel) {
+            var et0 = chemins && chemins[0] ? __confNormalizeEtapes(chemins[0].etapes) : [];
+            if (typeof window.__confApplyTransitLegs === 'function') window.__confApplyTransitLegs(et0);
+            else if (typeof onPick === 'function') onPick(et0);
+            return;
+        }
+        sel.options.length = 1;
+        for (var i = 0; i < chemins.length; i++) {
+            var opt = document.createElement('option');
+            opt.value = String(i);
+            opt.textContent = chemins[i].label || ('Chemin ' + (i + 1));
+            sel.add(opt);
+        }
+        box.style.display = 'block';
+        var applyIdx = function (idx) {
+            var ch = chemins[idx];
+            if (hint) hint.textContent = __confFormatAttenteLabel(ch);
+            var etapes = __confNormalizeEtapes(ch && ch.etapes);
+            if (typeof window.__confApplyTransitLegs === 'function') window.__confApplyTransitLegs(etapes);
+            else if (typeof onPick === 'function') onPick(etapes);
+        };
+        sel.onchange = function () {
+            var idx = parseInt(sel.value, 10);
+            if (isNaN(idx) || !chemins[idx]) {
+                if (hint) hint.textContent = '';
+                if (typeof window.__confApplyTransitLegs === 'function') window.__confApplyTransitLegs([]);
+                else if (typeof onPick === 'function') onPick([]);
+                return;
+            }
+            applyIdx(idx);
+        };
+        sel.selectedIndex = 1;
+        applyIdx(0);
+    }
+
+    function __confRequestTransitLegs(axe, datedepart, sougid, force, onDone) {
+        var sg = (sougid != null && sougid !== '') ? sougid : '0';
+        var forceFlag = force ? '1' : '0';
+        var done = function (etapes) {
+            if (typeof onDone === 'function') onDone(etapes);
+            else if (typeof window.__confApplyTransitLegs === 'function') window.__confApplyTransitLegs(etapes);
+        };
+        var httpRequestitinecf = new XMLHttpRequest();
+        httpRequestitinecf.open(
+            'GET',
+            window.location.origin + `${APP_ROOT}/programmes/verifchemins/`
+                + encodeURIComponent(axe) + '/'
+                + encodeURIComponent(datedepart) + '/'
+                + encodeURIComponent(sg) + '/'
+                + forceFlag,
+            true
+        );
+        httpRequestitinecf.onload = function () {
+            var payload = null;
+            try { payload = JSON.parse(httpRequestitinecf.responseText); } catch (e) { payload = null; }
+            if (Array.isArray(payload)) { __confHideCheminSelector(); done(payload); return; }
+            if (!payload || typeof payload !== 'object') { __confHideCheminSelector(); done([]); return; }
+            if (payload.mode === 'direct' || payload.mode === 'none') { __confHideCheminSelector(); done([]); return; }
+            var chemins = Array.isArray(payload.chemins) ? payload.chemins : [];
+            if (chemins.length > 1) { __confShowCheminSelector(chemins, done); return; }
+            __confHideCheminSelector();
+            if (chemins.length === 1 && chemins[0].etapes) { done(chemins[0].etapes); return; }
+            if (payload.etapes && (Array.isArray(payload.etapes) ? payload.etapes.length : Object.keys(payload.etapes).length)) {
+                done(payload.etapes); return;
+            }
+            done([]);
+        };
+        httpRequestitinecf.setRequestHeader('Content-Type', 'application/json');
+        httpRequestitinecf.send();
+    }
+
+    /** Remplit départ correspondance confirm (sans option vide sélectionnée). */
+    function __confFillTransitDepart(selectSel, gareIdentif) {
+        var sel = document.querySelector(selectSel);
+        if (!sel) return;
+        sel.options.length = 0;
+        if (gareIdentif == null || gareIdentif === '') return;
+        var http = new XMLHttpRequest();
+        http.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifsousgares/` + encodeURIComponent(gareIdentif), true);
+        http.onload = function () {
+            var rows = null;
+            try { rows = JSON.parse(http.responseText); } catch (e) { rows = null; }
+            sel.options.length = 0;
+            if (!rows || Object.entries(rows).length < 1) return;
+            for (var key in Object.entries(rows)) {
+                var opt = document.createElement('option');
+                opt.value = `${rows[key].idsousgare}`;
+                opt.innerHTML = `${rows[key].nomsousgare}`;
+                sel.add(opt);
+            }
+            if (sel.options.length > 0) sel.selectedIndex = 0;
+        };
+        http.setRequestHeader('Content-Type', 'application/json');
+        http.send();
+    }
+
+
+    var __CONF_TRANSIT_MARGE_MIN = 30;
+
+    function __confHeureToMinutes(h) {
+        if (h == null || h === '') return null;
+        var parts = String(h).trim().split(/[:hH]/);
+        if (!parts || !parts.length) return null;
+        var hh = parseInt(parts[0], 10);
+        if (isNaN(hh)) return null;
+        var mm = (parts[1] != null && parts[1] !== '') ? parseInt(parts[1], 10) : 0;
+        if (isNaN(mm)) mm = 0;
+        return (hh * 60) + mm;
+    }
+
+    function __confRowIsAfterPrev(row, prevDate, prevMinutes, marge) {
+        if (prevMinutes == null || !prevDate) return true;
+        var rd = row && row.date_progr ? String(row.date_progr).slice(0, 10) : '';
+        var rm = __confHeureToMinutes(row && row.heure);
+        if (!rd || rm == null) return false;
+        if (rd > prevDate) return true;
+        if (rd < prevDate) return false;
+        return rm >= (prevMinutes + (marge != null ? marge : __CONF_TRANSIT_MARGE_MIN));
+    }
+
+    /** Remplit un select heures correspondance confirm, filtré vs jambe précédente. */
+    function __confAppendFilteredCheminOptions(selectId, rowsObj, prevDate, prevHeure) {
+        var sel = document.querySelector(selectId);
+        if (!sel) return;
+        sel.options.length = 1;
+        var list = [];
+        if (Array.isArray(rowsObj)) list = rowsObj;
+        else if (rowsObj && typeof rowsObj === 'object') {
+            Object.keys(rowsObj).forEach(function (k) { list.push(rowsObj[k]); });
+        }
+        var pDate = prevDate ? String(prevDate).slice(0, 10) : '';
+        var pMin = __confHeureToMinutes(prevHeure);
+        list = list.filter(function (row) {
+            return row && row.code_progr != null && __confRowIsAfterPrev(row, pDate, pMin, __CONF_TRANSIT_MARGE_MIN);
+        });
+        list.sort(function (a, b) {
+            var da = String(a.date_progr || '').slice(0, 10);
+            var db = String(b.date_progr || '').slice(0, 10);
+            if (da < db) return -1;
+            if (da > db) return 1;
+            return (__confHeureToMinutes(a.heure) || 0) - (__confHeureToMinutes(b.heure) || 0);
+        });
+        for (var i = 0; i < list.length; i++) {
+            var row = list[i];
+            var opt = document.createElement('option');
+            opt.value = `${row.code_progr}/${row.intervalle1}/${row.intervalle2}/${row.id_ligneheure}/${row.prix}`;
+            opt.setAttribute('data-heure', row.heure || '');
+            opt.setAttribute('data-date-progr', row.date_progr ? String(row.date_progr).slice(0, 10) : '');
+            opt.innerHTML = `${row.heure}/${row.date_progr}`;
+            sel.add(opt);
+        }
+    }
+
+    function __confPrevFromLeg1() {
+        var d = document.querySelector('#dateprtranscf');
+        var h = document.querySelector('#hertranscf');
+        var date = (d && d.value) ? String(d.value).slice(0, 10) : (document.querySelector('#actuel') ? document.querySelector('#actuel').value : '');
+        var heure = (h && h.value) ? String(h.value) : '';
+        if (!heure) {
+            var hs = document.querySelector('#heured');
+            if (hs && hs.selectedIndex > 0) {
+                var parts = String(hs.options[hs.selectedIndex].value || '').split('/');
+                // verifheureitine format id/heure OR code/tarif/id
+                if (parts.length >= 2 && parts[1].indexOf(':') >= 0) heure = parts[1];
+                else if (hs.options[hs.selectedIndex].getAttribute('data-heure')) {
+                    heure = hs.options[hs.selectedIndex].getAttribute('data-heure');
+                }
+            }
+        }
+        return { date: date, heure: heure };
+    }
+
+    function __confPrevFromSelect(selectId) {
+        var hs = document.querySelector(selectId);
+        if (!hs || hs.selectedIndex < 1) return { date: '', heure: '' };
+        var opt = hs.options[hs.selectedIndex];
+        return {
+            date: opt.getAttribute('data-date-progr') || '',
+            heure: opt.getAttribute('data-heure') || ''
+        };
+    }
+
+    function __confSetVal(id, val) {
+        var el = document.querySelector(id);
+        if (el) el.value = val == null ? '' : String(val);
+    }
+
+    function __confApplyTransit1Fields(p) {
+        if (!p) return;
+        __confSetVal('#programtranscf', p.code_progr);
+        var tf = (p.typetarif != null && String(p.typetarif).trim() !== '') ? p.typetarif : '1';
+        __confSetVal('#tarifattribcf', tf);
+        __confSetVal('#dateprtranscf', p.date_progr);
+        __confSetVal('#deplignetranscf', p.gareidentif);
+        __confSetVal('#intertranscf1', p.intervalle1);
+        __confSetVal('#intertranscf2', p.intervalle2);
+        __confSetVal('#ligntranscf', p.ident_ligne);
+        __confSetVal('#nomitintranscf', p.nom_ligne);
+        __confSetVal('#hertranscf', p.heure);
+        __confSetVal('#catetranscf', p.categori);
+        // Align programme confirm (flux direct) pour cohérence POST.
+        __confSetVal('#programconf', p.code_progr);
+        __confSetVal('#dateconfirme', p.date_progr);
+        __confSetVal('#confheure', p.heure);
+        __confSetVal('#directid', p.nom_ligne);
+        __confSetVal('#caissepvend_', p.intervalle1);
+        __confSetVal('#caissedpvend_', p.intervalle2);
+        __confSetVal('#gareid_dep', p.gareidentif || p.gaexp_lg || '');
+        __confSetVal('#lignehconf', p.id_ligneheure || '');
+        if (p.prix != null && String(p.prix).trim() !== '') {
+            __confSetVal('#prix_axetranscf', p.prix);
+        }
+        if (p.gareidentif) {
+            __confFillTransitDepart('#transitedepargarecf1', p.gareidentif);
+        }
+        ['#hdepartitinecf','#idcheminsheurcf','#idcheminsheurcf1'].forEach(function (s) {
+            var el = document.querySelector(s); if (el) el.options.length = 1;
+        });
+    }
+
+    function __confProgListFromResponse(don) {
+        if (!don || don === '') return [];
+        if (Array.isArray(don)) return don.filter(Boolean);
+        if (typeof don === 'object') {
+            var keys = Object.keys(don);
+            var out = [];
+            for (var i = 0; i < keys.length; i++) {
+                var k = keys[i];
+                if (don[k] && typeof don[k] === 'object' && don[k].code_progr != null) {
+                    out.push(don[k]);
+                }
+            }
+            return out;
+        }
+        return [];
+    }
+
+    /** Remplit #depsieg via siegdisponible (sans encode — comme vente guichet). */
+    function __confFillDepsiegFromProg() {
+        var dSel = document.querySelector('#depsieg');
+        if (dSel) dSel.options.length = 1;
+        var cd = document.querySelector('#programtranscf') ? document.querySelector('#programtranscf').value : '';
+        var dbit = document.querySelector('#intertranscf1') ? document.querySelector('#intertranscf1').value : '';
+        var fnit = document.querySelector('#intertranscf2') ? document.querySelector('#intertranscf2').value : '';
+        var lgit = document.querySelector('#nomitintranscf') ? document.querySelector('#nomitintranscf').value : '';
+        var timit = document.querySelector('#hertranscf') ? document.querySelector('#hertranscf').value : '';
+        var dProg = document.querySelector('#dateprtranscf') ? document.querySelector('#dateprtranscf').value : '';
+        if (!cd || !dProg || !lgit || !timit || dbit === '' || fnit === '') return;
+        var httpSieg = new XMLHttpRequest();
+        httpSieg.open(
+            'GET',
+            window.location.origin + `${APP_ROOT}/programmes/siegdisponible/`
+                + cd + '/' + dProg + '/' + lgit + '/' + timit + '/' + dbit + '/' + fnit,
+            true
+        );
+        httpSieg.onload = function () {
+            try {
+                var rows = JSON.parse(httpSieg.responseText);
+                if (dSel) dSel.options.length = 1;
+                if (rows && Object.entries(rows).length >= 1) {
+                    for (var key2 in Object.entries(rows)) {
+                        var opt = document.createElement('option');
+                        opt.value = `${rows[key2].siege_num}`;
+                        opt.innerHTML = `${rows[key2].siege_num}`;
+                        if (dSel) dSel.add(opt);
+                    }
+                }
+            } catch (e2) {
+                if (dSel) dSel.options.length = 1;
+            }
+        };
+        httpSieg.setRequestHeader('Content-Type', 'application/json');
+        httpSieg.send();
+    }
+
+    function __confLoadSiegesTransit1(idLigneheure, dptDate) {
+        var tfEl = document.querySelector('#tarifattribcf');
+        var tfbs = tfEl && String(tfEl.value || '').trim() !== '' ? String(tfEl.value).trim() : '1';
+        if (tfEl && String(tfEl.value || '').trim() === '') tfEl.value = tfbs;
+        if (idLigneheure) {
+            var httpPrix = new XMLHttpRequest();
+            httpPrix.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifpriprg/` + idLigneheure + '/' + tfbs, true);
+            httpPrix.onload = function () {
+                try {
+                    var donprix = JSON.parse(httpPrix.responseText);
+                    if (donprix && Object.entries(donprix).length >= 1) {
+                        for (var key in Object.entries(donprix)) {
+                            __confSetVal('#prix_axetranscf', donprix[key].prix);
+                        }
+                    }
+                } catch (e) {}
+            };
+            httpPrix.setRequestHeader('Content-Type', 'application/json');
+            httpPrix.send();
+        }
+        __confFillDepsiegFromProg();
+    }
+
+    /** Charge meta programme par code_progr (fiable, sans filtre sous-gare). */
+    function __confLoadProgByCode(codeProgr, idLh, fallbackGare, done) {
+        if (!codeProgr) {
+            if (typeof done === 'function') done(false);
+            return;
+        }
+        var http = new XMLHttpRequest();
+        http.open('GET', window.location.origin + `${APP_ROOT}/programmes/siegdispotrans/` + codeProgr, true);
+        http.onload = function () {
+            var don = null;
+            try { don = JSON.parse(http.responseText); } catch (e) { don = null; }
+            var list = __confProgListFromResponse(don);
+            if (list.length < 1) {
+                if (typeof done === 'function') done(false);
+                return;
+            }
+            __confApplyTransit1Fields(list[0]);
+            if (!list[0].gareidentif && fallbackGare) {
+                __confFillTransitDepart('#transitedepargarecf1', fallbackGare);
+            }
+            __confLoadSiegesTransit1(idLh || list[0].id_ligneheure, document.querySelector('#actuel') ? document.querySelector('#actuel').value : '');
+            if (typeof done === 'function') done(true);
+        };
+        http.setRequestHeader('Content-Type', 'application/json');
+        http.send();
+    }
+
+    /**
+     * onchange heure jambe 1 transit confirm.
+     * 1) code_progr sur l'option → siegdispotrans (prioritaire)
+     * 2) sinon verifprog (avec sous-gare confirm, puis sans filtre strict via retry code)
+     */
+    function __confOnHeureTransit1Change(fallbackGare) {
+        var hSel = document.querySelector('#heured');
+        if (!hSel || hSel.selectedIndex < 1) return;
+        var hOpt = hSel.options[hSel.selectedIndex];
+        var raw = hOpt ? (hOpt.value || '') : '';
+        var parts = String(raw).split('/');
+        var idLh = parts[0] || '';
+        if (!idLh) return;
+
+        var codeProgr = hOpt.getAttribute('data-code-progr') || '';
+        var gareDep1 = hOpt.getAttribute('data-gareidentif') || fallbackGare;
+        var depl = document.querySelector('#deplignetranscf');
+        if (depl && depl.value) gareDep1 = depl.value;
+        __confFillTransitDepart('#transitedepargarecf1', gareDep1);
+
+        var dSel = document.querySelector('#depsieg');
+        if (dSel) dSel.options.length = 1;
+
+        if (codeProgr) {
+            __confLoadProgByCode(codeProgr, idLh, gareDep1);
+            return;
+        }
+
+        var itinCode = document.querySelector('#itinecodecf') ? document.querySelector('#itinecodecf').value : '';
+        var dptDate = document.querySelector('#actuel') ? document.querySelector('#actuel').value : '';
+        // Sous-gare du modal confirm uniquement (évite le #depargare vente).
+        var sougid = '0';
+        var depCf = document.querySelector('#confirm-0 #depargare') || document.querySelector('#confForm #depargare');
+        if (depCf && depCf.value) {
+            var sp = String(depCf.value).split('/');
+            if (sp[1]) sougid = sp[1];
+        }
+        if (!itinCode || !dptDate) return;
+
+        var http = new XMLHttpRequest();
+        http.open(
+            'GET',
+            window.location.origin + `${APP_ROOT}/programmes/verifprog/`
+                + itinCode + '/' + dptDate + '/' + idLh + '/' + (sougid || '0'),
+            true
+        );
+        http.onload = function () {
+            var don = null;
+            try { don = JSON.parse(http.responseText); } catch (e) { don = null; }
+            var list = __confProgListFromResponse(don);
+            if (list.length >= 1) {
+                __confApplyTransit1Fields(list[0]);
+                __confLoadSiegesTransit1(idLh, dptDate);
+                return;
+            }
+            // Retry sans filtre sous-gare trop strict : reprendre code_progr éventuel du 1er résultat heure.
+            // Dernier recours : rien.
+        };
+        http.setRequestHeader('Content-Type', 'application/json');
+        http.send();
+    }
+
+    /**
+     * Charge heures jambe 1 via verifheureitine (ident_ligne jambe),
+     * attache data-code-progr, puis auto-déclenche siège + départ.
+     */
+    function __confLoadHeuresJambe1AndTrigger(codeItineraire, datedepart, fallbackGare) {
+        var hSel = document.querySelector('#heured');
+        var dSel = document.querySelector('#depsieg');
+        if (hSel) hSel.options.length = 1;
+        if (dSel) dSel.options.length = 1;
+        var depSel = document.querySelector('#transitedepargarecf1');
+        if (depSel) depSel.options.length = 0;
+        if (!codeItineraire || !datedepart) return;
+        var http = new XMLHttpRequest();
+        http.open(
+            'GET',
+            window.location.origin + `${APP_ROOT}/programmes/verifheureitine/`
+                + encodeURIComponent(codeItineraire) + '/'
+                + encodeURIComponent(datedepart),
+            true
+        );
+        http.onload = function () {
+            var rows = null;
+            try { rows = JSON.parse(http.responseText); } catch (e) { rows = null; }
+            if (!hSel) return;
+            hSel.options.length = 1;
+            if (rows && Object.entries(rows).length >= 1) {
+                for (var key in Object.entries(rows)) {
+                    var row = rows[key];
+                    if (!row || row.id_ligneheure == null) continue;
+                    var opt = document.createElement('option');
+                    opt.value = `${row.id_ligneheure}/${row.heure || ''}`;
+                    opt.setAttribute('data-has-programme', '1');
+                    opt.setAttribute('data-transit-leg1', '1');
+                    if (row.code_progr) opt.setAttribute('data-code-progr', String(row.code_progr));
+                    if (row.gareidentif) opt.setAttribute('data-gareidentif', String(row.gareidentif));
+                    opt.innerHTML = row.heure || '';
+                    hSel.add(opt);
+                }
+            }
+            if (hSel.options.length > 1) {
+                hSel.selectedIndex = 1;
+                if (typeof hSel.onchange === 'function') {
+                    hSel.onchange();
+                } else {
+                    __confOnHeureTransit1Change(fallbackGare);
+                }
+            }
+        };
+        http.setRequestHeader('Content-Type', 'application/json');
+        http.send();
+    }
+
+
+
+    function __confModalRoot() {
+        return document.getElementById('confirm-0');
+    }
+
+    function __confField(id) {
+        var root = __confModalRoot();
+        return root ? root.querySelector('#' + id) : document.getElementById(id);
+    }
+
+    function __confResetUi() {
+        var root = __confModalRoot();
+        if (!root) return;
+        var msg = root.querySelector('#messagep');
+        if (msg) msg.style.display = 'none';
+        var code = root.querySelector('#codeconfirm');
+        if (code) code.value = '';
+        var actuel = root.querySelector('#actuel');
+        if (actuel) actuel.value = new Date().toISOString().slice(0, 10);
+        ['pasnompconf', 'pasprenompconf', 'pascontactpconf', 'pascnibpconf', 'pasdatepconf', 'delivrelieu', 'heured', 'depsieg'].forEach(function (id) {
+            var el = root.querySelector('#' + id);
+            if (el) el.style.display = 'none';
+        });
+        var btnOrd = root.querySelector('#valid');
+        var btnEp = root.querySelector('#validep');
+        if (btnOrd) {
+            btnOrd.style.display = 'none';
+            btnOrd.disabled = true;
+            btnOrd.setAttribute('disabled', 'disabled');
+        }
+        if (btnEp) btnEp.style.display = 'none';
+    }
+
+    function __confBindDateReload(axeselect) {
+        var actuelEl = __confField('actuel');
+        if (!actuelEl || actuelEl.dataset.confDateBound) return;
+        actuelEl.dataset.confDateBound = '1';
+        actuelEl.addEventListener('change', function () {
+            if (axeselect && axeselect.value && typeof axeselect.onchange === 'function') {
+                axeselect.onchange();
+            }
+        });
+    }
+
+
+    document.querySelectorAll('.addconfirme').forEach(function (e) {
+        document.querySelector('h3#confTitle').innerHTML = `CONFIRMATION`;
+
+        let cod = document.querySelector('#confirmer_infos');
+        if (cod !== null)
+        cod.onclick = () => {
+            
+            //verification code de confirmation
+            let Request;
+            
+            if (window.XMLHttpRequest) { // Mozilla, Safari, IE7+ ...
+                Request = new XMLHttpRequest();
+            } else if (window.ActiveXObject) { // IE 6 and older
+                Request = new ActiveXObject("Microsoft.XMLHTTP");
+            }
+            
+            var confir = (__confField('codeconfirm') || {}).value || document.querySelector("#codeconfirm").value;
+
+            Request.open('GET', window.location.origin + `${APP_ROOT}/confirmation/verificationcode/${confir}`, true);
+            Request.onload = () => {
+                
+            const data = JSON.parse(Request.responseText);
+            
+            var btnOrdinaire = __confField('valid');
+            var btnEpson = __confField('validep');
+            var showField = function (id) {
+                var el = __confField(id);
+                if (el) el.style.display = 'block';
+            };
+            var hideField = function (id) {
+                var el = __confField(id);
+                if (el) el.style.display = 'none';
+            };
+
+            if (data == null) {
+                        
+                        showField('pasnompconf');
+                        showField('pasprenompconf');
+                        showField('pascontactpconf');
+                        showField('pascnibpconf');
+                        showField('pasdatepconf');
+                        showField('delivrelieu');
+                        showField('heured');
+                        showField('depsieg');
+                        if (btnOrdinaire) {
+                            btnOrdinaire.style.display = 'block';
+                            btnOrdinaire.disabled = false;
+                            btnOrdinaire.removeAttribute('disabled');
+                        }
+                        if (btnEpson) btnEpson.style.display = 'block';
+                        var msgOk = __confField('messagep');
+                        if (msgOk) msgOk.style.display = 'none';
+
+                } else {
+                    if (Object.entries(data).length > 1) {
+                        var msgErr = __confField('messagep');
+                        if (msgErr) msgErr.style.display = 'block';
+                        var errEl = __confField('erreurMessagep') || document.querySelector('#erreurMessagep');
+                        if (errEl) errEl.innerHTML = 'Cet ticket ne peut pas être confirmé .';
+                        hideField('pasnompconf');
+                        hideField('pasprenompconf');
+                        hideField('pascontactpconf');
+                        hideField('pascnibpconf');
+                        hideField('pasdatepconf');
+                        hideField('delivrelieu');
+                        hideField('heured');
+                        hideField('depsieg');
+                        if (btnOrdinaire) {
+                            btnOrdinaire.style.display = 'none';
+                            btnOrdinaire.disabled = true;
+                            btnOrdinaire.setAttribute('disabled', 'disabled');
+                        }
+                        if (btnEpson) btnEpson.style.display = 'none';
+                    }
+                      
+                }
+            };
+            Request.setRequestHeader('Content-Type', 'application/json');
+            Request.send();
+        };
+        let Requests;
+        if (window.XMLHttpRequest) { // Mozilla, Safari, IE7+ ...
+            Requests = new XMLHttpRequest();
+        } else if (window.ActiveXObject) { // IE 6 and older
+            Requests = new ActiveXObject("Microsoft.XMLHTTP");
+        }
+        let axeselect = document.querySelector('#axeconf');
+        if (axeselect !== null)
+        axeselect.onchange = () => 
+        {
+            
+                var heureaxep = document.querySelector('#axeconf').value;
+                var dateactuel = document.querySelector('#actuel').value;
+                document.querySelector('#heured').options.length = 1;
+                document.querySelector('#depsieg').options.length = 1;
+                document.querySelector('#quartconf').options.length = 1;
+                document.querySelector('#hdepartitinecf').options.length = 1;
+                document.querySelector('#psiegesitinescf').options.length = 1;
+                document.querySelector('#idcheminsheurcf').options.length = 1;
+                document.querySelector('#transitedepargarecf1').options.length = 0;
+                document.querySelector('#transitedepargarecf2').options.length = 0;
+                document.querySelector('#transitedepargarecf3').options.length = 0;
+                document.querySelector('#iddeptranscf4').style.display = 'none';
+                document.querySelector('#transitedepargarecf4').options.length = 0;
+                document.querySelector('#idcheminscf').options.length = 1;
+                document.querySelector('#idcheminscf1').options.length = 1;
+                document.querySelector('#idcheminscf2').options.length = 1;
+                document.querySelector('#idcompgcf').value = '';
+                document.querySelector('#idcompgcf1').value = '';
+                document.querySelector('#idcompgcf2').value = '';
+                document.querySelector('#idcompgcf3').value = '';
+                document.querySelector('#psiegesitinescf1').options.length = 1;
+                document.querySelector('#idcheminsheurcf1').options.length = 1;
+                document.querySelector('#psiegesitinescf2').options.length = 1;
+                document.querySelector('#idcheminsheurcf1').options.length = 1;
+                document.querySelector('#quartiercf1').options.length = 1;
+                document.querySelector('#quartiercf2').options.length = 1;
+                document.querySelector('#quartiercf3').options.length = 1;
+                
+                document.querySelector('#iddeptranscf1').style.display = 'none';
+                document.querySelector('#transitedepargarecf1').style.display = 'none';
+                document.querySelector('#iddeptranscf2').style.display = 'none';
+                document.querySelector('#transitedepargarecf2').style.display = 'none';
+                document.querySelector('#iddeptranscf3').style.display = 'none';
+                document.querySelector('#transitedepargarecf3').style.display = 'none';
+                document.querySelector('#arritincf1').style.display = 'none';
+                document.querySelector('#heureitincf1').style.display = 'none';
+                document.querySelector('#lignesitinerairecf').style.display = 'none';
+                document.querySelector('#lignecf1').style.display = 'none';
+                document.querySelector('#siegitinecf1').style.display = 'none';
+                document.querySelector('#psiegesitinescf1').style.display = 'none';
+                document.querySelector('#arritincf2').style.display = 'none';
+                document.querySelector('#siegitinecf2').style.display = 'none';
+                document.querySelector('#psiegesitinescf2').style.display = 'none';
+                document.querySelector('#arritincf3').style.display = 'none';
+                document.querySelector('#quartiercf1').style.display = 'none';
+                document.querySelector('#quartiercf2').style.display = 'none';
+                document.querySelector('#quartiercf3').style.display = 'none';
+                document.querySelector('#idquartcf1').style.display = 'none';
+                document.querySelector('#idquartcf2').style.display = 'none';
+                document.querySelector('#idquartcf3').style.display = 'none';
+                document.querySelector('#idquartcf2').style.display = 'none';
+                document.querySelector('#idcheminscf2').style.display = 'none';
+                document.querySelector('#idcheminsheurcf1').style.display = 'none';
+                document.querySelector('#heureitincf2').style.display = 'none';
+                document.querySelector('#idcheminsheurcf').style.display = 'none';
+                document.querySelector('#idcheminscf1').style.display = 'none';
+                
+                document.querySelector('#transitedepargarecf4').style.display = 'none';
+                document.querySelector('#trancf').style.display = 'none';
+                document.querySelector('#heureitincf').style.display = 'none';
+                document.querySelector('#hdepartitinecf').style.display = 'none';
+                document.querySelector('#siegitinecf').style.display = 'none';
+                document.querySelector('#psiegesitinescf').style.display = 'none';
+                document.querySelector('#heured').style.display = 'block';
+                document.querySelector('#depsieg').style.display = 'block';
+                document.querySelector('#programcf').value = '';
+
+                let httpRequetesquart = new XMLHttpRequest();
+                httpRequetesquart.open('GET', window.location.origin + `${APP_ROOT}/confirmation/verifconfquart/${heureaxep}`, true);
+                httpRequetesquart.onload = () => {
+                const dataq = JSON.parse(httpRequetesquart.responseText);
+                    if(dataq == ''){
+                        document.querySelector('#quartconf').options.length = 1;
+                    }else
+                    {
+                        if (Object.entries(dataq).length >= 1) {
+                                    
+                            for (let key in Object.entries(dataq)) {
+                                let opt = document.createElement('option');
+                                opt.value = `${dataq[key].nom_quartier}`;
+                                opt.innerHTML = `${dataq[key].nom_quartier}`;
+                                document.querySelector('#quartconf').add(opt);
+                            }
+                        } else {
+                            document.querySelector('#quartconf').options.length = 1;
+                        }
+                    }  
+                        
+                };
+                httpRequetesquart.setRequestHeader('Content-Type', 'application/json');
+                httpRequetesquart.send();
+
+                // Catalogue heures moderne (même modèle que vente guichet).
+                var sougidcf = __confDepSousGare();
+                Requests.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifheuresvente/${encodeURIComponent(heureaxep)}/${encodeURIComponent(dateactuel)}/${encodeURIComponent(sougidcf || '0')}`, true);
+                Requests.onload = () => {
+                    var payloadHvCf = {};
+                    try { payloadHvCf = JSON.parse(Requests.responseText) || {}; } catch (eHvCf) { payloadHvCf = {}; }
+                    var heuresHvCf = Array.isArray(payloadHvCf.heures) ? payloadHvCf.heures : [];
+                    window.__confHasTransit = !!payloadHvCf.has_transit;
+                    window.__confLastHeuresVente = heuresHvCf;
+
+                    __confShowDirectHourUi();
+                    __confFillHeuresVente(heuresHvCf);
+
+                    window.__confApplyTransitLegs = function (donitinescf) {
+                                                    donitinescf = (typeof __confNormalizeEtapes === 'function')
+                                                        ? __confNormalizeEtapes(donitinescf) : donitinescf;
+                            if(donitinescf === null || donitinescf === '' || (typeof donitinescf === 'object' && !Object.keys(donitinescf).length))
+                            {
+                                document.querySelector('#iddeptranscf1').style.display = 'none';
+                                document.querySelector('#transitedepargarecf1').style.display = 'none';
+                                document.querySelector('#iddeptranscf2').style.display = 'none';
+                                document.querySelector('#transitedepargarecf2').style.display = 'none';
+                                document.querySelector('#iddeptranscf3').style.display = 'none';
+                                document.querySelector('#transitedepargarecf3').style.display = 'none';
+                                document.querySelector('#iddeptranscf4').style.display = 'none';
+                                document.querySelector('#transitedepargarecf4').style.display = 'none';
+                                document.querySelector('#arritincf1').style.display = 'none';
+                                document.querySelector('#heureitincf1').style.display = 'none';
+                                document.querySelector('#lignesitinerairecf').style.display = 'none';
+                                document.querySelector('#lignecf1').style.display = 'none';
+                                document.querySelector('#siegitinecf1').style.display = 'none';
+                                document.querySelector('#psiegesitinescf1').style.display = 'none';
+                                document.querySelector('#arritincf2').style.display = 'none';
+                                document.querySelector('#heureitincf2').style.display = 'none';
+                                document.querySelector('#hdepartitinecf2').style.display = 'none';
+                                document.querySelector('#siegitinecf2').style.display = 'none';
+                                document.querySelector('#psiegesitinescf2').style.display = 'none';
+                                document.querySelector('#arritincf3').style.display = 'none';
+                                document.querySelector('#quartiercf1').style.display = 'none';
+                                document.querySelector('#quartiercf2').style.display = 'none';
+                                document.querySelector('#quartiercf3').style.display = 'none';
+                                document.querySelector('#idquartcf1').style.display = 'none';
+                                document.querySelector('#idquartcf2').style.display = 'none';
+                                document.querySelector('#idquartcf3').style.display = 'none';
+
+                                document.querySelector('#trancf').style.display = 'none'; if (typeof window.__confSetMainEscaleVisible === 'function') window.__confSetMainEscaleVisible(true);
+                                document.querySelector('#heureitincf').style.display = 'none';
+                                document.querySelector('#hdepartitinecf').style.display = 'none';
+                                document.querySelector('#siegitinecf').style.display = 'none';
+                                document.querySelector('#psiegesitinescf').style.display = 'none';
+                                document.querySelector('#heured').style.display = 'block';
+                            }
+                            else
+                                                    {
+                                                        if (typeof __confResetTransitFieldsBeforeApply === 'function') __confResetTransitFieldsBeforeApply();
+                                                        if (Object.entries(donitinescf).length >= 1) 
+                                {
+                                    var i = Object.entries(donitinescf).length;
+                                    
+                                    for (let key in Object.entries(donitinescf)) 
+                                    {
+                                        
+                                        document.querySelector('#nbrtranscf').value = Object.entries(donitinescf).length;
+                                        if(i === 2){
+                                            document.querySelector('#idcheminscf').style.display = 'block';
+                                            document.querySelector('#heured').style.display = 'block';
+                                            document.querySelector('#heureitincf').style.display = 'block';
+                                            document.querySelector('#hdepartitinecf').style.display = 'block';
+                                            document.querySelector('#siegitinecf').style.display = 'block';
+                                            document.querySelector('#psiegesitinescf').style.display = 'block';
+                                            document.querySelector('#depsieg').style.display = 'block';
+                                            document.querySelector('#quartiercf1').style.display = 'block';
+                                            document.querySelector('#idquartcf1').style.display = 'block';
+                                            document.querySelector('#lignecf1').style.display = 'block';
+                                            document.querySelector('#lignesitinerairecf').style.display = 'block';
+                                            document.querySelector('#iddeptranscf1').style.display = 'block';
+                                            document.querySelector('#arritincf1').style.display = 'block';
+                                            document.querySelector('#transitedepargarecf1').style.display = 'block';
+                                            document.querySelector('#iddeptranscf2').style.display = 'block';
+                                            document.querySelector('#transitedepargarecf2').style.display = 'block';
+                                        }
+                                        
+                                        if(i === 3){
+                                            document.querySelector('#idcheminscf').style.display = 'block';
+                                            document.querySelector('#heureitincf').style.display = 'block';
+                                            document.querySelector('#hdepartitinecf').style.display = 'block';
+                                            document.querySelector('#siegitinecf').style.display = 'block';
+                                            document.querySelector('#psiegesitinescf').style.display = 'block';
+                                            document.querySelector('#depsieg').style.display = 'block';
+                                            document.querySelector('#quartiercf1').style.display = 'block';
+                                            document.querySelector('#idquartcf1').style.display = 'block';
+                                            document.querySelector('#lignecf1').style.display = 'block';
+                                            document.querySelector('#lignesitinerairecf').style.display = 'block';
+                                            document.querySelector('#heured').style.display = 'block';
+                                            document.querySelector('#iddeptranscf1').style.display = 'block';
+                                            document.querySelector('#arritincf1').style.display = 'block';
+                                            document.querySelector('#transitedepargarecf1').style.display = 'block';
+                                            
+                                            document.querySelector('#arritincf2').style.display = 'block';
+                                            document.querySelector('#idcheminscf1').style.display = 'block';
+                                            document.querySelector('#idquartcf2').style.display = 'block';
+                                            document.querySelector('#quartiercf2').style.display = 'block';
+                                            document.querySelector('#heureitincf1').style.display = 'block';
+                                            document.querySelector('#idcheminsheurcf').style.display = 'block';
+                                            document.querySelector('#siegitinecf1').style.display = 'block';
+                                            document.querySelector('#psiegesitinescf1').style.display = 'block';
+                                            document.querySelector('#iddeptranscf2').style.display = 'block';
+                                            document.querySelector('#transitedepargarecf2').style.display = 'block';
+                                            document.querySelector('#iddeptranscf3').style.display = 'block';
+                                            document.querySelector('#transitedepargarecf3').style.display = 'block';
+                                        }if(i === 4){
+
+                                            document.querySelector('#idcheminscf').style.display = 'block';
+                                            document.querySelector('#heureitincf').style.display = 'block';
+                                            document.querySelector('#hdepartitinecf').style.display = 'block';
+                                            document.querySelector('#siegitinecf').style.display = 'block';
+                                            document.querySelector('#psiegesitinescf').style.display = 'block';
+                                            document.querySelector('#depsieg').style.display = 'block';
+                                            document.querySelector('#quartiercf1').style.display = 'block';
+                                            document.querySelector('#idquartcf1').style.display = 'block';
+                                            document.querySelector('#lignecf1').style.display = 'block';
+                                            document.querySelector('#lignesitinerairecf').style.display = 'block';
+                                            document.querySelector('#heured').style.display = 'block';
+                                            document.querySelector('#iddeptranscf1').style.display = 'block';
+                                            document.querySelector('#arritincf1').style.display = 'block';
+                                            document.querySelector('#transitedepargarecf1').style.display = 'block';
+
+
+                                            document.querySelector('#arritincf2').style.display = 'block';
+                                            document.querySelector('#idcheminscf1').style.display = 'block';
+                                            
+                                            document.querySelector('#idcheminscf2').style.display = 'block';
+                                            document.querySelector('#idquartcf2').style.display = 'block';
+                                            document.querySelector('#quartiercf2').style.display = 'block';
+                                            document.querySelector('#heureitincf1').style.display = 'block';
+                                            document.querySelector('#idcheminsheurcf').style.display = 'block';
+                                            document.querySelector('#siegitinecf1').style.display = 'block';
+                                            document.querySelector('#psiegesitinescf1').style.display = 'block';
+                                            document.querySelector('#iddeptranscf2').style.display = 'block';
+                                            document.querySelector('#transitedepargarecf2').style.display = 'block';
+
+
+                                            document.querySelector('#arritincf3').style.display = 'block';
+                                            document.querySelector('#idquartcf3').style.display = 'block';
+                                            document.querySelector('#quartiercf3').style.display = 'block';
+                                            document.querySelector('#heureitincf2').style.display = 'block';
+                                            document.querySelector('#idcheminsheurcf1').style.display = 'block';
+                                            document.querySelector('#siegitinecf2').style.display = 'block';
+                                            document.querySelector('#psiegesitinescf2').style.display = 'block';
+                                            document.querySelector('#iddeptranscf3').style.display = 'block';
+                                            document.querySelector('#transitedepargarecf3').style.display = 'block';
+                                            document.querySelector('#iddeptranscf4').style.display = 'block';
+                                            document.querySelector('#transitedepargarecf4').style.display = 'block';
+                                        }
+                                        document.querySelector('#trancf').style.display = 'block'; if (typeof window.__confSetMainEscaleVisible === 'function') window.__confSetMainEscaleVisible(false);
+                                        if (document.querySelector('#depsieg')) document.querySelector('#depsieg').options.length = 1;
+                                        if (document.querySelector('#transitedepargarecf1')) document.querySelector('#transitedepargarecf1').options.length = 0;
+                                        if (document.querySelector('#heured')) document.querySelector('#heured').options.length = 1;
+                                        document.querySelector('#heureitincf').style.display = 'block';
+                                        document.querySelector('#hdepartitinecf').style.display = 'block';
+                                        document.querySelector('#lignesitinerairecf').style.display = 'block';
+                                        document.querySelector('#lignecf1').style.display = 'block';
+                                        document.querySelector('#siegitinecf').style.display = 'block';
+                                        document.querySelector('#psiegesitinescf').style.display = 'block';
+                                        document.querySelector('#heured').style.display = 'block';
+                    
+                                        document.querySelector('#idcompgcf').value = `${donitinescf[0].id_compaga}`;
+                                        __confFillLigne1Locked(donitinescf[0]);
+                                    }
+                        
+                                    if(i === 2)
+                                    {
+                                        __confSetCheminLigneOption('#idcheminscf', donitinescf[1].code_itineraires, donitinescf[1].nom_itineraires);
+
+                                        __confFillLigne1Locked(donitinescf[0]);
+                                        document.querySelector('#itinecodescf').value = `${donitinescf[0].id_lignes}`;
+                                        document.querySelector('#idcompgcf').value = `${donitinescf[0].id_compaga}`;
+                                        document.querySelector('#idcompgcf1').value = `${donitinescf[1].id_compaga}`;
+                                        var typgarecf1 = document.querySelector('#itinecodecf').value;
+                                        var post_typgarecf1 = (typgarecf1 || '').split('-');
+                                        var seltypgarecf1 = (donitinescf[0] && (donitinescf[0].gaexp_lg || donitinescf[0].code_gaexp)) ? (donitinescf[0].gaexp_lg || donitinescf[0].code_gaexp) : post_typgarecf1[0];
+                                        var typgareselcf = (donitinescf[0] && donitinescf[0].gadest_lg) ? donitinescf[0].gadest_lg : post_typgarecf1[1];
+                                        var identLigneJambe1cf = (donitinescf[0] && donitinescf[0].id_lignes) ? donitinescf[0].id_lignes : (document.querySelector('#itinecodescf') && document.querySelector('#itinecodescf').value);
+                                        if (document.querySelector('#itinecodescf') && identLigneJambe1cf) document.querySelector('#itinecodescf').value = identLigneJambe1cf;
+                                            let httptypequartcf1;
+                                            httptypequartcf1 = new XMLHttpRequest();
+                                            
+                                            httptypequartcf1.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifquartr/${typgareselcf}`, true);
+                                            httptypequartcf1.onload = () => 
+                                            {
+                                                const donquacf1 = JSON.parse(httptypequartcf1.responseText);
+                                                if (donquacf1 == '') {
+                                                    document.querySelector('#quartiercf1').options.length = 1;
+                                                }
+                                                else{
+                                                    if (Object.entries(donquacf1).length >= 1) {
+                                                                    
+                                                        for (let key in Object.entries(donquacf1)) {
+                                                            let optq = document.createElement('option');
+                                                            optq.value = `${donquacf1[key].nom_quartier}`;
+                                                            optq.innerHTML = `${donquacf1[key].nom_quartier}`;
+                                                            document.querySelector('#quartiercf1').add(optq);
+                                                        }
+                                                    } else {
+                                                        document.querySelector('#quartiercf1').options.length = 1;
+                                                    }
+                                                }
+                                                
+
+                                            };
+                                            httptypequartcf1.setRequestHeader('Content-Type', 'application/json');
+                                            httptypequartcf1.send();
+
+                                        let hrdepartinecf = document.querySelector('#heured');
+                                        if (hrdepartinecf !== null) {
+                                            hrdepartinecf.onchange = () => {
+                                                __confOnHeureTransit1Change(seltypgarecf1);
+                                            };
+                                            __confLoadHeuresJambe1AndTrigger((document.querySelector('#itinecodecf') && document.querySelector('#itinecodecf').value) || '', document.querySelector('#actuel').value, seltypgarecf1);
+                                    
+                                        }
+                                        progsiegestranscf = document.querySelector('#depsieg');
+                                        if (progsiegestranscf !== null) {
+                                            progsiegestranscf.onchange = () => 
+                                            {
+
+                                                gareidentiftranscf = document.querySelector('#deplignetranscf').value;
+                                                    const httpsousgarecf = new XMLHttpRequest();
+                                                    __confFillTransitDepart('#transitedepargarecf1', gareidentiftranscf);
+                                                let httpSiegestranscf;
+                                                httpSiegestranscf = new XMLHttpRequest();
+                                                const sigstranscf = document.querySelector('#depsieg')
+                                                .options[document.querySelector('#depsieg').options.selectedIndex].value;
+                                                const prostranscf = document.querySelector('#programtranscf').value;
+
+                                                httpSiegestranscf.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifisieges/${prostranscf}/${sigstranscf}`, true);
+                                                httpSiegestranscf.onload = () => 
+                                                {
+                                                    const donsgetranscf = JSON.parse(httpSiegestranscf.responseText);
+                                                    console.debug(`${typeof donsgetranscf} - ${donsgetranscf.attributes}`, console.memory);
+                                                    if(donsgetranscf == '')
+                                                    {
+                                                        let httpSiegstranscf;
+                                                        httpSiegstranscf = new XMLHttpRequest();
+
+                                                        httpSiegstranscf.open('GET', window.location.origin + `${APP_ROOT}/programmes/creersiege/${prostranscf}/${sigstranscf}`, true);
+                                                        httpSiegstranscf.onload = () => 
+                                                        {
+                                                            const dongtranscf = JSON.parse(httpSiegstranscf.responseText);
+                                                            document.querySelector('#messconf').style.display = 'none';
+                                                            if (Object.entries(dongtranscf).length >= 1)
+                                                                {
+                                                                    for (let key in Object.entries(dongtranscf)) {
+                                                                        document.querySelector('#idtampotranscf').value = `${dongtranscf[key].idtamp}`;                    
+                                                                        document.querySelector('#siegselecttranscf').value = `${dongtranscf[key].numsieg}`;
+                                                                    }
+                                                                }
+                                                        };
+                                                        httpSiegstranscf.setRequestHeader('Content-Type', 'application/json');
+                                                        httpSiegstranscf.send();
+                                                    }
+                                                    else {
+                                                        document.querySelector('#depsieg').value = '';     
+                                                        if (Object.entries(donsgetranscf).length >= 1)
+                                                        {
+                                                            for (let key in Object.entries(donsgetranscf)) {
+                                                                document.querySelector('#idtampotranscf').value = `${donsgetranscf[key].idtamp}`;                    
+                                                                document.querySelector('#siegselecttranscf').value = `${donsgetranscf[key].numsieg}`;
+                                                            }
+
+                                                        }
+                                                        document.querySelector('#messconf').style.display = 'block';
+                                                        document.querySelector('#erreurMessconf').innerHTML = `Siege déjà utilisé.`;
+                                                    }
+                                                };
+                                                httpSiegestranscf.setRequestHeader('Content-Type', 'application/json');
+                                                httpSiegestranscf.send();
+
+                                            
+                                            };
+                                        }
+
+                                        let progchemincf = document.querySelector('#idcheminscf');
+                                        if (progchemincf !== null) 
+                                        {
+                                            progchemincf.onchange = () => 
+                                            {
+                                                let httpSiegeschemincf;
+                                                httpSiegeschemincf = new XMLHttpRequest();
+                                                
+                                                const prostranschemincf = document.querySelector('#idcheminscf')
+                                                .options[document.querySelector('#idcheminscf').options.selectedIndex].value;
+
+                                                var post_typgarecf2 = prostranschemincf.split('-');
+                                                var seltypgarecf2 = post_typgarecf2[0];
+                                                var typgareselcf1 = post_typgarecf2[1];
+                                                
+                                                var datedepartcf = document.querySelector('#actuel').value;
+                                                httpSiegeschemincf.open('GET', window.location.origin + `${APP_ROOT}/programmes/chemin/${prostranschemincf}/${datedepartcf}`, true);
+                                                httpSiegeschemincf.onload = () => 
+                                                {
+                                        
+                                                    const dongtranschemcf = JSON.parse(httpSiegeschemincf.responseText);
+                                                    var __prevCfX = __confPrevFromLeg1();
+                                                        __confAppendFilteredCheminOptions('#hdepartitinecf', dongtranschemcf, __prevCfX.date, __prevCfX.heure);
+                                                };
+                                                httpSiegeschemincf.setRequestHeader('Content-Type', 'application/json');
+                                                httpSiegeschemincf.send();
+
+                                            };
+                                                let prochemintracf = document.querySelector('#hdepartitinecf');
+                                            if (prochemintracf !== null)
+                                                prochemintracf.onchange = () => 
+                                                {  
+                                                    const httpPrixittransitecf = new XMLHttpRequest();
+                                                    const transselitinecf = document.querySelector('#hdepartitinecf')
+                                                    .options[document.querySelector('#hdepartitinecf').options.selectedIndex].value;
+                                                    var post_transcf = transselitinecf.split('/');
+                                                    var itinetrascf = post_transcf[0];
+                                                    var dbitracf = post_transcf[1];
+                                                    var fnitracf = post_transcf[2];
+                                                    var lhertracf = post_transcf[3];
+                                                    var prixtracf = post_transcf[4];
+
+                                                        httpPrixittransitecf.open('GET', window.location.origin + `${APP_ROOT}/programmes/siegdispotrans/${itinetrascf}`, true);
+                                                        httpPrixittransitecf.onload = () => 
+                                                        {
+                                                            const donprixitrancf = JSON.parse(httpPrixittransitecf.responseText);
+                                                            console.debug(`${typeof donprixitrancf}-${donprixitrancf.attributes}`, console.memory);
+                                                            if (Object.entries(donprixitrancf).length >= 1) {
+                                                                for (let key in Object.entries(donprixitrancf)) 
+                                                                {
+                                                                    document.querySelector('#prix_axetransitcf').value = `${prixtracf}`;
+                                                                    document.querySelector('#catetransitcf').value = `${donprixitrancf[key].categori}`;
+                                                                    document.querySelector('#gidtranscf').value =  `${donprixitrancf[key].gareidentif}`;
+                                                                    document.querySelector('#nomitintranscf1').value = `${donprixitrancf[key].nom_ligne}`;
+                                                                    document.querySelector('#ligntranscf1').value = `${donprixitrancf[key].ident_ligne}`;
+
+                                                                }
+                                                            }
+                                                        };
+                                                        httpPrixittransitecf.setRequestHeader('Content-Type', 'application/json');
+                                                        httpPrixittransitecf.send();
+                                                        
+                                                              
+                                                            
+                                                        const httpRequetteitracf = new XMLHttpRequest();
+                                                
+                                                        httpRequetteitracf.open('GET', window.location.origin + `${APP_ROOT}/programmes/siegdisponibletrans/${itinetrascf}/${dbitracf}/${fnitracf}`, true);
+                                                        httpRequetteitracf.onload = () => {
+                                                            const dattaitracf = JSON.parse(httpRequetteitracf.responseText);
+                                                            console.debug(`${typeof dattaitracf} - ${dattaitracf.attributes}`, console.memory);
+                                                            if (Object.entries(dattaitracf).length >= 1) {
+                                                                for (let key in Object.entries(dattaitracf)) {
+                                                                    
+                                                                    let opt = document.createElement('option');
+                                                                    opt.value = `${dattaitracf[key].siege_num}`;
+                                                                    opt.innerHTML = `${dattaitracf[key].siege_num}`;
+                                                                    document.querySelector('#psiegesitinescf').add(opt);
+                                                                    
+                                                                }
+                                                                
+                                                            } else {
+                                                                document.querySelector('#psiegesitinescf').options.length = 1;
+                                                            }
+                                                        };
+                                                        httpRequetteitracf.setRequestHeader('Content-Type', 'application/json');
+                                                        httpRequetteitracf.send();
+                                                };
+
+                                                progsiegescf1 = document.querySelector('#psiegesitinescf');
+                                                if (progsiegescf1 !== null) 
+                                                {
+                                                    progsiegescf1.onchange = () => 
+                                                    {
+                                                        
+                                                        const transselitinecf1 = document.querySelector('#hdepartitinecf')
+                                                        .options[document.querySelector('#hdepartitinecf').options.selectedIndex].value;
+                                                        var post_transcf1 = transselitinecf1.split('/');
+                                                        var itinetrascf1 = post_transcf1[0];
+                                                        
+                                                        gareidentiftranscf2 = document.querySelector('#gidtranscf').value;
+                                                        const httpsousgarecf1 = new XMLHttpRequest();
+                                                        httpsousgarecf1.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifsousgares/${gareidentiftranscf2}`, true);
+                                                        httpsousgarecf1.onload = () => 
+                                                        {
+                                                            const donsousgcf1 = JSON.parse(httpsousgarecf1.responseText);
+                                                            console.debug(`${typeof donsousgcf1}-${donsousgcf1.attributes}`, console.memory);
+                                                            if (Object.entries(donsousgcf1).length >= 1) {
+                                                                for (let key in Object.entries(donsousgcf1)) 
+                                                                {
+                                                                    let opt = document.createElement('option');
+                                                                    opt.value = `${donsousgcf1[key].idsousgare}`;
+                                                                    opt.innerHTML = `${donsousgcf1[key].nomsousgare}`;
+                                                                    document.querySelector('#transitedepargarecf2').add(opt);
+        
+                                                                }
+                                                            }
+                                                        };
+                                                        httpsousgarecf1.setRequestHeader('Content-Type', 'application/json');
+                                                        httpsousgarecf1.send();
+                                                      
+                                                        let httpSiegescf1;
+                                                        httpSiegescf1 = new XMLHttpRequest();
+                                                        const sigscf1 = document.querySelector('#psiegesitinescf')
+                                                        .options[document.querySelector('#psiegesitinescf').options.selectedIndex].value;
+
+                                                        httpSiegescf1.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifisieges/${itinetrascf1}/${sigscf1}`, true);
+                                                        httpSiegescf1.onload = () => 
+                                                        {
+                                                            const donsgecf1 = JSON.parse(httpSiegescf1.responseText);
+                                                            console.debug(`${typeof donsgecf1} - ${donsgecf1.attributes}`, console.memory);
+                                                            if(donsgecf1 == '')
+                                                            {
+                                                                let httpSiegscf1;
+                                                                httpSiegscf1 = new XMLHttpRequest();
+
+                                                                httpSiegscf1.open('GET', window.location.origin + `${APP_ROOT}/programmes/creersiege/${itinetrascf1}/${sigscf1}`, true);
+                                                                httpSiegscf1.onload = () => 
+                                                                {
+                                                                    const dongcf1 = JSON.parse(httpSiegscf1.responseText);
+                                                                    document.querySelector('#messconf').style.display = 'none';
+                                                                    if (Object.entries(dongcf1).length >= 1)
+                                                                    {
+                                                                        for (let key in Object.entries(dongcf1)) {
+                                                                            document.querySelector('#idtampocf1').value = `${dongcf1[key].idtamp}`;                    
+                                                                            document.querySelector('#siegselectcf1').value = `${dongcf1[key].numsieg}`;
+                                                                        }
+                                                                    }
+                                                                };
+                                                                httpSiegscf1.setRequestHeader('Content-Type', 'application/json');
+                                                                httpSiegscf1.send();
+                                                            }
+                                                            else {
+                                                                document.querySelector('#psiegesitinescf').value = '';     
+                                                                if (Object.entries(donsgecf1).length >= 1)
+                                                                {
+                                                                    for (let key in Object.entries(donsgecf1)) {
+                                                                        document.querySelector('#idtampocf1').value = `${donsgecf1[key].idtamp}`;                    
+                                                                        document.querySelector('#siegselectcf1').value = `${donsgecf1[key].numsieg}`;
+                                                                    }
+
+                                                                }
+                                                                document.querySelector('#messconf').style.display = 'block';
+                                                                document.querySelector('#erreurMessconf').innerHTML = `Siege déjà utilisé.`;
+                                                            }
+                                                        };
+                                                        httpSiegescf1.setRequestHeader('Content-Type', 'application/json');
+                                                        httpSiegescf1.send();
+
+                                                    };
+                                                }
+                                        }               
+                                    }
+                                    //second itineraire
+                                    if(i === 3)
+                                    {
+                                        __confSetCheminLigneOption('#idcheminscf', donitinescf[1].code_itineraires, donitinescf[1].nom_itineraires);
+
+                                        __confFillLigne1Locked(donitinescf[0]);
+                                        document.querySelector('#itinecodescf').value = `${donitinescf[0].id_lignes}`;
+                                        document.querySelector('#idcompgcf').value = `${donitinescf[0].id_compaga}`;
+
+                                        __confSetCheminLigneOption('#idcheminscf1', donitinescf[2].code_itineraires, donitinescf[2].nom_itineraires);
+
+                                        document.querySelector('#idcompgcf1').value = `${donitinescf[1].id_compaga}`;
+                                        document.querySelector('#idcompgcf2').value = `${donitinescf[2].id_compaga}`;
+                                        var typgarecf1 = document.querySelector('#itinecodecf').value;
+                                        var post_typgarecf1 = typgarecf1.split('-');
+                                        var seltypgarecf1 = (donitinescf[0] && (donitinescf[0].gaexp_lg || donitinescf[0].code_gaexp)) ? (donitinescf[0].gaexp_lg || donitinescf[0].code_gaexp) : post_typgarecf1[0];
+                                        var typgareselcf = post_typgarecf1[1];
+                                            let httptypequartcf1;
+                                            httptypequartcf1 = new XMLHttpRequest();
+                                            
+                                            httptypequartcf1.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifquartr/${typgareselcf}`, true);
+                                            httptypequartcf1.onload = () => 
+                                            {
+                                                const donquacf1 = JSON.parse(httptypequartcf1.responseText);
+                                                if (donquacf1 == '') {
+                                                    document.querySelector('#quartiercf1').options.length = 1;
+                                                }
+                                                else{
+                                                    if (Object.entries(donquacf1).length >= 1) {
+                                                                    
+                                                        for (let key in Object.entries(donquacf1)) {
+                                                            let optq = document.createElement('option');
+                                                            optq.value = `${donquacf1[key].nom_quartier}`;
+                                                            optq.innerHTML = `${donquacf1[key].nom_quartier}`;
+                                                            document.querySelector('#quartiercf1').add(optq);
+                                                        }
+                                                    } else {
+                                                        document.querySelector('#quartiercf1').options.length = 1;
+                                                    }
+                                                }
+                                                
+
+                                            };
+                                            httptypequartcf1.setRequestHeader('Content-Type', 'application/json');
+                                            httptypequartcf1.send();
+
+
+                                        let hrdepartinecf1 = document.querySelector('#heured');
+                                        if (hrdepartinecf1 !== null) {
+                                            hrdepartinecf1.onchange = () => {
+                                                __confOnHeureTransit1Change(seltypgarecf1);
+                                            };
+                                            __confLoadHeuresJambe1AndTrigger((document.querySelector('#itinecodecf') && document.querySelector('#itinecodecf').value) || '', document.querySelector('#actuel').value, seltypgarecf1);
+                                    
+                                        }
+                                        let progsiegestranscf = document.querySelector('#depsieg');
+                                        if (progsiegestranscf !== null) {
+                                            progsiegestranscf.onchange = () => 
+                                            {
+
+                                                const gareidentiftranscf1 = document.querySelector('#deplignetranscf').value;
+                                                const httpsousgarecf = new XMLHttpRequest();
+                                                __confFillTransitDepart('#transitedepargarecf1', gareidentiftranscf1);
+                                                let httpSiegestranscf1;
+                                                httpSiegestranscf1 = new XMLHttpRequest();
+                                                const sigstranscf = document.querySelector('#depsieg')
+                                                .options[document.querySelector('#depsieg').options.selectedIndex].value;
+                                                const prostranscf = document.querySelector('#programtranscf').value;
+
+                                                httpSiegestranscf1.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifisieges/${prostranscf}/${sigstranscf}`, true);
+                                                httpSiegestranscf1.onload = () => 
+                                                {
+                                                    const donsgetranscf = JSON.parse(httpSiegestranscf1.responseText);
+                                                    console.debug(`${typeof donsgetranscf} - ${donsgetranscf.attributes}`, console.memory);
+                                                    if(donsgetranscf == '')
+                                                    {
+                                                        let httpSiegstranscf;
+                                                        httpSiegstranscf = new XMLHttpRequest();
+
+                                                        httpSiegstranscf.open('GET', window.location.origin + `${APP_ROOT}/programmes/creersiege/${prostranscf}/${sigstranscf}`, true);
+                                                        httpSiegstranscf.onload = () => 
+                                                        {
+                                                            const dongtranscf = JSON.parse(httpSiegstranscf.responseText);
+                                                            document.querySelector('#messconf').style.display = 'none';
+                                                            if (Object.entries(dongtranscf).length >= 1)
+                                                                {
+                                                                    for (let key in Object.entries(dongtranscf)) {
+                                                                        document.querySelector('#idtampotranscf').value = `${dongtranscf[key].idtamp}`;                    
+                                                                        document.querySelector('#siegselecttranscf').value = `${dongtranscf[key].numsieg}`;
+                                                                    }
+                                                                }
+                                                        };
+                                                        httpSiegstranscf.setRequestHeader('Content-Type', 'application/json');
+                                                        httpSiegstranscf.send();
+                                                    }
+                                                    else {
+                                                        document.querySelector('#depsieg').value = '';     
+                                                        if (Object.entries(donsgetranscf).length >= 1)
+                                                        {
+                                                            for (let key in Object.entries(donsgetranscf)) {
+                                                                document.querySelector('#idtampotranscf').value = `${donsgetranscf[key].idtamp}`;                    
+                                                                document.querySelector('#siegselecttranscf').value = `${donsgetranscf[key].numsieg}`;
+                                                            }
+
+                                                        }
+                                                        document.querySelector('#messconf').style.display = 'block';
+                                                        document.querySelector('#erreurMessconf').innerHTML = `Siege déjà utilisé.`;                                                                   
+                                                    }
+                                                };
+                                                httpSiegestranscf1.setRequestHeader('Content-Type', 'application/json');
+                                                httpSiegestranscf1.send();
+                                            };                                                                
+                                            
+                                        }
+                                        //premier transite
+                                        let progchemincf = document.querySelector('#idcheminscf');
+                                        if (progchemincf !== null) 
+                                        {
+                                            progchemincf.onchange = () => 
+                                            {
+                                                
+                                                const prostranschemincf = document.querySelector('#idcheminscf')
+                                                .options[document.querySelector('#idcheminscf').options.selectedIndex].value;
+
+                                                var post_typgarecf2 = prostranschemincf.split('-');
+                                                var seltypgarecf2 = post_typgarecf2[0];
+                                                var typgareselcf1 = post_typgarecf2[1];
+                                                let httptypequartcf2;
+                                                httptypequartcf2 = new XMLHttpRequest();
+                                                
+                                                httptypequartcf2.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifquartr/${typgareselcf1}`, true);
+                                                httptypequartcf2.onload = () => 
+                                                {
+                                                    const donquacf2 = JSON.parse(httptypequartcf2.responseText);
+                                                    if (donquacf2 == '') {
+                                                        document.querySelector('#quartiercf2').options.length = 1;
+                                                    }
+                                                    else{
+                                                        if (Object.entries(donquacf2).length >= 1) {
+                                                                        
+                                                            for (let key in Object.entries(donquacf2)) {
+                                                                let optq1 = document.createElement('option');
+                                                                optq1.value = `${donquacf2[key].nom_quartier}`;
+                                                                optq1.innerHTML = `${donquacf2[key].nom_quartier}`;
+                                                                document.querySelector('#quartiercf2').add(optq1);
+                                                            }
+                                                        } else {
+                                                            document.querySelector('#quartiercf2').options.length = 1;
+                                                        }
+                                                    }
+                                                    
+
+                                                };
+                                                httptypequartcf2.setRequestHeader('Content-Type', 'application/json');
+                                                httptypequartcf2.send();
+
+                                                let httpSiegeschemincf;
+                                                httpSiegeschemincf = new XMLHttpRequest();
+
+                                                var datedepartcf = document.querySelector('#actuel').value;
+                                                
+                                                httpSiegeschemincf.open('GET', window.location.origin + `${APP_ROOT}/programmes/chemin/${prostranschemincf}/${datedepartcf}`, true);
+                                                httpSiegeschemincf.onload = () => 
+                                                {
+                                        
+                                                    const dongtranschemcf = JSON.parse(httpSiegeschemincf.responseText);
+                                                        var __prevCfX = __confPrevFromLeg1();
+                                                        __confAppendFilteredCheminOptions('#hdepartitinecf', dongtranschemcf, __prevCfX.date, __prevCfX.heure);
+                                                };
+                                                httpSiegeschemincf.setRequestHeader('Content-Type', 'application/json');
+                                                httpSiegeschemincf.send();
+
+                                            };
+                                               let prochemintracf = document.querySelector('#hdepartitinecf');
+                                            if (prochemintracf !== null)
+                                                prochemintracf.onchange = () => 
+                                                {  
+                                                    const httpPrixittransitecf = new XMLHttpRequest();
+                                                    const transselitinecf = document.querySelector('#hdepartitinecf')
+                                                    .options[document.querySelector('#hdepartitinecf').options.selectedIndex].value;
+                                                    var post_transcf = transselitinecf.split('/');
+                                                    var itinetrascf = post_transcf[0];
+                                                    var dbitracf = post_transcf[1];
+                                                    var fnitracf = post_transcf[2];
+                                                    var lhertracf = post_transcf[3];
+                                                    var prixtracf = post_transcf[4];
+
+                                                    httpPrixittransitecf.open('GET', window.location.origin + `${APP_ROOT}/programmes/siegdispotrans/${itinetrascf}`, true);
+                                                    httpPrixittransitecf.onload = () => 
+                                                    {
+                                                        const donprixitrancf = JSON.parse(httpPrixittransitecf.responseText);
+                                                        console.debug(`${typeof donprixitrancf}-${donprixitrancf.attributes}`, console.memory);
+                                                        if (Object.entries(donprixitrancf).length >= 1) {
+                                                            for (let key in Object.entries(donprixitrancf)) 
+                                                            {
+                                                                document.querySelector('#prix_axetransitcf').value = `${prixtracf}`;
+                                                                document.querySelector('#catetransitcf').value = `${donprixitrancf[key].categori}`;
+                                                                document.querySelector('#gidtranscf').value =  `${donprixitrancf[key].gareidentif}`;
+                                                                document.querySelector('#nomitintranscf1').value = `${donprixitrancf[key].nom_ligne}`; 
+                                                                document.querySelector('#ligntranscf1').value = `${donprixitrancf[key].ident_ligne}`;
+                                                            }
+                                                        }
+                                                    };
+                                                    httpPrixittransitecf.setRequestHeader('Content-Type', 'application/json');
+                                                    httpPrixittransitecf.send();
+
+                                                    const httpRequetteitracf = new XMLHttpRequest();
+                                            
+                                                    httpRequetteitracf.open('GET', window.location.origin + `${APP_ROOT}/programmes/siegdisponibletrans/${itinetrascf}/${dbitracf}/${fnitracf}`, true);
+                                                    httpRequetteitracf.onload = () => {
+                                                        const dattaitracf = JSON.parse(httpRequetteitracf.responseText);
+                                                        console.debug(`${typeof dattaitracf} - ${dattaitracf.attributes}`, console.memory);
+                                                        if (Object.entries(dattaitracf).length >= 1) {
+                                                            for (let key in Object.entries(dattaitracf)) {
+                                                                
+                                                                let opt = document.createElement('option');
+                                                                opt.value = `${dattaitracf[key].siege_num}`;
+                                                                opt.innerHTML = `${dattaitracf[key].siege_num}`;
+                                                                document.querySelector('#psiegesitinescf').add(opt);
+                                                                
+                                                            }
+                                                            
+                                                        } else {
+                                                            document.querySelector('#psiegesitinescf').options.length = 1;
+                                                        }
+                                                    };
+                                                    httpRequetteitracf.setRequestHeader('Content-Type', 'application/json');
+                                                    httpRequetteitracf.send();
+                                                };
+
+                                                let progsiegescf1 = document.querySelector('#psiegesitinescf');
+                                                if (progsiegescf1 !== null) 
+                                                {
+                                                    progsiegescf1.onchange = () => 
+                                                    {
+
+                                                        const  gareidentiftranscf2 = document.querySelector('#gidtranscf').value;
+                                                            const httpsousgarecf1 = new XMLHttpRequest();
+                                                            httpsousgarecf1.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifsousgares/${gareidentiftranscf2}`, true);
+                                                            httpsousgarecf1.onload = () => 
+                                                            {
+                                                                const donsousgcf1 = JSON.parse(httpsousgarecf1.responseText);
+                                                                console.debug(`${typeof donsousgcf1}-${donsousgcf1.attributes}`, console.memory);
+                                                                if (Object.entries(donsousgcf1).length >= 1) {
+                                                                    for (let key in Object.entries(donsousgcf1)) 
+                                                                    {
+                                                                        let opt = document.createElement('option');
+                                                                        opt.value = `${donsousgcf1[key].idsousgare}`;
+                                                                        opt.innerHTML = `${donsousgcf1[key].nomsousgare}`;
+                                                                        document.querySelector('#transitedepargarecf2').add(opt);
+            
+                                                                    }
+                                                                }
+                                                            };
+                                                            httpsousgarecf1.setRequestHeader('Content-Type', 'application/json');
+                                                            httpsousgarecf1.send();
+                                                         const transselitinecf1 = document.querySelector('#hdepartitinecf')
+                                                        .options[document.querySelector('#hdepartitinecf').options.selectedIndex].value;
+                                                        var post_transcf1 = transselitinecf1.split('/');
+                                                        var itinetrascf1 = post_transcf1[0];
+                                            
+                                                        
+
+                                                        let httpSiegescf1;
+                                                        httpSiegescf1 = new XMLHttpRequest();
+                                                        const sigscf1 = document.querySelector('#psiegesitinescf')
+                                                        .options[document.querySelector('#psiegesitinescf').options.selectedIndex].value;
+
+                                                        httpSiegescf1.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifisieges/${itinetrascf1}/${sigscf1}`, true);
+                                                        httpSiegescf1.onload = () => 
+                                                        {
+                                                            const donsgecf1 = JSON.parse(httpSiegescf1.responseText);
+                                                            console.debug(`${typeof donsgecf1} - ${donsgecf1.attributes}`, console.memory);
+                                                            if(donsgecf1 == '')
+                                                            {
+                                                                let httpSiegscf1;
+                                                                httpSiegscf1 = new XMLHttpRequest();
+
+                                                                httpSiegscf1.open('GET', window.location.origin + `${APP_ROOT}/programmes/creersiege/${itinetrascf1}/${sigscf1}`, true);
+                                                                httpSiegscf1.onload = () => 
+                                                                {
+                                                                    const dongcf1 = JSON.parse(httpSiegscf1.responseText);
+                                                                    document.querySelector('#messconf').style.display = 'none';
+                                                                    if (Object.entries(dongcf1).length >= 1)
+                                                                        {
+                                                                            for (let key in Object.entries(dongcf1)) {
+                                                                                document.querySelector('#idtampocf1').value = `${dongcf1[key].idtamp}`;                    
+                                                                                document.querySelector('#siegselectcf1').value = `${dongcf1[key].numsieg}`;
+                                                                            }
+                                                                        }
+                                                                };
+                                                                httpSiegscf1.setRequestHeader('Content-Type', 'application/json');
+                                                                httpSiegscf1.send();
+                                                            }
+                                                            else {
+                                                                document.querySelector('#psiegesitinescf').value = '';     
+                                                                if (Object.entries(donsgecf1).length >= 1)
+                                                                {
+                                                                    for (let key in Object.entries(donsgecf1)) {
+                                                                        document.querySelector('#idtampocf1').value = `${donsgecf1[key].idtamp}`;                    
+                                                                        document.querySelector('#siegselectcf1').value = `${donsgecf1[key].numsieg}`;
+                                                                    }
+
+                                                                }
+                                                                document.querySelector('#messconf').style.display = 'block';
+                                                                document.querySelector('#erreurMessconf').innerHTML = `Siege déjà utilisé.`;
+                                                            }
+                                                        };
+                                                        httpSiegescf1.setRequestHeader('Content-Type', 'application/json');
+                                                        httpSiegescf1.send();
+
+                                                    };
+                                                }
+                                        }
+                                        let progchemincf1 = document.querySelector('#idcheminscf1');
+                                        if (progchemincf1 !== null) 
+                                        {
+                                            progchemincf1.onchange = () => 
+                                            {
+                                               
+                                                const prostranschemincf32 = document.querySelector('#idcheminscf1')
+                                                .options[document.querySelector('#idcheminscf1').options.selectedIndex].value;
+
+                                                var post_typgarecf32 = prostranschemincf32.split('-');
+                                                var seltypgarecf32 = post_typgarecf32[0];
+                                                var typgareselcf31 = post_typgarecf32[1];
+                                                
+                                                
+                                                let httpSiegeschemincf1;
+                                                httpSiegeschemincf1 = new XMLHttpRequest();
+
+                                                var datedepartcf = document.querySelector('#actuel').value;
+                                                const prostranschemincf1 = document.querySelector('#idcheminscf1')
+                                                .options[document.querySelector('#idcheminscf1').options.selectedIndex].value;
+
+                                                httpSiegeschemincf1.open('GET', window.location.origin + `${APP_ROOT}/programmes/chemin/${prostranschemincf1}/${datedepartcf}`, true);
+                                                httpSiegeschemincf1.onload = () => 
+                                                {
+                                        
+                                                    const dongtranschemcf1 = JSON.parse(httpSiegeschemincf1.responseText);
+                                                    var __prevCfX = __confPrevFromSelect('#hdepartitinecf');
+                                                        __confAppendFilteredCheminOptions('#idcheminsheurcf', dongtranschemcf1, __prevCfX.date, __prevCfX.heure);
+                                                };
+                                                httpSiegeschemincf1.setRequestHeader('Content-Type', 'application/json');
+                                                httpSiegeschemincf1.send();
+
+                                            };
+                                              let prochemintracf1 = document.querySelector('#idcheminsheurcf');
+                                            if (prochemintracf1 !== null)
+                                                prochemintracf1.onchange = () => 
+                                                {  
+                                                    const httpPrixittransitecf1 = new XMLHttpRequest();
+                                                    const transselitinecf1 = document.querySelector('#idcheminsheurcf')
+                                                    .options[document.querySelector('#idcheminsheurcf').options.selectedIndex].value;
+                                                    var post_transcf1 = transselitinecf1.split('/');
+                                                    var itinetrascf1 = post_transcf1[0];
+                                                    var dbitracf1 = post_transcf1[1];
+                                                    var fnitracf1 = post_transcf1[2];
+                                                    var lhertracf1 = post_transcf1[3];
+                                                    var prixtracf1 = post_transcf1[4];
+
+                                                        httpPrixittransitecf1.open('GET', window.location.origin + `${APP_ROOT}/programmes/siegdispotrans/${itinetrascf1}`, true);
+                                                        httpPrixittransitecf1.onload = () => 
+                                                        {
+                                                            const donprixitrancf1 = JSON.parse(httpPrixittransitecf1.responseText);
+                                                            if (Object.entries(donprixitrancf1).length >= 1) {
+                                                                for (let key in Object.entries(donprixitrancf1)) 
+                                                                {
+                                                                    document.querySelector('#prix_axetransitcf1').value = `${prixtracf1}`;
+                                                                    document.querySelector('#catetransitcf1').value = `${donprixitrancf1[key].categori}`;
+                                                                    document.querySelector('#gidtranscf1').value =  `${donprixitrancf1[key].gareidentif}`;
+                                                                    document.querySelector('#nomitintranscf2').value = `${donprixitrancf1[key].nom_ligne}`;
+                                                                    document.querySelector('#ligntranscf2').value = `${donprixitrancf1[key].ident_ligne}`;
+                                                                }
+                                                            }
+                                                        };
+                                                        httpPrixittransitecf1.setRequestHeader('Content-Type', 'application/json');
+                                                        httpPrixittransitecf1.send();
+                                              
+                                                      
+                                                       
+                                                        const httpRequetteitracf1 = new XMLHttpRequest();
+                                                
+                                                        httpRequetteitracf1.open('GET', window.location.origin + `${APP_ROOT}/programmes/siegdisponibletrans/${itinetrascf1}/${dbitracf1}/${fnitracf1}`, true);
+                                                        httpRequetteitracf1.onload = () => {
+                                                            const dattaitracf1 = JSON.parse(httpRequetteitracf1.responseText);
+                                                            console.debug(`${typeof dattaitracf1} - ${dattaitracf1.attributes}`, console.memory);
+                                                            if (Object.entries(dattaitracf1).length >= 1) {
+                                                                for (let key in Object.entries(dattaitracf1)) {
+                                                                    
+                                                                    let opte = document.createElement('option');
+                                                                    opte.value = `${dattaitracf1[key].siege_num}`;
+                                                                    opte.innerHTML = `${dattaitracf1[key].siege_num}`;
+                                                                    document.querySelector('#psiegesitinescf1').add(opte);
+                                                                    
+                                                                }
+                                                                
+                                                            } else {
+                                                                document.querySelector('#psiegesitinescf1').options.length = 1;
+                                                            }
+                                                        };
+                                                        httpRequetteitracf1.setRequestHeader('Content-Type', 'application/json');
+                                                        httpRequetteitracf1.send();
+                                                };
+
+                                                let progsiegescf2 = document.querySelector('#psiegesitinescf1');
+                                                if (progsiegescf2 !== null) 
+                                                {
+                                                    progsiegescf2.onchange = () => 
+                                                    {
+                                                            const transselitinecf2 = document.querySelector('#idcheminsheurcf')
+                                                        .options[document.querySelector('#idcheminsheurcf').options.selectedIndex].value;
+                                                        var post_transcf2 = transselitinecf2.split('/');
+                                                        var itinetrascf2 = post_transcf2[0];
+                                                            
+                                                            const gareidentiftranscf4 = document.querySelector('#gidtranscf1').value;
+                                                            const httpsousgarecf4 = new XMLHttpRequest();
+                                                            httpsousgarecf4.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifsousgares/${gareidentiftranscf4}`, true);
+                                                            httpsousgarecf4.onload = () => 
+                                                            {
+                                                                const donsousgcf4 = JSON.parse(httpsousgarecf4.responseText);
+                                                                console.debug(`${typeof donsousgcf4}-${donsousgcf4.attributes}`, console.memory);
+                                                                if (Object.entries(donsousgcf4).length >= 1) {
+                                                                    for (let key in Object.entries(donsousgcf4)) 
+                                                                    {
+                                                                        let opt = document.createElement('option');
+                                                                        opt.value = `${donsousgcf4[key].idsousgare}`;
+                                                                        opt.innerHTML = `${donsousgcf4[key].nomsousgare}`;
+                                                                        document.querySelector('#transitedepargarecf3').add(opt);
+            
+                                                                    }
+                                                                }
+                                                            };
+
+                                                            httpsousgarecf4.setRequestHeader('Content-Type', 'application/json');
+                                                            httpsousgarecf4.send();
+
+                                                        let httpSiegescf2;
+                                                        httpSiegescf2 = new XMLHttpRequest();
+                                                        const sigscf2 = document.querySelector('#psiegesitinescf1')
+                                                        .options[document.querySelector('#psiegesitinescf1').options.selectedIndex].value;
+
+                                                        httpSiegescf2.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifisieges/${itinetrascf2}/${sigscf2}`, true);
+                                                        httpSiegescf2.onload = () => 
+                                                        {
+                                                            const donsgecf2 = JSON.parse(httpSiegescf2.responseText);
+                                                            if(donsgecf2 == '')
+                                                            {
+                                                                let httpSiegscf2;
+                                                                httpSiegscf2 = new XMLHttpRequest();
+
+                                                                httpSiegscf2.open('GET', window.location.origin + `${APP_ROOT}/programmes/creersiege/${itinetrascf2}/${sigscf2}`, true);
+                                                                httpSiegscf2.onload = () => 
+                                                                {
+                                                                    const dongcf2 = JSON.parse(httpSiegscf2.responseText);
+                                                                    document.querySelector('#messconf').style.display = 'none';
+                                                                    if (Object.entries(dongcf2).length >= 1)
+                                                                        {
+                                                                            for (let key in Object.entries(dongcf2)) {
+                                                                                document.querySelector('#idtampocf2').value = `${dongcf2[key].idtamp}`;                    
+                                                                                document.querySelector('#siegselectcf2').value = `${dongcf2[key].numsieg}`;
+                                                                            }
+                                                                        }
+                                                                };
+                                                                httpSiegscf2.setRequestHeader('Content-Type', 'application/json');
+                                                                httpSiegscf2.send();
+                                                            }
+                                                            else {
+                                                                document.querySelector('#psiegesitinescf1').value = '';     
+                                                                if (Object.entries(donsgecf2).length >= 1)
+                                                                {
+                                                                    for (let key in Object.entries(donsgecf2)) {
+                                                                        document.querySelector('#idtampocf2').value = `${donsgecf2[key].idtamp}`;                    
+                                                                        document.querySelector('#siegselectcf2').value = `${donsgecf2[key].numsieg}`;
+                                                                    }
+
+                                                                }
+                                                                document.querySelector('#messconf').style.display = 'block';
+                                                                document.querySelector('#erreurMessconf').innerHTML = `Siege déjà utilisé.`;                                                                   
+                                                            }
+                                                        };
+                                                        httpSiegescf2.setRequestHeader('Content-Type', 'application/json');
+                                                        httpSiegescf2.send();
+
+                                                    };
+                                                }
+                                        }               
+                                    }
+
+                                    //troisieme itineraire
+                                    if(i === 4)
+                                    {
+                                        __confSetCheminLigneOption('#idcheminscf', donitinescf[1].code_itineraires, donitinescf[1].nom_itineraires);
+
+
+                                        __confSetCheminLigneOption('#idcheminscf1', donitinescf[2].code_itineraires, donitinescf[2].nom_itineraires);
+
+                                        __confSetCheminLigneOption('#idcheminscf2', donitinescf[3].code_itineraires, donitinescf[3].nom_itineraires);
+
+                                        __confFillLigne1Locked(donitinescf[0]);
+                                       
+                                        document.querySelector('#itinecodescf').value = `${donitinescf[0].id_lignes}`;
+                                        document.querySelector('#idcompgcf').value = `${donitinescf[0].id_compaga}`;
+                                        document.querySelector('#idcompgcf1').value = `${donitinescf[1].id_compaga}`;
+                                        document.querySelector('#idcompgcf2').value = `${donitinescf[2].id_compaga}`;
+                                        document.querySelector('#idcompgcf3').value = `${donitinescf[3].id_compaga}`;
+                                        var typgarecf1 = document.querySelector('#itinecodecf').value;
+                                        var post_typgarecf1 = typgarecf1.split('-');
+                                        var seltypgarecf1 = (donitinescf[0] && (donitinescf[0].gaexp_lg || donitinescf[0].code_gaexp)) ? (donitinescf[0].gaexp_lg || donitinescf[0].code_gaexp) : post_typgarecf1[0];
+                                        var typgareselcf = post_typgarecf1[1];
+                                            let httptypequartcf1;
+                                            httptypequartcf1 = new XMLHttpRequest();
+                                            
+                                            httptypequartcf1.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifquartr/${typgareselcf}`, true);
+                                            httptypequartcf1.onload = () => 
+                                            {
+                                                const donquacf1 = JSON.parse(httptypequartcf1.responseText);
+                                                if (donquacf1 == '') {
+                                                    document.querySelector('#quartiercf1').options.length = 1;
+                                                }
+                                                else{
+                                                    if (Object.entries(donquacf1).length >= 1) {
+                                                                    
+                                                        for (let key in Object.entries(donquacf1)) {
+                                                            let optq = document.createElement('option');
+                                                            optq.value = `${donquacf1[key].nom_quartier}`;
+                                                            optq.innerHTML = `${donquacf1[key].nom_quartier}`;
+                                                            document.querySelector('#quartiercf1').add(optq);
+                                                        }
+                                                    } else {
+                                                        document.querySelector('#quartiercf1').options.length = 1;
+                                                    }
+                                                }
+                                                
+
+                                            };
+                                            httptypequartcf1.setRequestHeader('Content-Type', 'application/json');
+                                            httptypequartcf1.send();
+
+
+                                        let hrdepartinecf1 = document.querySelector('#heured');
+                                        if (hrdepartinecf1 !== null) {
+                                            hrdepartinecf1.onchange = () => {
+                                                __confOnHeureTransit1Change(seltypgarecf1);
+                                            };
+                                            __confLoadHeuresJambe1AndTrigger((document.querySelector('#itinecodecf') && document.querySelector('#itinecodecf').value) || '', document.querySelector('#actuel').value, seltypgarecf1);
+                                    
+                                        }
+                                        let progsiegestranscf = document.querySelector('#depsieg');
+                                        if (progsiegestranscf !== null) {
+                                            progsiegestranscf.onchange = () => 
+                                            {
+
+                                                const gareidentiftranscf1 = document.querySelector('#deplignetranscf').value;
+                                                    const httpsousgarecf = new XMLHttpRequest();
+                                                    __confFillTransitDepart('#transitedepargarecf1', gareidentiftranscf1);
+                                                let httpSiegestranscf1;
+                                                httpSiegestranscf1 = new XMLHttpRequest();
+                                                const sigstranscf = document.querySelector('#depsieg')
+                                                .options[document.querySelector('#depsieg').options.selectedIndex].value;
+                                                const prostranscf = document.querySelector('#programtranscf').value;
+
+                                                httpSiegestranscf1.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifisieges/${prostranscf}/${sigstranscf}`, true);
+                                                httpSiegestranscf1.onload = () => 
+                                                {
+                                                    const donsgetranscf = JSON.parse(httpSiegestranscf1.responseText);
+                                                    console.debug(`${typeof donsgetranscf} - ${donsgetranscf.attributes}`, console.memory);
+                                                    if(donsgetranscf == '')
+                                                    {
+                                                        let httpSiegstranscf;
+                                                        httpSiegstranscf = new XMLHttpRequest();
+
+                                                        httpSiegstranscf.open('GET', window.location.origin + `${APP_ROOT}/programmes/creersiege/${prostranscf}/${sigstranscf}`, true);
+                                                        httpSiegstranscf.onload = () => 
+                                                        {
+                                                            const dongtranscf = JSON.parse(httpSiegstranscf.responseText);
+                                                            document.querySelector('#messconf').style.display = 'none';
+                                                            if (Object.entries(dongtranscf).length >= 1)
+                                                                {
+                                                                    for (let key in Object.entries(dongtranscf)) {
+                                                                        document.querySelector('#idtampotranscf').value = `${dongtranscf[key].idtamp}`;                    
+                                                                        document.querySelector('#siegselecttranscf').value = `${dongtranscf[key].numsieg}`;
+                                                                    }
+                                                                }
+                                                        };
+                                                        httpSiegstranscf.setRequestHeader('Content-Type', 'application/json');
+                                                        httpSiegstranscf.send();
+                                                    }
+                                                    else 
+                                                    {
+                                                        document.querySelector('#depsieg').value = '';     
+                                                        if (Object.entries(donsgetranscf).length >= 1)
+                                                        {
+                                                            for (let key in Object.entries(donsgetranscf)) {
+                                                                document.querySelector('#idtampotranscf').value = `${donsgetranscf[key].idtamp}`;                    
+                                                                document.querySelector('#siegselecttranscf').value = `${donsgetranscf[key].numsieg}`;
+                                                            }
+
+                                                        }
+                                                        document.querySelector('#messconf').style.display = 'block';
+                                                        document.querySelector('#erreurMessconf').innerHTML = `Siege déjà utilisé.`; 
+                                                    }
+                                                };
+                                                httpSiegestranscf1.setRequestHeader('Content-Type', 'application/json');
+                                                httpSiegestranscf1.send();
+                                            };
+                                        }
+                                        //premier transite
+                                        let progchemincf = document.querySelector('#idcheminscf');
+                                        if (progchemincf !== null) 
+                                        {
+                                            progchemincf.onchange = () => 
+                                            {
+                                                var datedepartcf = document.querySelector('#actuel').value;
+                                                
+                                                const prostranschemincf = document.querySelector('#idcheminscf')
+                                                .options[document.querySelector('#idcheminscf').options.selectedIndex].value;
+
+                                                var post_typgarecf2 = prostranschemincf.split('-');
+                                                var seltypgarecf2 = post_typgarecf2[0];
+                                                var typgareselcf1 = post_typgarecf2[1];
+                                                let httptypequartcf2;
+                                                httptypequartcf2 = new XMLHttpRequest();
+                                                
+                                                httptypequartcf2.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifquartr/${typgareselcf1}`, true);
+                                                httptypequartcf2.onload = () => 
+                                                {
+                                                    const donquacf2 = JSON.parse(httptypequartcf2.responseText);
+                                                    if (donquacf2 == '') {
+                                                        document.querySelector('#quartiercf2').options.length = 1;
+                                                    }
+                                                    else{
+                                                        if (Object.entries(donquacf2).length >= 1) {
+                                                                        
+                                                            for (let key in Object.entries(donquacf2)) {
+                                                                let optq1 = document.createElement('option');
+                                                                optq1.value = `${donquacf2[key].nom_quartier}`;
+                                                                optq1.innerHTML = `${donquacf2[key].nom_quartier}`;
+                                                                document.querySelector('#quartiercf2').add(optq1);
+                                                            }
+                                                        } else {
+                                                            document.querySelector('#quartiercf2').options.length = 1;
+                                                        }
+                                                    }
+                                                    
+
+                                                };
+                                                httptypequartcf2.setRequestHeader('Content-Type', 'application/json');
+                                                httptypequartcf2.send();
+                                                
+                                                let httpSiegeschemincf;
+                                                httpSiegeschemincf = new XMLHttpRequest();
+                                                
+                                                httpSiegeschemincf.open('GET', window.location.origin + `${APP_ROOT}/programmes/chemin/${prostranschemincf}/${datedepartcf}`, true);
+                                                httpSiegeschemincf.onload = () => 
+                                                {
+                                        
+                                                    const dongtranschemcf = JSON.parse(httpSiegeschemincf.responseText);
+                                                    var __prevCfX = __confPrevFromLeg1();
+                                                        __confAppendFilteredCheminOptions('#hdepartitinecf', dongtranschemcf, __prevCfX.date, __prevCfX.heure);
+                                                };
+                                                httpSiegeschemincf.setRequestHeader('Content-Type', 'application/json');
+                                                httpSiegeschemincf.send();
+
+                                            };
+                                            let prochemintracf = document.querySelector('#hdepartitinecf');
+                                            if (prochemintracf !== null){
+                                                prochemintracf.onchange = () => 
+                                                {  
+                                                    const httpPrixittransitecf = new XMLHttpRequest();
+                                                    const transselitinecf = document.querySelector('#hdepartitinecf')
+                                                    .options[document.querySelector('#hdepartitinecf').options.selectedIndex].value;
+                                                    var post_transcf = transselitinecf.split('/');
+                                                    var itinetrascf = post_transcf[0];
+                                                    var dbitracf = post_transcf[1];
+                                                    var fnitracf = post_transcf[2];
+                                                    var lhertracf = post_transcf[3];
+                                                    var prixtracf = post_transcf[4];
+
+                                                        httpPrixittransitecf.open('GET', window.location.origin + `${APP_ROOT}/programmes/siegdispotrans/${itinetrascf}`, true);
+                                                        httpPrixittransitecf.onload = () => 
+                                                        {
+                                                            const donprixitrancf = JSON.parse(httpPrixittransitecf.responseText);
+                                                            console.debug(`${typeof donprixitrancf}-${donprixitrancf.attributes}`, console.memory);
+                                                            if (Object.entries(donprixitrancf).length >= 1) {
+                                                                for (let key in Object.entries(donprixitrancf)) 
+                                                                {
+                                                                    document.querySelector('#prix_axetransitcf').value = `${prixtracf}`;
+                                                                    document.querySelector('#catetransitcf').value = `${donprixitrancf[key].categori}`;
+                                                                    document.querySelector('#gidtranscf').value =  `${donprixitrancf[key].gareidentif}`;
+                                                                    document.querySelector('#nomitintranscf1').value = `${donprixitrancf[key].nom_ligne}`;
+                                                                    document.querySelector('#ligntranscf1').value = `${donprixitrancf[key].ident_ligne}`;
+                                                                }
+                                                            }
+                                                        };
+                                                        httpPrixittransitecf.setRequestHeader('Content-Type', 'application/json');
+                                                        httpPrixittransitecf.send();
+                                              
+
+                                                        
+                                                        const httpRequetteitracf = new XMLHttpRequest();
+                                                
+                                                            httpRequetteitracf.open('GET', window.location.origin + `${APP_ROOT}/programmes/siegdisponibletrans/${itinetrascf}/${dbitracf}/${fnitracf}`, true);
+                                                        httpRequetteitracf.onload = () => {
+                                                            const dattaitracf = JSON.parse(httpRequetteitracf.responseText);
+                                                            console.debug(`${typeof dattaitracf} - ${dattaitracf.attributes}`, console.memory);
+                                                            if (Object.entries(dattaitracf).length >= 1) {
+                                                                for (let key in Object.entries(dattaitracf)) {
+                                                                    
+                                                                    let opt = document.createElement('option');
+                                                                    opt.value = `${dattaitracf[key].siege_num}`;
+                                                                    opt.innerHTML = `${dattaitracf[key].siege_num}`;
+                                                                    document.querySelector('#psiegesitinescf').add(opt);
+                                                                    
+                                                                }
+                                                                
+                                                            } else {
+                                                                document.querySelector('#psiegesitinescf').options.length = 1;
+                                                            }
+                                                        };
+                                                        httpRequetteitracf.setRequestHeader('Content-Type', 'application/json');
+                                                        httpRequetteitracf.send();
+                                                };
+                                            }
+                                            let progsiegescf1 = document.querySelector('#psiegesitinescf');
+                                            if (progsiegescf1 !== null) 
+                                            {
+                                                progsiegescf1.onchange = () => 
+                                                {
+
+                                                   const gareidentiftranscf2 = document.querySelector('#gidtranscf').value;
+                                                        const httpsousgarecf1 = new XMLHttpRequest();
+                                                        httpsousgarecf1.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifsousgares/${gareidentiftranscf2}`, true);
+                                                        httpsousgarecf1.onload = () => 
+                                                        {
+                                                            const donsousgcf1 = JSON.parse(httpsousgarecf1.responseText);
+                                                            console.debug(`${typeof donsousgcf1}-${donsousgcf1.attributes}`, console.memory);
+                                                            if (Object.entries(donsousgcf1).length >= 1) {
+                                                                for (let key in Object.entries(donsousgcf1)) 
+                                                                {
+                                                                    let opt = document.createElement('option');
+                                                                    opt.value = `${donsousgcf1[key].idsousgare}`;
+                                                                    opt.innerHTML = `${donsousgcf1[key].nomsousgare}`;
+                                                                    document.querySelector('#transitedepargarecf2').add(opt);
+        
+                                                                }
+                                                            }
+                                                        };
+                                                        httpsousgarecf1.setRequestHeader('Content-Type', 'application/json');
+                                                        httpsousgarecf1.send();
+                                                    
+
+                                                    const transselitinecf1 = document.querySelector('#hdepartitinecf')
+                                                    .options[document.querySelector('#hdepartitinecf').options.selectedIndex].value;
+                                                    var post_transcf1 = transselitinecf1.split('/');
+                                                    var itinetrascf1 = post_transcf1[0];
+                                        
+                                                    let httpSiegescf1;
+                                                    httpSiegescf1 = new XMLHttpRequest();
+                                                    const sigscf1 = document.querySelector('#psiegesitinescf')
+                                                    .options[document.querySelector('#psiegesitinescf').options.selectedIndex].value;
+                                                    //const pros1 = document.querySelector('#program').value;
+
+                                                    httpSiegescf1.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifisieges/${itinetrascf1}/${sigscf1}`, true);
+                                                    httpSiegescf1.onload = () => 
+                                                    {
+                                                        const donsgecf1 = JSON.parse(httpSiegescf1.responseText);
+                                                        console.debug(`${typeof donsgecf1} - ${donsgecf1.attributes}`, console.memory);
+                                                        if(donsgecf1 == '')
+                                                        {
+                                                            let httpSiegscf1;
+                                                            httpSiegscf1 = new XMLHttpRequest();
+
+                                                            httpSiegscf1.open('GET', window.location.origin + `${APP_ROOT}/programmes/creersiege/${itinetrascf1}/${sigscf1}`, true);
+                                                            httpSiegscf1.onload = () => 
+                                                            {
+                                                                const dongcf1 = JSON.parse(httpSiegscf1.responseText);
+                                                                document.querySelector('#messconf').style.display = 'none';
+                                                                if (Object.entries(dongcf1).length >= 1)
+                                                                    {
+                                                                        for (let key in Object.entries(dongcf1)) {
+                                                                            document.querySelector('#idtampocf1').value = `${dongcf1[key].idtamp}`;                    
+                                                                            document.querySelector('#siegselectcf1').value = `${dongcf1[key].numsieg}`;
+                                                                        }
+                                                                    }
+                                                            };
+                                                            httpSiegscf1.setRequestHeader('Content-Type', 'application/json');
+                                                            httpSiegscf1.send();
+                                                        }
+                                                        else {
+                                                            document.querySelector('#psiegesitinescf').value = '';     
+                                                            if (Object.entries(donsgecf1).length >= 1)
+                                                            {
+                                                                for (let key in Object.entries(donsgecf1)) {
+                                                                    document.querySelector('#idtampocf1').value = `${donsgecf1[key].idtamp}`;                    
+                                                                    document.querySelector('#siegselectcf1').value = `${donsgecf1[key].numsieg}`;
+                                                                }
+
+                                                            }
+                                                            document.querySelector('#messconf').style.display = 'block';
+                                                            document.querySelector('#erreurMessconf').innerHTML = `Siege déjà utilisé.`;                                                                   
+                                                        }
+                                                    };
+                                                    httpSiegescf1.setRequestHeader('Content-Type', 'application/json');
+                                                    httpSiegescf1.send();
+
+                                                };
+                                            }
+                                        }
+                                        //deuxieme transite
+                                        let progchemincf1 = document.querySelector('#idcheminscf1');
+                                        if (progchemincf1 !== null) 
+                                        {
+                                            progchemincf1.onchange = () => 
+                                            {
+
+                                                const prostranschemincf32 = document.querySelector('#idcheminscf1')
+                                                .options[document.querySelector('#idcheminscf1').options.selectedIndex].value;
+
+                                                var post_typgarecf32 = prostranschemincf32.split('-');
+                                                var seltypgarecf32 = post_typgarecf32[0];
+                                                var typgareselcf31 = post_typgarecf32[1];
+                                                let httptypequartcf32;
+                                                httptypequartcf32 = new XMLHttpRequest();
+                                                
+                                                httptypequartcf32.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifquartr/${typgareselcf31}`, true);
+                                                httptypequartcf32.onload = () => 
+                                                {
+                                                    const donquacf32 = JSON.parse(httptypequartcf32.responseText);
+                                                    if (donquacf32 == '') {
+                                                        document.querySelector('#quartiercf3').options.length = 1;
+                                                    }
+                                                    else{
+                                                        if (Object.entries(donquacf32).length >= 1) {
+                                                                        
+                                                            for (let key in Object.entries(donquacf32)) {
+                                                                let optq31 = document.createElement('option');
+                                                                optq31.value = `${donquacf32[key].nom_quartier}`;
+                                                                optq31.innerHTML = `${donquacf32[key].nom_quartier}`;
+                                                                document.querySelector('#quartiercf3').add(optq31);
+                                                            }
+                                                        } else {
+                                                            document.querySelector('#quartiercf3').options.length = 1;
+                                                        }
+                                                    }
+                                                    
+
+                                                };
+                                                httptypequartcf32.setRequestHeader('Content-Type', 'application/json');
+                                                httptypequartcf32.send();
+                                                
+                                                let httpSiegeschemincf1;
+                                                httpSiegeschemincf1 = new XMLHttpRequest();
+                                                
+                                                var datedepartcf = document.querySelector('#actuel').value;
+                                                const prostranschemincf1 = document.querySelector('#idcheminscf1')
+                                                .options[document.querySelector('#idcheminscf1').options.selectedIndex].value;
+
+                                                httpSiegeschemincf1.open('GET', window.location.origin + `${APP_ROOT}/programmes/chemin/${prostranschemincf1}/${datedepartcf}`, true);
+                                                httpSiegeschemincf1.onload = () => 
+                                                {
+                                        
+                                                    const dongtranschemcf1 = JSON.parse(httpSiegeschemincf1.responseText);
+                                                    var __prevCfX = __confPrevFromSelect('#hdepartitinecf');
+                                                        __confAppendFilteredCheminOptions('#idcheminsheurcf', dongtranschemcf1, __prevCfX.date, __prevCfX.heure);
+                                                };
+                                                httpSiegeschemincf1.setRequestHeader('Content-Type', 'application/json');
+                                                httpSiegeschemincf1.send();
+
+                                            };
+                                               let prochemintracf1 = document.querySelector('#idcheminsheurcf');
+                                            if (prochemintracf1 !== null)
+                                                prochemintracf1.onchange = () => 
+                                                {  
+                                                    const httpPrixittransitecf1 = new XMLHttpRequest();
+                                                    const transselitinecf1 = document.querySelector('#idcheminsheurcf')
+                                                    .options[document.querySelector('#idcheminsheurcf').options.selectedIndex].value;
+                                                        var post_transcf1 = transselitinecf1.split('/');
+                                                    var itinetrascf1 = post_transcf1[0];
+                                                    var dbitracf1 = post_transcf1[1];
+                                                    var fnitracf1 = post_transcf1[2];
+                                                    var lhertracf1 = post_transcf1[3];
+                                                    var prixtracf1 = post_transcf1[4];
+
+                                                        httpPrixittransitecf1.open('GET', window.location.origin + `${APP_ROOT}/programmes/siegdispotrans/${itinetrascf1}`, true);
+                                                        httpPrixittransitecf1.onload = () => 
+                                                        {
+                                                            const donprixitrancf1 = JSON.parse(httpPrixittransitecf1.responseText);
+                                                            if (Object.entries(donprixitrancf1).length >= 1) {
+                                                                for (let key in Object.entries(donprixitrancf1)) 
+                                                                {
+                                                                    document.querySelector('#prix_axetransitcf1').value = `${prixtracf1}`;
+                                                                    document.querySelector('#catetransitcf1').value = `${donprixitrancf1[key].categori}`;
+                                                                    document.querySelector('#gidtranscf1').value =  `${donprixitrancf1[key].gareidentif}`;
+                                                                    document.querySelector('#nomitintranscf2').value = `${donprixitrancf1[key].nom_ligne}`;
+                                                                    document.querySelector('#ligntranscf2').value = `${donprixitrancf1[key].ident_ligne}`;
+                                                                }
+                                                            }
+                                                        };
+                                                        httpPrixittransitecf1.setRequestHeader('Content-Type', 'application/json');
+                                                        httpPrixittransitecf1.send();
+                                              
+                                                        
+
+                                                        const httpRequetteitracf1 = new XMLHttpRequest();
+                                                
+                                                        httpRequetteitracf1.open('GET', window.location.origin + `${APP_ROOT}/programmes/siegdisponibletrans/${itinetrascf1}/${dbitracf1}/${fnitracf1}`, true);
+                                                        httpRequetteitracf1.onload = () => {
+                                                            const dattaitracf1 = JSON.parse(httpRequetteitracf1.responseText);
+                                                            console.debug(`${typeof dattaitracf1} - ${dattaitracf1.attributes}`, console.memory);
+                                                            if (Object.entries(dattaitracf1).length >= 1) {
+                                                                for (let key in Object.entries(dattaitracf1)) {
+                                                                    
+                                                                    let opt = document.createElement('option');
+                                                                    opt.value = `${dattaitracf1[key].siege_num}`;
+                                                                    opt.innerHTML = `${dattaitracf1[key].siege_num}`;
+                                                                    document.querySelector('#psiegesitinescf1').add(opt);
+                                                                    
+                                                                }
+                                                                
+                                                            } else {
+                                                                document.querySelector('#psiegesitinescf1').options.length = 1;
+                                                            }
+                                                        };
+                                                        httpRequetteitracf1.setRequestHeader('Content-Type', 'application/json');
+                                                        httpRequetteitracf1.send();
+                                                };
+
+                                               let progsiegescf2 = document.querySelector('#psiegesitinescf1');
+                                                if (progsiegescf2 !== null) 
+                                                {
+                                                    progsiegescf2.onchange = () => 
+                                                    {
+
+                                                       const gareidentiftranscf4 = document.querySelector('#gidtranscf1').value;
+                                                        const httpsousgarecf4 = new XMLHttpRequest();
+                                                        httpsousgarecf4.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifsousgares/${gareidentiftranscf4}`, true);
+                                                        httpsousgarecf4.onload = () => 
+                                                        {
+                                                            const donsousgcf4 = JSON.parse(httpsousgarecf4.responseText);
+                                                            console.debug(`${typeof donsousgcf4}-${donsousgcf4.attributes}`, console.memory);
+                                                            if (Object.entries(donsousgcf4).length >= 1) {
+                                                                for (let key in Object.entries(donsousgcf4)) 
+                                                                {
+                                                                    let opt23 = document.createElement('option');
+                                                                    opt23.value = `${donsousgcf4[key].idsousgare}`;
+                                                                    opt23.innerHTML = `${donsousgcf4[key].nomsousgare}`;
+                                                                    document.querySelector('#transitedepargarecf3').add(opt23);
+                                                                }
+                                                            }
+                                                        };
+                                                        httpsousgarecf4.setRequestHeader('Content-Type', 'application/json');
+                                                        httpsousgarecf4.send();
+
+                                                        const transselitinecf2 = document.querySelector('#idcheminsheurcf')
+                                                        .options[document.querySelector('#idcheminsheurcf').options.selectedIndex].value;
+                                                        var post_transcf2 = transselitinecf2.split('/');
+                                                        var itinetrascf2 = post_transcf2[0];
+                                            
+                                                        let httpSiegescf2;
+                                                        httpSiegescf2 = new XMLHttpRequest();
+                                                        const sigscf2 = document.querySelector('#psiegesitinescf1')
+                                                        .options[document.querySelector('#psiegesitinescf1').options.selectedIndex].value;
+
+                                                        httpSiegescf2.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifisieges/${itinetrascf2}/${sigscf2}`, true);
+                                                        httpSiegescf2.onload = () => 
+                                                        {
+                                                            const donsgecf2 = JSON.parse(httpSiegescf2.responseText);
+                                                            if(donsgecf2 == '')
+                                                            {
+                                                                let httpSiegscf2;
+                                                                httpSiegscf2 = new XMLHttpRequest();
+
+                                                                httpSiegscf2.open('GET', window.location.origin + `${APP_ROOT}/programmes/creersiege/${itinetrascf2}/${sigscf2}`, true);
+                                                                httpSiegscf2.onload = () => 
+                                                                {
+                                                                    const dongcf2 = JSON.parse(httpSiegscf2.responseText);
+                                                                    document.querySelector('#messconf').style.display = 'none';
+                                                                    if (Object.entries(dongcf2).length >= 1)
+                                                                    {
+                                                                        for (let key in Object.entries(dongcf2)) {
+                                                                            document.querySelector('#idtampocf2').value = `${dongcf2[key].idtamp}`;                    
+                                                                            document.querySelector('#siegselectcf2').value = `${dongcf2[key].numsieg}`;
+                                                                        }
+                                                                    }
+                                                                };
+                                                                httpSiegscf2.setRequestHeader('Content-Type', 'application/json');
+                                                                httpSiegscf2.send();
+                                                            }
+                                                            else 
+                                                            {
+                                                                document.querySelector('#psiegesitinescf1').value = '';     
+                                                                if (Object.entries(donsgecf2).length >= 1)
+                                                                {
+                                                                    for (let key in Object.entries(donsgecf2)) {
+                                                                        document.querySelector('#idtampocf2').value = `${donsgecf2[key].idtamp}`;                    
+                                                                        document.querySelector('#siegselectcf2').value = `${donsgecf2[key].numsieg}`;
+                                                                    }
+
+                                                                }
+                                                                document.querySelector('#messconf').style.display = 'block';
+                                                                document.querySelector('#erreurMessconf').innerHTML = `Siege déjà utilisé.`;                                                                   
+                                                            }
+                                                        };
+                                                        httpSiegescf2.setRequestHeader('Content-Type', 'application/json');
+                                                        httpSiegescf2.send();
+
+                                                    };
+                                                }
+                                        }   
+
+                                        //troisieme transite
+                                       let progchemincf2 = document.querySelector('#idcheminscf2');
+                                        if (progchemincf2 !== null) 
+                                        {
+                                            progchemincf2.onchange = () => 
+                                            {
+                                                const prostranschemincf42 = document.querySelector('#idcheminscf2')
+                                                .options[document.querySelector('#idcheminscf2').options.selectedIndex].value;
+
+                                                var post_typgarecf42 = prostranschemincf42.split('-');
+                                                var seltypgarecf42 = post_typgarecf42[0];
+                                                var typgareselcf41 = post_typgarecf42[1];
+                                                
+                                                let httpSiegeschemincf2;
+                                                httpSiegeschemincf2 = new XMLHttpRequest();
+                                                
+                                                var datedepartcf = document.querySelector('#actuel').value;
+                                                const prostranschemincf2 = document.querySelector('#idcheminscf2')
+                                                .options[document.querySelector('#idcheminscf2').options.selectedIndex].value;
+
+                                                httpSiegeschemincf2.open('GET', window.location.origin + `${APP_ROOT}/programmes/chemin/${prostranschemincf2}/${datedepartcf}`, true);
+                                                httpSiegeschemincf2.onload = () => 
+                                                {
+                                        
+                                                            const dongtranschemcf2 = JSON.parse(httpSiegeschemincf2.responseText);
+                                                            var __prevCfX = __confPrevFromSelect('#idcheminsheurcf');
+                                                        __confAppendFilteredCheminOptions('#idcheminsheurcf1', dongtranschemcf2, __prevCfX.date, __prevCfX.heure);
+                                                };
+                                                httpSiegeschemincf2.setRequestHeader('Content-Type', 'application/json');
+                                                httpSiegeschemincf2.send();
+
+                                            };
+                                              let prochemintracf2 = document.querySelector('#idcheminsheurcf1');
+                                            if (prochemintracf2 !== null)
+                                                prochemintracf2.onchange = () => 
+                                                {  
+                                                    const httpPrixittransitecf2 = new XMLHttpRequest();
+                                                        const transselitinecf2 = document.querySelector('#idcheminsheurcf1')
+                                                    .options[document.querySelector('#idcheminsheurcf1').options.selectedIndex].value;
+                                                        var post_transcf2 = transselitinecf2.split('/');
+                                                    var itinetrascf2 = post_transcf2[0];
+                                                    var dbitracf2 = post_transcf2[1];
+                                                    var fnitracf2 = post_transcf2[2];
+                                                    var lhertracf2 = post_transcf2[3];
+                                                    var prixtracf2 = post_transcf2[4];
+
+                                                        httpPrixittransitecf2.open('GET', window.location.origin + `${APP_ROOT}/programmes/siegdispotrans/${itinetrascf2}`, true);
+                                                        httpPrixittransitecf2.onload = () => 
+                                                        {
+                                                            const donprixitrancf2 = JSON.parse(httpPrixittransitecf2.responseText);
+                                                            if (Object.entries(donprixitrancf2).length >= 1) {
+                                                                for (let key in Object.entries(donprixitrancf2)) 
+                                                                {
+                                                                    document.querySelector('#prix_axetransitcf2').value = `${prixtracf2}`;
+                                                                    document.querySelector('#catetransitcf2').value = `${donprixitrancf2[key].categori}`;
+                                                                    document.querySelector('#gidtranscf2').value =  `${donprixitrancf2[key].gareidentif}`;
+                                                                    document.querySelector('#nomitintranscf3').value = `${donprixitrancf2[key].nom_ligne}`;
+                                                                    document.querySelector('#ligntranscf3').value = `${donprixitrancf2[key].ident_ligne}`;
+                                                                }
+                                                            }
+                                                        };
+                                                        httpPrixittransitecf2.setRequestHeader('Content-Type', 'application/json');
+                                                        httpPrixittransitecf2.send();
+
+                                                        const httpRequetteitracf2 = new XMLHttpRequest();
+                                                
+                                                        httpRequetteitracf2.open('GET', window.location.origin + `${APP_ROOT}/programmes/siegdisponibletrans/${itinetrascf2}/${dbitracf2}/${fnitracf2}`, true);
+                                                        httpRequetteitracf2.onload = () => {
+                                                            const dattaitracf2 = JSON.parse(httpRequetteitracf2.responseText);
+                                                            console.debug(`${typeof dattaitracf2} - ${dattaitracf2.attributes}`, console.memory);
+                                                            if (Object.entries(dattaitracf2).length >= 1) {
+                                                                for (let key in Object.entries(dattaitracf2)) {
+                                                                    
+                                                                    let opt = document.createElement('option');
+                                                                    opt.value = `${dattaitracf2[key].siege_num}`;
+                                                                    opt.innerHTML = `${dattaitracf2[key].siege_num}`;
+                                                                    document.querySelector('#psiegesitinescf2').add(opt);
+                                                                    
+                                                                }
+                                                                
+                                                            } else {
+                                                                document.querySelector('#psiegesitinescf2').options.length = 1;
+                                                            }
+                                                        };
+                                                        httpRequetteitracf2.setRequestHeader('Content-Type', 'application/json');
+                                                        httpRequetteitracf2.send();
+                                                };
+
+                                               let progsiegescf3 = document.querySelector('#psiegesitinescf2');
+                                                if (progsiegescf3 !== null) 
+                                                {
+                                                    progsiegescf3.onchange = () => 
+                                                    {
+
+                                                       const gareidentiftranscf5 = document.querySelector('#gidtranscf2').value;
+                                                        const httpsousgarecf5 = new XMLHttpRequest();
+                                                        httpsousgarecf5.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifsousgares/${gareidentiftranscf5}`, true);
+                                                        httpsousgarecf5.onload = () => 
+                                                        {
+                                                            const donsousgcf5 = JSON.parse(httpsousgarecf5.responseText);
+                                                            console.debug(`${typeof donsousgcf5}-${donsousgcf5.attributes}`, console.memory);
+                                                            if (Object.entries(donsousgcf5).length >= 1) {
+                                                                for (let key in Object.entries(donsousgcf5)) 
+                                                                {
+                                                                    let opt = document.createElement('option');
+                                                                    opt.value = `${donsousgcf5[key].idsousgare}`;
+                                                                    opt.innerHTML = `${donsousgcf5[key].nomsousgare}`;
+                                                                    document.querySelector('#transitedepargarecf4').add(opt);
+        
+                                                                }
+                                                            }
+                                                        };
+                                                        httpsousgarecf5.setRequestHeader('Content-Type', 'application/json');
+                                                        httpsousgarecf5.send();
+                                                        const transselitinecf3 = document.querySelector('#idcheminsheurcf1')
+                                                        .options[document.querySelector('#idcheminsheurcf1').options.selectedIndex].value;
+                                                        var post_transcf3 = transselitinecf3.split('/');
+                                                        var itinetrascf3 = post_transcf3[0];
+                                            
+                                                        let httpSiegescf3;
+                                                        httpSiegescf3 = new XMLHttpRequest();
+                                                        const sigscf3 = document.querySelector('#psiegesitinescf2')
+                                                        .options[document.querySelector('#psiegesitinescf2').options.selectedIndex].value;
+
+                                                        httpSiegescf3.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifisieges/${itinetrascf3}/${sigscf3}`, true);
+                                                        httpSiegescf3.onload = () => 
+                                                        {
+                                                            const donsgecf3 = JSON.parse(httpSiegescf3.responseText);
+                                                            if(donsgecf3 == '')
+                                                            {
+                                                                let httpSiegscf3;
+                                                                httpSiegscf3 = new XMLHttpRequest();
+
+                                                                httpSiegscf3.open('GET', window.location.origin + `${APP_ROOT}/programmes/creersiege/${itinetrascf3}/${sigscf3}`, true);
+                                                                httpSiegscf3.onload = () => 
+                                                                {
+                                                                    const dongcf3 = JSON.parse(httpSiegscf3.responseText);
+                                                                    document.querySelector('#messconf').style.display = 'none';
+                                                                    if (Object.entries(dongcf3).length >= 1)
+                                                                    {
+                                                                        for (let key in Object.entries(dongcf3)) {
+                                                                            document.querySelector('#idtampocf3').value = `${dongcf3[key].idtamp}`;                    
+                                                                            document.querySelector('#siegselectcf3').value = `${dongcf3[key].numsieg}`;
+                                                                        }
+                                                                    }
+                                                                };
+                                                                httpSiegscf3.setRequestHeader('Content-Type', 'application/json');
+                                                                httpSiegscf3.send();
+                                                            }
+                                                            else {
+                                                                document.querySelector('#psiegesitinescf2').value = '';     
+                                                                if (Object.entries(donsgecf3).length >= 1)
+                                                                {
+                                                                    for (let key in Object.entries(donsgecf3)) {
+                                                                        document.querySelector('#idtampocf3').value = `${donsgecf3[key].idtamp}`;                    
+                                                                        document.querySelector('#siegselectcf3').value = `${donsgecf3[key].numsieg}`;
+                                                                    }
+
+                                                                }
+                                                                document.querySelector('#messconf').style.display = 'block';
+                                                                document.querySelector('#erreurMessconf').innerHTML = `Siege déjà utilisé.`;                                                                   
+                                                            }
+                                                        };
+                                                        httpSiegescf3.setRequestHeader('Content-Type', 'application/json');
+                                                        httpSiegescf3.send();
+                                                        
+                                                    };
+                                                }
+
+                                        }            
+                                    }
+                                        
+                                }
+                            }
+
+                        }; // fin __confApplyTransitLegs
+
+                    // Ne pas ouvrir le transit au changement d'axe — seulement au choix d'une heure sans départ.
+
+                        let heurdeprt = document.querySelector('#heured');
+                        if (heurdeprt !== null)
+                            heurdeprt.onchange = () => {
+                                
+                                document.querySelector('#depsieg').options.length = 1;
+                                const hOptCf = document.querySelector('#heured').options[document.querySelector('#heured').options.selectedIndex];
+                                const selectorp = hOptCf ? hOptCf.value : '';
+                                const hasProgHourCf = hOptCf && hOptCf.getAttribute('data-has-programme') === '1';
+
+                                // Heure sans départ → correspondances (modèle vente guichet).
+                                if (selectorp && !hasProgHourCf) {
+                                    var messElCf = document.querySelector('#messconf');
+                                    var errElCf = document.querySelector('#erreurMessconf');
+                                    if (window.__confHasTransit) {
+                                        if (messElCf) messElCf.style.display = 'block';
+                                        if (errElCf) errElCf.innerHTML = 'Pas de départ à cette heure — correspondances proposées.';
+                                        __confRequestTransitLegs(heureaxep, dateactuel, __confDepSousGare(), true);
+                                    } else {
+                                        __confShowDirectHourUi();
+                                        if (messElCf) messElCf.style.display = 'block';
+                                        if (errElCf) errElCf.innerHTML = 'Aucun départ ni correspondance pour cette heure.';
+                                    }
+                                    return;
+                                }
+
+                                // Heure avec départ : flux confirm direct (siegdispo) inchangé.
+                                __confShowDirectHourUi();
+                                if (document.querySelector('#messconf')) document.querySelector('#messconf').style.display = 'none';
+                                const Requeste = new XMLHttpRequest();
+                                var selectorp1 = selectorp.split('/');
+                                var selectorp2 = selectorp1[0];
+                                var selectorp3 = selectorp1[1];
+                                Requeste.open('GET', window.location.origin + `${APP_ROOT}/reprogrammes/siegdispo/${selectorp2}`, true);
+                                Requeste.onload = () => {
+                                    const datasgc = JSON.parse(Requeste.responseText);
+                                    if (Object.entries(datasgc).length >= 1) {
+                                        for (let key in Object.entries(datasgc)) {
+                                            
+                                            document.querySelector('#caissepvend_').value = `${datasgc[key].intervalle1}`;
+                                            document.querySelector('#caissedpvend_').value = `${datasgc[key].intervalle2}`;
+                                            document.querySelector('#directid').value = `${datasgc[key].nom_ligne}`;
+                                            document.querySelector('#confheure').value = `${datasgc[key].heure}`;
+                                            document.querySelector('#gareid_dep').value = `${datasgc[key].gaexp_lg}`;
+                                            document.querySelector('#dateconfirme').value = `${datasgc[key].date_progr}`;
+                                            document.querySelector('#catconfirme').value = `${datasgc[key].categori}`;
+                                            document.querySelector('#lignehconf').value = `${datasgc[key].id_ligneheure}`;
+                                            document.querySelector('#programconf').value = `${datasgc[key].code_progr}`;
+                                        }
+                                    } 
+                                    const Requestbis = new XMLHttpRequest();
+                                            const pldebut = document.querySelector('#caissepvend_').value;
+                                            const plfin = document.querySelector('#caissedpvend_').value;
+                                            const cfdir = document.querySelector('#directid').value;
+                                            const hconfir = document.querySelector('#confheure').value;
+                                            const dconfirme = document.querySelector('#dateconfirme').value;
+                                    Requestbis.open('GET', window.location.origin + `${APP_ROOT}/programmes/siegdisponible/${selectorp2}/${dconfirme}/${cfdir}/${hconfir}/${pldebut}/${plfin}`, true);
+                                    Requestbis.onload = () => {
+                                        const datasgcbis = JSON.parse(Requestbis.responseText);
+                                        if (Object.entries(datasgcbis).length >= 1) {
+                                            for (let key in Object.entries(datasgcbis)) {
+                                                let opt = document.createElement('option');
+                                                opt.value = `${datasgcbis[key].siege_num}`;
+                                                opt.innerHTML = `${datasgcbis[key].siege_num}`;
+                                                document.querySelector('#depsieg').add(opt);
+                                            }
+                                        } else {
+                                            document.querySelector('#depsieg').options.length = 1;
+                                        }
+                                    };
+                                    Requestbis.setRequestHeader('Content-Type', 'application/json');
+                                    Requestbis.send();
+                                };
+                                Requeste.setRequestHeader('Content-Type', 'application/json');
+                                Requeste.send();
+                            };
+                };
+                Requests.setRequestHeader('Content-Type', 'application/json');
+                Requests.send();
+        };
+        __confBindDateReload(axeselect);
+        
+        let depsiegconf = document.querySelector('#depsieg');
+        if (depsiegconf !== null)
+        depsiegconf.onchange = () => {
+                
+                let Requestsiegevenduconf;
+                
+                if (window.XMLHttpRequest) { // Mozilla, Safari, IE7+ ...
+                    Requestsiegevenduconf = new XMLHttpRequest();
+                } else if (window.ActiveXObject) { // IE 6 and older
+                    Requestsiegevenduconf = new ActiveXObject("Microsoft.XMLHTTP");
+                }
+                
+                const dp_progconf = document.querySelector('#programconf').value;
+                const dp_siegeconf = document.querySelector('#depsieg').options[document.querySelector('#depsieg').options.selectedIndex].value;
+                Requestsiegevenduconf.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifisieges/${dp_progconf}/${dp_siegeconf}`, true);
+                Requestsiegevenduconf.onload = () => 
+                {
+                    
+                        const confdonsieg = JSON.parse(Requestsiegevenduconf.responseText);
+                        if (confdonsieg == '')
+                                {
+                                    let httpSiegsconf;
+                                    httpSiegsconf = new XMLHttpRequest();
+
+                                    httpSiegsconf.open('GET', window.location.origin + `${APP_ROOT}/programmes/creersiege/${dp_progconf}/${dp_siegeconf}`, true);
+                                    httpSiegsconf.onload = () => 
+                                    {
+                                        const dongconf= JSON.parse(httpSiegsconf.responseText);
+                                        document.querySelector('#messconf').style.display = 'none';
+                                        if (Object.entries(dongconf).length >= 1)
+                                        {
+                                            for (let key in Object.entries(dongconf)) {
+                                                document.querySelector('#idtampoconf').value = `${dongconf[key].idtamp}`;                    
+                                                document.querySelector('#siegselectconf').value = `${dongconf[key].numsieg}`;
+                                            }
+                                        }
+                                    };
+                                    httpSiegsconf.setRequestHeader('Content-Type', 'application/json');
+                                    httpSiegsconf.send();
+                                }
+                                else {
+                                    document.querySelector('#depsieg').value = '';     
+                                    if (Object.entries(confdonsieg).length >= 1)
+                                    {
+                                        for (let key in Object.entries(confdonsieg)) {
+                                            document.querySelector('#idtampoconf').value = `${confdonsieg[key].idtamp}`;                    
+                                            document.querySelector('#siegselectconf').value = `${confdonsieg[key].numsieg}`;
+                                        }
+
+                                    }
+                                    document.querySelector('#messconf').style.display = 'block';
+                                    document.querySelector('#erreurMessconf').innerHTML = `Siege déjà utilisé.`; 
+                                }
+                };
+                Requestsiegevenduconf.setRequestHeader('content-Type', 'text/json');
+                Requestsiegevenduconf.send();
+            };
+        //bouton annuler
+        butoncliconf = document.querySelector('#confreset');
+        if (butoncliconf !== null) {
+            butoncliconf.onclick = () => 
+            {
+                let httpSiegeselectconf;
+                httpSiegeselectconf = new XMLHttpRequest();
+                const siegselectconf = document.querySelector('#siegselectconf').value;
+                const idtapconf = document.querySelector('#idtampoconf').value;
+                httpSiegeselectconf.open('GET', window.location.origin + `${APP_ROOT}/programmes/deltamponsieg/${idtapconf}/${siegselectconf}`, true);
+                httpSiegeselectconf.onload = () => 
+                {
+                    const donselectconf = JSON.parse(httpSiegeselectconf.responseText);
+                    console.debug(`${typeof donselectconf} - ${donselectconf.attributes}`, console.memory);
+                    document.querySelector('#messconf').style.display = 'none';
+                };
+                httpSiegeselectconf.setRequestHeader('Content-Type', 'application/json');
+                httpSiegeselectconf.send();
+            };
+        }
+        //recherche d'information du client depart principal
+        let infcontact = document.querySelector('#pascontactpconf');
+        if (infcontact !== null)
+        infcontact.onkeyup = () => {
+                let httpInfosrequest;
+                if (window.XMLHttpRequest) {
+                    httpInfosrequest = new XMLHttpRequest();
+                } else if (window.ActiveXObject) {
+                    httpInfosrequest = new ActiveXObject("Microsoft.XMLHTTP");
+                }
+                var verifict = document.querySelector('#pascontactpconf').value;
+                httpInfosrequest.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifinfos/${verifict}`, true);
+                httpInfosrequest.onload = () => {
+                    const infosreq = JSON.parse(httpInfosrequest.responseText);
+                    if (infosreq == null) {
+                        document.querySelector('#pasnompconf').value = "";
+                        document.querySelector('#pasprenompconf').value = "";
+                        document.querySelector('#pascnibpconf').value = "";
+                        document.querySelector('#pasdatepconf').value = "";
+                        document.querySelector('#delivrelieu').value = "";
+                        document.querySelector('#clientconfirmeid').value = "";
+                    } else {
+                        if (Object.entries(infosreq).length > 1) {
+                            
+                            if (infosreq.contact_client == verifict) {
+                                document.querySelector('#pasnompconf').value = `${infosreq.nom_client}`;
+                                document.querySelector('#pasprenompconf').value = `${infosreq.prenom_client}`;
+                                document.querySelector('#pascnibpconf').value = `${infosreq.num_CNIB}`;
+                                document.querySelector('#pasdatepconf').value = `${infosreq.date_delivre}`;
+                                document.querySelector('#delivrelieu').value = `${infosreq.lieu_delivre}`;
+                                document.querySelector('#clientconfirmeid').value = `${infosreq.id_client}`;
+
+                                document.querySelector('#pasnompconfcp').value = `${infosreq.nom_client}`;
+                                document.querySelector('#pasprenompconfcp').value = `${infosreq.prenom_client}`;
+                                document.querySelector('#pascnibpconfcp').value = `${infosreq.num_CNIB}`;
+                                document.querySelector('#pasdatepconfcp').value = `${infosreq.date_delivre}`;
+                                document.querySelector('#lieucnibconf').value = `${infosreq.lieu_delivre}`;
+                            } else {
+                                document.querySelector('#pasnompconf').value = "";
+                                document.querySelector('#pasprenompconf').value = "";
+                                document.querySelector('#pascnibpconf').value = "";
+                                document.querySelector('#pasdatepconf').value = "";
+                                document.querySelector('#delivrelieu').value = "";
+                                document.querySelector('#clientconfirmeid').value = "";
+                            }
+                        }
+                    }
+                };
+                httpInfosrequest.setRequestHeader('Content-Type', 'application/json');
+                httpInfosrequest.send();
+        };
+        e.addEventListener('click', function () {
+            __confResetUi();
+            let confForm = document.querySelector('#confForm');
+            if (confForm) confForm.setAttribute('action', `${APP_ROOT}/Confirmation/confirme/${e.dataset.cle_compagnie}`);
+        });
+    })
+});
+;
+/* --- addreserve.js --- */
+document.addEventListener('DOMContentLoaded', () => {
+    
+    document.querySelectorAll('.addreserve').forEach(function (e) 
+    {
+        document.querySelector('h3#reTitle').innerHTML = `RESERVATION`;
+            
+            let da = document.querySelector('#axereserve');
+            if (da !== null){
+                da.onchange = () => {
+                
+                document.querySelector('#heuredepart').options.length = 1;
+                document.querySelector('#passgsieges').options.length = 1;
+                document.querySelector('#tarifattribtime').value = '';
+                let httpRequetes;
+                
+                if (window.XMLHttpRequest) {
+                    httpRequetes = new XMLHttpRequest();
+                } else if (window.ActiveXObject) {
+                    httpRequetes = new ActiveXObject("Microsoft.XMLHTTP");
+                }
+                
+                var ax = document.querySelector('#axereserve').value;
+                 var datedepart = document.querySelector('#actueldate').value;
+                   
+                            let httpRequetesq = new XMLHttpRequest();
+                            httpRequetesq.open('GET', window.location.origin + `${APP_ROOT}/confirmation/verifconfquart/${ax}`, true);
+                            httpRequetesq.onload = () => {
+                            const qdata = JSON.parse(httpRequetesq.responseText);
+                            if(qdata == ''){
+                                document.querySelector('#quartreser').options.length = 1;
+                            }else{
+                                if (Object.entries(qdata).length >= 1) {
+                                            
+                                    for (let key in Object.entries(qdata)) {
+                                        let opt = document.createElement('option');
+                                        opt.value = `${qdata[key].nom_quartier}`;
+                                        opt.innerHTML = `${qdata[key].nom_quartier}`;
+                                        document.querySelector('#quartreser').add(opt);
+                                    }
+                                } else {
+                                    document.querySelector('#quartreser').options.length = 1;
+                                }
+                            }
+                                
+                                    
+                            };
+                            httpRequetesq.setRequestHeader('Content-Type', 'application/json');
+                            httpRequetesq.send();
+                        httpRequetes.open('GET', window.location.origin + `${APP_ROOT}/confirmation/verifconfprog/${ax}/${datedepart}`, true);
+                        httpRequetes.onload = () => {
+                            const dataAxe = JSON.parse(httpRequetes.responseText);
+                            
+                                
+                                    if (Object.entries(dataAxe).length >= 1) {
+                                            
+                                            for (let key in Object.entries(dataAxe)) {
+                                                let opt = document.createElement('option');
+                                                opt.value = `${dataAxe[key].code_progr}`;
+                                                opt.innerHTML = `${dataAxe[key].heure}/${dataAxe[key].date_progr}`;
+                                                document.querySelector('#heuredepart').add(opt);
+                                            }
+                                        } else {
+                                            document.querySelector('#heuredepart').options.length = 1;
+                                        }
+                            };
+                            httpRequetes.setRequestHeader('Content-Type', 'application/json');
+                            httpRequetes.send();
+                    
+                };
+                
+            }
+            let hrdepart = document.querySelector('#heuredepart');
+            if (hrdepart !== null) {
+                hrdepart.onchange = () => {
+                    document.querySelector('#passgsieges').options.length = 1;
+                    const httpRequest = new XMLHttpRequest();
+                    const sel = document.querySelector('#heuredepart')
+                        .options[document.querySelector('#heuredepart').options.selectedIndex].value;
+                    httpRequest.open('GET', window.location.origin + `${APP_ROOT}/reprogrammes/siegdispo/${sel}`, true);
+                    httpRequest.onload = () => {
+                        const don = JSON.parse(httpRequest.responseText);
+                        console.debug(`${typeof don} - ${don.attributes}`, console.memory);
+                        if (Object.entries(don).length > 0) {
+                            for (let key in Object.entries(don)) {
+                                document.querySelector('#pfinvendable').value = `${don[key].intervalle2}`;
+                                document.querySelector('#siegfinvendable').value = `${don[key].intervalle1}`;
+                                document.querySelector('#reservetime').value = `${don[key].code_progr}`;
+                                document.querySelector('#tarifattribtime').value = `${don[key].typetarif}`;
+                                document.querySelector('#timeaxeid').value = `${don[key].ident_ligne}`;
+                                document.querySelector('#directreserve').value = `${don[key].nom_ligne}`;
+                                document.querySelector('#reserveheure').value = `${don[key].heure}`;
+                                document.querySelector('#gareid_reserve').value = `${don[key].gaexp_lg}`;
+                                document.querySelector('#datereserve').value = `${don[key].date_progr}`;
+                                document.querySelector('#lhreserve').value = `${don[key].id_heur}`;
+                                document.querySelector('#categbus').value=`${don[key].categori}`;
+
+                                console.debug(`${don[key].intervalle1} - ${don[key].intervalle2}`, console.memory)
+                                
+                            }
+                        }
+
+                        const httpPrixres = new XMLHttpRequest();
+                        const selh = document.querySelector('#lhreserve').value;
+                        const selhtfb = document.querySelector('#tarifattribtime').value;
+                        
+                        httpPrixres.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifpriprg/${selh}/${selhtfb}`, true);
+                        httpPrixres.onload = () => 
+                        {
+                            const donpr = JSON.parse(httpPrixres.responseText);
+                            console.debug(`${typeof donpr}-${donpr.attributes}`, console.memory);
+                            if (Object.entries(donpr).length >= 1) {
+                                for (let key in Object.entries(donpr)) {
+                                    document.querySelector('#prixtick').value = `${donpr[key].prix}`;
+
+                                }
+                            }
+                        };
+                        httpPrixres.setRequestHeader('Content-Type', 'application/json');
+                        httpPrixres.send();
+
+                        const httpRequestbis = new XMLHttpRequest();
+    
+                        const lp = document.querySelector('#pfinvendable').value;
+                        const dbpl = document.querySelector('#siegfinvendable').value;
+                        const direc = document.querySelector('#directreserve').value;
+                        const he = document.querySelector('#reserveheure').value;
+                        const datres = document.querySelector('#datereserve').value;
+    
+                        httpRequestbis.open('GET', window.location.origin + `${APP_ROOT}/programmes/siegdisponible/${sel}/${datres}/${direc}/${he}/${dbpl}/${lp}`, true);
+                        httpRequestbis.onload = () => {
+                            const donbis = JSON.parse(httpRequestbis.responseText);
+                            console.debug(`${typeof donbis} - ${donbis.attributes}`, console.memory);
+                            if (Object.entries(donbis).length >= 1) {
+                                for (let key in Object.entries(donbis)) {
+                                    
+                                    let opt = document.createElement('option');
+                                    opt.value = `${donbis[key].siege_num}`;
+                                    opt.innerHTML = `${donbis[key].siege_num}`;
+                                    document.querySelector('#passgsieges').add(opt);
+                            
+                                }
+                                
+                            } else {
+                                document.querySelector('#passgsieges').options.length = 1;
+                            }
+                            
+                        };
+                        httpRequestbis.setRequestHeader('Content-Type', 'application/json');
+                        httpRequestbis.send();
+                          
+                    };
+                    httpRequest.setRequestHeader('Content-Type', 'application/json');
+                    httpRequest.send();
+                };
+           
+            }
+
+            let depsiegreserve = document.querySelector('#passgsieges');
+            if (depsiegreserve !== null)
+            depsiegreserve.onchange = () => {
+                    
+                    let Requestsiegereserve;
+                    
+                    if (window.XMLHttpRequest) { // Mozilla, Safari, IE7+ ...
+                        Requestsiegereserve = new XMLHttpRequest();
+                    } else if (window.ActiveXObject) { // IE 6 and older
+                        Requestsiegereserve = new ActiveXObject("Microsoft.XMLHTTP");
+                    }
+                    
+                    const dp_progreserv = document.querySelector('#reservetime').value;
+                    const dp_siegereserv = document.querySelector('#passgsieges').options[document.querySelector('#passgsieges').options.selectedIndex].value;
+                                       
+                    Requestsiegereserve.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifisieges/${dp_progreserv}/${dp_siegereserv}`, true);
+                    Requestsiegereserve.onload = () => 
+                    {
+                        
+                            const reservdonsieg = JSON.parse(Requestsiegereserve.responseText);
+                            if (reservdonsieg == '')
+                                    {
+                                        let httpSiegsreserv;
+                                        httpSiegsreserv = new XMLHttpRequest();
+                                        const dp_progconf = document.querySelector('#reservetime').value;
+                                        const dp_siegeconf = document.querySelector('#passgsieges').options[document.querySelector('#passgsieges').options.selectedIndex].value;
+                                        httpSiegsreserv.open('GET', window.location.origin + `${APP_ROOT}/programmes/creersiege/${dp_progconf}/${dp_siegeconf}`, true);
+                                        httpSiegsreserv.onload = () => 
+                                        {
+                                            const dongreserv= JSON.parse(httpSiegsreserv.responseText);
+                                            document.querySelector('#messreserv').style.display = 'none';
+                                            if (Object.entries(dongreserv).length >= 1)
+                                            {
+                                                for (let key in Object.entries(dongreserv)) {
+                                                    document.querySelector('#idtamporeserve').value = `${dongreserv[key].idtamp}`;                    
+                                                    document.querySelector('#siegselectreserve').value = `${dongreserv[key].numsieg}`;
+                                                }
+                                            }
+                                        
+                                        };
+                                        httpSiegsreserv.setRequestHeader('Content-Type', 'application/json');
+                                        httpSiegsreserv.send();
+                                    }
+                                    else {
+                                        document.querySelector('#passgsieges').value = '';     
+                                        if (Object.entries(reservdonsieg).length >= 1)
+                                        {
+                                            for (let key in Object.entries(reservdonsieg)) {
+                                                document.querySelector('#idtamporeserve').value = `${reservdonsieg[key].idtamp}`;                    
+                                                document.querySelector('#siegselectreserve').value = `${reservdonsieg[key].numsieg}`;
+                                            }
+
+                                        }
+                                        document.querySelector('#messreserv').style.display = 'block';
+                                        document.querySelector('#erreurMessreserv').innerHTML = `Siege déjà utilisé.`; 
+                                    }
+                    };
+                    Requestsiegereserve.setRequestHeader('content-Type', 'text/json');
+                    Requestsiegereserve.send();
+                };
+//bouton annuler
+                butonclireserv = document.querySelector('#idreserv');
+                if (butonclireserv !== null) {
+                    butonclireserv.onclick = () => 
+                    {
+                        let httpSiegeselectreserve;
+                        httpSiegeselectreserve = new XMLHttpRequest();
+                        const siegselectres = document.querySelector('#siegselectreserve').value;
+                        const idtapres = document.querySelector('#idtamporeserve').value;
+                        httpSiegeselectreserve.open('GET', window.location.origin + `${APP_ROOT}/programmes/deltamponsieg/${idtapres}/${siegselectres}`, true);
+                        httpSiegeselectreserve.onload = () => 
+                        {
+                            const donselectconf = JSON.parse(httpSiegeselectreserve.responseText);
+                            console.debug(`${typeof donselectconf} - ${donselectconf.attributes}`, console.memory);
+                            document.querySelector('#messreserv').style.display = 'none';
+                            
+                        };
+                        httpSiegeselectreserve.setRequestHeader('Content-Type', 'application/json');
+                        httpSiegeselectreserve.send();
+    
+                    
+                    };
+                }
+    
+            let inform = document.querySelector('#idcontactcl');
+            if (inform !== null)
+                inform.onkeyup = () => {
+                    let httpInfosre;
+                    if (window.XMLHttpRequest) {
+                        httpInfosre = new XMLHttpRequest();
+                    } else if (window.ActiveXObject) {
+                        httpInfosre = new ActiveXObject("Microsoft.XMLHTTP");
+                    }
+                    var verificatre = document.querySelector('#idcontactcl').value;
+                    httpInfosre.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifinfos/${verificatre}`, true);
+                    httpInfosre.onload = () => {
+                        const infosre = JSON.parse(httpInfosre.responseText);
+                        if (infosre == null) {
+                            document.querySelector('#idnomcl').value = "";
+                            document.querySelector('#idprenomcl').value = "";
+                            document.querySelector('#idclientcomp').value = "";
+                        } else {
+                            if (Object.entries(infosre).length > 1) {
+                                
+                                if (infosre.contact_client == verificatre) {
+                                    document.querySelector('#idnomcl').value = `${infosre.nom_client}`;
+                                    document.querySelector('#idprenomcl').value = `${infosre.prenom_client}`;
+                                    document.querySelector('#idclientcomp').value = `${infosre.id_client}`;
+                                    document.querySelector('#cpidnomcl').value = `${infosre.nom_client}`;
+                                    document.querySelector('#cpidprenomcl').value = `${infosre.prenom_client}`;
+                                } else {
+                                    document.querySelector('#idnomcl').value = "";
+                                    document.querySelector('#idprenomcl').value = "";
+                                    document.querySelector('#idclientcomp').value = "";
+                                }
+                            }
+                        }
+                    };
+                    httpInfosre.setRequestHeader('Content-Type', 'application/json');
+                    httpInfosre.send();
+                };
+            e.onclick = function () {   
+                let reForm = document.querySelector('#reForm');
+
+                reForm.setAttribute('action', `${APP_ROOT}/Reserves/addreserve/${e.dataset.cle_compagnie}`);   
+            }
+        
+    })
+
+});
+;
+/* --- addconfirmreserve.js --- */
+document.addEventListener('DOMContentLoaded', () => {
+    
+    document.querySelectorAll('.addconfirmreserve').forEach(function (e) {
+        e.onclick = function () 
+        {
+                let confForm = document.querySelector('#confForm');
+            
+                confForm.setAttribute('action', `${APP_ROOT}/Reserves/valideconfirm/${e.dataset.cle_compagnie}/${e.dataset.id_client}/${e.dataset.code_pass}/${e.dataset.gareident}/${e.dataset.code_p}/${e.dataset.cdlignh}/${e.dataset.tfb}`);
+            
+                document.querySelector('h3#reconfTitle').innerHTML = `CONFIRMER RESERVATION AVEC TICKET ${e.dataset.rnom}`;
+
+                $('#ridcontact').val(`${e.dataset.contac}`);
+                $('#ridnom').val(`${e.dataset.rnom}`);
+                $('#ridprenom').val(`${e.dataset.pren}`);
+                $('#ridcontact').val(`${e.dataset.contac}`);
+                $('#numsieg').val(`${e.dataset.numsie}`);
+                $('#lges').val(`${e.dataset.lge}`);
+                $('#nomlg').val(`${e.dataset.nomlge}`);
+                $('#catbuslg').val(`${e.dataset.catbuslge}`);
+                $('#idcnibcf').val(`${e.dataset.num_CNIB}`);
+                $('#dateidcf').val(`${e.dataset.date_delivre}`);
+                $('#lieucf').val(`${e.dataset.lieu_delivre}`);
+                let cfcod = document.querySelector('#confirme_infos');
+                if (cfcod !== null)
+                cfcod.onclick = () => {
+                    
+                    //verification code de confirmation
+                    let confRequest;
+                    
+                    if (window.XMLHttpRequest) { // Mozilla, Safari, IE7+ ...
+                        confRequest = new XMLHttpRequest();
+                    } else if (window.ActiveXObject) { // IE 6 and older
+                        confRequest = new ActiveXObject("Microsoft.XMLHTTP");
+                    }
+                    
+                    var cfconfir = document.querySelector("#confirmcode").value;
+
+                    confRequest.open('GET', window.location.origin + `${APP_ROOT}/confirmation/verificationcode/${cfconfir}`, true);
+                    confRequest.onload = () => {
+                        const cfdata = JSON.parse(confRequest.responseText);
+                        if (cfdata == null) {
+                                document.querySelector('#boutonsubmit').style.display = 'block';
+                                document.querySelector('#messageconf').style.display = 'none';
+                                document.querySelector('#epsonsubmit').style.display = 'block';
+                                
+
+                        } else {
+                            if (Object.entries(cfdata).length > 1) {
+                                
+                                document.querySelector('#messageconf').style.display = 'block';
+                                document.querySelector('#erreurMessageconf').innerHTML = `Cet ticket ne peut pas être confirmé.`;
+                                document.querySelector('#boutonsubmit').style.display = 'none';
+                                document.querySelector('#epsonsubmit').style.display = 'none';
+                                
+                            }
+                            
+                        }
+                    };
+                    confRequest.setRequestHeader('Content-Type', 'application/json');
+                    confRequest.send();
+                };
+
+        }
+    })
+});
+;
+/* --- addreprogramme.js --- */
+document.addEventListener('DOMContentLoaded', () => {
+    const rTitle = document.querySelector('h3#rTitle');
+    if (rTitle) rTitle.innerHTML = 'REPROGRAMMATION';
+
+    function repRows(data) {
+        if (!data) return [];
+        return Array.isArray(data) ? data : Object.values(data);
+    }
+
+    const infos = document.querySelector('#reprogrammer_infos');
+    if (infos !== null) {
+        infos.onclick = () => {
+            const cocl = document.querySelector('#codeclientp').value;
+            const httpRequestRep = new XMLHttpRequest();
+            httpRequestRep.open('GET', window.location.origin + `${APP_ROOT}/reprogrammes/verifcodecl/${cocl}`, true);
+            httpRequestRep.onload = () => {
+                const donnees = JSON.parse(httpRequestRep.responseText);
+                const heuredepartp = document.querySelector('#heuredepartp');
+                const numsiegep = document.querySelector('#numsiegep');
+
+                if (donnees == null) {
+                    document.querySelector('#smsp').style.display = 'block';
+                    document.querySelector('#erreurSmsp').innerHTML = 'Cet ticket ne peut pas être reprogrammé ici.';
+                    document.querySelector('#nomclp').innerHTML = '';
+                    document.querySelector('#prenomclp').innerHTML = '';
+                    document.querySelector('#contactclp').innerHTML = '';
+                    document.querySelector('#refclp').innerHTML = '';
+                    document.querySelector('#directionclp').innerHTML = '';
+                    document.querySelector('#codeclp').innerHTML = '';
+                    document.querySelector('#heureclp').innerHTML = '';
+                    if (heuredepartp) {
+                        heuredepartp.style.display = 'none';
+                        heuredepartp.options.length = 1;
+                    }
+                    if (numsiegep) numsiegep.style.display = 'none';
+                    document.querySelector('#billetrep').style.display = 'none';
+                    return;
+                }
+
+                if (Object.entries(donnees).length >= 1) {
+                    document.querySelector('#smsp').style.display = 'none';
+                    document.querySelector('#billetrep').style.display = 'none';
+                    if (heuredepartp) {
+                        heuredepartp.style.display = 'block';
+                        heuredepartp.options.length = 1;
+                    }
+                    if (numsiegep) {
+                        numsiegep.style.display = 'block';
+                        numsiegep.options.length = 1;
+                    }
+                    document.querySelector('#nomclp').innerHTML = `NOM: ${donnees.nom_client}`;
+                    document.querySelector('#prenomclp').innerHTML = `PRENOM: ${donnees.prenom_client}`;
+                    document.querySelector('#contactclp').innerHTML = `CONTACT: ${donnees.contact_client}`;
+                    document.querySelector('#refclp').innerHTML = `REFERENCE CNIB: ${donnees.num_CNIB}`;
+                    document.querySelector('#directionclp').innerHTML = `AXE: ${donnees.nom_ligne}`;
+                    document.querySelector('#codeclp').innerHTML = `CODE TICKET: ${donnees.code_passager}`;
+                    document.querySelector('#heureclp').innerHTML = `HEURE: ${donnees.heure} SIEGE :${donnees.num_siege_categorie}`;
+                    document.querySelector('#passerp').value = `${donnees.code_passager}`;
+                    document.querySelector('#idclpasserid').value = `${donnees.ligne_id}`;
+                    document.querySelector('#client_idp').value = `${donnees.id_client_pass}`;
+                    document.querySelector('#pasnomp').value = `${donnees.nom_client}`;
+                    document.querySelector('#pasprenomp').value = `${donnees.prenom_client}`;
+                    document.querySelector('#pascontactp').value = `${donnees.contact_client}`;
+                    document.querySelector('#pascnibp').value = `${donnees.num_CNIB}`;
+                    document.querySelector('#pasdatep').value = `${donnees.date_delivre}`;
+                    document.querySelector('#nsiegep').value = `${donnees.num_siege_categorie}`;
+                    document.querySelector('#delivrelie').value = `${donnees.lieu_delivre}`;
+                    document.querySelector('#depold').value = `${donnees.code_pro}`;
+                    document.querySelector('#codeid').value = `${donnees.code_passager}`;
+                    document.querySelector('#codetickets').value = `${donnees.tamponcod}`;
+                    document.querySelector('#codenonp').value = `${donnees.code_non_pass}`;
+                    document.querySelector('#statconf').value = `${donnees.statut_confirme}`;
+                    document.querySelector('#statrep').value = `${donnees.statut_reprog}`;
+                    document.querySelector('#programrep').value = `${donnees.code_progr}`;
+                    document.querySelector('#depgid').value = `${donnees.gaexp_lg}`;
+                    document.querySelector('#dateventerep').value = `${donnees.datep_create}`;
+                } else {
+                    if (heuredepartp) heuredepartp.style.display = 'none';
+                    if (numsiegep) numsiegep.style.display = 'none';
+                    return;
+                }
+
+                const datdepartrep = document.querySelector('#dateventerep').value;
+                const daterepactu = document.querySelector('#actueldaterep').value;
+                const daterep1 = new Date(datdepartrep);
+                const daterep2 = new Date(daterepactu);
+                const daysDiff = (daterep2.getTime() - daterep1.getTime()) / (1000 * 3600 * 24);
+
+                if (daysDiff < 31) {
+                    const hdpaxep = `${donnees.ligne_id}`;
+                    const hcl = `${donnees.code_progr}`;
+                    const ligneheure = `${donnees.heure_identif}`;
+                    const httpRequestews = new XMLHttpRequest();
+                    httpRequestews.open('GET', window.location.origin + `${APP_ROOT}/reprogrammes/hdepartprepro/${hdpaxep}/${hcl}/${ligneheure}`, true);
+                    httpRequestews.onload = () => {
+                        const data2 = JSON.parse(httpRequestews.responseText);
+                        if (!heuredepartp) return;
+                        heuredepartp.options.length = 1;
+                        repRows(data2).forEach(function (row) {
+                            if (!row || row.code_progr == null) return;
+                            const opt = document.createElement('option');
+                            opt.value = `${row.code_progr}/${row.id_ligneheure}/${row.typetarif}`;
+                            opt.innerHTML = `${row.heure}/${row.date_progr}`;
+                            heuredepartp.add(opt);
+                        });
+                    };
+                    httpRequestews.setRequestHeader('Content-Type', 'application/json');
+                    httpRequestews.send();
+                } else {
+                    document.querySelector('#nomclp').innerHTML = '';
+                    document.querySelector('#prenomclp').innerHTML = '';
+                    document.querySelector('#contactclp').innerHTML = '';
+                    document.querySelector('#refclp').innerHTML = '';
+                    document.querySelector('#directionclp').innerHTML = '';
+                    document.querySelector('#codeclp').innerHTML = '';
+                    document.querySelector('#heureclp').innerHTML = '';
+                    if (heuredepartp) heuredepartp.style.display = 'none';
+                    if (numsiegep) numsiegep.style.display = 'none';
+                    document.querySelector('#billetrep').style.display = 'block';
+                    document.querySelector('#billetSmsrep').innerHTML = 'Billet non valable, la durée de validité est dépassée.';
+                }
+            };
+            httpRequestRep.setRequestHeader('Content-Type', 'application/json');
+            httpRequestRep.send();
+        };
+    }
+
+    const heurdep = document.querySelector('#heuredepartp');
+    if (heurdep !== null) {
+        heurdep.onchange = () => {
+            document.querySelector('#numsiegep').options.length = 1;
+
+            const selectorts = document.querySelector('#heuredepartp')
+                .options[document.querySelector('#heuredepartp').options.selectedIndex].value;
+            if (!selectorts) return;
+
+            const postLh = selectorts.split('/');
+            const selh = postLh[0];
+            const httpRequerst = new XMLHttpRequest();
+            httpRequerst.open('GET', window.location.origin + `${APP_ROOT}/reprogrammes/siegdispo/${selh}`, true);
+            httpRequerst.onload = () => {
+                const data = JSON.parse(httpRequerst.responseText);
+                repRows(data).forEach(function (row) {
+                    if (!row) return;
+                    document.querySelector('#placevendu').value = `${row.intervalle1}`;
+                    document.querySelector('#dplacevendu').value = `${row.intervalle2}`;
+                    document.querySelector('#replign').value = `${row.nom_ligne}`;
+                    document.querySelector('#repher').value = `${row.heure}`;
+                    document.querySelector('#datereprogramme').value = `${row.date_progr}`;
+                    document.querySelector('#catreprogramme').value = `${row.categori}`;
+                });
+
+                const pld = document.querySelector('#placevendu').value;
+                const plf = document.querySelector('#dplacevendu').value;
+                const lgr = document.querySelector('#replign').value;
+                const reph = document.querySelector('#repher').value;
+                const dtrep = document.querySelector('#datereprogramme').value;
+                const httpRequetterep = new XMLHttpRequest();
+                httpRequetterep.open('GET', window.location.origin + `${APP_ROOT}/programmes/siegdisponible/${selh}/${dtrep}/${lgr}/${reph}/${pld}/${plf}`, true);
+                httpRequetterep.onload = () => {
+                    const dattas = JSON.parse(httpRequetterep.responseText);
+                    const numsiegep = document.querySelector('#numsiegep');
+                    if (!numsiegep) return;
+                    numsiegep.options.length = 1;
+                    repRows(dattas).forEach(function (row) {
+                        if (!row || row.siege_num == null) return;
+                        const opt = document.createElement('option');
+                        opt.value = `${row.siege_num}`;
+                        opt.innerHTML = `${row.siege_num}`;
+                        numsiegep.add(opt);
+                    });
+                };
+                httpRequetterep.setRequestHeader('Content-Type', 'application/json');
+                httpRequetterep.send();
+            };
+            httpRequerst.setRequestHeader('Content-Type', 'application/json');
+            httpRequerst.send();
+        };
+    }
+
+    const numsiege = document.querySelector('#numsiegep');
+    if (numsiege !== null) {
+        numsiege.onchange = () => {
+            const dpProgrep = document.querySelector('#programrep').value;
+            const dpSiegerep = document.querySelector('#numsiegep')
+                .options[document.querySelector('#numsiegep').options.selectedIndex].value;
+            const Requestsiegevendu = new XMLHttpRequest();
+            Requestsiegevendu.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifisieges/${dpProgrep}/${dpSiegerep}`, true);
+            Requestsiegevendu.onload = () => {
+                const donsieg = JSON.parse(Requestsiegevendu.responseText);
+                if (donsieg == '') {
+                    const httpSiegsrep = new XMLHttpRequest();
+                    httpSiegsrep.open('GET', window.location.origin + `${APP_ROOT}/programmes/creersiege/${dpProgrep}/${dpSiegerep}`, true);
+                    httpSiegsrep.onload = () => {
+                        const dongrep = JSON.parse(httpSiegsrep.responseText);
+                        document.querySelector('#erreursieg').style.display = 'none';
+                        repRows(dongrep).forEach(function (row) {
+                            if (!row) return;
+                            document.querySelector('#idtamporep').value = `${row.idtamp}`;
+                            document.querySelector('#siegselectrep').value = `${row.numsieg}`;
+                        });
+                    };
+                    httpSiegsrep.setRequestHeader('Content-Type', 'application/json');
+                    httpSiegsrep.send();
+                } else {
+                    document.querySelector('#numsiegep').value = '';
+                    repRows(donsieg).forEach(function (row) {
+                        if (!row) return;
+                        document.querySelector('#idtamporep').value = `${row.idtamp}`;
+                        document.querySelector('#siegselectrep').value = `${row.numsieg}`;
+                    });
+                    document.querySelector('#erreursieg').style.display = 'block';
+                    document.querySelector('#erreurSiege').innerHTML = 'Siege déjà utilisé.';
+                }
+            };
+            Requestsiegevendu.setRequestHeader('content-Type', 'text/json');
+            Requestsiegevendu.send();
+        };
+    }
+
+    const butonclicrep = document.querySelector('#rese');
+    if (butonclicrep !== null) {
+        butonclicrep.onclick = () => {
+            const httpSiegeselectrep = new XMLHttpRequest();
+            const siegselectrep = document.querySelector('#siegselectrep').value;
+            const idtaprep = document.querySelector('#idtamporep').value;
+            httpSiegeselectrep.open('GET', window.location.origin + `${APP_ROOT}/programmes/deltamponsieg/${idtaprep}/${siegselectrep}`, true);
+            httpSiegeselectrep.onload = () => {
+                document.querySelector('#erreursieg').style.display = 'none';
+            };
+            httpSiegeselectrep.setRequestHeader('Content-Type', 'application/json');
+            httpSiegeselectrep.send();
+        };
+    }
+
+    document.querySelectorAll('.addreprogramme').forEach(function (e) {
+        e.addEventListener('click', function () {
+            const rForm = document.querySelector('#rForm');
+            if (rForm) rForm.setAttribute('action', `${APP_ROOT}/Reprogrammes/update/${e.dataset.cle_compagnie}`);
+        });
+    });
+});
+
+;
+/* --- addreprogadmin.js --- */
+document.addEventListener('DOMContentLoaded', () => {
+    
+    document.querySelectorAll('.addreprogadmin').forEach(function (e) {
+        document.querySelector('h3#adminrTitle').innerHTML = `REPROGRAMMATION`;
+
+        let admininfos = document.querySelector('#adminreprogrammer_infos');
+        if (admininfos !== null)
+            admininfos.onclick = () => {
+                //verification code de reprogrammation
+                let httpRequestRep;
+                
+                if (window.XMLHttpRequest) { // Mozilla, Safari, IE7+ ...
+                    httpRequestRep = new XMLHttpRequest();
+                } else if (window.ActiveXObject) { // IE 6 and older
+                    httpRequestRep = new ActiveXObject("Microsoft.XMLHTTP");
+                }
+               
+                
+                    var admincocl = document.querySelector("#admincodeclientp").value;
+                httpRequestRep.open('GET', window.location.origin + `${APP_ROOT}/reprogrammes/adminverifcodecl/${admincocl}`, true);
+                httpRequestRep.onload = () => {
+                    const donnees = JSON.parse(httpRequestRep.responseText);
+                    if (donnees == null) {
+                        
+                        document.querySelector('#adminsmsp').style.display = 'block';
+                        document.querySelector('#adminerreurSmsp').innerHTML = `Cet ticket ne peut pas être reprogrammé ici.`;
+                        document.querySelector('#adminnomclp').innerHTML = ``;
+                        document.querySelector('#adminprenomclp').innerHTML = ``;
+                        document.querySelector('#admincontactclp').innerHTML = ``;
+                        document.querySelector('#adminrefclp').innerHTML = ``;
+                        document.querySelector('#admindirectionclp').innerHTML = ``;
+                        document.querySelector('#admincodeclp').innerHTML = ``;
+                        document.querySelector('#adminheureclp').innerHTML = ``;
+                        document.querySelector('#adminheuredepartp').style.display = 'none';
+                        document.querySelector('#adminnumsiegep').style.display = 'none';
+                        document.querySelector('#adminheuredepartp').options.length = 1;
+                        document.querySelector('#admincdpassager').value = ``;
+
+                        
+                    } else
+                    {
+
+                    
+                        if (Object.entries(donnees).length >= 1){
+
+                        
+                            document.querySelector('#adminsmsp').style.display = 'none';
+                            document.querySelector('#adminheuredepartp').style.display = 'block';
+                            document.querySelector('#adminnumsiegep').style.display = 'block';       
+                            document.querySelector('#adminnomclp').innerHTML = `NOM: ${donnees.nom_client}`;
+                            document.querySelector('#adminprenomclp').innerHTML = `PRENOM: ${donnees.prenom_client}`;
+                            document.querySelector('#admincontactclp').innerHTML = `CONTACT: ${donnees.contact_client}`;
+                            document.querySelector('#adminrefclp').innerHTML = `REFERENCE CNIB: ${donnees.num_CNIB}`;
+                            document.querySelector('#admindirectionclp').innerHTML = `AXE: ${donnees.nom_ligne}`;
+                            document.querySelector('#admincodeclp').innerHTML = `CODE TICKET: ${donnees.code_passager}`;
+                            document.querySelector('#adminheureclp').innerHTML = `HEURE: ${donnees.heure} SIEGE: ${donnees.num_siege_categorie}`;
+                            document.querySelector('#adminpasserp').value = `${donnees.code_passager}`;
+                            document.querySelector('#adminidclpasserid').value = `${donnees.ligne_id}`;
+                            document.querySelector('#adminclient_idp').value = `${donnees.id_client_pass}`;
+                            document.querySelector('#adminpasnomp').value = `${donnees.nom_client}`;
+                            document.querySelector('#adminpasprenomp').value = `${donnees.prenom_client}`;
+                            document.querySelector('#adminpascontactp').value = `${donnees.contact_client}`;
+                            document.querySelector('#adminpascnibp').value = `${donnees.num_CNIB}`;
+                            document.querySelector('#adminpasdatep').value = `${donnees.date_delivre}`;
+                            document.querySelector('#adminnsiegep').value = `${donnees.num_siege_categorie}`;
+                            document.querySelector('#admindelivrelie').value = `${donnees.lieu_delivre}`;
+                            document.querySelector('#admindepold').value = `${donnees.code_pro}`;
+                            document.querySelector('#admincodeid').value = `${donnees.code_passager}`;
+                            document.querySelector('#admincodetickets').value = `${donnees.tamponcod}`;
+                            document.querySelector('#admincodenonp').value = `${donnees.code_non_pass}`;
+                            document.querySelector('#adminstatconf').value = `${donnees.statut_confirme}`;
+                            document.querySelector('#adminstatrep').value = `${donnees.statut_reprog}`;
+                            document.querySelector('#adminprogramrep').value = `${donnees.code_progr}`;
+                            document.querySelector('#admindepgid').value = `${donnees.gaexp_lg}`;
+                            document.querySelector('#dateventerep').value = `${donnees.datep_create}`;
+                            document.querySelector('#admincdpassager').value = `${donnees.code_ticket}`;
+
+                        } else {
+                            document.querySelector('#adminheuredepartp').style.display = 'none';
+                            document.querySelector('#adminnumsiegep').style.display = 'none';
+                        }       
+                            var addatdepartrep = document.querySelector('#dateventerep').value;
+                            var addaterepactu = document.querySelector('#actueldaterep').value;
+                            var addaterep1  = new Date(addatdepartrep);
+                            var addaterep2 = new Date(addaterepactu);
+                            // différence des heures
+                            var time_diff = addaterep2.getTime() - addaterep1.getTime();
+                                // différence de jours
+                            const days_Diff = time_diff / (1000 * 3600 * 24);
+
+                            if(days_Diff < 28 || days_Diff < 29 || days_Diff < 30 || days_Diff < 31)    
+                            {
+                                const hdpaxep = `${donnees.ligne_id}`;
+                                const hcl = `${donnees.code_progr}`;
+                                const ligneheure =`${donnees.heure_identif}`;
+                                let httpRequestews;
+                                if (window.XMLHttpRequest) { // Mozilla, Safari, IE7+ ...
+                                    httpRequestews = new XMLHttpRequest();
+                                } else if (window.ActiveXObject) { // IE 6 and older
+                                    httpRequestews = new ActiveXObject("Microsoft.XMLHTTP");
+                                }
+                                httpRequestews.open('GET', window.location.origin + `${APP_ROOT}/reprogrammes/hdepartprepro/${hdpaxep}/${hcl}/${ligneheure}`, true);
+                                
+                                httpRequestews.onload = () => {
+                                    const data2 = JSON.parse(httpRequestews.responseText);
+                                    console.debug(`${typeof data2} - ${data2.attributes}`, console.memory);
+                                    if (Object.entries(data2).length >= 1) {
+                                        for (let key in Object.entries(data2)) {
+                                            let opt = document.createElement('option');
+                                            opt.value = `${data2[key].code_progr}/${data2[key].id_ligneheure}/${data2[key].typetarif}`;
+                                            opt.innerHTML = `${data2[key].heure}/${data2[key].date_progr}`;
+                                            document.querySelector('#adminheuredepartp').add(opt);
+                                            
+                                        }
+                                    } else {
+                                        document.querySelector('#adminheuredepartp').options.length = 1;
+                                    }
+                                };
+                                httpRequestews.setRequestHeader('Content-Type', 'application/json');
+                                httpRequestews.send();
+                            }
+                            else{
+
+                                document.querySelector('#adminnomclp').innerHTML = ``;
+                                document.querySelector('#adminprenomclp').innerHTML = ``;
+                                document.querySelector('#admincontactclp').innerHTML = ``;
+                                document.querySelector('#adminrefclp').innerHTML = ``;
+                                document.querySelector('#admindirectionclp').innerHTML = ``;
+                                document.querySelector('#admincodeclp').innerHTML = ``;
+                                document.querySelector('#adminheureclp').innerHTML = ``;
+                                document.querySelector('#adminheuredepartp').style.display = 'none';
+                                document.querySelector('#adminnumsiegep').style.display = 'none';
+                                document.querySelector('#adbilletrep').style.display = 'block';
+                                document.querySelector('#adbilletSmsrep').innerHTML = `Billet non valable, la durée de validité est dépassée.`;
+                            }
+                    }
+                };
+                httpRequestRep.setRequestHeader('Content-Type', 'application/json');
+                httpRequestRep.send();
+            };
+                
+        
+            let heurdep = document.querySelector('#adminheuredepartp');
+            if (heurdep !== null) {
+                heurdep.onchange = () => {
+                    document.querySelector('#adminnumsiegep').options.length = 1;
+                    
+                const httpRequerst = new XMLHttpRequest();
+                const selectorts = document.querySelector('#adminheuredepartp').
+                    options[document.querySelector('#adminheuredepartp').options.selectedIndex].value;
+					
+					var post_lh = selectorts.split('/');
+					var selh = post_lh[0];
+					var lignehsel = post_lh[1];
+                    var post_lh1 = lignehsel.split('/');
+                    var selh1 = post_lh1[0];
+                    var lignehsel1 = post_lh1[1];
+                    var vr = selh1;
+                httpRequerst.open('GET', window.location.origin + `${APP_ROOT}/reprogrammes/siegdispo/${selh}`, true);
+                httpRequerst.onload = () => {
+                        const data = JSON.parse(httpRequerst.responseText);
+                        console.debug(`${typeof data} - ${data.attributes}`, console.memory);
+                        if (Object.entries(data).length > 0)
+                            for (let key in Object.entries(data)) {
+    
+                                document.querySelector('#adminplacevendu').value = `${data[key].intervalle1}`;
+                                document.querySelector('#admindplacevendu').value = `${data[key].intervalle2}`;
+                                document.querySelector('#adminreplign').value = `${data[key].nom_ligne}`;
+                                document.querySelector('#adminrepher').value = `${data[key].heure}`;
+                                document.querySelector('#admindatereprogramme').value = `${data[key].date_progr}`;
+                                document.querySelector('#admincatreprogramme').value = `${data[key].categori}`;
+                                }
+                            
+                            const httpRequetterep = new XMLHttpRequest();
+                                const pld = document.querySelector('#adminplacevendu').value;
+                                const plf = document.querySelector('#admindplacevendu').value;
+                                const lgr = document.querySelector('#adminreplign').value;
+                                const reph = document.querySelector('#adminrepher').value;
+                                const dtrep = document.querySelector('#admindatereprogramme').value;
+
+                            httpRequetterep.open('GET', window.location.origin + `${APP_ROOT}/programmes/siegdisponible/${selh}/${dtrep}/${lgr}/${reph}/${pld}/${plf}`, true);
+                            httpRequetterep.onload = () => {
+                            const dattas = JSON.parse(httpRequetterep.responseText);
+                            console.debug(`${typeof dattas} - ${dattas.attributes}`, console.memory);
+                            if (Object.entries(dattas).length >= 1)
+                            {
+                               
+                                for (let key in Object.entries(dattas)) {
+                                    let opt = document.createElement('option');
+                                    opt.value = `${dattas[key].siege_num}`;
+                                    opt.innerHTML = `${dattas[key].siege_num}`;
+                                    document.querySelector('#adminnumsiegep').add(opt);
+                                    console.debug(`${dattas[key].siege_num}`, console.memory)
+                                }
+                            } else {
+                                document.querySelector('#adminnumsiegep').options.length = 1;
+                                
+                            }
+                    };
+                    httpRequetterep.setRequestHeader('Content-Type', 'application/json');
+                    httpRequetterep.send();
+                    };
+                    httpRequerst.setRequestHeader('Content-Type', 'application/json');
+                    httpRequerst.send();
+                };
+           
+            }
+
+            let numsiege = document.querySelector('#adminnumsiegep');
+            if (numsiege !== null)
+            numsiege.onchange = () => {
+                    
+                    let Requestsiegevendu;
+                    
+                    if (window.XMLHttpRequest) { // Mozilla, Safari, IE7+ ...
+                        Requestsiegevendu = new XMLHttpRequest();
+                    } else if (window.ActiveXObject) { // IE 6 and older
+                        Requestsiegevendu = new ActiveXObject("Microsoft.XMLHTTP");
+                    }
+                    
+                    const dp_progrep = document.querySelector('#adminprogramrep').value;
+                    const dp_siegerep = document.querySelector('#adminnumsiegep').options[document.querySelector('#numsiegep').options.selectedIndex].value;
+                    Requestsiegevendu.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifisieges/${dp_progrep}/${dp_siegerep}`, true);
+                    Requestsiegevendu.onload = () => 
+                    {
+                        
+                            const donsieg = JSON.parse(Requestsiegevendu.responseText);
+                            if (donsieg == '')
+                                    {
+                                        let httpSiegsrep;
+                                        httpSiegsrep = new XMLHttpRequest();
+
+                                        httpSiegsrep.open('GET', window.location.origin + `${APP_ROOT}/programmes/creersiege/${dp_progrep}/${dp_siegerep}`, true);
+                                        httpSiegsrep.onload = () => 
+                                        {
+                                            const dongrep= JSON.parse(httpSiegsrep.responseText);
+                                            document.querySelector('#adminerreursieg').style.display = 'none';
+                                            if (Object.entries(dongrep).length >= 1)
+                                            {
+                                                for (let key in Object.entries(dongrep)) {
+                                                    document.querySelector('#adminidtamporep').value = `${dongrep[key].idtamp}`;                    
+                                                    document.querySelector('#adminsiegselectrep').value = `${dongrep[key].numsieg}`;
+                                                }
+
+                                            }
+                                        };
+                                        httpSiegsrep.setRequestHeader('Content-Type', 'application/json');
+                                        httpSiegsrep.send();
+                                    }
+                                    else {
+                                        document.querySelector('#adminnumsiegep').value = '';     
+                                        if (Object.entries(donsieg).length >= 1)
+                                        {
+                                            for (let key in Object.entries(donsieg)) {
+                                                document.querySelector('#adminidtamporep').value = `${donsieg[key].idtamp}`;                    
+                                                document.querySelector('#adminsiegselectrep').value = `${donsieg[key].numsieg}`;
+                                            }
+
+                                        }
+                                        document.querySelector('#adminerreursieg').style.display = 'block';
+                                        document.querySelector('#adminerreurSiege').innerHTML = `Siege déjà utilisé.`; 
+                                    }
+                    };
+                    Requestsiegevendu.setRequestHeader('content-Type', 'text/json');
+                    Requestsiegevendu.send();
+                };
+
+                butonclicrep = document.querySelector('#adminrese');
+            if (butonclicrep !== null) {
+                butonclicrep.onclick = () => 
+                {
+                    let httpSiegeselectrep;
+                    httpSiegeselectrep = new XMLHttpRequest();
+                    const siegselectrep= document.querySelector('#adminsiegselectrep').value;
+                    const idtaprep = document.querySelector('#adminidtamporep').value;
+                    httpSiegeselectrep.open('GET', window.location.origin + `${APP_ROOT}/programmes/deltamponsieg/${idtaprep}/${siegselectrep}`, true);
+                    httpSiegeselectrep.onload = () => 
+                    {
+                        const donselectrep= JSON.parse(httpSiegeselectrep.responseText);
+                        console.debug(`${typeof donselectrep} - ${donselectrep.attributes}`, console.memory);
+                        document.querySelector('#adminerreursieg').style.display = 'none';
+                        
+                    };
+                    httpSiegeselectrep.setRequestHeader('Content-Type', 'application/json');
+                    httpSiegeselectrep.send();
+
+                
+                };
+            }
+
+            
+        e.onclick = function () {
+            let rForm = document.querySelector('#adminrForm');
+            rForm.setAttribute('action', `${APP_ROOT}/Reprogrammes/adupdate/${e.dataset.cle_compagnie}`);
+        }
+    })
+});
+;
+/* --- addconfirmadmin.js --- */
+document.addEventListener('DOMContentLoaded', () => {
+
+    document.querySelectorAll('.addconfirmadmin').forEach(function (e) {
+        document.querySelector('h3#admincTitle').innerHTML = `CONFIRMATION`;
+
+        let c = document.querySelector('#adminconfirme_info');
+        if (c !== null)
+        c.onclick = () => {
+            
+            //verification code de confirmation
+            let Request;
+            
+            if (window.XMLHttpRequest) { // Mozilla, Safari, IE7+ ...
+                Request = new XMLHttpRequest();
+            } else if (window.ActiveXObject) { // IE 6 and older
+                Request = new ActiveXObject("Microsoft.XMLHTTP");
+            }
+            
+            var codes = document.querySelector("#admincodeconfirm").value;
+
+            Request.open('GET', window.location.origin + `${APP_ROOT}/confirmation/verifcodeconf/${codes}`, true);
+            Request.onload = () => {
+                const dons = JSON.parse(Request.responseText);
+                    if (dons == null) {
+                        document.querySelector('#adminmessagep').style.display = 'block';
+                        document.querySelector('#adminerreurMessagep').innerHTML = `Cet ticket ne peut pas être confirmé ici.`;
+                        document.querySelector('#adminheured').style.display = 'none';
+                        document.querySelector('#admindepsieg').style.display = 'none';
+                        document.querySelector('#adminquartconf').style.display = 'none';
+                        document.querySelector('#adminnomp').innerText = ``;
+                        document.querySelector('#adminprenomp').innerText = ``;
+                        document.querySelector('#admincontactp').innerHTML = ``;
+                        document.querySelector('#adminrefp').innerHTML = ``;
+                        document.querySelector('#admindirectionp').innerHTML = ``;
+                        document.querySelector('#admincodecp').innerHTML = ``;
+                        document.querySelector('#axeconfirm').style.display = 'none';
+                        document.querySelector('#ligneconflg').value = '';
+                    }
+                    else 
+                    {
+                        
+                        if (Object.entries(dons).length >= 1){
+                            document.querySelector('#adminerreurMessagep').innerHTML = '';
+                            document.querySelector('#adminheured').style.display = 'block';
+                            document.querySelector('#admindepsieg').style.display = 'block';
+                            document.querySelector('#adminquartconf').style.display = 'block';
+                            document.querySelector('#axeconfirm').style.display = 'block';
+                            document.querySelector('#adminnomp').innerText = `NOM: ${dons.nom_client}`;
+                            document.querySelector('#adminprenomp').innerText = `PRENOM: ${dons.prenom_client}`;
+                            document.querySelector('#admincontactp').innerHTML = `CONTACT: ${dons.contact_client}`;
+                            document.querySelector('#adminrefp').innerHTML = `REFERENCE CNIB: ${dons.num_CNIB}`;
+                            document.querySelector('#admindirectionp').innerHTML = `AXE: ${dons.nom_ligne}`;
+                            document.querySelector('#admincodecp').innerHTML = `CODE VENTE: ${dons.code_non_pass}`;
+                            document.querySelector('#adminpassep').value = `${dons.code_non_pass}`;
+                            document.querySelector('#adminpascodetick').value = `${dons.codeticket}`;
+                            document.querySelector('#adminclientidp').value = `${dons.id_client_npass}`;
+                            document.querySelector('#adminpasnomp').value = `${dons.nom_client}`;
+                            document.querySelector('#adminpasprenomp').value = `${dons.prenom_client}`;
+                            document.querySelector('#adminpascontactp').value = `${dons.contact_client}`;
+                            document.querySelector('#adminpascnibp').value = `${dons.num_CNIB}`;
+                            document.querySelector('#adminpasdatep').value = `${dons.date_delivre}`;
+                            document.querySelector('#adcommentclient').value = `${dons.comment_client}`;
+                            document.querySelector('#adminlieu').value = `${dons.lieu_delivre}`;
+                            document.querySelector('#admimtype').value = `${dons.type_client}`;
+                            document.querySelector('#dateventeconf').value = `${dons.datevente}`;
+                            document.querySelector('#axeligneconf').value = `${dons.id_ligne_pass}`;
+                            document.querySelector('#ligneconflg').value = `${dons.nom_ligne}`;
+                            document.querySelector('#admincodecpas').value = `${dons.code_non_pass}`;
+                            document.querySelector('#adlignehconf').value = `${dons.id_ligneheure}`;
+                            document.querySelector('#admincodeconfi').value = `${dons.tamponcod}`;
+
+
+                        } 
+                        else 
+                        {
+                            document.querySelector('#adminheured').style.display = 'none';
+                            document.querySelector('#admindepsieg').style.display = 'none';
+                            document.querySelector('#adminquartconf').style.display = 'none';
+                            document.querySelector('#axeconfirm').style.display = 'none';
+                        }
+                        
+                                let Requestslg = new XMLHttpRequest();
+                                    const confirheurelg = document.querySelector('#ligneconflg').value;
+                                    var postmob = confirheurelg.split('-');
+                                    var avmob = postmob[0];
+                                    var apmob = postmob[1];
+                                    Requestslg.open('GET', window.location.origin + `${APP_ROOT}/confirmation/veriflignelg/${apmob}-${avmob}`, true);
+                                    Requestslg.onload = () => {
+                                        const datas2lg = JSON.parse(Requestslg.responseText);
+                                        if (Object.entries(datas2lg).length >= 1) {
+                                    for (let key in Object.entries(datas2lg)) {
+                                        let opt = document.createElement('option');
+                                        opt.value = `${datas2lg.ident_ligne}`;
+                                        opt.innerHTML = `${datas2lg.nom_ligne}`;
+                                        document.querySelector('#axeconfirm').add(opt);
+                                        
+                                        
+                                    }
+                                }else{
+                                    document.querySelector('#axeconfirm').options.length = 1;
+                                }
+                            };
+                            Requestslg.setRequestHeader('Content-Type', 'application/json');
+                            Requestslg.send();
+                       
+                            
+                                            
+                            let axeselectconf = document.querySelector('#axeconfirm');
+                            if (axeselectconf !== null)
+                                axeselectconf.onchange = () => 
+                                {
+                                       
+                                            var datdepart = document.querySelector('#dateventeconf').value;
+                                            var datdepartactu = document.querySelector('#datactu').value;
+                                            var date1  = new Date(datdepart);
+                                            var date2 = new Date(datdepartactu);
+                                            // différence des heures
+                                            var time_diff = date2.getTime() - date1.getTime();
+                                                // différence de jours
+                                            const days_Diff = time_diff / (1000 * 3600 * 24);
+                                            if(days_Diff < 28 || days_Diff < 29 || days_Diff < 30 || days_Diff < 31)    
+                                            {
+                                                const heureaxeconf = document.querySelector('#axeconfirm').options[document.querySelector('#axeconfirm').options.selectedIndex].value;
+                                    
+                                                let Requests = new XMLHttpRequest();
+                                                const confirheure = document.querySelector('#axeconfirm').
+                                                options[document.querySelector('#axeconfirm').options.selectedIndex].value;
+                                                
+                                                var dateactuel = document.querySelector('#datactu').value;
+                                                Requests.open('GET', window.location.origin + `${APP_ROOT}/confirmation/verifconfprog/${confirheure}/${dateactuel}`, true);
+                                                Requests.onload = () => {
+                                                    const datas2 = JSON.parse(Requests.responseText);
+                                                    if (Object.entries(datas2).length >= 1) {
+                                                        for (let key in Object.entries(datas2)) {
+                                                            let opt = document.createElement('option');
+                                                            opt.value = `${datas2[key].code_progr}/${datas2[key].typetarif}`;
+                                                            opt.innerHTML = `${datas2[key].heure}/${datas2[key].date_progr}`;
+                                                            document.querySelector('#adminheured').add(opt);
+                                                            
+                                                            
+                                                        }
+                                                    }else{
+                                                        document.querySelector('#adminheured').options.length = 1;
+                                                    }
+                                                };
+                                                Requests.setRequestHeader('Content-Type', 'application/json');
+                                                Requests.send();
+                                            
+                                                var dateactuel = document.querySelector('#datactu').value;
+                                                
+                                                let httpRequetesquart = new XMLHttpRequest();
+                                                    httpRequetesquart.open('GET', window.location.origin + `${APP_ROOT}/confirmation/verifconfquart/${heureaxeconf}`, true);
+                                                httpRequetesquart.onload = () => {
+                                                    const dataq = JSON.parse(httpRequetesquart.responseText);
+                                                    if(dataq == ''){
+                                                        document.querySelector('#adminquartconf').options.length = 1;
+                                                    }else{
+                                                        if (Object.entries(dataq).length >= 1) {
+                                                                    
+                                                            for (let key in Object.entries(dataq)) {
+                                                                let opt = document.createElement('option');
+                                                                opt.value = `${dataq[key].nom_quartier}`;
+                                                                opt.innerHTML = `${dataq[key].nom_quartier}`;
+                                                                document.querySelector('#adminquartconf').add(opt);
+                                                            }
+                                                        } else {
+                                                            document.querySelector('#adminquartconf').options.length = 1;
+                                                        }
+                                                    }
+                                                        
+                                                            
+                                                };
+                                                httpRequetesquart.setRequestHeader('Content-Type', 'application/json');
+                                                httpRequetesquart.send();
+                                            }
+                                            else
+                                            {
+                                                document.querySelector('#adminheured').style.display = 'none';
+                                                document.querySelector('#admindepsieg').style.display = 'none';
+                                                document.querySelector('#adminquartconf').style.display = 'none';
+                                                document.querySelector('#adminnomp').innerText = ``;
+                                                document.querySelector('#adminprenomp').innerText = ``;
+                                                document.querySelector('#admincontactp').innerHTML = ``;
+                                                document.querySelector('#adminrefp').innerHTML = ``;
+                                                document.querySelector('#admindirectionp').innerHTML = ``;
+                                                document.querySelector('#admincodecp').innerHTML = ``;
+                                                document.querySelector('#billet').style.display = 'block';
+                                                document.querySelector('#billetSms').innerHTML = `Billet non valable, la durée de validité est dépassée.`;
+            
+                                            }
+                                };
+                                            
+                                            
+                    }
+               
+            };
+            Request.setRequestHeader('Content-Type', 'application/json');
+            Request.send(); 
+        };
+
+        let heurdeprt = document.querySelector('#adminheured');
+        if (heurdeprt !== null)
+            heurdeprt.onchange = () => {
+                
+                document.querySelector('#admindepsieg').options.length = 1;
+                const Requeste = new XMLHttpRequest();
+                const selectorp = document.querySelector('#adminheured').options[document.querySelector('#adminheured').
+                options.selectedIndex].value;
+                var selectorp1 = selectorp.split('/');
+                var selectorp2 = selectorp1[0];
+                var selectorp3 = selectorp1[1];
+                Requeste.open('GET', window.location.origin + `${APP_ROOT}/reprogrammes/siegdispo/${selectorp2}`, true);
+                Requeste.onload = () => {
+                    const datasgc = JSON.parse(Requeste.responseText);
+                    if (Object.entries(datasgc).length >= 1) {
+                        for (let key in Object.entries(datasgc)) {
+                            
+                            document.querySelector('#adcaissepvend_').value = `${datasgc[key].intervalle1}`;
+                            document.querySelector('#adcaissedpvend_').value = `${datasgc[key].intervalle2}`;
+                            document.querySelector('#addirectid').value = `${datasgc[key].nom_ligne}`;
+                            document.querySelector('#adconfheure').value = `${datasgc[key].heure}`;
+                            document.querySelector('#addateconfirme').value = `${datasgc[key].date_progr}`;
+                            document.querySelector('#adcatego').value = `${datasgc[key].categori}`;
+                            document.querySelector('#adlignehconf').value = `${datasgc[key].id_ligneheure}`;
+                            document.querySelector('#adprogramconf').value = `${datasgc[key].code_progr}`;
+                        }
+                    } 
+                    const Requestbis = new XMLHttpRequest();
+                            const pldebut = document.querySelector('#adcaissepvend_').value;
+                            const plfin = document.querySelector('#adcaissedpvend_').value;
+                            const cfdir = document.querySelector('#addirectid').value;
+                            const hconfir = document.querySelector('#adconfheure').value;
+                            const dconfirme = document.querySelector('#addateconfirme').value;
+                    Requestbis.open('GET', window.location.origin + `${APP_ROOT}/programmes/siegdisponible/${selectorp2}/${dconfirme}/${cfdir}/${hconfir}/${pldebut}/${plfin}`, true);
+                    Requestbis.onload = () => {
+                        const datasgcbis = JSON.parse(Requestbis.responseText);
+                        if (Object.entries(datasgcbis).length >= 1) {
+                            for (let key in Object.entries(datasgcbis)) {
+                                let opt = document.createElement('option');
+                                opt.value = `${datasgcbis[key].siege_num}`;
+                                opt.innerHTML = `${datasgcbis[key].siege_num}`;
+                                document.querySelector('#admindepsieg').add(opt);
+                            }
+                        } else {
+                            document.querySelector('#admindepsieg').options.length = 1;
+                        }
+                    };
+                    Requestbis.setRequestHeader('Content-Type', 'application/json');
+                    Requestbis.send();
+                };
+                Requeste.setRequestHeader('Content-Type', 'application/json');
+                Requeste.send();
+            };
+
+            let depsiegconf = document.querySelector('#admindepsieg');
+            if (depsiegconf !== null)
+            depsiegconf.onchange = () => {
+                    
+                    let Requestsiegevenduconf;
+                    
+                    if (window.XMLHttpRequest) { // Mozilla, Safari, IE7+ ...
+                        Requestsiegevenduconf = new XMLHttpRequest();
+                    } else if (window.ActiveXObject) { // IE 6 and older
+                        Requestsiegevenduconf = new ActiveXObject("Microsoft.XMLHTTP");
+                    }
+                    
+                    const dp_progconf = document.querySelector('#adprogramconf').value;
+                    const dp_siegeconf = document.querySelector('#admindepsieg').options[document.querySelector('#admindepsieg').options.selectedIndex].value;
+                    Requestsiegevenduconf.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifisieges/${dp_progconf}/${dp_siegeconf}`, true);
+                    Requestsiegevenduconf.onload = () => 
+                    {
+                        
+                            const confdonsieg = JSON.parse(Requestsiegevenduconf.responseText);
+                            if (confdonsieg == '')
+                                    {
+                                        let httpSiegsconf;
+                                        httpSiegsconf = new XMLHttpRequest();
+
+                                        httpSiegsconf.open('GET', window.location.origin + `${APP_ROOT}/programmes/creersiege/${dp_progconf}/${dp_siegeconf}`, true);
+                                        httpSiegsconf.onload = () => 
+                                        {
+                                            const dongconf= JSON.parse(httpSiegsconf.responseText);
+                                            document.querySelector('#adminmessconf').style.display = 'none';
+                                            if (Object.entries(dongconf).length >= 1)
+                                        {
+                                            for (let key in Object.entries(dongconf)) {
+                                                document.querySelector('#adminidtampoconf').value = `${dongconf[key].idtamp}`;                    
+                                                document.querySelector('#adminsiegselectconf').value = `${dongconf[key].numsieg}`;
+                                            }
+
+                                        }
+                                        
+                                        };
+                                        httpSiegsconf.setRequestHeader('Content-Type', 'application/json');
+                                        httpSiegsconf.send();
+                                    }
+                                    else {
+                                        document.querySelector('#admindepsieg').value = '';     
+                                        if (Object.entries(confdonsieg).length >= 1)
+                                        {
+                                            for (let key in Object.entries(confdonsieg)) {
+                                                document.querySelector('#adminidtampoconf').value = `${confdonsieg[key].idtamp}`;                    
+                                                document.querySelector('#adminsiegselectconf').value = `${confdonsieg[key].numsieg}`;
+                                            }
+
+                                        }
+                                        document.querySelector('#adminmessconf').style.display = 'block';
+                                        document.querySelector('#adminerreurMessconf').innerHTML = `Siege déjà utilisé.`; 
+                                    }
+                    };
+                    Requestsiegevenduconf.setRequestHeader('content-Type', 'text/json');
+                    Requestsiegevenduconf.send();
+                };
+            //bouton annuler
+                butoncliconf = document.querySelector('#adminconfreset');
+                if (butoncliconf !== null) {
+                    butoncliconf.onclick = () => 
+                    {
+                        let httpSiegeselectconf;
+                        httpSiegeselectconf = new XMLHttpRequest();
+                        const siegselectconf = document.querySelector('#adminsiegselectconf').value;
+                        const idtapconf = document.querySelector('#adminidtampoconf').value;
+                        httpSiegeselectconf.open('GET', window.location.origin + `${APP_ROOT}/programmes/deltamponsieg/${idtapconf}/${siegselectconf}`, true);
+                        httpSiegeselectconf.onload = () => 
+                        {
+                            const donselectconf = JSON.parse(httpSiegeselectconf.responseText);
+                            console.debug(`${typeof donselectconf} - ${donselectconf.attributes}`, console.memory);
+                            document.querySelector('#adminmessconf').style.display = 'none';
+                            
+                        };
+                        httpSiegeselectconf.setRequestHeader('Content-Type', 'application/json');
+                        httpSiegeselectconf.send();
+    
+                    
+                    };
+                }       
+                       
+        e.onclick = function () {
+            let adcForm = document.querySelector('#admincForm');
+            adcForm.setAttribute('action', `${APP_ROOT}/Confirmation/adminconfirme/${e.dataset.ckey}`);
+        }
+    })
+});
+;
+/* --- addconfirmbon.js --- */
+document.addEventListener('DOMContentLoaded', () => {
+
+    document.querySelectorAll('.addconfirmbon').forEach(function (e) {
+        document.querySelector('h3#bonconfTitle').innerHTML = `CONFIRMATION BON`;
+
+        let cb = document.querySelector('#bonconfirme_info');
+        if (cb !== null)
+        cb.onclick = () => {
+            
+            //verification code de confirmation
+            let Requestbon;
+            
+            if (window.XMLHttpRequest) { // Mozilla, Safari, IE7+ ...
+                Requestbon = new XMLHttpRequest();
+            } else if (window.ActiveXObject) { // IE 6 and older
+                Requestbon = new ActiveXObject("Microsoft.XMLHTTP");
+            }
+            
+            var codeb = document.querySelector("#boncodeconfirm").value;
+
+            Requestbon.open('GET', window.location.origin + `${APP_ROOT}/confirmation/verifcodebon/${codeb}`, true);
+            Requestbon.onload = () => {
+                const donsbon = JSON.parse(Requestbon.responseText);
+                    if (donsbon == null) {
+                        document.querySelector('#bonmessagep').style.display = 'block';
+                        document.querySelector('#bonerreurMessagep').innerHTML = `Cet bon ne peut pas être confirmé ici.`;
+                        document.querySelector('#bonheured').style.display = 'none';
+                        document.querySelector('#bondepsieg').style.display = 'none';
+                        document.querySelector('#bonquartconf').style.display = 'none';
+                        document.querySelector('#bonnomp').innerText = ``;
+                        document.querySelector('#bonprenomp').innerText = ``;
+                        document.querySelector('#boncontactp').innerHTML = ``;
+                        document.querySelector('#bonrefp').innerHTML = ``;
+                        document.querySelector('#bondirectionp').innerHTML = ``;
+                        document.querySelector('#boncodecp').innerHTML = ``;
+                        document.querySelector('#bonaxeconfirm').style.display = 'none';
+                        document.querySelector('#bonligneconflg').value = '';
+                        document.querySelector('#bonlignehconf').value = '';
+                    }
+                    else 
+                    {
+                        
+                        if (Object.entries(donsbon).length >= 1){
+                            document.querySelector('#bonerreurMessagep').innerHTML = '';
+                            document.querySelector('#bonheured').style.display = 'block';
+                            document.querySelector('#bondepsieg').style.display = 'block';
+                            document.querySelector('#bonquartconf').style.display = 'block';
+                            document.querySelector('#bonaxeconfirm').style.display = 'block';
+                            document.querySelector('#bonnomp').innerText = `NOM: ${donsbon.nom_client}`;
+                            document.querySelector('#bonprenomp').innerText = `PRENOM: ${donsbon.prenom_client}`;
+                            document.querySelector('#boncontactp').innerHTML = `CONTACT: ${donsbon.contact_client}`;
+                            document.querySelector('#bonrefp').innerHTML = `REFERENCE CNIB: ${donsbon.num_CNIB}`;
+                            document.querySelector('#bondirectionp').innerHTML = `AXE: ${donsbon.nom_gaep}-${donsbon.nom_gadest}`;
+                            document.querySelector('#boncodecp').innerHTML = `CODE BON: ${donsbon.bonsecondid}-${donsbon.code_bon}`;
+                            document.querySelector('#bonpassep').value = `${donsbon.idbon}`;
+                            document.querySelector('#bonpascodetick').value = `${donsbon.bonsecondid}`;
+                            document.querySelector('#bonclientidp').value = `${donsbon.id_client_bon}`;
+                            document.querySelector('#bonpasnomp').value = `${donsbon.nom_client}`;
+                            document.querySelector('#bonpasprenomp').value = `${donsbon.prenom_client}`;
+                            document.querySelector('#bonpascontactp').value = `${donsbon.contact_client}`;
+                            document.querySelector('#bonpascnibp').value = `${donsbon.num_CNIB}`;
+                            document.querySelector('#bonpasdatep').value = `${donsbon.date_delivre}`;
+                            document.querySelector('#boncommentclient').value = `${donsbon.comment_client}`;
+                            document.querySelector('#bonlieu').value = `${donsbon.lieu_delivre}`;
+                            document.querySelector('#bontype').value = `${donsbon.type_client}`;
+                            document.querySelector('#boncode').value = `${donsbon.bonsecondid}`;
+                            document.querySelector('#bonaxeligneconf').value = `${donsbon.ligne_depart}-${donsbon.ligne_dest}`;
+                            document.querySelector('#bonligneconflg').value = `${donsbon.nom_gaep}-${donsbon.nom_gadest}`;
+                            document.querySelector('#boncodecpas').value = `${donsbon.bonsecondid}`;
+                            document.querySelector('#bonlignehconf').value = `${donsbon.id_ligneheure}`;
+                            document.querySelector('#boncodeconfi').value = `${donsbon.idbon}`;
+
+
+                        } 
+                        else 
+                        {
+                            document.querySelector('#bonheured').style.display = 'none';
+                            document.querySelector('#bondepsieg').style.display = 'none';
+                            document.querySelector('#bonquartconf').style.display = 'none';
+                            document.querySelector('#bonaxeconfirm').style.display = 'none';
+                        }
+                        
+                                let Requestslgbon = new XMLHttpRequest();
+                                    const confirheurelgbon = document.querySelector('#bonligneconflg').value;
+                                    //var postmobbon = confirheurelgbon.split('-');
+                                    //var avmobbon = postmobbon[0];
+                                    //var apmobbon = postmobbon[1];
+                                    Requestslgbon.open('GET', window.location.origin + `${APP_ROOT}/confirmation/veriflignelg/${confirheurelgbon}`, true);
+                                    Requestslgbon.onload = () => {
+                                        const datas2lgbon = JSON.parse(Requestslgbon.responseText);
+                                        if (Object.entries(datas2lgbon).length >= 1) {
+                                    for (let key in Object.entries(datas2lgbon)) {
+                                        let opt = document.createElement('option');
+                                        opt.value = `${datas2lgbon.ident_ligne}`;
+                                        opt.innerHTML = `${datas2lgbon.nom_ligne}`;
+                                        document.querySelector('#bonaxeconfirm').add(opt);
+                                        
+                                        
+                                    }
+                                }else
+                                {
+                                    document.querySelector('#bonaxeconfirm').options.length = 1;
+                                }
+                            };
+                            Requestslgbon.setRequestHeader('Content-Type', 'application/json');
+                            Requestslgbon.send();
+                       
+                            
+                                            
+                            let axeselectconf = document.querySelector('#bonaxeconfirm');
+                            if (axeselectconf !== null)
+                                axeselectconf.onchange = () => 
+                                {
+                                       
+                                                const heureaxeconfbon = document.querySelector('#bonaxeconfirm').options[document.querySelector('#bonaxeconfirm').options.selectedIndex].value;
+                                    
+                                                let Requestsbon = new XMLHttpRequest();
+                                                const confirheurebon = document.querySelector('#bonaxeconfirm').
+                                                options[document.querySelector('#bonaxeconfirm').options.selectedIndex].value;
+                                                
+                                                var dateactuelbon = document.querySelector('#bondatactu').value;
+                                                Requestsbon.open('GET', window.location.origin + `${APP_ROOT}/confirmation/verifconfprog/${confirheurebon}/${dateactuelbon}`, true);
+                                                Requestsbon.onload = () => {
+                                                    const datas2 = JSON.parse(Requestsbon.responseText);
+                                                    if (Object.entries(datas2).length >= 1) {
+                                                        for (let key in Object.entries(datas2)) {
+                                                            let opt = document.createElement('option');
+                                                            opt.value = `${datas2[key].code_progr}/${datas2[key].typetarif}`;
+                                                            opt.innerHTML = `${datas2[key].heure}/${datas2[key].date_progr}`;
+                                                            document.querySelector('#bonheured').add(opt);
+                                                            
+                                                            
+                                                        }
+                                                    }else{
+                                                        document.querySelector('#bonheured').options.length = 1;
+                                                    }
+                                                };
+                                                Requestsbon.setRequestHeader('Content-Type', 'application/json');
+                                                Requestsbon.send();
+                                            
+                                                var dateactuelbon = document.querySelector('#bondatactu').value;
+                                                
+                                                let httpRequetesquartbon = new XMLHttpRequest();
+                                                    httpRequetesquartbon.open('GET', window.location.origin + `${APP_ROOT}/confirmation/verifconfquart/${heureaxeconfbon}`, true);
+                                                httpRequetesquartbon.onload = () => {
+                                                    const dataqbon = JSON.parse(httpRequetesquartbon.responseText);
+                                                    if(dataqbon == ''){
+                                                        document.querySelector('#bonquartconf').options.length = 1;
+                                                    }else{
+                                                        if (Object.entries(dataqbon).length >= 1) {
+                                                                    
+                                                            for (let key in Object.entries(dataqbon)) {
+                                                                let opt = document.createElement('option');
+                                                                opt.value = `${dataqbon[key].nom_quartier}`;
+                                                                opt.innerHTML = `${dataqbon[key].nom_quartier}`;
+                                                                document.querySelector('#bonquartconf').add(opt);
+                                                            }
+                                                        } else {
+                                                            document.querySelector('#bonquartconf').options.length = 1;
+                                                        }
+                                                    }
+                                                        
+                                                            
+                                                };
+                                                httpRequetesquartbon.setRequestHeader('Content-Type', 'application/json');
+                                                httpRequetesquartbon.send();
+                                            
+                                            
+                                };
+                                            
+                                            
+                    }
+               
+            };
+            Requestbon.setRequestHeader('Content-Type', 'application/json');
+            Requestbon.send(); 
+        };
+
+        let heurdeprtbon = document.querySelector('#bonheured');
+        if (heurdeprtbon !== null)
+            heurdeprtbon.onchange = () => {
+                
+                document.querySelector('#bondepsieg').options.length = 1;
+                const Requestebon = new XMLHttpRequest();
+                const selectorpbon = document.querySelector('#bonheured').options[document.querySelector('#bonheured').
+                options.selectedIndex].value;
+                var selectorp1bon = selectorpbon.split('/');
+                var selectorp2bon = selectorp1bon[0];
+                var selectorp3bon = selectorp1bon[1];
+                Requestebon.open('GET', window.location.origin + `${APP_ROOT}/reprogrammes/siegdispo/${selectorp2bon}`, true);
+                Requestebon.onload = () => {
+                    const datasgcbon = JSON.parse(Requestebon.responseText);
+                    if (Object.entries(datasgcbon).length >= 1) {
+                        for (let key in Object.entries(datasgcbon)) {
+                            
+                            document.querySelector('#boncaissepvend_').value = `${datasgcbon[key].intervalle1}`;
+                            document.querySelector('#boncaissedpvend_').value = `${datasgcbon[key].intervalle2}`;
+                            document.querySelector('#bondirectid').value = `${datasgcbon[key].nom_ligne}`;
+                            document.querySelector('#bonconfheure').value = `${datasgcbon[key].heure}`;
+                            document.querySelector('#bondateconfirme').value = `${datasgcbon[key].date_progr}`;
+                            document.querySelector('#boncatego').value = `${datasgcbon[key].categori}`;
+                            document.querySelector('#bonlignehconf').value = `${datasgcbon[key].id_ligneheure}`;
+                            document.querySelector('#bonprogramconf').value = `${datasgcbon[key].code_progr}`;
+                        }
+                    } 
+                    const Requestbisbon = new XMLHttpRequest();
+                            const pldebutbon = document.querySelector('#boncaissepvend_').value;
+                            const plfinbon = document.querySelector('#boncaissedpvend_').value;
+                            const cfdirbon = document.querySelector('#bondirectid').value;
+                            const hconfirbon = document.querySelector('#bonconfheure').value;
+                            const dconfirmebon = document.querySelector('#bondateconfirme').value;
+                    Requestbisbon.open('GET', window.location.origin + `${APP_ROOT}/programmes/siegdisponible/${selectorp2bon}/${dconfirmebon}/${cfdirbon}/${hconfirbon}/${pldebutbon}/${plfinbon}`, true);
+                    Requestbisbon.onload = () => {
+                        const datasgcbisbon = JSON.parse(Requestbisbon.responseText);
+                        if (Object.entries(datasgcbisbon).length >= 1) {
+                            for (let key in Object.entries(datasgcbisbon)) {
+                                let opt = document.createElement('option');
+                                opt.value = `${datasgcbisbon[key].siege_num}`;
+                                opt.innerHTML = `${datasgcbisbon[key].siege_num}`;
+                                document.querySelector('#bondepsieg').add(opt);
+                            }
+                        } else {
+                            document.querySelector('#bondepsieg').options.length = 1;
+                        }
+                    };
+                    Requestbisbon.setRequestHeader('Content-Type', 'application/json');
+                    Requestbisbon.send();
+                };
+                Requestebon.setRequestHeader('Content-Type', 'application/json');
+                Requestebon.send();
+            };
+
+            let depsiegconfbon = document.querySelector('#bondepsieg');
+            if (depsiegconfbon !== null)
+            depsiegconfbon.onchange = () => {
+                    
+                    let Requestsiegevenduconfbon;
+                    
+                    if (window.XMLHttpRequest) { // Mozilla, Safari, IE7+ ...
+                        Requestsiegevenduconfbon = new XMLHttpRequest();
+                    } else if (window.ActiveXObject) { // IE 6 and older
+                        Requestsiegevenduconfbon = new ActiveXObject("Microsoft.XMLHTTP");
+                    }
+                    
+                    const dp_progconfbon = document.querySelector('#bonprogramconf').value;
+                    const dp_siegeconfbon = document.querySelector('#bondepsieg').options[document.querySelector('#bondepsieg').options.selectedIndex].value;
+                    Requestsiegevenduconfbon.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifisieges/${dp_progconfbon}/${dp_siegeconfbon}`, true);
+                    Requestsiegevenduconfbon.onload = () => 
+                    {
+                        
+                            const confdonsiegbon = JSON.parse(Requestsiegevenduconfbon.responseText);
+                            if (confdonsiegbon == '')
+                                    {
+                                        let httpSiegsconfbon;
+                                        httpSiegsconfbon = new XMLHttpRequest();
+
+                                        httpSiegsconfbon.open('GET', window.location.origin + `${APP_ROOT}/programmes/creersiege/${dp_progconfbon}/${dp_siegeconfbon}`, true);
+                                        httpSiegsconfbon.onload = () => 
+                                        {
+                                            const dongconfbon = JSON.parse(httpSiegsconfbon.responseText);
+                                            document.querySelector('#bonmessconf').style.display = 'none';
+                                            if (Object.entries(dongconfbon).length >= 1)
+                                        {
+                                            for (let key in Object.entries(dongconfbon)) {
+                                                document.querySelector('#bonidtampoconf').value = `${dongconfbon[key].idtamp}`;                    
+                                                document.querySelector('#bonsiegselectconf').value = `${dongconfbon[key].numsieg}`;
+                                            }
+
+                                        }
+                                        
+                                        };
+                                        httpSiegsconfbon.setRequestHeader('Content-Type', 'application/json');
+                                        httpSiegsconfbon.send();
+                                    }
+                                    else {
+                                        document.querySelector('#bondepsieg').value = '';     
+                                        if (Object.entries(confdonsiegbon).length >= 1)
+                                        {
+                                            for (let key in Object.entries(confdonsiegbon)) {
+                                                document.querySelector('#bonidtampoconf').value = `${confdonsiegbon[key].idtamp}`;                    
+                                                document.querySelector('#bonsiegselectconf').value = `${confdonsiegbon[key].numsieg}`;
+                                            }
+
+                                        }
+                                        document.querySelector('#bonmessconf').style.display = 'block';
+                                        document.querySelector('#bonerreurMessconf').innerHTML = `Siege déjà utilisé.`; 
+                                    }
+                    };
+                    Requestsiegevenduconfbon.setRequestHeader('content-Type', 'text/json');
+                    Requestsiegevenduconfbon.send();
+                };
+            //bouton annuler
+                butoncliconfbon = document.querySelector('#bonconfreset');
+                if (butoncliconfbon !== null) {
+                    butoncliconfbon.onclick = () => 
+                    {
+                        let httpSiegeselectconfbon;
+                        httpSiegeselectconfbon = new XMLHttpRequest();
+                        const siegselectconfbon = document.querySelector('#bonsiegselectconf').value;
+                        const idtapconfbon = document.querySelector('#bonidtampoconf').value;
+                        httpSiegeselectconfbon.open('GET', window.location.origin + `${APP_ROOT}/programmes/deltamponsieg/${idtapconfbon}/${siegselectconfbon}`, true);
+                        httpSiegeselectconfbon.onload = () => 
+                        {
+                            const donselectconfbon = JSON.parse(httpSiegeselectconfbon.responseText);
+                            console.debug(`${typeof donselectconfbon} - ${donselectconfbon.attributes}`, console.memory);
+                            document.querySelector('#bonmessconf').style.display = 'none';
+                            
+                        };
+                        httpSiegeselectconfbon.setRequestHeader('Content-Type', 'application/json');
+                        httpSiegeselectconfbon.send();
+    
+                    
+                    };
+                }       
+                       
+        e.onclick = function () {
+            let adcbForm = document.querySelector('#boncForm');
+            adcbForm.setAttribute('action', `${APP_ROOT}/Confirmation/bonconfirme/${e.dataset.cle_compagnie}`);
+        }
+    })
+});
+;
+/* --- addconfirmcarte.js --- */
+document.addEventListener('DOMContentLoaded', () => {
+
+    document.querySelectorAll('.addconfirmcarte').forEach(function (e) {
+        document.querySelector('h3#carteconfTitle').innerHTML = `CONFIRMATION CARTE`;
+
+        let ctbinf = document.querySelector('#carteconfirme_info');
+        if (ctbinf !== null)
+        ctbinf.onclick = () => {
+            
+            //verification code de confirmation
+            let httpRequestcarte;
+            
+            if (window.XMLHttpRequest) { // Mozilla, Safari, IE7+ ...
+                httpRequestcarte = new XMLHttpRequest();
+            } else if (window.ActiveXObject) { // IE 6 and older
+                httpRequestcarte = new ActiveXObject("Microsoft.XMLHTTP");
+            }
+            
+            var codecart = document.querySelector("#cartecodeconfirm").value;
+
+            httpRequestcarte.open('GET', window.location.origin + `${APP_ROOT}/confirmation/verifcodecarte/${codecart}`, true);
+            httpRequestcarte.onload = () => {
+                const donscart = JSON.parse(httpRequestcarte.responseText);
+                    if (donscart == null) {
+                        document.querySelector('#cartemessagep').style.display = 'block';
+                        document.querySelector('#carteerreurMessagep').innerHTML = `Cette carte ne peut pas être confirmée ici.`;
+                        document.querySelector('#carteheured').style.display = 'none';
+                        document.querySelector('#cartedepsieg').style.display = 'none';
+                        document.querySelector('#cartequartconf').style.display = 'none';
+                        document.querySelector('#cartenomp').innerText = ``;
+                        document.querySelector('#carteprenomp').innerText = ``;
+                        document.querySelector('#cartecontactp').innerHTML = ``;
+                        document.querySelector('#carterefp').innerHTML = ``;
+                        document.querySelector('#cartecodecp').innerHTML = ``;
+                        document.querySelector('#carteaxeconfirm').style.display = 'none';
+                        document.querySelector('#carteligneconflg').value = '';
+                        document.querySelector('#cartelignehconf').value = '';
+                        document.querySelector('#creditcarteid').value = '';
+                    }
+                    else 
+                    {
+                        
+                        if (Object.entries(donscart).length >= 1){
+                            document.querySelector('#carteerreurMessagep').innerHTML = '';
+                            document.querySelector('#carteheured').style.display = 'block';
+                            document.querySelector('#cartedepsieg').style.display = 'block';
+                            document.querySelector('#cartequartconf').style.display = 'block';
+                            document.querySelector('#carteaxeconfirm').style.display = 'block';
+                            document.querySelector('#cartenomp').innerText = `NOM: ${donscart.nom_client}`;
+                            document.querySelector('#carteprenomp').innerText = `PRENOM: ${donscart.prenom_client}`;
+                            document.querySelector('#cartecontactp').innerHTML = `CONTACT: ${donscart.contact_client}`;
+                            document.querySelector('#carterefp').innerHTML = `REFERENCE CNIB: ${donscart.num_CNIB}`;
+                            document.querySelector('#cartecodecp').innerHTML = `CODE CARTE: ${donscart.id_carte}-${donscart.num_carte}`;
+                            document.querySelector('#cartepassep').value = `${donscart.id_carte}`;
+                            document.querySelector('#cartepascodetick').value = `${donscart.num_carte }`;
+                            document.querySelector('#carteclientidp').value = `${donscart.idcarte_client}`;
+                            document.querySelector('#cartetype').value = `${donscart.type_client}`;
+                            document.querySelector('#cartecode').value = `${donscart.num_carte}`;
+                            document.querySelector('#cartecodecpas').value = `${donscart.num_carte}`;
+                            document.querySelector('#cartelignehconf').value = `${donscart.id_ligneheure}`;
+                            document.querySelector('#cartecodeconfi').value = `${donscart.id_carte}`;
+                            document.querySelector('#cartecomptid').value = `${donscart.comptidcl}`;
+                            document.querySelector('#creditcarteid').value = `${donscart.debitecompte}`;
+                        } 
+                        else 
+                        {
+                            document.querySelector('#carteheured').style.display = 'none';
+                            document.querySelector('#cartedepsieg').style.display = 'none';
+                            document.querySelector('#cartequartconf').style.display = 'none';
+                            document.querySelector('#carteaxeconfirm').style.display = 'none';
+                        }
+                        
+                    }
+               
+            };
+            httpRequestcarte.setRequestHeader('Content-Type', 'application/json');
+            httpRequestcarte.send(); 
+        };                    
+        let axeselectconf = document.querySelector('#carteaxeconfirm');
+        if (axeselectconf !== null)
+            axeselectconf.onchange = () => 
+            {
+                   document.querySelector('#cartequartconf').options.length = 1;
+                const heureaxeconfcart = document.querySelector('#carteaxeconfirm').options[document.querySelector('#carteaxeconfirm').options.selectedIndex].value;
+    
+                let httpRequestscart = new XMLHttpRequest();
+                const confirheurecart = document.querySelector('#carteaxeconfirm').
+                options[document.querySelector('#carteaxeconfirm').options.selectedIndex].value;
+                
+                var dateactuelcart = document.querySelector('#cartedatactu').value;
+                httpRequestscart.open('GET', window.location.origin + `${APP_ROOT}/confirmation/verifconfprog/${confirheurecart}/${dateactuelcart}`, true);
+                httpRequestscart.onload = () => {
+                    const data = JSON.parse(httpRequestscart.responseText);
+                    if (Object.entries(data).length >= 1) {
+                        for (let key in Object.entries(data)) {
+                            let opt = document.createElement('option');
+                            opt.value = `${data[key].code_progr}/${data[key].typetarif}`;
+                            opt.innerHTML = `${data[key].heure}/${data[key].date_progr}`;
+                            document.querySelector('#carteheured').add(opt);
+                            
+                            
+                        }
+                    }else{
+                        document.querySelector('#carteheured').options.length = 1;
+                    }
+                };
+                httpRequestscart.setRequestHeader('Content-Type', 'application/json');
+                httpRequestscart.send();
+            
+                var dateactuelcart = document.querySelector('#cartedatactu').value;
+                
+                let httpRequetesquartcart = new XMLHttpRequest();
+                    httpRequetesquartcart.open('GET', window.location.origin + `${APP_ROOT}/confirmation/verifconfquart/${heureaxeconfcart}`, true);
+                httpRequetesquartcart.onload = () => {
+                    const dataqcart = JSON.parse(httpRequetesquartcart.responseText);
+                    if(dataqcart == ''){
+                        document.querySelector('#cartequartconf').options.length = 1;
+                    }else{
+                        if (Object.entries(dataqcart).length >= 1) {
+                                    
+                            for (let key in Object.entries(dataqcart)) {
+                                let opt = document.createElement('option');
+                                opt.value = `${dataqcart[key].nom_quartier}`;
+                                opt.innerHTML = `${dataqcart[key].nom_quartier}`;
+                                document.querySelector('#cartequartconf').add(opt);
+                            }
+                        } else {
+                            document.querySelector('#cartequartconf').options.length = 1;
+                        }
+                    }
+                        
+                            
+                };
+                httpRequetesquartcart.setRequestHeader('Content-Type', 'application/json');
+                httpRequetesquartcart.send();
+                        
+                        
+            };
+                        
+                                        
+        let heurdeprtcart = document.querySelector('#carteheured');
+        if (heurdeprtcart !== null)
+            heurdeprtcart.onchange = () => {
+                
+                document.querySelector('#cartedepsieg').options.length = 1;
+                const httpRequestecart = new XMLHttpRequest();
+                const selectorpcart = document.querySelector('#carteheured').options[document.querySelector('#carteheured').
+                options.selectedIndex].value;
+                var selectorp1cart = selectorpcart.split('/');
+                var selectorp2cart = selectorp1cart[0];
+                var selectorp3cart = selectorp1cart[1];
+                httpRequestecart.open('GET', window.location.origin + `${APP_ROOT}/reprogrammes/siegdispo/${selectorp2cart}`, true);
+                httpRequestecart.onload = () => {
+                    const datasgccart = JSON.parse(httpRequestecart.responseText);
+                    if (Object.entries(datasgccart).length >= 1) {
+                        for (let key in Object.entries(datasgccart)) {
+                            
+                            document.querySelector('#cartecaissepvend_').value = `${datasgccart[key].intervalle1}`;
+                            document.querySelector('#cartecaissedpvend_').value = `${datasgccart[key].intervalle2}`;
+                            document.querySelector('#cartedirectid').value = `${datasgccart[key].nom_ligne}`;
+                            document.querySelector('#carteconfheure').value = `${datasgccart[key].heure}`;
+                            document.querySelector('#cartedateconfirme').value = `${datasgccart[key].date_progr}`;
+                            document.querySelector('#cartecatego').value = `${datasgccart[key].categori}`;
+                            document.querySelector('#cartelignehconf').value = `${datasgccart[key].id_ligneheure}`;
+                            document.querySelector('#carteprogramconf').value = `${datasgccart[key].code_progr}`;
+                        }
+                    } 
+                    const httpRequestbiscart = new XMLHttpRequest();
+                            const pldebutcart = document.querySelector('#cartecaissepvend_').value;
+                            const plfincart = document.querySelector('#cartecaissedpvend_').value;
+                            const cfdircart = document.querySelector('#cartedirectid').value;
+                            const hconfircart = document.querySelector('#carteconfheure').value;
+                            const dconfirmecart = document.querySelector('#cartedateconfirme').value;
+                    httpRequestbiscart.open('GET', window.location.origin + `${APP_ROOT}/programmes/siegdisponible/${selectorp2cart}/${dconfirmecart}/${cfdircart}/${hconfircart}/${pldebutcart}/${plfincart}`, true);
+                    httpRequestbiscart.onload = () => {
+                        const datasgcbiscart = JSON.parse(httpRequestbiscart.responseText);
+                        if (Object.entries(datasgcbiscart).length >= 1) {
+                            for (let key in Object.entries(datasgcbiscart)) {
+                                let opt = document.createElement('option');
+                                opt.value = `${datasgcbiscart[key].siege_num}`;
+                                opt.innerHTML = `${datasgcbiscart[key].siege_num}`;
+                                document.querySelector('#cartedepsieg').add(opt);
+                            }
+                        } else {
+                            document.querySelector('#cartedepsieg').options.length = 1;
+                        }
+                    };
+                    httpRequestbiscart.setRequestHeader('Content-Type', 'application/json');
+                    httpRequestbiscart.send();
+                };
+                httpRequestecart.setRequestHeader('Content-Type', 'application/json');
+                httpRequestecart.send();
+            };
+
+            let depsiegconfcart = document.querySelector('#cartedepsieg');
+            if (depsiegconfcart !== null)
+            depsiegconfcart.onchange = () => {
+                    
+                    let httpRequestsiegevenduconfcart;
+                    
+                    if (window.XMLHttpRequest) { // Mozilla, Safari, IE7+ ...
+                        httpRequestsiegevenduconfcart = new XMLHttpRequest();
+                    } else if (window.ActiveXObject) { // IE 6 and older
+                        httpRequestsiegevenduconfcart = new ActiveXObject("Microsoft.XMLHTTP");
+                    }
+                    
+                    const dp_progconfcart = document.querySelector('#carteprogramconf').value;
+                    const dp_siegeconfcart = document.querySelector('#cartedepsieg').options[document.querySelector('#cartedepsieg').options.selectedIndex].value;
+                    httpRequestsiegevenduconfcart.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifisieges/${dp_progconfcart}/${dp_siegeconfcart}`, true);
+                    httpRequestsiegevenduconfcart.onload = () => 
+                    {
+                        
+                            const confdonsiegcart = JSON.parse(httpRequestsiegevenduconfcart.responseText);
+                            if (confdonsiegcart == '')
+                                    {
+                                        let httpSiegsconfcart;
+                                        httpSiegsconfcart = new XMLHttpRequest();
+
+                                        httpSiegsconfcart.open('GET', window.location.origin + `${APP_ROOT}/programmes/creersiege/${dp_progconfcart}/${dp_siegeconfcart}`, true);
+                                        httpSiegsconfcart.onload = () => 
+                                        {
+                                            const dongconfcart = JSON.parse(httpSiegsconfcart.responseText);
+                                            document.querySelector('#cartemessconf').style.display = 'none';
+                                            if (Object.entries(dongconfcart).length >= 1)
+                                        {
+                                            for (let key in Object.entries(dongconfcart)) {
+                                                document.querySelector('#carteidtampoconf').value = `${dongconfcart[key].idtamp}`;                    
+                                                document.querySelector('#cartesiegselectconf').value = `${dongconfcart[key].numsieg}`;
+                                            }
+
+                                        }
+                                        
+                                        };
+                                        httpSiegsconfcart.setRequestHeader('Content-Type', 'application/json');
+                                        httpSiegsconfcart.send();
+                                    }
+                                    else {
+                                        document.querySelector('#cartedepsieg').value = '';     
+                                        if (Object.entries(confdonsiegcart).length >= 1)
+                                        {
+                                            for (let key in Object.entries(confdonsiegcart)) {
+                                                document.querySelector('#carteidtampoconf').value = `${confdonsiegcart[key].idtamp}`;                    
+                                                document.querySelector('#cartesiegselectconf').value = `${confdonsiegcart[key].numsieg}`;
+                                            }
+
+                                        }
+                                        document.querySelector('#cartemessconf').style.display = 'block';
+                                        document.querySelector('#carteerreurMessconf').innerHTML = `Siege déjà utilisé.`; 
+                                    }
+                    };
+                    httpRequestsiegevenduconfcart.setRequestHeader('content-Type', 'text/json');
+                    httpRequestsiegevenduconfcart.send();
+                };
+            //bouton annuler
+                butoncliconfcart = document.querySelector('#carteconfreset');
+                if (butoncliconfcart !== null) {
+                    butoncliconfcart.onclick = () => 
+                    {
+                        let httpSiegeselectconfcart;
+                        httpSiegeselectconfcart = new XMLHttpRequest();
+                        const siegselectconfcart = document.querySelector('#cartesiegselectconf').value;
+                        const idtapconfcart = document.querySelector('#carteidtampoconf').value;
+                        httpSiegeselectconfcart.open('GET', window.location.origin + `${APP_ROOT}/programmes/deltamponsieg/${idtapconfcart}/${siegselectconfcart}`, true);
+                        httpSiegeselectconfcart.onload = () => 
+                        {
+                            const donselectconfcart = JSON.parse(httpSiegeselectconfcart.responseText);
+                            console.debug(`${typeof donselectconfcart} - ${donselectconfcart.attributes}`, console.memory);
+                            document.querySelector('#cartemessconf').style.display = 'none';
+                            
+                        };
+                        httpSiegeselectconfcart.setRequestHeader('Content-Type', 'application/json');
+                        httpSiegeselectconfcart.send();
+    
+                    
+                    };
+                }       
+                       
+        e.onclick = function () {
+            let cartcbForm = document.querySelector('#cartecForm');
+            cartcbForm.setAttribute('action', `${APP_ROOT}/Confirmation/carteconfirme/${e.dataset.cle_compagnie}`);
+        }
+    })
+});
+;
+/* --- addrecu.js --- */
+document.addEventListener('DOMContentLoaded', () => {
+    
+    document.querySelectorAll('.addrecu').forEach(function (e) {
+        document.querySelector('h3#recuTitle').innerHTML = `FAIRE RECU`;
+
+        let infosrecu = document.querySelector('#recu_infos');
+        if (infosrecu !== null)
+            infosrecu.onclick = () => {
+                //verification code du ticket
+                let httpRequestRecu;
+                
+                if (window.XMLHttpRequest) { // Mozilla, Safari, IE7+ ...
+                    httpRequestRecu = new XMLHttpRequest();
+                } else if (window.ActiveXObject) { // IE 6 and older
+                    httpRequestRecu = new ActiveXObject("Microsoft.XMLHTTP");
+                }
+                
+                
+                var codrecu = document.querySelector("#codeclientprecu").value;
+                var gdrecu = document.querySelector("#gareconnectrecu").value;
+                httpRequestRecu.open('GET', window.location.origin + `${APP_ROOT}/reprogrammes/verifcoderecu/${gdrecu}/${codrecu}`, true);
+                httpRequestRecu.onload = () => {
+                    const donneesrecu = JSON.parse(httpRequestRecu.responseText);
+                    if (donneesrecu == null) {
+                        
+                        document.querySelector('#validrecu').style.display = 'none';
+                        document.querySelector('#billetrecu').style.display = 'block';
+                        document.querySelector('#billetSmsrecu').innerHTML = `Ce client a déjà pris son reçu merci!`;
+                        document.querySelector('#nomclprecu').innerHTML = ``;
+                        document.querySelector('#prenomclprecu').innerHTML = ``;
+                        document.querySelector('#contactclprecu').innerHTML = ``;
+                        document.querySelector('#refclprecu').innerHTML = ``;
+                        document.querySelector('#directionclprecu').innerHTML = ``;
+                        document.querySelector('#codeclprecu').innerHTML = ``;
+                        document.querySelector('#heureclprecu').innerHTML = ``;
+                        document.querySelector('#passerprecu').value = '';
+                        document.querySelector('#idclpasseridrecu').value = '';
+                        document.querySelector('#client_idprecu').value = '';
+                        document.querySelector('#pasnomprecu').value = '';
+                        document.querySelector('#pasprenomprecu').value = '';
+                        document.querySelector('#pascontactprecu').value = '';
+                        document.querySelector('#pascnibprecu').value = '';
+                        document.querySelector('#pasdateprecu').value = '';
+                        document.querySelector('#delivrelierecu').value = '';
+                        document.querySelector('#codetamponrecus').value = '';
+                        document.querySelector('#passaxeprecu').value = '';
+                        document.querySelector('#prixrecu').value = '';
+                        document.querySelector('#codenonprecu').value = '';
+                                    
+
+                    } else 
+                    {
+                               
+                            if (Object.entries(donneesrecu).length >= 1){
+                                    document.querySelector('#billetrecu').style.display = 'none';
+                                    document.querySelector('#billetSmsrecu').style.display = 'block';
+                                    document.querySelector('#validrecu').style.display = 'block';
+                                    document.querySelector('#nomclprecu').innerHTML = `NOM: ${donneesrecu.nom_client}`;
+                                    document.querySelector('#prenomclprecu').innerHTML = `PRENOM: ${donneesrecu.prenom_client}`;
+                                    document.querySelector('#contactclprecu').innerHTML = `CONTACT: ${donneesrecu.contact_client}`;
+                                    document.querySelector('#refclprecu').innerHTML = `REFERENCE CNIB: ${donneesrecu.num_CNIB}`;
+                                    document.querySelector('#directionclprecu').innerHTML = `AXE: ${donneesrecu.nom_ligne}`;
+                                    document.querySelector('#codeclprecu').innerHTML = `CODE TICKET: ${donneesrecu.code_passager}`;
+                                    document.querySelector('#heureclprecu').innerHTML = `HEURE: ${donneesrecu.heure} SIEGE :${donneesrecu.num_siege_categorie}`;
+                                    document.querySelector('#passerprecu').value = `${donneesrecu.code_ticket}`;
+                                    document.querySelector('#codenonprecu').value = `${donneesrecu.codeticket}`;
+                                    document.querySelector('#idclpasseridrecu').value = `${donneesrecu.ligne_id}`;
+                                    document.querySelector('#client_idprecu').value = `${donneesrecu.id_client_pass}`;
+                                    document.querySelector('#pasnomprecu').value = `${donneesrecu.nom_client}`;
+                                    document.querySelector('#pasprenomprecu').value = `${donneesrecu.prenom_client}`;
+                                    document.querySelector('#pascontactprecu').value = `${donneesrecu.contact_client}`;
+                                    document.querySelector('#pascnibprecu').value = `${donneesrecu.num_CNIB}`;
+                                    document.querySelector('#pasdateprecu').value = `${donneesrecu.date_delivre}`;
+                                    document.querySelector('#delivrelierecu').value = `${donneesrecu.lieu_delivre}`;
+                                    document.querySelector('#codetamponrecus').value = `${donneesrecu.tamponcod}`;
+                                    document.querySelector('#passaxeprecu').value = `${donneesrecu.nom_ligne}`;
+                                    document.querySelector('#prixrecu').value = `${donneesrecu.prixvente}`;
+                                    
+
+                            } 
+                            
+                    }
+                };
+                httpRequestRecu.setRequestHeader('Content-Type', 'application/json');
+                httpRequestRecu.send();
+            };
+        
+            
+        e.onclick = function () {
+            let recuForm = document.querySelector('#recuForm');
+            recuForm.setAttribute('action', `${APP_ROOT}/Reprogrammes/recuclient/${e.dataset.cle_compagnie}`);
+        }
+    })
+});
+;
+/* --- addbon.js --- */
+document.addEventListener('DOMContentLoaded', () => {
+
+    document.querySelectorAll('.addbon').forEach(function (e) {
+        document.querySelector('h3#bonTitle').innerHTML = `ENREGISTREMENT BON MILITAIRE`;
+
+            //recherche d'information du client
+        let idcontact = document.querySelector('#idcontactbon');
+        if (idcontact !== null)
+        idcontact.onkeyup = () => {
+                let httpInfosrequestbon;
+                if (window.XMLHttpRequest) {
+                    httpInfosrequestbon = new XMLHttpRequest();
+                } else if (window.ActiveXObject) {
+                    httpInfosrequestbon = new ActiveXObject("Microsoft.XMLHTTP");
+                }
+                var verifictbon = document.querySelector('#idcontactbon').value;
+                httpInfosrequestbon.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifinfos/${verifictbon}`, true);
+                httpInfosrequestbon.onload = () => {
+                    const infosreqbon = JSON.parse(httpInfosrequestbon.responseText);
+                    if (infosreqbon == null) {
+                        document.querySelector('#idnombon').value = "";
+                                document.querySelector('#idprenombon').value = "";
+                                document.querySelector('#bon').value = "";
+                                document.querySelector('#date_carte').value = "";
+                                document.querySelector('#lieudelivre_cart').value = "";
+                                document.querySelector('#clientbonid').value = "";
+                    } else {
+                        if (Object.entries(infosreqbon).length > 1) {
+                            
+                            if (infosreqbon.contact_client == verifictbon) {
+                                document.querySelector('#idnombon').value = `${infosreqbon.nom_client}`;
+                                document.querySelector('#idprenombon').value = `${infosreqbon.prenom_client}`;
+                                document.querySelector('#bon').value = `${infosreqbon.num_CNIB}`;
+                                document.querySelector('#date_carte').value = `${infosreqbon.date_delivre}`;
+                                document.querySelector('#lieudelivre_cart').value = `${infosreqbon.lieu_delivre}`;
+                                document.querySelector('#clientbonid').value = `${infosreqbon.id_client}`;
+
+                                document.querySelector('#pasnompbon').value = `${infosreqbon.nom_client}`;
+                                document.querySelector('#pasprenompbon').value = `${infosreqbon.prenom_client}`;
+                                document.querySelector('#pascnibpbon').value = `${infosreqbon.num_CNIB}`;
+                                document.querySelector('#pasdatepbon').value = `${infosreqbon.date_delivre}`;
+                                document.querySelector('#lieubon').value = `${infosreqbon.lieu_delivre}`;
+                            } else {
+                                document.querySelector('#idnombon').value = "";
+                                document.querySelector('#idprenombon').value = "";
+                                document.querySelector('#bon').value = "";
+                                document.querySelector('#date_carte').value = "";
+                                document.querySelector('#lieudelivre_cart').value = "";
+                                document.querySelector('#clientbonid').value = "";
+                            }
+                        }
+                    }
+                };
+                httpInfosrequestbon.setRequestHeader('Content-Type', 'application/json');
+                httpInfosrequestbon.send();
+            };
+        e.onclick = function () {
+            let bonForm = document.querySelector('#bonForm');
+            bonForm.setAttribute('action', `${APP_ROOT}/Bon_Millitaire/addbon/${e.dataset.cle_compagnie}`);
+        }
+    })
+});
+;
+/* --- addcarte.js --- */
+document.addEventListener('DOMContentLoaded', () => {
+
+    document.querySelectorAll('.addcarte').forEach(function (e)
+    {
+
+        document.querySelector('h3#carteTitle').innerHTML = `ENREGISTRER CARTE DE VOYAGE`;
+
+            //recherche d'information du client depart principal
+        let idcontact = document.querySelector('#idcontactcarte');
+        if (idcontact !== null)
+        idcontact.onkeyup = () => {
+                let httpInfoscarte;
+                if (window.XMLHttpRequest) {
+                    httpInfoscarte = new XMLHttpRequest();
+                } else if (window.ActiveXObject) {
+                    httpInfoscarte = new ActiveXObject("Microsoft.XMLHTTP");
+                }
+                var verifictcarte = document.querySelector('#idcontactcarte').value;
+                httpInfoscarte.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifinfos/${verifictcarte}`, true);
+                httpInfoscarte.onload = () => {
+                    const infosreqcarte = JSON.parse(httpInfoscarte.responseText);
+                    if (infosreqcarte == null) {
+                                document.querySelector('#idnomcarte').value = "";
+                                document.querySelector('#idprenomcarte').value = "";
+                                document.querySelector('#carte').value = "";
+                                document.querySelector('#datecartev').value = "";
+                                document.querySelector('#lieudelivrecarte').value = "";
+                                document.querySelector('#clientcarteid').value = "";
+                    } else {
+                        if (Object.entries(infosreqcarte).length > 1) {
+                            
+                            if (infosreqcarte.contact_client == verifictcarte) {
+                                document.querySelector('#idnomcarte').value = `${infosreqcarte.nom_client}`;
+                                document.querySelector('#idprenomcarte').value = `${infosreqcarte.prenom_client}`;
+                                document.querySelector('#carte').value = `${infosreqcarte.num_CNIB}`;
+                                document.querySelector('#datecartev').value = `${infosreqcarte.date_delivre}`;
+                                document.querySelector('#lieudelivrecarte').value = `${infosreqcarte.lieu_delivre}`;
+                                document.querySelector('#clientcarteid').value = `${infosreqcarte.id_client}`;
+                                document.querySelector('#nomcarte_voyageid').value = `${infosreqcarte.nom_client}`;
+                                document.querySelector('#prenomcartevoyageid').value = `${infosreqcarte.prenom_client}`;
+                                document.querySelector('#cnibcartevoyageid').value = `${infosreqcarte.num_CNIB}`;
+                                document.querySelector('#datecartevoyageid').value = `${infosreqcarte.date_delivre}`;
+                                document.querySelector('#lieucartevoyageid').value = `${infosreqcarte.lieu_delivre}`;
+                            }
+                        }
+                    }
+                };
+                httpInfoscarte.setRequestHeader('Content-Type', 'application/json');
+                httpInfoscarte.send();
+            };
+            
+        e.onclick = function () {
+            let cartForm = document.querySelector('#carteForm');
+            cartForm.setAttribute('action', `${APP_ROOT}/Cartes_Voyage/addcarte/${e.dataset.cle_compagnie}`);
+        }
+    })
+});

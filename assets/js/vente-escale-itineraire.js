@@ -38,6 +38,109 @@
         return !!(tran.offsetParent || (tran.offsetWidth + tran.offsetHeight > 0));
     }
 
+    /**
+     * Champ Prix visible (#prix_axe_affiche) :
+     * - vente directe → prix_axe
+     * - correspondance → somme des prix des jambes déjà remplies (selon #nbrtrans)
+     */
+    function syncGuichetPrixAffiche() {
+        var dst = $('#prix_axe_affiche');
+        if (!dst) return;
+
+        var parseMontant = function (raw) {
+            if (raw === null || raw === undefined) return null;
+            var s = String(raw).trim().replace(/\s/g, '').replace(',', '.');
+            if (s === '') return null;
+            var n = Number(s);
+            return isNaN(n) ? null : n;
+        };
+
+        if (isPanelVisible('#tran')) {
+            var nbrEl = $('#nbrtrans');
+            var nbr = nbrEl ? parseInt(nbrEl.value, 10) : 0;
+            if (nbr >= 2) {
+                var ids = [
+                    '#prix_axetrans',
+                    '#prix_axetransit',
+                    '#prix_axetransit1',
+                    '#prix_axetransit2'
+                ];
+                var total = 0;
+                var any = false;
+                var max = Math.min(nbr, ids.length);
+                for (var i = 0; i < max; i++) {
+                    var el = $(ids[i]);
+                    var n = parseMontant(el ? el.value : '');
+                    if (n === null) continue;
+                    total += n;
+                    any = true;
+                }
+                dst.value = any ? formatPrix(total) : '';
+                return;
+            }
+        }
+
+        var src = $('#prix_axe');
+        var v = src ? String(src.value || '').trim() : '';
+        var direct = parseMontant(v);
+        dst.value = direct === null ? '' : formatPrix(direct);
+    }
+
+    window.__venteSyncPrixAffiche = syncGuichetPrixAffiche;
+
+    /** Intercepte les affectations .value sur les champs prix pour maj immédiate de l'affiche. */
+    function watchGuichetPrixInputs() {
+        var proto = HTMLInputElement.prototype;
+        var desc = Object.getOwnPropertyDescriptor(proto, 'value');
+        if (!desc || !desc.set || !desc.get) return;
+
+        var ids = [
+            'prix_axe',
+            'prix_axetrans',
+            'prix_axetransit',
+            'prix_axetransit1',
+            'prix_axetransit2'
+        ];
+
+        ids.forEach(function (id) {
+            var el = document.getElementById(id);
+            if (!el || el._ventePrixWatch) return;
+            el._ventePrixWatch = true;
+            Object.defineProperty(el, 'value', {
+                configurable: true,
+                enumerable: desc.enumerable,
+                get: function () {
+                    return desc.get.call(this);
+                },
+                set: function (v) {
+                    desc.set.call(this, v);
+                    try {
+                        syncGuichetPrixAffiche();
+                    } catch (e) {}
+                }
+            });
+            el.addEventListener('input', syncGuichetPrixAffiche);
+            el.addEventListener('change', syncGuichetPrixAffiche);
+        });
+
+        var nbr = document.getElementById('nbrtrans');
+        if (nbr && !nbr._ventePrixWatch) {
+            nbr._ventePrixWatch = true;
+            nbr.addEventListener('change', syncGuichetPrixAffiche);
+            nbr.addEventListener('input', syncGuichetPrixAffiche);
+        }
+
+        // Passage direct ↔ correspondance (display #tran) → recalcul immédiat.
+        var tran = document.getElementById('tran');
+        if (tran && !tran._ventePrixWatch && typeof MutationObserver !== 'undefined') {
+            tran._ventePrixWatch = true;
+            var mo = new MutationObserver(function () {
+                syncGuichetPrixAffiche();
+            });
+            mo.observe(tran, { attributes: true, attributeFilter: ['style', 'class', 'hidden'] });
+        }
+    }
+
     var forms = [
         {
             key: 'guichet',
@@ -157,6 +260,10 @@
 
         function syncPrixAffiche() {
             if (!form.prixAffiche) return;
+            if (form.key === 'guichet') {
+                syncGuichetPrixAffiche();
+                return;
+            }
             var src = $(form.prix);
             var dst = $(form.prixAffiche);
             if (!dst) return;
@@ -454,6 +561,8 @@
         forms.forEach(function (f) {
             createMainController(f).boot();
         });
+        watchGuichetPrixInputs();
+        syncGuichetPrixAffiche();
     }
 
     if (document.readyState === 'loading') {

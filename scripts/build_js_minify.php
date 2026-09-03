@@ -10,7 +10,7 @@ function build_js_minify($content, $root)
 {
     $terser = $root . '/scripts/node_modules/.bin/terser';
 
-    if (!is_executable($terser)) {
+    if (!is_executable($terser) || !function_exists('exec')) {
         return $content;
     }
 
