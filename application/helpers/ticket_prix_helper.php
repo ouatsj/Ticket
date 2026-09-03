@@ -311,3 +311,124 @@ if (!function_exists('ticket_axe_label')) {
         return (string) $fallback;
     }
 }
+
+if (!function_exists('ticket_sg_label')) {
+    /**
+     * Nom de sous-gare pour ticket : getgar si présent, sinon la ligne passager.
+     *
+     * @param object|null $ressougare
+     * @param object|null $item
+     * @return string
+     */
+    function ticket_sg_label($ressougare, $item = null)
+    {
+        if (is_object($ressougare) && !empty($ressougare->nomsousgare)) {
+            return (string) $ressougare->nomsousgare;
+        }
+        if (is_object($item) && !empty($item->nomsousgare)) {
+            return (string) $item->nomsousgare;
+        }
+        return '';
+    }
+}
+
+if (!function_exists('ticket_print_ctx')) {
+    /**
+     * Heure / sous-gare / n° bus pour une vue ticket. Ne lève jamais sur getgar null.
+     *
+     * @param object|null $item
+     * @param object|null $bus_stop
+     * @return array{ok:bool,heures:string,sg_label:string,day:string,nge:string,nbus:string,dtoday:string}
+     */
+    function ticket_print_ctx($item, $bus_stop = null)
+    {
+        $out = array(
+            'ok' => false,
+            'heures' => '',
+            'sg_label' => '',
+            'day' => '',
+            'nge' => '',
+            'nbus' => '',
+            'dtoday' => '',
+        );
+        if (!$item || !is_object($item)) {
+            return $out;
+        }
+        $out['ok'] = true;
+        $out['heures'] = isset($item->heure) ? (string) $item->heure : '';
+        $out['sg_label'] = isset($item->nomsousgare) ? (string) $item->nomsousgare : '';
+
+        $CI =& get_instance();
+        $ressougare = null;
+        if (isset($CI->m_entreprises) && isset($CI->m_gare_depart)
+            && isset($CI->session->company->ekey)
+            && !empty($item->departclient_idgare)
+            && !empty($item->ident_ligne)
+            && !empty($item->id_ligneheure)
+        ) {
+            $ent = $CI->m_entreprises->get_key($CI->session->company->ekey);
+            if ($ent) {
+                $gare_ref = '';
+                if (is_object($bus_stop) && !empty($bus_stop->idengare)) {
+                    $gare_ref = $bus_stop->idengare;
+                } elseif (!empty($item->code_gaexp)) {
+                    $gare_ref = $item->code_gaexp;
+                }
+                if ($gare_ref !== '') {
+                    $ressougare = $CI->m_gare_depart->getgar(
+                        $ent->id_entreprise,
+                        $gare_ref,
+                        $item->departclient_idgare,
+                        $item->ident_ligne,
+                        $item->id_ligneheure
+                    );
+                }
+            }
+        }
+
+        if (is_object($ressougare) && !empty($ressougare->possitiongare) && $out['heures'] !== '') {
+            $g = explode(':', $out['heures']);
+            if (isset($g[0], $g[1])) {
+                $base = ((int) $g[0] * 60) + (int) $g[1];
+                $delta = isset($ressougare->minutetemps) ? (int) $ressougare->minutetemps : 0;
+                if ($ressougare->possitiongare === 'Avant') {
+                    $gt = $base - $delta;
+                } else {
+                    $gt = $base + $delta;
+                }
+                if ($gt < 0) {
+                    $gt += 24 * 60;
+                }
+                $heur = ($gt / 60);
+                $secondes = (int) round($gt % 60);
+                $out['heures'] = sprintf('%02d:%02d', $heur, $secondes);
+            }
+        }
+        $out['sg_label'] = ticket_sg_label($ressougare, $item);
+
+        if (!empty($item->code_progr)) {
+            $out['nge'] = substr((string) $item->code_progr, 6, 6);
+        }
+
+        $gid = isset($item->gareidentif) ? (string) $item->gareidentif : '';
+        $dep = isset($item->depart_code) ? (string) $item->depart_code : '';
+        if ($gid !== '' && $dep !== '') {
+            $hay = ($gid === 'OUA12') ? ('O' . substr($dep, 3)) : $dep;
+            $d = explode($gid, $hay);
+            $out['nbus'] = isset($d[1]) ? (string) $d[1] : '';
+        }
+
+        if (!empty($item->date_progr)) {
+            $dat = explode('-', (string) $item->date_progr);
+            if (count($dat) >= 3) {
+                $out['day'] = $dat[2] . '-' . $dat[1] . '-' . $dat[0];
+            }
+        }
+
+        $dats = (date('H') === '00') ? '01:00:00' : date('H:i:s');
+        $key = function_exists('mdate') ? mdate('%Y-%m-%d', now()) : date('Y-m-d');
+        $out['dtoday'] = $key . ' à ' . $dats;
+
+        return $out;
+    }
+}

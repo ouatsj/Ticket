@@ -502,4 +502,18 @@ class MY_Controller extends CI_Controller
     {
         return roleattribut_guard_post_hint($ekey, $gare_post_keys, $hint_post_keys);
     }
+
+    /**
+     * Libère un tampon siège si la ligne existe (évite TypeError PHP 8 si déjà absent).
+     *
+     * @param object|null $row
+     */
+    protected function _tampon_siege_del_row($row)
+    {
+        if (is_object($row) && isset($row->idtamp) && $row->idtamp !== '' && $row->idtamp !== null) {
+            if (isset($this->m_tampon_siege)) {
+                $this->m_tampon_siege->del($row->idtamp);
+            }
+        }
+    }
 }

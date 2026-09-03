@@ -15,7 +15,10 @@
     .saut-page {
       page-break-after: always;
     }
-  </style>  
+  </style>
+<?php if (empty($item) || !is_object($item)): ?>
+<p><strong>Billet introuvable.</strong> Réimprimez depuis l&apos;historique.</p>
+<?php return; endif; ?>
     <div class="col-lg-6">
 
         <div class="tab-container tab-left">
@@ -33,7 +36,7 @@
                           
                           $ressougare = $this->m_gare_depart->getgar($this->entreprise->id_entreprise, $item->code_gaexp, $item->departclient_idgare, $item->ident_ligne, $item->id_ligneheure);
 
-                          if($ressougare->possitiongare === 'Maintenant'){
+                          if($ressougare && $ressougare->possitiongare === 'Maintenant'){
 
                                 $g = explode(":", $item->heure);
                                 $gt = (($g[0] * 60) + $g[1] + $ressougare->minutetemps); 
@@ -42,7 +45,7 @@
                                 $heures = sprintf("%02d:%02d", $heur, $secondes);
                           }
 
-                          if($ressougare->possitiongare === 'Avant'){
+                          if($ressougare && $ressougare->possitiongare === 'Avant'){
                                 $g = explode(":", $item->heure);
                                 $gt = (($g[0] * 60) + $g[1] - $ressougare->minutetemps); 
                                 $heur = ($gt / 60); 
@@ -51,7 +54,7 @@
                                 $heures = sprintf("%02d:%02d", $heur, $secondes);
                           }
 
-                          if($ressougare->possitiongare === 'Apres'){
+                          if($ressougare && $ressougare->possitiongare === 'Apres'){
                                 $g = explode(":", $item->heure);
                                 $gt = (($g[0] * 60) + $g[1] + $ressougare->minutetemps); 
                                 $heur = ($gt / 60); 
@@ -103,7 +106,7 @@
                         
                         <tr><td style="font-size: 55px; width: 50%;"> <img src="<?echo site_url($item->logo);?>" width="300" height=""></td></tr>
                         <tr><td style="font-size: 20px;"><b>TICKET CODE : <?= "{$item->code_ticket}"; ?></b></td></tr>
-                        <tr><td style="font-size: 20px;"><?= "{$item->nom_gaep}"; ?> <?= "{$ressougare->nomsousgare}"; ?>-<?= ticket_destination_label($item); ?> <?= "{$item->quart}"; ?></td></tr>
+                        <tr><td style="font-size: 20px;"><?= "{$item->nom_gaep}"; ?> <?= ticket_sg_label(isset($ressougare) ? $ressougare : null, isset($item) ? $item : null); ?>-<?= ticket_destination_label($item); ?> <?= "{$item->quart}"; ?></td></tr>
                         <tr><td style="font-size: 20px;"><?= $item->nom_client; ?>&nbsp; <?= $item->prenom_client; ?></td></tr>
                         <tr><td style="font-size: 20px;"><b><?= $day; ?> &nbsp;<?= $heures; ?></td></tr>
                         <tr><td style="font-size: 20px;">Siege : <b><?= str_pad($item->num_siege_categorie, 2, "0", STR_PAD_LEFT); ?></b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<b style="border:2px solid; font-size: 23px;"> N° BUS :<?=$x;?></td></b></td></tr>
@@ -139,7 +142,7 @@
                         
                         $ressougare = $this->m_gare_depart->getgar($this->entreprise->id_entreprise, $item->code_gaexp, $item->departclient_idgare, $item->ident_ligne, $item->id_ligneheure);
 
-                        if($ressougare->possitiongare === 'Maintenant'){
+                        if($ressougare && $ressougare->possitiongare === 'Maintenant'){
 
                               $g = explode(":", $item->heure);
                               $gt = (($g[0] * 60) + $g[1] + $ressougare->minutetemps); 
@@ -148,7 +151,7 @@
                               $heures = sprintf("%02d:%02d", $heur, $secondes);
                         }
 
-                        if($ressougare->possitiongare === 'Avant'){
+                        if($ressougare && $ressougare->possitiongare === 'Avant'){
                               $g = explode(":", $item->heure);
                               $gt = (($g[0] * 60) + $g[1] - $ressougare->minutetemps); 
                               $heur = ($gt / 60); 
@@ -157,7 +160,7 @@
                               $heures = sprintf("%02d:%02d", $heur, $secondes);
                         }
 
-                        if($ressougare->possitiongare === 'Apres'){
+                        if($ressougare && $ressougare->possitiongare === 'Apres'){
                               $g = explode(":", $item->heure);
                               $gt = (($g[0] * 60) + $g[1] + $ressougare->minutetemps); 
                               $heur = ($gt / 60); 
@@ -172,7 +175,7 @@
                         <tr><td style="font-size: 55px; width: 50%;"> <img src="<?echo site_url($item->logo);?>" width="300" height=""></td></tr>
                       <tr><td style="font-size: 20px;"><b><?= "{$item->tamponcod}"; ?></b></td></tr>
           						  <tr><td style="font-size: 20px;"><b><?= "{$item->code_ticket}"; ?></b></td></tr>
-          						  <tr><td style="font-size: 20px;"><?= "{$item->nom_gaep}"; ?> <?= "{$ressougare->nomsousgare}"; ?>-<?= ticket_destination_label($item); ?> <?= "{$item->quart}"; ?></td></tr>
+          						  <tr><td style="font-size: 20px;"><?= "{$item->nom_gaep}"; ?> <?= ticket_sg_label(isset($ressougare) ? $ressougare : null, isset($item) ? $item : null); ?>-<?= ticket_destination_label($item); ?> <?= "{$item->quart}"; ?></td></tr>
           						  <tr><td style="font-size: 20px;"><?= $item->nom_client; ?>&nbsp; <?= $item->prenom_client; ?></td></tr>
           						  <tr><td style="font-size: 20px;"><b><?= "{$day }"; ?> &nbsp;<?= "{$heures}"; ?></b></td></tr>
           						  <tr><td style="font-size: 20px;">Siege:<b><?= str_pad($item->num_siege_categorie, 2, "0", STR_PAD_LEFT); ?></b></td></tr>
@@ -210,7 +213,7 @@
                           $ressougaretra = $this->m_gare_depart->getgar($this->entreprise->id_entreprise, $itemtrans->code_gaexp, $itemtrans->departclient_idgare, $itemtrans->ident_ligne, $itemtrans->id_ligneheure);
 
                          
-                          if($ressougaretra->possitiongare === 'Maintenant'){
+                          if($ressougaretra && $ressougaretra->possitiongare === 'Maintenant'){
 
                               $g1 = explode(":", $itemtrans->heure);
                               $gt1 = (($g1[0] * 60) + $g1[1] + $ressougaretra->minutetemps); 
@@ -219,7 +222,7 @@
                               $heures1 = sprintf("%02d:%02d", $heur1, $secondes1);
                             }
 
-                            if($ressougaretra->possitiongare === 'Avant'){
+                            if($ressougaretra && $ressougaretra->possitiongare === 'Avant'){
                                   $g1 = explode(":", $itemtrans->heure);
                                   $gt1 = (($g1[0] * 60) + $g1[1] - $ressougaretra->minutetemps); 
                                   $heur1 = ($gt1 / 60); 
@@ -227,7 +230,7 @@
                                   $heures1 = sprintf("%02d:%02d", $heur1, $secondes1);                   
                             }
 
-                            if($ressougaretra->possitiongare === 'Apres'){
+                            if($ressougaretra && $ressougaretra->possitiongare === 'Apres'){
                                   $g1 = explode(":", $itemtrans->heure);
                                   $gt1 = (($g1[0] * 60) + $g1[1] + $ressougaretra->minutetemps); 
                                   $heur1 = ($gt1 / 60); 
@@ -279,7 +282,7 @@
                         ?>
                        <tr><td style="font-size: 55px; width: 50%;"> <img src="<?echo site_url($itemtrans->logo);?>" width="300" height=""></td></tr>
                         <tr><td style="font-size: 20px;"><b>TICKET CODE : <?= "{$itemtrans->code_ticket}"; ?></b></td></tr>
-                        <tr><td style="font-size: 20px;"><?= "{$itemtrans->nom_gaep}"; ?> <?= "{$ressougaretra->nomsousgare}"; ?>-<?= ticket_destination_label($itemtrans); ?> <?= "{$itemtrans->quart}"; ?></td></tr>
+                        <tr><td style="font-size: 20px;"><?= "{$itemtrans->nom_gaep}"; ?> <?= ticket_sg_label(isset($ressougaretra) ? $ressougaretra : null, isset($itemtrans) ? $itemtrans : null); ?>-<?= ticket_destination_label($itemtrans); ?> <?= "{$itemtrans->quart}"; ?></td></tr>
                         <tr><td style="font-size: 20px;"><?= $item->nom_client; ?>&nbsp; <?= $item->prenom_client; ?></td></tr>
                         <tr><td style="font-size: 20px;"><b><?= "{$day1}"; ?>&nbsp; <?= $heures1; ?></b></td></tr>
                         <tr><td style="font-size: 20px;">Siege : <b><?= str_pad($itemtrans->num_siege_categorie, 2, "0", STR_PAD_LEFT); ?></b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<b style="border:2px solid; font-size: 23px;"> N° BUS :<?=$x1;?></td></b></td></tr>
@@ -321,7 +324,7 @@
                           $ressougaretra = $this->m_gare_depart->getgar($this->entreprise->id_entreprise, $itemtrans->code_gaexp, $itemtrans->departclient_idgare, $itemtrans->ident_ligne, $itemtrans->id_ligneheure);
 
                          
-                          if($ressougaretra->possitiongare === 'Maintenant'){
+                          if($ressougaretra && $ressougaretra->possitiongare === 'Maintenant'){
 
                               $g1 = explode(":", $itemtrans->heure);
                               $gt1 = (($g1[0] * 60) + $g1[1] + $ressougaretra->minutetemps); 
@@ -330,7 +333,7 @@
                               $heures1 = sprintf("%02d:%02d", $heur1, $secondes1);
                             }
 
-                            if($ressougaretra->possitiongare === 'Avant'){
+                            if($ressougaretra && $ressougaretra->possitiongare === 'Avant'){
                                   $g1 = explode(":", $itemtrans->heure);
                                   $gt1 = (($g1[0] * 60) + $g1[1] - $ressougaretra->minutetemps); 
                                   $heur1 = ($gt1 / 60); 
@@ -338,7 +341,7 @@
                                   $heures1 = sprintf("%02d:%02d", $heur1, $secondes1);                   
                             }
 
-                            if($ressougaretra->possitiongare === 'Apres'){
+                            if($ressougaretra && $ressougaretra->possitiongare === 'Apres'){
                                   $g1 = explode(":", $itemtrans->heure);
                                   $gt1 = (($g1[0] * 60) + $g1[1] + $ressougaretra->minutetemps); 
                                   $heur1 = ($gt1 / 60); 
@@ -357,7 +360,7 @@
                           <tr><td style="font-size: 55px; width: 50%;"> <img src="<?echo site_url($itemtrans->logo);?>" width="300" height=""></td></tr>
           								<tr><td style="font-size: 20px;"><b><?= "{$itemtrans->tamponcod}"; ?></b></td></tr>
           							  <tr><td style="font-size: 20px;"><b><?= "{$itemtrans->code_ticket}"; ?></b></td></tr>
-          							  <tr><td style="font-size: 20px;"><?= "{$itemtrans->nom_gaep}"; ?> <?= "{$ressougaretra->nomsousgare}"; ?>-<?= ticket_destination_label($itemtrans); ?> <?= "{$itemtrans->quart}"; ?></td></tr>
+          							  <tr><td style="font-size: 20px;"><?= "{$itemtrans->nom_gaep}"; ?> <?= ticket_sg_label(isset($ressougaretra) ? $ressougaretra : null, isset($itemtrans) ? $itemtrans : null); ?>-<?= ticket_destination_label($itemtrans); ?> <?= "{$itemtrans->quart}"; ?></td></tr>
           							  <tr><td style="font-size: 20px;"><?= $item->nom_client; ?> <?= $item->prenom_client; ?></td></tr>
           							  <tr><td style="font-size: 20px;"><b><?= $day1; ?>&nbsp; <?= "{$heures1}"; ?></b></td></tr>
           							  <tr><td style="font-size: 20px;">Siege:<b><?= str_pad($itemtrans->num_siege_categorie, 2, "0", STR_PAD_LEFT); ?></b></td></tr>
@@ -393,7 +396,7 @@
                           $ressougaretra2 = $this->m_gare_depart->getgar($this->entreprise->id_entreprise, $itemtrans2->code_gaexp, $itemtrans2->departclient_idgare, $itemtrans2->ident_ligne, $itemtrans2->id_ligneheure);
 
                          
-                          if($ressougaretra2->possitiongare === 'Maintenant'){
+                          if($ressougaretra2 && $ressougaretra2->possitiongare === 'Maintenant'){
 
                               $g2 = explode(":", $itemtrans2->heure);
                               $gt2 = (($g2[0] * 60) + $g2[1] + $ressougaretra2->minutetemps); 
@@ -402,7 +405,7 @@
                               $heures2 = sprintf("%02d:%02d", $heur2, $secondes2);
                             }
 
-                            if($ressougaretra2->possitiongare === 'Avant'){
+                            if($ressougaretra2 && $ressougaretra2->possitiongare === 'Avant'){
                                   $g2 = explode(":", $itemtrans2->heure);
                                   $gt2 = (($g2[0] * 60) + $g2[1] - $ressougaretra2->minutetemps); 
                                   $heur2 = ($gt2 / 60); 
@@ -410,7 +413,7 @@
                                   $heures2 = sprintf("%02d:%02d", $heur2, $secondes2);                   
                             }
 
-                            if($ressougaretra2->possitiongare === 'Apres'){
+                            if($ressougaretra2 && $ressougaretra2->possitiongare === 'Apres'){
                                   $g2 = explode(":", $itemtrans2->heure);
                                   $gt2 = (($g2[0] * 60) + $g2[1] + $ressougaretra2->minutetemps); 
                                   $heur2 = ($gt2 / 60); 
@@ -462,7 +465,7 @@
                         ?>
                        <tr><td style="font-size: 55px; width: 50%;"> <img src="<?echo site_url($itemtrans2->logo);?>" width="300" height=""></td></tr>
             							<tr><td style="font-size: 20px;"><b>TICKET CODE : <?= "{$itemtrans2->code_ticket}"; ?></b></td></tr>
-            							<tr><td style="font-size: 20px;"><?= "{$itemtrans2->nom_gaep}"; ?> <?= "{$ressougaretra2->nomsousgare}"; ?>-<?= ticket_destination_label($itemtrans2); ?> <?= "{$itemtrans2->quart}"; ?></td></tr>
+            							<tr><td style="font-size: 20px;"><?= "{$itemtrans2->nom_gaep}"; ?> <?= ticket_sg_label(isset($ressougaretra2) ? $ressougaretra2 : null, isset($itemtrans2) ? $itemtrans2 : null); ?>-<?= ticket_destination_label($itemtrans2); ?> <?= "{$itemtrans2->quart}"; ?></td></tr>
             							<tr><td style="font-size: 20px;"><?= $item->nom_client; ?>&nbsp; <?= $item->prenom_client; ?></td></tr>
             							<tr><td style="font-size: 20px;"><b><?= "{$day2}"; ?>&nbsp; <?= $heures2; ?></b></td></tr>
             							<tr><td style="font-size: 20px;">Siege : <b><?= str_pad($itemtrans2->num_siege_categorie, 2, "0", STR_PAD_LEFT); ?></b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<b style="border:2px solid; font-size: 23px;"> N° BUS :<?=$x2;?></td></b></tr>
@@ -503,7 +506,7 @@
                           $ressougaretra2 = $this->m_gare_depart->getgar($this->entreprise->id_entreprise, $itemtrans2->code_gaexp, $itemtrans2->departclient_idgare, $itemtrans2->ident_ligne, $itemtrans2->id_ligneheure);
 
                          
-                          if($ressougaretra2->possitiongare === 'Maintenant'){
+                          if($ressougaretra2 && $ressougaretra2->possitiongare === 'Maintenant'){
 
                               $g2 = explode(":", $itemtrans2->heure);
                               $gt2 = (($g2[0] * 60) + $g2[1] + $ressougaretra2->minutetemps); 
@@ -512,7 +515,7 @@
                               $heures2 = sprintf("%02d:%02d", $heur2, $secondes2);
                             }
 
-                            if($ressougaretra2->possitiongare === 'Avant'){
+                            if($ressougaretra2 && $ressougaretra2->possitiongare === 'Avant'){
                                   $g2 = explode(":", $itemtrans2->heure);
                                   $gt2 = (($g2[0] * 60) + $g2[1] - $ressougaretra2->minutetemps); 
                                   $heur2 = ($gt2 / 60); 
@@ -520,7 +523,7 @@
                                   $heures2 = sprintf("%02d:%02d", $heur2, $secondes2);                   
                             }
 
-                            if($ressougaretra2->possitiongare === 'Apres'){
+                            if($ressougaretra2 && $ressougaretra2->possitiongare === 'Apres'){
                                   $g2 = explode(":", $itemtrans2->heure);
                                   $gt2 = (($g2[0] * 60) + $g2[1] + $ressougaretra2->minutetemps); 
                                   $heur2 = ($gt2 / 60); 
@@ -539,7 +542,7 @@
                         <tr><td style="font-size: 55px; width: 50%;"> <img src="<?echo site_url($itemtrans2->logo);?>" width="300" height=""></td></tr>
             						  <tr><td style="font-size: 20px;"><b><?= "{$itemtrans2->tamponcod}"; ?></b></td></tr>
             						  <tr><td style="font-size: 20px;"><b><?= "{$itemtrans2->code_ticket}"; ?></b></td></tr>
-            						  <tr><td style="font-size: 20px;"><?= "{$itemtrans2->nom_gaep}"; ?> <?= "{$ressougaretra2->nomsousgare}"; ?>-<?= ticket_destination_label($itemtrans2); ?> <?= "{$itemtrans2->quart}"; ?></td></tr>
+            						  <tr><td style="font-size: 20px;"><?= "{$itemtrans2->nom_gaep}"; ?> <?= ticket_sg_label(isset($ressougaretra2) ? $ressougaretra2 : null, isset($itemtrans2) ? $itemtrans2 : null); ?>-<?= ticket_destination_label($itemtrans2); ?> <?= "{$itemtrans2->quart}"; ?></td></tr>
             						  <tr><td style="font-size: 20px;"><?= $item->nom_client; ?> <?= $item->prenom_client; ?></td></tr>
             						  <tr><td style="font-size: 20px;"><b><?= $day2; ?>&nbsp; <?= "{$heures2}"; ?></b></td></tr>
             						  <tr><td style="font-size: 20px;">Siege:<b><?= str_pad($itemtrans2->num_siege_categorie, 2, "0", STR_PAD_LEFT); ?></b></td></tr>
@@ -575,7 +578,7 @@
                           $ressougaretra3 = $this->m_gare_depart->getgar($this->entreprise->id_entreprise, $itemtrans3->code_gaexp, $itemtrans3->departclient_idgare, $itemtrans3->ident_ligne, $itemtrans3->id_ligneheure);
 
                          
-                          if($ressougaretra3->possitiongare === 'Maintenant'){
+                          if($ressougaretra3 && $ressougaretra3->possitiongare === 'Maintenant'){
 
                               $g3 = explode(":", $itemtrans3->heure);
                               $gt3 = (($g3[0] * 60) + $g3[1] + $ressougaretra3->minutetemps); 
@@ -584,7 +587,7 @@
                               $heures3 = sprintf("%02d:%02d", $heur3, $secondes3);
                             }
 
-                            if($ressougaretra3->possitiongare === 'Avant'){
+                            if($ressougaretra3 && $ressougaretra3->possitiongare === 'Avant'){
                                   $g3 = explode(":", $itemtrans3->heure);
                                   $gt3 = (($g3[0] * 60) + $g3[1] - $ressougaretra3->minutetemps); 
                                   $heur3 = ($gt3 / 60); 
@@ -592,7 +595,7 @@
                                   $heures3 = sprintf("%02d:%02d", $heur3, $secondes3);                   
                             }
 
-                            if($ressougaretra3->possitiongare === 'Apres'){
+                            if($ressougaretra3 && $ressougaretra3->possitiongare === 'Apres'){
                                   $g3 = explode(":", $itemtrans3->heure);
                                   $gt3 = (($g3[0] * 60) + $g3[1] + $ressougaretra3->minutetemps); 
                                   $heur3 = ($gt3 / 60); 
@@ -644,7 +647,7 @@
                         ?>
                        <tr><td style="font-size: 55px; width: 50%;"> <img src="<?echo site_url($itemtrans3->logo);?>" width="300" height=""></td></tr>
                         <tr><td style="font-size: 20px;"><b>TICKET CODE : <?= "{$itemtrans3->code_ticket}"; ?></b></td></tr>
-                        <tr><td style="font-size: 20px;"><?= "{$itemtrans3->nom_gaep}"; ?> <?= "{$ressougaretra3->nomsousgare}"; ?>-<?= ticket_destination_label($itemtrans3); ?> <?= "{$itemtrans3->quart}"; ?></td></tr>
+                        <tr><td style="font-size: 20px;"><?= "{$itemtrans3->nom_gaep}"; ?> <?= ticket_sg_label(isset($ressougaretra3) ? $ressougaretra3 : null, isset($itemtrans3) ? $itemtrans3 : null); ?>-<?= ticket_destination_label($itemtrans3); ?> <?= "{$itemtrans3->quart}"; ?></td></tr>
                         <tr><td style="font-size: 20px;"><?= $item->nom_client; ?> &nbsp;<?= $item->prenom_client; ?></td></tr>
                         <tr><td style="font-size: 20px;"><b><?= $day3; ?>&nbsp; <?= $heures3; ?></b></td></tr>
                         <tr><td style="font-size: 20px;">Siege:<b><?= str_pad($itemtrans3->num_siege_categorie, 2, "0", STR_PAD_LEFT); ?></b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<b style="border:2px solid; font-size: 23px;"> N° BUS :<?=$x3;?></td></b></tr>
@@ -687,7 +690,7 @@
                           $ressougaretra3 = $this->m_gare_depart->getgar($this->entreprise->id_entreprise, $itemtrans3->code_gaexp, $itemtrans3->departclient_idgare, $itemtrans3->ident_ligne, $itemtrans3->id_ligneheure);
 
                          
-                          if($ressougaretra3->possitiongare === 'Maintenant'){
+                          if($ressougaretra3 && $ressougaretra3->possitiongare === 'Maintenant'){
 
                               $g3 = explode(":", $itemtrans3->heure);
                               $gt3 = (($g3[0] * 60) + $g3[1] + $ressougaretra3->minutetemps); 
@@ -696,7 +699,7 @@
                               $heures3 = sprintf("%02d:%02d", $heur3, $secondes3);
                             }
 
-                            if($ressougaretra3->possitiongare === 'Avant'){
+                            if($ressougaretra3 && $ressougaretra3->possitiongare === 'Avant'){
                                   $g3 = explode(":", $itemtrans3->heure);
                                   $gt3 = (($g3[0] * 60) + $g3[1] - $ressougaretra3->minutetemps); 
                                   $heur3 = ($gt3 / 60); 
@@ -704,7 +707,7 @@
                                   $heures3 = sprintf("%02d:%02d", $heur3, $secondes3);                   
                             }
 
-                            if($ressougaretra3->possitiongare === 'Apres'){
+                            if($ressougaretra3 && $ressougaretra3->possitiongare === 'Apres'){
                                   $g3 = explode(":", $itemtrans3->heure);
                                   $gt3 = (($g3[0] * 60) + $g3[1] + $ressougaretra3->minutetemps); 
                                   $heur3 = ($gt3 / 60); 
@@ -722,7 +725,7 @@
 							           <tr><td style="font-size: 55px; width: 50%;"> <img src="<?echo site_url($itemtrans3->logo);?>" width="300" height=""></td></tr>
             						  <tr><td style="font-size: 20px;"><b><?= "{$itemtrans3->tamponcod}"; ?></b></td></tr>
             						  <tr><td style="font-size: 20px;"><b><?= "{$itemtrans3->code_ticket}"; ?></b></td></tr>
-            						  <tr><td style="font-size: 20px;"><?= "{$itemtrans3->nom_gaep}"; ?> <?= "{$ressougaretra3->nomsousgare}"; ?>-<?= ticket_destination_label($itemtrans3); ?> <?= "{$itemtrans3->quart}"; ?></td></tr>
+            						  <tr><td style="font-size: 20px;"><?= "{$itemtrans3->nom_gaep}"; ?> <?= ticket_sg_label(isset($ressougaretra3) ? $ressougaretra3 : null, isset($itemtrans3) ? $itemtrans3 : null); ?>-<?= ticket_destination_label($itemtrans3); ?> <?= "{$itemtrans3->quart}"; ?></td></tr>
             						  <tr><td style="font-size: 20px;"><?= $item->nom_client; ?> <?= $item->prenom_client; ?></td></tr>
             						  <tr><td style="font-size: 20px;"><b><?= $day3; ?>&nbsp; <?= "{$heures3}"; ?></b></td></tr>
             						  <tr><td style="font-size: 20px;">Siege:<b><?= str_pad($itemtrans3->num_siege_categorie, 2, "0", STR_PAD_LEFT); ?></b></td></tr>

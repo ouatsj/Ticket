@@ -17,7 +17,8 @@ document.addEventListener('DOMContentLoaded', () => {
             // Avec programme : format historique confirm (code_progr/tarif/id_lh) pour siegdispo.
             // Sans programme : id_lh/heure (transit au choix).
             if (hasProg && hr.code_progr) {
-                opt.value = String(hr.code_progr) + '/1/' + String(hr.id_ligneheure);
+                var tfHv = (hr.typetarif != null && String(hr.typetarif).trim() !== '') ? String(hr.typetarif) : '1';
+                opt.value = String(hr.code_progr) + '/' + tfHv + '/' + String(hr.id_ligneheure);
             } else {
                 opt.value = String(hr.id_ligneheure) + '/' + String(hr.heure || '');
             }
@@ -721,7 +722,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     var row = rows[key];
                     if (!row || row.id_ligneheure == null) continue;
                     var opt = document.createElement('option');
-                    opt.value = `${row.id_ligneheure}/${row.heure || ''}`;
+                    if (row.code_progr) {
+                        var tfL1 = (row.typetarif != null && String(row.typetarif).trim() !== '') ? String(row.typetarif) : '1';
+                        opt.value = String(row.code_progr) + '/' + tfL1 + '/' + String(row.id_ligneheure);
+                    } else {
+                        opt.value = `${row.id_ligneheure}/${row.heure || ''}`;
+                    }
                     opt.setAttribute('data-has-programme', '1');
                     opt.setAttribute('data-transit-leg1', '1');
                     opt.setAttribute('data-heure', row.heure || '');

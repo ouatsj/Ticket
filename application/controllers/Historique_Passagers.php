@@ -888,10 +888,16 @@
                 if ($this->session->agent->userole === '1' OR $this->session->agent->userole === '2'){
 
                     $this->passagersconf = $this->m_passager->passeconfirmead($this->company->ekey, $code_id, $tf, $h);
+                    if (empty($this->passagersconf)) {
+                        $this->passagersconf = $this->m_passager->passeconfirmerad($this->company->ekey, $code_id);
+                    }
                     $this->property['item'] = $this->passagersconf;
                   }
                   else{
                         $this->passagersconf = $this->m_passager->passeconfirme($this->company->ekey, $code_id, $tf, $h, $g);
+                        if (empty($this->passagersconf)) {
+                            $this->passagersconf = $this->m_passager->passeconfirmer($this->company->ekey, $code_id, $g);
+                        }
                         $this->property['item'] = $this->passagersconf;
                   }
                     
@@ -2451,6 +2457,22 @@
             $this->layout->view('_tickets/epretour', $this->property);
         }
 
+        /**
+         * Ticket confirmation EPSON : get() (vente) puis fallback confirm sans tarif/heure.
+         */
+        protected function _passager_conf_print_row($ekey, $code, $tf, $h)
+        {
+            $row = $this->m_passager->get($ekey, $code, $tf, $h);
+            if (!empty($row)) {
+                return $row;
+            }
+            $row = $this->m_passager->passeconfirmead($ekey, $code, $tf, $h);
+            if (!empty($row)) {
+                return $row;
+            }
+            return $this->m_passager->passeconfirmerad($ekey, $code);
+        }
+
         public function editpdfepsontranscf($ckey, $code_id, $tf, $h, $co, $lr, $g, $cpus, $idsg)
         {
             $this->company = $this->m_entreprises->get_key($ckey);
@@ -2458,11 +2480,8 @@
                         $this->property['bus_stop'] = $bus_stop;
                 $conex = $this->_roleattribut_guard_bind($cpus, $this->company->ekey, $g);
                 $this->property['conex'] = $conex;
-            $this->passagers = $this->m_passager->get($this->company->ekey, $code_id, $tf, $h);
-            $this->property['item'] = $this->passagers;
-
-            $this->passagerstrans = $this->m_passager->get($this->company->ekey, $co, $tf, $lr);
-            $this->property['itemtrans'] = $this->passagerstrans;
+            $this->property['item'] = $this->_passager_conf_print_row($this->company->ekey, $code_id, $tf, $h);
+            $this->property['itemtrans'] = $this->_passager_conf_print_row($this->company->ekey, $co, $tf, $lr);
             
             $this->layout->view('_tickets/editpdfepsontranscf', $this->property);
         }
@@ -2475,14 +2494,9 @@
                         $this->property['bus_stop'] = $bus_stop;
                 $conex = $this->_roleattribut_guard_bind($cpus, $this->company->ekey, $g);
                 $this->property['conex'] = $conex;
-            $this->passagers = $this->m_passager->get($this->company->ekey, $code_id, $tf, $h);
-            $this->property['item'] = $this->passagers;
-
-            $this->passagerstrans = $this->m_passager->get($this->company->ekey, $co, $tf, $lr);
-            $this->property['itemtrans'] = $this->passagerstrans;
-
-            $this->passagerstrans2 = $this->m_passager->get($this->company->ekey, $co1, $tf, $lr1);
-            $this->property['itemtrans2'] = $this->passagerstrans2;
+            $this->property['item'] = $this->_passager_conf_print_row($this->company->ekey, $code_id, $tf, $h);
+            $this->property['itemtrans'] = $this->_passager_conf_print_row($this->company->ekey, $co, $tf, $lr);
+            $this->property['itemtrans2'] = $this->_passager_conf_print_row($this->company->ekey, $co1, $tf, $lr1);
             
             $this->layout->view('_tickets/editpdfepsontranscf2', $this->property);
         }
@@ -2494,17 +2508,10 @@
                         $this->property['bus_stop'] = $bus_stop;
                 $conex = $this->_roleattribut_guard_bind($cpus, $this->company->ekey, $g);
                 $this->property['conex'] = $conex;
-            $this->passagers = $this->m_passager->get($this->company->ekey, $code_id, $tf, $h);
-            $this->property['item'] = $this->passagers;
-
-            $this->passagerstrans = $this->m_passager->get($this->company->ekey, $co, $tf, $lr);
-            $this->property['itemtrans'] = $this->passagerstrans;
-            
-            $this->passagerstrans2 = $this->m_passager->get($this->company->ekey, $co1, $tf, $lr1);
-            $this->property['itemtrans2'] = $this->passagerstrans2;
-
-            $this->passagerstrans3 = $this->m_passager->get($this->company->ekey, $co2, $tf, $lr2);
-            $this->property['itemtrans3'] = $this->passagerstrans3;
+            $this->property['item'] = $this->_passager_conf_print_row($this->company->ekey, $code_id, $tf, $h);
+            $this->property['itemtrans'] = $this->_passager_conf_print_row($this->company->ekey, $co, $tf, $lr);
+            $this->property['itemtrans2'] = $this->_passager_conf_print_row($this->company->ekey, $co1, $tf, $lr1);
+            $this->property['itemtrans3'] = $this->_passager_conf_print_row($this->company->ekey, $co2, $tf, $lr2);
             $this->layout->view('_tickets/editpdfepsontranscf3', $this->property);
         }
 

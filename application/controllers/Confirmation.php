@@ -245,12 +245,13 @@
             $usen = substr($this->session->agent->username, 0, 1);
             $today = mdate("%Y-%m-%d", now('UTC'));
        
-            $cdptfb1 = strpos($this->input->post('heuredep'), '/');
-            $dpclient = substr($this->input->post('heuredep'), 0, $cdptfb1);
-            $tf1 = substr($this->input->post('heuredep'), $cdptfb1 + 1, strlen($this->input->post('heuredep')));
-
-            $cdptfb = strpos($tf1, '/');
-            $tf = substr($tf1, 0, $cdptfb);
+            $heuredepRaw = (string) $this->input->post('heuredep');
+            $hdParts = explode('/', $heuredepRaw);
+            $dpclient = isset($hdParts[0]) ? $hdParts[0] : '';
+            $tf = '1';
+            if (isset($hdParts[1]) && $hdParts[1] !== '' && strpos((string) $hdParts[1], ':') === false) {
+                $tf = $hdParts[1];
+            }
             //$lhr1 = substr($tf1, $cdptfb + 1, strlen($tf1));
 
             $p_sieg = $this->input->post('depsiege');
@@ -358,7 +359,7 @@
                                                 'codepro' => $dpclient,
                                                 'numsieg' => $this->input->post('depsiege'),
                                             );
-                                            $this->m_tampon_siege->del($results->idtamp, $delarray);
+                                            $this->_tampon_siege_del_row($results);
 
                                
                                 redirect('Historique_Passagers/print_conf/' . $this->session->company->ekey.'/' . $tppasconf .'/'.$tf.'/' . $h.'/'. $gid.'/'.$iduser.'/'.$sgid);
@@ -450,7 +451,7 @@
                                                 'codepro' => $dpclient,
                                                 'numsieg' => $this->input->post('depsiege'),
                                             );
-                                            $this->m_tampon_siege->del($results->idtamp, $delarray);
+                                            $this->_tampon_siege_del_row($results);
 
                             
                             redirect('Historique_Passagers/print_conf/' . $this->session->company->ekey.'/' . $tppasconf .'/'.$tf.'/' . $h.'/'. $gid.'/'.$iduser.'/'.$sgid); 
@@ -563,7 +564,7 @@
                                                 'codepro' => $dpclient,
                                                 'numsieg' => $this->input->post('depsiege'),
                                             );
-                                            $this->m_tampon_siege->del($results->idtamp, $delarray);
+                                            $this->_tampon_siege_del_row($results);
 
                                
                                 redirect('Historique_Passagers/printep_conf/' . $this->session->company->ekey.'/' . $tppasconf .'/'.$tf.'/' . $h.'/'. $gid.'/'.$iduser.'/'.$sgid);
@@ -655,7 +656,7 @@
                                     'codepro' => $dpclient,
                                     'numsieg' => $this->input->post('depsiege'),
                                 );
-                                $this->m_tampon_siege->del($results->idtamp, $delarray);
+                                $this->_tampon_siege_del_row($results);
                                             
                             
                             redirect('Historique_Passagers/printep_conf/' . $this->session->company->ekey.'/' . $tppasconf .'/'.$tf.'/' . $h.'/'. $gid.'/'.$iduser.'/'.$sgid); 
@@ -840,7 +841,7 @@
                                         'numsieg' => $this->input->post('passagersiegesitinescf1'),
                                     );
                                     
-                                    $this->m_tampon_siege->del($results1->idtamp, $delarray1);
+                                    $this->_tampon_siege_del_row($results1);
 
                                     $cdecf = strpos($this->input->post('heuredep'), '/');
                                     $lhrcf = substr($this->input->post('heuredep'), 0, $cdecf);
@@ -880,7 +881,7 @@
                                         'numsieg' => $this->input->post('depsiege'),
                                     );
                                     
-                                    $this->m_tampon_siege->del($results->idtamp, $delarray);
+                                    $this->_tampon_siege_del_row($results);
 
                                     
                                     redirect('Historique_Passagers/editpdfepsontranscf/' . $this->session->company->ekey .'/'.$tppasconf.'/'.$tf. '/'. $lhr.'/'.$tampon1.'/'.$fnitra1.'/'.$gid.'/'.$iduser. '/'.$sgid);
@@ -999,7 +1000,7 @@
                                             'numsieg' => $this->input->post('passagersiegesitinescf1'),
                                         );
                                         
-                                        $this->m_tampon_siege->del($results1->idtamp, $delarray1);
+                                        $this->_tampon_siege_del_row($results1);
 
                                         $cdecf = strpos($this->input->post('heuredep'), '/');
                                         $lhrcf = substr($this->input->post('heuredep'), 0, $cdecf);
@@ -1038,7 +1039,7 @@
                                             'numsieg' => $this->input->post('depsiege'),
                                         );
                                         
-                                        $this->m_tampon_siege->del($results->idtamp, $delarray);
+                                        $this->_tampon_siege_del_row($results);
 
                                         
                                         redirect('Historique_Passagers/editpdfepsontranscf/' . $this->session->company->ekey .'/'.$tppasconf.'/'.$tf. '/'. $lhr.'/'.$tampon1.'/'.$fnitra1.'/'.$gid.'/'.$iduser. '/'.$sgid);
@@ -1194,7 +1195,7 @@
                                         'numsieg' => $this->input->post('passagersiegesitinescf'),
                                     );
                                                 
-                                    $this->m_tampon_siege->del($results->idtamp, $delarray1);
+                                    $this->_tampon_siege_del_row($results);
                                         
                                     
                                     $reg2 = $this->input->post('gidtransitecf1');
@@ -1263,7 +1264,7 @@
                                         'numsieg' => $this->input->post('passagersiegesitinescf1'),
                                     );
                                     
-                                    $this->m_tampon_siege->del($results2->idtamp, $delarray2);
+                                    $this->_tampon_siege_del_row($results2);
 
                             
                                     $cdecf = strpos($this->input->post('heuredep'), '/');
@@ -1305,7 +1306,7 @@
                                         'numsieg' => $this->input->post('depsiege'),
                                     );
                                     
-                                    $this->m_tampon_siege->del($results->idtamp, $delarray);
+                                    $this->_tampon_siege_del_row($results);
                                     
                                     redirect('Historique_Passagers/editpdfepsontranscf2/' . $this->session->company->ekey .'/'.$tppasconf.'/'.$tf. '/'. $lhr.'/'.$tampon1.'/'.$fnitra1.'/'.$tampon2.'/'.$fnitra2.'/'.$gid.'/'.$iduser. '/'.$sgid);
                                 }
@@ -1427,7 +1428,7 @@
                                         'numsieg' => $this->input->post('passagersiegesitinescf'),
                                     );
                                                 
-                                    $this->m_tampon_siege->del($results->idtamp, $delarray1);
+                                    $this->_tampon_siege_del_row($results);
                                         
                                     
                                     $reg2 = $this->input->post('gidtransitecf1');
@@ -1496,7 +1497,7 @@
                                         'numsieg' => $this->input->post('passagersiegesitinescf1'),
                                     );
                                     
-                                    $this->m_tampon_siege->del($results2->idtamp, $delarray2);
+                                    $this->_tampon_siege_del_row($results2);
 
                             
                                     $cdecf = strpos($this->input->post('heuredep'), '/');
@@ -1537,7 +1538,7 @@
                                         'numsieg' => $this->input->post('depsiege'),
                                     );
                                     
-                                    $this->m_tampon_siege->del($results->idtamp, $delarray);
+                                    $this->_tampon_siege_del_row($results);
                                     
                                     redirect('Historique_Passagers/editpdfepsontranscf2/' . $this->session->company->ekey .'/'.$tppasconf.'/'.$tf. '/'. $lhr.'/'.$tampon1.'/'.$fnitra1.'/'.$tampon2.'/'.$fnitra2.'/'.$gid.'/'.$iduser. '/'.$sgid);
 
@@ -1682,7 +1683,7 @@
                                             'numsieg' => $this->input->post('passagersiegesitinescf'),
                                         );
                                                         
-                                        $this->m_tampon_siege->del($results1->idtamp, $delarray1);
+                                        $this->_tampon_siege_del_row($results1);
 
                                                         
                                         $reg2 = $this->input->post('gidtransitecf1');
@@ -1743,7 +1744,7 @@
                                                 'numsieg' => $this->input->post('passagersiegesitinescf1'),
                                             );
                                                 
-                                            $this->m_tampon_siege->del($results2->idtamp, $delarray2);
+                                            $this->_tampon_siege_del_row($results2);
 
                                             $reg3 = $this->input->post('gidtransitecf2');
                                             
@@ -1816,7 +1817,7 @@
                                             'numsieg' => $this->input->post('passagersiegesitinescf2'),
                                         );
                                         
-                                        $this->m_tampon_siege->del($results3->idtamp, $delarray3);
+                                        $this->_tampon_siege_del_row($results3);
 
                                         $cdecf = strpos($this->input->post('heuredep'), '/');
                                         $lhrcf = substr($this->input->post('heuredep'), 0, $cdecf);
@@ -1855,7 +1856,7 @@
                                             'numsieg' => $this->input->post('depsiege'),
                                         );
                                         
-                                        $this->m_tampon_siege->del($results->idtamp, $delarray);
+                                        $this->_tampon_siege_del_row($results);
 
                                        
                                         redirect('Historique_Passagers/editpdfepsontranscf3/' . $this->session->company->ekey .'/'.$tppasconf.'/'.$tf. '/'. $lhr.'/'.$tampon1.'/'.$fnitra1.'/'.$tampon2.'/'.$fnitras2.'/'.$tampon3.'/'.$fnitra4.'/'.$gid.'/'.$iduser. '/'.$sgid);
@@ -1971,7 +1972,7 @@
                                             'numsieg' => $this->input->post('passagersiegesitinescf'),
                                         );
                                                         
-                                        $this->m_tampon_siege->del($results1->idtamp, $delarray1);
+                                        $this->_tampon_siege_del_row($results1);
 
                                                         
                                         $reg2 = $this->input->post('gidtransitecf1');
@@ -2032,7 +2033,7 @@
                                             'numsieg' => $this->input->post('passagersiegesitinescf1'),
                                         );
                                                 
-                                        $this->m_tampon_siege->del($results2->idtamp, $delarray2);
+                                        $this->_tampon_siege_del_row($results2);
 
                                         $reg3 = $this->input->post('gidtransitecf2');
                                         
@@ -2105,7 +2106,7 @@
                                             'numsieg' => $this->input->post('passagersiegesitinescf2'),
                                         );
                                         
-                                        $this->m_tampon_siege->del($results3->idtamp, $delarray3);
+                                        $this->_tampon_siege_del_row($results3);
 
                                         $cdecf = strpos($this->input->post('heuredep'), '/');
                                         $lhrcf = substr($this->input->post('heuredep'), 0, $cdecf);
@@ -2144,7 +2145,7 @@
                                             'numsieg' => $this->input->post('depsiege'),
                                         );
                                         
-                                        $this->m_tampon_siege->del($results->idtamp, $delarray);
+                                        $this->_tampon_siege_del_row($results);
 
                                        
                                         redirect('Historique_Passagers/editpdfepsontranscf3/' . $this->session->company->ekey .'/'.$tppasconf.'/'.$tf.'/'.$lhr.'/'.$tampon1.'/'.$fnitra1.'/'.$tampon2.'/'.$fnitras2.'/'.$tampon3.'/'.$fnitra4.'/'.$gid.'/'.$iduser. '/'.$sgid);
@@ -3036,7 +3037,7 @@
                                         'codepro' => $dpclient,
                                         'numsieg' => $this->input->post('addepsiege'),
                                     );
-                                    $this->m_tampon_siege->del($results->idtamp, $delarray);
+                                    $this->_tampon_siege_del_row($results);
 
                                 redirect('confirmation/edit/' . $this->session->company->ekey . '/' . $tampon.'/'.$tf.'/' . $h.'/'.$gid.'/'. $iduser.'/'. $sgid);
                         }
@@ -3122,7 +3123,7 @@
                                         'codepro' => $dpclient,
                                         'numsieg' => $this->input->post('addepsiege'),
                                     );
-                                    $this->m_tampon_siege->del($results->idtamp, $delarray);
+                                    $this->_tampon_siege_del_row($results);
 
                                 redirect('confirmation/edit/' . $this->session->company->ekey . '/' . $tampon.'/'.$tf. '/' . $h.'/'.$gid.'/'. $iduser.'/'. $sgid);
                         }
@@ -3230,7 +3231,7 @@
                                         'codepro' => $dpclient,
                                         'numsieg' => $this->input->post('addepsiegetran'),
                                     );
-                                    $this->m_tampon_siege->del($results->idtamp, $delarray);
+                                    $this->_tampon_siege_del_row($results);
 
                                 redirect('confirmation/edittr/' . $this->session->company->ekey . '/' . $tampon.'/'.$tf.'/' . $h.'/'.$gid.'/'. $iduser.'/'. $sgid.'/'.$lhgid);
                         }
@@ -3317,7 +3318,7 @@
                                         'codepro' => $dpclient,
                                         'numsieg' => $this->input->post('addepsiegetran'),
                                     );
-                                    $this->m_tampon_siege->del($results->idtamp, $delarray);
+                                    $this->_tampon_siege_del_row($results);
 
                                 redirect('confirmation/edittr/' . $this->session->company->ekey . '/' . $tampon.'/'.$tf. '/' . $h.'/'.$gid.'/'. $iduser.'/'. $sgid.'/'.$lhgid);
                         }
@@ -3444,7 +3445,7 @@
                                         'codepro' => $dpclient,
                                         'numsieg' => $this->input->post('bondepsiege'),
                                     );
-                                    $this->m_tampon_siege->del($results->idtamp, $delarray);
+                                    $this->_tampon_siege_del_row($results);
                                     
                                 redirect('Historique_Passagers/print_conf/'.$this->session->company->ekey .'/'.$tppasconf.'/'.$tf.'/'.$h.'/'.$gid.'/'.$iduser.'/'.$sgid);
                         }
@@ -3537,7 +3538,7 @@
                                         'codepro' => $dpclient,
                                         'numsieg' => $this->input->post('bondepsiege'),
                                     );
-                                    $this->m_tampon_siege->del($results->idtamp, $delarray);
+                                    $this->_tampon_siege_del_row($results);
                                     
                                 redirect('Historique_Passagers/printep_conf/' . $this->session->company->ekey . '/' . $tppasconf.'/'.$tf. '/' . $h.'/'.$gid.'/'. $iduser.'/'. $sgid);
                         }
@@ -3677,7 +3678,7 @@
                                         'codepro' => $dpclient,
                                         'numsieg' => $this->input->post('cartedepsiege'),
                                     );
-                                    $this->m_tampon_siege->del($results->idtamp, $delarray);
+                                    $this->_tampon_siege_del_row($results);
                                     
                                 redirect('Historique_Passagers/print_conf/'.$this->session->company->ekey .'/'.$tppasconf.'/'.$tf.'/'.$h.'/'.$gid.'/'.$iduser.'/'.$sgid);
                         }
@@ -3775,7 +3776,7 @@
                                         'codepro' => $dpclient,
                                         'numsieg' => $this->input->post('cartedepsiege'),
                                     );
-                                    $this->m_tampon_siege->del($results->idtamp, $delarray);
+                                    $this->_tampon_siege_del_row($results);
                                     
                                 redirect('Historique_Passagers/printep_conf/' . $this->session->company->ekey . '/' . $tppasconf.'/'.$tf. '/' . $h.'/'.$gid.'/'. $iduser.'/'. $sgid);
                         }
