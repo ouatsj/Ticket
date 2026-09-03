@@ -9965,6 +9965,24 @@ document.addEventListener('DOMContentLoaded', () => {
 
     var __CONF_TRANSIT_MARGE_MIN = 30;
 
+    function __confFormatDateShort(ymd) {
+        if (!ymd || String(ymd).length < 10) return '';
+        var p = String(ymd).slice(0, 10).split('-');
+        return (p.length === 3) ? (p[2] + '/' + p[1]) : String(ymd).slice(0, 10);
+    }
+
+    /** Libellé heure : ajoute JJ/MM si date_progr ≠ date voyage (évite doublons J / J+1). */
+    function __confHeureOptionLabel(heure, dateProgr, voyageDate) {
+        var label = String(heure || '');
+        var dprog = dateProgr ? String(dateProgr).slice(0, 10) : '';
+        var vDate = voyageDate ? String(voyageDate).slice(0, 10) : '';
+        if (dprog && (!vDate || dprog !== vDate)) {
+            var short = __confFormatDateShort(dprog);
+            if (short) label = label + ' — ' + short;
+        }
+        return label;
+    }
+
     function __confHeureToMinutes(h) {
         if (h == null || h === '') return null;
         var parts = String(h).trim().split(/[:hH]/);
@@ -10038,7 +10056,10 @@ document.addEventListener('DOMContentLoaded', () => {
             opt.value = `${r.code_progr}/${r.intervalle1}/${r.intervalle2}/${r.id_ligneheure}/${r.prix}`;
             opt.setAttribute('data-heure', r.heure || '');
             opt.setAttribute('data-date-progr', r.date_progr ? String(r.date_progr).slice(0, 10) : '');
-            opt.innerHTML = `${r.heure}/${r.date_progr}`;
+            var voyageDateAf = (document.querySelector('#actuel') && document.querySelector('#actuel').value)
+                ? String(document.querySelector('#actuel').value).slice(0, 10)
+                : pDate;
+            opt.innerHTML = __confHeureOptionLabel(r.heure, r.date_progr, voyageDateAf);
             sel.add(opt);
         }
         if (sel.options.length > 1) {
@@ -10351,7 +10372,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (r.date_progr) opt.setAttribute('data-date-progr', String(r.date_progr).slice(0, 10));
                 if (r.code_progr) opt.setAttribute('data-code-progr', String(r.code_progr));
                 if (r.gareidentif) opt.setAttribute('data-gareidentif', String(r.gareidentif));
-                opt.innerHTML = r.heure || '';
+                opt.innerHTML = __confHeureOptionLabel(r.heure, r.date_progr, datedepart);
                 hSel.add(opt);
             }
             if (hSel.options.length > 1) {
