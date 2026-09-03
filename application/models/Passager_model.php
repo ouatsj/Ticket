@@ -91,38 +91,48 @@
             $ticketPre = isset($data['code_ticket']) ? (string) $data['code_ticket'] : '';
             $isReservation = ($ticketPre === 'R');
 
-            $isOtherSale = sales_price_controls_enabled()
-                && isset($CI->router)
+            // addpassagerfi = canal AUTRES VENTE (prix saisi au guichet).
+            // Ne jamais écraser par le tarif catalogue, même si sales_price_controls
+            // est désactivé (cas prod : ticket.rakietabus.com).
+            $isAddpassagerfi = isset($CI->router)
                 && strtolower((string) $CI->router->fetch_method()) === 'addpassagerfi';
 
-            if ($isOtherSale && isset($data['code_pro']) && array_key_exists('prixvente', $data)) {
-                // Autre vente : le guichet saisit le prix (0 = gratuit).
-                // Sur essai (contrôles actifs), le formulaire n'envoie pas toujours
-                // motif / confirmation_zero → défauts métier pour ne pas bloquer.
+            if ($isAddpassagerfi && array_key_exists('prixvente', $data)) {
                 $rawPrice = $data['prixvente'];
-                $motif = trim((string) $this->input->post('prix_libre_motif'));
-                if ($motif === '') {
-                    $motif = 'Autre vente';
-                }
-                $authType = strtolower(trim((string) $this->input->post('type_autorisation_prix')));
-                if ($authType === '') {
-                    $authType = 'divers';
-                }
-                $zeroConfirmed = $this->input->post('confirmation_zero') === '1'
-                    || (is_numeric($rawPrice) && abs((float) $rawPrice) < 0.005);
+                if (sales_price_controls_enabled() && isset($data['code_pro'])) {
+                    // Essai / contrôles actifs : validation + snapshot.
+                    $motif = trim((string) $this->input->post('prix_libre_motif'));
+                    if ($motif === '') {
+                        $motif = 'Autre vente';
+                    }
+                    $authType = strtolower(trim((string) $this->input->post('type_autorisation_prix')));
+                    if ($authType === '') {
+                        $authType = 'divers';
+                    }
+                    $zeroConfirmed = $this->input->post('confirmation_zero') === '1'
+                        || (is_numeric($rawPrice) && abs((float) $rawPrice) < 0.005);
 
-                $pricing = sales_price_validate_or_fail(
-                    $data['code_pro'],
-                    $rawPrice,
-                    array(
-                        'autre_vente' => true,
-                        'reason' => $motif,
-                        'authorization_type' => $authType,
-                        'card_number' => $this->input->post('numero_carte_voyage'),
-                        'zero_confirmed' => $zeroConfirmed,
-                    )
-                );
-                $data['prixvente'] = $pricing['sold_price'];
+                    $pricing = sales_price_validate_or_fail(
+                        $data['code_pro'],
+                        $rawPrice,
+                        array(
+                            'autre_vente' => true,
+                            'reason' => $motif,
+                            'authorization_type' => $authType,
+                            'card_number' => $this->input->post('numero_carte_voyage'),
+                            'zero_confirmed' => $zeroConfirmed,
+                        )
+                    );
+                    $data['prixvente'] = $pricing['sold_price'];
+                } else {
+                    // Prod / hors contrôles : conserver le prix saisi tel quel.
+                    $freePrice = trim((string) $rawPrice);
+                    if ($freePrice === '' || !is_numeric($freePrice) || (float) $freePrice < 0) {
+                        show_error('Le prix libre doit être un montant positif ou égal à zéro.', 400);
+                        return 0;
+                    }
+                    $data['prixvente'] = round((float) $freePrice, 2);
+                }
             } elseif (
                 !$isEscaleSale
                 && isset($data['code_pro'])
@@ -132,19 +142,6 @@
                 // Vente normale : prix catalogue du programme.
                 // Vente escale : prix déjà fixé via itineraire_escales.prix_escale.
                 $data['prixvente'] = ticket_prix_depuis_programme($data['code_pro'], $data['prixvente']);
-            } elseif (
-                !sales_price_controls_enabled()
-                && isset($CI->router)
-                && strtolower((string) $CI->router->fetch_method()) === 'addpassagerfi'
-                && array_key_exists('prixvente', $data)
-            ) {
-                // Prod / hors contrôles : AUTRES VENTE conserve le prix saisi.
-                $freePrice = trim((string) $data['prixvente']);
-                if ($freePrice === '' || !is_numeric($freePrice) || (float) $freePrice < 0) {
-                    show_error('Le prix libre doit être un montant positif ou égal à zéro.', 400);
-                    return 0;
-                }
-                $data['prixvente'] = round((float) $freePrice, 2);
             }
 
             $this->db->trans_start();
