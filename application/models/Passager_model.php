@@ -96,14 +96,30 @@
                 && strtolower((string) $CI->router->fetch_method()) === 'addpassagerfi';
 
             if ($isOtherSale && isset($data['code_pro']) && array_key_exists('prixvente', $data)) {
+                // Autre vente : le guichet saisit le prix (0 = gratuit).
+                // Sur essai (contrôles actifs), le formulaire n'envoie pas toujours
+                // motif / confirmation_zero → défauts métier pour ne pas bloquer.
+                $rawPrice = $data['prixvente'];
+                $motif = trim((string) $this->input->post('prix_libre_motif'));
+                if ($motif === '') {
+                    $motif = 'Autre vente';
+                }
+                $authType = strtolower(trim((string) $this->input->post('type_autorisation_prix')));
+                if ($authType === '') {
+                    $authType = 'divers';
+                }
+                $zeroConfirmed = $this->input->post('confirmation_zero') === '1'
+                    || (is_numeric($rawPrice) && abs((float) $rawPrice) < 0.005);
+
                 $pricing = sales_price_validate_or_fail(
                     $data['code_pro'],
-                    $data['prixvente'],
+                    $rawPrice,
                     array(
-                        'reason' => $this->input->post('prix_libre_motif'),
-                        'authorization_type' => $this->input->post('type_autorisation_prix'),
+                        'autre_vente' => true,
+                        'reason' => $motif,
+                        'authorization_type' => $authType,
                         'card_number' => $this->input->post('numero_carte_voyage'),
-                        'zero_confirmed' => $this->input->post('confirmation_zero') === '1',
+                        'zero_confirmed' => $zeroConfirmed,
                     )
                 );
                 $data['prixvente'] = $pricing['sold_price'];

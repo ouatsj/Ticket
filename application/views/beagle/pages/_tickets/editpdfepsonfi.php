@@ -32,7 +32,7 @@
                       
                         $ressougare = $this->m_gare_depart->getgar($this->entreprise->id_entreprise, $item->code_gaexp, $item->departclient_idgare, $item->ident_ligne, $item->id_ligneheure);
 
-                        if((float) $item->prixvente === 0.0){
+                        if(ticket_est_gratuit($item->prixvente)){
 
                           $pr = 'TICKET GRATUIT';
                         }
@@ -128,7 +128,7 @@
                             
                             $ressougare = $this->m_gare_depart->getgar($this->entreprise->id_entreprise, $item->code_gaexp, $item->departclient_idgare, $item->ident_ligne, $item->id_ligneheure);
                             
-                            if((float) $item->prixvente === 0.0){
+                            if(ticket_est_gratuit($item->prixvente)){
 
                               $pr = 'TICKET GRATUIT';
                             }

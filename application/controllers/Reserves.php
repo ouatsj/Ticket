@@ -121,13 +121,13 @@
                         $arraycodetampotr = array(
                             'codtampon' => $tamporeserv,
                         );
-                        $this->m_tamponcodetr->create($arraycodetampotr);
+                        $tampo = $this->m_tamponcodetr->create($arraycodetampotr);
 
                         $arraycodetamp = array(
                             'tamponcod' => $codpasreserv,
-                            'tamponcodtr' => $tamporeserv,
+                            'tamponcodtr' => $tampo,
                         );
-                        $this->m_tamponcode->create($arraycodetamp);
+                        $codpasreserv = $this->m_tamponcode->create($arraycodetamp);
 
                     $argreserve = array(
                         'code_passager' => $codpasreserv,
@@ -160,13 +160,13 @@
                         $arraycodetampotr = array(
                             'codtampon' => $tamporeserv,
                         );
-                        $this->m_tamponcodetr->create($arraycodetampotr);
+                        $tampo = $this->m_tamponcodetr->create($arraycodetampotr);
 
                         $arraycodetamp = array(
                             'tamponcod' => $codpasreserv,
-                            'tamponcodtr' => $tamporeserv,
+                            'tamponcodtr' => $tampo,
                         );
-                        $this->m_tamponcode->create($arraycodetamp);
+                        $codpasreserv = $this->m_tamponcode->create($arraycodetamp);
 
                     $argreserve = array(
                         'code_passager' => $codpasreserv,

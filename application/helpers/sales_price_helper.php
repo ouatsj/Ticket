@@ -264,6 +264,33 @@ if (!function_exists('sales_valid_travel_card')) {
     }
 }
 
+if (!function_exists('sales_price_ensure_super_admin_helper')) {
+    function sales_price_ensure_super_admin_helper()
+    {
+        if (function_exists('super_admin_can')) {
+            return;
+        }
+        $CI =& get_instance();
+        if (isset($CI->load)) {
+            $CI->load->helper('super_admin');
+        }
+    }
+}
+
+if (!function_exists('sales_price_can')) {
+    /**
+     * Permission super_admin avec chargement lazy du helper (évite fatal sur Programmes/guichet).
+     */
+    function sales_price_can($permission)
+    {
+        sales_price_ensure_super_admin_helper();
+        if (!function_exists('super_admin_can')) {
+            return false;
+        }
+        return (bool) super_admin_can($permission);
+    }
+}
+
 if (!function_exists('sales_price_validate')) {
     function sales_price_validate($programmeCode, $rawPrice, array $options = array())
     {
@@ -279,6 +306,7 @@ if (!function_exists('sales_price_validate')) {
 
         $normalPrice = round((float) ticket_prix_depuis_programme($programmeCode, null), 2);
         $isFreePrice = abs($soldPrice - $normalPrice) >= 0.01;
+        $isAutreVente = !empty($options['autre_vente']);
         $reason = trim((string) (isset($options['reason']) ? $options['reason'] : ''));
         $authorizationType = strtolower(trim((string) (
             isset($options['authorization_type']) ? $options['authorization_type'] : 'divers'
@@ -287,10 +315,14 @@ if (!function_exists('sales_price_validate')) {
             return array('ok' => false, 'error' => 'Le type d’autorisation est invalide.');
         }
 
-        if ($isFreePrice && !sales_setting_bool('sales.free_price_enabled', false)) {
+        // Canal dédié Autre vente : le prix est saisi volontairement au guichet.
+        // free_price_enabled / misc approval s'appliquent surtout aux autres écrans.
+        if ($isFreePrice && !$isAutreVente && !sales_setting_bool('sales.free_price_enabled', false)) {
             return array('ok' => false, 'error' => 'Les ventes à prix libre sont désactivées.');
         }
-        if ($isFreePrice && !super_admin_can('sales.price.free')) {
+        // Autre vente = canal dédié prix saisi : pas de gate sales.price.free ici
+        // (rôles guichet déjà filtrés côté UI / controller).
+        if ($isFreePrice && !$isAutreVente && !sales_price_can('sales.price.free')) {
             return array('ok' => false, 'error' => 'Vous n’avez pas la permission de modifier le tarif normal.');
         }
         if ($isFreePrice && $reason === '') {
@@ -300,7 +332,7 @@ if (!function_exists('sales_price_validate')) {
         $card = null;
         if ($soldPrice === 0.0 && $authorizationType === 'carte_voyage') {
             if (!sales_setting_bool('sales.valid_card_zero_fare_enabled', false)
-                || !super_admin_can('sales.card.zero_fare')
+                || !sales_price_can('sales.card.zero_fare')
             ) {
                 return array('ok' => false, 'error' => 'La vente gratuite par carte n’est pas autorisée.');
             }
@@ -343,7 +375,7 @@ if (!function_exists('sales_price_validate')) {
                     }
                 }
             }
-        } elseif ($soldPrice === 0.0 && empty($options['zero_confirmed'])) {
+        } elseif ($soldPrice === 0.0 && empty($options['zero_confirmed']) && !$isAutreVente) {
             return array('ok' => false, 'error' => 'La vente à 0 F doit être confirmée explicitement.');
         }
 
@@ -352,9 +384,10 @@ if (!function_exists('sales_price_validate')) {
             $discountPercent = round((($normalPrice - $soldPrice) / $normalPrice) * 100, 2);
         }
         $threshold = (float) sales_setting('sales.discount_threshold_percent', '20');
-        if ($discountPercent > $threshold
+        if (!$isAutreVente
+            && $discountPercent > $threshold
             && sales_setting_bool('sales.discount_requires_approval', true)
-            && !super_admin_can('sales.discount.approve')
+            && !sales_price_can('sales.discount.approve')
         ) {
             return array(
                 'ok' => false,
@@ -362,9 +395,10 @@ if (!function_exists('sales_price_validate')) {
             );
         }
         if ($isFreePrice
+            && !$isAutreVente
             && $authorizationType === 'divers'
             && sales_setting_bool('sales.misc_requires_approval', true)
-            && !super_admin_can('sales.misc.approve')
+            && !sales_price_can('sales.misc.approve')
         ) {
             return array('ok' => false, 'error' => 'La vente Divers doit être validée par un responsable.');
         }

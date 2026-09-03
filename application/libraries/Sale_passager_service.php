@@ -149,14 +149,16 @@ class Sale_passager_service
     /**
      * @param string $tampo
      * @param string $tampon
+     * @return string code tampon transit réellement réservé
      */
     public function create_tampon_codes($tampo, $tampon)
     {
-        $this->ci->m_tamponcodetr->create(array('tamponcodtr' => $tampo));
-        $this->ci->m_tamponcode->create(array(
+        $tampo = $this->ci->m_tamponcodetr->create(array('tamponcodtr' => $tampo));
+        $tampon = $this->ci->m_tamponcode->create(array(
             'tamponcod' => $tampon,
             'tamponcodtr' => $tampo,
         ));
+        return array($tampo, $tampon);
     }
 
     /**

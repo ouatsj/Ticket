@@ -303,13 +303,13 @@
                                 'codtampon' => $tampo,
                             );
                             
-                            $this->m_tamponcodetr->create($arraycodetampotr);
+                            $tampo = $this->m_tamponcodetr->create($arraycodetampotr);
 
                             $arraycodetampon = array(
                                 'tamponcod' => $tppasconf,
                                 'tamponcodtr' => $tampo,
                             );
-                            $this->m_tamponcode->create($arraycodetampon);
+                            $tampon = $this->m_tamponcode->create($arraycodetampon);
 
                             $passagerarray = array(
                                 'code_passager' => $tppasconf,
@@ -395,13 +395,13 @@
                                 'codtampon' => $tampo,
                             );
                             
-                            $this->m_tamponcodetr->create($arraycodetampotr);
+                            $tampo = $this->m_tamponcodetr->create($arraycodetampotr);
 
                             $arraycodetampon = array(
                                 'tamponcod' => $tppasconf,
                                 'tamponcodtr' => $tampo,
                             );
-                            $this->m_tamponcode->create($arraycodetampon);
+                            $tampon = $this->m_tamponcode->create($arraycodetampon);
 
                             $pasarray = array(
                                 'code_passager' => $tppasconf,
@@ -508,13 +508,13 @@
                                 'codtampon' => $tampo,
                             );
                             
-                            $this->m_tamponcodetr->create($arraycodetampotr);
+                            $tampo = $this->m_tamponcodetr->create($arraycodetampotr);
 
                             $arraycodetampon = array(
                                 'tamponcod' => $tppasconf,
                                 'tamponcodtr' => $tampo,
                             );
-                            $this->m_tamponcode->create($arraycodetampon);
+                            $tampon = $this->m_tamponcode->create($arraycodetampon);
 
                             $passagerarray = array(
                                 'code_passager' => $tppasconf,
@@ -600,13 +600,13 @@
                                 'codtampon' => $tampo,
                             );
                             
-                            $this->m_tamponcodetr->create($arraycodetampotr);
+                            $tampo = $this->m_tamponcodetr->create($arraycodetampotr);
 
                             $arraycodetampon = array(
                                 'tamponcod' => $tppasconf,
                                 'tamponcodtr' => $tampo,
                             );
-                            $this->m_tamponcode->create($arraycodetampon);
+                            $tampon = $this->m_tamponcode->create($arraycodetampon);
 
                             $pasarray = array(
                                 'code_passager' => $tppasconf,
@@ -743,14 +743,14 @@
                                     $arraycodetampotr = array(
                                         'codtampon' => $tampo,
                                     );
-                                    $this->m_tamponcodetr->create($arraycodetampotr);
+                                    $tampo = $this->m_tamponcodetr->create($arraycodetampotr);
 
                                    
                                     $arraycodetampon = array(
                                         'tamponcod' => $tppasconf,
                                         'tamponcodtr' => $tampo,
                                     );
-                                    $this->m_tamponcode->create($arraycodetampon);
+                                    $tampon = $this->m_tamponcode->create($arraycodetampon);
 
                                     $passagerarray = array(
                                         'code_passager' => $tppasconf,
@@ -811,7 +811,7 @@
                                             'tamponcodtr' => $tampo,
                                         );
                                         
-                                        $this->m_tamponcode->create($arraycodetampon1);
+                                        $tampon1 = $this->m_tamponcode->create($arraycodetampon1);
 
                                         $passagerarray1 = array(
                                             'code_passager' => $tampon1,
@@ -907,12 +907,12 @@
                                         $arraycodetampotr = array(
                                             'codtampon' => $tampo,
                                         );
-                                        $this->m_tamponcodetr->create($arraycodetampotr);
+                                        $tampo = $this->m_tamponcodetr->create($arraycodetampotr);
                                         $arraycodetampon = array(
                                             'tamponcod' => $tppasconf,
                                             'tamponcodtr' => $tampo,
                                         );
-                                        $this->m_tamponcode->create($arraycodetampon);
+                                        $tampon = $this->m_tamponcode->create($arraycodetampon);
 
                                         $passagerarray = array(
                                             'code_passager' => $tppasconf,
@@ -971,7 +971,7 @@
                                             'tamponcodtr' => $tampo,
                                         );
                                         
-                                        $this->m_tamponcode->create($arraycodetampon1);
+                                        $tampon1 = $this->m_tamponcode->create($arraycodetampon1);
                                         $passagerarray1 = array(
                                             'code_passager' => $tampon1,
                                             'code_ticket' =>$this->input->post('codeconfirm'),
@@ -1097,13 +1097,13 @@
                                     $arraycodetampotr = array(
                                         'codtampon' => $tampo,
                                     );
-                                    $this->m_tamponcodetr->create($arraycodetampotr);
+                                    $tampo = $this->m_tamponcodetr->create($arraycodetampotr);
 
                                     $arraycodetampon = array(
                                         'tamponcod' => $tppasconf,
                                         'tamponcodtr' => $tampo,
                                     );
-                                    $this->m_tamponcode->create($arraycodetampon);
+                                    $tampon = $this->m_tamponcode->create($arraycodetampon);
 
                                     $passagerarray = array(
                                         'code_passager' => $tppasconf,
@@ -1164,7 +1164,7 @@
                                         'tamponcodtr' => $tampo,
                                     );
                                     
-                                    $this->m_tamponcode->create($arraycodetampon1);
+                                    $tampon1 = $this->m_tamponcode->create($arraycodetampon1);
 
                                     $passagerarray1 = array(
                                         'code_passager' => $tampon1,
@@ -1235,7 +1235,7 @@
                                             'tamponcod' => $tampon2,
                                             'tamponcodtr' => $tampo,
                                         );
-                                        $this->m_tamponcode->create($arraycodetampon2);
+                                        $tampon2 = $this->m_tamponcode->create($arraycodetampon2);
 
                                         $passagerarray2 = array(
                                             'code_passager' => $tampon2,
@@ -1330,13 +1330,13 @@
                                     $arraycodetampotr = array(
                                         'codtampon' => $tampo,
                                     );
-                                    $this->m_tamponcodetr->create($arraycodetampotr);
+                                    $tampo = $this->m_tamponcodetr->create($arraycodetampotr);
 
                                     $arraycodetampon = array(
                                         'tamponcod' => $tppasconf,
                                         'tamponcodtr' => $tampo,
                                     );
-                                    $this->m_tamponcode->create($arraycodetampon);
+                                    $tampon = $this->m_tamponcode->create($arraycodetampon);
 
                                     $passagerarray = array(
                                         'code_passager' => $tppasconf,
@@ -1397,7 +1397,7 @@
                                         'tamponcodtr' => $tampo,
                                     );
                                     
-                                    $this->m_tamponcode->create($arraycodetampon1);
+                                    $tampon1 = $this->m_tamponcode->create($arraycodetampon1);
 
                                     $passagerarray1 = array(
                                         'code_passager' => $tampon1,
@@ -1468,7 +1468,7 @@
                                         'tamponcod' => $tampon2,
                                         'tamponcodtr' => $tampo,
                                     );
-                                    $this->m_tamponcode->create($arraycodetampon2);
+                                    $tampon2 = $this->m_tamponcode->create($arraycodetampon2);
 
                                     $passagerarray2 = array(
                                         'code_passager' => $tampon2,
@@ -1592,13 +1592,13 @@
                                         $arraycodetampotr = array(
                                             'codtampon' => $tampo,
                                         );
-                                        $this->m_tamponcodetr->create($arraycodetampotr);
+                                        $tampo = $this->m_tamponcodetr->create($arraycodetampotr);
 
                                         $arraycodetampon = array(
                                             'tamponcod' => $tppasconf,
                                             'tamponcodtr' => $tampo,
                                         );
-                                        $this->m_tamponcode->create($arraycodetampon);
+                                        $tampon = $this->m_tamponcode->create($arraycodetampon);
 
                                         $passagerarray = array(
                                             'code_passager' => $tppasconf,
@@ -1652,7 +1652,7 @@
                                             'tamponcod' => $tampon1,
                                             'tamponcodtr' => $tampo,
                                         );
-                                        $this->m_tamponcode->create($arraycodetampon1);
+                                        $tampon1 = $this->m_tamponcode->create($arraycodetampon1);
 
                                         $passagerarray1 = array(
                                             'code_passager' => $tampon1,
@@ -1713,7 +1713,7 @@
                                             $arraycodetampon2 = array('tamponcod' => $tampon2,
                                                 'tamponcodtr' => $tampo,
                                             );
-                                            $this->m_tamponcode->create($arraycodetampon2);
+                                            $tampon2 = $this->m_tamponcode->create($arraycodetampon2);
 
                                             $passagerarray2 = array(
                                                 'code_passager' => $tampon2,
@@ -1785,7 +1785,7 @@
                                                 'tamponcod' => $tampon3,
                                                 'tamponcodtr' => $tampo,
                                             );
-                                            $this->m_tamponcode->create($arraycodetampon3);
+                                            $tampon3 = $this->m_tamponcode->create($arraycodetampon3);
 
                                         $passagerarray3 = array(
                                             'code_passager' => $tampon3,
@@ -1881,13 +1881,13 @@
                                         $arraycodetampotr = array(
                                             'codtampon' => $tampo,
                                         );
-                                        $this->m_tamponcodetr->create($arraycodetampotr);
+                                        $tampo = $this->m_tamponcodetr->create($arraycodetampotr);
 
                                         $arraycodetampon = array(
                                             'tamponcod' => $tppasconf,
                                             'tamponcodtr' => $tampo,
                                         );
-                                        $this->m_tamponcode->create($arraycodetampon);
+                                        $tampon = $this->m_tamponcode->create($arraycodetampon);
 
                                         $passagerarray = array(
                                         'code_passager' => $tppasconf,
@@ -1941,7 +1941,7 @@
                                             'tamponcod' => $tampon1,
                                             'tamponcodtr' => $tampo,
                                         );
-                                        $this->m_tamponcode->create($arraycodetampon1);
+                                        $tampon1 = $this->m_tamponcode->create($arraycodetampon1);
 
                                         $passagerarray1 = array(
                                             'code_passager' => $tampon1,
@@ -2002,7 +2002,7 @@
                                         $arraycodetampon2 = array('tamponcod' => $tampon2,
                                             'tamponcodtr' => $tampo,
                                         );
-                                        $this->m_tamponcode->create($arraycodetampon2);
+                                        $tampon2 = $this->m_tamponcode->create($arraycodetampon2);
 
                                         $passagerarray2 = array(
                                             'code_passager' => $tampon2,
@@ -2074,7 +2074,7 @@
                                                 'tamponcod' => $tampon3,
                                                 'tamponcodtr' => $tampo,
                                             );
-                                            $this->m_tamponcode->create($arraycodetampon3);
+                                            $tampon3 = $this->m_tamponcode->create($arraycodetampon3);
 
                                         $passagerarray3 = array(
                                             'code_passager' => $tampon3,
@@ -3387,13 +3387,13 @@
                             $arraycodetampotr = array(
                                 'codtampon' => $tampo,
                             );
-                            $this->m_tamponcodetr->create($arraycodetampotr);
+                            $tampo = $this->m_tamponcodetr->create($arraycodetampotr);
 
                             $arraycodetampon = array(
                                 'tamponcod' => $tppasconf,
                                 'tamponcodtr' => $tampo,
                             );
-                            $this->m_tamponcode->create($arraycodetampon);
+                            $tampon = $this->m_tamponcode->create($arraycodetampon);
 
                             $passagerarray = array(
                                 'code_passager' => $tppasconf,
@@ -3480,13 +3480,13 @@
                             $arraycodetampotr = array(
                                 'codtampon' => $tampo,
                             );
-                            $this->m_tamponcodetr->create($arraycodetampotr);
+                            $tampo = $this->m_tamponcodetr->create($arraycodetampotr);
 
                             $arraycodetampon = array(
                                 'tamponcod' => $tppasconf,
                                 'tamponcodtr' => $tampo,
                             );
-                            $this->m_tamponcode->create($arraycodetampon);
+                            $tampon = $this->m_tamponcode->create($arraycodetampon);
 
                             $passagerarray = array(
                                 'code_passager' => $tppasconf,
@@ -3614,13 +3614,13 @@
                             $arraycodetampotr = array(
                                 'codtampon' => $tampo,
                             );
-                            $this->m_tamponcodetr->create($arraycodetampotr);
+                            $tampo = $this->m_tamponcodetr->create($arraycodetampotr);
 
                             $arraycodetampon = array(
                                 'tamponcod' => $tppasconf,
                                 'tamponcodtr' => $tampo,
                             );
-                            $this->m_tamponcode->create($arraycodetampon);
+                            $tampon = $this->m_tamponcode->create($arraycodetampon);
 
                             $passagerarray = array(
                                 'code_passager' => $tppasconf,
@@ -3713,13 +3713,13 @@
                             $arraycodetampotr = array(
                                 'codtampon' => $tampo,
                             );
-                            $this->m_tamponcodetr->create($arraycodetampotr);
+                            $tampo = $this->m_tamponcodetr->create($arraycodetampotr);
 
                             $arraycodetampon = array(
                                 'tamponcod' => $tppasconf,
                                 'tamponcodtr' => $tampo,
                             );
-                            $this->m_tamponcode->create($arraycodetampon);
+                            $tampon = $this->m_tamponcode->create($arraycodetampon);
 
                             $passagerarray = array(
                                 'code_passager' => $tppasconf,

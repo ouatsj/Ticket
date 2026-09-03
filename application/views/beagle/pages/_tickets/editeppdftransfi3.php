@@ -29,7 +29,7 @@
                     <table>
                             <? $ckey = $this->session->company->ekey;
                             $this->entreprise = $this->m_entreprises->get_key($ckey);
-                        if($item->prixvente === '0.00'){
+                        if(ticket_est_gratuit($item->prixvente)){
 
                               $pri = 'TICKET GRATUIT';
                         }
@@ -123,7 +123,7 @@
                   <table>
                       <? $ckey = $this->session->company->ekey;
                             $this->entreprise = $this->m_entreprises->get_key($ckey);
-                    if($item->prixvente === '0.00'){
+                    if(ticket_est_gratuit($item->prixvente)){
 
                         $pri = 'TICKET GRATUIT';
                         }
@@ -198,7 +198,7 @@
                             <? $ckey = $this->session->company->ekey;
                             $this->entreprise = $this->m_entreprises->get_key($ckey);
                   
-                          if($itemtrans->prixvente === '0.00'){
+                          if(ticket_est_gratuit($itemtrans->prixvente)){
 
                         $prixt = 'TICKET GRATUIT';
                         }
@@ -291,7 +291,7 @@
                       <table>
                             <? $ckey = $this->session->company->ekey;
                             $this->entreprise = $this->m_entreprises->get_key($ckey);
-                        if($itemtrans->prixvente === '0.00'){
+                        if(ticket_est_gratuit($itemtrans->prixvente)){
 
                         $prixt = 'TICKET GRATUIT';
                         }
@@ -368,7 +368,7 @@
                             <? $ckey = $this->session->company->ekey;
                             $this->entreprise = $this->m_entreprises->get_key($ckey);
                   
-                          if($itemtrans2->prixvente === '0.00'){
+                          if(ticket_est_gratuit($itemtrans2->prixvente)){
 
                         $prixt2 = 'TICKET GRATUIT';
                         }
@@ -459,7 +459,7 @@
                       <table>
                             <? $ckey = $this->session->company->ekey;
                             $this->entreprise = $this->m_entreprises->get_key($ckey);
-                        if($itemtrans2->prixvente === '0.00'){
+                        if(ticket_est_gratuit($itemtrans2->prixvente)){
 
                         $prixt2 = 'TICKET GRATUIT';
                         }
@@ -535,7 +535,7 @@
                             <? $ckey = $this->session->company->ekey;
                             $this->entreprise = $this->m_entreprises->get_key($ckey);
                   
-                          if($itemtrans3->prixvente === '0.00'){
+                          if(ticket_est_gratuit($itemtrans3->prixvente)){
 
                         $prixt3 = 'TICKET GRATUIT';
                         }
@@ -628,7 +628,7 @@
                       <table>
                             <? $ckey = $this->session->company->ekey;
                             $this->entreprise = $this->m_entreprises->get_key($ckey);
-                        if($itemtrans3->prixvente === '0.00'){
+                        if(ticket_est_gratuit($itemtrans3->prixvente)){
 
                         $prixt3 = 'TICKET GRATUIT';
                         }

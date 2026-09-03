@@ -3,16 +3,109 @@
     class Tamponcode_model extends CI_Model
     {
         protected $table = 'tamponcode';
+
+        /** Dernier tamponcod effectivement réservé. */
+        public $last_tamponcod = null;
         
         public function __construct()
         {
             parent::__construct();
         }
+
+        public function exists($tamponcod)
+        {
+            $tamponcod = trim((string) $tamponcod);
+            if ($tamponcod === '') {
+                return false;
+            }
+            return (int) $this->db->where('tamponcod', $tamponcod)
+                ->count_all_results($this->table) > 0;
+        }
+
+        /** True si un passager utilise déjà ce code comme code_passager. */
+        public function is_linked($tamponcod)
+        {
+            $tamponcod = trim((string) $tamponcod);
+            if ($tamponcod === '') {
+                return false;
+            }
+            $code = $this->db->escape($tamponcod);
+            $n = (int) $this->db->query(
+                "SELECT COUNT(*) AS n FROM passager WHERE code_passager = {$code}"
+            )->row()->n;
+            return $n > 0;
+        }
+
+        /** Code libre : réutilise un orphelin, sinon suffixe R1, R2… */
+        public function allocate($preferred)
+        {
+            $preferred = trim((string) $preferred);
+            if ($preferred === '') {
+                $preferred = 'P' . date('ymdHis') . mt_rand(10, 99);
+            }
+
+            $code = $preferred;
+            for ($i = 0; $i < 40; $i++) {
+                if (!$this->exists($code)) {
+                    return $code;
+                }
+                if (!$this->is_linked($code)) {
+                    return $code;
+                }
+                $code = $preferred . 'R' . ($i + 1);
+            }
+
+            return $preferred . 'R' . substr(str_replace('.', '', uniqid('', true)), -8);
+        }
+
+        /**
+         * Réserve un tamponcod unique.
+         *
+         * @param string $preferred
+         * @param string|null $tamponcodtr
+         * @return string
+         */
+        public function reserve($preferred, $tamponcodtr = null)
+        {
+            $code = $this->allocate($preferred);
+            $this->last_tamponcod = $code;
+
+            $row = array('tamponcod' => $code);
+            if ($tamponcodtr !== null && $tamponcodtr !== '') {
+                $row['tamponcodtr'] = $tamponcodtr;
+            }
+
+            if ($this->exists($code)) {
+                if ($tamponcodtr !== null && $tamponcodtr !== '') {
+                    $this->db->where('tamponcod', $code)
+                        ->update($this->table, array('tamponcodtr' => $tamponcodtr));
+                }
+                return $code;
+            }
+
+            $ok = $this->db->insert($this->table, $row);
+            if (!$ok) {
+                $code = $this->allocate($preferred . 'R' . mt_rand(100, 999));
+                $this->last_tamponcod = $code;
+                $row['tamponcod'] = $code;
+                if (!$this->exists($code)) {
+                    $this->db->insert($this->table, $row);
+                } elseif ($tamponcodtr !== null && $tamponcodtr !== '') {
+                    $this->db->where('tamponcod', $code)
+                        ->update($this->table, array('tamponcodtr' => $tamponcodtr));
+                }
+            }
+
+            return $code;
+        }
         
         public function create(array $data)
         {
-            $this->db->insert($this->table, $data);
-            return $this->db->insert_id();
+            $preferred = isset($data['tamponcod']) ? $data['tamponcod'] : '';
+            $tr = isset($data['tamponcodtr']) ? $data['tamponcodtr'] : null;
+            $code = $this->reserve($preferred, $tr);
+            $data['tamponcod'] = $code;
+            return $code;
         }
             
                 

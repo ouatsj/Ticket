@@ -32,7 +32,7 @@
                       
                         $ressougare = $this->m_gare_depart->getgar($this->entreprise->id_entreprise, $item->code_gaexp, $item->departclient_idgare, $item->ident_ligne, $item->id_ligneheure);
 
-                        if($item->prixvente === '0.00'){
+                        if(ticket_est_gratuit($item->prixvente)){
 
                           $pr = 'TICKET GRATUIT';
                         }
@@ -127,7 +127,7 @@
                           $this->entreprise = $this->m_entreprises->get_key($ckey);
                             
                             $ressougare = $this->m_gare_depart->getgar($this->entreprise->id_entreprise, $item->code_gaexp, $item->departclient_idgare, $item->ident_ligne, $item->id_ligneheure);
-                            if($item->prixvente === '0.00'){
+                            if(ticket_est_gratuit($item->prixvente)){
 
                               $pr = 'TICKET GRATUIT';
                             }

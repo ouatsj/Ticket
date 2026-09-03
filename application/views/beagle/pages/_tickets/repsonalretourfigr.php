@@ -43,7 +43,7 @@
                     <table>
                             <? $ckey = $this->session->company->ekey;
                             $this->entreprise = $this->m_entreprises->get_key($ckey);
-                          if($item->prixvente === '0.00'){
+                          if(ticket_est_gratuit($item->prixvente)){
 
                             $pr = 'TICKET GRATUIT';
 
@@ -163,7 +163,7 @@
                     <table>
                             <? $ckey = $this->session->company->ekey;
                             $this->entreprise = $this->m_entreprises->get_key($ckey);
-                          if($item->prixvente === '0.00'){
+                          if(ticket_est_gratuit($item->prixvente)){
 
                             $pr = 'TICKET GRATUIT';
 
@@ -256,7 +256,7 @@
                     <table>
                             <? $ckey = $this->session->company->ekey;
                             $this->entreprise = $this->m_entreprises->get_key($ckey);
-                          if($item->prixvente === '0.00'){
+                          if(ticket_est_gratuit($item->prixvente)){
 
                             $pr = 'TICKET GRATUIT';
                             

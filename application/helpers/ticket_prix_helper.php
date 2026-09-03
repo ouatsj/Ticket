@@ -19,6 +19,41 @@ if (!function_exists('ticket_impression_prix')) {
     }
 }
 
+if (!function_exists('ticket_est_gratuit')) {
+    /**
+     * True si le montant encaissé est nul (0, "0", "0.00", 0.0, …).
+     * Remplace les tests fragiles === '0.00' des vues ticket.
+     */
+    function ticket_est_gratuit($prixvente)
+    {
+        if ($prixvente === null || $prixvente === '') {
+            return false;
+        }
+        return abs((float) $prixvente) < 0.005;
+    }
+}
+
+if (!function_exists('ticket_libelle_prix')) {
+    /**
+     * Libellé d'impression : TICKET GRATUIT si 0 F, sinon montant FCFA.
+     *
+     * @param mixed $prixvente
+     * @param int|float $multiplicateur 2 pour aller-retour (prix × 2)
+     * @param string $suffix Ex. FCFA
+     */
+    function ticket_libelle_prix($prixvente, $multiplicateur = 1, $suffix = 'FCFA')
+    {
+        if (ticket_est_gratuit($prixvente)) {
+            return 'TICKET GRATUIT';
+        }
+        $m = (float) $multiplicateur;
+        if ($m < 1) {
+            $m = 1;
+        }
+        return number_format((float) $prixvente * $m, 0, '', ' ') . $suffix;
+    }
+}
+
 if (!function_exists('ticket_prix_catalogue_rows')) {
     /**
      * Tarifs catalogue actifs pour une ligne_heure + typetarif + gare de départ.
