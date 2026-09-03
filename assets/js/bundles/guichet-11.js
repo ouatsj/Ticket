@@ -1070,6 +1070,57 @@ document.addEventListener('DOMContentLoaded', () => {
         return chain;
     }
 
+    function __venteFiFlushTamponsSync() {
+        __venteFiTamponSiegePairs.forEach(function (p) {
+            var idEl = document.getElementById(p[0]);
+            var sigEl = document.getElementById(p[1]);
+            if (!idEl || !sigEl) return;
+            var idv = String(idEl.value || '').trim();
+            var sv = String(sigEl.value || '').trim();
+            if (!idv || !sv) return;
+            try {
+                var http = new XMLHttpRequest();
+                http.open(
+                    'GET',
+                    window.location.origin + `${APP_ROOT}/programmes/deltamponsieg/` + encodeURIComponent(idv) + '/' + encodeURIComponent(sv),
+                    false
+                );
+                http.send();
+            } catch (e) {}
+            idEl.value = '';
+            sigEl.value = '';
+        });
+    }
+
+    function __venteFiWireTamponLifecycle() {
+        if (window.__venteFiTamponLifecycleWired) return;
+        window.__venteFiTamponLifecycleWired = true;
+        window.addEventListener('pagehide', __venteFiFlushTamponsSync);
+        window.addEventListener('beforeunload', __venteFiFlushTamponsSync);
+        setInterval(function () {
+            var touches = [
+                ['idtampofid', 'siegselectfid', '#programfid'],
+                ['idtampotransfid', 'siegselecttransfid', '#programtransfid']
+            ];
+            touches.forEach(function (t) {
+                var idEl = document.getElementById(t[0]);
+                var sigEl = document.getElementById(t[1]);
+                var pr = document.querySelector(t[2]);
+                if (!idEl || !sigEl || !pr) return;
+                var idv = String(idEl.value || '').trim();
+                var sv = String(sigEl.value || '').trim();
+                var prog = String(pr.value || '').trim();
+                if (!idv || !sv || !prog) return;
+                try {
+                    var http = new XMLHttpRequest();
+                    http.open('GET', window.location.origin + `${APP_ROOT}/programmes/creersiege/` + encodeURIComponent(prog) + '/' + encodeURIComponent(sv), true);
+                    http.send();
+                } catch (e2) {}
+            });
+        }, 10 * 60 * 1000);
+    }
+    __venteFiWireTamponLifecycle();
+
     function __venteFiResetSaleUiAfterCancel() {
         window.__venteFiHasTransit = false;
         window.__venteFiLastHeuresVente = [];

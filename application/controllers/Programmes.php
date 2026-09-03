@@ -320,6 +320,19 @@
         }
 
         /**
+         * Purge les tamppons siège expirés (filet si cron absent).
+         */
+        protected function _purge_tampon_siege_expired()
+        {
+            if (!isset($this->m_tampon_siege)) {
+                $this->load->model('Tampon_siege_model', 'm_tampon_siege');
+            }
+            if (method_exists($this->m_tampon_siege, 'purge_expired_once')) {
+                $this->m_tampon_siege->purge_expired_once();
+            }
+        }
+
+        /**
          * Bloque la vente sur un siège marqué hors quota (Programmes par compagnie).
          */
         protected function _sale_siege_bloque_guard()
@@ -683,6 +696,7 @@
             if (!isset($this->sale_svc)) {
                 $this->load->library('sale_passager_service', null, 'sale_svc');
             }
+            $this->_purge_tampon_siege_expired();
 
             $num = (int) $ns;
             if ($this->m_programme->siege_est_bloque_programme($pro, $num)) {
@@ -1595,6 +1609,17 @@
                 }
             }
 
+            $this->_purge_tampon_siege_expired();
+            $stockCodes = $this->m_programme->codes_siege_stock($code);
+            if (!isset($this->m_tampon_siege)) {
+                $this->load->model('Tampon_siege_model', 'm_tampon_siege');
+            }
+            $sieges_tampon = method_exists($this->m_tampon_siege, 'numsieges_for_codes')
+                ? $this->m_tampon_siege->numsieges_for_codes($stockCodes)
+                : array();
+            $sieges_bloques = $this->m_programme->sieges_bloques_programme($code);
+            $sieges_occupes = $this->m_programme->sieges_occupes_programme($code);
+
             return $this->load->view('beagle/pages/_programme/json', array(
                 'json' => array(
                     'ok' => true,
@@ -1603,8 +1628,11 @@
                     'intervalle1' => (int) $pr->intervalle1,
                     'intervalle2' => (int) $pr->intervalle2,
                     'nbr_place' => $nbr,
-                    'sieges_occupes' => $this->m_programme->sieges_occupes_programme($code),
-                    'sieges_bloques' => $this->m_programme->sieges_bloques_programme($code),
+                    'sieges_occupes' => $sieges_occupes,
+                    'sieges_bloques' => $sieges_bloques,
+                    'sieges_tampon' => $sieges_tampon,
+                    'nb_sieges_bloques' => count($sieges_bloques),
+                    'nb_sieges_tampon' => count($sieges_tampon),
                     'is_reconduction_cible' => $is_reconduction_cible,
                     'sieges_reconduits' => $sieges_reconduits,
                     'nb_sieges_reconduits' => count($sieges_reconduits),
@@ -1954,7 +1982,7 @@
         //siege disponible
         public function siegdisponible($cd, $day, $lg, $tim, $db, $fn)
         {
-            
+            $this->_purge_tampon_siege_expired();
             $outf = $this->m_programme->cdprog($this->session->company->ekey, $cd, $day, $lg, $tim, $db, $fn);
             return $this->load->view('beagle/pages/_programme/json', array('json' => $outf));
             
@@ -1962,7 +1990,7 @@
 
         public function siegdisponiblebus($cd, $day, $lg, $tim, $db, $fn)
         {
-            
+            $this->_purge_tampon_siege_expired();
             $outf = $this->m_programme->cdprogbus($this->session->company->ekey, $cd, $day, $lg, $tim, $db, $fn);
             return $this->load->view('beagle/pages/_programme/json', array('json' => $outf));
             
@@ -2189,7 +2217,7 @@
         //transite siege disponible
         public function siegdisponibletrans($cd, $db, $fn)
         {
-            
+            $this->_purge_tampon_siege_expired();
             $outftrans = $this->m_programme->cdprogtrans($this->session->company->ekey, $cd, $db, $fn);
             return $this->load->view('beagle/pages/_programme/json', array('json' => $outftrans));
             
@@ -2197,7 +2225,7 @@
 
         public function siegdisponibletransnr($cd, $db, $fn)
         {
-            
+            $this->_purge_tampon_siege_expired();
             $outftrans = $this->m_programme->cdprogtransbus($this->session->company->ekey, $cd, $db, $fn);
             return $this->load->view('beagle/pages/_programme/json', array('json' => $outftrans));
             
@@ -2258,6 +2286,8 @@
             if ($this->_sale_siege_bloque_guard()) {
                 return;
             }
+
+            $this->_purge_tampon_siege_expired();
 
             if (!isset($this->m_ordres)) {
                 $this->load->model('Ordres_model', 'm_ordres');
@@ -14396,6 +14426,8 @@
 
             // AUTRES VENTE : canal dédié prix saisi au guichet (rôles UI déjà restreints).
             // Ne pas exiger sales.price.free ici — sinon 403 pour les chefs sans perm super-admin.
+
+            $this->_purge_tampon_siege_expired();
 
             if (!isset($this->m_ordres)) {
                 $this->load->model('Ordres_model', 'm_ordres');

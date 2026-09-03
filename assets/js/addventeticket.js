@@ -487,6 +487,65 @@ document.addEventListener('DOMContentLoaded', () => {
         return chain;
     }
 
+    /** Libération synchrone (fermeture onglet / crash navigation). */
+    function __venteFlushTamponsSync() {
+        __venteTamponSiegePairs.forEach(function (p) {
+            var idEl = document.getElementById(p[0]);
+            var sigEl = document.getElementById(p[1]);
+            if (!idEl || !sigEl) return;
+            var idv = String(idEl.value || '').trim();
+            var sv = String(sigEl.value || '').trim();
+            if (!idv || !sv) return;
+            try {
+                var http = new XMLHttpRequest();
+                http.open(
+                    'GET',
+                    window.location.origin + `${APP_ROOT}/programmes/deltamponsieg/` + encodeURIComponent(idv) + '/' + encodeURIComponent(sv),
+                    false
+                );
+                http.send();
+            } catch (e) {}
+            idEl.value = '';
+            sigEl.value = '';
+        });
+    }
+
+    function __venteWireTamponLifecycle() {
+        if (window.__venteTamponLifecycleWired) return;
+        window.__venteTamponLifecycleWired = true;
+
+        window.addEventListener('pagehide', function () {
+            __venteFlushTamponsSync();
+        });
+        window.addEventListener('beforeunload', function () {
+            __venteFlushTamponsSync();
+        });
+
+        // Heartbeat : prolonge le TTL des tamppons connus (direct + 1re jambe).
+        setInterval(function () {
+            var touches = [
+                ['idtampo', 'siegselect', '#program'],
+                ['idtampotrans', 'siegselecttrans', '#programtrans']
+            ];
+            touches.forEach(function (t) {
+                var idEl = document.getElementById(t[0]);
+                var sigEl = document.getElementById(t[1]);
+                var pr = document.querySelector(t[2]);
+                if (!idEl || !sigEl || !pr) return;
+                var idv = String(idEl.value || '').trim();
+                var sv = String(sigEl.value || '').trim();
+                var prog = String(pr.value || '').trim();
+                if (!idv || !sv || !prog) return;
+                try {
+                    var http = new XMLHttpRequest();
+                    http.open('GET', window.location.origin + `${APP_ROOT}/programmes/creersiege/` + encodeURIComponent(prog) + '/' + encodeURIComponent(sv), true);
+                    http.send();
+                } catch (e2) {}
+            });
+        }, 10 * 60 * 1000);
+    }
+    __venteWireTamponLifecycle();
+
     function __venteResetSaleUiAfterCancel() {
         window.__venteHasTransit = false;
         window.__venteLastHeuresVente = [];

@@ -77,12 +77,14 @@
         var libererFields = block.querySelector('.js-quota-liberer-fields');
         var bloqueFields = block.querySelector('.js-quota-bloque-fields');
         var hintEl = block.querySelector('.js-quota-hint');
+        var bloqueAlert = block.querySelector('.js-quota-bloque-alert');
         var isEditBlock = block.getAttribute('data-quota-mode') === 'edit';
 
         var state = block._quotaState || {
             nbrPlace: 0,
             sold: {},
             blocked: {},
+            tampon: {},
             reco: {},
             recoMode: false,
             rangeDebut: 0,
@@ -90,6 +92,9 @@
             editMode: isEditBlock,
             reverting: false
         };
+        if (!state.tampon) {
+            state.tampon = {};
+        }
         block._quotaState = state;
         if (isEditBlock) {
             state.editMode = true;
@@ -162,7 +167,8 @@
             }
             bloqueFields.innerHTML = '';
             grid.querySelectorAll('.js-quota-siege').forEach(function (cb) {
-                if (cb.checked || cb.disabled || cb.getAttribute('data-sold') === '1') {
+                if (cb.checked || cb.disabled || cb.getAttribute('data-sold') === '1'
+                    || cb.getAttribute('data-tampon') === '1') {
                     return;
                 }
                 var inp = document.createElement('input');
@@ -171,6 +177,26 @@
                 inp.value = String(cb.value);
                 bloqueFields.appendChild(inp);
             });
+        }
+
+        function setBloqueAlert(blockedN, tamponN) {
+            if (!bloqueAlert) {
+                return;
+            }
+            var parts = [];
+            if (blockedN > 0) {
+                parts.push(blockedN + ' siège(s) bloqué(s) hors vente (décochés volontairement).');
+            }
+            if (tamponN > 0) {
+                parts.push(tamponN + ' siège(s) en tampon (vente guichet en cours, TTL 45 min).');
+            }
+            if (!parts.length) {
+                bloqueAlert.classList.add('d-none');
+                bloqueAlert.textContent = '';
+                return;
+            }
+            bloqueAlert.classList.remove('d-none');
+            bloqueAlert.textContent = parts.join(' ');
         }
 
         function syncLibererHidden(lib) {
@@ -196,6 +222,9 @@
                 if (debutEl) debutEl.value = '';
                 if (finEl) finEl.value = '';
                 setSummary('Quota : —');
+                if (typeof setBloqueAlert === 'function') {
+                    setBloqueAlert(0, Object.keys(state.tampon || {}).length);
+                }
                 return false;
             }
             var lib = getToLiberate(nums);
@@ -221,11 +250,13 @@
             var blockedN = 0;
             if (grid) {
                 grid.querySelectorAll('.js-quota-siege').forEach(function (cb) {
-                    if (!cb.checked && !cb.disabled && cb.getAttribute('data-sold') !== '1') {
+                    if (!cb.checked && !cb.disabled && cb.getAttribute('data-sold') !== '1'
+                        && cb.getAttribute('data-tampon') !== '1') {
                         blockedN++;
                     }
                 });
             }
+            var tamponN = Object.keys(state.tampon || {}).length;
             var parts = [];
             if (state.recoMode) {
                 parts.push('Reconduit : ' + recoCount() + ' siège(s)');
@@ -236,6 +267,9 @@
             if (soldN > 0) {
                 parts.push(soldN + ' vendu(s)');
             }
+            if (tamponN > 0) {
+                parts.push(tamponN + ' tampon(s)');
+            }
             if (lib.length) {
                 parts.push(lib.length + ' libéré(s) → revendable(s)');
             }
@@ -243,10 +277,13 @@
                 parts.push(blockedN + ' bloqué(s) → hors vente');
             }
             setSummary(parts.join(' · '));
+            if (typeof setBloqueAlert === 'function') {
+                setBloqueAlert(blockedN, tamponN);
+            }
             return true;
         }
 
-        function renderGrid(from, to, checkedFrom, checkedTo, sold, recoList, blockedList) {
+        function renderGrid(from, to, checkedFrom, checkedTo, sold, recoList, blockedList, tamponList) {
             if (!grid) {
                 return;
             }
@@ -262,6 +299,13 @@
                 var num = parseInt(n, 10);
                 if (!isNaN(num) && num > 0) {
                     state.blocked[String(num)] = true;
+                }
+            });
+            state.tampon = {};
+            (tamponList || []).forEach(function (n) {
+                var num = parseInt(n, 10);
+                if (!isNaN(num) && num > 0 && !state.sold[String(num)]) {
+                    state.tampon[String(num)] = true;
                 }
             });
             state.reco = {};
@@ -280,22 +324,26 @@
             for (var n = from; n <= to; n++) {
                 var isReco = state.recoMode ? isRecoSeat(n) : true;
                 var isSold = !!state.sold[String(n)] && isReco;
+                var isTampon = !isSold && !!state.tampon[String(n)];
                 var checked;
                 if (state.recoMode) {
-                    checked = isReco; // uniquement les sièges reconduits
+                    checked = isReco;
                 } else {
-                    checked = (n >= checkedFrom && n <= checkedTo) || isSold;
-                    if (state.blocked[String(n)] && !isSold) {
+                    checked = (n >= checkedFrom && n <= checkedTo) || isSold || isTampon;
+                    if (state.blocked[String(n)] && !isSold && !isTampon) {
                         checked = false;
                     }
                 }
                 var disabled = state.recoMode && !isReco;
-                var isBlocked = !checked && !isSold && !disabled && state.blocked[String(n)];
+                var isBlocked = !checked && !isSold && !isTampon && !disabled && state.blocked[String(n)];
                 var wrapStyle;
                 var labelExtra = '';
                 if (isSold) {
                     wrapStyle = 'background:#fff3cd;border:1px solid #ffc107;border-radius:4px;padding:4px 6px;display:block;';
                     labelExtra = ' <span style="color:#856404;font-size:11px;font-weight:600;">VENDU</span>';
+                } else if (isTampon) {
+                    wrapStyle = 'background:#ffe5d0;border:1px solid #fd7e14;border-radius:4px;padding:4px 6px;display:block;';
+                    labelExtra = ' <span style="color:#9a3412;font-size:11px;font-weight:600;">TAMPON</span>';
                 } else if (isBlocked) {
                     wrapStyle = 'background:#e2e3e5;border:1px solid #6c757d;border-radius:4px;padding:4px 6px;display:block;opacity:0.75;';
                     labelExtra = ' <span style="color:#495057;font-size:11px;font-weight:600;">BLOQUÉ</span>';
@@ -313,11 +361,13 @@
                     + wrapStyle + '">'
                     + '<input type="checkbox" class="js-quota-siege'
                     + (isSold ? ' js-quota-siege-sold' : '')
+                    + (isTampon ? ' js-quota-siege-tampon' : '')
                     + (isReco && state.recoMode ? ' js-quota-siege-reco' : '')
                     + '" value="' + n + '"'
                     + (checked ? ' checked' : '')
                     + (disabled ? ' disabled' : '')
                     + (isSold ? ' data-sold="1"' : '')
+                    + (isTampon ? ' data-tampon="1"' : '')
                     + (state.recoMode && isReco ? ' data-reco="1"' : '')
                     + '> <strong>' + n + '</strong>'
                     + labelExtra
@@ -328,12 +378,12 @@
                 cb.addEventListener('change', onToggle);
             });
             if (state.recoMode) {
-                setHint('Fond bleu = siège reconduit (' + recoCount() + '). Jaune = déjà vendu. Gris = hors reconduction (non vendable ici).');
+                setHint('Fond bleu = siège reconduit (' + recoCount() + '). Jaune = déjà vendu. Orange = tampon. Gris = hors reconduction.');
             }
             syncHidden();
         }
 
-        function renderAll(nbrPlace, rangeDebut, rangeFin, sold, recoList, blockedList) {
+        function renderAll(nbrPlace, rangeDebut, rangeFin, sold, recoList, blockedList, tamponList) {
             state.nbrPlace = nbrPlace;
             var d = rangeDebut > 0 ? rangeDebut : 1;
             var f = rangeFin > 0 ? rangeFin : nbrPlace;
@@ -345,7 +395,7 @@
             }
             state.rangeDebut = d;
             state.rangeFin = f;
-            renderGrid(1, nbrPlace, d, f, sold, recoList || null, blockedList || null);
+            renderGrid(1, nbrPlace, d, f, sold, recoList || null, blockedList || null, tamponList || null);
         }
 
         function onToggle(ev) {
@@ -393,7 +443,8 @@
                             tag2.style.color = '#856404';
                         }
                     }
-                } else if (!cb.checked && cb.getAttribute('data-sold') !== '1') {
+                } else if (!cb.checked && cb.getAttribute('data-sold') !== '1'
+                    && cb.getAttribute('data-tampon') !== '1') {
                     state.blocked[String(cb.value)] = true;
                     var labB = cb.closest('label');
                     if (labB) {
@@ -406,7 +457,8 @@
                             tagB.style.color = '#495057';
                         }
                     }
-                } else if (cb.checked && cb.getAttribute('data-sold') !== '1') {
+                } else if (cb.checked && cb.getAttribute('data-sold') !== '1'
+                    && cb.getAttribute('data-tampon') !== '1') {
                     delete state.blocked[String(cb.value)];
                     var labOk = cb.closest('label');
                     if (labOk && cb.getAttribute('data-reco') !== '1') {
@@ -504,11 +556,15 @@
                     }
                     var recoList = null;
                     var blockedList = null;
+                    var tamponList = null;
                     if (data.is_reconduction_cible && Array.isArray(data.sieges_reconduits) && data.sieges_reconduits.length) {
                         recoList = data.sieges_reconduits;
                     }
                     if (Array.isArray(data.sieges_bloques) && data.sieges_bloques.length) {
                         blockedList = data.sieges_bloques;
+                    }
+                    if (Array.isArray(data.sieges_tampon) && data.sieges_tampon.length) {
+                        tamponList = data.sieges_tampon;
                     }
                     renderAll(
                         parseInt(data.nbr_place, 10) || 0,
@@ -516,7 +572,8 @@
                         parseInt(data.intervalle2, 10) || parseInt(inter2, 10) || 0,
                         sold,
                         recoList,
-                        blockedList
+                        blockedList,
+                        tamponList
                     );
                     var categSel = findCategSelect(block);
                     if (categSel && data.categori && !categSel.value) {

@@ -82,6 +82,13 @@
 
             $existing = $this->get($codepro, $numsieg);
             if (!empty($existing)) {
+                // Prolonge le TTL tant que le guichet renouvelle la réservation.
+                if ($this->db->field_exists('created_at', $this->table)) {
+                    $this->db->where('codepro', $codepro)
+                        ->where('numsieg', $numsieg)
+                        ->update($this->table, array('created_at' => date('Y-m-d H:i:s')));
+                    return $this->get($codepro, $numsieg);
+                }
                 return $existing;
             }
 
@@ -144,6 +151,65 @@
                 array($cutoff)
             );
             return (int) $this->db->affected_rows();
+        }
+
+        /**
+         * Purge TTL au plus une fois par requête HTTP (filet si cron absent).
+         *
+         * @param int|null $minutes
+         * @return int
+         */
+        public function purge_expired_once($minutes = null)
+        {
+            static $done = false;
+            if ($done) {
+                return 0;
+            }
+            $done = true;
+            return $this->purge_expired($minutes);
+        }
+
+        /**
+         * Numéros de siège en tampon pour un/des programmes.
+         *
+         * @param string|string[] $codes
+         * @return int[]
+         */
+        public function numsieges_for_codes($codes)
+        {
+            if (!$this->db->table_exists($this->table)) {
+                return array();
+            }
+            if (!is_array($codes)) {
+                $codes = array($codes);
+            }
+            $clean = array();
+            foreach ($codes as $c) {
+                $c = trim((string) $c);
+                if ($c !== '') {
+                    $clean[$c] = true;
+                }
+            }
+            if (empty($clean)) {
+                return array();
+            }
+            $esc = array();
+            foreach (array_keys($clean) as $c) {
+                $esc[] = "'" . $this->db->escape_str($c) . "'";
+            }
+            $rows = $this->db->query(
+                "SELECT DISTINCT numsieg FROM {$this->table}
+                 WHERE codepro IN (" . implode(',', $esc) . ")
+                 ORDER BY numsieg ASC"
+            )->result();
+            $out = array();
+            foreach ($rows as $r) {
+                $n = (int) $r->numsieg;
+                if ($n > 0) {
+                    $out[] = $n;
+                }
+            }
+            return $out;
         }
 
         /**

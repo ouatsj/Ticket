@@ -9,7 +9,7 @@
  *   php scripts/cron/purge_tampon_siege.php --dry-run
  *
  * Crontab recommandé (toutes les 15 min) :
- *   */15 * * * * php /var/www/rakietabus/ticket/scripts/cron/purge_tampon_siege.php >> /var/log/rakieta-tampon-purge.log 2>&1
+ *   every-15-min: php /var/www/rakietabus/ticket/scripts/cron/purge_tampon_siege.php >> /var/log/rakieta-tampon-purge.log 2>&1
  */
 define('BASEPATH', dirname(__DIR__, 2) . '/system/');
 define('ENVIRONMENT', getenv('CI_ENV') ?: 'production');
