@@ -11106,6 +11106,16 @@ document.addEventListener('DOMContentLoaded', () => {
         return rm >= (prevMinutes + (marge != null ? marge : __CONF_TRANSIT_MARGE_MIN));
     }
 
+    /** Typetarif pour chemintr (comme vente #tarifattrib). */
+    function __confTarifattrib() {
+        var el = document.querySelector('#tarifattribcf');
+        var tf = el && String(el.value || '').trim() !== '' ? String(el.value).trim() : '1';
+        if (el && String(el.value || '').trim() === '') {
+            el.value = tf;
+        }
+        return tf;
+    }
+
     /** Remplit un select heures correspondance confirm, filtré vs jambe précédente. */
     function __confAppendFilteredCheminOptions(selectId, rowsObj, prevDate, prevHeure) {
         var sel = document.querySelector(selectId);
@@ -11120,6 +11130,16 @@ document.addEventListener('DOMContentLoaded', () => {
         var pMin = __confHeureToMinutes(prevHeure);
         list = list.filter(function (row) {
             return row && row.code_progr != null && __confRowIsAfterPrev(row, pDate, pMin, __CONF_TRANSIT_MARGE_MIN);
+        });
+        // Filet anti-doublon (même créneau / même programme — ex. ancien endpoint chemin).
+        var seen = {};
+        list = list.filter(function (row) {
+            var dprog = row.date_progr ? String(row.date_progr).slice(0, 10) : '';
+            var lh = String(row.id_ligneheure != null ? row.id_ligneheure : '');
+            var key = dprog + '|' + lh + '|' + String(row.code_progr);
+            if (seen[key]) return false;
+            seen[key] = true;
+            return true;
         });
         list.sort(function (a, b) {
             var da = String(a.date_progr || '').slice(0, 10);
@@ -11868,7 +11888,8 @@ document.addEventListener('DOMContentLoaded', () => {
                                                 var typgareselcf1 = post_typgarecf2[1];
                                                 
                                                 var datedepartcf = document.querySelector('#actuel').value;
-                                                httpSiegeschemincf.open('GET', window.location.origin + `${APP_ROOT}/programmes/chemin/${prostranschemincf}/${datedepartcf}`, true);
+                                                var __tfCheminCf = __confTarifattrib();
+                                                httpSiegeschemincf.open('GET', window.location.origin + `${APP_ROOT}/programmes/chemintr/${prostranschemincf}/${datedepartcf}/${__tfCheminCf}`, true);
                                                 httpSiegeschemincf.onload = () => 
                                                 {
                                         
@@ -12185,7 +12206,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
                                                 var datedepartcf = document.querySelector('#actuel').value;
                                                 
-                                                httpSiegeschemincf.open('GET', window.location.origin + `${APP_ROOT}/programmes/chemin/${prostranschemincf}/${datedepartcf}`, true);
+                                                var __tfCheminCf = __confTarifattrib();
+                                                httpSiegeschemincf.open('GET', window.location.origin + `${APP_ROOT}/programmes/chemintr/${prostranschemincf}/${datedepartcf}/${__tfCheminCf}`, true);
                                                 httpSiegeschemincf.onload = () => 
                                                 {
                                         
@@ -12359,7 +12381,8 @@ document.addEventListener('DOMContentLoaded', () => {
                                                 const prostranschemincf1 = document.querySelector('#idcheminscf1')
                                                 .options[document.querySelector('#idcheminscf1').options.selectedIndex].value;
 
-                                                httpSiegeschemincf1.open('GET', window.location.origin + `${APP_ROOT}/programmes/chemin/${prostranschemincf1}/${datedepartcf}`, true);
+                                                var __tfCheminCf = __confTarifattrib();
+                                                httpSiegeschemincf1.open('GET', window.location.origin + `${APP_ROOT}/programmes/chemintr/${prostranschemincf1}/${datedepartcf}/${__tfCheminCf}`, true);
                                                 httpSiegeschemincf1.onload = () => 
                                                 {
                                         
@@ -12677,7 +12700,8 @@ document.addEventListener('DOMContentLoaded', () => {
                                                 let httpSiegeschemincf;
                                                 httpSiegeschemincf = new XMLHttpRequest();
                                                 
-                                                httpSiegeschemincf.open('GET', window.location.origin + `${APP_ROOT}/programmes/chemin/${prostranschemincf}/${datedepartcf}`, true);
+                                                var __tfCheminCf = __confTarifattrib();
+                                                httpSiegeschemincf.open('GET', window.location.origin + `${APP_ROOT}/programmes/chemintr/${prostranschemincf}/${datedepartcf}/${__tfCheminCf}`, true);
                                                 httpSiegeschemincf.onload = () => 
                                                 {
                                         
@@ -12882,7 +12906,8 @@ document.addEventListener('DOMContentLoaded', () => {
                                                 const prostranschemincf1 = document.querySelector('#idcheminscf1')
                                                 .options[document.querySelector('#idcheminscf1').options.selectedIndex].value;
 
-                                                httpSiegeschemincf1.open('GET', window.location.origin + `${APP_ROOT}/programmes/chemin/${prostranschemincf1}/${datedepartcf}`, true);
+                                                var __tfCheminCf = __confTarifattrib();
+                                                httpSiegeschemincf1.open('GET', window.location.origin + `${APP_ROOT}/programmes/chemintr/${prostranschemincf1}/${datedepartcf}/${__tfCheminCf}`, true);
                                                 httpSiegeschemincf1.onload = () => 
                                                 {
                                         
@@ -13055,7 +13080,8 @@ document.addEventListener('DOMContentLoaded', () => {
                                                 const prostranschemincf2 = document.querySelector('#idcheminscf2')
                                                 .options[document.querySelector('#idcheminscf2').options.selectedIndex].value;
 
-                                                httpSiegeschemincf2.open('GET', window.location.origin + `${APP_ROOT}/programmes/chemin/${prostranschemincf2}/${datedepartcf}`, true);
+                                                var __tfCheminCf = __confTarifattrib();
+                                                httpSiegeschemincf2.open('GET', window.location.origin + `${APP_ROOT}/programmes/chemintr/${prostranschemincf2}/${datedepartcf}/${__tfCheminCf}`, true);
                                                 httpSiegeschemincf2.onload = () => 
                                                 {
                                         
