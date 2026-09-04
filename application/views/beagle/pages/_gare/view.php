@@ -94,6 +94,7 @@ $compagnies = !empty($compagnies) ? $compagnies : array();
         <? if (!empty($arrivees_par_compagnie)):
             $group_keys = array_keys($arrivees_par_compagnie);
             $first_key = reset($group_keys);
+            $tab_pref = preg_replace('/[^a-zA-Z0-9_-]/', '', (string) $this->input->get('tab'));
         ?>
 
             <div class="card card-table">
@@ -118,7 +119,9 @@ $compagnies = !empty($compagnies) ? $compagnies : array();
                             if ($pane_id === 'gare-arr-') {
                                 $pane_id = 'gare-arr-sans';
                             }
-                            $is_active = ((string) $cle === (string) $first_key);
+                            $is_active = ($tab_pref !== '')
+                                ? ($pane_id === $tab_pref)
+                                : ((string) $cle === (string) $first_key);
                         ?>
                             <li class="nav-item">
                                 <a class="nav-link<?= $is_active ? ' active show' : ''; ?>"
@@ -141,7 +144,9 @@ $compagnies = !empty($compagnies) ? $compagnies : array();
                             if ($pane_id === 'gare-arr-') {
                                 $pane_id = 'gare-arr-sans';
                             }
-                            $is_active = ((string) $cle === (string) $first_key);
+                            $is_active = ($tab_pref !== '')
+                                ? ($pane_id === $tab_pref)
+                                : ((string) $cle === (string) $first_key);
                         ?>
                             <div class="tab-pane fade<?= $is_active ? ' active show' : ''; ?>"
                                  id="<?= htmlspecialchars($pane_id, ENT_QUOTES, 'UTF-8'); ?>"
@@ -249,7 +254,7 @@ $compagnies = !empty($compagnies) ? $compagnies : array();
                                                         <? endif; ?>
                                                     </p>
                                                     <div class="d-flex flex-wrap" style="gap:0.35rem;">
-                                                        <a href="<?= site_url('Gares/active_arrivee/' . $this->session->company->ekey . '/' . rawurlencode($item->code_gadest) . '/' . $actif_ga); ?>"
+                                                        <a href="<?= site_url('Gares/active_arrivee/' . $this->session->company->ekey . '/' . rawurlencode($item->code_gadest) . '/' . $actif_ga) . '?tab=' . rawurlencode($pane_id); ?>"
                                                            class="btn btn-sm btn-secondary"
                                                            title="<?= $actif_ga ? 'Masquer cette gare du guichet' : 'Réafficher cette gare au guichet'; ?>">
                                                             <?= $actif_ga
@@ -257,7 +262,7 @@ $compagnies = !empty($compagnies) ? $compagnies : array();
                                                                 : '<span class="text-success">activer</span>'; ?>
                                                         </a>
                                                         <? if ($can_delete): ?>
-                                                            <a href="<?= site_url('Gares/delete_arrivee/' . $this->session->company->ekey . '/' . rawurlencode($item->code_gadest)); ?>"
+                                                            <a href="<?= site_url('Gares/delete_arrivee/' . $this->session->company->ekey . '/' . rawurlencode($item->code_gadest)) . '?tab=' . rawurlencode($pane_id); ?>"
                                                                class="btn btn-sm btn-danger"
                                                                onclick="return confirm('Supprimer définitivement cette gare d\'arrivée ?');"
                                                                title="Supprimer (jamais utilisée)">

@@ -275,7 +275,12 @@
             }
 
             $this->property['UPDATE_SUCCESS'] = TRUE;
-            return $this->view($ckey);
+            $tab = preg_replace('/[^a-zA-Z0-9_-]/', '', (string) $this->input->get('tab'));
+            $target = 'gares/' . $this->session->company->ekey;
+            if ($tab !== '') {
+                $target .= '?tab=' . rawurlencode($tab);
+            }
+            redirect($target);
         }
 
         /**
@@ -285,13 +290,19 @@
         {
             $this->company = $this->m_entreprises->get_key($ckey);
             $code_gadest = rawurldecode((string) $code_gadest);
+            $tab = preg_replace('/[^a-zA-Z0-9_-]/', '', (string) $this->input->get('tab'));
+            $target = 'gares/' . $this->session->company->ekey;
+            if ($tab !== '') {
+                $target .= '?tab=' . rawurlencode($tab);
+            }
+
             $reasons = $this->m_gare_arrivee->usage_reasons($code_gadest);
             if (!empty($reasons)) {
                 $this->session->set_flashdata(
                     'error',
                     'Suppression impossible : gare utilisée (' . implode(', ', $reasons) . '). Désactivez-la à la place.'
                 );
-                redirect('gares/' . $this->session->company->ekey);
+                redirect($target);
                 return;
             }
             $this->m_gare_arrivee->del($code_gadest);
@@ -304,7 +315,7 @@
 
             $this->session->set_flashdata('success', 'Gare d\'arrivée supprimée.');
             $this->property['UPDATE_SUCCESS'] = TRUE;
-            redirect('gares/' . $this->session->company->ekey);
+            redirect($target);
         }
         
         public function adddepart($ckey)

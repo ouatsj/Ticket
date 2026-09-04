@@ -338,7 +338,12 @@
             }
 
             $this->property['UPDATE_SUCCESS'] = TRUE;
-            return $this->view($ckey);
+            $tab = preg_replace('/[^a-zA-Z0-9_-]/', '', (string) $this->input->get('tab'));
+            $target = 'lignes/' . $this->session->company->ekey;
+            if ($tab !== '') {
+                $target .= '?tab=' . rawurlencode($tab);
+            }
+            redirect($target);
         }
 
     }

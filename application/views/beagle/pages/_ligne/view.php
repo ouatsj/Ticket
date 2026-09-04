@@ -73,6 +73,7 @@
         if (!empty($lignes_par_compagnie_arrivee)):
             $group_keys = array_keys($lignes_par_compagnie_arrivee);
             $first_key = reset($group_keys);
+            $tab_pref = preg_replace('/[^a-zA-Z0-9_-]/', '', (string) $this->input->get('tab'));
         ?>
 
             <div class="card card-table">
@@ -97,7 +98,9 @@
                             if ($pane_id === 'comp-arr-') {
                                 $pane_id = 'comp-arr-sans';
                             }
-                            $is_active = ($cle === $first_key);
+                            $is_active = ($tab_pref !== '')
+                                ? ($pane_id === $tab_pref)
+                                : ($cle === $first_key);
                         ?>
                             <li class="nav-item">
                                 <a class="nav-link<?= $is_active ? ' active show' : ''; ?>"
@@ -120,7 +123,9 @@
                             if ($pane_id === 'comp-arr-') {
                                 $pane_id = 'comp-arr-sans';
                             }
-                            $is_active = ($cle === $first_key);
+                            $is_active = ($tab_pref !== '')
+                                ? ($pane_id === $tab_pref)
+                                : ($cle === $first_key);
                             $table_id = 'table-' . $pane_id;
                         ?>
                             <div class="tab-pane fade<?= $is_active ? ' active show' : ''; ?>"
@@ -164,7 +169,7 @@
                                                    class="md-trigger" data-modal="tarif-edit-<?= $item->ident_ligne; ?>">
                                                     <span class="fas fa-edit text-warning"></span>
                                                 </a>
-                                                <a href="<?= site_url('Lignes/active/' . $this->session->company->ekey . '/' . rawurlencode($item->ident_ligne) . '/' . $actif_lg); ?>"
+                                                <a href="<?= site_url('Lignes/active/' . $this->session->company->ekey . '/' . rawurlencode($item->ident_ligne) . '/' . $actif_lg) . '?tab=' . rawurlencode($pane_id); ?>"
                                                    class="btn btn-space btn-secondary btn-sm"
                                                    title="<?= $actif_lg ? 'Masquer cette ligne du guichet' : 'Réafficher cette ligne au guichet'; ?>">
                                                     <?= $actif_lg
