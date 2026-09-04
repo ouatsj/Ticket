@@ -538,12 +538,6 @@
                         });
 
                         if ($this->session->agent->userole === '1' OR $this->session->agent->userole === '2'){
-                            $this->property['dashboard_axes_count'] = app_cache_remember('dash_count_lignes', 600, function () {
-                                return (int) $this->db->count_all('lignes');
-                            });
-                            $this->property['dashboard_clients_count'] = app_cache_remember('dash_count_clients', 600, function () {
-                                return (int) $this->db->count_all('client');
-                            });
                             $this->property['garedeparts'] = $this->m_sousgare->getes($ekey, $gid, $idsg);
                             $this->property['garedepartcomp'] = app_cache_remember('gare_depart_cmp_' . $cid, 300, function () use ($cid) {
                                 return $this->m_gare_depart->cmpgetad($cid);
@@ -561,8 +555,15 @@
                             $this->property['garearrivees'] = app_cache_remember('gare_arrivee_ad_' . $cid, 300, function () use ($cid) {
                                 return $this->m_gare_arrivee->getad($cid);
                             });
+                            // KPI scoped entreprise (pas count_all global) — dérivé des listes déjà chargées.
+                            $this->property['dashboard_axes_count'] = is_array($this->property['lignes'])
+                                ? count($this->property['lignes']) : 0;
+                            $this->property['dashboard_clients_count'] = app_cache_remember('dash_count_clients', 600, function () {
+                                return (int) $this->db->count_all('client');
+                            });
                             $this->property['passagers'] = array();
                             $this->property['passagers_deferred'] = true;
+                            $this->property['passagers_stats_days'] = 30;
                         }else
                         {
                             $this->property['garedeparts'] = $this->m_sousgare->getes($ekey, $gid, $idsg);
@@ -613,12 +614,12 @@
         }
 
         /**
-         * Stats passagers par ligne (chargement différé — requête lourde ~7s).
+         * Stats passagers par ligne (AJAX) — fenêtre 30 j., cache 10 min.
          */
         public function ajax_passagers($ckey)
         {
             if (!$this->session->userdata('agent')) {
-                return $this->output->set_status_header(401)->set_content_type('application/json')->set_output('[]');
+                return $this->output->set_status_header(401)->set_content_type('application/json')->set_output('{}');
             }
 
             $this->load->helper('app_cache');
@@ -628,19 +629,29 @@
                 show_404();
             }
 
-            $rows = app_cache_remember('passagers_total_' . $ckey, 120, function () {
-                return $this->m_passager->totalpassager($this->company->ekey);
+            $days = 30;
+            $rows = app_cache_remember('passagers_total_' . $ckey . '_d' . $days, 600, function () use ($days) {
+                return $this->m_passager->totalpassager($this->company->ekey, $days);
             });
 
-            $out = array();
+            $out_rows = array();
+            $total = 0;
             foreach ($rows as $row) {
-                $out[] = array(
-                    'nom_ligne' => $row->nom_ligne,
-                    'cod' => $row->cod,
+                $cod = isset($row->cod) ? (int) $row->cod : 0;
+                $total += $cod;
+                $out_rows[] = array(
+                    'nom_ligne' => isset($row->nom_ligne) ? $row->nom_ligne : '',
+                    'cod' => $cod,
                 );
             }
 
-            return $this->output->set_content_type('application/json')->set_output(json_encode($out));
+            return $this->output
+                ->set_content_type('application/json')
+                ->set_output(json_encode(array(
+                    'days' => $days,
+                    'total' => $total,
+                    'rows' => $out_rows,
+                )));
         }
         
         public function opts($ckey, $cdg, $type = 'prog', $cpus, $sg, $d = FALSE, $m = FALSE, $y = FALSE)

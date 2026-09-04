@@ -2936,29 +2936,51 @@
                 AND p.actif_pas = 0
                 GROUP BY p.idcptuser")->row(); return $this->normalize_ticket_prix_row($row);
         }
-        public function totalpassager($cd)
+        /**
+         * Passagers vendus par ligne (fenêtre récente) — dashboard admin sous-gare.
+         * Filtre datep_create pour exploiter l’index (évite le scan full-table ~7s).
+         *
+         * @param string $cd ekey entreprise
+         * @param int $days fenêtre en jours (défaut 30)
+         * @return array
+         */
+        public function totalpassager($cd, $days = 30)
         {
             $this->load->helper('app_cache');
-            $cache_key = 'totalpassager_' . $cd;
+            $days = (int) $days;
+            if ($days < 1) {
+                $days = 30;
+            }
+            if ($days > 366) {
+                $days = 366;
+            }
+            $cache_key = 'totalpassager_' . $cd . '_d' . $days;
 
-            return app_cache_remember($cache_key, 120, function () use ($cd) {
+            return app_cache_remember($cache_key, 600, function () use ($cd, $days) {
+                $cdEsc = $this->db->escape($cd);
+                // Sous-requête filtrée sur date : utilise idx_passager_datep_create.
                 $rows = $this->db->query(
-                    "SELECT COUNT(code_passager) AS cod, lg.nom_ligne, c.nom_compagnie, dest.id_compaga
-                    FROM passager p
+                    "SELECT COUNT(p.code_passager) AS cod, lg.ident_ligne, lg.nom_ligne
+                    FROM (
+                        SELECT code_passager, code_pro
+                        FROM passager
+                        WHERE datep_create >= DATE_SUB(CURDATE(), INTERVAL {$days} DAY)
+                          AND statut_code = 'vendu'
+                          AND actif_pas = 0
+                          AND prixvente IS NOT NULL
+                    ) p
                     JOIN programme pr ON p.code_pro = pr.code_progr
                     JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
                     JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
                     JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
-                    JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
-                    JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
+                    JOIN compagnies c ON ex.id_compagd = c.cle_compagnie
                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                    WHERE e.ekey = " . $this->db->escape($cd) . "
-                    AND p.prixvente IS NOT NULL
-                    AND p.statut_code = 'vendu'
-                    AND p.actif_pas = 0
-                    GROUP BY lg.ident_ligne, dest.id_compaga, c.nom_compagnie")->result();
+                    WHERE e.ekey = {$cdEsc}
+                    GROUP BY lg.ident_ligne, lg.nom_ligne
+                    ORDER BY cod DESC, lg.nom_ligne ASC"
+                )->result();
 
-                return $this->normalize_ticket_prix_rows($rows);
+                return is_array($rows) ? $rows : array();
             });
         }
         //pass repro
