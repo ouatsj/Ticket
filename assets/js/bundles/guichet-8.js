@@ -759,16 +759,34 @@ document.addEventListener('DOMContentLoaded', () => {
         return (p.length === 3) ? (p[2] + '/' + p[1]) : String(ymd).slice(0, 10);
     }
 
-    /** Libellé heure : ajoute JJ/MM si date_progr ≠ date voyage (évite doublons J / J+1). */
-    function __confHeureOptionLabel(heure, dateProgr, voyageDate) {
+    /**
+     * Libellé heure : ajoute JJ/MM si date ≠ voyage, ou si la liste couvre plusieurs jours
+     * (évite « 07:00 » ×2 pour J et J+1).
+     */
+    function __confHeureOptionLabel(heure, dateProgr, voyageDate, forceDate) {
         var label = String(heure || '');
         var dprog = dateProgr ? String(dateProgr).slice(0, 10) : '';
         var vDate = voyageDate ? String(voyageDate).slice(0, 10) : '';
-        if (dprog && (!vDate || dprog !== vDate)) {
+        var showDate = !!forceDate || (dprog && (!vDate || dprog !== vDate));
+        if (showDate && dprog) {
             var short = __confFormatDateShort(dprog);
             if (short) label = label + ' — ' + short;
         }
         return label;
+    }
+
+    /** True si les lignes couvrent plus d'une date_progr. */
+    function __confListSpansMultipleDays(rows) {
+        var seen = {};
+        var n = 0;
+        for (var i = 0; i < rows.length; i++) {
+            var d = rows[i] && rows[i].date_progr ? String(rows[i].date_progr).slice(0, 10) : '';
+            if (!d || seen[d]) continue;
+            seen[d] = 1;
+            n++;
+            if (n > 1) return true;
+        }
+        return false;
     }
 
     function __confHeureToMinutes(h) {
@@ -838,16 +856,18 @@ document.addEventListener('DOMContentLoaded', () => {
             if (da > db) return 1;
             return (__confHeureToMinutes(ra.heure) || 0) - (__confHeureToMinutes(rb.heure) || 0);
         });
+        var slotRows = order.map(function (k) { return bySlot[k]; });
+        var forceDateAf = __confListSpansMultipleDays(slotRows);
+        var voyageDateAf = (document.querySelector('#actuel') && document.querySelector('#actuel').value)
+            ? String(document.querySelector('#actuel').value).slice(0, 10)
+            : pDate;
         for (var j = 0; j < order.length; j++) {
             var r = bySlot[order[j]];
             var opt = document.createElement('option');
             opt.value = `${r.code_progr}/${r.intervalle1}/${r.intervalle2}/${r.id_ligneheure}/${r.prix}`;
             opt.setAttribute('data-heure', r.heure || '');
             opt.setAttribute('data-date-progr', r.date_progr ? String(r.date_progr).slice(0, 10) : '');
-            var voyageDateAf = (document.querySelector('#actuel') && document.querySelector('#actuel').value)
-                ? String(document.querySelector('#actuel').value).slice(0, 10)
-                : pDate;
-            opt.innerHTML = __confHeureOptionLabel(r.heure, r.date_progr, voyageDateAf);
+            opt.innerHTML = __confHeureOptionLabel(r.heure, r.date_progr, voyageDateAf, forceDateAf);
             sel.add(opt);
         }
         if (sel.options.length > 1) {
@@ -1145,6 +1165,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (da > db) return 1;
                 return (__confHeureToMinutes(ra.heure) || 0) - (__confHeureToMinutes(rb.heure) || 0);
             });
+            var slotRowsL1 = order.map(function (k) { return bySlot[k]; });
+            var forceDateL1 = __confListSpansMultipleDays(slotRowsL1);
             for (var j = 0; j < order.length; j++) {
                 var r = bySlot[order[j]];
                 var opt = document.createElement('option');
@@ -1160,7 +1182,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (r.date_progr) opt.setAttribute('data-date-progr', String(r.date_progr).slice(0, 10));
                 if (r.code_progr) opt.setAttribute('data-code-progr', String(r.code_progr));
                 if (r.gareidentif) opt.setAttribute('data-gareidentif', String(r.gareidentif));
-                opt.innerHTML = __confHeureOptionLabel(r.heure, r.date_progr, datedepart);
+                opt.innerHTML = __confHeureOptionLabel(r.heure, r.date_progr, datedepart, forceDateL1);
                 hSel.add(opt);
             }
             if (hSel.options.length > 1) {
@@ -3754,6 +3776,19 @@ document.addEventListener('DOMContentLoaded', () => {
         return (p.length === 3) ? (p[2] + '/' + p[1]) : String(ymd).slice(0, 10);
     }
 
+    function __venteFiHeureOptionLabel(heure, dateProgr, voyageDate, forceDate) {
+        var label = String(heure || '');
+        var dprog = dateProgr ? String(dateProgr).slice(0, 10) : '';
+        var vDate = voyageDate ? String(voyageDate).slice(0, 10) : '';
+        var showDate = !!forceDate || (dprog && vDate && dprog !== vDate);
+        if (showDate && dprog) {
+            var short = __venteFiFormatDateShort(dprog);
+            if (short) label = label + ' — ' + short;
+        }
+        return label;
+    }
+
+
     function __venteFiClearDownstreamCheminHeures() {
         ['idcheminsheurfid', 'idcheminsheur1fid', 'idcheminsheur2fid'].forEach(function (id) {
             var el = document.getElementById(id);
@@ -3859,7 +3894,8 @@ document.addEventListener('DOMContentLoaded', () => {
             var lh = String(row.id_ligneheure != null ? row.id_ligneheure : '');
             if (!lh) continue;
             var dprog = row.date_progr ? String(row.date_progr).slice(0, 10) : '';
-            var gkey = dprog + '|' + lh;
+            var hh = String(row.heure || '').trim();
+            var gkey = dprog + '|' + hh;
             if (!groups[gkey]) {
                 groups[gkey] = {
                     heure: row.heure || '',
@@ -3884,6 +3920,16 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         if (!window.__venteFiCheminGroups) window.__venteFiCheminGroups = {};
         window.__venteFiCheminGroups[selectId] = groups;
+        var forceDate = false;
+        var seenDates = {};
+        var nDates = 0;
+        for (var sd = 0; sd < order.length; sd++) {
+            var gd = groups[order[sd]].date_progr || '';
+            if (!gd || seenDates[gd]) continue;
+            seenDates[gd] = 1;
+            nDates++;
+            if (nDates > 1) { forceDate = true; break; }
+        }
         for (var k = 0; k < order.length; k++) {
             var key = order[k];
             var g = groups[key];
@@ -3892,10 +3938,7 @@ document.addEventListener('DOMContentLoaded', () => {
             opt.setAttribute('data-group-key', key);
             opt.setAttribute('data-date-progr', g.date_progr || '');
             opt.setAttribute('data-heure', g.heure || '');
-            var label = g.heure || key;
-            if (g.date_progr && voyageDate && g.date_progr !== voyageDate) {
-                label = (g.heure || '') + ' — ' + __venteFiFormatDateShort(g.date_progr);
-            }
+            var label = __venteFiHeureOptionLabel(g.heure || key, g.date_progr, voyageDate, forceDate);
             if (g.rows.length > 1) label = label + ' (' + g.rows.length + ' départs)';
             opt.innerHTML = label;
             sel.add(opt);
