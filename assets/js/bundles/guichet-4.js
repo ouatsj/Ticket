@@ -9,8 +9,33 @@ document.addEventListener('DOMContentLoaded', function () {
     function isCbtCompany(nom) {
         var n = String(nom || '').trim().toUpperCase();
         if (!n) return false;
-        if (n === 'CBT') return true;
+        if (n === 'CBT' || n.indexOf('CBT_') === 0 || n.indexOf('CBT ') === 0) return true;
         return /(^|[^A-Z0-9])CBT([^A-Z0-9]|$)/.test(n);
+    }
+
+    /** Garantit exactement une compagnie cochée (évite liste Arrivée vide). */
+    function ensureOneCompanyChecked(box) {
+        if (!box) return;
+        var checks = box.querySelectorAll('.js-filtre-compagnie-check');
+        if (!checks.length) return;
+        var checked = box.querySelectorAll('.js-filtre-compagnie-check:checked');
+        if (checked.length === 1) return;
+        if (checked.length > 1) {
+            for (var i = 1; i < checked.length; i++) {
+                checked[i].checked = false;
+            }
+            return;
+        }
+        // Aucune cochée : préférer CBT, sinon la première.
+        var pick = null;
+        for (var j = 0; j < checks.length; j++) {
+            if (isCbtCompany(checks[j].getAttribute('data-nom-compagnie'))) {
+                pick = checks[j];
+                break;
+            }
+        }
+        if (!pick) pick = checks[0];
+        pick.checked = true;
     }
 
     function uniqueCompanies(arriveeSelect) {
@@ -103,6 +128,10 @@ document.addEventListener('DOMContentLoaded', function () {
             : 'Choisissez l\'arrivée';
         arriveeSelect.appendChild(ph);
 
+        // Jamais de liste vide : si pas de compagnie active, prendre le 1er groupe.
+        if (!activeCle && snap.groups && snap.groups.length) {
+            activeCle = String(snap.groups[0].cle);
+        }
         if (!activeCle) {
             arriveeSelect.value = '';
             return prev !== '';
@@ -141,12 +170,15 @@ document.addEventListener('DOMContentLoaded', function () {
 
     function applyArriveeFilter(box) {
         if (!box || !box._snap) return;
-        var targetId = box.getAttribute('data-target-arrivee');
-        var arriveeSelect = targetId
-            ? document.getElementById(targetId)
-            : box._arriveeSelect;
+        // Toujours le select lié à cette boîte (évite collision d'id #arrsgare dupliqués).
+        var arriveeSelect = box._arriveeSelect;
+        if (!arriveeSelect) {
+            var targetId = box.getAttribute('data-target-arrivee');
+            arriveeSelect = targetId ? document.getElementById(targetId) : null;
+        }
         if (!arriveeSelect) return;
 
+        ensureOneCompanyChecked(box);
         var cleared = rebuildArrivee(arriveeSelect, box._snap, activeCleFromBox(box));
         if (cleared) {
             if (typeof window.jQuery !== 'undefined') {
@@ -263,13 +295,7 @@ document.addEventListener('DOMContentLoaded', function () {
             box.appendChild(label);
         });
 
-        // Une seule compagnie active : si plusieurs CBT match, garder la première cochée
-        var checked = box.querySelectorAll('.js-filtre-compagnie-check:checked');
-        if (checked.length > 1) {
-            for (var i = 1; i < checked.length; i++) {
-                checked[i].checked = false;
-            }
-        }
+        ensureOneCompanyChecked(box);
 
         placeCompanyBox(box, arriveeSelect);
 
@@ -282,6 +308,9 @@ document.addEventListener('DOMContentLoaded', function () {
                 box.querySelectorAll('.js-filtre-compagnie-check').forEach(function (c) {
                     if (c !== t) c.checked = false;
                 });
+            } else {
+                // Interdire de tout décocher → liste Arrivée vide
+                ensureOneCompanyChecked(box);
             }
 
             applyArriveeFilter(box);

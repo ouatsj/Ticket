@@ -25,7 +25,8 @@
             $this->company = $this->m_entreprises->get_key($ckey);
 
                 $this->property['pagetitle'] .= "• LISTE DES LIGNES<strong>•&nbsp;{$this->company->nom_entreprise}</strong>";
-                $lignes = $this->m_lignes->getad($this->company->id_entreprise);
+                // Liste admin : toutes les lignes (actives + désactivées) pour pouvoir réactiver.
+                $lignes = $this->m_lignes->getad($this->company->id_entreprise, FALSE, false);
                 $this->property['lignes'] = $lignes;
                 $this->property['lignes_par_compagnie_arrivee'] = $this->m_lignes->group_by_compagnie_arrivee($lignes);
                 $this->property['garedeparts'] = $this->m_gare_depart->get($this->company->id_entreprise);
@@ -115,8 +116,8 @@
 
             $this->property['itineraires'] = $this->m_itineraire_etape->get($this->company->id_entreprise);
             $this->property['escales'] = $this->m_itineraire_escale->get($this->company->id_entreprise);
-            // Même source que Lignes/view : getad + regroupement compagnie d'arrivée.
-            $lignes = $this->m_lignes->getad($this->company->id_entreprise);
+            // Même source que Lignes/view : getad (toutes) + regroupement compagnie d'arrivée.
+            $lignes = $this->m_lignes->getad($this->company->id_entreprise, FALSE, false);
             $this->property['lignes'] = $lignes;
             $this->property['lignes_par_compagnie_arrivee'] = $this->m_lignes->group_by_compagnie_arrivee($lignes);
             $this->property['garedeparts'] = array();
@@ -221,7 +222,7 @@
 
             // Destination escale != destination finale de la ligne parent
             $parent_row = NULL;
-            foreach ((array) $this->m_lignes->getad($this->company->id_entreprise) as $lg) {
+            foreach ((array) $this->m_lignes->getad($this->company->id_entreprise, FALSE, false) as $lg) {
                 if ($lg->ident_ligne === $parent) {
                     $parent_row = $lg;
                     break;
@@ -311,6 +312,33 @@
             $this->m_itineraire_etape->update($iditlg, array('actif_etape' => $next));
             $this->property['UPDATE_SUCCESS'] = TRUE;
             redirect('lignes/itineraires/' . $this->session->company->ekey);
+        }
+
+        /**
+         * Active / désactive une ligne (masquée du guichet si désactivée).
+         *
+         * @param string $ckey
+         * @param string $ident_ligne
+         * @param int|string $statut état actuel (1 actif / 0 inactif)
+         */
+        public function active($ckey, $ident_ligne, $statut = 1)
+        {
+            $this->company = $this->m_entreprises->get_key($ckey);
+            $ident_ligne = rawurldecode((string) $ident_ligne);
+            $current = (int) $statut;
+            $next = ($current === 1) ? 0 : 1;
+            $this->m_lignes->update($ident_ligne, array('actif_lg' => $next));
+
+            $cid = $this->company->id_entreprise;
+            $this->load->helper('app_cache');
+            if (function_exists('app_cache_delete')) {
+                app_cache_delete('lignes_ad_' . $cid);
+                app_cache_delete('lignes_lggaread_' . $cid);
+                app_cache_delete('dash_count_lignes');
+            }
+
+            $this->property['UPDATE_SUCCESS'] = TRUE;
+            return $this->view($ckey);
         }
 
     }

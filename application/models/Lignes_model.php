@@ -8,10 +8,23 @@
         {
             parent::__construct();
         }
+
+        /**
+         * Filtre lignes actives pour les selects guichet (vente / confirm / réserve…).
+         * IFNULL : lignes sans colonne encore migrée restent visibles.
+         *
+         * @param bool $only_active
+         * @return string
+         */
+        protected function actif_sql($only_active)
+        {
+            return $only_active ? " AND IFNULL(lg.actif_lg, 1) = 1 " : '';
+        }
         
     
-        public function getad($cid, $lg_id = FALSE)
+        public function getad($cid, $lg_id = FALSE, $only_active = true)
         {
+            $actif = $this->actif_sql($only_active);
 
             if ($lg_id === FALSE) {
                 return $this->db->query(
@@ -30,6 +43,7 @@
                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
                     WHERE e.id_entreprise = '$cid'
                     AND ga.nom_gadest !='OUAGAESCAL'
+                    $actif
                     ORDER BY ca.nom_compagnie ASC, ga.nom_gadest ASC, lg.nom_ligne ASC")->result();
             } else
                 return $this->db->query(
@@ -49,6 +63,7 @@
                     WHERE e.id_entreprise = '$cid'
                     AND ga.nom_gadest !='OUAGAESCAL'
                     AND lg.id_ligne = '$lg_id'
+                    $actif
                     ORDER BY lg.nom_ligne")->row();
         }
 
@@ -88,8 +103,9 @@
         }
 
 
-        public function lggets($cid, $lg_id)
+        public function lggets($cid, $lg_id, $only_active = true)
         {
+            $actif = $this->actif_sql($only_active);
 
                 return $this->db->query(
                     "SELECT lg.ident_ligne, lg.nom_ligne FROM lignes lg
@@ -101,10 +117,12 @@
                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
                     WHERE e.id_entreprise = '$cid'
                     AND lg.nom_ligne = '$lg_id'
+                    $actif
                     GROUP BY lg.ident_ligne, lg.nom_ligne")->row();
         }
-        public function get($cid, $gid, $lg_id = FALSE)
+        public function get($cid, $gid, $lg_id = FALSE, $only_active = true)
         {
+            $actif = $this->actif_sql($only_active);
 
             if ($lg_id === FALSE) {
                 return $this->db->query(
@@ -124,6 +142,7 @@
                     WHERE e.id_entreprise = '$cid'
                     AND g.idengare = '$gid'
                     AND ga.nom_gadest !='OUAGAESCAL'
+                    $actif
                     ORDER BY ca.nom_compagnie ASC, lg.nom_ligne ASC")->result();
             } else
                 return $this->db->query(
@@ -144,10 +163,12 @@
                     AND lg.id_ligne = '$lg_id'
                     AND g.idengare = '$gid'
                     AND ga.nom_gadest !='OUAGAESCAL'
+                    $actif
                     ORDER BY lg.nom_ligne")->row();
         }
-        public function getlggaread($cid, $lg_id = FALSE)
-        {    
+        public function getlggaread($cid, $lg_id = FALSE, $only_active = true)
+        {
+            $actif = $this->actif_sql($only_active);
            
             if ($lg_id === FALSE) {
                 return $this->db->query(
@@ -159,6 +180,7 @@
                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
                     WHERE e.id_entreprise = '$cid'
                     AND ga.nom_gadest !='OUAGAESCAL'
+                    $actif
                     ORDER BY lg.nom_ligne")->result();
             } else
                 return $this->db->query(
@@ -171,11 +193,14 @@
                     WHERE e.id_entreprise = '$cid'
                     AND lg.id_ligne = '$lg_id'
                     AND ga.nom_gadest !='OUAGAESCAL'
+                    $actif
                     ORDER BY lg.nom_ligne")->row();
         }
         
-		public function getlggare($cid, $gd, $lg_id = FALSE)
-        {    
+		public function getlggare($cid, $gd, $lg_id = FALSE, $only_active = true)
+        {
+            $actif = $this->actif_sql($only_active);
+
             if ($lg_id === FALSE) {
                 return $this->db->query(
                     "SELECT * FROM lignes lg
@@ -188,6 +213,7 @@
                     WHERE e.id_entreprise = '$cid'
                     AND g.idengare = '$gd'
                     AND ga.nom_gadest !='OUAGAESCAL'
+                    $actif
                     ORDER BY lg.nom_ligne")->result();
             } else
                 return $this->db->query(
@@ -202,11 +228,14 @@
                     AND g.idengare = '$gd'
                     AND lg.id_ligne = '$lg_id'
                     AND ga.nom_gadest !='OUAGAESCAL'
+                    $actif
                     ORDER BY lg.nom_ligne")->row();
         }
 
-        public function getgid($cid, $lg_id)
+        public function getgid($cid, $lg_id, $only_active = true)
         {
+            $actif = $this->actif_sql($only_active);
+
                 return $this->db->query(
                     "SELECT * FROM lignes lg
                     JOIN gare_dest ga ON lg.gadest_lg = ga.code_gadest
@@ -218,12 +247,15 @@
                     WHERE e.id_entreprise = '$cid'
                     AND g.idengare = '$lg_id'
                     AND ga.nom_gadest !='OUAGAESCAL'
+                    $actif
                     ORDER BY lg.nom_ligne")->result();
         }
         
         
-        public function getscd($cid, $gid, $lg_id = FALSE)
+        public function getscd($cid, $gid, $lg_id = FALSE, $only_active = true)
         {
+            $actif = $this->actif_sql($only_active);
+
             if ($lg_id === FALSE) {
                 return $this->db->query(
                     "SELECT * FROM lignes lg
@@ -235,7 +267,8 @@
                     WHERE e.id_entreprise = '$cid'
                     AND ge.code_gaexp = '$gid'
                     AND ga.type_gare = 'principale'
-                    AND ga.nom_gadest !='OUAGAESCAL'")->result();
+                    AND ga.nom_gadest !='OUAGAESCAL'
+                    $actif")->result();
             } else
                 return $this->db->query(
                     "SELECT * FROM lignes lg
@@ -248,11 +281,14 @@
                     AND ge.code_gaexp = '$gid'
                     AND ga.type_gare = 'principale'
                     AND ga.nom_gadest !='OUAGAESCAL'
-                    AND lg.id_ligne = '$lg_id'")->row();
+                    AND lg.id_ligne = '$lg_id'
+                    $actif")->row();
         }
        
-        public function getscdad($cid, $lg_id = FALSE)
+        public function getscdad($cid, $lg_id = FALSE, $only_active = true)
         {
+            $actif = $this->actif_sql($only_active);
+
             if ($lg_id === FALSE) {
                 return $this->db->query(
                     "SELECT * FROM lignes lg
@@ -263,7 +299,8 @@
                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
                     WHERE e.id_entreprise = '$cid'
                     AND ga.type_gare = 'principale'
-                    AND ga.nom_gadest !='OUAGAESCAL'")->result();
+                    AND ga.nom_gadest !='OUAGAESCAL'
+                    $actif")->result();
             } else
                 return $this->db->query(
                     "SELECT * FROM lignes lg
@@ -275,10 +312,14 @@
                     WHERE e.id_entreprise = '$cid'
                     AND ga.type_gare = 'principale'
                     AND ga.nom_gadest !='OUAGAESCAL'
-                    AND lg.id_ligne = '$lg_id'")->row();
+                    AND lg.id_ligne = '$lg_id'
+                    $actif")->row();
         }
         public function create(array $data)
         {
+            if (!array_key_exists('actif_lg', $data)) {
+                $data['actif_lg'] = 1;
+            }
             $this->db->insert($this->table, $data);
             return $this->db->insert_id();
         }

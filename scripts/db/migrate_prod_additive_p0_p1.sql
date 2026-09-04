@@ -178,3 +178,45 @@ CREATE TABLE IF NOT EXISTS itineraire_etapes (
   PRIMARY KEY (id_etape),
   KEY idx_parent_ordre (id_lignes, ordre_etape)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- -----------------------------------------------------------------------------
+-- P1.4 Lignes : activer / désactiver (masque vente / confirm / réserve / reprog)
+-- -----------------------------------------------------------------------------
+SET @exists := (
+  SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = @db AND TABLE_NAME = 'lignes' AND COLUMN_NAME = 'actif_lg'
+);
+SET @sql := IF(@exists = 0,
+  'ALTER TABLE lignes ADD COLUMN actif_lg TINYINT(1) NOT NULL DEFAULT 1 COMMENT ''1=visible guichet, 0=masquee''',
+  'SELECT 1');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+SET @exists := (
+  SELECT COUNT(*) FROM information_schema.STATISTICS
+  WHERE TABLE_SCHEMA = @db AND TABLE_NAME = 'lignes' AND INDEX_NAME = 'idx_lignes_actif_lg'
+);
+SET @sql := IF(@exists = 0,
+  'CREATE INDEX idx_lignes_actif_lg ON lignes (actif_lg)',
+  'SELECT 1');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+-- -----------------------------------------------------------------------------
+-- P1.5 Gares d'arrivée : activer / désactiver (masque vente / confirm / réserve)
+-- -----------------------------------------------------------------------------
+SET @exists := (
+  SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = @db AND TABLE_NAME = 'gare_dest' AND COLUMN_NAME = 'actif_ga'
+);
+SET @sql := IF(@exists = 0,
+  'ALTER TABLE gare_dest ADD COLUMN actif_ga TINYINT(1) NOT NULL DEFAULT 1 COMMENT ''1=visible guichet, 0=masquee''',
+  'SELECT 1');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+SET @exists := (
+  SELECT COUNT(*) FROM information_schema.STATISTICS
+  WHERE TABLE_SCHEMA = @db AND TABLE_NAME = 'gare_dest' AND INDEX_NAME = 'idx_gare_dest_actif_ga'
+);
+SET @sql := IF(@exists = 0,
+  'CREATE INDEX idx_gare_dest_actif_ga ON gare_dest (actif_ga)',
+  'SELECT 1');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;

@@ -99,7 +99,18 @@
 
                 $this->property['pagetitle'] .= "• LES GARES D'ARRIVEE <strong>•&nbsp;{$this->company->nom_entreprise}</strong>";
                 $this->property['gares'] = $this->m_gares->get($this->company->id_entreprise);
-                $this->property['bus_stop'] = $this->m_gare_arrivee->getad($this->company->id_entreprise);
+                // Liste admin : actives + désactivées (pour pouvoir réactiver / supprimer).
+                $bus_stop = $this->m_gare_arrivee->getad($this->company->id_entreprise, FALSE, false);
+                $codes = array();
+                foreach ($bus_stop as $g) {
+                    $codes[] = $g->code_gadest;
+                }
+                $used = $this->m_gare_arrivee->used_codes_set($codes);
+                foreach ($bus_stop as $g) {
+                    $g->can_delete = empty($used[(string) $g->code_gadest]);
+                }
+                $this->property['bus_stop'] = $bus_stop;
+                $this->property['arrivees_par_compagnie'] = $this->m_gare_arrivee->group_rows_by_compagnie($bus_stop);
                 $this->property['villes'] = $this->m_villes->get();
                 $this->property['compagnies'] = $this->m_compagnies->get();
                 return $this->layout->view('_gare/view', $this->property);
@@ -112,7 +123,9 @@
                 $this->property['pagetitle'] .= "• GARE DE DEPART <strong>•&nbsp;{$this->company->nom_entreprise}</strong>";
                 $this->property['gares'] = $this->m_gares->get($this->company->id_entreprise);
                 
-                $this->property['busarrive_stop'] = $this->m_gare_depart->get($this->company->id_entreprise);
+                $busarrive_stop = $this->m_gare_depart->get($this->company->id_entreprise);
+                $this->property['busarrive_stop'] = $busarrive_stop;
+                $this->property['departs_par_compagnie'] = $this->m_gare_depart->get_grouped_by_compagnie($this->company->id_entreprise);
                 
                 $this->property['villes'] = $this->m_villes->get();
                 $this->property['compagnies'] = $this->m_compagnies->get();
@@ -127,7 +140,9 @@
 
                 $this->property['pagetitle'] .= "•GARES<strong>•&nbsp;{$this->company->nom_entreprise}</strong>";
                 
-                $this->property['gares'] = $this->m_gares->get($this->company->id_entreprise);
+                $gares = $this->m_gares->get($this->company->id_entreprise);
+                $this->property['gares'] = $gares;
+                $this->property['gares_par_compagnie'] = $this->m_gares->get_grouped_by_compagnie($this->company->id_entreprise);
                 
                 $this->property['villes'] = $this->m_villes->get();
                 $this->property['compagnies'] = $this->m_compagnies->get();
@@ -240,6 +255,56 @@
 
                 $this->property['UPDATE_SUCCESS'] = TRUE;
                 return $this->view($ckey, $this->property);
+        }
+
+        /**
+         * Active / désactive une gare d'arrivée (masquée du guichet si désactivée).
+         */
+        public function active_arrivee($ckey, $code_gadest, $statut = 1)
+        {
+            $this->company = $this->m_entreprises->get_key($ckey);
+            $code_gadest = rawurldecode((string) $code_gadest);
+            $current = (int) $statut;
+            $next = ($current === 1) ? 0 : 1;
+            $this->m_gare_arrivee->update($code_gadest, array('actif_ga' => $next));
+
+            $cid = $this->company->id_entreprise;
+            $this->load->helper('app_cache');
+            if (function_exists('app_cache_delete')) {
+                app_cache_delete('gare_arrivee_ad_' . $cid);
+            }
+
+            $this->property['UPDATE_SUCCESS'] = TRUE;
+            return $this->view($ckey);
+        }
+
+        /**
+         * Supprime une gare d'arrivée uniquement si elle n'est référencée nulle part.
+         */
+        public function delete_arrivee($ckey, $code_gadest)
+        {
+            $this->company = $this->m_entreprises->get_key($ckey);
+            $code_gadest = rawurldecode((string) $code_gadest);
+            $reasons = $this->m_gare_arrivee->usage_reasons($code_gadest);
+            if (!empty($reasons)) {
+                $this->session->set_flashdata(
+                    'error',
+                    'Suppression impossible : gare utilisée (' . implode(', ', $reasons) . '). Désactivez-la à la place.'
+                );
+                redirect('gares/' . $this->session->company->ekey);
+                return;
+            }
+            $this->m_gare_arrivee->del($code_gadest);
+
+            $cid = $this->company->id_entreprise;
+            $this->load->helper('app_cache');
+            if (function_exists('app_cache_delete')) {
+                app_cache_delete('gare_arrivee_ad_' . $cid);
+            }
+
+            $this->session->set_flashdata('success', 'Gare d\'arrivée supprimée.');
+            $this->property['UPDATE_SUCCESS'] = TRUE;
+            redirect('gares/' . $this->session->company->ekey);
         }
         
         public function adddepart($ckey)

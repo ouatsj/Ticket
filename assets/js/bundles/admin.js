@@ -1,1 +1,683 @@
-document.addEventListener("DOMContentLoaded",()=>{document.querySelectorAll(".addperso").forEach(function(e){document.querySelector("h3#persoTitle").innerHTML="ENREGISTREMENT DES PERSONNELS";let t=document.querySelector("#idpersonnel");null!==t&&(t.onchange=()=>{document.querySelector("#matperso").style.display="none",document.querySelector("#idmatperso").style.display="none",document.querySelector("#idnom").style.display="none",document.querySelector("#idprenom").style.display="none",document.querySelector("#idadres").style.display="none",document.querySelector("#idadresse").style.display="none",document.querySelector("#idcont").style.display="none",document.querySelector("#contid").style.display="none",document.querySelector("#idsecond").style.display="none",document.querySelector("#secondid").style.display="none",document.querySelector("#idpermis").style.display="none",document.querySelector("#permisid").style.display="none",document.querySelector("#idcat").style.display="none",document.querySelector("#catid").style.display="none",document.querySelector("#iddel").style.display="none",document.querySelector("#delid").style.display="none",document.querySelector("#idexp").style.display="none",document.querySelector("#expid").style.display="none",document.querySelector("#idcnib").style.display="none",document.querySelector("#cnibid").style.display="none",document.querySelector("#idcnidel").style.display="none",document.querySelector("#cnibidle").style.display="none",document.querySelector("#idexpir").style.display="none",document.querySelector("#expirid").style.display="none",document.querySelector("#nomclientid").style.display="none",document.querySelector("#idnomclient").style.display="none",document.querySelector("#idpren").style.display="none",document.querySelector("#prenid").style.display="none",document.querySelector("#lieucl").style.display="none",document.querySelector("#cl_lieu").style.display="none",document.querySelector("#idtypper").style.display="none",document.querySelector("#persid").style.display="none",document.querySelector("#tel_num").style.display="none",document.querySelector("#num_tel").style.display="none";var e=document.querySelector("#idpersonnel").options[document.querySelector("#idpersonnel").options.selectedIndex].value;"perso"===e&&(document.querySelector("#matperso").style.display="block",document.querySelector("#idmatperso").style.display="block",document.querySelector("#idnom").style.display="block",document.querySelector("#idprenom").style.display="block",document.querySelector("#idadres").style.display="block",document.querySelector("#idadresse").style.display="block",document.querySelector("#idcont").style.display="block",document.querySelector("#contid").style.display="block",document.querySelector("#idsecond").style.display="block",document.querySelector("#secondid").style.display="block",document.querySelector("#idpermis").style.display="block",document.querySelector("#permisid").style.display="block",document.querySelector("#idcat").style.display="block",document.querySelector("#catid").style.display="block",document.querySelector("#iddel").style.display="block",document.querySelector("#delid").style.display="block",document.querySelector("#idexp").style.display="block",document.querySelector("#expid").style.display="block",document.querySelector("#idcnib").style.display="block",document.querySelector("#cnibid").style.display="block",document.querySelector("#idcnidel").style.display="block",document.querySelector("#cnibidle").style.display="block",document.querySelector("#idexpir").style.display="block",document.querySelector("#expirid").style.display="block",document.querySelector("#idtypper").style.display="block",document.querySelector("#persid").style.display="block",document.querySelector("#nomclientid").style.display="none",document.querySelector("#idnomclient").style.display="none",document.querySelector("#idpren").style.display="none",document.querySelector("#prenid").style.display="none",document.querySelector("#tel_num").style.display="none",document.querySelector("#num_tel").style.display="none",document.querySelector("#lieucl").style.display="none",document.querySelector("#cl_lieu").style.display="none"),"client"===e&&(document.querySelector("#tel_num").style.display="block",document.querySelector("#num_tel").style.display="block",document.querySelector("#nomclientid").style.display="block",document.querySelector("#idnomclient").style.display="block",document.querySelector("#idpren").style.display="block",document.querySelector("#prenid").style.display="block",document.querySelector("#idnom").style.display="none",document.querySelector("#idprenom").style.display="none",document.querySelector("#lieucl").style.display="block",document.querySelector("#cl_lieu").style.display="block",document.querySelector("#idadres").style.display="none",document.querySelector("#idadresse").style.display="none",document.querySelector("#idcont").style.display="none",document.querySelector("#contid").style.display="none",document.querySelector("#idsecond").style.display="none",document.querySelector("#secondid").style.display="none",document.querySelector("#idpermis").style.display="none",document.querySelector("#permisid").style.display="none",document.querySelector("#idcat").style.display="none",document.querySelector("#catid").style.display="none",document.querySelector("#iddel").style.display="none",document.querySelector("#delid").style.display="none",document.querySelector("#idexp").style.display="none",document.querySelector("#expid").style.display="none",document.querySelector("#idcnib").style.display="none",document.querySelector("#cnibid").style.display="none",document.querySelector("#idcnidel").style.display="none",document.querySelector("#cnibidle").style.display="none",document.querySelector("#idexpir").style.display="none",document.querySelector("#expirid").style.display="none",document.querySelector("#matperso").style.display="none",document.querySelector("#idmatperso").style.display="none",document.querySelector("#idtypper").style.display="none",document.querySelector("#persid").style.display="none"),"autrepersonnel"===e&&(document.querySelector("#tel_num").style.display="block",document.querySelector("#num_tel").style.display="block",document.querySelector("#nomclientid").style.display="block",document.querySelector("#idnomclient").style.display="block",document.querySelector("#idpren").style.display="block",document.querySelector("#prenid").style.display="block",document.querySelector("#lieucl").style.display="block",document.querySelector("#cl_lieu").style.display="block",document.querySelector("#idnom").style.display="none",document.querySelector("#idprenom").style.display="none",document.querySelector("#idadres").style.display="none",document.querySelector("#idadresse").style.display="none",document.querySelector("#idcont").style.display="none",document.querySelector("#contid").style.display="none",document.querySelector("#idsecond").style.display="none",document.querySelector("#secondid").style.display="none",document.querySelector("#idpermis").style.display="none",document.querySelector("#permisid").style.display="none",document.querySelector("#idcat").style.display="none",document.querySelector("#catid").style.display="none",document.querySelector("#iddel").style.display="none",document.querySelector("#delid").style.display="none",document.querySelector("#idexp").style.display="none",document.querySelector("#expid").style.display="none",document.querySelector("#idcnib").style.display="none",document.querySelector("#cnibid").style.display="none",document.querySelector("#idcnidel").style.display="none",document.querySelector("#cnibidle").style.display="none",document.querySelector("#idexpir").style.display="none",document.querySelector("#expirid").style.display="none",document.querySelector("#matperso").style.display="none",document.querySelector("#idmatperso").style.display="none",document.querySelector("#idtypper").style.display="none",document.querySelector("#persid").style.display="none")}),e.onclick=function(){document.querySelector("#persoForm").setAttribute("action",`${APP_ROOT}/Personnels/add/${e.dataset.cle_compagnie}`)}})}),function(e){"use strict";function t(e){return(e||"").toString().toLowerCase()}e(function(){e("[data-user-filter-input]").each(function(){var n=e(this),o=n.attr("data-user-filter-input"),l=e("#"+o);if(l.length){var r=l.find("[data-user-filter-item]"),i=e("#"+o+"-count"),d=e("#"+o+"-empty"),c=n.attr("data-user-filter-label")||"utilisateur(s)";n.on("input keyup search",a),a()}function a(){var o=t(e.trim(n.val())),l=0;r.each(function(){var n=e(this),r=t(n.attr("data-search")||n.text()),i=!o||-1!==r.indexOf(o);n.toggle(i),i&&l++}),i.length&&(o?i.text(l+" / "+r.length+" "+c):i.text(r.length+" "+c)),d.length&&d.toggle(!!o&&0===l)}}),e("[data-user-table-filter]").each(function(){var n=e(this),o=n.attr("data-user-table-filter"),l=e(o);if(l.length){var r=l.find("tbody tr[data-user-filter-item]"),i=e(n.attr("data-user-table-empty")||""),d=n.attr("data-user-filter-label")||"ligne(s)",c=e(n.attr("data-user-table-count")||"");n.on("input keyup search",a),a()}function a(){var o=t(e.trim(n.val())),l=0;r.each(function(){var n=e(this),r=t(n.attr("data-search")||n.text()),i=!o||-1!==r.indexOf(o);n.toggle(i),i&&l++}),c.length&&(o?c.text(l+" / "+r.length+" "+d):c.text(r.length+" "+d)),i.length&&i.toggle(!!o&&0===l)}})})}(jQuery),document.addEventListener("DOMContentLoaded",function(){function e(e){if(e&&e._snap){var t=e.getAttribute("data-target-arrivee"),n=t?document.getElementById(t):e._arriveeSelect;if(n){var o=function(e,t,n){var o=e.value;e.innerHTML="";var l=document.createElement("option");if(l.value=t.placeholder?t.placeholder.value:"",l.textContent=t.placeholder&&t.placeholder.text?t.placeholder.text:"Choisissez l'arrivée",e.appendChild(l),!n)return e.value="",""!==o;var r=!1;return t.groups.forEach(function(t){if(String(t.cle)===String(n)){var l=document.createElement("optgroup");l.label=t.nom,l.setAttribute("data-compagnie",t.cle),t.options.forEach(function(e){var t=document.createElement("option");t.value=e.value,t.textContent=e.text,t.setAttribute("data-compagnie",e.compagnie),t.setAttribute("data-nom-compagnie",e.nomCompagnie),l.appendChild(t),e.value===o&&(r=!0)}),e.appendChild(l)}}),r?(e.value=o,!1):(e.value="",""!==o)}(n,e._snap,function(e){var t=e.querySelector(".js-filtre-compagnie-check:checked");return t?String(t.value):""}(e));o&&(void 0!==window.jQuery?window.jQuery(n).trigger("change"):n.dispatchEvent(new Event("change",{bubbles:!0})))}}}function t(e,t){if(e&&t)if(t.parentNode&&t.parentNode.getAttribute("data-compagnies-arrivee-for"))t.style.display="";else{var n=e.style.display;t.style.display="none"===n?"none":n||""}}function n(n){if(n&&"1"!==n.getAttribute("data-filtre-arrivee-ready")&&"garearrivee"!==n.name&&n.querySelector("option[data-compagnie]")){var o=function(e){var t={},n=[];return e.querySelectorAll("option[data-compagnie]").forEach(function(e){var o=String(e.getAttribute("data-compagnie")||"");if(o&&!t[o]){var l=e.getAttribute("data-nom-compagnie")||e.parentNode&&e.parentNode.label||o;t[o]=l,n.push(o)}}),{map:t,order:n}}(n);if(o.order.length){var l=function(e){var t=null,n=[],o={};return Array.prototype.forEach.call(e.children,function(e){if("OPTION"!==e.tagName){if("OPTGROUP"===e.tagName){var l=String(e.getAttribute("data-compagnie")||""),r=e.getAttribute("label")||l;if(!l){var i=e.querySelector("option[data-compagnie]");i&&(l=String(i.getAttribute("data-compagnie")||""))}if(!l)return;o[l]||(o[l]={cle:l,nom:r,options:[]},n.push(o[l])),Array.prototype.forEach.call(e.querySelectorAll("option"),function(e){o[l].options.push({value:e.value,text:e.textContent,compagnie:String(e.getAttribute("data-compagnie")||l),nomCompagnie:e.getAttribute("data-nom-compagnie")||r})})}}else e.getAttribute("data-compagnie")||t||(t={value:e.value,text:e.textContent,html:e.outerHTML})}),e.querySelectorAll(":scope > option[data-compagnie]").forEach(function(e){var t=String(e.getAttribute("data-compagnie")||"");if(t){if(!o[t]){var l=e.getAttribute("data-nom-compagnie")||t;o[t]={cle:t,nom:l,options:[]},n.push(o[t])}o[t].options.push({value:e.value,text:e.textContent,compagnie:t,nomCompagnie:e.getAttribute("data-nom-compagnie")||o[t].nom})}}),{placeholder:t,groups:n}}(n);n.setAttribute("data-filtre-arrivee-ready","1"),n.classList.add("js-arrivee-filtre");var r=n.id||"arrivee-auto-"+Math.random().toString(36).slice(2,9);n.id||(n.id=r);var i=document.createElement("div");i.className="js-filtre-compagnie-arrivee-vente mb-2",i.setAttribute("data-target-arrivee",r),i.setAttribute("aria-label","Compagnies d'arrivée"),i.style.cssText="display:flex;flex-wrap:wrap;gap:0.35rem 1rem;align-items:center;",i._arriveeSelect=n,i._snap=l;var d=document.createElement("small");d.className="text-muted w-100 mb-0",d.textContent="Compagnies d'arrivée",d.style.flexBasis="100%",i.appendChild(d),o.order.forEach(function(e){var t=o.map[e],n=document.createElement("label");n.className="mb-0",n.style.cssText="font-weight:400;cursor:pointer;white-space:nowrap;";var l=document.createElement("input");l.type="checkbox",l.className="js-filtre-compagnie-check",l.value=e,l.checked=function(e){var t=String(e||"").trim().toUpperCase();return!!t&&("CBT"===t||/(^|[^A-Z0-9])CBT([^A-Z0-9]|$)/.test(t))}(t),l.style.marginRight="0.35rem",l.setAttribute("data-nom-compagnie",t),n.appendChild(l),n.appendChild(document.createTextNode(t)),i.appendChild(n)});var c=i.querySelectorAll(".js-filtre-compagnie-check:checked");if(c.length>1)for(var a=1;a<c.length;a++)c[a].checked=!1;if(function(e,t){var n=t.id,o=(t.closest(".modal-container, form, .card-body, .card")||document).querySelector('[data-compagnies-arrivee-for="'+n+'"]');if(o||(o=document.querySelector('[data-compagnies-arrivee-for="'+n+'"]')),o)return o.innerHTML="",o.appendChild(e),e.style.marginTop="0.25rem",void(e.style.marginBottom="0.5rem");var l=t.closest(".row");if(l&&l.parentNode){var r=document.createElement("div");return r.className="px-3 pb-2 col-12",r.setAttribute("data-compagnies-arrivee-for",n),r.appendChild(e),void l.parentNode.insertBefore(r,l)}t.parentNode.insertBefore(e,t)}(i,n),i.addEventListener("change",function(t){var n=t.target;n&&n.classList.contains("js-filtre-compagnie-check")&&(n.checked&&i.querySelectorAll(".js-filtre-compagnie-check").forEach(function(e){e!==n&&(e.checked=!1)}),e(i))}),e(i),t(n,i),window.MutationObserver)new MutationObserver(function(){t(n,i)}).observe(n,{attributes:!0,attributeFilter:["style"]})}}}function o(e){(e=e||document).querySelectorAll("select").forEach(function(e){e.closest&&e.closest(".js-filtre-compagnie-arrivee-vente")||e.querySelector("option[data-compagnie]")&&n(e)})}o(document),window.__bindFiltreArriveeCompagnie=o}),document.addEventListener("DOMContentLoaded",function(){var e=document.getElementById("tarif-edit-0");if(e){var t=e.querySelector("form"),n=e.querySelector(".modal-title"),o=e.querySelector('[name="tarifbase"]'),l=e.querySelector('[name="typeclient"]'),r=e.querySelector('[name="itineraire"]'),i=e.querySelector('[name="montanttarif"]');document.querySelectorAll(".js-tarif-edit").forEach(function(e){e.addEventListener("click",function(){if(t){var d=e.getAttribute("data-ekey")||"",c=e.getAttribute("data-id")||"",a=e.getAttribute("data-type_tarif")||"",u=e.getAttribute("data-typetarif_id")||"",y=(e.getAttribute("data-nom_type"),e.getAttribute("data-typeclient_id")||""),s=e.getAttribute("data-ligne_heure_id")||"",p=e.getAttribute("data-ligne_id")||"",m=e.getAttribute("data-nom_ligne")||"",S=e.getAttribute("data-heure")||"",q=e.getAttribute("data-prix")||"";n&&(n.textContent="MODIFICATION SUR "+a),o&&(o.value=u),l&&(l.value=y),r&&(r.innerHTML='<option value="'+s+"."+p+'">'+m+"/"+S+"</option>",r.value=s+"."+p),i&&(i.value=q),t.setAttribute("action",(window.APP_ROOT||"")+"/Tarifs/edit_/"+d+"/"+c)}})})}});
+/* Bundle admin — genere par scripts/build_module_bundles.php */
+/* --- addperso.js --- */
+document.addEventListener('DOMContentLoaded', () => {
+    
+    document.querySelectorAll('.addperso').forEach(function (e) 
+    {
+        document.querySelector('h3#persoTitle').innerHTML = `ENREGISTREMENT DES PERSONNELS`;
+
+       
+        let persoinf = document.querySelector('#idpersonnel');
+        
+        if (persoinf !== null) 
+            persoinf.onchange = () => 
+            {   
+                    
+                    document.querySelector('#matperso').style.display = 'none';
+                    document.querySelector('#idmatperso').style.display = 'none';
+                    document.querySelector('#idnom').style.display = 'none';
+                    document.querySelector('#idprenom').style.display = 'none';
+                    document.querySelector('#idadres').style.display = 'none';
+                    document.querySelector('#idadresse').style.display = 'none';
+                    document.querySelector('#idcont').style.display = 'none';
+                    document.querySelector('#contid').style.display = 'none';
+                    document.querySelector('#idsecond').style.display = 'none';
+                    document.querySelector('#secondid').style.display = 'none';
+                    document.querySelector('#idpermis').style.display = 'none';
+                    document.querySelector('#permisid').style.display = 'none';
+                    document.querySelector('#idcat').style.display = 'none';
+                    document.querySelector('#catid').style.display = 'none';
+                    document.querySelector('#iddel').style.display = 'none';
+                    document.querySelector('#delid').style.display = 'none';
+                    document.querySelector('#idexp').style.display = 'none';
+                    document.querySelector('#expid').style.display = 'none';
+                    document.querySelector('#idcnib').style.display = 'none';
+                    document.querySelector('#cnibid').style.display = 'none';
+                    document.querySelector('#idcnidel').style.display = 'none';
+                    document.querySelector('#cnibidle').style.display = 'none';
+                    document.querySelector('#idexpir').style.display = 'none';
+                    document.querySelector('#expirid').style.display = 'none';
+                    document.querySelector('#nomclientid').style.display = 'none';
+                    document.querySelector('#idnomclient').style.display = 'none';
+                    document.querySelector('#idpren').style.display = 'none';
+                    document.querySelector('#prenid').style.display = 'none';
+                    document.querySelector('#lieucl').style.display = 'none';
+                    document.querySelector('#cl_lieu').style.display = 'none';
+					document.querySelector('#idtypper').style.display = 'none';
+                    document.querySelector('#persid').style.display = 'none';
+                    document.querySelector('#tel_num').style.display = 'none';
+                    document.querySelector('#num_tel').style.display = 'none';
+
+                    var infoperso = document.querySelector('#idpersonnel')
+                    .options[document.querySelector('#idpersonnel').options.selectedIndex].value;
+
+                    if(infoperso === 'perso'){
+                        document.querySelector('#matperso').style.display = 'block';
+                        document.querySelector('#idmatperso').style.display = 'block';
+                        document.querySelector('#idnom').style.display = 'block';
+                        document.querySelector('#idprenom').style.display = 'block';
+                        document.querySelector('#idadres').style.display = 'block';
+                        document.querySelector('#idadresse').style.display = 'block';
+                        document.querySelector('#idcont').style.display = 'block';
+                        document.querySelector('#contid').style.display = 'block';
+                        document.querySelector('#idsecond').style.display = 'block';
+                        document.querySelector('#secondid').style.display = 'block';
+                        document.querySelector('#idpermis').style.display = 'block';
+                        document.querySelector('#permisid').style.display = 'block';
+                        document.querySelector('#idcat').style.display = 'block';
+                        document.querySelector('#catid').style.display = 'block';
+                        document.querySelector('#iddel').style.display = 'block';
+                        document.querySelector('#delid').style.display = 'block';
+                        document.querySelector('#idexp').style.display = 'block';
+                        document.querySelector('#expid').style.display = 'block';
+                        document.querySelector('#idcnib').style.display = 'block';
+                        document.querySelector('#cnibid').style.display = 'block';
+                        document.querySelector('#idcnidel').style.display = 'block';
+                        document.querySelector('#cnibidle').style.display = 'block';
+                        document.querySelector('#idexpir').style.display = 'block';
+                        document.querySelector('#expirid').style.display = 'block';
+						document.querySelector('#idtypper').style.display = 'block';
+						document.querySelector('#persid').style.display = 'block';
+                        document.querySelector('#nomclientid').style.display = 'none';
+                        document.querySelector('#idnomclient').style.display = 'none';
+                        document.querySelector('#idpren').style.display = 'none';
+                        document.querySelector('#prenid').style.display = 'none';
+                        document.querySelector('#tel_num').style.display = 'none';
+                        document.querySelector('#num_tel').style.display = 'none';
+                        document.querySelector('#lieucl').style.display = 'none';
+                        document.querySelector('#cl_lieu').style.display = 'none';
+                    }
+                    //client 
+                    if(infoperso === 'client'){
+                            document.querySelector('#tel_num').style.display = 'block';
+                            document.querySelector('#num_tel').style.display = 'block';
+                            document.querySelector('#nomclientid').style.display = 'block';
+                            document.querySelector('#idnomclient').style.display = 'block';
+                            document.querySelector('#idpren').style.display = 'block';
+                            document.querySelector('#prenid').style.display = 'block';
+                            document.querySelector('#idnom').style.display = 'none';
+                            document.querySelector('#idprenom').style.display = 'none';
+                            document.querySelector('#lieucl').style.display = 'block';
+                            document.querySelector('#cl_lieu').style.display = 'block';
+                            document.querySelector('#idadres').style.display = 'none';
+                            document.querySelector('#idadresse').style.display = 'none';
+                            document.querySelector('#idcont').style.display = 'none';
+                            document.querySelector('#contid').style.display = 'none';
+                            document.querySelector('#idsecond').style.display = 'none';
+                            document.querySelector('#secondid').style.display = 'none';
+                            document.querySelector('#idpermis').style.display = 'none';
+                            document.querySelector('#permisid').style.display = 'none';
+                            document.querySelector('#idcat').style.display = 'none';
+                            document.querySelector('#catid').style.display = 'none';
+                            document.querySelector('#iddel').style.display = 'none';
+                            document.querySelector('#delid').style.display = 'none';
+                            document.querySelector('#idexp').style.display = 'none';
+                            document.querySelector('#expid').style.display = 'none';
+                            document.querySelector('#idcnib').style.display = 'none';
+                            document.querySelector('#cnibid').style.display = 'none';
+                            document.querySelector('#idcnidel').style.display = 'none';
+                            document.querySelector('#cnibidle').style.display = 'none';
+                            document.querySelector('#idexpir').style.display = 'none';
+                            document.querySelector('#expirid').style.display = 'none';
+                            document.querySelector('#matperso').style.display = 'none';
+                            document.querySelector('#idmatperso').style.display = 'none';
+							document.querySelector('#idtypper').style.display = 'none';
+							document.querySelector('#persid').style.display = 'none';
+                            
+                    }
+                    
+
+                    if(infoperso === 'autrepersonnel'){
+                            document.querySelector('#tel_num').style.display = 'block';
+                            document.querySelector('#num_tel').style.display = 'block';
+                            document.querySelector('#nomclientid').style.display = 'block';
+                            document.querySelector('#idnomclient').style.display = 'block';
+                            document.querySelector('#idpren').style.display = 'block';
+                            document.querySelector('#prenid').style.display = 'block';
+                            document.querySelector('#lieucl').style.display = 'block';
+                            document.querySelector('#cl_lieu').style.display = 'block';
+                            document.querySelector('#idnom').style.display = 'none';
+                            document.querySelector('#idprenom').style.display = 'none';
+                            document.querySelector('#idadres').style.display = 'none';
+                            document.querySelector('#idadresse').style.display = 'none';
+                            document.querySelector('#idcont').style.display = 'none';
+                            document.querySelector('#contid').style.display = 'none';
+                            document.querySelector('#idsecond').style.display = 'none';
+                            document.querySelector('#secondid').style.display = 'none';
+                            document.querySelector('#idpermis').style.display = 'none';
+                            document.querySelector('#permisid').style.display = 'none';
+                            document.querySelector('#idcat').style.display = 'none';
+                            document.querySelector('#catid').style.display = 'none';
+                            document.querySelector('#iddel').style.display = 'none';
+                            document.querySelector('#delid').style.display = 'none';
+                            document.querySelector('#idexp').style.display = 'none';
+                            document.querySelector('#expid').style.display = 'none';
+                            document.querySelector('#idcnib').style.display = 'none';
+                            document.querySelector('#cnibid').style.display = 'none';
+                            document.querySelector('#idcnidel').style.display = 'none';
+                            document.querySelector('#cnibidle').style.display = 'none';
+                            document.querySelector('#idexpir').style.display = 'none';
+                            document.querySelector('#expirid').style.display = 'none';
+                            document.querySelector('#matperso').style.display = 'none';
+                            document.querySelector('#idmatperso').style.display = 'none';
+							document.querySelector('#idtypper').style.display = 'none';
+							document.querySelector('#persid').style.display = 'none';
+                            
+                    }
+            };
+        e.onclick = function () {
+        let listeperso = document.querySelector('#persoForm');
+        listeperso.setAttribute('action', `${APP_ROOT}/Personnels/add/${e.dataset.cle_compagnie}`);
+        }
+
+    })
+});
+;
+/* --- user-list-filter.js --- */
+/**
+ * Filtre instantané pour les listes utilisateurs (cartes ou lignes de tableau).
+ */
+(function ($) {
+    'use strict';
+
+    function normalize(text) {
+        return (text || '').toString().toLowerCase();
+    }
+
+    function initCardFilter() {
+        $('[data-user-filter-input]').each(function () {
+            var $input = $(this);
+            var listId = $input.attr('data-user-filter-input');
+            var $list = $('#' + listId);
+            if (!$list.length) {
+                return;
+            }
+
+            var $items = $list.find('[data-user-filter-item]');
+            var $count = $('#' + listId + '-count');
+            var $empty = $('#' + listId + '-empty');
+            var label = $input.attr('data-user-filter-label') || 'utilisateur(s)';
+
+            function applyFilter() {
+                var query = normalize($.trim($input.val()));
+                var visible = 0;
+
+                $items.each(function () {
+                    var $item = $(this);
+                    var haystack = normalize($item.attr('data-search') || $item.text());
+                    var match = !query || haystack.indexOf(query) !== -1;
+                    $item.toggle(match);
+                    if (match) {
+                        visible++;
+                    }
+                });
+
+                if ($count.length) {
+                    if (query) {
+                        $count.text(visible + ' / ' + $items.length + ' ' + label);
+                    } else {
+                        $count.text($items.length + ' ' + label);
+                    }
+                }
+
+                if ($empty.length) {
+                    $empty.toggle(!!query && visible === 0);
+                }
+            }
+
+            $input.on('input keyup search', applyFilter);
+            applyFilter();
+        });
+    }
+
+    function initTableFilter() {
+        $('[data-user-table-filter]').each(function () {
+            var $input = $(this);
+            var selector = $input.attr('data-user-table-filter');
+            var $table = $(selector);
+            if (!$table.length) {
+                return;
+            }
+
+            var $rows = $table.find('tbody tr[data-user-filter-item]');
+            var $empty = $($input.attr('data-user-table-empty') || '');
+            var label = $input.attr('data-user-filter-label') || 'ligne(s)';
+            var $count = $($input.attr('data-user-table-count') || '');
+
+            function applyFilter() {
+                var query = normalize($.trim($input.val()));
+                var visible = 0;
+
+                $rows.each(function () {
+                    var $row = $(this);
+                    var haystack = normalize($row.attr('data-search') || $row.text());
+                    var match = !query || haystack.indexOf(query) !== -1;
+                    $row.toggle(match);
+                    if (match) {
+                        visible++;
+                    }
+                });
+
+                if ($count.length) {
+                    if (query) {
+                        $count.text(visible + ' / ' + $rows.length + ' ' + label);
+                    } else {
+                        $count.text($rows.length + ' ' + label);
+                    }
+                }
+
+                if ($empty.length) {
+                    $empty.toggle(!!query && visible === 0);
+                }
+            }
+
+            $input.on('input keyup search', applyFilter);
+            applyFilter();
+        });
+    }
+
+    $(function () {
+        initCardFilter();
+        initTableFilter();
+    });
+}(jQuery));
+
+;
+/* --- filtre_arrivee_compagnie.js --- */
+/**
+ * Filtre les selects gares d'arrivée par checkboxes compagnies.
+ * Une seule compagnie à la fois : seules ses gares apparaissent dans Arrivée.
+ * Par défaut : CBT cochée.
+ */
+document.addEventListener('DOMContentLoaded', function () {
+    function isCbtCompany(nom) {
+        var n = String(nom || '').trim().toUpperCase();
+        if (!n) return false;
+        if (n === 'CBT' || n.indexOf('CBT_') === 0 || n.indexOf('CBT ') === 0) return true;
+        return /(^|[^A-Z0-9])CBT([^A-Z0-9]|$)/.test(n);
+    }
+
+    /** Garantit exactement une compagnie cochée (évite liste Arrivée vide). */
+    function ensureOneCompanyChecked(box) {
+        if (!box) return;
+        var checks = box.querySelectorAll('.js-filtre-compagnie-check');
+        if (!checks.length) return;
+        var checked = box.querySelectorAll('.js-filtre-compagnie-check:checked');
+        if (checked.length === 1) return;
+        if (checked.length > 1) {
+            for (var i = 1; i < checked.length; i++) {
+                checked[i].checked = false;
+            }
+            return;
+        }
+        // Aucune cochée : préférer CBT, sinon la première.
+        var pick = null;
+        for (var j = 0; j < checks.length; j++) {
+            if (isCbtCompany(checks[j].getAttribute('data-nom-compagnie'))) {
+                pick = checks[j];
+                break;
+            }
+        }
+        if (!pick) pick = checks[0];
+        pick.checked = true;
+    }
+
+    function uniqueCompanies(arriveeSelect) {
+        var map = {};
+        var order = [];
+        arriveeSelect.querySelectorAll('option[data-compagnie]').forEach(function (opt) {
+            var cle = String(opt.getAttribute('data-compagnie') || '');
+            if (!cle || map[cle]) return;
+            var nom = opt.getAttribute('data-nom-compagnie')
+                || (opt.parentNode && opt.parentNode.label)
+                || cle;
+            map[cle] = nom;
+            order.push(cle);
+        });
+        return { map: map, order: order };
+    }
+
+    /**
+     * Snapshot du select : placeholder + groupes {cle, nom, options:[{value,text,attrs}]}
+     */
+    function snapshotArrivee(arriveeSelect) {
+        var placeholder = null;
+        var groups = [];
+        var groupMap = {};
+
+        Array.prototype.forEach.call(arriveeSelect.children, function (child) {
+            if (child.tagName === 'OPTION') {
+                if (!child.getAttribute('data-compagnie')) {
+                    if (!placeholder) {
+                        placeholder = {
+                            value: child.value,
+                            text: child.textContent,
+                            html: child.outerHTML
+                        };
+                    }
+                }
+                return;
+            }
+            if (child.tagName === 'OPTGROUP') {
+                var cle = String(child.getAttribute('data-compagnie') || '');
+                var nom = child.getAttribute('label') || cle;
+                if (!cle) {
+                    var first = child.querySelector('option[data-compagnie]');
+                    if (first) cle = String(first.getAttribute('data-compagnie') || '');
+                }
+                if (!cle) return;
+                if (!groupMap[cle]) {
+                    groupMap[cle] = { cle: cle, nom: nom, options: [] };
+                    groups.push(groupMap[cle]);
+                }
+                Array.prototype.forEach.call(child.querySelectorAll('option'), function (opt) {
+                    groupMap[cle].options.push({
+                        value: opt.value,
+                        text: opt.textContent,
+                        compagnie: String(opt.getAttribute('data-compagnie') || cle),
+                        nomCompagnie: opt.getAttribute('data-nom-compagnie') || nom
+                    });
+                });
+            }
+        });
+
+        // Options hors optgroup avec data-compagnie
+        arriveeSelect.querySelectorAll(':scope > option[data-compagnie]').forEach(function (opt) {
+            var cle = String(opt.getAttribute('data-compagnie') || '');
+            if (!cle) return;
+            if (!groupMap[cle]) {
+                var nom = opt.getAttribute('data-nom-compagnie') || cle;
+                groupMap[cle] = { cle: cle, nom: nom, options: [] };
+                groups.push(groupMap[cle]);
+            }
+            groupMap[cle].options.push({
+                value: opt.value,
+                text: opt.textContent,
+                compagnie: cle,
+                nomCompagnie: opt.getAttribute('data-nom-compagnie') || groupMap[cle].nom
+            });
+        });
+
+        return { placeholder: placeholder, groups: groups };
+    }
+
+    function rebuildArrivee(arriveeSelect, snap, activeCle) {
+        var prev = arriveeSelect.value;
+        arriveeSelect.innerHTML = '';
+
+        var ph = document.createElement('option');
+        ph.value = snap.placeholder ? snap.placeholder.value : '';
+        ph.textContent = snap.placeholder && snap.placeholder.text
+            ? snap.placeholder.text
+            : 'Choisissez l\'arrivée';
+        arriveeSelect.appendChild(ph);
+
+        // Jamais de liste vide : si pas de compagnie active, prendre le 1er groupe.
+        if (!activeCle && snap.groups && snap.groups.length) {
+            activeCle = String(snap.groups[0].cle);
+        }
+        if (!activeCle) {
+            arriveeSelect.value = '';
+            return prev !== '';
+        }
+
+        var kept = false;
+        snap.groups.forEach(function (g) {
+            if (String(g.cle) !== String(activeCle)) return;
+            var og = document.createElement('optgroup');
+            og.label = g.nom;
+            og.setAttribute('data-compagnie', g.cle);
+            g.options.forEach(function (o) {
+                var opt = document.createElement('option');
+                opt.value = o.value;
+                opt.textContent = o.text;
+                opt.setAttribute('data-compagnie', o.compagnie);
+                opt.setAttribute('data-nom-compagnie', o.nomCompagnie);
+                og.appendChild(opt);
+                if (o.value === prev) kept = true;
+            });
+            arriveeSelect.appendChild(og);
+        });
+
+        if (kept) {
+            arriveeSelect.value = prev;
+            return false;
+        }
+        arriveeSelect.value = '';
+        return prev !== '';
+    }
+
+    function activeCleFromBox(box) {
+        var checked = box.querySelector('.js-filtre-compagnie-check:checked');
+        return checked ? String(checked.value) : '';
+    }
+
+    function applyArriveeFilter(box) {
+        if (!box || !box._snap) return;
+        // Toujours le select lié à cette boîte (évite collision d'id #arrsgare dupliqués).
+        var arriveeSelect = box._arriveeSelect;
+        if (!arriveeSelect) {
+            var targetId = box.getAttribute('data-target-arrivee');
+            arriveeSelect = targetId ? document.getElementById(targetId) : null;
+        }
+        if (!arriveeSelect) return;
+
+        ensureOneCompanyChecked(box);
+        var cleared = rebuildArrivee(arriveeSelect, box._snap, activeCleFromBox(box));
+        if (cleared) {
+            if (typeof window.jQuery !== 'undefined') {
+                window.jQuery(arriveeSelect).trigger('change');
+            } else {
+                arriveeSelect.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+        }
+    }
+
+    function syncFiltreVisibility(arriveeSelect, box) {
+        if (!arriveeSelect || !box) return;
+        // Ancré sous le choix ticket : toujours visible (indépendant du masquage Arrivée en transit)
+        if (box.parentNode && box.parentNode.getAttribute('data-compagnies-arrivee-for')) {
+            box.style.display = '';
+            return;
+        }
+        var disp = arriveeSelect.style.display;
+        if (disp === 'none') {
+            box.style.display = 'none';
+        } else if (disp) {
+            box.style.display = disp;
+        } else {
+            box.style.display = '';
+        }
+    }
+
+    function placeCompanyBox(box, arriveeSelect) {
+        var targetId = arriveeSelect.id;
+        var scope = arriveeSelect.closest('.modal-container, form, .card-body, .card') || document;
+        var slot = scope.querySelector('[data-compagnies-arrivee-for="' + targetId + '"]');
+        if (!slot) {
+            slot = document.querySelector('[data-compagnies-arrivee-for="' + targetId + '"]');
+        }
+        if (slot) {
+            slot.innerHTML = '';
+            slot.appendChild(box);
+            box.style.marginTop = '0.25rem';
+            box.style.marginBottom = '0.5rem';
+            return;
+        }
+
+        // Fallback ventes : barre pleine largeur au-dessus de la ligne Départ/Arrivée
+        var row = arriveeSelect.closest('.row');
+        if (row && row.parentNode) {
+            var wrap = document.createElement('div');
+            wrap.className = 'px-3 pb-2 col-12';
+            wrap.setAttribute('data-compagnies-arrivee-for', targetId);
+            wrap.appendChild(box);
+            row.parentNode.insertBefore(wrap, row);
+            return;
+        }
+
+        arriveeSelect.parentNode.insertBefore(box, arriveeSelect);
+    }
+
+    function enhanceArriveeSelect(arriveeSelect) {
+        if (!arriveeSelect || arriveeSelect.getAttribute('data-filtre-arrivee-ready') === '1') {
+            return;
+        }
+        // Hors ventes : formulaires admin lignes
+        if (arriveeSelect.name === 'garearrivee') {
+            return;
+        }
+        if (!arriveeSelect.querySelector('option[data-compagnie]')) {
+            return;
+        }
+
+        var companies = uniqueCompanies(arriveeSelect);
+        if (!companies.order.length) {
+            return;
+        }
+
+        var snap = snapshotArrivee(arriveeSelect);
+
+        arriveeSelect.setAttribute('data-filtre-arrivee-ready', '1');
+        arriveeSelect.classList.add('js-arrivee-filtre');
+
+        var targetId = arriveeSelect.id || ('arrivee-auto-' + Math.random().toString(36).slice(2, 9));
+        if (!arriveeSelect.id) {
+            arriveeSelect.id = targetId;
+        }
+
+        var box = document.createElement('div');
+        box.className = 'js-filtre-compagnie-arrivee-vente mb-2';
+        box.setAttribute('data-target-arrivee', targetId);
+        box.setAttribute('aria-label', 'Compagnies d\'arrivée');
+        box.style.cssText = 'display:flex;flex-wrap:wrap;gap:0.35rem 1rem;align-items:center;';
+        box._arriveeSelect = arriveeSelect;
+        box._snap = snap;
+
+        var title = document.createElement('small');
+        title.className = 'text-muted w-100 mb-0';
+        title.textContent = 'Compagnies d\'arrivée';
+        title.style.flexBasis = '100%';
+        box.appendChild(title);
+
+        companies.order.forEach(function (cle) {
+            var nom = companies.map[cle];
+            var label = document.createElement('label');
+            label.className = 'mb-0';
+            label.style.cssText = 'font-weight:400;cursor:pointer;white-space:nowrap;';
+
+            var input = document.createElement('input');
+            input.type = 'checkbox';
+            input.className = 'js-filtre-compagnie-check';
+            input.value = cle;
+            input.checked = isCbtCompany(nom);
+            input.style.marginRight = '0.35rem';
+            input.setAttribute('data-nom-compagnie', nom);
+
+            label.appendChild(input);
+            label.appendChild(document.createTextNode(nom));
+            box.appendChild(label);
+        });
+
+        ensureOneCompanyChecked(box);
+
+        placeCompanyBox(box, arriveeSelect);
+
+        box.addEventListener('change', function (e) {
+            var t = e.target;
+            if (!t || !t.classList.contains('js-filtre-compagnie-check')) return;
+
+            // Exclusif : cocher une compagnie décoche les autres
+            if (t.checked) {
+                box.querySelectorAll('.js-filtre-compagnie-check').forEach(function (c) {
+                    if (c !== t) c.checked = false;
+                });
+            } else {
+                // Interdire de tout décocher → liste Arrivée vide
+                ensureOneCompanyChecked(box);
+            }
+
+            applyArriveeFilter(box);
+        });
+
+        applyArriveeFilter(box);
+        syncFiltreVisibility(arriveeSelect, box);
+
+        if (window.MutationObserver) {
+            var mo = new MutationObserver(function () {
+                syncFiltreVisibility(arriveeSelect, box);
+            });
+            mo.observe(arriveeSelect, { attributes: true, attributeFilter: ['style'] });
+        }
+    }
+
+    function bindAll(root) {
+        root = root || document;
+        root.querySelectorAll('select').forEach(function (sel) {
+            if (sel.closest && sel.closest('.js-filtre-compagnie-arrivee-vente')) return;
+            if (sel.querySelector('option[data-compagnie]')) {
+                enhanceArriveeSelect(sel);
+            }
+        });
+    }
+
+    bindAll(document);
+    window.__bindFiltreArriveeCompagnie = bindAll;
+});
+
+;
+/* --- tarif-edit.js --- */
+document.addEventListener('DOMContentLoaded', function () {
+    var modal = document.getElementById('tarif-edit-0');
+    if (!modal) {
+        return;
+    }
+
+    var form = modal.querySelector('form');
+    var titleEl = modal.querySelector('.modal-title');
+    var tarifSel = modal.querySelector('[name="tarifbase"]');
+    var clientSel = modal.querySelector('[name="typeclient"]');
+    var itinSel = modal.querySelector('[name="itineraire"]');
+    var montantEl = modal.querySelector('[name="montanttarif"]');
+
+    document.querySelectorAll('.js-tarif-edit').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            if (!form) {
+                return;
+            }
+
+            var ekey = btn.getAttribute('data-ekey') || '';
+            var id = btn.getAttribute('data-id') || '';
+            var typeTarif = btn.getAttribute('data-type_tarif') || '';
+            var typetarifId = btn.getAttribute('data-typetarif_id') || '';
+            var nomType = btn.getAttribute('data-nom_type') || '';
+            var typeclientId = btn.getAttribute('data-typeclient_id') || '';
+            var lhId = btn.getAttribute('data-ligne_heure_id') || '';
+            var ligneId = btn.getAttribute('data-ligne_id') || '';
+            var nomLigne = btn.getAttribute('data-nom_ligne') || '';
+            var heure = btn.getAttribute('data-heure') || '';
+            var prix = btn.getAttribute('data-prix') || '';
+
+            if (titleEl) {
+                titleEl.textContent = 'MODIFICATION SUR ' + typeTarif;
+            }
+            if (tarifSel) {
+                tarifSel.value = typetarifId;
+            }
+            if (clientSel) {
+                clientSel.value = typeclientId;
+            }
+            if (itinSel) {
+                itinSel.innerHTML = '<option value="' + lhId + '.' + ligneId + '">' +
+                    nomLigne + '/' + heure + '</option>';
+                itinSel.value = lhId + '.' + ligneId;
+            }
+            if (montantEl) {
+                montantEl.value = prix;
+            }
+
+            form.setAttribute('action', (window.APP_ROOT || '') + '/Tarifs/edit_/' + ekey + '/' + id);
+        });
+    });
+});
+

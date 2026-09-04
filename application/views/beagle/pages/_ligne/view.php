@@ -137,22 +137,39 @@
                                         <th>DISTANCE(KM)</th>
                                         <th>PRIX</th>
                                         <th>LIGNE</th>
+                                        <th>STATUT</th>
                                         <th class="actions">ACTION</th>
                                     </tr>
                                     </thead>
                                     <tbody>
-                                    <? foreach ($groupe['lignes'] as $item): ?>
-                                        <tr>
+                                    <? foreach ($groupe['lignes'] as $item):
+                                        $actif_lg = (!isset($item->actif_lg) || (string) $item->actif_lg === '1' || (int) $item->actif_lg === 1) ? 1 : 0;
+                                    ?>
+                                        <tr class="<?= $actif_lg ? '' : 'table-secondary text-muted'; ?>">
                                             <td><?= $item->ident_ligne; ?></td>
                                             <td><?= $item->nom_gaep; ?></td>
                                             <td><?= $item->nom_gadest; ?></td>
                                             <td><?= $item->distancekm; ?></td>
                                             <td><?= number_format($item->prixkm, 0, '', ' '); ?></td>
                                             <td><?= $item->nom_ligne; ?></td>
+                                            <td>
+                                                <? if ($actif_lg): ?>
+                                                    <span class="badge badge-success">Active</span>
+                                                <? else: ?>
+                                                    <span class="badge badge-secondary">Désactivée</span>
+                                                <? endif; ?>
+                                            </td>
                                             <td class="actions">
                                                 <a href="<?= "#?{$item->ident_ligne}"; ?>"
                                                    class="md-trigger" data-modal="tarif-edit-<?= $item->ident_ligne; ?>">
                                                     <span class="fas fa-edit text-warning"></span>
+                                                </a>
+                                                <a href="<?= site_url('Lignes/active/' . $this->session->company->ekey . '/' . rawurlencode($item->ident_ligne) . '/' . $actif_lg); ?>"
+                                                   class="btn btn-space btn-secondary btn-sm"
+                                                   title="<?= $actif_lg ? 'Masquer cette ligne du guichet' : 'Réafficher cette ligne au guichet'; ?>">
+                                                    <?= $actif_lg
+                                                        ? '<span class="icon mdi text-danger">désactiver</span>'
+                                                        : '<span class="icon mdi text-success">activer</span>'; ?>
                                                 </a>
 
                                                 <div class="modal-container colored-header colored-header-success custom-width modal-effect-7"
