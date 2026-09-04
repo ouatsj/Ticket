@@ -25,7 +25,7 @@
 
                 </div>
 
-                <div class="title">Autres tickets <?= utf8_encode(strftime("%d %b %G", now())); ?></div>
+                <div class="title">Tickets à imprimer (non imprimés) <?= utf8_encode(strftime("%d %b %G", now())); ?></div>
 
             </div>
 

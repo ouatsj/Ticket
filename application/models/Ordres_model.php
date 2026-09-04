@@ -100,11 +100,19 @@
                 AND o.orid = '$oridid'")->row();
         }
 
+        /**
+         * Tickets « Autre vente » / chef guichet en attente d’impression guichetier.
+         * Tous prix (gratuit ou payant), non encore imprimés (reimprime = 0), jour + sous-gare.
+         */
         public function getgr($cd, $g, $sg)
         {   
             $today = mdate("%Y-%m-%d", now('UTC'));
-                return $this->db->query(
-                "SELECT * FROM ordres o
+            $cdEsc = $this->db->escape($cd);
+            $sgEsc = $this->db->escape($sg);
+            $todayEsc = $this->db->escape($today);
+            return $this->db->query(
+                "SELECT *
+                FROM ordres o
                 JOIN passager p ON o.codepassagers = p.code_passager
                 JOIN tamponcode ctp ON p.code_passager = ctp.tamponcod
                 LEFT JOIN non_passager np ON ctp.tamponcod = np.code_non_pass
@@ -118,11 +126,14 @@
                 JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
                 JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                WHERE e.ekey = '$cd'
+                WHERE e.ekey = {$cdEsc}
                 AND p.reimprime = 0
-                AND p.prixvente = 0
-                AND p.departclient_idgare = '$sg'
-                AND o.dateenregistrement = '$today'")->result();
+                AND p.statut_code = 'vendu'
+                AND p.actif_pas = 0
+                AND p.departclient_idgare = {$sgEsc}
+                AND o.dateenregistrement = {$todayEsc}
+                ORDER BY h.heure ASC, p.num_siege_categorie ASC"
+            )->result();
         }
 
         public function reduct($cd, $p_id, $t)

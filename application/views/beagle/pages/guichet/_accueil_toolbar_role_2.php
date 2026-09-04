@@ -26,6 +26,10 @@
                                 class="btn btn-secondary btn-space addventeticketfi md-trigger" data-modal="ticketallerfi-0">
                                 <i class="fas fa-edit text-info"></i>&nbsp;AUTRES VENTE&nbsp;
                             </a>
+          <a href="<?= site_url("confirmation/listeventegratuit/{$this->session->company->ekey}/{$conex->roleattribut}/{$bus_stop->idengare}/{$bus_stop->idsousgare}"); ?>"
+                                class="btn btn-secondary btn-space md-trigger" data-modal="">
+                                <i class="fas fa-print text-info"></i>&nbsp; TICKET&nbsp;
+                            </a>
         </div>
       </div>
       <div class="tab-pane fade" id="guichet-tab-2-tickets" role="tabpanel">

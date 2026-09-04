@@ -2933,7 +2933,7 @@
             
                 $this->property['ticketsgratuits'] = $this->m_ordres->getgr($this->company->ekey, $gd, $sg);
                 
-                $this->property['pagetitle'] .= ".LES TICKETS GRATUITS OU A PRIX REDUITS • <strong>{$this->company->nom_entreprise}•&nbsp;</strong> ";
+                $this->property['pagetitle'] .= ".TICKETS À IMPRIMER (chef guichet) • <strong>{$this->company->nom_entreprise}•&nbsp;</strong> ";
             return $this->layout->view('_tickets/ticketgra', $this->property);
         }
         public function ordr($ckey, $uid, $gd, $sg)
