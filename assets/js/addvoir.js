@@ -4,9 +4,22 @@ document.addEventListener('DOMContentLoaded', () => {
     {
         document.querySelector('h3#lisTitle').innerHTML = `Liste des passagers`;
 
+            let compagnieVoir = document.querySelector('#compagnie_voir');
+            if (compagnieVoir !== null && !compagnieVoir.dataset.voirBound) {
+                compagnieVoir.dataset.voirBound = '1';
+                compagnieVoir.addEventListener('change', function () {
+                    var ligne = document.querySelector('#idlign');
+                    if (ligne) ligne.value = '';
+                    var prog = document.querySelector('#idprogr');
+                    if (prog) prog.options.length = 1;
+                });
+            }
+
               //heure
             let infoligne = document.querySelector('#idlign');
-            if (infoligne !== null)
+            if (infoligne !== null && !infoligne.dataset.voirBound)
+            {
+                infoligne.dataset.voirBound = '1';
                 infoligne.onchange = () => {
                     let httpInfoprog;
                     if (window.XMLHttpRequest) {
@@ -17,6 +30,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     const lidligne = document.querySelector('#idlign')
                     .options[document.querySelector('#idlign').options.selectedIndex].value;
                     var verifidate = document.querySelector('#choixdate').value;
+                    var progSel = document.querySelector('#idprogr');
+                    if (progSel) progSel.options.length = 1;
+                    if (!lidligne || !verifidate) return;
                     httpInfoprog.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifprogramm/${lidligne}/${verifidate}`, true);
                     httpInfoprog.onload = () => {
                         const resultp = JSON.parse(httpInfoprog.responseText);
@@ -44,6 +60,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     httpInfoprog.send();
                                          
             };
+            }
         
         e.onclick = function () {
         
