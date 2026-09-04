@@ -41,12 +41,8 @@ if ($compte_arret_only_compte) {
                                 <i class="fas fa-edit text-warning"></i>&nbsp;RETOUR TICKET&nbsp;
                             </a>
                             <a href="#" data-cle_compagnie="<?= $this->session->company->ekey; ?>"
-                                class="btn btn-secondary btn-space addreprogramme md-trigger" data-modal="repro-0">
-                                <i class="fas fa-edit text-warning"></i>&nbsp;REPROGRAMMER TICKET&nbsp;
-                            </a>
-                            <a href="#" data-cle_compagnie="<?= $this->session->company->ekey; ?>"
-                                class="btn btn-secondary btn-space addreprogadmin md-trigger" data-modal="adminrepro-0">
-                                <i class="fas fa-edit text-warning"></i>&nbsp;REPROGRAMMER TICKET GUICHET&nbsp;
+                                class="btn btn-secondary btn-space addreprog_unifie md-trigger" data-modal="repro-unifie-0">
+                                <i class="fas fa-edit text-warning"></i>&nbsp;REPROGRAMMER&nbsp;
                             </a>
                             
                             
@@ -2524,4 +2520,5 @@ if ($compte_arret_only_compte) {
                     </div>
                     <?= form_close(); ?>
                 </div>
+            <?php $this->load->view('beagle/pages/guichet/_reprog_modal_unifie'); ?>
             </div>

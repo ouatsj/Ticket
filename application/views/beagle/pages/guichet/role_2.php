@@ -7306,4 +7306,5 @@
                         <?= form_close(); ?>
                     </div>
                 </div>
+            <?php $this->load->view('beagle/pages/guichet/_reprog_modal_unifie'); ?>
             </div>

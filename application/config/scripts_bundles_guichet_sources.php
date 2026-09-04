@@ -8,7 +8,7 @@ return array(
     '1' => array(
         'filtre_arrivee_compagnie.js',
         'addventemobile.js', 'addventeticket.js', 'vente-escale-itineraire.js', 'addventeticketfi.js',
-        'addreprogramme.js', 'addreprogrammetransit.js', 'addreprogadmin.js',
+        'addreprog_unifie.js',
         'addconfirmadmin.js', 'addconfirmadmintran.js', 'addconfirme.js',
         'addreserve.js', 'addconfirmreserve.js', 'addretour.js', 'addrecu.js', 'addbon.js',
         'addcarte.js', 'addconfirmbon.js', 'addconfirmcarte.js',
@@ -23,7 +23,7 @@ return array(
     '2' => array(
         'filtre_arrivee_compagnie.js',
         'addventeticket.js', 'vente-escale-itineraire.js', 'addventeticketfi.js',
-        'addreprogramme.js', 'addreprogrammetransit.js', 'addreprogadmin.js',
+        'addreprog_unifie.js',
         'addconfirmadmin.js', 'addconfirmadmintran.js', 'addconfirme.js',
         'addreserve.js', 'addconfirmreserve.js', 'addretour.js',
         'adreportjs.js', 'adreportjsesc.js', 'adreportgl.js', 'adreportglesc.js',
@@ -42,13 +42,13 @@ return array(
     '5' => array(
         'filtre_arrivee_compagnie.js',
         'addventeticketfi.js', 'vente-escale-itineraire.js', 'addconfirme.js', 'addreserve.js', 'addconfirmreserve.js', 'addretour.js',
-        'addreprogramme.js', 'addreprogadmin.js', 'addconfirmadmin.js',
+        'addreprog_unifie.js', 'addconfirmadmin.js',
         'addconfirmbon.js', 'addconfirmcarte.js', 'addrecu.js', 'addbon.js', 'addcarte.js',
     ),
     '6' => array(
         'filtre_arrivee_compagnie.js',
         'addventeticket.js', 'vente-escale-itineraire.js', 'addventeticketfi.js',
-        'addreprogramme.js', 'addreprogrammetransit.js', 'addretour.js',
+        'addreprog_unifie.js', 'addretour.js',
         'addconfirmadmin.js', 'addconfirmadmintran.js',
         'addconfirmbon.js', 'addconfirmcarte.js',
     ),
@@ -89,7 +89,7 @@ return array(
     '15' => array(
         'filtre_arrivee_compagnie.js',
         'addventeticketfi.js', 'vente-escale-itineraire.js', 'addconfirme.js', 'addreserve.js', 'addconfirmreserve.js',
-        'addreprogramme.js', 'addreprogadmin.js', 'addconfirmadmin.js',
+        'addreprog_unifie.js', 'addconfirmadmin.js',
         'addconfirmbon.js', 'addconfirmcarte.js', 'addrecu.js', 'addbon.js', 'addcarte.js',
     ),
     '16' => array(),
@@ -101,8 +101,7 @@ return array(
     'default' => array(
         'filtre_arrivee_compagnie.js',
         'addventeticket.js', 'vente-escale-itineraire.js', 'addventeticketfi.js',
-        'addventemobile.js', 'addconfirme.js', 'addreprogramme.js',
-        'addreprogrammetransit.js', 'addreprogadmin.js',
+        'addventemobile.js', 'addconfirme.js', 'addreprog_unifie.js',
         'addconfirmadmin.js', 'addconfirmadmintran.js',
         'addreserve.js', 'addconfirmreserve.js', 'addretour.js', 'addrecu.js', 'addbon.js',
         'addcarte.js', 'addconfirmbon.js',

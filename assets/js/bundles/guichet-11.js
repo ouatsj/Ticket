@@ -1229,6 +1229,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!hSel) return;
         hSel.options.length = 1;
         var list = Array.isArray(heures) ? heures : [];
+        var hasTransit = !!window.__venteFiHasTransit;
         for (var i = 0; i < list.length; i++) {
             var hr = list[i];
             if (!hr || hr.id_ligneheure == null || hr.id_ligneheure === '') continue;
@@ -1236,7 +1237,9 @@ document.addEventListener('DOMContentLoaded', () => {
             opt.value = hr.id_ligneheure + '/' + hr.heure;
             var hasProg = !!(hr.has_programme === true || hr.has_programme === 1 || hr.has_programme === '1');
             opt.setAttribute('data-has-programme', hasProg ? '1' : '0');
-            opt.innerHTML = hr.heure;
+            opt.innerHTML = hasProg
+                ? hr.heure
+                : (String(hr.heure) + (hasTransit ? ' (correspondance)' : ''));
             hSel.add(opt);
         }
     }
@@ -1280,7 +1283,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function __venteFiEnsureCheminSelector() {
         var existing = document.getElementById('selchemin_box_fid');
-        if (existing) return existing;
+        if (existing) {
+            // Remonter hors de #tranfid si une ancienne version l’y avait placé.
+            var tranfid = document.getElementById('tranfid');
+            if (tranfid && tranfid.contains(existing) && tranfid.parentNode) {
+                tranfid.parentNode.insertBefore(existing, tranfid);
+            }
+            return existing;
+        }
         var box = document.createElement('div');
         box.className = 'form-group col-sm-12';
         box.id = 'selchemin_box_fid';
@@ -1291,16 +1301,30 @@ document.addEventListener('DOMContentLoaded', () => {
             + '<option value="">Choisissez l\'itinéraire</option>'
             + '</select>'
             + '<small class="form-text text-muted" id="selchemin_hint_fid"></small>';
-        var anchor = document.getElementById('hdepartitinefid')
-            || document.getElementById('idcheminsfid')
-            || document.getElementById('nbrtransfid');
-        if (anchor && anchor.parentNode && anchor.parentNode.parentNode) {
-            anchor.parentNode.parentNode.insertBefore(box, anchor.parentNode);
-        } else if (anchor && anchor.parentNode) {
-            anchor.parentNode.insertBefore(box, anchor);
-        } else {
-            document.body.appendChild(box);
+        // Ancrer sur l’heure OD visible — jamais dans #tranfid (display:none).
+        var anchor = document.getElementById('hdepartfid')
+            || document.getElementById('date_depheurefid');
+        var tranfid = document.getElementById('tranfid');
+        if (anchor) {
+            var fg = anchor.closest ? anchor.closest('.form-group') : null;
+            if (fg && fg.parentNode) {
+                if (tranfid && tranfid.parentNode === fg.parentNode) {
+                    fg.parentNode.insertBefore(box, tranfid);
+                } else {
+                    fg.parentNode.insertBefore(box, fg.nextSibling);
+                }
+                return box;
+            }
+            if (anchor.parentNode) {
+                anchor.parentNode.insertBefore(box, anchor.nextSibling);
+                return box;
+            }
         }
+        if (tranfid && tranfid.parentNode) {
+            tranfid.parentNode.insertBefore(box, tranfid);
+            return box;
+        }
+        document.body.appendChild(box);
         return box;
     }
 
@@ -1478,16 +1502,17 @@ document.addEventListener('DOMContentLoaded', () => {
             if (typeof onDone === 'function') onDone(etapes);
             else if (typeof window.__venteFiApplyTransitLegs === 'function') window.__venteFiApplyTransitLegs(etapes);
         };
+        var url = window.location.origin + `${APP_ROOT}/programmes/verifchemins/`
+            + encodeURIComponent(seltdep + '-' + arr) + '/'
+            + encodeURIComponent(datedepart) + '/'
+            + encodeURIComponent(sg) + '/'
+            + forceFlag;
+        var hour = window.__venteSelectedHour;
+        if (hour && hour.heure) {
+            url += '?heure=' + encodeURIComponent(hour.heure);
+        }
         var httpRequestitinefi = new XMLHttpRequest();
-        httpRequestitinefi.open(
-            'GET',
-            window.location.origin + `${APP_ROOT}/programmes/verifchemins/`
-                + encodeURIComponent(seltdep + '-' + arr) + '/'
-                + encodeURIComponent(datedepart) + '/'
-                + encodeURIComponent(sg) + '/'
-                + forceFlag,
-            true
-        );
+        httpRequestitinefi.open('GET', url, true);
         httpRequestitinefi.onload = function () {
             var payload = null;
             try { payload = JSON.parse(httpRequestitinefi.responseText); } catch (e) { payload = null; }
@@ -1496,9 +1521,11 @@ document.addEventListener('DOMContentLoaded', () => {
             if (payload.mode === 'direct' || payload.mode === 'none') { __venteFiHideCheminSelector(); done([]); return; }
             var chemins = Array.isArray(payload.chemins) ? payload.chemins : [];
             chemins = chemins.filter(function (c) { return c && c.source !== 'direct'; });
-            if (chemins.length > 1) { __venteFiShowCheminSelector(chemins, done); return; }
+            if (chemins.length >= 1) {
+                __venteFiShowCheminSelector(chemins, done);
+                return;
+            }
             __venteFiHideCheminSelector();
-            if (chemins.length === 1 && chemins[0].etapes) { done(chemins[0].etapes); return; }
             if (payload.etapes && (Array.isArray(payload.etapes) ? payload.etapes.length : Object.keys(payload.etapes).length)) {
                 done(payload.etapes); return;
             }

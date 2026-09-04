@@ -33,6 +33,7 @@ class Itineraire_etape_model extends CI_Model
                     ga.code_gadest,
                     ge.nom_gaep,
                     ga.nom_gadest,
+                    ge.id_compagd,
                     ga.id_compaga,
                     parent.nom_ligne,
                     parent.gaexp_lg,
@@ -77,6 +78,7 @@ class Itineraire_etape_model extends CI_Model
                     ga.code_gadest,
                     ge.nom_gaep,
                     ga.nom_gadest,
+                    ge.id_compagd,
                     ga.id_compaga,
                     parent.nom_ligne,
                     parent.ident_ligne,
@@ -119,6 +121,7 @@ class Itineraire_etape_model extends CI_Model
                     lg.nom_ligne AS nom_itineraires,
                     ge.nom_gaep AS depart_itine,
                     ga.nom_gadest AS arrive_itine,
+                    ge.id_compagd,
                     ga.id_compaga,
                     parent.nom_ligne
                 FROM itineraire_etapes et

@@ -1338,8 +1338,22 @@
             $this->layout->view('_tickets/editepreportar', $this->property);
         }
 
-        public function editepsonreportartr($ckey, $g, $codrep, $tf, $codenp_id, $code_id, $h, $cpus, $idsg, $gtr, $idsgtr)
+        public function editepsonreportartr($ckey, $g, $codrep, $tf, $codenp_id = '', $code_id = null, $h = null, $cpus = null, $idsg = null, $gtr = null, $idsgtr = null)
         {
+            // Segment URI vide (ex. //) sauté par CI → paramètres décalés ; renvoyer vers le flux sans non-passager.
+            if ($idsgtr === null || $idsgtr === '') {
+                $idsgtr = $gtr;
+                $gtr = $idsg;
+                $idsg = $cpus;
+                $cpus = $h;
+                $h = $code_id;
+                $code_id = $codenp_id;
+                return $this->editepsonreporttr($ckey, $g, $codrep, $tf, $code_id, $h, $cpus, $idsg, $gtr, $idsgtr);
+            }
+            if ($codenp_id === '' || $codenp_id === 'null' || $codenp_id === '_') {
+                return $this->editepsonreporttr($ckey, $g, $codrep, $tf, $code_id, $h, $cpus, $idsg, $gtr, $idsgtr);
+            }
+
             $this->company = $this->m_entreprises->get_key($ckey);
 
             $bus_stop = $this->m_sousgare->sget($this->company->ekey, $g, $idsg);

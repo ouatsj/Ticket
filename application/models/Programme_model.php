@@ -1107,11 +1107,20 @@
             $key = mdate("%Y-%m-%d", now());
             $dtoday = $key.'-'.$dat;
 
-            // Pas de JOIN tarification : plusieurs tarifs (type client / actif) multipliaient
-            // la même heure. Prix via sous-requête (1 ligne, typetarif programme, actif).
+            $cd = $this->db->escape_str($cd);
+            $id = $this->db->escape_str($id);
+            $dt = $this->db->escape_str($dt);
+            $t = $this->db->escape_str($t);
+            $dtoday = $this->db->escape_str($dtoday);
+
+            // Requête légère (sans JOIN tarification) + compagnie pour le guichet.
             return $this->db->query(
                 "SELECT pr.code_progr, pr.intervalle1, pr.intervalle2, pr.date_progr,
+                        pr.typetarif, pr.categori,
                         lh.id_ligneheure, h.heure,
+                        lg.ident_ligne, lg.nom_ligne,
+                        c.cle_compagnie, c.nom_compagnie,
+                        ex.id_compagd,
                         (SELECT tf.prix FROM tarification tf
                           WHERE tf.ligne_heure_id = lh.id_ligneheure
                             AND tf.typetarif_id = pr.typetarif
@@ -1126,18 +1135,91 @@
                 JOIN gare_exp ex ON pr.gareidentif = ex.code_gaexp
                 JOIN compagnies c ON ex.id_compagd = c.cle_compagnie
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                WHERE e.ekey = '$cd'
-                AND lh.ligne_id = '$id'
-                AND pr.date_progr >='$dt'
-                AND pr.date_progr <= DATE_ADD('$dt', INTERVAL 1 DAY)
+                WHERE e.ekey = '{$cd}'
+                AND lh.ligne_id = '{$id}'
+                AND pr.date_progr >='{$dt}'
+                AND pr.date_progr <= DATE_ADD('{$dt}', INTERVAL 1 DAY)
                 AND pr.statut_prog ='actif'
                 AND h.h_active = 1
                 AND pr.actif_prog = 0
-                AND pr.typetarif = '$t'
-                AND DATE_FORMAT(pr.dateheure_prog, '%Y-%m-%d-%H:%i:%s') >= '$dtoday'
-                GROUP BY pr.code_progr, pr.intervalle1, pr.intervalle2, pr.date_progr,
-                         lh.id_ligneheure, h.heure, pr.typetarif
-                ORDER BY pr.date_progr ASC, h.heure ASC")->result();
+                AND pr.typetarif = '{$t}'
+                AND DATE_FORMAT(pr.dateheure_prog, '%Y-%m-%d-%H:%i:%s') >= '{$dtoday}'
+                ORDER BY pr.date_progr ASC, h.heure ASC
+                LIMIT 200")->result();
+        }
+
+        /**
+         * Programmes d’un segment reprog : compagnie = gare d’arrivée (id_compaga),
+         * comme vente / tickets / « lignes par compagnie d’arrivée ».
+         *
+         * @param string|null $cie     Filtre id_compaga (étape)
+         * @param string|null $gadest  Filtre code_gadest (étape)
+         */
+        public function getch_seg_reprog($cd, $id, $dt, $t = null, $cie = null, $gadest = null)
+        {
+            $cd = $this->db->escape_str($cd);
+            $id = $this->db->escape_str($id);
+            $dt = $this->db->escape_str($dt);
+
+            $tarifSql = '';
+            if ($t !== null && $t !== '' && $t !== '0') {
+                $t = $this->db->escape_str($t);
+                $tarifSql = " AND pr.typetarif = '{$t}' ";
+            }
+
+            $cieSql = '';
+            if ($cie !== null && trim((string) $cie) !== '') {
+                $cie = $this->db->escape_str(trim((string) $cie));
+                $cieSql = " AND ga.id_compaga = '{$cie}' ";
+            }
+
+            $gadestSql = '';
+            if ($gadest !== null && trim((string) $gadest) !== '') {
+                $gadest = $this->db->escape_str(trim((string) $gadest));
+                $gadestSql = " AND lg.gadest_lg = '{$gadest}' ";
+            }
+
+            // Entreprise via cie départ ; libellé / clé commerciale = cie d’arrivée.
+            return $this->db->query(
+                "SELECT pr.code_progr, pr.intervalle1, pr.intervalle2, pr.date_progr,
+                        pr.typetarif, pr.categori, pr.gareidentif,
+                        lh.id_ligneheure, h.heure,
+                        lg.ident_ligne, lg.nom_ligne, lg.gaexp_lg, lg.gadest_lg,
+                        ga.code_gadest, ga.id_compaga,
+                        ca.cle_compagnie AS cle_compagnie,
+                        ca.nom_compagnie AS nom_compagnie,
+                        ca.cle_compagnie AS cle_compagnie_arrivee,
+                        ca.nom_compagnie AS nom_compagnie_arrivee,
+                        ex.id_compagd,
+                        cd.cle_compagnie AS cle_compagnie_depart,
+                        cd.nom_compagnie AS nom_compagnie_depart,
+                        (SELECT tf.prix FROM tarification tf
+                          WHERE tf.ligne_heure_id = lh.id_ligneheure
+                            AND tf.typetarif_id = pr.typetarif
+                            AND tf.actif_taf = 1
+                          ORDER BY tf.typeclient_id ASC
+                          LIMIT 1) AS prix
+                FROM programme pr
+                JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
+                JOIN heures h ON lh.heure_identif = h.id_heure
+                JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
+                JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
+                JOIN compagnies cd ON ex.id_compagd = cd.cle_compagnie
+                JOIN entreprise e ON cd.id_entrep = e.id_entreprise
+                JOIN gare_dest ga ON lg.gadest_lg = ga.code_gadest
+                JOIN compagnies ca ON ga.id_compaga = ca.cle_compagnie
+                WHERE e.ekey = '{$cd}'
+                AND lh.ligne_id = '{$id}'
+                AND pr.date_progr >= '{$dt}'
+                AND pr.date_progr <= DATE_ADD('{$dt}', INTERVAL 1 DAY)
+                AND pr.statut_prog = 'actif'
+                AND h.h_active = 1
+                AND pr.actif_prog = 0
+                {$tarifSql}
+                {$cieSql}
+                {$gadestSql}
+                ORDER BY pr.date_progr ASC, h.heure ASC
+                LIMIT 200")->result();
         }
         
         public function get($cd, $pr_id = FALSE)
@@ -1881,6 +1963,77 @@
                     AND pr.actif_prog = 0
                     AND DATE_FORMAT(pr.dateheure_prog, '%Y-%m-%d-%H:%i:%s') >= '$dtoday'
                     ORDER BY pr.date_progr, h.heure ASC")->result();
+        }
+
+        /**
+         * Heures de reprogrammation unifiées : même OD (gaexp + gadest), toutes compagnies.
+         * @param string $cid ekey
+         * @param string $gaexp code gare exp
+         * @param string $gadest code gare dest
+         * @param string $exclude_code programme à exclure
+         * @param string|null $prix si non null, filtre même prix tarif
+         * @return array
+         */
+        public function heurereprog_unifie($cid, $gaexp, $gadest, $exclude_code, $prix = null)
+        {
+            $tim = date('H', time('H'));
+            if ($tim === '00') {
+                $dat = date('01:00:00', time('01:00:00') - 3600);
+            } else {
+                $dat = date('H:i:s', time('H:i:s') - 3600);
+            }
+            $key = mdate('%Y-%m-%d', now());
+            $dtoday = $key . '-' . $dat;
+
+            $cidEsc = $this->db->escape($cid);
+            $gaexpEsc = $this->db->escape($gaexp);
+            $gadestEsc = $this->db->escape($gadest);
+            $exEsc = $this->db->escape($exclude_code);
+
+            $prixSql = '';
+            if ($prix !== null && $prix !== '') {
+                $prixEsc = $this->db->escape($prix);
+                $prixSql = " AND EXISTS (
+                    SELECT 1 FROM tarification tf
+                    WHERE tf.ligne_heure_id = lh.id_ligneheure
+                      AND tf.typetarif_id = pr.typetarif
+                      AND tf.actif_taf = 1
+                      AND tf.prix = {$prixEsc}
+                )";
+            }
+
+            return $this->db->query(
+                "SELECT pr.code_progr, pr.date_progr, pr.typetarif, pr.categori, pr.intervalle1, pr.intervalle2,
+                        pr.gareidentif, lh.id_ligneheure, h.heure, lg.ident_ligne, lg.nom_ligne,
+                        lg.gaexp_lg, lg.gadest_lg,
+                        ga.id_compaga, ca.nom_compagnie AS nom_compagnie_arrivee,
+                        c.cle_compagnie AS cle_compagnie_depart, c.nom_compagnie AS nom_compagnie_depart
+                FROM programme pr
+                JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
+                JOIN heures h ON lh.heure_identif = h.id_heure
+                JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
+                JOIN tarifs t ON pr.typetarif = t.id_tarifs
+                JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
+                JOIN gare_dest ga ON lg.gadest_lg = ga.code_gadest
+                JOIN compagnies c ON ex.id_compagd = c.cle_compagnie
+                JOIN compagnies ca ON ga.id_compaga = ca.cle_compagnie
+                JOIN entreprise e ON c.id_entrep = e.id_entreprise
+                WHERE e.ekey = {$cidEsc}
+                AND lg.gaexp_lg = {$gaexpEsc}
+                AND lg.gadest_lg = {$gadestEsc}
+                AND pr.code_progr <> {$exEsc}
+                AND pr.statut_prog = 'actif'
+                AND h.h_active = 1
+                AND lh.actif_lh = 1
+                AND pr.actif_prog = 0
+                AND DATE_FORMAT(pr.dateheure_prog, '%Y-%m-%d-%H:%i:%s') >= '{$dtoday}'
+                {$prixSql}
+                GROUP BY pr.code_progr, pr.date_progr, pr.typetarif, pr.categori, pr.intervalle1, pr.intervalle2,
+                         pr.gareidentif, lh.id_ligneheure, h.heure, lg.ident_ligne, lg.nom_ligne,
+                         lg.gaexp_lg, lg.gadest_lg, ga.id_compaga, ca.nom_compagnie,
+                         c.cle_compagnie, c.nom_compagnie
+                ORDER BY pr.date_progr ASC, h.heure ASC"
+            )->result();
         }
 
         //prog

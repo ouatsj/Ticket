@@ -272,6 +272,7 @@ class Graphe_correspondance
                 ga.nom_gadest AS arrive_itine,
                 ge.code_gaexp,
                 ga.code_gadest,
+                ge.id_compagd,
                 ga.id_compaga
              FROM lignes lg
              JOIN gare_exp ge ON lg.gaexp_lg = ge.code_gaexp
@@ -1125,12 +1126,17 @@ class Graphe_correspondance
         $ordre = 1;
         foreach ($path as $idx => $leg) {
             $gadest = $leg['gadest'];
+            $gaexp = $leg['gaexp'];
             $idCompaga = null;
             if (isset($graph['dest_meta'][$gadest])) {
                 $idCompaga = $graph['dest_meta'][$gadest]->id_compaga;
             }
+            $idCompagd = null;
+            if (isset($graph['exp_meta'][$gaexp])) {
+                $idCompagd = $graph['exp_meta'][$gaexp]->id_compagd;
+            }
             $nomDest = isset($graph['dest_meta'][$gadest]) ? $graph['dest_meta'][$gadest]->nom_gadest : $gadest;
-            $nomExp = isset($graph['exp_meta'][$leg['gaexp']]) ? $graph['exp_meta'][$leg['gaexp']]->nom_gaep : $leg['gaexp'];
+            $nomExp = isset($graph['exp_meta'][$gaexp]) ? $graph['exp_meta'][$gaexp]->nom_gaep : $gaexp;
 
             $o = new stdClass();
             $o->id_tabitinligne = null;
@@ -1143,10 +1149,11 @@ class Graphe_correspondance
             $o->nom_itineraires = $leg['nom_ligne'];
             $o->depart_itine = $nomExp;
             $o->arrive_itine = $nomDest;
-            $o->code_gaexp = $leg['gaexp'];
+            $o->code_gaexp = $gaexp;
             $o->code_gadest = $gadest;
             $o->nom_gaep = $nomExp;
             $o->nom_gadest = $nomDest;
+            $o->id_compagd = $idCompagd;
             $o->id_compaga = $idCompaga;
             $o->nom_ligne = $axeParent;
             $o->ident_ligne = $axeParent;

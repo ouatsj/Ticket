@@ -1180,7 +1180,10 @@ document.addEventListener('DOMContentLoaded', () => {
             opt.value = hr.id_ligneheure + '/' + hr.heure;
             var hasProg = !!(hr.has_programme === true || hr.has_programme === 1 || hr.has_programme === '1');
             opt.setAttribute('data-has-programme', hasProg ? '1' : '0');
-            opt.innerHTML = hr.heure;
+            // Heures sans départ OD : créneaux transit (itinéraires à choisir après).
+            opt.innerHTML = hasProg
+                ? hr.heure
+                : (String(hr.heure) + (hasTransit ? ' (correspondance)' : ''));
             hSel.add(opt);
         }
     }
@@ -1234,15 +1237,19 @@ document.addEventListener('DOMContentLoaded', () => {
             + '<option value="">Choisissez l\'itinéraire</option>'
             + '</select>'
             + '<small class="form-text text-muted" id="selchemin_hint"></small>';
+        // Hors du panneau #tran (souvent display:none) — visible dès le choix d’heure.
         var anchor = document.getElementById('hdepart')
             || document.getElementById('hrid')
-            || document.getElementById('hdepartitine')
-            || document.getElementById('idchemins')
-            || document.getElementById('nbrtrans');
+            || document.getElementById('date_depheure');
+        var tran = document.getElementById('tran');
         if (anchor) {
             var fg = anchor.closest ? anchor.closest('.form-group') : null;
             if (fg && fg.parentNode) {
-                fg.parentNode.insertBefore(box, fg.nextSibling);
+                if (tran && tran.parentNode === fg.parentNode) {
+                    fg.parentNode.insertBefore(box, tran);
+                } else {
+                    fg.parentNode.insertBefore(box, fg.nextSibling);
+                }
                 return box;
             }
             if (anchor.parentNode) {
@@ -1250,6 +1257,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 return box;
             }
         }
+        if (tran && tran.parentNode) {
+            tran.parentNode.insertBefore(box, tran);
+            return box;
+        }
+        document.body.appendChild(box);
         return box;
     }
 
@@ -1500,15 +1512,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
             var chemins = Array.isArray(payload.chemins) ? payload.chemins : [];
-            if (chemins.length > 1) {
+            if (chemins.length >= 1) {
                 __venteShowCheminSelector(chemins, done);
                 return;
             }
             __venteHideCheminSelector();
-            if (chemins.length === 1 && chemins[0].etapes) {
-                done(chemins[0].etapes);
-                return;
-            }
             if (payload.etapes && (Array.isArray(payload.etapes) ? payload.etapes.length : Object.keys(payload.etapes).length)) {
                 done(payload.etapes);
                 return;
@@ -1717,10 +1725,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (errEl) errEl.innerHTML = chemins.length > 1
                 ? 'Choisissez un itinéraire (direct ou correspondances).'
                 : 'Itinéraire proposé — vérifiez les correspondances.';
-            if (chemins.length === 1) {
-                __venteApplyCheminChoice(chemins[0]);
-                return;
-            }
+            // Toujours afficher le select dès qu’il y a ≥1 chemin (même un seul).
             __venteShowCheminSelector(chemins);
         });
     }

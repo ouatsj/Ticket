@@ -2185,15 +2185,18 @@
 
         public function chemin($ax, $d)
         {
-            
-            $outch = $this->m_programme->getch($this->session->company->ekey, $ax, $d);
+            $ekey = $this->session->company->ekey;
+            session_release_lock();
+            $outch = $this->m_programme->getch($ekey, $ax, $d);
             return $this->load->view('beagle/pages/_programme/json', array('json' => $outch));
         }
 
         public function chemintr($ax, $d, $t)
         {
             // Guichet transit jambe 2+ : heures programme filtrées par tarif (≠ heures_correspondance admin).
-            $outcht = $this->m_programme->getchtr($this->session->company->ekey, $ax, $d, $t);
+            $ekey = $this->session->company->ekey;
+            session_release_lock();
+            $outcht = $this->m_programme->getchtr($ekey, $ax, $d, $t);
             return $this->load->view('beagle/pages/_programme/json', array('json' => $outcht));
         }
 

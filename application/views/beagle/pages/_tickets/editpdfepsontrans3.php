@@ -118,7 +118,7 @@
                         <tr><td style="font-size: 9px;">Suivez et surveillez bien vos bagages</td></tr>
                         <tr><td>BON VOYAGE AVEC <?= $item->nom_compagnie;?> <?= $nge;?></td></tr>
                         <tr><td style="font-size: 35px; width: 90%;"> <?= ticket_barcode_img($item->tamponcod, 250, 40); ?></td></tr>
-                        <tr><td style="font-size: 15px;">emis : <?= $dtoday; ?></td></tr>
+                        <?= ticket_emis_html($item, $dtoday); ?>
                         </table>
                     </body>
                 </div>
@@ -184,6 +184,7 @@
           						  <tr><td style="font-size: 20px;"><b><?= "{$day }"; ?> &nbsp;<?= "{$heures}"; ?></b></td></tr>
           						  <tr><td style="font-size: 20px;">Siege:<b><?= str_pad($item->num_siege_categorie, 2, "0", STR_PAD_LEFT); ?></b></td></tr>
           						  <tr><td style="font-size: 20px;">Prix:<?= number_format(ticket_impression_prix($item), 0, '', ' '); ?> &nbsp;FCFA &nbsp;<?= "{$item->contact_client}"; ?></td></tr>
+                          <?= ticket_stub_non_reprog_html($item); ?>
                         
                         </table>
                     </body>
@@ -294,7 +295,7 @@
                         <tr><td style="font-size: 9px;">Suivez et surveillez bien vos bagages</td></tr>
                         <tr><td>BON VOYAGE AVEC <?= $itemtrans->nom_compagnie;?> <?= $nge1;?></td></tr>
                         <tr><td style="font-size: 40px; width: 100%;"> <?= ticket_barcode_img($itemtrans->tamponcod, 250, 40); ?></td></tr>
-                        <tr><td style="font-size: 15px;">emis : <?= $dtoday; ?></td></tr>
+                        <?= ticket_emis_html($itemtrans, $dtoday); ?>
                         </table>
                     </body>
                 </div>
@@ -364,6 +365,7 @@
           							  <tr><td style="font-size: 20px;"><b><?= $day1; ?>&nbsp; <?= "{$heures1}"; ?></b></td></tr>
           							  <tr><td style="font-size: 20px;">Siege:<b><?= str_pad($itemtrans->num_siege_categorie, 2, "0", STR_PAD_LEFT); ?></b></td></tr>
           							  <tr><td style="font-size: 20px;">Prix:<?= number_format(ticket_impression_prix($itemtrans), 0, '', ' '); ?> &nbsp;FCFA &nbsp;<?= "{$itemtrans->contact_client}"; ?></td></tr></td></tr>
+                          <?= ticket_stub_non_reprog_html($itemtrans); ?>
 						  
                         </table>
                     </body>
@@ -477,7 +479,7 @@
             							<tr><td style="font-size: 9px;">Suivez et surveillez bien vos bagages</td></tr>
             							<tr><td>BON VOYAGE AVEC <?= $itemtrans2->nom_compagnie;?> <?= $nge2;?></td></tr>
             							<tr><td style="font-size: 35px; width: 90%;"> <?= ticket_barcode_img($itemtrans2->tamponcod, 250, 40); ?></td></tr>
-            							<tr><td style="font-size: 15px;">emis : <?= $dtoday; ?></td></tr>
+            							<?= ticket_emis_html($itemtrans2, $dtoday); ?>
                         </table>
                     </body>
                 </div>
@@ -547,6 +549,7 @@
             						  <tr><td style="font-size: 20px;"><b><?= $day2; ?>&nbsp; <?= "{$heures2}"; ?></b></td></tr>
             						  <tr><td style="font-size: 20px;">Siege:<b><?= str_pad($itemtrans2->num_siege_categorie, 2, "0", STR_PAD_LEFT); ?></b></td></tr>
             						  <tr><td style="font-size: 20px;">Prix:<?= number_format(ticket_impression_prix($itemtrans2), 0, '', ' '); ?> &nbsp;FCFA &nbsp;<?= "{$itemtrans2->contact_client}"; ?></td></tr></td></tr>
+                          <?= ticket_stub_non_reprog_html($itemtrans2); ?>
 						  
                         </table>
                     </body>
@@ -660,7 +663,7 @@
                         <tr><td style="font-size: 9px;">Suivez et surveillez bien vos bagages</td></tr>
                         <tr><td>BON VOYAGE AVEC <?= $itemtrans3->nom_compagnie;?> <?= $nge3;?></td></tr>
                         <tr><td style="font-size: 35px; width: 90%;"> <?= ticket_barcode_img($itemtrans3->tamponcod, 250, 40); ?></td></tr>
-                        <tr><td style="font-size: 15px;">emis : <?= $dtoday; ?></td></tr>
+                        <?= ticket_emis_html($itemtrans3, $dtoday); ?>
                         </table>
                     </body>
                 </div>
@@ -729,6 +732,7 @@
             						  <tr><td style="font-size: 20px;"><b><?= $day3; ?>&nbsp; <?= "{$heures3}"; ?></b></td></tr>
             						  <tr><td style="font-size: 20px;">Siege:<b><?= str_pad($itemtrans3->num_siege_categorie, 2, "0", STR_PAD_LEFT); ?></b></td></tr>
             						  <tr><td style="font-size: 20px;">Prix:<?= number_format(ticket_impression_prix($itemtrans3), 0, '', ' '); ?> &nbsp;FCFA &nbsp;<?= "{$itemtrans3->contact_client}"; ?></td></tr></td></tr>
+                          <?= ticket_stub_non_reprog_html($itemtrans3); ?>
                         </table>
                     </body>
                 </div>

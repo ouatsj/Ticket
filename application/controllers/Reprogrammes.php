@@ -47,10 +47,418 @@
             }
             return $this->sale_svc->siegepassager_payload($code_pro, $num_siege);
         }
-        
+
+        /**
+         * True si le ticket a déjà été reprogrammé (report actif ou statut_reprog).
+         *
+         * @param string $tamponcod
+         * @param string|null $code_passager
+         * @param string|null $code_ticket
+         * @return bool
+         */
+        protected function _reprog_deja_effectuee($tamponcod, $code_passager = null, $code_ticket = null)
+        {
+            $tamp = trim((string) $tamponcod);
+            if ($tamp !== '') {
+                $row = $this->db->query(
+                    "SELECT COUNT(*) AS n FROM report
+                     WHERE BINARY code_tick_tamp = " . $this->db->escape($tamp) . "
+                     AND actifrep = 0"
+                )->row();
+                if ($row && (int) $row->n > 0) {
+                    return true;
+                }
+                // Tampon = code_passager : bloquer aussi si statut déjà repor (jambes correspondance).
+                $pasT = $this->db->query(
+                    "SELECT statut_reprog FROM passager
+                     WHERE code_passager = " . $this->db->escape($tamp) . "
+                     LIMIT 1"
+                )->row();
+                if ($pasT && isset($pasT->statut_reprog) && (string) $pasT->statut_reprog === 'repor') {
+                    return true;
+                }
+            }
+
+            $cdpa = trim((string) $code_passager);
+            $cdpt = trim((string) $code_ticket);
+            if ($cdpa !== '' && $cdpt !== '') {
+                $pas = $this->db->query(
+                    "SELECT statut_reprog FROM passager
+                     WHERE code_passager = " . $this->db->escape($cdpa) . "
+                     AND BINARY code_ticket = " . $this->db->escape($cdpt) . "
+                     LIMIT 1"
+                )->row();
+                if ($pas && isset($pas->statut_reprog) && (string) $pas->statut_reprog === 'repor') {
+                    return true;
+                }
+            } elseif ($cdpa !== '') {
+                $pas = $this->db->query(
+                    "SELECT statut_reprog FROM passager
+                     WHERE code_passager = " . $this->db->escape($cdpa) . "
+                     LIMIT 1"
+                )->row();
+                if ($pas && isset($pas->statut_reprog) && (string) $pas->statut_reprog === 'repor') {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        /**
+         * Refuse une 2ᵉ reprogrammation et renvoie à l’accueil sous-gare.
+         */
+        protected function _reprog_refuse_redirect($gidc, $iduser, $sgid)
+        {
+            if (isset($this->session) && method_exists($this->session, 'set_flashdata')) {
+                $this->session->set_flashdata(
+                    'reprog_error',
+                    'Ce ticket a déjà été reprogrammé (une seule reprogrammation autorisée).'
+                );
+            }
+            redirect(
+                'gares/' . $this->session->company->ekey
+                . '/gTc/' . $gidc
+                . '/compte/' . $iduser
+                . '/' . $sgid
+                . '/' . mdate('%d/%m/%Y', now('UTC'))
+            );
+        }
+
+        /**
+         * Parse les segments transit postés par le modal unifié.
+         * @return array|null|false null=pas multi, false=incomplet, array=OK
+         */
+        protected function _reprog_parse_multiseg()
+        {
+            $mode = strtolower(trim((string) $this->input->post('reprog_mode')));
+            $n = (int) $this->input->post('reprog_nbr_seg');
+            if ($mode !== 'transit' || $n < 2) {
+                return null;
+            }
+            if ($n > 4) {
+                $n = 4;
+            }
+            $segs = array();
+            for ($i = 0; $i < $n; $i++) {
+                $prog = trim((string) $this->input->post('reprog_seg_prog_' . $i));
+                $siege = trim((string) $this->input->post('reprog_seg_siege_' . $i));
+                if ($prog === '' || $siege === '' || strpos($prog, '/') === false) {
+                    return false;
+                }
+                $parts = explode('/', $prog);
+                $segs[] = array(
+                    'code_progr' => isset($parts[0]) ? trim($parts[0]) : '',
+                    'id_ligneheure' => isset($parts[1]) ? trim($parts[1]) : '',
+                    'typetarif' => (isset($parts[2]) && $parts[2] !== '') ? trim($parts[2]) : '1',
+                    'siege' => $siege,
+                    'compaga' => trim((string) $this->input->post('reprog_seg_compaga_' . $i)),
+                    'cat' => trim((string) $this->input->post('reprog_seg_cat_' . $i)),
+                    'prix' => trim((string) $this->input->post('reprog_seg_prix_' . $i)),
+                );
+                if ($segs[$i]['code_progr'] === '') {
+                    return false;
+                }
+            }
+            return $segs;
+        }
+
+        /**
+         * Reprogrammation multi-correspondances : désactive l’ancien billet,
+         * crée N passagers liés (tamponcodtr), imprime via editpdfepsontrans*.
+         */
+        protected function _reprog_commit_multiseg_epson(array $segs)
+        {
+            $today = mdate('%Y-%m-%d', now('UTC'));
+            $gidc = $this->input->post('gareconnect');
+            $sgid = $this->input->post('sousgareconnect');
+            $iduser = roleattribut_guard_post_hint($this->company->ekey);
+            $usen = substr($this->session->agent->username, 0, 1);
+            $reg = $gidc;
+
+            $cdpa_old = $this->input->post('passeridtransit');
+            $cdpt_old = $this->input->post('codeclienttransit');
+            $client_id = $this->input->post('client_idtransit');
+            $sgidtr = $this->input->post('departclientidgaretr');
+            if ($sgidtr === null || $sgidtr === '') {
+                $sgidtr = $sgid;
+            }
+            $prix_base = $this->input->post('prixventeunifie');
+            if ($prix_base === null || $prix_base === false) {
+                $prix_base = '';
+            }
+            $prix_ref = $this->input->post('prixventeunifie_ref');
+            if ($prix_ref === null || $prix_ref === false || trim((string) $prix_ref) === '') {
+                $prix_ref = $prix_base;
+            }
+            $prix_ref_n = (float) str_replace(',', '.', preg_replace('/\s+/', '', (string) $prix_ref));
+            $sum_segs = 0.0;
+            foreach ($segs as $sx) {
+                if (isset($sx['prix']) && $sx['prix'] !== '') {
+                    $sum_segs += (float) str_replace(',', '.', preg_replace('/\s+/', '', (string) $sx['prix']));
+                }
+            }
+            $role = isset($this->session->agent->userole) ? (string) $this->session->agent->userole : '';
+            $allow_prix_diff = in_array($role, array('1', '2', '5', '15'), true);
+            // Vendeur : somme segments = prix ticket. Admin/chef : prix libre.
+            if (!$allow_prix_diff && $prix_ref_n > 0 && abs($sum_segs - $prix_ref_n) >= 0.05) {
+                if (isset($this->session) && method_exists($this->session, 'set_flashdata')) {
+                    $this->session->set_flashdata(
+                        'reprog_error',
+                        'Somme des prix correspondances (' . $sum_segs
+                        . ') différente du prix ticket vérifié (' . $prix_ref_n . ').'
+                    );
+                }
+                redirect(
+                    'gares/' . $this->session->company->ekey
+                    . '/gTc/' . $gidc . '/compte/' . $iduser . '/' . $sgid . '/'
+                    . mdate('%d/%m/%Y', now('UTC'))
+                );
+                return;
+            }
+
+            if ($this->_reprog_deja_effectuee($this->input->post('codeticketsclienttransit'), $cdpa_old, $cdpt_old)) {
+                $this->_reprog_refuse_redirect($gidc, $iduser, $sgid);
+                return;
+            }
+            $is_tr_ticket = ((string) $this->input->post('reprog_is_transit_ticket') === '1');
+            $cdpa_old2 = $this->input->post('passeridtransit2');
+            $cdpt_old2 = $this->input->post('codeclienttransit2');
+            if ($is_tr_ticket && $cdpa_old2 && $cdpt_old2) {
+                if ($this->_reprog_deja_effectuee($this->input->post('codeticketsclienttransit2'), $cdpa_old2, $cdpt_old2)) {
+                    $this->_reprog_refuse_redirect($gidc, $iduser, $sgid);
+                    return;
+                }
+            }
+
+            $pairs = array();
+            foreach ($segs as $s) {
+                $pairs[] = array($s['code_progr'], $s['siege']);
+            }
+            if (!$this->_sale_sieges_sont_libres($pairs)) {
+                if (isset($this->session) && method_exists($this->session, 'set_flashdata')) {
+                    $this->session->set_flashdata(
+                        'reprog_error',
+                        'Un ou plusieurs sièges de correspondance ne sont plus disponibles.'
+                    );
+                }
+                redirect(
+                    'gares/' . $this->session->company->ekey
+                    . '/gTc/' . $gidc . '/compte/' . $iduser . '/' . $sgid . '/'
+                    . mdate('%d/%m/%Y', now('UTC'))
+                );
+                return;
+            }
+
+            $repors = $this->db->query(
+                "SELECT COUNT(code_report) AS id FROM report r WHERE r.date = " . $this->db->escape($today)
+            )->row();
+            $codrep = $reg . mdate('%y%m%d', now('UTC')) . ($repors->id + 1) . $usen . $iduser;
+
+            $tampo_pref = mdate('%y%m%d', now('UTC')) . 'TR' . $usen . $iduser;
+            $tampo = $this->m_tamponcodetr->create(array('codtampon' => $tampo_pref));
+
+            $this->m_passager->update($cdpa_old, $cdpt_old, array(
+                'num_siege_categorie' => null,
+                'actif_pas' => 1,
+                'statut_reprog' => 'repor',
+            ));
+            $old_tamp = $this->input->post('codeticketsclienttransit');
+            if ($old_tamp) {
+                $this->m_tamponcode->update($old_tamp, array('actif_tamp' => 1));
+            }
+            // 2ᵉ jambe d’un ticket transit d’origine
+            if ($is_tr_ticket && $cdpa_old2 && $cdpt_old2) {
+                $this->m_passager->update($cdpa_old2, $cdpt_old2, array(
+                    'num_siege_categorie' => null,
+                    'actif_pas' => 1,
+                    'statut_reprog' => 'repor',
+                ));
+                $old_tamp2 = $this->input->post('codeticketsclienttransit2');
+                if ($old_tamp2) {
+                    $this->m_tamponcode->update($old_tamp2, array('actif_tamp' => 1));
+                }
+            }
+
+            $created = array();
+            foreach ($segs as $s) {
+                $passecompter = $this->db->query(
+                    "SELECT COUNT(code_passager) AS id FROM passager p
+                     WHERE p.datep_create = " . $this->db->escape($today) . "
+                     AND p.idcptuser = " . $this->db->escape($iduser) . "
+                     AND p.code_ticket != 'R' AND p.statut_code = 'vendu'"
+                )->row();
+                $passecompt = $this->db->query(
+                    "SELECT COUNT(code_passager) AS id FROM passager p
+                     WHERE p.datep_create = " . $this->db->escape($today)
+                )->row();
+
+                $cdtick = mdate('%m%d', now('UTC')) . ($passecompt->id + 1) . $usen . $iduser;
+                $tampon = mdate('%y%m%d', now('UTC')) . ($passecompter->id + 1) . $gidc . $usen . $iduser;
+
+                $this->m_tamponcode->create(array(
+                    'tamponcod' => $tampon,
+                    'tamponcodtr' => $tampo,
+                ));
+
+                $cat = $s['cat'];
+                if ($cat === '') {
+                    $meta = $this->m_programme->indexprog($this->session->company->ekey, $s['code_progr']);
+                    if (!empty($meta) && isset($meta[0]->categori)) {
+                        $cat = $meta[0]->categori;
+                    }
+                }
+                // Chaque jambe conserve son prix programme ; la somme a été contrôlée (= ticket vérifié).
+                $prix = ($s['prix'] !== '') ? $s['prix'] : $prix_base;
+
+                $pas = array(
+                    'code_passager' => $tampon,
+                    'code_ticket' => $cdtick,
+                    'idcptuser' => $iduser,
+                    'id_client_pass' => $client_id,
+                    'code_pro' => $s['code_progr'],
+                    'departclient_idgare' => $sgidtr,
+                    'num_siege_categorie' => $s['siege'],
+                    'num_cat' => $cat,
+                    'statut_reprog' => 'repor',
+                    'statut_code' => 'vendu',
+                    'quart' => 'Marche',
+                    'createpas_at' => now('UTC'),
+                    'datep_create' => mdate('%Y-%m-%d', now('UTC')),
+                );
+                if ($prix !== '' && $prix !== null) {
+                    $pas['prixvente'] = $prix;
+                }
+                $this->m_passager->create($pas);
+
+                $rowTs = $this->db->query(
+                    "SELECT * FROM tampon_siege t WHERE t.codepro = "
+                    . $this->db->escape($s['code_progr'])
+                    . " AND t.numsieg = " . $this->db->escape($s['siege'])
+                )->row();
+                if ($rowTs && isset($rowTs->idtamp)) {
+                    $this->m_tampon_siege->del($rowTs->idtamp, array(
+                        'codepro' => $s['code_progr'],
+                        'numsieg' => $s['siege'],
+                    ));
+                }
+
+                $created[] = array(
+                    'tampon' => $tampon,
+                    'typetarif' => $s['typetarif'],
+                    'id_ligneheure' => $s['id_ligneheure'],
+                );
+            }
+
+            $this->m_report->create(array(
+                'code_report' => $codrep,
+                'code_tick_tamp' => $created[0]['tampon'],
+                'idcpuserconect' => $iduser,
+                'date' => mdate('%Y/%m/%d', now('UTC')),
+            ));
+            // Chaque jambe = non reprogrammable (report + statut_reprog déjà 'repor').
+            for ($ri = 1; $ri < count($created); $ri++) {
+                $this->m_report->create(array(
+                    'code_report' => $codrep . 'S' . $ri,
+                    'code_tick_tamp' => $created[$ri]['tampon'],
+                    'idcpuserconect' => $iduser,
+                    'date' => mdate('%Y/%m/%d', now('UTC')),
+                ));
+            }
+
+            $this->property['UPDATE_SUCCESS'] = true;
+            $tf = $created[0]['typetarif'];
+            $base = 'Historique_Passagers/';
+            $tail = '/' . $gidc . '/' . $iduser . '/' . $sgid;
+            $ek = $this->session->company->ekey;
+
+            if (count($created) === 2) {
+                redirect(
+                    $base . 'editpdfepsontrans/' . $ek
+                    . '/' . $created[0]['tampon'] . '/' . $tf . '/' . $created[0]['id_ligneheure']
+                    . '/' . $created[1]['tampon'] . '/' . $created[1]['id_ligneheure']
+                    . $tail
+                );
+                return;
+            }
+            if (count($created) === 3) {
+                redirect(
+                    $base . 'editpdfepsontrans2/' . $ek
+                    . '/' . $created[0]['tampon'] . '/' . $tf . '/' . $created[0]['id_ligneheure']
+                    . '/' . $created[1]['tampon'] . '/' . $created[1]['id_ligneheure']
+                    . '/' . $created[2]['tampon'] . '/' . $created[2]['id_ligneheure']
+                    . $tail
+                );
+                return;
+            }
+            redirect(
+                $base . 'editpdfepsontrans3/' . $ek
+                . '/' . $created[0]['tampon'] . '/' . $tf . '/' . $created[0]['id_ligneheure']
+                . '/' . $created[1]['tampon'] . '/' . $created[1]['id_ligneheure']
+                . '/' . $created[2]['tampon'] . '/' . $created[2]['id_ligneheure']
+                . '/' . $created[3]['tampon'] . '/' . $created[3]['id_ligneheure']
+                . $tail
+            );
+        }
+
         /**
          *
          */
+
+        /**
+         * Programmes d’une correspondance (ligne + date) pour le modal reprog unifié.
+         * GET /reprogrammes/seg_progs/{ligne}/{date}/{tarif?}
+         */
+        public function seg_progs($ligne, $date, $tarif = null)
+        {
+            $ekey = $this->session->company->ekey;
+            session_release_lock();
+            $ligne = rawurldecode((string) $ligne);
+            $date = rawurldecode((string) $date);
+            if ($tarif === null || $tarif === '' || $tarif === '0') {
+                $tarif = $this->input->get('tarif');
+            }
+            if ($tarif === false || $tarif === null || trim((string) $tarif) === '') {
+                $tarif = null;
+            }
+            $cie = $this->input->get('cie');
+            if ($cie === false || $cie === null || trim((string) $cie) === '') {
+                $cie = $this->input->get('compaga');
+            }
+            if ($cie === false || $cie === null || trim((string) $cie) === '') {
+                $cie = null;
+            }
+            $gadest = $this->input->get('gadest');
+            if ($gadest === false || $gadest === null || trim((string) $gadest) === '') {
+                $gadest = null;
+            }
+            $rows = $this->m_programme->getch_seg_reprog($ekey, $ligne, $date, $tarif, $cie, $gadest);
+            // Si filtre tarif trop strict → retenter sans tarif (garde cie + gadest).
+            if (empty($rows) && $tarif !== null) {
+                $rows = $this->m_programme->getch_seg_reprog($ekey, $ligne, $date, null, $cie, $gadest);
+            }
+            // Si filtre gadest trop strict → retenter sans gadest (garde cie).
+            if (empty($rows) && $gadest !== null) {
+                $rows = $this->m_programme->getch_seg_reprog($ekey, $ligne, $date, $tarif, $cie, null);
+                if (empty($rows) && $tarif !== null) {
+                    $rows = $this->m_programme->getch_seg_reprog($ekey, $ligne, $date, null, $cie, null);
+                }
+            }
+            // Dernier recours : sans cie (mais ne devrait pas arriver si l’étape a id_compaga).
+            if (empty($rows) && $cie !== null) {
+                $rows = $this->m_programme->getch_seg_reprog($ekey, $ligne, $date, $tarif, null, $gadest);
+                if (empty($rows) && $tarif !== null) {
+                    $rows = $this->m_programme->getch_seg_reprog($ekey, $ligne, $date, null, null, $gadest);
+                }
+                if (empty($rows) && $gadest !== null) {
+                    $rows = $this->m_programme->getch_seg_reprog($ekey, $ligne, $date, $tarif, null, null);
+                    if (empty($rows) && $tarif !== null) {
+                        $rows = $this->m_programme->getch_seg_reprog($ekey, $ligne, $date, null, null, null);
+                    }
+                }
+            }
+            return $this->load->view('beagle/pages/_programme/json', array('json' => $rows));
+        }
 
         public function siegdispo($cd)
         {
@@ -84,6 +492,70 @@
         {
             $outr = $this->m_tamponcode->verifireptra($this->session->company->ekey, $code);
             return $this->load->view('beagle/pages/_programme/json', array('json' => $outr));
+        }
+
+        /**
+         * Lookup unifié : code billet (tous) ou tamponcod (admin / chef seulement).
+         * GET ?mode=ticket|tampon&code=...
+         */
+        public function lookup_unifie()
+        {
+            session_release_lock();
+            $mode = strtolower(trim((string) $this->input->get_post('mode')));
+            $code = trim((string) $this->input->get_post('code'));
+            if ($code === '') {
+                return $this->load->view('beagle/pages/_programme/json', array('json' => null));
+            }
+
+            $role = isset($this->session->agent->userole) ? (string) $this->session->agent->userole : '';
+            $allow_tampon = in_array($role, array('1', '2', '5', '15'), true);
+
+            if ($mode === 'tampon') {
+                if (!$allow_tampon) {
+                    return $this->output->set_status_header(403)
+                        ->set_content_type('application/json')
+                        ->set_output(json_encode(null));
+                }
+                $out = $this->m_tamponcode->verifirepadmin($this->session->company->ekey, $code);
+            } else {
+                // Ticket : entreprise entière (direct ↔ transit / cross-cie)
+                $out = $this->m_tamponcode->verifireptra($this->session->company->ekey, $code);
+            }
+
+            return $this->load->view('beagle/pages/_programme/json', array('json' => $out));
+        }
+
+        /**
+         * Heures unifiées même OD. GET prix= optionnel.
+         * Vendeur : même prix obligatoire. Admin/chef : prix libre (toutes heures OD).
+         */
+        public function heures_unifie($gaexp, $gadest, $exclude)
+        {
+            session_release_lock();
+            $role = isset($this->session->agent->userole) ? (string) $this->session->agent->userole : '';
+            $is_prive = in_array($role, array('1', '2', '5', '15'), true);
+            $prix = $this->input->get_post('prix');
+            if ($prix === false || $prix === null) {
+                $prix = '';
+            }
+            $prix = trim((string) $prix);
+
+            $prixFilter = null;
+            if (!$is_prive) {
+                if ($prix === '') {
+                    return $this->load->view('beagle/pages/_programme/json', array('json' => array()));
+                }
+                $prixFilter = $prix;
+            }
+
+            $rows = $this->m_programme->heurereprog_unifie(
+                $this->session->company->ekey,
+                $gaexp,
+                $gadest,
+                $exclude,
+                $prixFilter
+            );
+            return $this->load->view('beagle/pages/_programme/json', array('json' => $rows));
         }
         
         public function verifretcodecl($gid, $codert, $u)
@@ -219,6 +691,10 @@
                 $codnonpass = $this->input->post('codenonpassager');
                 $conf = $this->input->post('statconfirm');
                 $repr = $this->input->post('statrepro');
+                if ($this->_reprog_deja_effectuee($this->input->post('codeticketsclient'), $cdpa, $cdpt)) {
+                    $this->_reprog_refuse_redirect($gidc, $iduser, $sgid);
+                    return;
+                }
                 if($this->input->post('numsiege')!= '')
                 {
                     $repors = $this->db->query("SELECT COUNT(code_report) AS id FROM report r WHERE r.date = '$today'")->row();
@@ -325,6 +801,10 @@
                 $codnonpass = $this->input->post('codenonpassager');
                 $conf = $this->input->post('statconfirm');
                 $repr = $this->input->post('statrepro');
+                if ($this->_reprog_deja_effectuee($this->input->post('codeticketsclient'), $cdpa, $cdpt)) {
+                    $this->_reprog_refuse_redirect($gidc, $iduser, $sgid);
+                    return;
+                }
                 if($this->input->post('numsiege')!= '')
                 {
                     $repors = $this->db->query("SELECT COUNT(code_report) AS id FROM report r WHERE r.date = '$today'")->row();
@@ -423,8 +903,34 @@
             $gidc = $this->input->post('gareconnect');
             $sgid = $this->input->post('sousgareconnect');
             $idcmpt = $this->input->post('compconnected');
+
+            // Multi-segments : EPSON uniquement (ORDINAIRE désactivé dans le modal unifié).
+            $multiseg_probe = $this->_reprog_parse_multiseg();
+            if ($multiseg_probe === false
+                || (is_array($multiseg_probe) && count($multiseg_probe) >= 2 && !$imprimeepson)
+            ) {
+                $iduser = roleattribut_guard_post_hint($this->company->ekey);
+                if (isset($this->session) && method_exists($this->session, 'set_flashdata')) {
+                    $msg = ($multiseg_probe === false)
+                        ? 'Itinéraire incomplet : renseignez compagnie, heure et siège pour chaque correspondance.'
+                        : 'Impression multi-correspondances : utilisez EPSON.';
+                    $this->session->set_flashdata('reprog_error', $msg);
+                }
+                redirect(
+                    'gares/' . $this->session->company->ekey
+                    . '/gTc/' . $gidc . '/compte/' . $iduser . '/' . $sgid . '/'
+                    . mdate('%d/%m/%Y', now('UTC'))
+                );
+                return;
+            }
+
             if($imprimeepson)
             {
+                if (is_array($multiseg_probe) && count($multiseg_probe) >= 2) {
+                    $this->_reprog_commit_multiseg_epson($multiseg_probe);
+                    return;
+                }
+
                 $iduser = roleattribut_guard_post_hint($this->company->ekey);
                 $usen = substr($this->session->agent->username, 0, 1);           
                 $reg = $this->input->post('gareconnect');
@@ -452,8 +958,15 @@
                 
                 $rt = 'repor';
                 $codnonpass = $this->input->post('codenonpassagertransit');
+                if ($codnonpass === false || trim((string) $codnonpass) === '' || $codnonpass === 'null') {
+                    $codnonpass = null;
+                }
                 $conf = $this->input->post('statconfirmtransit');
                 $repr = $this->input->post('statreprotransit');
+                if ($this->_reprog_deja_effectuee($this->input->post('codeticketsclienttransit'), $cdpa, $cdpt)) {
+                    $this->_reprog_refuse_redirect($gidc, $iduser, $sgid);
+                    return;
+                }
                 if($this->input->post('numsiegetransit')!= '')
                 {
                     $repors = $this->db->query("SELECT COUNT(code_report) AS id FROM report r WHERE r.date = '$today'")->row();
@@ -671,7 +1184,7 @@
                                         
                                     $this->m_tampon_siege->del($results->idtamp, $delarray);
 
-                                if($codnonpass == "null" OR $codnonpass === null OR $conf == 'confirm'){
+                                if ($codnonpass === null || $codnonpass === '' || $codnonpass === 'null' || $conf == 'confirm') {
                                      
                                     redirect('Historique_Passagers/editepsonreporttr/' . $this->session->company->ekey.'/'. $gidc . '/' . $codrep.'/'. $hrp1. '/' .$cdpt.'/' . $dpclient1.'/'.$iduser.'/'.$sgid.'/'.$gidctr.'/'.$sgidtr);
                                 }
@@ -726,6 +1239,10 @@
                 $codnonpass = $this->input->post('admincodenonpassager');
                 $conf = $this->input->post('adminstatconfirm');
                 $repr = $this->input->post('adminstatrepro');
+                if ($this->_reprog_deja_effectuee($this->input->post('admincodeticketsclient'), $cdpa, $cdpt)) {
+                    $this->_reprog_refuse_redirect($gidc, $iduser, $sgid);
+                    return;
+                }
                 if($this->input->post('adminnumsiege')!= '')
                 {
                     $repors = $this->db->query("SELECT COUNT(code_report) AS id FROM report r WHERE r.date = '$today'")->row();
@@ -833,6 +1350,10 @@
                 $codnonpass = $this->input->post('admincodenonpassager');
                 $conf = $this->input->post('adminstatconfirm');
                 $repr = $this->input->post('adminstatrepro');
+                if ($this->_reprog_deja_effectuee($this->input->post('admincodeticketsclient'), $cdpa, $cdpt)) {
+                    $this->_reprog_refuse_redirect($gidc, $iduser, $sgid);
+                    return;
+                }
                 if($this->input->post('adminnumsiege')!= '')
                 {
                     $repors = $this->db->query("SELECT COUNT(code_report) AS id FROM report r WHERE r.date = '$today'")->row();

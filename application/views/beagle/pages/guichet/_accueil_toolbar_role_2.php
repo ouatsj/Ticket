@@ -35,16 +35,8 @@
       <div class="tab-pane fade" id="guichet-tab-2-tickets" role="tabpanel">
         <div class="guichet-btn-grid">
           <a href="#" data-cle_compagnie="<?= $this->session->company->ekey; ?>"
-                                class="btn btn-secondary btn-space addreprogramme md-trigger" data-modal="repro-0">
-                                <i class="fas fa-edit text-warning"></i>&nbsp;REPROGRAMMER TICKET&nbsp;
-                            </a>
-          <a href="#" data-cle_compagnie="<?= $this->session->company->ekey;?>"
-                                class="btn btn-secondary btn-space addreprogrammetransit md-trigger" data-modal="reprotransit-0">
-                                <i class="fas fa-edit text-warning"></i>&nbsp;REPROGRAMMER TICKET&nbsp;
-                            </a>
-          <a href="#" data-cle_compagnie="<?= $this->session->company->ekey; ?>"
-                                class="btn btn-secondary btn-space addreprogadmin md-trigger" data-modal="adminrepro-0">
-                                <i class="fas fa-edit text-warning"></i>&nbsp;REPROGRAMMER AUTRE TICKET&nbsp;
+                                class="btn btn-secondary btn-space addreprog_unifie md-trigger" data-modal="repro-unifie-0">
+                                <i class="fas fa-edit text-warning"></i>&nbsp;REPROGRAMMER&nbsp;
                             </a>
           <a href="#" data-cle_compagnie="<?= $this->session->company->ekey; ?>"
                                 class="btn btn-secondary btn-space addconfirme md-trigger" data-modal="confirm-0">

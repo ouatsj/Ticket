@@ -404,6 +404,7 @@ return array(
         'm_recupassager',
         'm_report',
         'm_tamponcode',
+        'm_tamponcodetr',
         'm_tampon_siege',
         'm_itineraire_etape',
     ),

@@ -23,12 +23,8 @@ $compte_arret_only_compte = !empty($compte_arret_only_compte) || !empty($compte_
                                 <i class="fas fa-book text-warning"></i>&nbsp;RESERVATION&nbsp;
                             </a>&nbsp;&nbsp;
                             <a href="#" data-cle_compagnie="<?= $this->session->company->ekey; ?>"
-                                class="btn btn-secondary btn-space addreprogramme md-trigger" data-modal="repro-0">
-                                <i class="fas fa-edit text-warning"></i>&nbsp;REPROGRAMMER TICKET&nbsp;
-                            </a>
-                            <a href="#" data-cle_compagnie="<?= $this->session->company->ekey; ?>"
-                                class="btn btn-secondary btn-space addreprogadmin md-trigger" data-modal="adminrepro-0">
-                                <i class="fas fa-edit text-warning"></i>&nbsp;REPROGRAMMER TICKET GUICHET&nbsp;
+                                class="btn btn-secondary btn-space addreprog_unifie md-trigger" data-modal="repro-unifie-0">
+                                <i class="fas fa-edit text-warning"></i>&nbsp;REPROGRAMMER&nbsp;
                             </a>
                             
                             
@@ -2176,4 +2172,5 @@ $compte_arret_only_compte = !empty($compte_arret_only_compte) || !empty($compte_
                         </div>
                         <?= form_close(); ?>
                 </div>
+            <?php $this->load->view('beagle/pages/guichet/_reprog_modal_unifie'); ?>
             </div>

@@ -146,13 +146,30 @@
                     AND ex.code_gaexp = '$gid'
                     AND ctp.actif_tamp = 0
                     AND p.actif_pas = 0
+                    AND (p.statut_reprog IS NULL OR p.statut_reprog = '' OR p.statut_reprog != 'repor')
                     AND BINARY ctp.tamponcod NOT IN (SELECT code_tick_tamp FROM report WHERE actifrep = 0)")->row();
         }
 
         public function verifireptra($cid, $code)
         {
                 $encour = date("Y");
-                return $this->db->query("SELECT * FROM tamponcode ctp
+                // Compagnie ticket = arrivée (id_compaga), comme Passager_model — pas la cie départ.
+                return $this->db->query("SELECT
+                    ctp.*,
+                    p.*,
+                    np.code_non_pass,
+                    cl.nom_client, cl.prenom_client, cl.contact_client, cl.num_CNIB, cl.date_delivre, cl.lieu_delivre,
+                    pr.code_progr, pr.date_progr, pr.typetarif, pr.categori, pr.gareidentif, pr.intervalle1, pr.intervalle2,
+                    lh.id_ligneheure, lh.ligne_id, lh.heure_identif,
+                    h.heure,
+                    lg.ident_ligne, lg.nom_ligne, lg.gaexp_lg, lg.gadest_lg,
+                    ga.id_compaga,
+                    ca.nom_compagnie AS nom_compagnie,
+                    ca.cle_compagnie AS cle_compagnie_arrivee,
+                    ex.id_compagd,
+                    cd.nom_compagnie AS nom_compagnie_depart,
+                    cd.cle_compagnie AS cle_compagnie_depart
+                FROM tamponcode ctp
                     JOIN passager p ON p.code_passager = ctp.tamponcod
                     LEFT JOIN non_passager np ON ctp.tamponcod = np.code_non_pass
                     JOIN client cl ON p.id_client_pass = cl.id_client
@@ -164,12 +181,14 @@
                     JOIN tarifs t ON pr.typetarif = t.id_tarifs
                     JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
                     JOIN gare_dest ga ON lg.gadest_lg = ga.code_gadest
-                    JOIN compagnies c ON ex.id_compagd = c.cle_compagnie
-                    JOIN entreprise e ON c.id_entrep = e.id_entreprise
+                    JOIN compagnies ca ON ga.id_compaga = ca.cle_compagnie
+                    JOIN compagnies cd ON ex.id_compagd = cd.cle_compagnie
+                    JOIN entreprise e ON ca.id_entrep = e.id_entreprise
                     WHERE e.ekey = '$cid'
                     AND BINARY p.code_ticket = '$code'
                     AND ctp.actif_tamp = 0
                     AND p.actif_pas = 0
+                    AND (p.statut_reprog IS NULL OR p.statut_reprog = '' OR p.statut_reprog != 'repor')
                     AND BINARY ctp.tamponcod NOT IN (SELECT code_tick_tamp FROM report WHERE actifrep = 0)")->row();
         }
 
@@ -197,7 +216,23 @@
         {
                 $gid = $this->session->agent->guser;
                 $encour = date("Y");
-                return $this->db->query("SELECT * FROM tamponcode ctp
+                // Compagnie ticket = arrivée (id_compaga), aligné sur Passager_model / verifireptra.
+                return $this->db->query("SELECT
+                    ctp.*,
+                    p.*,
+                    np.code_non_pass,
+                    cl.nom_client, cl.prenom_client, cl.contact_client, cl.num_CNIB, cl.date_delivre, cl.lieu_delivre,
+                    pr.code_progr, pr.date_progr, pr.typetarif, pr.categori, pr.gareidentif, pr.intervalle1, pr.intervalle2,
+                    lh.id_ligneheure, lh.ligne_id, lh.heure_identif,
+                    h.heure,
+                    lg.ident_ligne, lg.nom_ligne, lg.gaexp_lg, lg.gadest_lg,
+                    ga.id_compaga,
+                    ca.nom_compagnie AS nom_compagnie,
+                    ca.cle_compagnie AS cle_compagnie_arrivee,
+                    ex.id_compagd,
+                    cd.nom_compagnie AS nom_compagnie_depart,
+                    cd.cle_compagnie AS cle_compagnie_depart
+                FROM tamponcode ctp
                     JOIN passager p ON p.code_passager = ctp.tamponcod
 					LEFT JOIN non_passager np ON ctp.tamponcod = np.code_non_pass
                     JOIN client cl ON p.id_client_pass = cl.id_client
@@ -205,17 +240,22 @@
                     JOIN programme pr ON p.code_pro = pr.code_progr
                     JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
                     JOIN tarification tf ON tf.ligne_heure_id = lh.id_ligneheure
+                        AND tf.typetarif_id = pr.typetarif
+                        AND tf.actif_taf = 1
                     JOIN heures h ON lh.heure_identif = h.id_heure
                     JOIN lignes lg ON lh.ligne_id = lg.ident_ligne 
                     JOIN tarifs t ON pr.typetarif = t.id_tarifs
                     JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
-                    JOIN compagnies c ON ex.id_compagd = c.cle_compagnie
-                    JOIN entreprise e ON c.id_entrep = e.id_entreprise
+                    JOIN gare_dest ga ON lg.gadest_lg = ga.code_gadest
+                    JOIN compagnies ca ON ga.id_compaga = ca.cle_compagnie
+                    JOIN compagnies cd ON ex.id_compagd = cd.cle_compagnie
+                    JOIN entreprise e ON ca.id_entrep = e.id_entreprise
                     WHERE e.ekey = '$cid'
                     AND BINARY ctp.tamponcod = '$code'
 					AND ex.code_gaexp = '$gid'
                     AND ctp.actif_tamp = 0
                     AND p.actif_pas = 0
+                    AND (p.statut_reprog IS NULL OR p.statut_reprog = '' OR p.statut_reprog != 'repor')
                     AND BINARY ctp.tamponcod NOT IN (SELECT code_tick_tamp FROM report WHERE actifrep = 0)")->row();
         }
 

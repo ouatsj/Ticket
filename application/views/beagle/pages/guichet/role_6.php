@@ -29,8 +29,8 @@ $compte_arret_grace = !empty($compte_arret_grace);
                             </a>-->
 
                             <a href="#" data-cle_compagnie="<?= $this->session->company->ekey;?>"
-                                class="btn btn-secondary btn-space addreprogrammetransit md-trigger" data-modal="reprotransit-0">
-                                <i class="fas fa-edit text-warning"></i>&nbsp;REPROGRAMMER TICKET&nbsp;
+                                class="btn btn-secondary btn-space addreprog_unifie md-trigger" data-modal="repro-unifie-0">
+                                <i class="fas fa-edit text-warning"></i>&nbsp;REPROGRAMMER&nbsp;
                             </a>
                             <!--<a href="#" data-cle_compagnie="<?//= $this->session->company->ekey; ?>"
                                 class="btn btn-secondary btn-space addconfirmadmin md-trigger" data-modal="adminconfirm-0">
@@ -1437,4 +1437,5 @@ $compte_arret_grace = !empty($compte_arret_grace);
                     </div>
                     <?= form_close(); ?>
                 </div>
+            <?php $this->load->view('beagle/pages/guichet/_reprog_modal_unifie'); ?>
             </div>

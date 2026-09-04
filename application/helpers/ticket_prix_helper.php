@@ -432,3 +432,56 @@ if (!function_exists('ticket_print_ctx')) {
         return $out;
     }
 }
+
+if (!function_exists('ticket_est_reporte')) {
+    /**
+     * Ticket issu d’une reprogrammation (non reprogrammable à nouveau).
+     *
+     * @param object|array|null $item
+     * @return bool
+     */
+    function ticket_est_reporte($item)
+    {
+        if (is_array($item)) {
+            $st = isset($item['statut_reprog']) ? $item['statut_reprog'] : null;
+        } elseif (is_object($item)) {
+            $st = isset($item->statut_reprog) ? $item->statut_reprog : null;
+        } else {
+            return false;
+        }
+        return (string) $st === 'repor';
+    }
+}
+
+if (!function_exists('ticket_emis_html')) {
+    /**
+     * Ligne « emis : … » (+ NON REPROGRAMMABLE si reporté).
+     *
+     * @param object|null $item
+     * @param string $dtoday
+     * @return string HTML <tr>…
+     */
+    function ticket_emis_html($item, $dtoday)
+    {
+        $suffix = ticket_est_reporte($item) ? ' NON REPROGRAMMABLE' : '';
+        return '<tr><td style="font-size: 15px;">emis : '
+            . htmlspecialchars((string) $dtoday, ENT_QUOTES, 'UTF-8')
+            . $suffix . '</td></tr>';
+    }
+}
+
+if (!function_exists('ticket_stub_non_reprog_html')) {
+    /**
+     * Ligne stub « NON REPROGRAMMABLE » (vide si ticket encore reprogrammable).
+     *
+     * @param object|null $item
+     * @return string
+     */
+    function ticket_stub_non_reprog_html($item)
+    {
+        if (!ticket_est_reporte($item)) {
+            return '';
+        }
+        return '<tr><td>NON REPROGRAMMABLE</td></tr>';
+    }
+}
