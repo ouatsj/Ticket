@@ -81,6 +81,7 @@
                 'verifescalesod' => array('m_itineraire_escale'),
                 'verifprogrammes' => array('m_programme'),
                 'siegepassager' => array('m_passager'),
+                'siege_vendable' => array('m_programme'),
                 'siegdispo' => array('m_programme'),
                 'siegdispobus' => array('m_programme'),
                 'siegdisponible' => array('m_programme'),
@@ -333,15 +334,15 @@
         }
 
         /**
-         * Bloque la vente sur un siège marqué hors quota (Programmes par compagnie).
+         * Garde vente : siège vendable via l'API unique (bloqué / hors quota / occupé…).
          */
         protected function _sale_siege_bloque_guard()
         {
             if (!$this->session->userdata('company')) {
                 return false;
             }
-            if (!isset($this->m_programme)) {
-                $this->load->model('Programme_model', 'm_programme');
+            if (!isset($this->sale_svc)) {
+                $this->load->library('sale_passager_service', null, 'sale_svc');
             }
 
             $pairs = array(
@@ -368,10 +369,15 @@
                 if ($code === '' || $siege <= 0) {
                     continue;
                 }
-                if ($this->m_programme->siege_est_bloque_programme($code, $siege)) {
-                    $this->_addpassager_redirect_back(
-                        'Le siège ' . $siege . ' est bloqué à la vente pour ce départ.'
-                    );
+                $assert = $this->sale_svc->assert_siege_vendable($code, $siege, array(
+                    'preflight' => true,
+                    'allow_tampon' => true,
+                ));
+                if (empty($assert['ok'])) {
+                    $msg = !empty($assert['reason'])
+                        ? (string) $assert['reason']
+                        : ('Le siège ' . $siege . ' n\'est pas vendable pour ce départ.');
+                    $this->_addpassager_redirect_back($msg);
                     return true;
                 }
             }
@@ -409,7 +415,7 @@
         }
 
         /**
-         * Réponse JSON standard siegepassager.
+         * Réponse JSON standard siège (API unique siege_vendable).
          *
          * @param string $code_pro
          * @param int|string $num_siege
@@ -420,7 +426,7 @@
             if (!isset($this->sale_svc)) {
                 $this->load->library('sale_passager_service', null, 'sale_svc');
             }
-            return $this->sale_svc->siegepassager_payload($code_pro, $num_siege);
+            return (object) $this->sale_svc->siege_vendable($code_pro, $num_siege);
         }
 
         protected function _sale_redirect($url)
@@ -699,10 +705,7 @@
             $this->_purge_tampon_siege_expired();
 
             $num = (int) $ns;
-            if ($this->m_programme->siege_est_bloque_programme($pro, $num)) {
-                return $this->load->view('beagle/pages/_programme/json', array('json' => null));
-            }
-
+            // API unique : bloqué / hors quota / occupé / reconduction…
             $assert = $this->sale_svc->assert_siege_vendable($pro, $num, array(
                 'preflight' => true,
                 'skip_tampon' => true,
@@ -859,7 +862,12 @@
                 $pr = $this->m_programme->create($arrayprog);
                 if ($pr != NULL) {
                     $this->m_programme->sync_portee_sousgares($pcd2, $selected_sg, $total_sg);
-                    $this->m_programme->sync_sieges_bloques_programme($pcd2, $sieges_bloques);
+                    $this->m_programme->sync_sieges_bloques_programme(
+                        $pcd2,
+                        $sieges_bloques,
+                        (int) $quota['intervalle1'],
+                        (int) $quota['intervalle2']
+                    );
                     $this->property['INSERT_SUCCESS'] = TRUE;
                 }
             }
@@ -1017,24 +1025,29 @@
                         'dateheure_prog' => $this->input->post('dateprogramme').'-'.$suheure,
                         'date_progr' => $this->input->post('dateprogramme'),
                     );
-                    if($this->m_programme->update($idpr, $arrayedit) != FALSE)
-                    {
-                        $this->m_programme->sync_sieges_bloques_programme($idpr, $sieges_bloques);
-                        $this->m_programme->sync_portee_sousgares($idpr, $selected_sg, $total_sg);
-                        $nbp = $quota['intervalle2'];
-                        $cte = $this->input->post('categorie');
-                        $d = $this->input->post('dateprogramme');
-
-                        $this->db->query("UPDATE programme SET categori = '$cte' WHERE depart_code = '$cdb' AND date_progr = '$d'");
-                        $this->db->query("UPDATE passager JOIN programme ON passager.code_pro = programme.code_progr SET num_cat = '$cte' WHERE depart_code = '$cdb'");
-                        
-
-                        $this->property['UPDATE_SUCCESS'] = TRUE;
-                    
-                        redirect('gares/'.$this->session->company->ekey. '/gTv/'. $gd. '/prog/'.$iduser.'/'.$idsg.'/'.  mdate("%d/%m/%Y", now('UTC')));
+                    $upd = $this->m_programme->update($idpr, $arrayedit);
+                    if ($upd === FALSE) {
+                        $redirect_prog('prog_edit_error', 'Modification non enregistrée (échec base de données).');
                         return;
                     }
-                    $redirect_prog('prog_edit_error', 'Modification non enregistrée (échec base de données).');
+                    // Sync trous toujours après update OK (même si intervalle1/2 inchangés).
+                    $this->m_programme->sync_sieges_bloques_programme(
+                        $idpr,
+                        $sieges_bloques,
+                        (int) $quota['intervalle1'],
+                        (int) $quota['intervalle2']
+                    );
+                    $this->m_programme->sync_portee_sousgares($idpr, $selected_sg, $total_sg);
+                    $nbp = $quota['intervalle2'];
+                    $cte = $this->input->post('categorie');
+                    $d = $this->input->post('dateprogramme');
+
+                    $this->db->query("UPDATE programme SET categori = '$cte' WHERE depart_code = '$cdb' AND date_progr = '$d'");
+                    $this->db->query("UPDATE passager JOIN programme ON passager.code_pro = programme.code_progr SET num_cat = '$cte' WHERE depart_code = '$cdb'");
+
+                    $this->property['UPDATE_SUCCESS'] = TRUE;
+
+                    redirect('gares/'.$this->session->company->ekey. '/gTv/'. $gd. '/prog/'.$iduser.'/'.$idsg.'/'.  mdate("%d/%m/%Y", now('UTC')));
                     return;
                 }
                 if($cgbselect != '')
@@ -1053,31 +1066,42 @@
                             'dateheure_prog' => $this->input->post('dateprogramme').'-'.$suheure,
                             'date_progr' => $this->input->post('dateprogramme'),
                         );
-                        if($this->m_programme->update($idpr, $arrayedit) != FALSE)
-                        {
-                            $this->m_programme->sync_sieges_bloques_programme($idpr, $sieges_bloques);
-                            $this->m_programme->sync_portee_sousgares($idpr, $selected_sg, $total_sg);
-                            $nbp = $quota['intervalle2'];
-                            $cte = $this->input->post('categorie');
-                            $d = $this->input->post('dateprogramme');
-        
-                            $this->db->query("UPDATE programme SET categori = '$cte' WHERE depart_code = '$cdb' AND date_progr = '$d'");
-                            $this->db->query("UPDATE passager JOIN programme ON passager.code_pro = programme.code_progr SET num_cat = '$cte' WHERE depart_code = '$cdb'");
-                            
-        
-                            $this->property['UPDATE_SUCCESS'] = TRUE;
-                        
-                            redirect('gares/'.$this->session->company->ekey. '/gTv/'. $gd. '/prog/'.$iduser.'/'.$idsg.'/'.  mdate("%d/%m/%Y", now('UTC')));
+                        $upd = $this->m_programme->update($idpr, $arrayedit);
+                        if ($upd === FALSE) {
+                            $redirect_prog('prog_edit_error', 'Modification non enregistrée (échec base de données).');
                             return;
                         }
-                        $redirect_prog('prog_edit_error', 'Modification non enregistrée (échec base de données).');
+                        // Sync trous toujours après update OK (même si intervalle1/2 inchangés).
+                        $this->m_programme->sync_sieges_bloques_programme(
+                            $idpr,
+                            $sieges_bloques,
+                            (int) $quota['intervalle1'],
+                            (int) $quota['intervalle2']
+                        );
+                        $this->m_programme->sync_portee_sousgares($idpr, $selected_sg, $total_sg);
+                        $nbp = $quota['intervalle2'];
+                        $cte = $this->input->post('categorie');
+                        $d = $this->input->post('dateprogramme');
+
+                        $this->db->query("UPDATE programme SET categori = '$cte' WHERE depart_code = '$cdb' AND date_progr = '$d'");
+                        $this->db->query("UPDATE passager JOIN programme ON passager.code_pro = programme.code_progr SET num_cat = '$cte' WHERE depart_code = '$cdb'");
+
+                        $this->property['UPDATE_SUCCESS'] = TRUE;
+
+                        redirect('gares/'.$this->session->company->ekey. '/gTv/'. $gd. '/prog/'.$iduser.'/'.$idsg.'/'.  mdate("%d/%m/%Y", now('UTC')));
                         return;
                     }
                     else
                     {
+                        if (isset($this->session) && method_exists($this->session, 'set_flashdata')) {
+                            $this->session->set_flashdata(
+                                'prog_edit_error',
+                                'Modification refusée : la catégorie choisie a moins de places que le quota actuel. Les sièges bloqués n’ont pas été enregistrés.'
+                            );
+                        }
                         redirect('gares/'.$this->session->company->ekey. '/gTv/'. $gd. '/prog/'.$iduser.'/'.$idsg.'/'. mdate("%d/%m/%Y", now('UTC')));
                         return;
-        
+
                     }
                 }
             
@@ -1243,7 +1267,12 @@
                 $praxe = $this->m_programme->create($arrayprog);
                 if ($praxe != NULL) {
                     $this->m_programme->sync_portee_sousgares($cp3, $selected_sg, $total_sg);
-                    $this->m_programme->sync_sieges_bloques_programme($cp3, $sieges_bloques);
+                    $this->m_programme->sync_sieges_bloques_programme(
+                        $cp3,
+                        $sieges_bloques,
+                        (int) $quota['intervalle1'],
+                        (int) $quota['intervalle2']
+                    );
                     $this->property['INSERT_SUCCESS'] = TRUE;
                 }
             }
@@ -1573,17 +1602,33 @@
         {
             session_release_lock();
             $this->company = $this->m_entreprises->get_key($ckey);
+            if (!$this->company || empty($this->company->id_entreprise)) {
+                return $this->load->view('beagle/pages/_programme/json', array(
+                    'json' => array('ok' => false, 'error' => 'entreprise_introuvable'),
+                ));
+            }
             if (!$code_progr) {
                 $code_progr = $this->input->get('code_progr');
             }
-            $code = trim((string) $code_progr);
+            $code = trim(rawurldecode((string) $code_progr));
             if ($code === '') {
                 return $this->load->view('beagle/pages/_programme/json', array(
                     'json' => array('ok' => false, 'error' => 'params_manquants'),
                 ));
             }
-            $pr = $this->m_programme->get($code);
-            if (!$pr) {
+            // Lecture légère pour l’édition (sans filtre h_active / actif_prog de get()).
+            $eid = $this->db->escape_str($this->company->id_entreprise);
+            $codeEsc = $this->db->escape_str($code);
+            $pr = $this->db->query(
+                "SELECT pr.code_progr, pr.categori, pr.intervalle1, pr.intervalle2
+                 FROM programme pr
+                 JOIN gare_exp ex ON pr.gareidentif = ex.code_gaexp
+                 JOIN compagnies c ON ex.id_compagd = c.cle_compagnie
+                 WHERE c.id_entrep = '{$eid}'
+                   AND pr.code_progr = '{$codeEsc}'
+                 LIMIT 1"
+            )->row();
+            if (!$pr || !is_object($pr)) {
                 return $this->load->view('beagle/pages/_programme/json', array(
                     'json' => array('ok' => false, 'error' => 'programme_introuvable'),
                 ));
@@ -1617,7 +1662,11 @@
             $sieges_tampon = method_exists($this->m_tampon_siege, 'numsieges_for_codes')
                 ? $this->m_tampon_siege->numsieges_for_codes($stockCodes)
                 : array();
-            $sieges_bloques = $this->m_programme->sieges_bloques_programme($code);
+            // Garantit la table avant lecture (évite UI « tout coché » si CREATE jamais passé).
+            $this->m_programme->ensure_siege_bloque_table();
+            $i1 = (int) $pr->intervalle1;
+            $i2 = (int) $pr->intervalle2;
+            $sieges_bloques = $this->m_programme->sieges_bloques_programme($code, $i1, $i2);
             $sieges_occupes = $this->m_programme->sieges_occupes_programme($code);
 
             return $this->load->view('beagle/pages/_programme/json', array(
@@ -1625,8 +1674,8 @@
                     'ok' => true,
                     'code_progr' => $code,
                     'categori' => $pr->categori,
-                    'intervalle1' => (int) $pr->intervalle1,
-                    'intervalle2' => (int) $pr->intervalle2,
+                    'intervalle1' => $i1,
+                    'intervalle2' => $i2,
                     'nbr_place' => $nbr,
                     'sieges_occupes' => $sieges_occupes,
                     'sieges_bloques' => $sieges_bloques,
@@ -2038,6 +2087,22 @@
         {
             return $this->load->view('beagle/pages/_programme/json', array(
                 'json' => $this->_sale_siegepassager_json($dpclient, $p_sieg),
+            ));
+        }
+
+        /**
+         * API unique siège vendable (UI + vente).
+         * GET programmes/siege_vendable/{code_progr}/{num}
+         */
+        public function siege_vendable($code_progr, $num_siege)
+        {
+            session_release_lock();
+            if (!isset($this->sale_svc)) {
+                $this->load->library('sale_passager_service', null, 'sale_svc');
+            }
+            $etat = $this->sale_svc->siege_vendable($code_progr, $num_siege);
+            return $this->load->view('beagle/pages/_programme/json', array(
+                'json' => $etat,
             ));
         }
 

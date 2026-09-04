@@ -220,3 +220,15 @@ SET @sql := IF(@exists = 0,
   'CREATE INDEX idx_gare_dest_actif_ga ON gare_dest (actif_ga)',
   'SELECT 1');
 PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+-- -----------------------------------------------------------------------------
+-- P1.6 Sièges bloqués à l'édition programme (décochés = hors vente)
+-- -----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS programme_siege_bloque (
+  id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  code_progr VARCHAR(128) NOT NULL,
+  siege_num INT NOT NULL,
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_prog_siege (code_progr, siege_num),
+  KEY idx_code_progr (code_progr)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

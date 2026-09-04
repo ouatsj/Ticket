@@ -272,6 +272,7 @@
             $route['programmes/declare_sortie/(:any)'] = 'Programmes/declare_sortie/$1';
             $route['programmes/apercu_sortie/(:any)/(:any)'] = 'Programmes/apercu_sortie/$1/$2';
             $route['programmes/apercu_quota/(:any)/(:any)'] = 'Programmes/apercu_quota/$1/$2';
+            $route['programmes/siege_vendable/(:any)/(:any)'] = 'Programmes/siege_vendable/$1/$2';
             $route['programmes/offres_reconduction/(:any)/(:any)'] = 'Programmes/offres_reconduction/$1/$2';
             $route['programmes/heures_reconduction/(:any)/(:any)/(:any)'] = 'Programmes/heures_reconduction/$1/$2/$3';
             $route['programmes/creer_reconduction/(:any)'] = 'Programmes/creer_reconduction/$1';

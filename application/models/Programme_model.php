@@ -29,14 +29,42 @@
         }
 
         /**
+         * Ne conserve que les trous dans [debut, fin] (hors intervalle = hors quota, pas en base).
+         *
+         * @param int[] $bloques
          * @return int[]
          */
-        public function sieges_bloques_programme($code_progr)
+        public function normaliser_trous_intervalle(array $bloques, $debut, $fin)
+        {
+            $d = (int) $debut;
+            $f = (int) $fin;
+            $out = array();
+            if ($d <= 0 || $f < $d) {
+                return $out;
+            }
+            foreach ($bloques as $n) {
+                $n = (int) $n;
+                if ($n >= $d && $n <= $f) {
+                    $out[$n] = $n;
+                }
+            }
+            ksort($out);
+            return array_values($out);
+        }
+
+        /**
+         * Trous hors vente stockés pour le programme.
+         * Si $debut/$fin fournis : uniquement ceux dans l'intervalle.
+         *
+         * @return int[]
+         */
+        public function sieges_bloques_programme($code_progr, $debut = null, $fin = null)
         {
             $code = trim((string) $code_progr);
             if ($code === '') {
                 return array();
             }
+            $this->ensure_siege_bloque_table();
             if (!$this->db->table_exists($this->table_siege_bloque)) {
                 return array();
             }
@@ -53,11 +81,14 @@
                     $out[] = $n;
                 }
             }
+            if ($debut !== null && $fin !== null) {
+                return $this->normaliser_trous_intervalle($out, $debut, $fin);
+            }
             return $out;
         }
 
         /**
-         * Siège marqué hors vente à l'édition du programme.
+         * Siège marqué hors vente (trou dans le quota) à l'édition du programme.
          */
         public function siege_est_bloque_programme($code_progr, $siege_num)
         {
@@ -70,27 +101,37 @@
         }
 
         /**
+         * Remplace la liste des trous hors vente.
+         * Ne stocke que les numéros dans [intervalle1, intervalle2] si fournis.
+         *
          * @param int[] $bloques
+         * @param int|null $intervalle1
+         * @param int|null $intervalle2
          */
-        public function sync_sieges_bloques_programme($code_progr, array $bloques)
+        public function sync_sieges_bloques_programme($code_progr, array $bloques, $intervalle1 = null, $intervalle2 = null)
         {
             $code = trim((string) $code_progr);
             if ($code === '') {
                 return false;
             }
             $this->ensure_siege_bloque_table();
-            $norm = array();
-            foreach ($bloques as $n) {
-                $n = (int) $n;
-                if ($n > 0) {
-                    $norm[$n] = $n;
+            if ($intervalle1 !== null && $intervalle2 !== null) {
+                $norm = $this->normaliser_trous_intervalle($bloques, $intervalle1, $intervalle2);
+            } else {
+                $norm = array();
+                foreach ($bloques as $n) {
+                    $n = (int) $n;
+                    if ($n > 0) {
+                        $norm[$n] = $n;
+                    }
                 }
+                $norm = array_values($norm);
             }
             $this->db->delete($this->table_siege_bloque, array('code_progr' => $code));
             foreach ($norm as $n) {
                 $this->db->insert($this->table_siege_bloque, array(
                     'code_progr' => $code,
-                    'siege_num' => $n,
+                    'siege_num' => (int) $n,
                 ));
             }
             return true;
@@ -750,15 +791,15 @@
                 }
             }
 
-            // Normalise les bloqués : hors capacité / invalides exclus ; vendus = refus.
+            // Trous uniquement dans [d,f] : hors intervalle = hors quota (pas stocké).
             $bloquesNorm = array();
             foreach ($sieges_bloques as $n) {
                 $n = (int) $n;
-                if ($n <= 0 || $n > $max) {
+                if ($n < $d || $n > $f || $n > $max) {
                     continue;
                 }
                 if (!empty($liberer[$n])) {
-                    // Libéré puis décoché : hors vente OK.
+                    // Libéré puis décoché : trou hors vente OK.
                     $bloquesNorm[$n] = $n;
                     continue;
                 }

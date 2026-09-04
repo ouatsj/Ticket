@@ -121,7 +121,9 @@
         }
 
         /**
-         * Libération : sièges vendus décochés (en reconduction : seulement parmi les alloués).
+         * Libération : uniquement les sièges déjà vendus décochés
+         * (en reconduction : seulement parmi les alloués).
+         * Les trous libres → sieges_bloques[], pas sieges_liberer[].
          */
         function getToLiberate(checked) {
             if (!grid) {
@@ -141,24 +143,17 @@
                 }
                 out.push(n);
             });
-            if (!state.recoMode && state.editMode) {
-                // Édition normale : trous entre min/max cochés aussi candidats
-                var nums = checked || sortedNums(Array.from(grid.querySelectorAll('.js-quota-siege')));
-                if (nums.length) {
-                    var d = nums[0];
-                    var f = nums[nums.length - 1];
-                    var seen = {};
-                    out.forEach(function (n) { seen[n] = true; });
-                    for (var n = d; n <= f; n++) {
-                        var cb = grid.querySelector('.js-quota-siege[value="' + n + '"]');
-                        if (cb && !cb.disabled && !cb.checked && !seen[n]) {
-                            out.push(n);
-                            seen[n] = true;
-                        }
-                    }
-                }
-            }
             return out.sort(function (a, b) { return a - b; });
+        }
+
+        function quotaRange() {
+            var d = debutEl ? parseInt(debutEl.value, 10) : 0;
+            var f = finEl ? parseInt(finEl.value, 10) : 0;
+            if (!(d > 0 && f >= d) && state.rangeDebut > 0 && state.rangeFin >= state.rangeDebut) {
+                d = state.rangeDebut;
+                f = state.rangeFin;
+            }
+            return { d: d, f: f };
         }
 
         function syncBloquesHidden() {
@@ -166,15 +161,26 @@
                 return;
             }
             bloqueFields.innerHTML = '';
+            var range = quotaRange();
+            var d = range.d;
+            var f = range.f;
+            // Ne poster que les trous dans [debut, fin] — hors intervalle = hors quota, pas en base.
+            if (!(d > 0 && f >= d)) {
+                return;
+            }
             grid.querySelectorAll('.js-quota-siege').forEach(function (cb) {
                 if (cb.checked || cb.disabled || cb.getAttribute('data-sold') === '1'
                     || cb.getAttribute('data-tampon') === '1') {
                     return;
                 }
+                var n = parseInt(cb.value, 10);
+                if (isNaN(n) || n < d || n > f) {
+                    return;
+                }
                 var inp = document.createElement('input');
                 inp.type = 'hidden';
                 inp.name = 'sieges_bloques[]';
-                inp.value = String(cb.value);
+                inp.value = String(n);
                 bloqueFields.appendChild(inp);
             });
         }
@@ -250,8 +256,10 @@
             var blockedN = 0;
             if (grid) {
                 grid.querySelectorAll('.js-quota-siege').forEach(function (cb) {
+                    var n = parseInt(cb.value, 10);
                     if (!cb.checked && !cb.disabled && cb.getAttribute('data-sold') !== '1'
-                        && cb.getAttribute('data-tampon') !== '1') {
+                        && cb.getAttribute('data-tampon') !== '1'
+                        && !isNaN(n) && n >= d && n <= f) {
                         blockedN++;
                     }
                 });
@@ -327,15 +335,18 @@
                 var isTampon = !isSold && !!state.tampon[String(n)];
                 var checked;
                 if (state.recoMode) {
+                    // Reconduction : sièges reconduits cochés, sauf bloqués admin.
                     checked = isReco;
                 } else {
                     checked = (n >= checkedFrom && n <= checkedTo) || isSold || isTampon;
-                    if (state.blocked[String(n)] && !isSold && !isTampon) {
-                        checked = false;
-                    }
+                }
+                // Toujours respecter les bloqués (édition + reconduction).
+                if (state.blocked[String(n)] && !isSold && !isTampon) {
+                    checked = false;
                 }
                 var disabled = state.recoMode && !isReco;
-                var isBlocked = !checked && !isSold && !isTampon && !disabled && state.blocked[String(n)];
+                var isBlocked = !checked && !isSold && !isTampon && !disabled
+                    && !!state.blocked[String(n)];
                 var wrapStyle;
                 var labelExtra = '';
                 if (isSold) {
@@ -534,11 +545,14 @@
             state.editMode = true;
             var fallback = Array.isArray(soldFallback) ? soldFallback : [];
             if (!codeProgr || !ekey) {
-                return loadFromCategory(categ, inter1, inter2, fallback);
+                grid.innerHTML = '<div class="col-12"><small class="text-danger">Impossible de charger le plan : code programme manquant.</small></div>';
+                setSummary('Erreur de chargement');
+                return Promise.resolve();
             }
             grid.innerHTML = '<div class="col-12"><small class="text-muted">Chargement du plan…</small></div>';
             setSummary('Chargement…');
-            var url = siteBase() + '/Programmes/apercu_quota/' + encodeURIComponent(ekey) + '/' + encodeURIComponent(codeProgr);
+            // Minuscule : aligné routes.php (programmes/apercu_quota/…)
+            var url = siteBase() + '/programmes/apercu_quota/' + encodeURIComponent(ekey) + '/' + encodeURIComponent(codeProgr);
             return fetchJson(url)
                 .then(function (data) {
                     state.editMode = true;
@@ -551,17 +565,18 @@
                             }
                         });
                     }
+                    // Édition : ne jamais basculer sur un plan « tout coché » sans bloqués.
                     if (!data || !data.ok) {
-                        return loadFromCategory(categ, inter1, inter2, sold);
+                        grid.innerHTML = '<div class="col-12"><small class="text-danger">Impossible de charger les sièges bloqués — fermez et rouvrez l’édition.</small></div>';
+                        setSummary('Erreur de chargement');
+                        return;
                     }
                     var recoList = null;
-                    var blockedList = null;
+                    // Toujours passer la liste (même vide) pour distinguer « aucun bloqué » d’un échec.
+                    var blockedList = Array.isArray(data.sieges_bloques) ? data.sieges_bloques : [];
                     var tamponList = null;
                     if (data.is_reconduction_cible && Array.isArray(data.sieges_reconduits) && data.sieges_reconduits.length) {
                         recoList = data.sieges_reconduits;
-                    }
-                    if (Array.isArray(data.sieges_bloques) && data.sieges_bloques.length) {
-                        blockedList = data.sieges_bloques;
                     }
                     if (Array.isArray(data.sieges_tampon) && data.sieges_tampon.length) {
                         tamponList = data.sieges_tampon;
@@ -582,7 +597,8 @@
                 })
                 .catch(function () {
                     state.editMode = true;
-                    return loadFromCategory(categ, inter1, inter2, fallback);
+                    grid.innerHTML = '<div class="col-12"><small class="text-danger">Impossible de charger le plan de sièges (réseau). Réessayez.</small></div>';
+                    setSummary('Erreur de chargement');
                 });
         }
 

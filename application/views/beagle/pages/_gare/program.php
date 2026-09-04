@@ -26,6 +26,13 @@
         </div>
     </div>
 <?php endif; ?>
+    <?php if ($msg = $this->session->flashdata('prog_edit_error')): ?>
+    <div class="row mb-2 ml-2 mr-2">
+        <div class="col-12 col-md-10">
+            <div class="alert alert-danger mb-2 py-2"><?= htmlspecialchars($msg, ENT_QUOTES, 'UTF-8'); ?></div>
+        </div>
+    </div>
+<?php endif; ?>
 <script type="text/javascript">window.__SITE_BASE = <?= json_encode(rtrim(site_url(''), '/')); ?>;</script>
 <div class="row mb-3 ml-2 mr-2" id="mode_depart_toggle">
     <div class="col-12 col-md-10">

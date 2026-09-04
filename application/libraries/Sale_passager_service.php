@@ -499,12 +499,12 @@ class Sale_passager_service
     }
 
     /**
-     * Vérifie qu'un siège peut être vendu (source de vérité P0).
+     * Vérifie qu'un siège peut être vendu (source de vérité P0 — API unique avec siege_vendable).
      *
      * Options :
      * - lock (bool) : SELECT … FOR UPDATE dans une transaction ouverte
      * - preflight (bool) : lecture seule, sans verrou
-     * - skip_blocked (bool) : ne pas tester programme_siege_bloque
+     * - skip_blocked (bool) : ne pas tester programme_siege_bloque (trous dans l'intervalle)
      * - skip_quota (bool) : ne pas tester intervalle1/intervalle2
      * - skip_tampon (bool) : ne pas tester tampon_siege
      * - allow_tampon (bool) : autoriser le tampon en cours (finalisation vente)
@@ -652,6 +652,20 @@ class Sale_passager_service
     }
 
     /**
+     * API unique « siège vendable » (UI + vente).
+     * Alias documenté de etat_siege_vente / assert_siege_vendable.
+     *
+     * @param string $code_progr
+     * @param int $num_siege
+     * @param array $opts
+     * @return array{ok:bool,libre:bool,occupe:bool,bloque:bool,hors_quota:bool,tampon:bool,code:string,reason:string,code_pro:string,num_siege_categorie:int}
+     */
+    public function siege_vendable($code_progr, $num_siege, array $opts = array())
+    {
+        return $this->etat_siege_vente($code_progr, $num_siege, $opts);
+    }
+
+    /**
      * État structuré d'un siège pour l'UI (siegepassager, verifiersiege).
      *
      * @param string $code_progr
@@ -697,7 +711,7 @@ class Sale_passager_service
      */
     public function siegepassager_payload($code_progr, $num_siege, array $opts = array())
     {
-        return (object) $this->etat_siege_vente($code_progr, $num_siege, $opts);
+        return (object) $this->siege_vendable($code_progr, $num_siege, $opts);
     }
 
     /**
