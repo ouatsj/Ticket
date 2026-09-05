@@ -9702,10 +9702,14 @@ document.addEventListener('DOMContentLoaded', () => {
         sgid: '0',
         prix: '',
         prix2: '',
+        prixLegs: {},
         id_escale: '',
         exclude: '',
         tarif: '1',
         isTransitTicket: false,
+        nbrJambes: 1,
+        jambesExpected: [],
+        legsVerified: {},
         lookup1Done: false,
         lookup2Done: false,
         tamponcodtr: ''
@@ -9714,8 +9718,8 @@ document.addEventListener('DOMContentLoaded', () => {
     function __reprogQ(id) { return document.getElementById(id); }
 
     function __reprogAllowPrixDiff() {
-        var modal = __reprogQ('repro-unifie-0');
-        return !!(modal && String(modal.getAttribute('data-allow-prix-diff') || '') === '1');
+        // Report gratuit : écart de prix correspondances autorisé pour tous les rôles.
+        return true;
     }
 
     function __reprogHhmm(h) {
@@ -9895,8 +9899,14 @@ document.addEventListener('DOMContentLoaded', () => {
     function __reprogPrixRef() {
         var st = window.__reprogState;
         var total = __reprogNumPrix(st.prix);
-        if (st.isTransitTicket && st.lookup2Done) {
-            total += __reprogNumPrix(st.prix2);
+        if (st.isTransitTicket) {
+            Object.keys(st.prixLegs || {}).forEach(function (k) {
+                if (String(k) === '1') return;
+                total += __reprogNumPrix(st.prixLegs[k]);
+            });
+            if (!Object.keys(st.prixLegs || {}).length && st.lookup2Done) {
+                total += __reprogNumPrix(st.prix2);
+            }
         }
         return Math.round(total * 100) / 100;
     }
@@ -9930,29 +9940,28 @@ document.addEventListener('DOMContentLoaded', () => {
         var ok = Math.abs(sum - ref) < 0.05;
         var allowDiff = __reprogAllowPrixDiff();
         if (allowDiff && !ok) {
-            box.className = 'small mb-0 mt-2 text-warning';
-            box.textContent = 'Prix différent autorisé (admin/chef) : somme '
-                + sum + ' ≠ ticket ' + ref;
+            box.className = 'small mb-0 mt-2 text-muted';
+            box.textContent = 'Report gratuit — somme segments ' + sum
+                + ' (ticket d’origine ' + ref + ') : non facturé à l’agent.';
             return true;
         }
-        box.className = 'small mb-0 mt-2 ' + (ok ? 'text-success' : 'text-danger');
+        box.className = 'small mb-0 mt-2 ' + (ok ? 'text-success' : 'text-muted');
         box.textContent = ok
-            ? ('Prix OK : somme correspondances ' + sum + ' = ticket ' + ref)
-            : ('Prix incorrect : somme ' + sum + ' ≠ ticket vérifié ' + ref);
-        return ok;
+            ? ('Somme segments ' + sum + ' = ticket ' + ref + ' (report gratuit)')
+            : ('Somme segments ' + sum + ' / ticket ' + ref + ' (report gratuit, OK)');
+        return true;
     }
 
     function __reprogPrepareTransitSubmit() {
         var etapes = window.__reprogState.etapes || [];
         var n = etapes.length;
         if (n < 2) return { ok: false, msg: 'Itinéraire invalide.' };
-        if (window.__reprogState.isTransitTicket && !window.__reprogState.lookup2Done) {
-            return { ok: false, msg: 'Vérifiez le 2ᵉ code du ticket transit avant de reporter.' };
+        if (window.__reprogState.isTransitTicket && !__reprogAllLegsVerified()) {
+            return { ok: false, msg: 'Vérifiez tous les codes du ticket transit avant de reporter.' };
         }
         __reprogQ('reprog_mode_unifie').value = 'transit';
         __reprogQ('reprog_nbr_seg_unifie').value = String(n);
         var first = null;
-        var sum = 0;
         for (var i = 0; i < n; i++) {
             var synced = __reprogSyncSegPost(i);
             if (!synced || !synced.prog || !synced.siege) {
@@ -9961,23 +9970,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     msg: 'Complétez compagnie, heure et siège pour la correspondance ' + (i + 1) + '.'
                 };
             }
-            sum += synced.prix;
             if (i === 0) first = synced;
         }
-        sum = Math.round(sum * 100) / 100;
         var ref = __reprogPrixRef();
-        if (!__reprogAllowPrixDiff() && Math.abs(sum - ref) >= 0.05) {
-            return {
-                ok: false,
-                msg: 'La somme des prix des correspondances (' + sum
-                    + ') doit être égale au prix du ticket vérifié (' + ref + ').'
-            };
-        }
         var refEl = __reprogQ('prixventeunifie_ref');
         if (refEl) refEl.value = String(ref);
         var pxEl = __reprogQ('prixventeunifie');
-        // Admin/chef avec prix différent : conserver le prix ticket d’origine en ref,
-        // chaque jambe garde son prix programme (posté dans reprog_seg_prix_*).
         if (pxEl) pxEl.value = String(ref);
         if (first) {
             __reprogSetPost(first.prog, first.compaga, first.siege);
@@ -9986,6 +9984,17 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
         return { ok: true };
+    }
+
+    function __reprogAllLegsVerified() {
+        var st = window.__reprogState;
+        if (!st.isTransitTicket) return true;
+        var n = st.nbrJambes || 1;
+        if (n < 2) return true;
+        for (var i = 1; i <= n; i++) {
+            if (!st.legsVerified[i]) return false;
+        }
+        return true;
     }
 
     function __reprogResetChoix() {
@@ -10046,35 +10055,51 @@ document.addEventListener('DOMContentLoaded', () => {
         if (infos) infos.style.display = 'none';
         var wrap = __reprogQ('reprog_choix_wrap');
         if (wrap) wrap.style.display = 'none';
-        var c2 = __reprogQ('reprog_code2_wrap');
-        if (c2) c2.style.display = 'none';
-        ['passerpunifie2', 'codeticketsunifie2', 'codeclient_ticket_unifie2',
-            'prixventeunifie2', 'prixventeunifie_ref', 'code_lookup2_unifie',
-            'id_escale_vente_reprog', 'code_gadest_vente_reprog', 'nom_dest_vente_reprog'
-        ].forEach(function (id) {
+        var extra = __reprogQ('reprog_codes_extra_wrap');
+        if (extra) {
+            extra.innerHTML = '';
+            extra.style.display = 'none';
+        }
+        var det = __reprogQ('reprog_transit_detect_msg');
+        if (det) {
+            det.style.display = 'none';
+            det.textContent = '';
+        }
+        [2, 3, 4].forEach(function (li) {
+            ['passerpunifie', 'codeticketsunifie', 'codeclient_ticket_unifie', 'prixventeunifie'].forEach(function (pref) {
+                var el = __reprogQ(pref + li);
+                if (el) el.value = '';
+            });
+        });
+        ['prixventeunifie_ref', 'id_escale_vente_reprog', 'code_gadest_vente_reprog', 'nom_dest_vente_reprog'].forEach(function (id) {
             var el = __reprogQ(id);
             if (el) el.value = '';
         });
         var isTr = __reprogQ('reprog_is_transit_ticket');
         if (isTr) isTr.value = '0';
+        var nOrig = __reprogQ('reprog_nbr_jambes_origine');
+        if (nOrig) nOrig.value = '1';
         __reprogResetChoix();
         window.__reprogState.rows = [];
         window.__reprogState.hasTransit = false;
         window.__reprogState.transitHours = [];
         window.__reprogState.prix = '';
         window.__reprogState.prix2 = '';
+        window.__reprogState.prixLegs = {};
         window.__reprogState.id_escale = '';
         window.__reprogState.lookup1Done = false;
         window.__reprogState.lookup2Done = false;
         window.__reprogState.tamponcodtr = '';
-        window.__reprogState.isTransitTicket = !!(__reprogQ('mode_transit_ticket_unifie')
-            && __reprogQ('mode_transit_ticket_unifie').checked);
+        window.__reprogState.isTransitTicket = false;
+        window.__reprogState.nbrJambes = 1;
+        window.__reprogState.jambesExpected = [];
+        window.__reprogState.legsVerified = {};
     }
 
     function __reprogCanOpenChoix() {
         var st = window.__reprogState;
         if (!st.lookup1Done) return false;
-        if (st.isTransitTicket && !st.lookup2Done) return false;
+        if (st.isTransitTicket && !__reprogAllLegsVerified()) return false;
         return true;
     }
 
@@ -10087,9 +10112,27 @@ document.addEventListener('DOMContentLoaded', () => {
         if (px) px.value = String(ref);
         var prixCl = __reprogQ('prixclpunifie');
         if (prixCl) {
+            var nJ = window.__reprogState.nbrJambes || 1;
             prixCl.textContent = window.__reprogState.isTransitTicket
-                ? ('PRIX TOTAL (2 jambes): ' + ref)
+                ? ('PRIX TOTAL (' + nJ + ' jambes): ' + ref)
                 : ('PRIX: ' + ref);
+        }
+
+        // Résumé OD avant choix date / itinéraires.
+        var st = window.__reprogState;
+        var resume = __reprogQ('reprog_od_resume');
+        if (resume) {
+            var escHint = '';
+            var escNom = (__reprogQ('nom_dest_vente_reprog') || {}).value || '';
+            if (escNom || st.id_escale) {
+                escHint = ' — destination ticket : ' + (escNom || 'escale') + ' (conservée)';
+            }
+            resume.style.display = 'block';
+            resume.textContent = 'Parcours à reporter : '
+                + (st.gaexp || '—') + ' → ' + (st.gadest || '—')
+                + (st.isTransitTicket ? (' (transit ' + (st.nbrJambes || '') + ' jambes)') : ' (direct)')
+                + escHint
+                + '. Choisissez une date puis un itinéraire (direct ou correspondance).';
         }
 
         __reprogQ('reprog_choix_wrap').style.display = 'block';
@@ -10112,6 +10155,218 @@ document.addEventListener('DOMContentLoaded', () => {
             function (data2) {
                 window.__reprogState.rows = __reprogRowsArray(data2);
                 __reprogOnDateChange();
+            }
+        );
+    }
+
+    function __reprogLookupMode() {
+        var modal = __reprogQ('repro-unifie-0');
+        var allowTampon = modal && modal.getAttribute('data-allow-tampon') === '1';
+        var tamponCb = __reprogQ('mode_tampon_unifie');
+        return (allowTampon && tamponCb && tamponCb.checked) ? 'tampon' : 'ticket';
+    }
+
+    function __reprogBuildExtraCodeFields(nbrJambes, jambes, verifiedCode) {
+        var wrap = __reprogQ('reprog_codes_extra_wrap');
+        if (!wrap) return;
+        wrap.innerHTML = '';
+        if (!nbrJambes || nbrJambes < 2) {
+            wrap.style.display = 'none';
+            return;
+        }
+        wrap.style.display = 'block';
+        var used = {};
+        used[String(verifiedCode || '').trim().toUpperCase()] = 1;
+        var hints = [];
+        (jambes || []).forEach(function (j) {
+            if (!j) return;
+            var ct = String(j.code_ticket || '').trim();
+            if (ct && !used[ct.toUpperCase()]) {
+                hints.push(ct);
+                used[ct.toUpperCase()] = 1;
+            }
+        });
+        var hintIdx = 0;
+        for (var leg = 2; leg <= nbrJambes; leg++) {
+            var row = document.createElement('div');
+            row.className = 'form-row align-items-end reprog-leg-row';
+            row.id = 'reprog_leg_row_' + leg;
+            var hint = hints[hintIdx] || '';
+            if (hint) hintIdx++;
+            row.innerHTML =
+                '<div class="form-group col-md-6 mb-2">'
+                + '<label class="small mb-0">' + leg + '<sup>e</sup> code (jambe transit)</label>'
+                + '<input class="form-control form-control-sm" type="text" id="code_lookup_leg_' + leg
+                + '" autocomplete="off" placeholder="Code de la ' + leg + 'ᵉ jambe"'
+                + (hint ? (' value="' + String(hint).replace(/"/g, '&quot;') + '"') : '') + '>'
+                + '</div>'
+                + '<div class="form-group col-md-6 mb-2">'
+                + '<span class="btn btn-outline-success btn-sm btn-block" type="button" id="reprogrammer_infos_leg_'
+                + leg + '">Vérifier le ' + leg + '<sup>e</sup> code</span>'
+                + '<p class="small text-success mb-0 mt-1" id="reprog_leg_ok_' + leg + '" style="display:none">Vérifié</p>'
+                + '</div>';
+            wrap.appendChild(row);
+            (function (legNum) {
+                var btn = __reprogQ('reprogrammer_infos_leg_' + legNum);
+                if (btn) {
+                    btn.onclick = function () {
+                        __reprogVerifyExtraLeg(legNum);
+                    };
+                }
+            })(leg);
+        }
+    }
+
+    function __reprogApplyOdFromLegs() {
+        var st = window.__reprogState;
+        var jambes = st.jambesExpected || [];
+        if (!jambes.length) return;
+        var first = jambes[0] || {};
+        var last = jambes[jambes.length - 1] || {};
+        var ga = st.gaexp || first.gaexp_lg || '';
+        var gd = last.gadest_lg || st.gadest || '';
+        if (last.nom_dest_vente) {
+            // escale éventuelle sur dernière jambe
+            if (__reprogQ('id_escale_vente_reprog') && last.id_escale_vente) {
+                __reprogQ('id_escale_vente_reprog').value = String(last.id_escale_vente);
+                st.id_escale = String(last.id_escale_vente);
+            }
+            if (__reprogQ('code_gadest_vente_reprog')) {
+                __reprogQ('code_gadest_vente_reprog').value = last.code_gadest_vente || '';
+            }
+            if (__reprogQ('nom_dest_vente_reprog')) {
+                __reprogQ('nom_dest_vente_reprog').value = last.nom_dest_vente || last.dest_affiche || '';
+            }
+        }
+        if (ga && gd) {
+            st.gaexp = ga;
+            st.gadest = gd;
+            st.axe = ga + '-' + gd;
+            if (__reprogQ('gaexp_unifie')) __reprogQ('gaexp_unifie').value = ga;
+            if (__reprogQ('gadest_unifie')) __reprogQ('gadest_unifie').value = gd;
+            if (__reprogQ('axe_unifie')) __reprogQ('axe_unifie').value = st.axe;
+            var dirEl = __reprogQ('directionclpunifie');
+            if (dirEl) {
+                dirEl.textContent = 'DIRECTION: ' + ga + ' → ' + (last.dest_affiche || gd)
+                    + ' (transit ' + (st.nbrJambes || jambes.length) + ' jambes)';
+            }
+        }
+    }
+
+    function __reprogVerifyExtraLeg(legNum) {
+        var dateEl = __reprogQ('datereprog_unifie');
+        var input = __reprogQ('code_lookup_leg_' + legNum);
+        var cocl = String((input && input.value) || '').trim();
+        if (__reprogQ('smspunifie')) __reprogQ('smspunifie').style.display = 'none';
+        if (!window.__reprogState.lookup1Done) {
+            alert('Vérifiez d’abord le 1er code.');
+            return;
+        }
+        if (!cocl) {
+            alert('Saisissez le ' + legNum + 'ᵉ code.');
+            return;
+        }
+        var code1 = String((__reprogQ('code_lookup_unifie') || {}).value || '').trim();
+        if (cocl === code1
+            || cocl === String((__reprogQ('codeclient_ticket_unifie') || {}).value || '').trim()
+            || cocl === String((__reprogQ('codeticketsunifie') || {}).value || '').trim()) {
+            alert('Ce code doit être différent du 1er.');
+            return;
+        }
+        for (var prev = 2; prev < legNum; prev++) {
+            if (!window.__reprogState.legsVerified[prev]) {
+                alert('Vérifiez d’abord le ' + prev + 'ᵉ code.');
+                return;
+            }
+            var prevVal = String((__reprogQ('code_lookup_leg_' + prev) || {}).value || '').trim();
+            if (cocl === prevVal) {
+                alert('Code déjà utilisé pour une autre jambe.');
+                return;
+            }
+        }
+
+        __reprogXhrGet(
+            window.location.origin + APP_ROOT
+                + '/reprogrammes/lookup_unifie?mode=' + encodeURIComponent(__reprogLookupMode())
+                + '&code=' + encodeURIComponent(cocl),
+            function (d2) {
+                if (__reprogLookupRefused(d2, legNum + 'ᵉ code invalide ou non reprogrammable.')) {
+                    return;
+                }
+                var tr1 = String(window.__reprogState.tamponcodtr || '');
+                var tr2 = String(d2.tamponcodtr || '');
+                var cl1 = String((__reprogQ('client_idpunifie') || {}).value || '');
+                var cl2 = String(d2.id_client_pass || '');
+                var sameTr = tr1 && tr2 && tr1 === tr2;
+                var sameCl = cl1 && cl2 && cl1 === cl2;
+                if (!sameTr && !sameCl) {
+                    if (__reprogQ('smspunifie')) __reprogQ('smspunifie').style.display = 'block';
+                    if (__reprogQ('erreurSmspunifie')) {
+                        __reprogQ('erreurSmspunifie').textContent =
+                            'Ce code n’appartient pas au même ticket transit (lien / client).';
+                    }
+                    return;
+                }
+                if (String(d2.tamponcod || '') === String((__reprogQ('codeticketsunifie') || {}).value || '')
+                    || String(d2.code_passager || '') === String((__reprogQ('passerpunifie') || {}).value || '')) {
+                    alert('Ce code correspond au même billet que le 1er.');
+                    return;
+                }
+
+                var elPass = __reprogQ('passerpunifie' + legNum);
+                var elTamp = __reprogQ('codeticketsunifie' + legNum);
+                var elTick = __reprogQ('codeclient_ticket_unifie' + legNum);
+                var elPrix = __reprogQ('prixventeunifie' + legNum);
+                if (elPass) elPass.value = d2.code_passager || '';
+                if (elTamp) elTamp.value = d2.tamponcod || '';
+                if (elTick) elTick.value = d2.code_ticket || '';
+                if (elPrix) elPrix.value = d2.prixvente != null ? d2.prixvente : '';
+                window.__reprogState.prixLegs[legNum] = d2.prixvente != null ? String(d2.prixvente) : '0';
+                if (legNum === 2) {
+                    window.__reprogState.prix2 = window.__reprogState.prixLegs[2];
+                }
+                window.__reprogState.legsVerified[legNum] = true;
+                window.__reprogState.lookup2Done = __reprogAllLegsVerified();
+
+                var okEl = __reprogQ('reprog_leg_ok_' + legNum);
+                if (okEl) {
+                    okEl.style.display = 'block';
+                    okEl.textContent = 'OK — ' + (d2.code_ticket || '') + ' / '
+                        + (d2.nom_ligne || '') + ' ' + (d2.heure || '');
+                }
+                var infoExtra = __reprogQ('code2clpunifie');
+                if (infoExtra) {
+                    infoExtra.style.display = 'block';
+                    var parts = [];
+                    for (var i = 2; i <= (window.__reprogState.nbrJambes || 2); i++) {
+                        if (!window.__reprogState.legsVerified[i]) continue;
+                        parts.push(i + 'ᵉ: ' + ((__reprogQ('codeclient_ticket_unifie' + i) || {}).value || ''));
+                    }
+                    infoExtra.textContent = parts.join(' | ');
+                }
+
+                __reprogApplyOdFromLegs();
+                if (d2.gadest_lg) {
+                    // Affiner OD avec la dernière jambe vérifiée
+                    var ga1 = window.__reprogState.gaexp || '';
+                    if (ga1) {
+                        window.__reprogState.gadest = d2.gadest_lg;
+                        window.__reprogState.axe = ga1 + '-' + d2.gadest_lg;
+                        if (__reprogQ('gadest_unifie')) __reprogQ('gadest_unifie').value = d2.gadest_lg;
+                        if (__reprogQ('axe_unifie')) __reprogQ('axe_unifie').value = window.__reprogState.axe;
+                    }
+                }
+
+                if (__reprogAllLegsVerified()) {
+                    if (__reprogQ('smspunifie')) __reprogQ('smspunifie').style.display = 'none';
+                    __reprogOpenChoixIfReady(dateEl);
+                } else {
+                    if (__reprogQ('smspunifie')) __reprogQ('smspunifie').style.display = 'block';
+                    if (__reprogQ('erreurSmspunifie')) {
+                        __reprogQ('erreurSmspunifie').textContent =
+                            'Code ' + legNum + ' OK. Vérifiez les codes restants.';
+                    }
+                }
             }
         );
     }
@@ -10480,6 +10735,26 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    function __reprogEtapeOdLabel(etape, idx, total) {
+        if (!etape) return '';
+        var dep = etape.depart_itine || etape.nom_gaep || etape.code_gaexp
+            || etape.gaexp_lg || etape.gaexp || '';
+        var arr = etape.arrive_itine || etape.nom_gadest || etape.code_gadest
+            || etape.gadest_lg || etape.gadest || '';
+        // Dernier segment : destination ticket = escale déjà vendue (si présente).
+        if (total > 0 && idx === total - 1) {
+            var escNom = (__reprogQ('nom_dest_vente_reprog') || {}).value || '';
+            var escId = (__reprogQ('id_escale_vente_reprog') || {}).value || '';
+            if (escId || escNom) {
+                arr = (escNom || arr) + ' (escale)';
+            }
+        }
+        if (dep && arr) return dep + ' → ' + arr;
+        if (arr) return '→ ' + arr;
+        if (dep) return dep + ' → …';
+        return '';
+    }
+
     function __reprogBuildSegments(etapes) {
         var box = __reprogQ('corr_segments_unifie');
         if (!box) return;
@@ -10495,13 +10770,19 @@ document.addEventListener('DOMContentLoaded', () => {
         etapes.forEach(function (etape, idx) {
             var ligneId = __reprogLigneId(etape);
             var ligneNom = etape.nom_itineraires || etape.nom_ligne || ligneId || ('Segment ' + (idx + 1));
+            var odLabel = __reprogEtapeOdLabel(etape, idx, etapes.length);
             var dateDef = (__reprogQ('datereprog_unifie') || {}).value || '';
             var wrap = document.createElement('div');
             wrap.className = 'reprog-seg';
             wrap.id = 'reprog_seg_' + idx;
-            // Compagnie + date + heure + siège par segment
+            // Compagnie · OD (±escale) · date · heure · siège
             wrap.innerHTML =
-                '<h6>Segment ' + (idx + 1) + ' — ' + ligneNom + '</h6>'
+                '<h6>Segment ' + (idx + 1) + ' — ' + ligneNom
+                + (odLabel ? (' <span class="text-muted font-weight-normal">(' + odLabel + ')</span>') : '')
+                + '</h6>'
+                + (odLabel
+                    ? ('<p class="small text-muted mb-2" id="reprog_seg_od_' + idx + '">OD : ' + odLabel + '</p>')
+                    : '')
                 + '<div class="form-row">'
                 + '<div class="form-group col-md-6 col-lg-3 mb-2">'
                 + '<label class="small mb-0">Ligne</label>'
@@ -11136,42 +11417,13 @@ document.addEventListener('DOMContentLoaded', () => {
         var corrSel = __reprogQ('corr_unifie_select');
         if (corrSel) corrSel.onchange = __reprogOnCorrChange;
 
-        var transitCb = __reprogQ('mode_transit_ticket_unifie');
-        if (transitCb) {
-            transitCb.onchange = function () {
-                var st = window.__reprogState;
-                st.isTransitTicket = !!transitCb.checked;
-                var hid = __reprogQ('reprog_is_transit_ticket');
-                if (hid) hid.value = st.isTransitTicket ? '1' : '0';
-                var c2 = __reprogQ('reprog_code2_wrap');
-                if (!st.isTransitTicket) {
-                    if (c2) c2.style.display = 'none';
-                    st.lookup2Done = false;
-                    st.prix2 = '';
-                    if (st.lookup1Done) __reprogOpenChoixIfReady(dateEl);
-                } else if (st.lookup1Done && !st.lookup2Done) {
-                    if (c2) c2.style.display = '';
-                    var choix = __reprogQ('reprog_choix_wrap');
-                    if (choix) choix.style.display = 'none';
-                }
-            };
-        }
-
         var infos = __reprogQ('reprogrammer_infos_unifie');
         if (infos) {
             infos.onclick = function () {
                 var cocl = String((__reprogQ('code_lookup_unifie') || {}).value || '').trim();
-                var modal = __reprogQ('repro-unifie-0');
-                var allowTampon = modal && modal.getAttribute('data-allow-tampon') === '1';
-                var tamponCb = __reprogQ('mode_tampon_unifie');
-                var mode = (allowTampon && tamponCb && tamponCb.checked) ? 'tampon' : 'ticket';
-                var isTransit = !!(__reprogQ('mode_transit_ticket_unifie')
-                    && __reprogQ('mode_transit_ticket_unifie').checked);
+                var mode = __reprogLookupMode();
 
                 __reprogResetUi();
-                window.__reprogState.isTransitTicket = isTransit;
-                var hidTr = __reprogQ('reprog_is_transit_ticket');
-                if (hidTr) hidTr.value = isTransit ? '1' : '0';
                 if (__reprogQ('smspunifie')) __reprogQ('smspunifie').style.display = 'none';
                 if (__reprogQ('billetrepunifie')) __reprogQ('billetrepunifie').style.display = 'none';
 
@@ -11272,6 +11524,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         window.__reprogState.axe = (donnees.gaexp_lg || '') + '-' + (donnees.gadest_lg || '');
                         window.__reprogState.exclude = donnees.code_progr || '';
                         window.__reprogState.prix = donnees.prixvente != null ? String(donnees.prixvente) : '';
+                        window.__reprogState.prixLegs = { 1: window.__reprogState.prix };
                         window.__reprogState.id_escale = isEsc && donnees.id_escale_vente
                             ? String(donnees.id_escale_vente) : '';
                         window.__reprogState.tarif = (donnees.typetarif != null && String(donnees.typetarif).trim() !== '')
@@ -11279,8 +11532,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             : '1';
                         window.__reprogState.tamponcodtr = donnees.tamponcodtr || '';
                         window.__reprogState.lookup1Done = true;
-                        window.__reprogState.lookup2Done = false;
-                        window.__reprogState.prix2 = '';
+                        window.__reprogState.legsVerified = { 1: true };
                         var sgEl = document.querySelector('input[name="sousgareconnect"]');
                         window.__reprogState.sgid = (sgEl && sgEl.value) ? sgEl.value : '0';
 
@@ -11293,107 +11545,50 @@ document.addEventListener('DOMContentLoaded', () => {
                             return;
                         }
 
-                        if (isTransit) {
-                            var c2w = __reprogQ('reprog_code2_wrap');
-                            if (c2w) c2w.style.display = '';
+                        var nbrJ = parseInt(donnees.nbr_jambes, 10) || 1;
+                        var estTr = parseInt(donnees.est_transit, 10) === 1 || nbrJ >= 2;
+                        if (nbrJ > 4) nbrJ = 4;
+                        window.__reprogState.isTransitTicket = estTr;
+                        window.__reprogState.nbrJambes = estTr ? nbrJ : 1;
+                        window.__reprogState.jambesExpected = Array.isArray(donnees.jambes) ? donnees.jambes : [];
+                        var hidTr = __reprogQ('reprog_is_transit_ticket');
+                        if (hidTr) hidTr.value = estTr ? '1' : '0';
+                        var nOrig = __reprogQ('reprog_nbr_jambes_origine');
+                        if (nOrig) nOrig.value = String(window.__reprogState.nbrJambes);
+                        window.__reprogState.lookup2Done = !estTr;
+
+                        var det = __reprogQ('reprog_transit_detect_msg');
+                        if (det) {
+                            if (estTr) {
+                                det.style.display = 'block';
+                                det.className = 'small text-info mb-1';
+                                det.textContent = 'Ticket transit détecté : '
+                                    + window.__reprogState.nbrJambes
+                                    + ' codes à vérifier.';
+                            } else {
+                                det.style.display = 'block';
+                                det.className = 'small text-muted mb-1';
+                                det.textContent = 'Ticket direct détecté.';
+                            }
+                        }
+
+                        if (estTr) {
+                            __reprogApplyOdFromLegs();
+                            __reprogBuildExtraCodeFields(
+                                window.__reprogState.nbrJambes,
+                                window.__reprogState.jambesExpected,
+                                donnees.code_ticket || cocl
+                            );
                             if (__reprogQ('smspunifie')) __reprogQ('smspunifie').style.display = 'block';
                             if (__reprogQ('erreurSmspunifie')) {
                                 __reprogQ('erreurSmspunifie').textContent =
-                                    '1er code OK. Vérifiez maintenant le 2ᵉ code de la correspondance.';
+                                    '1er code OK. Vérifiez les '
+                                    + (window.__reprogState.nbrJambes - 1)
+                                    + ' autre(s) code(s) du transit.';
                             }
                             return;
                         }
 
-                        __reprogOpenChoixIfReady(dateEl);
-                    }
-                );
-            };
-        }
-
-        var infos2 = __reprogQ('reprogrammer_infos2_unifie');
-        if (infos2) {
-            infos2.onclick = function () {
-                var cocl2 = String((__reprogQ('code_lookup2_unifie') || {}).value || '').trim();
-                var modal = __reprogQ('repro-unifie-0');
-                var allowTampon = modal && modal.getAttribute('data-allow-tampon') === '1';
-                var tamponCb = __reprogQ('mode_tampon_unifie');
-                var mode = (allowTampon && tamponCb && tamponCb.checked) ? 'tampon' : 'ticket';
-                if (__reprogQ('smspunifie')) __reprogQ('smspunifie').style.display = 'none';
-
-                if (!window.__reprogState.lookup1Done) {
-                    alert('Vérifiez d’abord le 1er code.');
-                    return;
-                }
-                if (!cocl2) {
-                    alert('Saisissez le 2ᵉ code.');
-                    return;
-                }
-                if (cocl2 === String((__reprogQ('code_lookup_unifie') || {}).value || '').trim()
-                    || cocl2 === String((__reprogQ('codeclient_ticket_unifie') || {}).value || '').trim()
-                    || cocl2 === String((__reprogQ('codeticketsunifie') || {}).value || '').trim()) {
-                    alert('Le 2ᵉ code doit être différent du 1er.');
-                    return;
-                }
-
-                __reprogXhrGet(
-                    window.location.origin + APP_ROOT
-                        + '/reprogrammes/lookup_unifie?mode=' + encodeURIComponent(mode)
-                        + '&code=' + encodeURIComponent(cocl2),
-                    function (d2) {
-                        if (__reprogLookupRefused(d2, '2ᵉ code invalide ou non reprogrammable.')) {
-                            return;
-                        }
-                        var tr1 = String(window.__reprogState.tamponcodtr || '');
-                        var tr2 = String(d2.tamponcodtr || '');
-                        var cl1 = String((__reprogQ('client_idpunifie') || {}).value || '');
-                        var cl2 = String(d2.id_client_pass || '');
-                        var sameTr = tr1 && tr2 && tr1 === tr2;
-                        var sameCl = cl1 && cl2 && cl1 === cl2;
-                        if (!sameTr && !sameCl) {
-                            if (__reprogQ('smspunifie')) __reprogQ('smspunifie').style.display = 'block';
-                            if (__reprogQ('erreurSmspunifie')) {
-                                __reprogQ('erreurSmspunifie').textContent =
-                                    'Le 2ᵉ code n’appartient pas au même ticket transit (lien / client).';
-                            }
-                            return;
-                        }
-                        if (String(d2.tamponcod || '') === String((__reprogQ('codeticketsunifie') || {}).value || '')
-                            || String(d2.code_passager || '') === String((__reprogQ('passerpunifie') || {}).value || '')) {
-                            alert('Le 2ᵉ code correspond au même billet que le 1er.');
-                            return;
-                        }
-
-                        __reprogQ('passerpunifie2').value = d2.code_passager || '';
-                        __reprogQ('codeticketsunifie2').value = d2.tamponcod || '';
-                        __reprogQ('codeclient_ticket_unifie2').value = d2.code_ticket || '';
-                        __reprogQ('prixventeunifie2').value = d2.prixvente != null ? d2.prixvente : '';
-                        window.__reprogState.prix2 = d2.prixvente != null ? String(d2.prixvente) : '0';
-                        window.__reprogState.lookup2Done = true;
-
-                        // OD complet du ticket transit : départ jambe1 → arrivée jambe2.
-                        var ga1 = window.__reprogState.gaexp || (__reprogQ('gaexp_unifie') || {}).value || '';
-                        var gd2 = d2.gadest_lg || '';
-                        if (ga1 && gd2) {
-                            window.__reprogState.gadest = gd2;
-                            window.__reprogState.axe = ga1 + '-' + gd2;
-                            if (__reprogQ('gadest_unifie')) __reprogQ('gadest_unifie').value = gd2;
-                            if (__reprogQ('axe_unifie')) __reprogQ('axe_unifie').value = ga1 + '-' + gd2;
-                            var dirEl = __reprogQ('directionclpunifie');
-                            if (dirEl) {
-                                dirEl.textContent = 'DIRECTION: ' + ga1 + ' → ' + gd2
-                                    + ' (transit 2 jambes)';
-                            }
-                        }
-
-                        var c2info = __reprogQ('code2clpunifie');
-                        if (c2info) {
-                            c2info.style.display = 'block';
-                            c2info.textContent = '2ᵉ TICKET: ' + (d2.code_ticket || '')
-                                + ' / PASS: ' + (d2.code_passager || '')
-                                + ' — PRIX: ' + (d2.prixvente != null ? d2.prixvente : '')
-                                + ' — ' + (d2.nom_ligne || '') + ' ' + (d2.heure || '');
-                        }
-                        if (__reprogQ('smspunifie')) __reprogQ('smspunifie').style.display = 'none';
                         __reprogOpenChoixIfReady(dateEl);
                     }
                 );
@@ -11434,9 +11629,9 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         formEl.setAttribute('data-reprog-submit-bound', '1');
         formEl.addEventListener('submit', function (ev) {
-            if (window.__reprogState.isTransitTicket && !window.__reprogState.lookup2Done) {
+            if (window.__reprogState.isTransitTicket && !__reprogAllLegsVerified()) {
                 ev.preventDefault();
-                alert('Ticket transit : vérifiez le 2ᵉ code avant de reporter.');
+                alert('Ticket transit : vérifiez tous les codes avant de reporter.');
                 return false;
             }
             var etapes = window.__reprogState.etapes || [];

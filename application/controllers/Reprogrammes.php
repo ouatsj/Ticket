@@ -300,27 +300,145 @@
         }
 
         /**
-         * Ticket transit 2 codes reporté en direct : désactive aussi la 2ᵉ jambe d’origine.
+         * Billets nouvellement émis au report : hors encaissement agent (CA / arrêt).
+         * 0 = à arrêter, 1 = arrêté, 2 = report gratuit (jamais facturé à l’agent).
+         */
+        const REPROG_STATUTVENTE_HORS_CA = 2;
+
+        /**
+         * Ticket transit N codes : invalide les jambes d’origine 2..N (POST).
          */
         protected function _reprog_invalidate_transit_leg2_if_needed()
         {
             if ((string) $this->input->post('reprog_is_transit_ticket') !== '1') {
                 return;
             }
-            $cdpa2 = $this->input->post('passeridtransit2');
-            $cdpt2 = $this->input->post('codeclienttransit2');
-            if (!$cdpa2 || !$cdpt2) {
-                return;
+            $nOrig = (int) $this->input->post('reprog_nbr_jambes_origine');
+            if ($nOrig < 2) {
+                $nOrig = 2;
             }
-            $this->m_passager->update($cdpa2, $cdpt2, array(
-                'num_siege_categorie' => null,
-                'actif_pas' => 1,
-                'statut_reprog' => 'repor',
-            ));
-            $tamp2 = $this->input->post('codeticketsclienttransit2');
-            if ($tamp2) {
-                $this->m_tamponcode->update($tamp2, array('actif_tamp' => 1));
+            if ($nOrig > 4) {
+                $nOrig = 4;
             }
+            for ($i = 2; $i <= $nOrig; $i++) {
+                $suffix = ($i === 2) ? '2' : (string) $i;
+                $cdpa = $this->input->post('passeridtransit' . $suffix);
+                $cdpt = $this->input->post('codeclienttransit' . $suffix);
+                if (!$cdpa || !$cdpt) {
+                    continue;
+                }
+                $this->m_passager->update($cdpa, $cdpt, array(
+                    'num_siege_categorie' => null,
+                    'actif_pas' => 1,
+                    'statut_reprog' => 'repor',
+                ));
+                $tamp = $this->input->post('codeticketsclienttransit' . $suffix);
+                if ($tamp) {
+                    $this->m_tamponcode->update($tamp, array('actif_tamp' => 1));
+                }
+            }
+        }
+
+        /**
+         * Résumé d’une jambe pour détection transit (lookup).
+         */
+        protected function _reprog_jambe_summary($row)
+        {
+            if (!$row || !is_object($row)) {
+                return null;
+            }
+            $dest = '';
+            if (function_exists('ticket_destination_label')) {
+                $dest = ticket_destination_label($row, isset($row->gadest_lg) ? $row->gadest_lg : '');
+            } else {
+                $dest = !empty($row->nom_dest_vente) ? $row->nom_dest_vente
+                    : (isset($row->gadest_lg) ? $row->gadest_lg : '');
+            }
+            return array(
+                'code_ticket' => isset($row->code_ticket) ? (string) $row->code_ticket : '',
+                'code_passager' => isset($row->code_passager) ? (string) $row->code_passager : '',
+                'tamponcod' => isset($row->tamponcod) ? (string) $row->tamponcod : '',
+                'gaexp_lg' => isset($row->gaexp_lg) ? (string) $row->gaexp_lg : '',
+                'gadest_lg' => isset($row->gadest_lg) ? (string) $row->gadest_lg : '',
+                'dest_affiche' => (string) $dest,
+                'heure' => isset($row->heure) ? (string) $row->heure : '',
+                'date_progr' => isset($row->date_progr) ? (string) $row->date_progr : '',
+                'prixvente' => isset($row->prixvente) ? $row->prixvente : null,
+                'nom_ligne' => isset($row->nom_ligne) ? (string) $row->nom_ligne : '',
+                'nom_compagnie' => isset($row->nom_compagnie) ? (string) $row->nom_compagnie : '',
+                'id_escale_vente' => isset($row->id_escale_vente) ? $row->id_escale_vente : null,
+                'nom_dest_vente' => isset($row->nom_dest_vente) ? (string) $row->nom_dest_vente : '',
+                'code_gadest_vente' => isset($row->code_gadest_vente) ? (string) $row->code_gadest_vente : '',
+            );
+        }
+
+        /**
+         * Après lookup : détecte ticket transit via tamponcodtr et liste les jambes actives.
+         */
+        protected function _reprog_enrich_transit_meta($out)
+        {
+            if (!$out || !is_object($out)) {
+                return $out;
+            }
+            $out->est_transit = 0;
+            $out->nbr_jambes = 1;
+            $out->jambes = array();
+            $sum = $this->_reprog_jambe_summary($out);
+            if ($sum) {
+                $out->jambes[] = $sum;
+            }
+
+            $tr = isset($out->tamponcodtr) ? trim((string) $out->tamponcodtr) : '';
+            if ($tr === '') {
+                return $out;
+            }
+
+            $ek = $this->db->escape($this->session->company->ekey);
+            $trEsc = $this->db->escape($tr);
+            $rows = $this->db->query(
+                "SELECT ctp.tamponcod, ctp.tamponcodtr,
+                        p.code_passager, p.code_ticket, p.prixvente, p.id_escale_vente,
+                        p.nom_dest_vente, p.code_gadest_vente,
+                        h.heure, pr.date_progr, lg.nom_ligne, lg.gaexp_lg, lg.gadest_lg,
+                        ca.nom_compagnie AS nom_compagnie
+                 FROM tamponcode ctp
+                 JOIN passager p ON p.code_passager = ctp.tamponcod
+                 JOIN programme pr ON p.code_pro = pr.code_progr
+                 JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
+                 JOIN heures h ON lh.heure_identif = h.id_heure
+                 JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
+                 JOIN gare_dest ga ON lg.gadest_lg = ga.code_gadest
+                 JOIN compagnies ca ON ga.id_compaga = ca.cle_compagnie
+                 JOIN entreprise e ON ca.id_entrep = e.id_entreprise
+                 WHERE e.ekey = {$ek}
+                 AND ctp.tamponcodtr = {$trEsc}
+                 AND ctp.actif_tamp = 0
+                 AND p.actif_pas = 0
+                 AND p.num_siege_categorie IS NOT NULL
+                 AND (p.statut_reprog IS NULL OR p.statut_reprog = '' OR p.statut_reprog != 'repor')
+                 ORDER BY pr.date_progr ASC, h.heure ASC, p.code_passager ASC"
+            )->result();
+
+            if (count($rows) < 2) {
+                return $out;
+            }
+
+            $out->est_transit = 1;
+            $out->nbr_jambes = min(4, count($rows));
+            $out->jambes = array();
+            $n = 0;
+            foreach ($rows as $r) {
+                if ($n >= 4) {
+                    break;
+                }
+                $js = $this->_reprog_jambe_summary($r);
+                if ($js) {
+                    $out->jambes[] = $js;
+                    $n++;
+                }
+            }
+            $out->nbr_jambes = count($out->jambes);
+            return $out;
         }
 
         /**
@@ -373,47 +491,36 @@
             if ($prix_base === null || $prix_base === false) {
                 $prix_base = '';
             }
-            $prix_ref = $this->input->post('prixventeunifie_ref');
-            if ($prix_ref === null || $prix_ref === false || trim((string) $prix_ref) === '') {
-                $prix_ref = $prix_base;
-            }
-            $prix_ref_n = (float) str_replace(',', '.', preg_replace('/\s+/', '', (string) $prix_ref));
-            $sum_segs = 0.0;
-            foreach ($segs as $sx) {
-                if (isset($sx['prix']) && $sx['prix'] !== '') {
-                    $sum_segs += (float) str_replace(',', '.', preg_replace('/\s+/', '', (string) $sx['prix']));
-                }
-            }
-            $role = isset($this->session->agent->userole) ? (string) $this->session->agent->userole : '';
-            $allow_prix_diff = in_array($role, array('1', '2', '5', '15'), true);
-            // Vendeur : somme segments = prix ticket. Admin/chef : prix libre.
-            if (!$allow_prix_diff && $prix_ref_n > 0 && abs($sum_segs - $prix_ref_n) >= 0.05) {
-                if (isset($this->session) && method_exists($this->session, 'set_flashdata')) {
-                    $this->session->set_flashdata(
-                        'reprog_error',
-                        'Somme des prix correspondances (' . $sum_segs
-                        . ') différente du prix ticket vérifié (' . $prix_ref_n . ').'
-                    );
-                }
-                redirect(
-                    'gares/' . $this->session->company->ekey
-                    . '/gTc/' . $gidc . '/compte/' . $iduser . '/' . $sgid . '/'
-                    . mdate('%d/%m/%Y', now('UTC'))
-                );
-                return;
-            }
+            // Reprogrammation gratuite : prix segments informatifs (impression), hors CA agent.
+            // Guichetier autorisé sur correspondances sans égalité de somme.
 
             if ($this->_reprog_deja_effectuee($this->input->post('codeticketsclienttransit'), $cdpa_old, $cdpt_old)) {
                 $this->_reprog_refuse_redirect($gidc, $iduser, $sgid);
                 return;
             }
             $is_tr_ticket = ((string) $this->input->post('reprog_is_transit_ticket') === '1');
-            $cdpa_old2 = $this->input->post('passeridtransit2');
-            $cdpt_old2 = $this->input->post('codeclienttransit2');
-            if ($is_tr_ticket && $cdpa_old2 && $cdpt_old2) {
-                if ($this->_reprog_deja_effectuee($this->input->post('codeticketsclienttransit2'), $cdpa_old2, $cdpt_old2)) {
-                    $this->_reprog_refuse_redirect($gidc, $iduser, $sgid);
-                    return;
+            if ($is_tr_ticket) {
+                $nOrigChk = (int) $this->input->post('reprog_nbr_jambes_origine');
+                if ($nOrigChk < 2) {
+                    $nOrigChk = 2;
+                }
+                if ($nOrigChk > 4) {
+                    $nOrigChk = 4;
+                }
+                for ($ii = 2; $ii <= $nOrigChk; $ii++) {
+                    $sfx = ($ii === 2) ? '2' : (string) $ii;
+                    $cdpaX = $this->input->post('passeridtransit' . $sfx);
+                    $cdptX = $this->input->post('codeclienttransit' . $sfx);
+                    if ($cdpaX && $cdptX
+                        && $this->_reprog_deja_effectuee(
+                            $this->input->post('codeticketsclienttransit' . $sfx),
+                            $cdpaX,
+                            $cdptX
+                        )
+                    ) {
+                        $this->_reprog_refuse_redirect($gidc, $iduser, $sgid);
+                        return;
+                    }
                 }
             }
 
@@ -453,17 +560,9 @@
             if ($old_tamp) {
                 $this->m_tamponcode->update($old_tamp, array('actif_tamp' => 1));
             }
-            // 2ᵉ jambe d’un ticket transit d’origine
-            if ($is_tr_ticket && $cdpa_old2 && $cdpt_old2) {
-                $this->m_passager->update($cdpa_old2, $cdpt_old2, array(
-                    'num_siege_categorie' => null,
-                    'actif_pas' => 1,
-                    'statut_reprog' => 'repor',
-                ));
-                $old_tamp2 = $this->input->post('codeticketsclienttransit2');
-                if ($old_tamp2) {
-                    $this->m_tamponcode->update($old_tamp2, array('actif_tamp' => 1));
-                }
+            // Jambes 2..N d’un ticket transit d’origine
+            if ($is_tr_ticket) {
+                $this->_reprog_invalidate_transit_leg2_if_needed();
             }
 
             $created = array();
@@ -514,6 +613,8 @@
                     'num_cat' => $cat,
                     'statut_reprog' => 'repor',
                     'statut_code' => 'vendu',
+                    // Hors encaissement agent (report gratuit, même multi-compagnie).
+                    'statutvente' => self::REPROG_STATUTVENTE_HORS_CA,
                     'quart' => 'Marche',
                     'createpas_at' => now('UTC'),
                     'datep_create' => mdate('%Y-%m-%d', now('UTC')),
@@ -752,6 +853,7 @@
                 } else {
                     $out->dest_affiche = !empty($out->nom_dest_vente) ? $out->nom_dest_vente : (isset($out->gadest_lg) ? $out->gadest_lg : '');
                 }
+                $out = $this->_reprog_enrich_transit_meta($out);
             }
 
             return $this->load->view('beagle/pages/_programme/json', array('json' => $out));
@@ -1206,13 +1308,27 @@
                     return;
                 }
                 if ((string) $this->input->post('reprog_is_transit_ticket') === '1') {
-                    $cdpa2chk = $this->input->post('passeridtransit2');
-                    $cdpt2chk = $this->input->post('codeclienttransit2');
-                    if ($cdpa2chk && $cdpt2chk
-                        && $this->_reprog_deja_effectuee($this->input->post('codeticketsclienttransit2'), $cdpa2chk, $cdpt2chk)
-                    ) {
-                        $this->_reprog_refuse_redirect($gidc, $iduser, $sgid);
-                        return;
+                    $nOrigChk = (int) $this->input->post('reprog_nbr_jambes_origine');
+                    if ($nOrigChk < 2) {
+                        $nOrigChk = 2;
+                    }
+                    if ($nOrigChk > 4) {
+                        $nOrigChk = 4;
+                    }
+                    for ($ii = 2; $ii <= $nOrigChk; $ii++) {
+                        $sfx = ($ii === 2) ? '2' : (string) $ii;
+                        $cdpa2chk = $this->input->post('passeridtransit' . $sfx);
+                        $cdpt2chk = $this->input->post('codeclienttransit' . $sfx);
+                        if ($cdpa2chk && $cdpt2chk
+                            && $this->_reprog_deja_effectuee(
+                                $this->input->post('codeticketsclienttransit' . $sfx),
+                                $cdpa2chk,
+                                $cdpt2chk
+                            )
+                        ) {
+                            $this->_reprog_refuse_redirect($gidc, $iduser, $sgid);
+                            return;
+                        }
                     }
                 }
                 if($this->input->post('numsiegetransit')!= '')
@@ -1291,10 +1407,16 @@
                                             'num_cat' => $this->input->post('catreprogramtransit'),
                                             'statut_reprog' => 'repor',
                                             'statut_code' => 'vendu',
+                                            // Hors encaissement agent (changement de compagnie = report gratuit).
+                                            'statutvente' => self::REPROG_STATUTVENTE_HORS_CA,
                                             'quart' => 'Marche',
                                             'createpas_at' => now('UTC'),
                                             'datep_create' => mdate("%Y-%m-%d", now('UTC')),
                                         );
+                                        $prixOrigCie = $this->input->post('prixventeunifie');
+                                        if ($prixOrigCie !== false && $prixOrigCie !== null && trim((string) $prixOrigCie) !== '') {
+                                            $pasarray['prixvente'] = $prixOrigCie;
+                                        }
                                     $passrid = $this->m_passager->create($pasarray);
                                     if ($passrid != FALSE) {
                                         $this->_reprog_apply_preserved_escale($tamponrp, $cdtickrp, $dpclient);

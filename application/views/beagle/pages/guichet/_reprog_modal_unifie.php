@@ -1,7 +1,8 @@
 <?php defined('BASEPATH') OR exit('No direct script access allowed');
 $role_unifie = isset($this->session->agent->userole) ? (string) $this->session->agent->userole : '';
 $allow_tampon_unifie = in_array($role_unifie, array('1', '2', '5', '15'), true);
-$allow_prix_diff_unifie = $allow_tampon_unifie; // admin + chef guichet : prix peut différer
+// Correspondances / multi-cie : écart de prix autorisé pour tous (report gratuit, hors CA).
+$allow_prix_diff_unifie = true;
 ?>
 <style>
 #repro-unifie-0.modal-container { max-width: 920px; width: 96%; }
@@ -44,6 +45,11 @@ $allow_prix_diff_unifie = $allow_tampon_unifie; // admin + chef guichet : prix p
     margin: 0 0 8px;
     color: #2c3e50;
 }
+#repro-unifie-0 .reprog-leg-row {
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px dashed #dde2e6;
+}
 @media (max-width: 576px) {
     #repro-unifie-0 .reprog-info-grid { grid-template-columns: 1fr; }
 }
@@ -81,8 +87,6 @@ $allow_prix_diff_unifie = $allow_tampon_unifie; // admin + chef guichet : prix p
         <input type="hidden" id="id_compaga_unifie" name="trid_compaga">
         <input type="hidden" id="replignunifie" name="repligntransit">
         <input type="hidden" id="idreplignunifie" name="idrpligntransit">
-        <input type="hidden" id="repherunifie">
-        <input type="hidden" id="datereprogrammeunifie">
         <input type="hidden" id="directpunifie" name="directpatransit">
         <input type="hidden" id="delivrelieunifie" name="dlieutransit">
         <input type="hidden" id="placevenduunifie" name="placevdtransit">
@@ -93,7 +97,6 @@ $allow_prix_diff_unifie = $allow_tampon_unifie; // admin + chef guichet : prix p
         <input type="hidden" id="depgidunifie" name="departgidtransit">
         <input type="hidden" id="catreprogrammeunifie" name="catreprogramtransit">
         <input type="hidden" id="programrepunifie" name="repmcodtransit">
-        <input type="hidden" id="dateprrepunifie">
         <input type="hidden" id="codenonpunifie" name="codenonpassagertransit">
         <input type="hidden" id="statconfunifie" name="statconfirmtransit">
         <input type="hidden" id="statrepunifie" name="statreprotransit">
@@ -117,10 +120,13 @@ $allow_prix_diff_unifie = $allow_tampon_unifie; // admin + chef guichet : prix p
         <input type="hidden" name="reprog_mode" id="reprog_mode_unifie" value="direct">
         <input type="hidden" name="reprog_nbr_seg" id="reprog_nbr_seg_unifie" value="0">
         <input type="hidden" name="reprog_is_transit_ticket" id="reprog_is_transit_ticket" value="0">
-        <input type="hidden" id="passerpunifie2" name="passeridtransit2" value="">
-        <input type="hidden" id="codeticketsunifie2" name="codeticketsclienttransit2" value="">
-        <input type="hidden" id="codeclient_ticket_unifie2" name="codeclienttransit2" value="">
-        <input type="hidden" id="prixventeunifie2" name="prixventeunifie2" value="">
+        <input type="hidden" name="reprog_nbr_jambes_origine" id="reprog_nbr_jambes_origine" value="1">
+        <?php for ($li = 2; $li <= 4; $li++): ?>
+        <input type="hidden" id="passerpunifie<?= $li; ?>" name="passeridtransit<?= $li; ?>" value="">
+        <input type="hidden" id="codeticketsunifie<?= $li; ?>" name="codeticketsclienttransit<?= $li; ?>" value="">
+        <input type="hidden" id="codeclient_ticket_unifie<?= $li; ?>" name="codeclienttransit<?= $li; ?>" value="">
+        <input type="hidden" id="prixventeunifie<?= $li; ?>" name="prixventeunifie<?= $li; ?>" value="">
+        <?php endfor; ?>
         <?php for ($si = 0; $si < 4; $si++): ?>
         <input type="hidden" name="reprog_seg_prog_<?= $si; ?>" id="reprog_seg_prog_<?= $si; ?>" value="">
         <input type="hidden" name="reprog_seg_siege_<?= $si; ?>" id="reprog_seg_siege_<?= $si; ?>" value="">
@@ -150,28 +156,13 @@ $allow_prix_diff_unifie = $allow_tampon_unifie; // admin + chef guichet : prix p
                         Autre code (passager / tampon)
                     </label>
                     <?php endif; ?>
-                    <label class="mb-1 d-block">
-                        <input type="checkbox" id="mode_transit_ticket_unifie" value="1">
-                        Ticket transit (plusieurs codes)
-                    </label>
+                    <p class="small text-muted mb-1" id="reprog_transit_detect_msg" style="display:none"></p>
                     <span class="btn btn-success btn-sm btn-block" type="button" id="reprogrammer_infos_unifie">
                         Afficher les informations
                     </span>
                 </div>
             </div>
-            <div class="form-row align-items-end" id="reprog_code2_wrap" style="display:none">
-                <div class="form-group col-md-6 mb-2">
-                    <label class="small mb-0">2<sup>e</sup> code (jambe transit)</label>
-                    <input class="form-control form-control-sm" type="text"
-                           id="code_lookup2_unifie" autocomplete="off"
-                           placeholder="Code de la 2ᵉ jambe">
-                </div>
-                <div class="form-group col-md-6 mb-2">
-                    <span class="btn btn-outline-success btn-sm btn-block" type="button" id="reprogrammer_infos2_unifie">
-                        Vérifier le 2<sup>e</sup> code
-                    </span>
-                </div>
-            </div>
+            <div id="reprog_codes_extra_wrap" style="display:none"></div>
             <div class="reprog-info-grid" id="reprog_infos_wrap" style="display:none">
                 <p id="nomclpunifie"></p>
                 <p id="prenomclpunifie"></p>
@@ -191,6 +182,10 @@ $allow_prix_diff_unifie = $allow_tampon_unifie; // admin + chef guichet : prix p
 
         <div class="reprog-section" id="reprog_choix_wrap" style="display:none">
             <div class="reprog-section-title">Nouveau départ</div>
+            <p class="small text-success mb-2" id="reprog_gratuit_hint">
+                Reprogrammation gratuite : aucun montant n’est facturé à l’agent (même en cas de changement de compagnie ou de correspondance).
+            </p>
+            <p class="small text-info mb-2" id="reprog_od_resume" style="display:none"></p>
             <div class="form-row">
                 <div class="form-group col-md-4 mb-2">
                     <label class="small mb-0">Date de report</label>
