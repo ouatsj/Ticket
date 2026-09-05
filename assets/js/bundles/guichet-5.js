@@ -9786,7 +9786,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 cieSel.value = cieKeys[0];
             }
             if (cieSel.value) {
-                __reprogFireChange(cieSel);
+                // Ne pas laisser planter l’affichage compagnies si heure/siège échoue.
+                try {
+                    __reprogFireChange(cieSel);
+                } catch (eCie) {
+                    __reprogSegErr(idx, 'Erreur après compagnie: '
+                        + (eCie && eCie.message ? eCie.message : eCie));
+                }
             }
         }
 
@@ -9812,6 +9818,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     + (errSeg ? (' (' + errSeg + ')') : '')
                     + '. Vérifiez programmes actifs sur cette ligne.');
             } catch (eFill) {
+                // Afficher compagnies même en cas d’erreur partielle plus bas.
                 __reprogSegErr(idx, 'Erreur affichage compagnies: '
                     + (eFill && eFill.message ? eFill.message : eFill));
             }
@@ -9830,6 +9837,10 @@ document.addEventListener('DOMContentLoaded', () => {
         __reprogSyncSegPost(idx);
         __reprogUpdatePrixSum();
         if (!cieSel || !cieSel.value) return;
+        if (!heureSel) {
+            __reprogSegErr(idx, 'Champ heure introuvable sur ce segment.');
+            return;
+        }
 
         var hoursMap = (seg.byCieHour && seg.byCieHour[cieSel.value]) || {};
         var hours = Object.keys(hoursMap).sort();
@@ -9870,7 +9881,12 @@ document.addEventListener('DOMContentLoaded', () => {
             heureSel.value = hours[0];
         }
         if (heureSel.value) {
-            __reprogFireChange(heureSel);
+            try {
+                __reprogFireChange(heureSel);
+            } catch (eHeure) {
+                __reprogSegErr(idx, 'Erreur chargement sièges: '
+                    + (eHeure && eHeure.message ? eHeure.message : eHeure));
+            }
         }
     }
 
