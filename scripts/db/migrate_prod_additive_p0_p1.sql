@@ -232,3 +232,44 @@ CREATE TABLE IF NOT EXISTS programme_siege_bloque (
   UNIQUE KEY uq_prog_siege (code_progr, siege_num),
   KEY idx_code_progr (code_progr)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- -----------------------------------------------------------------------------
+-- P1.7 Lieu de vente (sous-gare guichet) — distinct du départ segment
+-- Arrêt compte multi-SG : filtrer sur idsousgare_vente (toutes jambes corr.).
+-- -----------------------------------------------------------------------------
+SET @exists := (
+  SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = @db AND TABLE_NAME = 'passager' AND COLUMN_NAME = 'idsousgare_vente'
+);
+SET @sql := IF(@exists = 0,
+  'ALTER TABLE passager ADD COLUMN idsousgare_vente INT NULL DEFAULT NULL COMMENT ''Sous-gare du guichet vendeur (POST sousgareconnect)''',
+  'SELECT 1');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+SET @exists := (
+  SELECT COUNT(*) FROM information_schema.STATISTICS
+  WHERE TABLE_SCHEMA = @db AND TABLE_NAME = 'passager' AND INDEX_NAME = 'idx_passager_idsousgare_vente'
+);
+SET @sql := IF(@exists = 0,
+  'CREATE INDEX idx_passager_idsousgare_vente ON passager (idsousgare_vente, statutvente, idcptuser)',
+  'SELECT 1');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+SET @exists := (
+  SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = @db AND TABLE_NAME = 'non_passager' AND COLUMN_NAME = 'idsousgare_vente'
+);
+SET @sql := IF(@exists = 0,
+  'ALTER TABLE non_passager ADD COLUMN idsousgare_vente INT NULL DEFAULT NULL COMMENT ''Sous-gare du guichet vendeur''',
+  'SELECT 1');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+SET @exists := (
+  SELECT COUNT(*) FROM information_schema.STATISTICS
+  WHERE TABLE_SCHEMA = @db AND TABLE_NAME = 'non_passager' AND INDEX_NAME = 'idx_non_passager_idsousgare_vente'
+);
+SET @sql := IF(@exists = 0,
+  'CREATE INDEX idx_non_passager_idsousgare_vente ON non_passager (idsousgare_vente, statvente, cptus)',
+  'SELECT 1');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+

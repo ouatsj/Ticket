@@ -18,6 +18,43 @@
             return ticket_impression_prix_rows($rows);
         }
 
+        /**
+         * Phase B — sous-gare du guichet vendeur (distincte du départ de jambe).
+         * Remplie depuis POST sousgareconnect* si absente du tableau.
+         */
+        protected function _bind_idsousgare_vente(array $data)
+        {
+            if (isset($data['idsousgare_vente']) && $data['idsousgare_vente'] !== '' && $data['idsousgare_vente'] !== null) {
+                $data['idsousgare_vente'] = (int) $data['idsousgare_vente'];
+                return $data;
+            }
+            $CI =& get_instance();
+            if (!isset($CI->input)) {
+                return $data;
+            }
+            foreach (array('sousgareconnect', 'sousgareconnectmob', 'sousgareconnectstp', 'retsousgareconnect') as $key) {
+                $v = $CI->input->post($key);
+                if ($v !== false && $v !== null && trim((string) $v) !== '') {
+                    $data['idsousgare_vente'] = (int) $v;
+                    return $data;
+                }
+            }
+            return $data;
+        }
+
+        /**
+         * Filtre SQL arrêt multi-SG : lieu de vente, avec repli historique (NULL = phase A gare).
+         */
+        protected function _sql_scope_idsousgare_vente($alias, $sg)
+        {
+            $alias = preg_replace('/[^a-zA-Z0-9_]/', '', (string) $alias);
+            $sg = (int) $sg;
+            return " AND (
+                {$alias}.idsousgare_vente = {$sg}
+                OR {$alias}.idsousgare_vente IS NULL
+            )";
+        }
+
         /** Filtre tampon du jour (évite scan complet de passager ~2,5 M lignes). */
         private function _tampon_passager_jour_sql()
         {
@@ -77,6 +114,7 @@
             $data = roleattribut_guard_apply_to_data($data, array('idcptuser'));
             $pricing = null;
             $CI =& get_instance();
+            $data = $this->_bind_idsousgare_vente($data);
 
             // Vente escale : persister destination partielle + prix escale (évite terminus parent).
             if (!isset($CI->sale_svc)) {
@@ -2685,7 +2723,10 @@
                     AND ar.roleattribut = '$idcox'
                     AND dest.id_compaga = '$cpg'
                     AND ul.guser = '$g'
-                    AND p.departclient_idgare = '$sg'
+                    AND (
+                        p.idsousgare_vente = '$sg'
+                        OR p.idsousgare_vente IS NULL
+                    )
                     AND cu.is_conect = 1
                     AND ar.activeattrib = 1
                     AND p.statutvente = 0
@@ -2783,7 +2824,20 @@
                     AND p.prixvente IS NOT NULL
                     AND p.statut_code = 'vendu'
                     AND cu.date_conect <= '$today'
-                    AND p.departclient_idgare NOT IN (SELECT s.idsousgare FROM sousgare s WHERE s.gareprinceid = '$g')
+                    AND (
+                        (
+                            p.idsousgare_vente = '$sg'
+                            AND p.departclient_idgare NOT IN (
+                                SELECT s.idsousgare FROM sousgare s WHERE s.gareprinceid = '$g'
+                            )
+                        )
+                        OR (
+                            p.idsousgare_vente IS NULL
+                            AND p.departclient_idgare NOT IN (
+                                SELECT s.idsousgare FROM sousgare s WHERE s.gareprinceid = '$g'
+                            )
+                        )
+                    )
                     GROUP BY p.idcptuser, dest.id_compaga, c.nom_compagnie, p.departclient_idgare")->result(); return $this->normalize_ticket_prix_rows($rows);
         }
         
@@ -2815,7 +2869,18 @@
                     AND p.prixvente IS NOT NULL
                     AND p.statut_code = 'vendu'
                     AND cu.date_conect <= '$today'
-                    AND p.departclient_idgare = '$sg'
+                    AND (
+                        p.idsousgare_vente = '$sg'
+                        OR (
+                            p.idsousgare_vente IS NULL
+                            AND (
+                                p.departclient_idgare IN (
+                                    SELECT s.idsousgare FROM sousgare s WHERE s.gareprinceid = '$g'
+                                )
+                                OR p.departclient_idgare = '$sg'
+                            )
+                        )
+                    )
                     GROUP BY p.idcptuser, dest.id_compaga, c.nom_compagnie, p.departclient_idgare")->result(); return $this->normalize_ticket_prix_rows($rows);
         }
         public function comptegroupbisinter($cd, $idcox, $g, $cpg)

@@ -543,15 +543,56 @@ if (!function_exists('sales_price_snapshot_record')) {
 }
 
 if (!function_exists('sales_closure_totals_prepare')) {
-    function sales_closure_totals_prepare($companyEkey, $roleAttributionId)
+    /**
+     * @param int|string $companyEkey
+     * @param int|string $roleAttributionId
+     * @param string|null $gareCode filtre optionnel user_login.guser (phase A arrêt)
+     * @param int|string|null $idsousgareVente filtre optionnel lieu de vente (phase B)
+     */
+    function sales_closure_totals_prepare($companyEkey, $roleAttributionId, $gareCode = null, $idsousgareVente = null)
     {
         static $totals = array();
         $CI =& get_instance();
-        $key = (int) $companyEkey . ':' . (int) $roleAttributionId;
+        $gareCode = ($gareCode !== null && $gareCode !== false) ? trim((string) $gareCode) : '';
+        $idsousgareVente = ($idsousgareVente !== null && $idsousgareVente !== false && $idsousgareVente !== '')
+            ? (int) $idsousgareVente
+            : 0;
+        $key = (int) $companyEkey . ':' . (int) $roleAttributionId . ':' . $gareCode . ':' . $idsousgareVente;
         $totals[$key] = array();
 
         if (!sales_price_controls_enabled()) {
             return;
+        }
+
+        $gareJoinPass = '';
+        $gareWherePass = '';
+        $gareJoinNp = '';
+        $gareWhereNp = '';
+        $params = array(
+            (int) $companyEkey,
+            (int) $roleAttributionId,
+        );
+        if ($gareCode !== '') {
+            $gareJoinPass = " JOIN attributions_role ar ON p.idcptuser = ar.roleattribut
+                JOIN user_login ul ON ar.idgestcompte = ul.uid_login ";
+            $gareWherePass = " AND ul.guser = ? ";
+            $gareJoinNp = " JOIN attributions_role ar2 ON np.cptus = ar2.roleattribut
+                JOIN user_login ul2 ON ar2.idgestcompte = ul2.uid_login ";
+            $gareWhereNp = " AND ul2.guser = ? ";
+            $params[] = $gareCode;
+        }
+        if ($idsousgareVente > 0) {
+            $gareWherePass .= " AND (p.idsousgare_vente = ? OR p.idsousgare_vente IS NULL) ";
+            $gareWhereNp .= " AND (np.idsousgare_vente = ? OR np.idsousgare_vente IS NULL) ";
+            $params[] = $idsousgareVente;
+        }
+        $params[] = (int) $companyEkey;
+        $params[] = (int) $roleAttributionId;
+        if ($gareCode !== '') {
+            $params[] = $gareCode;
+        }
+        if ($idsousgareVente > 0) {
+            $params[] = $idsousgareVente;
         }
 
         $rows = $CI->db->query(
@@ -565,8 +606,10 @@ if (!function_exists('sales_closure_totals_prepare')) {
                 JOIN gare_dest gd ON lg.gadest_lg = gd.code_gadest
                 JOIN compagnies c ON gd.id_compaga = c.cle_compagnie
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
+                {$gareJoinPass}
                 WHERE e.ekey = ?
                 AND p.idcptuser = ?
+                {$gareWherePass}
                 AND p.statutvente = 0
                 AND p.statut_code = 'vendu'
                 UNION ALL
@@ -576,17 +619,14 @@ if (!function_exists('sales_closure_totals_prepare')) {
                 JOIN gare_dest gd ON lg.gadest_lg = gd.code_gadest
                 JOIN compagnies c ON gd.id_compaga = c.cle_compagnie
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
+                {$gareJoinNp}
                 WHERE e.ekey = ?
                 AND np.cptus = ?
+                {$gareWhereNp}
                 AND np.statvente = 0
              ) x
              GROUP BY x.company_code",
-            array(
-                (int) $companyEkey,
-                (int) $roleAttributionId,
-                (int) $companyEkey,
-                (int) $roleAttributionId,
-            )
+            $params
         )->result();
 
         foreach ($rows as $row) {
@@ -594,6 +634,7 @@ if (!function_exists('sales_closure_totals_prepare')) {
         }
 
         $GLOBALS['sales_closure_totals'] = $totals;
+        $GLOBALS['sales_closure_totals_key'] = $key;
     }
 }
 
@@ -603,14 +644,21 @@ if (!function_exists('sales_closure_total')) {
         if (!sales_price_controls_enabled() || empty($GLOBALS['sales_closure_totals'])) {
             return $fallback;
         }
-        $key = (int) $companyEkey . ':' . (int) $roleAttributionId;
         $companyCode = (string) $companyCode;
-        if (!isset($GLOBALS['sales_closure_totals'][$key])
-            || !array_key_exists($companyCode, $GLOBALS['sales_closure_totals'][$key])
-        ) {
-            return 0.0;
+        $keys = array();
+        if (!empty($GLOBALS['sales_closure_totals_key'])) {
+            $keys[] = $GLOBALS['sales_closure_totals_key'];
         }
-        return $GLOBALS['sales_closure_totals'][$key][$companyCode];
+        $keys[] = (int) $companyEkey . ':' . (int) $roleAttributionId . ':';
+        $keys[] = (int) $companyEkey . ':' . (int) $roleAttributionId;
+        foreach ($keys as $key) {
+            if (isset($GLOBALS['sales_closure_totals'][$key])
+                && array_key_exists($companyCode, $GLOBALS['sales_closure_totals'][$key])
+            ) {
+                return $GLOBALS['sales_closure_totals'][$key][$companyCode];
+            }
+        }
+        return 0.0;
     }
 }
 

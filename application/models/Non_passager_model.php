@@ -91,6 +91,7 @@
         public function create(array $data)
         {
             $data = roleattribut_guard_apply_to_data($data, array('idcptuser', 'cptus'));
+            $data = $this->_bind_idsousgare_vente($data);
 
             // Retour : si un code programme aller est fourni (rare), aligner ; sinon conserver POST.
             if (isset($data['prixretour']) && !empty($data['code_pro']) && function_exists('ticket_prix_depuis_programme')) {
@@ -99,6 +100,33 @@
 
             $this->db->insert($this->table, $data);
             return $this->db->insert_id();
+        }
+
+        /**
+         * Phase B — lieu de vente guichet (POST), sinon sousgareidentif déjà posé.
+         */
+        protected function _bind_idsousgare_vente(array $data)
+        {
+            if (isset($data['idsousgare_vente']) && $data['idsousgare_vente'] !== '' && $data['idsousgare_vente'] !== null) {
+                $data['idsousgare_vente'] = (int) $data['idsousgare_vente'];
+                return $data;
+            }
+            if (!empty($data['sousgareidentif'])) {
+                $data['idsousgare_vente'] = (int) $data['sousgareidentif'];
+                return $data;
+            }
+            $CI =& get_instance();
+            if (!isset($CI->input)) {
+                return $data;
+            }
+            foreach (array('sousgareconnect', 'sousgareconnectmob', 'sousgareconnectstp', 'retsousgareconnect') as $key) {
+                $v = $CI->input->post($key);
+                if ($v !== false && $v !== null && trim((string) $v) !== '') {
+                    $data['idsousgare_vente'] = (int) $v;
+                    return $data;
+                }
+            }
+            return $data;
         }
             
        
@@ -296,7 +324,10 @@
                 AND cu.is_conect = 1
                 AND np.statvente = 0
                 AND ul.guser = '$g'
-                AND np.sousgareidentif = '$sg'
+                AND (
+                    np.idsousgare_vente = '$sg'
+                    OR np.idsousgare_vente IS NULL
+                )
                 GROUP BY np.cptus, dest.id_compaga, c.nom_compagnie, np.sousgareidentif")->result();
         }
         public function comptegroupbis($cd, $idcox, $g, $cpg)

@@ -1094,6 +1094,19 @@ if (!function_exists('compte_arret_unclosed_ticket')) {
             return true;
         }
 
+        // Aligné phase A : retours au même scope gare + vendeur (pas de filtre sous-gare).
+        if ($gare_id !== null && $gare_id !== '') {
+            $sql_np = "SELECT 1 FROM non_passager np
+                JOIN attributions_role ar ON np.cptus = ar.roleattribut
+                JOIN user_login ul ON ar.idgestcompte = ul.uid_login
+                WHERE np.cptus = ?
+                AND ul.guser = ?
+                AND np.datevente < ?
+                AND np.statvente = 0
+                LIMIT 1";
+            return (bool) $CI->db->query($sql_np, [$roleattribut, $gare_id, $today])->row();
+        }
+
         $sql_np = "SELECT 1 FROM non_passager np
             WHERE np.cptus = ?
             AND np.datevente < ?

@@ -192,6 +192,7 @@
                     $this->property['passageraller'] = $this->m_passager->compte($this->company->ekey, $cpr, $cdg);
                     $this->property['passagerretour'] = $this->m_non_passager->compte($this->company->ekey, $cpr, $cdg);
                 
+                    // Phase B : agrégat par lieu de vente (idsousgare_vente).
                     $this->property['passagerallergroup'] = $this->m_passager->comptegroupsbis($this->company->ekey, $cpr, $cdg, $idsg, 5000);
 
                     $this->property['passagerretourgroup'] = $this->m_non_passager->comptegroupsbis($this->company->ekey, $cpr, $cdg, $idsg, 5000);
@@ -1423,7 +1424,73 @@
         }
 
         /**
+         * Phase A/B — clôture tickets/retours ouverts du vendeur sur sa gare.
+         * Phase B (multi-SG) : option idsousgare = lieu de vente ; NULL historique inclus.
+         *
+         * @param int|string $idcpt roleattribut vendeur
+         * @param string $gd code gare (guser)
+         * @param array $options with_valdtick, exclude_report_code_R, idsousgare (int|null)
+         */
+        protected function _arret_close_open_ticket_sales($idcpt, $gd, array $options = array())
+        {
+            $idcpt = (int) $idcpt;
+            $gd = trim((string) $gd);
+            $withVal = !empty($options['with_valdtick']);
+            $excludeR = !empty($options['exclude_report_code_R']);
+            $idsousgare = isset($options['idsousgare']) ? (int) $options['idsousgare'] : 0;
+
+            $passSql = "SELECT p.code_passager, p.code_ticket
+                FROM passager p
+                JOIN attributions_role ar ON p.idcptuser = ar.roleattribut
+                JOIN user_login ul ON ar.idgestcompte = ul.uid_login
+                WHERE p.idcptuser = ?
+                AND ul.guser = ?
+                AND p.statutvente = 0";
+            $passParams = array($idcpt, $gd);
+            if ($idsousgare > 0) {
+                $passSql .= " AND (p.idsousgare_vente = ? OR p.idsousgare_vente IS NULL)";
+                $passParams[] = $idsousgare;
+            }
+            if ($excludeR) {
+                $passSql .= " AND p.code_ticket != 'R'";
+            }
+            $arpass = $this->db->query($passSql, $passParams)->result();
+            $passUpdate = array('statutvente' => 1);
+            if ($withVal) {
+                $passUpdate['is_valdtick'] = 1;
+            }
+            foreach ($arpass as $row) {
+                $this->m_passager->update($row->code_passager, $row->code_ticket, $passUpdate);
+            }
+
+            $npSql = "SELECT np.code_non_pass, np.codeticket
+                FROM non_passager np
+                JOIN attributions_role ar ON np.cptus = ar.roleattribut
+                JOIN user_login ul ON ar.idgestcompte = ul.uid_login
+                WHERE np.cptus = ?
+                AND ul.guser = ?
+                AND np.statvente = 0";
+            $npParams = array($idcpt, $gd);
+            if ($idsousgare > 0) {
+                $npSql .= " AND (np.idsousgare_vente = ? OR np.idsousgare_vente IS NULL)";
+                $npParams[] = $idsousgare;
+            }
+            $arnonpass = $this->db->query($npSql, $npParams)->result();
+            $npUpdate = array('statvente' => 1);
+            if ($withVal) {
+                $npUpdate['is_valedtick'] = 1;
+            }
+            foreach ($arnonpass as $row) {
+                $this->m_non_passager->update($row->code_non_pass, $row->codeticket, $npUpdate);
+            }
+
+            return $arpass;
+        }
+
+        /**
          * Données passagers pour arrêt compte guichet (indexguichet / ad_indexcaisse).
+         * Mono-SG : phase A (gare + vendeur).
+         * Multi-SG : phase B (lieu de vente idsousgare_vente ; NULL = repli gare).
          */
         protected function _load_guichet_arret_passagers($ekey, $idc, $gd, $sg, $single_sousgare)
         {
@@ -1548,86 +1615,17 @@
 
             // Totaux attendus AVANT bascule statutvente (sinon expected=0).
             if (function_exists('sales_closure_totals_prepare')) {
-                sales_closure_totals_prepare($this->company->ekey, $idcpt);
+                sales_closure_totals_prepare($this->company->ekey, $idcpt, $gd, $isg);
             }
-        
+
             $sgares = $this->db->query("SELECT count(idsousgare) AS sog FROM sousgare s
-                    WHERE s.gareprinceid = '$gd'")->row();
-               if($sgares->sog == 1){             
-                    $arpass = $this->db->query("SELECT p.code_passager, p.code_ticket, p.statutvente, p.idcptuser FROM passager p
-                        WHERE p.idcptuser = '$idcpt'
-                        AND p.statutvente = 0")->result();
-    
-                        foreach ($arpass as $items1) {
-                            $plarras = array(
-                                'statutvente' => 1,
-                            );
-                            $this->m_passager->update($items1->code_passager, $items1->code_ticket, $plarras);
-                        }
-    
-                        $arnonpass = $this->db->query("SELECT np.code_non_pass, np.codeticket, np.statvente, np.cptus FROM non_passager np
-                        WHERE np.cptus = '$idcpt'
-                        AND np.statvente = 0")->result();
-    
-                        foreach ($arnonpass as $items2) {
-                            $plarrayn = array(
-                                'statvente' => 1,
-                            );
-                            $val = $this->m_non_passager->update($items2->code_non_pass, $items2->codeticket, $plarrayn);
-                        }
-               }else{
-                       $arpass = $this->db->query("SELECT p.code_passager, p.code_ticket, p.statutvente, p.idcptuser FROM passager p
-                        WHERE p.idcptuser = '$idcpt'
-                        AND departclient_idgare = '$isg'
-                        AND p.statutvente = 0")->result();
-    
-                        foreach ($arpass as $items1) {
-                            $plarras = array(
-                                'statutvente' => 1,
-                            );
-                            $this->m_passager->update($items1->code_passager, $items1->code_ticket, $plarras);
-
-                        }
-    
-                        $arnonpass = $this->db->query("SELECT np.code_non_pass, np.codeticket, np.statvente, np.cptus FROM non_passager np
-                        WHERE np.cptus = '$idcpt'
-                        AND sousgareidentif = '$isg'
-                        AND np.statvente = 0")->result();
-    
-                        foreach ($arnonpass as $items2) {
-                            $plarrayn = array(
-                                'statvente' => 1,
-                            );
-
-                            $val = $this->m_non_passager->update($items2->code_non_pass, $items2->codeticket, $plarrayn);
-                        }
-                           $arpassbis = $this->db->query("SELECT p.code_passager, p.code_ticket, p.statutvente, p.idcptuser FROM passager p
-                            WHERE p.idcptuser = '$idcpt'
-                            AND p.statutvente = 0
-                            AND p.departclient_idgare NOT IN (SELECT s.idsousgare FROM sousgare s
-                            WHERE s.gareprinceid = '$gd')")->result();
-        
-                            foreach ($arpassbis as $items1bis) {
-                            $plarrasbis = array(
-                                'statutvente' => 1,
-                            );
-                            $this->m_passager->update($items1bis->code_passager, $items1bis->code_ticket, $plarrasbis);
-                        }
-    
-                            $arnonpassbis = $this->db->query("SELECT np.code_non_pass, np.codeticket, np.statvente, np.cptus FROM non_passager np
-                            WHERE np.cptus = '$idcpt'
-                            AND np.statvente = 0
-                            AND np.sousgareidentif NOT IN (SELECT s.idsousgare FROM sousgare s
-                            WHERE s.gareprinceid = '$gd')")->result();
-        
-                        foreach ($arnonpassbis as $items2bis) {
-                            $plarraynbis = array(
-                                'statvente' => 1,
-                            );
-                            $valbis = $this->m_non_passager->update($items2bis->code_non_pass, $items2bis->codeticket, $plarraynbis);
-                        }
-
-                   }
+                    WHERE s.gareprinceid = ?", array($gd))->row();
+            $closeOpts = array();
+            if ($sgares && (int) $sgares->sog !== 1) {
+                $closeOpts['idsousgare'] = (int) $isg;
+            }
+            // Phase A/B : gare + vendeur ; multi-SG = lieu de vente (idsousgare_vente).
+            $arpass = $this->_arret_close_open_ticket_sales($idcpt, $gd, $closeOpts);
                         
                     $arnonreport = $this->db->query("SELECT rp.code_report, rp.idcpuserconect, rp.statutreport FROM report rp
                     WHERE rp.idcpuserconect = '$idcpt'
@@ -5055,7 +5053,7 @@
             $today = mdate("%Y-%m-%d", now());
 
             if (function_exists('sales_closure_totals_prepare')) {
-                sales_closure_totals_prepare($this->company->ekey, $idcpt);
+                sales_closure_totals_prepare($this->company->ekey, $idcpt, $gd);
             }
 
             $sgares = $this->db->query("SELECT count(idsousgare) AS sog FROM sousgare s
@@ -6069,91 +6067,22 @@
             $idcmpt = $this->input->post('compconnected');
 
              $idc = $this->input->post('idcaisse');
-             
-             $sgares = $this->db->query("SELECT count(idsousgare) AS sog FROM sousgare s
-                            WHERE s.gareprinceid = '$gd'")->row();
-                if($sgares->sog == 1){            
-                    $arpass = $this->db->query("SELECT p.code_passager, p.code_ticket, p.statutvente, p.idcptuser FROM passager p
-                    WHERE p.idcptuser = '$idcpt'
-                    AND p.statutvente = 0
-                    AND p.code_ticket != 'R'")->result();
 
-                    foreach ($arpass as $ite1) {
-                        $plarras = array(
-                            'statutvente' => 1,
-                            'is_valdtick' => 1,
-                        );
-                        $this->m_passager->update($ite1->code_passager, $ite1->code_ticket, $plarras);
-                    }
+            if (function_exists('sales_closure_totals_prepare')) {
+                sales_closure_totals_prepare($this->company->ekey, $idcpt, $gd, $sgid);
+            }
 
-                    $arnonpass = $this->db->query("SELECT np.code_non_pass, np.codeticket, np.statvente, np.cptus FROM non_passager np
-                    WHERE np.cptus = '$idcpt'
-                    AND np.statvente = 0")->result();
-
-                    foreach ($arnonpass as $ite2) {
-                        $plarrayn = array(
-                            'statvente' => 1,
-                            'is_valedtick' => 1,
-                        );
-                        $val = $this->m_non_passager->update($ite2->code_non_pass, $ite2->codeticket, $plarrayn);
-                    }
-                }else
-                {
-                        $arpass = $this->db->query("SELECT p.code_passager, p.code_ticket, p.statutvente, p.idcptuser FROM passager p
-                        WHERE p.idcptuser = '$idcpt'
-                        AND p.departclient_idgare = '$sgid'
-                        AND p.statutvente = 0
-                        AND p.code_ticket != 'R'")->result();
-    
-                        foreach ($arpass as $ite1) {
-                            $plarras = array(
-                                'statutvente' => 1,
-                                'is_valdtick' => 1,
-                            );
-                            $this->m_passager->update($ite1->code_passager, $ite1->code_ticket, $plarras);
-                        }
-    
-                        $arnonpass = $this->db->query("SELECT np.code_non_pass, np.codeticket, np.statvente, np.cptus FROM non_passager np
-                        WHERE np.cptus = '$idcpt'
-                        AND np.sousgareidentif = '$sgid'
-                        AND np.statvente = 0")->result();
-    
-                        foreach ($arnonpass as $ite2) {
-                            $plarrayn = array(
-                                'statvente' => 1,
-                                'is_valedtick' => 1,
-                            );
-                            $val = $this->m_non_passager->update($ite2->code_non_pass, $ite2->codeticket, $plarrayn);
-                        }
-                          $arpassbis = $this->db->query("SELECT p.code_passager, p.code_ticket, p.statutvente, p.idcptuser FROM passager p
-                            WHERE p.idcptuser = '$idcpt'
-                            AND p.statutvente = 0
-                            AND p.code_ticket != 'R'
-                            AND p.departclient_idgare NOT IN (SELECT s.idsousgare FROM sousgare s
-                            WHERE s.gareprinceid = '$gd')")->result();
-        
-                            foreach ($arpassbis as $items1bis) {
-                            $plarrasbis = array(
-                                'statutvente' => 1,
-                                'is_valdtick' => 1,
-                            );
-                            $this->m_passager->update($items1bis->code_passager, $items1bis->code_ticket, $plarrasbis);
-                        }
-    
-                            $arnonpassbis = $this->db->query("SELECT np.code_non_pass, np.codeticket, np.statvente, np.cptus FROM non_passager np
-                            WHERE np.cptus = '$idcpt'
-                            AND np.statvente = 0
-                            AND np.sousgareidentif NOT IN (SELECT s.idsousgare FROM sousgare s
-                            WHERE s.gareprinceid = '$gd')")->result();
-        
-                        foreach ($arnonpassbis as $items2bis) {
-                            $plarraynbis = array(
-                                'statvente' => 1,
-                                'is_valedtick' => 1,
-                            );
-                            $valbis = $this->m_non_passager->update($items2bis->code_non_pass, $items2bis->codeticket, $plarraynbis);
-                        }
-                }    
+            $sgares = $this->db->query("SELECT count(idsousgare) AS sog FROM sousgare s
+                            WHERE s.gareprinceid = ?", array($gd))->row();
+            $closeOpts = array(
+                'with_valdtick' => true,
+                'exclude_report_code_R' => true,
+            );
+            if ($sgares && (int) $sgares->sog !== 1) {
+                $closeOpts['idsousgare'] = (int) $sgid;
+            }
+            // Phase A/B : gare + vendeur ; multi-SG = lieu de vente.
+            $arpass = $this->_arret_close_open_ticket_sales($idcpt, $gd, $closeOpts);
                 
                     $arnonreport = $this->db->query("SELECT rp.code_report, rp.idcpuserconect, rp.statutreport FROM report rp
                     WHERE rp.idcpuserconect = '$idcpt'
@@ -11516,6 +11445,7 @@
                     $this->property['passageraller'] = $this->m_passager->compte($this->company->ekey, $icx, $cdg);
                     $this->property['passagerretour'] = $this->m_non_passager->compte($this->company->ekey, $icx, $cdg);
                 
+                    // Phase B : agrégat par lieu de vente (idsousgare_vente).
                     $this->property['passagerallergroup'] = $this->m_passager->comptegroupsbis($this->company->ekey, $icx, $cdg, $idsg, 5000);
                     $this->property['passagerretourgroup'] = $this->m_non_passager->comptegroupsbis($this->company->ekey, $icx, $cdg, $idsg, 5000);
 
