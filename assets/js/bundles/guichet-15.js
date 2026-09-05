@@ -8741,7 +8741,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function __reprogLoadSiegesDirect(progValue) {
-        __reprogResetSelect(__reprogQ('numsiegepunifie'), 'Choisissez le siège');
+        var siegeSel = __reprogQ('numsiegepunifie');
+        __reprogResetSelect(siegeSel, 'Choisissez le siège');
         if (!progValue) return;
         var parts = String(progValue).split('/');
         var selh = parts[0];
@@ -8752,8 +8753,10 @@ document.addEventListener('DOMContentLoaded', () => {
             var rows = __reprogRowsArray(data);
             if (!rows.length) return;
             var meta = rows[0];
-            __reprogQ('placevenduunifie').value = meta.intervalle1 || '';
-            __reprogQ('dplacevenduunifie').value = meta.intervalle2 || '';
+            var i1 = meta.intervalle1;
+            var i2 = meta.intervalle2;
+            __reprogQ('placevenduunifie').value = i1 != null ? i1 : '';
+            __reprogQ('dplacevenduunifie').value = i2 != null ? i2 : '';
             __reprogQ('replignunifie').value = meta.nom_ligne || '';
             __reprogQ('repherunifie').value = meta.heure || '';
             __reprogQ('datereprogrammeunifie').value = meta.date_progr || '';
@@ -8761,16 +8764,16 @@ document.addEventListener('DOMContentLoaded', () => {
             __reprogQ('idreplignunifie').value = meta.ligne_id || '';
             if (meta.id_compaga) __reprogQ('compgcfunifie').value = meta.id_compaga;
 
+            // siegdisponibletrans : code + intervalles (évite heure URL-encodée cassée par CI3).
+            if (i1 === '' || i1 == null || i2 === '' || i2 == null) {
+                return;
+            }
             __reprogXhrGet(
-                window.location.origin + APP_ROOT + '/programmes/siegdisponible/'
+                window.location.origin + APP_ROOT + '/programmes/siegdisponibletrans/'
                     + encodeURIComponent(selh) + '/'
-                    + encodeURIComponent(meta.date_progr || '') + '/'
-                    + encodeURIComponent(meta.nom_ligne || '') + '/'
-                    + encodeURIComponent(meta.heure || '') + '/'
-                    + encodeURIComponent(meta.intervalle1 || '') + '/'
-                    + encodeURIComponent(meta.intervalle2 || ''),
+                    + encodeURIComponent(i1) + '/'
+                    + encodeURIComponent(i2),
                 function (dattas) {
-                    var siegeSel = __reprogQ('numsiegepunifie');
                     __reprogRowsArray(dattas).forEach(function (s) {
                         if (!s || s.siege_num == null) return;
                         var optS = document.createElement('option');
