@@ -485,3 +485,60 @@ if (!function_exists('ticket_stub_non_reprog_html')) {
         return '<tr><td>NON REPROGRAMMABLE</td></tr>';
     }
 }
+
+if (!function_exists('ticket_heure_hhmm')) {
+    /**
+     * Formate une heure DB (H:i:s ou H:i) en HH:MM pour l'impression.
+     *
+     * @param mixed $heure
+     * @return string
+     */
+    function ticket_heure_hhmm($heure)
+    {
+        if ($heure === null || $heure === '') {
+            return '';
+        }
+        $parts = explode(':', (string) $heure);
+        if (count($parts) < 2) {
+            return (string) $heure;
+        }
+        return sprintf('%02d:%02d', (int) $parts[0], (int) $parts[1]);
+    }
+}
+
+if (!function_exists('ticket_heure_depart_affiche')) {
+    /**
+     * Heure de départ affichée sur ticket (avec décalage sous-gare si connu).
+     * Si aucune position : heure programme brute — ne jamais laisser vide.
+     *
+     * @param mixed $heure_raw heures.heure
+     * @param object|null $ressougare résultat getgar()
+     * @return string HH:MM
+     */
+    function ticket_heure_depart_affiche($heure_raw, $ressougare = null)
+    {
+        $fallback = ticket_heure_hhmm($heure_raw);
+        if ($fallback === '') {
+            return '';
+        }
+        if (!$ressougare || empty($ressougare->possitiongare)) {
+            return $fallback;
+        }
+
+        $parts = explode(':', (string) $heure_raw);
+        $base = ((int) $parts[0] * 60) + (int) $parts[1];
+        $delta = isset($ressougare->minutetemps) ? (int) $ressougare->minutetemps : 0;
+        $pos = (string) $ressougare->possitiongare;
+
+        if ($pos === 'Avant') {
+            $gt = $base - $delta;
+        } else {
+            // Maintenant / Apres / autre
+            $gt = $base + $delta;
+        }
+        if ($gt < 0) {
+            $gt = 0;
+        }
+        return sprintf('%02d:%02d', (int) floor($gt / 60), (int) ($gt % 60));
+    }
+}

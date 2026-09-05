@@ -21,8 +21,9 @@
                         $this->entreprise = $this->m_entreprises->get_key($ckey);
                         
                          $ressougare = $this->m_gare_depart->getgar($this->entreprise->id_entreprise, $item->code_gaexp, $item->departclient_idgare, $item->ident_ligne, $item->id_ligneheure);
+                        $heures = ticket_heure_depart_affiche(isset($item->heure) ? $item->heure : '', $ressougare);
 
-                        if($ressougare->possitiongare === 'Maintenant'){
+                        if($ressougare && $ressougare->possitiongare === 'Maintenant'){
 
                               $g = explode(":", $item->heure);
                               $gt = (($g[0] * 60) + $g[1] + $ressougare->minutetemps); 
@@ -32,7 +33,7 @@
                               
                         }
 
-                        if($ressougare->possitiongare === 'Avant'){
+                        if($ressougare && $ressougare->possitiongare === 'Avant'){
                               $g = explode(":", $item->heure);
                               $gt = (($g[0] * 60) + $g[1] - $ressougare->minutetemps); 
                               $heur = ($gt / 60); 
@@ -40,7 +41,7 @@
                             $heures = sprintf("%02d:%02d", $heur, $secondes);
                         }
 
-                        if($ressougare->possitiongare === 'Apres'){
+                        if($ressougare && $ressougare->possitiongare === 'Apres'){
                               $g = explode(":", $item->heure);
                               $gt = (($g[0] * 60) + $g[1] + $ressougare->minutetemps); 
                               $heur = ($gt / 60); 
@@ -72,7 +73,7 @@
                         ?>
                         <tr><td style="font-size: 5px; width: 4%;"> <img src="<?echo site_url($item->logo);?>" width="90" height="50"></td></tr>
                         <tr><td style="font-size: 6px;"><b>TICKET CODE : <?= "{$item->code_ticket}"; ?></b></td></tr>
-                        <tr><td style="font-size: 6px;"><?= "{$item->nom_gaep}"; ?> <?= "{$ressougare->nomsousgare}"; ?>-<?= "{$item->nom_gadest}"; ?> <?= "{$item->quart}"; ?></td></tr>
+                        <tr><td style="font-size: 6px;"><?= "{$item->nom_gaep}"; ?> <?= !empty($ressougare->nomsousgare) ? $ressougare->nomsousgare : ''; ?>-<?= "{$item->nom_gadest}"; ?> <?= "{$item->quart}"; ?></td></tr>
                         <tr><td style="font-size: 6px;"><?= $item->nom_client; ?> <?= $item->prenom_client; ?>&nbsp;&nbsp;<?= "{$item->contact_client}"; ?></td></tr>
                         <tr><td style="font-size: 8px;"><b><?= "{$day}"; ?>&nbsp;&nbsp; <?= $heures; ?></b></td></tr>
                         <tr><td style="font-size: 8px;"><b>Siege: <?= str_pad($item->num_siege_categorie, 2, "0", STR_PAD_LEFT); ?><b>&nbsp;&nbsp;&nbsp;<?= number_format("{$item->prix}", 0, '', ' '); ?> &nbsp;FCFA </td></tr>

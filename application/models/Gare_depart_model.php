@@ -206,22 +206,56 @@
                 WHERE e.id_entreprise = '$cid'")->result();
         }
         
+        /**
+         * Position / décalage d'heure pour l'impression ticket.
+         * 1) Match exact sous-gare + ligne + horaire
+         * 2) Sinon repli « Maintenant » (ou 1ʳᵉ position) sur la gare de la ligne
+         *    — cas fréquent 2ᵉ jambe correspondance : departclient_idgare reste celui de la 1ʳᵉ jambe
+         * 3) Sinon objet synthétique Maintenant/0 pour que l'heure programme s'affiche quand même
+         */
         public function getgar($cid, $idg, $idsg, $idl, $idh)
         {
-            return $this->db->query("SELECT * FROM gare_exp gd
+            $cid = $this->db->escape_str($cid);
+            $idg = $this->db->escape_str($idg);
+            $idsg = $this->db->escape_str($idsg);
+            $idl = $this->db->escape_str($idl);
+            $idh = $this->db->escape_str($idh);
+
+            $base = "SELECT gd.*, g.*, s.*, pg.*, i.*, lg.*, c.*, e.*
+                FROM gare_exp gd
                 JOIN gares g ON gd.garesid = g.idengare
                 JOIN ville v ON gd.id_villegd = v.id_ville
                 JOIN sousgare s ON s.gareprinceid = gd.code_gaexp
                 JOIN positionlignegare pg ON pg.idsousgar = s.idsousgare
                 JOIN lignes lg ON pg.idligne = lg.ident_ligne
-                JOIN intervalletemp i ON pg.idposit = i.idinter 
+                JOIN intervalletemp i ON pg.idposit = i.idinter
                 JOIN compagnies c ON gd.id_compagd = c.cle_compagnie
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                WHERE e.id_entreprise = '$cid'
-                AND g.idengare = '$idg'
-                AND s.idsousgare = '$idsg'
-                AND lg.ident_ligne = '$idl'
-                AND pg.lgheures = '$idh'")->row();
+                WHERE e.id_entreprise = '{$cid}'
+                AND g.idengare = '{$idg}'
+                AND lg.ident_ligne = '{$idl}'
+                AND pg.lgheures = '{$idh}'";
+
+            $row = $this->db->query($base . " AND s.idsousgare = '{$idsg}' LIMIT 1")->row();
+            if ($row) {
+                return $row;
+            }
+
+            // Repli : même gare/ligne/horaire, prioriser position Maintenant
+            $row = $this->db->query(
+                $base . " ORDER BY CASE WHEN i.possitiongare = 'Maintenant' THEN 0 ELSE 1 END, s.idsousgare ASC LIMIT 1"
+            )->row();
+            if ($row) {
+                return $row;
+            }
+
+            // Filet d'impression : ne jamais bloquer l'affichage de l'heure programme
+            $fallback = new stdClass();
+            $fallback->possitiongare = 'Maintenant';
+            $fallback->minutetemps = 0;
+            $fallback->nomsousgare = '';
+            $fallback->quart = '';
+            return $fallback;
         }
         
         public function getgbiss($cid)
