@@ -72,7 +72,8 @@
         }
 
         /**
-         * Vendeur : uniquement gare de vente. Admin/chef : toutes gares.
+         * Accès reprogrammation ticket.
+         * Temporaire : toutes gares / tous rôles (restriction gare de vente désactivée).
          *
          * @param object $row
          * @param string|null $sessionGareOverride ex. gareconnect POST
@@ -80,77 +81,15 @@
          */
         protected function _reprog_may_reprog_ticket($row, $sessionGareOverride = null)
         {
-            if (!$row) {
-                return false;
-            }
-            if ($this->_reprog_roles_any_gare()) {
-                return true;
-            }
-            $sessionGare = ($sessionGareOverride !== null && trim((string) $sessionGareOverride) !== '')
-                ? trim((string) $sessionGareOverride)
-                : $this->_reprog_session_gare_code();
-            if ($sessionGare === '') {
-                return false;
-            }
-            foreach ($this->_reprog_ticket_vente_gare_codes($row) as $c) {
-                if (strcasecmp($c, $sessionGare) === 0) {
-                    return true;
-                }
-            }
-            return false;
+            return (bool) $row;
         }
 
         /**
-         * Refuse commit si vendeur hors gare de vente.
+         * Garde commit gare — temporairement désactivée (toutes gares autorisées).
          */
         protected function _reprog_guard_gare_commit_or_refuse($gidc, $iduser, $sgid)
         {
-            if ($this->_reprog_roles_any_gare()) {
-                return true;
-            }
-            $sessionGare = trim((string) $gidc);
-            if ($sessionGare === '') {
-                $sessionGare = $this->_reprog_session_gare_code();
-            }
-            $candidates = array();
-            foreach (array('gareidentiftrans', 'departgidtransit', 'garedpatransit') as $k) {
-                $v = trim((string) $this->input->post($k));
-                if ($v !== '') {
-                    $candidates[] = $v;
-                }
-            }
-            $sgVente = $this->input->post('departclientidgaretr');
-            if ($sgVente !== false && $sgVente !== null && $sgVente !== '') {
-                $sg = $this->db->query(
-                    "SELECT gareprinceid FROM sousgare WHERE idsousgare = ? LIMIT 1",
-                    array((int) $sgVente)
-                )->row();
-                if ($sg && !empty($sg->gareprinceid)) {
-                    $candidates[] = trim((string) $sg->gareprinceid);
-                }
-            }
-            $ok = false;
-            foreach (array_unique($candidates) as $c) {
-                if ($c !== '' && strcasecmp($c, $sessionGare) === 0) {
-                    $ok = true;
-                    break;
-                }
-            }
-            if ($ok) {
-                return true;
-            }
-            if (isset($this->session) && method_exists($this->session, 'set_flashdata')) {
-                $this->session->set_flashdata(
-                    'reprog_error',
-                    'Reprogrammation refusée : uniquement dans la gare ayant effectué la vente (admin / chef : toutes gares).'
-                );
-            }
-            redirect(
-                'gares/' . $this->session->company->ekey
-                . '/gTc/' . $gidc . '/compte/' . $iduser . '/' . $sgid . '/'
-                . mdate('%d/%m/%Y', now('UTC'))
-            );
-            return false;
+            return true;
         }
 
         /**
