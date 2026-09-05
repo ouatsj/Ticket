@@ -9256,6 +9256,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function __reprogQ(id) { return document.getElementById(id); }
 
+    function __reprogSetVal(id, val) {
+        var el = __reprogQ(id);
+        if (el) el.value = val == null ? '' : val;
+        return el;
+    }
+
     function __reprogAllowPrixDiff() {
         // Report gratuit : écart de prix correspondances autorisé pour tous les rôles.
         return true;
@@ -10118,16 +10124,16 @@ document.addEventListener('DOMContentLoaded', () => {
         })[0];
         if (fromRows && fromRows.intervalle1 != null && fromRows.intervalle2 != null
             && fromRows.intervalle1 !== '' && fromRows.intervalle2 !== '') {
-            __reprogQ('placevenduunifie').value = fromRows.intervalle1;
-            __reprogQ('dplacevenduunifie').value = fromRows.intervalle2;
-            if (fromRows.nom_ligne) __reprogQ('replignunifie').value = fromRows.nom_ligne;
-            if (fromRows.heure) __reprogQ('repherunifie').value = fromRows.heure;
-            if (fromRows.date_progr) __reprogQ('datereprogrammeunifie').value = fromRows.date_progr;
-            if (fromRows.categori) __reprogQ('catreprogrammeunifie').value = fromRows.categori;
+            __reprogSetVal('placevenduunifie', fromRows.intervalle1);
+            __reprogSetVal('dplacevenduunifie', fromRows.intervalle2);
+            if (fromRows.nom_ligne) __reprogSetVal('replignunifie', fromRows.nom_ligne);
+            if (fromRows.heure) __reprogSetVal('repherunifie', fromRows.heure);
+            if (fromRows.date_progr) __reprogSetVal('datereprogrammeunifie', fromRows.date_progr);
+            if (fromRows.categori) __reprogSetVal('catreprogrammeunifie', fromRows.categori);
             if (fromRows.ident_ligne || fromRows.ligne_id) {
-                __reprogQ('idreplignunifie').value = fromRows.ident_ligne || fromRows.ligne_id;
+                __reprogSetVal('idreplignunifie', fromRows.ident_ligne || fromRows.ligne_id);
             }
-            if (fromRows.id_compaga) __reprogQ('compgcfunifie').value = fromRows.id_compaga;
+            if (fromRows.id_compaga) __reprogSetVal('compgcfunifie', fromRows.id_compaga);
             loadWithIntervals(fromRows.intervalle1, fromRows.intervalle2);
             return;
         }
@@ -10146,14 +10152,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 var meta = rows[0];
                 var i1 = meta.intervalle1;
                 var i2 = meta.intervalle2;
-                __reprogQ('placevenduunifie').value = i1 != null ? i1 : '';
-                __reprogQ('dplacevenduunifie').value = i2 != null ? i2 : '';
-                __reprogQ('replignunifie').value = meta.nom_ligne || '';
-                __reprogQ('repherunifie').value = meta.heure || '';
-                __reprogQ('datereprogrammeunifie').value = meta.date_progr || '';
-                __reprogQ('catreprogrammeunifie').value = meta.categori || '';
-                __reprogQ('idreplignunifie').value = meta.ident_ligne || meta.ligne_id || '';
-                if (meta.id_compaga) __reprogQ('compgcfunifie').value = meta.id_compaga;
+                __reprogSetVal('placevenduunifie', i1 != null ? i1 : '');
+                __reprogSetVal('dplacevenduunifie', i2 != null ? i2 : '');
+                __reprogSetVal('replignunifie', meta.nom_ligne || '');
+                __reprogSetVal('repherunifie', meta.heure || '');
+                __reprogSetVal('datereprogrammeunifie', meta.date_progr || '');
+                __reprogSetVal('catreprogrammeunifie', meta.categori || '');
+                __reprogSetVal('idreplignunifie', meta.ident_ligne || meta.ligne_id || '');
+                if (meta.id_compaga) __reprogSetVal('compgcfunifie', meta.id_compaga);
                 loadWithIntervals(i1, i2);
             }
         );
@@ -10763,13 +10769,13 @@ document.addEventListener('DOMContentLoaded', () => {
             var progVal = row.code_progr + '/' + (row.id_ligneheure || '') + '/'
                 + (row.typetarif || __reprogSegTarif());
             __reprogSetPost(progVal, compaga, '');
-            __reprogQ('replignunifie').value = row.nom_ligne || '';
-            __reprogQ('repherunifie').value = row.heure || '';
-            __reprogQ('datereprogrammeunifie').value = row.date_progr || '';
-            __reprogQ('catreprogrammeunifie').value = row.categori || '';
-            __reprogQ('idreplignunifie').value = row.ident_ligne || row.ligne_id || '';
-            __reprogQ('placevenduunifie').value = i1;
-            __reprogQ('dplacevenduunifie').value = i2;
+            __reprogSetVal('replignunifie', row.nom_ligne || '');
+            __reprogSetVal('repherunifie', row.heure || '');
+            __reprogSetVal('datereprogrammeunifie', row.date_progr || '');
+            __reprogSetVal('catreprogrammeunifie', row.categori || '');
+            __reprogSetVal('idreplignunifie', row.ident_ligne || row.ligne_id || '');
+            __reprogSetVal('placevenduunifie', i1);
+            __reprogSetVal('dplacevenduunifie', i2);
         }
         __reprogSyncSegPost(idx);
         __reprogUpdatePrixSum();
@@ -10842,9 +10848,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                     if (m.categori) row.categori = m.categori;
                     if (idx === 0) {
-                        if (m.categori) __reprogQ('catreprogrammeunifie').value = m.categori;
-                        __reprogQ('placevenduunifie').value = i1;
-                        __reprogQ('dplacevenduunifie').value = i2;
+                        if (m.categori) __reprogSetVal('catreprogrammeunifie', m.categori);
+                        __reprogSetVal('placevenduunifie', i1);
+                        __reprogSetVal('dplacevenduunifie', i2);
                     }
                     __reprogSyncSegPost(idx);
                     __reprogUpdatePrixSum();

@@ -87,6 +87,8 @@ $allow_prix_diff_unifie = true;
         <input type="hidden" id="id_compaga_unifie" name="trid_compaga">
         <input type="hidden" id="replignunifie" name="repligntransit">
         <input type="hidden" id="idreplignunifie" name="idrpligntransit">
+        <input type="hidden" id="repherunifie" name="rephertransit" value="">
+        <input type="hidden" id="datereprogrammeunifie" name="datereprogrammetransit" value="">
         <input type="hidden" id="directpunifie" name="directpatransit">
         <input type="hidden" id="delivrelieunifie" name="dlieutransit">
         <input type="hidden" id="placevenduunifie" name="placevdtransit">
