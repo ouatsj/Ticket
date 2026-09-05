@@ -401,6 +401,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         __reprogQ('reprog_choix_wrap').style.display = 'block';
+        __reprogSetAncreVisible(!window.__reprogState.isTransitTicket);
         var today = __reprogQ('actueldaterepunifie').value || '';
         if (dateEl) {
             dateEl.min = today;
@@ -624,8 +625,11 @@ document.addEventListener('DOMContentLoaded', () => {
             + '/programmes/verifchemins/'
             + encodeURIComponent(st.axe) + '/'
             + encodeURIComponent(dateYmd) + '/'
-            + encodeURIComponent(st.sgid || '0') + '/1'
-            + '?heure=' + encodeURIComponent(hhmm);
+            + encodeURIComponent(st.sgid || '0') + '/1';
+        var hh = __reprogHhmm(hhmm);
+        if (hh) {
+            url += '?heure=' + encodeURIComponent(hh);
+        }
         __reprogXhrGet(url, function (payload) {
             var chemins = [];
             if (payload) {
@@ -643,6 +647,50 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    function __reprogDirectsAsChemins(dateYmd) {
+        return __reprogFilterByDate(dateYmd).map(function (row, idx) {
+            var hh = __reprogHhmm(row.heure);
+            var cie = __reprogCieName(row) || 'Compagnie';
+            return {
+                source: 'direct',
+                id: 'direct-' + idx + '-' + (row.code_progr || ''),
+                label: 'Direct — ' + cie + ' — ' + hh,
+                etapes: [{
+                    code_itineraires: row.ident_ligne || row.ligne_id || '',
+                    nom_ligne: row.nom_ligne || '',
+                    nom_itineraires: row.nom_ligne || '',
+                    id_compaga: row.id_compaga || '',
+                    heure: row.heure || hh,
+                    code_gadest: row.code_gadest || row.gadest_lg || '',
+                    typetarif: row.typetarif,
+                    categori: row.categori || '',
+                    _code_progr: row.code_progr || '',
+                    _id_ligneheure: row.id_ligneheure || ''
+                }]
+            };
+        });
+    }
+
+    function __reprogMergeItineraires(directs, chemins) {
+        var out = __reprogRowsArray(directs).slice();
+        __reprogRowsArray(chemins).forEach(function (ch) {
+            if (!ch || ch.source === 'direct') return;
+            var et = __reprogNormalizeEtapes(ch.etapes || ch.legs);
+            if (et.length >= 2) {
+                out.push(ch);
+            }
+        });
+        return out;
+    }
+
+    function __reprogSetAncreVisible(show) {
+        var h = __reprogQ('reprog_ancre_heure_wrap');
+        var c = __reprogQ('reprog_cie_ancre_wrap');
+        var disp = show ? '' : 'none';
+        if (h) h.style.display = disp;
+        if (c) c.style.display = disp;
+    }
+
     function __reprogFillItineraireSelect(chemins, message) {
         var sel = __reprogQ('corr_unifie_select');
         var msg = __reprogQ('corr_unifie_msg');
@@ -653,11 +701,15 @@ document.addEventListener('DOMContentLoaded', () => {
         chemins.forEach(function (ch, idx) {
             var etapes = __reprogNormalizeEtapes(ch.etapes || ch.legs);
             var label = ch.label || ch.nom || ch.resume || ('Itinéraire ' + (idx + 1));
-            if (etapes.length) {
+            if (ch.source !== 'direct' && etapes.length) {
                 label = etapes.map(function (e) {
                     return e.nom_itineraires || e.nom_ligne || e.code_itineraires || '';
                 }).filter(Boolean).join(' → ') || label;
                 label += ' (' + etapes.length + ' segment' + (etapes.length > 1 ? 's' : '') + ')';
+            } else if (ch.source !== 'direct' && etapes.length === 1) {
+                label += ' (1 segment)';
+            } else if (etapes.length > 1 && ch.source === 'direct') {
+                label += ' (' + etapes.length + ' segments)';
             }
             var opt = document.createElement('option');
             opt.value = String(idx);
@@ -748,29 +800,35 @@ document.addEventListener('DOMContentLoaded', () => {
         etapes.forEach(function (etape, idx) {
             var ligneId = __reprogLigneId(etape);
             var ligneNom = etape.nom_itineraires || etape.nom_ligne || ligneId || ('Segment ' + (idx + 1));
+            var dateDef = (__reprogQ('datereprog_unifie') || {}).value || '';
             var wrap = document.createElement('div');
             wrap.className = 'reprog-seg';
             wrap.id = 'reprog_seg_' + idx;
-            // Ligne → Compagnie (auto) → Heure (selon cie) → Siège
+            // Compagnie + date + heure + siège par segment
             wrap.innerHTML =
-                '<h6>Correspondance ' + (idx + 1) + ' — ' + ligneNom + '</h6>'
+                '<h6>Segment ' + (idx + 1) + ' — ' + ligneNom + '</h6>'
                 + '<div class="form-row">'
-                + '<div class="form-group col-md-3 mb-2">'
+                + '<div class="form-group col-md-6 col-lg-3 mb-2">'
                 + '<label class="small mb-0">Ligne</label>'
                 + '<input class="form-control form-control-sm" type="text" id="reprog_seg_ligne_' + idx + '" value="'
                 + String(ligneNom).replace(/"/g, '&quot;') + '" readonly>'
                 + '</div>'
-                + '<div class="form-group col-md-3 mb-2">'
+                + '<div class="form-group col-md-6 col-lg-3 mb-2">'
                 + '<label class="small mb-0">Compagnie</label>'
                 + '<select class="form-control form-control-sm" id="reprog_ui_cie_' + idx + '">'
                 + '<option value="">Choisissez</option></select>'
                 + '</div>'
-                + '<div class="form-group col-md-3 mb-2">'
-                + '<label class="small mb-0">Heure disponible</label>'
+                + '<div class="form-group col-md-6 col-lg-2 mb-2">'
+                + '<label class="small mb-0">Date</label>'
+                + '<input class="form-control form-control-sm" type="date" id="reprog_ui_date_' + idx + '" value="'
+                + String(dateDef).replace(/"/g, '&quot;') + '">'
+                + '</div>'
+                + '<div class="form-group col-md-6 col-lg-2 mb-2">'
+                + '<label class="small mb-0">Heure</label>'
                 + '<select class="form-control form-control-sm" id="reprog_ui_heure_' + idx + '">'
                 + '<option value="">Choisissez l\'heure</option></select>'
                 + '</div>'
-                + '<div class="form-group col-md-3 mb-2">'
+                + '<div class="form-group col-md-6 col-lg-2 mb-2">'
                 + '<label class="small mb-0">Siège</label>'
                 + '<select class="form-control form-control-sm" id="reprog_ui_siege_' + idx + '">'
                 + '<option value="">Choisissez le siège</option></select>'
@@ -788,6 +846,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 selectedRow: null
             };
 
+            var dateSeg = __reprogQ('reprog_ui_date_' + idx);
+            if (dateSeg) {
+                dateSeg.onchange = function () {
+                    __reprogLoadSegmentCompanies(idx);
+                };
+            }
             __reprogLoadSegmentCompanies(idx);
         });
     }
@@ -845,9 +909,10 @@ document.addEventListener('DOMContentLoaded', () => {
             __reprogSegErr(idx, 'Ligne du segment introuvable.');
             return;
         }
-        var dateYmd = (__reprogQ('datereprog_unifie') || {}).value || '';
+        var dateYmd = (__reprogQ('reprog_ui_date_' + idx) || {}).value
+            || (__reprogQ('datereprog_unifie') || {}).value || '';
         if (!dateYmd) {
-            __reprogSegErr(idx, 'Choisissez d’abord une date de départ.');
+            __reprogSegErr(idx, 'Choisissez d’abord une date pour ce segment.');
             return;
         }
         var tarif = __reprogSegTarif();
@@ -1116,10 +1181,51 @@ document.addEventListener('DOMContentLoaded', () => {
     function __reprogOnDateChange() {
         var dateEl = __reprogQ('datereprog_unifie');
         var dateYmd = dateEl ? dateEl.value : '';
-        if (!dateYmd) {
-            __reprogResetChoix();
+        __reprogResetSelect(__reprogQ('heuredepartpunifie'), "Choisissez l'heure");
+        __reprogResetSelect(__reprogQ('compagniepunifie'), 'Choisissez la compagnie');
+        __reprogResetSelect(__reprogQ('numsiegepunifie'), 'Choisissez le siège');
+        __reprogHideDirect();
+        __reprogHideCorr();
+        __reprogSetPost('', '', '');
+        __reprogClearSegPosts();
+        __reprogSetDirectInfo('');
+        if (__reprogQ('smspunifie')) __reprogQ('smspunifie').style.display = 'none';
+        if (!dateYmd) return;
+
+        var st = window.__reprogState;
+
+        // Ticket transit 2 codes : date → itinéraires possibles (axe des 2 tickets).
+        if (st.isTransitTicket) {
+            __reprogSetAncreVisible(false);
+            if (!st.axe) {
+                var boxA = __reprogQ('smspunifie');
+                var errA = __reprogQ('erreurSmspunifie');
+                if (boxA) boxA.style.display = 'block';
+                if (errA) errA.textContent = 'Axe transit incomplet (départ / arrivée des 2 codes).';
+                return;
+            }
+            __reprogFetchChemins(dateYmd, '', function (chemins) {
+                var all = __reprogMergeItineraires(__reprogDirectsAsChemins(dateYmd), chemins);
+                st.chemins = all;
+                if (!all.length) {
+                    var box = __reprogQ('smspunifie');
+                    var err = __reprogQ('erreurSmspunifie');
+                    if (box) box.style.display = 'block';
+                    if (err) {
+                        err.textContent = 'Aucun départ ni correspondance pour relier cet itinéraire à cette date.';
+                    }
+                    return;
+                }
+                __reprogShowCorrExclusive(
+                    all,
+                    'Itinéraires trouvés pour ' + st.axe + ' le ' + dateYmd + ' — choisissez-en un.'
+                );
+            });
             return;
         }
+
+        // Ticket simple : date → heure → compagnie → siège.
+        __reprogSetAncreVisible(true);
         __reprogLoadTransitHours(dateYmd, function () {
             __reprogFillHeuresForDate(dateYmd);
         });
@@ -1284,12 +1390,18 @@ document.addEventListener('DOMContentLoaded', () => {
             if (segs) segs.innerHTML = '<p class="text-danger small">Itinéraire sans segments.</p>';
             return;
         }
-        // Prefer transit mode for commit
-        window.__reprogState.mode = 'transit';
         __reprogHideDirect();
         __reprogClearSegPosts();
-        __reprogQ('reprog_mode_unifie').value = 'transit';
-        __reprogQ('reprog_nbr_seg_unifie').value = String(etapes.length);
+        if (etapes.length >= 2) {
+            window.__reprogState.mode = 'transit';
+            __reprogQ('reprog_mode_unifie').value = 'transit';
+            __reprogQ('reprog_nbr_seg_unifie').value = String(etapes.length);
+        } else {
+            // Un seul segment (direct) : même UI segment, commit en mode direct.
+            window.__reprogState.mode = 'direct';
+            __reprogQ('reprog_mode_unifie').value = 'direct';
+            __reprogQ('reprog_nbr_seg_unifie').value = '0';
+        }
         __reprogBuildSegments(etapes);
     }
 
@@ -1593,8 +1705,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 alert('Ticket transit : vérifiez le 2ᵉ code avant de reporter.');
                 return false;
             }
-            if (window.__reprogState.mode === 'transit'
-                && (window.__reprogState.etapes || []).length >= 2) {
+            var etapes = window.__reprogState.etapes || [];
+
+            // Multi-segments (correspondances)
+            if (window.__reprogState.mode === 'transit' && etapes.length >= 2) {
                 var prep = __reprogPrepareTransitSubmit();
                 if (!prep.ok) {
                     ev.preventDefault();
@@ -1604,11 +1718,30 @@ document.addEventListener('DOMContentLoaded', () => {
                 return true;
             }
 
+            // Itinéraire à 1 segment (direct via liste) : posts classiques.
+            if (etapes.length === 1 && window.__reprogState.segData
+                && window.__reprogState.segData[0]) {
+                var synced = __reprogSyncSegPost(0);
+                if (!synced || !synced.prog || !synced.siege) {
+                    ev.preventDefault();
+                    alert('Complétez compagnie, heure et siège du segment.');
+                    return false;
+                }
+                __reprogClearSegPosts();
+                __reprogQ('reprog_mode_unifie').value = 'direct';
+                __reprogQ('reprog_nbr_seg_unifie').value = '0';
+                __reprogSetPost(synced.prog, synced.compaga, synced.siege);
+                if (synced.row) {
+                    __reprogQ('catreprogrammeunifie').value = synced.row.categori || '';
+                }
+                return true;
+            }
+
             __reprogClearSegPosts();
             __reprogQ('reprog_mode_unifie').value = 'direct';
             var cie = __reprogQ('compagniepunifie');
             var sie = __reprogQ('numsiegepunifie');
-            if (!cie || !cie.value || !sie || !sie.value) {
+            if (!cie || !cie.value || cie.value.indexOf('corr:') === 0 || !sie || !sie.value) {
                 ev.preventDefault();
                 alert('Choisissez la compagnie et le siège pour le départ direct.');
                 return false;

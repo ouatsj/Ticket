@@ -189,10 +189,10 @@ $allow_prix_diff_unifie = $allow_tampon_unifie; // admin + chef guichet : prix p
             <div class="reprog-section-title">Nouveau départ</div>
             <div class="form-row">
                 <div class="form-group col-md-4 mb-2">
-                    <label class="small mb-0">Date de départ</label>
+                    <label class="small mb-0">Date de report</label>
                     <input class="form-control form-control-sm" type="date" id="datereprog_unifie">
                 </div>
-                <div class="form-group col-md-4 mb-2">
+                <div class="form-group col-md-4 mb-2" id="reprog_ancre_heure_wrap">
                     <label class="small mb-0">Heure d’ancrage</label>
                     <select class="form-control form-control-sm" id="heuredepartpunifie">
                         <option value="">Choisissez l'heure</option>
@@ -221,7 +221,7 @@ $allow_prix_diff_unifie = $allow_tampon_unifie; // admin + chef guichet : prix p
             </div>
 
             <div id="corr_unifie_wrap" style="display:none">
-                <div class="reprog-section-title">Itinéraire de correspondance</div>
+                <div class="reprog-section-title">Itinéraires possibles</div>
                 <p class="text-warning small mb-2" id="corr_unifie_msg"></p>
                 <div class="form-group mb-3">
                     <label class="small mb-0">Choisir l’itinéraire</label>
