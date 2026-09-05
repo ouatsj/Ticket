@@ -79,7 +79,7 @@
                         ?>
                         <tr><td style="font-size: 70px; width: 40%;"> <img src="<?echo site_url($item->logo);?>" width="850" height="350"></td></tr>
                         <tr><td style="font-size: 60px;"><b>TICKET CODE : <?= "{$item->code_ticket}"; ?></b></td></tr>
-                        <tr><td style="font-size: 60px;"><?= "{$item->nom_gaep}"; ?> <?= !empty($ressougare->nomsousgare) ? $ressougare->nomsousgare : ''; ?>-<?= "{$item->nom_gadest}"; ?> <?= "{$item->quart}"; ?></td></tr>
+                        <tr><td style="font-size: 60px;"><?= "{$item->nom_gaep}"; ?> <?= !empty($ressougare->nomsousgare) ? $ressougare->nomsousgare : ''; ?>-<?= ticket_destination_label($item); ?> <?= "{$item->quart}"; ?></td></tr>
                         <tr><td style="font-size: 65px;"><?= $item->nom_client; ?> <?= $item->prenom_client; ?></td></tr>
                         <tr><td style="font-size: 70px;">Contact:<?= "{$item->contact_client}"; ?></td></tr>
                         

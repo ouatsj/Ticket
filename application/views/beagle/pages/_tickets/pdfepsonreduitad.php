@@ -73,7 +73,7 @@
                         ?>
                         <tr><td style="font-size: 5px; width: 4%;"> <img src="<?echo site_url($item->logo);?>" width="90" height="50"></td></tr>
                         <tr><td style="font-size: 6px;"><b>TICKET CODE : <?= "{$item->code_ticket}"; ?></b></td></tr>
-                        <tr><td style="font-size: 6px;"><?= "{$item->nom_gaep}"; ?> <?= !empty($ressougare->nomsousgare) ? $ressougare->nomsousgare : ''; ?>-<?= "{$item->nom_gadest}"; ?> <?= "{$item->quart}"; ?></td></tr>
+                        <tr><td style="font-size: 6px;"><?= "{$item->nom_gaep}"; ?> <?= !empty($ressougare->nomsousgare) ? $ressougare->nomsousgare : ''; ?>-<?= ticket_destination_label($item); ?> <?= "{$item->quart}"; ?></td></tr>
                         <tr><td style="font-size: 6px;"><?= $item->nom_client; ?> <?= $item->prenom_client; ?>&nbsp;&nbsp;<?= "{$item->contact_client}"; ?></td></tr>
                         <tr><td style="font-size: 8px;"><b><?= "{$day}"; ?>&nbsp;&nbsp; <?= $heures; ?></b></td></tr>
                         <tr><td style="font-size: 8px;"><b>Siege: <?= str_pad($item->num_siege_categorie, 2, "0", STR_PAD_LEFT); ?><b>&nbsp;&nbsp;&nbsp;<?= number_format("{$item->prix}", 0, '', ' '); ?> &nbsp;FCFA </td></tr>

@@ -14046,16 +14046,18 @@ document.addEventListener('DOMContentLoaded', () => {
                         __reprogQ('prenomclpunifie').textContent = 'PRENOM: ' + (donnees.prenom_client || '');
                         __reprogQ('contactclpunifie').textContent = 'CONTACT: ' + (donnees.contact_client || '');
                         __reprogQ('refclpunifie').textContent = 'CNIB: ' + (donnees.num_CNIB || '');
-                        __reprogQ('directionclpunifie').textContent = 'AXE: '
-                            + (donnees.gaexp_lg || '') + ' → ' + (donnees.gadest_lg || '')
-                            + (donnees.nom_ligne ? (' — ' + donnees.nom_ligne) : '');
                         var destEsc = donnees.dest_affiche || donnees.nom_dest_vente || '';
                         var isEsc = parseInt(donnees.est_escale_vente, 10) === 1
                             || (donnees.id_escale_vente && String(donnees.id_escale_vente) !== '0')
                             || !!donnees.nom_dest_vente;
+                        __reprogQ('directionclpunifie').textContent = isEsc
+                            ? ('AXE: ' + (donnees.gaexp_lg || '') + ' → ' + destEsc
+                                + ' (escale — ligne ' + (donnees.nom_ligne || (donnees.gaexp_lg + '-' + donnees.gadest_lg)) + ')')
+                            : ('AXE: ' + (donnees.gaexp_lg || '') + ' → ' + (donnees.gadest_lg || '')
+                                + (donnees.nom_ligne ? (' — ' + donnees.nom_ligne) : ''));
                         if (__reprogQ('escaleclpunifie')) {
                             __reprogQ('escaleclpunifie').textContent = isEsc
-                                ? ('ESCALE: ' + destEsc + ' (conservée à la reprogrammation)')
+                                ? ('DESTINATION TICKET: ' + destEsc + ' (conservée — pas le terminus)')
                                 : '';
                             __reprogQ('escaleclpunifie').style.display = isEsc ? '' : 'none';
                         }

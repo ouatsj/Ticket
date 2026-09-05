@@ -324,6 +324,32 @@
         }
 
         /**
+         * Après report : rattacher l'escale déjà vendue au nouveau programme (destination ticket = escale).
+         */
+        protected function _reprog_apply_preserved_escale($code_passager, $code_ticket, $code_pro)
+        {
+            $idEsc = (int) $this->input->post('id_escale_vente_reprog');
+            $codeG = trim((string) $this->input->post('code_gadest_vente_reprog'));
+            $nomD = trim((string) $this->input->post('nom_dest_vente_reprog'));
+            if ($idEsc <= 0 && $codeG === '' && $nomD === '') {
+                return;
+            }
+            if (!isset($this->sale_svc)) {
+                $this->load->library('sale_passager_service', null, 'sale_svc');
+            }
+            $fields = $this->sale_svc->preserve_escale_on_programme(
+                $code_pro,
+                $idEsc,
+                $codeG,
+                $nomD,
+                false
+            );
+            if (!empty($fields)) {
+                $this->m_passager->update($code_passager, $code_ticket, $fields);
+            }
+        }
+
+        /**
          * Reprogrammation multi-correspondances : désactive l’ancien billet,
          * crée N passagers liés (tamponcodtr), imprime via editpdfepsontrans*.
          */
@@ -1217,6 +1243,7 @@
                                 $passrid = $this->m_passager->update($cdpa, $cdpt, $passagerarray);
 
                                 if ($passrid != FALSE) {
+                                    $this->_reprog_apply_preserved_escale($cdpa, $cdpt, $dpclient);
                 
                                     $this->property['UPDATE_SUCCESS'] = TRUE;
                                     $arrayrep = array(
@@ -1269,6 +1296,9 @@
                                             'datep_create' => mdate("%Y-%m-%d", now('UTC')),
                                         );
                                     $passrid = $this->m_passager->create($pasarray);
+                                    if ($passrid != FALSE) {
+                                        $this->_reprog_apply_preserved_escale($tamponrp, $cdtickrp, $dpclient);
+                                    }
                                     
                                         $arrayrep = array(
                                             'code_report' => $codrep,
