@@ -153,11 +153,18 @@
         public function verifireptra($cid, $code)
         {
                 $encour = date("Y");
+                $cidEsc = $this->db->escape($cid);
+                $codeEsc = $this->db->escape($code);
                 // Compagnie ticket = arrivée (id_compaga), comme Passager_model — pas la cie départ.
+                // non_passager : rattacher le retour confirmé via codeticket = code_ticket.
                 return $this->db->query("SELECT
                     ctp.*,
                     p.*,
                     np.code_non_pass,
+                    np.codeticket AS np_codeticket,
+                    np.prixretour,
+                    np.id_ligne_pass,
+                    np.nom_ligne AS np_nom_ligne,
                     cl.nom_client, cl.prenom_client, cl.contact_client, cl.num_CNIB, cl.date_delivre, cl.lieu_delivre,
                     pr.code_progr, pr.date_progr, pr.typetarif, pr.categori, pr.gareidentif, pr.intervalle1, pr.intervalle2,
                     lh.id_ligneheure, lh.ligne_id, lh.heure_identif,
@@ -171,7 +178,8 @@
                     cd.cle_compagnie AS cle_compagnie_depart
                 FROM tamponcode ctp
                     JOIN passager p ON p.code_passager = ctp.tamponcod
-                    LEFT JOIN non_passager np ON ctp.tamponcod = np.code_non_pass
+                    LEFT JOIN non_passager np ON BINARY np.codeticket = BINARY p.code_ticket
+                        AND (np.actif_nonp = 0 OR np.actif_nonp IS NULL)
                     JOIN client cl ON p.id_client_pass = cl.id_client
                     JOIN type_client tcl ON cl.type_client = tcl.nom_type
                     JOIN programme pr ON p.code_pro = pr.code_progr
@@ -184,12 +192,47 @@
                     JOIN compagnies ca ON ga.id_compaga = ca.cle_compagnie
                     JOIN compagnies cd ON ex.id_compagd = cd.cle_compagnie
                     JOIN entreprise e ON ca.id_entrep = e.id_entreprise
-                    WHERE e.ekey = '$cid'
-                    AND BINARY p.code_ticket = '$code'
+                    WHERE e.ekey = {$cidEsc}
+                    AND BINARY p.code_ticket = {$codeEsc}
                     AND ctp.actif_tamp = 0
                     AND p.actif_pas = 0
                     AND (p.statut_reprog IS NULL OR p.statut_reprog = '' OR p.statut_reprog != 'repor')
                     AND BINARY ctp.tamponcod NOT IN (SELECT code_tick_tamp FROM report WHERE actifrep = 0)")->row();
+        }
+
+        /**
+         * Retour vendu (non_passager) pas encore confirmé → non reprogrammable.
+         *
+         * @param string $cid
+         * @param string $code code ticket retour (codeticket)
+         * @return object|null
+         */
+        public function verif_retour_non_confirme($cid, $code)
+        {
+            $code = trim((string) $code);
+            if ($code === '') {
+                return null;
+            }
+            $cidEsc = $this->db->escape($cid);
+            $codeEsc = $this->db->escape($code);
+            return $this->db->query(
+                "SELECT np.codeticket, np.code_non_pass, np.prixretour, np.id_ligne_pass, np.nom_ligne
+                 FROM non_passager np
+                 JOIN lignes lg ON np.id_ligne_pass = lg.ident_ligne
+                 JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
+                 JOIN compagnies c ON ex.id_compagd = c.cle_compagnie
+                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
+                 WHERE e.ekey = {$cidEsc}
+                 AND BINARY np.codeticket = {$codeEsc}
+                 AND (np.actif_nonp = 0 OR np.actif_nonp IS NULL)
+                 AND NOT EXISTS (
+                    SELECT 1 FROM passager p
+                    WHERE BINARY p.code_ticket = BINARY np.codeticket
+                      AND p.actif_pas = 0
+                      AND p.statut_confirme = 'confirm'
+                 )
+                 LIMIT 1"
+            )->row();
         }
 
         public function verifirecu($cid, $gid, $code)
@@ -221,6 +264,10 @@
                     ctp.*,
                     p.*,
                     np.code_non_pass,
+                    np.codeticket AS np_codeticket,
+                    np.prixretour,
+                    np.id_ligne_pass,
+                    np.nom_ligne AS np_nom_ligne,
                     cl.nom_client, cl.prenom_client, cl.contact_client, cl.num_CNIB, cl.date_delivre, cl.lieu_delivre,
                     pr.code_progr, pr.date_progr, pr.typetarif, pr.categori, pr.gareidentif, pr.intervalle1, pr.intervalle2,
                     lh.id_ligneheure, lh.ligne_id, lh.heure_identif,
@@ -234,7 +281,8 @@
                     cd.cle_compagnie AS cle_compagnie_depart
                 FROM tamponcode ctp
                     JOIN passager p ON p.code_passager = ctp.tamponcod
-					LEFT JOIN non_passager np ON ctp.tamponcod = np.code_non_pass
+					LEFT JOIN non_passager np ON BINARY np.codeticket = BINARY p.code_ticket
+                        AND (np.actif_nonp = 0 OR np.actif_nonp IS NULL)
                     JOIN client cl ON p.id_client_pass = cl.id_client
                     JOIN type_client tcl ON cl.type_client = tcl.nom_type
                     JOIN programme pr ON p.code_pro = pr.code_progr

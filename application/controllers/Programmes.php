@@ -2269,34 +2269,37 @@
 
         public function siegdispotrans($cd)
         {
-            
-            $outcdtrans = $this->m_programme->progsiegetrans($this->session->company->ekey, $cd);
+            $ekey = $this->session->company->ekey;
+            // Libérer le verrou session : plusieurs segments chargent les sièges en parallèle.
+            session_release_lock();
+            $outcdtrans = $this->m_programme->progsiegetrans($ekey, $cd);
             return $this->load->view('beagle/pages/_programme/json', array('json' => $outcdtrans));
-            
         }
 
         public function siegdispotransnr($cd)
         {
-            
-            $outcdtrans = $this->m_programme->progsiegetransbus($this->session->company->ekey, $cd);
+            $ekey = $this->session->company->ekey;
+            session_release_lock();
+            $outcdtrans = $this->m_programme->progsiegetransbus($ekey, $cd);
             return $this->load->view('beagle/pages/_programme/json', array('json' => $outcdtrans));
-            
         }
         //transite siege disponible
         public function siegdisponibletrans($cd, $db, $fn)
         {
+            $ekey = $this->session->company->ekey;
+            session_release_lock();
             $this->_purge_tampon_siege_expired();
-            $outftrans = $this->m_programme->cdprogtrans($this->session->company->ekey, $cd, $db, $fn);
+            $outftrans = $this->m_programme->cdprogtrans($ekey, $cd, $db, $fn);
             return $this->load->view('beagle/pages/_programme/json', array('json' => $outftrans));
-            
         }
 
         public function siegdisponibletransnr($cd, $db, $fn)
         {
+            $ekey = $this->session->company->ekey;
+            session_release_lock();
             $this->_purge_tampon_siege_expired();
-            $outftrans = $this->m_programme->cdprogtransbus($this->session->company->ekey, $cd, $db, $fn);
+            $outftrans = $this->m_programme->cdprogtransbus($ekey, $cd, $db, $fn);
             return $this->load->view('beagle/pages/_programme/json', array('json' => $outftrans));
-            
         }
 
         public function verifprogrammes($lg)

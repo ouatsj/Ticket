@@ -312,6 +312,35 @@
         }
 
         /**
+         * Enrichit un lookup : ticket retour confirmé (prixretour, flag, axe programme = retour).
+         */
+        protected function _reprog_enrich_retour_meta($out)
+        {
+            if (!$out || !is_object($out)) {
+                return $out;
+            }
+            $out->est_retour = 0;
+            $stat = isset($out->statut_confirme) ? trim((string) $out->statut_confirme) : '';
+            $hasNp = !empty($out->np_codeticket) || !empty($out->prixretour) || !empty($out->code_non_pass);
+            // Retour confirmé : passager confirmé rattaché à non_passager.codeticket.
+            if ($stat === 'confirm' && $hasNp) {
+                $out->est_retour = 1;
+                $pv = isset($out->prixvente) ? trim((string) $out->prixvente) : '';
+                $pr = isset($out->prixretour) ? trim((string) $out->prixretour) : '';
+                if (($pv === '' || $pv === null) && $pr !== '') {
+                    $out->prixvente = $out->prixretour;
+                    $out->prix_source = 'prixretour';
+                } else {
+                    $out->prix_source = 'prixvente';
+                }
+                $out->axe_retour = (isset($out->gaexp_lg) ? $out->gaexp_lg : '')
+                    . '-' . (isset($out->gadest_lg) ? $out->gadest_lg : '');
+                $out->ligne_retour = isset($out->nom_ligne) ? (string) $out->nom_ligne : '';
+            }
+            return $out;
+        }
+
+        /**
          * Après lookup : détecte ticket transit via tamponcodtr et liste les jambes actives.
          */
         protected function _reprog_enrich_transit_meta($out)
@@ -334,10 +363,15 @@
 
             $ek = $this->db->escape($this->session->company->ekey);
             $trEsc = $this->db->escape($tr);
+            $retourSql = '';
+            if (!empty($out->est_retour)) {
+                // Retour confirmé transit : uniquement les jambes confirmées.
+                $retourSql = " AND p.statut_confirme = 'confirm' ";
+            }
             $rows = $this->db->query(
                 "SELECT ctp.tamponcod, ctp.tamponcodtr,
                         p.code_passager, p.code_ticket, p.prixvente, p.id_escale_vente,
-                        p.nom_dest_vente, p.code_gadest_vente,
+                        p.nom_dest_vente, p.code_gadest_vente, p.statut_confirme,
                         h.heure, pr.date_progr, lg.nom_ligne, lg.gaexp_lg, lg.gadest_lg,
                         ca.nom_compagnie AS nom_compagnie
                  FROM tamponcode ctp
@@ -355,6 +389,7 @@
                  AND p.actif_pas = 0
                  AND p.num_siege_categorie IS NOT NULL
                  AND (p.statut_reprog IS NULL OR p.statut_reprog = '' OR p.statut_reprog != 'repor')
+                 {$retourSql}
                  ORDER BY pr.date_progr ASC, h.heure ASC, p.code_passager ASC"
             )->result();
 
@@ -558,6 +593,10 @@
                     'createpas_at' => now('UTC'),
                     'datep_create' => mdate('%Y-%m-%d', now('UTC')),
                 );
+                $statConf = trim((string) $this->input->post('statconfirmtransit'));
+                if ($statConf === 'confirm') {
+                    $pas['statut_confirme'] = 'confirm';
+                }
                 if ($prix !== '' && $prix !== null) {
                     $pas['prixvente'] = $prix;
                 }
@@ -710,10 +749,10 @@
 
         public function siegdispo($cd)
         {
-            
-            $outcd = $this->m_programme->indexprog($this->session->company->ekey, $cd);
+            $ekey = $this->session->company->ekey;
+            session_release_lock();
+            $outcd = $this->m_programme->indexprog($ekey, $cd);
             return $this->load->view('beagle/pages/_programme/json', array('json' => $outcd));
-            
         }
 
         public function siegepassager($d, $prog_id)
@@ -771,6 +810,23 @@
                 $out = $this->m_tamponcode->verifireptra($this->session->company->ekey, $code);
             }
 
+            // Retour vendu mais pas encore confirmé → non reprogrammable.
+            if (!$out && $mode !== 'tampon') {
+                $npPending = $this->m_tamponcode->verif_retour_non_confirme(
+                    $this->session->company->ekey,
+                    $code
+                );
+                if ($npPending) {
+                    return $this->load->view('beagle/pages/_programme/json', array(
+                        'json' => array(
+                            'ok' => false,
+                            'error' => 'retour_non_confirme',
+                            'reason' => 'Ce retour n’est pas encore confirmé. Confirmez-le avant de le reprogrammer.',
+                        ),
+                    ));
+                }
+            }
+
             if (!$out) {
                 return $this->load->view('beagle/pages/_programme/json', array('json' => null));
             }
@@ -792,6 +848,7 @@
                 } else {
                     $out->dest_affiche = !empty($out->nom_dest_vente) ? $out->nom_dest_vente : (isset($out->gadest_lg) ? $out->gadest_lg : '');
                 }
+                $out = $this->_reprog_enrich_retour_meta($out);
                 $out = $this->_reprog_enrich_transit_meta($out);
             }
 
@@ -1352,6 +1409,10 @@
                                             'createpas_at' => now('UTC'),
                                             'datep_create' => mdate("%Y-%m-%d", now('UTC')),
                                         );
+                                        $statConfCie = trim((string) $this->input->post('statconfirmtransit'));
+                                        if ($statConfCie === 'confirm') {
+                                            $pasarray['statut_confirme'] = 'confirm';
+                                        }
                                         $prixOrigCie = $this->input->post('prixventeunifie');
                                         if ($prixOrigCie !== false && $prixOrigCie !== null && trim((string) $prixOrigCie) !== '') {
                                             $pasarray['prixvente'] = $prixOrigCie;
