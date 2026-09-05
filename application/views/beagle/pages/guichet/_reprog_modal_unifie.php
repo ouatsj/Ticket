@@ -192,13 +192,13 @@ $allow_prix_diff_unifie = $allow_tampon_unifie; // admin + chef guichet : prix p
                     <label class="small mb-0">Date de report</label>
                     <input class="form-control form-control-sm" type="date" id="datereprog_unifie">
                 </div>
-                <div class="form-group col-md-4 mb-2" id="reprog_ancre_heure_wrap">
+                <div class="form-group col-md-4 mb-2" id="reprog_ancre_heure_wrap" style="display:none">
                     <label class="small mb-0">Heure d’ancrage</label>
                     <select class="form-control form-control-sm" id="heuredepartpunifie">
                         <option value="">Choisissez l'heure</option>
                     </select>
                 </div>
-                <div class="form-group col-md-4 mb-2" id="reprog_cie_ancre_wrap">
+                <div class="form-group col-md-4 mb-2" id="reprog_cie_ancre_wrap" style="display:none">
                     <label class="small mb-0">Compagnie</label>
                     <select class="form-control form-control-sm" id="compagniepunifie">
                         <option value="">Choisissez la compagnie</option>
@@ -222,6 +222,10 @@ $allow_prix_diff_unifie = $allow_tampon_unifie; // admin + chef guichet : prix p
 
             <div id="corr_unifie_wrap" style="display:none">
                 <div class="reprog-section-title">Itinéraires possibles</div>
+                <p class="small text-muted mb-2" id="corr_unifie_hint">
+                    Selon l’axe du ticket et la date de report : un itinéraire direct = 1 segment ;
+                    une correspondance = plusieurs segments (compagnie, date, heure, siège).
+                </p>
                 <p class="text-warning small mb-2" id="corr_unifie_msg"></p>
                 <div class="form-group mb-3">
                     <label class="small mb-0">Choisir l’itinéraire</label>

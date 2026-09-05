@@ -18,6 +18,142 @@
         }
 
         /**
+         * Admin + chef guichet : reprogrammation depuis n’importe quelle gare.
+         */
+        protected function _reprog_roles_any_gare()
+        {
+            $role = isset($this->session->agent->userole) ? (string) $this->session->agent->userole : '';
+            return in_array($role, array('1', '2', '5', '15'), true);
+        }
+
+        /**
+         * Gare session (code_gaexp typique agent.guser).
+         */
+        protected function _reprog_session_gare_code()
+        {
+            if (isset($this->session->agent->guser) && trim((string) $this->session->agent->guser) !== '') {
+                return trim((string) $this->session->agent->guser);
+            }
+            $post = $this->input->post('gareconnect');
+            return ($post !== false && $post !== null) ? trim((string) $post) : '';
+        }
+
+        /**
+         * Codes gare liés à la vente / départ du ticket (pour contrôle d’accès).
+         *
+         * @param object $row
+         * @return string[]
+         */
+        protected function _reprog_ticket_vente_gare_codes($row)
+        {
+            $codes = array();
+            if (!empty($row->gareidentif)) {
+                $codes[] = trim((string) $row->gareidentif);
+            }
+            if (!empty($row->gaexp_lg)) {
+                $codes[] = trim((string) $row->gaexp_lg);
+            }
+            if (!empty($row->departclient_idgare)) {
+                $sg = $this->db->query(
+                    "SELECT gareprinceid FROM sousgare WHERE idsousgare = ? LIMIT 1",
+                    array((int) $row->departclient_idgare)
+                )->row();
+                if ($sg && !empty($sg->gareprinceid)) {
+                    $codes[] = trim((string) $sg->gareprinceid);
+                }
+            }
+            $out = array();
+            foreach ($codes as $c) {
+                if ($c !== '' && !in_array($c, $out, true)) {
+                    $out[] = $c;
+                }
+            }
+            return $out;
+        }
+
+        /**
+         * Vendeur : uniquement gare de vente. Admin/chef : toutes gares.
+         *
+         * @param object $row
+         * @param string|null $sessionGareOverride ex. gareconnect POST
+         * @return bool
+         */
+        protected function _reprog_may_reprog_ticket($row, $sessionGareOverride = null)
+        {
+            if (!$row) {
+                return false;
+            }
+            if ($this->_reprog_roles_any_gare()) {
+                return true;
+            }
+            $sessionGare = ($sessionGareOverride !== null && trim((string) $sessionGareOverride) !== '')
+                ? trim((string) $sessionGareOverride)
+                : $this->_reprog_session_gare_code();
+            if ($sessionGare === '') {
+                return false;
+            }
+            foreach ($this->_reprog_ticket_vente_gare_codes($row) as $c) {
+                if (strcasecmp($c, $sessionGare) === 0) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        /**
+         * Refuse commit si vendeur hors gare de vente.
+         */
+        protected function _reprog_guard_gare_commit_or_refuse($gidc, $iduser, $sgid)
+        {
+            if ($this->_reprog_roles_any_gare()) {
+                return true;
+            }
+            $sessionGare = trim((string) $gidc);
+            if ($sessionGare === '') {
+                $sessionGare = $this->_reprog_session_gare_code();
+            }
+            $candidates = array();
+            foreach (array('gareidentiftrans', 'departgidtransit', 'garedpatransit') as $k) {
+                $v = trim((string) $this->input->post($k));
+                if ($v !== '') {
+                    $candidates[] = $v;
+                }
+            }
+            $sgVente = $this->input->post('departclientidgaretr');
+            if ($sgVente !== false && $sgVente !== null && $sgVente !== '') {
+                $sg = $this->db->query(
+                    "SELECT gareprinceid FROM sousgare WHERE idsousgare = ? LIMIT 1",
+                    array((int) $sgVente)
+                )->row();
+                if ($sg && !empty($sg->gareprinceid)) {
+                    $candidates[] = trim((string) $sg->gareprinceid);
+                }
+            }
+            $ok = false;
+            foreach (array_unique($candidates) as $c) {
+                if ($c !== '' && strcasecmp($c, $sessionGare) === 0) {
+                    $ok = true;
+                    break;
+                }
+            }
+            if ($ok) {
+                return true;
+            }
+            if (isset($this->session) && method_exists($this->session, 'set_flashdata')) {
+                $this->session->set_flashdata(
+                    'reprog_error',
+                    'Reprogrammation refusée : uniquement dans la gare ayant effectué la vente (admin / chef : toutes gares).'
+                );
+            }
+            redirect(
+                'gares/' . $this->session->company->ekey
+                . '/gTc/' . $gidc . '/compte/' . $iduser . '/' . $sgid . '/'
+                . mdate('%d/%m/%Y', now('UTC'))
+            );
+            return false;
+        }
+
+        /**
          * Pré-contrôle siège (stock partagé, bloqués, quota).
          *
          * @param string $code_pro
@@ -540,10 +676,27 @@
                         ->set_content_type('application/json')
                         ->set_output(json_encode(null));
                 }
+                // Admin/chef : lookup tampon sans filtre gare (garde any-gare ci-dessous).
                 $out = $this->m_tamponcode->verifirepadmin($this->session->company->ekey, $code);
             } else {
-                // Ticket : entreprise entière (direct ↔ transit / cross-cie)
+                // Ticket : entreprise entière puis garde gare de vente.
                 $out = $this->m_tamponcode->verifireptra($this->session->company->ekey, $code);
+            }
+
+            if (!$out) {
+                return $this->load->view('beagle/pages/_programme/json', array('json' => null));
+            }
+            if (!$this->_reprog_may_reprog_ticket($out)) {
+                return $this->load->view('beagle/pages/_programme/json', array(
+                    'json' => array(
+                        'ok' => false,
+                        'error' => 'gare_refuse',
+                        'reason' => 'Reprogrammation possible uniquement dans la gare ayant effectué la vente. Admin / chef guichet : toutes gares.',
+                    ),
+                ));
+            }
+            if (is_object($out)) {
+                $out->ok = true;
             }
 
             return $this->load->view('beagle/pages/_programme/json', array('json' => $out));
@@ -927,6 +1080,10 @@
             $gidc = $this->input->post('gareconnect');
             $sgid = $this->input->post('sousgareconnect');
             $idcmpt = $this->input->post('compconnected');
+            $iduser_gate = roleattribut_guard_post_hint($this->company->ekey);
+            if (!$this->_reprog_guard_gare_commit_or_refuse($gidc, $iduser_gate, $sgid)) {
+                return;
+            }
 
             // Multi-segments : EPSON uniquement (ORDINAIRE désactivé dans le modal unifié).
             $multiseg_probe = $this->_reprog_parse_multiseg();

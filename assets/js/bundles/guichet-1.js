@@ -10090,7 +10090,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         __reprogQ('reprog_choix_wrap').style.display = 'block';
-        __reprogSetAncreVisible(!window.__reprogState.isTransitTicket);
+        __reprogSetAncreVisible(false);
         var today = __reprogQ('actueldaterepunifie').value || '';
         if (dateEl) {
             dateEl.min = today;
@@ -10310,11 +10310,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function __reprogFetchChemins(dateYmd, hhmm, after) {
         var st = window.__reprogState;
+        // sg=0 : propositions sur l’OD du ticket (pas le filtre sous-gare session).
         var url = window.location.origin + APP_ROOT
             + '/programmes/verifchemins/'
             + encodeURIComponent(st.axe) + '/'
-            + encodeURIComponent(dateYmd) + '/'
-            + encodeURIComponent(st.sgid || '0') + '/1';
+            + encodeURIComponent(dateYmd) + '/0/1';
         var hh = __reprogHhmm(hhmm);
         if (hh) {
             url += '?heure=' + encodeURIComponent(hh);
@@ -10878,45 +10878,38 @@ document.addEventListener('DOMContentLoaded', () => {
         __reprogSetPost('', '', '');
         __reprogClearSegPosts();
         __reprogSetDirectInfo('');
+        __reprogSetAncreVisible(false);
         if (__reprogQ('smspunifie')) __reprogQ('smspunifie').style.display = 'none';
         if (!dateYmd) return;
 
         var st = window.__reprogState;
-
-        // Ticket transit 2 codes : date → itinéraires possibles (axe des 2 tickets).
-        if (st.isTransitTicket) {
-            __reprogSetAncreVisible(false);
-            if (!st.axe) {
-                var boxA = __reprogQ('smspunifie');
-                var errA = __reprogQ('erreurSmspunifie');
-                if (boxA) boxA.style.display = 'block';
-                if (errA) errA.textContent = 'Axe transit incomplet (départ / arrivée des 2 codes).';
-                return;
-            }
-            __reprogFetchChemins(dateYmd, '', function (chemins) {
-                var all = __reprogMergeItineraires(__reprogDirectsAsChemins(dateYmd), chemins);
-                st.chemins = all;
-                if (!all.length) {
-                    var box = __reprogQ('smspunifie');
-                    var err = __reprogQ('erreurSmspunifie');
-                    if (box) box.style.display = 'block';
-                    if (err) {
-                        err.textContent = 'Aucun départ ni correspondance pour relier cet itinéraire à cette date.';
-                    }
-                    return;
-                }
-                __reprogShowCorrExclusive(
-                    all,
-                    'Itinéraires trouvés pour ' + st.axe + ' le ' + dateYmd + ' — choisissez-en un.'
-                );
-            });
+        // Tous tickets : date → itinéraires (axe du ticket / 2 jambes) → segments.
+        if (!st.axe) {
+            var boxA = __reprogQ('smspunifie');
+            var errA = __reprogQ('erreurSmspunifie');
+            if (boxA) boxA.style.display = 'block';
+            if (errA) errA.textContent = 'Axe ticket incomplet (gare départ / arrivée).';
             return;
         }
-
-        // Ticket simple : date → heure → compagnie → siège.
-        __reprogSetAncreVisible(true);
-        __reprogLoadTransitHours(dateYmd, function () {
-            __reprogFillHeuresForDate(dateYmd);
+        __reprogFetchChemins(dateYmd, '', function (chemins) {
+            var all = __reprogMergeItineraires(__reprogDirectsAsChemins(dateYmd), chemins);
+            st.chemins = all;
+            if (!all.length) {
+                var box = __reprogQ('smspunifie');
+                var err = __reprogQ('erreurSmspunifie');
+                if (box) box.style.display = 'block';
+                if (err) {
+                    err.textContent = 'Aucun départ ni correspondance pour relier l’axe '
+                        + st.axe + ' à cette date (gare départ ticket : '
+                        + (st.gaexp || '—') + ').';
+                }
+                return;
+            }
+            __reprogShowCorrExclusive(
+                all,
+                'Itinéraires possibles pour ' + st.axe + ' le ' + dateYmd
+                + ' — choisissez-en un (direct = 1 segment, correspondance = plusieurs).'
+            );
         });
     }
 
@@ -11094,6 +11087,34 @@ document.addEventListener('DOMContentLoaded', () => {
         __reprogBuildSegments(etapes);
     }
 
+    function __reprogLookupRefused(donnees, fallbackMsg) {
+        if (!donnees || typeof donnees !== 'object') {
+            if (__reprogQ('smspunifie')) __reprogQ('smspunifie').style.display = 'block';
+            if (__reprogQ('erreurSmspunifie')) {
+                __reprogQ('erreurSmspunifie').textContent =
+                    fallbackMsg || 'Cet ticket ne peut pas être reprogrammé ici.';
+            }
+            return true;
+        }
+        if (donnees.ok === false || donnees.error === 'gare_refuse') {
+            if (__reprogQ('smspunifie')) __reprogQ('smspunifie').style.display = 'block';
+            if (__reprogQ('erreurSmspunifie')) {
+                __reprogQ('erreurSmspunifie').textContent = donnees.reason
+                    || 'Reprogrammation réservée à la gare de vente (admin / chef : toutes gares).';
+            }
+            return true;
+        }
+        if (!donnees.code_passager && !donnees.code_ticket) {
+            if (__reprogQ('smspunifie')) __reprogQ('smspunifie').style.display = 'block';
+            if (__reprogQ('erreurSmspunifie')) {
+                __reprogQ('erreurSmspunifie').textContent =
+                    fallbackMsg || 'Cet ticket ne peut pas être reprogrammé ici.';
+            }
+            return true;
+        }
+        return false;
+    }
+
     document.querySelectorAll('.addreprog_unifie').forEach(function (btn) {
         var title = __reprogQ('rTitleUnifie');
         if (title) title.textContent = 'REPROGRAMMATION';
@@ -11161,12 +11182,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         + '/reprogrammes/lookup_unifie?mode=' + encodeURIComponent(mode)
                         + '&code=' + encodeURIComponent(cocl),
                     function (donnees) {
-                        if (!donnees || typeof donnees !== 'object') {
-                            if (__reprogQ('smspunifie')) __reprogQ('smspunifie').style.display = 'block';
-                            if (__reprogQ('erreurSmspunifie')) {
-                                __reprogQ('erreurSmspunifie').textContent =
-                                    'Cet ticket ne peut pas être reprogrammé ici.';
-                            }
+                        if (__reprogLookupRefused(donnees, 'Cet ticket ne peut pas être reprogrammé ici.')) {
                             return;
                         }
 
@@ -11176,7 +11192,9 @@ document.addEventListener('DOMContentLoaded', () => {
                         __reprogQ('prenomclpunifie').textContent = 'PRENOM: ' + (donnees.prenom_client || '');
                         __reprogQ('contactclpunifie').textContent = 'CONTACT: ' + (donnees.contact_client || '');
                         __reprogQ('refclpunifie').textContent = 'CNIB: ' + (donnees.num_CNIB || '');
-                        __reprogQ('directionclpunifie').textContent = 'AXE: ' + (donnees.nom_ligne || '');
+                        __reprogQ('directionclpunifie').textContent = 'AXE: '
+                            + (donnees.gaexp_lg || '') + ' → ' + (donnees.gadest_lg || '')
+                            + (donnees.nom_ligne ? (' — ' + donnees.nom_ligne) : '');
                         __reprogQ('codeclpunifie').textContent =
                             'TICKET: ' + (donnees.code_ticket || '') + ' / PASS: ' + (donnees.code_passager || '');
                         __reprogQ('heureclpunifie').textContent =
@@ -11290,12 +11308,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         + '/reprogrammes/lookup_unifie?mode=' + encodeURIComponent(mode)
                         + '&code=' + encodeURIComponent(cocl2),
                     function (d2) {
-                        if (!d2 || typeof d2 !== 'object') {
-                            if (__reprogQ('smspunifie')) __reprogQ('smspunifie').style.display = 'block';
-                            if (__reprogQ('erreurSmspunifie')) {
-                                __reprogQ('erreurSmspunifie').textContent =
-                                    '2ᵉ code invalide ou non reprogrammable.';
-                            }
+                        if (__reprogLookupRefused(d2, '2ᵉ code invalide ou non reprogrammable.')) {
                             return;
                         }
                         var tr1 = String(window.__reprogState.tamponcodtr || '');

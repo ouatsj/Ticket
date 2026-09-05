@@ -214,9 +214,9 @@
 
         public function verifirepadmin($cid, $code)
         {
-                $gid = $this->session->agent->guser;
                 $encour = date("Y");
                 // Compagnie ticket = arrivée (id_compaga), aligné sur Passager_model / verifireptra.
+                // Pas de filtre gare ici : le contrôle gare de vente / any-gare est dans Reprogrammes::lookup_unifie.
                 return $this->db->query("SELECT
                     ctp.*,
                     p.*,
@@ -252,7 +252,6 @@
                     JOIN entreprise e ON ca.id_entrep = e.id_entreprise
                     WHERE e.ekey = '$cid'
                     AND BINARY ctp.tamponcod = '$code'
-					AND ex.code_gaexp = '$gid'
                     AND ctp.actif_tamp = 0
                     AND p.actif_pas = 0
                     AND (p.statut_reprog IS NULL OR p.statut_reprog = '' OR p.statut_reprog != 'repor')
