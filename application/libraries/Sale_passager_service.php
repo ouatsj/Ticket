@@ -255,6 +255,74 @@ class Sale_passager_service
     }
 
     /**
+     * Reprogrammation : conserver une escale déjà vendue sur un nouveau programme.
+     * Rematch sur la ligne du programme (même id, sinon même code_gadest).
+     * Ne crée jamais d'escale à partir d'un ticket terminus (id vide → []).
+     *
+     * @param string $code_pro nouveau programme
+     * @param int    $id_escale
+     * @param string $code_gadest
+     * @param string $nom_dest
+     * @param bool   $include_prix si true, peut renvoyer prixvente catalogue escale
+     * @return array champs à merger (sans prix par défaut)
+     */
+    public function preserve_escale_on_programme($code_pro, $id_escale, $code_gadest = '', $nom_dest = '', $include_prix = false)
+    {
+        $id_escale = (int) $id_escale;
+        $code_gadest = trim((string) $code_gadest);
+        $nom_dest = trim((string) $nom_dest);
+        if ($id_escale <= 0 && $code_gadest === '' && $nom_dest === '') {
+            return array();
+        }
+
+        $ligne = $this->ligne_of_programme($code_pro);
+        if ($ligne === '') {
+            return array();
+        }
+
+        $matchedId = 0;
+        if ($id_escale > 0) {
+            $row = $this->escale_row_by_id($id_escale);
+            if ($row && (string) $row->id_lignes === $ligne) {
+                $matchedId = $id_escale;
+            }
+        }
+        if ($matchedId <= 0 && $code_gadest !== '') {
+            $row = $this->ci->db->query(
+                "SELECT id_escale FROM itineraire_escales
+                 WHERE id_lignes = ? AND code_gadest = ? AND actif_escale = 1
+                 LIMIT 1",
+                array($ligne, $code_gadest)
+            )->row();
+            if ($row) {
+                $matchedId = (int) $row->id_escale;
+            }
+        }
+
+        if ($matchedId > 0) {
+            $fields = $this->escale_passager_fields($matchedId);
+            if (!$include_prix) {
+                unset($fields['prixvente']);
+            }
+            $fields['quart'] = null;
+            return $fields;
+        }
+
+        // Ligne sans escale catalogue correspondante : garder le libellé pour l'impression.
+        $out = array(
+            'id_escale_vente' => null,
+            'quart' => null,
+        );
+        if ($code_gadest !== '') {
+            $out['code_gadest_vente'] = $code_gadest;
+        }
+        if ($nom_dest !== '') {
+            $out['nom_dest_vente'] = $nom_dest;
+        }
+        return $out;
+    }
+
+    /**
      * Code programme de la dernière jambe transit (POST idcheminheure*).
      *
      * @param int $nbr nombre de correspondances (2..4)

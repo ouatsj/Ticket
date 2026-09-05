@@ -441,7 +441,13 @@
             }
 
             $created = array();
+            $escaleIdPost = (int) $this->input->post('id_escale_vente_reprog');
+            $escaleCodePost = trim((string) $this->input->post('code_gadest_vente_reprog'));
+            $escaleNomPost = trim((string) $this->input->post('nom_dest_vente_reprog'));
+            $lastSegIdx = count($segs) - 1;
+            $si = -1;
             foreach ($segs as $s) {
+                $si++;
                 $passecompter = $this->db->query(
                     "SELECT COUNT(code_passager) AS id FROM passager p
                      WHERE p.datep_create = " . $this->db->escape($today) . "
@@ -490,6 +496,22 @@
                     $pas['prixvente'] = $prix;
                 }
                 $this->m_passager->create($pas);
+                // Dernière jambe : préserver l'escale déjà vendue (après create pour ne pas écraser le prix jambe).
+                if ($si === $lastSegIdx && $escaleIdPost > 0) {
+                    if (!isset($this->sale_svc)) {
+                        $this->load->library('sale_passager_service', null, 'sale_svc');
+                    }
+                    $escFields = $this->sale_svc->preserve_escale_on_programme(
+                        $s['code_progr'],
+                        $escaleIdPost,
+                        $escaleCodePost,
+                        $escaleNomPost,
+                        false
+                    );
+                    if (!empty($escFields)) {
+                        $this->m_passager->update($tampon, $cdtick, $escFields);
+                    }
+                }
 
                 $rowTs = $this->db->query(
                     "SELECT * FROM tampon_siege t WHERE t.codepro = "
@@ -697,13 +719,20 @@
             }
             if (is_object($out)) {
                 $out->ok = true;
+                $hasEsc = !empty($out->id_escale_vente) || !empty($out->nom_dest_vente) || !empty($out->code_gadest_vente);
+                $out->est_escale_vente = $hasEsc ? 1 : 0;
+                if (function_exists('ticket_destination_label')) {
+                    $out->dest_affiche = ticket_destination_label($out, isset($out->gadest_lg) ? $out->gadest_lg : '');
+                } else {
+                    $out->dest_affiche = !empty($out->nom_dest_vente) ? $out->nom_dest_vente : (isset($out->gadest_lg) ? $out->gadest_lg : '');
+                }
             }
 
             return $this->load->view('beagle/pages/_programme/json', array('json' => $out));
         }
 
         /**
-         * Heures unifiées même OD. GET prix= optionnel.
+         * Heures unifiées même OD. GET prix= optionnel ; GET id_escale= si ticket escale.
          * Vendeur : même prix obligatoire. Admin/chef : prix libre (toutes heures OD).
          */
         public function heures_unifie($gaexp, $gadest, $exclude)
@@ -716,6 +745,7 @@
                 $prix = '';
             }
             $prix = trim((string) $prix);
+            $id_escale = (int) $this->input->get_post('id_escale');
 
             $prixFilter = null;
             if (!$is_prive) {
@@ -730,7 +760,8 @@
                 $gaexp,
                 $gadest,
                 $exclude,
-                $prixFilter
+                $prixFilter,
+                $id_escale > 0 ? $id_escale : null
             );
             return $this->load->view('beagle/pages/_programme/json', array('json' => $rows));
         }

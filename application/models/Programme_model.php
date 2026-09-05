@@ -2015,7 +2015,7 @@
          * @param string|null $prix si non null, filtre même prix tarif
          * @return array
          */
-        public function heurereprog_unifie($cid, $gaexp, $gadest, $exclude_code, $prix = null)
+        public function heurereprog_unifie($cid, $gaexp, $gadest, $exclude_code, $prix = null, $id_escale = null)
         {
             $tim = date('H', time('H'));
             if ($tim === '00') {
@@ -2034,13 +2034,25 @@
             $prixSql = '';
             if ($prix !== null && $prix !== '') {
                 $prixEsc = $this->db->escape($prix);
-                $prixSql = " AND EXISTS (
-                    SELECT 1 FROM tarification tf
-                    WHERE tf.ligne_heure_id = lh.id_ligneheure
-                      AND tf.typetarif_id = pr.typetarif
-                      AND tf.actif_taf = 1
-                      AND tf.prix = {$prixEsc}
-                )";
+                $idEsc = (int) $id_escale;
+                if ($idEsc > 0) {
+                    // Ticket vendu à une escale : matcher le prix escale sur la ligne parent, pas le tarif terminus.
+                    $prixSql = " AND EXISTS (
+                        SELECT 1 FROM itineraire_escales ie
+                        WHERE ie.id_lignes = lg.ident_ligne
+                          AND ie.actif_escale = 1
+                          AND ie.id_escale = {$idEsc}
+                          AND ie.prix_escale = {$prixEsc}
+                    )";
+                } else {
+                    $prixSql = " AND EXISTS (
+                        SELECT 1 FROM tarification tf
+                        WHERE tf.ligne_heure_id = lh.id_ligneheure
+                          AND tf.typetarif_id = pr.typetarif
+                          AND tf.actif_taf = 1
+                          AND tf.prix = {$prixEsc}
+                    )";
+                }
             }
 
             return $this->db->query(

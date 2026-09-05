@@ -9240,6 +9240,7 @@ document.addEventListener('DOMContentLoaded', () => {
         sgid: '0',
         prix: '',
         prix2: '',
+        id_escale: '',
         exclude: '',
         tarif: '1',
         isTransitTicket: false,
@@ -9570,13 +9571,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function __reprogResetUi() {
         ['nomclpunifie', 'prenomclpunifie', 'contactclpunifie', 'refclpunifie',
-            'directionclpunifie', 'codeclpunifie', 'heureclpunifie', 'compagnieclpunifie',
+            'directionclpunifie', 'escaleclpunifie', 'codeclpunifie', 'heureclpunifie', 'compagnieclpunifie',
             'prixclpunifie', 'code2clpunifie'
         ].forEach(function (id) {
             var el = __reprogQ(id);
             if (el) {
                 el.innerHTML = '';
-                if (id === 'code2clpunifie') el.style.display = 'none';
+                if (id === 'code2clpunifie' || id === 'escaleclpunifie') el.style.display = 'none';
             }
         });
         var infos = __reprogQ('reprog_infos_wrap');
@@ -9586,7 +9587,8 @@ document.addEventListener('DOMContentLoaded', () => {
         var c2 = __reprogQ('reprog_code2_wrap');
         if (c2) c2.style.display = 'none';
         ['passerpunifie2', 'codeticketsunifie2', 'codeclient_ticket_unifie2',
-            'prixventeunifie2', 'prixventeunifie_ref', 'code_lookup2_unifie'
+            'prixventeunifie2', 'prixventeunifie_ref', 'code_lookup2_unifie',
+            'id_escale_vente_reprog', 'code_gadest_vente_reprog', 'nom_dest_vente_reprog'
         ].forEach(function (id) {
             var el = __reprogQ(id);
             if (el) el.value = '';
@@ -9599,6 +9601,7 @@ document.addEventListener('DOMContentLoaded', () => {
         window.__reprogState.transitHours = [];
         window.__reprogState.prix = '';
         window.__reprogState.prix2 = '';
+        window.__reprogState.id_escale = '';
         window.__reprogState.lookup1Done = false;
         window.__reprogState.lookup2Done = false;
         window.__reprogState.tamponcodtr = '';
@@ -9640,7 +9643,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 + encodeURIComponent(window.__reprogState.gaexp) + '/'
                 + encodeURIComponent(window.__reprogState.gadest) + '/'
                 + encodeURIComponent(window.__reprogState.exclude)
-                + '?prix=' + encodeURIComponent(String(ref)),
+                + '?prix=' + encodeURIComponent(String(ref))
+                + (window.__reprogState.id_escale
+                    ? ('&id_escale=' + encodeURIComponent(String(window.__reprogState.id_escale)))
+                    : ''),
             function (data2) {
                 window.__reprogState.rows = __reprogRowsArray(data2);
                 __reprogOnDateChange();
@@ -10733,6 +10739,16 @@ document.addEventListener('DOMContentLoaded', () => {
                         __reprogQ('directionclpunifie').textContent = 'AXE: '
                             + (donnees.gaexp_lg || '') + ' → ' + (donnees.gadest_lg || '')
                             + (donnees.nom_ligne ? (' — ' + donnees.nom_ligne) : '');
+                        var destEsc = donnees.dest_affiche || donnees.nom_dest_vente || '';
+                        var isEsc = parseInt(donnees.est_escale_vente, 10) === 1
+                            || (donnees.id_escale_vente && String(donnees.id_escale_vente) !== '0')
+                            || !!donnees.nom_dest_vente;
+                        if (__reprogQ('escaleclpunifie')) {
+                            __reprogQ('escaleclpunifie').textContent = isEsc
+                                ? ('ESCALE: ' + destEsc + ' (conservée à la reprogrammation)')
+                                : '';
+                            __reprogQ('escaleclpunifie').style.display = isEsc ? '' : 'none';
+                        }
                         __reprogQ('codeclpunifie').textContent =
                             'TICKET: ' + (donnees.code_ticket || '') + ' / PASS: ' + (donnees.code_passager || '');
                         __reprogQ('heureclpunifie').textContent =
@@ -10774,12 +10790,26 @@ document.addEventListener('DOMContentLoaded', () => {
                         __reprogQ('gaexp_unifie').value = donnees.gaexp_lg || '';
                         __reprogQ('gadest_unifie').value = donnees.gadest_lg || '';
                         __reprogQ('axe_unifie').value = (donnees.gaexp_lg || '') + '-' + (donnees.gadest_lg || '');
+                        if (__reprogQ('id_escale_vente_reprog')) {
+                            __reprogQ('id_escale_vente_reprog').value = isEsc && donnees.id_escale_vente
+                                ? String(donnees.id_escale_vente) : '';
+                        }
+                        if (__reprogQ('code_gadest_vente_reprog')) {
+                            __reprogQ('code_gadest_vente_reprog').value = isEsc
+                                ? (donnees.code_gadest_vente || '') : '';
+                        }
+                        if (__reprogQ('nom_dest_vente_reprog')) {
+                            __reprogQ('nom_dest_vente_reprog').value = isEsc
+                                ? (donnees.nom_dest_vente || destEsc || '') : '';
+                        }
 
                         window.__reprogState.gaexp = donnees.gaexp_lg || '';
                         window.__reprogState.gadest = donnees.gadest_lg || '';
                         window.__reprogState.axe = (donnees.gaexp_lg || '') + '-' + (donnees.gadest_lg || '');
                         window.__reprogState.exclude = donnees.code_progr || '';
                         window.__reprogState.prix = donnees.prixvente != null ? String(donnees.prixvente) : '';
+                        window.__reprogState.id_escale = isEsc && donnees.id_escale_vente
+                            ? String(donnees.id_escale_vente) : '';
                         window.__reprogState.tarif = (donnees.typetarif != null && String(donnees.typetarif).trim() !== '')
                             ? String(donnees.typetarif).trim()
                             : '1';

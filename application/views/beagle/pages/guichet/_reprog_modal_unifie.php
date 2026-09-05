@@ -108,6 +108,9 @@ $allow_prix_diff_unifie = $allow_tampon_unifie; // admin + chef guichet : prix p
         <input type="hidden" id="gaexp_unifie" value="">
         <input type="hidden" id="gadest_unifie" value="">
         <input type="hidden" id="axe_unifie" value="">
+        <input type="hidden" id="id_escale_vente_reprog" name="id_escale_vente_reprog" value="">
+        <input type="hidden" id="code_gadest_vente_reprog" name="code_gadest_vente_reprog" value="">
+        <input type="hidden" id="nom_dest_vente_reprog" name="nom_dest_vente_reprog" value="">
         <input type="hidden" name="heuredeparttransit" id="heuredepart_post_unifie" value="">
         <input type="hidden" name="compgcftranst" id="compgcfunifie" value="">
         <input type="hidden" name="numsiegetransit" id="numsiege_post_unifie" value="">
@@ -175,6 +178,7 @@ $allow_prix_diff_unifie = $allow_tampon_unifie; // admin + chef guichet : prix p
                 <p id="contactclpunifie"></p>
                 <p id="refclpunifie"></p>
                 <p id="directionclpunifie"></p>
+                <p id="escaleclpunifie" class="text-info font-weight-bold" style="display:none"></p>
                 <p id="compagnieclpunifie"></p>
                 <p id="codeclpunifie"></p>
                 <p id="heureclpunifie"></p>
