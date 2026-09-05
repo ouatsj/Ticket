@@ -207,6 +207,31 @@
                     
                         <? endforeach; ?>
                     </div>
+                    <?php if (!empty($passagerallergroup_rattrapage)): ?>
+                    <div class="row mt-2 mb-1">
+                        <div class="col-lg-12">
+                            <p class="mb-1"><strong>RATTRAPAGE (tickets reportés — s’ajoutent au total)</strong></p>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <? foreach ($passagerallergroup_rattrapage as $itemrat): ?>
+                            <div class="col-lg-3">
+                                <input class="form-control form-control-sm" type="hidden" name="comppremierrat[]" value="<?=$itemrat->id_compaga; ?>">
+                            </div>
+                            <div class="col-lg-3">
+                                <input class="form-control form-control-sm" type="hidden" name="sousgarat[]" value="<?=$itemrat->departclient_idgare; ?>">
+                            </div>
+                            <div class="col-lg-3">
+                                <label>compagnie (rattrapage)</label>
+                                <input class="form-control form-control-sm" type="text" name="nomrat[]" value="<?=$itemrat->nom_compagnie; ?>" readonly>
+                            </div>
+                            <div class="col-lg-3">
+                                <label>montant rattrapage</label>
+                                <input class="form-control form-control-sm" type="text" name="montallerrat[]" value="<?=$itemrat->total; ?>" readonly>
+                            </div>
+                        <? endforeach; ?>
+                    </div>
+                    <?php endif; ?>
                     <div class="row">     
                         
                         <? foreach ($passagerretourgroupbis as $item1bis): ?>
@@ -237,6 +262,20 @@
                             <p>MONTANT:&nbsp;<span><? if (!empty($passagerretour)): ?><?= number_format($passagerretour->totalr, 0, '', ' '); ?><? endif; ?></span></p>
                             <p>NOMBRE DE TICKET REPROGRAMMER:&nbsp;<span><? if (!empty($passager_repro)): ?><?= $passager_repro->cd; ?><? endif; ?></span></p>
                             <p>NOMBRE DE TICKET CONFIRMER:&nbsp;<span><? if (!empty($passager_conf)): ?><?= $passager_conf->cd; ?><? endif; ?></span></p>
+                            <?php
+                            $nb_rat = 0;
+                            $mt_rat = 0;
+                            if (!empty($passagerallergroup_rattrapage)) {
+                                foreach ($passagerallergroup_rattrapage as $_rat) {
+                                    $nb_rat += (int) $_rat->cd;
+                                    $mt_rat += (float) $_rat->total;
+                                }
+                            }
+                            ?>
+                            <?php if ($nb_rat > 0): ?>
+                            <p>NOMBRE DE TICKET RATTRAPAGE:&nbsp;<span><?= $nb_rat; ?></span></p>
+                            <p>MONTANT RATTRAPAGE:&nbsp;<span><?= number_format($mt_rat, 0, '', ' '); ?></span></p>
+                            <?php endif; ?>
                                 <? $r=0;?>
                                 <? if ($passagerretour==''): ?><? $r=0;?><? else:?> &nbsp;
                                         

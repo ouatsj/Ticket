@@ -1516,6 +1516,7 @@
 
             $this->property['passager_repro'] = $this->m_passager->comptrep($ekey, $idc, $gd);
             $this->property['passager_conf'] = $this->m_passager->comptconf($ekey, $idc, $gd);
+            $this->property['passagerallergroup_rattrapage'] = $this->m_passager->comptegroup_rattrapage($ekey, $idc, $gd);
         }
 
              //guichet
@@ -11453,6 +11454,7 @@
                 
                 $this->property['passager_repro'] = $this->m_passager->comptrep($this->company->ekey, $icx, $cdg);
                 $this->property['passager_conf'] = $this->m_passager->comptconf($this->company->ekey, $icx, $cdg);
+                $this->property['passagerallergroup_rattrapage'] = $this->m_passager->comptegroup_rattrapage($this->company->ekey, $icx, $cdg);
                 
                 $this->property['genresguichet'] = $this->m_genre_recette->getrecet();
                 $this->property['pagetitle'] .= "• ARRÊT COMPTE ET CAISSE<strong>&nbsp;{$this->company->nom_entreprise}•&nbsp;{$conex->type_rols}</strong>";

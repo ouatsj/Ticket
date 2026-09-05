@@ -59,6 +59,37 @@
                         </table>
                   
                     <h2 align="left">recette totale :<?= number_format($montantglobal+$montantglobalr, 0, '', ' '); ?> </h2>
+
+                    <?php
+                    $montantglobal_rat = 0;
+                    $reponsealler_rattrapage = isset($reponsealler_rattrapage) ? $reponsealler_rattrapage : array();
+                    ?>
+                    <?php if (!empty($reponsealler_rattrapage)): ?>
+                    <h1 align="left">Rattrapage</h1>
+                    <table border="1" cellpadding="0">
+                        <thead>
+                            <tr>
+                              <th width="150px" align="left"><strong>LIGNES</strong></th>
+                              <th width="50px" align="left"><strong>NBR</strong></th>
+                              <th width="90px" align="left"><strong>PU</strong></th>
+                              <th width="90px" align="left"><strong>TOTAL</strong></th>
+                            </tr>
+                        </thead>
+                        <body>
+                            <?php foreach ($reponsealler_rattrapage as $reprat): ?>
+                            <tr>
+                              <td width="150px" align="left"><strong><?=$reprat->nom_ligne; ?></strong></td>
+                              <td width="50px" align="left"><strong><?=$reprat->cd; ?></strong></td>
+                              <td width="90px" align="left"><strong><?=$reprat->cd ? ($reprat->total/$reprat->cd) : 0; ?></strong></td>
+                              <td width="90px" align="left"><strong><?=number_format($reprat->total, 0, '', ' '); ?></strong></td>
+                            </tr>
+                              <?php $montantglobal_rat += $reprat->total; ?>
+                            <?php endforeach; ?>
+                        </body>
+                    </table>
+                    <h2 align="left">total rattrapage :<?= number_format($montantglobal_rat, 0, '', ' '); ?> </h2>
+                    <h2 align="left">recette + rattrapage :<?= number_format($montantglobal+$montantglobalr+$montantglobal_rat, 0, '', ' '); ?> </h2>
+                    <?php endif; ?>
                     
                     <h1 align="left">Reprogrammation</h1>
                     <table border="1" cellpadding="0">

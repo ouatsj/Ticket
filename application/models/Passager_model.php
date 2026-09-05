@@ -13,6 +13,30 @@
             return ticket_impression_prix_row($row);
         }
 
+        /**
+         * Fragment SQL : exclure les tickets à reporter (section Rattrapage séparée).
+         */
+        private function sql_exclure_rattrapage_arret()
+        {
+            static $has = null;
+            if ($has === null) {
+                $has = $this->db->field_exists('flag_rattrapage_arret', 'passager');
+            }
+            return $has ? ' AND IFNULL(p.flag_rattrapage_arret, 0) = 0' : '';
+        }
+
+        /**
+         * Fragment SQL : uniquement tickets rattrapage.
+         */
+        private function sql_seulement_rattrapage_arret()
+        {
+            static $has = null;
+            if ($has === null) {
+                $has = $this->db->field_exists('flag_rattrapage_arret', 'passager');
+            }
+            return $has ? ' AND IFNULL(p.flag_rattrapage_arret, 0) = 1' : ' AND 1=0';
+        }
+
         private function normalize_ticket_prix_rows($rows)
         {
             return ticket_impression_prix_rows($rows);
@@ -2705,6 +2729,7 @@
         {
             $today = mdate("%Y-%m-%d", now('UTC'));
             $today1 = date("Y-m-d", strtotime("-1 day"));
+            $exRat = $this->sql_exclure_rattrapage_arret();
             
                 $rows = $this->db->query("SELECT COUNT(code_passager) AS cd, SUM(prixvente) AS total, c.nom_compagnie, dest.id_compaga, p.departclient_idgare FROM passager p
                     JOIN attributions_role ar ON p.idcptuser = ar.roleattribut
@@ -2730,6 +2755,7 @@
                     AND cu.is_conect = 1
                     AND ar.activeattrib = 1
                     AND p.statutvente = 0
+                    {$exRat}
                     AND p.prixvente IS NOT NULL
                     AND p.statut_code = 'vendu'
                     AND cu.date_conect <= '$today'
@@ -2770,6 +2796,7 @@
         {
             $today = mdate("%Y-%m-%d", now('UTC'));
             $today1 = date("Y-m-d", strtotime("-1 day"));
+            $exRat = $this->sql_exclure_rattrapage_arret();
             
                 $rows = $this->db->query("SELECT COUNT(code_passager) AS cd, SUM(prixvente) AS total, c.nom_compagnie, dest.id_compaga, p.departclient_idgare FROM passager p
                     JOIN attributions_role ar ON p.idcptuser = ar.roleattribut
@@ -2791,6 +2818,7 @@
                     AND cu.is_conect = 1
                     AND ar.activeattrib = 1
                     AND p.statutvente = 0
+                    {$exRat}
                     AND p.prixvente IS NOT NULL
                     AND p.statut_code = 'vendu'
                     AND cu.date_conect <= '$today'
@@ -2799,6 +2827,7 @@
         public function comptegroupetranstr($cd, $idcox, $g, $sg, $cpg)
         {
             $today = mdate("%Y-%m-%d", now('UTC'));
+            $exRat = $this->sql_exclure_rattrapage_arret();
             
                 $rows = $this->db->query("SELECT COUNT(code_passager) AS cd, SUM(prixvente) AS total, SUM(prixretour) AS totalr, c.nom_compagnie, dest.id_compaga, p.departclient_idgare FROM passager p
                     LEFT JOIN non_passager np ON p.code_passager = np.code_non_pass
@@ -2821,6 +2850,7 @@
                     AND cu.is_conect = 1
                     AND ar.activeattrib = 1
                     AND p.statutvente = 0
+                    {$exRat}
                     AND p.prixvente IS NOT NULL
                     AND p.statut_code = 'vendu'
                     AND cu.date_conect <= '$today'
@@ -2844,6 +2874,7 @@
         public function comptegroupeptranstr($cd, $idcox, $g, $sg, $cpg)
         {
             $today = mdate("%Y-%m-%d", now('UTC'));
+            $exRat = $this->sql_exclure_rattrapage_arret();
             
                 $rows = $this->db->query("SELECT COUNT(code_passager) AS cd, SUM(prixvente) AS total, SUM(prixretour) AS totalr, c.nom_compagnie, dest.id_compaga, p.departclient_idgare FROM passager p
                     LEFT JOIN non_passager np ON p.code_passager = np.code_non_pass
@@ -2866,6 +2897,7 @@
                     AND cu.is_conect = 1
                     AND ar.activeattrib = 1
                     AND p.statutvente = 0
+                    {$exRat}
                     AND p.prixvente IS NOT NULL
                     AND p.statut_code = 'vendu'
                     AND cu.date_conect <= '$today'
@@ -2886,6 +2918,7 @@
         public function comptegroupbisinter($cd, $idcox, $g, $cpg)
         {
             $today = mdate("%Y-%m-%d", now('UTC'));
+            $exRat = $this->sql_exclure_rattrapage_arret();
             
                 $rows = $this->db->query("SELECT COUNT(code_passager) AS cd, SUM(prixvente) AS total, SUM(prixretour) AS totalr, c.nom_compagnie, dest.id_compaga, p.departclient_idgare FROM passager p
                     LEFT JOIN non_passager np ON p.code_passager = np.code_non_pass
@@ -2908,6 +2941,7 @@
                     AND cu.is_conect = 1
                     AND ar.activeattrib = 1
                     AND p.statutvente = 0
+                    {$exRat}
                     AND p.prixvente IS NOT NULL
                     AND p.statut_code = 'vendu'
                     AND cu.date_conect <= '$today'
@@ -2916,6 +2950,7 @@
         {
             $today = mdate("%Y-%m-%d", now('UTC'));
             $today1 = date("Y-m-d", strtotime("-1 day"));
+            $exRat = $this->sql_exclure_rattrapage_arret();
             
                 $rows = $this->db->query("SELECT COUNT(code_passager) AS cd, SUM(prixvente) AS total, c.nom_compagnie, dest.id_compaga, p.departclient_idgare FROM passager p
                     JOIN attributions_role ar ON p.idcptuser = ar.roleattribut
@@ -2937,10 +2972,47 @@
                     AND cu.is_conect = 1
                     AND ar.activeattrib = 1
                     AND p.statutvente = 0
+                    {$exRat}
                     AND p.prixvente IS NOT NULL
                     AND p.statut_code = 'vendu'
                     AND cu.date_conect <= '$today'
                     GROUP BY p.idcptuser, dest.id_compaga, c.nom_compagnie, p.departclient_idgare")->result(); return $this->normalize_ticket_prix_rows($rows);        }
+
+        /**
+         * Tickets ouverts marqués rattrapage — affichés à part à l'arrêt (montant inclus dans compte()).
+         */
+        public function comptegroup_rattrapage($cd, $idcox, $g)
+        {
+            $today = mdate('%Y-%m-%d', now('UTC'));
+            $onlyRat = $this->sql_seulement_rattrapage_arret();
+
+            $rows = $this->db->query("SELECT COUNT(code_passager) AS cd, SUM(prixvente) AS total, c.nom_compagnie, dest.id_compaga, p.departclient_idgare
+                FROM passager p
+                JOIN attributions_role ar ON p.idcptuser = ar.roleattribut
+                JOIN user_login ul ON ar.idgestcompte = ul.uid_login
+                JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
+                JOIN gares g ON ul.guser = g.idengare
+                JOIN programme pr ON p.code_pro = pr.code_progr
+                JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
+                JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
+                JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
+                JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
+                JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
+                JOIN entreprise e ON c.id_entrep = e.id_entreprise
+                WHERE e.ekey = '$cd'
+                AND p.datep_create <= '$today'
+                AND ar.roleattribut = '$idcox'
+                AND ul.guser = '$g'
+                AND cu.is_conect = 1
+                AND ar.activeattrib = 1
+                AND p.statutvente = 0
+                {$onlyRat}
+                AND p.prixvente IS NOT NULL
+                AND p.statut_code = 'vendu'
+                AND cu.date_conect <= '$today'
+                GROUP BY p.idcptuser, dest.id_compaga, c.nom_compagnie, p.departclient_idgare")->result();
+            return $this->normalize_ticket_prix_rows($rows);
+        }
 
         public function comptesbis($cd, $idcox, $g, $sg, $cpg)
         {
@@ -3115,6 +3187,7 @@
         {
             $today1 = date("Y-m-d", strtotime("-1 day"));
             $today = mdate("%Y-%m-%d", now('UTC'));
+            $exRat = $this->sql_exclure_rattrapage_arret();
             
             $nomLine = $this->rapport_nom_ligne_sql();
             $nomLineSelect = $nomLine['select'];
@@ -3141,12 +3214,56 @@
                 AND cu.is_conect = 1
                 AND ar.activeattrib = 1
                 AND p.statutvente = 1
+                {$exRat}
                 AND p.is_valdtick = 0
                 AND dest.id_compaga = '$comp'
                 AND p.prixvente IS NOT NULL
                 AND p.statut_code = 'vendu'
                 AND cu.date_conect <= '$today'
                 GROUP BY {$nomLineGroup}, p.prixvente, dest.id_compaga, ar.roleattribut")->result(); return $this->normalize_ticket_prix_rows($rows);        }
+
+        /**
+         * Rapport EPSON — section distincte « Rattrapage » (tickets oubliés multi-SG).
+         */
+        public function rapportaller_rattrapage($cd, $idcox, $comp, $g)
+        {
+            $today = mdate('%Y-%m-%d', now('UTC'));
+            $onlyRat = $this->sql_seulement_rattrapage_arret();
+
+            $nomLine = $this->rapport_nom_ligne_sql();
+            $nomLineSelect = $nomLine['select'];
+            $nomLineGroup = $nomLine['group'];
+
+            $rows = $this->db->query("SELECT COUNT(code_passager) AS cd, SUM(prixvente) AS total,
+                {$nomLineSelect},
+                p.prixvente, dest.id_compaga, ar.roleattribut FROM passager p
+                JOIN attributions_role ar ON p.idcptuser = ar.roleattribut
+                JOIN user_login ul ON ar.idgestcompte = ul.uid_login
+                JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
+                JOIN gares g ON ul.guser = g.idengare
+                JOIN programme pr ON p.code_pro = pr.code_progr
+                JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
+                JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
+                JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
+                JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
+                JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
+                JOIN entreprise e ON c.id_entrep = e.id_entreprise
+                WHERE e.ekey = '$cd'
+                AND p.datep_create <= '$today'
+                AND ar.roleattribut = '$idcox'
+                AND ul.guser = '$g'
+                AND cu.is_conect = 1
+                AND ar.activeattrib = 1
+                AND p.statutvente = 1
+                {$onlyRat}
+                AND p.is_valdtick = 0
+                AND dest.id_compaga = '$comp'
+                AND p.prixvente IS NOT NULL
+                AND p.statut_code = 'vendu'
+                AND cu.date_conect <= '$today'
+                GROUP BY {$nomLineGroup}, p.prixvente, dest.id_compaga, ar.roleattribut")->result();
+            return $this->normalize_ticket_prix_rows($rows);
+        }
 
         public function rapportrep($cd, $idcox, $comp, $g)
         {

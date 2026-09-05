@@ -273,3 +273,25 @@ SET @sql := IF(@exists = 0,
   'SELECT 1');
 PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 
+-- -----------------------------------------------------------------------------
+-- P1.8 Rattrapage arrêt compte (tickets oubliés multi-SG / corr.)
+-- Restent ouverts pour le prochain arrêt ; section distincte au rapport.
+-- -----------------------------------------------------------------------------
+SET @exists := (
+  SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = @db AND TABLE_NAME = 'passager' AND COLUMN_NAME = 'flag_rattrapage_arret'
+);
+SET @sql := IF(@exists = 0,
+  'ALTER TABLE passager ADD COLUMN flag_rattrapage_arret TINYINT(1) NOT NULL DEFAULT 0 COMMENT ''1=a reporter au prochain arret / section rapport''',
+  'SELECT 1');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+SET @exists := (
+  SELECT COUNT(*) FROM information_schema.STATISTICS
+  WHERE TABLE_SCHEMA = @db AND TABLE_NAME = 'passager' AND INDEX_NAME = 'idx_passager_flag_rattrapage'
+);
+SET @sql := IF(@exists = 0,
+  'CREATE INDEX idx_passager_flag_rattrapage ON passager (flag_rattrapage_arret, statutvente, idcptuser)',
+  'SELECT 1');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
