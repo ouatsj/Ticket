@@ -381,12 +381,17 @@
                     AND ul.guser = '$g'
                     GROUP BY np.cptus, dest.id_compaga, c.nom_compagnie, np.sousgareidentif")->result();
         }
-        public function rapportretour($cd, $idcox, $comp, $g)
+        public function rapportretour($cd, $idcox, $comp, $g, $sg = null)
         {
             $today = mdate("%Y-%m-%d", now('UTC'));
 
             $today1 = date("Y-m-d", strtotime("-1 day"));
+            $sg = ($sg !== null && $sg !== '' && (int) $sg > 0) ? (int) $sg : 0;
+            $sgScope = $sg > 0
+                ? " AND (np.idsousgare_vente = {$sg} OR np.idsousgare_vente IS NULL) "
+                : '';
             
+            // Retours de l'arrêt du jour uniquement.
             return $this->db->query("SELECT COUNT(code_non_pass) AS cod, SUM(prixretour) AS totalr, lg.nom_ligne, dest.id_compaga, np.id_ligne_pass, np.prixretour FROM non_passager np
                 JOIN attributions_role ar ON np.cptus = ar.roleattribut
                 JOIN user_login ul ON ar.idgestcompte = ul.uid_login
@@ -397,7 +402,7 @@
                 JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = '$cd'
-                AND np.datevente <= '$today'
+                AND np.datevente = '$today'
                 AND cu.date_conect <= '$today'
                 AND ar.roleattribut = '$idcox'
                 AND cu.is_conect = 1
@@ -405,6 +410,40 @@
                 AND dest.id_compaga = '$comp'
                 AND np.is_valedtick = 0
                 AND ul.guser = '$g'
+                {$sgScope}
+                GROUP BY np.id_ligne_pass, dest.id_compaga, np.prixretour, lg.nom_ligne, ar.roleattribut")->result();
+        }
+
+        /**
+         * Retours antérieurs oubliés (jours précédents) encore non validés chef.
+         */
+        public function rapportretour_anterieur($cd, $idcox, $comp, $g, $sg = null)
+        {
+            $today = mdate('%Y-%m-%d', now('UTC'));
+            $sg = ($sg !== null && $sg !== '' && (int) $sg > 0) ? (int) $sg : 0;
+            $sgScope = $sg > 0
+                ? " AND (np.idsousgare_vente = {$sg} OR np.idsousgare_vente IS NULL) "
+                : '';
+
+            return $this->db->query("SELECT COUNT(code_non_pass) AS cod, SUM(prixretour) AS totalr, lg.nom_ligne, dest.id_compaga, np.id_ligne_pass, np.prixretour FROM non_passager np
+                JOIN attributions_role ar ON np.cptus = ar.roleattribut
+                JOIN user_login ul ON ar.idgestcompte = ul.uid_login
+                JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
+                JOIN gares g ON ul.guser = g.idengare
+                JOIN lignes lg ON np.id_ligne_pass = lg.ident_ligne
+                JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
+                JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
+                JOIN entreprise e ON c.id_entrep = e.id_entreprise
+                WHERE e.ekey = '$cd'
+                AND np.datevente < '$today'
+                AND cu.date_conect <= '$today'
+                AND ar.roleattribut = '$idcox'
+                AND cu.is_conect = 1
+                AND np.statvente = 1
+                AND dest.id_compaga = '$comp'
+                AND np.is_valedtick = 0
+                AND ul.guser = '$g'
+                {$sgScope}
                 GROUP BY np.id_ligne_pass, dest.id_compaga, np.prixretour, lg.nom_ligne, ar.roleattribut")->result();
         }
 

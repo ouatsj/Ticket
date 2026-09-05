@@ -3183,16 +3183,20 @@
         }
 
         //rapport journalier
-        public function rapportaller($cd, $idcox, $comp, $g)
+        public function rapportaller($cd, $idcox, $comp, $g, $sg = null)
         {
             $today1 = date("Y-m-d", strtotime("-1 day"));
             $today = mdate("%Y-%m-%d", now('UTC'));
             $exRat = $this->sql_exclure_rattrapage_arret();
+            $sgScope = ($sg !== null && $sg !== '' && (int) $sg > 0)
+                ? $this->_sql_scope_idsousgare_vente('p', $sg)
+                : '';
             
             $nomLine = $this->rapport_nom_ligne_sql();
             $nomLineSelect = $nomLine['select'];
             $nomLineGroup = $nomLine['group'];
 
+            // Arrêt du jour uniquement (hors antérieur / flag rattrapage).
             $rows = $this->db->query("SELECT COUNT(code_passager) AS cd, SUM(prixvente) AS total,
                 {$nomLineSelect},
                 p.prixvente, dest.id_compaga, ar.roleattribut FROM passager p
@@ -3208,13 +3212,14 @@
                 JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = '$cd'
-                AND p.datep_create <= '$today'
+                AND p.datep_create = '$today'
                 AND ar.roleattribut = '$idcox'
                 AND ul.guser = '$g'
                 AND cu.is_conect = 1
                 AND ar.activeattrib = 1
                 AND p.statutvente = 1
                 {$exRat}
+                {$sgScope}
                 AND p.is_valdtick = 0
                 AND dest.id_compaga = '$comp'
                 AND p.prixvente IS NOT NULL
@@ -3223,12 +3228,19 @@
                 GROUP BY {$nomLineGroup}, p.prixvente, dest.id_compaga, ar.roleattribut")->result(); return $this->normalize_ticket_prix_rows($rows);        }
 
         /**
-         * Rapport EPSON — section distincte « Rattrapage » (tickets oubliés multi-SG).
+         * Rapport EPSON — section « Antérieur oublié » :
+         * tickets jours précédents encore non validés chef, et/ou flag rattrapage.
          */
-        public function rapportaller_rattrapage($cd, $idcox, $comp, $g)
+        public function rapportaller_rattrapage($cd, $idcox, $comp, $g, $sg = null)
         {
             $today = mdate('%Y-%m-%d', now('UTC'));
-            $onlyRat = $this->sql_seulement_rattrapage_arret();
+            $sgScope = ($sg !== null && $sg !== '' && (int) $sg > 0)
+                ? $this->_sql_scope_idsousgare_vente('p', $sg)
+                : '';
+            $hasFlag = $this->db->field_exists('flag_rattrapage_arret', 'passager');
+            $anterieurSql = $hasFlag
+                ? " AND (p.datep_create < '{$today}' OR IFNULL(p.flag_rattrapage_arret, 0) = 1) "
+                : " AND p.datep_create < '{$today}' ";
 
             $nomLine = $this->rapport_nom_ligne_sql();
             $nomLineSelect = $nomLine['select'];
@@ -3255,7 +3267,8 @@
                 AND cu.is_conect = 1
                 AND ar.activeattrib = 1
                 AND p.statutvente = 1
-                {$onlyRat}
+                {$anterieurSql}
+                {$sgScope}
                 AND p.is_valdtick = 0
                 AND dest.id_compaga = '$comp'
                 AND p.prixvente IS NOT NULL

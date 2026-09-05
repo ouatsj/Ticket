@@ -22,6 +22,7 @@
                     
                     <h1 align="left"> <?=mdate("%d/%m/%Y", now('UTC')); ?> <?= $conex->username; ?></h1><b>
                         <h1 align="left"> Rapport : <?= $ncomp->nom_compagnie;?></h1>
+                    <h1 style="font-size: 60px;" align="left">Arrêt du jour</h1>
                     <table border="1" cellpadding="0">
                         <thead> 
                             <tr> 
@@ -57,14 +58,16 @@
                             </body>
                         </table>
                   
-                    <h2 style="font-size: 60px;" align="left">recette totale :<?= number_format($montantglobal+$montantglobalr, 0, '', ' '); ?> </h2>
+                    <h2 style="font-size: 60px;" align="left">recette du jour :<?= number_format($montantglobal+$montantglobalr, 0, '', ' '); ?> </h2>
 
                     <?php
                     $montantglobal_rat = 0;
                     $reponsealler_rattrapage = isset($reponsealler_rattrapage) ? $reponsealler_rattrapage : array();
+                    $reponseretour_anterieur = isset($reponseretour_anterieur) ? $reponseretour_anterieur : array();
+                    $has_anterieur = !empty($reponsealler_rattrapage) || !empty($reponseretour_anterieur);
                     ?>
-                    <?php if (!empty($reponsealler_rattrapage)): ?>
-                    <h1 style="font-size: 60px;" align="left">Rattrapage</h1>
+                    <?php if ($has_anterieur): ?>
+                    <h1 style="font-size: 60px;" align="left">Antérieur oublié (jours précédents)</h1>
                     <table border="1" cellpadding="0">
                         <thead>
                             <tr>
@@ -84,10 +87,23 @@
                             </tr>
                               <?php $montantglobal_rat += $reprat->total; ?>
                             <?php endforeach; ?>
+                            <?php foreach ($reponseretour_anterieur as $repret): ?>
+                            <?php
+                                $alerAnt = explode('-', $repret->nom_ligne);
+                                $allerretourAnt = (isset($alerAnt[1]) ? $alerAnt[1] : '') . '-' . (isset($alerAnt[0]) ? $alerAnt[0] : '');
+                            ?>
+                            <tr>
+                              <td style="font-size: 60px;" align="left"><strong><?= $allerretourAnt; ?></strong></td>
+                              <td style="font-size: 60px;" align="left"><strong><?=$repret->cod; ?></strong></td>
+                              <td style="font-size: 70px;" align="left"><strong><?=$repret->cod ? ($repret->totalr/$repret->cod) : 0; ?></strong></td>
+                              <td style="font-size: 80px;" align="left"><strong><?=number_format($repret->totalr, 0, '', ' '); ?></strong></td>
+                            </tr>
+                              <?php $montantglobal_rat += $repret->totalr; ?>
+                            <?php endforeach; ?>
                         </body>
                     </table>
-                    <h2 style="font-size: 60px;" align="left">total rattrapage :<?= number_format($montantglobal_rat, 0, '', ' '); ?> </h2>
-                    <h2 style="font-size: 60px;" align="left">recette + rattrapage :<?= number_format($montantglobal+$montantglobalr+$montantglobal_rat, 0, '', ' '); ?> </h2>
+                    <h2 style="font-size: 60px;" align="left">total antérieur oublié :<?= number_format($montantglobal_rat, 0, '', ' '); ?> </h2>
+                    <h2 style="font-size: 60px;" align="left">total général (jour + antérieur) :<?= number_format($montantglobal+$montantglobalr+$montantglobal_rat, 0, '', ' '); ?> </h2>
                     <?php endif; ?>
                     
                     <h1 style="font-size: 60px;" align="left">Reprogrammation</h1>

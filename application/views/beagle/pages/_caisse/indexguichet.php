@@ -210,7 +210,7 @@
                     <?php if (!empty($passagerallergroup_rattrapage)): ?>
                     <div class="row mt-2 mb-1">
                         <div class="col-lg-12">
-                            <p class="mb-1"><strong>RATTRAPAGE (tickets reportés — s’ajoutent au total)</strong></p>
+                            <p class="mb-1"><strong>ANTÉRIEUR OUBLIÉ (jours précédents — s’ajoute au total)</strong></p>
                         </div>
                     </div>
                     <div class="row">
@@ -222,11 +222,11 @@
                                 <input class="form-control form-control-sm" type="hidden" name="sousgarat[]" value="<?=$itemrat->departclient_idgare; ?>">
                             </div>
                             <div class="col-lg-3">
-                                <label>compagnie (rattrapage)</label>
+                                <label>compagnie (antérieur oublié)</label>
                                 <input class="form-control form-control-sm" type="text" name="nomrat[]" value="<?=$itemrat->nom_compagnie; ?>" readonly>
                             </div>
                             <div class="col-lg-3">
-                                <label>montant rattrapage</label>
+                                <label>montant antérieur oublié</label>
                                 <input class="form-control form-control-sm" type="text" name="montallerrat[]" value="<?=$itemrat->total; ?>" readonly>
                             </div>
                         <? endforeach; ?>
@@ -273,8 +273,8 @@
                             }
                             ?>
                             <?php if ($nb_rat > 0): ?>
-                            <p>NOMBRE DE TICKET RATTRAPAGE:&nbsp;<span><?= $nb_rat; ?></span></p>
-                            <p>MONTANT RATTRAPAGE:&nbsp;<span><?= number_format($mt_rat, 0, '', ' '); ?></span></p>
+                            <p>NOMBRE DE TICKET ANTÉRIEUR OUBLIÉ:&nbsp;<span><?= $nb_rat; ?></span></p>
+                            <p>MONTANT ANTÉRIEUR OUBLIÉ:&nbsp;<span><?= number_format($mt_rat, 0, '', ' '); ?></span></p>
                             <?php endif; ?>
                                 <? $r=0;?>
                                 <? if ($passagerretour==''): ?><? $r=0;?><? else:?> &nbsp;

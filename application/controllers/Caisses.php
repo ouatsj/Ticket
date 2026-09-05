@@ -1614,19 +1614,20 @@
             $cus = $this->input->post('compconnected');
             $today = mdate("%Y-%m-%d", now());
 
+            $scope = $this->_arret_closure_scope($gd, $isg);
+
             // Totaux attendus AVANT bascule statutvente (sinon expected=0).
             if (function_exists('sales_closure_totals_prepare')) {
-                sales_closure_totals_prepare($this->company->ekey, $idcpt, $gd, $isg);
+                sales_closure_totals_prepare(
+                    $this->company->ekey,
+                    $idcpt,
+                    $gd,
+                    $scope['prepare_sg']
+                );
             }
 
-            $sgares = $this->db->query("SELECT count(idsousgare) AS sog FROM sousgare s
-                    WHERE s.gareprinceid = ?", array($gd))->row();
-            $closeOpts = array();
-            if ($sgares && (int) $sgares->sog !== 1) {
-                $closeOpts['idsousgare'] = (int) $isg;
-            }
-            // Phase A/B : gare + vendeur ; multi-SG = lieu de vente (idsousgare_vente).
-            $arpass = $this->_arret_close_open_ticket_sales($idcpt, $gd, $closeOpts);
+            // Phase A/B : gare + vendeur ; lieu de vente aligné sur les totaux.
+            $arpass = $this->_arret_close_open_ticket_sales($idcpt, $gd, $scope['close_opts']);
                         
                     $arnonreport = $this->db->query("SELECT rp.code_report, rp.idcpuserconect, rp.statutreport FROM report rp
                     WHERE rp.idcpuserconect = '$idcpt'
@@ -1640,108 +1641,8 @@
                         $valrepro = $this->m_report->update($items3->code_report, $plarrayrpro);
                     }
 
-
-                    $cd = $this->input->post('comppremier');
-                    $mt = $this->input->post('montaller');
-                    $cdr = $this->input->post('compsecond');
-                    $mtr = $this->input->post('montretour');
-                    $sg = $this ->input->post('sousga');
-                    $sgr = $this ->input->post('sousgr');
-
-                    $cdb = $this->input->post('comppremierbis');
-                    $mtb = $this->input->post('montallerbis');
-                    $cdrb = $this->input->post('compsecondbis');
-                    $mtrb = $this->input->post('montretourbis');
-                    $sgb = $this ->input->post('sousgabis');
-                    $sgrb = $this ->input->post('sousgrbis');
-                    
-                    $cdnt = $this->input->post('comppremiernat');
-                    $mtnt = $this->input->post('montallernat');
-
-                    $cdnttr = $this->input->post('comppremiernattr');
-                    $mtnttr = $this->input->post('montallernattr');
-
-                    $cdbint = $this->input->post('comppremierbisinter');
-                    $mtbint = $this->input->post('montallerbisinter');
-
-                    $mtnat = 0;
-                    $cdnat = 0;
-                    $mtnattr = 0;
-                    $mtintnat = 0;
-            if($arpass != NULL)
-            {
-                    if($cdnt !== NULL)
-                    {
-                        $i = count($cdnt);
-                    }
-                    else
-                    {
-                        $i = 0;
-                    }
-
-                    if($cdnttr !== NULL)
-                    {
-                        $j = count($cdnttr);
-                    }
-                    else
-                    {
-                        $j = 0;
-                    }
-                    if($cdbint !== NULL)
-                    {
-                        $k = count($cdbint);
-                    }
-                    else
-                    {
-                        $k = 0;
-                    }
-                    if($i!= NULL){
-
-                        for($i=0; $i<count($cdnt); $i++)
-                        {
-                            $mtnat = $mtnt[$i];
-                            $cdnat = $cdnt[$i];
-                                                        
-                        }
-
-                    }
-                    if($j!= NULL){
-                        for($j=0; $j<count($cdnttr); $j++)
-                        {
-                            $mtnattr +=$mtnttr[$j];
-                                                        
-                        }
-                    }
-
-                    $mtintnat = $mtnat + $mtnattr;
-
-                    $arraycompt = array(
-                        'idusercompt' => $idcpt,
-                        'comp' => $cdnat,
-                        'idsousga' => $isg,
-                        'montcomtpte' => $mtintnat,
-                        'datearretcompt' => mdate("%Y/%m/%d", now('UTC')),
-                    );
-
-                    $this->m_comptes_guichet->create($arraycompt);
-            
-                    if($k!= NULL){
-                        for($k=0; $k<count($cdbint); $k++)
-                        {
-                            $arraycompt1[$k] = array(
-                                'idusercompt' => $idcpt,
-                                'comp' => $cdbint[$k],
-                                'idsousga' => $isg,
-                                'montcomtpte' => $mtbint[$k],
-                                'datearretcompt' => mdate("%Y/%m/%d", now('UTC')),
-                            );
-
-                            //var_dump($arraycompt1[$k]);
-                               
-                               $this->m_comptes_guichet->create($arraycompt1[$k]);
-                                                        
-                        }
-                    }  
+                    // Total réellement arrêté (serveur) → compte_guichet (aligné rapport / chef).
+                    $this->_arret_write_compte_guichet_from_totals($idcpt, $isg);
 
                     //$cdse = $this ->input->post('compcted');
 
@@ -4922,9 +4823,8 @@
                             $this->m_comptes_guichet->create($arraycompt3);
                         }
                     }*/
-                $this->_track_arret_activity();
-                redirect('caisses/compte/'.$this->session->company->ekey. '/' . $idcpt.'/'.$gd.'/'.$isg);
-            }
+            $this->_track_arret_activity();
+            redirect('caisses/compte/'.$this->session->company->ekey. '/' . $idcpt.'/'.$gd.'/'.$isg);
         }
 
         protected function _track_arret_activity()
@@ -4933,19 +4833,113 @@
         }
 
         /**
-         * Agrège les montants POST de validerec par compagnie (nat + transit + bisinter).
-         * Une ligne n’est créée que si compagnie > 0 et montant >= 0 (pas de comp=0).
+         * Scope clôture / totaux : même filtre lieu de vente pour prepare + close.
+         *
+         * @param string $gd
+         * @param int|string $idsousgare
+         * @return array{prepare_sg:int|null,close_opts:array}
+         */
+        protected function _arret_closure_scope($gd, $idsousgare)
+        {
+            $idsousgare = (int) $idsousgare;
+            $prepare_sg = ($idsousgare > 0) ? $idsousgare : null;
+            $close_opts = array();
+            if ($idsousgare > 0) {
+                $close_opts['idsousgare'] = $idsousgare;
+            }
+            return array(
+                'prepare_sg' => $prepare_sg,
+                'close_opts' => $close_opts,
+            );
+        }
+
+        /**
+         * Écrit compte_guichet à partir du total réellement arrêté (serveur),
+         * pas des champs POST fragmentés — alignement rapport EPSON / chef.
+         *
+         * @param int|string $idcpt
+         * @param int|string $idsousgare
+         * @param array<int,array{comp:int,montant:float,commentaire?:string}>|null $lignes
+         * @return array lignes écrites
+         */
+        protected function _arret_write_compte_guichet_from_totals($idcpt, $idsousgare, $lignes = null)
+        {
+            if ($lignes === null) {
+                $lignes = function_exists('sales_arret_totals_lines')
+                    ? sales_arret_totals_lines()
+                    : array();
+            }
+            $date_arret = mdate('%Y-%m-%d', now('UTC'));
+            $written = array();
+            foreach ($lignes as $ligne) {
+                $comp = isset($ligne['comp']) ? (int) $ligne['comp'] : 0;
+                $montant = isset($ligne['montant']) ? round((float) $ligne['montant'], 2) : 0.0;
+                if ($comp <= 0 || $montant < 0) {
+                    continue;
+                }
+                $row = array(
+                    'idusercompt' => $idcpt,
+                    'comp' => $comp,
+                    'idsousga' => $idsousgare,
+                    'montcomtpte' => $montant,
+                    'datearretcompt' => $date_arret,
+                );
+                $ok = $this->m_comptes_guichet->create($row);
+                if ($ok !== false) {
+                    $written[] = $ligne;
+                }
+            }
+            return $written;
+        }
+
+        /**
+         * Lignes d'écriture arrêt : totaux serveur (prioritaires), commentaires POST en bonus.
          *
          * @return array<int,array{comp:int,montant:float,commentaire:string}>
          */
         protected function _validerec_aggregate_post_lines()
         {
+            $server = function_exists('sales_arret_totals_lines')
+                ? sales_arret_totals_lines()
+                : array();
+            if (!empty($server)) {
+                $comments = array();
+                foreach (array('nomnat', 'nomnattr', 'nombisinter') as $field) {
+                    $vals = $this->input->post($field);
+                    $comps = null;
+                    if ($field === 'nomnat') {
+                        $comps = $this->input->post('comppremiernat');
+                    } elseif ($field === 'nomnattr') {
+                        $comps = $this->input->post('comppremiernattr');
+                    } else {
+                        $comps = $this->input->post('comppremierbisinter');
+                    }
+                    if (is_array($comps) && is_array($vals)) {
+                        foreach ($comps as $i => $comp) {
+                            $comp = (int) $comp;
+                            $c = isset($vals[$i]) ? trim((string) $vals[$i]) : '';
+                            if ($comp > 0 && $c !== '' && empty($comments[$comp])) {
+                                $comments[$comp] = $c;
+                            }
+                        }
+                    }
+                }
+                foreach ($server as &$ligne) {
+                    $c = (int) $ligne['comp'];
+                    if (!empty($comments[$c])) {
+                        $ligne['commentaire'] = $comments[$c];
+                    }
+                }
+                unset($ligne);
+                return $server;
+            }
+
+            // Repli legacy si prepare indisponible.
             $by_comp = array();
 
             $add = function ($comp, $montant, $commentaire) use (&$by_comp) {
                 $comp = (int) $comp;
                 $montant = (float) str_replace(array(' ', ','), array('', '.'), (string) $montant);
-                // Compagnie obligatoire ; montant 0 autorisé (tickets gratuits).
                 if ($comp <= 0 || $montant < 0) {
                     return;
                 }
@@ -4988,7 +4982,6 @@
                     );
                 }
             } elseif (is_array($mtnttr)) {
-                // Transit sans compagnie explicite : rattacher à la 1re compagnie nat (ex. 5000).
                 $fallback = 0;
                 if (is_array($cdnt) && isset($cdnt[0])) {
                     $fallback = (int) $cdnt[0];
@@ -5008,6 +5001,23 @@
                         isset($mtbint[$i]) ? $mtbint[$i] : 0,
                         isset($nmbis[$i]) ? $nmbis[$i] : ''
                     );
+                }
+            }
+
+            // Inclure rattrapage POST si présent (legacy).
+            $cdrat = $this->input->post('comppremierrat');
+            $mtrat = $this->input->post('montallerrat');
+            if (is_array($cdrat) && is_array($mtrat)) {
+                foreach ($cdrat as $i => $comp) {
+                    $add($comp, isset($mtrat[$i]) ? $mtrat[$i] : 0, 'Rattrapage');
+                }
+            } elseif (is_array($mtrat)) {
+                $fallback = 0;
+                if (is_array($cdnt) && isset($cdnt[0])) {
+                    $fallback = (int) $cdnt[0];
+                }
+                foreach ($mtrat as $montant) {
+                    $add($fallback, $montant, 'Rattrapage');
                 }
             }
 
@@ -6069,20 +6079,20 @@
 
              $idc = $this->input->post('idcaisse');
 
+            $scope = $this->_arret_closure_scope($gd, $sgid);
             if (function_exists('sales_closure_totals_prepare')) {
-                sales_closure_totals_prepare($this->company->ekey, $idcpt, $gd, $sgid);
+                sales_closure_totals_prepare(
+                    $this->company->ekey,
+                    $idcpt,
+                    $gd,
+                    $scope['prepare_sg']
+                );
             }
 
-            $sgares = $this->db->query("SELECT count(idsousgare) AS sog FROM sousgare s
-                            WHERE s.gareprinceid = ?", array($gd))->row();
-            $closeOpts = array(
-                'with_valdtick' => true,
-                'exclude_report_code_R' => true,
-            );
-            if ($sgares && (int) $sgares->sog !== 1) {
-                $closeOpts['idsousgare'] = (int) $sgid;
-            }
-            // Phase A/B : gare + vendeur ; multi-SG = lieu de vente.
+            $closeOpts = $scope['close_opts'];
+            $closeOpts['with_valdtick'] = true;
+            $closeOpts['exclude_report_code_R'] = true;
+            // Phase A/B : gare + vendeur ; lieu de vente aligné sur les totaux.
             $arpass = $this->_arret_close_open_ticket_sales($idcpt, $gd, $closeOpts);
                 
                     $arnonreport = $this->db->query("SELECT rp.code_report, rp.idcpuserconect, rp.statutreport FROM report rp
@@ -6096,7 +6106,7 @@
                         $valrepro = $this->m_report->update($ite3->code_report, $plarrayrpro);
                     }
 
-                    // Agrégation par compagnie (nat + transit + bisinter) — pas de ligne fantôme comp=0.
+                    // Agrégation serveur (total clôturé) — pas de ligne fantôme comp=0.
                     $lignes_ecriture = $this->_validerec_aggregate_post_lines();
                     $idcaisse = $this->input->post('idcaisse');
                     $genre = $this->input->post('genre');

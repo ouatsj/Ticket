@@ -1884,12 +1884,13 @@
                 $conex = $this->_roleattribut_guard_bind($cpus, $this->company->ekey, $g);
                 $this->property['conex'] = $conex;
 
-                $this->property['reponsealler'] = $this->m_passager->rapportaller($this->company->ekey, $idconnex, $comp, $g);
+                $this->property['reponsealler'] = $this->m_passager->rapportaller($this->company->ekey, $idconnex, $comp, $g, $idsg);
 
-                $this->property['reponseretour'] = $this->m_non_passager->rapportretour($this->company->ekey, $idconnex, $comp, $g);
+                $this->property['reponseretour'] = $this->m_non_passager->rapportretour($this->company->ekey, $idconnex, $comp, $g, $idsg);
                 $this->property['reponserepro'] = $this->m_passager->rapportrep($this->company->ekey, $idconnex, $comp, $g);
                 $this->property['reponseconf'] = $this->m_passager->rapportconf($this->company->ekey, $idconnex, $comp, $g);
-                $this->property['reponsealler_rattrapage'] = $this->m_passager->rapportaller_rattrapage($this->company->ekey, $idconnex, $comp, $g);
+                $this->property['reponsealler_rattrapage'] = $this->m_passager->rapportaller_rattrapage($this->company->ekey, $idconnex, $comp, $g, $idsg);
+                $this->property['reponseretour_anterieur'] = $this->m_non_passager->rapportretour_anterieur($this->company->ekey, $idconnex, $comp, $g, $idsg);
             
             $this->layout->view('_tickets/pdfepsonrapt', $this->property);
         }
@@ -1906,12 +1907,13 @@
                 $conex = $this->_roleattribut_guard_bind($cpus, $this->company->ekey, $g);
                 $this->property['conex'] = $conex;
 
-                $this->property['reponsealler'] = $this->m_passager->rapportaller($this->company->ekey, $idconnex, $comp, $g);
+                $this->property['reponsealler'] = $this->m_passager->rapportaller($this->company->ekey, $idconnex, $comp, $g, $idsg);
 
-                $this->property['reponseretour'] = $this->m_non_passager->rapportretour($this->company->ekey, $idconnex, $comp, $g);
+                $this->property['reponseretour'] = $this->m_non_passager->rapportretour($this->company->ekey, $idconnex, $comp, $g, $idsg);
                 $this->property['reponserepro'] = $this->m_passager->rapportrep($this->company->ekey, $idconnex, $comp, $g);
                 $this->property['reponseconf'] = $this->m_passager->rapportconf($this->company->ekey, $idconnex, $comp, $g);
-                $this->property['reponsealler_rattrapage'] = $this->m_passager->rapportaller_rattrapage($this->company->ekey, $idconnex, $comp, $g);
+                $this->property['reponsealler_rattrapage'] = $this->m_passager->rapportaller_rattrapage($this->company->ekey, $idconnex, $comp, $g, $idsg);
+                $this->property['reponseretour_anterieur'] = $this->m_non_passager->rapportretour_anterieur($this->company->ekey, $idconnex, $comp, $g, $idsg);
             
             $this->layout->view('_tickets/pdfeprapt', $this->property);
         }
@@ -1929,12 +1931,13 @@
                 $conex = $this->_roleattribut_guard_bind($cpus, $this->company->ekey, $g);
                 $this->property['conex'] = $conex;
 
-                $this->property['reponsealler'] = $this->m_passager->rapportaller($this->company->ekey, $idconnex, $comp, $g);
+                $this->property['reponsealler'] = $this->m_passager->rapportaller($this->company->ekey, $idconnex, $comp, $g, $idsg);
 
-                $this->property['reponseretour'] = $this->m_non_passager->rapportretour($this->company->ekey, $idconnex, $comp, $g);
+                $this->property['reponseretour'] = $this->m_non_passager->rapportretour($this->company->ekey, $idconnex, $comp, $g, $idsg);
                 $this->property['reponserepro'] = $this->m_passager->rapportrep($this->company->ekey, $idconnex, $comp, $g);
                 $this->property['reponseconf'] = $this->m_passager->rapportconf($this->company->ekey, $idconnex, $comp, $g);
-                $this->property['reponsealler_rattrapage'] = $this->m_passager->rapportaller_rattrapage($this->company->ekey, $idconnex, $comp, $g);
+                $this->property['reponsealler_rattrapage'] = $this->m_passager->rapportaller_rattrapage($this->company->ekey, $idconnex, $comp, $g, $idsg);
+                $this->property['reponseretour_anterieur'] = $this->m_non_passager->rapportretour_anterieur($this->company->ekey, $idconnex, $comp, $g, $idsg);
             
             $this->layout->view('_tickets/pdfepsonrapt2', $this->property);
         }

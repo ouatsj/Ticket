@@ -544,6 +544,11 @@ if (!function_exists('sales_price_snapshot_record')) {
 
 if (!function_exists('sales_closure_totals_prepare')) {
     /**
+     * Calcule les totaux réellement clôturables (tickets + retours ouverts),
+     * par compagnie — même scope que la clôture arrêt (gare + lieu de vente).
+     * Toujours actif : sert à l'écriture compte_guichet (alignement rapport / chef),
+     * pas seulement à l'antifraude.
+     *
      * @param int|string $companyEkey
      * @param int|string $roleAttributionId
      * @param string|null $gareCode filtre optionnel user_login.guser (phase A arrêt)
@@ -559,10 +564,6 @@ if (!function_exists('sales_closure_totals_prepare')) {
             : 0;
         $key = (int) $companyEkey . ':' . (int) $roleAttributionId . ':' . $gareCode . ':' . $idsousgareVente;
         $totals[$key] = array();
-
-        if (!sales_price_controls_enabled()) {
-            return;
-        }
 
         $gareJoinPass = '';
         $gareWherePass = '';
@@ -612,6 +613,7 @@ if (!function_exists('sales_closure_totals_prepare')) {
                 {$gareWherePass}
                 AND p.statutvente = 0
                 AND p.statut_code = 'vendu'
+                AND p.prixvente IS NOT NULL
                 UNION ALL
                 SELECT c.cle_compagnie AS company_code, COALESCE(np.prixretour, 0) AS amount
                 FROM non_passager np
@@ -638,10 +640,44 @@ if (!function_exists('sales_closure_totals_prepare')) {
     }
 }
 
+if (!function_exists('sales_arret_totals_lines')) {
+    /**
+     * Lignes compte_guichet à partir des totaux préparés (1 ligne / compagnie).
+     *
+     * @return array<int,array{comp:int,montant:float,commentaire:string}>
+     */
+    function sales_arret_totals_lines()
+    {
+        $key = !empty($GLOBALS['sales_closure_totals_key'])
+            ? $GLOBALS['sales_closure_totals_key']
+            : null;
+        $all = !empty($GLOBALS['sales_closure_totals']) && is_array($GLOBALS['sales_closure_totals'])
+            ? $GLOBALS['sales_closure_totals']
+            : array();
+        if ($key === null || empty($all[$key]) || !is_array($all[$key])) {
+            return array();
+        }
+        $out = array();
+        foreach ($all[$key] as $comp => $montant) {
+            $comp = (int) $comp;
+            $montant = round((float) $montant, 2);
+            if ($comp <= 0 || $montant < 0) {
+                continue;
+            }
+            $out[] = array(
+                'comp' => $comp,
+                'montant' => $montant,
+                'commentaire' => '',
+            );
+        }
+        return $out;
+    }
+}
+
 if (!function_exists('sales_closure_total')) {
     function sales_closure_total($companyEkey, $roleAttributionId, $companyCode, $fallback)
     {
-        if (!sales_price_controls_enabled() || empty($GLOBALS['sales_closure_totals'])) {
+        if (empty($GLOBALS['sales_closure_totals'])) {
             return $fallback;
         }
         $companyCode = (string) $companyCode;
