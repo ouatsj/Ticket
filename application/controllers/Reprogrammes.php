@@ -164,6 +164,30 @@
         }
 
         /**
+         * Ticket transit 2 codes reporté en direct : désactive aussi la 2ᵉ jambe d’origine.
+         */
+        protected function _reprog_invalidate_transit_leg2_if_needed()
+        {
+            if ((string) $this->input->post('reprog_is_transit_ticket') !== '1') {
+                return;
+            }
+            $cdpa2 = $this->input->post('passeridtransit2');
+            $cdpt2 = $this->input->post('codeclienttransit2');
+            if (!$cdpa2 || !$cdpt2) {
+                return;
+            }
+            $this->m_passager->update($cdpa2, $cdpt2, array(
+                'num_siege_categorie' => null,
+                'actif_pas' => 1,
+                'statut_reprog' => 'repor',
+            ));
+            $tamp2 = $this->input->post('codeticketsclienttransit2');
+            if ($tamp2) {
+                $this->m_tamponcode->update($tamp2, array('actif_tamp' => 1));
+            }
+        }
+
+        /**
          * Reprogrammation multi-correspondances : désactive l’ancien billet,
          * crée N passagers liés (tamponcodtr), imprime via editpdfepsontrans*.
          */
@@ -967,6 +991,16 @@
                     $this->_reprog_refuse_redirect($gidc, $iduser, $sgid);
                     return;
                 }
+                if ((string) $this->input->post('reprog_is_transit_ticket') === '1') {
+                    $cdpa2chk = $this->input->post('passeridtransit2');
+                    $cdpt2chk = $this->input->post('codeclienttransit2');
+                    if ($cdpa2chk && $cdpt2chk
+                        && $this->_reprog_deja_effectuee($this->input->post('codeticketsclienttransit2'), $cdpa2chk, $cdpt2chk)
+                    ) {
+                        $this->_reprog_refuse_redirect($gidc, $iduser, $sgid);
+                        return;
+                    }
+                }
                 if($this->input->post('numsiegetransit')!= '')
                 {
                     $repors = $this->db->query("SELECT COUNT(code_report) AS id FROM report r WHERE r.date = '$today'")->row();
@@ -1004,6 +1038,7 @@
                                         'date' => mdate("%Y/%m/%d", now('UTC')),
                                     );
                                     $arraycoderep = $this->m_report->create($arrayrep);
+                                    $this->_reprog_invalidate_transit_leg2_if_needed();
                                 }
 
                             }
@@ -1068,6 +1103,7 @@
                                     );
                                     
                                     $this->m_tamponcode->update($cdpa1, $arraycodetamponrp1);
+                                    $this->_reprog_invalidate_transit_leg2_if_needed();
                             }
                             
                             /*if($pcdrpo != $cdrpo){

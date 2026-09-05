@@ -188,27 +188,28 @@ $allow_prix_diff_unifie = $allow_tampon_unifie; // admin + chef guichet : prix p
         <div class="reprog-section" id="reprog_choix_wrap" style="display:none">
             <div class="reprog-section-title">Nouveau départ</div>
             <div class="form-row">
-                <div class="form-group col-md-6 mb-2">
+                <div class="form-group col-md-4 mb-2">
                     <label class="small mb-0">Date de départ</label>
                     <input class="form-control form-control-sm" type="date" id="datereprog_unifie">
                 </div>
-                <div class="form-group col-md-6 mb-2">
+                <div class="form-group col-md-4 mb-2">
                     <label class="small mb-0">Heure d’ancrage</label>
                     <select class="form-control form-control-sm" id="heuredepartpunifie">
                         <option value="">Choisissez l'heure</option>
+                    </select>
+                </div>
+                <div class="form-group col-md-4 mb-2" id="reprog_cie_ancre_wrap">
+                    <label class="small mb-0">Compagnie</label>
+                    <select class="form-control form-control-sm" id="compagniepunifie">
+                        <option value="">Choisissez la compagnie</option>
                     </select>
                 </div>
             </div>
 
             <div id="reprog_direct_wrap" style="display:none">
                 <div class="reprog-section-title">Départ direct</div>
+                <p class="small mb-2 text-muted" id="reprog_direct_info"></p>
                 <div class="form-row">
-                    <div class="form-group col-md-6 mb-2">
-                        <label class="small mb-0">Compagnie</label>
-                        <select class="form-control form-control-sm" id="compagniepunifie">
-                            <option value="">Choisissez la compagnie</option>
-                        </select>
-                    </div>
                     <div class="form-group col-md-6 mb-2">
                         <label class="small mb-0">Numéro de siège</label>
                         <select class="form-control form-control-sm" id="numsiegepunifie">

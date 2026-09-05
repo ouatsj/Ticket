@@ -461,7 +461,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    function __reprogFillCompagnies(dateYmd, hhmm) {
+    function __reprogFillCompagnies(dateYmd, hhmm, chemins) {
         var sel = __reprogQ('compagniepunifie');
         __reprogResetSelect(sel, 'Choisissez la compagnie');
         __reprogResetSelect(__reprogQ('numsiegepunifie'), 'Choisissez le siège');
@@ -471,21 +471,85 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         var seen = {};
         matches.forEach(function (row) {
-            var key = String(row.id_compaga || '') + '|' + String(row.code_progr || '');
+            var cieKey = __reprogRowCieKey(row);
+            var key = cieKey + '|' + String(row.code_progr || '');
             if (seen[key]) return;
             seen[key] = 1;
             var opt = document.createElement('option');
             opt.value = row.code_progr + '/' + row.id_ligneheure + '/' + row.typetarif;
             opt.setAttribute('data-compaga', row.id_compaga || '');
-            opt.textContent = (row.nom_compagnie_arrivee || row.nom_compagnie_depart || 'Compagnie')
-                + ' — ' + __reprogHhmm(row.heure);
+            opt.setAttribute('data-cie-key', cieKey);
+            opt.setAttribute('data-kind', 'direct');
+            opt.setAttribute('data-ligne', row.nom_ligne || '');
+            opt.setAttribute('data-heure', __reprogHhmm(row.heure));
+            opt.setAttribute('data-date', String(row.date_progr || dateYmd).slice(0, 10));
+            opt.textContent = (__reprogCieName(row) || 'Compagnie')
+                + ' — direct ' + __reprogHhmm(row.heure);
             sel.add(opt);
         });
-        if (sel.options.length === 2) {
-            sel.selectedIndex = 1;
-            sel.dispatchEvent(new Event('change'));
-        }
+
+        // Compagnies issues des 1ers segments de correspondance (heure sans départ OD).
+        var cieSeen = {};
+        matches.forEach(function (row) {
+            cieSeen[__reprogRowCieKey(row)] = 1;
+        });
+        __reprogRowsArray(chemins).forEach(function (ch) {
+            var etapes = __reprogNormalizeEtapes(ch.etapes || ch.legs);
+            if (etapes.length < 2) return;
+            var e0 = etapes[0] || {};
+            var cieKey = __reprogEtapeCieKey(e0);
+            var name = e0.nom_compagnie_arrivee || e0.nom_compagnie || cieKey || 'Correspondance';
+            var dedupe = cieKey || name;
+            if (!dedupe || cieSeen[dedupe]) return;
+            cieSeen[dedupe] = 1;
+            var optT = document.createElement('option');
+            optT.value = 'corr:' + dedupe;
+            optT.setAttribute('data-compaga', cieKey);
+            optT.setAttribute('data-cie-key', cieKey);
+            optT.setAttribute('data-kind', 'corr');
+            optT.textContent = name + ' — correspondance';
+            sel.add(optT);
+        });
+
         return matches.length;
+    }
+
+    function __reprogCheminsMulti(chemins) {
+        return __reprogRowsArray(chemins).filter(function (ch) {
+            return __reprogNormalizeEtapes(ch.etapes || ch.legs).length >= 2;
+        });
+    }
+
+    function __reprogDirectMatchesForCie(dateYmd, hhmm, cieKey, progValue) {
+        var hh = __reprogHhmm(hhmm);
+        return __reprogFilterByDate(dateYmd).filter(function (r) {
+            if (__reprogHhmm(r.heure) !== hh) return false;
+            if (progValue && String(r.code_progr + '/' + r.id_ligneheure + '/' + r.typetarif) === String(progValue)) {
+                return true;
+            }
+            if (cieKey && __reprogRowCieKey(r) === String(cieKey)) return true;
+            return false;
+        });
+    }
+
+    function __reprogSetDirectInfo(text) {
+        var el = __reprogQ('reprog_direct_info');
+        if (el) el.textContent = text || '';
+    }
+
+    function __reprogShowDirectExclusive() {
+        __reprogHideCorr();
+        __reprogShowDirect();
+        __reprogQ('reprog_mode_unifie').value = 'direct';
+        __reprogQ('reprog_nbr_seg_unifie').value = '0';
+        __reprogClearSegPosts();
+    }
+
+    function __reprogShowCorrExclusive(chemins, message) {
+        __reprogHideDirect();
+        __reprogSetDirectInfo('');
+        __reprogSetPost('', '', '');
+        __reprogFillItineraireSelect(chemins, message);
     }
 
     function __reprogLoadSiegesDirect(progValue) {
@@ -1068,61 +1132,107 @@ document.addEventListener('DOMContentLoaded', () => {
         __reprogSetPost('', '', '');
         __reprogHideDirect();
         __reprogHideCorr();
+        __reprogSetDirectInfo('');
+        __reprogResetSelect(__reprogQ('compagniepunifie'), 'Choisissez la compagnie');
+        __reprogResetSelect(__reprogQ('numsiegepunifie'), 'Choisissez le siège');
         if (__reprogQ('smspunifie')) __reprogQ('smspunifie').style.display = 'none';
 
         if (!heureSel || !dateYmd || !heureSel.value) return;
         var hh = __reprogHhmm(heureSel.value);
-        var nCie = __reprogFillCompagnies(dateYmd, hh);
         var st = window.__reprogState;
 
-        if (st.hasTransit) {
-            __reprogFetchChemins(dateYmd, hh, function (chemins) {
-                if (chemins.length) {
-                    // Transit prioritaire : masquer direct si uniquement corr, sinon les deux
-                    if (nCie > 0) {
-                        __reprogShowDirect();
-                    }
-                    __reprogFillItineraireSelect(
-                        chemins,
-                        nCie > 0
-                            ? 'Transit disponible : choisissez un itinéraire (ou un départ direct ci-dessus).'
-                            : 'Choisissez un itinéraire de correspondance.'
-                    );
-                } else if (nCie > 0) {
-                    __reprogShowDirect();
-                } else {
-                    var box = __reprogQ('smspunifie');
-                    var err = __reprogQ('erreurSmspunifie');
-                    if (box) box.style.display = 'block';
-                    if (err) err.textContent = 'Aucun départ ni correspondance pour cette heure.';
+        function afterCieFill(nDirect) {
+            var cieSel = __reprogQ('compagniepunifie');
+            if (!cieSel || cieSel.options.length <= 1) {
+                var box = __reprogQ('smspunifie');
+                var err = __reprogQ('erreurSmspunifie');
+                if (box) box.style.display = 'block';
+                if (err) {
+                    err.textContent = nDirect > 0
+                        ? 'Aucune compagnie pour cette heure.'
+                        : 'Aucun départ ni correspondance pour cette heure.';
                 }
-            });
-            return;
+                return;
+            }
+            if (cieSel.options.length === 2) {
+                cieSel.selectedIndex = 1;
+                __reprogFireChange(cieSel);
+            }
         }
 
-        if (nCie > 0) {
-            __reprogShowDirect();
-        } else {
-            var box2 = __reprogQ('smspunifie');
-            var err2 = __reprogQ('erreurSmspunifie');
-            if (box2) box2.style.display = 'block';
-            if (err2) err2.textContent = 'Aucun départ compagnie pour cette date et heure.';
-        }
+        // Toujours chercher les chemins : date → heure → compagnie → itinéraire (direct ou segments).
+        __reprogFetchChemins(dateYmd, hh, function (chemins) {
+            var nDirect = __reprogFillCompagnies(dateYmd, hh, chemins);
+            afterCieFill(nDirect);
+        });
     }
 
     function __reprogOnCompagnieChange() {
         var cieSel = __reprogQ('compagniepunifie');
-        if (!cieSel || !cieSel.value) {
+        var dateEl = __reprogQ('datereprog_unifie');
+        var heureSel = __reprogQ('heuredepartpunifie');
+        var dateYmd = dateEl ? dateEl.value : '';
+        var hh = heureSel ? __reprogHhmm(heureSel.value) : '';
+
+        __reprogResetSelect(__reprogQ('numsiegepunifie'), 'Choisissez le siège');
+        __reprogSetDirectInfo('');
+        if (__reprogQ('smspunifie')) __reprogQ('smspunifie').style.display = 'none';
+
+        if (!cieSel || !cieSel.value || !dateYmd || !hh) {
             __reprogSetPost('', '', '');
-            __reprogResetSelect(__reprogQ('numsiegepunifie'), 'Choisissez le siège');
+            __reprogHideDirect();
+            __reprogHideCorr();
             return;
         }
-        // Choosing direct cancels transit commit focus
+
         var opt = cieSel.options[cieSel.selectedIndex];
+        var kind = opt ? (opt.getAttribute('data-kind') || 'direct') : 'direct';
+        var cieKey = opt ? (opt.getAttribute('data-cie-key') || opt.getAttribute('data-compaga') || '') : '';
         var compaga = opt ? (opt.getAttribute('data-compaga') || '') : '';
-        __reprogSetPost(cieSel.value, compaga, '');
-        window.__reprogState.mode = 'direct';
-        __reprogLoadSiegesDirect(cieSel.value);
+        var multi = __reprogCheminsMulti(window.__reprogState.chemins);
+
+        // Direct pour cette compagnie → ligne + date + heure + siège (exclusif).
+        if (kind === 'direct' && cieSel.value.indexOf('corr:') !== 0) {
+            var directs = __reprogDirectMatchesForCie(dateYmd, hh, cieKey, cieSel.value);
+            if (directs.length) {
+                __reprogShowDirectExclusive();
+                __reprogSetPost(cieSel.value, compaga, '');
+                window.__reprogState.mode = 'direct';
+                var ligne = opt.getAttribute('data-ligne') || directs[0].nom_ligne || '';
+                var dAff = opt.getAttribute('data-date') || dateYmd;
+                var hAff = opt.getAttribute('data-heure') || hh;
+                __reprogSetDirectInfo(
+                    'Ligne : ' + ligne + ' — Date : ' + dAff + ' — Heure : ' + hAff
+                );
+                __reprogLoadSiegesDirect(cieSel.value);
+                return;
+            }
+        }
+
+        // Sinon correspondances multi-segments.
+        if (multi.length) {
+            var filtered = multi;
+            if (cieKey) {
+                var pref = multi.filter(function (ch) {
+                    var e0 = __reprogNormalizeEtapes(ch.etapes || ch.legs)[0] || {};
+                    return __reprogEtapeCieKey(e0) === String(cieKey);
+                });
+                if (pref.length) filtered = pref;
+            }
+            __reprogShowCorrExclusive(
+                filtered,
+                'Choisissez un itinéraire, puis compagnie / heure / siège pour chaque segment.'
+            );
+            return;
+        }
+
+        __reprogHideDirect();
+        __reprogHideCorr();
+        __reprogSetPost('', '', '');
+        var box = __reprogQ('smspunifie');
+        var err = __reprogQ('erreurSmspunifie');
+        if (box) box.style.display = 'block';
+        if (err) err.textContent = 'Aucun itinéraire disponible pour cette compagnie.';
     }
 
     function __reprogOnSiegeDirectChange() {
@@ -1413,6 +1523,21 @@ document.addEventListener('DOMContentLoaded', () => {
                         __reprogQ('prixventeunifie2').value = d2.prixvente != null ? d2.prixvente : '';
                         window.__reprogState.prix2 = d2.prixvente != null ? String(d2.prixvente) : '0';
                         window.__reprogState.lookup2Done = true;
+
+                        // OD complet du ticket transit : départ jambe1 → arrivée jambe2.
+                        var ga1 = window.__reprogState.gaexp || (__reprogQ('gaexp_unifie') || {}).value || '';
+                        var gd2 = d2.gadest_lg || '';
+                        if (ga1 && gd2) {
+                            window.__reprogState.gadest = gd2;
+                            window.__reprogState.axe = ga1 + '-' + gd2;
+                            if (__reprogQ('gadest_unifie')) __reprogQ('gadest_unifie').value = gd2;
+                            if (__reprogQ('axe_unifie')) __reprogQ('axe_unifie').value = ga1 + '-' + gd2;
+                            var dirEl = __reprogQ('directionclpunifie');
+                            if (dirEl) {
+                                dirEl.textContent = 'DIRECTION: ' + ga1 + ' → ' + gd2
+                                    + ' (transit 2 jambes)';
+                            }
+                        }
 
                         var c2info = __reprogQ('code2clpunifie');
                         if (c2info) {
