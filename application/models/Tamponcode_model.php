@@ -257,9 +257,11 @@
 
         public function verifirepadmin($cid, $code)
         {
-                $encour = date("Y");
-                // Compagnie ticket = arrivée (id_compaga), aligné sur Passager_model / verifireptra.
-                // Pas de filtre gare ici : le contrôle gare de vente / any-gare est dans Reprogrammes::lookup_unifie.
+                // Aligné sur verifireptra (même SELECT / JOINs) : lookup par tamponcod.
+                // Pas de JOIN tarification obligatoire (sinon « Autre code » échoue hors tarif actif).
+                // Pas de filtre gare ici : contrôle gare / any-gare dans Reprogrammes::lookup_unifie.
+                $cidEsc = $this->db->escape($cid);
+                $codeEsc = $this->db->escape(trim((string) $code));
                 return $this->db->query("SELECT
                     ctp.*,
                     p.*,
@@ -281,25 +283,22 @@
                     cd.cle_compagnie AS cle_compagnie_depart
                 FROM tamponcode ctp
                     JOIN passager p ON p.code_passager = ctp.tamponcod
-					LEFT JOIN non_passager np ON BINARY np.codeticket = BINARY p.code_ticket
+                    LEFT JOIN non_passager np ON BINARY np.codeticket = BINARY p.code_ticket
                         AND (np.actif_nonp = 0 OR np.actif_nonp IS NULL)
                     JOIN client cl ON p.id_client_pass = cl.id_client
                     JOIN type_client tcl ON cl.type_client = tcl.nom_type
                     JOIN programme pr ON p.code_pro = pr.code_progr
                     JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
-                    JOIN tarification tf ON tf.ligne_heure_id = lh.id_ligneheure
-                        AND tf.typetarif_id = pr.typetarif
-                        AND tf.actif_taf = 1
                     JOIN heures h ON lh.heure_identif = h.id_heure
-                    JOIN lignes lg ON lh.ligne_id = lg.ident_ligne 
+                    JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
                     JOIN tarifs t ON pr.typetarif = t.id_tarifs
                     JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
                     JOIN gare_dest ga ON lg.gadest_lg = ga.code_gadest
                     JOIN compagnies ca ON ga.id_compaga = ca.cle_compagnie
                     JOIN compagnies cd ON ex.id_compagd = cd.cle_compagnie
                     JOIN entreprise e ON ca.id_entrep = e.id_entreprise
-                    WHERE e.ekey = '$cid'
-                    AND BINARY ctp.tamponcod = '$code'
+                    WHERE e.ekey = {$cidEsc}
+                    AND BINARY ctp.tamponcod = {$codeEsc}
                     AND ctp.actif_tamp = 0
                     AND p.actif_pas = 0
                     AND (p.statut_reprog IS NULL OR p.statut_reprog = '' OR p.statut_reprog != 'repor')
