@@ -105,6 +105,7 @@
                 return;
             }
             $op = isset($conex->roleattribut) ? (int) $conex->roleattribut : (int) $cpus;
+            $code_passager = rawurldecode(trim((string) $code_passager));
             $out = $this->m_ordres->ensure_reposition($code_passager, $op, $idsg, 'reposition');
             if (empty($out['ok'])) {
                 $msg = 'Impossible de repositionner';
@@ -113,6 +114,7 @@
                         'params_manquants' => 'Paramètres manquants.',
                         'passager_introuvable' => 'Ticket introuvable.',
                         'ticket_non_vendu' => 'Ticket non vendu ou inactif.',
+                        'maj_passager_echouee' => 'Mise à jour passager échouée (reimprime / sous-gare).',
                     );
                     $msg = isset($map[$out['error']]) ? $map[$out['error']] : $out['error'];
                 }

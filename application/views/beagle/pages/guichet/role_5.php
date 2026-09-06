@@ -54,6 +54,10 @@ if ($compte_arret_only_compte) {
                                 class="btn btn-secondary btn-space md-trigger" data-modal="">
                                 <i class="fas fa-print text-info"></i>&nbsp; TICKET CONFIRMER&nbsp;
                             </a>
+                            <a href="<?= site_url("confirmation/listeventegratuit/{$this->session->company->ekey}/{$conex->roleattribut}/{$bus_stop->idengare}/{$bus_stop->idsousgare}"); ?>"
+                                class="btn btn-secondary btn-space md-trigger" data-modal="">
+                                <i class="fas fa-print text-info"></i>&nbsp; TICKET&nbsp;
+                            </a>
 
                             <a href="<?= site_url("reserves/listereservation/{$this->session->company->ekey}/{$conex->roleattribut}/{$bus_stop->idengare}/{$bus_stop->idsousgare}"); ?>"
                                 class="btn btn-secondary btn-space md-trigger" data-modal="">

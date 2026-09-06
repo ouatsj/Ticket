@@ -106,10 +106,8 @@
          */
         public function getgr($cd, $g, $sg)
         {   
-            $today = mdate("%Y-%m-%d", now('UTC'));
             $cdEsc = $this->db->escape($cd);
             $sgEsc = $this->db->escape($sg);
-            $todayEsc = $this->db->escape($today);
             return $this->db->query(
                 "SELECT *
                 FROM ordres o
@@ -127,11 +125,11 @@
                 JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = {$cdEsc}
-                AND p.reimprime = 0
+                AND (p.reimprime = 0 OR p.reimprime IS NULL)
                 AND p.statut_code = 'vendu'
                 AND p.actif_pas = 0
                 AND p.departclient_idgare = {$sgEsc}
-                AND o.dateenregistrement = {$todayEsc}
+                AND o.dateenregistrement = CURDATE()
                 ORDER BY h.heure ASC, p.num_siege_categorie ASC"
             )->result();
         }
@@ -238,7 +236,7 @@
          */
         public function ensure_reposition($code_passager, $operaid, $sousgare_id, $pourordre = 'reposition')
         {
-            $code = trim((string) $code_passager);
+            $code = rawurldecode(trim((string) $code_passager));
             $sg = trim((string) $sousgare_id);
             $op = (int) $operaid;
             if ($code === '' || $sg === '' || $op <= 0) {
@@ -258,31 +256,43 @@
                 return array('ok' => false, 'error' => 'ticket_non_vendu');
             }
 
-            $today = mdate('%Y-%m-%d', now('UTC'));
-            $this->db->where('code_passager', $code)->update('passager', array(
-                'reimprime' => 0,
-                'departclient_idgare' => $sg,
-            ));
+            // SQL brut : éviter tout filtrage CI sur la valeur 0 de reimprime.
+            $this->db->query(
+                'UPDATE passager SET reimprime = 0, departclient_idgare = ? WHERE code_passager = ?',
+                array($sg, $code)
+            );
+            $pas2 = $this->db->query(
+                'SELECT reimprime, departclient_idgare FROM passager WHERE code_passager = ? LIMIT 1',
+                array($code)
+            )->row();
+            if (!$pas2 || (int) $pas2->reimprime !== 0 || (string) $pas2->departclient_idgare !== (string) $sg) {
+                return array('ok' => false, 'error' => 'maj_passager_echouee');
+            }
+
+            $todayRow = $this->db->query('SELECT CURDATE() AS d')->row();
+            $today = ($todayRow && !empty($todayRow->d)) ? $todayRow->d : mdate('%Y-%m-%d', now());
 
             $ordre = $this->db->query(
                 "SELECT orid FROM {$this->table} WHERE codepassagers = ? ORDER BY orid DESC LIMIT 1",
                 array($code)
             )->row();
             if ($ordre) {
-                $this->db->where('orid', (int) $ordre->orid)->update($this->table, array(
-                    'dateenregistrement' => $today,
-                    'operaid' => $op,
-                    'pourordre' => $pourordre,
-                ));
+                $this->db->query(
+                    "UPDATE {$this->table} SET dateenregistrement = ?, operaid = ?, pourordre = ? WHERE orid = ?",
+                    array($today, $op, $pourordre, (int) $ordre->orid)
+                );
             } else {
-                $this->db->insert($this->table, array(
-                    'codepassagers' => $code,
-                    'operaid' => $op,
-                    'dateenregistrement' => $today,
-                    'pourordre' => $pourordre,
-                ));
+                $this->db->query(
+                    "INSERT INTO {$this->table} (codepassagers, operaid, dateenregistrement, pourordre) VALUES (?, ?, ?, ?)",
+                    array($code, $op, $today, $pourordre)
+                );
             }
-            return array('ok' => true, 'code_passager' => $code, 'sousgare' => $sg);
+            return array(
+                'ok' => true,
+                'code_passager' => $code,
+                'sousgare' => $sg,
+                'reimprime' => 0,
+            );
         }
             
                 
