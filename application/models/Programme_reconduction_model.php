@@ -55,6 +55,10 @@ class Programme_reconduction_model extends CI_Model
               declared_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
               declared_by VARCHAR(128) DEFAULT NULL,
               source_ferme TINYINT(1) NOT NULL DEFAULT 0,
+              statut VARCHAR(20) NOT NULL DEFAULT 'ouverte',
+              closed_at TIMESTAMP NULL DEFAULT NULL,
+              closed_by VARCHAR(128) DEFAULT NULL,
+              closed_reason VARCHAR(32) DEFAULT NULL,
               ferme_at TIMESTAMP NULL DEFAULT NULL,
               PRIMARY KEY (id_sortie),
               UNIQUE KEY uq_source (code_progr_source),
@@ -118,6 +122,41 @@ class Programme_reconduction_model extends CI_Model
               KEY idx_alerte_source (code_progr_source)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4"
         );
+        $this->_ensure_sortie_statut_columns();
+    }
+
+    /**
+     * Colonnes de cycle de vie (ouverte / traitée / annulée / non_traitee).
+     */
+    protected function _ensure_sortie_statut_columns()
+    {
+        if (!$this->db->table_exists($this->table_sortie)) {
+            return;
+        }
+        if (!$this->db->field_exists('statut', $this->table_sortie)) {
+            $this->db->query(
+                "ALTER TABLE {$this->table_sortie}
+                 ADD COLUMN statut VARCHAR(20) NOT NULL DEFAULT 'ouverte' AFTER source_ferme"
+            );
+        }
+        if (!$this->db->field_exists('closed_at', $this->table_sortie)) {
+            $this->db->query(
+                "ALTER TABLE {$this->table_sortie}
+                 ADD COLUMN closed_at TIMESTAMP NULL DEFAULT NULL AFTER statut"
+            );
+        }
+        if (!$this->db->field_exists('closed_by', $this->table_sortie)) {
+            $this->db->query(
+                "ALTER TABLE {$this->table_sortie}
+                 ADD COLUMN closed_by VARCHAR(128) DEFAULT NULL AFTER closed_at"
+            );
+        }
+        if (!$this->db->field_exists('closed_reason', $this->table_sortie)) {
+            $this->db->query(
+                "ALTER TABLE {$this->table_sortie}
+                 ADD COLUMN closed_reason VARCHAR(32) DEFAULT NULL AFTER closed_by"
+            );
+        }
     }
 
     public function prog_detail($ekey, $code_progr)
@@ -404,6 +443,13 @@ class Programme_reconduction_model extends CI_Model
              WHERE s.ekey = ?
                AND s.gareidentif != ?
                AND s.date_progr >= DATE_SUB(?, INTERVAL 1 DAY)
+               AND (s.statut IS NULL OR s.statut = '' OR s.statut = 'ouverte')
+               AND NOT EXISTS (
+                    SELECT 1 FROM {$this->table_alerte} a
+                    WHERE a.code_progr_source = s.code_progr_source
+                      AND a.type_alerte = 'annulation_aval'
+                      AND a.gareidentif = ?
+               )
                AND EXISTS (
                     SELECT 1 FROM lignes l2
                     JOIN gare_dest ga2 ON l2.gadest_lg = ga2.code_gadest
@@ -416,7 +462,7 @@ class Programme_reconduction_model extends CI_Model
                            OR ga2.id_villega = ga1.id_villega)
                )
              ORDER BY s.date_progr ASC, h.heure ASC",
-            array($ekey, $gare, $today, $gare)
+            array($ekey, $gare, $today, $gare, $gare)
         )->result();
 
         $out = array();
@@ -439,6 +485,12 @@ class Programme_reconduction_model extends CI_Model
             $r->date_correspondance = isset($hor['date_progr']) ? $hor['date_progr'] : '';
             $r->id_ligneheure_correspondance = isset($hor['id_heur']) ? (int) $hor['id_heur'] : 0;
             $r->depart_code_principal = isset($hor['depart_code']) ? $hor['depart_code'] : (isset($r->depart_code) ? $r->depart_code : '');
+            $ech = $this->echeance_correspondance_from_hor($r, $hor);
+            $r->attente_label = $this->format_duree_attente(isset($r->declared_at) ? $r->declared_at : null);
+            $r->heure_limite = $ech['heure'];
+            $r->date_limite = $ech['date'];
+            $r->echeance_connue = !empty($ech['connue']);
+            $r->expiree = !empty($ech['expiree']);
             $out[] = $r;
         }
         return $out;
@@ -777,6 +829,7 @@ class Programme_reconduction_model extends CI_Model
             'intervalle2' => (int) $detail->intervalle2,
             'declared_by' => $declared_by,
             'source_ferme' => 0,
+            'statut' => 'ouverte',
         ));
         if (!$ok) {
             $this->db->trans_rollback();
@@ -826,9 +879,28 @@ class Programme_reconduction_model extends CI_Model
         if (!$sortie) {
             return array('ok' => false, 'error' => 'sortie_non_declaree');
         }
+        $statut = isset($sortie->statut) ? trim((string) $sortie->statut) : 'ouverte';
+        if ($statut !== '' && $statut !== 'ouverte') {
+            return array('ok' => false, 'error' => 'sortie_fermee');
+        }
         $gare_cible = trim((string) $gare_cible);
         if ($gare_cible === '' || $gare_cible === (string) $source->gareidentif) {
             return array('ok' => false, 'error' => 'gare_cible_invalide');
+        }
+
+        $annul = $this->db->query(
+            "SELECT 1 FROM {$this->table_alerte}
+             WHERE code_progr_source = ? AND type_alerte = 'annulation_aval' AND gareidentif = ?
+             LIMIT 1",
+            array($code_progr_source, $gare_cible)
+        )->row();
+        if ($annul) {
+            return array('ok' => false, 'error' => 'offre_annulee');
+        }
+
+        $ech = $this->echeance_correspondance($ekey, $sortie, $gare_cible);
+        if (!empty($ech['expiree'])) {
+            return array('ok' => false, 'error' => 'heure_correspondance_depassee');
         }
 
         $sieges = $this->_normaliser_sieges($sieges);
@@ -985,6 +1057,15 @@ class Programme_reconduction_model extends CI_Model
             return array('ok' => false, 'error' => 'echec_transaction');
         }
         $this->db->trans_commit();
+
+        $this->db->where('code_progr_source', $code_progr_source)
+            ->where("(statut IS NULL OR statut = '' OR statut = 'ouverte')", null, false)
+            ->update($this->table_sortie, array(
+                'statut' => 'traitee',
+                'closed_at' => date('Y-m-d H:i:s'),
+                'closed_by' => $createdBy,
+                'closed_reason' => 'reconduit',
+            ));
 
         $this->marquer_alertes_offre_lues($ekey, $gareStore, $code_progr_source, $createdBy);
         $this->creer_alerte_depart_cree(
@@ -1144,7 +1225,7 @@ class Programme_reconduction_model extends CI_Model
     }
 
     /**
-     * Alertes non lues pour une gare (page Programmes).
+     * Alertes non lues pour une gare (page Programmes), messages enrichis à l'affichage.
      * @return object[]
      */
     public function alertes_pour_gare($ekey, $gareidentif, $limit = 20)
@@ -1155,10 +1236,256 @@ class Programme_reconduction_model extends CI_Model
         if ($ekey === '' || $gare === '') {
             return array();
         }
-        return $this->db->query(
+        $rows = $this->db->query(
             "SELECT * FROM {$this->table_alerte}
              WHERE ekey = ? AND gareidentif = ? AND lu_at IS NULL
              ORDER BY created_at DESC
+             LIMIT {$limit}",
+            array($ekey, $gare)
+        )->result();
+        foreach ($rows as $a) {
+            $type = isset($a->type_alerte) ? (string) $a->type_alerte : '';
+            if ($type === 'offre_aval' && !empty($a->code_progr_source)) {
+                $sortie = $this->get_sortie($a->code_progr_source);
+                $attente = $this->format_duree_attente(
+                    $sortie && !empty($sortie->declared_at) ? $sortie->declared_at
+                        : (isset($a->created_at) ? $a->created_at : null)
+                );
+                $ech = $sortie
+                    ? $this->echeance_correspondance($ekey, $sortie, $gare)
+                    : array('connue' => false, 'expiree' => false, 'heure' => '', 'date' => '');
+                $extra = '';
+                if ($attente !== '') {
+                    $extra .= ' En attente depuis ' . $attente . '.';
+                }
+                if (!empty($ech['expiree'])) {
+                    $hh = !empty($ech['heure']) ? $ech['heure'] : '';
+                    $extra .= ' Heure de correspondance dépassée'
+                        . ($hh !== '' ? (' (' . $hh . ')') : '')
+                        . ' — création de départ bloquée ; annulez ou archivez côté amont.';
+                    $a->expiree = true;
+                } else {
+                    $a->expiree = false;
+                }
+                if ($extra !== '') {
+                    $base = isset($a->message) ? rtrim((string) $a->message, '.') : '';
+                    $a->message = $base . '.' . $extra;
+                }
+                $a->attente_label = $attente;
+            }
+            if ($type === 'non_valide_a_temps') {
+                $a->peut_archiver = true;
+            }
+        }
+        return $rows;
+    }
+
+    /**
+     * Durée depuis declared_at (UTC), ex. "1 h 12 min".
+     */
+    public function format_duree_attente($declared_at)
+    {
+        $raw = trim((string) $declared_at);
+        if ($raw === '') {
+            return '';
+        }
+        $t0 = strtotime($raw . ' UTC');
+        if ($t0 === false) {
+            $t0 = strtotime($raw);
+        }
+        if ($t0 === false) {
+            return '';
+        }
+        $sec = max(0, (int) now('UTC') - (int) $t0);
+        $h = (int) floor($sec / 3600);
+        $m = (int) floor(($sec % 3600) / 60);
+        if ($h > 0) {
+            return $h . ' h ' . $m . ' min';
+        }
+        if ($m > 0) {
+            return $m . ' min';
+        }
+        return 'moins d\'1 min';
+    }
+
+    /**
+     * Échéance = date/heure de correspondance (programme suite), option 1.
+     * @return array{connue:bool,expiree:bool,date:string,heure:string}
+     */
+    public function echeance_correspondance($ekey, $sortie, $gare_aval)
+    {
+        if (!$sortie) {
+            return array('connue' => false, 'expiree' => false, 'date' => '', 'heure' => '');
+        }
+        $hor = $this->horaire_aval_correspondance(
+            $ekey,
+            $sortie->code_progr_source,
+            $gare_aval,
+            isset($sortie->gadest_lg) ? $sortie->gadest_lg : ''
+        );
+        return $this->echeance_correspondance_from_hor($sortie, $hor);
+    }
+
+    /**
+     * @param object $sortie
+     * @param array $hor
+     * @return array{connue:bool,expiree:bool,date:string,heure:string}
+     */
+    public function echeance_correspondance_from_hor($sortie, array $hor)
+    {
+        $date = '';
+        if (!empty($hor['date_progr']) && preg_match('/^\d{4}-\d{2}-\d{2}$/', $hor['date_progr'])) {
+            $date = $hor['date_progr'];
+        } elseif (!empty($sortie->date_progr)) {
+            $date = (string) $sortie->date_progr;
+        }
+        $heure = !empty($hor['heure']) ? substr(trim((string) $hor['heure']), 0, 5) : '';
+        if ($date === '' || $heure === '' || !preg_match('/^\d{2}:\d{2}$/', $heure)) {
+            return array('connue' => false, 'expiree' => false, 'date' => $date, 'heure' => $heure);
+        }
+        $limitTs = strtotime($date . ' ' . $heure . ':00 UTC');
+        if ($limitTs === false) {
+            return array('connue' => false, 'expiree' => false, 'date' => $date, 'heure' => $heure);
+        }
+        return array(
+            'connue' => true,
+            'expiree' => ((int) now('UTC') > (int) $limitTs),
+            'date' => $date,
+            'heure' => $heure,
+        );
+    }
+
+    /**
+     * Aval : annule une offre après dépassement de l'heure de correspondance.
+     * Notifie la gare amont (non_valide_a_temps).
+     */
+    public function annuler_par_aval($ekey, $code_progr_source, $gare_aval, $by = null)
+    {
+        $code = trim((string) $code_progr_source);
+        $gare = trim((string) $gare_aval);
+        $sortie = $this->get_sortie($code);
+        if (!$sortie) {
+            return array('ok' => false, 'error' => 'sortie_non_declaree');
+        }
+        $statut = isset($sortie->statut) ? trim((string) $sortie->statut) : 'ouverte';
+        if ($statut !== '' && $statut !== 'ouverte') {
+            return array('ok' => false, 'error' => 'sortie_fermee');
+        }
+        $ech = $this->echeance_correspondance($ekey, $sortie, $gare);
+        if (empty($ech['expiree'])) {
+            return array('ok' => false, 'error' => 'heure_pas_depassee');
+        }
+        $exists = $this->db->query(
+            "SELECT id_alerte FROM {$this->table_alerte}
+             WHERE ekey = ? AND type_alerte = 'annulation_aval'
+               AND gareidentif = ? AND code_progr_source = ?
+             LIMIT 1",
+            array($ekey, $gare, $code)
+        )->row();
+        if (!$exists) {
+            $this->db->insert($this->table_alerte, array(
+                'ekey' => $ekey,
+                'type_alerte' => 'annulation_aval',
+                'gareidentif' => $gare,
+                'code_progr_source' => $code,
+                'gare_emetteur' => $gare,
+                'gare_cible' => $sortie->gareidentif,
+                'message' => 'Annulation aval (heure de correspondance dépassée).',
+                'created_by' => $by,
+                'lu_at' => date('Y-m-d H:i:s'),
+                'lu_by' => $by,
+            ));
+        }
+        $this->marquer_alertes_offre_lues($ekey, $gare, $code, $by);
+
+        $nomAval = $this->_nom_gare_exp($gare);
+        $avalLabel = $nomAval !== '' ? $nomAval : $gare;
+        $hh = !empty($ech['heure']) ? $ech['heure'] : '';
+        $msg = $avalLabel . ' n\'a pas pu valider à temps votre déclaration de sortie '
+            . $code
+            . ($hh !== '' ? (' (correspondance ' . $hh . ' dépassée)') : '')
+            . '. Archivez-la en complément non traité.';
+        $deja = $this->db->query(
+            "SELECT id_alerte FROM {$this->table_alerte}
+             WHERE ekey = ? AND type_alerte = 'non_valide_a_temps'
+               AND gareidentif = ? AND code_progr_source = ?
+               AND lu_at IS NULL
+             LIMIT 1",
+            array($ekey, $sortie->gareidentif, $code)
+        )->row();
+        if (!$deja) {
+            $this->db->insert($this->table_alerte, array(
+                'ekey' => $ekey,
+                'type_alerte' => 'non_valide_a_temps',
+                'gareidentif' => $sortie->gareidentif,
+                'code_progr_source' => $code,
+                'gare_emetteur' => $gare,
+                'gare_cible' => $sortie->gareidentif,
+                'message' => $msg,
+                'created_by' => $by,
+            ));
+        }
+        return array('ok' => true, 'code_progr_source' => $code);
+    }
+
+    /**
+     * Amont : archive la déclaration en « complément non traité ».
+     */
+    public function archiver_non_traite($ekey, $code_progr_source, $by = null)
+    {
+        $code = trim((string) $code_progr_source);
+        $sortie = $this->get_sortie($code);
+        if (!$sortie) {
+            return array('ok' => false, 'error' => 'sortie_non_declaree');
+        }
+        if ((string) $sortie->ekey !== (string) $ekey) {
+            return array('ok' => false, 'error' => 'entreprise_invalide');
+        }
+        $statut = isset($sortie->statut) ? trim((string) $sortie->statut) : 'ouverte';
+        if ($statut === 'traitee') {
+            return array('ok' => false, 'error' => 'deja_traitee');
+        }
+        if ($statut === 'non_traitee') {
+            return array('ok' => true, 'deja' => true);
+        }
+        $this->db->where('code_progr_source', $code)->update($this->table_sortie, array(
+            'statut' => 'non_traitee',
+            'closed_at' => date('Y-m-d H:i:s'),
+            'closed_by' => $by,
+            'closed_reason' => 'non_traite_amont',
+        ));
+        $this->db->where('ekey', $ekey)
+            ->where('code_progr_source', $code)
+            ->where_in('type_alerte', array('offre_aval', 'non_valide_a_temps'))
+            ->where('lu_at IS NULL', null, false)
+            ->update($this->table_alerte, array(
+                'lu_at' => date('Y-m-d H:i:s'),
+                'lu_by' => $by,
+            ));
+        return array('ok' => true, 'code_progr_source' => $code, 'statut' => 'non_traitee');
+    }
+
+    /**
+     * Compléments non traités (archive) pour la gare amont.
+     * @return object[]
+     */
+    public function complements_non_traites($ekey, $gareidentif, $limit = 30)
+    {
+        $ekey = trim((string) $ekey);
+        $gare = trim((string) $gareidentif);
+        $limit = max(1, min(100, (int) $limit));
+        if ($ekey === '' || $gare === '') {
+            return array();
+        }
+        if (!$this->db->field_exists('statut', $this->table_sortie)) {
+            return array();
+        }
+        return $this->db->query(
+            "SELECT s.*, ge.nom_gaep
+             FROM {$this->table_sortie} s
+             LEFT JOIN gare_exp ge ON s.gareidentif = ge.code_gaexp
+             WHERE s.ekey = ? AND s.gareidentif = ? AND s.statut = 'non_traitee'
+             ORDER BY s.closed_at DESC
              LIMIT {$limit}",
             array($ekey, $gare)
         )->result();
@@ -1181,7 +1508,7 @@ class Programme_reconduction_model extends CI_Model
         $srcLabel = $nomSrc !== '' ? $nomSrc : (string) $sortie->gareidentif;
         $msg = $srcLabel . ' a déclaré une sortie (' . $sortie->code_progr_source . ') avec '
             . $nb . ' place' . ($nb > 1 ? 's' : '') . ' restante' . ($nb > 1 ? 's' : '')
-            . '. Créez un départ avec ces sièges.';
+            . '. Créez un départ avec ces sièges';
         foreach ($gares as $gare) {
             $exists = $this->db->query(
                 "SELECT id_alerte FROM {$this->table_alerte}

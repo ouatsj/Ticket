@@ -48,7 +48,7 @@
     <div class="col-12 col-md-10">
         <div class="alert alert-warning mb-2 py-2">
             <strong>Complément départ</strong> —
-            <span class="text-danger font-weight-bold"><?= count($reconductions_offres); ?></span>
+            <span style="color:#ea4335 !important;font-weight:700;font-size:1.15em;"><?= count($reconductions_offres); ?></span>
             déclaration<?= count($reconductions_offres) > 1 ? 's' : ''; ?>
             de sortie en attente (sièges restants à vendre).
             <a href="#" class="alert-link js-reco-open">Créer le complément de départ</a>
@@ -68,15 +68,33 @@
         <?php foreach ($sortie_alertes as $__al): ?>
             <?php
                 $__type = isset($__al->type_alerte) ? (string) $__al->type_alerte : '';
-                $__cls = ($__type === 'depart_cree_amont') ? 'alert-success' : 'alert-warning';
+                $__cls = 'alert-warning';
+                if ($__type === 'depart_cree_amont') {
+                    $__cls = 'alert-success';
+                } elseif ($__type === 'non_valide_a_temps' || !empty($__al->expiree)) {
+                    $__cls = 'alert-danger';
+                }
                 $__id = isset($__al->id_alerte) ? (int) $__al->id_alerte : 0;
             ?>
-            <div class="alert <?= $__cls; ?> mb-2 py-2 js-sortie-alerte" data-id="<?= $__id; ?>">
+            <div class="alert <?= $__cls; ?> mb-2 py-2 js-sortie-alerte" data-id="<?= $__id; ?>"
+                 data-type="<?= htmlspecialchars($__type, ENT_QUOTES, 'UTF-8'); ?>"
+                 data-code="<?= htmlspecialchars(isset($__al->code_progr_source) ? $__al->code_progr_source : '', ENT_QUOTES, 'UTF-8'); ?>">
+                <?php if (!empty($__al->expiree)): ?>
+                    <span class="badge" style="background-color:#ea4335 !important;color:#fff !important;">Heure dépassée</span>
+                <?php endif; ?>
                 <?= htmlspecialchars(isset($__al->message) ? $__al->message : '', ENT_QUOTES, 'UTF-8'); ?>
-                <?php if ($__type === 'offre_aval'): ?>
+                <?php if ($__type === 'offre_aval' && empty($__al->expiree)): ?>
                     — <a href="#" class="alert-link js-reco-open">Complément départ</a>
                 <?php endif; ?>
-                <?php if ($__id > 0): ?>
+                <?php if ($__type === 'offre_aval' && !empty($__al->expiree)): ?>
+                    — <a href="#" class="alert-link js-reco-open">Voir / Annuler</a>
+                <?php endif; ?>
+                <?php if ($__type === 'non_valide_a_temps' && !empty($__al->code_progr_source)): ?>
+                    <button type="button" class="btn btn-sm btn-danger ml-2 js-archiver-non-traite"
+                            data-code="<?= htmlspecialchars($__al->code_progr_source, ENT_QUOTES, 'UTF-8'); ?>"
+                            data-id="<?= $__id; ?>">Archiver en complément non traité</button>
+                <?php endif; ?>
+                <?php if ($__id > 0 && $__type !== 'non_valide_a_temps'): ?>
                     <button type="button" class="btn btn-sm btn-link p-0 ml-2 js-sortie-alerte-lu" data-id="<?= $__id; ?>">Marquer lu</button>
                 <?php endif; ?>
             </div>
@@ -95,6 +113,35 @@
     if (val) body.set(name, val);
   }
   document.addEventListener('click', function (e) {
+    var archBtn = e.target.closest ? e.target.closest('.js-archiver-non-traite') : null;
+    if (archBtn) {
+      e.preventDefault();
+      var code = archBtn.getAttribute('data-code');
+      if (!code) return;
+      if (!window.confirm('Archiver cette déclaration en complément non traité ?')) return;
+      var body = new URLSearchParams();
+      body.set('code_progr_source', code);
+      appendCsrf(body);
+      archBtn.disabled = true;
+      fetch(base + '/archiver_complement_non_traite/' + encodeURIComponent(ekey), {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'X-Requested-With': 'XMLHttpRequest',
+          'Accept': 'application/json'
+        },
+        body: body.toString()
+      }).then(function (r) { return r.json(); }).then(function (data) {
+        if (!data || !data.ok) {
+          archBtn.disabled = false;
+          alert((data && data.error) ? data.error : 'Échec archivage');
+          return;
+        }
+        window.location.reload();
+      }).catch(function () { archBtn.disabled = false; });
+      return;
+    }
     var btn = e.target.closest ? e.target.closest('.js-sortie-alerte-lu') : null;
     if (!btn) return;
     e.preventDefault();
@@ -127,6 +174,12 @@
 })();
 </script>
 <?php endif; ?>
+
+<?php
+    if (!isset($complements_non_traites) || !is_array($complements_non_traites)) {
+        $complements_non_traites = array();
+    }
+?>
 
 <script>
 (function () {
@@ -212,7 +265,15 @@
                     title="Déclarations de sortie amont non encore reprises en départ">
                 <i class="fas fa-share-square text-warning"></i>&nbsp;COMPLÉMENT DÉPART (sièges restants à vendre)&nbsp;
                 <?php if (!empty($reconductions_offres)): ?>
-                    <span class="badge badge-danger" style="font-size:0.95em;"><?= count($reconductions_offres); ?></span>
+                    <span class="badge" style="background-color:#ea4335 !important;color:#fff !important;font-size:0.95em;"><?= count($reconductions_offres); ?></span>
+                <?php endif; ?>
+            </button>
+            <button class="btn btn-space btn-secondary md-trigger js-nontraite-open"
+                    data-modal="modal-complements-non-traites"
+                    title="Archives des déclarations non validées à temps">
+                <i class="fas fa-archive text-secondary"></i>&nbsp;COMPLÉMENT DÉPART NON TRAITÉ&nbsp;
+                <?php if (!empty($complements_non_traites)): ?>
+                    <span class="badge" style="background-color:#6c757d !important;color:#fff !important;font-size:0.95em;"><?= count($complements_non_traites); ?></span>
                 <?php endif; ?>
             </button>
             <?endif;?>
@@ -747,7 +808,16 @@
                             <i class="fas fa-share-square"></i>
                             COMPLÉMENT DÉPART (sièges restants à vendre)
                             <?php if (!empty($reconductions_offres)): ?>
-                                <span class="badge badge-danger"><?= count($reconductions_offres); ?></span>
+                                <span class="badge" style="background-color:#ea4335 !important;color:#fff !important;"><?= count($reconductions_offres); ?></span>
+                            <?php endif; ?>
+                        </button>
+                        <button class="btn btn-rounded btn-space btn-secondary md-trigger js-nontraite-open"
+                                data-modal="modal-complements-non-traites"
+                                title="Archives des déclarations non validées à temps">
+                            <i class="fas fa-archive"></i>
+                            COMPLÉMENT DÉPART NON TRAITÉ
+                            <?php if (!empty($complements_non_traites)): ?>
+                                <span class="badge" style="background-color:#6c757d !important;color:#fff !important;"><?= count($complements_non_traites); ?></span>
                             <?php endif; ?>
                         </button>
                     </div>
@@ -2239,6 +2309,101 @@
 })();
 </script>
 
+<?php if ($__peut_prog): ?>
+<div class="modal-container colored-header colored-header-dark custom-width modal-effect-7"
+     id="modal-complements-non-traites" style="perspective: none;">
+    <div class="modal-content">
+        <div class="modal-header modal-header-colored">
+            <h3 class="modal-title">Complément départ non traité — archives</h3>
+            <button class="close modal-close js-nontraite-close" type="button" aria-hidden="true">
+                <span class="mdi mdi-close text-white"></span>
+            </button>
+        </div>
+        <div class="modal-body">
+            <p class="text-muted small mb-2">
+                Déclarations de sortie archivées faute de validation à temps par la gare aval
+                (heure de correspondance dépassée).
+            </p>
+            <?php if (empty($complements_non_traites)): ?>
+                <p class="mb-0 text-muted">Aucune archive pour le moment.</p>
+            <?php else: ?>
+                <div class="table-responsive">
+                    <table class="table table-sm table-striped mb-0">
+                        <thead>
+                            <tr>
+                                <th>Code programme</th>
+                                <th>Date départ</th>
+                                <th>Archivé le</th>
+                                <th>Par</th>
+                                <th>Motif</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($complements_non_traites as $__nt): ?>
+                                <tr>
+                                    <td><?= htmlspecialchars(isset($__nt->code_progr_source) ? $__nt->code_progr_source : '', ENT_QUOTES, 'UTF-8'); ?></td>
+                                    <td><?= htmlspecialchars(isset($__nt->date_progr) ? $__nt->date_progr : '—', ENT_QUOTES, 'UTF-8'); ?></td>
+                                    <td><?= htmlspecialchars(!empty($__nt->closed_at) ? $__nt->closed_at : '—', ENT_QUOTES, 'UTF-8'); ?></td>
+                                    <td><?= htmlspecialchars(!empty($__nt->closed_by) ? $__nt->closed_by : '—', ENT_QUOTES, 'UTF-8'); ?></td>
+                                    <td><?= htmlspecialchars(!empty($__nt->closed_reason) ? $__nt->closed_reason : 'non_traite_amont', ENT_QUOTES, 'UTF-8'); ?></td>
+                                </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+            <?php endif; ?>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary js-nontraite-close" type="button">Fermer</button>
+        </div>
+    </div>
+</div>
+<script>
+(function () {
+    var modalEl = document.getElementById('modal-complements-non-traites');
+    if (!modalEl) return;
+    function $m() {
+        return (window.jQuery && typeof jQuery.fn.niftyModal === 'function')
+            ? jQuery('#modal-complements-non-traites') : null;
+    }
+    function showModal() {
+        var jq = $m();
+        if (jq) { jq.niftyModal('show'); return; }
+        modalEl.classList.add('modal-show');
+        document.body.classList.add('modal-open');
+    }
+    function hideModal() {
+        var jq = $m();
+        if (jq) { jq.niftyModal('hide'); }
+        else {
+            modalEl.classList.remove('modal-show');
+            document.body.classList.remove('modal-open');
+        }
+    }
+    document.addEventListener('click', function (e) {
+        var t = e.target;
+        var openBtn = null, closeBtn = null;
+        while (t && t !== document) {
+            if (t.classList) {
+                if (t.classList.contains('js-nontraite-open')) openBtn = t;
+                if (t.classList.contains('js-nontraite-close')) closeBtn = t;
+            }
+            t = t.parentNode;
+        }
+        if (openBtn) {
+            e.preventDefault();
+            showModal();
+            return;
+        }
+        if (closeBtn) {
+            e.preventDefault();
+            hideModal();
+        }
+    });
+})();
+</script>
+<?php endif; ?>
+
 <div class="modal-container colored-header colored-header-warning custom-width modal-effect-7"
      id="modal-reconduction" style="perspective: none;">
     <div class="modal-content">
@@ -2275,6 +2440,9 @@
         </div>
         <div class="modal-footer">
             <button class="btn btn-secondary js-reco-close" type="button">Fermer</button>
+            <button class="btn btn-outline-danger js-reco-cancel" type="button" style="display:none;" disabled>
+                Annuler (heure dépassée)
+            </button>
             <button class="btn btn-warning js-reco-save" type="button" disabled>Créer le départ</button>
         </div>
     </div>
@@ -2311,7 +2479,16 @@
         document.getElementById('reco-detail').style.display = 'none';
         document.getElementById('reco-msg').innerHTML = '';
         var save = document.querySelector('.js-reco-save');
-        if (save) save.disabled = true;
+        if (save) {
+            save.disabled = true;
+            save.style.opacity = '';
+            save.style.pointerEvents = '';
+        }
+        var cancelBtn = document.querySelector('.js-reco-cancel');
+        if (cancelBtn) {
+            cancelBtn.style.display = 'none';
+            cancelBtn.disabled = true;
+        }
     }
     function setMsg(text, isErr) {
         var el = document.getElementById('reco-msg');
@@ -2344,6 +2521,10 @@
             aucun_siege: 'Choisissez au moins un siège.',
             siege_indisponible: 'Un siège choisi n’est plus libre.',
             heure_correspondance_introuvable: 'Impossible de trouver l’heure de départ de la gare de correspondance.',
+            heure_correspondance_depassee: 'Heure de correspondance dépassée : création bloquée. Annulez l’offre.',
+            heure_pas_depassee: 'L’heure de correspondance n’est pas encore dépassée.',
+            offre_annulee: 'Cette offre a déjà été annulée pour votre gare.',
+            sortie_fermee: 'Cette déclaration n’est plus ouverte.',
             depart_code_manquant: 'Code de départ du principal introuvable.',
             date_invalide: 'Date invalide.',
             echec_creation_depart: 'Échec de création du départ.',
@@ -2365,12 +2546,16 @@
             var heurePrin = (o.heure_principale || o.heure || '').toString().substr(0, 5);
             var heureAff = heureCorr || heurePrin;
             var codeDep = o.depart_code_principal || o.depart_code || '';
+            var attente = o.attente_label ? (' · attente ' + o.attente_label) : '';
+            var exp = o.expiree ? ' · <span style="color:#ea4335;font-weight:700;">heure dépassée</span>' : '';
             var label = (o.nom_gaep || o.gareidentif || '') + ' · ' + (o.nom_ligne || '')
                 + (codeDep ? (' · ' + codeDep) : '')
                 + ' · corr. ' + heureAff
                 + (heureCorr && heurePrin && heureCorr !== heurePrin ? (' (départ ' + heurePrin + ')') : '')
-                + ' · ' + (o.nb_restants || 0) + ' place(s)';
-            html += '<label class="list-group-item list-group-item-action mb-0" style="cursor:pointer;">'
+                + ' · ' + (o.nb_restants || 0) + ' place(s)'
+                + attente + exp;
+            html += '<label class="list-group-item list-group-item-action mb-0" style="cursor:pointer;'
+                + (o.expiree ? 'opacity:0.85;' : '') + '">'
                 + '<input type="radio" name="reco_offre" class="js-reco-pick mr-2" value="'
                 + String(o.code_progr_source).replace(/"/g, '&quot;') + '"> '
                 + label + '</label>';
@@ -2389,13 +2574,39 @@
         });
     }
 
+    function applyExpireUi(offre) {
+        var save = document.querySelector('.js-reco-save');
+        var cancelBtn = document.querySelector('.js-reco-cancel');
+        var expired = !!(offre && offre.expiree);
+        if (cancelBtn) {
+            cancelBtn.style.display = expired ? '' : 'none';
+            cancelBtn.disabled = !expired;
+        }
+        if (!save) return;
+        if (expired) {
+            save.disabled = true;
+            save.style.opacity = '0.45';
+            save.style.pointerEvents = 'none';
+            var hh = (offre.heure_limite || offre.heure_correspondance || '').toString().substr(0, 5);
+            var att = offre.attente_label ? (' En attente depuis ' + offre.attente_label + '.') : '';
+            setMsg('Heure de correspondance dépassée'
+                + (hh ? (' (' + hh + ')') : '')
+                + '.' + att + ' Création bloquée — vous pouvez annuler.', true);
+        } else {
+            save.style.opacity = '';
+            save.style.pointerEvents = '';
+            setMsg('', false);
+        }
+    }
+
     function selectOffre(offre) {
         state.offre = offre;
         document.getElementById('reco-detail').style.display = 'block';
         document.getElementById('reco-detail-label').textContent =
             (offre.nom_gaep || '') + ' → ' + (offre.nom_gadest || '')
             + (offre.depart_code_principal ? (' · code ' + offre.depart_code_principal) : '')
-            + ' · sièges restants';
+            + ' · sièges restants'
+            + (offre.attente_label ? (' · attente ' + offre.attente_label) : '');
         document.getElementById('reco-date').value = offre.date_correspondance || offre.date_progr || '';
         var sieges = offre.sieges_restants || [];
         var occupes = {};
@@ -2426,6 +2637,11 @@
             });
         }
         wrap.innerHTML = html || '<p class="text-muted mb-0">Aucun siège restant.</p>';
+        applyExpireUi(offre);
+        if (offre.expiree) {
+            document.getElementById('reco-heure').innerHTML = '<option value="">—</option>';
+            return;
+        }
         var sel = document.getElementById('reco-heure');
         sel.innerHTML = '<option value="">Chargement…</option>';
         fetch(base + '/heures_reconduction/' + encodeURIComponent(ekey) + '/'
@@ -2459,6 +2675,10 @@
                     sel.appendChild(opt);
                 }
                 sel.value = pref;
+            }
+            if (!state.offre || state.offre.expiree) {
+                applyExpireUi(state.offre);
+                return;
             }
             document.querySelector('.js-reco-save').disabled = false;
         }).catch(function () {
@@ -2509,6 +2729,11 @@
     if (saveEl) {
         saveEl.addEventListener('click', function () {
             if (!state.offre) return;
+            if (state.offre.expiree) {
+                setMsg('Heure de correspondance dépassée : création bloquée.', true);
+                applyExpireUi(state.offre);
+                return;
+            }
             var sieges = (state.offre.sieges_restants || []).slice();
             if (!sieges.length) {
                 setMsg('Aucun siège restant à reconduire.', true);
@@ -2549,6 +2774,41 @@
             }).catch(function (err) {
                 setMsg((err && err.message) ? err.message : 'Erreur réseau', true);
                 saveEl.disabled = false;
+            });
+        });
+    }
+
+    var cancelEl = document.querySelector('.js-reco-cancel');
+    if (cancelEl) {
+        cancelEl.addEventListener('click', function () {
+            if (!state.offre || !state.offre.expiree) return;
+            if (!window.confirm('Annuler cette offre (heure dépassée) ? La gare amont sera notifiée.')) return;
+            cancelEl.disabled = true;
+            setMsg('Annulation…', false);
+            var body = new URLSearchParams();
+            body.set('code_progr_source', state.offre.code_progr_source);
+            body.set('gare_cible', gareExp);
+            appendCsrf(body);
+            fetch(base + '/annuler_complement_expire/' + encodeURIComponent(ekey), {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Accept': 'application/json'
+                },
+                body: body.toString()
+            }).then(parseJsonResponse).then(function (data) {
+                if (!data || !data.ok) {
+                    setMsg(recoError(data && data.error), true);
+                    cancelEl.disabled = false;
+                    return;
+                }
+                setMsg('Offre annulée. La gare amont a été notifiée.', false);
+                setTimeout(function () { window.location.reload(); }, 700);
+            }).catch(function (err) {
+                setMsg((err && err.message) ? err.message : 'Erreur réseau', true);
+                cancelEl.disabled = false;
             });
         });
     }

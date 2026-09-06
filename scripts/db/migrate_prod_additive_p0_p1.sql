@@ -137,6 +137,43 @@ CREATE TABLE IF NOT EXISTS programme_sortie_alerte (
   KEY idx_alerte_source (code_progr_source)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- Cycle de vie complément (ouverte / traitée / annulée / non_traitee)
+SET @exists := (
+  SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = @db AND TABLE_NAME = 'programme_sortie' AND COLUMN_NAME = 'statut'
+);
+SET @sql := IF(@exists = 0,
+  'ALTER TABLE programme_sortie ADD COLUMN statut VARCHAR(20) NOT NULL DEFAULT ''ouverte'' AFTER source_ferme',
+  'SELECT 1');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+SET @exists := (
+  SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = @db AND TABLE_NAME = 'programme_sortie' AND COLUMN_NAME = 'closed_at'
+);
+SET @sql := IF(@exists = 0,
+  'ALTER TABLE programme_sortie ADD COLUMN closed_at TIMESTAMP NULL DEFAULT NULL AFTER statut',
+  'SELECT 1');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+SET @exists := (
+  SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = @db AND TABLE_NAME = 'programme_sortie' AND COLUMN_NAME = 'closed_by'
+);
+SET @sql := IF(@exists = 0,
+  'ALTER TABLE programme_sortie ADD COLUMN closed_by VARCHAR(128) DEFAULT NULL AFTER closed_at',
+  'SELECT 1');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+SET @exists := (
+  SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = @db AND TABLE_NAME = 'programme_sortie' AND COLUMN_NAME = 'closed_reason'
+);
+SET @sql := IF(@exists = 0,
+  'ALTER TABLE programme_sortie ADD COLUMN closed_reason VARCHAR(32) DEFAULT NULL AFTER closed_by',
+  'SELECT 1');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
 -- -----------------------------------------------------------------------------
 -- P1.1 OD final passager
 -- -----------------------------------------------------------------------------

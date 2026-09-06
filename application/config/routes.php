@@ -278,6 +278,8 @@
             $route['programmes/creer_reconduction/(:any)'] = 'Programmes/creer_reconduction/$1';
             $route['programmes/lire_alerte_sortie/(:any)'] = 'Programmes/lire_alerte_sortie/$1';
             $route['programmes/alertes_sortie/(:any)/(:any)'] = 'Programmes/alertes_sortie/$1/$2';
+            $route['programmes/annuler_complement_expire/(:any)'] = 'Programmes/annuler_complement_expire/$1';
+            $route['programmes/archiver_complement_non_traite/(:any)'] = 'Programmes/archiver_complement_non_traite/$1';
             $route['programmes/(:num)'] = 'Programmes/index/$1';
 
             /* reprogrammes — vérif. code client bagage / transit */

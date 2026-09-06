@@ -101,6 +101,8 @@
                 'creer_reconduction' => array('m_programme', 'm_programme_reconduction', 'm_entreprises'),
                 'lire_alerte_sortie' => array('m_programme_reconduction', 'm_entreprises'),
                 'alertes_sortie' => array('m_programme_reconduction', 'm_entreprises'),
+                'annuler_complement_expire' => array('m_programme_reconduction', 'm_entreprises'),
+                'archiver_complement_non_traite' => array('m_programme_reconduction', 'm_entreprises'),
             );
         }
 
@@ -1838,6 +1840,54 @@
             return $this->load->view('beagle/pages/_programme/json', array(
                 'json' => array('ok' => true, 'alertes' => $list),
             ));
+        }
+
+        /**
+         * Aval : annule une offre de complément après dépassement de l'heure de correspondance.
+         * POST Programmes/annuler_complement_expire/{ekey}
+         */
+        public function annuler_complement_expire($ckey)
+        {
+            session_release_lock();
+            $this->company = $this->m_entreprises->get_key($ckey);
+            if (!$this->_peut_gerer_programme()) {
+                return $this->load->view('beagle/pages/_programme/json', array(
+                    'json' => array('ok' => false, 'error' => 'droit_insuffisant'),
+                ));
+            }
+            $source = trim((string) $this->input->post('code_progr_source'));
+            $gare = trim((string) $this->input->post('gare_cible'));
+            $by = isset($this->session->agent->username) ? $this->session->agent->username : null;
+            $out = $this->m_programme_reconduction->annuler_par_aval(
+                $this->session->company->ekey,
+                $source,
+                $gare,
+                $by
+            );
+            return $this->load->view('beagle/pages/_programme/json', array('json' => $out));
+        }
+
+        /**
+         * Amont : archive une déclaration en complément non traité.
+         * POST Programmes/archiver_complement_non_traite/{ekey}
+         */
+        public function archiver_complement_non_traite($ckey)
+        {
+            session_release_lock();
+            $this->company = $this->m_entreprises->get_key($ckey);
+            if (!$this->_peut_gerer_programme()) {
+                return $this->load->view('beagle/pages/_programme/json', array(
+                    'json' => array('ok' => false, 'error' => 'droit_insuffisant'),
+                ));
+            }
+            $source = trim((string) $this->input->post('code_progr_source'));
+            $by = isset($this->session->agent->username) ? $this->session->agent->username : null;
+            $out = $this->m_programme_reconduction->archiver_non_traite(
+                $this->session->company->ekey,
+                $source,
+                $by
+            );
+            return $this->load->view('beagle/pages/_programme/json', array('json' => $out));
         }
        
         public function verifinfosbis($n = '')

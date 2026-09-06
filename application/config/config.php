@@ -494,6 +494,8 @@
         'programmes/creer_reconduction.*',
         'programmes/lire_alerte_sortie.*',
         'programmes/alertes_sortie.*',
+        'programmes/annuler_complement_expire.*',
+        'programmes/archiver_complement_non_traite.*',
         'confirmation/verif.*',
         'gares/ajax_passagers.*',
         'login/lin_s',
