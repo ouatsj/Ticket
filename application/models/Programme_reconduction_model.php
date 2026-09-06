@@ -486,11 +486,26 @@ class Programme_reconduction_model extends CI_Model
             $r->id_ligneheure_correspondance = isset($hor['id_heur']) ? (int) $hor['id_heur'] : 0;
             $r->depart_code_principal = isset($hor['depart_code']) ? $hor['depart_code'] : (isset($r->depart_code) ? $r->depart_code : '');
             $ech = $this->echeance_correspondance_from_hor($r, $hor);
+            if (empty($ech['connue'])) {
+                // Même repli que echeance_correspondance (pas de lien suite).
+                $horFb = array(
+                    'heure' => isset($r->heure) ? (string) $r->heure : '',
+                    'date_progr' => isset($r->date_progr) ? (string) $r->date_progr : '',
+                );
+                $ech = $this->echeance_correspondance_from_hor($r, $horFb);
+            }
             $r->attente_label = $this->format_duree_attente(isset($r->declared_at) ? $r->declared_at : null);
             $r->heure_limite = $ech['heure'];
             $r->date_limite = $ech['date'];
             $r->echeance_connue = !empty($ech['connue']);
             $r->expiree = !empty($ech['expiree']);
+            // Affichage : si corr. absente, montrer l'heure utilisée pour l'échéance.
+            if ($r->heure_correspondance === '' && $r->heure_limite !== '') {
+                $r->heure_correspondance = $r->heure_limite;
+            }
+            if ($r->date_correspondance === '' && $r->date_limite !== '') {
+                $r->date_correspondance = $r->date_limite;
+            }
             $out[] = $r;
         }
         return $out;
@@ -499,6 +514,9 @@ class Programme_reconduction_model extends CI_Model
     /**
      * Horaire et depart_code du principal pour créer le départ aval
      * à l'heure de la gare de correspondance (programme suite), pas à l'heure du principal.
+     *
+     * Si aucun lien programme_correspondance n'existe encore, infère le créneau hub
+     * via heures_correspondance() (itinéraire / catalogue), filtré sur la gare aval.
      *
      * @return array{depart_code:string,heure:string,date_progr:string,id_heur:int}
      */
@@ -529,7 +547,13 @@ class Programme_reconduction_model extends CI_Model
             $suite = $this->prog_detail($ekey, $lien->code_progr_suite);
         }
         if (!$suite) {
-            return $out;
+            return $this->_infer_horaire_hub_correspondance(
+                $ekey,
+                $source,
+                $gare_cible,
+                $gadest_lg,
+                $out
+            );
         }
         $out['heure'] = isset($suite->heure) ? (string) $suite->heure : '';
         $out['date_progr'] = isset($suite->date_progr) ? (string) $suite->date_progr : '';
@@ -572,6 +596,123 @@ class Programme_reconduction_model extends CI_Model
                 if ($forced > 0) {
                     $out['id_heur'] = $forced;
                 }
+            }
+        }
+        return $out;
+    }
+
+    /**
+     * Infère date/heure hub (ex. Bobo 05:00) quand le lien correspondance n'est pas encore en base.
+     * @param object|null $source
+     * @param array $out
+     * @return array
+     */
+    protected function _infer_horaire_hub_correspondance($ekey, $source, $gare_cible, $gadest_lg, array $out)
+    {
+        if (!$source || empty($source->code_progr)) {
+            return $out;
+        }
+        $gare_cible = trim((string) $gare_cible);
+        $gadest_lg = trim((string) $gadest_lg);
+        if ($gadest_lg === '' && !empty($source->gadest_lg)) {
+            $gadest_lg = (string) $source->gadest_lg;
+        }
+
+        // 1) Programme hub déjà créé (même destination, après départ source + marge).
+        if ($gare_cible !== '' && $gadest_lg !== '') {
+            $exist = $this->db->query(
+                "SELECT pr.code_progr, pr.date_progr, pr.id_heur, h.heure, pr.depart_code
+                 FROM programme pr
+                 JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
+                 JOIN heures h ON lh.heure_identif = h.id_heure
+                 JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
+                 WHERE pr.gareidentif = ?
+                   AND lg.gadest_lg = ?
+                   AND pr.statut_prog = 'actif'
+                   AND pr.actif_prog = 0
+                   AND pr.date_progr >= ?
+                   AND pr.date_progr <= DATE_ADD(?, INTERVAL 1 DAY)
+                   AND TIMESTAMP(pr.date_progr, h.heure) >= DATE_ADD(TIMESTAMP(?, ?), INTERVAL 30 MINUTE)
+                 ORDER BY pr.date_progr ASC, h.heure ASC
+                 LIMIT 1",
+                array(
+                    $gare_cible,
+                    $gadest_lg,
+                    $source->date_progr,
+                    $source->date_progr,
+                    $source->date_progr,
+                    $source->heure,
+                )
+            )->row();
+            if ($exist) {
+                $out['heure'] = (string) $exist->heure;
+                $out['date_progr'] = (string) $exist->date_progr;
+                $out['id_heur'] = (int) $exist->id_heur;
+                if (!empty($exist->depart_code)) {
+                    $out['depart_code'] = (string) $exist->depart_code;
+                }
+                return $out;
+            }
+        }
+
+        // 2) Catalogue / itinéraire (heures_correspondance), filtré sur la gare hub.
+        $sug = $this->m_programme_correspondance->heures_correspondance($ekey, $source->code_progr);
+        if (empty($sug['ok']) || empty($sug['heures_par_date']) || !is_array($sug['heures_par_date'])) {
+            return $out;
+        }
+        $best = null;
+        foreach ($sug['heures_par_date'] as $date => $slots) {
+            if (!is_array($slots)) {
+                continue;
+            }
+            foreach ($slots as $slot) {
+                if (!is_array($slot)) {
+                    continue;
+                }
+                $slotGare = isset($slot['gareidentif']) ? trim((string) $slot['gareidentif']) : '';
+                if ($gare_cible !== '' && $slotGare !== '' && $slotGare !== $gare_cible) {
+                    continue;
+                }
+                $hh = isset($slot['heure']) ? $this->_normaliser_hhmm($slot['heure']) : '';
+                $dd = isset($slot['date_progr']) ? (string) $slot['date_progr'] : (string) $date;
+                if ($hh === '' || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $dd)) {
+                    continue;
+                }
+                $ts = strtotime($dd . ' ' . $hh . ':00 UTC');
+                if ($ts === false) {
+                    continue;
+                }
+                if ($best === null || $ts < $best['ts']) {
+                    $best = array(
+                        'ts' => $ts,
+                        'heure' => isset($slot['heure']) ? (string) $slot['heure'] : $hh,
+                        'date_progr' => $dd,
+                        'id_heur' => isset($slot['id_ligneheure']) ? (int) $slot['id_ligneheure'] : 0,
+                    );
+                }
+            }
+        }
+        if ($best) {
+            $out['heure'] = $best['heure'];
+            $out['date_progr'] = $best['date_progr'];
+            $out['id_heur'] = $best['id_heur'];
+            return $out;
+        }
+
+        // 3) Dernier repli : premier horaire compatible local vers la même destination.
+        if ($gare_cible !== '' && $gadest_lg !== '') {
+            $heures = $this->heures_compatibles($ekey, $gare_cible, $gadest_lg);
+            if (!empty($heures)) {
+                $h0 = $heures[0];
+                $out['heure'] = isset($h0->heure) ? (string) $h0->heure : '';
+                $out['date_progr'] = !empty($source->date_progr) ? (string) $source->date_progr : '';
+                // Si l'heure hub est avant le départ source le même jour → lendemain.
+                $hh = $this->_normaliser_hhmm($out['heure']);
+                $hs = $this->_normaliser_hhmm(isset($source->heure) ? $source->heure : '');
+                if ($hh !== '' && $hs !== '' && $hh <= $hs && $out['date_progr'] !== '') {
+                    $out['date_progr'] = date('Y-m-d', strtotime($out['date_progr'] . ' +1 day'));
+                }
+                $out['id_heur'] = isset($h0->id_ligneheure) ? (int) $h0->id_ligneheure : 0;
             }
         }
         return $out;
@@ -1260,7 +1401,10 @@ class Programme_reconduction_model extends CI_Model
                 }
                 if (!empty($ech['expiree'])) {
                     $hh = !empty($ech['heure']) ? $ech['heure'] : '';
-                    $extra .= ' Heure de correspondance dépassée'
+                    $srcLabel = (!empty($ech['source']) && $ech['source'] === 'depart_source')
+                        ? 'heure du départ amont'
+                        : 'heure de correspondance';
+                    $extra .= ' ' . ucfirst($srcLabel) . ' dépassée'
                         . ($hh !== '' ? (' (' . $hh . ')') : '')
                         . ' — création de départ bloquée ; annulez ou archivez côté amont.';
                     $a->expiree = true;
@@ -1309,13 +1453,14 @@ class Programme_reconduction_model extends CI_Model
     }
 
     /**
-     * Échéance = date/heure de correspondance (programme suite), option 1.
-     * @return array{connue:bool,expiree:bool,date:string,heure:string}
+     * Échéance = date/heure de correspondance hub (lien suite ou inférée via itinéraire/catalogue).
+     * Dernier repli seulement : date/heure du départ source.
+     * @return array{connue:bool,expiree:bool,date:string,heure:string,source:string}
      */
     public function echeance_correspondance($ekey, $sortie, $gare_aval)
     {
         if (!$sortie) {
-            return array('connue' => false, 'expiree' => false, 'date' => '', 'heure' => '');
+            return array('connue' => false, 'expiree' => false, 'date' => '', 'heure' => '', 'source' => '');
         }
         $hor = $this->horaire_aval_correspondance(
             $ekey,
@@ -1323,7 +1468,27 @@ class Programme_reconduction_model extends CI_Model
             $gare_aval,
             isset($sortie->gadest_lg) ? $sortie->gadest_lg : ''
         );
-        return $this->echeance_correspondance_from_hor($sortie, $hor);
+        $ech = $this->echeance_correspondance_from_hor($sortie, $hor);
+        if (!empty($ech['connue'])) {
+            $ech['source'] = 'correspondance';
+            return $ech;
+        }
+        $src = $this->prog_detail($ekey, $sortie->code_progr_source);
+        if ($src && !empty($src->heure)) {
+            $horFb = array(
+                'heure' => (string) $src->heure,
+                'date_progr' => !empty($src->date_progr)
+                    ? (string) $src->date_progr
+                    : (isset($sortie->date_progr) ? (string) $sortie->date_progr : ''),
+            );
+            $ech = $this->echeance_correspondance_from_hor($sortie, $horFb);
+            if (!empty($ech['connue'])) {
+                $ech['source'] = 'depart_source';
+                return $ech;
+            }
+        }
+        $ech['source'] = '';
+        return $ech;
     }
 
     /**
@@ -1334,13 +1499,25 @@ class Programme_reconduction_model extends CI_Model
     public function echeance_correspondance_from_hor($sortie, array $hor)
     {
         $date = '';
-        if (!empty($hor['date_progr']) && preg_match('/^\d{4}-\d{2}-\d{2}$/', $hor['date_progr'])) {
-            $date = $hor['date_progr'];
-        } elseif (!empty($sortie->date_progr)) {
+        if (!empty($hor['date_progr']) && preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) $hor['date_progr'])) {
+            $date = (string) $hor['date_progr'];
+        } elseif (!empty($sortie->date_progr) && preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) $sortie->date_progr)) {
             $date = (string) $sortie->date_progr;
         }
-        $heure = !empty($hor['heure']) ? substr(trim((string) $hor['heure']), 0, 5) : '';
-        if ($date === '' || $heure === '' || !preg_match('/^\d{2}:\d{2}$/', $heure)) {
+        $heure = '';
+        if (!empty($hor['heure'])) {
+            $heure = $this->_normaliser_hhmm($hor['heure']);
+        }
+        if ($heure === '' && !empty($sortie->heure_correspondance)) {
+            $heure = $this->_normaliser_hhmm($sortie->heure_correspondance);
+        }
+        if ($heure === '' && !empty($sortie->heure_principale)) {
+            $heure = $this->_normaliser_hhmm($sortie->heure_principale);
+        }
+        if ($heure === '' && !empty($sortie->heure)) {
+            $heure = $this->_normaliser_hhmm($sortie->heure);
+        }
+        if ($date === '' || $heure === '') {
             return array('connue' => false, 'expiree' => false, 'date' => $date, 'heure' => $heure);
         }
         $limitTs = strtotime($date . ' ' . $heure . ':00 UTC');
@@ -1353,6 +1530,18 @@ class Programme_reconduction_model extends CI_Model
             'date' => $date,
             'heure' => $heure,
         );
+    }
+
+    /**
+     * Normalise "8:30", "08:30:00" → "08:30".
+     */
+    protected function _normaliser_hhmm($heure)
+    {
+        $heure = trim((string) $heure);
+        if (preg_match('/^(\d{1,2}):(\d{2})/', $heure, $m)) {
+            return sprintf('%02d:%02d', (int) $m[1], (int) $m[2]);
+        }
+        return '';
     }
 
     /**
