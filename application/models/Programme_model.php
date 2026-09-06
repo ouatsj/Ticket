@@ -2015,7 +2015,7 @@
          * @param string|null $prix si non null, filtre même prix tarif
          * @return array
          */
-        public function heurereprog_unifie($cid, $gaexp, $gadest, $exclude_code, $prix = null, $id_escale = null, $gareidentif = null, $idsousgare = null, $nom_ligne = null)
+        public function heurereprog_unifie($cid, $gaexp, $gadest, $exclude_code, $prix = null, $id_escale = null, $gareidentif = null, $idsousgare = null, $nom_ligne = null, $axes = null)
         {
             $tim = date('H', time('H'));
             if ($tim === '00') {
@@ -2063,15 +2063,63 @@
                 $sgSql = $this->sql_filtre_sousgare((int) $idsousgare);
             }
 
-            // OD métier = nom de ligne (chaque cie a des codes d’axe différents).
+            // OD métier = nom de ligne ET sens gaexp→gadest (évite contre-sens).
+            // Les programmes restent ceux de la gare session (gareSql / sgSql).
             $odSql = '';
             $nom = trim((string) $nom_ligne);
-            if ($nom !== '') {
-                $odSql = ' AND lg.nom_ligne = ' . $this->db->escape($nom);
+            $ga = trim((string) $gaexp);
+            $gd = trim((string) $gadest);
+            $axeList = array();
+            if (is_array($axes)) {
+                foreach ($axes as $ax) {
+                    $ax = trim((string) $ax);
+                    if ($ax !== '') {
+                        $axeList[] = $ax;
+                    }
+                }
+            }
+
+            // Sens obligatoire : axes même villes que gaexp→gadest (ou codes exacts).
+            $axesSens = array();
+            if ($ga !== '' && $gd !== '') {
+                $axesSens = $this->axes_od_par_villes($ga, $gd, $cid);
+            }
+            if (empty($axesSens) && $ga !== '' && $gd !== '') {
+                $axesSens = array($ga . '-' . $gd);
+            }
+            // Intersect avec axes fournis (transit OD globale), toujours dans le bon sens.
+            if (!empty($axeList) && !empty($axesSens)) {
+                $axeList = array_values(array_intersect($axeList, $axesSens));
+                if (empty($axeList)) {
+                    $axeList = $axesSens;
+                }
+            } elseif (!empty($axeList) && empty($axesSens)) {
+                // Garder axes fournis mais filtrés par nom+sens ci-dessous si possible.
+            } elseif (empty($axeList) && !empty($axesSens)) {
+                $axeList = $axesSens;
+            }
+
+            if ($nom !== '' && !empty($axeList)) {
+                $odSql = ' AND lg.nom_ligne = ' . $this->db->escape($nom)
+                    . ' AND lg.ident_ligne IN (' . $this->sql_in_ident_lignes($axeList) . ')';
+            } elseif ($nom !== '' && $ga !== '' && $gd !== '') {
+                // Nom + sens villes (ou codes).
+                if (!empty($axesSens)) {
+                    $odSql = ' AND lg.nom_ligne = ' . $this->db->escape($nom)
+                        . ' AND lg.ident_ligne IN (' . $this->sql_in_ident_lignes($axesSens) . ')';
+                } else {
+                    $odSql = ' AND lg.nom_ligne = ' . $this->db->escape($nom)
+                        . ' AND lg.gaexp_lg = ' . $this->db->escape($ga)
+                        . ' AND lg.gadest_lg = ' . $this->db->escape($gd);
+                }
+            } elseif (!empty($axeList)) {
+                $odSql = ' AND lg.ident_ligne IN (' . $this->sql_in_ident_lignes($axeList) . ')';
+            } elseif ($ga !== '' && $gd !== '') {
+                $odSql = ' AND lg.gaexp_lg = ' . $this->db->escape($ga)
+                    . ' AND lg.gadest_lg = ' . $this->db->escape($gd);
             } else {
-                $gaexpEsc = $this->db->escape($gaexp);
-                $gadestEsc = $this->db->escape($gadest);
-                $odSql = " AND lg.gaexp_lg = {$gaexpEsc} AND lg.gadest_lg = {$gadestEsc}";
+                // Pas d’OD exploitable → aucun programme.
+                $odSql = ' AND 1=0';
             }
 
             return $this->db->query(
@@ -2110,40 +2158,210 @@
         }
 
         /**
-         * Axes (ident_ligne) partageant le même nom de ligne (OD métier multi-compagnies).
+         * Compose un nom de ligne OD global : départ 1ʳᵉ jambe + arrivée dernière.
+         * Ex. BOBO-OUAGA + OUAGA-MANGA → BOBO-MANGA (suffixe _VIP conservé si présent à l’arrivée).
          *
-         * @param string      $nom_ligne
-         * @param string|null $ekey filtre entreprise (recommandé)
+         * @param string $nom_first
+         * @param string $nom_last
+         * @return string
+         */
+        public function composer_nom_ligne_od($nom_first, $nom_last)
+        {
+            $a = trim((string) $nom_first);
+            $b = trim((string) $nom_last);
+            if ($a === '' || $b === '') {
+                return '';
+            }
+            $left = $a;
+            $p = strpos($a, '-');
+            if ($p !== false) {
+                $left = substr($a, 0, $p);
+            }
+            $right = $b;
+            $p2 = strrpos($b, '-');
+            if ($p2 !== false) {
+                $right = substr($b, $p2 + 1);
+            }
+            $left = trim($left);
+            $right = trim($right);
+            if ($left === '' || $right === '') {
+                return '';
+            }
+            return $left . '-' . $right;
+        }
+
+        /**
+         * Axes (ident_ligne) reliant les mêmes villes que gaexp → gadest (OD métier).
+         *
+         * @param string      $gaexp
+         * @param string      $gadest
+         * @param string|null $ekey
          * @return string[]
          */
-        public function axes_par_nom_ligne($nom_ligne, $ekey = null)
+        public function axes_od_par_villes($gaexp, $gadest, $ekey = null)
+        {
+            $ga = trim((string) $gaexp);
+            $gd = trim((string) $gadest);
+            if ($ga === '' || $gd === '') {
+                return array();
+            }
+            $ek = trim((string) $ekey);
+            $sql = "SELECT DISTINCT lg.ident_ligne
+                    FROM lignes lg
+                    JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
+                    JOIN gare_dest ga ON lg.gadest_lg = ga.code_gadest
+                    JOIN gare_exp ex0 ON ex0.code_gaexp = ?
+                    JOIN gare_dest ga0 ON ga0.code_gadest = ?
+                    WHERE ex.id_villegd = ex0.id_villegd
+                      AND ga.id_villega = ga0.id_villega";
+            $params = array($ga, $gd);
+            if ($ek !== '') {
+                $sql .= " AND EXISTS (
+                    SELECT 1 FROM compagnies c
+                    JOIN entreprise e ON c.id_entrep = e.id_entreprise
+                    WHERE c.cle_compagnie = ex.id_compagd AND e.ekey = ?
+                )";
+                $params[] = $ek;
+            }
+            $sql .= " ORDER BY lg.ident_ligne ASC";
+            $rows = $this->db->query($sql, $params)->result();
+            $out = array();
+            foreach ($rows as $r) {
+                $id = trim((string) $r->ident_ligne);
+                if ($id !== '') {
+                    $out[] = $id;
+                }
+            }
+            return $out;
+        }
+
+        /**
+         * OD métier globale : gare départ 1ʳᵉ jambe + gare arrivée dernière jambe.
+         *
+         * @return array{gaexp:string,gadest:string,axe:string,nom_ligne:string,axes:string[]}
+         */
+        public function od_metier_globale($gaexp, $gadest, $ekey = null, $nom_first = null, $nom_last = null)
+        {
+            $ga = trim((string) $gaexp);
+            $gd = trim((string) $gadest);
+            $ek = trim((string) $ekey);
+            $out = array(
+                'gaexp' => $ga,
+                'gadest' => $gd,
+                'axe' => ($ga !== '' && $gd !== '') ? ($ga . '-' . $gd) : '',
+                'nom_ligne' => '',
+                'axes' => array(),
+            );
+            if ($ga === '' || $gd === '') {
+                return $out;
+            }
+
+            // 1) Ligne exacte codes.
+            $exact = $this->db->query(
+                "SELECT lg.nom_ligne, lg.ident_ligne
+                 FROM lignes lg
+                 WHERE lg.gaexp_lg = ? AND lg.gadest_lg = ?
+                 ORDER BY lg.ident_ligne ASC
+                 LIMIT 1",
+                array($ga, $gd)
+            )->row();
+            if ($exact && trim((string) $exact->nom_ligne) !== '') {
+                $out['nom_ligne'] = trim((string) $exact->nom_ligne);
+            }
+
+            // 2) Composition depuis les noms de jambes (BOBO-OUAGA + OUAGA-MANGA → BOBO-MANGA).
+            if ($out['nom_ligne'] === '') {
+                $composed = $this->composer_nom_ligne_od($nom_first, $nom_last);
+                if ($composed !== '') {
+                    $alts = $this->axes_par_nom_ligne($composed, $ek !== '' ? $ek : null, $ga, $gd);
+                    if (!empty($alts)) {
+                        $out['nom_ligne'] = $composed;
+                    } elseif ($out['nom_ligne'] === '') {
+                        $out['nom_ligne'] = $composed;
+                    }
+                }
+            }
+
+            // 3) Axes / noms par villes OD.
+            $axesVille = $this->axes_od_par_villes($ga, $gd, $ek !== '' ? $ek : null);
+            $out['axes'] = $axesVille;
+            if ($out['nom_ligne'] === '' && !empty($axesVille)) {
+                $noms = $this->db->query(
+                    "SELECT DISTINCT lg.nom_ligne
+                     FROM lignes lg
+                     WHERE lg.ident_ligne IN (" . $this->sql_in_ident_lignes($axesVille) . ")
+                     ORDER BY (INSTR(lg.nom_ligne, '_') > 0) ASC, CHAR_LENGTH(lg.nom_ligne) ASC, lg.nom_ligne ASC"
+                )->result();
+                if (!empty($noms) && trim((string) $noms[0]->nom_ligne) !== '') {
+                    $out['nom_ligne'] = trim((string) $noms[0]->nom_ligne);
+                }
+            }
+
+            // Axes de recherche = intersection nom retenu ∩ sens villes (jamais le contre-sens).
+            if ($out['nom_ligne'] !== '') {
+                $byNom = $this->axes_par_nom_ligne(
+                    $out['nom_ligne'],
+                    $ek !== '' ? $ek : null,
+                    $ga,
+                    $gd
+                );
+                if (!empty($byNom)) {
+                    $out['axes'] = $byNom;
+                } elseif (!empty($axesVille)) {
+                    $out['axes'] = $axesVille;
+                }
+            }
+            if (empty($out['axes']) && $out['axe'] !== '') {
+                $out['axes'] = array($out['axe']);
+            }
+
+            return $out;
+        }
+
+        /**
+         * Axes (ident_ligne) partageant le même nom de ligne (OD métier multi-compagnies).
+         * Optionnel : restreindre au sens gaexp→gadest (mêmes villes) pour éviter le contre-sens.
+         *
+         * @param string      $nom_ligne
+         * @param string|null $ekey
+         * @param string|null $gaexp
+         * @param string|null $gadest
+         * @return string[]
+         */
+        public function axes_par_nom_ligne($nom_ligne, $ekey = null, $gaexp = null, $gadest = null)
         {
             $nom = trim((string) $nom_ligne);
             if ($nom === '') {
                 return array();
             }
             $ek = trim((string) $ekey);
+            $ga = trim((string) $gaexp);
+            $gd = trim((string) $gadest);
+
+            $sql = "SELECT DISTINCT lg.ident_ligne
+                    FROM lignes lg
+                    JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
+                    JOIN gare_dest ga ON lg.gadest_lg = ga.code_gadest";
+            $params = array();
+            $where = array('lg.nom_ligne = ?');
+            $params[] = $nom;
+
             if ($ek !== '') {
-                $rows = $this->db->query(
-                    "SELECT DISTINCT lg.ident_ligne
-                     FROM lignes lg
-                     JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
-                     JOIN compagnies c ON ex.id_compagd = c.cle_compagnie
-                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                     WHERE e.ekey = ?
-                     AND lg.nom_ligne = ?
-                     ORDER BY lg.ident_ligne ASC",
-                    array($ek, $nom)
-                )->result();
-            } else {
-                $rows = $this->db->query(
-                    "SELECT DISTINCT lg.ident_ligne
-                     FROM lignes lg
-                     WHERE lg.nom_ligne = ?
-                     ORDER BY lg.ident_ligne ASC",
-                    array($nom)
-                )->result();
+                $sql .= " JOIN compagnies c ON ex.id_compagd = c.cle_compagnie
+                          JOIN entreprise e ON c.id_entrep = e.id_entreprise";
+                $where[] = 'e.ekey = ?';
+                $params[] = $ek;
             }
+            if ($ga !== '' && $gd !== '') {
+                $sql .= " JOIN gare_exp ex0 ON ex0.code_gaexp = ?
+                          JOIN gare_dest ga0 ON ga0.code_gadest = ?";
+                $params[] = $ga;
+                $params[] = $gd;
+                $where[] = 'ex.id_villegd = ex0.id_villegd';
+                $where[] = 'ga.id_villega = ga0.id_villega';
+            }
+            $sql .= ' WHERE ' . implode(' AND ', $where) . ' ORDER BY lg.ident_ligne ASC';
+            $rows = $this->db->query($sql, $params)->result();
             $out = array();
             foreach ($rows as $r) {
                 $id = trim((string) $r->ident_ligne);

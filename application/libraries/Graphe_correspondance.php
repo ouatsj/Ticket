@@ -1212,7 +1212,7 @@ class Graphe_correspondance
             );
         }
 
-        // Reprog : 1ʳᵉ jambe = programme de la gare où on reprogramme.
+        // Reprog : 1ʳᵉ jambe = programme de la gare où on reprogramme (évite contre-sens).
         if ($modeReprog) {
             $gare = isset($opts['gareidentif']) ? trim((string) $opts['gareidentif']) : '';
             $date = isset($opts['date']) ? trim((string) $opts['date']) : '';
@@ -1221,6 +1221,7 @@ class Graphe_correspondance
             }
             $ekey = isset($opts['ekey']) ? trim((string) $opts['ekey']) : '';
             $sgOpt = isset($opts['idsousgare']) ? $opts['idsousgare'] : null;
+            $gaOd = isset($opts['gaexp_od']) ? trim((string) $opts['gaexp_od']) : '';
             if ($gare !== '' && $date !== '' && $ekey !== '') {
                 if (!isset($this->CI->m_programme)) {
                     $this->CI->load->model('Programme_model', 'm_programme');
@@ -1231,6 +1232,26 @@ class Graphe_correspondance
                     $allowedMap[(string) $cp] = true;
                 }
                 if (!empty($allowedMap)) {
+                    // Précharge villes (gare session + OD) pour filtrer le sens sans N+1.
+                    $villeGare = null;
+                    $villeOd = null;
+                    $rowVg = $this->CI->db->query(
+                        "SELECT id_villegd FROM gare_exp WHERE code_gaexp = ? LIMIT 1",
+                        array($gare)
+                    )->row();
+                    if ($rowVg) {
+                        $villeGare = (int) $rowVg->id_villegd;
+                    }
+                    if ($gaOd !== '') {
+                        $rowVo = $this->CI->db->query(
+                            "SELECT id_villegd FROM gare_exp WHERE code_gaexp = ? LIMIT 1",
+                            array($gaOd)
+                        )->row();
+                        if ($rowVo) {
+                            $villeOd = (int) $rowVo->id_villegd;
+                        }
+                    }
+                    $villeFirstCache = array();
                     $keptGare = array();
                     foreach ($cheminsOut as $c) {
                         $ets = isset($c['etapes']) ? $c['etapes'] : array();
@@ -1239,11 +1260,17 @@ class Graphe_correspondance
                             $first = is_array($ets) ? reset($ets) : $ets;
                         }
                         $cpFirst = '';
+                        $gaFirst = '';
                         if (is_object($first)) {
                             if (!empty($first->_graphe_code_progr)) {
                                 $cpFirst = (string) $first->_graphe_code_progr;
                             } elseif (!empty($first->code_progr)) {
                                 $cpFirst = (string) $first->code_progr;
+                            }
+                            if (!empty($first->code_gaexp)) {
+                                $gaFirst = (string) $first->code_gaexp;
+                            } elseif (!empty($first->gaexp_lg)) {
+                                $gaFirst = (string) $first->gaexp_lg;
                             }
                         } elseif (is_array($first)) {
                             if (!empty($first['_graphe_code_progr'])) {
@@ -1251,10 +1278,32 @@ class Graphe_correspondance
                             } elseif (!empty($first['code_progr'])) {
                                 $cpFirst = (string) $first['code_progr'];
                             }
+                            if (!empty($first['code_gaexp'])) {
+                                $gaFirst = (string) $first['code_gaexp'];
+                            } elseif (!empty($first['gaexp_lg'])) {
+                                $gaFirst = (string) $first['gaexp_lg'];
+                            }
                         }
-                        if ($cpFirst !== '' && isset($allowedMap[$cpFirst])) {
-                            $keptGare[] = $c;
+                        if ($cpFirst === '' || !isset($allowedMap[$cpFirst])) {
+                            continue;
                         }
+                        // Sens : 1ʳᵉ jambe = même ville que la gare session (et que l’OD départ).
+                        if ($gaFirst !== '' && $villeGare !== null) {
+                            if (!isset($villeFirstCache[$gaFirst])) {
+                                $rf = $this->CI->db->query(
+                                    "SELECT id_villegd FROM gare_exp WHERE code_gaexp = ? LIMIT 1",
+                                    array($gaFirst)
+                                )->row();
+                                $villeFirstCache[$gaFirst] = $rf ? (int) $rf->id_villegd : -1;
+                            }
+                            if ($villeFirstCache[$gaFirst] !== $villeGare) {
+                                continue;
+                            }
+                            if ($villeOd !== null && $villeFirstCache[$gaFirst] !== $villeOd) {
+                                continue;
+                            }
+                        }
+                        $keptGare[] = $c;
                     }
                     $cheminsOut = $keptGare;
                 } else {

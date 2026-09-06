@@ -2218,7 +2218,7 @@
          * @param bool $mode_reprog reprog unifiée : multi programmes OD, sans config déclarative seule
          * @return array
          */
-        protected function _payload_verifchemins_guichet($axe, $date, $sg, $force_transit, $heure_label = null, $mode_reprog = false, $gareidentif = null, $nom_ligne = null)
+        protected function _payload_verifchemins_guichet($axe, $date, $sg, $force_transit, $heure_label = null, $mode_reprog = false, $gareidentif = null, $nom_ligne = null, $axes_extra = null)
         {
             $this->load->library('graphe_correspondance');
             if (!isset($this->m_itineraire_etape)) {
@@ -2236,16 +2236,53 @@
             // Vente : filtre sous-gare sur tout le graphe.
             $sgGraph = $mode_reprog ? null : $sg;
 
-            // Reprog : tous les codes d’axe qui partagent le nom de ligne (OD métier).
-            $axesSearch = array($axe);
+            // Reprog : axes OD métier dans le BON SENS (gaexp→gadest), jamais contre-sens.
+            $axesSearch = array();
+            $axe = trim((string) $axe);
+            if ($axe !== '') {
+                $axesSearch[] = $axe;
+            }
             $nom = trim((string) $nom_ligne);
-            if ($mode_reprog && $nom !== '') {
+            $partsAxe = ($axe !== '' && strpos($axe, '-') !== false) ? explode('-', $axe, 2) : array('', '');
+            $gaOd = isset($partsAxe[0]) ? trim((string) $partsAxe[0]) : '';
+            $gdOd = isset($partsAxe[1]) ? trim((string) $partsAxe[1]) : '';
+
+            if ($mode_reprog && $nom !== '' && $gaOd !== '' && $gdOd !== '') {
+                $alts = $this->m_programme->axes_par_nom_ligne($nom, $ekey, $gaOd, $gdOd);
+                foreach ($alts as $ax) {
+                    if ($ax !== '' && !in_array($ax, $axesSearch, true)) {
+                        $axesSearch[] = $ax;
+                    }
+                }
+            } elseif ($mode_reprog && $nom !== '') {
                 $alts = $this->m_programme->axes_par_nom_ligne($nom, $ekey);
                 foreach ($alts as $ax) {
                     if ($ax !== '' && !in_array($ax, $axesSearch, true)) {
                         $axesSearch[] = $ax;
                     }
                 }
+            }
+            // Axes OD globale (transit), filtrés au sens de l’axe ticket.
+            if ($mode_reprog && is_array($axes_extra)) {
+                $sensSet = array();
+                if ($gaOd !== '' && $gdOd !== '') {
+                    foreach ($this->m_programme->axes_od_par_villes($gaOd, $gdOd, $ekey) as $sx) {
+                        $sensSet[$sx] = true;
+                    }
+                }
+                foreach ($axes_extra as $ax) {
+                    $ax = trim((string) $ax);
+                    if ($ax === '' || in_array($ax, $axesSearch, true)) {
+                        continue;
+                    }
+                    if (!empty($sensSet) && !isset($sensSet[$ax])) {
+                        continue; // contre-sens / hors OD villes
+                    }
+                    $axesSearch[] = $ax;
+                }
+            }
+            if (empty($axesSearch) && $axe !== '') {
+                $axesSearch[] = $axe;
             }
 
             $decision = null;
@@ -2366,6 +2403,8 @@
                     'ekey' => $ekey,
                     'date' => $date,
                     'nom_ligne' => $nom !== '' ? $nom : null,
+                    'gaexp_od' => $gaOd !== '' ? $gaOd : null,
+                    'gadest_od' => $gdOd !== '' ? $gdOd : null,
                 )
             );
             $evalTransit = $this->graphe_correspondance->evaluer_transit_od($ekey, $axe, $date, $sg);
@@ -2437,6 +2476,16 @@
                 $gare = trim((string) $this->input->get('gareconnect'));
             }
             $nom_ligne = trim((string) $this->input->get('nom_ligne'));
+            $axesRaw = trim((string) $this->input->get('axes'));
+            $axesExtra = array();
+            if ($axesRaw !== '') {
+                foreach (preg_split('/[,\s]+/', $axesRaw) as $ax) {
+                    $ax = trim((string) $ax);
+                    if ($ax !== '') {
+                        $axesExtra[] = $ax;
+                    }
+                }
+            }
             $out = $this->_payload_verifchemins_guichet(
                 $axe,
                 $date,
@@ -2445,7 +2494,8 @@
                 $heure_label,
                 $mode_reprog,
                 $gare !== '' ? $gare : null,
-                $nom_ligne !== '' ? $nom_ligne : null
+                $nom_ligne !== '' ? $nom_ligne : null,
+                !empty($axesExtra) ? $axesExtra : null
             );
             return $this->load->view('beagle/pages/_programme/json', array('json' => $out));
         }

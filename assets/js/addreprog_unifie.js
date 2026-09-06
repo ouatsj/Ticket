@@ -11,6 +11,7 @@ document.addEventListener('DOMContentLoaded', () => {
         gadest: '',
         axe: '',
         nom_ligne: '',
+        axesOd: [],
         sgid: '0',
         gid: '',
         prix: '',
@@ -409,6 +410,7 @@ document.addEventListener('DOMContentLoaded', () => {
         window.__reprogState.hasTransit = false;
         window.__reprogState.transitHours = [];
         window.__reprogState.nom_ligne = '';
+        window.__reprogState.axesOd = [];
         window.__reprogState.prix = '';
         window.__reprogState.prix2 = '';
         window.__reprogState.prixLegs = {};
@@ -479,6 +481,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 + (window.__reprogState.nom_ligne
                     ? ('&nom_ligne=' + encodeURIComponent(String(window.__reprogState.nom_ligne)))
                     : '')
+                + __reprogAxesQuery()
                 + (window.__reprogState.id_escale
                     ? ('&id_escale=' + encodeURIComponent(String(window.__reprogState.id_escale)))
                     : '')
@@ -559,8 +562,9 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!jambes.length) return;
         var first = jambes[0] || {};
         var last = jambes[jambes.length - 1] || {};
-        var ga = st.gaexp || first.gaexp_lg || '';
-        var gd = last.gadest_lg || st.gadest || '';
+        // OD globale = départ 1ʳᵉ jambe → arrivée dernière jambe (pas la ligne de chaque code).
+        var ga = first.gaexp_lg || st.gaexp || '';
+        var gd = last.code_gadest_vente || last.gadest_lg || st.gadest || '';
         if (last.nom_dest_vente) {
             // escale éventuelle sur dernière jambe
             if (__reprogQ('id_escale_vente_reprog') && last.id_escale_vente) {
@@ -584,9 +588,32 @@ document.addEventListener('DOMContentLoaded', () => {
             var dirEl = __reprogQ('directionclpunifie');
             if (dirEl) {
                 dirEl.textContent = 'DIRECTION: ' + ga + ' → ' + (last.dest_affiche || gd)
+                    + (st.nom_ligne ? (' — ' + st.nom_ligne) : '')
                     + ' (transit ' + (st.nbrJambes || jambes.length) + ' jambes)';
             }
         }
+    }
+
+    function __reprogApplyOdGlobale(donnees) {
+        if (!donnees) return;
+        var st = window.__reprogState;
+        if (donnees.gaexp_od) st.gaexp = String(donnees.gaexp_od);
+        if (donnees.gadest_od) st.gadest = String(donnees.gadest_od);
+        if (donnees.axe_od) st.axe = String(donnees.axe_od);
+        else if (st.gaexp && st.gadest) st.axe = st.gaexp + '-' + st.gadest;
+        if (donnees.nom_ligne_od) st.nom_ligne = String(donnees.nom_ligne_od).trim();
+        if (Array.isArray(donnees.axes_od)) {
+            st.axesOd = donnees.axes_od.map(function (a) { return String(a || '').trim(); }).filter(Boolean);
+        }
+        if (__reprogQ('gaexp_unifie')) __reprogQ('gaexp_unifie').value = st.gaexp || '';
+        if (__reprogQ('gadest_unifie')) __reprogQ('gadest_unifie').value = st.gadest || '';
+        if (__reprogQ('axe_unifie')) __reprogQ('axe_unifie').value = st.axe || '';
+    }
+
+    function __reprogAxesQuery() {
+        var axes = window.__reprogState.axesOd || [];
+        if (!axes.length) return '';
+        return '&axes=' + encodeURIComponent(axes.join(','));
     }
 
     function __reprogVerifyExtraLeg(legNum) {
@@ -682,17 +709,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
 
                 __reprogApplyOdFromLegs();
-                if (d2.gadest_lg) {
-                    // Affiner OD avec la dernière jambe vérifiée
-                    var ga1 = window.__reprogState.gaexp || '';
-                    if (ga1) {
-                        window.__reprogState.gadest = d2.gadest_lg;
-                        window.__reprogState.axe = ga1 + '-' + d2.gadest_lg;
-                        if (__reprogQ('gadest_unifie')) __reprogQ('gadest_unifie').value = d2.gadest_lg;
-                        if (__reprogQ('axe_unifie')) __reprogQ('axe_unifie').value = window.__reprogState.axe;
-                    }
-                }
-
+                // Ne pas écraser l’OD globale avec la ligne de la jambe vérifiée :
+                // l’arrivée reste celle de la dernière jambe attendue (jambesExpected).
                 if (__reprogAllLegsVerified()) {
                     if (__reprogQ('smspunifie')) __reprogQ('smspunifie').style.display = 'none';
                     __reprogOpenChoixIfReady(dateEl);
@@ -983,6 +1001,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (st.nom_ligne) {
             url += '&nom_ligne=' + encodeURIComponent(String(st.nom_ligne));
         }
+        url += __reprogAxesQuery();
         if (st.gid) {
             url += '&gare=' + encodeURIComponent(String(st.gid));
         }
@@ -1761,12 +1780,19 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!dateYmd) return;
 
         var st = window.__reprogState;
-        // OD métier = nom_ligne (lookup) ; date → directs + multi programmes (4 cas).
+        // OD + gare session : directs/multi uniquement dans le sens ticket (pas de contre-sens).
         if (!st.nom_ligne && !st.axe) {
             var boxA = __reprogQ('smspunifie');
             var errA = __reprogQ('erreurSmspunifie');
             if (boxA) boxA.style.display = 'block';
             if (errA) errA.textContent = 'Ligne ticket incomplète (nom de ligne / gares).';
+            return;
+        }
+        if (!st.gid) {
+            var boxG = __reprogQ('smspunifie');
+            var errG = __reprogQ('erreurSmspunifie');
+            if (boxG) boxG.style.display = 'block';
+            if (errG) errG.textContent = 'Gare de session introuvable : impossible de charger les itinéraires.';
             return;
         }
         __reprogFetchChemins(dateYmd, '', function (chemins) {
@@ -2125,6 +2151,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         window.__reprogState.gadest = donnees.gadest_lg || '';
                         window.__reprogState.axe = (donnees.gaexp_lg || '') + '-' + (donnees.gadest_lg || '');
                         window.__reprogState.nom_ligne = String(donnees.nom_ligne || donnees.ligne_retour || '').trim();
+                        window.__reprogState.axesOd = [];
                         window.__reprogState.exclude = donnees.code_progr || '';
                         window.__reprogState.prix = donnees.prixvente != null ? String(donnees.prixvente) : '';
                         window.__reprogState.prixLegs = { 1: window.__reprogState.prix };
@@ -2163,6 +2190,12 @@ document.addEventListener('DOMContentLoaded', () => {
                         if (nOrig) nOrig.value = String(window.__reprogState.nbrJambes);
                         window.__reprogState.lookup2Done = !estTr;
 
+                        // Transit : OD globale (1ʳᵉ départ → dernière arrivée), pas la ligne du code saisi.
+                        if (estTr) {
+                            __reprogApplyOdGlobale(donnees);
+                            __reprogApplyOdFromLegs();
+                        }
+
                         var kindLabel = window.__reprogState.isRetourConfirme
                             ? 'Retour confirmé'
                             : 'Ticket';
@@ -2174,8 +2207,10 @@ document.addEventListener('DOMContentLoaded', () => {
                                 det.className = 'small text-info mb-1';
                                 det.textContent = kindLabel + ' transit détecté : '
                                     + window.__reprogState.nbrJambes
-                                    + ' codes à vérifier — ligne '
-                                    + odLbl + '.';
+                                    + ' codes — OD à rechercher : '
+                                    + odLbl
+                                    + (window.__reprogState.axe ? (' (' + window.__reprogState.axe + ')') : '')
+                                    + '.';
                             } else if (window.__reprogState.isRetourConfirme) {
                                 det.style.display = 'block';
                                 det.className = 'small text-info mb-1';
@@ -2191,7 +2226,6 @@ document.addEventListener('DOMContentLoaded', () => {
                         }
 
                         if (estTr) {
-                            __reprogApplyOdFromLegs();
                             __reprogBuildExtraCodeFields(
                                 window.__reprogState.nbrJambes,
                                 window.__reprogState.jambesExpected,

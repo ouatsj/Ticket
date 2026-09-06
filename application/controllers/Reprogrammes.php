@@ -412,6 +412,34 @@
                 }
             }
             $out->nbr_jambes = count($out->jambes);
+
+            // OD métier globale = départ 1ʳᵉ jambe → arrivée dernière jambe.
+            if ($out->nbr_jambes >= 2) {
+                $first = $out->jambes[0];
+                $last = $out->jambes[$out->nbr_jambes - 1];
+                $gaOd = isset($first['gaexp_lg']) ? (string) $first['gaexp_lg'] : '';
+                $gdOd = isset($last['gadest_lg']) ? (string) $last['gadest_lg'] : '';
+                // Escale sur dernière jambe : destination ticket = code_gadest_vente.
+                if (!empty($last['code_gadest_vente'])) {
+                    $gdOd = (string) $last['code_gadest_vente'];
+                }
+                if (!isset($this->m_programme)) {
+                    $this->load->model('Programme_model', 'm_programme');
+                }
+                $od = $this->m_programme->od_metier_globale(
+                    $gaOd,
+                    $gdOd,
+                    $this->session->company->ekey,
+                    isset($first['nom_ligne']) ? $first['nom_ligne'] : null,
+                    isset($last['nom_ligne']) ? $last['nom_ligne'] : null
+                );
+                $out->gaexp_od = $od['gaexp'];
+                $out->gadest_od = $od['gadest'];
+                $out->axe_od = $od['axe'];
+                $out->nom_ligne_od = $od['nom_ligne'];
+                $out->axes_od = $od['axes'];
+            }
+
             return $out;
         }
 
@@ -873,6 +901,16 @@
             }
             $sg = ($sg !== null && $sg !== '' && (int) $sg > 0) ? (int) $sg : null;
             $nom_ligne = trim((string) $this->input->get_post('nom_ligne'));
+            $axesRaw = trim((string) $this->input->get_post('axes'));
+            $axes = array();
+            if ($axesRaw !== '') {
+                foreach (preg_split('/[,\s]+/', $axesRaw) as $ax) {
+                    $ax = trim((string) $ax);
+                    if ($ax !== '') {
+                        $axes[] = $ax;
+                    }
+                }
+            }
 
             $rows = $this->m_programme->heurereprog_unifie(
                 $this->session->company->ekey,
@@ -883,7 +921,8 @@
                 $id_escale > 0 ? $id_escale : null,
                 $gare !== '' ? $gare : null,
                 $sg,
-                $nom_ligne !== '' ? $nom_ligne : null
+                $nom_ligne !== '' ? $nom_ligne : null,
+                !empty($axes) ? $axes : null
             );
             return $this->load->view('beagle/pages/_programme/json', array('json' => $rows));
         }
