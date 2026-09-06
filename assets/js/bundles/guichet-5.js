@@ -8388,6 +8388,7 @@ document.addEventListener('DOMContentLoaded', () => {
         gaexp: '',
         gadest: '',
         axe: '',
+        nom_ligne: '',
         sgid: '0',
         gid: '',
         prix: '',
@@ -8785,6 +8786,7 @@ document.addEventListener('DOMContentLoaded', () => {
         window.__reprogState.rows = [];
         window.__reprogState.hasTransit = false;
         window.__reprogState.transitHours = [];
+        window.__reprogState.nom_ligne = '';
         window.__reprogState.prix = '';
         window.__reprogState.prix2 = '';
         window.__reprogState.prixLegs = {};
@@ -8832,7 +8834,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             resume.style.display = 'block';
             resume.textContent = (st.isRetourConfirme ? 'Retour confirmé à reporter : ' : 'Parcours à reporter : ')
-                + (st.gaexp || '—') + ' → ' + (st.gadest || '—')
+                + (st.nom_ligne || ((st.gaexp || '—') + ' → ' + (st.gadest || '—')))
                 + (st.isTransitTicket ? (' (transit ' + (st.nbrJambes || '') + ' jambes)') : ' (direct)')
                 + escHint
                 + '. Choisissez une date puis un itinéraire (direct ou correspondance).';
@@ -8852,6 +8854,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 + encodeURIComponent(window.__reprogState.gadest) + '/'
                 + encodeURIComponent(window.__reprogState.exclude)
                 + '?prix=' + encodeURIComponent(String(ref))
+                + (window.__reprogState.nom_ligne
+                    ? ('&nom_ligne=' + encodeURIComponent(String(window.__reprogState.nom_ligne)))
+                    : '')
                 + (window.__reprogState.id_escale
                     ? ('&id_escale=' + encodeURIComponent(String(window.__reprogState.id_escale)))
                     : '')
@@ -9346,12 +9351,16 @@ document.addEventListener('DOMContentLoaded', () => {
     function __reprogFetchChemins(dateYmd, hhmm, after) {
         var st = window.__reprogState;
         // Programmes de la gare/sous-gare où on reprogramme ; force=1 = multi même si direct.
+        // OD métier = nom_ligne (pas le code d’axe, variable selon la compagnie).
         var sg = (st.sgid && String(st.sgid) !== '0') ? String(st.sgid) : '0';
         var url = window.location.origin + APP_ROOT
             + '/programmes/verifchemins/'
             + encodeURIComponent(st.axe) + '/'
             + encodeURIComponent(dateYmd) + '/'
             + encodeURIComponent(sg) + '/1?reprog=1';
+        if (st.nom_ligne) {
+            url += '&nom_ligne=' + encodeURIComponent(String(st.nom_ligne));
+        }
         if (st.gid) {
             url += '&gare=' + encodeURIComponent(String(st.gid));
         }
@@ -10130,31 +10139,31 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!dateYmd) return;
 
         var st = window.__reprogState;
-        // Axe ticket figé au lookup ; date → directs programmes + multi programmes (4 cas).
-        if (!st.axe) {
+        // OD métier = nom_ligne (lookup) ; date → directs + multi programmes (4 cas).
+        if (!st.nom_ligne && !st.axe) {
             var boxA = __reprogQ('smspunifie');
             var errA = __reprogQ('erreurSmspunifie');
             if (boxA) boxA.style.display = 'block';
-            if (errA) errA.textContent = 'Axe ticket incomplet (gare départ / arrivée).';
+            if (errA) errA.textContent = 'Ligne ticket incomplète (nom de ligne / gares).';
             return;
         }
         __reprogFetchChemins(dateYmd, '', function (chemins) {
             var all = __reprogMergeItineraires(__reprogDirectsAsChemins(dateYmd), chemins);
             st.chemins = all;
+            var odLabel = st.nom_ligne || st.axe || '—';
             if (!all.length) {
                 var box = __reprogQ('smspunifie');
                 var err = __reprogQ('erreurSmspunifie');
                 if (box) box.style.display = 'block';
                 if (err) {
-                    err.textContent = 'Aucun départ ni correspondance (programmes) pour l’axe '
-                        + st.axe + ' à cette date (gare départ ticket : '
-                        + (st.gaexp || '—') + ').';
+                    err.textContent = 'Aucun départ ni correspondance (programmes) pour la ligne '
+                        + odLabel + ' à cette date.';
                 }
                 return;
             }
             __reprogShowCorrExclusive(
                 all,
-                'Itinéraires (programmes) pour ' + st.axe + ' le ' + dateYmd
+                'Itinéraires (programmes) pour ' + odLabel + ' le ' + dateYmd
                 + ' — direct et/ou correspondance selon les départs du jour.'
             );
         });
@@ -10493,6 +10502,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         window.__reprogState.gaexp = donnees.gaexp_lg || '';
                         window.__reprogState.gadest = donnees.gadest_lg || '';
                         window.__reprogState.axe = (donnees.gaexp_lg || '') + '-' + (donnees.gadest_lg || '');
+                        window.__reprogState.nom_ligne = String(donnees.nom_ligne || donnees.ligne_retour || '').trim();
                         window.__reprogState.exclude = donnees.code_progr || '';
                         window.__reprogState.prix = donnees.prixvente != null ? String(donnees.prixvente) : '';
                         window.__reprogState.prixLegs = { 1: window.__reprogState.prix };
@@ -10536,24 +10546,25 @@ document.addEventListener('DOMContentLoaded', () => {
                             : 'Ticket';
                         var det = __reprogQ('reprog_transit_detect_msg');
                         if (det) {
+                            var odLbl = window.__reprogState.nom_ligne || window.__reprogState.axe || '';
                             if (estTr) {
                                 det.style.display = 'block';
                                 det.className = 'small text-info mb-1';
                                 det.textContent = kindLabel + ' transit détecté : '
                                     + window.__reprogState.nbrJambes
-                                    + ' codes à vérifier — axe '
-                                    + (window.__reprogState.axe || '') + '.';
+                                    + ' codes à vérifier — ligne '
+                                    + odLbl + '.';
                             } else if (window.__reprogState.isRetourConfirme) {
                                 det.style.display = 'block';
                                 det.className = 'small text-info mb-1';
-                                det.textContent = 'Retour confirmé détecté — axe retour '
-                                    + (window.__reprogState.axe || '')
-                                    + (donnees.ligne_retour ? (' (' + donnees.ligne_retour + ')') : '')
+                                det.textContent = 'Retour confirmé détecté — ligne '
+                                    + (odLbl || (window.__reprogState.axe || ''))
                                     + '. Choisissez une date puis un itinéraire.';
                             } else {
                                 det.style.display = 'block';
                                 det.className = 'small text-muted mb-1';
-                                det.textContent = 'Ticket direct détecté.';
+                                det.textContent = 'Ticket direct détecté'
+                                    + (odLbl ? (' — ' + odLbl) : '') + '.';
                             }
                         }
 

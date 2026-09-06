@@ -2015,7 +2015,7 @@
          * @param string|null $prix si non null, filtre même prix tarif
          * @return array
          */
-        public function heurereprog_unifie($cid, $gaexp, $gadest, $exclude_code, $prix = null, $id_escale = null, $gareidentif = null, $idsousgare = null)
+        public function heurereprog_unifie($cid, $gaexp, $gadest, $exclude_code, $prix = null, $id_escale = null, $gareidentif = null, $idsousgare = null, $nom_ligne = null)
         {
             $tim = date('H', time('H'));
             if ($tim === '00') {
@@ -2027,8 +2027,6 @@
             $dtoday = $key . '-' . $dat;
 
             $cidEsc = $this->db->escape($cid);
-            $gaexpEsc = $this->db->escape($gaexp);
-            $gadestEsc = $this->db->escape($gadest);
             $exEsc = $this->db->escape($exclude_code);
 
             $prixSql = '';
@@ -2036,7 +2034,6 @@
                 $prixEsc = $this->db->escape($prix);
                 $idEsc = (int) $id_escale;
                 if ($idEsc > 0) {
-                    // Ticket vendu à une escale : matcher le prix escale sur la ligne parent, pas le tarif terminus.
                     $prixSql = " AND EXISTS (
                         SELECT 1 FROM itineraire_escales ie
                         WHERE ie.id_lignes = lg.ident_ligne
@@ -2055,7 +2052,7 @@
                 }
             }
 
-            // Programmes de la gare où on reprogramme (pas tout le réseau).
+            // Programmes de la gare où on reprogramme.
             $gareSql = '';
             $gare = trim((string) $gareidentif);
             if ($gare !== '') {
@@ -2064,6 +2061,17 @@
             $sgSql = '';
             if ($idsousgare !== null && $idsousgare !== '' && (int) $idsousgare > 0) {
                 $sgSql = $this->sql_filtre_sousgare((int) $idsousgare);
+            }
+
+            // OD métier = nom de ligne (chaque cie a des codes d’axe différents).
+            $odSql = '';
+            $nom = trim((string) $nom_ligne);
+            if ($nom !== '') {
+                $odSql = ' AND lg.nom_ligne = ' . $this->db->escape($nom);
+            } else {
+                $gaexpEsc = $this->db->escape($gaexp);
+                $gadestEsc = $this->db->escape($gadest);
+                $odSql = " AND lg.gaexp_lg = {$gaexpEsc} AND lg.gadest_lg = {$gadestEsc}";
             }
 
             return $this->db->query(
@@ -2083,8 +2091,7 @@
                 JOIN compagnies ca ON ga.id_compaga = ca.cle_compagnie
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = {$cidEsc}
-                AND lg.gaexp_lg = {$gaexpEsc}
-                AND lg.gadest_lg = {$gadestEsc}
+                {$odSql}
                 AND pr.code_progr <> {$exEsc}
                 AND pr.statut_prog = 'actif'
                 AND h.h_active = 1
@@ -2100,6 +2107,51 @@
                          c.cle_compagnie, c.nom_compagnie
                 ORDER BY pr.date_progr ASC, h.heure ASC"
             )->result();
+        }
+
+        /**
+         * Axes (ident_ligne) partageant le même nom de ligne (OD métier multi-compagnies).
+         *
+         * @param string      $nom_ligne
+         * @param string|null $ekey filtre entreprise (recommandé)
+         * @return string[]
+         */
+        public function axes_par_nom_ligne($nom_ligne, $ekey = null)
+        {
+            $nom = trim((string) $nom_ligne);
+            if ($nom === '') {
+                return array();
+            }
+            $ek = trim((string) $ekey);
+            if ($ek !== '') {
+                $rows = $this->db->query(
+                    "SELECT DISTINCT lg.ident_ligne
+                     FROM lignes lg
+                     JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
+                     JOIN compagnies c ON ex.id_compagd = c.cle_compagnie
+                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
+                     WHERE e.ekey = ?
+                     AND lg.nom_ligne = ?
+                     ORDER BY lg.ident_ligne ASC",
+                    array($ek, $nom)
+                )->result();
+            } else {
+                $rows = $this->db->query(
+                    "SELECT DISTINCT lg.ident_ligne
+                     FROM lignes lg
+                     WHERE lg.nom_ligne = ?
+                     ORDER BY lg.ident_ligne ASC",
+                    array($nom)
+                )->result();
+            }
+            $out = array();
+            foreach ($rows as $r) {
+                $id = trim((string) $r->ident_ligne);
+                if ($id !== '') {
+                    $out[] = $id;
+                }
+            }
+            return $out;
         }
 
         /**

@@ -2218,7 +2218,7 @@
          * @param bool $mode_reprog reprog unifiée : multi programmes OD, sans config déclarative seule
          * @return array
          */
-        protected function _payload_verifchemins_guichet($axe, $date, $sg, $force_transit, $heure_label = null, $mode_reprog = false, $gareidentif = null)
+        protected function _payload_verifchemins_guichet($axe, $date, $sg, $force_transit, $heure_label = null, $mode_reprog = false, $gareidentif = null, $nom_ligne = null)
         {
             $this->load->library('graphe_correspondance');
             if (!isset($this->m_itineraire_etape)) {
@@ -2236,16 +2236,82 @@
             // Vente : filtre sous-gare sur tout le graphe.
             $sgGraph = $mode_reprog ? null : $sg;
 
+            // Reprog : tous les codes d’axe qui partagent le nom de ligne (OD métier).
+            $axesSearch = array($axe);
+            $nom = trim((string) $nom_ligne);
+            if ($mode_reprog && $nom !== '') {
+                $alts = $this->m_programme->axes_par_nom_ligne($nom, $ekey);
+                foreach ($alts as $ax) {
+                    if ($ax !== '' && !in_array($ax, $axesSearch, true)) {
+                        $axesSearch[] = $ax;
+                    }
+                }
+            }
+
+            $decision = null;
+            $mergedChemins = array();
+            $seenSig = array();
+            $mergedMeta = array(
+                'axe' => $axe,
+                'date' => $date,
+                'nom_ligne' => $nom !== '' ? $nom : null,
+                'axes_nom_ligne' => $axesSearch,
+            );
+
             if ($this->graphe_correspondance->is_serve_enabled()) {
-                $decision = $this->graphe_correspondance->resoudre_pour_vente(
-                    $ekey,
-                    $axe,
-                    $date,
-                    $sgGraph,
-                    $declRows,
-                    $force_transit,
-                    $force_transit ? $heure_label : null
-                );
+                foreach ($axesSearch as $axTry) {
+                    $one = $this->graphe_correspondance->resoudre_pour_vente(
+                        $ekey,
+                        $axTry,
+                        $date,
+                        $sgGraph,
+                        ($axTry === $axe) ? $declRows : array(),
+                        $force_transit,
+                        $force_transit ? $heure_label : null
+                    );
+                    if ($decision === null) {
+                        $decision = $one;
+                    }
+                    if (!empty($one['chemins']) && is_array($one['chemins'])) {
+                        foreach ($one['chemins'] as $ch) {
+                            $sig = '';
+                            if (!empty($ch['codes']) && is_array($ch['codes'])) {
+                                $sig = implode('>', $ch['codes']);
+                            } elseif (!empty($ch['etapes']) && is_array($ch['etapes'])) {
+                                $parts = array();
+                                foreach ($ch['etapes'] as $et) {
+                                    if (is_object($et) && !empty($et->code_itineraires)) {
+                                        $parts[] = (string) $et->code_itineraires;
+                                    } elseif (is_array($et) && !empty($et['code_itineraires'])) {
+                                        $parts[] = (string) $et['code_itineraires'];
+                                    }
+                                }
+                                $sig = implode('>', $parts);
+                            }
+                            if ($sig !== '' && isset($seenSig[$sig])) {
+                                continue;
+                            }
+                            if ($sig !== '') {
+                                $seenSig[$sig] = true;
+                            }
+                            $mergedChemins[] = $ch;
+                        }
+                    }
+                }
+                if ($decision === null) {
+                    $decision = array(
+                        'mode' => 'none',
+                        'etapes' => array(),
+                        'chemins' => array(),
+                        'meta' => $mergedMeta,
+                    );
+                } else {
+                    $decision['chemins'] = $mergedChemins;
+                    $decision['meta'] = array_merge(
+                        isset($decision['meta']) && is_array($decision['meta']) ? $decision['meta'] : array(),
+                        $mergedMeta
+                    );
+                }
             } else {
                 $hasDirect = $this->graphe_correspondance->od_a_depart_direct($ekey, $axe, $date, $sgGraph);
                 if ($this->graphe_correspondance->prefer_direct_sans_jambes($ekey, $axe, $date, $sgGraph, $force_transit)) {
@@ -2299,6 +2365,7 @@
                     'idsousgare' => $sg,
                     'ekey' => $ekey,
                     'date' => $date,
+                    'nom_ligne' => $nom !== '' ? $nom : null,
                 )
             );
             $evalTransit = $this->graphe_correspondance->evaluer_transit_od($ekey, $axe, $date, $sg);
@@ -2369,6 +2436,7 @@
             if ($gare === '') {
                 $gare = trim((string) $this->input->get('gareconnect'));
             }
+            $nom_ligne = trim((string) $this->input->get('nom_ligne'));
             $out = $this->_payload_verifchemins_guichet(
                 $axe,
                 $date,
@@ -2376,7 +2444,8 @@
                 $force_transit,
                 $heure_label,
                 $mode_reprog,
-                $gare !== '' ? $gare : null
+                $gare !== '' ? $gare : null,
+                $nom_ligne !== '' ? $nom_ligne : null
             );
             return $this->load->view('beagle/pages/_programme/json', array('json' => $out));
         }

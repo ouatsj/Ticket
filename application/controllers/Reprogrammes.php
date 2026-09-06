@@ -872,6 +872,7 @@
                 $sg = $this->input->get_post('idsousgare');
             }
             $sg = ($sg !== null && $sg !== '' && (int) $sg > 0) ? (int) $sg : null;
+            $nom_ligne = trim((string) $this->input->get_post('nom_ligne'));
 
             $rows = $this->m_programme->heurereprog_unifie(
                 $this->session->company->ekey,
@@ -881,7 +882,8 @@
                 null,
                 $id_escale > 0 ? $id_escale : null,
                 $gare !== '' ? $gare : null,
-                $sg
+                $sg,
+                $nom_ligne !== '' ? $nom_ligne : null
             );
             return $this->load->view('beagle/pages/_programme/json', array('json' => $rows));
         }
