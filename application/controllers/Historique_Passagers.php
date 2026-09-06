@@ -74,15 +74,28 @@
                 $ddbt = $today;
                 $dfin = $today;
             }
-            if ($this->session->agent->userole === '1' OR $this->session->agent->userole === '2'){
-
-                $this->property['historiques'] = $this->m_passager->alldayarchad($this->company->ekey, $ddbt, $dfin);
-
+            $role = isset($this->session->agent->userole) ? (string) $this->session->agent->userole : '';
+            // Admin (1/2) + chef guichet (5/15) : toute la compagnie.
+            if (in_array($role, array('1', '2', '5', '15'), true)) {
+                $historiques = $this->m_passager->alldayarchad($this->company->ekey, $ddbt, $dfin);
+            } else {
+                // Guichet : gare entière (toutes sous-gares) + jambes transit liées.
+                $historiques = $this->m_passager->alldayarch($this->company->ekey, $ddbt, $dfin, $gd);
             }
-            else{
-
-                $this->property['historiques'] = $this->m_passager->alldayarch($this->company->ekey, $ddbt, $dfin, $gd);
+            $directs = array();
+            $transits = array();
+            foreach ($historiques as $row) {
+                if (!empty($row->est_transit) && (int) $row->est_transit === 1) {
+                    $transits[] = $row;
+                } else {
+                    $directs[] = $row;
+                }
             }
+            $this->property['historiques'] = $historiques;
+            $this->property['historiques_direct'] = $directs;
+            $this->property['historiques_transit'] = $transits;
+            $this->property['tri_debut'] = $ddbt;
+            $this->property['tri_fin'] = $dfin;
 
                 $this->property['garedeparts'] = $this->m_sousgare->get($this->company->id_entreprise, $gd);
                 $this->property['typesclients'] = $this->m_type_client->get();
@@ -106,12 +119,13 @@
             }
             $op = isset($conex->roleattribut) ? (int) $conex->roleattribut : (int) $cpus;
             $code_passager = rawurldecode(trim((string) $code_passager));
+            // Une seule jambe / ligne : code_passager ciblé. Sous-gare = celle du ticket (pas celle du chef).
             $out = $this->m_ordres->ensure_reposition($code_passager, $op, $idsg, 'reposition');
             if (empty($out['ok'])) {
                 $msg = 'Impossible de repositionner';
                 if (!empty($out['error'])) {
                     $map = array(
-                        'params_manquants' => 'Paramètres manquants.',
+                        'params_manquants' => 'Paramètres manquants (sous-gare ticket introuvable).',
                         'passager_introuvable' => 'Ticket introuvable.',
                         'ticket_non_vendu' => 'Ticket non vendu ou inactif.',
                         'maj_passager_echouee' => 'Mise à jour passager échouée (reimprime / sous-gare).',
@@ -122,7 +136,7 @@
             } else {
                 $this->session->set_flashdata(
                     'sale_success',
-                    'Ticket repositionné : le guichet peut l’imprimer une fois via TICKET.'
+                    'Ligne repositionnée : visible sur TICKET pour tous les guichets de la gare (impression unique).'
                 );
             }
             $ref = $this->input->server('HTTP_REFERER');

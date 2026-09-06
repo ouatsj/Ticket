@@ -25,6 +25,23 @@ defined('BASEPATH') OR exit('No direct script access allowed'); ?>
 <?php
     $__peut_repositionner = isset($this->session->agent->userole)
         && in_array((string) $this->session->agent->userole, array('1', '2', '5', '15'), true);
+    if (!isset($historiques_direct) || !is_array($historiques_direct)) {
+        $historiques_direct = array();
+    }
+    if (!isset($historiques_transit) || !is_array($historiques_transit)) {
+        $historiques_transit = array();
+    }
+    if (empty($historiques_direct) && empty($historiques_transit) && !empty($historiques)) {
+        foreach ($historiques as $__row) {
+            if (!empty($__row->est_transit)) {
+                $historiques_transit[] = $__row;
+            } else {
+                $historiques_direct[] = $__row;
+            }
+        }
+    }
+    $__n_direct = count($historiques_direct);
+    $__n_transit = count($historiques_transit);
 ?>
 <div class="row">
     <!-- Liste des passagers -->
@@ -44,280 +61,114 @@ defined('BASEPATH') OR exit('No direct script access allowed'); ?>
 
                 </div>
 
-                <div class="title">Passager</div>
+                <div class="title">Passagers — gare
+                    <?= isset($bus_stop->idengare) ? htmlspecialchars($bus_stop->idengare) : ''; ?>
+                </div>
 
             </div>
             <div class="card-body">
-                <table class="table table-striped table-borderless" id="table1">
-                    <thead>
-                    <tr>
-                        <th>N° siège</th>
-                        <th>Code</th>
-                        <th>Client / Contact</th>
-                        <th>N° cni ou passport / Date / Lieu</th>
-                        <th>Départ / Heure / Axe</th>
-                        <th>Prix</th>
-                        <th>Action</th>
-                    </tr>
-                    </thead>
-
-                    <tbody class="no-border-x">
-                    <? foreach ($historiques as $item): ?>
-
-                        <tr>
-                        
-                            <td>
-                                <span><?= $item->num_siege_categorie; ?></span>
-                            </td>
-
-                            <td>
-                                <span><?= $item->tamponcod; ?>/<?= $item->code_ticket; ?></span><br>
-								
-                            </td>
-                            <td>
-                                <span>Nom:<?= $item->nom_client; ?><br></span>
-                                <span>Prénom:<?= $item->prenom_client; ?><br></span>
-                                <span>Contact:<?= $item->contact_client; ?>
-                            </td>
-
-                            <td>
-                                <span>Cni ou passport:<?= $item->num_CNIB; ?></span><br>
-                                <span>Délivrée le:<?= $item->date_delivre; ?></span>
-                                <span>Lieu:<?= $item->lieu_delivre; ?></span>
-                            </td>
-
-                            <td>
-                                <span>Départ:<?= $item->date_progr; ?></span><br>
-                                <span>Heure:<?= $item->heure; ?></span><br>
-                                <span>Axe:<?= ticket_axe_label($item); ?> <?= $item->quart; ?></span>
-                            </td>
-
-                            <td>
-                                <span><?= number_format($item->prixvente, 0, '', ' '); ?></span>
-                            </td>
-                            <td>
-                                <?php if ($__peut_repositionner): ?>
-                                    <a class="icon" title="Repositionner pour impression guichet (une fois)"
-                                       href="<?= site_url('Historique_Passagers/repositionner/' . $this->session->company->ekey . '/' . rawurlencode($item->code_passager) . '/' . $bus_stop->idengare . '/' . $conex->roleattribut . '/' . $bus_stop->idsousgare); ?>"
-                                       onclick="return confirm('Repositionner ce ticket pour une impression unique au guichet ?');">
-                                        <i class="fas fa-redo text-danger"></i>
-                                    </a>&nbsp;
-                                <?php endif; ?>
-                                <?if($item->prixretour === null):?>
-                                    <a class="icon" title="epson"
-                                        href="<?= site_url('Historique_Passagers/editpdfepson/' . $this->session->company->ekey . '/' . $item->tamponcod. '/' . $item->typetarif. '/' . $item->id_ligneheure.'/'. $bus_stop->idengare.'/'. $conex->roleattribut .'/'. $bus_stop->idsousgare); ?>">
-                                        <i class="fas fa-print"></i>
-                                    </a>&nbsp;
-                                    <a class="icon" title="epson"
-                                    href="<?= site_url('Historique_Passagers/reditpdfepson/' . $this->session->company->ekey . '/' . $item->tamponcodtr.'/'. $bus_stop->idengare.'/'. $conex->roleattribut .'/'. $bus_stop->idsousgare); ?>">
-                                    <i class="fas fa-print text-success"></i>
-                                </a>&nbsp;
-                                <?endif;?>
-                                <?if($item->prixretour != null):?>
-                                <a class="icon" title="epson"
-                                    href="<?= site_url('Historique_Passagers/epsonalretour/' . $this->session->company->ekey . '/' . $item->tamponcod. '/' . $item->typetarif. '/' . $item->tamponcod. '/' . $item->id_ligneheure.'/'. $bus_stop->idengare.'/'. $conex->roleattribut .'/'. $bus_stop->idsousgare); ?>">
-                                    <i class="fas fa-print"></i>
-                                </a>&nbsp;
-                                <a class="icon" title="epson"
-                                    href="<?= site_url('Historique_Passagers/repsonalretour/' . $this->session->company->ekey . '/' . $item->tamponcodtr.'/'. $bus_stop->idengare.'/'. $conex->roleattribut .'/'. $bus_stop->idsousgare); ?>">
-                                    <i class="fas fa-print text-success"></i>
-                                </a>&nbsp;
-                                <?endif;?>
-                                <a href="<?= "#?{$item->id_client}&&{$item->nom_client}"; ?>"
-                                       data-cle_compagnie="<?= $this->session->company->ekey; ?>"
-                                        data-id_client="<?= $item->id_client; ?>"
-                                        data-tamponcod="<?= $item->tamponcod; ?>"
-                                        data-passagecod="<?= $item->code_passager; ?>"
-                                        data-cdligneh="<?= $item->id_ligneheure; ?>"
-                                        data-ticketcod="<?= $item->code_ticket; ?>"
-                                        data-ticketcodnp="<?= isset($item->codeticket) ? $item->codeticket : ''; ?>"
-                                        data-nom="<?= $item->nom_client; ?>"
-                                        data-prenom="<?= $item->prenom_client; ?>"
-                                        data-type="<?= $item->type_client; ?>"
-                                        data-contact="<?= $item->contact_client; ?>"
-                                        data-cni="<?= $item->num_CNIB; ?>"
-                                        data-cnideliver="<?= $item->date_delivre; ?>"
-                                        data-cnideliverzone="<?= $item->lieu_delivre; ?>"
-                                        class="updateticket md-trigger" title="MODIFIER INFOS CLIENT"
-                                        data-modal="ticket-0">&nbsp;
-                                        <span class="fas fa-edit text-warning"></span>
-                                </a>&nbsp;
-                                            
-                                <a href="#" class="updatedticket md-trigger" data-cle_compagnie="<?= $this->session->company->ekey; ?>"
-                                    data-siege="<?= $item->num_siege_categorie; ?>"
-                                    data-codepro="<?= $item->code_pro; ?>"
-                                    data-nom="<?= $item->nom_client; ?>"
-                                    data-ancdepart="<?= $item->ligne_id; ?>"
-                                    data-codticket="<?= $item->code_ticket; ?>"
-                                    data-departsousg="<?= $item->departclient_idgare; ?>"
-                                    data-passagecod="<?= $item->code_passager; ?>" title="MODIFIER DEPART"
-                                    data-modal="updepart-0">
-                                    <i class="fas fa-edit text-success"></i>
-                                </a>&nbsp;
-                                <a href="#" class="md-trigger motif-action"
-                                    title="DESACTIVER TICKET"
-                                    data-modal="motif-action-0"
-                                    data-action="<?= site_url('Historique_Passagers/desactivecode/' . $this->session->company->ekey . '/' . $item->tamponcod. '/' . $item->is_activecode.'/'.$conex->roleattribut.'/'.$bus_stop->idengare.'/'.$bus_stop->idsousgare); ?>"
-                                    data-title="Désactiver / réactiver le code ticket">
-                                    <i class="fas fa-trash-alt text-danger"></i>
-                                </a>&nbsp;
-                                <a href="#" class="md-trigger motif-action"
-                                    title="ANNULER SIEGE"
-                                    data-modal="motif-action-0"
-                                    data-action="<?= site_url('Historique_Passagers/suprime/' . $this->session->company->ekey . '/' . $item->code_passager.'/'.$item->code_ticket.'/'.$conex->roleattribut.'/'.$bus_stop->idengare.'/'.$bus_stop->idsousgare); ?>"
-                                    data-title="Annuler le siège du ticket">
-                                    <i class="fas fa-trash-alt text-warning"></i>
-                                </a>&nbsp;
-                                <? if ($this->session->agent->userole === '1'): ?>
-
-                                    <a class="icon" title="SUPPRIMER TICKET"
-                                        href="<?= site_url('Historique_Passagers/supprimerticket/' . $this->session->company->ekey . '/' . $item->code_passager.'/'.$item->code_ticket.'/'.$conex->roleattribut.'/'.$bus_stop->idengare.'/'.$bus_stop->idsousgare); ?>">
-                                        <i class="fas fa-trash-alt text-danger"></i>
-                                    </a>&nbsp;
-                                <?endif;?>
-                                <? if (super_admin_can('sales.price.free')): ?>
-
-                                    <a href="<?= "#?{$item->id_client_pass}&client={$item->prenom_client}"; ?>"
-                                            title="prix" class="md-trigger" data-modal="edit-<?= $item->code_passager; ?>">
-                                        <i class="fas fa-edit text-warning"></i>
-                                    </a>&nbsp;
-                                    
-                                <?endif;?>
-                                        <a href="<?= "#?{$item->id_client_pass}&client={$item->prenom_client}"; ?>"
-                                            title="gare quartier" class="md-trigger" data-modal="edit-<?= $item->quart; ?>">
-                                            <i class="fas fa-edit text-warning"></i>
-                                        </a>&nbsp;
-                                        <div
-                                            class="modal-container colored-header colored-header-success custom-width modal-effect-7"
-                                            id="edit-<?= $item->code_passager; ?>" style="perspective: none;">
-
-                                            <div class="modal-content">
-
-                                                <div class="modal-header modal-header-colored">
-                                                    <h3 class="modal-title">MODIFICATION <?=$item->nom_client;?> <?= $item->prenom_client; ?></h3>
-                                                    <button class="close modal-close" type="button"
-                                                            data-dismiss="modal" aria-hidden="true"><span
-                                                            class="mdi mdi-close text-white"></span></button>
-                                                </div>
-
-                                                <?= form_open('Historique_Passagers/updateticket/' . $this->session->company->ekey . '/' . $item->code_passager.'/'.$item->code_ticket.'/'.$conex->roleattribut.'/'.$bus_stop->idengare.'/'.$bus_stop->idsousgare.'/'.$item->codeticket, array('class' => 'modal-body form')); ?>
-
-                                                <div class="row">
-                                                    <div class="form-group col-sm-4">
-                                                        <label>Prix</label>
-                                                        <input class="form-control form-control-sm" type="number" min="0" step="0.01"
-                                                        name="prixticket"
-                                                        value="<?= $item->prixvente; ?>"
-                                                        placeholder="<?= $item->prixvente; ?>"/>
-                                                    </div>
-                                                    <?= historique_modif_ticket_motif_fields_html('prix_' . $item->code_passager); ?>
-                                                    <?php if (function_exists('sales_price_controls_enabled') && sales_price_controls_enabled()): ?>
-<div class="form-group col-sm-12">
-                                                        <label>
-                                                            <input type="checkbox" name="confirmation_zero" value="1">
-                                                            Je confirme une éventuelle modification à 0 F
-                                                        </label>
-                                                    </div>
-                                                    <?php endif; ?>
-                                                </div>
-
-                                                <div class="modal-footer">
-                                                    <button class="btn btn-secondary modal-close" type="button"
-                                                            data-dismiss="modal">
-                                                        <i class="icon icon-left mdi mdi-undo"></i>&nbsp;ANNULER&nbsp;
-                                                    </button>
-                                                    <button class="btn btn-success" type="submit">
-                                                        <i class="icon icon-left mdi mdi-check-all"></i>&nbsp;OK&nbsp;
-                                                    </button>
-                                                </div>
-
-                                                <?= form_close(); ?>
-
-                                            </div>
-
-                                        </div>
-                                    <div
-                                        class="modal-container colored-header colored-header-success custom-width modal-effect-7"
-                                            id="edit-<?= $item->quart; ?>" style="perspective: none;">
-
-                                        <div class="modal-content">
-
-                                                <div class="modal-header modal-header-colored">
-                                                <h3 class="modal-title">MODIFICATION GARE OU QUARTIER DE <?=$item->nom_client;?> <?= $item->prenom_client; ?></h3>
-                                                <button class="close modal-close" type="button"
-                                                data-dismiss="modal" aria-hidden="true"><span
-                                                    class="mdi mdi-close text-white"></span></button>
-                                                </div>
-
-                                                <?= form_open('Historique_Passagers/upgarequart/'.$this->session->company->ekey.'/' . $item->code_passager.'/'.$item->code_ticket.'/'.$conex->roleattribut.'/'.$bus_stop->idengare.'/'.$bus_stop->idsousgare, array('class' => 'modal-body form')); ?>
-
-                                            <div class="row">
-                                                    
-                                            <div class="form-group col-sm-4">
-                                                <label>Sousgare</label>
-                                                <select class="form-control form-control-sm" name="deparsousgareidentifs">
-                                                <option value="<?= $item->departclient_idgare; ?>"><?= $item->nomsousgare; ?></option>
-                                                <? foreach ($garedeparts as $garedepart): ?>                          <option value="<?= $garedepart->idsousgare;?>">
-                                                <?= $garedepart->nom_gaep;?>/<?= $garedepart->nomsousgare;?>
-                                                </option>
-                                                <? endforeach; ?>
-                                                </select>
-                                            </div>
-                                            <div class="form-group col-sm-4">
-                                                <label>QUARTIER</label>
-                                                <? $cid=$this->session->company->ekey;
-                                                        $quartiers = $this->db->query("SELECT * FROM quartier q
-                                                            JOIN ville v ON q.id_ville_qua = v.id_ville
-                                                            JOIN gare_dest ga ON ga.id_villega = v.id_ville
-                                                            JOIN lignes lg ON lg.gadest_lg = ga.code_gadest
-                                                            JOIN compagnies c ON ga.id_compaga = c.cle_compagnie
-                                                            JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                                                            WHERE e.ekey = '$cid'
-                                                            AND lg.ident_ligne = '$item->ident_ligne'"
-                                                            )->result();?>
-                                                    <select class="form-control form-control-sm" name="idquarts">
-                                                    <option value="<?= $item->quart; ?>"><?= $item->quart; ?></option>
-                                                    <? foreach ($quartiers as $qrt): ?>
-                                                    <option value="<?= $qrt->nom_quartier; ?>">
-                                                    <?= $qrt->nom_quartier;?>
-                                                        </option>
-                                                    <? endforeach; ?>
-                                                        </select>
-                                                </div>
-                                            </div>
-
-                                            <div class="row">
-                                                <?= historique_modif_ticket_motif_fields_html('gq_' . $item->code_passager); ?>
-                                            </div>
-
-                                            <div class="modal-footer">
-                                            <button class="btn btn-secondary modal-close" type="button"
-                                                data-dismiss="modal">
-                                                <i class="icon icon-left mdi mdi-undo"></i>&nbsp;ANNULER&nbsp;
-                                                </button>
-                                                <button class="btn btn-success" type="submit">
-                                                <i class="icon icon-left mdi mdi-check-all"></i>&nbsp;OK&nbsp;
-                                                </button>
-                                            </div>
-
-                                            <?= form_close(); ?>
-
-                                        </div>
-
-                                    </div>
-                            </td>
-                        </tr>
-                    
-                    <? endforeach; ?>
-                    </tbody>
-                    
-                </table>
+                <style>
+                    #triPassagerTabs.nav-tabs {
+                        border-bottom: 2px solid #dee2e6;
+                    }
+                    #triPassagerTabs .nav-link {
+                        color: #5a5c69;
+                        background: #f1f3f5;
+                        border: 1px solid #dee2e6;
+                        border-bottom: none;
+                        margin-right: 4px;
+                        border-radius: 4px 4px 0 0;
+                        font-weight: 600;
+                        padding: 0.55rem 1rem;
+                    }
+                    #triPassagerTabs .nav-link:hover {
+                        background: #e9ecef;
+                        color: #343a40;
+                    }
+                    #triPassagerTabs .nav-link.active {
+                        background: #4285f4;
+                        border-color: #4285f4;
+                        color: #fff !important;
+                        box-shadow: none;
+                    }
+                    #triPassagerTabs .nav-link.active .badge {
+                        background: #fff !important;
+                        color: #4285f4 !important;
+                    }
+                    #triPassagerTabs .nav-link .badge {
+                        margin-left: 0.35rem;
+                    }
+                </style>
+                <ul class="nav nav-tabs nav-tabs-classic mb-3" id="triPassagerTabs" role="tablist">
+                    <li class="nav-item">
+                        <a class="nav-link active" id="tab-tri-direct" data-toggle="tab" href="#pane-tri-direct" role="tab">
+                            Tickets directs
+                            <span class="badge badge-primary"><?= (int) $__n_direct; ?></span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" id="tab-tri-transit" data-toggle="tab" href="#pane-tri-transit" role="tab">
+                            Tickets transit
+                            <span class="badge badge-info"><?= (int) $__n_transit; ?></span>
+                        </a>
+                    </li>
+                </ul>
+                <div class="tab-content">
+                    <div class="tab-pane fade show active" id="pane-tri-direct" role="tabpanel">
+                        <p class="small text-muted mb-2">Impression : ticket unique de la ligne.</p>
+                        <table class="table table-striped table-borderless" id="table1-direct">
+                            <thead>
+                            <tr>
+                                <th>N° siège</th>
+                                <th>Code</th>
+                                <th>Client / Contact</th>
+                                <th>N° cni ou passport / Date / Lieu</th>
+                                <th>Départ / Heure / Axe</th>
+                                <th>Prix</th>
+                                <th>Action</th>
+                            </tr>
+                            </thead>
+                            <tbody class="no-border-x">
+                            <?php
+                                $historiques = $historiques_direct;
+                                $__tri_print_mode = 'direct';
+                                include APPPATH . 'views/beagle/pages/_historique/_tri_passager_rows.php';
+                            ?>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="tab-pane fade" id="pane-tri-transit" role="tabpanel">
+                        <p class="small text-muted mb-2">Liste détaillée des jambes — impression globale de tous les tickets du voyage.</p>
+                        <table class="table table-striped table-borderless" id="table1-transit">
+                            <thead>
+                            <tr>
+                                <th>Jambe</th>
+                                <th>N° siège</th>
+                                <th>Code</th>
+                                <th>Client / Contact</th>
+                                <th>N° cni ou passport / Date / Lieu</th>
+                                <th>Départ / Heure / Axe</th>
+                                <th>Prix</th>
+                                <th>Action</th>
+                            </tr>
+                            </thead>
+                            <tbody class="no-border-x">
+                            <?php
+                                $historiques = $historiques_transit;
+                                $__tri_print_mode = 'transit';
+                                include APPPATH . 'views/beagle/pages/_historique/_tri_passager_rows.php';
+                            ?>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
                 
             </div>
                 
         </div>
     </div>
 </div>
+
     <div
         class="modal-container colored-header colored-header-success custom-width modal-effect-7"
         id="ticket-0" style="perspective: none;">

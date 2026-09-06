@@ -101,13 +101,14 @@
         }
 
         /**
-         * Tickets « Autre vente » / chef guichet en attente d’impression guichetier.
-         * Tous prix (gratuit ou payant), non encore imprimés (reimprime = 0), jour + sous-gare.
+         * Tickets « Autre vente » / reposition en attente d’impression guichet.
+         * File TICKET = gare entière (toutes sous-gares), non encore imprimés (reimprime = 0), jour.
          */
         public function getgr($cd, $g, $sg)
         {   
             $cdEsc = $this->db->escape($cd);
-            $sgEsc = $this->db->escape($sg);
+            $gEsc = $this->db->escape(trim((string) $g));
+            // $sg conservé pour compat signature ; filtre = gareprinceid (gare entière).
             return $this->db->query(
                 "SELECT *
                 FROM ordres o
@@ -128,7 +129,7 @@
                 AND (p.reimprime = 0 OR p.reimprime IS NULL)
                 AND p.statut_code = 'vendu'
                 AND p.actif_pas = 0
-                AND p.departclient_idgare = {$sgEsc}
+                AND sg.gareprinceid = {$gEsc}
                 AND o.dateenregistrement = CURDATE()
                 ORDER BY h.heure ASC, p.num_siege_categorie ASC"
             )->result();
@@ -227,19 +228,19 @@
         }
 
         /**
-         * Remet un ticket en file d'impression guichet (réimpression unique).
+         * Remet UN ticket (une jambe) en file d'impression guichet (réimpression unique).
          * - passager.reimprime = 0
-         * - departclient_idgare = sous-gare cible (file TICKET)
-         * - ordres.dateenregistrement = aujourd'hui (crée la ligne si absente)
+         * - conserve departclient_idgare (ne déplace pas vers la sous-gare du chef)
+         * - ordres.dateenregistrement = aujourd'hui
          *
+         * @param string|null $sousgare_id ignoré si vide : on garde la sous-gare du ticket
          * @return array{ok:bool,error?:string}
          */
-        public function ensure_reposition($code_passager, $operaid, $sousgare_id, $pourordre = 'reposition')
+        public function ensure_reposition($code_passager, $operaid, $sousgare_id = null, $pourordre = 'reposition')
         {
             $code = rawurldecode(trim((string) $code_passager));
-            $sg = trim((string) $sousgare_id);
             $op = (int) $operaid;
-            if ($code === '' || $sg === '' || $op <= 0) {
+            if ($code === '' || $op <= 0) {
                 return array('ok' => false, 'error' => 'params_manquants');
             }
             $pas = $this->db->query(
@@ -256,7 +257,15 @@
                 return array('ok' => false, 'error' => 'ticket_non_vendu');
             }
 
-            // SQL brut : éviter tout filtrage CI sur la valeur 0 de reimprime.
+            $sgAsk = trim((string) $sousgare_id);
+            // Priorité : sous-gare déjà sur le ticket (file réelle) ; sinon cible fournie.
+            $sgKeep = isset($pas->departclient_idgare) ? trim((string) $pas->departclient_idgare) : '';
+            $sg = ($sgKeep !== '' && $sgKeep !== '0') ? $sgKeep : $sgAsk;
+            if ($sg === '' || $sg === '0') {
+                return array('ok' => false, 'error' => 'params_manquants');
+            }
+
+            // Ne force plus la sous-gare du chef : uniquement reimprime = 0 (+ conserve departclient).
             $this->db->query(
                 'UPDATE passager SET reimprime = 0, departclient_idgare = ? WHERE code_passager = ?',
                 array($sg, $code)
