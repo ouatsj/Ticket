@@ -95,6 +95,26 @@ defined('BASEPATH') OR exit('No direct script access allowed'); ?>
                                         <i class="fas fa-redo text-danger"></i>
                                     </a>&nbsp;
                                 <?php endif; ?>
+                                <?if($item->prixretour === null):?>
+                                    <a class="icon" title="epson"
+                                        href="<?= site_url('Historique_Passagers/editpdfepson/' . $this->session->company->ekey . '/' . $item->tamponcod. '/' . $item->typetarif. '/' . $item->id_ligneheure.'/'. $bus_stop->idengare.'/'. $conex->roleattribut .'/'. $bus_stop->idsousgare); ?>">
+                                        <i class="fas fa-print"></i>
+                                    </a>&nbsp;
+                                    <a class="icon" title="epson"
+                                    href="<?= site_url('Historique_Passagers/reditpdfepson/' . $this->session->company->ekey . '/' . $item->tamponcodtr.'/'. $bus_stop->idengare.'/'. $conex->roleattribut .'/'. $bus_stop->idsousgare); ?>">
+                                    <i class="fas fa-print text-success"></i>
+                                </a>&nbsp;
+                                <?endif;?>
+                                <?if($item->prixretour != null):?>
+                                <a class="icon" title="epson"
+                                    href="<?= site_url('Historique_Passagers/epsonalretour/' . $this->session->company->ekey . '/' . $item->tamponcod. '/' . $item->typetarif. '/' . $item->tamponcod. '/' . $item->id_ligneheure.'/'. $bus_stop->idengare.'/'. $conex->roleattribut .'/'. $bus_stop->idsousgare); ?>">
+                                    <i class="fas fa-print"></i>
+                                </a>&nbsp;
+                                <a class="icon" title="epson"
+                                    href="<?= site_url('Historique_Passagers/repsonalretour/' . $this->session->company->ekey . '/' . $item->tamponcodtr.'/'. $bus_stop->idengare.'/'. $conex->roleattribut .'/'. $bus_stop->idsousgare); ?>">
+                                    <i class="fas fa-print text-success"></i>
+                                </a>&nbsp;
+                                <?endif;?>
                                 <a href="<?= "#?{$item->id_client}&&{$item->nom_client}"; ?>"
                                        data-cle_compagnie="<?= $this->session->company->ekey; ?>"
                                         data-id_client="<?= $item->id_client; ?>"
