@@ -99,6 +99,8 @@
                 'offres_reconduction' => array('m_programme_reconduction', 'm_entreprises'),
                 'heures_reconduction' => array('m_programme_reconduction', 'm_entreprises'),
                 'creer_reconduction' => array('m_programme', 'm_programme_reconduction', 'm_entreprises'),
+                'lire_alerte_sortie' => array('m_programme_reconduction', 'm_entreprises'),
+                'alertes_sortie' => array('m_programme_reconduction', 'm_entreprises'),
             );
         }
 
@@ -1772,7 +1774,14 @@
             $source = trim((string) $this->input->post('code_progr_source'));
             $gare = trim((string) $this->input->post('gare_cible'));
             $idHeur = (int) $this->input->post('id_ligneheure');
-            $sieges = $this->m_programme_reconduction->sieges_restants($source);
+            $sieges = $this->input->post('sieges');
+            if (!is_array($sieges)) {
+                $raw = trim((string) $this->input->post('sieges_csv'));
+                $sieges = $raw !== '' ? explode(',', $raw) : null;
+            }
+            if (!is_array($sieges) || empty($sieges)) {
+                $sieges = $this->m_programme_reconduction->sieges_restants($source);
+            }
             $options = array(
                 'typetarif' => $this->input->post('typetarif'),
                 'date_progr' => $this->input->post('date_progr'),
@@ -1787,6 +1796,48 @@
                 $options
             );
             return $this->load->view('beagle/pages/_programme/json', array('json' => $out));
+        }
+
+        /**
+         * Marque une alerte sortie / reconduction comme lue.
+         * POST Programmes/lire_alerte_sortie/{ekey}
+         */
+        public function lire_alerte_sortie($ckey)
+        {
+            session_release_lock();
+            $this->company = $this->m_entreprises->get_key($ckey);
+            if (!$this->_peut_gerer_programme()) {
+                return $this->load->view('beagle/pages/_programme/json', array(
+                    'json' => array('ok' => false, 'error' => 'droit_insuffisant'),
+                ));
+            }
+            $id = (int) $this->input->post('id_alerte');
+            $by = isset($this->session->agent->username) ? $this->session->agent->username : null;
+            $ok = $this->m_programme_reconduction->marquer_alerte_lue($id, $by);
+            return $this->load->view('beagle/pages/_programme/json', array(
+                'json' => array('ok' => (bool) $ok),
+            ));
+        }
+
+        /**
+         * Liste des alertes non lues pour une gare (polling léger).
+         * GET Programmes/alertes_sortie/{ekey}/{code_gaexp}
+         */
+        public function alertes_sortie($ckey, $code_gaexp = null)
+        {
+            session_release_lock();
+            $this->company = $this->m_entreprises->get_key($ckey);
+            if (!$code_gaexp) {
+                $code_gaexp = $this->input->get('gare');
+            }
+            $list = $this->m_programme_reconduction->alertes_pour_gare(
+                $this->session->company->ekey,
+                $code_gaexp,
+                20
+            );
+            return $this->load->view('beagle/pages/_programme/json', array(
+                'json' => array('ok' => true, 'alertes' => $list),
+            ));
         }
        
         public function verifinfosbis($n = '')

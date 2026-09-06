@@ -62,6 +62,25 @@ $sqls = array(
       UNIQUE KEY uq_sortie_siege (code_progr_source, siege_num),
       KEY idx_sortie_source (code_progr_source)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
+
+    "CREATE TABLE IF NOT EXISTS programme_sortie_alerte (
+      id_alerte INT UNSIGNED NOT NULL AUTO_INCREMENT,
+      ekey VARCHAR(64) NOT NULL DEFAULT '',
+      type_alerte VARCHAR(32) NOT NULL DEFAULT '',
+      gareidentif VARCHAR(64) NOT NULL DEFAULT '',
+      code_progr_source VARCHAR(128) NOT NULL DEFAULT '',
+      code_progr_cible VARCHAR(128) DEFAULT NULL,
+      gare_emetteur VARCHAR(64) DEFAULT NULL,
+      gare_cible VARCHAR(64) DEFAULT NULL,
+      message VARCHAR(512) NOT NULL DEFAULT '',
+      created_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+      created_by VARCHAR(128) DEFAULT NULL,
+      lu_at TIMESTAMP NULL DEFAULT NULL,
+      lu_by VARCHAR(128) DEFAULT NULL,
+      PRIMARY KEY (id_alerte),
+      KEY idx_alerte_gare_lu (ekey, gareidentif, lu_at),
+      KEY idx_alerte_source (code_progr_source)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
 );
 
 foreach ($sqls as $sql) {
@@ -70,4 +89,4 @@ foreach ($sqls as $sql) {
         exit(1);
     }
 }
-echo "OK programme_sortie / programme_reconduction / programme_reconduction_siege / programme_sortie_siege\n";
+echo "OK programme_sortie / programme_reconduction / programme_reconduction_siege / programme_sortie_siege / programme_sortie_alerte\n";

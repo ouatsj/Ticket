@@ -36,6 +36,7 @@ SET @sql := IF(@exists = 1, 'ALTER TABLE passager DROP COLUMN itinecode_vendu', 
 PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 
 -- P0.3
+DROP TABLE IF EXISTS programme_sortie_alerte;
 DROP TABLE IF EXISTS programme_sortie_siege;
 DROP TABLE IF EXISTS programme_reconduction_siege;
 DROP TABLE IF EXISTS programme_reconduction;

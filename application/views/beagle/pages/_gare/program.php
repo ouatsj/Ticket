@@ -47,13 +47,85 @@
 <div class="row mb-2 ml-2 mr-2">
     <div class="col-12 col-md-10">
         <div class="alert alert-warning mb-2 py-2">
-            <strong>Sièges restants</strong> —
-            <?= count($reconductions_offres); ?> départ<?= count($reconductions_offres) > 1 ? 's' : ''; ?>
-            en amont avec places libres.
-            <a href="#" class="alert-link js-reco-open">Créer un départ avec ces sièges</a>
+            <strong>Complément départ</strong> —
+            <span class="text-danger font-weight-bold"><?= count($reconductions_offres); ?></span>
+            déclaration<?= count($reconductions_offres) > 1 ? 's' : ''; ?>
+            de sortie en attente (sièges restants à vendre).
+            <a href="#" class="alert-link js-reco-open">Créer le complément de départ</a>
         </div>
     </div>
 </div>
+<?php endif; ?>
+
+<?php
+    if (!isset($sortie_alertes) || !is_array($sortie_alertes)) {
+        $sortie_alertes = array();
+    }
+?>
+<?php if ($__peut_prog && !empty($sortie_alertes)): ?>
+<div class="row mb-2 ml-2 mr-2" id="sortie-alertes-wrap">
+    <div class="col-12 col-md-10">
+        <?php foreach ($sortie_alertes as $__al): ?>
+            <?php
+                $__type = isset($__al->type_alerte) ? (string) $__al->type_alerte : '';
+                $__cls = ($__type === 'depart_cree_amont') ? 'alert-success' : 'alert-warning';
+                $__id = isset($__al->id_alerte) ? (int) $__al->id_alerte : 0;
+            ?>
+            <div class="alert <?= $__cls; ?> mb-2 py-2 js-sortie-alerte" data-id="<?= $__id; ?>">
+                <?= htmlspecialchars(isset($__al->message) ? $__al->message : '', ENT_QUOTES, 'UTF-8'); ?>
+                <?php if ($__type === 'offre_aval'): ?>
+                    — <a href="#" class="alert-link js-reco-open">Complément départ</a>
+                <?php endif; ?>
+                <?php if ($__id > 0): ?>
+                    <button type="button" class="btn btn-sm btn-link p-0 ml-2 js-sortie-alerte-lu" data-id="<?= $__id; ?>">Marquer lu</button>
+                <?php endif; ?>
+            </div>
+        <?php endforeach; ?>
+    </div>
+</div>
+<script>
+(function () {
+  var ekey = <?= json_encode(isset($this->session->company->ekey) ? $this->session->company->ekey : ''); ?>;
+  var base = <?= json_encode(rtrim(site_url('Programmes'), '/')); ?>;
+  function appendCsrf(body) {
+    var metaToken = document.querySelector('meta[name="csrf-token"]');
+    var metaParam = document.querySelector('meta[name="csrf-param"]');
+    var name = (metaParam && metaParam.getAttribute('content')) || 'csrf_raketa';
+    var val = metaToken ? metaToken.getAttribute('content') : '';
+    if (val) body.set(name, val);
+  }
+  document.addEventListener('click', function (e) {
+    var btn = e.target.closest ? e.target.closest('.js-sortie-alerte-lu') : null;
+    if (!btn) return;
+    e.preventDefault();
+    var id = btn.getAttribute('data-id');
+    if (!id) return;
+    var body = new URLSearchParams();
+    body.set('id_alerte', id);
+    appendCsrf(body);
+    btn.disabled = true;
+    fetch(base + '/lire_alerte_sortie/' + encodeURIComponent(ekey), {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'X-Requested-With': 'XMLHttpRequest',
+        'Accept': 'application/json'
+      },
+      body: body.toString()
+    }).then(function (r) { return r.json(); }).then(function (data) {
+      if (!data || !data.ok) {
+        btn.disabled = false;
+        return;
+      }
+      var row = btn.closest('.js-sortie-alerte');
+      if (row) row.remove();
+      var wrap = document.getElementById('sortie-alertes-wrap');
+      if (wrap && !wrap.querySelector('.js-sortie-alerte')) wrap.remove();
+    }).catch(function () { btn.disabled = false; });
+  });
+})();
+</script>
 <?php endif; ?>
 
 <script>
@@ -136,10 +208,11 @@
                 <i class="fas fa-plus text-success"></i>&nbsp;AJOUTER PROGRAMME&nbsp;
             </button>
             <button class="btn btn-space btn-secondary md-trigger js-reco-open"
-                    data-modal="modal-reconduction">
-                <i class="fas fa-share-square text-warning"></i>&nbsp;SIÈGES RESTANTS&nbsp;
+                    data-modal="modal-reconduction"
+                    title="Déclarations de sortie amont non encore reprises en départ">
+                <i class="fas fa-share-square text-warning"></i>&nbsp;COMPLÉMENT DÉPART (sièges restants à vendre)&nbsp;
                 <?php if (!empty($reconductions_offres)): ?>
-                    <span class="badge badge-warning"><?= count($reconductions_offres); ?></span>
+                    <span class="badge badge-danger" style="font-size:0.95em;"><?= count($reconductions_offres); ?></span>
                 <?php endif; ?>
             </button>
             <?endif;?>
@@ -669,9 +742,13 @@
                             CRÉER UN NOUVEAU PROGRAMME
                         </button>
                         <button class="btn btn-rounded btn-space btn-warning md-trigger js-reco-open"
-                                data-modal="modal-reconduction">
+                                data-modal="modal-reconduction"
+                                title="Déclarations de sortie amont non encore reprises en départ">
                             <i class="fas fa-share-square"></i>
-                            SIÈGES RESTANTS
+                            COMPLÉMENT DÉPART (sièges restants à vendre)
+                            <?php if (!empty($reconductions_offres)): ?>
+                                <span class="badge badge-danger"><?= count($reconductions_offres); ?></span>
+                            <?php endif; ?>
                         </button>
                     </div>
                     <div class="modal-container colored-header colored-header-success custom-width modal-effect-7"
@@ -2166,7 +2243,7 @@
      id="modal-reconduction" style="perspective: none;">
     <div class="modal-content">
         <div class="modal-header modal-header-colored">
-            <h3 class="modal-title">Créer un départ avec sièges restants</h3>
+            <h3 class="modal-title">Complément départ (sièges restants à vendre)</h3>
             <button class="close modal-close js-reco-close" type="button" aria-hidden="true">
                 <span class="mdi mdi-close text-white"></span>
             </button>

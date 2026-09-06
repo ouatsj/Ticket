@@ -492,6 +492,8 @@
         'programmes/offres_reconduction.*',
         'programmes/heures_reconduction.*',
         'programmes/creer_reconduction.*',
+        'programmes/lire_alerte_sortie.*',
+        'programmes/alertes_sortie.*',
         'confirmation/verif.*',
         'gares/ajax_passagers.*',
         'login/lin_s',

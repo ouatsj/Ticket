@@ -12,6 +12,7 @@ class Programme_reconduction_model extends CI_Model
     protected $table_reco = 'programme_reconduction';
     protected $table_siege = 'programme_reconduction_siege';
     protected $table_sortie_siege = 'programme_sortie_siege';
+    protected $table_alerte = 'programme_sortie_alerte';
 
     public function __construct()
     {
@@ -95,6 +96,26 @@ class Programme_reconduction_model extends CI_Model
               PRIMARY KEY (id),
               UNIQUE KEY uq_sortie_siege (code_progr_source, siege_num),
               KEY idx_sortie_source (code_progr_source)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4"
+        );
+        $this->db->query(
+            "CREATE TABLE IF NOT EXISTS {$this->table_alerte} (
+              id_alerte INT UNSIGNED NOT NULL AUTO_INCREMENT,
+              ekey VARCHAR(64) NOT NULL DEFAULT '',
+              type_alerte VARCHAR(32) NOT NULL DEFAULT '',
+              gareidentif VARCHAR(64) NOT NULL DEFAULT '',
+              code_progr_source VARCHAR(128) NOT NULL DEFAULT '',
+              code_progr_cible VARCHAR(128) DEFAULT NULL,
+              gare_emetteur VARCHAR(64) DEFAULT NULL,
+              gare_cible VARCHAR(64) DEFAULT NULL,
+              message VARCHAR(512) NOT NULL DEFAULT '',
+              created_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+              created_by VARCHAR(128) DEFAULT NULL,
+              lu_at TIMESTAMP NULL DEFAULT NULL,
+              lu_by VARCHAR(128) DEFAULT NULL,
+              PRIMARY KEY (id_alerte),
+              KEY idx_alerte_gare_lu (ekey, gareidentif, lu_at),
+              KEY idx_alerte_source (code_progr_source)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4"
         );
     }
@@ -777,9 +798,14 @@ class Programme_reconduction_model extends CI_Model
         }
         $this->db->trans_commit();
 
+        $sortie = $this->get_sortie($code_progr);
+        if ($sortie) {
+            $this->creer_alertes_offre_aval($ekey, $sortie, count($sieges), $declared_by);
+        }
+
         return array(
             'ok' => true,
-            'sortie' => $this->get_sortie($code_progr),
+            'sortie' => $sortie,
             'nb_restants' => count($sieges),
             'sieges' => $sieges,
         );
@@ -960,6 +986,16 @@ class Programme_reconduction_model extends CI_Model
         }
         $this->db->trans_commit();
 
+        $this->marquer_alertes_offre_lues($ekey, $gareStore, $code_progr_source, $createdBy);
+        $this->creer_alerte_depart_cree(
+            $ekey,
+            $sortie,
+            $pcd,
+            $gareStore,
+            count($sieges),
+            $createdBy
+        );
+
         return array(
             'ok' => true,
             'code_progr' => $pcd,
@@ -1068,6 +1104,176 @@ class Programme_reconduction_model extends CI_Model
                     )";
         }
         return null;
+    }
+
+    /**
+     * Gares aval éligibles à une sortie (même logique que offres_pour_gare, inversée).
+     * @return string[]
+     */
+    public function gares_aval_eligibles($ekey, $sortie)
+    {
+        if (!$sortie || empty($sortie->gadest_lg) || empty($sortie->gareidentif)) {
+            return array();
+        }
+        $ekey = trim((string) $ekey);
+        $rows = $this->db->query(
+            "SELECT DISTINCT l2.gaexp_lg AS gare
+             FROM lignes l2
+             JOIN gare_dest ga2 ON l2.gadest_lg = ga2.code_gadest
+             JOIN gare_dest ga1 ON ga1.code_gadest = ?
+             JOIN gare_exp ex2 ON l2.gaexp_lg = ex2.code_gaexp
+             JOIN compagnies c2 ON ex2.id_compagd = c2.cle_compagnie
+             JOIN entreprise e ON c2.id_entrep = e.id_entreprise
+             WHERE e.ekey = ?
+               AND l2.gaexp_lg != ?
+               AND ga2.nom_gadest != 'OUAGAESCAL'
+               AND ga2.id_compaga = ga1.id_compaga
+               AND (l2.gadest_lg = ?
+                    OR ga2.nom_gadest = ga1.nom_gadest
+                    OR ga2.id_villega = ga1.id_villega)",
+            array($sortie->gadest_lg, $ekey, $sortie->gareidentif, $sortie->gadest_lg)
+        )->result();
+        $out = array();
+        foreach ($rows as $r) {
+            $g = trim((string) $r->gare);
+            if ($g !== '') {
+                $out[$g] = $g;
+            }
+        }
+        return array_values($out);
+    }
+
+    /**
+     * Alertes non lues pour une gare (page Programmes).
+     * @return object[]
+     */
+    public function alertes_pour_gare($ekey, $gareidentif, $limit = 20)
+    {
+        $ekey = trim((string) $ekey);
+        $gare = trim((string) $gareidentif);
+        $limit = max(1, min(50, (int) $limit));
+        if ($ekey === '' || $gare === '') {
+            return array();
+        }
+        return $this->db->query(
+            "SELECT * FROM {$this->table_alerte}
+             WHERE ekey = ? AND gareidentif = ? AND lu_at IS NULL
+             ORDER BY created_at DESC
+             LIMIT {$limit}",
+            array($ekey, $gare)
+        )->result();
+    }
+
+    /**
+     * Alerte les gares aval qu'une sortie vient d'être déclarée.
+     */
+    public function creer_alertes_offre_aval($ekey, $sortie, $nb, $created_by = null)
+    {
+        if (!$sortie) {
+            return;
+        }
+        $nb = (int) $nb;
+        $gares = $this->gares_aval_eligibles($ekey, $sortie);
+        if (empty($gares)) {
+            return;
+        }
+        $nomSrc = $this->_nom_gare_exp($sortie->gareidentif);
+        $srcLabel = $nomSrc !== '' ? $nomSrc : (string) $sortie->gareidentif;
+        $msg = $srcLabel . ' a déclaré une sortie (' . $sortie->code_progr_source . ') avec '
+            . $nb . ' place' . ($nb > 1 ? 's' : '') . ' restante' . ($nb > 1 ? 's' : '')
+            . '. Créez un départ avec ces sièges.';
+        foreach ($gares as $gare) {
+            $exists = $this->db->query(
+                "SELECT id_alerte FROM {$this->table_alerte}
+                 WHERE ekey = ? AND type_alerte = 'offre_aval'
+                   AND gareidentif = ? AND code_progr_source = ?
+                   AND lu_at IS NULL
+                 LIMIT 1",
+                array($ekey, $gare, $sortie->code_progr_source)
+            )->row();
+            if ($exists) {
+                continue;
+            }
+            $this->db->insert($this->table_alerte, array(
+                'ekey' => $ekey,
+                'type_alerte' => 'offre_aval',
+                'gareidentif' => $gare,
+                'code_progr_source' => $sortie->code_progr_source,
+                'code_progr_cible' => null,
+                'gare_emetteur' => $sortie->gareidentif,
+                'gare_cible' => $gare,
+                'message' => $msg,
+                'created_by' => $created_by,
+            ));
+        }
+    }
+
+    /**
+     * Alerte la gare amont qu'un départ aval a été créé.
+     */
+    public function creer_alerte_depart_cree($ekey, $sortie, $code_cible, $gare_cible, $nb, $created_by = null)
+    {
+        if (!$sortie || empty($sortie->gareidentif)) {
+            return;
+        }
+        $nb = (int) $nb;
+        $nomCible = $this->_nom_gare_exp($gare_cible);
+        $cibleLabel = $nomCible !== '' ? $nomCible : (string) $gare_cible;
+        $msg = $cibleLabel . ' a créé le départ ' . $code_cible . ' avec '
+            . $nb . ' siège' . ($nb > 1 ? 's' : '')
+            . ' depuis votre sortie ' . $sortie->code_progr_source . '.';
+        $this->db->insert($this->table_alerte, array(
+            'ekey' => $ekey,
+            'type_alerte' => 'depart_cree_amont',
+            'gareidentif' => $sortie->gareidentif,
+            'code_progr_source' => $sortie->code_progr_source,
+            'code_progr_cible' => $code_cible,
+            'gare_emetteur' => $gare_cible,
+            'gare_cible' => $sortie->gareidentif,
+            'message' => $msg,
+            'created_by' => $created_by,
+        ));
+    }
+
+    public function marquer_alerte_lue($id_alerte, $by = null)
+    {
+        $id = (int) $id_alerte;
+        if ($id <= 0) {
+            return false;
+        }
+        $this->db->where('id_alerte', $id)
+            ->where('lu_at IS NULL', null, false)
+            ->update($this->table_alerte, array(
+                'lu_at' => date('Y-m-d H:i:s'),
+                'lu_by' => $by,
+            ));
+        return $this->db->affected_rows() > 0;
+    }
+
+    public function marquer_alertes_offre_lues($ekey, $gareidentif, $code_progr_source, $by = null)
+    {
+        $this->db->where('ekey', $ekey)
+            ->where('type_alerte', 'offre_aval')
+            ->where('gareidentif', $gareidentif)
+            ->where('code_progr_source', $code_progr_source)
+            ->where('lu_at IS NULL', null, false)
+            ->update($this->table_alerte, array(
+                'lu_at' => date('Y-m-d H:i:s'),
+                'lu_by' => $by,
+            ));
+    }
+
+    protected function _nom_gare_exp($code_gaexp)
+    {
+        $code = trim((string) $code_gaexp);
+        if ($code === '') {
+            return '';
+        }
+        $row = $this->db->query(
+            "SELECT nom_gaep FROM gare_exp WHERE code_gaexp = ? LIMIT 1",
+            array($code)
+        )->row();
+        return ($row && !empty($row->nom_gaep)) ? (string) $row->nom_gaep : '';
     }
 
     protected function _normaliser_sieges(array $sieges)

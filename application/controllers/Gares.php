@@ -748,6 +748,11 @@
                     $this->property['bases'] = app_cache_remember('tarifs_all', 600, function () {
                         return $this->m_tarifs->get();
                     });
+                    // Reconduction : offres aval + badges ligne + alertes non lues
+                    $this->m_programme_reconduction->ensure_tables();
+                    $this->property['reconductions_offres'] = $this->m_programme_reconduction->offres_pour_gare($ekey, $cdg);
+                    $this->property['reconduction_index'] = $this->m_programme_reconduction->index_for_codes($prog_codes);
+                    $this->property['sortie_alertes'] = $this->m_programme_reconduction->alertes_pour_gare($ekey, $cdg, 20);
                     $this->property['pagetitle'] .= "• PROGRAMMES • <strong>{$bus_stop->nom_gaep}</strong>&nbsp;•&nbsp;{$bus_stop->nom_ville}<strong>•&nbsp;{$this->company->nom_entreprise}</strong>";
                     $this->property = array_merge($this->property, scripts_bundle_property('program', null, true));
                     return $this->layout->view('_gare/program', $this->property);
