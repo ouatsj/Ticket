@@ -1157,7 +1157,7 @@
         public function alldayarch($cid, $datedb, $datef, $gid)
         {
             
-                $rows = $this->db->query(
+                $q = $this->db->query(
                     "SELECT * FROM tamponcode ctp
                     JOIN passager p ON p.code_passager = ctp.tamponcod
                     JOIN sousgare sg ON p.departclient_idgare = sg.idsousgare 
@@ -1173,12 +1173,20 @@
                     JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
                     JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                    WHERE e.ekey = '$cid'
-                    AND p.datep_create BETWEEN '$datedb' AND '$datef'
+                    WHERE e.ekey = ?
+                    AND p.datep_create BETWEEN ? AND ?
                     AND p.statut_code ='vendu'
-                    AND ex.code_gaexp = '$gid'
+                    AND ex.code_gaexp = ?
                     AND p.statut_confirme IS NULL
-                    AND p.statut_reprog IS NULL")->result(); return $this->normalize_ticket_prix_rows($rows);        }
+                    AND p.statut_reprog IS NULL",
+                    array($cid, $datedb, $datef, $gid)
+                );
+                if (!$q) {
+                    return array();
+                }
+                $rows = $q->result();
+                return $this->normalize_ticket_prix_rows($rows);
+        }
 
         //passager reprogrammer
         public function trireparch($cid, $datedb, $datef, $gid)
@@ -1273,7 +1281,7 @@
 		public function alldayarchad($cid, $datedb, $datef)
         {
             
-                $rows = $this->db->query(
+                $q = $this->db->query(
                     "SELECT * FROM tamponcode ctp
                     JOIN passager p ON p.code_passager = ctp.tamponcod
                     JOIN sousgare sg ON p.departclient_idgare = sg.idsousgare 
@@ -1289,11 +1297,19 @@
                     JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
                     JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                    WHERE e.ekey = '$cid'
-                    AND p.datep_create BETWEEN '$datedb' AND '$datef'
+                    WHERE e.ekey = ?
+                    AND p.datep_create BETWEEN ? AND ?
                     AND p.statut_code ='vendu'
                     AND p.statut_confirme IS NULL
-                    AND p.statut_reprog IS NULL")->result(); return $this->normalize_ticket_prix_rows($rows);        }
+                    AND p.statut_reprog IS NULL",
+                    array($cid, $datedb, $datef)
+                );
+                if (!$q) {
+                    return array();
+                }
+                $rows = $q->result();
+                return $this->normalize_ticket_prix_rows($rows);
+        }
 
         //passager reprogrammer
         public function trireparchad($cid, $datedb, $datef)

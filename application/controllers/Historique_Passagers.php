@@ -61,6 +61,19 @@
                 $this->property['conex'] = $conex;
             $ddbt = $this->input->post('debutdate');
             $dfin = $this->input->post('findate');
+            // Après Repositionner (redirect GET) ou accès direct : garder les dates de recherche.
+            if ($ddbt !== null && $ddbt !== '' && $dfin !== null && $dfin !== '') {
+                $this->session->set_userdata('hp_tri_debut', $ddbt);
+                $this->session->set_userdata('hp_tri_fin', $dfin);
+            } else {
+                $ddbt = $this->session->userdata('hp_tri_debut');
+                $dfin = $this->session->userdata('hp_tri_fin');
+            }
+            if ($ddbt === null || $ddbt === '' || $dfin === null || $dfin === '') {
+                $today = mdate('%Y-%m-%d', now());
+                $ddbt = $today;
+                $dfin = $today;
+            }
             if ($this->session->agent->userole === '1' OR $this->session->agent->userole === '2'){
 
                 $this->property['historiques'] = $this->m_passager->alldayarchad($this->company->ekey, $ddbt, $dfin);
