@@ -52,6 +52,33 @@
                     AND t.id_tarifs = '$tf'")->row();
         }
 
+        /**
+         * Ticket libre (sans programme / heure) : lecture pour impression 57x40.
+         */
+        public function get_libre($cid, $p_id)
+        {
+            return $this->db->query(
+                "SELECT es.*,
+                        cl.nom_client, cl.prenom_client, cl.contact_client,
+                        sg.nomsousgare,
+                        lg.nom_ligne, lg.ident_ligne,
+                        ex.nom_gaep, dest.nom_gadest,
+                        c.nom_compagnie, c.logo,
+                        e.nom_entreprise
+                 FROM escalclients es
+                 JOIN client cl ON es.clientescal = cl.id_client
+                 JOIN sousgare sg ON es.departsgescal = sg.idsousgare
+                 JOIN lignes lg ON es.lignintescal = lg.ident_ligne
+                 JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
+                 JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
+                 JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
+                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
+                 WHERE e.ekey = ?
+                   AND es.idclescal = ?
+                 LIMIT 1",
+                array($cid, $p_id)
+            )->row();
+        }
 
         public function rget($cid, $p_id, $tf, $t)
         {

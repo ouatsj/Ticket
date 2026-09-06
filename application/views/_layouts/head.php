@@ -4,8 +4,15 @@
 
 <head>
     <meta charset="utf-8">
+    <?php if (!empty($viewport_touch)): ?>
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="theme-color" content="#0d6efd">
+    <?php else: ?>
     <meta name="viewport"
           content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <?php endif; ?>
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <?php if (!empty($no_cache)): ?>
     <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate">

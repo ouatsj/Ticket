@@ -253,6 +253,157 @@
                 }
         }
 
+        /**
+         * Vente escale libre : destination = itineraire_escales, prix = prix_escale, sans programme.
+         */
+        public function passagerescal_libre($ckey)
+        {
+            $this->company = $this->m_entreprises->get_key($ckey);
+            if (!isset($this->m_itineraire_escale)) {
+                $this->load->model('Itineraire_escale_model', 'm_itineraire_escale');
+            }
+
+            $gid = $this->input->post('gareconnectescal');
+            $sgid = $this->input->post('sousgareconnectescal');
+            $iduser = roleattribut_guard_post_hint($this->company->ekey, 'gareconnectescal', 'userconnectedescal');
+            if ($msg = compte_arret_guard_sale('ticket', $iduser, $gid)) {
+                compte_arret_redirect_guichet($iduser, $gid, $sgid, $msg);
+                return;
+            }
+
+            if (!$this->input->post('epsonescal')) {
+                redirect('gares/' . $this->session->company->ekey . '/gTc/' . $gid . '/compte/' . $iduser . '/' . $sgid . '/' . mdate("%d/%m/%Y", now('UTC')));
+                return;
+            }
+
+            $depart_value = trim((string) $this->input->post('escale_depart'));
+            $destination_vente = trim((string) $this->input->post('destination_vente'));
+            if ($destination_vente === '') {
+                // Compat ancien champ
+                $legacy = (int) $this->input->post('id_escale_dest');
+                if ($legacy > 0) {
+                    $destination_vente = 'escale~' . $legacy;
+                }
+            }
+            $nom = trim((string) $this->input->post('rclientescal'));
+            $prenom = trim((string) $this->input->post('prclientescal'));
+            $contact = trim((string) $this->input->post('rclient_contactescal'));
+
+            if ($depart_value === '' || $destination_vente === '' || $nom === '' || $prenom === '' || $contact === '') {
+                $this->session->set_flashdata('error', 'Destination et identité client obligatoires.');
+                redirect('gares/' . $this->company->ekey . '/gTc/' . $gid . '/compte/' . $iduser . '/' . $sgid . '/' . mdate("%d/%m/%Y", now('UTC')));
+                return;
+            }
+
+            $destinations = $this->m_itineraire_escale->destinations_vente($depart_value);
+            $dest = null;
+            foreach ($destinations as $row) {
+                $row_val = isset($row->value) ? (string) $row->value : ('escale~' . (int) $row->id_escale);
+                if ($row_val === $destination_vente) {
+                    $dest = $row;
+                    break;
+                }
+            }
+            if (!$dest) {
+                $this->session->set_flashdata('error', 'Destination invalide pour cette escale de départ.');
+                redirect('gares/' . $this->company->ekey . '/gTc/' . $gid . '/compte/' . $iduser . '/' . $sgid . '/' . mdate("%d/%m/%Y", now('UTC')));
+                return;
+            }
+
+            $prix = (float) $dest->prix_escale;
+            $label_od = (string) $dest->label;
+            $id_lignes = (string) $dest->id_lignes;
+            $today = mdate("%Y-%m-%d", now('UTC'));
+            $now_dt = mdate("%Y-%m-%d %H:%i:%s", now('UTC'));
+            $usen = substr($this->session->agent->username, 0, 1);
+
+            $passecompt = $this->db->query(
+                "SELECT COUNT(idclescal) AS id FROM escalclients es WHERE es.dateescal = ?",
+                array($today)
+            )->row();
+            $tampon = mdate("%y%d%m", now('UTC')) . ((int) $passecompt->id + 1) . $gid . $usen . $iduser;
+
+            $client_id = trim((string) $this->input->post('clientcompescal'));
+            $nom_ref = trim((string) $this->input->post('cprclientescal'));
+            $prenom_ref = trim((string) $this->input->post('cpprclientescal'));
+
+            if ($client_id !== '' && $nom_ref === $nom && $prenom_ref === $prenom) {
+                $this->m_client->update($client_id, array(
+                    'nom_client' => $nom,
+                    'prenom_client' => $prenom,
+                    'contact_client' => $contact,
+                    'type_client' => 'Adulte',
+                    'datedoc' => mdate("%Y/%m/%d", now('UTC')),
+                ));
+            } else {
+                $client_id = $this->m_client->create(array(
+                    'nom_client' => $nom,
+                    'prenom_client' => $prenom,
+                    'contact_client' => $contact,
+                    'type_client' => 'Adulte',
+                    'num_CNIB' => '',
+                    'date_delivre' => $today,
+                    'datedoc' => mdate("%Y/%m/%d", now('UTC')),
+                    'lieu_delivre' => '',
+                ));
+            }
+
+            $lh = $this->db->query(
+                "SELECT lh.id_ligneheure
+                 FROM ligne_heure lh
+                 JOIN heures h ON lh.heure_identif = h.id_heure
+                 WHERE lh.ligne_id = ?
+                   AND COALESCE(lh.actif_lh, 1) = 1
+                   AND COALESCE(h.h_active, 1) = 1
+                 ORDER BY lh.id_ligneheure ASC
+                 LIMIT 1",
+                array($id_lignes)
+            )->row();
+            if (!$lh) {
+                $this->session->set_flashdata('error', 'Aucun horaire actif sur la ligne parent — impossible d\'enregistrer le ticket.');
+                redirect('gares/' . $this->company->ekey . '/gTc/' . $gid . '/compte/' . $iduser . '/' . $sgid . '/' . mdate("%d/%m/%Y", now('UTC')));
+                return;
+            }
+            $id_lgeheur = (int) $lh->id_ligneheure;
+
+            $insert = array(
+                'idclescal' => $tampon,
+                'iduseescal' => $iduser,
+                'clientescal' => $client_id,
+                'lignintescal' => $id_lignes,
+                'departgescal' => $gid,
+                'departsgescal' => $sgid,
+                'id_lgeheur' => $id_lgeheur,
+                // Préfixe pour router réimp / historique vers le ticket 57x40
+                'quartier_escal' => '[LIBRE] ' . $label_od,
+                'typtarifesc' => 1,
+                'prixescal' => $prix,
+                'datedepescal' => $today,
+                'dateescal' => $today,
+                'escalpanier' => 'A',
+                'arrcptescal' => 0,
+                'cptarrchgescal' => 0,
+            );
+            // Colonnes optionnelles selon schéma
+            if ($this->db->field_exists('reimpr', 'escalclients')) {
+                $insert['reimpr'] = 1;
+            }
+            $this->m_escalclients->create($insert);
+
+            $check = $this->m_escalclients->get_libre($this->company->ekey, $tampon);
+            if (!$check) {
+                $this->session->set_flashdata('error', 'Échec enregistrement ticket escale.');
+                redirect('gares/' . $this->company->ekey . '/gTc/' . $gid . '/compte/' . $iduser . '/' . $sgid . '/' . mdate("%d/%m/%Y", now('UTC')));
+                return;
+            }
+
+            if ($this->db->field_exists('dateheureescal', 'escalclients')) {
+                $this->db->where('idclescal', $tampon)->update('escalclients', array('dateheureescal' => $now_dt));
+            }
+
+            redirect('Historique_Passagers/pdfepsonescal_libre/' . $this->company->ekey . '/' . $tampon . '/' . $gid . '/' . $iduser . '/' . $sgid);
+        }
+
         public function reimpri($ckey, $id, $statutr, $idlh, $gd, $uid, $sg)
         {
             $company = $this->m_entreprises->get_key($ckey);
@@ -345,6 +496,11 @@
             $this->property['conex'] = $conex;
 
             $item = $this->m_escalclients->rget($this->company->ekey, $code_id, $tf, $h);
+            $libre = false;
+            if (!$item) {
+                $item = $this->m_escalclients->get_libre($this->company->ekey, $code_id);
+                $libre = (bool) $item;
+            }
             if (!$item) {
                 redirect('ventescales/voirreimpri/' . $this->company->ekey . '/'
                     . (int) $conex->roleattribut . '/' . rawurlencode($g) . '/' . (int) $idsg);
@@ -367,6 +523,15 @@
             $this->m_escalclients->update($item->idclescal, array('reimpr' => 0));
 
             $this->property['item'] = $item;
+            if ($libre || (isset($item->quartier_escal) && strpos((string) $item->quartier_escal, '[LIBRE]') === 0)) {
+                if (isset($item->quartier_escal)) {
+                    $item->quartier_escal = trim(preg_replace('/^\[LIBRE\]\s*/', '', (string) $item->quartier_escal));
+                    $this->property['item'] = $item;
+                }
+                $this->property['layout_minimal'] = TRUE;
+                $this->layout->view('_tickets/pdfepsonescal_libre', $this->property);
+                return;
+            }
             $this->layout->view('_tickets/pdfepsonescalrp', $this->property);
         }
     }

@@ -26,6 +26,10 @@
                                 class="btn btn-secondary btn-space md-trigger" data-modal="">
                                 <i class="fas fa-print text-info"></i>&nbsp; VENTE MOBILE&nbsp;
                             </a>
+          <a href="#"
+                                class="btn btn-secondary btn-space addventeescalelibre md-trigger" data-modal="ticketescal-0">
+                                <i class="fas fa-map-marker-alt text-info"></i>&nbsp; VENTE MOBILE ESCAL&nbsp;
+                            </a>
           <a href="#" data-cle_compagnie="<?= $this->session->company->ekey;?>"
                                 class="btn btn-secondary btn-space addventeticket md-trigger" data-modal="ticketaller-0">
                                 <i class="fas fa-bus text-info"></i>&nbsp;VENTE GUICHET&nbsp;

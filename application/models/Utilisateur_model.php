@@ -198,4 +198,113 @@
                     JOIN utilisateurs u ON cu.userlog_id = u.uid
                     WHERE ar.roleattribut = '$a'")->row();
         }
+
+        /**
+         * Comptes login liés à une fiche utilisateur.
+         *
+         * @return object[]
+         */
+        public function comptes_of($uid, $ekey = null)
+        {
+            $uid = (int) $uid;
+            if ($uid <= 0) {
+                return array();
+            }
+
+            if ($ekey === null || $ekey === '') {
+                return $this->db->query(
+                    "SELECT cu.cpuser_id FROM compte_user cu WHERE cu.userlog_id = ?",
+                    array($uid)
+                )->result();
+            }
+
+            return $this->db->query(
+                "SELECT cu.cpuser_id FROM compte_user cu
+                JOIN utilisateurs u ON cu.userlog_id = u.uid
+                JOIN entreprise e ON u.cle_comp = e.ekey
+                WHERE cu.userlog_id = ?
+                AND e.ekey = ?",
+                array($uid, $ekey)
+            )->result();
+        }
+
+        /**
+         * True si la fiche utilisateur (et tous ses comptes) n'a jamais travaillé.
+         */
+        public function peut_supprimer($uid, $ekey = null)
+        {
+            $uid = (int) $uid;
+            if ($uid <= 0) {
+                return false;
+            }
+
+            if ($ekey !== null && $ekey !== '') {
+                $row = $this->db->query(
+                    "SELECT u.uid FROM utilisateurs u
+                    JOIN entreprise e ON u.cle_comp = e.ekey
+                    WHERE u.uid = ? AND e.ekey = ? LIMIT 1",
+                    array($uid, $ekey)
+                )->row();
+                if (!$row) {
+                    return false;
+                }
+            }
+
+            $this->load->model('Compte_user_model', 'm_compte_user');
+            foreach ($this->comptes_of($uid, $ekey) as $compte) {
+                if (!$this->m_compte_user->peut_supprimer((int) $compte->cpuser_id)) {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        /**
+         * Supprime la fiche utilisateur + comptes associés s'il n'y a aucune activité métier.
+         *
+         * @return array{ok:bool,error?:string}
+         */
+        public function delete_if_unused($uid, $ekey = null)
+        {
+            $uid = (int) $uid;
+            if ($uid <= 0) {
+                return array('ok' => false, 'error' => 'Utilisateur invalide.');
+            }
+
+            if ($ekey !== null && $ekey !== '') {
+                $owned = $this->db->query(
+                    "SELECT u.uid FROM utilisateurs u
+                    JOIN entreprise e ON u.cle_comp = e.ekey
+                    WHERE u.uid = ? AND e.ekey = ? LIMIT 1",
+                    array($uid, $ekey)
+                )->row();
+                if (!$owned) {
+                    return array('ok' => false, 'error' => 'Utilisateur introuvable pour cette entreprise.');
+                }
+            }
+
+            $this->load->model('Compte_user_model', 'm_compte_user');
+            $comptes = $this->comptes_of($uid, $ekey);
+            foreach ($comptes as $compte) {
+                $check = $this->m_compte_user->usage_reasons((int) $compte->cpuser_id);
+                if (!empty($check)) {
+                    return array(
+                        'ok' => false,
+                        'error' => 'Suppression impossible : l\'utilisateur a déjà travaillé ('
+                            . implode(', ', $check) . '). Désactivez le compte à la place.',
+                    );
+                }
+            }
+
+            foreach ($comptes as $compte) {
+                $res = $this->m_compte_user->delete_if_unused((int) $compte->cpuser_id, $ekey);
+                if (empty($res['ok'])) {
+                    return $res;
+                }
+            }
+
+            $this->del($uid);
+            return array('ok' => true);
+        }
     }

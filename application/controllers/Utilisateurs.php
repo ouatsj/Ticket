@@ -142,6 +142,9 @@
                 $this->property['authusers'] = $this->m_utilisateur->get_use($this->company->ekey);
                 $this->property['pagetitle'] .= "&nbsp;•&nbsp;TOUT LES UTILISATEURS<strong>&nbsp;•&nbsp;{$this->company->nom_entreprise}</strong> ";
                 $this->property['gares'] = $this->m_gare_depart->get($this->company->id_entreprise);
+                // Icône suppression : rôles admin seulement ; l'éligibilité (sans activité) est vérifiée à la confirmation.
+                $this->property['peut_afficher_suppression'] = $this->session->userdata('agent')
+                    && in_array((string) $this->session->agent->userole, array('1', '2'), true);
                 return $this->layout->view('_users/compt', $this->property);
         }
         
@@ -153,6 +156,12 @@
                 $this->property['pagetitle'] .= "&nbsp;•&nbsp;COMPTE <strong>&nbsp;•&nbsp;{$this->company->nom_entreprise}</strong> ";
                 
                 $this->property['garees'] = $this->m_gares->get($this->company->id_entreprise);
+                $this->property['peut_afficher_suppression'] = $this->session->userdata('agent')
+                    && in_array((string) $this->session->agent->userole, array('1', '2'), true);
+                // Peu de comptes sur cette page : map légère (évite N×tables dans la vue).
+                $this->property['cpusers_supprimables'] = $this->property['peut_afficher_suppression']
+                    ? $this->m_compte_user->map_cpusers_supprimables_for_uids(array($ud), $this->company->ekey)
+                    : array();
                 return $this->layout->view('_users/view', $this->property);
         }
 
@@ -1702,6 +1711,84 @@
                 $this->property['UPDATE_SUCCESS'] = TRUE;
             redirect('utilisateurs/' . $this->session->company->ekey.'/gTv/'.$ul.'/compte/'. mdate("%d/%m/%Y", now('UTC')));
             
+        }
+
+        /**
+         * Supprime un compte login uniquement s'il n'a jamais produit d'activité métier.
+         */
+        public function supprimercompte($ckey, $cpuser_id, $uid)
+        {
+            if (!$this->session->userdata('agent')
+                || !in_array((string) $this->session->agent->userole, array('1', '2'), true)) {
+                show_error('Accès réservé à l\'administrateur.', 403);
+                return;
+            }
+
+            $company = $this->m_entreprises->get_key($ckey);
+            $cpuser_id = (int) $cpuser_id;
+            $uid = (int) $uid;
+            $redirect = 'utilisateurs/' . $company->ekey . '/gTv/' . $uid . '/compte/' . mdate('%d/%m/%Y', now('UTC'));
+
+            if ($cpuser_id > 0 && (int) $this->session->agent->cpuser_id === $cpuser_id) {
+                $this->session->set_flashdata('compte_error', 'Vous ne pouvez pas supprimer votre propre compte.');
+                redirect($redirect);
+                return;
+            }
+
+            $result = $this->m_compte_user->delete_if_unused($cpuser_id, $company->ekey);
+            if (empty($result['ok'])) {
+                $this->session->set_flashdata('compte_error', $result['error'] ?? 'Suppression refusée.');
+                redirect($redirect);
+                return;
+            }
+
+            if (function_exists('auth_session_invalidate_user')) {
+                auth_session_invalidate_user($cpuser_id);
+            }
+
+            $this->session->set_flashdata('compte_success', 'Compte supprimé (aucune activité enregistrée).');
+            redirect($redirect);
+        }
+
+        /**
+         * Supprime une fiche utilisateur (+ comptes) uniquement sans activité métier.
+         */
+        public function supprimeruse($ckey, $uid)
+        {
+            if (!$this->session->userdata('agent')
+                || !in_array((string) $this->session->agent->userole, array('1', '2'), true)) {
+                show_error('Accès réservé à l\'administrateur.', 403);
+                return;
+            }
+
+            $company = $this->m_entreprises->get_key($ckey);
+            $uid = (int) $uid;
+            $redirect = 'utilisateurs/' . $company->ekey;
+
+            $comptes = $this->m_utilisateur->comptes_of($uid, $company->ekey);
+            foreach ($comptes as $compte) {
+                if ((int) $this->session->agent->cpuser_id === (int) $compte->cpuser_id) {
+                    $this->session->set_flashdata('compte_error', 'Vous ne pouvez pas supprimer votre propre utilisateur.');
+                    redirect($redirect);
+                    return;
+                }
+            }
+
+            $result = $this->m_utilisateur->delete_if_unused($uid, $company->ekey);
+            if (empty($result['ok'])) {
+                $this->session->set_flashdata('compte_error', $result['error'] ?? 'Suppression refusée.');
+                redirect($redirect);
+                return;
+            }
+
+            foreach ($comptes as $compte) {
+                if (function_exists('auth_session_invalidate_user')) {
+                    auth_session_invalidate_user((int) $compte->cpuser_id);
+                }
+            }
+
+            $this->session->set_flashdata('compte_success', 'Utilisateur supprimé (aucune activité enregistrée).');
+            redirect($redirect);
         }
 
         public function actif($ckey, $id, $uid, $cp, $statut)

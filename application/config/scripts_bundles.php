@@ -40,7 +40,7 @@ return array(
         '14' => array('bundles/guichet-14.js'),
         '15' => array('bundles/guichet-15.js'),
         '16' => array(),
-        '17' => array(),
+        '17' => array('bundles/guichet-17.js'),
         '18' => array('bundles/guichet-18.js'),
         'default' => array('bundles/guichet-default.js'),
     ),

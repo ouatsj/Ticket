@@ -13,9 +13,30 @@ if (!empty($__reprog_err)): ?>
 </div>
 <?php endif;
 
+// Rôle 17 : retour à la liste des escales de l'itinéraire courant si possible.
+$retour_17 = retour_sousgare_url($ekey, $idengare, $roleattribut);
+if (isset($this->session->agent->userole) && (string) $this->session->agent->userole === '17') {
+    $it = $this->session->userdata('role17_itineraire');
+    if (is_array($it)
+        && !empty($it['ident_ligne'])
+        && !empty($it['gare'])
+        && (string) $it['gare'] === (string) $idengare
+    ) {
+        $retour_17 = site_url(
+            'gares/' . $ekey . '/gTi/' . $idengare
+            . '/itineraire/' . (!empty($it['cpus']) ? $it['cpus'] : $roleattribut)
+            . '/' . (!empty($it['idsousgare']) ? $it['idsousgare'] : (isset($bus_stop->idsousgare) ? $bus_stop->idsousgare : '0'))
+            . '/' . rawurlencode((string) $it['ident_ligne'])
+            . '/' . mdate('%d/%m/%Y', now('UTC'))
+        );
+    }
+}
+
 $this->load->view('_partials/btn_retour', array(
-    'label' => 'RETOUR GARE',
+    'label' => (isset($this->session->agent->userole) && (string) $this->session->agent->userole === '17')
+        ? 'RETOUR ESCALES'
+        : 'RETOUR GARE',
     'btn_class' => 'btn btn-secondary btn-space md-trigger',
     'icon_class' => 'fas fa-arrow-circle-left text-info',
-    'fallback' => retour_sousgare_url($ekey, $idengare, $roleattribut),
+    'fallback' => $retour_17,
 ));

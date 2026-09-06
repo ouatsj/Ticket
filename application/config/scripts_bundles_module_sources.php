@@ -49,6 +49,7 @@ return array(
         'addbagagenfact.js',
         'adautrfactbag.js',
         'adventeescale.js',
+        'adventeescale_libre.js',
         'adbagescale.js',
         'adcourescale.js',
         'adpartcoursescale.js',

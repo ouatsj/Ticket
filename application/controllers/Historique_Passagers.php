@@ -2472,9 +2472,45 @@
                 $conex = $this->_roleattribut_guard_bind($cpus, $this->company->ekey, $g);
                 $this->property['conex'] = $conex;
             $this->escalclients = $this->m_escalclients->get($this->company->ekey, $code_id, $tf, $h);
+            if (!$this->escalclients) {
+                $this->escalclients = $this->m_escalclients->get_libre($this->company->ekey, $code_id);
+                if ($this->escalclients) {
+                    if (isset($this->escalclients->quartier_escal)) {
+                        $this->escalclients->quartier_escal = trim(preg_replace(
+                            '/^\[LIBRE\]\s*/',
+                            '',
+                            (string) $this->escalclients->quartier_escal
+                        ));
+                    }
+                    $this->property['item'] = $this->escalclients;
+                    $this->property['layout_minimal'] = TRUE;
+                    $this->layout->view('_tickets/pdfepsonescal_libre', $this->property);
+                    return;
+                }
+            }
             $this->property['item'] = $this->escalclients;
             
             $this->layout->view('_tickets/pdfepsonescal', $this->property);
+        }
+
+        /**
+         * Impression ticket escale libre 57x40 mm (date/heure d'émission).
+         */
+        public function pdfepsonescal_libre($ckey, $code_id, $g, $cpus, $idsg)
+        {
+            $this->company = $this->m_entreprises->get_key($ckey);
+            $bus_stop = $this->m_sousgare->sget($this->company->ekey, $g, $idsg);
+            $this->property['bus_stop'] = $bus_stop;
+            $conex = $this->_roleattribut_guard_bind($cpus, $this->company->ekey, $g);
+            $this->property['conex'] = $conex;
+            $item = $this->m_escalclients->get_libre($this->company->ekey, $code_id);
+            if ($item && isset($item->quartier_escal)) {
+                $item->quartier_escal = trim(preg_replace('/^\[LIBRE\]\s*/', '', (string) $item->quartier_escal));
+            }
+            $this->property['item'] = $item;
+            // TPE/POS : chrome minimal, pas d'affichage ticket à l'écran
+            $this->property['layout_minimal'] = TRUE;
+            $this->layout->view('_tickets/pdfepsonescal_libre', $this->property);
         }
 
         public function pdfepsonbagesc($ckey, $bg_id, $g, $cpus, $idsg)

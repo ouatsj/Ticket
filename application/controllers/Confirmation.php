@@ -2230,27 +2230,27 @@
         {
             $this->company = $this->m_entreprises->get_key($ckey);
 
-            
             $bus_stop = $this->m_sousgare->sget($this->company->ekey, $gd, $sg);
-                $this->property['bus_stop'] = $bus_stop;
+            $this->property['bus_stop'] = $bus_stop;
 
-                $conex = $this->_roleattribut_guard_bind($uid, $this->company->ekey, $gd);
-                $this->property['conex'] = $conex;
+            $conex = $this->_roleattribut_guard_bind($uid, $this->company->ekey, $gd);
+            $this->property['conex'] = $conex;
 
-                $this->property['garedeparts'] = $this->m_sousgare->getes($this->company->ekey, $gd, $sg);
-                $this->property['garearrivees'] = $this->m_gare_arrivee->get($this->company->id_entreprise, $gd);
-                $this->property['garedepartcomp'] = $this->m_gare_depart->cmpget($this->company->id_entreprise, $gd);
-                $this->property['gareactuelles'] = $this->m_gare_depart->getgidbis($this->company->id_entreprise, $gd);
+            if (!isset($this->m_itineraire_escale)) {
+                $this->load->model('Itineraire_escale_model', 'm_itineraire_escale');
+            }
+            $code_gaexp = !empty($bus_stop->code_gaexp)
+                ? $bus_stop->code_gaexp
+                : (isset($bus_stop->gareprinceid) ? $bus_stop->gareprinceid : '');
+            $this->property['escales_depart'] = $this->m_itineraire_escale->points_depart_vente(
+                (int) $this->company->id_entreprise,
+                $code_gaexp
+            );
+            $this->property['code_gaexp_vente'] = $code_gaexp;
 
-                $this->property['lignesgare'] = $this->m_lignes->getlggare($this->company->id_entreprise, $gd);
-                $this->property['lignes'] = $this->m_lignes->get($this->company->id_entreprise, $gd);
-                    
-                $this->property['typesclients'] = $this->m_type_client->get();
-                    
-                $this->property['pagetitle'] .= " VENTE TICKETS ESCAL • <strong>{$this->company->nom_entreprise}•&nbsp;$bus_stop->garenom •&nbsp;$bus_stop->nomsousgare</strong> ";
-            
-                return $this->layout->view('_tickets/indexescal', $this->property);
-               
+            $this->property['pagetitle'] .= " VENTE ESCALE • <strong>{$this->company->nom_entreprise}•&nbsp;$bus_stop->garenom •&nbsp;$bus_stop->nomsousgare</strong> ";
+
+            return $this->layout->view('_tickets/indexescal_libre', $this->property);
         }
         //bagages
         public function mobilebag($ckey, $uid, $gd, $sg)

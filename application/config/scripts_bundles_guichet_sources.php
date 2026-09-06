@@ -8,6 +8,7 @@ return array(
     '1' => array(
         'filtre_arrivee_compagnie.js',
         'addventemobile.js', 'addventeticket.js', 'vente-escale-itineraire.js', 'addventeticketfi.js',
+        'adventeescale_libre.js',
         'addreprog_unifie.js',
         'addconfirmadmin.js', 'addconfirmadmintran.js', 'addconfirme.js',
         'addreserve.js', 'addconfirmreserve.js', 'addretour.js', 'addrecu.js', 'addbon.js',
@@ -93,7 +94,9 @@ return array(
         'addconfirmbon.js', 'addconfirmcarte.js', 'addrecu.js', 'addbon.js', 'addcarte.js',
     ),
     '16' => array(),
-    '17' => array(),
+    '17' => array(
+        'adventeescale_libre.js',
+    ),
     '18' => array(
         'filtre_arrivee_compagnie.js',
         'addventeticketfi.js', 'vente-escale-itineraire.js',

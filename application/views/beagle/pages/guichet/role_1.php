@@ -8045,4 +8045,5 @@
                     </div>
                 </div>
             <?php $this->load->view('beagle/pages/guichet/_reprog_modal_unifie'); ?>
+            <?php $this->load->view('beagle/pages/guichet/_modal_vente_escale_libre'); ?>
             </div>

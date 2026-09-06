@@ -67,6 +67,20 @@ defined('BASEPATH') OR exit('No direct script access allowed'); ?>
 
             </div>
             <div class="card-body">
+                <div class="row align-items-center mb-3">
+                    <div class="col-md-7 col-lg-6">
+                        <label class="sr-only" for="filtre-tri-passager">Recherche instantanée</label>
+                        <input type="search"
+                               id="filtre-tri-passager"
+                               class="form-control"
+                               placeholder="Filtrer : nom, téléphone, code, siège, axe, date…"
+                               autocomplete="off"
+                               autofocus>
+                    </div>
+                    <div class="col-md-5 col-lg-6 mt-2 mt-md-0">
+                        <span class="text-muted" id="filtre-tri-passager-count"></span>
+                    </div>
+                </div>
                 <style>
                     #triPassagerTabs.nav-tabs {
                         border-bottom: 2px solid #dee2e6;
@@ -136,6 +150,7 @@ defined('BASEPATH') OR exit('No direct script access allowed'); ?>
                             ?>
                             </tbody>
                         </table>
+                        <p class="text-muted filtre-tri-vide d-none mb-0">Aucun ticket direct pour cette recherche.</p>
                     </div>
                     <div class="tab-pane fade" id="pane-tri-transit" role="tabpanel">
                         <p class="small text-muted mb-2">Liste détaillée des jambes — impression globale de tous les tickets du voyage.</p>
@@ -160,6 +175,7 @@ defined('BASEPATH') OR exit('No direct script access allowed'); ?>
                             ?>
                             </tbody>
                         </table>
+                        <p class="text-muted filtre-tri-vide d-none mb-0">Aucun ticket transit pour cette recherche.</p>
                     </div>
                 </div>
                 
@@ -168,6 +184,66 @@ defined('BASEPATH') OR exit('No direct script access allowed'); ?>
         </div>
     </div>
 </div>
+<script>
+(function () {
+    var input = document.getElementById('filtre-tri-passager');
+    var countEl = document.getElementById('filtre-tri-passager-count');
+    if (!input) { return; }
+
+    function filterPane(pane) {
+        if (!pane) { return { visible: 0, total: 0 }; }
+        var q = (input.value || '').toLowerCase().trim();
+        var rows = pane.querySelectorAll('tbody tr[data-search], tbody tr');
+        var visible = 0;
+        var total = rows.length;
+        for (var i = 0; i < rows.length; i++) {
+            var hay = (rows[i].getAttribute('data-search') || rows[i].textContent || '').toLowerCase();
+            var show = !q || hay.indexOf(q) !== -1;
+            rows[i].style.display = show ? '' : 'none';
+            if (show) { visible++; }
+        }
+        var emptyMsg = pane.querySelector('.filtre-tri-vide');
+        if (emptyMsg) {
+            emptyMsg.classList.toggle('d-none', !(q && visible === 0));
+        }
+        return { visible: visible, total: total };
+    }
+
+    function applyFilter() {
+        var pane = document.querySelector('#triPassagerTabs + .tab-content > .tab-pane.active')
+            || document.querySelector('.tab-content > .tab-pane.active');
+        // Filtrer les deux onglets pour garder le filtre au changement d'onglet
+        var panes = document.querySelectorAll('#pane-tri-direct, #pane-tri-transit');
+        for (var p = 0; p < panes.length; p++) {
+            filterPane(panes[p]);
+        }
+        if (countEl && pane) {
+            var q = (input.value || '').trim();
+            var rows = pane.querySelectorAll('tbody tr');
+            var visible = 0;
+            for (var i = 0; i < rows.length; i++) {
+                if (rows[i].style.display !== 'none') { visible++; }
+            }
+            if (q) {
+                countEl.textContent = visible + ' / ' + rows.length + ' résultat(s)';
+            } else {
+                countEl.textContent = rows.length + ' passager(s)';
+            }
+        }
+    }
+
+    input.addEventListener('input', applyFilter);
+    input.addEventListener('search', applyFilter);
+    var tabLinks = document.querySelectorAll('#triPassagerTabs a[data-toggle="tab"]');
+    for (var t = 0; t < tabLinks.length; t++) {
+        tabLinks[t].addEventListener('shown.bs.tab', applyFilter);
+        if (window.jQuery) {
+            window.jQuery(tabLinks[t]).on('shown.bs.tab', applyFilter);
+        }
+    }
+    applyFilter();
+})();
+</script>
 
     <div
         class="modal-container colored-header colored-header-success custom-width modal-effect-7"

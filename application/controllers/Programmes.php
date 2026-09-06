@@ -79,6 +79,8 @@
                 'verifitine' => array('m_itineraire'),
                 'verifescales' => array('m_itineraire_escale'),
                 'verifescalesod' => array('m_itineraire_escale'),
+                'verifescalesdepart' => array('m_itineraire_escale'),
+                'verifescalesdestvente' => array('m_itineraire_escale'),
                 'verifprogrammes' => array('m_programme'),
                 'siegepassager' => array('m_passager'),
                 'siege_vendable' => array('m_programme'),
@@ -2589,6 +2591,37 @@
                 $this->load->model('Itineraire_escale_model', 'm_itineraire_escale');
             }
             $rows = $this->m_itineraire_escale->get_by_od($gaexp, $gadest, TRUE);
+            return $this->load->view('beagle/pages/_programme/json', array('json' => $rows));
+        }
+
+        /**
+         * Points de départ (origine + escales) pour vente libre escale.
+         */
+        public function verifescalesdepart($code_gaexp = '')
+        {
+            session_release_lock();
+            if (!isset($this->m_itineraire_escale)) {
+                $this->load->model('Itineraire_escale_model', 'm_itineraire_escale');
+            }
+            $code_gaexp = rawurldecode((string) $code_gaexp);
+            $rows = $this->m_itineraire_escale->points_depart_vente(
+                (int) $this->session->company->id_entreprise,
+                $code_gaexp
+            );
+            return $this->load->view('beagle/pages/_programme/json', array('json' => $rows));
+        }
+
+        /**
+         * Destinations + prix_escale depuis un point de départ (origin|… / escale|…).
+         */
+        public function verifescalesdestvente($depart = '')
+        {
+            session_release_lock();
+            if (!isset($this->m_itineraire_escale)) {
+                $this->load->model('Itineraire_escale_model', 'm_itineraire_escale');
+            }
+            $depart = rawurldecode((string) $depart);
+            $rows = $this->m_itineraire_escale->destinations_vente($depart);
             return $this->load->view('beagle/pages/_programme/json', array('json' => $rows));
         }
 

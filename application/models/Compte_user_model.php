@@ -1402,4 +1402,340 @@
                 "SELECT * FROM attributions_role ar 
                 WHERE ar.roleattribut = '$u'")->row();
         }
+
+        /**
+         * Tables / colonnes d'activité métier (bloquent la suppression).
+         * Résultat mis en cache (évite information_schema en boucle).
+         *
+         * @return array{ra:array<int,array{0:string,1:string,2:string}>,cp:array<int,array{0:string,1:string,2:string}>}
+         */
+        protected function _activite_schema()
+        {
+            static $schema = null;
+            if ($schema !== null) {
+                return $schema;
+            }
+
+            $ra_defs = array(
+                array('passager', 'idcptuser', 'tickets'),
+                array('escalclients', 'iduseescal', 'tickets escale'),
+                array('non_passager', 'cptus', 'tickets libres'),
+                array('bagages', 'idoperabagage', 'bagages'),
+                array('bagagesesc', 'idoperabagageesc', 'bagages escale'),
+                array('courriers_exp', 'idoperateur', 'courriers'),
+                array('courriers_expesc', 'idoperateuresc', 'courriers escale'),
+                array('recette', 'idopera', 'recettes'),
+                array('depense', 'idop_dep', 'dépenses'),
+                array('depot', 'idop_depot', 'dépôts'),
+                array('autresdepenses', 'idoperaconnect', 'autres dépenses'),
+                array('envoibagages', 'idoperabagageenv', 'envois bagages'),
+                array('depensescourriers', 'idopradepens', 'dépenses courrier'),
+                array('bordereauquartier', 'idoperbord', 'bordereaux'),
+                array('compte_bagage', 'idusercomptbg', 'comptes bagage'),
+                array('report', 'idcpuserconect', 'reports'),
+                array('travel_card_usage', 'seller_roleattribut', 'cartes voyage'),
+            );
+            $cp_defs = array(
+                array('historique_modif_ticket', 'cpuser_id', 'historique tickets'),
+                array('cash_closure_audit', 'created_by_cpuser_id', 'clôtures caisse'),
+                array('fraud_control_events', 'actor_cpuser_id', 'contrôle fraude'),
+                array('sale_approval_requests', 'requester_cpuser_id', 'demandes vente'),
+                array('ticket_audit_log', 'actor_cpuser_id', 'audit tickets'),
+                array('ticket_pricing_snapshot', 'seller_cpuser_id', 'tarification'),
+                array('travel_card_usage', 'seller_cpuser_id', 'cartes voyage'),
+                array('bon_millitaire', 'iduse', 'bons militaires'),
+            );
+
+            $ra = array();
+            foreach ($ra_defs as $chk) {
+                if ($this->db->table_exists($chk[0]) && $this->db->field_exists($chk[1], $chk[0])) {
+                    $ra[] = $chk;
+                }
+            }
+            $cp = array();
+            foreach ($cp_defs as $chk) {
+                if ($this->db->table_exists($chk[0]) && $this->db->field_exists($chk[1], $chk[0])) {
+                    $cp[] = $chk;
+                }
+            }
+
+            $schema = array('ra' => $ra, 'cp' => $cp);
+            return $schema;
+        }
+
+        /**
+         * Motifs bloquant la suppression d'un compte (activité métier déjà enregistrée).
+         * Les attributions gare/rôle seules ne bloquent pas.
+         *
+         * @param int $cpuser_id
+         * @return string[]
+         */
+        public function usage_reasons($cpuser_id)
+        {
+            $cpuser_id = (int) $cpuser_id;
+            if ($cpuser_id <= 0) {
+                return array('compte invalide');
+            }
+
+            $reasons = array();
+            $schema = $this->_activite_schema();
+
+            $ra_rows = $this->db->query(
+                "SELECT ar.roleattribut
+                FROM attributions_role ar
+                JOIN user_login ul ON ar.idgestcompte = ul.uid_login
+                WHERE ul.uid_usercpte = ?",
+                array($cpuser_id)
+            )->result();
+
+            $roleattributs = array();
+            foreach ($ra_rows as $row) {
+                $ra = (int) $row->roleattribut;
+                if ($ra > 0) {
+                    $roleattributs[$ra] = $ra;
+                }
+            }
+
+            if (!empty($roleattributs)) {
+                $in = implode(',', $roleattributs);
+                foreach ($schema['ra'] as $chk) {
+                    $found = $this->db->query(
+                        "SELECT 1 AS ok FROM `{$chk[0]}` WHERE `{$chk[1]}` IN ({$in}) LIMIT 1"
+                    )->row();
+                    if ($found) {
+                        $reasons[] = $chk[2];
+                        break;
+                    }
+                }
+            }
+
+            if (empty($reasons)) {
+                foreach ($schema['cp'] as $chk) {
+                    $found = $this->db->query(
+                        "SELECT 1 AS ok FROM `{$chk[0]}` WHERE `{$chk[1]}` = ? LIMIT 1",
+                        array($cpuser_id)
+                    )->row();
+                    if ($found) {
+                        $reasons[] = $chk[2];
+                        break;
+                    }
+                }
+            }
+
+            return $reasons;
+        }
+
+        /**
+         * Map cpuser_id => true pour les comptes de l'entreprise ayant une activité métier.
+         * Une passe groupée (pas N×tables) pour les listes admin.
+         *
+         * @param string $ekey
+         * @return array<int,bool>
+         */
+        public function cpusers_avec_activite_map($ekey)
+        {
+            $ekey = (string) $ekey;
+            if ($ekey === '') {
+                return array();
+            }
+
+            $busy = array();
+            $schema = $this->_activite_schema();
+            $ekeyEsc = $this->db->escape($ekey);
+
+            foreach ($schema['ra'] as $chk) {
+                $rows = $this->db->query(
+                    "SELECT DISTINCT ul.uid_usercpte AS cpuser_id
+                    FROM `{$chk[0]}` t
+                    INNER JOIN attributions_role ar ON t.`{$chk[1]}` = ar.roleattribut
+                    INNER JOIN user_login ul ON ar.idgestcompte = ul.uid_login
+                    INNER JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
+                    INNER JOIN utilisateurs u ON cu.userlog_id = u.uid
+                    INNER JOIN entreprise e ON u.cle_comp = e.ekey
+                    WHERE e.ekey = {$ekeyEsc}"
+                );
+                if (!$rows) {
+                    continue;
+                }
+                foreach ($rows->result() as $row) {
+                    $busy[(int) $row->cpuser_id] = true;
+                }
+            }
+
+            foreach ($schema['cp'] as $chk) {
+                $rows = $this->db->query(
+                    "SELECT DISTINCT t.`{$chk[1]}` AS cpuser_id
+                    FROM `{$chk[0]}` t
+                    INNER JOIN compte_user cu ON t.`{$chk[1]}` = cu.cpuser_id
+                    INNER JOIN utilisateurs u ON cu.userlog_id = u.uid
+                    INNER JOIN entreprise e ON u.cle_comp = e.ekey
+                    WHERE e.ekey = {$ekeyEsc}"
+                );
+                if (!$rows) {
+                    continue;
+                }
+                foreach ($rows->result() as $row) {
+                    $busy[(int) $row->cpuser_id] = true;
+                }
+            }
+
+            return $busy;
+        }
+
+        /**
+         * Map cpuser_id => true pour les comptes suppressibles de l'entreprise.
+         *
+         * @param string $ekey
+         * @return array<int,bool>
+         */
+        public function map_cpusers_supprimables($ekey)
+        {
+            $ekey = (string) $ekey;
+            if ($ekey === '') {
+                return array();
+            }
+
+            $busy = $this->cpusers_avec_activite_map($ekey);
+            $rows = $this->db->query(
+                "SELECT cu.cpuser_id
+                FROM compte_user cu
+                JOIN utilisateurs u ON cu.userlog_id = u.uid
+                JOIN entreprise e ON u.cle_comp = e.ekey
+                WHERE e.ekey = ?",
+                array($ekey)
+            )->result();
+
+            $ok = array();
+            foreach ($rows as $row) {
+                $id = (int) $row->cpuser_id;
+                if ($id > 0 && empty($busy[$id])) {
+                    $ok[$id] = true;
+                }
+            }
+
+            return $ok;
+        }
+
+        /**
+         * Map suppressible pour quelques fiches utilisateur (page compte : 1 uid).
+         *
+         * @param array $uids
+         * @param string $ekey
+         * @return array<int,bool>
+         */
+        public function map_cpusers_supprimables_for_uids(array $uids, $ekey)
+        {
+            $ok = array();
+            $ekey = (string) $ekey;
+            foreach ($uids as $uid) {
+                $uid = (int) $uid;
+                if ($uid <= 0) {
+                    continue;
+                }
+                $rows = $this->db->query(
+                    "SELECT cu.cpuser_id
+                    FROM compte_user cu
+                    JOIN utilisateurs u ON cu.userlog_id = u.uid
+                    JOIN entreprise e ON u.cle_comp = e.ekey
+                    WHERE cu.userlog_id = ?
+                    AND e.ekey = ?",
+                    array($uid, $ekey)
+                )->result();
+                foreach ($rows as $row) {
+                    $id = (int) $row->cpuser_id;
+                    if ($id > 0 && $this->peut_supprimer($id)) {
+                        $ok[$id] = true;
+                    }
+                }
+            }
+
+            return $ok;
+        }
+
+        /**
+         * True si le compte n'a aucune activité métier (suppression autorisée).
+         */
+        public function peut_supprimer($cpuser_id)
+        {
+            return empty($this->usage_reasons($cpuser_id));
+        }
+
+        /**
+         * Supprime le compte et ses rattachements (gares, rôles, pages) si aucune activité.
+         *
+         * @return array{ok:bool,error?:string}
+         */
+        public function delete_if_unused($cpuser_id, $ekey = null)
+        {
+            $cpuser_id = (int) $cpuser_id;
+            if ($cpuser_id <= 0) {
+                return array('ok' => false, 'error' => 'Compte invalide.');
+            }
+
+            if ($ekey !== null && $ekey !== '') {
+                $owned = $this->db->query(
+                    "SELECT cu.cpuser_id FROM compte_user cu
+                    JOIN utilisateurs u ON cu.userlog_id = u.uid
+                    JOIN entreprise e ON u.cle_comp = e.ekey
+                    WHERE cu.cpuser_id = ?
+                    AND e.ekey = ?
+                    LIMIT 1",
+                    array($cpuser_id, $ekey)
+                )->row();
+                if (!$owned) {
+                    return array('ok' => false, 'error' => 'Compte introuvable pour cette entreprise.');
+                }
+            }
+
+            $reasons = $this->usage_reasons($cpuser_id);
+            if (!empty($reasons)) {
+                return array(
+                    'ok' => false,
+                    'error' => 'Suppression impossible : l\'utilisateur a déjà travaillé ('
+                        . implode(', ', $reasons) . '). Désactivez le compte à la place.',
+                );
+            }
+
+            $this->db->trans_start();
+
+            $logins = $this->db->query(
+                "SELECT uid_login FROM user_login WHERE uid_usercpte = ?",
+                array($cpuser_id)
+            )->result();
+            $uid_logins = array();
+            foreach ($logins as $lg) {
+                $uid_logins[] = (int) $lg->uid_login;
+            }
+
+            if (!empty($uid_logins)) {
+                $in_login = implode(',', $uid_logins);
+                $this->db->query(
+                    "DELETE FROM attributions_role WHERE idgestcompte IN ({$in_login})"
+                );
+            }
+
+            if ($this->db->table_exists('appdossierrole')) {
+                $this->db->where('idcomptrole', $cpuser_id)->delete('appdossierrole');
+            }
+            if ($this->db->table_exists('user_permissions')) {
+                $this->db->where('cpuser_id', $cpuser_id)->delete('user_permissions');
+            }
+            if ($this->db->table_exists('compteur_user')) {
+                $this->db->where('cpuser_ids', $cpuser_id)->delete('compteur_user');
+            }
+            if ($this->db->table_exists('verifcompte_user')) {
+                $this->db->where('verifcpuser_id', $cpuser_id)->delete('verifcompte_user');
+            }
+
+            $this->db->where('uid_usercpte', $cpuser_id)->delete('user_login');
+            $this->db->where('cpuser_id', $cpuser_id)->delete('compte_user');
+
+            $this->db->trans_complete();
+
+            if ($this->db->trans_status() === false) {
+                return array('ok' => false, 'error' => 'Échec de la suppression (contrainte base de données).');
+            }
+
+            return array('ok' => true);
+        }
     }

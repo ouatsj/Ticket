@@ -4,8 +4,24 @@ if (!isset($__tri_print_mode)) { $__tri_print_mode = 'direct'; }
 if (!isset($__peut_repositionner)) { $__peut_repositionner = false; }
 ?>
                     <? foreach ($historiques as $item): ?>
-
-                        <tr>
+                        <?php
+                        $__search = strtolower(trim(implode(' ', array(
+                            isset($item->num_siege_categorie) ? $item->num_siege_categorie : '',
+                            isset($item->tamponcod) ? $item->tamponcod : '',
+                            isset($item->code_ticket) ? $item->code_ticket : '',
+                            isset($item->tamponcodtr) ? $item->tamponcodtr : '',
+                            isset($item->nom_client) ? $item->nom_client : '',
+                            isset($item->prenom_client) ? $item->prenom_client : '',
+                            isset($item->contact_client) ? $item->contact_client : '',
+                            isset($item->num_CNIB) ? $item->num_CNIB : '',
+                            isset($item->date_progr) ? $item->date_progr : '',
+                            isset($item->heure) ? $item->heure : '',
+                            function_exists('ticket_axe_label') ? ticket_axe_label($item) : '',
+                            isset($item->quart) ? $item->quart : '',
+                            isset($item->prixvente) ? $item->prixvente : '',
+                        ))));
+                        ?>
+                        <tr data-search="<?= htmlspecialchars($__search, ENT_QUOTES, 'UTF-8'); ?>">
                             <?php if (($__tri_print_mode ?? 'direct') === 'transit'): ?>
                             <td>
                                 <span class="badge badge-info">Jambe <?= (int) (isset($item->num_jambe) ? $item->num_jambe : 1); ?>/<?= (int) (isset($item->nbr_jambes) ? $item->nbr_jambes : 1); ?></span>

@@ -30,7 +30,21 @@ defined('BASEPATH') OR exit('No direct script access allowed'); ?>
 
             </div>
             <div class="card-body">
-                <table class="table table-striped table-borderless" id="table1">
+                <div class="row align-items-center mb-3">
+                    <div class="col-md-7 col-lg-6">
+                        <label class="sr-only" for="filtre-tri-passager-esc">Recherche instantanée</label>
+                        <input type="search"
+                               id="filtre-tri-passager-esc"
+                               class="form-control"
+                               placeholder="Filtrer : nom, téléphone, code, axe, date…"
+                               autocomplete="off"
+                               autofocus>
+                    </div>
+                    <div class="col-md-5 col-lg-6 mt-2 mt-md-0">
+                        <span class="text-muted" id="filtre-tri-passager-esc-count"></span>
+                    </div>
+                </div>
+                <table class="table table-striped table-borderless" id="table-tri-escale">
                     <thead>
                     <tr>
                         <th>Code</th>
@@ -44,13 +58,23 @@ defined('BASEPATH') OR exit('No direct script access allowed'); ?>
 
                     <tbody class="no-border-x">
                     <? foreach ($historiqueses as $item): ?>
-
-                        <tr>
-                        
-                           
+                        <?php
+                        $__search = strtolower(trim(implode(' ', array(
+                            isset($item->idclescal) ? $item->idclescal : '',
+                            isset($item->nom_client) ? $item->nom_client : '',
+                            isset($item->prenom_client) ? $item->prenom_client : '',
+                            isset($item->contact_client) ? $item->contact_client : '',
+                            isset($item->num_CNIB) ? $item->num_CNIB : '',
+                            isset($item->datedepescal) ? $item->datedepescal : '',
+                            isset($item->heure) ? $item->heure : '',
+                            isset($item->nom_ligne) ? $item->nom_ligne : '',
+                            isset($item->quartier_escal) ? $item->quartier_escal : '',
+                            isset($item->prixescal) ? $item->prixescal : '',
+                        ))));
+                        ?>
+                        <tr data-search="<?= htmlspecialchars($__search, ENT_QUOTES, 'UTF-8'); ?>">
                             <td>
                                 <span><?= $item->idclescal; ?></span>
-								
                             </td>
                             <td>
                                 <span>Nom:<?= $item->nom_client; ?><br></span>
@@ -91,9 +115,43 @@ defined('BASEPATH') OR exit('No direct script access allowed'); ?>
                     </tbody>
                     
                 </table>
+                <p class="text-muted filtre-tri-esc-vide d-none mb-0">Aucun résultat pour cette recherche.</p>
                 
             </div>
                 
         </div>
     </div>
 </div>
+<script>
+(function () {
+    var input = document.getElementById('filtre-tri-passager-esc');
+    var countEl = document.getElementById('filtre-tri-passager-esc-count');
+    var table = document.getElementById('table-tri-escale');
+    var emptyMsg = document.querySelector('.filtre-tri-esc-vide');
+    if (!input || !table) { return; }
+
+    function applyFilter() {
+        var q = (input.value || '').toLowerCase().trim();
+        var rows = table.querySelectorAll('tbody tr');
+        var visible = 0;
+        for (var i = 0; i < rows.length; i++) {
+            var hay = (rows[i].getAttribute('data-search') || rows[i].textContent || '').toLowerCase();
+            var show = !q || hay.indexOf(q) !== -1;
+            rows[i].style.display = show ? '' : 'none';
+            if (show) { visible++; }
+        }
+        if (countEl) {
+            countEl.textContent = q
+                ? (visible + ' / ' + rows.length + ' résultat(s)')
+                : (rows.length + ' passager(s)');
+        }
+        if (emptyMsg) {
+            emptyMsg.classList.toggle('d-none', !(q && visible === 0));
+        }
+    }
+
+    input.addEventListener('input', applyFilter);
+    input.addEventListener('search', applyFilter);
+    applyFilter();
+})();
+</script>

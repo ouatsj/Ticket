@@ -1094,6 +1094,32 @@ if (!function_exists('compte_arret_unclosed_ticket')) {
             return true;
         }
 
+        // Ventes escale (rôle 17 / escalclients) non clôturées des jours précédents.
+        if ($CI->db->table_exists('escalclients')) {
+            if ($gare_id !== null && $gare_id !== '') {
+                $sql_esc = "SELECT 1 FROM escalclients es
+                    WHERE es.iduseescal = ?
+                    AND es.departgescal = ?
+                    AND es.dateescal < ?
+                    AND COALESCE(es.arrcptescal, 0) = 0
+                    AND es.prixescal IS NOT NULL
+                    LIMIT 1";
+                if ($CI->db->query($sql_esc, [$roleattribut, $gare_id, $today])->row()) {
+                    return true;
+                }
+            } else {
+                $sql_esc = "SELECT 1 FROM escalclients es
+                    WHERE es.iduseescal = ?
+                    AND es.dateescal < ?
+                    AND COALESCE(es.arrcptescal, 0) = 0
+                    AND es.prixescal IS NOT NULL
+                    LIMIT 1";
+                if ($CI->db->query($sql_esc, [$roleattribut, $today])->row()) {
+                    return true;
+                }
+            }
+        }
+
         // Aligné phase A : retours au même scope gare + vendeur (pas de filtre sous-gare).
         if ($gare_id !== null && $gare_id !== '') {
             $sql_np = "SELECT 1 FROM non_passager np

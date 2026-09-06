@@ -142,6 +142,7 @@ return array(
         'm_valeurattrib',
         'm_valeurs',
         'm_itineraire_etape',
+        'm_itineraire_escale',
     ),
     'Depenses' => array(
         'm_caisse',
@@ -517,6 +518,7 @@ return array(
         'm_compte_user',
         'm_entreprises',
         'm_escalclients',
+        'm_itineraire_escale',
         'm_sousgare',
     ),
     'Villes' => array(

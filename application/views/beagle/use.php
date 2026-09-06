@@ -7,11 +7,21 @@ $head_extra = array(
     'title' => isset($title) ? $title : '',
     'bundle_datatables' => !empty($bundle_datatables),
     'no_cache' => !empty($layout_guichet_banner),
+    'viewport_touch' => !empty($layout_minimal),
 );
 $this->load->view('_layouts/head', $head_extra);
 ?>
 
 <body class="be-animate"<?php if (!empty($layout_guichet_banner) && $this->session->userdata('agent')): ?> data-agent-id="<?= (int) $this->session->agent->cpuser_id; ?>" data-whoami-url="<?= htmlspecialchars(site_url('login/whoami'), ENT_QUOTES, 'UTF-8'); ?>"<?php endif; ?>>
+<style>
+@media print {
+	.auth-guichet-banner,
+	.be-top-header,
+	.be-left-sidebar,
+	.be-navbar-header,
+	.navbar { display: none !important; }
+}
+</style>
 
 	<div class="be-wrapper be-collapsible-sidebar be-collapsible-sidebar-hide-logo be-collapsible-sidebar-collapsed<?= !empty($layout_minimal) ? ' be-minimal-chrome' : ''; ?>">
 	    

@@ -38,7 +38,7 @@
                             <a href="<?= site_url('gares/'.$company_ekey.'/gTs/'.$item->idengare.'/sousgare/'.$item->roleattribut.'/'.mdate("%d/%m/%Y", now('UTC'))); ?>"
                                class="btn btn-block btn-rounded text-dark bg-white">
                                 <span class="fas fa-eye"></span>
-                                VOIR GARES
+                                <?= ((string) $agent_userole === '17') ? 'VOIR ITINÉRAIRES' : 'VOIR GARES'; ?>
                             </a>
                     </div>
                 </div>

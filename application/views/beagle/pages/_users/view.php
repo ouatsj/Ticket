@@ -81,6 +81,35 @@
                             class=" md-trigger" data-modal="edit-user-<?= $item->cpuser_id; ?>" title="Modifier">
                             <span class="icon mdi mdi-edit text-warning"></span>
                         </a>
+                        <?php if (!empty($peut_afficher_suppression)
+                            && !empty($cpusers_supprimables[(int) $item->cpuser_id])): ?>
+                            &nbsp;
+                            <a href="#" class="md-trigger" data-modal="del-compte-<?= $item->cpuser_id; ?>" title="Supprimer le compte (sans activité)">
+                                <span class="icon mdi mdi-delete text-danger"></span>
+                            </a>
+                            <div class="modal-container colored-header colored-header-danger custom-width modal-effect-7"
+                                 id="del-compte-<?= $item->cpuser_id; ?>" style="perspective: none;">
+                                <div class="modal-content">
+                                    <div class="modal-header modal-header-colored">
+                                        <h3 class="modal-title">SUPPRIMER LE COMPTE <?= htmlspecialchars($item->username, ENT_QUOTES, 'UTF-8'); ?></h3>
+                                        <button class="close modal-close" type="button" data-dismiss="modal" aria-hidden="true">
+                                            <span class="mdi mdi-close text-white"></span>
+                                        </button>
+                                    </div>
+                                    <div class="modal-body">
+                                        <p>Ce compte n’a encore aucune activité métier (tickets, bagages, caisse…).</p>
+                                        <p class="text-danger mb-0">Le login, les gares et les rôles associés seront définitivement supprimés.</p>
+                                    </div>
+                                    <div class="modal-footer">
+                                        <button class="btn btn-secondary modal-close" type="button" data-dismiss="modal">Annuler</button>
+                                        <a class="btn btn-danger"
+                                           href="<?= site_url('Utilisateurs/supprimercompte/' . $this->session->company->ekey . '/' . $item->cpuser_id . '/' . $item->uid); ?>">
+                                            Confirmer la suppression
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                        <?php endif; ?>
                         
                         <!-- modification -->
                         <div class="modal-container colored-header colored-header-success custom-width modal-effect-7"

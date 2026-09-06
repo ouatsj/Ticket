@@ -25,12 +25,15 @@
         protected function _load_controller_models()
         {
             $light = array(
-                'optiongare' => array('m_entreprises', 'm_gare_depart', 'm_compte_user', 'm_sousgare'),
+                'optiongare' => array('m_entreprises', 'm_gare_depart', 'm_compte_user', 'm_sousgare', 'm_itineraire_escale'),
+                'entreescale' => array('m_entreprises', 'm_itineraire_escale', 'm_compte_user', 'm_sousgare'),
+                'voiritineraire' => array('m_entreprises', 'm_itineraire_escale', 'm_compte_user', 'm_sousgare'),
                 'position' => array('m_entreprises', 'm_position'),
                 'options' => array(
                     'm_entreprises', 'm_sousgare', 'm_compte_user', 'm_tarifs', 'm_heure',
                     'm_quartier', 'm_compagnies', 'm_gare_depart', 'm_passager', 'm_non_passager',
                     'm_bagage', 'm_escalclients', 'm_categ', 'm_lignes', 'm_gare_arrivee', 'm_type_client',
+                    'm_itineraire_escale',
                 ),
                 'ajax_passagers' => array('m_entreprises', 'm_passager'),
             );
@@ -87,6 +90,278 @@
                 'agent_userole' => $this->session->userdata('agent')
                     ? (string) $this->session->agent->userole
                     : '',
+            );
+        }
+
+        /**
+         * Sous-gare d'entrée pour le rôle 17 : homonyme de la gare si possible, sinon la première.
+         *
+         * @param object[] $sousgares
+         * @param object|null $bus_stop
+         * @return object|null
+         */
+        protected function _pick_sousgare_for_role17(array $sousgares, $bus_stop = null)
+        {
+            if (empty($sousgares)) {
+                return null;
+            }
+
+            $gare_nom = ($bus_stop && !empty($bus_stop->garenom))
+                ? mb_strtolower(trim((string) $bus_stop->garenom))
+                : '';
+
+            if ($gare_nom !== '') {
+                foreach ($sousgares as $sg) {
+                    $sg_nom = !empty($sg->nomsousgare) ? mb_strtolower(trim((string) $sg->nomsousgare)) : '';
+                    if ($sg_nom !== '' && $sg_nom === $gare_nom) {
+                        return $sg;
+                    }
+                }
+            }
+
+            return $sousgares[0];
+        }
+
+        /**
+         * Contexte commun rôle 17 (code gare + sous-gare technique).
+         *
+         * @return array{code_gaexp:string,idsousgare:int|string,idengare:string,d:string,m:string,y:string,bus_stop:object|null}
+         */
+        protected function _role17_resolve_context($ckey, $gid, $gare_id, $bus_stop, $date_seg)
+        {
+            $code_gaexp = '';
+            if ($bus_stop && !empty($bus_stop->code_gaexp)) {
+                $code_gaexp = (string) $bus_stop->code_gaexp;
+            } elseif ($bus_stop && !empty($bus_stop->gareprinceid)) {
+                $code_gaexp = (string) $bus_stop->gareprinceid;
+            } else {
+                $row = $this->db->query(
+                    "SELECT ge.code_gaexp, ge.nom_gaep, g.garenom, g.idengare
+                     FROM gare_exp ge
+                     JOIN gares g ON ge.garesid = g.idengare
+                     JOIN compagnies c ON ge.id_compagd = c.cle_compagnie
+                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
+                     WHERE e.ekey = ?
+                       AND (ge.code_gaexp = ? OR g.idengare = ?)
+                     LIMIT 1",
+                    array($ckey, $gid, $gid)
+                )->row();
+                if ($row) {
+                    $code_gaexp = (string) $row->code_gaexp;
+                    if (!$bus_stop) {
+                        $bus_stop = $row;
+                        $this->property['bus_stop'] = $bus_stop;
+                    }
+                }
+            }
+
+            $sousgares = !empty($this->property['sousgares']) ? $this->property['sousgares'] : array();
+            if (empty($sousgares) && !empty($this->company->id_entreprise)) {
+                $list = $this->_sousgare_list_property(
+                    !empty($this->property['conex']) ? $this->property['conex'] : null,
+                    $this->company->id_entreprise,
+                    $gare_id
+                );
+                $this->property = array_merge($this->property, $list);
+                $sousgares = !empty($list['sousgares']) ? $list['sousgares'] : array();
+            }
+
+            $sg = $this->_pick_sousgare_for_role17($sousgares, $bus_stop);
+            $idsousgare = ($sg && !empty($sg->idsousgare)) ? $sg->idsousgare : 0;
+            $idengare = ($sg && !empty($sg->idengare))
+                ? $sg->idengare
+                : (($bus_stop && !empty($bus_stop->idengare)) ? $bus_stop->idengare : $gare_id);
+
+            $parts = explode('/', $date_seg);
+            return array(
+                'code_gaexp' => $code_gaexp,
+                'idsousgare' => $idsousgare,
+                'idengare' => $idengare,
+                'd' => isset($parts[0]) ? $parts[0] : mdate('%d', now('UTC')),
+                'm' => isset($parts[1]) ? $parts[1] : mdate('%m', now('UTC')),
+                'y' => isset($parts[2]) ? $parts[2] : mdate('%Y', now('UTC')),
+                'bus_stop' => $bus_stop,
+            );
+        }
+
+        /**
+         * Liste des itinéraires (lignes) liés à la gare — rôle 17.
+         */
+        protected function _role17_liste_itineraires($ckey, $gid, $gare_id, $cpus, $bus_stop, $date_seg)
+        {
+            if (!isset($this->m_itineraire_escale)) {
+                $this->load->model('Itineraire_escale_model', 'm_itineraire_escale');
+            }
+
+            $ctx = $this->_role17_resolve_context($ckey, $gid, $gare_id, $bus_stop, $date_seg);
+            $bus_stop = $ctx['bus_stop'];
+
+            $itineraires = $this->m_itineraire_escale->itineraires_pour_gare(
+                (int) $this->company->id_entreprise,
+                $ctx['code_gaexp']
+            );
+
+            foreach ($itineraires as $it) {
+                if ((int) $ctx['idsousgare'] <= 0) {
+                    $it->entrer_url = '';
+                    continue;
+                }
+                $it->entrer_url = site_url(
+                    'gares/' . $ckey . '/gTi/' . $ctx['idengare']
+                    . '/itineraire/' . $cpus . '/' . $ctx['idsousgare']
+                    . '/' . rawurlencode((string) $it->ident_ligne)
+                    . '/' . $ctx['d'] . '/' . $ctx['m'] . '/' . $ctx['y']
+                );
+                $it->label = $it->nom_depart . ' → ' . $it->nom_terminus;
+            }
+
+            $this->property['itineraires'] = $itineraires;
+            $this->property['code_gaexp_vente'] = $ctx['code_gaexp'];
+            $this->property['manquante_sousgare'] = ((int) $ctx['idsousgare'] <= 0);
+            $this->property['layout_minimal'] = TRUE;
+            $gare_nom = ($bus_stop && !empty($bus_stop->garenom))
+                ? $bus_stop->garenom
+                : (($bus_stop && !empty($bus_stop->nom_gaep)) ? $bus_stop->nom_gaep : $gid);
+            $this->property['pagetitle'] .= "•{$gare_nom}&nbsp;•ITINÉRAIRES<strong>•&nbsp;{$this->company->nom_entreprise}</strong>";
+
+            return $this->layout->view('_gare/indexitineraires', $this->property);
+        }
+
+        /**
+         * Escales d'un itinéraire choisi (rôle 17) — choix du point de départ.
+         */
+        public function voiritineraire($ckey, $gid, $cpus, $idsg, $ident_ligne, $d = FALSE, $m = FALSE, $y = FALSE)
+        {
+            if (!$this->session->userdata('agent')
+                || (string) $this->session->agent->userole !== '17') {
+                show_error('Accès réservé au vendeur escale.', 403);
+                return;
+            }
+
+            $this->company = $this->m_entreprises->get_key($ckey);
+            if ($this->company) {
+                $this->session->set_userdata('company', $this->company);
+            }
+            if (!isset($this->m_itineraire_escale)) {
+                $this->load->model('Itineraire_escale_model', 'm_itineraire_escale');
+            }
+
+            $ident_ligne = rawurldecode((string) $ident_ligne);
+            $date_seg = ($d && $m && $y) ? "{$d}/{$m}/{$y}" : mdate('%d/%m/%Y', now('UTC'));
+            $parts = explode('/', $date_seg);
+            $dd = isset($parts[0]) ? $parts[0] : mdate('%d', now('UTC'));
+            $mm = isset($parts[1]) ? $parts[1] : mdate('%m', now('UTC'));
+            $yy = isset($parts[2]) ? $parts[2] : mdate('%Y', now('UTC'));
+
+            $gare_connect = roleattribut_guard_normalize_gare_id($ckey, $gid);
+            $conn = $this->m_compte_user->connect_gare_exclusive($ckey, $gare_connect, $cpus);
+            $this->property['conex'] = $conn['conex'];
+            if (!$this->property['conex']) {
+                $this->property['conex'] = $this->m_compte_user->usget(
+                    (int) $this->session->agent->cpuser_id,
+                    $gid
+                );
+            }
+            $this->property['company_ekey'] = $ckey;
+
+            $points = $this->m_itineraire_escale->points_depart_itineraire($ident_ligne);
+            $ligne_nom = $ident_ligne;
+            if (!empty($points[0]->nom_ligne)) {
+                $ligne_nom = $points[0]->nom_ligne;
+            }
+
+            foreach ($points as $pt) {
+                $pt->entrer_url = site_url(
+                    'gares/' . $ckey . '/gTe/' . $gid
+                    . '/escale/' . $cpus . '/' . $idsg
+                    . '/' . rawurlencode((string) $pt->value)
+                    . '/' . $dd . '/' . $mm . '/' . $yy
+                );
+            }
+
+            $this->session->set_userdata('role17_itineraire', array(
+                'ident_ligne' => $ident_ligne,
+                'nom_ligne' => $ligne_nom,
+                'gare' => (string) $gid,
+                'idsousgare' => (string) $idsg,
+                'cpus' => (string) $cpus,
+            ));
+
+            $this->property['escales_points'] = $points;
+            $this->property['itineraire_nom'] = $ligne_nom;
+            $this->property['itineraire_id'] = $ident_ligne;
+            $this->property['retour_itineraires_url'] = site_url(
+                'gares/' . $ckey . '/gTs/' . $gid . '/sousgare/' . $cpus . '/' . $date_seg
+            );
+            $this->property['layout_minimal'] = TRUE;
+            $this->property['pagetitle'] .= "•{$ligne_nom}&nbsp;•ESCALES<strong>•&nbsp;{$this->company->nom_entreprise}</strong>";
+
+            return $this->layout->view('_gare/indexescales', $this->property);
+        }
+
+        /**
+         * Entrée dans une escale (rôle 17) → accueil boutons avec départ figé.
+         */
+        public function entreescale($ckey, $gid, $cpus, $idsg, $depart, $d = FALSE, $m = FALSE, $y = FALSE)
+        {
+            if (!$this->session->userdata('agent')
+                || (string) $this->session->agent->userole !== '17') {
+                show_error('Accès réservé au vendeur escale.', 403);
+                return;
+            }
+
+            $depart = rawurldecode((string) $depart);
+            $depart = str_replace('|', '~', $depart);
+            if ($depart === '' || strpos($depart, '~') === false) {
+                $this->session->set_flashdata('error', 'Escale invalide.');
+                redirect('gares/' . $ckey . '/gTs/' . $gid . '/sousgare/' . $cpus . '/' . mdate('%d/%m/%Y', now('UTC')));
+                return;
+            }
+
+            $this->company = $this->m_entreprises->get_key($ckey);
+            if (!isset($this->m_itineraire_escale)) {
+                $this->load->model('Itineraire_escale_model', 'm_itineraire_escale');
+            }
+
+            $label = $depart;
+            $id_lignes = '';
+            if (strpos($depart, '~') !== false) {
+                list($kind, $ref) = explode('~', $depart, 2);
+                if ($kind === 'escale') {
+                    $pts = array();
+                    $it = $this->session->userdata('role17_itineraire');
+                    if (is_array($it) && !empty($it['ident_ligne'])) {
+                        $pts = $this->m_itineraire_escale->points_depart_itineraire($it['ident_ligne']);
+                        $id_lignes = (string) $it['ident_ligne'];
+                    }
+                } else {
+                    $id_lignes = trim($ref);
+                    $pts = $this->m_itineraire_escale->points_depart_itineraire($id_lignes);
+                }
+                foreach ($pts as $pt) {
+                    if ((string) $pt->value === $depart) {
+                        $label = (string) $pt->label;
+                        $id_lignes = (string) $pt->id_lignes;
+                        break;
+                    }
+                }
+            }
+
+            $it_ctx = $this->session->userdata('role17_itineraire');
+            $this->session->set_userdata('role17_escale', array(
+                'value' => $depart,
+                'label' => $label,
+                'gare' => (string) $gid,
+                'idsousgare' => (string) $idsg,
+                'id_lignes' => $id_lignes !== '' ? $id_lignes : (is_array($it_ctx) && !empty($it_ctx['ident_ligne']) ? $it_ctx['ident_ligne'] : ''),
+            ));
+
+            $date_seg = ($d && $m && $y)
+                ? "{$d}/{$m}/{$y}"
+                : mdate('%d/%m/%Y', now('UTC'));
+
+            redirect(
+                'gares/' . $ckey . '/gTc/' . $gid . '/compte/' . $cpus . '/' . $idsg . '/' . $date_seg
             );
         }
         
@@ -444,6 +719,20 @@
                             $gare_id
                         )
                     );
+
+                    // Rôle 17 : liste des itinéraires de la gare.
+                    if ($this->session->userdata('agent')
+                        && (string) $this->session->agent->userole === '17') {
+                        return $this->_role17_liste_itineraires(
+                            $ckey,
+                            $gid,
+                            $gare_id,
+                            $cpus,
+                            $bus_stop,
+                            $date_seg
+                        );
+                    }
+
                     $this->property['layout_minimal'] = TRUE;
 
                     if ($bus_stop) {
@@ -579,6 +868,35 @@
                             return $this->m_type_client->get();
                         });
 
+                        // Points de départ vente escale libre (modale admin / rôle 17).
+                        if (!isset($this->m_itineraire_escale)) {
+                            $this->load->model('Itineraire_escale_model', 'm_itineraire_escale');
+                        }
+                        $code_gaexp_vente = !empty($bus_stop->code_gaexp)
+                            ? $bus_stop->code_gaexp
+                            : (isset($bus_stop->gareprinceid) ? $bus_stop->gareprinceid : '');
+                        $this->property['code_gaexp_vente'] = $code_gaexp_vente;
+                        $this->property['escales_depart'] = $this->m_itineraire_escale->points_depart_vente(
+                            (int) $cid,
+                            $code_gaexp_vente
+                        );
+
+                        // Rôle 17 : escale déjà choisie dans la liste → départ figé.
+                        $this->property['escale_depart_fixe'] = null;
+                        $this->property['escale_depart_label'] = '';
+                        if ((string) $this->session->agent->userole === '17') {
+                            $ctx = $this->session->userdata('role17_escale');
+                            if (is_array($ctx)
+                                && !empty($ctx['value'])
+                                && (string) $ctx['gare'] === (string) $gid
+                            ) {
+                                $this->property['escale_depart_fixe'] = (string) $ctx['value'];
+                                $this->property['escale_depart_label'] = !empty($ctx['label'])
+                                    ? (string) $ctx['label']
+                                    : (string) $ctx['value'];
+                            }
+                        }
+
                         $arret = compte_arret_status(
                             $this->session->agent->userole,
                             $cpus,
@@ -592,6 +910,10 @@
                         $this->property['compte_arret_message'] = $arret['reason'];
                         $this->property['compte_arret_warnings'] = $arret['warnings'];
                         if (!empty($arret['blocked'])) {
+                            $this->property['layout_minimal'] = TRUE;
+                        }
+                        // Rôle 17 (vendeur escale / TPE) : chrome réduit, UI tactile.
+                        if ((string) $this->session->agent->userole === '17') {
                             $this->property['layout_minimal'] = TRUE;
                         }
                     

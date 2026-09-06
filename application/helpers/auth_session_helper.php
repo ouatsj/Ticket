@@ -644,7 +644,23 @@ if (!function_exists('auth_session_show_guichet_banner')) {
     {
         $CI =& get_instance();
 
-        return (bool) $CI->session->userdata('agent');
+        if (!$CI->session->userdata('agent')) {
+            return false;
+        }
+
+        // Ne jamais afficher la bannière sur les pages d'impression ticket
+        // (sinon « Connecté en tant que… » / Déconnexion sortent sur le papier).
+        $page = (string) $page;
+        if ($page !== '' && (
+            strpos($page, 'pdfepson') !== false
+            || strpos($page, 'editpdf') !== false
+            || strpos($page, 'epsonal') !== false
+            || preg_match('#_tickets/(pdf|epson|reditpdf)#', $page)
+        )) {
+            return false;
+        }
+
+        return true;
     }
 }
 

@@ -153,6 +153,34 @@
                                class=" md-trigger" data-modal="compt-user-<?= $item->uid; ?>" title="Créer compte">
                                 <span class="icon mdi mdi-edit text-success"></span>
                             </a>
+                            <?php if (!empty($peut_afficher_suppression)): ?>
+                                &nbsp;&nbsp;
+                                <a href="#" class="md-trigger" data-modal="del-user-<?= $item->uid; ?>" title="Supprimer (si aucune activité)">
+                                    <span class="icon mdi mdi-delete text-danger"></span>
+                                </a>
+                                <div class="modal-container colored-header colored-header-danger custom-width modal-effect-7"
+                                     id="del-user-<?= $item->uid; ?>" style="perspective: none;">
+                                    <div class="modal-content">
+                                        <div class="modal-header modal-header-colored">
+                                            <h3 class="modal-title">SUPPRIMER <?= htmlspecialchars($item->first_name . ' ' . $item->last_name, ENT_QUOTES, 'UTF-8'); ?></h3>
+                                            <button class="close modal-close" type="button" data-dismiss="modal" aria-hidden="true">
+                                                <span class="mdi mdi-close text-white"></span>
+                                            </button>
+                                        </div>
+                                        <div class="modal-body">
+                                            <p>Suppression possible uniquement si cet utilisateur n’a encore aucune activité dans le logiciel.</p>
+                                            <p class="text-danger mb-0">Sinon, désactivez le compte. La fiche et le(s) compte(s) seront définitivement effacés si la suppression est acceptée.</p>
+                                        </div>
+                                        <div class="modal-footer">
+                                            <button class="btn btn-secondary modal-close" type="button" data-dismiss="modal">Annuler</button>
+                                            <a class="btn btn-danger"
+                                               href="<?= site_url('Utilisateurs/supprimeruse/' . $this->session->company->ekey . '/' . $item->uid); ?>">
+                                                Confirmer la suppression
+                                            </a>
+                                        </div>
+                                    </div>
+                                </div>
+                            <?php endif; ?>
                             <!-- modification -->
                             <div class="modal-container colored-header colored-header-success custom-width modal-effect-7"
                                  id="edit-user-<?= $item->uid; ?>" style="">

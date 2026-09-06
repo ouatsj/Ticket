@@ -73,7 +73,7 @@ class MY_Controller extends CI_Controller
         $class = strtolower((string) $this->router->fetch_class());
         $helpers = array();
 
-        if ($class === 'login') {
+        if ($class === 'login' || $class === 'utilisateurs') {
             $helpers[] = 'passwordhash';
             $helpers[] = 'super_admin';
         }
