@@ -8263,6 +8263,7 @@ document.addEventListener('DOMContentLoaded', () => {
         gadest: '',
         axe: '',
         sgid: '0',
+        gid: '',
         prix: '',
         prix2: '',
         prixLegs: {},
@@ -8727,6 +8728,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 + '?prix=' + encodeURIComponent(String(ref))
                 + (window.__reprogState.id_escale
                     ? ('&id_escale=' + encodeURIComponent(String(window.__reprogState.id_escale)))
+                    : '')
+                + (window.__reprogState.gid
+                    ? ('&gare=' + encodeURIComponent(String(window.__reprogState.gid)))
+                    : '')
+                + (window.__reprogState.sgid && window.__reprogState.sgid !== '0'
+                    ? ('&sg=' + encodeURIComponent(String(window.__reprogState.sgid)))
                     : ''),
             function (data2) {
                 window.__reprogState.rows = __reprogRowsArray(data2);
@@ -9212,13 +9219,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function __reprogFetchChemins(dateYmd, hhmm, after) {
         var st = window.__reprogState;
-        // sg=0 : propositions sur l’OD du ticket (pas le filtre sous-gare session).
-        // force=1 : multi même s’il existe un direct (4 cas ticket×cible).
-        // reprog=1 : chemins programmes multi pour l’axe, sans composition déclarative seule.
+        // Programmes de la gare/sous-gare où on reprogramme ; force=1 = multi même si direct.
+        var sg = (st.sgid && String(st.sgid) !== '0') ? String(st.sgid) : '0';
         var url = window.location.origin + APP_ROOT
             + '/programmes/verifchemins/'
             + encodeURIComponent(st.axe) + '/'
-            + encodeURIComponent(dateYmd) + '/0/1?reprog=1';
+            + encodeURIComponent(dateYmd) + '/'
+            + encodeURIComponent(sg) + '/1?reprog=1';
+        if (st.gid) {
+            url += '&gare=' + encodeURIComponent(String(st.gid));
+        }
         var hh = __reprogHhmm(hhmm);
         if (hh) {
             url += '&heure=' + encodeURIComponent(hh);
@@ -10371,6 +10381,8 @@ document.addEventListener('DOMContentLoaded', () => {
                         window.__reprogState.isRetourConfirme = parseInt(donnees.est_retour, 10) === 1;
                         var sgEl = document.querySelector('input[name="sousgareconnect"]');
                         window.__reprogState.sgid = (sgEl && sgEl.value) ? sgEl.value : '0';
+                        var gEl = document.querySelector('input[name="gareconnect"]');
+                        window.__reprogState.gid = (gEl && gEl.value) ? String(gEl.value) : '';
 
                         var days = (new Date(__reprogQ('actueldaterepunifie').value).getTime()
                             - new Date(__reprogQ('dateventerepunifie').value).getTime()) / (1000 * 3600 * 24);

@@ -2218,7 +2218,7 @@
          * @param bool $mode_reprog reprog unifiée : multi programmes OD, sans config déclarative seule
          * @return array
          */
-        protected function _payload_verifchemins_guichet($axe, $date, $sg, $force_transit, $heure_label = null, $mode_reprog = false)
+        protected function _payload_verifchemins_guichet($axe, $date, $sg, $force_transit, $heure_label = null, $mode_reprog = false, $gareidentif = null)
         {
             $this->load->library('graphe_correspondance');
             if (!isset($this->m_itineraire_etape)) {
@@ -2232,19 +2232,23 @@
 
             $ekey = $this->session->company->ekey;
 
+            // Reprog : graphe sur programmes du jour (réseau), puis filtre 1ʳᵉ jambe = gare session.
+            // Vente : filtre sous-gare sur tout le graphe.
+            $sgGraph = $mode_reprog ? null : $sg;
+
             if ($this->graphe_correspondance->is_serve_enabled()) {
                 $decision = $this->graphe_correspondance->resoudre_pour_vente(
                     $ekey,
                     $axe,
                     $date,
-                    $sg,
+                    $sgGraph,
                     $declRows,
                     $force_transit,
                     $force_transit ? $heure_label : null
                 );
             } else {
-                $hasDirect = $this->graphe_correspondance->od_a_depart_direct($ekey, $axe, $date, $sg);
-                if ($this->graphe_correspondance->prefer_direct_sans_jambes($ekey, $axe, $date, $sg, $force_transit)) {
+                $hasDirect = $this->graphe_correspondance->od_a_depart_direct($ekey, $axe, $date, $sgGraph);
+                if ($this->graphe_correspondance->prefer_direct_sans_jambes($ekey, $axe, $date, $sgGraph, $force_transit)) {
                     $decision = array(
                         'mode' => 'direct',
                         'etapes' => array(),
@@ -2289,7 +2293,13 @@
             $payload = $this->graphe_correspondance->payload_multi_chemins(
                 $decision,
                 $declRows,
-                array('reprog' => (bool) $mode_reprog)
+                array(
+                    'reprog' => (bool) $mode_reprog,
+                    'gareidentif' => $gareidentif,
+                    'idsousgare' => $sg,
+                    'ekey' => $ekey,
+                    'date' => $date,
+                )
             );
             $evalTransit = $this->graphe_correspondance->evaluer_transit_od($ekey, $axe, $date, $sg);
             $out = array(
@@ -2355,7 +2365,19 @@
             $heure_label = $this->input->get('heure');
             $reprogGet = $this->input->get('reprog');
             $mode_reprog = ($reprogGet === '1' || $reprogGet === 1 || $reprogGet === true);
-            $out = $this->_payload_verifchemins_guichet($axe, $date, $sg, $force_transit, $heure_label, $mode_reprog);
+            $gare = trim((string) $this->input->get('gare'));
+            if ($gare === '') {
+                $gare = trim((string) $this->input->get('gareconnect'));
+            }
+            $out = $this->_payload_verifchemins_guichet(
+                $axe,
+                $date,
+                $sg,
+                $force_transit,
+                $heure_label,
+                $mode_reprog,
+                $gare !== '' ? $gare : null
+            );
             return $this->load->view('beagle/pages/_programme/json', array('json' => $out));
         }
 

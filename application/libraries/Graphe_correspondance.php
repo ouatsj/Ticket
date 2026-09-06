@@ -1181,7 +1181,7 @@ class Graphe_correspondance
      *
      * @param array $decision resoudre_pour_vente()
      * @param array|object[] $declaratif
-     * @param array $opts {reprog?:bool}
+     * @param array $opts {reprog?:bool,gareidentif?:string,idsousgare?:int,ekey?:string,date?:string}
      * @return array{mode:string,chemins:array,etapes:array,meta:array}
      */
     public function payload_multi_chemins(array $decision, $declaratif = array(), $opts = array())
@@ -1210,6 +1210,58 @@ class Graphe_correspondance
                 'etapes' => isset($c['etapes']) ? $c['etapes'] : array(),
                 'source' => 'graphe',
             );
+        }
+
+        // Reprog : 1ʳᵉ jambe = programme de la gare où on reprogramme.
+        if ($modeReprog) {
+            $gare = isset($opts['gareidentif']) ? trim((string) $opts['gareidentif']) : '';
+            $date = isset($opts['date']) ? trim((string) $opts['date']) : '';
+            if ($date === '' && !empty($decision['meta']['date'])) {
+                $date = trim((string) $decision['meta']['date']);
+            }
+            $ekey = isset($opts['ekey']) ? trim((string) $opts['ekey']) : '';
+            $sgOpt = isset($opts['idsousgare']) ? $opts['idsousgare'] : null;
+            if ($gare !== '' && $date !== '' && $ekey !== '') {
+                if (!isset($this->CI->m_programme)) {
+                    $this->CI->load->model('Programme_model', 'm_programme');
+                }
+                $allowed = $this->CI->m_programme->codes_progr_gare_date($ekey, $gare, $date, $sgOpt);
+                $allowedMap = array();
+                foreach ($allowed as $cp) {
+                    $allowedMap[(string) $cp] = true;
+                }
+                if (!empty($allowedMap)) {
+                    $keptGare = array();
+                    foreach ($cheminsOut as $c) {
+                        $ets = isset($c['etapes']) ? $c['etapes'] : array();
+                        $first = null;
+                        if (!empty($ets)) {
+                            $first = is_array($ets) ? reset($ets) : $ets;
+                        }
+                        $cpFirst = '';
+                        if (is_object($first)) {
+                            if (!empty($first->_graphe_code_progr)) {
+                                $cpFirst = (string) $first->_graphe_code_progr;
+                            } elseif (!empty($first->code_progr)) {
+                                $cpFirst = (string) $first->code_progr;
+                            }
+                        } elseif (is_array($first)) {
+                            if (!empty($first['_graphe_code_progr'])) {
+                                $cpFirst = (string) $first['_graphe_code_progr'];
+                            } elseif (!empty($first['code_progr'])) {
+                                $cpFirst = (string) $first['code_progr'];
+                            }
+                        }
+                        if ($cpFirst !== '' && isset($allowedMap[$cpFirst])) {
+                            $keptGare[] = $c;
+                        }
+                    }
+                    $cheminsOut = $keptGare;
+                } else {
+                    // Aucun programme ce jour sur cette gare → pas de multi inventé.
+                    $cheminsOut = array();
+                }
+            }
         }
 
         $declCodes = $this->etapes_to_codes($declaratif);

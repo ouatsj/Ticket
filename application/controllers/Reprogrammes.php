@@ -863,6 +863,15 @@
         {
             session_release_lock();
             $id_escale = (int) $this->input->get_post('id_escale');
+            $gare = trim((string) $this->input->get_post('gare'));
+            if ($gare === '') {
+                $gare = trim((string) $this->input->get_post('gareconnect'));
+            }
+            $sg = $this->input->get_post('sg');
+            if ($sg === null || $sg === '') {
+                $sg = $this->input->get_post('idsousgare');
+            }
+            $sg = ($sg !== null && $sg !== '' && (int) $sg > 0) ? (int) $sg : null;
 
             $rows = $this->m_programme->heurereprog_unifie(
                 $this->session->company->ekey,
@@ -870,7 +879,9 @@
                 $gadest,
                 $exclude,
                 null,
-                $id_escale > 0 ? $id_escale : null
+                $id_escale > 0 ? $id_escale : null,
+                $gare !== '' ? $gare : null,
+                $sg
             );
             return $this->load->view('beagle/pages/_programme/json', array('json' => $rows));
         }

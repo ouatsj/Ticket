@@ -2015,7 +2015,7 @@
          * @param string|null $prix si non null, filtre même prix tarif
          * @return array
          */
-        public function heurereprog_unifie($cid, $gaexp, $gadest, $exclude_code, $prix = null, $id_escale = null)
+        public function heurereprog_unifie($cid, $gaexp, $gadest, $exclude_code, $prix = null, $id_escale = null, $gareidentif = null, $idsousgare = null)
         {
             $tim = date('H', time('H'));
             if ($tim === '00') {
@@ -2055,6 +2055,17 @@
                 }
             }
 
+            // Programmes de la gare où on reprogramme (pas tout le réseau).
+            $gareSql = '';
+            $gare = trim((string) $gareidentif);
+            if ($gare !== '') {
+                $gareSql = ' AND pr.gareidentif = ' . $this->db->escape($gare);
+            }
+            $sgSql = '';
+            if ($idsousgare !== null && $idsousgare !== '' && (int) $idsousgare > 0) {
+                $sgSql = $this->sql_filtre_sousgare((int) $idsousgare);
+            }
+
             return $this->db->query(
                 "SELECT pr.code_progr, pr.date_progr, pr.typetarif, pr.categori, pr.intervalle1, pr.intervalle2,
                         pr.gareidentif, lh.id_ligneheure, h.heure, lg.ident_ligne, lg.nom_ligne,
@@ -2080,6 +2091,8 @@
                 AND lh.actif_lh = 1
                 AND pr.actif_prog = 0
                 AND DATE_FORMAT(pr.dateheure_prog, '%Y-%m-%d-%H:%i:%s') >= '{$dtoday}'
+                {$gareSql}
+                {$sgSql}
                 {$prixSql}
                 GROUP BY pr.code_progr, pr.date_progr, pr.typetarif, pr.categori, pr.intervalle1, pr.intervalle2,
                          pr.gareidentif, lh.id_ligneheure, h.heure, lg.ident_ligne, lg.nom_ligne,
@@ -2087,6 +2100,52 @@
                          c.cle_compagnie, c.nom_compagnie
                 ORDER BY pr.date_progr ASC, h.heure ASC"
             )->result();
+        }
+
+        /**
+         * Codes programmes actifs d'une gare (et sous-gare) pour une date — 1ʳᵉ jambe reprog.
+         *
+         * @return string[]
+         */
+        public function codes_progr_gare_date($ekey, $gareidentif, $date, $idsousgare = null)
+        {
+            $gare = trim((string) $gareidentif);
+            $date = trim((string) $date);
+            if ($gare === '' || $date === '') {
+                return array();
+            }
+            $ekeyEsc = $this->db->escape($ekey);
+            $gareEsc = $this->db->escape($gare);
+            $dateEsc = $this->db->escape($date);
+            $sgSql = '';
+            if ($idsousgare !== null && $idsousgare !== '' && (int) $idsousgare > 0) {
+                $sgSql = $this->sql_filtre_sousgare((int) $idsousgare);
+            }
+            $rows = $this->db->query(
+                "SELECT pr.code_progr
+                 FROM programme pr
+                 JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
+                 JOIN heures h ON lh.heure_identif = h.id_heure
+                 JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
+                 JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
+                 JOIN compagnies c ON ex.id_compagd = c.cle_compagnie
+                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
+                 WHERE e.ekey = {$ekeyEsc}
+                 AND pr.gareidentif = {$gareEsc}
+                 AND pr.date_progr = {$dateEsc}
+                 AND pr.statut_prog = 'actif'
+                 AND pr.actif_prog = 0
+                 AND lh.actif_lh = 1
+                 AND h.h_active = 1
+                 {$sgSql}"
+            )->result();
+            $out = array();
+            foreach ($rows as $r) {
+                if (!empty($r->code_progr)) {
+                    $out[(string) $r->code_progr] = true;
+                }
+            }
+            return array_keys($out);
         }
 
         //prog
