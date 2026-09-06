@@ -9213,13 +9213,15 @@ document.addEventListener('DOMContentLoaded', () => {
     function __reprogFetchChemins(dateYmd, hhmm, after) {
         var st = window.__reprogState;
         // sg=0 : propositions sur l’OD du ticket (pas le filtre sous-gare session).
+        // force=1 : multi même s’il existe un direct (4 cas ticket×cible).
+        // reprog=1 : chemins programmes multi pour l’axe, sans composition déclarative seule.
         var url = window.location.origin + APP_ROOT
             + '/programmes/verifchemins/'
             + encodeURIComponent(st.axe) + '/'
-            + encodeURIComponent(dateYmd) + '/0/1';
+            + encodeURIComponent(dateYmd) + '/0/1?reprog=1';
         var hh = __reprogHhmm(hhmm);
         if (hh) {
-            url += '?heure=' + encodeURIComponent(hh);
+            url += '&heure=' + encodeURIComponent(hh);
         }
         __reprogXhrGet(url, function (payload) {
             var chemins = [];
@@ -9230,12 +9232,23 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             chemins = chemins.filter(function (c) {
                 if (!c) return false;
-                if (c.source === 'direct' && !__reprogNormalizeEtapes(c.etapes || c.legs).length) return false;
+                if (c.source === 'declaratif') return false;
+                var et = __reprogNormalizeEtapes(c.etapes || c.legs);
+                if (et.length < 2) return false;
                 return true;
             });
             st.chemins = chemins;
             if (after) after(chemins);
         });
+    }
+
+    function __reprogDirectKey(et0) {
+        if (!et0) return '';
+        var cp = et0.code_progr || et0._code_progr || et0._graphe_code_progr || '';
+        if (cp) return 'p:' + String(cp);
+        var lh = et0.id_ligneheure || et0._id_ligneheure || et0.id_heur || '';
+        if (lh) return 'h:' + String(lh);
+        return '';
     }
 
     function __reprogDirectsAsChemins(dateYmd) {
@@ -9269,23 +9282,24 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function __reprogMergeItineraires(directs, chemins) {
+        // Directs = programmes OD (heures_unifie) ; multi = graphe programmes (≥2) pour l’axe.
+        // Indépendant du type ticket d’origine (direct↔multi, les 4 cas).
         var out = __reprogRowsArray(directs).slice();
         var seenDirectKey = {};
         out.forEach(function (ch) {
             var et = __reprogNormalizeEtapes(ch.etapes || ch.legs);
-            if (et.length === 1 && et[0] && et[0].id_heur) {
-                seenDirectKey[String(et[0].id_heur)] = true;
-            }
+            var k = et.length === 1 ? __reprogDirectKey(et[0]) : '';
+            if (k) seenDirectKey[k] = true;
         });
         __reprogRowsArray(chemins).forEach(function (ch) {
             if (!ch) return;
+            if (ch.source === 'declaratif') return;
             var et = __reprogNormalizeEtapes(ch.etapes || ch.legs);
-            // Directs graphe (1 étape) : filet si heures_unifie n'a rien renvoyé.
-            if (ch.source === 'direct' || et.length === 1) {
-                if (et.length !== 1) return;
-                var idH = et[0] && et[0].id_heur ? String(et[0].id_heur) : '';
-                if (idH && seenDirectKey[idH]) return;
-                if (idH) seenDirectKey[idH] = true;
+            if (et.length === 1) {
+                var k = __reprogDirectKey(et[0]);
+                if (k && seenDirectKey[k]) return;
+                if (!k && out.length) return;
+                if (k) seenDirectKey[k] = true;
                 out.push(ch);
                 return;
             }
@@ -9980,7 +9994,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!dateYmd) return;
 
         var st = window.__reprogState;
-        // Tous tickets : date → itinéraires (axe du ticket / 2 jambes) → segments.
+        // Axe ticket figé au lookup ; date → directs programmes + multi programmes (4 cas).
         if (!st.axe) {
             var boxA = __reprogQ('smspunifie');
             var errA = __reprogQ('erreurSmspunifie');
@@ -9996,7 +10010,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 var err = __reprogQ('erreurSmspunifie');
                 if (box) box.style.display = 'block';
                 if (err) {
-                    err.textContent = 'Aucun départ ni correspondance pour relier l’axe '
+                    err.textContent = 'Aucun départ ni correspondance (programmes) pour l’axe '
                         + st.axe + ' à cette date (gare départ ticket : '
                         + (st.gaexp || '—') + ').';
                 }
@@ -10004,8 +10018,8 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             __reprogShowCorrExclusive(
                 all,
-                'Itinéraires possibles pour ' + st.axe + ' le ' + dateYmd
-                + ' — choisissez-en un (direct = 1 segment, correspondance = plusieurs).'
+                'Itinéraires (programmes) pour ' + st.axe + ' le ' + dateYmd
+                + ' — direct et/ou correspondance selon les départs du jour.'
             );
         });
     }

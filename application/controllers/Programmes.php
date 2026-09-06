@@ -2215,9 +2215,10 @@
          * @param int|null $sg
          * @param bool $force_transit
          * @param string|null $heure_label libellé heure choisie (option direct)
+         * @param bool $mode_reprog reprog unifiée : multi programmes OD, sans config déclarative seule
          * @return array
          */
-        protected function _payload_verifchemins_guichet($axe, $date, $sg, $force_transit, $heure_label = null)
+        protected function _payload_verifchemins_guichet($axe, $date, $sg, $force_transit, $heure_label = null, $mode_reprog = false)
         {
             $this->load->library('graphe_correspondance');
             if (!isset($this->m_itineraire_etape)) {
@@ -2256,7 +2257,7 @@
                             'reason' => 'prefer_direct_serve_off',
                         ),
                     );
-                } elseif (!empty($declRows)) {
+                } elseif (!empty($declRows) && !$mode_reprog) {
                     $decision = array(
                         'mode' => 'declaratif',
                         'etapes' => $declRows,
@@ -2285,7 +2286,11 @@
                 }
             }
 
-            $payload = $this->graphe_correspondance->payload_multi_chemins($decision, $declRows);
+            $payload = $this->graphe_correspondance->payload_multi_chemins(
+                $decision,
+                $declRows,
+                array('reprog' => (bool) $mode_reprog)
+            );
             $evalTransit = $this->graphe_correspondance->evaluer_transit_od($ekey, $axe, $date, $sg);
             $out = array(
                 'mode' => $payload['mode'],
@@ -2304,7 +2309,9 @@
                     : (is_array($e) && isset($e['code_itineraires']) ? $e['code_itineraires'] : null);
             }
 
-            if ($force_transit && $this->graphe_correspondance->od_a_depart_direct($ekey, $axe, $date, $sg)) {
+            // Direct synthétique (métadonnées ligne) : utile en vente force=1.
+            // Reprog : les directs programmes viennent de heures_unifie côté JS.
+            if (!$mode_reprog && $force_transit && $this->graphe_correspondance->od_a_depart_direct($ekey, $axe, $date, $sg)) {
                 $direct = $this->graphe_correspondance->chemin_direct_payload($ekey, $axe, $heure_label);
                 if ($direct !== null) {
                     $out['chemins'] = $this->graphe_correspondance->prepend_chemin_direct($out['chemins'], $direct);
@@ -2336,6 +2343,7 @@
          * Multi-chemins vente guichet (source unique transit OD).
          * GET programmes/verifchemins/{axe}/{date}/{sg?}/{force?}
          * force=1 ⇒ direct + multi-jambes même si un départ direct existe ce jour.
+         * ?reprog=1 ⇒ mode reprogrammation : multi programmes du jour pour l'axe, sans config déclarative seule.
          * Ne pas confondre avec heures_correspondance (admin hub programme↔suite).
          */
         public function verifchemins($axe, $da = null, $sgid = null, $force = null)
@@ -2345,7 +2353,9 @@
             $sg = ($sgid !== null && $sgid !== '' && $sgid !== '0') ? (int) $sgid : null;
             $force_transit = ($force === '1' || $force === 1 || $force === true);
             $heure_label = $this->input->get('heure');
-            $out = $this->_payload_verifchemins_guichet($axe, $date, $sg, $force_transit, $heure_label);
+            $reprogGet = $this->input->get('reprog');
+            $mode_reprog = ($reprogGet === '1' || $reprogGet === 1 || $reprogGet === true);
+            $out = $this->_payload_verifchemins_guichet($axe, $date, $sg, $force_transit, $heure_label, $mode_reprog);
             return $this->load->view('beagle/pages/_programme/json', array('json' => $out));
         }
 

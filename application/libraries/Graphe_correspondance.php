@@ -1175,22 +1175,34 @@ class Graphe_correspondance
 
     /**
      * Prépare la payload multi-chemins pour le guichet (verifchemins).
-     * Le chemin = composition déclarative (itineraire_etapes) est placé en tête s'il existe.
+     * Mode vente : composition déclarative en tête / fallback config.
+     * Mode reprog ($opts['reprog']) : uniquement chemins graphe multi (≥2 jambes)
+     * basés sur les programmes du jour pour l'OD — pas de config déclarative seule.
      *
      * @param array $decision resoudre_pour_vente()
      * @param array|object[] $declaratif
+     * @param array $opts {reprog?:bool}
      * @return array{mode:string,chemins:array,etapes:array,meta:array}
      */
-    public function payload_multi_chemins(array $decision, $declaratif = array())
+    public function payload_multi_chemins(array $decision, $declaratif = array(), $opts = array())
     {
+        $modeReprog = !empty($opts['reprog']);
         $cheminsOut = array();
         $list = isset($decision['chemins']) ? $decision['chemins'] : array();
         foreach ($list as $idx => $c) {
+            $nb = isset($c['nb_jambes']) ? (int) $c['nb_jambes'] : 0;
+            if ($nb <= 0 && !empty($c['codes']) && is_array($c['codes'])) {
+                $nb = count($c['codes']);
+            }
+            // Reprog : les directs viennent de heures_unifie (programmes OD), pas du graphe 1 jambe.
+            if ($modeReprog && $nb < 2) {
+                continue;
+            }
             $cheminsOut[] = array(
                 'id' => (int) $idx,
                 'label' => isset($c['label']) ? $c['label'] : $this->label_chemin($c),
                 'codes' => isset($c['codes']) ? $c['codes'] : array(),
-                'nb_jambes' => isset($c['nb_jambes']) ? (int) $c['nb_jambes'] : 0,
+                'nb_jambes' => $nb,
                 'score' => isset($c['score']) ? $c['score'] : null,
                 'attente_totale_min' => isset($c['attente_totale_min']) ? (int) $c['attente_totale_min'] : 0,
                 'attente_totale_label' => $this->format_duree_min(isset($c['attente_totale_min']) ? $c['attente_totale_min'] : 0),
@@ -1203,10 +1215,8 @@ class Graphe_correspondance
         $declCodes = $this->etapes_to_codes($declaratif);
         $sigDecl = implode('>', $declCodes);
 
-        // Composition déclarée :
-        // - 1re jambe = jambe déclarée (pas Banfora→Ouaga pour Banfora→Bobo)
-        // - aucune ville hors composition (pas Bobo→Ouaga→Bamako VIP)
-        if (count($declCodes) >= 2) {
+        // Mode vente (non reprog) : filtrer / injecter composition déclarée.
+        if (!$modeReprog && count($declCodes) >= 2) {
             $firstDecl = (string) $declCodes[0];
             $allowed = $this->chemins_prefixes($declCodes);
             if (!empty($decision['meta']['axe'])) {
@@ -1237,37 +1247,12 @@ class Graphe_correspondance
             }
         }
 
-        // Fallback déclaratif si aucun chemin graphe
-        if (empty($cheminsOut) && count($declCodes) >= 2) {
-            $nb = count($declCodes);
-            $cheminsOut[] = array(
-                'id' => 0,
-                'label' => (!empty($declNoms) ? implode(' → ', $declNoms) . ' · ' : '')
-                    . $nb . ' jambe' . ($nb > 1 ? 's' : '') . ' · composition déclarée',
-                'codes' => $declCodes,
-                'nb_jambes' => $nb,
-                'score' => null,
-                'attente_totale_min' => null,
-                'attente_totale_label' => null,
-                'attentes_min' => array(),
-                'etapes' => array_values(is_array($declaratif) ? $declaratif : array($declaratif)),
-                'source' => 'declaratif',
-            );
-        }
-
-        // Assurer la présence du déclaratif parmi les options graphe (même hors top_k)
-        if (!empty($list) && count($declCodes) >= 2) {
-            $has = false;
-            foreach ($cheminsOut as $c) {
-                if (implode('>', $c['codes']) === $sigDecl) {
-                    $has = true;
-                    break;
-                }
-            }
-            if (!$has) {
+        if (!$modeReprog) {
+            // Fallback déclaratif si aucun chemin graphe
+            if (empty($cheminsOut) && count($declCodes) >= 2) {
                 $nb = count($declCodes);
                 $cheminsOut[] = array(
-                    'id' => count($cheminsOut),
+                    'id' => 0,
                     'label' => (!empty($declNoms) ? implode(' → ', $declNoms) . ' · ' : '')
                         . $nb . ' jambe' . ($nb > 1 ? 's' : '') . ' · composition déclarée',
                     'codes' => $declCodes,
@@ -1280,27 +1265,67 @@ class Graphe_correspondance
                     'source' => 'declaratif',
                 );
             }
-        }
 
-        // A : composition déclarée en tête (préférer la version graphe si horaires présents)
-        if ($sigDecl !== '' && count($declCodes) >= 2 && count($cheminsOut) > 1) {
-            $declIdx = null;
-            foreach ($cheminsOut as $i => $c) {
-                if (implode('>', $c['codes']) === $sigDecl) {
-                    $declIdx = $i;
-                    break;
+            // Assurer la présence du déclaratif parmi les options graphe (même hors top_k)
+            if (!empty($list) && count($declCodes) >= 2) {
+                $has = false;
+                foreach ($cheminsOut as $c) {
+                    if (implode('>', $c['codes']) === $sigDecl) {
+                        $has = true;
+                        break;
+                    }
+                }
+                if (!$has) {
+                    $nb = count($declCodes);
+                    $cheminsOut[] = array(
+                        'id' => count($cheminsOut),
+                        'label' => (!empty($declNoms) ? implode(' → ', $declNoms) . ' · ' : '')
+                            . $nb . ' jambe' . ($nb > 1 ? 's' : '') . ' · composition déclarée',
+                        'codes' => $declCodes,
+                        'nb_jambes' => $nb,
+                        'score' => null,
+                        'attente_totale_min' => null,
+                        'attente_totale_label' => null,
+                        'attentes_min' => array(),
+                        'etapes' => array_values(is_array($declaratif) ? $declaratif : array($declaratif)),
+                        'source' => 'declaratif',
+                    );
                 }
             }
-            if ($declIdx !== null) {
-                $item = $cheminsOut[$declIdx];
-                if (strpos((string) $item['label'], 'composition') === false) {
-                    $item['label'] = rtrim((string) $item['label']) . ' · composition déclarée';
+
+            // A : composition déclarée en tête (préférer la version graphe si horaires présents)
+            if ($sigDecl !== '' && count($declCodes) >= 2 && count($cheminsOut) > 1) {
+                $declIdx = null;
+                foreach ($cheminsOut as $i => $c) {
+                    if (implode('>', $c['codes']) === $sigDecl) {
+                        $declIdx = $i;
+                        break;
+                    }
                 }
-                $item['source'] = (!empty($item['source']) && $item['source'] === 'graphe')
-                    ? 'graphe_declaratif'
-                    : (isset($item['source']) ? $item['source'] : 'declaratif');
-                array_splice($cheminsOut, $declIdx, 1);
-                array_unshift($cheminsOut, $item);
+                if ($declIdx !== null) {
+                    $item = $cheminsOut[$declIdx];
+                    if (strpos((string) $item['label'], 'composition') === false) {
+                        $item['label'] = rtrim((string) $item['label']) . ' · composition déclarée';
+                    }
+                    $item['source'] = (!empty($item['source']) && $item['source'] === 'graphe')
+                        ? 'graphe_declaratif'
+                        : (isset($item['source']) ? $item['source'] : 'declaratif');
+                    array_splice($cheminsOut, $declIdx, 1);
+                    array_unshift($cheminsOut, $item);
+                }
+            }
+        } else {
+            // Reprog : si un chemin programmes = composition déclarée, le marquer (sans exclure les autres).
+            if ($sigDecl !== '' && count($declCodes) >= 2) {
+                foreach ($cheminsOut as $i => $c) {
+                    if (implode('>', isset($c['codes']) ? $c['codes'] : array()) === $sigDecl) {
+                        if (strpos((string) $c['label'], 'composition') === false) {
+                            $cheminsOut[$i]['label'] = rtrim((string) $c['label']) . ' · composition déclarée';
+                        }
+                        $cheminsOut[$i]['source'] = 'graphe_declaratif';
+                        break;
+                    }
+                }
             }
         }
 
