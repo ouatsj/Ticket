@@ -10245,9 +10245,25 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function __reprogMergeItineraires(directs, chemins) {
         var out = __reprogRowsArray(directs).slice();
-        __reprogRowsArray(chemins).forEach(function (ch) {
-            if (!ch || ch.source === 'direct') return;
+        var seenDirectKey = {};
+        out.forEach(function (ch) {
             var et = __reprogNormalizeEtapes(ch.etapes || ch.legs);
+            if (et.length === 1 && et[0] && et[0].id_heur) {
+                seenDirectKey[String(et[0].id_heur)] = true;
+            }
+        });
+        __reprogRowsArray(chemins).forEach(function (ch) {
+            if (!ch) return;
+            var et = __reprogNormalizeEtapes(ch.etapes || ch.legs);
+            // Directs graphe (1 étape) : filet si heures_unifie n'a rien renvoyé.
+            if (ch.source === 'direct' || et.length === 1) {
+                if (et.length !== 1) return;
+                var idH = et[0] && et[0].id_heur ? String(et[0].id_heur) : '';
+                if (idH && seenDirectKey[idH]) return;
+                if (idH) seenDirectKey[idH] = true;
+                out.push(ch);
+                return;
+            }
             if (et.length >= 2) {
                 out.push(ch);
             }

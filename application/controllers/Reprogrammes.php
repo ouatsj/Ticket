@@ -857,34 +857,19 @@
 
         /**
          * Heures unifiées même OD. GET prix= optionnel ; GET id_escale= si ticket escale.
-         * Vendeur : même prix obligatoire. Admin/chef : prix libre (toutes heures OD).
+         * Report gratuit / hors CA : toutes les heures OD pour tous les rôles (plus de filtre prix vendeur).
          */
         public function heures_unifie($gaexp, $gadest, $exclude)
         {
             session_release_lock();
-            $role = isset($this->session->agent->userole) ? (string) $this->session->agent->userole : '';
-            $is_prive = in_array($role, array('1', '2', '5', '15'), true);
-            $prix = $this->input->get_post('prix');
-            if ($prix === false || $prix === null) {
-                $prix = '';
-            }
-            $prix = trim((string) $prix);
             $id_escale = (int) $this->input->get_post('id_escale');
-
-            $prixFilter = null;
-            if (!$is_prive) {
-                if ($prix === '') {
-                    return $this->load->view('beagle/pages/_programme/json', array('json' => array()));
-                }
-                $prixFilter = $prix;
-            }
 
             $rows = $this->m_programme->heurereprog_unifie(
                 $this->session->company->ekey,
                 $gaexp,
                 $gadest,
                 $exclude,
-                $prixFilter,
+                null,
                 $id_escale > 0 ? $id_escale : null
             );
             return $this->load->view('beagle/pages/_programme/json', array('json' => $rows));
