@@ -15,6 +15,17 @@ defined('BASEPATH') OR exit('No direct script access allowed'); ?>
         </div>
     </div>
 <?php endif; ?>
+<?php if ($this->session->flashdata('sale_success')): ?>
+    <div class="row">
+        <div class="col-12 px-4">
+            <div class="alert alert-success"><?= htmlspecialchars($this->session->flashdata('sale_success')); ?></div>
+        </div>
+    </div>
+<?php endif; ?>
+<?php
+    $__peut_repositionner = isset($this->session->agent->userole)
+        && in_array((string) $this->session->agent->userole, array('1', '2', '5', '15'), true);
+?>
 <div class="row">
     <!-- Liste des passagers -->
     <div class="col-12">
@@ -85,37 +96,13 @@ defined('BASEPATH') OR exit('No direct script access allowed'); ?>
                                 <span><?= number_format($item->prixvente, 0, '', ' '); ?></span>
                             </td>
                             <td>
-                                
-                                <?if($item->prixretour === null):?>
-                                    <!--<a class="icon" title="ordinaire"
-                                        href="<?//= site_url('Historique_Passagers/editpdf/' . $this->session->company->ekey . '/' . $item->tamponcod. '/' . $item->typetarif. '/' . $item->id_ligneheure.'/'. $bus_stop->idengare.'/'. $conex->roleattribut .'/'. $bus_stop->idsousgare); ?>">
-                                        <i class="fas fa-print"></i>
-                                    </a>&nbsp;-->
-                                    
-                                    <a class="icon" title="epson"
-                                        href="<?= site_url('Historique_Passagers/editpdfepson/' . $this->session->company->ekey . '/' . $item->tamponcod. '/' . $item->typetarif. '/' . $item->id_ligneheure.'/'. $bus_stop->idengare.'/'. $conex->roleattribut .'/'. $bus_stop->idsousgare); ?>">
-                                        <i class="fas fa-print"></i>
+                                <?php if ($__peut_repositionner): ?>
+                                    <a class="icon" title="Repositionner pour impression guichet (une fois)"
+                                       href="<?= site_url('Historique_Passagers/repositionner/' . $this->session->company->ekey . '/' . rawurlencode($item->code_passager) . '/' . $bus_stop->idengare . '/' . $conex->roleattribut . '/' . $bus_stop->idsousgare); ?>"
+                                       onclick="return confirm('Repositionner ce ticket pour une impression unique au guichet ?');">
+                                        <i class="fas fa-redo text-danger"></i>
                                     </a>&nbsp;
-                                    <a class="icon" title="epson"
-                                    href="<?= site_url('Historique_Passagers/reditpdfepson/' . $this->session->company->ekey . '/' . $item->tamponcodtr.'/'. $bus_stop->idengare.'/'. $conex->roleattribut .'/'. $bus_stop->idsousgare); ?>">
-                                    <i class="fas fa-print text-success"></i>
-                                </a>&nbsp;
-                                <?endif;?>
-                                <?if($item->prixretour != null):?>
-                                <!--<a class="icon" title="ordinaire"
-                                    href="<?//= site_url('Historique_Passagers/editpdfar/' . $this->session->company->ekey . '/' . $item->tamponcod. '/' . $item->typetarif. '/' . $item->tamponcod. '/' . $item->id_ligneheure.'/'. $bus_stop->idengare.'/'. $conex->roleattribut .'/'. $bus_stop->idsousgare); ?>">
-                                    <i class="fas fa-print"></i>
-                                </a>&nbsp;-->
-                                <a class="icon" title="epson"
-                                    href="<?= site_url('Historique_Passagers/epsonalretour/' . $this->session->company->ekey . '/' . $item->tamponcod. '/' . $item->typetarif. '/' . $item->tamponcod. '/' . $item->id_ligneheure.'/'. $bus_stop->idengare.'/'. $conex->roleattribut .'/'. $bus_stop->idsousgare); ?>">
-                                    <i class="fas fa-print"></i>
-                                </a>&nbsp;
-                                <a class="icon" title="epson"
-                                    href="<?= site_url('Historique_Passagers/repsonalretour/' . $this->session->company->ekey . '/' . $item->tamponcodtr.'/'. $bus_stop->idengare.'/'. $conex->roleattribut .'/'. $bus_stop->idsousgare); ?>">
-                                    <i class="fas fa-print text-success"></i>
-                                </a>&nbsp;
-                                
-                                <?endif;?>
+                                <?php endif; ?>
                                 <a href="<?= "#?{$item->id_client}&&{$item->nom_client}"; ?>"
                                        data-cle_compagnie="<?= $this->session->company->ekey; ?>"
                                         data-id_client="<?= $item->id_client; ?>"

@@ -227,6 +227,63 @@
             $this->db->insert($this->table, $data);
             return $this->db->insert_id();
         }
+
+        /**
+         * Remet un ticket en file d'impression guichet (réimpression unique).
+         * - passager.reimprime = 0
+         * - departclient_idgare = sous-gare cible (file TICKET)
+         * - ordres.dateenregistrement = aujourd'hui (crée la ligne si absente)
+         *
+         * @return array{ok:bool,error?:string}
+         */
+        public function ensure_reposition($code_passager, $operaid, $sousgare_id, $pourordre = 'reposition')
+        {
+            $code = trim((string) $code_passager);
+            $sg = trim((string) $sousgare_id);
+            $op = (int) $operaid;
+            if ($code === '' || $sg === '' || $op <= 0) {
+                return array('ok' => false, 'error' => 'params_manquants');
+            }
+            $pas = $this->db->query(
+                "SELECT code_passager, code_ticket, statut_code, actif_pas, departclient_idgare, reimprime
+                 FROM passager
+                 WHERE code_passager = ?
+                 LIMIT 1",
+                array($code)
+            )->row();
+            if (!$pas) {
+                return array('ok' => false, 'error' => 'passager_introuvable');
+            }
+            if ((string) $pas->statut_code !== 'vendu' || (int) $pas->actif_pas !== 0) {
+                return array('ok' => false, 'error' => 'ticket_non_vendu');
+            }
+
+            $today = mdate('%Y-%m-%d', now('UTC'));
+            $this->db->where('code_passager', $code)->update('passager', array(
+                'reimprime' => 0,
+                'departclient_idgare' => $sg,
+            ));
+
+            $ordre = $this->db->query(
+                "SELECT orid FROM {$this->table} WHERE codepassagers = ? ORDER BY orid DESC LIMIT 1",
+                array($code)
+            )->row();
+            if ($ordre) {
+                $this->db->where('orid', (int) $ordre->orid)->update($this->table, array(
+                    'dateenregistrement' => $today,
+                    'operaid' => $op,
+                    'pourordre' => $pourordre,
+                ));
+            } else {
+                $this->db->insert($this->table, array(
+                    'codepassagers' => $code,
+                    'operaid' => $op,
+                    'dateenregistrement' => $today,
+                    'pourordre' => $pourordre,
+                ));
+            }
+            return array('ok' => true, 'code_passager' => $code, 'sousgare' => $sg);
+        }
             
                 
         public function update($id_orid, array $data)

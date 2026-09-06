@@ -76,6 +76,65 @@
                 return $this->layout->view('_historique/tri_passager', $this->property);
          
         }
+
+        /**
+         * Chef / admin : remet un ticket en file TICKET (réimpression unique guichet).
+         * GET Historique_Passagers/repositionner/{ekey}/{code_passager}/{gare}/{cpus}/{sousgare}
+         */
+        public function repositionner($ckey, $code_passager, $g, $cpus, $idsg)
+        {
+            $this->company = $this->m_entreprises->get_key($ckey);
+            $conex = $this->_roleattribut_guard_bind($cpus, $this->company->ekey, $g);
+            $role = isset($this->session->agent->userole) ? (string) $this->session->agent->userole : '';
+            if (!in_array($role, array('1', '2', '5', '15'), true)) {
+                $this->session->set_flashdata('sale_error', 'Droits insuffisants pour repositionner une impression.');
+                redirect('historique_passagers/' . $ckey . '/' . $cpus . '/' . $g . '/' . $idsg);
+                return;
+            }
+            $op = isset($conex->roleattribut) ? (int) $conex->roleattribut : (int) $cpus;
+            $out = $this->m_ordres->ensure_reposition($code_passager, $op, $idsg, 'reposition');
+            if (empty($out['ok'])) {
+                $msg = 'Impossible de repositionner';
+                if (!empty($out['error'])) {
+                    $map = array(
+                        'params_manquants' => 'Paramètres manquants.',
+                        'passager_introuvable' => 'Ticket introuvable.',
+                        'ticket_non_vendu' => 'Ticket non vendu ou inactif.',
+                    );
+                    $msg = isset($map[$out['error']]) ? $map[$out['error']] : $out['error'];
+                }
+                $this->session->set_flashdata('sale_error', $msg);
+            } else {
+                $this->session->set_flashdata(
+                    'sale_success',
+                    'Ticket repositionné : le guichet peut l’imprimer une fois via TICKET.'
+                );
+            }
+            $ref = $this->input->server('HTTP_REFERER');
+            if ($ref) {
+                redirect($ref);
+                return;
+            }
+            redirect('historique_passagers/' . $ckey . '/' . $cpus . '/' . $g . '/' . $idsg);
+        }
+
+        /**
+         * Bloque la réimpression Epson libre (hors file TICKET / *figr).
+         */
+        protected function _block_reimpression_libre($ckey, $g, $cpus, $idsg)
+        {
+            $this->session->set_flashdata(
+                'sale_error',
+                'Réimpression libre désactivée. Demandez au chef/admin de repositionner le ticket, puis imprimez via TICKET.'
+            );
+            $ref = $this->input->server('HTTP_REFERER');
+            if ($ref) {
+                redirect($ref);
+                return true;
+            }
+            redirect('historique_passagers/' . $ckey . '/' . $cpus . '/' . $g . '/' . $idsg);
+            return true;
+        }
         
 
         public function nonreport($ckey, $uid, $gd, $sg)
@@ -967,15 +1026,7 @@
         }
         public function editpdfepson($ckey, $code_id, $tf, $h, $g, $cpus, $idsg)
         {
-            $this->company = $this->m_entreprises->get_key($ckey);
-            $bus_stop = $this->m_sousgare->sget($this->company->ekey, $g, $idsg);
-                        $this->property['bus_stop'] = $bus_stop;
-                $conex = $this->_roleattribut_guard_bind($cpus, $this->company->ekey, $g);
-                $this->property['conex'] = $conex;
-            $this->passagers = $this->m_passager->get($this->company->ekey, $code_id, $tf, $h);
-            $this->property['item'] = $this->passagers;
-            
-            $this->layout->view('_tickets/editpdfepson', $this->property);
+            return $this->_block_reimpression_libre($ckey, $g, $cpus, $idsg);
         }
 
         public function editpdfepsontrans($ckey, $code_id, $tf, $h, $co, $lr, $g, $cpus, $idsg)
@@ -1037,18 +1088,7 @@
 
         public function epsonalretour($ckey, $code_id, $tf, $cdnp, $h, $g, $cpus, $idsg)
         {
-            $this->company = $this->m_entreprises->get_key($ckey);
-            $bus_stop = $this->m_sousgare->sget($this->company->ekey, $g, $idsg);
-                        $this->property['bus_stop'] = $bus_stop;
-                $conex = $this->_roleattribut_guard_bind($cpus, $this->company->ekey, $g);
-                $this->property['conex'] = $conex;
-            $this->passagers = $this->m_passager->get($this->company->ekey, $code_id, $tf, $h);
-            $this->property['item'] = $this->passagers;
-
-            $this->nonpassagers = $this->m_non_passager->getad($this->company->ekey, $cdnp);
-            $this->property['itemar'] = $this->nonpassagers;
-            
-            $this->layout->view('_tickets/epsonalretour', $this->property);
+            return $this->_block_reimpression_libre($ckey, $g, $cpus, $idsg);
         }
 
 
@@ -2537,33 +2577,12 @@
 
         public function reditpdfepson($ckey, $code_id, $g, $cpus, $idsg)
         {
-            $this->company = $this->m_entreprises->get_key($ckey);
-            $bus_stop = $this->m_sousgare->sget($this->company->ekey, $g, $idsg);
-                $this->property['bus_stop'] = $bus_stop;
-                $conex = $this->_roleattribut_guard_bind($cpus, $this->company->ekey, $g);
-                $this->property['conex'] = $conex;
-
-            
-            $this->property['tritem'] = $this->m_passager->gettr($this->company->ekey, $code_id);
-             
-            
-            $this->layout->view('_tickets/reditpdfepson', $this->property);
+            return $this->_block_reimpression_libre($ckey, $g, $cpus, $idsg);
         }
 
         public function repsonalretour($ckey, $code_id, $g, $cpus, $idsg)
         {
-            $this->company = $this->m_entreprises->get_key($ckey);
-            $bus_stop = $this->m_sousgare->sget($this->company->ekey, $g, $idsg);
-                $this->property['bus_stop'] = $bus_stop;
-                
-                $conex = $this->_roleattribut_guard_bind($cpus, $this->company->ekey, $g);
-                $this->property['conex'] = $conex;
-
-            $this->property['tritem'] = $this->m_passager->gettr($this->company->ekey, $code_id);
-
-            $this->property['rtritem'] = $this->m_non_passager->gettr($this->company->ekey, $code_id);
-            
-            $this->layout->view('_tickets/repsonalretour', $this->property);
+            return $this->_block_reimpression_libre($ckey, $g, $cpus, $idsg);
         }
 
         public function reditpdfepsonfigr($ckey, $code_id, $g, $cpus, $idsg)

@@ -139,6 +139,8 @@
             $route['historique_passagers/recuetablis/(:num)/(:any)/(:any)/(:any)'] = 'Historique_Passagers/recuetab/$1/$2/$3/$4';
             $route['historique_passagers/pass/(:num)/(:any)/(:any)/(:any)'] = 'Historique_Passagers/viewpass/$1/$2/$3/$4';
             $route['historique_passagers/tripassager/(:num)/(:any)/(:any)/(:any)'] = 'Historique_Passagers/tripassager/$1/$2/$3/$4';
+            $route['historique_passagers/repositionner/(:any)/(:any)/(:any)/(:any)/(:any)'] = 'Historique_Passagers/repositionner/$1/$2/$3/$4/$5';
+            $route['Historique_Passagers/repositionner/(:any)/(:any)/(:any)/(:any)/(:any)'] = 'Historique_Passagers/repositionner/$1/$2/$3/$4/$5';
             $route['historique_passagers/trireprogramme/(:num)/(:any)/(:any)/(:any)'] = 'Historique_Passagers/trireprogramme/$1/$2/$3/$4';
             $route['historique_passagers/triconfirmation/(:num)/(:any)/(:any)/(:any)'] = 'Historique_Passagers/triconfirme/$1/$2/$3/$4';
 
