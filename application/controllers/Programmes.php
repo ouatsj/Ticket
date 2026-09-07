@@ -2260,61 +2260,52 @@
             }
             $sgFilterPayload = $mode_reprog ? null : $sg;
 
-            // Reprog : uniquement axes même villes gare_report → destination (pas de nom sans sens).
-            if ($mode_reprog && $gaOd !== '' && $gdOd !== '') {
-                $sensAxes = $this->m_programme->axes_od_par_villes($gaOd, $gdOd, $ekey);
-                if (!empty($sensAxes)) {
-                    $axesSearch = $sensAxes;
-                } else {
-                    $axesSearch = array($gaOd . '-' . $gdOd);
+            // Reprog : TOUJOURS par nom de ligne (toutes compagnies / codes dest).
+            // Sans nom_ligne → aucun itinéraire (évite BAM6≠BAM53 / contre-sens codes).
+            if ($mode_reprog) {
+                if ($nom === '') {
+                    return array(
+                        'mode' => 'none',
+                        'meta' => array(
+                            'axe' => $axe,
+                            'date' => $date,
+                            'nom_ligne' => null,
+                            'gare_report' => $gareidentif,
+                            'reason' => 'reprog_requires_nom_ligne',
+                        ),
+                        'declaratif' => $decl,
+                        'multi' => false,
+                        'chemins' => array(),
+                        'etapes' => array(),
+                        'etapes_servies' => array(),
+                        'has_transit' => false,
+                        'transit_sources' => array(),
+                    );
                 }
-                if ($nom !== '') {
-                    $alts = $this->m_programme->axes_par_nom_ligne($nom, $ekey, $gaOd, $gdOd);
-                    foreach ($alts as $ax) {
-                        if ($ax !== '' && !in_array($ax, $axesSearch, true)) {
-                            $axesSearch[] = $ax;
-                        }
-                    }
+                $alts = $this->m_programme->axes_par_nom_ligne($nom, $ekey, $gaOd !== '' ? $gaOd : null, null);
+                if (empty($alts)) {
+                    $alts = $this->m_programme->axes_par_nom_ligne($nom, $ekey);
                 }
-            } elseif ($mode_reprog && $nom !== '' && $gaOd !== '' && $gdOd !== '') {
-                $alts = $this->m_programme->axes_par_nom_ligne($nom, $ekey, $gaOd, $gdOd);
+                $axesSearch = array();
                 foreach ($alts as $ax) {
                     if ($ax !== '' && !in_array($ax, $axesSearch, true)) {
                         $axesSearch[] = $ax;
                     }
                 }
-            }
-            // axes_extra : uniquement si dans le sens gare→dest.
-            if ($mode_reprog && is_array($axes_extra)) {
-                $sensSet = array();
-                if ($gaOd !== '' && $gdOd !== '') {
-                    foreach ($this->m_programme->axes_od_par_villes($gaOd, $gdOd, $ekey) as $sx) {
-                        $sensSet[$sx] = true;
-                    }
+                if (empty($axesSearch) && $axe !== '') {
+                    $axesSearch[] = $axe;
                 }
-                foreach ($axes_extra as $ax) {
-                    $ax = trim((string) $ax);
-                    if ($ax === '' || in_array($ax, $axesSearch, true)) {
-                        continue;
-                    }
-                    // Sans sensSet fiable → ignorer (évite contre-sens).
-                    if (empty($sensSet) || !isset($sensSet[$ax])) {
-                        continue;
-                    }
-                    $axesSearch[] = $ax;
-                }
-            }
-            if (empty($axesSearch) && $axe !== '') {
+            } elseif (empty($axesSearch) && $axe !== '') {
                 $axesSearch[] = $axe;
             }
 
             // Reprog : ne pas forcer le multi si un départ direct existe (évite transit parasite).
-            if ($mode_reprog && $force_transit && $gaOd !== '' && $gdOd !== '') {
-                $axeDirect = $gaOd . '-' . $gdOd;
-                if ($this->graphe_correspondance->od_a_depart_direct($ekey, $axeDirect, $date, null)
-                    || $this->graphe_correspondance->od_a_depart_direct($ekey, $axe, $date, null)
-                ) {
-                    $force_transit = false;
+            if ($mode_reprog && $force_transit && $nom !== '') {
+                foreach ($axesSearch as $axTry) {
+                    if ($this->graphe_correspondance->od_a_depart_direct($ekey, $axTry, $date, null)) {
+                        $force_transit = false;
+                        break;
+                    }
                 }
             }
 

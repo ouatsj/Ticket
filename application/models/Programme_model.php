@@ -2109,7 +2109,8 @@
             $gareSql = $this->sql_filtre_gare_depart_ville($gareRef);
             $sgSql = '';
 
-            // OD métier = nom de ligne ET sens gaexp→gadest (évite contre-sens).
+            // OD métier : nom de ligne + départ gare de report (toutes compagnies / codes dest).
+            // Ne pas exiger la même ville dest que le code ticket (BAM6 ≠ BAM53 = Bamako / Bamako_VIP).
             $odSql = '';
             $nom = trim((string) $nom_ligne);
             $ga = trim((string) $gaexp);
@@ -2124,46 +2125,23 @@
                 }
             }
 
-            // Sens obligatoire : axes même villes que gaexp→gadest (ou codes exacts).
-            $axesSens = array();
-            if ($ga !== '' && $gd !== '') {
-                $axesSens = $this->axes_od_par_villes($ga, $gd, $cid);
-            }
-            if (empty($axesSens) && $ga !== '' && $gd !== '') {
-                $axesSens = array($ga . '-' . $gd);
-            }
-            // Intersect avec axes fournis (transit OD globale), toujours dans le bon sens.
-            if (!empty($axeList) && !empty($axesSens)) {
-                $axeList = array_values(array_intersect($axeList, $axesSens));
-                if (empty($axeList)) {
-                    $axeList = $axesSens;
-                }
-            } elseif (!empty($axeList) && empty($axesSens)) {
-                // Garder axes fournis mais filtrés par nom+sens ci-dessous si possible.
-            } elseif (empty($axeList) && !empty($axesSens)) {
-                $axeList = $axesSens;
+            $depCode = $gareRef !== '' ? $gareRef : $ga;
+            $depVilleSql = '';
+            if ($depCode !== '') {
+                $depEsc = $this->db->escape($depCode);
+                $depVilleSql = " AND EXISTS (
+                    SELECT 1 FROM gare_exp ex_lg
+                    INNER JOIN gare_exp ex_dep ON ex_dep.code_gaexp = {$depEsc}
+                    WHERE ex_lg.code_gaexp = lg.gaexp_lg
+                      AND ex_lg.id_villegd = ex_dep.id_villegd
+                )";
             }
 
-            if ($nom !== '' && !empty($axeList)) {
-                $odSql = ' AND lg.nom_ligne = ' . $this->db->escape($nom)
-                    . ' AND lg.ident_ligne IN (' . $this->sql_in_ident_lignes($axeList) . ')';
-            } elseif ($nom !== '' && $ga !== '' && $gd !== '') {
-                // Nom + sens villes (ou codes).
-                if (!empty($axesSens)) {
-                    $odSql = ' AND lg.nom_ligne = ' . $this->db->escape($nom)
-                        . ' AND lg.ident_ligne IN (' . $this->sql_in_ident_lignes($axesSens) . ')';
-                } else {
-                    $odSql = ' AND lg.nom_ligne = ' . $this->db->escape($nom)
-                        . ' AND lg.gaexp_lg = ' . $this->db->escape($ga)
-                        . ' AND lg.gadest_lg = ' . $this->db->escape($gd);
-                }
-            } elseif (!empty($axeList)) {
-                $odSql = ' AND lg.ident_ligne IN (' . $this->sql_in_ident_lignes($axeList) . ')';
-            } elseif ($ga !== '' && $gd !== '') {
-                $odSql = ' AND lg.gaexp_lg = ' . $this->db->escape($ga)
-                    . ' AND lg.gadest_lg = ' . $this->db->escape($gd);
+            if ($nom !== '') {
+                // Source de vérité métier : nom de ligne + départ gare de report.
+                $odSql = ' AND lg.nom_ligne = ' . $this->db->escape($nom) . $depVilleSql;
             } else {
-                // Pas d’OD exploitable → aucun programme.
+                // Reprog unifiée : pas de recherche par codes seuls (BAM6≠BAM53, etc.).
                 $odSql = ' AND 1=0';
             }
 
@@ -2404,6 +2382,11 @@
                 $params[] = $gd;
                 $where[] = 'ex.id_villegd = ex0.id_villegd';
                 $where[] = 'ga.id_villega = ga0.id_villega';
+            } elseif ($ga !== '') {
+                // Départ seulement (reprog : toutes dest / compagnies du nom de ligne).
+                $sql .= ' JOIN gare_exp ex0 ON ex0.code_gaexp = ?';
+                $params[] = $ga;
+                $where[] = 'ex.id_villegd = ex0.id_villegd';
             }
             $sql .= ' WHERE ' . implode(' AND ', $where) . ' ORDER BY lg.ident_ligne ASC';
             $rows = $this->db->query($sql, $params)->result();

@@ -878,14 +878,76 @@
                 }
                 $out = $this->_reprog_enrich_retour_meta($out);
                 $out = $this->_reprog_enrich_transit_meta($out);
+                $out = $this->_reprog_ensure_nom_ligne($out);
             }
 
             return $this->load->view('beagle/pages/_programme/json', array('json' => $out));
         }
 
         /**
-         * Heures unifiées même OD. GET prix= optionnel ; GET id_escale= si ticket escale.
-         * Report gratuit / hors CA : toutes les heures OD pour tous les rôles (plus de filtre prix vendeur).
+         * Garantit un nom_ligne pour tous les cas de report (direct, transit, retour, escale).
+         * Sans nom, le chargement des itinéraires est refusé côté heures/verifchemins.
+         */
+        protected function _reprog_ensure_nom_ligne($out)
+        {
+            if (!$out || !is_object($out)) {
+                return $out;
+            }
+            if (!isset($this->m_programme)) {
+                $this->load->model('Programme_model', 'm_programme');
+            }
+
+            $nom = isset($out->nom_ligne) ? trim((string) $out->nom_ligne) : '';
+            if ($nom === '' && !empty($out->ligne_retour)) {
+                $nom = trim((string) $out->ligne_retour);
+            }
+            if ($nom === '' && !empty($out->nom_ligne_od)) {
+                $nom = trim((string) $out->nom_ligne_od);
+            }
+            if ($nom === '' && !empty($out->jambes) && is_array($out->jambes) && count($out->jambes) >= 2) {
+                $first = $out->jambes[0];
+                $last = $out->jambes[count($out->jambes) - 1];
+                $nom = $this->m_programme->composer_nom_ligne_od(
+                    isset($first['nom_ligne']) ? $first['nom_ligne'] : '',
+                    isset($last['nom_ligne']) ? $last['nom_ligne'] : ''
+                );
+            }
+            if ($nom === '') {
+                $ga = !empty($out->gaexp_od) ? trim((string) $out->gaexp_od)
+                    : (isset($out->gaexp_lg) ? trim((string) $out->gaexp_lg) : '');
+                $gd = !empty($out->gadest_od) ? trim((string) $out->gadest_od)
+                    : (isset($out->gadest_lg) ? trim((string) $out->gadest_lg) : '');
+                if ($ga !== '' && $gd !== '') {
+                    $od = $this->m_programme->od_metier_globale(
+                        $ga,
+                        $gd,
+                        $this->session->company->ekey
+                    );
+                    $nom = isset($od['nom_ligne']) ? trim((string) $od['nom_ligne']) : '';
+                    if ($nom !== '' && empty($out->nom_ligne_od) && !empty($out->est_transit)) {
+                        $out->nom_ligne_od = $nom;
+                        if (!empty($od['axes'])) {
+                            $out->axes_od = $od['axes'];
+                        }
+                    }
+                }
+            }
+            if ($nom !== '') {
+                $out->nom_ligne = $nom;
+                if (!empty($out->est_transit) && (empty($out->nom_ligne_od) || trim((string) $out->nom_ligne_od) === '')) {
+                    $out->nom_ligne_od = $nom;
+                }
+                if (!empty($out->est_retour) && (empty($out->ligne_retour) || trim((string) $out->ligne_retour) === '')) {
+                    $out->ligne_retour = $nom;
+                }
+            }
+            return $out;
+        }
+
+        /**
+         * Heures unifiées même OD. GET id_escale= si ticket escale.
+         * Report : toutes compagnies / tous prix — ancré sur la gare de report uniquement.
+         * Exige nom_ligne (pas de recherche par codes seuls).
          */
         public function heures_unifie($gaexp, $gadest, $exclude)
         {
@@ -908,6 +970,9 @@
             // Listing reprog : pas de filtre sous-gare (tous départs de la ville).
             $sg = null;
             $nom_ligne = trim((string) $this->input->get_post('nom_ligne'));
+            if ($nom_ligne === '') {
+                return $this->load->view('beagle/pages/_programme/json', array('json' => array()));
+            }
             $axesRaw = trim((string) $this->input->get_post('axes'));
             $axes = array();
             if ($axesRaw !== '') {
@@ -928,7 +993,7 @@
                 $id_escale > 0 ? $id_escale : null,
                 $gare !== '' ? $gare : null,
                 $sg,
-                $nom_ligne !== '' ? $nom_ligne : null,
+                $nom_ligne,
                 !empty($axes) ? $axes : null
             );
             return $this->load->view('beagle/pages/_programme/json', array('json' => $rows));

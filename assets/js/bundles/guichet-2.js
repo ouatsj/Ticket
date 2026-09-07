@@ -9693,6 +9693,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Résumé OD avant choix date / itinéraires.
         var st = window.__reprogState;
+        if (!__reprogEnsureNomLigne()) {
+            var boxN = __reprogQ('smspunifie');
+            var errN = __reprogQ('erreurSmspunifie');
+            if (boxN) boxN.style.display = 'block';
+            if (errN) errN.textContent = 'Nom de ligne introuvable sur ce ticket : report impossible.';
+            return;
+        }
         var resume = __reprogQ('reprog_od_resume');
         if (resume) {
             var escHint = '';
@@ -9717,23 +9724,27 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         window.__reprogState.gid = __reprogResolveGareReport();
         var gaReport = window.__reprogState.gid || window.__reprogState.gaexp || '';
+        // Chargement : départs gare de report — filtre STRICT nom_ligne (toutes compagnies).
+        var qs = [
+            'nom_ligne=' + encodeURIComponent(String(window.__reprogState.nom_ligne))
+        ];
+        var axesQ = __reprogAxesQuery();
+        if (axesQ) {
+            qs.push(axesQ.replace(/^&/, ''));
+        }
+        if (window.__reprogState.id_escale) {
+            qs.push('id_escale=' + encodeURIComponent(String(window.__reprogState.id_escale)));
+        }
+        if (gaReport) {
+            qs.push('gare=' + encodeURIComponent(String(gaReport)));
+        }
         __reprogXhrGet(
             window.location.origin + APP_ROOT
                 + '/reprogrammes/heures_unifie/'
                 + encodeURIComponent(gaReport) + '/'
                 + encodeURIComponent(window.__reprogState.gadest) + '/'
                 + encodeURIComponent(window.__reprogState.exclude)
-                + '?prix=' + encodeURIComponent(String(ref))
-                + (window.__reprogState.nom_ligne
-                    ? ('&nom_ligne=' + encodeURIComponent(String(window.__reprogState.nom_ligne)))
-                    : '')
-                + __reprogAxesQuery()
-                + (window.__reprogState.id_escale
-                    ? ('&id_escale=' + encodeURIComponent(String(window.__reprogState.id_escale)))
-                    : '')
-                + (gaReport
-                    ? ('&gare=' + encodeURIComponent(String(gaReport)))
-                    : ''),
+                + (qs.length ? ('?' + qs.join('&')) : ''),
             function (data2) {
                 window.__reprogState.rows = __reprogRowsArray(data2);
                 __reprogOnDateChange();
@@ -9799,6 +9810,49 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    /** Compose BOBO-OUAGA + OUAGA-MANGA → BOBO-MANGA (même règle PHP). */
+    function __reprogComposeNomLigne(a, b) {
+        a = String(a || '').trim();
+        b = String(b || '').trim();
+        if (!a || !b) return '';
+        var p = a.indexOf('-');
+        var left = p >= 0 ? a.slice(0, p) : a;
+        var p2 = b.lastIndexOf('-');
+        var right = p2 >= 0 ? b.slice(p2 + 1) : b;
+        left = String(left || '').trim();
+        right = String(right || '').trim();
+        return (left && right) ? (left + '-' + right) : '';
+    }
+
+    /**
+     * Tous les cas de report (direct / transit / retour / escale) : nom_ligne obligatoire.
+     * Remplit st.nom_ligne depuis lookup, OD transit, ou composition des jambes.
+     */
+    function __reprogEnsureNomLigne(donnees) {
+        var st = window.__reprogState;
+        var n = String(st.nom_ligne || '').trim();
+        if (!n && donnees) {
+            n = String(
+                donnees.nom_ligne_od
+                || donnees.nom_ligne
+                || donnees.ligne_retour
+                || donnees.ligne
+                || ''
+            ).trim();
+        }
+        if (!n) {
+            var jambes = st.jambesExpected || [];
+            if (jambes.length >= 2) {
+                n = __reprogComposeNomLigne(
+                    (jambes[0] || {}).nom_ligne,
+                    (jambes[jambes.length - 1] || {}).nom_ligne
+                );
+            }
+        }
+        st.nom_ligne = n;
+        return n;
+    }
+
     function __reprogApplyOdFromLegs() {
         var st = window.__reprogState;
         var jambes = st.jambesExpected || [];
@@ -9820,6 +9874,9 @@ document.addEventListener('DOMContentLoaded', () => {
             if (__reprogQ('nom_dest_vente_reprog')) {
                 __reprogQ('nom_dest_vente_reprog').value = last.nom_dest_vente || last.dest_affiche || '';
             }
+        }
+        if (!st.nom_ligne) {
+            st.nom_ligne = __reprogComposeNomLigne(first.nom_ligne, last.nom_ligne);
         }
         if (ga && gd) {
             st.gaexp = ga;
@@ -9845,9 +9902,11 @@ document.addEventListener('DOMContentLoaded', () => {
         if (donnees.axe_od) st.axe = String(donnees.axe_od);
         else if (st.gaexp && st.gadest) st.axe = st.gaexp + '-' + st.gadest;
         if (donnees.nom_ligne_od) st.nom_ligne = String(donnees.nom_ligne_od).trim();
+        else if (donnees.nom_ligne) st.nom_ligne = String(donnees.nom_ligne).trim();
         if (Array.isArray(donnees.axes_od)) {
             st.axesOd = donnees.axes_od.map(function (a) { return String(a || '').trim(); }).filter(Boolean);
         }
+        __reprogEnsureNomLigne(donnees);
         if (__reprogQ('gaexp_unifie')) __reprogQ('gaexp_unifie').value = st.gaexp || '';
         if (__reprogQ('gadest_unifie')) __reprogQ('gadest_unifie').value = st.gadest || '';
         if (__reprogQ('axe_unifie')) __reprogQ('axe_unifie').value = st.axe || '';
@@ -10294,6 +10353,10 @@ document.addEventListener('DOMContentLoaded', () => {
         var st = window.__reprogState;
         // Ancre = gare de report ; OD recherche = gare report → destination ticket.
         st.gid = __reprogResolveGareReport();
+        if (!__reprogEnsureNomLigne()) {
+            if (typeof after === 'function') after([]);
+            return;
+        }
         var axeSearch = __reprogAxeDepuisGareReport() || st.axe;
         // force=0 si un direct existe déjà pour la date → pas de multi parasite.
         var hasDirectDate = __reprogFilterByDate(dateYmd).length > 0;
@@ -10302,10 +10365,8 @@ document.addEventListener('DOMContentLoaded', () => {
             + '/programmes/verifchemins/'
             + encodeURIComponent(axeSearch) + '/'
             + encodeURIComponent(dateYmd) + '/'
-            + '0/' + force + '?reprog=1';
-        if (st.nom_ligne) {
-            url += '&nom_ligne=' + encodeURIComponent(String(st.nom_ligne));
-        }
+            + '0/' + force + '?reprog=1'
+            + '&nom_ligne=' + encodeURIComponent(String(st.nom_ligne));
         url += __reprogAxesQuery();
         if (st.gid) {
             url += '&gare=' + encodeURIComponent(String(st.gid));
@@ -10346,17 +10407,21 @@ document.addEventListener('DOMContentLoaded', () => {
         return __reprogFilterByDate(dateYmd).map(function (row, idx) {
             var hh = __reprogHhmm(row.heure);
             var cie = __reprogCieName(row) || 'Compagnie';
+            var nom = row.nom_ligne || '';
             return {
                 source: 'direct',
                 id: 'direct-' + idx + '-' + (row.code_progr || ''),
-                label: 'Direct — ' + cie + ' — ' + hh,
+                label: (nom ? (nom + ' — ') : 'Direct — ') + cie + ' — ' + hh + ' (1 jambe)',
                 etapes: [{
                     code_itineraires: row.ident_ligne || row.ligne_id || '',
-                    nom_ligne: row.nom_ligne || '',
-                    nom_itineraires: row.nom_ligne || '',
+                    nom_ligne: nom,
+                    nom_itineraires: nom,
+                    code_gaexp: row.gaexp_lg || '',
+                    gaexp_lg: row.gaexp_lg || '',
                     id_compaga: row.id_compaga || '',
                     heure: row.heure || hh,
                     code_gadest: row.code_gadest || row.gadest_lg || '',
+                    gadest_lg: row.gadest_lg || '',
                     typetarif: row.typetarif,
                     categori: row.categori || '',
                     code_progr: row.code_progr || '',
@@ -11088,13 +11153,15 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!dateYmd) return;
 
         var st = window.__reprogState;
-        // OD + gare session : directs/multi uniquement dans le sens ticket (pas de contre-sens).
-        if (!st.nom_ligne && !st.axe) {
+        if (!__reprogEnsureNomLigne()) {
             var boxA = __reprogQ('smspunifie');
             var errA = __reprogQ('erreurSmspunifie');
             if (boxA) boxA.style.display = 'block';
-            if (errA) errA.textContent = 'Ligne ticket incomplète (nom de ligne / gares).';
+            if (errA) errA.textContent = 'Nom de ligne introuvable : impossible de charger les itinéraires.';
             return;
+        }
+        if (!st.gid) {
+            st.gid = __reprogResolveGareReport();
         }
         if (!st.gid) {
             var boxG = __reprogQ('smspunifie');
@@ -11103,6 +11170,44 @@ document.addEventListener('DOMContentLoaded', () => {
             if (errG) errG.textContent = 'Gare de session introuvable : impossible de charger les itinéraires.';
             return;
         }
+        // Recharger les directs pour la date (nom ligne + gare report, toutes compagnies).
+        __reprogReloadHeuresThenDate(dateYmd);
+    }
+
+    function __reprogReloadHeuresThenDate(dateYmd) {
+        var st = window.__reprogState;
+        if (!__reprogEnsureNomLigne()) {
+            var box = __reprogQ('smspunifie');
+            var err = __reprogQ('erreurSmspunifie');
+            if (box) box.style.display = 'block';
+            if (err) err.textContent = 'Nom de ligne introuvable : report impossible.';
+            return;
+        }
+        st.gid = __reprogResolveGareReport();
+        var gaReport = st.gid || st.gaexp || '';
+        var qs = [
+            'nom_ligne=' + encodeURIComponent(String(st.nom_ligne))
+        ];
+        var axesQ = __reprogAxesQuery();
+        if (axesQ) qs.push(axesQ.replace(/^&/, ''));
+        if (st.id_escale) qs.push('id_escale=' + encodeURIComponent(String(st.id_escale)));
+        if (gaReport) qs.push('gare=' + encodeURIComponent(String(gaReport)));
+        __reprogXhrGet(
+            window.location.origin + APP_ROOT
+                + '/reprogrammes/heures_unifie/'
+                + encodeURIComponent(gaReport) + '/'
+                + encodeURIComponent(st.gadest || '') + '/'
+                + encodeURIComponent(st.exclude || '')
+                + (qs.length ? ('?' + qs.join('&')) : ''),
+            function (data2) {
+                st.rows = __reprogRowsArray(data2);
+                __reprogOnDateChangeAfterRows(dateYmd);
+            }
+        );
+    }
+
+    function __reprogOnDateChangeAfterRows(dateYmd) {
+        var st = window.__reprogState;
         __reprogFetchChemins(dateYmd, '', function (chemins) {
             var all = __reprogMergeItineraires(__reprogDirectsAsChemins(dateYmd), chemins);
             st.chemins = all;
@@ -11458,7 +11563,9 @@ document.addEventListener('DOMContentLoaded', () => {
                         window.__reprogState.gaexp = donnees.gaexp_lg || '';
                         window.__reprogState.gadest = donnees.gadest_lg || '';
                         window.__reprogState.axe = (donnees.gaexp_lg || '') + '-' + (donnees.gadest_lg || '');
-                        window.__reprogState.nom_ligne = String(donnees.nom_ligne || donnees.ligne_retour || '').trim();
+                        window.__reprogState.nom_ligne = String(
+                            donnees.nom_ligne_od || donnees.nom_ligne || donnees.ligne_retour || ''
+                        ).trim();
                         window.__reprogState.axesOd = [];
                         window.__reprogState.exclude = donnees.code_progr || '';
                         window.__reprogState.prix = donnees.prixvente != null ? String(donnees.prixvente) : '';
@@ -11506,6 +11613,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             __reprogApplyOdGlobale(donnees);
                             __reprogApplyOdFromLegs();
                         }
+                        __reprogEnsureNomLigne(donnees);
                         // Ancre programmes = gare qui reporte (session), pas gareidentif ticket.
                         window.__reprogState.gid = __reprogResolveGareReport();
                         if (!window.__reprogState.gid && donnees.gareidentif) {
@@ -11518,7 +11626,11 @@ document.addEventListener('DOMContentLoaded', () => {
                         var det = __reprogQ('reprog_transit_detect_msg');
                         if (det) {
                             var odLbl = window.__reprogState.nom_ligne || window.__reprogState.axe || '';
-                            if (estTr) {
+                            if (!window.__reprogState.nom_ligne) {
+                                det.style.display = 'block';
+                                det.className = 'small text-danger mb-1';
+                                det.textContent = 'Nom de ligne manquant sur ce ticket — report bloqué.';
+                            } else if (estTr) {
                                 det.style.display = 'block';
                                 det.className = 'small text-info mb-1';
                                 det.textContent = kindLabel + ' transit détecté : '
@@ -11539,6 +11651,15 @@ document.addEventListener('DOMContentLoaded', () => {
                                 det.textContent = 'Ticket direct détecté'
                                     + (odLbl ? (' — ' + odLbl) : '') + '.';
                             }
+                        }
+
+                        if (!window.__reprogState.nom_ligne) {
+                            if (__reprogQ('smspunifie')) __reprogQ('smspunifie').style.display = 'block';
+                            if (__reprogQ('erreurSmspunifie')) {
+                                __reprogQ('erreurSmspunifie').textContent =
+                                    'Nom de ligne introuvable : report impossible.';
+                            }
+                            return;
                         }
 
                         if (estTr) {
