@@ -1535,20 +1535,20 @@ if (!function_exists('documentation_formation_qcm')) {
                     array(
                         'q' => 'Techniquement, votre solde de caisse (piste 4) intègre surtout :',
                         'choices' => array(
-                            'A' => 'Toutes les saisies chefs, même non validées',
-                            'B' => 'Uniquement les mouvements que vous avez validés sur votre roleattribut',
+                            'A' => 'Toutes les saisies chefs guichet, même non validées',
+                            'B' => 'Uniquement les mouvements que vous avez validés sur votre compte',
                             'C' => 'Le chiffre d\'affaires tickets du vendeur',
                             'D' => 'Le solde de toutes les gares du pays',
                         ),
                         'answer' => 'B',
-                        'tip' => 'Solde = lignes validées sur la piste caissier, pas les pending.',
+                        'tip' => 'Solde = lignes validées sur la piste caissier, pas la file d\'attente.',
                     ),
                     array(
-                        'q' => 'Après VALIDER une recette chef, quelle identité technique est correcte ?',
+                        'q' => 'Après VALIDER une recette chef guichet, quelle identité est correcte ?',
                         'choices' => array(
-                            'A' => 'idopera devient votre roleattribut caissier',
-                            'B' => 'idopera reste le chef ; operavalid / opevalid = vous',
-                            'C' => 'idopera et operavalid sont effacés',
+                            'A' => 'L\'identité auteur devient votre compte caissier',
+                            'B' => 'L\'identité auteur reste le chef guichet ; l\'identité validateur = vous',
+                            'C' => 'L\'identité auteur et l\'identité validateur sont effacées',
                             'D' => 'Le vendeur devient auteur',
                         ),
                         'answer' => 'B',
@@ -1558,7 +1558,7 @@ if (!function_exists('documentation_formation_qcm')) {
                         'q' => 'Si vous REJETEZ une dépense :',
                         'choices' => array(
                             'A' => 'Elle entre quand même dans votre solde',
-                            'B' => 'Elle reste hors solde caissier ; le chef doit corriger / ressaisir si besoin',
+                            'B' => 'Elle reste hors solde caissier ; le chef guichet doit corriger / ressaisir si besoin',
                             'C' => 'Elle change automatiquement de gare',
                             'D' => 'Elle devient une recette validée',
                         ),
@@ -1569,7 +1569,7 @@ if (!function_exists('documentation_formation_qcm')) {
                         'q' => 'Indicateur de performance le plus pertinent pour un caissier principal :',
                         'choices' => array(
                             'A' => 'Nombre de tickets vendus par les vendeurs',
-                            'B' => 'Cadence de traitement de la file pending (validé/rejeté) et respect des délais',
+                            'B' => 'Cadence de traitement de la file d\'attente (validé/rejeté) et respect des délais',
                             'C' => 'Nombre de programmes créés',
                             'D' => 'Taille du logo imprimé',
                         ),
@@ -1590,9 +1590,9 @@ if (!function_exists('documentation_formation_qcm')) {
                     array(
                         'q' => 'Avant une dépense sur votre caisse, la règle technique est :',
                         'choices' => array(
-                            'A' => 'Ignorer le solde si le chef insiste',
+                            'A' => 'Ignorer le solde si le chef guichet insiste',
                             'B' => 'Vérifier que le montant ≤ solde validé affiché',
-                            'C' => 'Utiliser le solde du chef non validé',
+                            'C' => 'Utiliser le solde du chef guichet non validé',
                             'D' => 'Basculer sur le rôle 18 sans affectation',
                         ),
                         'answer' => 'B',
@@ -1602,7 +1602,7 @@ if (!function_exists('documentation_formation_qcm')) {
                         'q' => 'Piste caissier principal (4) vs adjoint (18) :',
                         'choices' => array(
                             'A' => 'Mêmes colonnes, seul le libellé change',
-                            'B' => 'Colonnes distinctes (operavalid / is_actif* vs *ad) ; ne pas mélanger les pistes',
+                            'B' => 'Comptes / pistes distincts (principal vs adjoint) ; ne pas mélanger les pistes',
                             'C' => 'Le 18 écrase toujours le 4',
                             'D' => 'Le 4 valide uniquement les bagages',
                         ),
@@ -1610,12 +1610,12 @@ if (!function_exists('documentation_formation_qcm')) {
                         'tip' => 'Deux pistes techniques séparées.',
                     ),
                     array(
-                        'q' => 'Face à une file pending importante en fin de journée, la conduite performante est :',
+                        'q' => 'Face à une file d\'attente importante en fin de journée, la conduite performante est :',
                         'choices' => array(
                             'A' => 'Partir sans traiter',
                             'B' => 'Prioriser les plus anciens / gros volumes, documenter le reliquat, alerter si dépassement de délai',
-                            'C' => 'Supprimer les lignes chefs',
-                            'D' => 'Donner son mot de passe au chef pour qu\'il valide',
+                            'C' => 'Supprimer les lignes chefs guichet',
+                            'D' => 'Donner son mot de passe au chef guichet pour qu\'il valide',
                         ),
                         'answer' => 'B',
                         'tip' => 'Priorisation + traçabilité + alerte.',
@@ -1623,7 +1623,7 @@ if (!function_exists('documentation_formation_qcm')) {
                     array(
                         'q' => 'Si une restriction de délai caissier est active pour la gare :',
                         'choices' => array(
-                            'A' => 'Vous pouvez ignorer les pending du mois précédent',
+                            'A' => 'Vous pouvez ignorer les attentes du mois précédent',
                             'B' => 'Vous devez traiter avant le jour limite du mois suivant, sous peine de blocage / alerte',
                             'C' => 'Seul le vendeur est concerné',
                             'D' => 'Le délai s\'applique uniquement aux programmes',
@@ -1640,14 +1640,14 @@ if (!function_exists('documentation_formation_qcm')) {
                             'D' => 'Valider toutes les gares sans ouvrir VOIR CAISSE',
                         ),
                         'answer' => 'B',
-                        'tip' => 'Une gare active à la fois (activeattrib).',
+                        'tip' => 'Une gare active à la fois (affectation active).',
                     ),
                     array(
                         'q' => 'Solde applicatif ≠ espèces en caisse : première action technique ?',
                         'choices' => array(
                             'A' => 'Forcer une dépense pour « rattraper »',
-                            'B' => 'Stopper les validations douteuses, recenser pending / rejets, alerter le superviseur',
-                            'C' => 'Changer le roleattribut du chef',
+                            'B' => 'Stopper les validations douteuses, recenser attentes / rejets, alerter le superviseur',
+                            'C' => 'Changer le compte du chef guichet',
                             'D' => 'Désactiver tous les vendeurs',
                         ),
                         'answer' => 'B',
@@ -1675,7 +1675,7 @@ if (!function_exists('documentation_formation_qcm')) {
                         'q' => 'Le caissier adjoint sert surtout à :',
                         'choices' => array(
                             'A' => 'Vendre les tickets à la place du vendeur',
-                            'B' => 'Valider les arrêts des chefs et suivre le solde (piste adjoint)',
+                            'B' => 'Valider les arrêts des chefs guichet et suivre le solde (piste adjoint)',
                             'C' => 'Créer les entreprises',
                             'D' => 'Modifier les programmes bus',
                         ),
@@ -1705,7 +1705,7 @@ if (!function_exists('documentation_formation_qcm')) {
                         'tip' => 'L\'historique ne change pas tout seul.',
                     ),
                     array(
-                        'q' => 'Qui saisit une dépense de chef avant votre validation ?',
+                        'q' => 'Qui saisit une dépense de chef guichet avant votre validation ?',
                         'choices' => array(
                             'A' => 'Le caissier adjoint',
                             'B' => 'Le chef de guichet',
@@ -1713,13 +1713,13 @@ if (!function_exists('documentation_formation_qcm')) {
                             'D' => 'Le bus',
                         ),
                         'answer' => 'B',
-                        'tip' => 'Chef saisit ; caissier valide.',
+                        'tip' => 'Chef guichet saisit ; caissier valide.',
                     ),
                     array(
                         'q' => 'Validation et rejet se font :',
                         'choices' => array(
                             'A' => 'Sans regarder la gare',
-                            'B' => 'Sur les chefs de la même gare',
+                            'B' => 'Sur les chefs guichet de la même gare',
                             'C' => 'Uniquement le dimanche',
                             'D' => 'Par le vendeur',
                         ),
@@ -1815,7 +1815,7 @@ if (!function_exists('documentation_formation_qcm')) {
                         'choices' => array(
                             'A' => 'Supprimer les recettes',
                             'B' => 'Envoyer / préparer vos lignes pour le caissier',
-                            'C' => 'Créer un username',
+                            'C' => 'Créer un compte',
                             'D' => 'Fermer l\'entreprise',
                         ),
                         'answer' => 'B',
@@ -1882,13 +1882,13 @@ if (!function_exists('documentation_formation_qcm')) {
                             'A' => 'Forcer plusieurs fois',
                             'B' => 'Alerter le responsable / support',
                             'C' => 'Inventer une recette',
-                            'D' => 'Changer de username collègue',
+                            'D' => 'Changer de compte collègue',
                         ),
                         'answer' => 'B',
                         'tip' => 'Ne pas contourner ; signaler.',
                     ),
                     array(
-                        'q' => 'Partager son compte chef :',
+                        'q' => 'Partager son compte chef guichet :',
                         'choices' => array(
                             'A' => 'Est autorisé',
                             'B' => 'Est interdit',
@@ -1906,7 +1906,7 @@ if (!function_exists('documentation_formation_qcm')) {
                 'bareme' => '1 point par bonne réponse — Total /8 — Seuil indicatif : 6/8',
                 'questions' => array(
                     array(
-                        'q' => 'Le rôle d\'aide chef est proche de :',
+                        'q' => 'Le rôle d\'aide chef guichet est proche de :',
                         'choices' => array(
                             'A' => 'Caissier',
                             'B' => 'Chef de guichet (saisie)',
@@ -1917,7 +1917,7 @@ if (!function_exists('documentation_formation_qcm')) {
                         'tip' => 'Même logique de saisie.',
                     ),
                     array(
-                        'q' => 'Pouvez-vous valider les arrêts des autres chefs ?',
+                        'q' => 'Pouvez-vous valider les arrêts des autres chefs guichet ?',
                         'choices' => array(
                             'A' => 'Oui toujours',
                             'B' => 'Non — c\'est le caissier',
@@ -1936,13 +1936,13 @@ if (!function_exists('documentation_formation_qcm')) {
                             'D' => 'Modifier le compte caissier',
                         ),
                         'answer' => 'A',
-                        'tip' => 'Même règle que le chef.',
+                        'tip' => 'Même règle que le chef guichet.',
                     ),
                     array(
                         'q' => 'En cas de doute sur un montant :',
                         'choices' => array(
                             'A' => 'Saisir quand même',
-                            'B' => 'Demander au chef / responsable avant l\'arrêt',
+                            'B' => 'Demander au chef guichet / responsable avant l\'arrêt',
                             'C' => 'Rejeter à la place du caissier',
                             'D' => 'Effacer le programme',
                         ),
@@ -1953,7 +1953,7 @@ if (!function_exists('documentation_formation_qcm')) {
                         'q' => 'L\'arrêt de compte :',
                         'choices' => array(
                             'A' => 'Est inutile',
-                            'B' => 'Suit la même logique que le chef',
+                            'B' => 'Suit la même logique que le chef guichet',
                             'C' => 'Crée un caissier',
                             'D' => 'Imprime les tickets',
                         ),
@@ -2209,7 +2209,7 @@ if (!function_exists('documentation_formation_qcm')) {
                         'q' => 'En cas d\'itinéraire absent pour la gare :',
                         'choices' => array(
                             'A' => 'Forcer une vente hors liste',
-                            'B' => 'Prévenir le chef / admin (lignes, escales, sous-gare)',
+                            'B' => 'Prévenir le chef guichet / admin (lignes, escales, sous-gare)',
                             'C' => 'Utiliser le compte caissier',
                             'D' => 'Désactiver la gare',
                         ),
@@ -2301,7 +2301,7 @@ if (!function_exists('documentation_formation_qcm')) {
                         'tip' => 'Contrôle reçu + identité obligatoire.',
                     ),
                     array(
-                        'q' => 'L\'agent bagage peut-il saisir une recette de caisse au nom du chef ?',
+                        'q' => 'L\'agent bagage peut-il saisir une recette de caisse au nom du chef guichet ?',
                         'choices' => array(
                             'A' => 'Oui, toujours',
                             'B' => 'Non',
@@ -2309,7 +2309,7 @@ if (!function_exists('documentation_formation_qcm')) {
                             'D' => 'Oui si le solde est à zéro',
                         ),
                         'answer' => 'B',
-                        'tip' => 'Interdit : poste bagage ≠ saisie recette chef.',
+                        'tip' => 'Interdit : poste bagage ≠ saisie recette chef guichet.',
                     ),
                     array(
                         'q' => 'L\'arrêt / compte bagage sert à :',
@@ -2376,8 +2376,8 @@ if (!function_exists('documentation_formation_qcm')) {
                     array(
                         'q' => 'Chaîne correcte en caisse :',
                         'choices' => array(
-                            'A' => 'Caissier saisit → chef valide',
-                            'B' => 'Chef saisit → caissier valide',
+                            'A' => 'Caissier saisit → chef guichet valide',
+                            'B' => 'Chef guichet saisit → caissier valide',
                             'C' => 'Vendeur valide la caisse',
                             'D' => 'Passager valide le solde',
                         ),
