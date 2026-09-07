@@ -2252,29 +2252,39 @@
             $gaOd = isset($partsAxe[0]) ? trim((string) $partsAxe[0]) : '';
             $gdOd = isset($partsAxe[1]) ? trim((string) $partsAxe[1]) : '';
 
-            // Reprog : ancrage 1ʳᵉ jambe = gare de départ OD si ?gare= manquant.
-            if ($mode_reprog && ($gareidentif === null || $gareidentif === '')) {
+            // Reprog : ancrage = gare de report (?gare=). OD recherche = gare report → dest ticket.
+            if ($mode_reprog && $gareidentif !== null && $gareidentif !== '') {
+                $gaOd = $gareidentif;
+            } elseif ($mode_reprog && ($gareidentif === null || $gareidentif === '')) {
                 $gareidentif = $gaOd !== '' ? $this->m_programme->normalize_gareidentif($gaOd) : null;
             }
-            // Reprog : pas de filtre sous-gare sur le filtre 1ʳᵉ jambe.
             $sgFilterPayload = $mode_reprog ? null : $sg;
 
-            if ($mode_reprog && $nom !== '' && $gaOd !== '' && $gdOd !== '') {
+            // Reprog : uniquement axes même villes gare_report → destination (pas de nom sans sens).
+            if ($mode_reprog && $gaOd !== '' && $gdOd !== '') {
+                $sensAxes = $this->m_programme->axes_od_par_villes($gaOd, $gdOd, $ekey);
+                if (!empty($sensAxes)) {
+                    $axesSearch = $sensAxes;
+                } else {
+                    $axesSearch = array($gaOd . '-' . $gdOd);
+                }
+                if ($nom !== '') {
+                    $alts = $this->m_programme->axes_par_nom_ligne($nom, $ekey, $gaOd, $gdOd);
+                    foreach ($alts as $ax) {
+                        if ($ax !== '' && !in_array($ax, $axesSearch, true)) {
+                            $axesSearch[] = $ax;
+                        }
+                    }
+                }
+            } elseif ($mode_reprog && $nom !== '' && $gaOd !== '' && $gdOd !== '') {
                 $alts = $this->m_programme->axes_par_nom_ligne($nom, $ekey, $gaOd, $gdOd);
                 foreach ($alts as $ax) {
                     if ($ax !== '' && !in_array($ax, $axesSearch, true)) {
                         $axesSearch[] = $ax;
                     }
                 }
-            } elseif ($mode_reprog && $nom !== '') {
-                $alts = $this->m_programme->axes_par_nom_ligne($nom, $ekey);
-                foreach ($alts as $ax) {
-                    if ($ax !== '' && !in_array($ax, $axesSearch, true)) {
-                        $axesSearch[] = $ax;
-                    }
-                }
             }
-            // Axes OD globale (transit), filtrés au sens de l’axe ticket.
+            // axes_extra : uniquement si dans le sens gare→dest.
             if ($mode_reprog && is_array($axes_extra)) {
                 $sensSet = array();
                 if ($gaOd !== '' && $gdOd !== '') {
@@ -2287,14 +2297,25 @@
                     if ($ax === '' || in_array($ax, $axesSearch, true)) {
                         continue;
                     }
-                    if (!empty($sensSet) && !isset($sensSet[$ax])) {
-                        continue; // contre-sens / hors OD villes
+                    // Sans sensSet fiable → ignorer (évite contre-sens).
+                    if (empty($sensSet) || !isset($sensSet[$ax])) {
+                        continue;
                     }
                     $axesSearch[] = $ax;
                 }
             }
             if (empty($axesSearch) && $axe !== '') {
                 $axesSearch[] = $axe;
+            }
+
+            // Reprog : ne pas forcer le multi si un départ direct existe (évite transit parasite).
+            if ($mode_reprog && $force_transit && $gaOd !== '' && $gdOd !== '') {
+                $axeDirect = $gaOd . '-' . $gdOd;
+                if ($this->graphe_correspondance->od_a_depart_direct($ekey, $axeDirect, $date, null)
+                    || $this->graphe_correspondance->od_a_depart_direct($ekey, $axe, $date, null)
+                ) {
+                    $force_transit = false;
+                }
             }
 
             $decision = null;
@@ -2305,6 +2326,7 @@
                 'date' => $date,
                 'nom_ligne' => $nom !== '' ? $nom : null,
                 'axes_nom_ligne' => $axesSearch,
+                'gare_report' => $gareidentif,
             );
 
             if ($this->graphe_correspondance->is_serve_enabled()) {

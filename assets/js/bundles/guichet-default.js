@@ -13025,10 +13025,12 @@ document.addEventListener('DOMContentLoaded', () => {
             dateEl.min = today;
             dateEl.value = today;
         }
+        window.__reprogState.gid = __reprogResolveGareReport();
+        var gaReport = window.__reprogState.gid || window.__reprogState.gaexp || '';
         __reprogXhrGet(
             window.location.origin + APP_ROOT
                 + '/reprogrammes/heures_unifie/'
-                + encodeURIComponent(window.__reprogState.gaexp) + '/'
+                + encodeURIComponent(gaReport) + '/'
                 + encodeURIComponent(window.__reprogState.gadest) + '/'
                 + encodeURIComponent(window.__reprogState.exclude)
                 + '?prix=' + encodeURIComponent(String(ref))
@@ -13039,11 +13041,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 + (window.__reprogState.id_escale
                     ? ('&id_escale=' + encodeURIComponent(String(window.__reprogState.id_escale)))
                     : '')
-                + (window.__reprogState.gid
-                    ? ('&gare=' + encodeURIComponent(String(window.__reprogState.gid)))
-                    : '')
-                + (window.__reprogState.sgid && window.__reprogState.sgid !== '0'
-                    ? ('&sg=' + encodeURIComponent(String(window.__reprogState.sgid)))
+                + (gaReport
+                    ? ('&gare=' + encodeURIComponent(String(gaReport)))
                     : ''),
             function (data2) {
                 window.__reprogState.rows = __reprogRowsArray(data2);
@@ -13542,16 +13541,78 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    function __reprogResolveGareReport() {
+        // Gare qui effectue le report = session (code_gaexp), pas l’OD ticket.
+        var gCodeEl = document.querySelector('input[name="gareconnect_code"]');
+        if (gCodeEl && gCodeEl.value) {
+            return String(gCodeEl.value).trim();
+        }
+        var gEl = document.querySelector('input[name="gareconnect"]');
+        if (gEl && gEl.value) {
+            return String(gEl.value).trim();
+        }
+        var st = window.__reprogState;
+        return (st.gaexp && String(st.gaexp).trim()) || '';
+    }
+
+    // Alias historique
+    function __reprogResolveGareDepart() {
+        return __reprogResolveGareReport();
+    }
+
+    function __reprogAxeDepuisGareReport() {
+        var st = window.__reprogState;
+        var gare = __reprogResolveGareReport();
+        var dest = (st.gadest && String(st.gadest).trim()) || '';
+        if (gare && dest) {
+            return gare + '-' + dest;
+        }
+        return st.axe || '';
+    }
+
+    function __reprogEtapeCodeGaexp(et) {
+        if (!et) return '';
+        return String(
+            et.code_gaexp || et.gaexp_lg || et.gaexp || et.depart_code || ''
+        ).trim();
+    }
+
+    function __reprogEtapeCodeGadest(et) {
+        if (!et) return '';
+        return String(
+            et.code_gadest || et.gadest_lg || et.gadest || et.arrive_code || ''
+        ).trim();
+    }
+
+    /** Rejette les chemins clairement contre-sens (départ = dest ticket, ou 1ʳᵉ arrivée = gare report). */
+    function __reprogCheminSensOk(ch) {
+        var st = window.__reprogState;
+        var gare = String(st.gid || __reprogResolveGareReport() || '').trim();
+        var dest = String(st.gadest || '').trim();
+        var et = __reprogNormalizeEtapes(ch && (ch.etapes || ch.legs));
+        if (!et.length) return false;
+        var ga0 = __reprogEtapeCodeGaexp(et[0]);
+        var gd0 = __reprogEtapeCodeGadest(et[0]);
+        // Contre-sens : 1ʳᵉ jambe part de la destination ticket.
+        if (dest && ga0 && ga0 === dest) return false;
+        // Contre-sens / boucle : 1ʳᵉ jambe arrive à la gare de report.
+        if (gare && gd0 && gd0 === gare) return false;
+        return true;
+    }
+
     function __reprogFetchChemins(dateYmd, hhmm, after) {
         var st = window.__reprogState;
-        // Programmes de la gare/sous-gare où on reprogramme ; force=1 = multi même si direct.
-        // OD métier = nom_ligne (pas le code d’axe, variable selon la compagnie).
-        var sg = (st.sgid && String(st.sgid) !== '0') ? String(st.sgid) : '0';
+        // Ancre = gare de report ; OD recherche = gare report → destination ticket.
+        st.gid = __reprogResolveGareReport();
+        var axeSearch = __reprogAxeDepuisGareReport() || st.axe;
+        // force=0 si un direct existe déjà pour la date → pas de multi parasite.
+        var hasDirectDate = __reprogFilterByDate(dateYmd).length > 0;
+        var force = hasDirectDate ? '0' : '1';
         var url = window.location.origin + APP_ROOT
             + '/programmes/verifchemins/'
-            + encodeURIComponent(st.axe) + '/'
+            + encodeURIComponent(axeSearch) + '/'
             + encodeURIComponent(dateYmd) + '/'
-            + encodeURIComponent(sg) + '/1?reprog=1';
+            + '0/' + force + '?reprog=1';
         if (st.nom_ligne) {
             url += '&nom_ligne=' + encodeURIComponent(String(st.nom_ligne));
         }
@@ -13575,7 +13636,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (c.source === 'declaratif') return false;
                 var et = __reprogNormalizeEtapes(c.etapes || c.legs);
                 if (et.length < 2) return false;
-                return true;
+                return __reprogCheminSensOk(c);
             });
             st.chemins = chemins;
             if (after) after(chemins);
@@ -13622,18 +13683,21 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function __reprogMergeItineraires(directs, chemins) {
-        // Directs = programmes OD (heures_unifie) ; multi = graphe programmes (≥2) pour l’axe.
-        // Indépendant du type ticket d’origine (direct↔multi, les 4 cas).
-        var out = __reprogRowsArray(directs).slice();
+        // Directs = programmes de la gare de report (heures_unifie) ;
+        // multi = correspondances gare report → dest (jamais contre-sens).
+        var out = [];
         var seenDirectKey = {};
-        out.forEach(function (ch) {
+        __reprogRowsArray(directs).forEach(function (ch) {
+            if (!ch || !__reprogCheminSensOk(ch)) return;
             var et = __reprogNormalizeEtapes(ch.etapes || ch.legs);
             var k = et.length === 1 ? __reprogDirectKey(et[0]) : '';
             if (k) seenDirectKey[k] = true;
+            out.push(ch);
         });
         __reprogRowsArray(chemins).forEach(function (ch) {
             if (!ch) return;
             if (ch.source === 'declaratif') return;
+            if (!__reprogCheminSensOk(ch)) return;
             var et = __reprogNormalizeEtapes(ch.etapes || ch.legs);
             if (et.length === 1) {
                 var k = __reprogDirectKey(et[0]);
@@ -14720,8 +14784,11 @@ document.addEventListener('DOMContentLoaded', () => {
                         window.__reprogState.isRetourConfirme = parseInt(donnees.est_retour, 10) === 1;
                         var sgEl = document.querySelector('input[name="sousgareconnect"]');
                         window.__reprogState.sgid = (sgEl && sgEl.value) ? sgEl.value : '0';
-                        var gEl = document.querySelector('input[name="gareconnect"]');
-                        window.__reprogState.gid = (gEl && gEl.value) ? String(gEl.value) : '';
+                        // Gare de départ provisoire (rafraîchie après OD transit ci-dessous).
+                        if (donnees.gareidentif && !window.__reprogState.gaexp) {
+                            window.__reprogState.gaexp = String(donnees.gareidentif);
+                        }
+                        window.__reprogState.gid = __reprogResolveGareDepart();
 
                         var days = (new Date(__reprogQ('actueldaterepunifie').value).getTime()
                             - new Date(__reprogQ('dateventerepunifie').value).getTime()) / (1000 * 3600 * 24);
@@ -14748,6 +14815,11 @@ document.addEventListener('DOMContentLoaded', () => {
                         if (estTr) {
                             __reprogApplyOdGlobale(donnees);
                             __reprogApplyOdFromLegs();
+                        }
+                        // Ancre programmes = gare qui reporte (session), pas gareidentif ticket.
+                        window.__reprogState.gid = __reprogResolveGareReport();
+                        if (!window.__reprogState.gid && donnees.gareidentif) {
+                            window.__reprogState.gid = String(donnees.gareidentif);
                         }
 
                         var kindLabel = window.__reprogState.isRetourConfirme

@@ -1359,21 +1359,55 @@ class Graphe_correspondance
                         if ($cpFirst === '' || !isset($allowedMap[$cpFirst])) {
                             continue;
                         }
-                        // Sens : 1ʳᵉ jambe = même ville que la gare session (et que l’OD départ).
-                        if ($gaFirst !== '' && $villeGare !== null) {
-                            if (!isset($villeFirstCache[$gaFirst])) {
-                                $rf = $this->CI->db->query(
-                                    "SELECT id_villegd FROM gare_exp WHERE code_gaexp = ? LIMIT 1",
-                                    array($gaFirst)
+                        // Sens strict : 1ʳᵉ jambe DOIT exposer un code gare = ville de report.
+                        if ($gaFirst === '' || $villeGare === null) {
+                            continue;
+                        }
+                        if (!isset($villeFirstCache[$gaFirst])) {
+                            $rf = $this->CI->db->query(
+                                "SELECT id_villegd FROM gare_exp WHERE code_gaexp = ? LIMIT 1",
+                                array($gaFirst)
+                            )->row();
+                            $villeFirstCache[$gaFirst] = $rf ? (int) $rf->id_villegd : -1;
+                        }
+                        if ($villeFirstCache[$gaFirst] !== $villeGare) {
+                            continue;
+                        }
+                        if ($villeOd !== null && $villeFirstCache[$gaFirst] !== $villeOd) {
+                            continue;
+                        }
+                        // Contre-sens : 1ʳᵉ jambe ne doit pas arriver vers la ville de départ OD
+                        // (typique Bamako→Bobo alors qu’on reporte Bobo→Bamako).
+                        $gdOd = isset($opts['gadest_od']) ? trim((string) $opts['gadest_od']) : '';
+                        $gdFirst = '';
+                        if (is_object($first)) {
+                            if (!empty($first->code_gadest)) {
+                                $gdFirst = (string) $first->code_gadest;
+                            } elseif (!empty($first->gadest_lg)) {
+                                $gdFirst = (string) $first->gadest_lg;
+                            }
+                        } elseif (is_array($first)) {
+                            if (!empty($first['code_gadest'])) {
+                                $gdFirst = (string) $first['code_gadest'];
+                            } elseif (!empty($first['gadest_lg'])) {
+                                $gdFirst = (string) $first['gadest_lg'];
+                            }
+                        }
+                        if ($gdFirst !== '' && $villeGare !== null) {
+                            if (!isset($villeFirstCache['d:' . $gdFirst])) {
+                                $rd = $this->CI->db->query(
+                                    "SELECT id_villega FROM gare_dest WHERE code_gadest = ? LIMIT 1",
+                                    array($gdFirst)
                                 )->row();
-                                $villeFirstCache[$gaFirst] = $rf ? (int) $rf->id_villegd : -1;
+                                $villeFirstCache['d:' . $gdFirst] = $rd ? (int) $rd->id_villega : -2;
                             }
-                            if ($villeFirstCache[$gaFirst] !== $villeGare) {
+                            // Arrivée 1ʳᵉ jambe = ville gare de report → contre-sens / boucle.
+                            if ($villeFirstCache['d:' . $gdFirst] === $villeGare) {
                                 continue;
                             }
-                            if ($villeOd !== null && $villeFirstCache[$gaFirst] !== $villeOd) {
-                                continue;
-                            }
+                        }
+                        if ($gdOd !== '' && $gaFirst !== '' && $gaFirst === $gdOd) {
+                            continue; // part de la destination ticket
                         }
                         $keptGare[] = $c;
                     }
