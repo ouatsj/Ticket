@@ -9,9 +9,9 @@ $escale_fixe_label = !empty($escale_depart_label) ? (string) $escale_depart_labe
 ?>
 <div class="modal-container colored-header colored-header-success custom-width modal-effect-7"
      id="ticketescal-0" style="perspective: none">
-    <div class="modal-content">
+    <div class="modal-content r17-vente-modal">
         <div class="modal-header modal-header-colored">
-            <h3 class="modal-title">VENTE MOBILE ESCAL</h3>
+            <h3 class="modal-title">Vente escale</h3>
             <button class="close modal-close" type="button" data-dismiss="modal" aria-hidden="true">
                 <span class="mdi mdi-close text-white"></span>
             </button>
@@ -22,7 +22,7 @@ $escale_fixe_label = !empty($escale_depart_label) ? (string) $escale_depart_labe
              <?php if ($escale_fixe !== ''): ?>
              data-depart-fixe="<?= htmlspecialchars($escale_fixe, ENT_QUOTES, 'UTF-8'); ?>"
              <?php endif; ?>>
-            <?= form_open('', array('class' => 'form', 'id' => 'escalLibreForm', 'autocomplete' => 'off')); ?>
+            <?= form_open('', array('class' => 'form r17-vente-form', 'id' => 'escalLibreForm', 'autocomplete' => 'off')); ?>
                 <input type="hidden" id="pascompagnieescal" name="clientcompescal" value="">
                 <input type="hidden" id="rclientcpescal" name="cprclientescal" value="">
                 <input type="hidden" id="prnclientcpescal" name="cpprclientescal" value="">
@@ -34,17 +34,14 @@ $escale_fixe_label = !empty($escale_depart_label) ? (string) $escale_depart_labe
 
                 <?php if ($escale_fixe !== ''): ?>
                     <input type="hidden" name="escale_depart" id="escale_depart" value="<?= htmlspecialchars($escale_fixe, ENT_QUOTES, 'UTF-8'); ?>">
-                    <div class="form-group">
-                        <label>Escale de départ</label>
-                        <p class="form-control-plaintext font-weight-bold mb-0">
-                            <?= htmlspecialchars($escale_fixe_label, ENT_QUOTES, 'UTF-8'); ?>
-                        </p>
+                    <div class="r17-depart-chip">
+                        Départ : <strong><?= htmlspecialchars($escale_fixe_label, ENT_QUOTES, 'UTF-8'); ?></strong>
                     </div>
                 <?php else: ?>
                     <div class="form-group">
-                        <label for="escale_depart">Escale de départ</label>
+                        <label for="escale_depart">Départ</label>
                         <select class="form-control" name="escale_depart" id="escale_depart" required>
-                            <option value="">Choisir l'escale…</option>
+                            <option value="">Choisir…</option>
                             <?php foreach ($escales_depart as $pt): ?>
                                 <option value="<?= htmlspecialchars($pt->value, ENT_QUOTES, 'UTF-8'); ?>">
                                     <?= htmlspecialchars($pt->label, ENT_QUOTES, 'UTF-8'); ?>
@@ -57,7 +54,7 @@ $escale_fixe_label = !empty($escale_depart_label) ? (string) $escale_depart_labe
                 <div class="form-group">
                     <label for="id_escale_dest">Destination</label>
                     <select class="form-control" name="destination_vente" id="id_escale_dest" required>
-                        <option value="">Choisir la destination…</option>
+                        <option value="">Choisir…</option>
                     </select>
                     <small id="prix_escale_hint"></small>
                 </div>
@@ -66,21 +63,22 @@ $escale_fixe_label = !empty($escale_depart_label) ? (string) $escale_depart_labe
                     <label for="rnclient_contactescal">Téléphone</label>
                     <input class="form-control" type="tel" name="rclient_contactescal"
                            id="rnclient_contactescal" autocomplete="tel"
-                           inputmode="tel" placeholder="Numéro de téléphone" required>
+                           inputmode="tel" placeholder="Téléphone" required>
                 </div>
 
-                <div class="form-group">
-                    <label for="rclientescal">Nom</label>
-                    <input class="form-control" type="text" name="rclientescal"
-                           id="rclientescal" autocomplete="family-name"
-                           autocapitalize="characters" placeholder="Nom" required>
-                </div>
-
-                <div class="form-group">
-                    <label for="prnclientescal">Prénom</label>
-                    <input class="form-control" type="text" name="prclientescal"
-                           id="prnclientescal" autocomplete="given-name"
-                           autocapitalize="words" placeholder="Prénom" required>
+                <div class="r17-name-row">
+                    <div class="form-group">
+                        <label for="rclientescal">Nom</label>
+                        <input class="form-control" type="text" name="rclientescal"
+                               id="rclientescal" autocomplete="family-name"
+                               autocapitalize="characters" placeholder="Nom" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="prnclientescal">Prénom</label>
+                        <input class="form-control" type="text" name="prclientescal"
+                               id="prnclientescal" autocomplete="given-name"
+                               autocapitalize="words" placeholder="Prénom" required>
+                    </div>
                 </div>
 
                 <div class="modal-footer px-0">

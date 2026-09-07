@@ -2482,10 +2482,16 @@
                             (string) $this->escalclients->quartier_escal
                         ));
                     }
-                    $this->property['item'] = $this->escalclients;
-                    $this->property['layout_minimal'] = TRUE;
-                    $this->layout->view('_tickets/pdfepsonescal_libre', $this->property);
-                    return;
+                    return $this->_print_escale_libre_ticket(
+                        $this->escalclients,
+                        $bus_stop,
+                        $conex,
+                        $ckey,
+                        $code_id,
+                        $g,
+                        $cpus,
+                        $idsg
+                    );
                 }
             }
             $this->property['item'] = $this->escalclients;
@@ -2495,6 +2501,7 @@
 
         /**
          * Impression ticket escale libre 57x40 mm (date/heure d'émission).
+         * PDF réel TCPDF — pas de capture HTML de page.
          */
         public function pdfepsonescal_libre($ckey, $code_id, $g, $cpus, $idsg)
         {
@@ -2507,9 +2514,34 @@
             if ($item && isset($item->quartier_escal)) {
                 $item->quartier_escal = trim(preg_replace('/^\[LIBRE\]\s*/', '', (string) $item->quartier_escal));
             }
+            return $this->_print_escale_libre_ticket($item, $bus_stop, $conex, $ckey, $code_id, $g, $cpus, $idsg);
+        }
+
+        /**
+         * @param object|null $item
+         */
+        protected function _print_escale_libre_ticket($item, $bus_stop, $conex, $ckey, $code_id, $g, $cpus, $idsg)
+        {
+            $this->load->helper('ticket_escale_libre_print');
+
+            if (!$item) {
+                $accueil = site_url(
+                    'gares/' . $this->session->company->ekey
+                    . '/gTc/' . $bus_stop->idengare
+                    . '/compte/' . $conex->roleattribut
+                    . '/' . $bus_stop->idsousgare
+                    . '/' . mdate('%d/%m/%Y', now('UTC'))
+                );
+                redirect($accueil);
+                return;
+            }
+
+            // Même principe que les tickets Epson guichet (grands caractères HTML).
+            // layout_print = page blanche sans Beagle (évite capture menu/bandeau).
             $this->property['item'] = $item;
-            // TPE/POS : chrome minimal, pas d'affichage ticket à l'écran
-            $this->property['layout_minimal'] = TRUE;
+            $this->property['bus_stop'] = $bus_stop;
+            $this->property['conex'] = $conex;
+            $this->property['layout_print'] = TRUE;
             $this->layout->view('_tickets/pdfepsonescal_libre', $this->property);
         }
 

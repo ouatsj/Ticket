@@ -21,33 +21,113 @@ $this->load->view('_layouts/head', $head_extra);
 	.be-navbar-header,
 	.navbar { display: none !important; }
 }
+<?php if (!empty($layout_minimal)): ?>
+.be-minimal-chrome .be-content { margin-left: 0 !important; }
+.be-minimal-chrome .be-content .main-content.container-fluid {
+	padding-left: 0.5rem !important;
+	padding-right: 0.5rem !important;
+}
+/* Bandeau session compact (TPE / layout minimal) */
+.auth-guichet-banner--compact {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 0.5rem;
+	padding: 0.28rem 0.55rem !important;
+	font-size: 0.78rem;
+	line-height: 1.2;
+}
+.auth-guichet-banner--compact .agb-id {
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+.auth-guichet-banner--compact .agb-logout {
+	flex: 0 0 auto;
+	padding: 0.2rem 0.55rem;
+	font-size: 0.72rem;
+	line-height: 1.2;
+	margin: 0 !important;
+}
+@media (max-width: 575.98px) {
+	.be-minimal-chrome .be-top-header {
+		min-height: 42px !important;
+	}
+	.be-minimal-chrome .be-top-header .page-title {
+		max-width: 34vw;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+		font-size: 0.7rem;
+	}
+	.be-minimal-chrome .be-top-header .user-name {
+		max-width: 4.5rem;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+		display: inline-block;
+		vertical-align: middle;
+		font-size: 0.72rem;
+	}
+	.be-minimal-chrome .be-top-header .be-user-nav .fas.fa-user {
+		font-size: 1rem !important;
+	}
+	.be-minimal-chrome .be-content .main-content.container-fluid {
+		padding-left: 0.3rem !important;
+		padding-right: 0.3rem !important;
+		padding-top: 0.35rem !important;
+	}
+}
+<?php endif; ?>
 </style>
 
-	<div class="be-wrapper be-collapsible-sidebar be-collapsible-sidebar-hide-logo be-collapsible-sidebar-collapsed<?= !empty($layout_minimal) ? ' be-minimal-chrome' : ''; ?>">
+	<?php
+	$__layout_minimal = !empty($layout_minimal);
+	$__wrapper_class = $__layout_minimal
+	    ? 'be-wrapper be-nosidebar-left be-minimal-chrome'
+	    : 'be-wrapper be-collapsible-sidebar be-collapsible-sidebar-hide-logo be-collapsible-sidebar-collapsed';
+	?>
+	<div class="<?= $__wrapper_class; ?>">
 	    
 	    <? $this->load->view('_layouts/navbar'); ?>
 
 	    <?php if (!empty($layout_guichet_banner) && $this->session->userdata('agent')) :
 	        $identity = function_exists('auth_session_identity_context') ? auth_session_identity_context() : null;
+	        $banner_name = htmlspecialchars($identity ? $identity['username'] : $this->session->agent->username, ENT_QUOTES, 'UTF-8');
+	        $banner_role = ($identity && $identity['type_rols'] !== '')
+	            ? htmlspecialchars($identity['type_rols'], ENT_QUOTES, 'UTF-8')
+	            : '';
+	        $lout_url = site_url('Login/lout/' . $this->session->session_id . '/' . $this->session->agent->cpuser_id);
+	        /* Rôle 17 / TPE : bandeau compact (sinon trop d'espace vertical). */
+	        if (!empty($layout_minimal)) :
 	    ?>
+	    <div class="auth-guichet-banner auth-guichet-banner--compact alert alert-warning mb-0 rounded-0" role="status">
+	        <span class="agb-id">
+	            <strong><?= $banner_name; ?></strong><?php if ($banner_role !== ''): ?>
+	            <span class="text-muted">(<?= $banner_role; ?>)</span><?php endif; ?>
+	        </span>
+	        <a class="btn btn-sm btn-danger agb-logout" href="<?= $lout_url; ?>">Déconnexion</a>
+	    </div>
+	    <?php else: ?>
 	    <div class="auth-guichet-banner alert alert-warning mb-0 rounded-0 text-center py-2" role="status">
 	        <strong>Connecté en tant que :</strong>
-	        <?= htmlspecialchars($identity ? $identity['username'] : $this->session->agent->username, ENT_QUOTES, 'UTF-8'); ?>
-	        <?php if ($identity && $identity['type_rols'] !== '') : ?>
-	        <span class="text-muted">(<?= htmlspecialchars($identity['type_rols'], ENT_QUOTES, 'UTF-8'); ?>)</span>
+	        <?= $banner_name; ?>
+	        <?php if ($banner_role !== '') : ?>
+	        <span class="text-muted">(<?= $banner_role; ?>)</span>
 	        <?php endif; ?>
 	        <?php if ($identity && $identity['garenom'] !== '') : ?>
 	        <span class="text-muted">— gare <?= htmlspecialchars($identity['garenom'], ENT_QUOTES, 'UTF-8'); ?></span>
 	        <?php endif; ?>
 	        — Ce poste est personnel : déconnectez-vous avant de le quitter.
-	        <a class="btn btn-sm btn-danger ml-2"
-	           href="<?= site_url('Login/lout/' . $this->session->session_id . '/' . $this->session->agent->cpuser_id); ?>">
+	        <a class="btn btn-sm btn-danger ml-2" href="<?= $lout_url; ?>">
 	            Déconnexion
 	        </a>
 	    </div>
 	    <?php endif; ?>
+	    <?php endif; ?>
 	    
-	    <? if (empty($layout_minimal)) : ?>
+	    <? if (!$__layout_minimal) : ?>
 	    <? $this->load->view('_layouts/lsidebar'); ?>
 	    <? endif; ?>
 

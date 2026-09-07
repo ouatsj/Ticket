@@ -528,8 +528,15 @@
                     $item->quartier_escal = trim(preg_replace('/^\[LIBRE\]\s*/', '', (string) $item->quartier_escal));
                     $this->property['item'] = $item;
                 }
-                $this->property['layout_minimal'] = TRUE;
-                $this->layout->view('_tickets/pdfepsonescal_libre', $this->property);
+                // Réimp libre → même PDF 57×40 que la vente
+                redirect(
+                    'Historique_Passagers/pdfepsonescal_libre/'
+                    . $this->company->ekey . '/'
+                    . $item->idclescal . '/'
+                    . $g . '/'
+                    . $cpus . '/'
+                    . $idsg
+                );
                 return;
             }
             $this->layout->view('_tickets/pdfepsonescalrp', $this->property);

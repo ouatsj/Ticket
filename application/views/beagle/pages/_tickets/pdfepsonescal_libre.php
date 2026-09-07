@@ -1,18 +1,11 @@
-<?php defined('BASEPATH') OR exit('No direct script access allowed'); ?>
-<?php
+<?php defined('BASEPATH') OR exit('No direct script access allowed');
+/**
+ * Ticket escale libre — même moteur que pdfepsonescal.php (tickets Epson qui marchent).
+ * POSPrinter capture l'écran : grands caractères plein page (pas de mini-cadre 57×40).
+ */
+$this->load->helper('ticket_escale_libre_print');
+
 $item = !empty($item) ? $item : null;
-$emis = '';
-if ($item) {
-    if (!empty($item->dateheureescal) && $item->dateheureescal !== '0000-00-00 00:00:00') {
-        $emis = $item->dateheureescal;
-    } else {
-        $emis = mdate("%Y-%m-%d %H:%i:%s", now('UTC'));
-    }
-}
-$od = $item ? trim(preg_replace('/^\[LIBRE\]\s*/', '', (string) $item->quartier_escal)) : '';
-$prix = $item ? number_format((float) $item->prixescal, 0, '', ' ') : '';
-$passager = $item ? trim($item->nom_client . ' ' . $item->prenom_client) : '';
-$compagnie = $item && !empty($item->nom_compagnie) ? (string) $item->nom_compagnie : '';
 $accueil_url = site_url(
     'gares/' . $this->session->company->ekey
     . '/gTc/' . $bus_stop->idengare
@@ -20,254 +13,234 @@ $accueil_url = site_url(
     . '/' . $bus_stop->idsousgare
     . '/' . mdate('%d/%m/%Y', now('UTC'))
 );
+
+if (!$item) {
+    echo '<p style="padding:16px;font-family:Arial,sans-serif;">Ticket introuvable</p>';
+    echo '<script>setTimeout(function(){location.replace(' . json_encode($accueil_url) . ');},800);</script>';
+    return;
+}
+
+$od = trim(preg_replace('/^\[LIBRE\]\s*/', '', (string) $item->quartier_escal));
+$od = ticket_escale_libre_pos_text($od, true);
+$passager = ticket_escale_libre_pos_text(
+    trim((string) $item->nom_client . ' ' . (string) $item->prenom_client),
+    true
+);
+$compagnie = !empty($item->nom_compagnie)
+    ? ticket_escale_libre_pos_text((string) $item->nom_compagnie, true)
+    : '';
+$tel = !empty($item->contact_client)
+    ? ticket_escale_libre_pos_text((string) $item->contact_client, false)
+    : '';
+$code = (string) $item->idclescal;
+$prix_val = isset($item->prixescal) ? $item->prixescal : (isset($item->prix) ? $item->prix : 0);
+$prix = number_format((float) $prix_val, 0, '', ' ');
+if (!empty($item->dateheureescal) && $item->dateheureescal !== '0000-00-00 00:00:00') {
+    $emis = (string) $item->dateheureescal;
+} else {
+    $emis = mdate('%Y-%m-%d %H:%i:%s', now('UTC'));
+}
+$logo = !empty($item->logo) ? site_url($item->logo) : '';
 ?>
 <style>
 html, body {
-    margin: 0;
-    padding: 0;
-    background: #f5f5f5;
-    font-family: Arial, Helvetica, sans-serif;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #fff !important;
+    color: #000 !important;
 }
-.pos-screen {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    min-height: 100vh;
-    text-align: center;
-    padding: 16px;
-}
-.pos-screen p {
-    margin: 0;
-    font-size: 16px;
-    color: #333;
-}
-.ticket-escale-libre {
-    display: none;
-}
-
-@page {
-    size: 57mm auto;
-    margin: 2mm;
-}
-
+/* Masquer tout chrome pendant l'impression */
 @media print {
-    html, body {
-        margin: 0 !important;
-        padding: 0 !important;
-        width: 57mm !important;
-        background: #fff !important;
-        -webkit-print-color-adjust: exact;
-        print-color-adjust: exact;
-    }
-    .pos-screen,
     .no-print,
-    .auth-guichet-banner,
-    .be-top-header,
-    .be-left-sidebar,
-    .be-right-sidebar,
-    .be-footer,
-    .be-navbar-header,
-    .navbar,
-    nav,
-    header,
-    footer,
-    .alert {
+    #ticketActions {
         display: none !important;
-        visibility: hidden !important;
         height: 0 !important;
         overflow: hidden !important;
     }
-    .be-wrapper,
-    .be-content,
-    .main-content,
-    .page,
-    .container-fluid,
-    .row,
-    .col-12,
-    .tab-container,
-    .tab-content,
-    .tab-pane {
+    html, body {
         margin: 0 !important;
         padding: 0 !important;
-        width: 57mm !important;
-        max-width: 57mm !important;
-        float: none !important;
-        position: static !important;
-        background: transparent !important;
-        box-shadow: none !important;
-        border: 0 !important;
-        overflow: visible !important;
+        background: #fff !important;
     }
-    .ticket-escale-libre {
-        display: block !important;
-        width: 53mm;
-        max-width: 53mm;
-        margin: 0 auto;
-        font-family: Arial, Helvetica, sans-serif;
-        color: #000;
-        text-align: center;
-    }
-    .ticket-escale-libre .logo {
-        margin: 0 0 1.5mm;
-    }
-    .ticket-escale-libre .logo img {
-        max-width: 36mm;
-        max-height: 12mm;
-        width: auto;
-        height: auto;
-    }
-    .ticket-escale-libre .compagnie {
-        font-size: 13px;
-        font-weight: 800;
-        line-height: 1.2;
-        text-transform: uppercase;
-        margin: 0 0 1.5mm;
-        letter-spacing: 0.3px;
-    }
-    .ticket-escale-libre .sep {
-        border: 0;
-        border-top: 1.5px solid #000;
-        margin: 1.5mm 0;
-    }
-    .ticket-escale-libre .sep-dash {
-        border: 0;
-        border-top: 1px dashed #000;
-        margin: 1.5mm 0;
-    }
-    .ticket-escale-libre .od {
-        font-size: 15px;
-        font-weight: 800;
-        line-height: 1.25;
-        margin: 1mm 0 2mm;
-        word-wrap: break-word;
-        text-transform: uppercase;
-    }
-    .ticket-escale-libre .passager {
-        font-size: 14px;
-        font-weight: 700;
-        line-height: 1.25;
-        margin: 1mm 0;
-        word-wrap: break-word;
-    }
-    .ticket-escale-libre .tel {
-        font-size: 12px;
-        font-weight: 600;
-        line-height: 1.2;
-        margin: 0.5mm 0 1.5mm;
-    }
-    .ticket-escale-libre .prix {
-        font-size: 16px;
-        font-weight: 800;
-        line-height: 1.2;
-        margin: 1.5mm 0;
-    }
-    .ticket-escale-libre .code {
-        font-size: 13px;
-        font-weight: 800;
-        line-height: 1.2;
-        margin: 1mm 0;
-        letter-spacing: 0.5px;
-    }
-    .ticket-escale-libre .emis {
-        font-size: 10px;
-        font-weight: 600;
-        line-height: 1.2;
-        margin: 1mm 0 0.5mm;
-    }
-    .ticket-escale-libre .barcode {
-        margin-top: 1.5mm;
-    }
-    .ticket-escale-libre .barcode img {
-        max-width: 50mm;
-        height: 10mm;
+    #ticketEpsonLibre,
+    #ticketEpsonLibre table {
+        width: 100% !important;
     }
 }
+#ticketActions {
+    position: fixed;
+    right: 8px;
+    top: 8px;
+    z-index: 30;
+}
+#ticketActions a {
+    display: inline-block;
+    padding: 8px 12px;
+    background: #6c757d;
+    color: #fff !important;
+    text-decoration: none;
+    border-radius: 6px;
+    font-family: Arial, sans-serif;
+    font-size: 13px;
+    font-weight: 700;
+}
+/* Même rendu que pdfepsonescal.php — grands caractères pour POSPrinter */
+#ticketEpsonLibre {
+    background: #fff;
+    color: #000;
+    padding: 4px 8px;
+}
+#ticketEpsonLibre table {
+    width: 100%;
+    border-collapse: collapse;
+}
+#ticketEpsonLibre td {
+    text-align: left;
+    padding: 2px 0;
+    color: #000;
+    font-family: Arial, Helvetica, sans-serif;
+    word-wrap: break-word;
+}
+#ticketEpsonLibre .logo-cell img {
+    display: block;
+    width: 850px;
+    max-width: 100%;
+    height: auto;
+    max-height: 350px;
+    object-fit: contain;
+    object-position: left center;
+}
 </style>
-
-<div class="pos-screen no-print">
-    <?php if (!$item): ?>
-        <p class="text-danger">Ticket introuvable. Redirection…</p>
-    <?php else: ?>
-        <p>Impression en cours…</p>
-    <?php endif; ?>
-</div>
-
-<?php if ($item): ?>
-<div class="ticket-escale-libre" aria-hidden="true">
-    <?php if (!empty($item->logo)): ?>
-    <div class="logo">
-        <img src="<?= site_url($item->logo); ?>" alt="">
-    </div>
-    <?php endif; ?>
-
-    <?php if ($compagnie !== ''): ?>
-    <div class="compagnie"><?= htmlspecialchars($compagnie, ENT_QUOTES, 'UTF-8'); ?></div>
-    <?php endif; ?>
-
-    <hr class="sep">
-
-    <div class="od"><?= htmlspecialchars($od, ENT_QUOTES, 'UTF-8'); ?></div>
-
-    <div class="passager"><?= htmlspecialchars($passager, ENT_QUOTES, 'UTF-8'); ?></div>
-    <div class="tel"><?= htmlspecialchars($item->contact_client, ENT_QUOTES, 'UTF-8'); ?></div>
-
-    <hr class="sep-dash">
-
-    <div class="prix"><?= $prix; ?> FCFA</div>
-    <div class="code"><?= htmlspecialchars($item->idclescal, ENT_QUOTES, 'UTF-8'); ?></div>
-
-    <div class="barcode">
-        <?= ticket_barcode_img($item->idclescal, 260, 40); ?>
-    </div>
-
-    <div class="emis"><?= htmlspecialchars($emis, ENT_QUOTES, 'UTF-8'); ?></div>
-</div>
-<?php endif; ?>
 
 <script type="text/javascript">
 (function () {
     var accueil = <?= json_encode($accueil_url); ?>;
-    var done = false;
+    var gone = false;
+    var printed = false;
 
     function goHome() {
-        if (done) return;
-        done = true;
+        if (gone) return;
+        gone = true;
         window.location.replace(accueil);
     }
 
-    window.onload = function () {
-        <?php if (!$item): ?>
-        setTimeout(goHome, 800);
-        return;
-        <?php endif; ?>
+    function afterPrintGoHome() {
+        if (printed) return;
+        printed = true;
+        /* Laisse POSPrinter démarrer le job avant de quitter la page */
+        setTimeout(goHome, 1500);
+    }
 
+    function runPrint() {
+        try {
+            window.print();
+        } catch (e) {
+            goHome();
+            return;
+        }
+        /* Secours TPE qui ne déclenchent pas afterprint */
         setTimeout(function () {
-            try {
-                window.print();
-            } catch (e) {
-                goHome();
-            }
-        }, 150);
+            if (!printed) afterPrintGoHome();
+        }, 10000);
+    }
 
-        if ('onafterprint' in window) {
-            window.onafterprint = goHome;
+    function whenImagesReady(cb) {
+        var imgs = document.querySelectorAll('#ticketEpsonLibre img');
+        if (!imgs.length) {
+            setTimeout(cb, 200);
+            return;
         }
+        var left = imgs.length;
+        var done = false;
+        function one() {
+            left--;
+            if (left <= 0 && !done) {
+                done = true;
+                setTimeout(cb, 300);
+            }
+        }
+        for (var i = 0; i < imgs.length; i++) {
+            if (imgs[i].complete) one();
+            else {
+                imgs[i].addEventListener('load', one);
+                imgs[i].addEventListener('error', one);
+            }
+        }
+        setTimeout(function () {
+            if (!done) {
+                done = true;
+                cb();
+            }
+        }, 3000);
+    }
 
-        setTimeout(goHome, 2500);
-
-        if (window.matchMedia) {
+    if ('onafterprint' in window) {
+        window.onafterprint = afterPrintGoHome;
+    }
+    if (window.matchMedia) {
+        try {
             var mq = window.matchMedia('print');
-            var handler = function (mql) {
-                if (!mql.matches) {
-                    setTimeout(goHome, 300);
-                }
+            var handler = function (ev) {
+                if (!ev.matches) afterPrintGoHome();
             };
-            if (mq.addEventListener) {
-                mq.addEventListener('change', handler);
-            } else if (mq.addListener) {
-                mq.addListener(handler);
-            }
-        }
+            if (mq.addEventListener) mq.addEventListener('change', handler);
+            else if (mq.addListener) mq.addListener(handler);
+        } catch (e2) {}
+    }
+
+    window.onload = function () {
+        whenImagesReady(runPrint);
     };
 })();
 </script>
+
+<div id="ticketActions" class="no-print">
+    <a href="<?= htmlspecialchars($accueil_url, ENT_QUOTES, 'UTF-8'); ?>">Accueil</a>
+</div>
+
+<div id="ticketEpsonLibre">
+    <table>
+        <?php if ($logo !== ''): ?>
+        <tr>
+            <td class="logo-cell" style="font-size:70px;width:40%;">
+                <img src="<?= htmlspecialchars($logo, ENT_QUOTES, 'UTF-8'); ?>" width="850" height="350" alt="">
+            </td>
+        </tr>
+        <?php elseif ($compagnie !== ''): ?>
+        <tr>
+            <td style="font-size:55px;"><b><?= htmlspecialchars($compagnie, ENT_QUOTES, 'UTF-8'); ?></b></td>
+        </tr>
+        <?php endif; ?>
+
+        <tr>
+            <td style="font-size:65px;"><b>CODE:<?= htmlspecialchars($code, ENT_QUOTES, 'UTF-8'); ?></b></td>
+        </tr>
+        <tr>
+            <td style="font-size:60px;"><?= htmlspecialchars($od, ENT_QUOTES, 'UTF-8'); ?></td>
+        </tr>
+        <tr>
+            <td style="font-size:65px;"><?= htmlspecialchars($passager, ENT_QUOTES, 'UTF-8'); ?></td>
+        </tr>
+        <?php if ($tel !== ''): ?>
+        <tr>
+            <td style="font-size:70px;">Contact:<?= htmlspecialchars($tel, ENT_QUOTES, 'UTF-8'); ?></td>
+        </tr>
+        <?php endif; ?>
+        <tr>
+            <td style="font-size:70px;">Prix : <?= $prix; ?> &nbsp;FCFA</td>
+        </tr>
+        <?php if ($compagnie !== ''): ?>
+        <tr>
+            <td style="font-size:50px;"><b>BON VOYAGE AVEC <?= htmlspecialchars($compagnie, ENT_QUOTES, 'UTF-8'); ?></b></td>
+        </tr>
+        <?php endif; ?>
+        <tr>
+            <td style="font-size:35px;width:40%;">
+                <?= ticket_barcode_img($code, 400, 40); ?>
+            </td>
+        </tr>
+        <tr>
+            <td style="font-size:50px;">emis : <?= htmlspecialchars($emis, ENT_QUOTES, 'UTF-8'); ?></td>
+        </tr>
+    </table>
+</div>

@@ -2234,9 +2234,12 @@
 
             $ekey = $this->session->company->ekey;
 
-            // Reprog : graphe sur programmes du jour (réseau), puis filtre 1ʳᵉ jambe = gare session.
+            // Reprog : graphe sur programmes du jour (réseau), puis filtre 1ʳᵉ jambe = gare de départ.
             // Vente : filtre sous-gare sur tout le graphe.
             $sgGraph = $mode_reprog ? null : $sg;
+            if ($gareidentif !== null && $gareidentif !== '') {
+                $gareidentif = $this->m_programme->normalize_gareidentif($gareidentif);
+            }
 
             // Reprog : axes OD métier dans le BON SENS (gaexp→gadest), jamais contre-sens.
             $axesSearch = array();
@@ -2248,6 +2251,13 @@
             $partsAxe = ($axe !== '' && strpos($axe, '-') !== false) ? explode('-', $axe, 2) : array('', '');
             $gaOd = isset($partsAxe[0]) ? trim((string) $partsAxe[0]) : '';
             $gdOd = isset($partsAxe[1]) ? trim((string) $partsAxe[1]) : '';
+
+            // Reprog : ancrage 1ʳᵉ jambe = gare de départ OD si ?gare= manquant.
+            if ($mode_reprog && ($gareidentif === null || $gareidentif === '')) {
+                $gareidentif = $gaOd !== '' ? $this->m_programme->normalize_gareidentif($gaOd) : null;
+            }
+            // Reprog : pas de filtre sous-gare sur le filtre 1ʳᵉ jambe.
+            $sgFilterPayload = $mode_reprog ? null : $sg;
 
             if ($mode_reprog && $nom !== '' && $gaOd !== '' && $gdOd !== '') {
                 $alts = $this->m_programme->axes_par_nom_ligne($nom, $ekey, $gaOd, $gdOd);
@@ -2401,7 +2411,7 @@
                 array(
                     'reprog' => (bool) $mode_reprog,
                     'gareidentif' => $gareidentif,
-                    'idsousgare' => $sg,
+                    'idsousgare' => $sgFilterPayload,
                     'ekey' => $ekey,
                     'date' => $date,
                     'heure' => ($heure_label !== null && $heure_label !== '') ? $heure_label : null,

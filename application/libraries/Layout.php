@@ -45,6 +45,13 @@
             $params['layout_page'] = $page;
             $params['layout_guichet_banner'] = function_exists('auth_session_show_guichet_banner')
                 && auth_session_show_guichet_banner($page);
+
+            /* Ticket POS / TPE : HTML nu, sans chrome Beagle (format papier). */
+            if (!empty($pdata['layout_print'])) {
+                $CI->load->view($this->theme . '/print', $params);
+                return;
+            }
+
             $CI->load->view($this->theme . '/use', $params);
         }
     }

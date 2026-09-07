@@ -1275,7 +1275,7 @@ class Graphe_correspondance
             );
         }
 
-        // Reprog : 1ʳᵉ jambe = programme de la gare où on reprogramme (évite contre-sens).
+        // Reprog : 1ʳᵉ jambe = programme de la gare de départ (ville OD), évite contre-sens.
         if ($modeReprog) {
             $gare = isset($opts['gareidentif']) ? trim((string) $opts['gareidentif']) : '';
             $date = isset($opts['date']) ? trim((string) $opts['date']) : '';
@@ -1283,8 +1283,17 @@ class Graphe_correspondance
                 $date = trim((string) $decision['meta']['date']);
             }
             $ekey = isset($opts['ekey']) ? trim((string) $opts['ekey']) : '';
-            $sgOpt = isset($opts['idsousgare']) ? $opts['idsousgare'] : null;
+            $sgOpt = null; // listing reprog : ville entière, pas sous-gare
             $gaOd = isset($opts['gaexp_od']) ? trim((string) $opts['gaexp_od']) : '';
+            if ($gare === '' && $gaOd !== '') {
+                $gare = $gaOd;
+            }
+            if ($gare !== '' && !isset($this->CI->m_programme)) {
+                $this->CI->load->model('Programme_model', 'm_programme');
+            }
+            if ($gare !== '' && isset($this->CI->m_programme)) {
+                $gare = $this->CI->m_programme->normalize_gareidentif($gare);
+            }
             if ($gare !== '' && $date !== '' && $ekey !== '') {
                 if (!isset($this->CI->m_programme)) {
                     $this->CI->load->model('Programme_model', 'm_programme');
@@ -1373,6 +1382,9 @@ class Graphe_correspondance
                     // Aucun programme ce jour sur cette gare → pas de multi inventé.
                     $cheminsOut = array();
                 }
+            } else {
+                // Sans gare de départ identifiable → ne pas exposer des multi hors contexte.
+                $cheminsOut = array();
             }
         }
 

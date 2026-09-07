@@ -2015,6 +2015,54 @@
          * @param string|null $prix si non null, filtre même prix tarif
          * @return array
          */
+        /**
+         * Normalise un identifiant gare vers code_gaexp (pr.gareidentif).
+         * Accepte code_gaexp (BOB1) ou idengare numérique (erreur fréquente côté UI).
+         *
+         * @param string|null $gare
+         * @return string
+         */
+        public function normalize_gareidentif($gare)
+        {
+            $gare = trim((string) $gare);
+            if ($gare === '') {
+                return '';
+            }
+            if (!ctype_digit($gare)) {
+                return $gare;
+            }
+            $row = $this->db->query(
+                "SELECT gd.code_gaexp
+                 FROM gares g
+                 INNER JOIN gare_exp gd ON gd.garesid = g.idengare
+                 WHERE g.idengare = ?
+                 LIMIT 1",
+                array((int) $gare)
+            )->row();
+            return ($row && !empty($row->code_gaexp)) ? trim((string) $row->code_gaexp) : $gare;
+        }
+
+        /**
+         * Filtre programmes : même ville de départ que le code gare donné (BOB1 ≡ BOB2…).
+         *
+         * @param string|null $gare code_gaexp ou idengare
+         * @return string fragment SQL (préfixé AND …) ou ''
+         */
+        public function sql_filtre_gare_depart_ville($gare)
+        {
+            $gare = $this->normalize_gareidentif($gare);
+            if ($gare === '') {
+                return '';
+            }
+            $esc = $this->db->escape($gare);
+            return " AND EXISTS (
+                SELECT 1 FROM gare_exp ex_pr
+                INNER JOIN gare_exp ex_ref ON ex_ref.code_gaexp = {$esc}
+                WHERE ex_pr.code_gaexp = pr.gareidentif
+                  AND ex_pr.id_villegd = ex_ref.id_villegd
+            )";
+        }
+
         public function heurereprog_unifie($cid, $gaexp, $gadest, $exclude_code, $prix = null, $id_escale = null, $gareidentif = null, $idsousgare = null, $nom_ligne = null, $axes = null)
         {
             $tim = date('H', time('H'));
@@ -2052,19 +2100,16 @@
                 }
             }
 
-            // Programmes de la gare où on reprogramme.
-            $gareSql = '';
-            $gare = trim((string) $gareidentif);
-            if ($gare !== '') {
-                $gareSql = ' AND pr.gareidentif = ' . $this->db->escape($gare);
+            // Programmes ancrés sur la gare de départ (ville), pas un idengare ni une sous-gare stricte.
+            // En reprog unifiée on ignore volontairement le filtre sous-gare (listing gare-ville).
+            $gareRef = $this->normalize_gareidentif($gareidentif);
+            if ($gareRef === '') {
+                $gareRef = $this->normalize_gareidentif($gaexp);
             }
+            $gareSql = $this->sql_filtre_gare_depart_ville($gareRef);
             $sgSql = '';
-            if ($idsousgare !== null && $idsousgare !== '' && (int) $idsousgare > 0) {
-                $sgSql = $this->sql_filtre_sousgare((int) $idsousgare);
-            }
 
             // OD métier = nom de ligne ET sens gaexp→gadest (évite contre-sens).
-            // Les programmes restent ceux de la gare session (gareSql / sgSql).
             $odSql = '';
             $nom = trim((string) $nom_ligne);
             $ga = trim((string) $gaexp);
@@ -2379,18 +2424,15 @@
          */
         public function codes_progr_gare_date($ekey, $gareidentif, $date, $idsousgare = null)
         {
-            $gare = trim((string) $gareidentif);
+            $gare = $this->normalize_gareidentif($gareidentif);
             $date = trim((string) $date);
             if ($gare === '' || $date === '') {
                 return array();
             }
             $ekeyEsc = $this->db->escape($ekey);
-            $gareEsc = $this->db->escape($gare);
             $dateEsc = $this->db->escape($date);
-            $sgSql = '';
-            if ($idsousgare !== null && $idsousgare !== '' && (int) $idsousgare > 0) {
-                $sgSql = $this->sql_filtre_sousgare((int) $idsousgare);
-            }
+            // Reprog : tous programmes de la ville de départ (pas de filtre sous-gare).
+            $gareSql = $this->sql_filtre_gare_depart_ville($gare);
             $rows = $this->db->query(
                 "SELECT pr.code_progr
                  FROM programme pr
@@ -2401,13 +2443,12 @@
                  JOIN compagnies c ON ex.id_compagd = c.cle_compagnie
                  JOIN entreprise e ON c.id_entrep = e.id_entreprise
                  WHERE e.ekey = {$ekeyEsc}
-                 AND pr.gareidentif = {$gareEsc}
+                 {$gareSql}
                  AND pr.date_progr = {$dateEsc}
                  AND pr.statut_prog = 'actif'
                  AND pr.actif_prog = 0
                  AND lh.actif_lh = 1
-                 AND h.h_active = 1
-                 {$sgSql}"
+                 AND h.h_active = 1"
             )->result();
             $out = array();
             foreach ($rows as $r) {
@@ -2427,7 +2468,7 @@
          */
         public function lignes_depart_gare_date($ekey, $gareidentif, $date, $idsousgare = null, $heure = null)
         {
-            $gare = trim((string) $gareidentif);
+            $gare = $this->normalize_gareidentif($gareidentif);
             $date = trim((string) $date);
             if ($gare === '' || $date === '') {
                 return array();

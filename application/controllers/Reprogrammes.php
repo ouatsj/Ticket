@@ -893,13 +893,20 @@
             $id_escale = (int) $this->input->get_post('id_escale');
             $gare = trim((string) $this->input->get_post('gare'));
             if ($gare === '') {
+                $gare = trim((string) $this->input->get_post('gareconnect_code'));
+            }
+            if ($gare === '') {
                 $gare = trim((string) $this->input->get_post('gareconnect'));
             }
-            $sg = $this->input->get_post('sg');
-            if ($sg === null || $sg === '') {
-                $sg = $this->input->get_post('idsousgare');
+            // Gare de départ métier = OD ticket si rien d’envoyé.
+            if ($gare === '') {
+                $gare = trim((string) $gaexp);
             }
-            $sg = ($sg !== null && $sg !== '' && (int) $sg > 0) ? (int) $sg : null;
+            if ($gare !== '') {
+                $gare = $this->m_programme->normalize_gareidentif($gare);
+            }
+            // Listing reprog : pas de filtre sous-gare (tous départs de la ville).
+            $sg = null;
             $nom_ligne = trim((string) $this->input->get_post('nom_ligne'));
             $axesRaw = trim((string) $this->input->get_post('axes'));
             $axes = array();

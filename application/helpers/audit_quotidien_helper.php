@@ -994,7 +994,7 @@ JOIN attributions_role ar ON ar.roleattribut = x.caissier_ra AND ar.userole = 4"
                 'niveau' => 'info',
                 'texte' => 'Règle : dès que le caissier fait l’arrêt de caisse (ferme_cais*=1), '
                     . 'le Superviseur de site (rôle 13) valide sous 5 jours (valid_cptable*=1) ; '
-                    . 'son roleattribut est enregistré (opvalid_cptable*). '
+                    . 'son compte est enregistré. '
                     . 'Période du rapport : données depuis 2024-01-01. '
                     . 'Le Comptable traite le stock depuis 2024 (hors suivi SLA superviseur de ce rapport).',
             ),

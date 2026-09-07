@@ -613,7 +613,7 @@ class Itineraire_escale_model extends CI_Model
                 'nom_dest' => $parent->nom_depart,
                 'prix_escale' => $prix_origine,
                 'ordre_escale' => 0,
-                'label' => $nom_depart . ' → ' . $parent->nom_depart . ' (origine)',
+                'label' => $nom_depart . ' - ' . $parent->nom_depart . ' (origine)',
                 'nom_depart' => $nom_depart,
                 'kind' => 'gaexp',
             );
@@ -651,7 +651,7 @@ class Itineraire_escale_model extends CI_Model
                 'nom_dest' => $nom_dest,
                 'prix_escale' => $prix,
                 'ordre_escale' => (int) $row->ordre_escale,
-                'label' => $nom_depart . ' → ' . $nom_dest . ' (escale)',
+                'label' => $nom_depart . ' - ' . $nom_dest . ' (escale)',
                 'nom_depart' => $nom_depart,
                 'kind' => 'escale',
             );
@@ -673,7 +673,7 @@ class Itineraire_escale_model extends CI_Model
                 'nom_dest' => $parent->nom_terminus,
                 'prix_escale' => (float) $prix_terminus,
                 'ordre_escale' => 999,
-                'label' => $nom_depart . ' → ' . $parent->nom_terminus . ' (extrême)',
+                'label' => $nom_depart . ' - ' . $parent->nom_terminus . ' (extrême)',
                 'nom_depart' => $nom_depart,
                 'kind' => 'terminus',
             );

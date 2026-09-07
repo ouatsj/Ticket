@@ -33,13 +33,13 @@ $this->load->view('beagle/pages/guichet/_role_17_styles');
     </div>
 
     <div class="r17-grid">
-        <?php if (!$compte_arret_only_compte && $cptallerescd == ''): ?>
+        <?php if (!$compte_arret_only_compte): ?>
             <a href="#"
                class="r17-btn is-primary addventeescalelibre md-trigger"
                data-modal="ticketescal-0">
                 <span class="r17-ico"><i class="fas fa-map-marker-alt"></i></span>
                 <span class="r17-txt">
-                    Vente mobile escal
+                    Vente mobile escale
                     <span class="r17-sub">Ticket rapide · impression TPE</span>
                 </span>
             </a>
@@ -51,9 +51,6 @@ $this->load->view('beagle/pages/guichet/_role_17_styles');
                     <span class="r17-sub">Réimprimer un ticket</span>
                 </span>
             </a>
-        <?php endif; ?>
-
-        <?php if (!$compte_arret_only_compte): ?>
             <a href="<?= site_url("confirmation/bagageescales/{$this->session->company->ekey}/{$conex->roleattribut}/{$bus_stop->idengare}/{$bus_stop->idsousgare}"); ?>"
                class="r17-btn">
                 <span class="r17-ico"><i class="fas fa-suitcase"></i></span>

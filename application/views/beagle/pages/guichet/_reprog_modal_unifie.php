@@ -138,6 +138,7 @@ $allow_prix_diff_unifie = true;
         <?php endfor; ?>
         <input type="hidden" value="<?= mdate('%Y-%m-%d', now()); ?>" id="actueldaterepunifie" name="dateactuelreptransit">
         <input class="form-control form-control-sm" type="hidden" name="gareconnect" value="<?= $bus_stop->idengare; ?>">
+        <input class="form-control form-control-sm" type="hidden" name="gareconnect_code" value="<?= !empty($bus_stop->code_gaexp) ? $bus_stop->code_gaexp : $bus_stop->gareprinceid; ?>">
         <input class="form-control form-control-sm" type="hidden" name="userconnected" value="<?= $conex->roleattribut; ?>">
         <input class="form-control form-control-sm" type="hidden" name="sousgareconnect" value="<?= $bus_stop->idsousgare; ?>">
         <input class="form-control form-control-sm" type="hidden" name="compconnected" value="<?= $conex->cpuser_id; ?>">

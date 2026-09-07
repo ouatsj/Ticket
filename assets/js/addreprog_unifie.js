@@ -485,12 +485,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 + (window.__reprogState.id_escale
                     ? ('&id_escale=' + encodeURIComponent(String(window.__reprogState.id_escale)))
                     : '')
-                + (window.__reprogState.gid
-                    ? ('&gare=' + encodeURIComponent(String(window.__reprogState.gid)))
-                    : '')
-                + (window.__reprogState.sgid && window.__reprogState.sgid !== '0'
-                    ? ('&sg=' + encodeURIComponent(String(window.__reprogState.sgid)))
-                    : ''),
+                + (function () {
+                    window.__reprogState.gid = __reprogResolveGareDepart();
+                    return window.__reprogState.gid
+                        ? ('&gare=' + encodeURIComponent(String(window.__reprogState.gid)))
+                        : '';
+                })(),
             function (data2) {
                 window.__reprogState.rows = __reprogRowsArray(data2);
                 __reprogOnDateChange();
@@ -988,16 +988,34 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    function __reprogResolveGareDepart() {
+        var st = window.__reprogState;
+        // 1) Gare de départ ticket (OD métier) — source de vérité pour les programmes.
+        if (st.gaexp && String(st.gaexp).trim() !== '') {
+            return String(st.gaexp).trim();
+        }
+        // 2) Session code_gaexp (jamais idengare si possible).
+        var gCodeEl = document.querySelector('input[name="gareconnect_code"]');
+        if (gCodeEl && gCodeEl.value) {
+            return String(gCodeEl.value).trim();
+        }
+        var gEl = document.querySelector('input[name="gareconnect"]');
+        if (gEl && gEl.value) {
+            return String(gEl.value).trim();
+        }
+        return '';
+    }
+
     function __reprogFetchChemins(dateYmd, hhmm, after) {
         var st = window.__reprogState;
-        // Programmes de la gare/sous-gare où on reprogramme ; force=1 = multi même si direct.
-        // OD métier = nom_ligne (pas le code d’axe, variable selon la compagnie).
-        var sg = (st.sgid && String(st.sgid) !== '0') ? String(st.sgid) : '0';
+        // Reprog : 1ʳᵉ jambe = gare de départ OD ; force=1 = multi même si direct.
+        // Sous-gare ignorée (0) : listing à l’échelle de la ville de départ.
+        st.gid = __reprogResolveGareDepart();
         var url = window.location.origin + APP_ROOT
             + '/programmes/verifchemins/'
             + encodeURIComponent(st.axe) + '/'
             + encodeURIComponent(dateYmd) + '/'
-            + encodeURIComponent(sg) + '/1?reprog=1';
+            + '0/1?reprog=1';
         if (st.nom_ligne) {
             url += '&nom_ligne=' + encodeURIComponent(String(st.nom_ligne));
         }
@@ -2166,8 +2184,11 @@ document.addEventListener('DOMContentLoaded', () => {
                         window.__reprogState.isRetourConfirme = parseInt(donnees.est_retour, 10) === 1;
                         var sgEl = document.querySelector('input[name="sousgareconnect"]');
                         window.__reprogState.sgid = (sgEl && sgEl.value) ? sgEl.value : '0';
-                        var gEl = document.querySelector('input[name="gareconnect"]');
-                        window.__reprogState.gid = (gEl && gEl.value) ? String(gEl.value) : '';
+                        // Gare de départ provisoire (rafraîchie après OD transit ci-dessous).
+                        if (donnees.gareidentif && !window.__reprogState.gaexp) {
+                            window.__reprogState.gaexp = String(donnees.gareidentif);
+                        }
+                        window.__reprogState.gid = __reprogResolveGareDepart();
 
                         var days = (new Date(__reprogQ('actueldaterepunifie').value).getTime()
                             - new Date(__reprogQ('dateventerepunifie').value).getTime()) / (1000 * 3600 * 24);
@@ -2194,6 +2215,11 @@ document.addEventListener('DOMContentLoaded', () => {
                         if (estTr) {
                             __reprogApplyOdGlobale(donnees);
                             __reprogApplyOdFromLegs();
+                        }
+                        // Ancre programmes = gare de départ OD (après éventuelle OD globale).
+                        window.__reprogState.gid = __reprogResolveGareDepart();
+                        if (!window.__reprogState.gid && donnees.gareidentif) {
+                            window.__reprogState.gid = String(donnees.gareidentif);
                         }
 
                         var kindLabel = window.__reprogState.isRetourConfirme
