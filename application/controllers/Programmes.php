@@ -2404,6 +2404,7 @@
                     'idsousgare' => $sg,
                     'ekey' => $ekey,
                     'date' => $date,
+                    'heure' => ($heure_label !== null && $heure_label !== '') ? $heure_label : null,
                     'nom_ligne' => $nom !== '' ? $nom : null,
                     'gaexp_od' => $gaOd !== '' ? $gaOd : null,
                     'gadest_od' => $gdOd !== '' ? $gdOd : null,

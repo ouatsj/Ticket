@@ -31,7 +31,7 @@ if (!function_exists('documentation_formation_roles')) {
             '4' => array(
                 'code' => '4',
                 'titre' => 'Caissier principal',
-                'sous_titre' => 'Contrôle, validation et suivi de la caisse',
+                'sous_titre' => 'Validation technique, solde et performance de clôture de caisse',
             ),
             '5' => array(
                 'code' => '5',
@@ -96,7 +96,7 @@ if (!function_exists('documentation_formation_roles')) {
             '17' => array(
                 'code' => '17',
                 'titre' => 'Vendeur escale',
-                'sous_titre' => 'Ventes et services aux voyageurs en escale',
+                'sous_titre' => 'Itinéraire → escale de départ → destinations (origine / escales / extrême)',
             ),
             '18' => array(
                 'code' => '18',
@@ -257,32 +257,36 @@ if (!function_exists('documentation_formation_fiche_poste_simple')) {
                 ),
             ),
             '4' => array(
-                'finalite' => 'Contrôler les mouvements d\'argent transmis par les chefs et tenir une caisse juste.',
+                'finalite' => 'Contrôler techniquement les mouvements transmis par les chefs, tenir un solde exact et clôturer rapidement sans laisser de file en retard.',
                 'responsable' => 'Responsable financier / superviseur',
                 'missions' => array(
-                    'Vérifier les montants, motifs, dates et pièces avant décision.',
-                    'Accepter ou refuser les recettes, dépenses et dépôts de la même gare.',
-                    'Suivre le solde et effectuer la fermeture de caisse.',
+                    'Traiter la file VALIDATION avec méthode : contrôler montant, motif, date et pièce avant décision.',
+                    'Accepter ou refuser les recettes, dépenses et dépôts de la même gare (piste principale).',
+                    'Suivre le solde validé, détecter les écarts et effectuer la fermeture de caisse dans les délais.',
+                    'Réduire les pending : prioriser les chefs en retard et utiliser la validation de masse seulement après contrôle.',
                 ),
                 'autorise' => array(
                     array('Accepter ou refuser une opération du chef', 'Oui, après contrôle'),
                     array('Voir le solde et les états de sa caisse', 'Oui'),
                     array('Saisir sa propre opération de caisse', 'Oui, seulement si la procédure le prévoit'),
                     array('Changer le nom du chef qui a saisi', 'Non'),
+                    array('Valider en masse', 'Oui, si chaque ligne a été contrôlée'),
                 ),
                 'eventuel' => array(
-                    'Travail dans plusieurs gares si chacune lui est affectée.',
+                    'Travail dans plusieurs gares si chacune lui est affectée (une gare à la fois).',
                     'Saisie de certaines recettes ou dépenses propres à la caisse.',
                     'Rapports supplémentaires ou remplacement temporaire accordés par un responsable.',
                 ),
                 'interdits' => array(
                     'Se déclarer auteur d\'une opération saisie par un chef.',
-                    'Accepter une opération sans la contrôler.',
+                    'Accepter une opération sans la contrôler (même en masse).',
                     'Travailler dans une gare non affectée ou avec le poste du caissier adjoint.',
+                    'Laisser une file pending sans traitement au-delà du délai fixé pour la gare.',
                 ),
                 'controles' => array(
                     'Comparer le solde de l\'application avec les pièces et l\'argent disponible.',
                     'Vérifier les opérations encore en attente et expliquer les refus.',
+                    'Mesurer la cadence : pending traités / jour et délais de validation.',
                 ),
             ),
             '5' => array(
@@ -627,33 +631,34 @@ if (!function_exists('documentation_formation_fiche_poste_simple')) {
                 ),
             ),
             '17' => array(
-                'finalite' => 'Servir les voyageurs et traiter les opérations prévues dans une escale.',
+                'finalite' => 'Servir les voyageurs depuis un point de départ choisi sur un itinéraire (origine, escale ou extrême).',
                 'responsable' => 'Chef de gare / chef de guichet',
                 'missions' => array(
-                    'Vendre via « Vente escale » sur l\'itinéraire parent dans l\'escale affectée.',
-                    'Traiter les bagages ou courriers d\'escale prévus.',
-                    'Réimprimer un ticket uniquement lorsqu\'il est autorisé.',
+                    'Entrer dans la gare, choisir un itinéraire, puis le point de départ (origine / escale / extrême).',
+                    'Vendre vers les autres points de l\'itinéraire (origines, escales, extrêmes) avec le prix affiché.',
+                    'Traiter bagages, courriers et réimpressions autorisés sur le périmètre escale.',
                 ),
                 'autorise' => array(
-                    array('Vendre dans son escale', 'Oui'),
-                    array('Utiliser la case Vente escale', 'Oui, sur les parents configurés'),
+                    array('Choisir un itinéraire de la gare', 'Oui'),
+                    array('Fixer l\'escale de départ', 'Oui, parmi origine / escales / extrême'),
+                    array('Vendre vers les destinations de l\'itinéraire', 'Oui'),
                     array('Voir ses propres opérations', 'Oui'),
                     array('Réimprimer un ticket', 'Oui, seulement si l\'autorisation existe'),
                     array('Accepter une caisse', 'Non'),
                 ),
                 'eventuel' => array(
-                    'Autre escale après affectation.',
+                    'Autre gare / escale après affectation.',
                     'Réimpression exceptionnelle accordée par un responsable.',
                 ),
                 'interdits' => array(
                     'Réimprimer sans demande ou sans autorisation.',
-                    'Forcer une vente sur une mauvaise escale ou un mauvais voyage.',
+                    'Forcer une vente hors de l\'itinéraire choisi.',
                     'Utiliser le compte d\'un autre vendeur.',
                     'Vendre une destination technique hors catalogue comme escale.',
                 ),
                 'controles' => array(
-                    'Vérifier l\'escale, le voyage parent et le client.',
-                    'Contrôler le prix d\'escale avant encaissement.',
+                    'Vérifier itinéraire, point de départ et destination avant encaissement.',
+                    'Contrôler le prix affiché (origine / escale / extrême).',
                     'Justifier chaque réimpression.',
                 ),
             ),
@@ -801,24 +806,26 @@ if (!function_exists('documentation_formation_fiche_poste')) {
             ),
             '4' => array(
                 'intitule' => 'Fiche de poste — Caissier principal',
-                'finalite' => 'Sécuriser les mouvements de caisse en contrôlant et en validant les opérations transmises par les chefs de guichet.',
+                'finalite' => 'Sécuriser la caisse par un contrôle technique rigoureux et une clôture performante de la file pending dans les délais.',
                 'responsable' => 'Responsable financier / superviseur / administrateur',
                 'missions' => array(
                     'Contrôler le montant, le motif, la date, la gare et la caisse avant validation.',
-                    'Valider ou rejeter les recettes, dépenses et dépôts des chefs de la même gare.',
-                    'Suivre son solde, effectuer l\'arrêt de caisse et signaler les écarts.',
-                    'Conserver la séparation entre auteur de la saisie et validateur.',
+                    'Valider ou rejeter les recettes, dépenses et dépôts des chefs de la même gare (piste 4).',
+                    'Traiter la file pending avec priorisation (ancienneté / volume) et respecter les délais de gare.',
+                    'Suivre son solde validé, effectuer l\'arrêt de caisse et signaler immédiatement tout écart.',
+                    'Conserver la séparation entre auteur de la saisie (idopera) et validateur (operavalid).',
                 ),
                 'permissions' => array(
                     array('Validation recette', 'Autorisé', 'Renseigne operavalid et les indicateurs de validation ; idopera reste inchangé'),
                     array('Validation dépense', 'Autorisé', 'Renseigne opevalid ; idop_dep reste inchangé'),
                     array('Validation dépôt', 'Autorisé', 'Renseigne opvalid ; idop_depot reste inchangé'),
                     array('Rejet', 'Autorisé', 'Avec contrôle et commentaire suffisamment explicite'),
+                    array('Validation de masse', 'Autorisé après contrôle', 'Accélère une file déjà vérifiée ; ne remplace pas le contrôle'),
                     array('Consultation solde / rapports', 'Autorisé', 'Sur sa piste et son périmètre de gare'),
                     array('Saisie d\'un mouvement propre', 'Autorisé si prévu par la procédure', 'Dans ce cas seulement, le caissier peut être l\'auteur de la ligne'),
                 ),
                 'permissions_eventuelles' => array(
-                    'Validation sur plusieurs gares si chaque gare lui est formellement attribuée.',
+                    'Validation sur plusieurs gares si chaque gare lui est formellement attribuée (une à la fois).',
                     'Saisie de recettes ou dépenses propres à la caisse selon la procédure interne.',
                     'Impression de rapports détaillés et consultation d\'historiques si le module est ouvert.',
                     'Délégation temporaire documentée par un administrateur, sans partage d\'identifiants.',
@@ -826,12 +833,14 @@ if (!function_exists('documentation_formation_fiche_poste')) {
                 'interdits' => array(
                     'Remplacer idopera, idop_dep ou idop_depot par son propre roleattribut pendant la validation.',
                     'Valider une ligne d\'une autre gare sans attribution correspondante.',
-                    'Valider sans pièce, motif ou contrôle du montant.',
+                    'Valider en masse sans contrôle des montants / motifs.',
                     'Utiliser la piste du caissier adjoint sans rôle 18 actif.',
+                    'Laisser une file pending au-delà du délai sans motif ni alerte.',
                 ),
                 'controles' => array(
-                    'File de validation restante et rejets motivés.',
+                    'File de validation restante, délais et rejets motivés.',
                     'Rapprochement quotidien du solde système avec les justificatifs.',
+                    'Indicateurs de cadence (pending traités / jour).',
                     'Alerte immédiate si auteur et validateur deviennent identiques après une validation non saisie par le caissier.',
                 ),
             ),
@@ -978,15 +987,17 @@ if (!function_exists('documentation_formation_fiche_poste')) {
             ),
             '17' => array(
                 'intitule' => 'Fiche de poste — Vendeur escale',
-                'finalite' => 'Traiter les ventes et services clients d\'escale dans le périmètre de la sous-gare attribuée, via la procédure « Vente escale ».',
+                'finalite' => 'Traiter les ventes mobiles d\'escale : choisir l\'itinéraire, fixer le point de départ, puis vendre vers origine / escales / extrême.',
                 'responsable' => 'Chef de gare / chef de guichet',
                 'missions' => array(
-                    'Traiter les ventes liées à l\'escale (case Vente escale sur itinéraire parent) et contrôler le programme concerné.',
+                    'Parcourir gare → itinéraires → points (origine, escales, extrême) et figer le départ choisi.',
+                    'Vendre via « Vente mobile escal » vers les destinations restantes, avec prix affiché.',
                     'Effectuer les réimpressions autorisées et conserver leur traçabilité.',
-                    'Remonter les incohérences au responsable de gare.',
+                    'Remonter les incohérences (itinéraire manquant, sous-gare absente) au responsable de gare.',
                 ),
                 'permissions' => array(
-                    array('Vente escale', 'Autorisé', 'Sur la sous-gare et les parents / escales attribués'),
+                    array('Choix d\'itinéraire / escale de départ', 'Autorisé', 'Sur la gare et les lignes liées'),
+                    array('Vente mobile escale', 'Autorisé', 'Départ figé ; destinations = autres points de l\'itinéraire'),
                     array('Consultation de ses opérations', 'Autorisé', 'Périmètre de son roleattribut'),
                     array('Réimpression', 'Conditionnelle', 'Uniquement si le ticket est éligible et le droit disponible'),
                     array('Validation caisse', 'Non autorisé', 'Réservée aux caissiers'),
@@ -994,19 +1005,19 @@ if (!function_exists('documentation_formation_fiche_poste')) {
                 ),
                 'permissions_eventuelles' => array(
                     'Réimpression exceptionnelle autorisée par un responsable.',
-                    'Accès à une autre escale après affectation formelle.',
+                    'Accès à une autre gare / escale après affectation formelle.',
                     'Consultation élargie uniquement avec une délégation de supervision distincte.',
                 ),
                 'interdits' => array(
                     'Réimprimer sans demande ou sans droit disponible.',
                     'Utiliser le compte d\'un autre vendeur.',
-                    'Forcer une vente sur un programme ou une escale incohérents.',
+                    'Forcer une vente hors de l\'itinéraire sélectionné.',
                     'Valider une recette ou une dépense de caisse.',
                     'Utiliser une destination technique (ex. OUAGAESCAL) comme escale commerciale.',
                 ),
                 'controles' => array(
                     'Journal des réimpressions et droits consommés.',
-                    'Concordance escale, programme parent, prix d\'escale et vendeur.',
+                    'Concordance départ figé, destination, prix et vendeur.',
                     'Suivi des anomalies remontées au responsable.',
                 ),
             ),
@@ -1134,51 +1145,64 @@ if (!function_exists('documentation_formation_manuel')) {
                 'titre' => 'Manuel — Caissier principal (rôle 4)',
                 'sections' => array(
                     array(
-                        'h' => '1. Mission',
+                        'h' => '1. Mission (performance + technicité)',
                         'paras' => array(
-                            'Valider les arrêts des chefs de la même gare, suivre le solde de la caisse principale, saisir éventuellement des mouvements propres (ex. courrier).',
+                            'Valider rapidement et correctement les arrêts des chefs de la même gare, tenir le solde de la piste principale, et ne laisser aucune file pending sans motif dans les délais.',
+                            'La performance se mesure à la cadence de traitement (pending → validé/rejeté) ; la technicité, à la juste application des règles de solde et de piste.',
                         ),
                     ),
                     array(
                         'h' => '2. Connexion et gare',
                         'bullets' => array(
-                            'Se connecter avec son username caissier',
+                            'Se connecter avec son username caissier (rôle 4 actif)',
                             'Choisir la gare concernée (une seule activeattrib=1)',
-                            'Ouvrir VOIR CAISSE puis le module VALIDATION / recettes / dépenses',
+                            'Ouvrir VOIR CAISSE puis VALIDATION / recettes / dépenses',
+                            'Si multi-gares : traiter une gare complètement avant de changer',
                         ),
                     ),
                     array(
-                        'h' => '3. Validation des lignes chef',
+                        'h' => '3. Validation technique des lignes chef',
                         'paras' => array(
-                            'Depuis la file VALIDATION : sélectionner le chef, puis VALIDER ou REJETER chaque recette / dépense / dépôt.',
+                            'Depuis la file VALIDATION : sélectionner le chef, contrôler chaque ligne, puis VALIDER ou REJETER.',
                         ),
                         'bullets' => array(
-                            'VALIDER → is_actifrecet (ou dep) = 1 et operavalid (opevalid) = votre roleattribut',
-                            'REJETER → ligne hors solde, flags rejet',
+                            'VALIDER → is_actifrecet (ou dep / depo) = 1 et operavalid / opevalid = votre roleattribut',
+                            'REJETER → ligne hors solde, flags rejet ; le chef doit ressaisir si besoin',
                             'Ne jamais modifier idopera / idop_dep (auteur) : c\'est le chef qui a saisi',
-                            'Validation masse possible via les boutons d\'arrêt compte caissier',
+                            'Validation de masse autorisée seulement après contrôle des montants / motifs',
                         ),
                     ),
                     array(
-                        'h' => '4. Solde caisse',
+                        'h' => '4. Solde caisse (règle technique)',
                         'paras' => array(
-                            'Le solde affiché repose sur : dépôts + recettes validés − versements − dépenses validés, filtrés sur votre roleattribut (piste 4).',
-                            'Une dépense ne peut pas dépasser le solde de votre caisse.',
+                            'Solde = dépôts validés + recettes validées − versements − dépenses validées, filtrés sur votre roleattribut (piste 4).',
+                            'Les saisies chefs non validées n\'entrent pas dans votre solde. Une dépense ne peut pas dépasser le solde affiché.',
                         ),
                     ),
                     array(
-                        'h' => '5. Arrêt / fermeture de caisse',
+                        'h' => '5. Performance : file pending et délais',
+                        'bullets' => array(
+                            'Prioriser les chefs avec le plus ancien pending ou le plus gros volume',
+                            'Respecter le délai de validation fixé pour la gare (jour N du mois suivant si restriction active)',
+                            'Ne pas partir en fin de journée avec une file importante sans motif documenté',
+                            'Alerter le superviseur dès qu\'un solde ou une file devient incohérent',
+                        ),
+                    ),
+                    array(
+                        'h' => '6. Arrêt / fermeture de caisse',
                         'bullets' => array(
                             'Après validation journalière, procéder à l\'arrêt de caisse selon la procédure interne',
-                            'Vérifier qu\'il ne reste plus de file pending importante sans motif',
+                            'Vérifier pièces vs solde applicatif avant clôture',
+                            'Conserver les justificatifs des rejets traités',
                         ),
                     ),
                     array(
-                        'h' => '6. Erreurs fréquentes',
+                        'h' => '7. Erreurs fréquentes (anti-performance)',
                         'bullets' => array(
                             'Mauvaise gare active → rien n\'apparaît ou mauvais soldes',
-                            'Confondre saisie chef et validation caissier',
-                            'Valider sans contrôler le montant / le motif',
+                            'Valider en masse sans lire → écarts et reprise coûteuse',
+                            'Confondre saisie chef (idopera) et validation caissier (operavalid)',
+                            'Utiliser la piste adjoint (18) alors que le rôle actif est 4',
                         ),
                     ),
                 ),
@@ -1363,35 +1387,45 @@ if (!function_exists('documentation_formation_manuel')) {
                     array(
                         'h' => '1. Mission',
                         'paras' => array(
-                            'Servir les voyageurs sur le périmètre d\'escale / sous-gare attribué : ventes, services prévus, réimpressions autorisées.',
+                            'Vendre depuis un point de l\'itinéraire (origine, escale ou extrême / terminus) vers les autres points, avec impression ticket TPE.',
                         ),
                     ),
                     array(
-                        'h' => '2. Vente à escale',
+                        'h' => '2. Parcours de vente (obligatoire)',
                         'paras' => array(
-                            'L\'escale est vendue à partir d\'un itinéraire parent (arrivée finale) via la case « Vente escale ».',
+                            'Le départ n\'est plus choisi dans le formulaire : il est figé à l\'entrée dans l\'escale.',
                         ),
                         'bullets' => array(
-                            'Vérifier sous-gare / escale active avant de servir le client',
-                            'Sélectionner le parent, cocher vente escale, choisir la destination d\'escale',
-                            'Contrôler le prix d\'escale affiché avant encaissement',
-                            'Sur un transit, appliquer l\'escale sur la bonne jambe (quartier correspondant)',
+                            '1) Connexion → choisir la gare',
+                            '2) Voir la liste des itinéraires liés à la gare (lignes au départ, en terminus ou passant par escale)',
+                            '3) Ouvrir un itinéraire → liste origine + escales + extrême',
+                            '4) Choisir le point de départ → écran boutons (vente, réimp, bagage…)',
+                            '5) Vente mobile escal : destinations = autres escales + origine + extrême',
                         ),
                     ),
                     array(
-                        'h' => '3. Réimpression',
+                        'h' => '3. Ticket imprimé',
                         'bullets' => array(
-                            'La liste de réimpression est filtrée sur vos opérations (iduseescal)',
-                            'Après impression, le droit de réimpression peut être consommé (reimpr)',
+                            'Le ticket thermique affiche compagnie, trajet, passager, téléphone, prix, code et code-barres',
+                            'La bannière « Connecté en tant que… » ne doit pas apparaître à l\'impression',
+                            'Caractères agrandis pour lecture TPE / 57 mm',
+                        ),
+                    ),
+                    array(
+                        'h' => '4. Réimpression',
+                        'bullets' => array(
+                            'La liste de réimpression est filtrée sur vos opérations',
+                            'Après impression, le droit de réimpression peut être consommé',
                             'En cas de liste vide : pas de ticket éligible pour votre compte',
                         ),
                     ),
                     array(
-                        'h' => '4. Bonnes pratiques',
+                        'h' => '5. Bonnes pratiques',
                         'bullets' => array(
-                            'Contrôler escale / sous-gare / programme avant validation client',
-                            'Escalader au chef de gare si incohérence programme ou escale absente de la liste',
-                            'Ne pas utiliser une destination technique type OUAGAESCAL comme « escale »',
+                            'Vérifier itinéraire et point de départ avant d\'ouvrir la vente',
+                            'Contrôler le prix destination (libellé origine / escale / extrême)',
+                            'Escalader au chef si aucun itinéraire / sous-gare n\'apparaît',
+                            'Ne pas utiliser une destination technique type OUAGAESCAL',
                         ),
                     ),
                 ),
@@ -1494,119 +1528,141 @@ if (!function_exists('documentation_formation_qcm')) {
         $role_code = (string) $role_code;
         $qcms = array(
             '4' => array(
-                'titre' => 'QCM fin de formation — Caissier principal',
-                'duree' => '20 minutes',
-                'bareme' => '1 point par bonne réponse — Total /10 — Seuil indicatif : 7/10',
+                'titre' => 'QCM fin de formation — Caissier principal (performance & technicité)',
+                'duree' => '25 minutes',
+                'bareme' => '1 point par bonne réponse — Total /12 — Seuil indicatif : 9/12',
                 'questions' => array(
                     array(
-                        'q' => 'Après connexion, que devez-vous faire avant de travailler sur une gare ?',
+                        'q' => 'Techniquement, votre solde de caisse (piste 4) intègre surtout :',
                         'choices' => array(
-                            'A' => 'Rien, toutes les gares sont ouvertes',
-                            'B' => 'Choisir / entrer dans la gare concernée',
-                            'C' => 'Changer le mot de passe du chef',
-                            'D' => 'Supprimer les recettes du jour',
+                            'A' => 'Toutes les saisies chefs, même non validées',
+                            'B' => 'Uniquement les mouvements que vous avez validés sur votre roleattribut',
+                            'C' => 'Le chiffre d\'affaires tickets du vendeur',
+                            'D' => 'Le solde de toutes les gares du pays',
                         ),
                         'answer' => 'B',
-                        'tip' => 'On travaille toujours dans une gare précise.',
+                        'tip' => 'Solde = lignes validées sur la piste caissier, pas les pending.',
                     ),
                     array(
-                        'q' => 'Qui doit valider l\'arrêt de compte d\'un chef de guichet ?',
+                        'q' => 'Après VALIDER une recette chef, quelle identité technique est correcte ?',
                         'choices' => array(
-                            'A' => 'Le vendeur',
-                            'B' => 'Le caissier de la même gare',
-                            'C' => 'Le passager',
-                            'D' => 'N\'importe quel utilisateur',
+                            'A' => 'idopera devient votre roleattribut caissier',
+                            'B' => 'idopera reste le chef ; operavalid / opevalid = vous',
+                            'C' => 'idopera et operavalid sont effacés',
+                            'D' => 'Le vendeur devient auteur',
                         ),
                         'answer' => 'B',
-                        'tip' => 'Le chef saisit ; le caissier valide.',
+                        'tip' => 'Auteur (saisie) ≠ validateur (caissier).',
                     ),
                     array(
-                        'q' => 'Que faire face à une ligne en file VALIDATION douteuse ?',
-                        'choices' => array(
-                            'A' => 'Toujours valider sans lire',
-                            'B' => 'Contrôler le montant et le motif, puis VALIDER ou REJETER',
-                            'C' => 'Demander au passager de valider',
-                            'D' => 'Effacer la gare',
-                        ),
-                        'answer' => 'B',
-                        'tip' => 'La validation engage le solde caisse.',
-                    ),
-                    array(
-                        'q' => 'Que se passe-t-il si vous REJETEZ une dépense ?',
+                        'q' => 'Si vous REJETEZ une dépense :',
                         'choices' => array(
                             'A' => 'Elle entre quand même dans votre solde',
-                            'B' => 'Elle n\'entre pas dans votre solde caisse',
+                            'B' => 'Elle reste hors solde caissier ; le chef doit corriger / ressaisir si besoin',
                             'C' => 'Elle change automatiquement de gare',
-                            'D' => 'Elle devient une recette',
+                            'D' => 'Elle devient une recette validée',
                         ),
                         'answer' => 'B',
-                        'tip' => 'Rejet = hors solde caissier.',
+                        'tip' => 'Rejet = hors solde ; traçabilité du refus.',
                     ),
                     array(
-                        'q' => 'Votre solde caisse dépend surtout de :',
+                        'q' => 'Indicateur de performance le plus pertinent pour un caissier principal :',
                         'choices' => array(
-                            'A' => 'Toutes les saisies non validées des chefs',
-                            'B' => 'Les mouvements que vous avez validés',
-                            'C' => 'Le nombre de bus du jour',
-                            'D' => 'Le nom de l\'entreprise seul',
+                            'A' => 'Nombre de tickets vendus par les vendeurs',
+                            'B' => 'Cadence de traitement de la file pending (validé/rejeté) et respect des délais',
+                            'C' => 'Nombre de programmes créés',
+                            'D' => 'Taille du logo imprimé',
                         ),
                         'answer' => 'B',
-                        'tip' => 'Seules les lignes validées comptent pour le caissier.',
+                        'tip' => 'Performance = file traitée + délais, pas le volume ventes guichet.',
                     ),
                     array(
-                        'q' => 'Avant une dépense sur votre caisse, vous devez :',
+                        'q' => 'Validation de masse : bonne pratique technique ?',
                         'choices' => array(
-                            'A' => 'Ignorer le solde',
-                            'B' => 'Vérifier que le montant ne dépasse pas le solde',
-                            'C' => 'Appeler le passager',
-                            'D' => 'Changer de username',
+                            'A' => 'Toujours tout valider d\'un clic sans lire',
+                            'B' => 'Après contrôle des montants / motifs, pour accélérer une file déjà vérifiée',
+                            'C' => 'Uniquement le dimanche',
+                            'D' => 'Interdite dans tous les cas',
+                        ),
+                        'answer' => 'B',
+                        'tip' => 'La masse accélère ; elle ne remplace pas le contrôle.',
+                    ),
+                    array(
+                        'q' => 'Avant une dépense sur votre caisse, la règle technique est :',
+                        'choices' => array(
+                            'A' => 'Ignorer le solde si le chef insiste',
+                            'B' => 'Vérifier que le montant ≤ solde validé affiché',
+                            'C' => 'Utiliser le solde du chef non validé',
+                            'D' => 'Basculer sur le rôle 18 sans affectation',
                         ),
                         'answer' => 'B',
                         'tip' => 'Sinon message « dépasse le solde ».',
                     ),
                     array(
-                        'q' => 'Un compte désactivé :',
+                        'q' => 'Piste caissier principal (4) vs adjoint (18) :',
                         'choices' => array(
-                            'A' => 'Peut encore valider normalement',
-                            'B' => 'Ne doit plus être utilisé',
-                            'C' => 'Double le solde',
-                            'D' => 'Ouvre toutes les gares',
+                            'A' => 'Mêmes colonnes, seul le libellé change',
+                            'B' => 'Colonnes distinctes (operavalid / is_actif* vs *ad) ; ne pas mélanger les pistes',
+                            'C' => 'Le 18 écrase toujours le 4',
+                            'D' => 'Le 4 valide uniquement les bagages',
                         ),
                         'answer' => 'B',
-                        'tip' => 'Compte / rôle désactivé = inutilisable.',
+                        'tip' => 'Deux pistes techniques séparées.',
                     ),
                     array(
-                        'q' => 'Si vous avez plusieurs gares, comment travailler correctement ?',
+                        'q' => 'Face à une file pending importante en fin de journée, la conduite performante est :',
                         'choices' => array(
-                            'A' => 'Sans choisir de gare',
-                            'B' => 'Entrer dans une gare puis opérer',
-                            'C' => 'Utiliser le compte d\'un collègue',
-                            'D' => 'Valider toutes les gares d\'un clic sans contrôle',
+                            'A' => 'Partir sans traiter',
+                            'B' => 'Prioriser les plus anciens / gros volumes, documenter le reliquat, alerter si dépassement de délai',
+                            'C' => 'Supprimer les lignes chefs',
+                            'D' => 'Donner son mot de passe au chef pour qu\'il valide',
                         ),
                         'answer' => 'B',
-                        'tip' => 'Une gare à la fois.',
+                        'tip' => 'Priorisation + traçabilité + alerte.',
                     ),
                     array(
-                        'q' => 'Après validation, l\'auteur de la saisie (le chef) :',
+                        'q' => 'Si une restriction de délai caissier est active pour la gare :',
                         'choices' => array(
-                            'A' => 'Doit devenir le caissier',
-                            'B' => 'Reste le chef qui a saisi',
-                            'C' => 'Disparaît',
-                            'D' => 'Passe au vendeur',
+                            'A' => 'Vous pouvez ignorer les pending du mois précédent',
+                            'B' => 'Vous devez traiter avant le jour limite du mois suivant, sous peine de blocage / alerte',
+                            'C' => 'Seul le vendeur est concerné',
+                            'D' => 'Le délai s\'applique uniquement aux programmes',
                         ),
                         'answer' => 'B',
-                        'tip' => 'Qui a saisi ≠ qui a validé.',
+                        'tip' => 'Délai de validation = contrainte de performance réglementaire.',
                     ),
                     array(
-                        'q' => 'En fin de journée, une bonne pratique est :',
+                        'q' => 'Multi-gares affectées : méthode performante ?',
                         'choices' => array(
-                            'A' => 'Partir sans regarder la file',
-                            'B' => 'Vérifier qu\'il ne reste pas trop de pending sans motif, puis suivre l\'arrêt de caisse',
-                            'C' => 'Supprimer les recettes',
-                            'D' => 'Donner son mot de passe au chef',
+                            'A' => 'Mélanger les validations de plusieurs gares sans choisir',
+                            'B' => 'Entrer dans une gare, vider / contrôler sa file, puis passer à la suivante',
+                            'C' => 'Utiliser le compte d\'un collègue de l\'autre gare',
+                            'D' => 'Valider toutes les gares sans ouvrir VOIR CAISSE',
                         ),
                         'answer' => 'B',
-                        'tip' => 'Contrôle + clôture selon procédure.',
+                        'tip' => 'Une gare active à la fois (activeattrib).',
+                    ),
+                    array(
+                        'q' => 'Solde applicatif ≠ espèces en caisse : première action technique ?',
+                        'choices' => array(
+                            'A' => 'Forcer une dépense pour « rattraper »',
+                            'B' => 'Stopper les validations douteuses, recenser pending / rejets, alerter le superviseur',
+                            'C' => 'Changer le roleattribut du chef',
+                            'D' => 'Désactiver tous les vendeurs',
+                        ),
+                        'answer' => 'B',
+                        'tip' => 'Diagnostic + alerte, pas de contournement.',
+                    ),
+                    array(
+                        'q' => 'Quel comportement dégrade à la fois performance et qualité ?',
+                        'choices' => array(
+                            'A' => 'Contrôler puis valider rapidement une file déjà triée',
+                            'B' => 'Valider sans lire pour « faire du volume », puis corriger en catastrophe le lendemain',
+                            'C' => 'Rejeter une ligne incorrecte avec motif clair',
+                            'D' => 'Clôturer après rapprochement pièces / solde',
+                        ),
+                        'answer' => 'B',
+                        'tip' => 'La fausse vitesse crée de la reprise et des écarts.',
                     ),
                 ),
             ),
@@ -2062,6 +2118,39 @@ if (!function_exists('documentation_formation_qcm')) {
                 'bareme' => '1 point par bonne réponse — Total /10 — Seuil indicatif : 7/10',
                 'questions' => array(
                     array(
+                        'q' => 'Ordre correct du parcours de vente escale :',
+                        'choices' => array(
+                            'A' => 'Vente directe sans choisir d\'itinéraire',
+                            'B' => 'Gare → itinéraire → point de départ → boutons / vente destinations',
+                            'C' => 'Caissier → validation → vente',
+                            'D' => 'Programme national → admin → ticket',
+                        ),
+                        'answer' => 'B',
+                        'tip' => 'Le départ est figé à l\'entrée dans l\'escale.',
+                    ),
+                    array(
+                        'q' => 'Sur un itinéraire, les points de départ possibles sont :',
+                        'choices' => array(
+                            'A' => 'Uniquement le terminus',
+                            'B' => 'Origine, escales tarifées et extrême (terminus)',
+                            'C' => 'Uniquement les sous-gares techniques',
+                            'D' => 'Toutes les gares du pays',
+                        ),
+                        'answer' => 'B',
+                        'tip' => 'Origine + escales + extrême.',
+                    ),
+                    array(
+                        'q' => 'Après choix du point de départ, les destinations proposées sont :',
+                        'choices' => array(
+                            'A' => 'Le même point uniquement',
+                            'B' => 'Les autres escales, plus l\'origine et l\'extrême selon le cas',
+                            'C' => 'Uniquement OUAGAESCAL',
+                            'D' => 'Les soldes caissier',
+                        ),
+                        'answer' => 'B',
+                        'tip' => 'Autres points de l\'itinéraire.',
+                    ),
+                    array(
                         'q' => 'En réimpression, vous voyez en général :',
                         'choices' => array(
                             'A' => 'Tous les tickets du pays',
@@ -2095,28 +2184,6 @@ if (!function_exists('documentation_formation_qcm')) {
                         'tip' => 'Une réimpression peut être limitée.',
                     ),
                     array(
-                        'q' => 'Avant de traiter un client escale, vérifier :',
-                        'choices' => array(
-                            'A' => 'Escale / sous-gare / programme',
-                            'B' => 'Le solde caissier du mois',
-                            'C' => 'Le QCM admin',
-                            'D' => 'Rien',
-                        ),
-                        'answer' => 'A',
-                        'tip' => 'Contrôle opérationnel.',
-                    ),
-                    array(
-                        'q' => 'En cas d\'incohérence programme :',
-                        'choices' => array(
-                            'A' => 'Forcer la vente',
-                            'B' => 'Prévenir le chef de gare / responsable',
-                            'C' => 'Désactiver le caissier',
-                            'D' => 'Utiliser un autre compte',
-                        ),
-                        'answer' => 'B',
-                        'tip' => 'Escalade.',
-                    ),
-                    array(
                         'q' => 'Le vendeur escale remplace-t-il le caissier ?',
                         'choices' => array(
                             'A' => 'Oui',
@@ -2128,6 +2195,28 @@ if (!function_exists('documentation_formation_qcm')) {
                         'tip' => 'Missions distinctes.',
                     ),
                     array(
+                        'q' => 'Sur le ticket imprimé, la bannière « Connecté en tant que… » :',
+                        'choices' => array(
+                            'A' => 'Doit apparaître pour contrôler l\'agent',
+                            'B' => 'Ne doit pas s\'imprimer sur le papier ticket',
+                            'C' => 'Remplace le prix',
+                            'D' => 'Est obligatoire pour le client',
+                        ),
+                        'answer' => 'B',
+                        'tip' => 'Chrome session masqué à l\'impression.',
+                    ),
+                    array(
+                        'q' => 'En cas d\'itinéraire absent pour la gare :',
+                        'choices' => array(
+                            'A' => 'Forcer une vente hors liste',
+                            'B' => 'Prévenir le chef / admin (lignes, escales, sous-gare)',
+                            'C' => 'Utiliser le compte caissier',
+                            'D' => 'Désactiver la gare',
+                        ),
+                        'answer' => 'B',
+                        'tip' => 'Escalade paramétrage.',
+                    ),
+                    array(
                         'q' => 'Utiliser le compte d\'un autre vendeur escale :',
                         'choices' => array(
                             'A' => 'Autorisé',
@@ -2137,39 +2226,6 @@ if (!function_exists('documentation_formation_qcm')) {
                         ),
                         'answer' => 'B',
                         'tip' => 'Traçabilité.',
-                    ),
-                    array(
-                        'q' => 'Un admin / superviseur en réimpression peut voir :',
-                        'choices' => array(
-                            'A' => 'Uniquement ses tickets personnels',
-                            'B' => 'Un périmètre gare plus large',
-                            'C' => 'Rien',
-                            'D' => 'Seulement les dépenses',
-                        ),
-                        'answer' => 'B',
-                        'tip' => 'Supervision plus large.',
-                    ),
-                    array(
-                        'q' => 'Pour vendre une escale commerciale :',
-                        'choices' => array(
-                            'A' => 'Cocher « Vente escale » après l\'itinéraire parent et choisir l\'escale',
-                            'B' => 'Choisir OUAGAESCAL comme destination',
-                            'C' => 'Créer un programme du jour pour l\'escale',
-                            'D' => 'Demander au caissier de valider d\'abord',
-                        ),
-                        'answer' => 'A',
-                        'tip' => 'Procédure Vente escale sur parent.',
-                    ),
-                    array(
-                        'q' => 'Le prix d\'escale :',
-                        'choices' => array(
-                            'A' => 'Est toujours égal au terminus',
-                            'B' => 'Est appliqué automatiquement à la sélection de l\'escale',
-                            'C' => 'Est saisi par le caissier uniquement',
-                            'D' => 'N\'existe pas',
-                        ),
-                        'answer' => 'B',
-                        'tip' => 'Prix paramétré sur l\'escale, appliqué à la sélection.',
                     ),
                 ),
             ),
@@ -2409,7 +2465,214 @@ if (!function_exists('documentation_formation_qcm')) {
             ),
         );
 
-        return isset($qcms[$role_code]) ? $qcms[$role_code] : null;
+        $default = isset($qcms[$role_code]) ? $qcms[$role_code] : null;
+        if ($default === null) {
+            return null;
+        }
+
+        $override = documentation_formation_qcm_load_override($role_code);
+        if ($override !== null) {
+            $override['_source'] = 'custom';
+            $override['_has_override'] = true;
+            return $override;
+        }
+
+        $default['_source'] = 'default';
+        $default['_has_override'] = false;
+        return $default;
+    }
+}
+
+if (!function_exists('documentation_formation_qcm_override_dir')) {
+    function documentation_formation_qcm_override_dir()
+    {
+        $dir = APPPATH . 'cache/data/qcm';
+        if (!is_dir($dir)) {
+            @mkdir($dir, 0755, true);
+        }
+        return $dir;
+    }
+}
+
+if (!function_exists('documentation_formation_qcm_override_path')) {
+    function documentation_formation_qcm_override_path($role_code)
+    {
+        $role_code = preg_replace('/[^a-zA-Z0-9_-]/', '', (string) $role_code);
+        if ($role_code === '') {
+            return null;
+        }
+        return documentation_formation_qcm_override_dir() . '/role_' . $role_code . '.json';
+    }
+}
+
+if (!function_exists('documentation_formation_qcm_normalize')) {
+    /**
+     * Normalise / valide un QCM (titre, durée, barème, questions A–D).
+     *
+     * @param mixed $raw
+     * @return array|null
+     */
+    function documentation_formation_qcm_normalize($raw)
+    {
+        if (!is_array($raw)) {
+            return null;
+        }
+
+        $titre = isset($raw['titre']) ? trim((string) $raw['titre']) : '';
+        $duree = isset($raw['duree']) ? trim((string) $raw['duree']) : '';
+        $bareme = isset($raw['bareme']) ? trim((string) $raw['bareme']) : '';
+        $questions_in = isset($raw['questions']) && is_array($raw['questions']) ? $raw['questions'] : array();
+
+        if ($titre === '' || empty($questions_in)) {
+            return null;
+        }
+
+        $questions = array();
+        foreach ($questions_in as $item) {
+            if (!is_array($item)) {
+                continue;
+            }
+            $q = isset($item['q']) ? trim((string) $item['q']) : '';
+            if ($q === '') {
+                continue;
+            }
+            $choices_raw = isset($item['choices']) && is_array($item['choices']) ? $item['choices'] : array();
+            $choices = array();
+            foreach (array('A', 'B', 'C', 'D') as $letter) {
+                $text = '';
+                if (isset($choices_raw[$letter])) {
+                    $text = trim((string) $choices_raw[$letter]);
+                } elseif (isset($choices_raw[strtolower($letter)])) {
+                    $text = trim((string) $choices_raw[strtolower($letter)]);
+                }
+                $choices[$letter] = $text;
+            }
+            // Au moins 2 choix non vides
+            $filled = 0;
+            foreach ($choices as $t) {
+                if ($t !== '') {
+                    $filled++;
+                }
+            }
+            if ($filled < 2) {
+                continue;
+            }
+            $answer = strtoupper(trim((string) (isset($item['answer']) ? $item['answer'] : 'A')));
+            if (!isset($choices[$answer]) || $choices[$answer] === '') {
+                // Première lettre non vide
+                foreach ($choices as $letter => $t) {
+                    if ($t !== '') {
+                        $answer = $letter;
+                        break;
+                    }
+                }
+            }
+            $tip = isset($item['tip']) ? trim((string) $item['tip']) : '';
+            $questions[] = array(
+                'q' => $q,
+                'choices' => $choices,
+                'answer' => $answer,
+                'tip' => $tip,
+            );
+        }
+
+        if (empty($questions)) {
+            return null;
+        }
+
+        if ($duree === '') {
+            $duree = '20 minutes';
+        }
+        if ($bareme === '') {
+            $n = count($questions);
+            $seuil = max(1, (int) ceil($n * 0.7));
+            $bareme = '1 point par bonne réponse — Total /' . $n . ' — Seuil indicatif : ' . $seuil . '/' . $n;
+        }
+
+        return array(
+            'titre' => $titre,
+            'duree' => $duree,
+            'bareme' => $bareme,
+            'questions' => $questions,
+        );
+    }
+}
+
+if (!function_exists('documentation_formation_qcm_load_override')) {
+    function documentation_formation_qcm_load_override($role_code)
+    {
+        $path = documentation_formation_qcm_override_path($role_code);
+        if ($path === null || !is_file($path)) {
+            return null;
+        }
+        $json = @file_get_contents($path);
+        if ($json === false || $json === '') {
+            return null;
+        }
+        $decoded = json_decode($json, true);
+        return documentation_formation_qcm_normalize($decoded);
+    }
+}
+
+if (!function_exists('documentation_formation_qcm_save_override')) {
+    /**
+     * @return array{ok:bool,error?:string,path?:string}
+     */
+    function documentation_formation_qcm_save_override($role_code, $raw)
+    {
+        $normalized = documentation_formation_qcm_normalize($raw);
+        if ($normalized === null) {
+            return array('ok' => false, 'error' => 'qcm_invalide');
+        }
+        $path = documentation_formation_qcm_override_path($role_code);
+        if ($path === null) {
+            return array('ok' => false, 'error' => 'role_invalide');
+        }
+        $dir = dirname($path);
+        if (!is_dir($dir) && !@mkdir($dir, 0755, true)) {
+            return array('ok' => false, 'error' => 'dossier_inaccessible');
+        }
+        $payload = $normalized;
+        $payload['updated_at'] = date('c');
+        $json = json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
+        if ($json === false) {
+            return array('ok' => false, 'error' => 'json_encode');
+        }
+        if (@file_put_contents($path, $json, LOCK_EX) === false) {
+            return array('ok' => false, 'error' => 'ecriture_impossible');
+        }
+        return array('ok' => true, 'path' => $path);
+    }
+}
+
+if (!function_exists('documentation_formation_qcm_delete_override')) {
+    function documentation_formation_qcm_delete_override($role_code)
+    {
+        $path = documentation_formation_qcm_override_path($role_code);
+        if ($path === null || !is_file($path)) {
+            return true;
+        }
+        return @unlink($path);
+    }
+}
+
+if (!function_exists('documentation_formation_qcm_export_payload')) {
+    function documentation_formation_qcm_export_payload($role_code)
+    {
+        $qcm = documentation_formation_qcm($role_code);
+        if (!$qcm) {
+            return null;
+        }
+        unset($qcm['_source'], $qcm['_has_override']);
+        return array(
+            'role_code' => (string) $role_code,
+            'role_titre' => ($meta = documentation_formation_role_meta($role_code)) ? $meta['titre'] : '',
+            'exported_at' => date('c'),
+            'titre' => $qcm['titre'],
+            'duree' => $qcm['duree'],
+            'bareme' => $qcm['bareme'],
+            'questions' => $qcm['questions'],
+        );
     }
 }
 
@@ -2536,19 +2799,37 @@ if (!function_exists('documentation_generale_cas_utilisation')) {
                 ),
                 array(
                     'id' => 'vente-escale',
-                    'titre' => '6. Vente à escale',
-                    'objectif' => 'Vendre une destination intermédiaire configurée sur un itinéraire parent, sans créer un programme dédié à l\'escale.',
-                    'acteurs' => array('Vendeur / agent autorisé', 'Administrateur (paramétrage des escales et prix)'),
+                    'titre' => '6. Vente à escale (vendeur escale / mobile)',
+                    'objectif' => 'Vendre depuis un point d\'un itinéraire (origine, escale ou extrême) vers les autres points, sans inventer un programme dédié.',
+                    'acteurs' => array('Vendeur escale (rôle 17)', 'Administrateur (paramétrage lignes / escales)', 'Chef de gare (appui)'),
                     'etapes' => array(
-                        'Sélectionner l\'arrivée finale (itinéraire parent) puis cocher « Vente escale ».',
-                        'Choisir l\'escale proposée dans la liste.',
-                        'Le système applique le prix d\'escale et adapte le quartier si nécessaire.',
-                        'Finaliser la vente comme d\'habitude.',
+                        'Entrer dans la gare : le système liste les itinéraires liés (départ, terminus ou passage).',
+                        'Choisir un itinéraire, puis le point de départ (origine, escale ou extrême).',
+                        'Ouvrir « Vente mobile escal » : le départ est figé ; choisir une destination parmi les autres points.',
+                        'Contrôler le prix affiché, encaisser, imprimer le ticket TPE (sans bannière de session).',
                     ),
-                    'resultat' => 'Ticket jusqu\'à l\'escale, au tarif prévu, rattaché à un programme parent valide.',
+                    'resultat' => 'Ticket escale lisible, départ et destination cohérents avec l\'itinéraire, recette traçable au vendeur.',
                     'controles' => array(
-                        'Maintenir à jour la liste des escales et leurs prix en administration lignes.',
-                        'Contrôler que seules les escales actives sont proposées au guichet.',
+                        'Maintenir à jour escales tarifées et lignes actives.',
+                        'Vérifier qu\'une sous-gare technique existe pour les opérations bagage / caisse liées.',
+                        'Contrôler les réimpressions et les droits consommés.',
+                    ),
+                ),
+                array(
+                    'id' => 'tri-passager',
+                    'titre' => '6bis. Tri passager et recherche dans les résultats',
+                    'objectif' => 'Retrouver rapidement un passager ou un ticket sur une période, pour impression ou contrôle.',
+                    'acteurs' => array('Chef de guichet / admin / superviseur', 'Agent historique autorisé'),
+                    'etapes' => array(
+                        'Depuis l\'historique, lancer un tri passager sur la période voulue.',
+                        'Consulter les onglets tickets directs et tickets transit.',
+                        'Utiliser le champ de filtre instantané (nom, téléphone, code, siège, axe, date) pour réduire la liste.',
+                        'Imprimer ou repositionner selon les droits.',
+                    ),
+                    'resultat' => 'Ticket localisé sans reparcourir toute la liste à la main.',
+                    'controles' => array(
+                        'Vérifier la cohérence de la période de recherche.',
+                        'Limiter les repositionnements d\'impression aux rôles autorisés.',
                     ),
                 ),
                 array(
@@ -2602,19 +2883,20 @@ if (!function_exists('documentation_generale_cas_utilisation')) {
                 ),
                 array(
                     'id' => 'caisse-validation',
-                    'titre' => '10. Caisse — validation caissier',
-                    'objectif' => 'Contrôler et accepter (ou rejeter) les mouvements saisis par le chef, puis suivre le solde.',
+                    'titre' => '10. Caisse — validation caissier (performance & technicité)',
+                    'objectif' => 'Contrôler techniquement les mouvements des chefs, tenir un solde exact et traiter la file pending dans les délais.',
                     'acteurs' => array('Caissier principal', 'Caissier adjoint'),
                     'etapes' => array(
-                        'Ouvrir la file de validation de la gare.',
-                        'Valider ou rejeter chaque ligne (ou utiliser la validation de masse si autorisée).',
-                        'Suivre le solde sur la piste caissier concernée (principal ou adjoint).',
+                        'Ouvrir la file de validation de la gare (piste 4 ou 18 selon le rôle).',
+                        'Prioriser les pending anciens / volumineux ; contrôler montant, motif et pièce.',
+                        'Valider ou rejeter (masse seulement après contrôle) ; ne pas modifier l\'auteur (idopera).',
+                        'Rapprocher solde applicatif et espèces, puis clôturer selon la procédure.',
                     ),
-                    'resultat' => 'Recettes et dépenses validées, solde caissier cohérent et exploitable.',
+                    'resultat' => 'File traitée à temps, solde cohérent, rejets traçables.',
                     'controles' => array(
                         'Séparer clairement les pistes caissier principal et adjoint.',
-                        'En cas d\'erreur : rejeter puis faire ressaisir, ne pas inventer une ligne.',
-                        'Alerter en cas de solde incohérent.',
+                        'Suivre les délais de validation (restriction jour N si active).',
+                        'Alerter dès qu\'un écart de solde apparaît ; ne pas contourner.',
                     ),
                 ),
                 array(

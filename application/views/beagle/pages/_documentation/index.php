@@ -52,9 +52,9 @@ $active_tab = !empty($active_tab) ? $active_tab : 'generale';
                             Les corrigés QCM sont réservés aux administrateurs / superviseurs.
                         </p>
                         <p class="text-muted small mb-3">
-                            Mise à jour récente : correspondances (compositions, chemins proposés),
-                            vente à escale, liaison de programmes J/J+1, exclusion des destinations techniques
-                            (ex. OUAGAESCAL), et procédures « Confirmer autre ticket ».
+                            Mise à jour : parcours vendeur escale (gare → itinéraire → départ → destinations),
+                            ticket TPE sans bannière session, filtre instantané du tri passager,
+                            et QCM caissier principal recentré sur la performance et la technicité de caisse.
                         </p>
 
                         <div class="table-responsive">
@@ -65,6 +65,9 @@ $active_tab = !empty($active_tab) ? $active_tab : 'generale';
                                     <th>Description</th>
                                     <th class="text-center">Fiche de poste &amp; manuel</th>
                                     <th class="text-center">QCM (à imprimer)</th>
+                                    <?php if (!empty($can_edit_qcm)): ?>
+                                        <th class="text-center">Modifier / Exporter</th>
+                                    <?php endif; ?>
                                     <?php if (!empty($can_corrige)): ?>
                                         <th class="text-center">Corrigé</th>
                                     <?php endif; ?>
@@ -92,6 +95,18 @@ $active_tab = !empty($active_tab) ? $active_tab : 'generale';
                                                 —
                                             <?php endif; ?>
                                         </td>
+                                        <?php if (!empty($can_edit_qcm)): ?>
+                                            <td class="text-center">
+                                                <?php if (documentation_formation_qcm($code)): ?>
+                                                    <a class="btn btn-sm btn-success"
+                                                       href="<?= site_url('documentation/' . $this->session->company->ekey . '/qcm_edit/' . rawurlencode($code)); ?>">
+                                                        Modifier
+                                                    </a>
+                                                <?php else: ?>
+                                                    —
+                                                <?php endif; ?>
+                                            </td>
+                                        <?php endif; ?>
                                         <?php if (!empty($can_corrige)): ?>
                                             <td class="text-center">
                                                 <?php if (documentation_formation_qcm($code)): ?>

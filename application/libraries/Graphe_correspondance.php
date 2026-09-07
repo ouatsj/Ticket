@@ -820,6 +820,68 @@ class Graphe_correspondance
         return false;
     }
 
+    /**
+     * Étapes UI guichet depuis une liste de codes ligne (injection / hydratation).
+     *
+     * @param string $ekey
+     * @param string[] $codes
+     * @param string $axeParent OD commercial (id_lignes)
+     * @return object[]
+     */
+    protected function etapes_depuis_codes($ekey, array $codes, $axeParent = '')
+    {
+        $ekey = trim((string) $ekey);
+        $axeParent = trim((string) $axeParent);
+        $out = array();
+        $ordre = 1;
+        foreach ($codes as $code) {
+            $code = trim((string) $code);
+            if ($code === '') {
+                continue;
+            }
+            $et = $this->etape_depuis_ident_ligne($ekey, $code);
+            if ($et === null) {
+                continue;
+            }
+            if ($axeParent !== '') {
+                $et->id_lignes = $axeParent;
+                $et->nom_ligne = $axeParent;
+                $et->ident_ligne = $axeParent;
+            }
+            $et->ordre_etape = $ordre;
+            $et->actifint = 1;
+            $et->actiftine = 1;
+            $out[] = $et;
+            $ordre++;
+        }
+        return $out;
+    }
+
+    /**
+     * Continuité hub : ville d'arrivée de la 1ʳᵉ ligne = ville de départ de la suivante.
+     */
+    protected function jambes_continues_ville($ligneA, $ligneB)
+    {
+        $ligneA = trim((string) $ligneA);
+        $ligneB = trim((string) $ligneB);
+        if ($ligneA === '' || $ligneB === '' || strpos($ligneA, '-') === false || strpos($ligneB, '-') === false) {
+            return false;
+        }
+        $partsA = explode('-', $ligneA, 2);
+        $partsB = explode('-', $ligneB, 2);
+        $destA = isset($partsA[1]) ? trim($partsA[1]) : '';
+        $expB = isset($partsB[0]) ? trim($partsB[0]) : '';
+        if ($destA === '' || $expB === '') {
+            return false;
+        }
+        // Même code gare ou même préfixe ville (OUA2 / OUA1).
+        if (strcasecmp($destA, $expB) === 0) {
+            return true;
+        }
+        return $this->code_prefix($destA) !== ''
+            && $this->code_prefix($destA) === $this->code_prefix($expB);
+    }
+
     protected function node_for_exp($code, array $exp_nodes)
     {
         if (isset($exp_nodes[$code])) {
@@ -1181,12 +1243,13 @@ class Graphe_correspondance
      *
      * @param array $decision resoudre_pour_vente()
      * @param array|object[] $declaratif
-     * @param array $opts {reprog?:bool,gareidentif?:string,idsousgare?:int,ekey?:string,date?:string}
+     * @param array $opts {reprog?:bool,gareidentif?:string,idsousgare?:int,ekey?:string,date?:string,heure?:string}
      * @return array{mode:string,chemins:array,etapes:array,meta:array}
      */
     public function payload_multi_chemins(array $decision, $declaratif = array(), $opts = array())
     {
         $modeReprog = !empty($opts['reprog']);
+        $heureOpt = isset($opts['heure']) ? trim((string) $opts['heure']) : '';
         $cheminsOut = array();
         $list = isset($decision['chemins']) ? $decision['chemins'] : array();
         foreach ($list as $idx => $c) {
@@ -1316,7 +1379,9 @@ class Graphe_correspondance
         $declCodes = $this->etapes_to_codes($declaratif);
         $sigDecl = implode('>', $declCodes);
 
-        // Mode vente (non reprog) : filtrer / injecter composition déclarée.
+        // Mode vente (non reprog) : composition déclarée + 1ʳᵉs jambes issues des programmes gare.
+        // Ex. Banfora→Manga : composition BAN→BOB→OUA→MAN, mais à 21h un Banfora–Ouaga
+        // doit pouvoir ouvrir Banfora–Ouaga → Ouaga–Manga (villes toujours dans la composition).
         if (!$modeReprog && count($declCodes) >= 2) {
             $firstDecl = (string) $declCodes[0];
             $allowed = $this->chemins_prefixes($declCodes);
@@ -1325,18 +1390,162 @@ class Graphe_correspondance
                     $allowed[$p] = true;
                 }
             }
+            $firstLegsOk = array($firstDecl => true);
+            $gareVente = isset($opts['gareidentif']) ? trim((string) $opts['gareidentif']) : '';
+            if ($gareVente === '' && !empty($opts['gaexp_od'])) {
+                $gareVente = trim((string) $opts['gaexp_od']);
+            }
+            if ($gareVente === '' && !empty($decision['meta']['axe']) && strpos($decision['meta']['axe'], '-') !== false) {
+                $gareVente = trim(explode('-', $decision['meta']['axe'], 2)[0]);
+            }
+            $dateVente = isset($opts['date']) ? trim((string) $opts['date']) : '';
+            if ($dateVente === '' && !empty($decision['meta']['date'])) {
+                $dateVente = trim((string) $decision['meta']['date']);
+            }
+            $ekeyVente = isset($opts['ekey']) ? trim((string) $opts['ekey']) : '';
+            $sgVente = isset($opts['idsousgare']) ? $opts['idsousgare'] : null;
+            if ($gareVente !== '' && $dateVente !== '' && $ekeyVente !== '') {
+                if (!isset($this->CI->m_programme)) {
+                    $this->CI->load->model('Programme_model', 'm_programme');
+                }
+                // Heure choisie en priorité ; sinon tous les départs gare du jour.
+                $lignesGare = $this->CI->m_programme->lignes_depart_gare_date(
+                    $ekeyVente,
+                    $gareVente,
+                    $dateVente,
+                    $sgVente,
+                    $heureOpt !== '' ? $heureOpt : null
+                );
+                foreach ($lignesGare as $lgFirst) {
+                    $firstLegsOk[(string) $lgFirst] = true;
+                }
+                // Si heure stricte ne donne rien, élargir au jour (chemins toujours bornés villes).
+                if ($heureOpt !== '' && count($firstLegsOk) <= 1) {
+                    foreach ($this->CI->m_programme->lignes_depart_gare_date(
+                        $ekeyVente,
+                        $gareVente,
+                        $dateVente,
+                        $sgVente,
+                        null
+                    ) as $lgDay) {
+                        $firstLegsOk[(string) $lgDay] = true;
+                    }
+                }
+            }
             $kept = array();
             foreach ($cheminsOut as $c) {
                 $codes = isset($c['codes']) ? $c['codes'] : array();
-                if (empty($codes) || (string) $codes[0] !== $firstDecl) {
+                if (empty($codes) || empty($firstLegsOk[(string) $codes[0]])) {
                     continue;
                 }
                 if ($this->chemin_a_ville_hors_composition($codes, $allowed)) {
                     continue;
                 }
+                // Marquer les chemins ancrés sur un départ gare (hors 1ʳᵉ jambe déclarée).
+                if ((string) $codes[0] !== $firstDecl && $heureOpt !== '') {
+                    if (strpos((string) $c['label'], 'départ gare') === false) {
+                        $c['label'] = rtrim((string) $c['label']) . ' · départ gare ' . substr($heureOpt, 0, 5);
+                    }
+                    $c['source'] = 'graphe_gare';
+                }
                 $kept[] = $c;
             }
             $cheminsOut = $kept;
+
+            // Injecter 1ʳᵉ jambe programme gare + dernière jambe composition si graphe l'a oublié.
+            // Banfora–Ouaga 21h + … → Ouaga–Manga (dernier segment déclaré).
+            if ($heureOpt !== '' && count($declCodes) >= 2 && !empty($firstLegsOk)) {
+                $lastDecl = (string) $declCodes[count($declCodes) - 1];
+                foreach (array_keys($firstLegsOk) as $lgFirst) {
+                    $lgFirst = (string) $lgFirst;
+                    if ($lgFirst === '' || $lgFirst === $firstDecl) {
+                        continue;
+                    }
+                    $candidate = array($lgFirst, $lastDecl);
+                    if ($this->chemin_a_ville_hors_composition($candidate, $allowed)) {
+                        continue;
+                    }
+                    $sigCand = implode('>', $candidate);
+                    $hasCand = false;
+                    foreach ($cheminsOut as $c) {
+                        if (implode('>', isset($c['codes']) ? $c['codes'] : array()) === $sigCand) {
+                            $hasCand = true;
+                            break;
+                        }
+                    }
+                    if ($hasCand) {
+                        continue;
+                    }
+                    // Continuité hub : dest 1ʳᵉ jambe = même ville que départ dernière jambe.
+                    if (!$this->jambes_continues_ville($lgFirst, $lastDecl)) {
+                        continue;
+                    }
+                    $axeParent = !empty($decision['meta']['axe'])
+                        ? (string) $decision['meta']['axe']
+                        : '';
+                    $etapesInj = $this->etapes_depuis_codes(
+                        $ekeyVente !== '' ? $ekeyVente : (isset($opts['ekey']) ? (string) $opts['ekey'] : ''),
+                        $candidate,
+                        $axeParent
+                    );
+                    if (count($etapesInj) < 2) {
+                        continue;
+                    }
+                    $nomsInj = array();
+                    foreach ($etapesInj as $et) {
+                        if (is_object($et) && !empty($et->nom_itineraires)) {
+                            $nomsInj[] = $et->nom_itineraires;
+                        }
+                    }
+                    $cheminsOut[] = array(
+                        'id' => count($cheminsOut),
+                        'label' => (!empty($nomsInj) ? implode(' → ', $nomsInj) : ($lgFirst . ' → ' . $lastDecl))
+                            . ' · 2 jambes · départ gare ' . substr($heureOpt, 0, 5),
+                        'codes' => $candidate,
+                        'nb_jambes' => 2,
+                        'score' => null,
+                        'attente_totale_min' => null,
+                        'attente_totale_label' => null,
+                        'attentes_min' => array(),
+                        'etapes' => $etapesInj,
+                        'source' => 'gare_composition',
+                    );
+                }
+            }
+
+            // Hydrater les étapes manquantes (chemins codes seuls) pour le panneau guichet.
+            $ekeyHydr = $ekeyVente !== '' ? $ekeyVente : (isset($opts['ekey']) ? trim((string) $opts['ekey']) : '');
+            $axeHydr = !empty($decision['meta']['axe']) ? (string) $decision['meta']['axe'] : '';
+            if ($ekeyHydr !== '') {
+                foreach ($cheminsOut as $hi => $hc) {
+                    $codesH = isset($hc['codes']) ? $hc['codes'] : array();
+                    $etsH = isset($hc['etapes']) ? $hc['etapes'] : array();
+                    $nbEts = is_array($etsH) ? count($etsH) : 0;
+                    if (count($codesH) >= 2 && $nbEts < 2) {
+                        $cheminsOut[$hi]['etapes'] = $this->etapes_depuis_codes($ekeyHydr, $codesH, $axeHydr);
+                    }
+                }
+            }
+
+            // Priorité : chemins dont la 1ʳᵉ jambe match le départ gare à l'heure choisie.
+            if ($heureOpt !== '' && count($cheminsOut) > 1) {
+                $matchHour = array();
+                $rest = array();
+                foreach ($cheminsOut as $c) {
+                    $codes = isset($c['codes']) ? $c['codes'] : array();
+                    $first = !empty($codes) ? (string) $codes[0] : '';
+                    $src = isset($c['source']) ? (string) $c['source'] : '';
+                    if ($first !== '' && $first !== $firstDecl && isset($firstLegsOk[$first])
+                        && ($src === 'graphe_gare' || $src === 'gare_composition')) {
+                        $matchHour[] = $c;
+                    } else {
+                        $rest[] = $c;
+                    }
+                }
+                if (!empty($matchHour)) {
+                    $cheminsOut = array_merge($matchHour, $rest);
+                }
+            }
         }
 
         $declNoms = array();
@@ -1394,8 +1603,19 @@ class Graphe_correspondance
                 }
             }
 
-            // A : composition déclarée en tête (préférer la version graphe si horaires présents)
-            if ($sigDecl !== '' && count($declCodes) >= 2 && count($cheminsOut) > 1) {
+            // A : composition déclarée en tête — sauf si une heure ancre un départ gare
+            // (ex. Banfora–Ouaga 21h → priorité Banfora–Ouaga→Ouaga–Manga).
+            $hasGareHourFirst = false;
+            if ($heureOpt !== '') {
+                foreach ($cheminsOut as $cChk) {
+                    $srcChk = isset($cChk['source']) ? (string) $cChk['source'] : '';
+                    if ($srcChk === 'graphe_gare' || $srcChk === 'gare_composition') {
+                        $hasGareHourFirst = true;
+                        break;
+                    }
+                }
+            }
+            if (!$hasGareHourFirst && $sigDecl !== '' && count($declCodes) >= 2 && count($cheminsOut) > 1) {
                 $declIdx = null;
                 foreach ($cheminsOut as $i => $c) {
                     if (implode('>', $c['codes']) === $sigDecl) {
@@ -1413,6 +1633,20 @@ class Graphe_correspondance
                         : (isset($item['source']) ? $item['source'] : 'declaratif');
                     array_splice($cheminsOut, $declIdx, 1);
                     array_unshift($cheminsOut, $item);
+                }
+            } elseif ($hasGareHourFirst && $sigDecl !== '' && count($declCodes) >= 2) {
+                // Marquer le déclaratif sans le remonter devant le départ gare.
+                foreach ($cheminsOut as $i => $c) {
+                    if (implode('>', isset($c['codes']) ? $c['codes'] : array()) !== $sigDecl) {
+                        continue;
+                    }
+                    if (strpos((string) $c['label'], 'composition') === false) {
+                        $cheminsOut[$i]['label'] = rtrim((string) $c['label']) . ' · composition déclarée';
+                    }
+                    if (empty($c['source']) || $c['source'] === 'graphe') {
+                        $cheminsOut[$i]['source'] = 'graphe_declaratif';
+                    }
+                    break;
                 }
             }
         } else {

@@ -1582,6 +1582,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function __venteDefaultCheminIndex(chemins, hour) {
         if (!Array.isArray(chemins) || !chemins.length) return 0;
+        var preferGare = hour && !hour.hasProg;
+        if (preferGare) {
+            for (var g = 0; g < chemins.length; g++) {
+                var sg = chemins[g] && chemins[g].source;
+                if (sg === 'graphe_gare' || sg === 'gare_composition') return g;
+            }
+        }
         for (var i = 0; i < chemins.length; i++) {
             if (hour && !hour.hasProg && chemins[i].source === 'direct') continue;
             return i;

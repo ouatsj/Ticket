@@ -85,6 +85,11 @@
             $route['documentation/(:num)/manuel/(:any)'] = 'Documentation/manuel/$1/$2';
             $route['documentation/(:num)/qcm/(:any)'] = 'Documentation/qcm/$1/$2';
             $route['documentation/(:num)/qcm_corrige/(:any)'] = 'Documentation/qcm_corrige/$1/$2';
+            $route['documentation/(:num)/qcm_edit/(:any)'] = 'Documentation/qcm_edit/$1/$2';
+            $route['documentation/(:num)/qcm_save/(:any)'] = 'Documentation/qcm_save/$1/$2';
+            $route['documentation/(:num)/qcm_export/(:any)'] = 'Documentation/qcm_export/$1/$2';
+            $route['documentation/(:num)/qcm_import/(:any)'] = 'Documentation/qcm_import/$1/$2';
+            $route['documentation/(:num)/qcm_reset/(:any)'] = 'Documentation/qcm_reset/$1/$2';
 
             /** Audit quotidien */
             $route['audit_quotidien/(:num)'] = 'Audit_quotidien/index/$1';

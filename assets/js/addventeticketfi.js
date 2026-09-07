@@ -1084,8 +1084,18 @@ document.addEventListener('DOMContentLoaded', () => {
             applyIdx(idx);
         };
         var defaultIdx = 0;
-        for (var d = 0; d < chemins.length; d++) {
-            if (chemins[d].source !== 'direct') { defaultIdx = d; break; }
+        var hourFi = window.__venteSelectedHour;
+        var preferGareFi = hourFi && !hourFi.hasProg;
+        if (preferGareFi) {
+            for (var g = 0; g < chemins.length; g++) {
+                var sg = chemins[g] && chemins[g].source;
+                if (sg === 'graphe_gare' || sg === 'gare_composition') { defaultIdx = g; break; }
+            }
+        }
+        if (!(preferGareFi && (chemins[defaultIdx] && (chemins[defaultIdx].source === 'graphe_gare' || chemins[defaultIdx].source === 'gare_composition')))) {
+            for (var d = 0; d < chemins.length; d++) {
+                if (chemins[d].source !== 'direct') { defaultIdx = d; break; }
+            }
         }
         sel.selectedIndex = defaultIdx + 1;
         applyIdx(defaultIdx);

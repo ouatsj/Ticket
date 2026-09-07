@@ -2418,6 +2418,61 @@
             return array_keys($out);
         }
 
+        /**
+         * Lignes catalogue ayant un départ réel à la gare (date, heure optionnelle).
+         * Sert de 1ʳᵉ jambe transit : ex. Banfora–Ouaga 21h pour une vente Banfora–Manga.
+         *
+         * @param string|null $heure HH:MM ou HH:MM:SS (filtre horloge si fourni)
+         * @return string[] ident_ligne
+         */
+        public function lignes_depart_gare_date($ekey, $gareidentif, $date, $idsousgare = null, $heure = null)
+        {
+            $gare = trim((string) $gareidentif);
+            $date = trim((string) $date);
+            if ($gare === '' || $date === '') {
+                return array();
+            }
+            $ekeyEsc = $this->db->escape($ekey);
+            $gareEsc = $this->db->escape($gare);
+            $dateEsc = $this->db->escape($date);
+            $sgSql = '';
+            if ($idsousgare !== null && $idsousgare !== '' && (int) $idsousgare > 0) {
+                $sgSql = $this->sql_filtre_sousgare((int) $idsousgare);
+            }
+            $heureSql = '';
+            $hh = $this->_heure_hhmm($heure);
+            if ($hh !== '') {
+                $hhEsc = $this->db->escape_str($hh);
+                $heureSql = " AND LEFT(h.heure, 5) = '{$hhEsc}'";
+            }
+            $rows = $this->db->query(
+                "SELECT DISTINCT lh.ligne_id
+                 FROM programme pr
+                 JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
+                 JOIN heures h ON lh.heure_identif = h.id_heure
+                 JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
+                 JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
+                 JOIN compagnies c ON ex.id_compagd = c.cle_compagnie
+                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
+                 WHERE e.ekey = {$ekeyEsc}
+                 AND pr.gareidentif = {$gareEsc}
+                 AND pr.date_progr = {$dateEsc}
+                 AND pr.statut_prog = 'actif'
+                 AND pr.actif_prog = 0
+                 AND lh.actif_lh = 1
+                 AND h.h_active = 1
+                 {$sgSql}
+                 {$heureSql}"
+            )->result();
+            $out = array();
+            foreach ($rows as $r) {
+                if (!empty($r->ligne_id)) {
+                    $out[(string) $r->ligne_id] = true;
+                }
+            }
+            return array_keys($out);
+        }
+
         //prog
         public function progsiege($cid, $cd, $dat)
         {

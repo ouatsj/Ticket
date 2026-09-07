@@ -41,6 +41,12 @@
             <button type="button" class="btn btn-primary" onclick="window.print();">
                 Imprimer la fiche
             </button>
+            <?php if (!empty($can_edit_qcm)): ?>
+                <a class="btn btn-success"
+                   href="<?= site_url('documentation/' . $this->session->company->ekey . '/qcm_edit/' . rawurlencode($role_code)); ?>">
+                    Modifier / Exporter
+                </a>
+            <?php endif; ?>
             <?php if (!empty($can_corrige) && empty($show_answers)): ?>
                 <a class="btn btn-warning"
                    href="<?= site_url('documentation/' . $this->session->company->ekey . '/qcm_corrige/' . rawurlencode($role_code)); ?>">
@@ -55,6 +61,14 @@
             <?php endif; ?>
         </div>
 
+        <?php if (!empty($qcm['_has_override'])): ?>
+            <div class="alert alert-info no-print py-2">
+                Version personnalisée active (questions modifiées).
+                <?php if (!empty($can_edit_qcm)): ?>
+                    <a href="<?= site_url('documentation/' . $this->session->company->ekey . '/qcm_edit/' . rawurlencode($role_code)); ?>">Éditer</a>
+                <?php endif; ?>
+            </div>
+        <?php endif; ?>
         <div class="card">
             <div class="card-body">
                 <h3 class="mb-2">
