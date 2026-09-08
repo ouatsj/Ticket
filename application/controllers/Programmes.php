@@ -1845,7 +1845,8 @@
         }
 
         /**
-         * Aval : annule une offre de complément après dépassement de l'heure de correspondance.
+         * Aval : refuse / annule une offre de complément (à tout moment).
+         * Archive en complément non traité côté amont.
          * POST Programmes/annuler_complement_expire/{ekey}
          */
         public function annuler_complement_expire($ckey)

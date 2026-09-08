@@ -84,7 +84,7 @@
                 <?php endif; ?>
                 <?= htmlspecialchars(isset($__al->message) ? $__al->message : '', ENT_QUOTES, 'UTF-8'); ?>
                 <?php if ($__type === 'offre_aval' && empty($__al->expiree)): ?>
-                    — <a href="#" class="alert-link js-reco-open">Complément départ</a>
+                    — <a href="#" class="alert-link js-reco-open">Voir / Créer ou refuser</a>
                 <?php endif; ?>
                 <?php if ($__type === 'offre_aval' && !empty($__al->expiree)): ?>
                     — <a href="#" class="alert-link js-reco-open">Voir / Annuler</a>
@@ -92,7 +92,7 @@
                 <?php if ($__type === 'non_valide_a_temps' && !empty($__al->code_progr_source)): ?>
                     <button type="button" class="btn btn-sm btn-danger ml-2 js-archiver-non-traite"
                             data-code="<?= htmlspecialchars($__al->code_progr_source, ENT_QUOTES, 'UTF-8'); ?>"
-                            data-id="<?= $__id; ?>">Archiver en complément non traité</button>
+                            data-id="<?= $__id; ?>">Confirmer complément non traité</button>
                 <?php endif; ?>
                 <?php if ($__id > 0 && $__type !== 'non_valide_a_temps'): ?>
                     <button type="button" class="btn btn-sm btn-link p-0 ml-2 js-sortie-alerte-lu" data-id="<?= $__id; ?>">Marquer lu</button>
@@ -2441,7 +2441,7 @@
         <div class="modal-footer">
             <button class="btn btn-secondary js-reco-close" type="button">Fermer</button>
             <button class="btn btn-outline-danger js-reco-cancel" type="button" style="display:none;" disabled>
-                Annuler (heure dépassée)
+                Refuser / Annuler l’offre
             </button>
             <button class="btn btn-warning js-reco-save" type="button" disabled>Créer le départ</button>
         </div>
@@ -2524,7 +2524,8 @@
             heure_correspondance_depassee: 'Heure de correspondance dépassée : création bloquée. Annulez l’offre.',
             heure_pas_depassee: 'L’heure de correspondance n’est pas encore dépassée.',
             offre_annulee: 'Cette offre a déjà été annulée pour votre gare.',
-            sortie_fermee: 'Cette déclaration n’est plus ouverte.',
+            sortie_fermee: 'Cette déclaration n’est plus ouverte (déjà créée ou refusée).',
+            refus_aval: 'Offre refusée.',
             depart_code_manquant: 'Code de départ du principal introuvable.',
             date_invalide: 'Date invalide.',
             echec_creation_depart: 'Échec de création du départ.',
@@ -2579,8 +2580,12 @@
         var cancelBtn = document.querySelector('.js-reco-cancel');
         var expired = !!(offre && offre.expiree);
         if (cancelBtn) {
-            cancelBtn.style.display = expired ? '' : 'none';
-            cancelBtn.disabled = !expired;
+            // Aval peut refuser à tout moment (avant ou après échéance).
+            cancelBtn.style.display = offre ? '' : 'none';
+            cancelBtn.disabled = !offre;
+            cancelBtn.textContent = expired
+                ? 'Annuler (heure dépassée)'
+                : 'Refuser l’offre';
         }
         if (!save) return;
         if (expired) {
@@ -2781,10 +2786,14 @@
     var cancelEl = document.querySelector('.js-reco-cancel');
     if (cancelEl) {
         cancelEl.addEventListener('click', function () {
-            if (!state.offre || !state.offre.expiree) return;
-            if (!window.confirm('Annuler cette offre (heure dépassée) ? La gare amont sera notifiée.')) return;
+            if (!state.offre) return;
+            var expired = !!state.offre.expiree;
+            var conf = expired
+                ? 'Annuler cette offre (heure dépassée) ? Elle passera en complément non traité chez la gare amont.'
+                : 'Refuser ce complément départ ? La gare amont sera notifiée et l’offre sera archivée en complément non traité.';
+            if (!window.confirm(conf)) return;
             cancelEl.disabled = true;
-            setMsg('Annulation…', false);
+            setMsg(expired ? 'Annulation…' : 'Refus en cours…', false);
             var body = new URLSearchParams();
             body.set('code_progr_source', state.offre.code_progr_source);
             body.set('gare_cible', gareExp);
@@ -2804,7 +2813,12 @@
                     cancelEl.disabled = false;
                     return;
                 }
-                setMsg('Offre annulée. La gare amont a été notifiée.', false);
+                setMsg(
+                    data.archive
+                        ? 'Offre refusée. Elle apparaît en complément non traité chez la gare amont.'
+                        : 'Offre refusée pour votre gare. La gare amont a été notifiée.',
+                    false
+                );
                 setTimeout(function () { window.location.reload(); }, 700);
             }).catch(function (err) {
                 setMsg((err && err.message) ? err.message : 'Erreur réseau', true);
