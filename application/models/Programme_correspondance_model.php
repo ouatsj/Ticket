@@ -193,12 +193,12 @@ class Programme_correspondance_model extends CI_Model
         if ($role === 'principal') {
             $suiteTxt = $short($suite);
             $label = $suiteTxt !== '' ? ('Corr. → ' . $suiteTxt) : 'Correspondance liée';
-            $title = 'Lien correspondance';
+            $title = 'Lien correspondance (trajet complet : siège exclusif vs suite/tronçon)';
             if ($suite) {
                 $title .= ' · suite ' . $fmt($suite);
             }
             if ($derive) {
-                $title .= ' · miroir ' . $fmt($derive);
+                $title .= ' · tronçon ' . $fmt($derive);
             }
             return '<br><small class="badge badge-info js-corr-badge" title="'
                 . htmlspecialchars($title, ENT_QUOTES, 'UTF-8') . '">'
@@ -206,8 +206,8 @@ class Programme_correspondance_model extends CI_Model
         }
         if ($role === 'derive') {
             $suiteTxt = $short($suite);
-            $label = $suiteTxt !== '' ? ('Miroir · ' . $suiteTxt) : 'Miroir correspondance';
-            $title = 'Dérivé : sièges = déjà vendus sur le départ de correspondance';
+            $label = $suiteTxt !== '' ? ('Tronçon · ' . $suiteTxt) : 'Tronçon correspondance';
+            $title = 'Tronçon vers hub : même n° vendable aussi sur la suite (segments indépendants), bloqué si vente sur le principal';
             if ($suite) {
                 $title .= ' (' . $fmt($suite) . ')';
             }
@@ -223,7 +223,7 @@ class Programme_correspondance_model extends CI_Model
                 $from = $short($principal);
             }
             $label = $from !== '' ? ('Corr. ← ' . $from) : 'Correspondance (hub)';
-            $title = 'Départ utilisé en correspondance par une autre gare';
+            $title = 'Suite hub : segments indépendants du tronçon dérivé ; siège bloqué si vente sur le principal';
             if ($principal) {
                 $title .= ' : ' . $fmt($principal);
                 if (!empty($principal->gareidentif)) {
@@ -238,52 +238,138 @@ class Programme_correspondance_model extends CI_Model
     }
 
     /**
-     * Codes programmes qui partagent le même stock de sièges (dérivé ↔ suite).
+     * Codes dont les ventes bloquent le siège pour $code_progr.
+     *
+     * Option 3 (segments indépendants) :
+     * - principal : bloqué par principal + suite + dérivé (trajet complet)
+     * - suite     : bloqué par suite + principal (pas le dérivé)
+     * - dérivé    : bloqué par dérivé + principal (pas la suite)
+     * → A et B peuvent vendre le même n° sur tronçon / hub (relais).
+     *
      * @return string[]
      */
     public function codes_sieges_partages($code_progr)
     {
-        $lien = $this->get_by_any_code($code_progr);
+        $code = trim((string) $code_progr);
+        if ($code === '') {
+            return array();
+        }
+        $lien = $this->get_by_any_code($code);
         if (!$lien) {
-            return array(trim((string) $code_progr));
+            return array($code);
         }
-        $codes = array();
-        if (!empty($lien->code_progr_principal)) {
-            $codes[] = (string) $lien->code_progr_principal;
+
+        $principal = !empty($lien->code_progr_principal) ? (string) $lien->code_progr_principal : '';
+        $suite = !empty($lien->code_progr_suite) ? (string) $lien->code_progr_suite : '';
+        $derive = !empty($lien->code_progr_derive) ? (string) $lien->code_progr_derive : '';
+
+        $role = $this->role_dans_lien($code, $lien);
+        $codes = array($code);
+        if ($role === 'principal') {
+            if ($suite !== '') {
+                $codes[] = $suite;
+            }
+            if ($derive !== '') {
+                $codes[] = $derive;
+            }
+        } elseif ($role === 'suite') {
+            if ($principal !== '') {
+                $codes[] = $principal;
+            }
+            // Pas le dérivé : segments indépendants.
+        } elseif ($role === 'derive') {
+            if ($principal !== '') {
+                $codes[] = $principal;
+            }
+            // Pas la suite : segments indépendants.
+        } else {
+            if ($principal !== '') {
+                $codes[] = $principal;
+            }
+            if ($suite !== '') {
+                $codes[] = $suite;
+            }
+            if ($derive !== '') {
+                $codes[] = $derive;
+            }
         }
-        if (!empty($lien->code_progr_suite)) {
-            $codes[] = (string) $lien->code_progr_suite;
-        }
-        if (!empty($lien->code_progr_derive)) {
-            $codes[] = (string) $lien->code_progr_derive;
-        }
+
         $codes = array_values(array_unique(array_filter($codes)));
-        return !empty($codes) ? $codes : array(trim((string) $code_progr));
+        return !empty($codes) ? $codes : array($code);
     }
 
     /**
-     * Si $code_progr est le départ dérivé d'un lien : infos miroir sièges.
-     * Dispo dérivé = occupés(suite) \ occupés(dérivé).
+     * Rôle d'un code dans un lien (principal|suite|derive) ou null.
      *
-     * @return array{suite:string,derive:string}|null
+     * @param string      $code_progr
+     * @param object|null $lien
+     * @return string|null
      */
-    public function miroir_derive_info($code_progr)
+    public function role_dans_lien($code_progr, $lien = null)
     {
         $code = trim((string) $code_progr);
         if ($code === '') {
             return null;
         }
-        $lien = $this->get_by_any_code($code);
-        if (!$lien
-            || empty($lien->code_progr_derive)
-            || empty($lien->code_progr_suite)
-            || (string) $lien->code_progr_derive !== $code) {
+        if ($lien === null) {
+            $lien = $this->get_by_any_code($code);
+        }
+        if (!$lien) {
             return null;
         }
-        return array(
-            'suite' => (string) $lien->code_progr_suite,
-            'derive' => (string) $lien->code_progr_derive,
-        );
+        if (!empty($lien->code_progr_principal) && (string) $lien->code_progr_principal === $code) {
+            return 'principal';
+        }
+        if (!empty($lien->code_progr_suite) && (string) $lien->code_progr_suite === $code) {
+            return 'suite';
+        }
+        if (!empty($lien->code_progr_derive) && (string) $lien->code_progr_derive === $code) {
+            return 'derive';
+        }
+        return null;
+    }
+
+    /**
+     * True si une vente sur $codeA doit bloquer le siège aussi pour $codeB (et inversement).
+     * Option 3 : suite et dérivé ne se bloquent pas.
+     *
+     * @param string $codeA
+     * @param string $codeB
+     * @return bool
+     */
+    public function siege_occupation_compatible($codeA, $codeB)
+    {
+        $a = trim((string) $codeA);
+        $b = trim((string) $codeB);
+        if ($a === '' || $b === '' || $a === $b) {
+            return true;
+        }
+        $lien = $this->get_by_any_code($a);
+        if (!$lien) {
+            return true;
+        }
+        $roleA = $this->role_dans_lien($a, $lien);
+        $roleB = $this->role_dans_lien($b, $lien);
+        if ($roleA === null || $roleB === null) {
+            return true;
+        }
+        if (($roleA === 'suite' && $roleB === 'derive')
+            || ($roleA === 'derive' && $roleB === 'suite')
+        ) {
+            return false;
+        }
+        return true;
+    }
+
+    /**
+     * Ancien miroir strict (dérivé ← suite) : désactivé (option 3 segments).
+     * Conservé pour compatibilité d'appel ; retourne toujours null.
+     *
+     * @return null
+     */
+    public function miroir_derive_info($code_progr)
+    {
+        return null;
     }
 
     /**
@@ -1197,8 +1283,7 @@ class Programme_correspondance_model extends CI_Model
     /**
      * Crée le lien + programme suite (hub) + programme dérivé.
      * - suite et dérivé : categori, depart_code, intervalles = principal
-     * - vente dérivé : miroir des sièges déjà occupés sur la suite
-     * - pool sièges : principal + suite + dérivé
+     * - sièges option 3 : segments indépendants (suite ∥ dérivé) ; principal exclusif
      * options requises : id_ligneheure, date_progr_suite
      * @return array
      */

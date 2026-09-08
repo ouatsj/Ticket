@@ -614,6 +614,7 @@
 
         /**
          * Codes programmes partageant le stock sièges (correspondance, reconduction, même bus/jour).
+         * Correspondance option 3 : suite et dérivé ne partagent pas l'occupation (segments indépendants).
          *
          * @return string[]
          */
@@ -625,6 +626,10 @@
             }
 
             $codes = array($code => true);
+
+            if (!isset($this->m_programme_correspondance)) {
+                $this->load->model('Programme_correspondance_model', 'm_programme_correspondance');
+            }
 
             try {
                 foreach ($this->codes_sieges_occupes($code) as $c) {
@@ -649,9 +654,16 @@
                 )->result();
                 foreach ($siblings as $s) {
                     $c = trim((string) $s->code_progr);
-                    if ($c !== '') {
-                        $codes[$c] = true;
+                    if ($c === '') {
+                        continue;
                     }
+                    if (isset($this->m_programme_correspondance)
+                        && method_exists($this->m_programme_correspondance, 'siege_occupation_compatible')
+                        && !$this->m_programme_correspondance->siege_occupation_compatible($code, $c)
+                    ) {
+                        continue;
+                    }
+                    $codes[$c] = true;
                 }
             }
 
@@ -2589,7 +2601,7 @@
                     GROUP BY pr.depart_code, pr.date_progr, pr.code_progr")->result();
         }
         /**
-         * Codes programmes partageant les sièges (lien correspondance dérivé ↔ suite).
+         * Codes programmes partageant les sièges (lien correspondance — option 3 segments).
          * @return string[]
          */
         public function codes_sieges_occupes($code_progr)
@@ -2662,7 +2674,6 @@
             if (!isset($this->m_programme_correspondance)) {
                 $this->load->model('Programme_correspondance_model', 'm_programme_correspondance');
             }
-            $miroir = $this->m_programme_correspondance->miroir_derive_info($cd);
 
             $recoAnd = $this->_reconduction_cdprog_and($cd);
             if ($recoAnd === false) {
@@ -2672,46 +2683,6 @@
             $stockCodes = $this->codes_siege_stock($cd);
             $tamponAnd = $this->_cdprog_tampon_and($stockCodes);
             $actifPas = $this->_cdprog_actif_pas_and('p');
-            $actifPas2 = $this->_cdprog_actif_pas_and('p2');
-
-            // Dérivé Banfora→Bobo : miroir des sièges déjà occupés sur la suite Bobo.
-            if ($miroir) {
-                $suiteEsc = $this->db->escape_str($miroir['suite']);
-                $deriveEsc = $this->db->escape_str($miroir['derive']);
-                return $this->db->query(
-                    "SELECT * FROM siege_categorie sc
-                    JOIN categorie ct ON sc.idcat_bus=ct.categorie
-                    JOIN programme pr ON pr.categori=ct.categorie
-                    JOIN ligne_heure lh ON pr.id_heur=lh.id_ligneheure
-                    JOIN lignes l ON lh.ligne_id=l.ident_ligne
-                    JOIN heures h ON lh.heure_identif=h.id_heure
-                    WHERE sc.siege_num IN (
-                        SELECT p.num_siege_categorie FROM passager p
-                        WHERE p.code_pro = '{$suiteEsc}'
-                          AND p.num_siege_categorie IS NOT NULL
-                          AND p.num_siege_categorie BETWEEN {$d} AND {$f}
-                          {$actifPas}
-                    )
-                    AND sc.siege_num NOT IN (
-                        SELECT p2.num_siege_categorie FROM passager p2
-                        WHERE p2.code_pro = '{$deriveEsc}'
-                          AND p2.num_siege_categorie IS NOT NULL
-                          AND p2.num_siege_categorie BETWEEN {$d} AND {$f}
-                          {$actifPas2}
-                    )
-                    AND pr.code_progr='{$cdEsc}'
-                    AND pr.date_progr='{$datEsc}'
-                    AND l.nom_ligne='{$lgEsc}'
-                    AND h.heure='{$hrEsc}'
-                    AND h.h_active = 1
-                    AND lh.actif_lh = 1
-                    AND pr.actif_prog = 0
-                    AND sc.siege_num BETWEEN {$d} AND {$f}
-                    {$bloqueAnd}
-                    {$tamponAnd}
-                    ORDER BY sc.siege_num ASC"
-                )->result();
-            }
 
             $occupes = $this->_sql_in_codes($this->codes_sieges_occupes($cd));
 
@@ -2900,7 +2871,6 @@
             if (!isset($this->m_programme_correspondance)) {
                 $this->load->model('Programme_correspondance_model', 'm_programme_correspondance');
             }
-            $miroir = $this->m_programme_correspondance->miroir_derive_info($cd);
 
             $recoAnd = $this->_reconduction_cdprog_and($cd);
             if ($recoAnd === false) {
@@ -2910,42 +2880,6 @@
             $stockCodes = $this->codes_siege_stock($cd);
             $tamponAnd = $this->_cdprog_tampon_and($stockCodes);
             $actifPas = $this->_cdprog_actif_pas_and('p');
-            $actifPas2 = $this->_cdprog_actif_pas_and('p2');
-
-            if ($miroir) {
-                $suiteEsc = $this->db->escape_str($miroir['suite']);
-                $deriveEsc = $this->db->escape_str($miroir['derive']);
-                return $this->db->query(
-                    "SELECT * FROM siege_categorie sc
-                    JOIN categorie ct ON sc.idcat_bus=ct.categorie
-                    JOIN programme pr ON pr.categori=ct.categorie
-                    JOIN ligne_heure lh ON pr.id_heur=lh.id_ligneheure
-                    JOIN lignes l ON lh.ligne_id=l.ident_ligne
-                    JOIN heures h ON lh.heure_identif=h.id_heure
-                    WHERE sc.siege_num IN (
-                        SELECT p.num_siege_categorie FROM passager p
-                        WHERE p.code_pro = '{$suiteEsc}'
-                          AND p.num_siege_categorie IS NOT NULL
-                          AND p.num_siege_categorie BETWEEN {$d} AND {$f}
-                          {$actifPas}
-                    )
-                    AND sc.siege_num NOT IN (
-                        SELECT p2.num_siege_categorie FROM passager p2
-                        WHERE p2.code_pro = '{$deriveEsc}'
-                          AND p2.num_siege_categorie IS NOT NULL
-                          AND p2.num_siege_categorie BETWEEN {$d} AND {$f}
-                          {$actifPas2}
-                    )
-                    AND pr.code_progr='{$cdEsc}'
-                    AND h.h_active = 1
-                    AND lh.actif_lh = 1
-                    AND pr.actif_prog = 0
-                    AND sc.siege_num BETWEEN {$d} AND {$f}
-                    {$bloqueAnd}
-                    {$tamponAnd}
-                    ORDER BY sc.siege_num ASC"
-                )->result();
-            }
 
             $occupes = $this->_sql_in_codes($this->codes_sieges_occupes($cd));
 

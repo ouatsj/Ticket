@@ -643,30 +643,6 @@ class Sale_passager_service
         if (!isset($this->ci->m_programme_correspondance)) {
             $this->ci->load->model('Programme_correspondance_model', 'm_programme_correspondance');
         }
-        $miroir = $this->ci->m_programme_correspondance->miroir_derive_info($code);
-        if ($miroir && (string) $miroir['derive'] === $code) {
-            $suite = (string) $miroir['suite'];
-            $derive = (string) $miroir['derive'];
-            if ($this->_siege_actif_occupe($derive, $num, array($derive), $lock)) {
-                return array(
-                    'ok' => false,
-                    'code' => 'occupied',
-                    'reason' => 'Le siège ' . $num . ' est déjà vendu sur ce départ.',
-                );
-            }
-            if (!$this->_siege_actif_occupe($suite, $num, array($suite), $lock)) {
-                return array(
-                    'ok' => false,
-                    'code' => 'miroir',
-                    'reason' => 'Le siège ' . $num . ' n\'est pas disponible sur la correspondance miroir.',
-                );
-            }
-            $tamponFail = $this->_assert_tampon_libre($code, $num, $skipTampon, $allowTampon);
-            if ($tamponFail !== null) {
-                return $tamponFail;
-            }
-            return array('ok' => true, 'code' => 'ok', 'reason' => '');
-        }
 
         $stockCodes = $this->ci->m_programme->codes_siege_stock($code);
         if ($lock) {

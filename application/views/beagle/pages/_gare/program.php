@@ -1540,7 +1540,7 @@
             <p class="mb-2" id="corr-principal-label"></p>
             <div id="corr-linked-box" class="mb-3" style="display:none;"></div>
             <div id="corr-suggest-box">
-                <p class="text-muted small">Choisir la date et l’heure de départ à la gare de correspondance (même jour ou lendemain, min. 30 min après le principal). Le départ sera créé avec le même bus, le même <code>depart_code</code> et les mêmes sièges que le principal. Les sièges du départ hub dérivé restent le miroir des sièges occupés sur la suite.</p>
+                <p class="text-muted small">Choisir la date et l’heure de départ à la gare de correspondance (même jour ou lendemain, min. 30 min après le principal). Le départ sera créé avec le même bus, le même <code>depart_code</code> et les mêmes sièges que le principal. Suite (hub) et tronçon dérivé vendent indépendamment le même n° (relais) ; une vente sur le principal bloque le siège partout.</p>
                 <div id="corr-heures-form" style="display:none;">
                     <div class="form-group row">
                         <label class="col-sm-3 col-form-label">Date</label>
@@ -2066,7 +2066,7 @@
                 + (suite.heure || '') + ' <code>' + lien.code_progr_suite + '</code></div>';
         }
         if (derive) {
-            html += '<div>Dérivé (miroir sièges) : ' + (derive.nom_ligne || '') + ' '
+            html += '<div>Tronçon dérivé (segments indépendants) : ' + (derive.nom_ligne || '') + ' '
                 + (derive.date_progr ? (derive.date_progr + ' ') : '')
                 + (derive.heure || '') + ' <code>' + lien.code_progr_derive + '</code></div>';
         } else if (lien.code_progr_derive) {
