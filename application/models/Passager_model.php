@@ -10,7 +10,9 @@
         }
         private function normalize_ticket_prix_row($row)
         {
-            return ticket_impression_prix_row($row);
+            $row = ticket_impression_prix_row($row);
+            $out = $this->apply_nom_ligne_escale_display($row);
+            return is_array($out) && count($out) === 1 ? $out[0] : $out;
         }
 
         /**
@@ -39,7 +41,48 @@
 
         private function normalize_ticket_prix_rows($rows)
         {
-            return ticket_impression_prix_rows($rows);
+            $rows = ticket_impression_prix_rows($rows);
+            return $this->apply_nom_ligne_escale_display($rows);
+        }
+
+        /**
+         * Remplace nom_ligne parent par libellé escale (ex. BOBO-PENI) si vente escale.
+         * Couvre les SELECT * / listes détail où nom_dest_vente est disponible.
+         *
+         * @param array|object|null $rows
+         * @return array|object|null
+         */
+        private function apply_nom_ligne_escale_display($rows)
+        {
+            if ($rows === null || $rows === false) {
+                return $rows;
+            }
+            if (!function_exists('ticket_axe_label')) {
+                $CI =& get_instance();
+                if (isset($CI->load)) {
+                    $CI->load->helper('ticket_prix');
+                }
+            }
+            if (!function_exists('ticket_axe_label')) {
+                return $rows;
+            }
+            $list = is_array($rows) ? $rows : array($rows);
+            foreach ($list as $row) {
+                if (!is_object($row)) {
+                    continue;
+                }
+                $hasEsc = (isset($row->nom_dest_vente) && trim((string) $row->nom_dest_vente) !== '')
+                    || (isset($row->lignetineraire_vendu) && trim((string) $row->lignetineraire_vendu) !== '');
+                if (!$hasEsc) {
+                    continue;
+                }
+                $fallback = isset($row->nom_ligne) ? (string) $row->nom_ligne : '';
+                $label = ticket_axe_label($row, $fallback);
+                if ($label !== '') {
+                    $row->nom_ligne = $label;
+                }
+            }
+            return $rows;
         }
 
         /**
@@ -108,7 +151,7 @@
          *
          * @return array{select:string,group:string}
          */
-        private function rapport_nom_ligne_sql()
+        protected function rapport_nom_ligne_sql()
         {
             $hasLigne = $this->passager_column_exists('lignetineraire_vendu');
             $hasNomDest = $this->passager_column_exists('nom_dest_vente');
@@ -964,9 +1007,11 @@
         //historique passager par heure
         public function reporpass($cid, $cp, $gd, $d1, $d2, $lg = FALSE, $hr = FALSE)
         {
+            $nomLine = $this->rapport_nom_ligne_sql();
+
             if($lg === '' AND $hr === ''){
                 $rows = $this->db->query(
-                "SELECT COUNT(code_passager) AS nbr, pr.date_progr, lg.nom_ligne, h.heure FROM passager p
+                "SELECT COUNT(code_passager) AS nbr, pr.date_progr, {$nomLine['select']}, h.heure FROM passager p
                 JOIN client cl ON p.id_client_pass = cl.id_client
                 JOIN programme pr ON p.code_pro = pr.code_progr
                 JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
@@ -984,12 +1029,12 @@
                 AND c.cle_compagnie ='$cp'
                 AND ex.code_gaexp = '$gd'
                 GROUP BY p.code_pro
-                ORDER BY pr.date_progr, lg.nom_ligne, h.heure ASC")->result(); return $this->normalize_ticket_prix_rows($rows);
+                ORDER BY pr.date_progr, {$nomLine['group']}, h.heure ASC")->result(); return $this->normalize_ticket_prix_rows($rows);
             }
 
             if($hr === ''){
                 $rows = $this->db->query(
-                "SELECT COUNT(code_passager) AS nbr, pr.date_progr, lg.nom_ligne, h.heure FROM passager p
+                "SELECT COUNT(code_passager) AS nbr, pr.date_progr, {$nomLine['select']}, h.heure FROM passager p
                 JOIN client cl ON p.id_client_pass = cl.id_client
                 JOIN programme pr ON p.code_pro = pr.code_progr
                 JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
@@ -1008,12 +1053,12 @@
                 AND ex.code_gaexp = '$gd'
                 AND lg.ident_ligne = '$lg'
                 GROUP BY p.code_pro
-                ORDER BY pr.date_progr, lg.nom_ligne, h.heure ASC")->result(); return $this->normalize_ticket_prix_rows($rows);
+                ORDER BY pr.date_progr, {$nomLine['group']}, h.heure ASC")->result(); return $this->normalize_ticket_prix_rows($rows);
             }
 
             else{
                 $rows = $this->db->query(
-                "SELECT COUNT(code_passager) AS nbr, pr.date_progr, lg.nom_ligne, h.heure FROM passager p
+                "SELECT COUNT(code_passager) AS nbr, pr.date_progr, {$nomLine['select']}, h.heure FROM passager p
                 JOIN client cl ON p.id_client_pass = cl.id_client
                 JOIN programme pr ON p.code_pro = pr.code_progr
                 JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
@@ -1033,7 +1078,7 @@
                 AND lg.ident_ligne = '$lg'
                 AND h.id_heure = '$hr'
                 GROUP BY p.code_pro
-                ORDER BY pr.date_progr, lg.nom_ligne, h.heure ASC")->result(); return $this->normalize_ticket_prix_rows($rows);            }
+                ORDER BY pr.date_progr, {$nomLine['group']}, h.heure ASC")->result(); return $this->normalize_ticket_prix_rows($rows);            }
             
         }
 
@@ -1257,6 +1302,7 @@
                  JOIN programme pr ON p.code_pro = pr.code_progr
                  JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
                  JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
+                 JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
                  JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
                  JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                  JOIN entreprise e ON c.id_entrep = e.id_entreprise
@@ -3259,6 +3305,8 @@
          */
         public function totalpassager($cd, $days = 30)
         {
+            $nomLine = $this->rapport_nom_ligne_sql();
+
             $this->load->helper('app_cache');
             $days = (int) $days;
             if ($days < 1) {
@@ -3273,7 +3321,7 @@
                 $cdEsc = $this->db->escape($cd);
                 // Sous-requête filtrée sur date : utilise idx_passager_datep_create.
                 $rows = $this->db->query(
-                    "SELECT COUNT(p.code_passager) AS cod, lg.ident_ligne, lg.nom_ligne
+                    "SELECT COUNT(p.code_passager) AS cod, lg.ident_ligne, {$nomLine['select']}
                     FROM (
                         SELECT code_passager, code_pro
                         FROM passager
@@ -3289,8 +3337,8 @@
                     JOIN compagnies c ON ex.id_compagd = c.cle_compagnie
                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
                     WHERE e.ekey = {$cdEsc}
-                    GROUP BY lg.ident_ligne, lg.nom_ligne
-                    ORDER BY cod DESC, lg.nom_ligne ASC"
+                    GROUP BY lg.ident_ligne, {$nomLine['group']}
+                    ORDER BY cod DESC, {$nomLine['group']} ASC"
                 )->result();
 
                 return is_array($rows) ? $rows : array();
@@ -3780,10 +3828,12 @@
         // tri versement vendeuse
     public function versefiltre($key, $gid, $db, $df, $cp, $idvd = FALSE)
     {
+            $nomLine = $this->rapport_nom_ligne_sql();
+
         $ky = mdate("%Y-%m-%d", now('UTC'));
         
         if ($idvd == FALSE) {
-            $rows = $this->db->query("SELECT SUM(prixvente) AS total, lg.ident_ligne, dest.id_compaga, lg.nom_ligne, p.prixvente, cu.username FROM passager p
+            $rows = $this->db->query("SELECT SUM(prixvente) AS total, lg.ident_ligne, dest.id_compaga, {$nomLine['select']}, p.prixvente, cu.username FROM passager p
             JOIN attributions_role ar ON p.idcptuser = ar.roleattribut
             JOIN user_login ul ON ar.idgestcompte = ul.uid_login
             JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
@@ -3804,7 +3854,7 @@
             AND p.actif_pas = 0
             GROUP BY lg.ident_ligne, dest.id_compaga, p.prixvente, cu.username")->result(); return $this->normalize_ticket_prix_rows($rows);        } 
         else{
-            $rows = $this->db->query("SELECT SUM(prixvente) AS total, lg.ident_ligne, dest.id_compaga, lg.nom_ligne, p.prixvente, cu.username FROM passager p
+            $rows = $this->db->query("SELECT SUM(prixvente) AS total, lg.ident_ligne, dest.id_compaga, {$nomLine['select']}, p.prixvente, cu.username FROM passager p
             JOIN attributions_role ar ON p.idcptuser = ar.roleattribut
             JOIN user_login ul ON ar.idgestcompte = ul.uid_login
             JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
@@ -3830,9 +3880,11 @@
 
     public function versefiltreadmin($key, $gid, $db, $df, $cp, $idvd = FALSE)
     {
+            $nomLine = $this->rapport_nom_ligne_sql();
+
         $ky = mdate("%Y-%m-%d", now('UTC'));
         if ($idvd == FALSE) {
-            $rows = $this->db->query("SELECT SUM(prixvente) AS total, lg.ident_ligne, dest.id_compaga, lg.nom_ligne, p.prixvente, cu.username FROM passager p
+            $rows = $this->db->query("SELECT SUM(prixvente) AS total, lg.ident_ligne, dest.id_compaga, {$nomLine['select']}, p.prixvente, cu.username FROM passager p
             JOIN attributions_role ar ON p.idcptuser = ar.roleattribut
             JOIN user_login ul ON ar.idgestcompte = ul.uid_login
             JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
@@ -3852,7 +3904,7 @@
             AND ul.guser = '$gid'
             GROUP BY lg.ident_ligne, dest.id_compaga, p.prixvente, cu.username")->result(); return $this->normalize_ticket_prix_rows($rows);        } 
         else{
-            $rows = $this->db->query("SELECT SUM(prixvente) AS total, lg.ident_ligne, dest.id_compaga, lg.nom_ligne, p.prixvente, cu.username FROM passager p
+            $rows = $this->db->query("SELECT SUM(prixvente) AS total, lg.ident_ligne, dest.id_compaga, {$nomLine['select']}, p.prixvente, cu.username FROM passager p
             JOIN attributions_role ar ON p.idcptuser = ar.roleattribut
             JOIN user_login ul ON ar.idgestcompte = ul.uid_login
             JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
@@ -3877,9 +3929,11 @@
 
     public function versefiltreadminsg($key, $gid, $db, $df, $cp, $sg, $idvd = FALSE)
     {
+            $nomLine = $this->rapport_nom_ligne_sql();
+
         $ky = mdate("%Y-%m-%d", now('UTC'));
         if ($idvd == FALSE) {
-            $rows = $this->db->query("SELECT SUM(prixvente) AS total, lg.ident_ligne, dest.id_compaga, lg.nom_ligne, p.prixvente, cu.username FROM passager p
+            $rows = $this->db->query("SELECT SUM(prixvente) AS total, lg.ident_ligne, dest.id_compaga, {$nomLine['select']}, p.prixvente, cu.username FROM passager p
             JOIN attributions_role ar ON p.idcptuser = ar.roleattribut
             JOIN user_login ul ON ar.idgestcompte = ul.uid_login
             JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
@@ -3901,7 +3955,7 @@
             AND p.departclient_idgare = '$sg'
             GROUP BY lg.ident_ligne, dest.id_compaga, p.prixvente, cu.username")->result(); return $this->normalize_ticket_prix_rows($rows);        } 
         else{
-            $rows = $this->db->query("SELECT SUM(prixvente) AS total, lg.ident_ligne, dest.id_compaga, lg.nom_ligne, p.prixvente, cu.username FROM passager p
+            $rows = $this->db->query("SELECT SUM(prixvente) AS total, lg.ident_ligne, dest.id_compaga, {$nomLine['select']}, p.prixvente, cu.username FROM passager p
             JOIN attributions_role ar ON p.idcptuser = ar.roleattribut
             JOIN user_login ul ON ar.idgestcompte = ul.uid_login
             JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
@@ -3928,7 +3982,9 @@
 
     public function versfiltre($key, $gid, $db, $df, $cp, $use)
     {
-            $rows = $this->db->query("SELECT SUM(prixvente) AS total, lg.ident_ligne, dest.id_compaga, lg.nom_ligne, p.prixvente, cu.username, p.datep_create FROM passager p
+            $nomLine = $this->rapport_nom_ligne_sql();
+
+            $rows = $this->db->query("SELECT SUM(prixvente) AS total, lg.ident_ligne, dest.id_compaga, {$nomLine['select']}, p.prixvente, cu.username, p.datep_create FROM passager p
             JOIN attributions_role ar ON p.idcptuser = ar.roleattribut
             JOIN user_login ul ON ar.idgestcompte = ul.uid_login
             JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
@@ -3952,82 +4008,86 @@
     }
     //report admin
     public function listereport($cid, $cp, $gid, $dt1, $dt2, $acl = FALSE, $algn = FALSE)
-    {        
-        if ($acl === '' AND $algn === '') {
-            $rows = $this->db->query(
-                "SELECT COUNT(code_passager) AS codepassager, SUM(prixvente) AS total, lg.nom_ligne, p.prixvente FROM passager p
-                JOIN attributions_role ar ON p.idcptuser = ar.roleattribut
-                JOIN user_login ul ON ar.idgestcompte = ul.uid_login
-                JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
-                JOIN gares g ON ul.guser = g.idengare
-                JOIN utilisateurs u ON cu.userlog_id = u.uid
-                JOIN programme pr ON p.code_pro = pr.code_progr
-                JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
-                JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
-                JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
-                JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
-                JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
-                JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                WHERE e.ekey = '$cid'
-                AND p.datep_create BETWEEN '$dt1' AND '$dt2'
-                AND dest.id_compaga = '$cp'
-                AND ul.guser = '$gid'
-                AND p.prixvente IS NOT NULL
-                AND p.statut_code = 'vendu'
-                GROUP BY lg.nom_ligne, p.prixvente")->result(); return $this->normalize_ticket_prix_rows($rows);        }
-        elseif($algn === '')
-        {
-            $rows = $this->db->query("SELECT COUNT(code_passager) AS codepassager, SUM(prixvente) AS total, lg.nom_ligne, p.prixvente FROM passager p
-                JOIN attributions_role ar ON p.idcptuser = ar.roleattribut
-                JOIN user_login ul ON ar.idgestcompte = ul.uid_login
-                JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
-                JOIN gares g ON ul.guser = g.idengare
-                JOIN utilisateurs u ON cu.userlog_id = u.uid
-                JOIN programme pr ON p.code_pro = pr.code_progr
-                JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
-                JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
-                JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
-                JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
-                JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
-                JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                WHERE e.ekey = '$cid'
-                AND p.datep_create BETWEEN '$dt1' AND '$dt2'
-                AND dest.id_compaga = '$cp'
-                AND ul.guser = '$gid'
-                AND p.prixvente IS NOT NULL
-                AND p.statut_code = 'vendu'
-                AND ar.roleattribut = '$acl'
-                GROUP BY lg.nom_ligne, p.prixvente")->result(); return $this->normalize_ticket_prix_rows($rows);        }
-            $rows = $this->db->query(
-                "SELECT COUNT(code_passager) AS codepassager, SUM(prixvente) AS total, lg.nom_ligne, p.prixvente FROM passager p
-                JOIN attributions_role ar ON p.idcptuser = ar.roleattribut
-                JOIN user_login ul ON ar.idgestcompte = ul.uid_login
-                JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
-                JOIN gares g ON ul.guser = g.idengare
-                JOIN utilisateurs u ON cu.userlog_id = u.uid
-                JOIN programme pr ON p.code_pro = pr.code_progr
-                JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
-                JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
-                JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
-                JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
-                JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
-                JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                WHERE e.ekey = '$cid'
-                AND p.datep_create BETWEEN '$dt1' AND '$dt2'
-                AND dest.id_compaga = '$cp'
-                AND ul.guser = '$gid'
-                AND p.prixvente IS NOT NULL
-                AND p.statut_code = 'vendu'
-                AND ar.roleattribut = '$acl'
-                AND lg.ident_ligne = '$algn'
-                GROUP BY lg.nom_ligne, p.prixvente")->result(); return $this->normalize_ticket_prix_rows($rows);    }
-    
-    public function listereportcpt($cid, $cp, $gid, $dt1, $dt2, $acl = FALSE, $algn = FALSE)
     {
+            $nomLine = $this->rapport_nom_ligne_sql();
         
         if ($acl === '' AND $algn === '') {
             $rows = $this->db->query(
-                "SELECT COUNT(code_passager) AS codepassager, SUM(prixvente) AS total, lg.nom_ligne, p.prixvente FROM passager p
+                "SELECT COUNT(code_passager) AS codepassager, SUM(prixvente) AS total, {$nomLine['select']}, p.prixvente FROM passager p
+                JOIN attributions_role ar ON p.idcptuser = ar.roleattribut
+                JOIN user_login ul ON ar.idgestcompte = ul.uid_login
+                JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
+                JOIN gares g ON ul.guser = g.idengare
+                JOIN utilisateurs u ON cu.userlog_id = u.uid
+                JOIN programme pr ON p.code_pro = pr.code_progr
+                JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
+                JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
+                JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
+                JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
+                JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
+                JOIN entreprise e ON c.id_entrep = e.id_entreprise
+                WHERE e.ekey = '$cid'
+                AND p.datep_create BETWEEN '$dt1' AND '$dt2'
+                AND dest.id_compaga = '$cp'
+                AND ul.guser = '$gid'
+                AND p.prixvente IS NOT NULL
+                AND p.statut_code = 'vendu'
+                GROUP BY {$nomLine['group']}, p.prixvente")->result(); return $this->normalize_ticket_prix_rows($rows);        }
+        elseif($algn === '')
+        {
+            $rows = $this->db->query("SELECT COUNT(code_passager) AS codepassager, SUM(prixvente) AS total, {$nomLine['select']}, p.prixvente FROM passager p
+                JOIN attributions_role ar ON p.idcptuser = ar.roleattribut
+                JOIN user_login ul ON ar.idgestcompte = ul.uid_login
+                JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
+                JOIN gares g ON ul.guser = g.idengare
+                JOIN utilisateurs u ON cu.userlog_id = u.uid
+                JOIN programme pr ON p.code_pro = pr.code_progr
+                JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
+                JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
+                JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
+                JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
+                JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
+                JOIN entreprise e ON c.id_entrep = e.id_entreprise
+                WHERE e.ekey = '$cid'
+                AND p.datep_create BETWEEN '$dt1' AND '$dt2'
+                AND dest.id_compaga = '$cp'
+                AND ul.guser = '$gid'
+                AND p.prixvente IS NOT NULL
+                AND p.statut_code = 'vendu'
+                AND ar.roleattribut = '$acl'
+                GROUP BY {$nomLine['group']}, p.prixvente")->result(); return $this->normalize_ticket_prix_rows($rows);        }
+            $rows = $this->db->query(
+                "SELECT COUNT(code_passager) AS codepassager, SUM(prixvente) AS total, {$nomLine['select']}, p.prixvente FROM passager p
+                JOIN attributions_role ar ON p.idcptuser = ar.roleattribut
+                JOIN user_login ul ON ar.idgestcompte = ul.uid_login
+                JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
+                JOIN gares g ON ul.guser = g.idengare
+                JOIN utilisateurs u ON cu.userlog_id = u.uid
+                JOIN programme pr ON p.code_pro = pr.code_progr
+                JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
+                JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
+                JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
+                JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
+                JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
+                JOIN entreprise e ON c.id_entrep = e.id_entreprise
+                WHERE e.ekey = '$cid'
+                AND p.datep_create BETWEEN '$dt1' AND '$dt2'
+                AND dest.id_compaga = '$cp'
+                AND ul.guser = '$gid'
+                AND p.prixvente IS NOT NULL
+                AND p.statut_code = 'vendu'
+                AND ar.roleattribut = '$acl'
+                AND lg.ident_ligne = '$algn'
+                GROUP BY {$nomLine['group']}, p.prixvente")->result(); return $this->normalize_ticket_prix_rows($rows);    }
+    
+    public function listereportcpt($cid, $cp, $gid, $dt1, $dt2, $acl = FALSE, $algn = FALSE)
+    {
+            $nomLine = $this->rapport_nom_ligne_sql();
+
+        
+        if ($acl === '' AND $algn === '') {
+            $rows = $this->db->query(
+                "SELECT COUNT(code_passager) AS codepassager, SUM(prixvente) AS total, {$nomLine['select']}, p.prixvente FROM passager p
                 JOIN attributions_role ar ON p.idcptuser = ar.roleattribut
                 JOIN user_login ul ON ar.idgestcompte = ul.uid_login
                 JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
@@ -4047,10 +4107,10 @@
                 AND ul.guser = '$gid'
                 AND p.prixvente IS NOT NULL
                 AND p.statut_code = 'vendu'
-                GROUP BY lg.nom_ligne, p.prixvente")->result(); return $this->normalize_ticket_prix_rows($rows);        }
+                GROUP BY {$nomLine['group']}, p.prixvente")->result(); return $this->normalize_ticket_prix_rows($rows);        }
         elseif($algn === '')
         {
-            $rows = $this->db->query("SELECT COUNT(code_passager) AS codepassager, SUM(prixvente) AS total, u.first_name, u.last_name, dest.id_compaga, lg.nom_ligne, p.prixvente, ar.roleattribut FROM passager p
+            $rows = $this->db->query("SELECT COUNT(code_passager) AS codepassager, SUM(prixvente) AS total, u.first_name, u.last_name, dest.id_compaga, {$nomLine['select']}, p.prixvente, ar.roleattribut FROM passager p
                 JOIN attributions_role ar ON p.idcptuser = ar.roleattribut
                 JOIN user_login ul ON ar.idgestcompte = ul.uid_login
                 JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
@@ -4071,9 +4131,9 @@
                 AND p.statut_code = 'vendu'
                 AND ul.guser = '$gid'
                 AND ar.roleattribut = '$acl'
-                GROUP BY ar.roleattribut, u.first_name, dest.id_compaga, u.last_name, lg.nom_ligne, p.prixvente")->result(); return $this->normalize_ticket_prix_rows($rows);        }
+                GROUP BY ar.roleattribut, u.first_name, dest.id_compaga, u.last_name, {$nomLine['group']}, p.prixvente")->result(); return $this->normalize_ticket_prix_rows($rows);        }
             $rows = $this->db->query(
-                "SELECT COUNT(code_passager) AS codepassager, SUM(prixvente) AS total, u.first_name, u.last_name, dest.id_compaga, lg.nom_ligne, p.prixvente, ar.roleattribut FROM passager p
+                "SELECT COUNT(code_passager) AS codepassager, SUM(prixvente) AS total, u.first_name, u.last_name, dest.id_compaga, {$nomLine['select']}, p.prixvente, ar.roleattribut FROM passager p
                 JOIN attributions_role ar ON p.idcptuser = ar.roleattribut
                 JOIN user_login ul ON ar.idgestcompte = ul.uid_login
                 JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
@@ -4095,7 +4155,7 @@
                 AND ar.roleattribut = '$acl'
                 AND lg.ident_ligne = '$algn'
                 AND ul.guser = '$gid'
-                GROUP BY ar.roleattribut, dest.id_compaga, u.first_name, u.last_name, lg.nom_ligne, p.prixvente")->result(); return $this->normalize_ticket_prix_rows($rows);    }
+                GROUP BY ar.roleattribut, dest.id_compaga, u.first_name, u.last_name, {$nomLine['group']}, p.prixvente")->result(); return $this->normalize_ticket_prix_rows($rows);    }
 
     public function listereportverscpt($cid, $cp, $gid, $dt1, $dt2, $acl = FALSE)
     {
@@ -4363,10 +4423,12 @@
 
     public function listereportcptadmin($cid, $cp, $gid, $dt1, $dt2, $acl = FALSE, $algn = FALSE)
     {
+            $nomLine = $this->rapport_nom_ligne_sql();
+
         
         if ($acl === '' AND $algn === '') {
             $rows = $this->db->query(
-                "SELECT COUNT(code_passager) AS codepassager, SUM(prixvente) AS total, lg.nom_ligne, p.prixvente FROM passager p
+                "SELECT COUNT(code_passager) AS codepassager, SUM(prixvente) AS total, {$nomLine['select']}, p.prixvente FROM passager p
                 JOIN attributions_role ar ON p.idcptuser = ar.roleattribut
                 JOIN user_login ul ON ar.idgestcompte = ul.uid_login
                 JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
@@ -4386,10 +4448,10 @@
                 AND p.prixvente IS NOT NULL
                 AND p.statut_code = 'vendu'
                 AND ul.guser = '$gid'
-                GROUP BY lg.nom_ligne, p.prixvente")->result(); return $this->normalize_ticket_prix_rows($rows);        }
+                GROUP BY {$nomLine['group']}, p.prixvente")->result(); return $this->normalize_ticket_prix_rows($rows);        }
         elseif($algn === '')
         {
-            $rows = $this->db->query("SELECT COUNT(code_passager) AS codepassager, SUM(prixvente) AS total, lg.nom_ligne, p.prixvente FROM passager p
+            $rows = $this->db->query("SELECT COUNT(code_passager) AS codepassager, SUM(prixvente) AS total, {$nomLine['select']}, p.prixvente FROM passager p
                 JOIN attributions_role ar ON p.idcptuser = ar.roleattribut
                 JOIN user_login ul ON ar.idgestcompte = ul.uid_login
                 JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
@@ -4410,9 +4472,9 @@
                 AND p.statut_code = 'vendu'
                 AND ul.guser = '$gid'
                 AND ar.roleattribut = '$acl'
-                GROUP BY lg.nom_ligne, p.prixvente")->result(); return $this->normalize_ticket_prix_rows($rows);        }
+                GROUP BY {$nomLine['group']}, p.prixvente")->result(); return $this->normalize_ticket_prix_rows($rows);        }
             $rows = $this->db->query(
-                "SELECT COUNT(code_passager) AS codepassager, SUM(prixvente) AS total, lg.nom_ligne, p.prixvente FROM passager p
+                "SELECT COUNT(code_passager) AS codepassager, SUM(prixvente) AS total, {$nomLine['select']}, p.prixvente FROM passager p
                 JOIN attributions_role ar ON p.idcptuser = ar.roleattribut
                 JOIN user_login ul ON ar.idgestcompte = ul.uid_login
                 JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
@@ -4433,15 +4495,17 @@
                 AND p.statut_code = 'vendu'
                 AND ar.roleattribut = '$acl'
                 AND lg.ident_ligne = '$algn'
-                GROUP BY lg.nom_ligne, p.prixvente")->result(); return $this->normalize_ticket_prix_rows($rows);    }
+                GROUP BY {$nomLine['group']}, p.prixvente")->result(); return $this->normalize_ticket_prix_rows($rows);    }
     //report ticket admin
     /*public function reporticket($cid, $gid, $dt1, $dt2, $cp, $algn = FALSE)
     {
+            $nomLine = $this->rapport_nom_ligne_sql();
+
         
         if ($algn === '') 
         {
             $rows = $this->db->query(
-                "SELECT COUNT(code_passager) AS codepassager, SUM(prixvente) AS total, lg.nom_ligne, dest.id_compaga, p.prixvente FROM passager p
+                "SELECT COUNT(code_passager) AS codepassager, SUM(prixvente) AS total, {$nomLine['select']}, dest.id_compaga, p.prixvente FROM passager p
                 JOIN attributions_role ar ON p.idcptuser = ar.roleattribut
                 JOIN user_login ul ON ar.idgestcompte = ul.uid_login
                 JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
@@ -4460,9 +4524,9 @@
                 AND p.prixvente IS NOT NULL
                 AND p.statut_code = 'vendu'
                 AND ul.guser = '$gid'
-                GROUP BY lg.nom_ligne, dest.id_compaga, p.prixvente")->result(); return $this->normalize_ticket_prix_rows($rows);        }
+                GROUP BY {$nomLine['group']}, dest.id_compaga, p.prixvente")->result(); return $this->normalize_ticket_prix_rows($rows);        }
             $rows = $this->db->query(
-                "SELECT COUNT(code_passager) AS codepassager, SUM(prixvente) AS total, lg.nom_ligne, dest.id_compaga, p.prixvente FROM passager p
+                "SELECT COUNT(code_passager) AS codepassager, SUM(prixvente) AS total, {$nomLine['select']}, dest.id_compaga, p.prixvente FROM passager p
                 JOIN attributions_role ar ON p.idcptuser = ar.roleattribut
                 JOIN user_login ul ON ar.idgestcompte = ul.uid_login
                 JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
@@ -4481,10 +4545,12 @@
                 AND p.prixvente IS NOT NULL
                 AND p.statut_code = 'vendu'
                 AND lg.ident_ligne = '$algn'
-                GROUP BY lg.nom_ligne, dest.id_compaga, p.prixvente")->result(); return $this->normalize_ticket_prix_rows($rows);    }*/
+                GROUP BY {$nomLine['group']}, dest.id_compaga, p.prixvente")->result(); return $this->normalize_ticket_prix_rows($rows);    }*/
 
     public function reporticket($cid, $gid, $dt1, $dt2, $cp, $algn = FALSE, $sg = FALSE)
     {
+            $nomLine = $this->rapport_nom_ligne_sql();
+
         $sgNorm = ($sg === FALSE || $sg === null) ? '' : trim((string) $sg);
         $sgSql = '';
         if ($sgNorm !== '' && $sgNorm !== '0') {
@@ -4496,11 +4562,12 @@
             $rows = $this->db->query(
                 "SELECT 
                     COUNT(p.code_passager) AS codepassager,
-                    SUM(p.prixvente) AS total, lg.nom_ligne, p.prixvente
+                    SUM(p.prixvente) AS total, {$nomLine['select']}, p.prixvente
                 FROM passager p
                 JOIN programme pr ON p.code_pro = pr.code_progr
                 JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
                 JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
+                JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
                 JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
                 JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
@@ -4520,15 +4587,16 @@
                   AND ul.guser = '$gid'
                  )
                 {$sgSql}
-                GROUP BY lg.nom_ligne, p.prixvente")->result(); return $this->normalize_ticket_prix_rows($rows);        }
+                GROUP BY {$nomLine['group']}, p.prixvente")->result(); return $this->normalize_ticket_prix_rows($rows);        }
             $rows = $this->db->query(
                 "SELECT 
                     COUNT(p.code_passager) AS codepassager,
-                    SUM(p.prixvente) AS total, lg.nom_ligne, p.prixvente
+                    SUM(p.prixvente) AS total, {$nomLine['select']}, p.prixvente
                 FROM passager p
                 JOIN programme pr ON p.code_pro = pr.code_progr
                 JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
                 JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
+                JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
                 JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
                 JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
@@ -4549,7 +4617,7 @@
                   AND ul.guser = '$gid'
                 )
                 {$sgSql}
-                GROUP BY lg.nom_ligne, p.prixvente")->result(); return $this->normalize_ticket_prix_rows($rows);    }
+                GROUP BY {$nomLine['group']}, p.prixvente")->result(); return $this->normalize_ticket_prix_rows($rows);    }
 
     public function reporticketgr($cid, $gid, $dt1, $dt2, $cp, $algn = FALSE)
     {
@@ -4600,11 +4668,13 @@
     //report comptable
     public function reporticketcptd($cid, $gid, $dt1, $dt2, $cp, $algn = FALSE)
     {
+            $nomLine = $this->rapport_nom_ligne_sql();
+
         
         if ($algn === '') 
         {
             $rows = $this->db->query(
-                "SELECT COUNT(code_passager) AS codepassager, SUM(prixvente) AS total, lg.nom_ligne, p.prixvente FROM passager p
+                "SELECT COUNT(code_passager) AS codepassager, SUM(prixvente) AS total, {$nomLine['select']}, p.prixvente FROM passager p
                 JOIN attributions_role ar ON p.idcptuser = ar.roleattribut
                 JOIN user_login ul ON ar.idgestcompte = ul.uid_login
                 JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
@@ -4625,9 +4695,9 @@
                 AND p.exop = 1
                 AND p.prixvente IS NOT NULL
                 AND p.statut_code = 'vendu'
-                GROUP BY lg.nom_ligne, p.prixvente")->result(); return $this->normalize_ticket_prix_rows($rows);        }
+                GROUP BY {$nomLine['group']}, p.prixvente")->result(); return $this->normalize_ticket_prix_rows($rows);        }
             $rows = $this->db->query(
-                "SELECT COUNT(code_passager) AS codepassager, SUM(prixvente) AS total, lg.nom_ligne, p.prixvente FROM passager p
+                "SELECT COUNT(code_passager) AS codepassager, SUM(prixvente) AS total, {$nomLine['select']}, p.prixvente FROM passager p
                 JOIN attributions_role ar ON p.idcptuser = ar.roleattribut
                 JOIN user_login ul ON ar.idgestcompte = ul.uid_login
                 JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
@@ -4648,15 +4718,17 @@
                 AND p.prixvente IS NOT NULL
                 AND p.statut_code = 'vendu'
                 AND lg.ident_ligne = '$algn'
-                GROUP BY lg.nom_ligne, p.prixvente")->result(); return $this->normalize_ticket_prix_rows($rows);    }
+                GROUP BY {$nomLine['group']}, p.prixvente")->result(); return $this->normalize_ticket_prix_rows($rows);    }
     
     /*public function reporticketcptadmin($cid, $gid, $dt1, $dt2, $cp, $algn = FALSE)
     {
+            $nomLine = $this->rapport_nom_ligne_sql();
+
         
         if ($algn === '') 
         {
             $rows = $this->db->query(
-                "SELECT COUNT(code_passager) AS codepassager, SUM(prixvente) AS total, lg.nom_ligne, p.prixvente FROM passager p
+                "SELECT COUNT(code_passager) AS codepassager, SUM(prixvente) AS total, {$nomLine['select']}, p.prixvente FROM passager p
                 JOIN attributions_role ar ON p.idcptuser = ar.roleattribut
                 JOIN user_login ul ON ar.idgestcompte = ul.uid_login
                 JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
@@ -4676,9 +4748,9 @@
                 AND p.prixvente IS NOT NULL
                 AND p.statut_code = 'vendu'
                 AND ul.guser = '$gid'
-                GROUP BY lg.nom_ligne, p.prixvente")->result(); return $this->normalize_ticket_prix_rows($rows);        }
+                GROUP BY {$nomLine['group']}, p.prixvente")->result(); return $this->normalize_ticket_prix_rows($rows);        }
             $rows = $this->db->query(
-                "SELECT COUNT(code_passager) AS codepassager, SUM(prixvente) AS total, lg.nom_ligne, p.prixvente FROM passager p
+                "SELECT COUNT(code_passager) AS codepassager, SUM(prixvente) AS total, {$nomLine['select']}, p.prixvente FROM passager p
                 JOIN attributions_role ar ON p.idcptuser = ar.roleattribut
                 JOIN user_login ul ON ar.idgestcompte = ul.uid_login
                 JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
@@ -4698,10 +4770,12 @@
                 AND p.statut_code = 'vendu'
                 AND lg.ident_ligne = '$algn'
                 AND ul.guser = '$gid'
-                GROUP BY lg.nom_ligne, p.prixvente")->result(); return $this->normalize_ticket_prix_rows($rows);    }*/
+                GROUP BY {$nomLine['group']}, p.prixvente")->result(); return $this->normalize_ticket_prix_rows($rows);    }*/
 
     public function reporticketcptadmin($cid, $gid, $dt1, $dt2, $cp, $algn = FALSE)
     {
+            $nomLine = $this->rapport_nom_ligne_sql();
+
         
         if ($algn === '') 
         {
@@ -4709,11 +4783,12 @@
                 "SELECT 
                     COUNT(p.code_passager) AS codepassager,
                     SUM(p.prixvente) AS total,
-                    lg.nom_ligne, p.prixvente
+                    {$nomLine['select']}, p.prixvente
                 FROM passager p
                 JOIN programme pr ON p.code_pro = pr.code_progr
                 JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
                 JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
+                JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
                 JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
                 JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
@@ -4733,15 +4808,16 @@
                   )
                 AND ul.guser = '$gid'
                 )
-                GROUP BY lg.nom_ligne, p.prixvente")->result(); return $this->normalize_ticket_prix_rows($rows);        }
+                GROUP BY {$nomLine['group']}, p.prixvente")->result(); return $this->normalize_ticket_prix_rows($rows);        }
             $rows = $this->db->query(
                 "SELECT 
                     COUNT(p.code_passager) AS codepassager,
-                    SUM(p.prixvente) AS total, lg.nom_ligne, p.prixvente
+                    SUM(p.prixvente) AS total, {$nomLine['select']}, p.prixvente
                 FROM passager p
                 JOIN programme pr ON p.code_pro = pr.code_progr
                 JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
                 JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
+                JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
                 JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
                 JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
@@ -4762,21 +4838,24 @@
                   )
                   AND ul.guser = '$gid'
                  )
-                GROUP BY lg.nom_ligne, p.prixvente")->result(); return $this->normalize_ticket_prix_rows($rows);    }
+                GROUP BY {$nomLine['group']}, p.prixvente")->result(); return $this->normalize_ticket_prix_rows($rows);    }
 
     public function reporticketcpt($cid, $gid, $dt1, $dt2, $cp, $algn = FALSE)
     {
+            $nomLine = $this->rapport_nom_ligne_sql();
+
         
         if ($algn === '') 
         {
             $rows = $this->db->query(
                 "SELECT 
                     COUNT(p.code_passager) AS codepassager,
-                    SUM(p.prixvente) AS total, lg.nom_ligne, p.prixvente
+                    SUM(p.prixvente) AS total, {$nomLine['select']}, p.prixvente
                 FROM passager p
                 JOIN programme pr ON p.code_pro = pr.code_progr
                 JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
                 JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
+                JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
                 JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
                 JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
@@ -4796,15 +4875,16 @@
                   )
                   AND ul.guser = '$gid'
                 )
-                GROUP BY lg.nom_ligne, p.prixvente")->result(); return $this->normalize_ticket_prix_rows($rows);        }
+                GROUP BY {$nomLine['group']}, p.prixvente")->result(); return $this->normalize_ticket_prix_rows($rows);        }
             $rows = $this->db->query(
                 "SELECT 
                     COUNT(p.code_passager) AS codepassager,
-                    SUM(p.prixvente) AS total, lg.nom_ligne, p.prixvente
+                    SUM(p.prixvente) AS total, {$nomLine['select']}, p.prixvente
                 FROM passager p
                 JOIN programme pr ON p.code_pro = pr.code_progr
                 JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
                 JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
+                JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
                 JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
                 JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
@@ -4825,15 +4905,17 @@
                   )
                   AND ul.guser = '$gid'
                  )
-                GROUP BY lg.nom_ligne, p.prixvente")->result(); return $this->normalize_ticket_prix_rows($rows);    }
+                GROUP BY {$nomLine['group']}, p.prixvente")->result(); return $this->normalize_ticket_prix_rows($rows);    }
 
     /*public function reporticketcpt($cid, $gid, $dt1, $dt2, $cp, $algn = FALSE)
     {
+            $nomLine = $this->rapport_nom_ligne_sql();
+
         
         if ($algn === '') 
         {
             $rows = $this->db->query(
-                "SELECT COUNT(code_passager) AS codepassager, SUM(prixvente) AS total, lg.nom_ligne, p.prixvente FROM passager p
+                "SELECT COUNT(code_passager) AS codepassager, SUM(prixvente) AS total, {$nomLine['select']}, p.prixvente FROM passager p
                 JOIN attributions_role ar ON p.idcptuser = ar.roleattribut
                 JOIN user_login ul ON ar.idgestcompte = ul.uid_login
                 JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
@@ -4853,9 +4935,9 @@
                 AND p.prixvente IS NOT NULL
                 AND p.statut_code = 'vendu'
                 AND ul.guser = '$gid'
-                GROUP BY lg.nom_ligne, p.prixvente")->result(); return $this->normalize_ticket_prix_rows($rows);        }
+                GROUP BY {$nomLine['group']}, p.prixvente")->result(); return $this->normalize_ticket_prix_rows($rows);        }
             $rows = $this->db->query(
-                "SELECT COUNT(code_passager) AS codepassager, SUM(prixvente) AS total, lg.nom_ligne, p.prixvente FROM passager p
+                "SELECT COUNT(code_passager) AS codepassager, SUM(prixvente) AS total, {$nomLine['select']}, p.prixvente FROM passager p
                 JOIN attributions_role ar ON p.idcptuser = ar.roleattribut
                 JOIN user_login ul ON ar.idgestcompte = ul.uid_login
                 JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
@@ -4875,7 +4957,7 @@
                 AND p.statut_code = 'vendu'
                 AND lg.ident_ligne = '$algn'
                 AND ul.guser = '$gid'
-                GROUP BY lg.nom_ligne, p.prixvente")->result(); return $this->normalize_ticket_prix_rows($rows);    }*/
+                GROUP BY {$nomLine['group']}, p.prixvente")->result(); return $this->normalize_ticket_prix_rows($rows);    }*/
 
     public function reporticketcptgr($cid, $gid, $dt1, $dt2, $cp, $algn = FALSE)
     {
@@ -4937,11 +5019,13 @@
                 )")->result(); return $this->normalize_ticket_prix_rows($rows);    }
     public function nifestad($cid, $gid, $dt1, $dt2, $cp, $algn = FALSE)
     {
+            $nomLine = $this->rapport_nom_ligne_sql();
+
         
         if ($algn === '') 
         {
             $rows = $this->db->query(
-                "SELECT COUNT(code_passager) AS codepassager, SUM(prixvente) AS total, lg.nom_ligne, dest.id_compaga, p.prixvente, h.heure FROM passager p
+                "SELECT COUNT(code_passager) AS codepassager, SUM(prixvente) AS total, {$nomLine['select']}, dest.id_compaga, p.prixvente, h.heure FROM passager p
                 JOIN attributions_role ar ON p.idcptuser = ar.roleattribut
                 JOIN user_login ul ON ar.idgestcompte = ul.uid_login
                 JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
@@ -4961,10 +5045,10 @@
                 AND p.prixvente IS NOT NULL
                 AND ul.guser = '$gid'
                 AND p.statut_code = 'vendu'
-                GROUP BY lg.nom_ligne, dest.id_compaga, p.prixvente, h.id_heure
+                GROUP BY {$nomLine['group']}, dest.id_compaga, p.prixvente, h.id_heure
                 ORDER BY heure ASC")->result(); return $this->normalize_ticket_prix_rows($rows);        }
             $rows = $this->db->query(
-                "SELECT COUNT(code_passager) AS codepassager, SUM(prixvente) AS total, lg.nom_ligne, dest.id_compaga, p.prixvente, h.heure FROM passager p
+                "SELECT COUNT(code_passager) AS codepassager, SUM(prixvente) AS total, {$nomLine['select']}, dest.id_compaga, p.prixvente, h.heure FROM passager p
                 JOIN attributions_role ar ON p.idcptuser = ar.roleattribut
                 JOIN user_login ul ON ar.idgestcompte = ul.uid_login
                 JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
@@ -4984,16 +5068,18 @@
                 AND p.statut_code = 'vendu'
                 AND ul.guser = '$gid'
                 AND lg.ident_ligne = '$algn'
-                GROUP BY lg.nom_ligne, dest.id_compaga, p.prixvente, h.id_heure
+                GROUP BY {$nomLine['group']}, dest.id_compaga, p.prixvente, h.id_heure
                 ORDER BY heure ASC")->result(); return $this->normalize_ticket_prix_rows($rows);    }
 
     public function nifesthebad($cid, $gid, $dt1, $dt2, $cp, $algn = FALSE)
     {
+            $nomLine = $this->rapport_nom_ligne_sql();
+
         
         if ($algn === '') 
         {
             $rows = $this->db->query(
-                "SELECT COUNT(code_passager) AS codepassager, SUM(prixvente) AS total, lg.nom_ligne, dest.id_compaga, p.prixvente, h.heure, p.datep_create FROM passager p
+                "SELECT COUNT(code_passager) AS codepassager, SUM(prixvente) AS total, {$nomLine['select']}, dest.id_compaga, p.prixvente, h.heure, p.datep_create FROM passager p
                 JOIN attributions_role ar ON p.idcptuser = ar.roleattribut
                 JOIN user_login ul ON ar.idgestcompte = ul.uid_login
                 JOIN programme pr ON p.code_pro = pr.code_progr
@@ -5010,10 +5096,10 @@
                 AND ul.guser = '$gid'
                 AND p.prixvente IS NOT NULL
                 AND p.statut_code = 'vendu'
-                GROUP BY lg.nom_ligne, dest.id_compaga, p.prixvente, h.id_heure, p.datep_create
+                GROUP BY {$nomLine['group']}, dest.id_compaga, p.prixvente, h.id_heure, p.datep_create
                 ORDER BY p.datep_create, h.id_heure ASC")->result(); return $this->normalize_ticket_prix_rows($rows);        }
             $rows = $this->db->query(
-                "SELECT COUNT(code_passager) AS codepassager, SUM(prixvente) AS total, lg.nom_ligne, dest.id_compaga, p.prixvente, h.heure, p.datep_create FROM passager p
+                "SELECT COUNT(code_passager) AS codepassager, SUM(prixvente) AS total, {$nomLine['select']}, dest.id_compaga, p.prixvente, h.heure, p.datep_create FROM passager p
                 JOIN attributions_role ar ON p.idcptuser = ar.roleattribut
                 JOIN user_login ul ON ar.idgestcompte = ul.uid_login
                 JOIN programme pr ON p.code_pro = pr.code_progr
@@ -5031,17 +5117,19 @@
                 AND p.prixvente IS NOT NULL
                 AND p.statut_code = 'vendu'
                 AND lg.ident_ligne = '$algn'
-                GROUP BY lg.nom_ligne, dest.id_compaga, p.prixvente, h.id_heure, p.datep_create
+                GROUP BY {$nomLine['group']}, dest.id_compaga, p.prixvente, h.id_heure, p.datep_create
                 ORDER BY p.datep_create, h.id_heure ASC")->result(); return $this->normalize_ticket_prix_rows($rows);    }
 
     
     public function nifestcptadmin($cid, $gid, $dt1, $dt2, $cp, $algn = FALSE)
     {
+            $nomLine = $this->rapport_nom_ligne_sql();
+
         
         if ($algn === '')
         {
             $rows = $this->db->query(
-                "SELECT COUNT(code_passager) AS codepassager, SUM(prixvente) AS total, lg.nom_ligne, p.prixvente, h.heure FROM passager p
+                "SELECT COUNT(code_passager) AS codepassager, SUM(prixvente) AS total, {$nomLine['select']}, p.prixvente, h.heure FROM passager p
                 JOIN attributions_role ar ON p.idcptuser = ar.roleattribut
                 JOIN user_login ul ON ar.idgestcompte = ul.uid_login
                 JOIN programme pr ON p.code_pro = pr.code_progr
@@ -5059,10 +5147,10 @@
                 AND p.prixvente IS NOT NULL
                 AND p.statut_code = 'vendu'
                 AND ul.guser = '$gid'
-                GROUP BY lg.nom_ligne, p.prixvente, h.id_heure
+                GROUP BY {$nomLine['group']}, p.prixvente, h.id_heure
                 ORDER BY heure ASC")->result(); return $this->normalize_ticket_prix_rows($rows);        }
             $rows = $this->db->query(
-                "SELECT COUNT(code_passager) AS codepassager, SUM(prixvente) AS total, lg.nom_ligne, p.prixvente, h.heure FROM passager p
+                "SELECT COUNT(code_passager) AS codepassager, SUM(prixvente) AS total, {$nomLine['select']}, p.prixvente, h.heure FROM passager p
                 JOIN attributions_role ar ON p.idcptuser = ar.roleattribut
                 JOIN user_login ul ON ar.idgestcompte = ul.uid_login
                 JOIN programme pr ON p.code_pro = pr.code_progr
@@ -5081,16 +5169,18 @@
                 AND p.statut_code = 'vendu'
                 AND lg.ident_ligne = '$algn'
                 AND ul.guser = '$gid'
-                GROUP BY lg.nom_ligne, p.prixvente, h.id_heure
+                GROUP BY {$nomLine['group']}, p.prixvente, h.id_heure
                 ORDER BY heure ASC")->result(); return $this->normalize_ticket_prix_rows($rows);    }
 
     public function nifesthebcptadmin($cid, $gid, $dt1, $dt2, $cp, $algn = FALSE)
     {
+            $nomLine = $this->rapport_nom_ligne_sql();
+
         
         if ($algn === '') 
         {
             $rows = $this->db->query(
-                "SELECT COUNT(code_passager) AS codepassager, SUM(prixvente) AS total, lg.nom_ligne, p.prixvente, h.heure, p.datep_create FROM passager p
+                "SELECT COUNT(code_passager) AS codepassager, SUM(prixvente) AS total, {$nomLine['select']}, p.prixvente, h.heure, p.datep_create FROM passager p
                 JOIN attributions_role ar ON p.idcptuser = ar.roleattribut
                 JOIN user_login ul ON ar.idgestcompte = ul.uid_login
                 JOIN programme pr ON p.code_pro = pr.code_progr
@@ -5108,10 +5198,10 @@
                 AND p.prixvente IS NOT NULL
                 AND p.statut_code = 'vendu'
                 AND ul.guser = '$gid'
-                GROUP BY lg.nom_ligne, p.prixvente, h.id_heure, p.datep_create
+                GROUP BY {$nomLine['group']}, p.prixvente, h.id_heure, p.datep_create
                 ORDER BY p.datep_create, h.id_heure ASC")->result(); return $this->normalize_ticket_prix_rows($rows);        }
             $rows = $this->db->query(
-                "SELECT COUNT(code_passager) AS codepassager, SUM(prixvente) AS total, lg.nom_ligne, p.prixvente, h.heure, p.datep_create FROM passager p
+                "SELECT COUNT(code_passager) AS codepassager, SUM(prixvente) AS total, {$nomLine['select']}, p.prixvente, h.heure, p.datep_create FROM passager p
                 JOIN attributions_role ar ON p.idcptuser = ar.roleattribut
                 JOIN user_login ul ON ar.idgestcompte = ul.uid_login
                 JOIN programme pr ON p.code_pro = pr.code_progr
@@ -5130,15 +5220,17 @@
                 AND p.statut_code = 'vendu'
                 AND lg.ident_ligne = '$algn'
                 AND ul.guser = '$gid'
-                GROUP BY lg.nom_ligne, p.prixvente, h.id_heure, p.datep_create
+                GROUP BY {$nomLine['group']}, p.prixvente, h.id_heure, p.datep_create
                 ORDER BY p.datep_create, h.id_heure ASC")->result(); return $this->normalize_ticket_prix_rows($rows);    }
     public function nifest($cid, $gid, $dt1, $dt2, $cp, $algn = FALSE)
     {
+            $nomLine = $this->rapport_nom_ligne_sql();
+
         
         if ($algn === '') 
         {
             $rows = $this->db->query(
-                "SELECT COUNT(code_passager) AS codepassager, SUM(prixvente) AS total, lg.nom_ligne, p.prixvente, h.heure FROM passager p
+                "SELECT COUNT(code_passager) AS codepassager, SUM(prixvente) AS total, {$nomLine['select']}, p.prixvente, h.heure FROM passager p
                 JOIN attributions_role ar ON p.idcptuser = ar.roleattribut
                 JOIN user_login ul ON ar.idgestcompte = ul.uid_login
                 JOIN programme pr ON p.code_pro = pr.code_progr
@@ -5156,10 +5248,10 @@
                 AND p.prixvente IS NOT NULL
                 AND p.statut_code = 'vendu'
                 AND ul.guser = '$gid'
-                GROUP BY lg.nom_ligne, p.prixvente, h.id_heure
+                GROUP BY {$nomLine['group']}, p.prixvente, h.id_heure
                 ORDER BY heure ASC")->result(); return $this->normalize_ticket_prix_rows($rows);        }
             $rows = $this->db->query(
-                "SELECT COUNT(code_passager) AS codepassager, SUM(prixvente) AS total, lg.nom_ligne, p.prixvente, h.heure FROM passager p
+                "SELECT COUNT(code_passager) AS codepassager, SUM(prixvente) AS total, {$nomLine['select']}, p.prixvente, h.heure FROM passager p
                 JOIN attributions_role ar ON p.idcptuser = ar.roleattribut
                 JOIN user_login ul ON ar.idgestcompte = ul.uid_login
                 JOIN programme pr ON p.code_pro = pr.code_progr
@@ -5177,16 +5269,18 @@
                 AND p.statut_code = 'vendu'
                 AND lg.ident_ligne = '$algn'
                 AND ul.guser = '$gid'
-                GROUP BY lg.nom_ligne, p.prixvente, h.id_heure
+                GROUP BY {$nomLine['group']}, p.prixvente, h.id_heure
                 ORDER BY heure ASC")->result(); return $this->normalize_ticket_prix_rows($rows);    }
 
     public function nifestheb($cid, $gid, $dt1, $dt2, $cp, $algn = FALSE)
     {
+            $nomLine = $this->rapport_nom_ligne_sql();
+
         
         if ($algn === '') 
         {
             $rows = $this->db->query(
-                "SELECT COUNT(code_passager) AS codepassager, SUM(prixvente) AS total, lg.nom_ligne, p.prixvente, h.heure, p.datep_create FROM passager p
+                "SELECT COUNT(code_passager) AS codepassager, SUM(prixvente) AS total, {$nomLine['select']}, p.prixvente, h.heure, p.datep_create FROM passager p
                 JOIN attributions_role ar ON p.idcptuser = ar.roleattribut
                 JOIN user_login ul ON ar.idgestcompte = ul.uid_login
                 JOIN programme pr ON p.code_pro = pr.code_progr
@@ -5204,10 +5298,10 @@
                 AND p.prixvente IS NOT NULL
                 AND p.statut_code = 'vendu'
                 AND ul.guser = '$gid'
-                GROUP BY lg.nom_ligne, p.prixvente, h.id_heure, p.datep_create
+                GROUP BY {$nomLine['group']}, p.prixvente, h.id_heure, p.datep_create
                 ORDER BY p.datep_create, h.id_heure ASC")->result(); return $this->normalize_ticket_prix_rows($rows);        }
             $rows = $this->db->query(
-                "SELECT COUNT(code_passager) AS codepassager, SUM(prixvente) AS total, lg.nom_ligne, p.prixvente, h.heure, p.datep_create FROM passager p
+                "SELECT COUNT(code_passager) AS codepassager, SUM(prixvente) AS total, {$nomLine['select']}, p.prixvente, h.heure, p.datep_create FROM passager p
                 JOIN attributions_role ar ON p.idcptuser = ar.roleattribut
                 JOIN user_login ul ON ar.idgestcompte = ul.uid_login
                 JOIN programme pr ON p.code_pro = pr.code_progr
@@ -5225,7 +5319,7 @@
                 AND p.statut_code = 'vendu'
                 AND lg.ident_ligne = '$algn'
                 AND ul.guser = '$gid'
-                GROUP BY lg.nom_ligne, p.prixvente, h.id_heure, p.datep_create
+                GROUP BY {$nomLine['group']}, p.prixvente, h.id_heure, p.datep_create
                 ORDER BY p.datep_create, h.id_heure ASC")->result(); return $this->normalize_ticket_prix_rows($rows);    }
     //vente du jour par vendeur
     public function ventejour($cd, $gid, $idcox, $dd, $fd)
@@ -5482,10 +5576,12 @@
 
     public function histovente($cid, $gid, $dt1, $dt2, $acl, $cp = FALSE, $algn = FALSE)
     {
+            $nomLine = $this->rapport_nom_ligne_sql();
+
         
         if ($cp === '' AND $algn === '') {
             $rows = $this->db->query(
-                "SELECT ctp.tamponcod, p.code_passager, p.code_ticket, cl.nom_client, cl.prenom_client, cl.contact_client, lg.nom_ligne, p.datep_create, h.heure, pr.dateheure_prog FROM tamponcode ctp
+                "SELECT ctp.tamponcod, p.code_passager, p.code_ticket, cl.nom_client, cl.prenom_client, cl.contact_client, {$nomLine['select']}, p.datep_create, h.heure, pr.dateheure_prog FROM tamponcode ctp
                 JOIN passager p ON p.code_passager = ctp.tamponcod
                 JOIN sousgare sg ON p.departclient_idgare = sg.idsousgare 
                 LEFT JOIN non_passager np ON np.code_non_pass = ctp.tamponcod 
@@ -5513,7 +5609,7 @@
                 ORDER BY datep_create ASC")->result(); return $this->normalize_ticket_prix_rows($rows);        }
         elseif($algn === '')
         {
-            $rows = $this->db->query("SELECT ctp.tamponcod, p.code_passager, p.code_ticket, cl.nom_client, cl.prenom_client, cl.contact_client, lg.nom_ligne, p.datep_create, h.heure, pr.dateheure_prog FROM tamponcode ctp
+            $rows = $this->db->query("SELECT ctp.tamponcod, p.code_passager, p.code_ticket, cl.nom_client, cl.prenom_client, cl.contact_client, {$nomLine['select']}, p.datep_create, h.heure, pr.dateheure_prog FROM tamponcode ctp
                 JOIN passager p ON p.code_passager = ctp.tamponcod
                 JOIN sousgare sg ON p.departclient_idgare = sg.idsousgare 
                 LEFT JOIN non_passager np ON np.code_non_pass = ctp.tamponcod 
@@ -5541,7 +5637,7 @@
                 AND p.verifpassager IN('A', 'C', 'D')
                 ORDER BY datep_create ASC")->result(); return $this->normalize_ticket_prix_rows($rows);        }
             $rows = $this->db->query(
-                "SELECT ctp.tamponcod, p.code_passager, p.code_ticket, cl.nom_client, cl.prenom_client, cl.contact_client, lg.nom_ligne, p.datep_create, h.heure, pr.dateheure_prog FROM tamponcode ctp
+                "SELECT ctp.tamponcod, p.code_passager, p.code_ticket, cl.nom_client, cl.prenom_client, cl.contact_client, {$nomLine['select']}, p.datep_create, h.heure, pr.dateheure_prog FROM tamponcode ctp
                 JOIN passager p ON p.code_passager = ctp.tamponcod
                 JOIN sousgare sg ON p.departclient_idgare = sg.idsousgare 
                 LEFT JOIN non_passager np ON np.code_non_pass = ctp.tamponcod 
@@ -5572,10 +5668,12 @@
 
     public function histoventeadmin($cid, $gid, $dt1, $dt2, $acl, $cp = FALSE, $algn = FALSE)
     {
+            $nomLine = $this->rapport_nom_ligne_sql();
+
         
         if ($cp === '' AND $algn === '') {
             $rows = $this->db->query(
-                "SELECT ctp.tamponcod, p.code_passager, p.code_ticket, cl.nom_client, cl.prenom_client, cl.contact_client, lg.nom_ligne, p.datep_create, h.heure, pr.dateheure_prog FROM tamponcode ctp
+                "SELECT ctp.tamponcod, p.code_passager, p.code_ticket, cl.nom_client, cl.prenom_client, cl.contact_client, {$nomLine['select']}, p.datep_create, h.heure, pr.dateheure_prog FROM tamponcode ctp
                 JOIN passager p ON p.code_passager = ctp.tamponcod
                 JOIN sousgare sg ON p.departclient_idgare = sg.idsousgare 
                 LEFT JOIN non_passager np ON np.code_non_pass = ctp.tamponcod 
@@ -5602,7 +5700,7 @@
                 ORDER BY datep_create ASC")->result(); return $this->normalize_ticket_prix_rows($rows);        }
         elseif($algn === '')
         {
-            $rows = $this->db->query("SELECT ctp.tamponcod, p.code_passager, p.code_ticket, cl.nom_client, cl.prenom_client, cl.contact_client, lg.nom_ligne, p.datep_create, h.heure, pr.dateheure_prog FROM tamponcode ctp
+            $rows = $this->db->query("SELECT ctp.tamponcod, p.code_passager, p.code_ticket, cl.nom_client, cl.prenom_client, cl.contact_client, {$nomLine['select']}, p.datep_create, h.heure, pr.dateheure_prog FROM tamponcode ctp
                 JOIN passager p ON p.code_passager = ctp.tamponcod
                 JOIN sousgare sg ON p.departclient_idgare = sg.idsousgare 
                 LEFT JOIN non_passager np ON np.code_non_pass = ctp.tamponcod 
@@ -5629,7 +5727,7 @@
                 AND ar.roleattribut = '$acl'
                 ORDER BY datep_create ASC")->result(); return $this->normalize_ticket_prix_rows($rows);        }
             $rows = $this->db->query(
-                "SELECT ctp.tamponcod, p.code_passager, p.code_ticket, cl.nom_client, cl.prenom_client, cl.contact_client, lg.nom_ligne, p.datep_create, h.heure, pr.dateheure_prog FROM tamponcode ctp
+                "SELECT ctp.tamponcod, p.code_passager, p.code_ticket, cl.nom_client, cl.prenom_client, cl.contact_client, {$nomLine['select']}, p.datep_create, h.heure, pr.dateheure_prog FROM tamponcode ctp
                 JOIN passager p ON p.code_passager = ctp.tamponcod
                 JOIN sousgare sg ON p.departclient_idgare = sg.idsousgare 
                 LEFT JOIN non_passager np ON np.code_non_pass = ctp.tamponcod 

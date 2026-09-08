@@ -59,6 +59,8 @@ if (!function_exists('rapport_autre_vente_fetch')) {
             pr.date_progr,
             lg.gaexp_lg,
             lg.nom_ligne,
+            p.nom_dest_vente,
+            p.lignetineraire_vendu,
             h.heure,
             ex.nom_gaep,
             dest.nom_gadest,
@@ -108,6 +110,22 @@ if (!function_exists('rapport_autre_vente_fetch')) {
         $sql .= ' ORDER BY o.dateenregistrement DESC, o.dateheure DESC, o.orid DESC';
 
         $rows = $db->query($sql)->result();
+        if ($rows && function_exists('ticket_axe_label')) {
+            foreach ($rows as $r) {
+                if (!is_object($r)) {
+                    continue;
+                }
+                $hasEsc = (isset($r->nom_dest_vente) && trim((string) $r->nom_dest_vente) !== '')
+                    || (isset($r->lignetineraire_vendu) && trim((string) $r->lignetineraire_vendu) !== '');
+                if (!$hasEsc) {
+                    continue;
+                }
+                $label = ticket_axe_label($r, isset($r->nom_ligne) ? (string) $r->nom_ligne : '');
+                if ($label !== '') {
+                    $r->nom_ligne = $label;
+                }
+            }
+        }
         if (!$rows) {
             return array(
                 'lignes' => array(),
@@ -744,6 +762,8 @@ if (!function_exists('rapport_autre_vente_detail')) {
                 pr.date_progr,
                 lg.gaexp_lg,
                 lg.nom_ligne,
+                p.nom_dest_vente,
+                p.lignetineraire_vendu,
                 h.heure,
                 ex.nom_gaep,
                 dest.nom_gadest,
@@ -779,6 +799,17 @@ if (!function_exists('rapport_autre_vente_detail')) {
 
         if (!$row) {
             return null;
+        }
+
+        if (function_exists('ticket_axe_label')) {
+            $hasEsc = (isset($row->nom_dest_vente) && trim((string) $row->nom_dest_vente) !== '')
+                || (isset($row->lignetineraire_vendu) && trim((string) $row->lignetineraire_vendu) !== '');
+            if ($hasEsc) {
+                $label = ticket_axe_label($row, isset($row->nom_ligne) ? (string) $row->nom_ligne : '');
+                if ($label !== '') {
+                    $row->nom_ligne = $label;
+                }
+            }
         }
 
         $prix_saisi = round((float) $row->prixvente, 2);

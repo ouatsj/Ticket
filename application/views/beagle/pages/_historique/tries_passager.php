@@ -67,7 +67,7 @@ defined('BASEPATH') OR exit('No direct script access allowed'); ?>
                             isset($item->num_CNIB) ? $item->num_CNIB : '',
                             isset($item->datedepescal) ? $item->datedepescal : '',
                             isset($item->heure) ? $item->heure : '',
-                            isset($item->nom_ligne) ? $item->nom_ligne : '',
+                            function_exists('ticket_axe_label') ? ticket_axe_label($item) : (isset($item->nom_ligne) ? $item->nom_ligne : ''),
                             isset($item->quartier_escal) ? $item->quartier_escal : '',
                             isset($item->prixescal) ? $item->prixescal : '',
                         ))));
@@ -91,7 +91,7 @@ defined('BASEPATH') OR exit('No direct script access allowed'); ?>
                             <td>
                                 <span>Départ:<?= $item->datedepescal; ?><br>
                                 <span>Heure:<?= $item->heure; ?></span></span>
-                                <span>Axe:<?= $item->nom_ligne; ?> <?= $item->quartier_escal; ?></span>
+                                <span>Axe:<?= function_exists('ticket_axe_label') ? ticket_axe_label($item) : $item->nom_ligne; ?> <?= $item->quartier_escal; ?></span>
                             </td>
 
                             <td>
