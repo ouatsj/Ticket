@@ -218,6 +218,7 @@ return array(
         'm_personnels',
         'm_position',
         'm_programme',
+        'm_programme_correspondance',
         'm_programme_reconduction',
         'm_quartier',
         'm_sousgare',

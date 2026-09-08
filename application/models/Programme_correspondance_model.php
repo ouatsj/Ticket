@@ -164,34 +164,74 @@ class Programme_correspondance_model extends CI_Model
         $suite = isset($entry['suite']) ? $entry['suite'] : null;
         $principal = isset($entry['principal']) ? $entry['principal'] : null;
         $derive = isset($entry['derive']) ? $entry['derive'] : null;
-        $h = function ($p) {
+
+        $fmt = function ($p) {
             if (!$p) {
                 return '';
             }
             $heure = isset($p->heure) ? substr((string) $p->heure, 0, 5) : '';
-            $nom = isset($p->nom_ligne) ? $p->nom_ligne : '';
+            $nom = isset($p->nom_ligne) ? trim((string) $p->nom_ligne) : '';
             return trim($nom . ' ' . $heure);
+        };
+        $short = function ($p) use ($fmt) {
+            $full = $fmt($p);
+            if ($full === '') {
+                return '';
+            }
+            if (function_exists('mb_strlen') && function_exists('mb_substr')) {
+                if (mb_strlen($full) > 28) {
+                    return mb_substr($full, 0, 26) . '…';
+                }
+                return $full;
+            }
+            if (strlen($full) > 28) {
+                return substr($full, 0, 26) . '...';
+            }
+            return $full;
         };
 
         if ($role === 'principal') {
-            $label = 'Correspondance : ' . $h($suite);
-            if ($derive) {
-                $label .= ' · hub ' . $h($derive);
+            $suiteTxt = $short($suite);
+            $label = $suiteTxt !== '' ? ('Corr. → ' . $suiteTxt) : 'Correspondance liée';
+            $title = 'Lien correspondance';
+            if ($suite) {
+                $title .= ' · suite ' . $fmt($suite);
             }
-            return '<br><small class="badge badge-info" title="Lien correspondance">'
+            if ($derive) {
+                $title .= ' · miroir ' . $fmt($derive);
+            }
+            return '<br><small class="badge badge-info js-corr-badge" title="'
+                . htmlspecialchars($title, ENT_QUOTES, 'UTF-8') . '">'
                 . htmlspecialchars($label, ENT_QUOTES, 'UTF-8') . '</small>';
         }
         if ($role === 'derive') {
-            $label = 'Dérivé · miroir sièges occupés ' . $h($suite);
-            return '<br><small class="badge badge-primary" title="Sièges = déjà vendus sur le départ de correspondance">'
+            $suiteTxt = $short($suite);
+            $label = $suiteTxt !== '' ? ('Miroir · ' . $suiteTxt) : 'Miroir correspondance';
+            $title = 'Dérivé : sièges = déjà vendus sur le départ de correspondance';
+            if ($suite) {
+                $title .= ' (' . $fmt($suite) . ')';
+            }
+            return '<br><small class="badge badge-primary js-corr-badge" title="'
+                . htmlspecialchars($title, ENT_QUOTES, 'UTF-8') . '">'
                 . htmlspecialchars($label, ENT_QUOTES, 'UTF-8') . '</small>';
         }
         if ($role === 'suite') {
-            $label = 'Utilisé par ' . $h($principal);
+            $from = '';
             if ($principal && !empty($principal->gareidentif)) {
-                $label .= ' (' . $principal->gareidentif . ')';
+                $from = (string) $principal->gareidentif;
+            } elseif ($principal) {
+                $from = $short($principal);
             }
-            return '<br><small class="badge badge-warning" title="Départ utilisé en correspondance par une autre gare">'
+            $label = $from !== '' ? ('Corr. ← ' . $from) : 'Correspondance (hub)';
+            $title = 'Départ utilisé en correspondance par une autre gare';
+            if ($principal) {
+                $title .= ' : ' . $fmt($principal);
+                if (!empty($principal->gareidentif)) {
+                    $title .= ' (' . $principal->gareidentif . ')';
+                }
+            }
+            return '<br><small class="badge badge-warning js-corr-badge" title="'
+                . htmlspecialchars($title, ENT_QUOTES, 'UTF-8') . '">'
                 . htmlspecialchars($label, ENT_QUOTES, 'UTF-8') . '</small>';
         }
         return '';
