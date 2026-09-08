@@ -10,10 +10,18 @@
     </p>
 </div>
 
+<?php
+$render_validation_cards = function ($items, $pending_map, $label_badge) use ($caisseident, $conex, $bus_stop) {
+    if (empty($items)) {
+        return;
+    }
+    ?>
+<div class="row mb-2 ml-4">
+    <h5 class="text-secondary"><?= htmlspecialchars($label_badge, ENT_QUOTES, 'UTF-8'); ?></h5>
+</div>
 <div class="row">
-    
-    <? foreach ($usercomptes as $item):
-        $pending = caissier_arret_pending_for_chef(isset($pending_arret) ? $pending_arret : array(), $item->roleattribut);
+    <? foreach ($items as $item):
+        $pending = caissier_arret_pending_for_chef(isset($pending_map) ? $pending_map : array(), $item->roleattribut);
     ?>
         <div class="col-lg-3">
 
@@ -56,8 +64,26 @@
 
         </div>
     <?endforeach; ?>
-
 </div>
+    <?php
+};
+?>
+
+<?php
+$render_validation_cards(
+    isset($usercomptes) ? $usercomptes : array(),
+    isset($pending_arret) ? $pending_arret : array(),
+    'Chefs guichet'
+);
+
+if (!empty($useradjoints)) {
+    $render_validation_cards(
+        $useradjoints,
+        isset($pending_arret_adjoint) ? $pending_arret_adjoint : array(),
+        'Caissiers adjoints (à confirmer)'
+    );
+}
+?>
 
 <!--End of file: caissevalide.php-->
 <!--File location: application/views/beagle/pages/_caisse/caissevalide.php-->

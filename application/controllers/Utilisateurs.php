@@ -602,17 +602,46 @@
         {
             $this->company = $this->m_entreprises->get_key($ckey);
 
-            $bind = caissier_validation_bind_operateurs($this->company->ekey, $gid, $idcpus, $idop, array(
-                'idcai' => $idcai,
-                'idsg' => $idsg,
-            ));
-            $idcpus = $bind['chef_ra'];
-            $idop = $bind['caissier_ra'];
+            // Option B : cible adjoint (18) → bind dédié ; sinon chef 5/16.
+            $target_hint = (int) $idcpus;
+            $adjoint_row = roleattribut_guard_attribution_on_gare(
+                $this->company->ekey,
+                $gid,
+                $target_hint,
+                array('18'),
+                true
+            );
+
+            if ($adjoint_row && recette_role_is_validateur_principal($this->session->agent->userole)) {
+                $bind_ad = caissier_principale_adjoint_validation_bind(
+                    $this->company->ekey,
+                    $gid,
+                    $target_hint,
+                    $idop
+                );
+                $idcpus = $bind_ad['adjoint_ra'];
+                $idop = $bind_ad['caissier_ra'];
+                $chef_userole = '18';
+                $caissier_conex = null;
+                $op = roleattribut_guard_operateur($this->company->ekey, $gid, $idop);
+                if (!empty($op['conex'])) {
+                    $caissier_conex = $op['conex'];
+                }
+            } else {
+                $bind = caissier_validation_bind_operateurs($this->company->ekey, $gid, $idcpus, $idop, array(
+                    'idcai' => $idcai,
+                    'idsg' => $idsg,
+                ));
+                $idcpus = $bind['chef_ra'];
+                $idop = $bind['caissier_ra'];
+                $chef_userole = $bind['chef_userole'];
+                $caissier_conex = $bind['caissier_conex'];
+            }
 
             $bus_stop = $this->m_sousgare->sget($this->company->ekey, $gid, $idsg);
             $this->property['bus_stop'] = $bus_stop;
             $user_connect = $this->m_compte_user->usergare($this->company->ekey, $gid, $idcpus);
-            $conex = $bind['caissier_conex'];
+            $conex = $caissier_conex;
             if (!$conex) {
                 $conex = $this->m_compte_user->usget1($idop, $gid);
             }
@@ -624,15 +653,29 @@
             $this->property['comptejours'] = $this->m_compte_user->caissejours($this->company->ekey, $gid, $idcai, $idcpus);
             $this->property['typedocuments'] = $this->m_typedocument->get();
 
-            $this->property['recette_stop'] = $this->m_recette->valideget_par_profil($this->company->ekey, $gid, $idcai, $idcpus, $user_connect->userole);
-            $this->property['depense_stop'] = $this->m_depense->valideget_par_profil($this->company->ekey, $gid, $idcai, $idcpus, $user_connect->userole);
-            $this->property['depot_stop'] = $this->m_depot->valideget_par_profil($this->company->ekey, $gid, $idcai, $idcpus, $user_connect->userole);
-            $this->property['pending_totals'] = caissier_validation_chef_pending_totals(
-                $this->company->ekey,
-                $gid,
-                $idcai,
-                $idcpus
-            );
+            $profil_role = ($user_connect && !empty($user_connect->userole))
+                ? $user_connect->userole
+                : $chef_userole;
+
+            $this->property['recette_stop'] = $this->m_recette->valideget_par_profil($this->company->ekey, $gid, $idcai, $idcpus, $profil_role);
+            $this->property['depense_stop'] = $this->m_depense->valideget_par_profil($this->company->ekey, $gid, $idcai, $idcpus, $profil_role);
+            $this->property['depot_stop'] = $this->m_depot->valideget_par_profil($this->company->ekey, $gid, $idcai, $idcpus, $profil_role);
+
+            if (recette_role_is_validateur_adjoint($profil_role)) {
+                $this->property['pending_totals'] = caissier_validation_adjoint_pending_totals(
+                    $this->company->ekey,
+                    $gid,
+                    $idcai,
+                    $idcpus
+                );
+            } else {
+                $this->property['pending_totals'] = caissier_validation_chef_pending_totals(
+                    $this->company->ekey,
+                    $gid,
+                    $idcai,
+                    $idcpus
+                );
+            }
             $this->property['compagnies'] = $this->m_compagnies->get();
             $this->property['pagetitle'] .= "• VALIDATION COMPTE • <strong>{$user_connect->username}</strong>•&nbsp;{$user_connect->garenom}<strong>•&nbsp;{$this->company->nom_entreprise}•&nbsp;{$user_connect->type_rols}</strong>";
             return $this->layout->view('_caisse/indexcompte', $this->property);

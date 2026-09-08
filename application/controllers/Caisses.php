@@ -698,6 +698,16 @@
                     $this->property['typedocuments'] = $ref['typedocuments'];
                     $this->property['usercomptes'] = $this->m_compte_user->get_chefs_gare($this->company->ekey, $cdg);
                     $this->property['pending_arret'] = caissier_arret_pending_map($this->company->ekey, $cdg, $cid);
+                    // Option B : principal (4) voit aussi les adjoints (18) à confirmer.
+                    $this->property['useradjoints'] = array();
+                    $this->property['pending_arret_adjoint'] = array();
+                    if (recette_role_is_validateur_principal($this->session->agent->userole)
+                        || $this->session->agent->userole === '1'
+                        || $this->session->agent->userole === '2'
+                    ) {
+                        $this->property['useradjoints'] = $this->m_compte_user->get_adjoints_gare($this->company->ekey, $cdg);
+                        $this->property['pending_arret_adjoint'] = caissier_arret_pending_map_adjoint($this->company->ekey, $cdg, $cid);
+                    }
                     $this->property['pagetitle'] .= "• VALIDATION COMPTE<strong>•&nbsp;{$this->company->nom_entreprise}•&nbsp;{$conex->type_rols}</strong>";
                 return $this->layout->view('_caisse/caissevalide', $this->property);
                 break;

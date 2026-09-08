@@ -361,6 +361,29 @@
                 AND ar.activer_role = 0
                 ORDER BY u.first_name ASC, u.last_name ASC")->result();
         }
+
+        /**
+         * Adjoints caisse (18) actifs sur la gare — file confirmation principal (option B).
+         */
+        public function get_adjoints_gare($cid, $gid)
+        {
+            return $this->db->query(
+                "SELECT * FROM compte_user cu
+                JOIN user_login ul ON ul.uid_usercpte = cu.cpuser_id
+                JOIN attributions_role ar ON ar.idgestcompte = ul.uid_login
+                JOIN utilisateurs u ON cu.userlog_id = u.uid
+                JOIN user_roles r ON ar.userole = r.id_rols
+                JOIN gares g ON ul.guser = g.idengare
+                JOIN entreprise e ON u.cle_comp = e.ekey
+                WHERE e.ekey = ?
+                AND ul.guser = ?
+                AND ar.userole = 18
+                AND ar.activer_role = 0
+                AND ul.comptactif = 0
+                ORDER BY u.first_name ASC, u.last_name ASC",
+                array($cid, $gid)
+            )->result();
+        }
         
         
         public function get_usercp($cid, $gid)

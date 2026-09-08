@@ -562,7 +562,9 @@
 
         public function validegead($cid, $gid, $idcais, $use)
         {
+            // Option B : dépôts validés adjoint, en attente confirmation principal.
             $today = mdate('%Y-%m-%d', now());
+            $pending = caisse_validation_pending_adjoint_depot_sql((int) $use, 'd');
             return $this->db->query("SELECT SUM(montant_depot) AS totalmont, d.opvalidad, d.idcaisse_depot, cs.gexp_caiss, cu.is_conect FROM depot d
                 JOIN attributions_role ar ON d.idop_depot = ar.roleattribut
                 JOIN user_login ul ON ar.idgestcompte = ul.uid_login
@@ -575,13 +577,12 @@
                 WHERE e.ekey = '$cid'
                 AND d.arret_caisdepo = 0
                 AND d.idcaisse_depot = '$idcais'
-                AND d.opvalidad = '$use'
-                AND d.is_actifdepoad = 0
+                AND {$pending}
                 AND d.datedepot <= '$today'
                 AND d.actif_depo = 0
                 AND d.type_depot <> 'Courrier'
                 AND cs.gexp_caiss = '$gid'
-                GROUP BY cs.id_caiss, cu.cpuser_id")->result();
+                GROUP BY cs.id_caiss, cu.cpuser_id, d.opvalidad, d.idcaisse_depot, cs.gexp_caiss, cu.is_conect")->result();
         }
 
         /** Dépôts saisis par chef guichet (role 5/16), en attente validation caissier. */

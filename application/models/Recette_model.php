@@ -1199,7 +1199,9 @@
 
         public function validegead($cid, $gid, $idcais, $use)
         {
+            // Option B : lignes déjà validées par l’adjoint, en attente confirmation principal.
             $today = mdate('%Y-%m-%d', now());
+            $pending = caisse_validation_pending_adjoint_recette_sql((int) $use, 'r');
             return $this->db->query(
                 "SELECT SUM(montant_recet) AS total, r.operavalidad, r.idcaisse, cs.gexp_caiss, cu.is_conect FROM recette r
                 JOIN attributions_role ar ON r.idopera = ar.roleattribut
@@ -1214,12 +1216,11 @@
                 AND r.active_recet = 1
                 AND cs.id_caiss = '$idcais'
                 AND cs.gexp_caiss = '$gid'
-                AND r.operavalidad = '$use'
-                AND r.is_actifrecetad = 0
+                AND {$pending}
                 AND r.actif_rect = 0
                 AND r.type_recet <> 'Courrier'
                 AND r.date_recet <= '$today'
-                GROUP BY cs.id_caiss, ar.roleattribut")->result();
+                GROUP BY cs.id_caiss, ar.roleattribut, r.operavalidad, r.idcaisse, cs.gexp_caiss, cu.is_conect")->result();
         }
 
         /** Recettes saisies par chef guichet (role 5/16), en attente validation caissier. */

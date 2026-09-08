@@ -435,26 +435,11 @@
             }
 
                     foreach ($cfrecet as $item9) {
-                        if (recette_role_is_validateur_adjoint($this->session->agent->userole))
-                        {
-                            $plarray = array(
-                                'active_recet' => 1,
-                                'is_validerecet' => 1,
-                                'is_actifrecetad' => 1,
-                                'operavalidad' => $iduser,
-                            );
-                        }
-                        else
-                        {
-                            $plarray = array(
-                                'is_actifrecet' => 1,
-                                'is_validerecet' => 1,
-                                'operavalid' => $iduser,
-                            );
-                            if ($is_saisie) {
-                                $plarray['active_recet'] = 1;
-                            }
-                        }
+                        $plarray = caisse_validation_flags_chef_by_validator(
+                            $this->session->agent->userole,
+                            $iduser,
+                            $is_saisie
+                        );
                         if ((int) $sgid > 0) {
                             $plarray['recetsgid'] = (int) $sgid;
                         }
@@ -556,27 +541,11 @@
             }
 
                     foreach ($cfdepes as $cfdep) {
-
-                        if (recette_role_is_validateur_adjoint($this->session->agent->userole))
-                        {
-                            $dplarray = array(
-                                'active_dep' => 1,
-                                'is_validedep' => 1,
-                                'is_actifdepad' => 1,
-                                'opevalidad' => $iduser,
-                            );
-                        }
-                        else
-                        {
-                            $dplarray = array(
-                                'is_validedep' => 1,
-                                'is_actifdep' => 1,
-                                'opevalid' => $iduser,
-                            );
-                            if ($is_saisie) {
-                                $dplarray['active_dep'] = 1;
-                            }
-                        }
+                        $dplarray = caisse_validation_flags_depense_chef_by_validator(
+                            $this->session->agent->userole,
+                            $iduser,
+                            $is_saisie
+                        );
                         if ((int) $sgid > 0) {
                             $dplarray['sousgidepens'] = (int) $sgid;
                         }
@@ -671,22 +640,11 @@
             }
 
                     foreach ($cfdepo as $tems) {
-                        if (recette_role_is_validateur_adjoint($this->session->agent->userole))
-                        {
-                            $dpolarray = array(
-                                'is_validdepo' => 1,
-                                'is_actifdepoad' => 1,
-                                'opvalidad' => $iduser,
-                            );
-                        }
-                        else
-                        {
-                            $dpolarray = array(
-                                'is_validdepo' => 1,
-                                'is_actifdepo' => 1,
-                                'opvalid' => $iduser,
-                            );
-                        }
+                        $dpolarray = caisse_validation_flags_depot_chef_by_validator(
+                            $this->session->agent->userole,
+                            $iduser,
+                            $is_saisie
+                        );
                         if ((int) $sgid > 0) {
                             $dpolarray['sousgdepot'] = (int) $sgid;
                         }
@@ -1086,30 +1044,23 @@
             $bind = caissier_principale_adjoint_validation_bind($this->company->ekey, $g, $idcpt, $iduser);
             $idcpt = $bind['adjoint_ra'];
             $iduser = $bind['caissier_ra'];
-           
-                $cfrecet = $this->db->query("SELECT r.id_recette, r.active_recet, r.is_validerecet, r.operavalidad, r.idcaisse FROM recette r
-                    WHERE r.operavalidad = '$idcpt'
+            $pending = caisse_validation_pending_adjoint_recette_sql($idcpt, 'r');
+
+                $cfrecet = $this->db->query("SELECT r.id_recette, r.active_recet, r.is_validerecet, r.operavalidad, r.idopera, r.idcaisse FROM recette r
+                    WHERE {$pending}
                     AND r.active_recet = 1
-                    AND r.is_actifrecetad = 0
-                    AND r.is_validerecet = 0
                     AND r.idcaisse ='$idc'")->result();
                     
 
                     foreach ($cfrecet as $item9) {
-                       
-                            $plarray = array(
-                                'is_actifrecet' => 1,
-                                'is_actifrecetad' => 1,
-                                'operavalid' => $iduser,
-                            );
-
+                        // Option A : ajoute operavalid, conserve operavalidad / idopera.
+                        $plarray = caisse_validation_flags_promote_adjoint_recette($iduser);
                         $vald_recet = $this->m_recette->update($item9->id_recette, $plarray);
                     }
 
 
                 
                 $this->property['UPDATE_SUCCESS'] = TRUE;
-            //var_dump($cfrecet)
             redirect('utilisateurs/' . $this->session->company->ekey.'/caissier/'.$g. '/'. $idc.'/'.$idcpt.'/'.$iduser.'/'.$sgid.'/'.mdate("%d/%m/%Y", now('UTC')));
         }
 
@@ -1119,26 +1070,16 @@
             $bind = caissier_principale_adjoint_validation_bind($this->company->ekey, $g, $idcpt, $iduser);
             $idcpt = $bind['adjoint_ra'];
             $iduser = $bind['caissier_ra'];
+            $pending = caisse_validation_pending_adjoint_recette_sql($idcpt, 'r');
            
-                $cfrecet = $this->db->query("SELECT r.id_recette, r.active_recet, r.is_validerecet, r.operavalidad, r.idcaisse, r.valid_recet FROM recette r
-                    WHERE r.operavalidad = '$idcpt'
+                $cfrecet = $this->db->query("SELECT r.id_recette, r.active_recet, r.is_validerecet, r.operavalidad, r.idopera, r.idcaisse, r.valid_recet FROM recette r
+                    WHERE {$pending}
                     AND r.active_recet = 1
-                    AND r.is_actifrecetad = 0
-                    AND r.idcaisse ='$idc'
-                    AND r.is_validerecet = 0
-                    AND r.valid_recet = 'valid'")->result();
+                    AND r.idcaisse ='$idc'")->result();
 
                     foreach ($cfrecet as $item10) {
-
-                        
-                            $plarray = array(
-                                'active_recet' => 0,
-                                'is_actifrecet' => 0,
-                                'is_validerecet' => 0,
-                                'operavalidad' => '',
-                                'valid_recet' => 'rejet',
-                            );
-                        
+                        // Rejet : n’efface pas idopera (auteur).
+                        $plarray = caisse_validation_flags_reject_adjoint_recette();
                         $vald_recet = $this->m_recette->update($item10->id_recette, $plarray);
                     }
 
@@ -1154,23 +1095,15 @@
             $bind = caissier_principale_adjoint_validation_bind($this->company->ekey, $g, $idcpt, $iduser);
             $idcpt = $bind['adjoint_ra'];
             $iduser = $bind['caissier_ra'];
+            $pending = caisse_validation_pending_adjoint_depense_sql($idcpt, 'd');
            
-                $cfdepes = $this->db->query("SELECT d.id_depense, d.active_dep, d.is_validedep, d.opevalidad, d.idcaisse_depens FROM depense d
-                    WHERE d.opevalidad = '$idcpt'
+                $cfdepes = $this->db->query("SELECT d.id_depense, d.active_dep, d.is_validedep, d.opevalidad, d.idop_dep, d.idcaisse_depens FROM depense d
+                    WHERE {$pending}
                     AND d.active_dep = 1
-                    AND d.is_actifdepad = 0
-                    AND d.is_validedep = 0
                     AND d.idcaisse_depens = '$idc'")->result();
 
                     foreach ($cfdepes as $cfdep) {
-
-                        
-                            $dplarray = array(
-                                'is_actifdepad' => 1,
-                                'is_actifdep' => 1,
-                                'opevalid' => $iduser,
-                            );
-                        
+                        $dplarray = caisse_validation_flags_promote_adjoint_depense($iduser);
                         $vald_dep = $this->m_depense->update($cfdep->id_depense, $dplarray);
                     }
                 
@@ -1185,27 +1118,15 @@
             $bind = caissier_principale_adjoint_validation_bind($this->company->ekey, $g, $idcpt, $iduser);
             $idcpt = $bind['adjoint_ra'];
             $iduser = $bind['caissier_ra'];
+            $pending = caisse_validation_pending_adjoint_depense_sql($idcpt, 'd');
            
-                $cfdepe = $this->db->query("SELECT d.id_depense, d.active_dep, d.is_validedep, d.valid_depens, d.opevalidad, d.idcaisse_depens FROM depense d
-                    WHERE d.opevalidad = '$idcpt'
+                $cfdepe = $this->db->query("SELECT d.id_depense, d.active_dep, d.is_validedep, d.valid_depens, d.opevalidad, d.idop_dep, d.idcaisse_depens FROM depense d
+                    WHERE {$pending}
                     AND d.active_dep = 1
-                    AND d.is_actifdepad = 0
-                    AND d.idcaisse_depens = '$idc'
-                    AND d.is_validedep = 0
-                    AND d.valid_depens = 'valid'")->result();
+                    AND d.idcaisse_depens = '$idc'")->result();
 
                     foreach ($cfdepe as $teme1) {
-
-                        if($this->session->agent->userole === '18')
-                       
-                            $dplarray = array(
-                                'active_dep' => 0,
-                                'is_actifdep' => 0,
-                                'is_validedep' => 0,
-                                'opevalidad' => '',
-                                'valid_depens' => 'rejet',
-                            );
-                        
+                        $dplarray = caisse_validation_flags_reject_adjoint_depense();
                         $vald_dep = $this->m_depense->update($teme1->id_depense, $dplarray);
                     }
                 

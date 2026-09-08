@@ -900,7 +900,9 @@
 
         public function validegead($cid, $gid, $idcais, $use)
         {
+            // Option B : dépenses validées adjoint, en attente confirmation principal.
             $today = mdate('%Y-%m-%d', now());
+            $pending = caisse_validation_pending_adjoint_depense_sql((int) $use, 'd');
             return $this->db->query(
                 "SELECT SUM(montant_depens) AS mont, d.opevalidad, cu.is_conect, d.idcaisse_depens, cs.gexp_caiss FROM depense d
                 JOIN attributions_role ar ON d.idop_dep = ar.roleattribut
@@ -913,13 +915,12 @@
                 WHERE e.ekey = '$cid'
                 AND d.active_dep = 1
                 AND d.idcaisse_depens ='$idcais'
-                AND d.opevalidad = '$use'
                 AND cs.gexp_caiss = '$gid'
-                AND d.is_actifdepad = 0
+                AND {$pending}
                 AND d.actif_deps = 0
                 AND d.date_depens <= '$today'
                 AND d.type_depense <> 'Courrier'
-                GROUP BY cs.id_caiss, ar.roleattribut")->result();
+                GROUP BY cs.id_caiss, ar.roleattribut, d.opevalidad, cu.is_conect, d.idcaisse_depens, cs.gexp_caiss")->result();
         }
 
         /** Dépenses saisies par chef guichet (role 5/16), en attente validation caissier. */

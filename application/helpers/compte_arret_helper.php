@@ -2361,6 +2361,8 @@ if (!function_exists('caissier_arret_pending_map')) {
         };
 
         // File arrêt masse (active_*=0) + file ligne RdD (active_*=1, is_actif*=0).
+        // Exclure les lignes déjà validées par un adjoint (is_actif*ad=1) : elles
+        // passent dans la file « confirmation principal » (caissier_arret_pending_map_adjoint).
         $rec_rows = $CI->db->query(
             "SELECT r.idopera AS roleattribut, COUNT(*) AS nb, COALESCE(SUM(r.montant_recet), 0) AS total
             FROM recette r
@@ -2374,11 +2376,12 @@ if (!function_exists('caissier_arret_pending_map')) {
             AND ul.guser = ?
             AND ar.userole IN (5, 16)
             AND r.is_actifrecet = 0
+            AND (r.is_actifrecetad = 0 OR r.is_actifrecetad IS NULL)
             AND r.actif_rect = 0
             AND r.type_recet <> 'Courrier'
             AND (
                 (r.active_recet = 0 AND r.is_validerecet = 0 AND r.date_recet <= ?)
-                OR (r.active_recet = 1)
+                OR (r.active_recet = 1 AND r.is_validerecet = 0)
             )
             {$caisse_sql}
             GROUP BY r.idopera",
@@ -2404,11 +2407,12 @@ if (!function_exists('caissier_arret_pending_map')) {
             AND ul.guser = ?
             AND ar.userole IN (5, 16)
             AND d.is_actifdep = 0
+            AND (d.is_actifdepad = 0 OR d.is_actifdepad IS NULL)
             AND d.actif_deps = 0
             AND d.type_depense <> 'Courrier'
             AND (
                 (d.active_dep = 0 AND d.is_validedep = 0 AND d.date_depens <= ?)
-                OR (d.active_dep = 1 AND d.ferme_caisdep = 0)
+                OR (d.active_dep = 1 AND d.is_validedep = 0 AND d.ferme_caisdep = 0)
             )
             {$caisse_sql}
             GROUP BY d.idop_dep",
@@ -2435,6 +2439,7 @@ if (!function_exists('caissier_arret_pending_map')) {
             AND ar.userole IN (5, 16)
             AND d.arret_caisdepo = 0
             AND d.is_actifdepo = 0
+            AND (d.is_actifdepoad = 0 OR d.is_actifdepoad IS NULL)
             AND d.is_validdepo = 0
             AND d.actif_depo = 0
             AND d.type_depot <> 'Courrier'
@@ -2495,5 +2500,146 @@ if (!function_exists('caissier_arret_pending_for_chef')) {
         $p->has_pending = ($p->total_recettes > 0 || $p->total_depenses > 0 || $p->total_depots > 0);
 
         return $p;
+    }
+}
+
+if (!function_exists('caissier_arret_pending_map_adjoint')) {
+    /**
+     * Totaux en attente de confirmation du principal (4), par adjoint (18).
+     * Lignes déjà validées adjoint (is_actif*ad=1) mais pas encore principal (is_actif*=0).
+     *
+     * @return array<int,object>
+     */
+    function caissier_arret_pending_map_adjoint($ekey, $gid, $idcais = null)
+    {
+        $CI =& get_instance();
+        $gid = roleattribut_guard_normalize_gare_id($ekey, $gid);
+        $idcais = ($idcais !== null && (int) $idcais > 0) ? (int) $idcais : null;
+        $today = mdate('%Y-%m-%d', now());
+        $caisse_sql = $idcais !== null ? ' AND cs.id_caiss = ' . $idcais : '';
+        $map = array();
+
+        $init = function ($ra) use (&$map) {
+            $ra = (int) $ra;
+            if (!isset($map[$ra])) {
+                $map[$ra] = (object) array(
+                    'roleattribut' => $ra,
+                    'total_recettes' => 0.0,
+                    'total_depenses' => 0.0,
+                    'total_depots' => 0.0,
+                    'nb_recettes' => 0,
+                    'nb_depenses' => 0,
+                    'nb_depots' => 0,
+                );
+            }
+        };
+
+        $rec_rows = $CI->db->query(
+            "SELECT r.operavalidad AS roleattribut, COUNT(*) AS nb, COALESCE(SUM(r.montant_recet), 0) AS total
+            FROM recette r
+            JOIN attributions_role ar ON r.operavalidad = ar.roleattribut
+            JOIN user_login ul ON ar.idgestcompte = ul.uid_login
+            JOIN caisse cs ON r.idcaisse = cs.id_caiss
+            JOIN gare_exp ex ON cs.gexp_caiss = ex.code_gaexp
+            JOIN compagnies c ON r.compkey_recet = c.cle_compagnie
+            JOIN entreprise e ON c.id_entrep = e.id_entreprise
+            WHERE e.ekey = ?
+            AND ul.guser = ?
+            AND ar.userole = 18
+            AND r.is_actifrecetad = 1
+            AND r.is_actifrecet = 0
+            AND r.is_validerecet = 1
+            AND r.actif_rect = 0
+            AND r.type_recet <> 'Courrier'
+            AND r.date_recet <= ?
+            {$caisse_sql}
+            GROUP BY r.operavalidad",
+            array($ekey, $gid, $today)
+        )->result();
+
+        foreach ($rec_rows as $row) {
+            $init($row->roleattribut);
+            $map[(int) $row->roleattribut]->total_recettes = (float) $row->total;
+            $map[(int) $row->roleattribut]->nb_recettes = (int) $row->nb;
+        }
+
+        $dep_rows = $CI->db->query(
+            "SELECT d.opevalidad AS roleattribut, COUNT(*) AS nb, COALESCE(SUM(d.montant_depens), 0) AS total
+            FROM depense d
+            JOIN attributions_role ar ON d.opevalidad = ar.roleattribut
+            JOIN user_login ul ON ar.idgestcompte = ul.uid_login
+            JOIN caisse cs ON d.idcaisse_depens = cs.id_caiss
+            JOIN gare_exp ex ON cs.gexp_caiss = ex.code_gaexp
+            JOIN compagnies c ON d.compkey_dep = c.cle_compagnie
+            JOIN entreprise e ON c.id_entrep = e.id_entreprise
+            WHERE e.ekey = ?
+            AND ul.guser = ?
+            AND ar.userole = 18
+            AND d.is_actifdepad = 1
+            AND d.is_actifdep = 0
+            AND d.is_validedep = 1
+            AND d.actif_deps = 0
+            AND d.type_depense <> 'Courrier'
+            AND d.date_depens <= ?
+            {$caisse_sql}
+            GROUP BY d.opevalidad",
+            array($ekey, $gid, $today)
+        )->result();
+
+        foreach ($dep_rows as $row) {
+            $init($row->roleattribut);
+            $map[(int) $row->roleattribut]->total_depenses = (float) $row->total;
+            $map[(int) $row->roleattribut]->nb_depenses = (int) $row->nb;
+        }
+
+        $depo_rows = $CI->db->query(
+            "SELECT d.opvalidad AS roleattribut, COUNT(*) AS nb, COALESCE(SUM(d.montant_depot), 0) AS total
+            FROM depot d
+            JOIN attributions_role ar ON d.opvalidad = ar.roleattribut
+            JOIN user_login ul ON ar.idgestcompte = ul.uid_login
+            JOIN caisse cs ON d.idcaisse_depot = cs.id_caiss
+            JOIN gare_exp ex ON cs.gexp_caiss = ex.code_gaexp
+            JOIN compagnies c ON d.compkey_depo = c.cle_compagnie
+            JOIN entreprise e ON c.id_entrep = e.id_entreprise
+            WHERE e.ekey = ?
+            AND ul.guser = ?
+            AND ar.userole = 18
+            AND d.is_actifdepoad = 1
+            AND d.is_actifdepo = 0
+            AND d.is_validdepo = 1
+            AND d.actif_depo = 0
+            AND d.type_depot <> 'Courrier'
+            AND d.datedepot <= ?
+            {$caisse_sql}
+            GROUP BY d.opvalidad",
+            array($ekey, $gid, $today)
+        )->result();
+
+        foreach ($depo_rows as $row) {
+            $init($row->roleattribut);
+            $map[(int) $row->roleattribut]->total_depots = (float) $row->total;
+            $map[(int) $row->roleattribut]->nb_depots = (int) $row->nb;
+        }
+
+        return $map;
+    }
+}
+
+if (!function_exists('caissier_validation_adjoint_pending_totals')) {
+    function caissier_validation_adjoint_pending_totals($ekey, $gid, $idcais, $adjoint_ra)
+    {
+        $pending = caissier_arret_pending_for_chef(
+            caissier_arret_pending_map_adjoint($ekey, $gid, $idcais),
+            $adjoint_ra
+        );
+
+        return (object) array(
+            'total_recettes' => (float) $pending->total_recettes,
+            'total_depenses' => (float) $pending->total_depenses,
+            'total_depots' => (float) $pending->total_depots,
+            'solde' => (float) $pending->total_recettes
+                + (float) $pending->total_depots
+                - (float) $pending->total_depenses,
+        );
     }
 }

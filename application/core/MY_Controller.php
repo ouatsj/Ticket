@@ -88,7 +88,14 @@ class MY_Controller extends CI_Controller
             $helpers[] = 'sales_price';
         }
         if ($this->session->userdata('agent') && $this->session->userdata('company')) {
-            $helpers = array_merge($helpers, array('retour', 'recette_role', 'ticket_prix', 'url_safe', 'sales_price'));
+            $helpers = array_merge($helpers, array(
+                'retour',
+                'recette_role',
+                'caisse_validation_flags',
+                'ticket_prix',
+                'url_safe',
+                'sales_price',
+            ));
         }
 
         $this->_load_helpers(array_values(array_unique($helpers)));
