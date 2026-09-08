@@ -8,10 +8,21 @@
         {
             parent::__construct();
         }
+
+        /**
+         * Exclut les lignes masquées au guichet (lignes.actif_lg = 0).
+         *
+         * @return string
+         */
+        protected function actif_ligne_sql()
+        {
+            return " AND IFNULL(l.actif_lg, 1) = 1 ";
+        }
         
     
         public function getad($cid, $lg_id = FALSE)
         {
+            $actifLg = $this->actif_ligne_sql();
             if ($lg_id === FALSE) {
                 return $this->db->query(
                     "SELECT lh.*, l.*, h.*, ga.*, ge.*, g.*, v.*, e.*,
@@ -31,6 +42,7 @@
                     WHERE e.id_entreprise = '$cid'
                     AND h.h_active = 1
                     AND lh.actif_lh = 1
+                    $actifLg
                     ORDER BY ca.nom_compagnie ASC, h.heure ASC")->result();
             } else
                 return $this->db->query(
@@ -51,6 +63,7 @@
                     AND lh.id_ligneheure = '$lg_id'
                     AND h.h_active = 1
                     AND lh.actif_lh = 1
+                    $actifLg
                     ORDER BY h.heure ASC")->row();
         }
 
@@ -87,6 +100,7 @@
 
         public function getscdad($cid, $lg_id = FALSE)
         {
+            $actifLg = $this->actif_ligne_sql();
 
             if ($lg_id === FALSE) {
                 return $this->db->query(
@@ -102,6 +116,7 @@
                     WHERE e.id_entreprise = '$cid'
                     AND ga.type_gare = 'secondaire'
                     AND h.h_active = 1
+                    $actifLg
                     ORDER BY l.nom_ligne")->result();
             } else
                 return $this->db->query(
@@ -118,11 +133,13 @@
                     AND lh.id_ligneheure = '$lg_id'
                     AND ga.type_gare = 'secondaire'
                     AND h.h_active = 1
+                    $actifLg
                     ORDER BY l.nom_ligne")->row();
         }
         
         public function get($cid, $gid, $lg_id = FALSE)
         {
+            $actifLg = $this->actif_ligne_sql();
             // $gid = idengare (URL gTc / tarifs), pas code_gaexp.
             if ($lg_id === FALSE) {
                 return $this->db->query(
@@ -144,6 +161,7 @@
                     AND h.h_active = 1
                     AND lh.actif_lh = 1
                     AND g.idengare = '$gid'
+                    $actifLg
                     ORDER BY ca.nom_compagnie ASC, h.heure ASC")->result();
             } else
                 return $this->db->query(
@@ -166,11 +184,13 @@
                     AND h.h_active = 1
                     AND lh.actif_lh = 1
                     AND g.idengare = '$gid'
+                    $actifLg
                     ORDER BY h.heure ASC")->row();
         }
 
         public function getpr($cid, $lg_id)
         {
+            $actifLg = $this->actif_ligne_sql();
             
             return $this->db->query(
                 "SELECT * FROM ligne_heure lh
@@ -186,6 +206,7 @@
                 AND h.h_active = 1
                 AND lh.actif_lh = 1
                 AND l.ident_ligne = '$lg_id'
+                $actifLg
                 ORDER BY h.heure ASC")->result();
             
         }
@@ -286,6 +307,7 @@
         
         public function getscd($cid, $gid, $lg_id = FALSE)
         {
+            $actifLg = $this->actif_ligne_sql();
 
             if ($lg_id === FALSE) {
                 return $this->db->query(
@@ -302,6 +324,7 @@
                     AND ga.type_gare = 'secondaire'
                     AND ge.code_gaexp = '$gid'
                     AND h.h_active = 1
+                    $actifLg
                     ORDER BY l.nom_ligne")->result();
             } else
                 return $this->db->query(
@@ -319,6 +342,7 @@
                     AND ga.type_gare = 'secondaire'
                     AND ge.code_gaexp = '$gid'
                     AND h.h_active = 1
+                    $actifLg
                     ORDER BY l.nom_ligne")->row();
         }
        

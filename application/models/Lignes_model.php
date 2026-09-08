@@ -20,6 +20,41 @@
         {
             return $only_active ? " AND IFNULL(lg.actif_lg, 1) = 1 " : '';
         }
+
+        /**
+         * True si la ligne est visible au guichet (actif_lg ≠ 0).
+         *
+         * @param object|null $row
+         * @return bool
+         */
+        public function is_active_row($row)
+        {
+            if (!$row || !is_object($row)) {
+                return false;
+            }
+            if (!isset($row->actif_lg)) {
+                return true;
+            }
+            $v = $row->actif_lg;
+            return ((string) $v === '1' || (int) $v === 1);
+        }
+
+        /**
+         * Filtre PHP de secours (ex. listes déjà chargées).
+         *
+         * @param array $rows
+         * @return array
+         */
+        public function only_actives($rows)
+        {
+            $out = array();
+            foreach ((array) $rows as $row) {
+                if ($this->is_active_row($row)) {
+                    $out[] = $row;
+                }
+            }
+            return $out;
+        }
         
     
         public function getad($cid, $lg_id = FALSE, $only_active = true)

@@ -37,6 +37,9 @@ $col_dep = !empty($col_dep) ? $col_dep : 'col-sm-4';
             name="<?= htmlspecialchars($depart_name, ENT_QUOTES, 'UTF-8'); ?>">
         <option value="">— Choisir un départ —</option>
         <? foreach ($lignesheure as $ligne):
+            if (isset($ligne->actif_lg) && !((string) $ligne->actif_lg === '1' || (int) $ligne->actif_lg === 1)) {
+                continue;
+            }
             $cle_ca = isset($ligne->cle_compagnie_arrivee) ? (string) $ligne->cle_compagnie_arrivee : '';
             if ($cle_ca === '' && isset($ligne->id_compaga)) {
                 $cle_ca = (string) $ligne->id_compaga;

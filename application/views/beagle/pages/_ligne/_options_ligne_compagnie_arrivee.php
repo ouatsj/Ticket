@@ -29,6 +29,10 @@ foreach ($lignes_par_compagnie_arrivee as $cle => $groupe):
 ?>
 <optgroup label="<?= $nom_attr; ?>" data-compagnie="<?= $cle_attr; ?>">
     <? foreach ($items as $items_lg):
+        if (isset($this->m_lignes) && method_exists($this->m_lignes, 'is_active_row')
+            && !$this->m_lignes->is_active_row($items_lg)) {
+            continue;
+        }
         $ident = isset($items_lg->ident_ligne) ? (string) $items_lg->ident_ligne : '';
         if ($ident === '') {
             continue;

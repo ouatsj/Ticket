@@ -46,13 +46,25 @@
             <input class="form-control form-control-sm" type="hidden" name="usernames" value="<?=$conex->cpuser_id;?>">
 
             <input class="form-control form-control-sm" type="hidden" name="usernameconect" value="<?=$conex->roleattribut;?>">
-
             <div class="form-group col-sm-4">
                 <label>LIGNE</label>
                 <select class="form-control form-control-sm" name="deptscourlignebg" id="deptscouridlignebg" required>
                     <option value="">Choisissez la ligne</option>
-                    <? foreach ($alllignes as $ligneitem): ?>
-                        <option value="<?= $ligneitem->ident_ligne; ?>/<?= !empty($ligneitem->code_gadest) ? $ligneitem->code_gadest : $ligneitem->gadest_lg; ?>/<?= $ligneitem->nom_ligne; ?>">
+                    <? foreach ($alllignes as $ligneitem):
+                        if (isset($this->m_lignes) && !$this->m_lignes->is_active_row($ligneitem)) {
+                            continue;
+                        }
+                        $cle_ca = isset($ligneitem->cle_compagnie_arrivee) ? (string) $ligneitem->cle_compagnie_arrivee : '';
+                        if ($cle_ca === '') {
+                            $cle_ca = '_sans';
+                        }
+                        $nom_ca = !empty($ligneitem->nom_compagnie_arrivee)
+                            ? $ligneitem->nom_compagnie_arrivee
+                            : (!empty($ligneitem->nom_compagnie) ? $ligneitem->nom_compagnie : 'Sans compagnie');
+                    ?>
+                        <option value="<?= $ligneitem->ident_ligne; ?>/<?= !empty($ligneitem->code_gadest) ? $ligneitem->code_gadest : $ligneitem->gadest_lg; ?>/<?= $ligneitem->nom_ligne; ?>"
+                                data-compagnie="<?= htmlspecialchars($cle_ca, ENT_QUOTES, 'UTF-8'); ?>"
+                                data-nom-compagnie="<?= htmlspecialchars($nom_ca, ENT_QUOTES, 'UTF-8'); ?>">
                             <?= $ligneitem->nom_ligne; ?>
                         </option>
                     <? endforeach; ?>
@@ -157,13 +169,25 @@
             <input class="form-control form-control-sm" type="hidden" name="usernames" value="<?=$conex->cpuser_id;?>">
 
             <input class="form-control form-control-sm" type="hidden" name="usernameconect" value="<?=$conex->roleattribut;?>">
-
             <div class="form-group col-sm-4">
                 <label>LIGNE</label>
                 <select class="form-control form-control-sm" name="deptscourlignebgt" id="deptscouridlignebgt" required>
                     <option value="">Choisissez la ligne</option>
-                    <? foreach ($alllignes as $ligneitem): ?>
-                        <option value="<?= $ligneitem->ident_ligne; ?>/<?= !empty($ligneitem->code_gadest) ? $ligneitem->code_gadest : $ligneitem->gadest_lg; ?>/<?= $ligneitem->nom_ligne; ?>">
+                    <? foreach ($alllignes as $ligneitem):
+                        if (isset($this->m_lignes) && !$this->m_lignes->is_active_row($ligneitem)) {
+                            continue;
+                        }
+                        $cle_ca = isset($ligneitem->cle_compagnie_arrivee) ? (string) $ligneitem->cle_compagnie_arrivee : '';
+                        if ($cle_ca === '') {
+                            $cle_ca = '_sans';
+                        }
+                        $nom_ca = !empty($ligneitem->nom_compagnie_arrivee)
+                            ? $ligneitem->nom_compagnie_arrivee
+                            : (!empty($ligneitem->nom_compagnie) ? $ligneitem->nom_compagnie : 'Sans compagnie');
+                    ?>
+                        <option value="<?= $ligneitem->ident_ligne; ?>/<?= !empty($ligneitem->code_gadest) ? $ligneitem->code_gadest : $ligneitem->gadest_lg; ?>/<?= $ligneitem->nom_ligne; ?>"
+                                data-compagnie="<?= htmlspecialchars($cle_ca, ENT_QUOTES, 'UTF-8'); ?>"
+                                data-nom-compagnie="<?= htmlspecialchars($nom_ca, ENT_QUOTES, 'UTF-8'); ?>">
                             <?= $ligneitem->nom_ligne; ?>
                         </option>
                     <? endforeach; ?>
@@ -288,8 +312,21 @@
                 <label>LIGNE</label>
                 <select class="form-control form-control-sm" name="deptscourlignesuivi" id="deptscouridlignesuivi" required>
                     <option value="">Choisissez la ligne</option>
-                    <? foreach ($alllignes as $ligneitem): ?>
-                        <option value="<?= $ligneitem->ident_ligne; ?>/<?= !empty($ligneitem->code_gadest) ? $ligneitem->code_gadest : $ligneitem->gadest_lg; ?>/<?= $ligneitem->nom_ligne; ?>">
+                    <? foreach ($alllignes as $ligneitem):
+                        if (isset($this->m_lignes) && !$this->m_lignes->is_active_row($ligneitem)) {
+                            continue;
+                        }
+                        $cle_ca = isset($ligneitem->cle_compagnie_arrivee) ? (string) $ligneitem->cle_compagnie_arrivee : '';
+                        if ($cle_ca === '') {
+                            $cle_ca = '_sans';
+                        }
+                        $nom_ca = !empty($ligneitem->nom_compagnie_arrivee)
+                            ? $ligneitem->nom_compagnie_arrivee
+                            : (!empty($ligneitem->nom_compagnie) ? $ligneitem->nom_compagnie : 'Sans compagnie');
+                    ?>
+                        <option value="<?= $ligneitem->ident_ligne; ?>/<?= !empty($ligneitem->code_gadest) ? $ligneitem->code_gadest : $ligneitem->gadest_lg; ?>/<?= $ligneitem->nom_ligne; ?>"
+                                data-compagnie="<?= htmlspecialchars($cle_ca, ENT_QUOTES, 'UTF-8'); ?>"
+                                data-nom-compagnie="<?= htmlspecialchars($nom_ca, ENT_QUOTES, 'UTF-8'); ?>">
                             <?= $ligneitem->nom_ligne; ?>
                         </option>
                     <? endforeach; ?>
@@ -384,13 +421,25 @@
                 <p id="ssmsmlg"></p>
             </div>
             <input type="hidden" value ="<?= -mdate("%y", now());?>" id="idanencourenv" name="anencourenv">
-            
             <div class="form-group col-sm-4">
                 <label>LIGNE</label>
                 <select class="form-control form-control-sm" name="sdeptscourlignesuivi" id="sdeptscouridlignesuivi" required>
                     <option value="">Choisissez la ligne</option>
-                    <? foreach ($alllignes as $ligneitem): ?>
-                        <option value="<?= $ligneitem->ident_ligne; ?>/<?= !empty($ligneitem->code_gadest) ? $ligneitem->code_gadest : $ligneitem->gadest_lg; ?>/<?= $ligneitem->nom_ligne; ?>">
+                    <? foreach ($alllignes as $ligneitem):
+                        if (isset($this->m_lignes) && !$this->m_lignes->is_active_row($ligneitem)) {
+                            continue;
+                        }
+                        $cle_ca = isset($ligneitem->cle_compagnie_arrivee) ? (string) $ligneitem->cle_compagnie_arrivee : '';
+                        if ($cle_ca === '') {
+                            $cle_ca = '_sans';
+                        }
+                        $nom_ca = !empty($ligneitem->nom_compagnie_arrivee)
+                            ? $ligneitem->nom_compagnie_arrivee
+                            : (!empty($ligneitem->nom_compagnie) ? $ligneitem->nom_compagnie : 'Sans compagnie');
+                    ?>
+                        <option value="<?= $ligneitem->ident_ligne; ?>/<?= !empty($ligneitem->code_gadest) ? $ligneitem->code_gadest : $ligneitem->gadest_lg; ?>/<?= $ligneitem->nom_ligne; ?>"
+                                data-compagnie="<?= htmlspecialchars($cle_ca, ENT_QUOTES, 'UTF-8'); ?>"
+                                data-nom-compagnie="<?= htmlspecialchars($nom_ca, ENT_QUOTES, 'UTF-8'); ?>">
                             <?= $ligneitem->nom_ligne; ?>
                         </option>
                     <? endforeach; ?>

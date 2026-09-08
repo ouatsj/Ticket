@@ -44,9 +44,23 @@
                                 <label>Ligne</label>
                                 <select name="auaxeconfirme" class="form-control form-control-sm" id="auaxeconf">
                                     <option value="">Choisissez l'axe</option>
-                                    <? foreach ($lignes as $ligne): ?>
-                                        <option value="<?= $ligne->ident_ligne; ?>/<?= $ligne->code_gadest; ?>/<?= $ligne->codville; ?>"><?= $ligne->nom_ligne; ?>
-                                    </option>
+                                    <? foreach ($lignes as $ligne):
+                                        if (isset($this->m_lignes) && !$this->m_lignes->is_active_row($ligne)) {
+                                            continue;
+                                        }
+                                        $cle_ca = isset($ligne->cle_compagnie_arrivee) ? (string) $ligne->cle_compagnie_arrivee : '';
+                                        if ($cle_ca === '') {
+                                            $cle_ca = '_sans';
+                                        }
+                                        $nom_ca = !empty($ligne->nom_compagnie_arrivee)
+                                            ? $ligne->nom_compagnie_arrivee
+                                            : (!empty($ligne->nom_compagnie) ? $ligne->nom_compagnie : 'Sans compagnie');
+                                    ?>
+                                        <option value="<?= $ligne->ident_ligne; ?>/<?= $ligne->code_gadest; ?>/<?= $ligne->codville; ?>"
+                                                data-compagnie="<?= htmlspecialchars($cle_ca, ENT_QUOTES, 'UTF-8'); ?>"
+                                                data-nom-compagnie="<?= htmlspecialchars($nom_ca, ENT_QUOTES, 'UTF-8'); ?>">
+                                            <?= $ligne->nom_ligne; ?>
+                                        </option>
                                     <? endforeach; ?>
                                 </select>
                             </div>

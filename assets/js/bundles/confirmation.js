@@ -5805,8 +5805,17 @@ document.addEventListener('DOMContentLoaded', () => {
         const clientId = root.querySelector('#pascompagnieescal') || document.querySelector('#pascompagnieescal');
         const nomRef = root.querySelector('#rclientcpescal') || document.querySelector('#rclientcpescal');
         const prenomRef = root.querySelector('#prnclientcpescal') || document.querySelector('#prnclientcpescal');
-        const cle = root.dataset.cle_compagnie || '';
-        const codeGaexp = root.dataset.codeGaexp || '';
+        const cle = root.getAttribute('data-cle-compagnie')
+            || root.getAttribute('data-cle_compagnie')
+            || root.dataset.cleCompagnie
+            || root.dataset.cle_compagnie
+            || '';
+        const codeGaexp = root.getAttribute('data-code-gaexp')
+            || root.dataset.codeGaexp
+            || '';
+        const departFixe = root.getAttribute('data-depart-fixe')
+            || root.dataset.departFixe
+            || '';
 
         let destRequestSeq = 0;
 
@@ -5826,7 +5835,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         function fillDepartOptions(rows) {
-            if (!selDepart) return;
+            if (!selDepart || selDepart.tagName !== 'SELECT') return;
             const placeholder = document.createElement('option');
             placeholder.value = '';
             placeholder.textContent = 'Choisir l\'escale…';
@@ -5863,42 +5872,59 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
-        function loadDepartPoints() {
-            if (!codeGaexp || !selDepart) return;
-            if (selDepart.options.length > 1) return;
+        function loadDestinations(departValue) {
+            if (!departValue || !selDest) return;
+            const seq = ++destRequestSeq;
+            const http = new XMLHttpRequest();
+            http.open('GET', window.location.origin + APP_ROOT + '/programmes/verifescalesdestvente/' + encodeURIComponent(departValue), true);
+            http.onload = function () {
+                if (seq !== destRequestSeq) return;
+                let rows = [];
+                try { rows = JSON.parse(http.responseText) || []; } catch (err) { rows = []; }
+                fillDestOptions(Array.isArray(rows) ? rows : []);
+            };
+            http.onerror = function () {
+                if (seq !== destRequestSeq) return;
+                if (prixHint) prixHint.textContent = 'Erreur chargement destinations.';
+            };
+            http.send();
+        }
+
+        function loadDepartPoints(force) {
+            if (departFixe) {
+                loadDestinations(departFixe);
+                return;
+            }
+            if (!selDepart || selDepart.tagName !== 'SELECT') return;
+            if (!codeGaexp) {
+                if (prixHint) {
+                    prixHint.textContent = 'Code gare manquant — contactez l\'administrateur.';
+                }
+                return;
+            }
+            if (!force && selDepart.options.length > 1) return;
             const http = new XMLHttpRequest();
             http.open('GET', window.location.origin + APP_ROOT + '/programmes/verifescalesdepart/' + encodeURIComponent(codeGaexp), true);
             http.onload = function () {
                 let rows = [];
                 try { rows = JSON.parse(http.responseText) || []; } catch (err) { rows = []; }
                 fillDepartOptions(Array.isArray(rows) ? rows : []);
-                if (!rows.length && prixHint) {
-                    prixHint.textContent = 'Aucune escale tarifée pour cette gare.';
+                if ((!rows || !rows.length) && prixHint) {
+                    prixHint.textContent = 'Aucune escale / ligne pour cette gare.';
                 }
+            };
+            http.onerror = function () {
+                if (prixHint) prixHint.textContent = 'Erreur chargement des escales.';
             };
             http.send();
         }
 
-        if (selDepart) {
-            // Remplace le handler (évite l'empilement à chaque ouverture modale)
+        if (selDepart && selDepart.tagName === 'SELECT') {
             selDepart.onchange = function () {
                 resetDest();
                 const val = selDepart.value;
                 if (!val) return;
-                const seq = ++destRequestSeq;
-                const http = new XMLHttpRequest();
-                http.open('GET', window.location.origin + APP_ROOT + '/programmes/verifescalesdestvente/' + encodeURIComponent(val), true);
-                http.onload = function () {
-                    if (seq !== destRequestSeq) return;
-                    let rows = [];
-                    try { rows = JSON.parse(http.responseText) || []; } catch (err) { rows = []; }
-                    fillDestOptions(Array.isArray(rows) ? rows : []);
-                };
-                http.onerror = function () {
-                    if (seq !== destRequestSeq) return;
-                    if (prixHint) prixHint.textContent = 'Erreur chargement destinations.';
-                };
-                http.send();
+                loadDestinations(val);
             };
         }
 
@@ -5955,18 +5981,22 @@ document.addEventListener('DOMContentLoaded', () => {
             btn.onclick = setFormAction;
         }
 
-        loadDepartPoints();
+        loadDepartPoints(false);
+        root._escaleLibreReload = function () { loadDepartPoints(true); };
     }
 
     document.querySelectorAll('.adventeescale-libre').forEach(bindVenteEscaleLibre);
 
-    // À l'ouverture modale : ne pas re-binder (évite doublons), juste s'assurer que c'est lié
     document.querySelectorAll('.addventeescalelibre').forEach(function (btn) {
         btn.addEventListener('click', function () {
             const modal = document.querySelector('#ticketescal-0');
             if (!modal) return;
             const card = modal.querySelector('.adventeescale-libre');
-            if (card) bindVenteEscaleLibre(card);
+            if (!card) return;
+            bindVenteEscaleLibre(card);
+            if (typeof card._escaleLibreReload === 'function') {
+                card._escaleLibreReload();
+            }
         });
     });
 });
