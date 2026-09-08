@@ -29,7 +29,10 @@ $this->load->view('beagle/pages/guichet/_role_17_styles');
 
     <div class="r17-solde">
         <span class="label">Solde du jour</span>
-        <span class="amount"><?= number_format($solde, 0, '', ' '); ?> FCFA</span>
+        <span class="amount js-guichet-solde"
+              data-solde-url="<?= site_url('gares/' . $this->session->company->ekey . '/ajax_solde/' . (int) $conex->roleattribut); ?>"
+              data-solde-field="escale_formatted"
+              data-solde-suffix=" FCFA"><?= number_format($solde, 0, '', ' '); ?> FCFA</span>
     </div>
 
     <div class="r17-grid">

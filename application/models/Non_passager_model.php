@@ -99,7 +99,11 @@
             }
 
             $this->db->insert($this->table, $data);
-            return $this->db->insert_id();
+            $id = $this->db->insert_id();
+            if ($id && function_exists('guichet_totaux_cache_invalidate_from_row')) {
+                guichet_totaux_cache_invalidate_from_row($data);
+            }
+            return $id;
         }
 
         /**
@@ -135,7 +139,22 @@
 
             $multiClause = array('code_non_pass' => $code_npassager, 'codeticket' => $code_nticket);
 
-            return $this->db->where($multiClause)->update($this->table, $data);
+            if (function_exists('ticket_close_flags_normalize_retour')) {
+                $data = ticket_close_flags_normalize_retour($data);
+            }
+
+            $ok = $this->db->where($multiClause)->update($this->table, $data);
+            if ($ok && function_exists('guichet_totaux_cache_invalidate_from_row')) {
+                $fallback = array();
+                if (empty($data['cptus']) && empty($data['idcptuser'])) {
+                    $row = $this->db->select('cptus')->where($multiClause)->get($this->table)->row();
+                    if ($row && !empty($row->cptus)) {
+                        $fallback['cptus'] = $row->cptus;
+                    }
+                }
+                guichet_totaux_cache_invalidate_from_row($data, $fallback);
+            }
+            return $ok;
         }
 
         public function del($id, $idntick)
@@ -195,11 +214,14 @@
 
         public function compteur($cd, $idcox, $g)
         {
+            // $cd / $g volontairement non utilisés : cumul agent toutes gares.
             $today = mdate("%Y-%m-%d", now('UTC'));
             
             return $this->db->query("SELECT SUM(prixretour) AS totalr FROM non_passager np
                 WHERE np.cptus = '$idcox'
                 AND np.statvente = 0
+                AND IFNULL(np.is_valedtick, 0) = 0
+                AND IFNULL(np.actif_nonp, 0) = 0
                 AND np.datevente <= '$today'")->row();
         }
         public function comptegroup($cd, $idcox, $g)

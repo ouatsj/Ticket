@@ -531,6 +531,7 @@
 
         public function compteur($cd, $idcox, $g)
         {
+            // $cd / $g volontairement non utilisés : cumul agent toutes gares.
             $today = mdate("%Y-%m-%d", now('UTC'));
             $today2 = date("Y-m-d", strtotime("-2 day"));
             
@@ -2069,14 +2070,29 @@
             $data = roleattribut_guard_apply_to_data($data, array('idoperabagage'));
 
             $this->db->insert($this->table, $data);
-            return $this->db->insert_id();
+            $id = $this->db->insert_id();
+            if ($id && function_exists('guichet_totaux_cache_invalidate_from_row')) {
+                guichet_totaux_cache_invalidate_from_row($data);
+            }
+            return $id;
         }
             
                 
         public function update($id_bg, array $data)
         {
-            return $this->db->where('id_bagage', $id_bg)
+            $ok = $this->db->where('id_bagage', $id_bg)
             ->update($this->table, $data);
+            if ($ok && function_exists('guichet_totaux_cache_invalidate_from_row')) {
+                $fallback = array();
+                if (empty($data['idoperabagage'])) {
+                    $row = $this->db->select('idoperabagage')->where('id_bagage', $id_bg)->get($this->table)->row();
+                    if ($row && !empty($row->idoperabagage)) {
+                        $fallback['idoperabagage'] = $row->idoperabagage;
+                    }
+                }
+                guichet_totaux_cache_invalidate_from_row($data, $fallback);
+            }
+            return $ok;
         }
 
         public function del($id)

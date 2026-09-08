@@ -798,7 +798,10 @@
                         
                         $this->property['allgaredepart'] = $this->m_gare_depart->getbis($cid);
                         $today_key = mdate('%Y-%m-%d', now('UTC'));
-                        $totaux_key = 'guichet_totaux_' . $ekey . '_' . (int) $cpus . '_' . (int) $gid . '_' . $today_key;
+                        $totaux_key = guichet_totaux_cache_key($ekey, (int) $cpus, $today_key);
+                        if (function_exists('guichet_statutvente_heal_incoherent')) {
+                            guichet_statutvente_heal_incoherent((int) $cpus);
+                        }
                         $totaux = app_cache_remember($totaux_key, 90, function () use ($ekey, $cpus, $gid) {
                             return array(
                                 'cptaller' => $this->m_passager->compteur($ekey, $cpus, $gid),
@@ -973,6 +976,55 @@
                     'days' => $days,
                     'total' => $total,
                     'rows' => $out_rows,
+                )));
+        }
+
+        /**
+         * SOLDE guichet (AJAX) — cumul agent non arrêté, hors cache stale.
+         */
+        public function ajax_solde($ckey, $cpus)
+        {
+            if (!$this->session->userdata('agent') || !$this->session->userdata('company')) {
+                return $this->output->set_status_header(401)->set_content_type('application/json')->set_output('{}');
+            }
+
+            $this->company = $this->m_entreprises->get_key($ckey);
+            if (!$this->company) {
+                show_404();
+            }
+
+            $cpus = (int) $cpus;
+            $sessionRa = (int) $this->session->agent->roleattribut;
+            $userole = (string) $this->session->agent->userole;
+            $isSupervisor = in_array($userole, array('1', '2'), true);
+
+            if ($cpus <= 0 || (!$isSupervisor && $cpus !== $sessionRa)) {
+                return $this->output->set_status_header(403)->set_content_type('application/json')->set_output(
+                    json_encode(array('error' => 'forbidden'))
+                );
+            }
+
+            $gid = 0;
+            if (!empty($this->session->agent->guser)) {
+                $gid = (int) $this->session->agent->guser;
+            }
+
+            guichet_totaux_cache_invalidate($cpus, $this->company->ekey, $gid);
+            $snap = guichet_totaux_fetch_snapshot($this->company->ekey, $cpus, $gid);
+
+            return $this->output
+                ->set_content_type('application/json')
+                ->set_output(json_encode(array(
+                    'ok' => true,
+                    'solde' => $snap['solde'],
+                    'aller' => $snap['aller'],
+                    'retour' => $snap['retour'],
+                    'bagage' => $snap['bagage'],
+                    'escale' => $snap['escale'],
+                    'formatted' => $snap['formatted'],
+                    'bagage_formatted' => $snap['bagage_formatted'],
+                    'escale_formatted' => $snap['escale_formatted'],
+                    'ts' => time(),
                 )));
         }
         

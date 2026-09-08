@@ -323,6 +323,7 @@
             $route['gares/(:num)/gTi/(:any)/itineraire/(:any)/(:any)/(:any)/(:any)/(:num)/(:num)'] = 'Gares/voiritineraire/$1/$2/$3/$4/$5/$6/$7/$8';
             $route['gares/(:num)/gTe/(:any)/escale/(:any)/(:any)/(:any)/(:any)/(:num)/(:num)'] = 'Gares/entreescale/$1/$2/$3/$4/$5/$6/$7/$8';
             $route['gares/(:num)/ajax_passagers'] = 'Gares/ajax_passagers/$1';
+            $route['gares/(:num)/ajax_solde/(:num)'] = 'Gares/ajax_solde/$1/$2';
             $route['gares/(:num)/gTc/(:any)/(:any)/(:any)/(:any)/(:any)/(:num)/(:num)'] = 'Gares/options/$1/$2/$3/$4/$5/$6/$7/$8';
 
 

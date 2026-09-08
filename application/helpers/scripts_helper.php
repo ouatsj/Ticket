@@ -31,7 +31,7 @@ function scripts_bundle_modules($bundle, $role = null)
         $role = (string) $role;
         // guichet-load-scheduler.js seulement : defer-dom cassait les formulaires vente
         // (addEventListener DOMContentLoaded imbriqués après le premier flush).
-        $guichet_boot = array('guichet-load-scheduler.js');
+        $guichet_boot = array('guichet-load-scheduler.js', 'guichet-solde-refresh.js');
 
         if (isset($config['guichet'][$role])) {
             return array_merge($guichet_boot, $config['guichet'][$role]);

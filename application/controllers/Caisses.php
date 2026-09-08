@@ -1494,6 +1494,13 @@
                 $this->m_non_passager->update($row->code_non_pass, $row->codeticket, $npUpdate);
             }
 
+            // Filet : invalidation SOLDE + guérison is_valdtick=1 / statutvente=0.
+            if (function_exists('guichet_statutvente_heal_incoherent')) {
+                guichet_statutvente_heal_incoherent($idcpt);
+            } elseif (function_exists('guichet_totaux_cache_invalidate')) {
+                guichet_totaux_cache_invalidate($idcpt);
+            }
+
             return $arpass;
         }
 

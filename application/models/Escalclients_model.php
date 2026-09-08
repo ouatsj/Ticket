@@ -14,13 +14,28 @@
             $data = roleattribut_guard_apply_to_data($data, array('idcptuser', 'iduseescal'));
 
             $this->db->insert($this->table, $data);
-            return $this->db->insert_id();
+            $id = $this->db->insert_id();
+            if ($id && function_exists('guichet_totaux_cache_invalidate_from_row')) {
+                guichet_totaux_cache_invalidate_from_row($data);
+            }
+            return $id;
         }
         
         public function update($idclescal, array $data)
         {
-            return $this->db->where('idclescal', $idclescal)
+            $ok = $this->db->where('idclescal', $idclescal)
             ->update($this->table, $data);
+            if ($ok && function_exists('guichet_totaux_cache_invalidate_from_row')) {
+                $fallback = array();
+                if (empty($data['iduseescal'])) {
+                    $row = $this->db->select('iduseescal')->where('idclescal', $idclescal)->get($this->table)->row();
+                    if ($row && !empty($row->iduseescal)) {
+                        $fallback['iduseescal'] = $row->iduseescal;
+                    }
+                }
+                guichet_totaux_cache_invalidate_from_row($data, $fallback);
+            }
+            return $ok;
         }
 
         public function del($id)
@@ -285,6 +300,7 @@
 
         public function compteur($cd, $idcox, $g)
         {
+            // $cd / $g volontairement non utilisés : cumul agent toutes gares.
             $today = mdate("%Y-%m-%d", now('UTC'));
             
             return $this->db->query("SELECT SUM(prixescal) AS total FROM escalclients es

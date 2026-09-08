@@ -305,6 +305,9 @@
             // Phase 1 : journal confirmation (création) — jamais bloquant.
             if ($ok) {
                 $this->_historique_modif_ticket_safe_log('create', '', '', array(), $data);
+                if (function_exists('guichet_totaux_cache_invalidate_from_row')) {
+                    guichet_totaux_cache_invalidate_from_row($data);
+                }
             }
             return $insertId;
         }
@@ -312,6 +315,10 @@
         public function update($code_passager, $code_ticket, array $data)
         {
             $multiClause = array('code_passager' => $code_passager, 'code_ticket' => $code_ticket);
+
+            if (function_exists('ticket_close_flags_normalize_passager')) {
+                $data = ticket_close_flags_normalize_passager($data);
+            }
 
             $before = array();
             $type = null;
@@ -404,6 +411,10 @@
                     is_array($before) ? $before : array(),
                     $data
                 );
+            }
+
+            if ($ok && function_exists('guichet_totaux_cache_invalidate_from_row')) {
+                guichet_totaux_cache_invalidate_from_row($data, is_array($before) ? $before : array());
             }
 
             return $ok;
@@ -2838,12 +2849,14 @@
 
         public function compteur($cd, $idcox, $g)
         {
+            // $cd / $g volontairement non utilisés : cumul agent toutes gares.
             $today = mdate("%Y-%m-%d", now('UTC'));
             
             $row = $this->db->query("SELECT SUM(prixvente) AS total FROM passager p
                 WHERE p.idcptuser = '$idcox'
                 AND p.statut_code = 'vendu'
                 AND p.statutvente = 0
+                AND IFNULL(p.is_valdtick, 0) = 0
                 AND p.datep_create <= '$today'
                 AND p.prixvente IS NOT NULL
                 AND p.actif_pas = 0")->row(); return $this->normalize_ticket_prix_row($row);
@@ -2885,6 +2898,7 @@
                 WHERE p.idcptuser = '$idcox'
                 AND p.statut_code = 'vendu'
                 AND p.statutvente = 0
+                AND IFNULL(p.is_valdtick, 0) = 0
                 AND p.datep_create < '$today'
                 AND p.prixvente IS NOT NULL
                 AND p.actif_pas = 0")->row(); return $this->normalize_ticket_prix_row($row);

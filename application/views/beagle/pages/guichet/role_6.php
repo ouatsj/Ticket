@@ -72,21 +72,25 @@ $compte_arret_grace = !empty($compte_arret_grace);
                             </a>
                         </p>
                     </div>
-                    <? $r = 0; $al=0; $m = 0; ?>
+                    <? $r = 0; $al=0; $esc=0; $m = 0; ?>
                     <? if ($cptretour==''): ?><? $r=0;?><? else:?> &nbsp;
                                         
                             <? $r = $cptretour->totalr;?>
                     <? endif; ?>
-                    <? if ($cptaller==''): ?><? $al=0;?><? else:?> &nbsp;
-                                
+                    <? if ($cptaller==''): ?><? $al=0;?><? else:?>
                                 <? $al = $cptaller->total;?>
-                                <? 
-                                $m = $al+$r;?>
-                
-                        <div><span>SOLDE&nbsp;:&nbsp;<?= number_format($m, 0, '', ' '); ?></span>                   
-                
+                    <? endif; ?>
+                    <? if (!empty($cptalleresc) && isset($cptalleresc->total)): ?>
+                                <? $esc = $cptalleresc->total; ?>
+                    <? endif; ?>
+                    <? $m = $al+$r+$esc; ?>
+                    <? if ($cptaller != '' || $cptretour != '' || !empty($cptalleresc) || $m > 0): ?>
+                        <div><span class="js-guichet-solde"
+                            data-solde-url="<?= site_url('gares/' . $this->session->company->ekey . '/ajax_solde/' . (int) $conex->roleattribut); ?>"
+                            data-solde-field="formatted"
+                            data-solde-prefix="SOLDE&nbsp;:&nbsp;">SOLDE&nbsp;:&nbsp;<?= number_format($m, 0, '', ' '); ?></span>
                         </div>
-                    <?endif;?>
+                    <? endif; ?>
                 </div>
 
                 <!--retour ticket-->

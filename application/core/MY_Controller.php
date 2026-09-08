@@ -62,7 +62,7 @@ class MY_Controller extends CI_Controller
      */
     protected function _load_core_helpers()
     {
-        $this->_load_helpers(array('auth_session', 'roleattribut_guard', 'compte_arret'));
+        $this->_load_helpers(array('auth_session', 'roleattribut_guard', 'compte_arret', 'app_cache', 'guichet_totaux'));
     }
 
     /**

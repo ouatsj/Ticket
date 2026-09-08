@@ -48,7 +48,10 @@ $compte_arret_only_compte = !empty($compte_arret_only_compte) || !empty($compte_
                                 <? $rt = $recettebagages->bagtotal;
                                     $mt = $rt;?>
                     
-                            <div><span>RECETTE BAGAGE&nbsp;:&nbsp;<?= number_format($mt, 0, '', ' '); ?></span>                   
+                            <div><span class="js-guichet-solde"
+                                data-solde-url="<?= site_url('gares/' . $this->session->company->ekey . '/ajax_solde/' . (int) $conex->roleattribut); ?>"
+                                data-solde-field="bagage_formatted"
+                                data-solde-prefix="RECETTE BAGAGE&nbsp;:&nbsp;">RECETTE BAGAGE&nbsp;:&nbsp;<?= number_format($mt, 0, '', ' '); ?></span>
                     
                             </div>
                         <?endif;?>
