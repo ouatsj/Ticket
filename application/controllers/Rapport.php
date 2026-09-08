@@ -6801,7 +6801,6 @@
 
                   $daysar1 = $datsar1[2]. '-'. $datsar1[1]. '-' .$datsar1[0];
 
-                   $g = explode(":", $lement->heure);
                      $them .= '<tr>
                       <td width="10%" align="left"><strong>' .$daysar1. '</strong></td>                     
                       
@@ -6922,7 +6921,6 @@
 
                   $daysar1 = $datsar1[2]. '-'. $datsar1[1]. '-' .$datsar1[0];
 
-                  $g = explode(":", $lement->heure);
                      $them .= '<tr>
                       <td width="10%" align="center"><strong>' .$daysar1. '</strong></td>
                       <td width="20%" align="left"><strong>' . $lement->nom_ligne . '</strong></td>
