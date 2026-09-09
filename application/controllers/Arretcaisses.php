@@ -65,6 +65,8 @@
             $sgid = $this->input->post('sousgareconnect');
             $idcmpt = $this->input->post('compconnected');
 
+            $is_adjoint = recette_role_is_validateur_adjoint($this->session->agent->userole);
+
             $this->db->trans_start();
 
                 $cfrecet = $this->db->query(
@@ -76,10 +78,15 @@
                 )->result();
 
                     foreach ($cfrecet as $item7) {
-                        $plarray = array(
-                            'active_recet' => 1,
-                            'valid_recet' => 'valid',
-                        );
+                        if ($is_adjoint) {
+                            $plarray = caisse_validation_flags_chef_by_validator('18', $idcpt, true);
+                            $plarray['valid_recet'] = 'valid';
+                        } else {
+                            $plarray = array(
+                                'active_recet' => 1,
+                                'valid_recet' => 'valid',
+                            );
+                        }
                         $vald_recet = $this->m_recette->update($item7->id_recette, $plarray);
                     }
 
@@ -92,10 +99,15 @@
                 )->result();
 
                     foreach ($cfdepe as $item8) {
-                        $dplarray = array(
-                            'active_dep' => 1,
-                            'valid_depens' => 'valid',
-                        );
+                        if ($is_adjoint) {
+                            $dplarray = caisse_validation_flags_depense_chef_by_validator('18', $idcpt, true);
+                            $dplarray['valid_depens'] = 'valid';
+                        } else {
+                            $dplarray = array(
+                                'active_dep' => 1,
+                                'valid_depens' => 'valid',
+                            );
+                        }
                         $vald_dep = $this->m_depense->update($item8->id_depense, $dplarray);
                     }
 
@@ -112,9 +124,15 @@
                 )->result();
 
                 foreach ($cfdepo as $item9) {
-                    $this->m_depot->update($item9->id_depot, array(
-                        'valid_depo' => 'valid',
-                    ));
+                    if ($is_adjoint) {
+                        $dpoarray = caisse_validation_flags_depot_chef_by_validator('18', $idcpt, true);
+                        $dpoarray['valid_depo'] = 'valid';
+                    } else {
+                        $dpoarray = array(
+                            'valid_depo' => 'valid',
+                        );
+                    }
+                    $this->m_depot->update($item9->id_depot, $dpoarray);
                 }
 
             $this->db->trans_complete();
@@ -126,6 +144,185 @@
                 $this->property['UPDATE_SUCCESS'] = TRUE;
             
             redirect('caisses/' . $this->session->company->ekey.'/cais/'.$g. '/'. $idc. '/'. $iduser.'/arretcaisse_adjoint/'. $sgid.'/'.mdate("%d/%m/%Y", now('UTC')));
+        }
+
+        /**
+         * Arrêt de compte global adjoint (toutes gares d’accès) → file validation du principal.
+         */
+        public function unstop_global_adjoint($ckey)
+        {
+            $this->company = $this->m_entreprises->get_key($ckey);
+            if (!$this->company) {
+                show_error('Compagnie introuvable.', 404);
+                return;
+            }
+
+            if (!recette_role_is_validateur_adjoint($this->session->agent->userole)) {
+                show_error('Arrêt global réservé au caissier adjoint.', 403);
+                return;
+            }
+
+            if (strtoupper((string) $this->input->method(TRUE)) !== 'POST') {
+                show_error('Méthode non autorisée.', 405);
+                return;
+            }
+
+            $ekey = (string) $this->company->ekey;
+            $cpuser_id = (int) $this->session->agent->cpuser_id;
+            $gares = $this->m_compte_user->attrib($cpuser_id, '18');
+            $today = mdate('%Y-%m-%d', now());
+            $nb_recettes = 0;
+            $nb_depenses = 0;
+            $nb_depots = 0;
+
+            $this->db->trans_start();
+
+            foreach ($gares as $gare) {
+                $adjoint_ra = (int) $gare->roleattribut;
+                $gid = isset($gare->idengare) ? $gare->idengare : null;
+                if ($adjoint_ra <= 0 || $gid === null || $gid === '') {
+                    continue;
+                }
+
+                $flags_r = caisse_validation_flags_chef_by_validator('18', $adjoint_ra, true);
+                $flags_r['valid_recet'] = 'valid';
+                $flags_d = caisse_validation_flags_depense_chef_by_validator('18', $adjoint_ra, true);
+                $flags_d['valid_depens'] = 'valid';
+                $flags_dp = caisse_validation_flags_depot_chef_by_validator('18', $adjoint_ra, true);
+                $flags_dp['valid_depo'] = 'valid';
+
+                // Lignes ouvertes du compte adjoint + arrêts chefs en attente sur la gare.
+                $cfrecet = $this->db->query(
+                    "SELECT r.id_recette
+                    FROM recette r
+                    JOIN attributions_role ar ON r.idopera = ar.roleattribut
+                    JOIN user_login ul ON ar.idgestcompte = ul.uid_login
+                    JOIN caisse cs ON r.idcaisse = cs.id_caiss
+                    JOIN compagnies c ON r.compkey_recet = c.cle_compagnie
+                    JOIN entreprise e ON c.id_entrep = e.id_entreprise
+                    WHERE e.ekey = ?
+                    AND ul.guser = ?
+                    AND r.is_actifrecet = 0
+                    AND (r.is_actifrecetad = 0 OR r.is_actifrecetad IS NULL)
+                    AND r.actif_rect = 0
+                    AND r.type_recet <> 'Courrier'
+                    AND (
+                        (
+                            r.idopera = ?
+                            AND r.active_recet = 0
+                            AND r.is_validerecet = 0
+                            AND r.date_recet <= ?
+                        )
+                        OR (
+                            ar.userole IN (5, 16)
+                            AND (
+                                (r.active_recet = 0 AND r.is_validerecet = 0 AND r.date_recet <= ?)
+                                OR (r.active_recet = 1 AND r.is_validerecet = 0)
+                            )
+                        )
+                    )",
+                    array($ekey, $gid, $adjoint_ra, $today, $today)
+                )->result();
+
+                foreach ($cfrecet as $row) {
+                    $this->m_recette->update($row->id_recette, $flags_r);
+                    $nb_recettes++;
+                }
+
+                $cfdepe = $this->db->query(
+                    "SELECT d.id_depense
+                    FROM depense d
+                    JOIN attributions_role ar ON d.idop_dep = ar.roleattribut
+                    JOIN user_login ul ON ar.idgestcompte = ul.uid_login
+                    JOIN caisse cs ON d.idcaisse_depens = cs.id_caiss
+                    JOIN compagnies c ON d.compkey_dep = c.cle_compagnie
+                    JOIN entreprise e ON c.id_entrep = e.id_entreprise
+                    WHERE e.ekey = ?
+                    AND ul.guser = ?
+                    AND d.is_actifdep = 0
+                    AND (d.is_actifdepad = 0 OR d.is_actifdepad IS NULL)
+                    AND d.actif_deps = 0
+                    AND d.type_depense <> 'Courrier'
+                    AND (
+                        (
+                            d.idop_dep = ?
+                            AND d.active_dep = 0
+                            AND d.is_validedep = 0
+                            AND d.date_depens <= ?
+                        )
+                        OR (
+                            ar.userole IN (5, 16)
+                            AND (
+                                (d.active_dep = 0 AND d.is_validedep = 0 AND d.date_depens <= ?)
+                                OR (d.active_dep = 1 AND d.is_validedep = 0 AND d.ferme_caisdep = 0)
+                            )
+                        )
+                    )",
+                    array($ekey, $gid, $adjoint_ra, $today, $today)
+                )->result();
+
+                foreach ($cfdepe as $row) {
+                    $this->m_depense->update($row->id_depense, $flags_d);
+                    $nb_depenses++;
+                }
+
+                $cfdepo = $this->db->query(
+                    "SELECT d.id_depot
+                    FROM depot d
+                    JOIN attributions_role ar ON d.idop_depot = ar.roleattribut
+                    JOIN user_login ul ON ar.idgestcompte = ul.uid_login
+                    JOIN caisse cs ON d.idcaisse_depot = cs.id_caiss
+                    JOIN compagnies c ON d.compkey_depo = c.cle_compagnie
+                    JOIN entreprise e ON c.id_entrep = e.id_entreprise
+                    WHERE e.ekey = ?
+                    AND ul.guser = ?
+                    AND d.arret_caisdepo = 0
+                    AND d.is_actifdepo = 0
+                    AND (d.is_actifdepoad = 0 OR d.is_actifdepoad IS NULL)
+                    AND d.is_validdepo = 0
+                    AND d.actif_depo = 0
+                    AND d.type_depot <> 'Courrier'
+                    AND (
+                        d.idop_depot = ?
+                        OR ar.userole IN (5, 16)
+                    )
+                    AND COALESCE(d.valid_depo, '') <> 'valid'",
+                    array($ekey, $gid, $adjoint_ra)
+                )->result();
+
+                foreach ($cfdepo as $row) {
+                    $this->m_depot->update($row->id_depot, $flags_dp);
+                    $nb_depots++;
+                }
+            }
+
+            $this->db->trans_complete();
+            if ($this->db->trans_status() === false) {
+                $this->session->set_flashdata(
+                    'arret_global_error',
+                    'L’arrêt de compte global n’a pas pu être envoyé. Veuillez réessayer.'
+                );
+                redirect('home/main');
+                return;
+            }
+
+            $total = $nb_recettes + $nb_depenses + $nb_depots;
+            if ($total === 0) {
+                $this->session->set_flashdata(
+                    'arret_global_success',
+                    'Aucun mouvement à arrêter sur vos gares.'
+                );
+            } else {
+                $this->session->set_flashdata(
+                    'arret_global_success',
+                    'Arrêt global envoyé à la caissière : '
+                    . $nb_recettes . ' recette(s), '
+                    . $nb_depenses . ' dépense(s), '
+                    . $nb_depots . ' dépôt(s).'
+                );
+            }
+
+            redirect('home/main');
         }
         
         //validation globale des recettes, depenses, depots des caisse secondaire par la caissière principale

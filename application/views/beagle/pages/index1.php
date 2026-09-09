@@ -1,4 +1,68 @@
 <?php defined('BASEPATH') OR exit('No direct script access allowed');?>
+<?php if ((string) $agent_userole === '18'): ?>
+<div class="row">
+    <div class="col-12 px-4 mb-3">
+        <?php if ($msg = $this->session->flashdata('arret_global_success')): ?>
+            <div class="alert alert-success alert-dismissible" role="alert">
+                <?= htmlspecialchars($msg, ENT_QUOTES, 'UTF-8'); ?>
+                <button class="close" type="button" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+            </div>
+        <?php endif; ?>
+        <?php if ($msg = $this->session->flashdata('arret_global_error')): ?>
+            <div class="alert alert-danger alert-dismissible" role="alert">
+                <?= htmlspecialchars($msg, ENT_QUOTES, 'UTF-8'); ?>
+                <button class="close" type="button" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+            </div>
+        <?php endif; ?>
+
+        <button class="btn btn-success md-trigger"
+                type="button"
+                title="Arrêter le compte sur toutes les gares"
+                data-modal="arret-compte-global-adjoint">
+            <i class="fas fa-puzzle-piece"></i>&nbsp;ARRÊT COMPTE GLOBAL
+        </button>
+        <span class="text-muted small ml-2">
+            Envoie les mouvements de toutes vos gares à la caissière pour validation.
+        </span>
+
+        <div class="modal-container colored-header colored-header-success custom-width modal-effect-7"
+             id="arret-compte-global-adjoint"
+             style="perspective: none;">
+            <div class="modal-content">
+                <div class="modal-header modal-header-colored">
+                    <h3 class="modal-title">ARRÊT COMPTE GLOBAL</h3>
+                    <button class="close modal-close" type="button"
+                            data-dismiss="modal" aria-hidden="true">
+                        <span class="mdi mdi-close text-white"></span>
+                    </button>
+                </div>
+                <?= form_open(
+                    'Arretcaisses/unstop_global_adjoint/' . $company_ekey,
+                    array('class' => 'modal-body form')
+                ); ?>
+                    <p>
+                        Confirmer l’arrêt de compte sur <strong>toutes les gares</strong> auxquelles
+                        vous avez accès&nbsp;?
+                    </p>
+                    <p class="text-muted small mb-0">
+                        Les recettes, dépenses et dépôts seront transmis au compte de la caissière
+                        (section «&nbsp;Caissiers adjoints — à confirmer&nbsp;»).
+                    </p>
+                    <div class="modal-footer">
+                        <button class="btn btn-secondary modal-close" type="button" data-dismiss="modal">
+                            <i class="icon icon-left mdi mdi-undo text-dark"></i>&nbsp;ANNULER&nbsp;
+                        </button>
+                        <button class="btn btn-success" type="submit">
+                            <i class="icon icon-left mdi mdi-check-all text-white"></i>&nbsp;CONFIRMER L’ARRÊT&nbsp;
+                        </button>
+                    </div>
+                <?= form_close(); ?>
+            </div>
+        </div>
+    </div>
+</div>
+<?php endif; ?>
+
 <div class="row">        
         
     <? foreach($gares as $item): ?>
