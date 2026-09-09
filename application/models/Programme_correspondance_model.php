@@ -1317,44 +1317,12 @@ class Programme_correspondance_model extends CI_Model
     }
 
     /**
-     * Nouveau code_progr unique pour la gare (préfixe date+gare + suffixe numérique).
-     * Utilise MAX(suffixe) puis boucle EXISTS — jamais COUNT+1 (collision BOB13..19 → BOB18).
+     * Délègue à Programme_model (MAX + EXISTS, partagé avec création manuelle).
      * @return string
      */
     protected function _nouveau_code_progr($gareidentif)
     {
-        $today = mdate('%Y-%m-%d', now('UTC'));
-        $gd = trim((string) $gareidentif);
-        $gd4 = ($gd === 'OUA12') ? 'WUA12' : $gd;
-        $prefix = mdate('%y%m%d', now('UTC')) . $gd4;
-        $prefixLen = strlen($prefix);
-
-        $row = $this->db->query(
-            "SELECT MAX(CAST(SUBSTRING(code_progr, ?) AS UNSIGNED)) AS maxn
-             FROM programme
-             WHERE createdatepr = ?
-               AND gareidentif = ?
-               AND code_progr LIKE ?",
-            array($prefixLen + 1, $today, $gd, $prefix . '%')
-        )->row();
-        $n = ($row && $row->maxn !== null && $row->maxn !== '') ? ((int) $row->maxn + 1) : 1;
-        if ($n < 1) {
-            $n = 1;
-        }
-
-        for ($i = 0; $i < 100; $i++) {
-            $code = $prefix . (string) ($n + $i);
-            $exists = $this->db->query(
-                "SELECT 1 AS ok FROM programme WHERE code_progr = ? LIMIT 1",
-                array($code)
-            )->row();
-            if (!$exists) {
-                return $code;
-            }
-        }
-
-        // Dernier recours : horodatage pour rester unique.
-        return $prefix . (string) $n . 'T' . mdate('%H%i%s', now('UTC'));
+        return $this->m_programme->nouveau_code_progr($gareidentif);
     }
 
     /**

@@ -12,6 +12,20 @@
 ?>
 
 
+    <?php if ($msg = $this->session->flashdata('prog_success')): ?>
+    <div class="row mb-2 ml-2 mr-2">
+        <div class="col-12 col-md-10">
+            <div class="alert alert-success mb-2 py-2"><?= htmlspecialchars($msg, ENT_QUOTES, 'UTF-8'); ?></div>
+        </div>
+    </div>
+<?php endif; ?>
+    <?php if ($msg = $this->session->flashdata('prog_create_error')): ?>
+    <div class="row mb-2 ml-2 mr-2">
+        <div class="col-12 col-md-10">
+            <div class="alert alert-danger mb-2 py-2"><?= htmlspecialchars($msg, ENT_QUOTES, 'UTF-8'); ?></div>
+        </div>
+    </div>
+<?php endif; ?>
     <?php if ($msg = $this->session->flashdata('prog_portee_error')): ?>
     <div class="row mb-2 ml-2 mr-2">
         <div class="col-12 col-md-10">
@@ -32,6 +46,14 @@
             <div class="alert alert-danger mb-2 py-2"><?= htmlspecialchars($msg, ENT_QUOTES, 'UTF-8'); ?></div>
         </div>
     </div>
+<?php endif; ?>
+<?php
+    $__prog_created_code = $this->session->flashdata('prog_created_code');
+    if ($__prog_created_code):
+?>
+<script type="text/javascript">
+window.__PROG_CREATED_CODE = <?= json_encode((string) $__prog_created_code); ?>;
+</script>
 <?php endif; ?>
 <script type="text/javascript">window.__SITE_BASE = <?= json_encode(rtrim(site_url(''), '/')); ?>;</script>
 <div class="row mb-3 ml-2 mr-2" id="mode_depart_toggle">
@@ -609,6 +631,39 @@
                     if (window.jQuery) {
                         window.jQuery(tabLinks[t]).on('shown.bs.tab', filterActivePane);
                     }
+                }
+            })();
+            </script>
+            <script>
+            (function () {
+                var code = window.__PROG_CREATED_CODE;
+                if (!code) return;
+                var needle = String(code);
+                var panes = document.querySelectorAll('#tabs-prog-compagnie ~ .tab-content .tab-pane, .tab-content .tab-pane');
+                var targetPane = null;
+                var targetRow = null;
+                for (var i = 0; i < panes.length; i++) {
+                    var rows = panes[i].querySelectorAll('tr');
+                    for (var r = 0; r < rows.length; r++) {
+                        if ((rows[r].textContent || '').indexOf(needle) !== -1) {
+                            targetPane = panes[i];
+                            targetRow = rows[r];
+                            break;
+                        }
+                    }
+                    if (targetPane) break;
+                }
+                if (targetPane && targetPane.id) {
+                    var link = document.querySelector('#tabs-prog-compagnie a[href="#' + targetPane.id + '"]');
+                    if (link && window.jQuery) {
+                        window.jQuery(link).tab('show');
+                    } else if (link) {
+                        link.click();
+                    }
+                }
+                if (targetRow) {
+                    targetRow.classList.add('table-success');
+                    try { targetRow.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (e) {}
                 }
             })();
             </script>

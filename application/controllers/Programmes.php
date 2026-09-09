@@ -502,25 +502,17 @@
 
         public function creedepart($dep, $dat, $lh, $hr, $sgid = null)
         {
-            $today = mdate("%Y-%m-%d", now('UTC'));
-            $compter = $this->db->query("SELECT COUNT(code_progr) AS id FROM programme WHERE createdatepr = '$today' AND gareidentif = '$dep'")->row();
+            $today = mdate('%Y-%m-%d', now('UTC'));
 
-            $pl = $this->db->query("SELECT Min(nbr_place) AS place FROM categorie")->row();
-            $cat = $this->db->query("SELECT c.categorie, c.nbr_place FROM categorie c WHERE c.nbr_place = '$pl->place'")->row();
+            $pl = $this->db->query('SELECT Min(nbr_place) AS place FROM categorie')->row();
+            $cat = $this->db->query(
+                "SELECT c.categorie, c.nbr_place FROM categorie c WHERE c.nbr_place = ?",
+                array($pl->place)
+            )->row();
 
             $cts = $cat->categorie;
 
-            if ($dep === 'OUA12') {
-                $dep6 = 'WUA12';
-            } else {
-                $dep6 = $dep;
-            }
-
-            $cpde1 = mdate("%y%m%d", now('UTC')).$dep6.($compter->id + 1);
-            $dpcde1 = mdate("%d", now('UTC')).$dep6.($compter->id + 1);
-
             // Auto-création vente: départ gare (NULL) = utilisable par toutes les sous-gares.
-            // Si un départ propre SG existe déjà, resoudre_depart le prendra en priorité à la vente.
             $idsous = $this->m_programme->idsousgare_pour_creation($dep, $sgid, 'gare');
 
             $sgSql = ($idsous === null)
@@ -542,9 +534,11 @@
                 return $this->load->view('beagle/pages/_programme/json', array('json' => $rs));
             }
 
+            if ($lh == '' || $cts == '' || $dat < $today) {
+                return $this->load->view('beagle/pages/_programme/json', array('json' => null));
+            }
+
             $arrayprog = array(
-                'code_progr' => $cpde1,
-                'depart_code' => $dpcde1,
                 'id_heur' => $lh,
                 'gareidentif' => $dep,
                 'idsousgare_prog' => $idsous,
@@ -553,15 +547,18 @@
                 'intervalle1' => 1,
                 'intervalle2' => $pl->place,
                 'date_progr' => $dat,
-                'createdatepr' => mdate("%Y-%m-%d", now('UTC')),
-                'dateheure_prog' => $dat.'-'.$hr,
+                'createdatepr' => $today,
+                'dateheure_prog' => $dat . '-' . $hr,
                 'createdpg_at' => now('UTC'),
+                'statut_prog' => 'actif',
+                'actif_prog' => 0,
             );
-            if ($lh != '' AND $cts != '' AND $dat >= $today) {
-                $this->m_programme->create($arrayprog);
-                $rs = $this->m_programme->getpr($this->session->company->ekey, $cpde1, $lh);
-                return $this->load->view('beagle/pages/_programme/json', array('json' => $rs));
+            $created = $this->m_programme->insert_programme($arrayprog);
+            if (empty($created['ok']) || empty($created['code_progr'])) {
+                return $this->load->view('beagle/pages/_programme/json', array('json' => null));
             }
+            $rs = $this->m_programme->getpr($this->session->company->ekey, $created['code_progr'], $lh);
+            return $this->load->view('beagle/pages/_programme/json', array('json' => $rs));
         }
 
 
@@ -649,32 +646,22 @@
 
 
         public function creedepartmob($dep1, $dat1, $lh1, $hr1)
-        {            
-            $today1 = mdate("%Y-%m-%d", now('UTC'));
+        {
+            $today1 = mdate('%Y-%m-%d', now('UTC'));
 
-            $compter1 = $this->db->query("SELECT COUNT(code_progr) AS id FROM programme WHERE createdatepr = '$today1' AND gareidentif = '$dep1'")->row();
-
-            $pl1 = $this->db->query("SELECT MAX(nbr_place) AS place FROM categorie")->row();
-            $cat1 = $this->db->query("SELECT c.categorie, c.nbr_place FROM categorie c WHERE c.nbr_place = '$pl1->place'")->row();
+            $pl1 = $this->db->query('SELECT MAX(nbr_place) AS place FROM categorie')->row();
+            $cat1 = $this->db->query(
+                "SELECT c.categorie, c.nbr_place FROM categorie c WHERE c.nbr_place = ?",
+                array($pl1->place)
+            )->row();
 
             $cts1 = $cat1->categorie;
 
-            if($dep1 === 'OUA12')
-            {
-                $depr2 = 'WUA12';
+            if ($lh1 == '' || $cts1 == '' || $dat1 < $today1) {
+                return $this->load->view('beagle/pages/_programme/json', array('json' => null));
             }
-            else
-            {
-                $depr2 = $dep1;
-                
-            }
-
-            $cpd2 = mdate("%y%m%d", now('UTC')).$depr2.($compter1->id + 1);
-            $dpcd2 = mdate("%d", now('UTC')).$depr2.($compter1->id + 1);
 
             $arrayprog1 = array(
-                'code_progr' => $cpd2,
-                'depart_code' => $dpcd2,
                 'id_heur' => $lh1,
                 'gareidentif' => $dep1,
                 'typetarif' => 1,
@@ -682,22 +669,20 @@
                 'intervalle1' => 1,
                 'intervalle2' => $pl1->place,
                 'date_progr' => $dat1,
-                'createdatepr' => mdate("%Y-%m-%d", now('UTC')),
-                'dateheure_prog' => $dat1.'-'.$hr1,
+                'createdatepr' => $today1,
+                'dateheure_prog' => $dat1 . '-' . $hr1,
                 'createdpg_at' => now('UTC'),
+                'statut_prog' => 'actif',
+                'actif_prog' => 0,
             );
 
-            if($lh1 != '' AND $cts1 != '' AND $dat1 >= '$today1'){
-                
-                $this->m_programme->create($arrayprog1);
-            
-                $pr1 = mdate("%y%m%d", now('UTC')).$dep1.($compter1->id + 1);
-                
-                $rs1 = $this->m_programme->getpr($this->session->company->ekey, $pr1, $lh1);
-
-                return $this->load->view('beagle/pages/_programme/json', array('json' => $rs1));
+            $created = $this->m_programme->insert_programme($arrayprog1);
+            if (empty($created['ok']) || empty($created['code_progr'])) {
+                return $this->load->view('beagle/pages/_programme/json', array('json' => null));
             }
 
+            $rs1 = $this->m_programme->getpr($this->session->company->ekey, $created['code_progr'], $lh1);
+            return $this->load->view('beagle/pages/_programme/json', array('json' => $rs1));
         }
 
         public function creersiege($pro, $ns)
@@ -779,25 +764,30 @@
             $iduser = $this->_sale_role_attribut_id();
             $idsg = $this->input->post('sousgareconnect');
             $idcp = $this->input->post('compconnected');
-            $gare_posd = strpos($this->input->post('itineraireheure'), '.');
-            
-            $sub_gdp = substr($this->input->post('itineraireheure'), 0, $gare_posd);
-            $sub_direction = substr($this->input->post('itineraireheure'), $gare_posd + 1, strlen($this->input->post('itineraireheure')));
-            
+            $itineraireheure = (string) $this->input->post('itineraireheure');
+            $gare_posd = strpos($itineraireheure, '.');
+
+            $sub_gdp = ($gare_posd === false) ? '' : substr($itineraireheure, 0, $gare_posd);
+            $sub_direction = ($gare_posd === false) ? '' : substr($itineraireheure, $gare_posd + 1);
+
             $sb = strpos($sub_direction, '.');
-            $sub_heure = substr($sub_direction, 0, $sb);
+            $sub_heure = ($sb === false) ? $sub_direction : substr($sub_direction, 0, $sb);
+            $suheure = ($sb === false) ? '' : substr($sub_direction, $sb + 1);
 
-            $suheure = substr($sub_direction, $sb + 1, strlen($sub_direction));
-           
             $lg = strpos($sub_heure, '-');
-            $gd = substr($sub_heure, 0, $lg);
+            $gd = ($lg === false) ? '' : substr($sub_heure, 0, $lg);
+            if ($gd === '' || $gd === false) {
+                $gd = trim((string) $this->input->post('gareconnect'));
+            }
 
-            
-            $today = mdate("%Y-%m-%d", now('UTC'));
-            $compter = $this->db->query("SELECT COUNT(code_progr) AS id FROM programme WHERE createdatepr = '$today' AND gareidentif = '$gd'")->row();
+            $today = mdate('%Y-%m-%d', now('UTC'));
             $tp = $this->input->post('tariftype');
             $cts = $this->input->post('categorie');
-            $dts = $this->input->post('datedp');
+            $dts = trim((string) $this->input->post('datedp'));
+            $progUrl = 'gares/' . $this->session->company->ekey
+                . '/gTv/' . $gd
+                . '/prog/' . $iduser . '/' . $idsg . '/'
+                . mdate('%d/%m/%Y', now('UTC'));
 
             $sieges_bloques = $this->input->post('sieges_bloques');
             if (!is_array($sieges_bloques)) {
@@ -817,74 +807,92 @@
                     'prog_quota_error',
                     $this->_message_quota_depart(isset($quota['error']) ? $quota['error'] : 'quota_invalide')
                 );
-                redirect('gares/'.$this->session->company->ekey. '/gTv/'.$gd .'/prog/'.$iduser.'/'.$idsg.'/'.mdate("%d/%m/%Y", now('UTC')));
+                redirect($progUrl);
                 return;
             }
             if (isset($quota['sieges_bloques']) && is_array($quota['sieges_bloques'])) {
                 $sieges_bloques = $quota['sieges_bloques'];
             }
 
-            
-            if($gd === 'OUA12')
-            {
-
-               $gd4 = 'WUA12';
+            if ($sub_gdp === '' || $tp === '' || $tp === null || $cts === '' || $cts === null || $dts === '') {
+                $this->session->set_flashdata(
+                    'prog_create_error',
+                    'Création impossible : départ, tarif, catégorie ou date manquant.'
+                );
+                redirect($progUrl);
+                return;
             }
-            else
-            {
-                $gd4 = $gd;
-                                
+            if ($gd === '') {
+                $this->session->set_flashdata(
+                    'prog_create_error',
+                    'Création impossible : gare de départ introuvable.'
+                );
+                redirect($progUrl);
+                return;
+            }
+            if ($dts < $today) {
+                $this->session->set_flashdata(
+                    'prog_create_error',
+                    'Création impossible : la date de départ doit être aujourd’hui ou ultérieure.'
+                );
+                redirect($progUrl);
+                return;
             }
 
-            $pcd2 = mdate("%y%m%d", now('UTC')).$gd4.($compter->id + 1);
-            $pc2 = mdate("%d", now('UTC')).$gd4.($compter->id + 1);
-            
             $selected_sg = $this->input->post('scope_sousgares');
-            if (!is_array($selected_sg)) { $selected_sg = array(); }
-            if ($this->input->post('scope_depart') !== 'sousgare') {
-                $selected_sg = array(); // toute portée
+            if (!is_array($selected_sg)) {
+                $selected_sg = array();
             }
-            $total_sg = 0;
-            $sgRows = $this->db->query("SELECT idsousgare FROM sousgare WHERE gareprinceid = ?", array($gd))->result();
+            if ($this->input->post('scope_depart') !== 'sousgare') {
+                $selected_sg = array();
+            }
+            $sgRows = $this->db->query(
+                'SELECT idsousgare FROM sousgare WHERE gareprinceid = ?',
+                array($gd)
+            )->result();
             $total_sg = is_array($sgRows) ? count($sgRows) : 0;
             $idsous_prog = $this->m_programme->idsousgare_prog_depuis_selection($selected_sg, $total_sg);
+
             $arrayprog = array(
-                'code_progr' => $pcd2,
-                'depart_code' => $pc2,
                 'id_heur' => $sub_gdp,
                 'gareidentif' => $gd,
                 'idsousgare_prog' => $idsous_prog,
-                'typetarif' => $this->input->post('tariftype'),
-                'categori' => $this->input->post('categorie'),
+                'typetarif' => $tp,
+                'categori' => $cts,
                 'intervalle1' => $quota['intervalle1'],
                 'intervalle2' => $quota['intervalle2'],
-                'dateheure_prog' => $this->input->post('datedp').'-'.$suheure,
-                'date_progr' => $this->input->post('datedp'),
-                'createdatepr' => mdate("%Y-%m-%d", now('UTC')),
+                'dateheure_prog' => $dts . '-' . $suheure,
+                'date_progr' => $dts,
+                'createdatepr' => $today,
                 'createdpg_at' => now('UTC'),
+                'statut_prog' => 'actif',
+                'actif_prog' => 0,
             );
 
-            if ($sub_gdp != '' AND $tp != '' AND $cts != '' AND $dts >= $today) {
-                $pr = $this->m_programme->create($arrayprog);
-                if ($pr != NULL) {
-                    $this->m_programme->sync_portee_sousgares($pcd2, $selected_sg, $total_sg);
-                    $this->m_programme->sync_sieges_bloques_programme(
-                        $pcd2,
-                        $sieges_bloques,
-                        (int) $quota['intervalle1'],
-                        (int) $quota['intervalle2']
-                    );
-                    $this->property['INSERT_SUCCESS'] = TRUE;
-                } else {
-                    $this->session->set_flashdata('prog_edit_error', 'Création non enregistrée (échec base de données).');
-                }
-            } else {
+            $created = $this->m_programme->insert_programme($arrayprog);
+            if (empty($created['ok']) || empty($created['code_progr'])) {
                 $this->session->set_flashdata(
-                    'prog_edit_error',
-                    'Création impossible : horaire, tarif, catégorie ou date manquant / date antérieure à aujourd\'hui.'
+                    'prog_create_error',
+                    'Le programme n’a pas pu être créé (collision de code ou erreur base). Réessayez.'
                 );
+                redirect($progUrl);
+                return;
             }
-            redirect('gares/'.$this->session->company->ekey. '/gTv/'.$gd .'/prog/'.$iduser.'/'.$idsg.'/'.mdate("%d/%m/%Y", now('UTC')));
+
+            $pcd2 = $created['code_progr'];
+            $this->m_programme->sync_portee_sousgares($pcd2, $selected_sg, $total_sg);
+            $this->m_programme->sync_sieges_bloques_programme(
+                $pcd2,
+                $sieges_bloques,
+                (int) $quota['intervalle1'],
+                (int) $quota['intervalle2']
+            );
+            $this->session->set_flashdata(
+                'prog_success',
+                'Programme créé : ' . $pcd2 . ' — date ' . $dts . '.'
+            );
+            $this->session->set_flashdata('prog_created_code', $pcd2);
+            redirect($progUrl);
         }
 
         public function editgare_($ckey, $idpr, $cdb)
@@ -1196,20 +1204,21 @@
             $iduser = $this->_sale_role_attribut_id();
             $idsg = $this->input->post('sousgareconnect');
             $idcp = $this->input->post('compconnected');
-            $gare_posd = strpos($this->input->post('heureprog'), '.');
-            
-            $sub_gdp = substr($this->input->post('heureprog'), 0, $gare_posd);
-            $sub_direction = substr($this->input->post('heureprog'), $gare_posd + 1, strlen($this->input->post('heureprog')));
-            
+            $heureprog = (string) $this->input->post('heureprog');
+            $gare_posd = strpos($heureprog, '.');
+
+            $sub_gdp = ($gare_posd === false) ? '' : substr($heureprog, 0, $gare_posd);
+            $sub_direction = ($gare_posd === false) ? '' : substr($heureprog, $gare_posd + 1);
+
             $sb = strpos($sub_direction, '.');
-            $sub_heure = substr($sub_direction, 0, $sb);
+            $sub_heure = ($sb === false) ? $sub_direction : substr($sub_direction, 0, $sb);
+            $suheure = ($sb === false) ? '' : substr($sub_direction, $sb + 1);
 
-            $suheure = substr($sub_direction, $sb + 1, strlen($sub_direction));
-           
-            $lg = strpos($sub_heure, '-');
-            $gd = substr($sub_heure, 0, $lg);
-
-            $today = mdate("%Y-%m-%d", now('UTC'));
+            $today = mdate('%Y-%m-%d', now('UTC'));
+            $progUrl = 'gares/' . $this->session->company->ekey
+                . '/gTv/' . $gt
+                . '/prog/' . $iduser . '/' . $idsg . '/'
+                . mdate('%d/%m/%Y', now('UTC'));
 
             $sieges_bloques = $this->input->post('sieges_bloques');
             if (!is_array($sieges_bloques)) {
@@ -1229,39 +1238,37 @@
                     'prog_quota_error',
                     $this->_message_quota_depart(isset($quota['error']) ? $quota['error'] : 'quota_invalide')
                 );
-                redirect('gares/'.$this->session->company->ekey. '/gTv/'. $gt. '/prog/'.$iduser.'/'.$idsg.'/'.  mdate("%d/%m/%Y", now('UTC')));
+                redirect($progUrl);
                 return;
             }
             if (isset($quota['sieges_bloques']) && is_array($quota['sieges_bloques'])) {
                 $sieges_bloques = $quota['sieges_bloques'];
             }
-            
-            $compter = $this->db->query("SELECT COUNT(code_progr) AS id FROM programme WHERE createdatepr = '$today' AND gareidentif = '$gt'")->row();
 
-
-            if($gt === 'OUA12')
-            {
-                $gt5 = 'WUA12';
-               
-            }
-            else
-            {
-
-                $gt5 = $gt;
+            if ($sub_gdp === '' || $taf === '' || $taf === null || $cat === '' || $cat === null || $dtp < $today) {
+                $this->session->set_flashdata(
+                    'prog_create_error',
+                    'Création impossible : données départ incomplètes ou date invalide.'
+                );
+                redirect($progUrl);
+                return;
             }
 
-            $cp3 = mdate("%y%m%d", now('UTC')).$gt5.($compter->id + 1);
-            
             $selected_sg = $this->input->post('scope_sousgares');
-            if (!is_array($selected_sg)) { $selected_sg = array(); }
-            if ($this->input->post('scope_depart') !== 'sousgare') {
-                $selected_sg = array(); // toute portée
+            if (!is_array($selected_sg)) {
+                $selected_sg = array();
             }
-            $sgRows = $this->db->query("SELECT idsousgare FROM sousgare WHERE gareprinceid = ?", array($gt))->result();
+            if ($this->input->post('scope_depart') !== 'sousgare') {
+                $selected_sg = array();
+            }
+            $sgRows = $this->db->query(
+                'SELECT idsousgare FROM sousgare WHERE gareprinceid = ?',
+                array($gt)
+            )->result();
             $total_sg = is_array($sgRows) ? count($sgRows) : 0;
             $idsous_prog = $this->m_programme->idsousgare_prog_depuis_selection($selected_sg, $total_sg);
+
             $arrayprog = array(
-                'code_progr' => $cp3,
                 'depart_code' => $cdb,
                 'id_heur' => $sub_gdp,
                 'gareidentif' => $gt,
@@ -1272,25 +1279,36 @@
                 'intervalle2' => $quota['intervalle2'],
                 'dateheure_prog' => $dthp,
                 'date_progr' => $dtp,
-                'createdatepr' => mdate("%Y-%m-%d", now('UTC')),
+                'createdatepr' => $today,
                 'createdpg_at' => now('UTC'),
+                'statut_prog' => 'actif',
+                'actif_prog' => 0,
             );
 
-            if($sub_gdp != '' AND $taf != '' AND $cat != '' AND $dtp >= $today){
-                $praxe = $this->m_programme->create($arrayprog);
-                if ($praxe != NULL) {
-                    $this->m_programme->sync_portee_sousgares($cp3, $selected_sg, $total_sg);
-                    $this->m_programme->sync_sieges_bloques_programme(
-                        $cp3,
-                        $sieges_bloques,
-                        (int) $quota['intervalle1'],
-                        (int) $quota['intervalle2']
-                    );
-                    $this->property['INSERT_SUCCESS'] = TRUE;
-                }
+            $created = $this->m_programme->insert_programme($arrayprog);
+            if (empty($created['ok']) || empty($created['code_progr'])) {
+                $this->session->set_flashdata(
+                    'prog_create_error',
+                    'Le programme n’a pas pu être créé (collision de code ou erreur base). Réessayez.'
+                );
+                redirect($progUrl);
+                return;
             }
-                redirect('gares/'.$this->session->company->ekey. '/gTv/'. $gt. '/prog/'.$iduser.'/'.$idsg.'/'.  mdate("%d/%m/%Y", now('UTC')));
 
+            $cp3 = $created['code_progr'];
+            $this->m_programme->sync_portee_sousgares($cp3, $selected_sg, $total_sg);
+            $this->m_programme->sync_sieges_bloques_programme(
+                $cp3,
+                $sieges_bloques,
+                (int) $quota['intervalle1'],
+                (int) $quota['intervalle2']
+            );
+            $this->session->set_flashdata(
+                'prog_success',
+                'Programme créé : ' . $cp3 . ' — date ' . $dtp . '.'
+            );
+            $this->session->set_flashdata('prog_created_code', $cp3);
+            redirect($progUrl);
         }
 
         /**

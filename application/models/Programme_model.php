@@ -241,6 +241,137 @@
             return $this->db->insert_id();
         }
 
+        /**
+         * Nouveau code_progr unique (préfixe date+gare + suffixe).
+         * MAX(suffixe) + boucle EXISTS — jamais COUNT+1.
+         *
+         * @param string $gareidentif
+         * @return string
+         */
+        public function nouveau_code_progr($gareidentif)
+        {
+            $today = mdate('%Y-%m-%d', now('UTC'));
+            $gd = trim((string) $gareidentif);
+            $gd4 = ($gd === 'OUA12') ? 'WUA12' : $gd;
+            $prefix = mdate('%y%m%d', now('UTC')) . $gd4;
+            $prefixLen = strlen($prefix);
+
+            $row = $this->db->query(
+                "SELECT MAX(CAST(SUBSTRING(code_progr, ?) AS UNSIGNED)) AS maxn
+                 FROM programme
+                 WHERE createdatepr = ?
+                   AND gareidentif = ?
+                   AND code_progr LIKE ?",
+                array($prefixLen + 1, $today, $gd, $prefix . '%')
+            )->row();
+            $n = ($row && $row->maxn !== null && $row->maxn !== '') ? ((int) $row->maxn + 1) : 1;
+            if ($n < 1) {
+                $n = 1;
+            }
+
+            for ($i = 0; $i < 100; $i++) {
+                $code = $prefix . (string) ($n + $i);
+                $exists = $this->db->query(
+                    'SELECT 1 AS ok FROM programme WHERE code_progr = ? LIMIT 1',
+                    array($code)
+                )->row();
+                if (!$exists) {
+                    return $code;
+                }
+            }
+
+            return $prefix . (string) $n . 'T' . mdate('%H%i%s', now('UTC'));
+        }
+
+        /**
+         * depart_code aligné sur le suffixe numérique de code_progr (jour+gare+n).
+         *
+         * @param string $gareidentif
+         * @param string $code_progr
+         * @return string
+         */
+        public function depart_code_depuis_code_progr($gareidentif, $code_progr)
+        {
+            $gd = trim((string) $gareidentif);
+            $gd4 = ($gd === 'OUA12') ? 'WUA12' : $gd;
+            $prefix = mdate('%y%m%d', now('UTC')) . $gd4;
+            $code = trim((string) $code_progr);
+            $suffix = (strpos($code, $prefix) === 0) ? substr($code, strlen($prefix)) : preg_replace('/\D+/', '', $code);
+            if ($suffix === '' || $suffix === null) {
+                $suffix = (string) time();
+            }
+            return mdate('%d', now('UTC')) . $gd4 . $suffix;
+        }
+
+        /**
+         * INSERT programme avec codes uniques + vérification affected_rows.
+         * Réessaie sur collision PK. Ne s'appuie pas sur insert_id() (PK string).
+         *
+         * @param array $data champs programme (code_progr / depart_code optionnels)
+         * @param int   $maxAttempts
+         * @return array{ok:bool,code_progr?:string,depart_code?:string,error?:string}
+         */
+        public function insert_programme(array $data, $maxAttempts = 5)
+        {
+            $gd = isset($data['gareidentif']) ? trim((string) $data['gareidentif']) : '';
+            if ($gd === '') {
+                return array('ok' => false, 'error' => 'gare_manquante');
+            }
+
+            if (!isset($data['statut_prog'])) {
+                $data['statut_prog'] = 'actif';
+            }
+            if (!isset($data['actif_prog'])) {
+                $data['actif_prog'] = 0;
+            }
+            if (!isset($data['createdatepr'])) {
+                $data['createdatepr'] = mdate('%Y-%m-%d', now('UTC'));
+            }
+            if (!isset($data['createdpg_at'])) {
+                $data['createdpg_at'] = now('UTC');
+            }
+
+            $maxAttempts = max(1, (int) $maxAttempts);
+            for ($attempt = 0; $attempt < $maxAttempts; $attempt++) {
+                $needCode = empty($data['code_progr']);
+                if ($needCode || $attempt > 0) {
+                    $data['code_progr'] = $this->nouveau_code_progr($gd);
+                }
+                if (empty($data['depart_code']) || $attempt > 0) {
+                    $data['depart_code'] = $this->depart_code_depuis_code_progr($gd, $data['code_progr']);
+                }
+
+                $inserted = $this->db->insert($this->table, $data);
+                if ($inserted && (int) $this->db->affected_rows() === 1) {
+                    $code = (string) $data['code_progr'];
+                    $check = $this->db->query(
+                        'SELECT code_progr FROM programme WHERE code_progr = ? LIMIT 1',
+                        array($code)
+                    )->row();
+                    if (!$check) {
+                        return array('ok' => false, 'error' => 'echec_creation_programme');
+                    }
+                    return array(
+                        'ok' => true,
+                        'code_progr' => $code,
+                        'depart_code' => (string) $data['depart_code'],
+                    );
+                }
+
+                $err = $this->db->error();
+                $msg = isset($err['message']) ? (string) $err['message'] : '';
+                $isDup = (stripos($msg, 'Duplicate') !== false)
+                    || ((int) (isset($err['code']) ? $err['code'] : 0) === 1062);
+                if (!$isDup && $attempt === 0) {
+                    return array('ok' => false, 'error' => 'echec_creation_programme');
+                }
+                // Collision → régénérer codes au tour suivant.
+                unset($data['code_progr'], $data['depart_code']);
+            }
+
+            return array('ok' => false, 'error' => 'echec_creation_programme');
+        }
+
 
         /**
          * Conservé pour compat API UI. Fonctionnement hybride:

@@ -1040,6 +1040,7 @@
                     $bus_stop = $this->m_gare_depart->get($this->company->id_entreprise, $cdg);
                             $this->property['bus_stop'] = $bus_stop;
 
+                    // Liste admin : tous les départs de la gare (y compris portées multi SG).
                     $this->property['progs'] = $this->m_programme->getall($this->company->id_entreprise, $cdg);
                     $prog_codes = array();
                     foreach ($this->property['progs'] as $__prog_row) {
