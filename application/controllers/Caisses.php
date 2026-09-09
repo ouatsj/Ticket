@@ -1448,6 +1448,30 @@
             $withVal = !empty($options['with_valdtick']);
             $excludeR = !empty($options['exclude_report_code_R']);
             $idsousgare = isset($options['idsousgare']) ? (int) $options['idsousgare'] : 0;
+            $forUpdate = !empty($options['for_update']);
+            $allGare = !empty($options['all_gare']);
+
+            $sgFilterPass = '';
+            $sgFilterNp = '';
+            $sgParams = array();
+            if (!$allGare && $idsousgare > 0) {
+                // NULL rattaché une seule fois à la sous-gare MIN de la gare.
+                $sgFilterPass = " AND (
+                    p.idsousgare_vente = ?
+                    OR (
+                        p.idsousgare_vente IS NULL
+                        AND ? = (SELECT MIN(s.idsousgare) FROM sousgare s WHERE s.gareprinceid = ?)
+                    )
+                )";
+                $sgFilterNp = " AND (
+                    np.idsousgare_vente = ?
+                    OR (
+                        np.idsousgare_vente IS NULL
+                        AND ? = (SELECT MIN(s.idsousgare) FROM sousgare s WHERE s.gareprinceid = ?)
+                    )
+                )";
+                $sgParams = array($idsousgare, $idsousgare, $gd);
+            }
 
             $passSql = "SELECT p.code_passager, p.code_ticket
                 FROM passager p
@@ -1455,23 +1479,31 @@
                 JOIN user_login ul ON ar.idgestcompte = ul.uid_login
                 WHERE p.idcptuser = ?
                 AND ul.guser = ?
-                AND p.statutvente = 0";
-            $passParams = array($idcpt, $gd);
-            if ($idsousgare > 0) {
-                $passSql .= " AND (p.idsousgare_vente = ? OR p.idsousgare_vente IS NULL)";
-                $passParams[] = $idsousgare;
-            }
+                AND p.statutvente = 0"
+                . $sgFilterPass;
+            $passParams = array_merge(array($idcpt, $gd), $sgParams);
             if ($excludeR) {
                 $passSql .= " AND p.code_ticket != 'R'";
             }
+            if ($forUpdate) {
+                $passSql .= " FOR UPDATE";
+            }
             $arpass = $this->db->query($passSql, $passParams)->result();
-            $passUpdate = array('statutvente' => 1);
-            if ($withVal) {
-                $passUpdate['is_valdtick'] = 1;
+
+            $setVal = $withVal ? ', p.is_valdtick = 1' : '';
+            $updPassSql = "UPDATE passager p
+                JOIN attributions_role ar ON p.idcptuser = ar.roleattribut
+                JOIN user_login ul ON ar.idgestcompte = ul.uid_login
+                SET p.statutvente = 1{$setVal}
+                WHERE p.idcptuser = ?
+                AND ul.guser = ?
+                AND p.statutvente = 0"
+                . $sgFilterPass;
+            $updPassParams = array_merge(array($idcpt, $gd), $sgParams);
+            if ($excludeR) {
+                $updPassSql .= " AND p.code_ticket != 'R'";
             }
-            foreach ($arpass as $row) {
-                $this->m_passager->update($row->code_passager, $row->code_ticket, $passUpdate);
-            }
+            $this->db->query($updPassSql, $updPassParams);
 
             $npSql = "SELECT np.code_non_pass, np.codeticket
                 FROM non_passager np
@@ -1479,20 +1511,24 @@
                 JOIN user_login ul ON ar.idgestcompte = ul.uid_login
                 WHERE np.cptus = ?
                 AND ul.guser = ?
-                AND np.statvente = 0";
-            $npParams = array($idcpt, $gd);
-            if ($idsousgare > 0) {
-                $npSql .= " AND (np.idsousgare_vente = ? OR np.idsousgare_vente IS NULL)";
-                $npParams[] = $idsousgare;
+                AND np.statvente = 0"
+                . $sgFilterNp;
+            $npParams = array_merge(array($idcpt, $gd), $sgParams);
+            if ($forUpdate) {
+                $npSql .= " FOR UPDATE";
             }
-            $arnonpass = $this->db->query($npSql, $npParams)->result();
-            $npUpdate = array('statvente' => 1);
-            if ($withVal) {
-                $npUpdate['is_valedtick'] = 1;
-            }
-            foreach ($arnonpass as $row) {
-                $this->m_non_passager->update($row->code_non_pass, $row->codeticket, $npUpdate);
-            }
+            $this->db->query($npSql, $npParams)->result();
+
+            $setNpVal = $withVal ? ', np.is_valedtick = 1' : '';
+            $updNpSql = "UPDATE non_passager np
+                JOIN attributions_role ar ON np.cptus = ar.roleattribut
+                JOIN user_login ul ON ar.idgestcompte = ul.uid_login
+                SET np.statvente = 1{$setNpVal}
+                WHERE np.cptus = ?
+                AND ul.guser = ?
+                AND np.statvente = 0"
+                . $sgFilterNp;
+            $this->db->query($updNpSql, array_merge(array($idcpt, $gd), $sgParams));
 
             // Filet : invalidation SOLDE + guérison is_valdtick=1 / statutvente=0.
             if (function_exists('guichet_statutvente_heal_incoherent')) {
@@ -1631,35 +1667,41 @@
             $cus = $this->input->post('compconnected');
             $today = mdate("%Y-%m-%d", now());
 
-            $scope = $this->_arret_closure_scope($gd, $isg);
+            // Vendeur → chef guichet : tout arrêter sur la gare (tous types / toutes SG).
+            $closeOpts = array(
+                'for_update' => true,
+                'all_gare' => true,
+            );
 
-            // Totaux attendus AVANT bascule statutvente (sinon expected=0).
+            $this->db->trans_start();
+
+            $this->_arret_lock_open_ticket_sales($idcpt, $gd, $closeOpts);
+
+            $lignes = function_exists('sales_closure_arret_lines_agent_gare')
+                ? sales_closure_arret_lines_agent_gare($this->company->ekey, $idcpt, $gd, $isg)
+                : array();
+
+            // Aussi peupler le cache antifraude (même périmètre gare).
             if (function_exists('sales_closure_totals_prepare')) {
-                sales_closure_totals_prepare(
-                    $this->company->ekey,
-                    $idcpt,
-                    $gd,
-                    $scope['prepare_sg']
-                );
+                sales_closure_totals_prepare($this->company->ekey, $idcpt, $gd, null);
             }
 
-            // Phase A/B : gare + vendeur ; lieu de vente aligné sur les totaux.
-            $arpass = $this->_arret_close_open_ticket_sales($idcpt, $gd, $scope['close_opts']);
-                        
-                    $arnonreport = $this->db->query("SELECT rp.code_report, rp.idcpuserconect, rp.statutreport FROM report rp
-                    WHERE rp.idcpuserconect = '$idcpt'
-                    AND rp.statutreport = 0")->result();
+            $arpass = $this->_arret_close_open_ticket_sales($idcpt, $gd, $closeOpts);
 
-                    foreach ($arnonreport  as $items3) {
-                        $plarrayrpro = array(
-                            'statutreport' => 1,
-                        );
+            $arnonreport = $this->db->query(
+                "SELECT rp.code_report FROM report rp
+                WHERE rp.idcpuserconect = ?
+                AND rp.statutreport = 0
+                FOR UPDATE",
+                array((int) $idcpt)
+            )->result();
 
-                        $valrepro = $this->m_report->update($items3->code_report, $plarrayrpro);
-                    }
+            foreach ($arnonreport as $items3) {
+                $this->m_report->update($items3->code_report, array('statutreport' => 1));
+            }
 
-                    // Total réellement arrêté (serveur) → compte_guichet (aligné rapport / chef).
-                    $this->_arret_write_compte_guichet_from_totals($idcpt, $isg);
+            // Bordereau → chef (compte_guichet, is_validcompte=0).
+            $this->_arret_write_compte_guichet_from_totals($idcpt, $isg, $lignes);
 
                     //$cdse = $this ->input->post('compcted');
 
@@ -4840,8 +4882,70 @@
                             $this->m_comptes_guichet->create($arraycompt3);
                         }
                     }*/
+            $this->db->trans_complete();
+            if ($this->db->trans_status() === false) {
+                show_error('L’arrêt de compte n’a pas pu être enregistré. Veuillez réessayer.', 500);
+                return;
+            }
             $this->_track_arret_activity();
             redirect('caisses/compte/'.$this->session->company->ekey. '/' . $idcpt.'/'.$gd.'/'.$isg);
+        }
+
+        /**
+         * Verrouille les ventes ouvertes (tickets + retours) pour un arrêt atomique.
+         */
+        protected function _arret_lock_open_ticket_sales($idcpt, $gd, array $options = array())
+        {
+            $idcpt = (int) $idcpt;
+            $gd = trim((string) $gd);
+            $idsousgare = isset($options['idsousgare']) ? (int) $options['idsousgare'] : 0;
+            $excludeR = !empty($options['exclude_report_code_R']);
+            $allGare = !empty($options['all_gare']);
+            $sgParams = array();
+            if (!$allGare && $idsousgare > 0) {
+                $sgParams = array($idsousgare, $idsousgare, $gd);
+            }
+
+            $passSql = "SELECT p.code_passager
+                FROM passager p
+                JOIN attributions_role ar ON p.idcptuser = ar.roleattribut
+                JOIN user_login ul ON ar.idgestcompte = ul.uid_login
+                WHERE p.idcptuser = ?
+                AND ul.guser = ?
+                AND p.statutvente = 0";
+            if (!$allGare && $idsousgare > 0) {
+                $passSql .= " AND (
+                    p.idsousgare_vente = ?
+                    OR (
+                        p.idsousgare_vente IS NULL
+                        AND ? = (SELECT MIN(s.idsousgare) FROM sousgare s WHERE s.gareprinceid = ?)
+                    )
+                )";
+            }
+            if ($excludeR) {
+                $passSql .= " AND p.code_ticket != 'R'";
+            }
+            $passSql .= " FOR UPDATE";
+            $this->db->query($passSql, array_merge(array($idcpt, $gd), $sgParams));
+
+            $npSql = "SELECT np.code_non_pass
+                FROM non_passager np
+                JOIN attributions_role ar ON np.cptus = ar.roleattribut
+                JOIN user_login ul ON ar.idgestcompte = ul.uid_login
+                WHERE np.cptus = ?
+                AND ul.guser = ?
+                AND np.statvente = 0";
+            if (!$allGare && $idsousgare > 0) {
+                $npSql .= " AND (
+                    np.idsousgare_vente = ?
+                    OR (
+                        np.idsousgare_vente IS NULL
+                        AND ? = (SELECT MIN(s.idsousgare) FROM sousgare s WHERE s.gareprinceid = ?)
+                    )
+                )";
+            }
+            $npSql .= " FOR UPDATE";
+            $this->db->query($npSql, array_merge(array($idcpt, $gd), $sgParams));
         }
 
         protected function _track_arret_activity()
@@ -4891,13 +4995,17 @@
             foreach ($lignes as $ligne) {
                 $comp = isset($ligne['comp']) ? (int) $ligne['comp'] : 0;
                 $montant = isset($ligne['montant']) ? round((float) $ligne['montant'], 2) : 0.0;
-                if ($comp <= 0 || $montant < 0) {
+                if ($comp <= 0 || $montant <= 0) {
                     continue;
+                }
+                $sgLigne = isset($ligne['idsousgare']) ? (int) $ligne['idsousgare'] : (int) $idsousgare;
+                if ($sgLigne <= 0) {
+                    $sgLigne = (int) $idsousgare;
                 }
                 $row = array(
                     'idusercompt' => $idcpt,
                     'comp' => $comp,
-                    'idsousga' => $idsousgare,
+                    'idsousga' => $sgLigne,
                     'montcomtpte' => $montant,
                     'datearretcompt' => $date_arret,
                 );
@@ -6097,6 +6205,14 @@
              $idc = $this->input->post('idcaisse');
 
             $scope = $this->_arret_closure_scope($gd, $sgid);
+            $closeOpts = $scope['close_opts'];
+            $closeOpts['with_valdtick'] = true;
+            $closeOpts['exclude_report_code_R'] = true;
+            $closeOpts['for_update'] = true;
+
+            $this->db->trans_start();
+
+            $this->_arret_lock_open_ticket_sales($idcpt, $gd, $closeOpts);
             if (function_exists('sales_closure_totals_prepare')) {
                 sales_closure_totals_prepare(
                     $this->company->ekey,
@@ -6106,21 +6222,19 @@
                 );
             }
 
-            $closeOpts = $scope['close_opts'];
-            $closeOpts['with_valdtick'] = true;
-            $closeOpts['exclude_report_code_R'] = true;
             // Phase A/B : gare + vendeur ; lieu de vente aligné sur les totaux.
             $arpass = $this->_arret_close_open_ticket_sales($idcpt, $gd, $closeOpts);
-                
-                    $arnonreport = $this->db->query("SELECT rp.code_report, rp.idcpuserconect, rp.statutreport FROM report rp
-                    WHERE rp.idcpuserconect = '$idcpt'
-                    AND rp.statutreport = 0")->result();
 
-                    foreach ($arnonreport  as $ite3) {
-                        $plarrayrpro = array(
-                            'statutreport' => 1,
-                        );
-                        $valrepro = $this->m_report->update($ite3->code_report, $plarrayrpro);
+                    $arnonreport = $this->db->query(
+                        "SELECT rp.code_report FROM report rp
+                        WHERE rp.idcpuserconect = ?
+                        AND rp.statutreport = 0
+                        FOR UPDATE",
+                        array((int) $idcpt)
+                    )->result();
+
+                    foreach ($arnonreport as $ite3) {
+                        $this->m_report->update($ite3->code_report, array('statutreport' => 1));
                     }
 
                     // Agrégation serveur (total clôturé) — pas de ligne fantôme comp=0.
@@ -6154,6 +6268,12 @@
                         ));
                         $this->_validerec_apply_recette_flags($recette_id, $iduser);
                     }
+
+            $this->db->trans_complete();
+            if ($this->db->trans_status() === false) {
+                show_error('L’arrêt de compte n’a pas pu être enregistré. Veuillez réessayer.', 500);
+                return;
+            }
 
                     $this->_track_arret_activity();
 

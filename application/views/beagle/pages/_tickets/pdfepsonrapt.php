@@ -65,6 +65,14 @@
                     $reponsealler_rattrapage = isset($reponsealler_rattrapage) ? $reponsealler_rattrapage : array();
                     $reponseretour_anterieur = isset($reponseretour_anterieur) ? $reponseretour_anterieur : array();
                     $has_anterieur = !empty($reponsealler_rattrapage) || !empty($reponseretour_anterieur);
+                    $montant_envoye_chef = 0;
+                    $comp_id_rapport = !empty($rapport_comp_id) ? $rapport_comp_id : null;
+                    if ($comp_id_rapport && function_exists('sales_closure_montant_compte_guichet_pending')) {
+                        $montant_envoye_chef = sales_closure_montant_compte_guichet_pending(
+                            $conex->roleattribut,
+                            $comp_id_rapport
+                        );
+                    }
                     ?>
                     <?php if ($has_anterieur): ?>
                     <h1 style="font-size: 60px;" align="left">Antérieur oublié (jours précédents)</h1>
@@ -103,9 +111,10 @@
                         </body>
                     </table>
                     <h2 style="font-size: 60px;" align="left">total antérieur oublié :<?= number_format($montantglobal_rat, 0, '', ' '); ?> </h2>
-                    <h2 style="font-size: 60px;" align="left">total général (jour + antérieur) :<?= number_format($montantglobal+$montantglobalr+$montantglobal_rat, 0, '', ' '); ?> </h2>
                     <?php endif; ?>
-                    
+                    <?php $montant_rapport = $montantglobal + $montantglobalr + $montantglobal_rat; ?>
+                    <h2 style="font-size: 60px;" align="left">total général rapport :<?= number_format($montant_rapport, 0, '', ' '); ?> </h2>
+                    <h2 style="font-size: 60px;" align="left">montant envoyé chef :<?= number_format($montant_envoye_chef, 0, '', ' '); ?> </h2> 
                     <h1 style="font-size: 60px;" align="left">Reprogrammation</h1>
                     <table border="1" cellpadding="0">
                         <thead> 

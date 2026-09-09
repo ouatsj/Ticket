@@ -191,17 +191,17 @@
                 $flags_dp = caisse_validation_flags_depot_chef_by_validator('18', $adjoint_ra, true);
                 $flags_dp['valid_depo'] = 'valid';
 
-                // Lignes ouvertes du compte adjoint + arrêts chefs en attente sur la gare.
+                // Lignes ouvertes du compte adjoint (sa caisse) + arrêts chefs DÉJÀ envoyés
+                // en attente de validation adjoint — scope caisse = gare (gexp_caiss).
                 $cfrecet = $this->db->query(
                     "SELECT r.id_recette
                     FROM recette r
                     JOIN attributions_role ar ON r.idopera = ar.roleattribut
-                    JOIN user_login ul ON ar.idgestcompte = ul.uid_login
                     JOIN caisse cs ON r.idcaisse = cs.id_caiss
                     JOIN compagnies c ON r.compkey_recet = c.cle_compagnie
                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
                     WHERE e.ekey = ?
-                    AND ul.guser = ?
+                    AND cs.gexp_caiss = ?
                     AND r.is_actifrecet = 0
                     AND (r.is_actifrecetad = 0 OR r.is_actifrecetad IS NULL)
                     AND r.actif_rect = 0
@@ -215,13 +215,11 @@
                         )
                         OR (
                             ar.userole IN (5, 16)
-                            AND (
-                                (r.active_recet = 0 AND r.is_validerecet = 0 AND r.date_recet <= ?)
-                                OR (r.active_recet = 1 AND r.is_validerecet = 0)
-                            )
+                            AND r.active_recet = 1
+                            AND r.is_validerecet = 0
                         )
                     )",
-                    array($ekey, $gid, $adjoint_ra, $today, $today)
+                    array($ekey, $gid, $adjoint_ra, $today)
                 )->result();
 
                 foreach ($cfrecet as $row) {
@@ -233,12 +231,11 @@
                     "SELECT d.id_depense
                     FROM depense d
                     JOIN attributions_role ar ON d.idop_dep = ar.roleattribut
-                    JOIN user_login ul ON ar.idgestcompte = ul.uid_login
                     JOIN caisse cs ON d.idcaisse_depens = cs.id_caiss
                     JOIN compagnies c ON d.compkey_dep = c.cle_compagnie
                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
                     WHERE e.ekey = ?
-                    AND ul.guser = ?
+                    AND cs.gexp_caiss = ?
                     AND d.is_actifdep = 0
                     AND (d.is_actifdepad = 0 OR d.is_actifdepad IS NULL)
                     AND d.actif_deps = 0
@@ -252,13 +249,12 @@
                         )
                         OR (
                             ar.userole IN (5, 16)
-                            AND (
-                                (d.active_dep = 0 AND d.is_validedep = 0 AND d.date_depens <= ?)
-                                OR (d.active_dep = 1 AND d.is_validedep = 0 AND d.ferme_caisdep = 0)
-                            )
+                            AND d.active_dep = 1
+                            AND d.is_validedep = 0
+                            AND d.ferme_caisdep = 0
                         )
                     )",
-                    array($ekey, $gid, $adjoint_ra, $today, $today)
+                    array($ekey, $gid, $adjoint_ra, $today)
                 )->result();
 
                 foreach ($cfdepe as $row) {
@@ -270,12 +266,11 @@
                     "SELECT d.id_depot
                     FROM depot d
                     JOIN attributions_role ar ON d.idop_depot = ar.roleattribut
-                    JOIN user_login ul ON ar.idgestcompte = ul.uid_login
                     JOIN caisse cs ON d.idcaisse_depot = cs.id_caiss
                     JOIN compagnies c ON d.compkey_depo = c.cle_compagnie
                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
                     WHERE e.ekey = ?
-                    AND ul.guser = ?
+                    AND cs.gexp_caiss = ?
                     AND d.arret_caisdepo = 0
                     AND d.is_actifdepo = 0
                     AND (d.is_actifdepoad = 0 OR d.is_actifdepoad IS NULL)
@@ -283,10 +278,15 @@
                     AND d.actif_depo = 0
                     AND d.type_depot <> 'Courrier'
                     AND (
-                        d.idop_depot = ?
-                        OR ar.userole IN (5, 16)
-                    )
-                    AND COALESCE(d.valid_depo, '') <> 'valid'",
+                        (
+                            d.idop_depot = ?
+                            AND COALESCE(d.valid_depo, '') <> 'valid'
+                        )
+                        OR (
+                            ar.userole IN (5, 16)
+                            AND COALESCE(d.valid_depo, '') = 'valid'
+                        )
+                    )",
                     array($ekey, $gid, $adjoint_ra)
                 )->result();
 

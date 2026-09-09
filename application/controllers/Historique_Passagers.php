@@ -1949,6 +1949,7 @@
 
                 $ncomp = $this->m_compagnies->getn($comp);
                 $this->property['ncomp'] = $ncomp;
+                $this->property['rapport_comp_id'] = $comp;
                 $bus_stop = $this->m_sousgare->sget($this->company->ekey, $g, $idsg);
                 $this->property['bus_stop'] = $bus_stop;
                 $conex = $this->_roleattribut_guard_bind($cpus, $this->company->ekey, $g);
@@ -1972,6 +1973,7 @@
 
                 $ncomp = $this->m_compagnies->getn($comp);
                 $this->property['ncomp'] = $ncomp;
+                $this->property['rapport_comp_id'] = $comp;
                 $bus_stop = $this->m_sousgare->sget($this->company->ekey, $g, $idsg);
                 $this->property['bus_stop'] = $bus_stop;
                 $conex = $this->_roleattribut_guard_bind($cpus, $this->company->ekey, $g);

@@ -582,10 +582,31 @@ if (!function_exists('sales_closure_totals_prepare')) {
             $gareWhereNp = " AND ul2.guser = ? ";
             $params[] = $gareCode;
         }
+        // Multi-SG : les ventes sans lieu (NULL) ne comptent qu'une fois (MIN sous-gare).
         if ($idsousgareVente > 0) {
-            $gareWherePass .= " AND (p.idsousgare_vente = ? OR p.idsousgare_vente IS NULL) ";
-            $gareWhereNp .= " AND (np.idsousgare_vente = ? OR np.idsousgare_vente IS NULL) ";
-            $params[] = $idsousgareVente;
+            if ($gareCode !== '') {
+                $gareWherePass .= " AND (
+                    p.idsousgare_vente = ?
+                    OR (
+                        p.idsousgare_vente IS NULL
+                        AND ? = (SELECT MIN(s.idsousgare) FROM sousgare s WHERE s.gareprinceid = ?)
+                    )
+                ) ";
+                $gareWhereNp .= " AND (
+                    np.idsousgare_vente = ?
+                    OR (
+                        np.idsousgare_vente IS NULL
+                        AND ? = (SELECT MIN(s.idsousgare) FROM sousgare s WHERE s.gareprinceid = ?)
+                    )
+                ) ";
+                $params[] = $idsousgareVente;
+                $params[] = $idsousgareVente;
+                $params[] = $gareCode;
+            } else {
+                $gareWherePass .= " AND p.idsousgare_vente = ? ";
+                $gareWhereNp .= " AND np.idsousgare_vente = ? ";
+                $params[] = $idsousgareVente;
+            }
         }
         $params[] = (int) $companyEkey;
         $params[] = (int) $roleAttributionId;
@@ -593,7 +614,13 @@ if (!function_exists('sales_closure_totals_prepare')) {
             $params[] = $gareCode;
         }
         if ($idsousgareVente > 0) {
-            $params[] = $idsousgareVente;
+            if ($gareCode !== '') {
+                $params[] = $idsousgareVente;
+                $params[] = $idsousgareVente;
+                $params[] = $gareCode;
+            } else {
+                $params[] = $idsousgareVente;
+            }
         }
 
         $rows = $CI->db->query(
@@ -671,6 +698,124 @@ if (!function_exists('sales_arret_totals_lines')) {
             );
         }
         return $out;
+    }
+}
+
+if (!function_exists('sales_closure_arret_lines_agent_gare')) {
+    /**
+     * Bordereau monétaire unique agent + gare (identifiants roleattribut / guser).
+     * Même périmètre que le rapport EPSON (jour + antérieur + retours) :
+     * - passager : statut_code=vendu, prixvente>0, statutvente=0
+     * - retours  : prixretour>0, statvente=0
+     * Agrégé par compagnie (toutes sous-gares) pour égalité rapport ↔ chef.
+     *
+     * @param int|string $companyEkey
+     * @param int|string $roleAttributionId
+     * @param string $gareCode
+     * @param int|string|null $defaultSousgare idsousga écrit sur compte_guichet
+     * @return array<int,array{comp:int,montant:float,idsousgare:int,commentaire:string}>
+     */
+    function sales_closure_arret_lines_agent_gare($companyEkey, $roleAttributionId, $gareCode, $defaultSousgare = null)
+    {
+        $CI =& get_instance();
+        $companyEkey = (int) $companyEkey;
+        $roleAttributionId = (int) $roleAttributionId;
+        $gareCode = trim((string) $gareCode);
+        if ($companyEkey <= 0 || $roleAttributionId <= 0 || $gareCode === '') {
+            return array();
+        }
+
+        $minSg = $CI->db->query(
+            'SELECT MIN(s.idsousgare) AS mid FROM sousgare s WHERE s.gareprinceid = ?',
+            array($gareCode)
+        )->row();
+        $fallbackSg = ($minSg && !empty($minSg->mid)) ? (int) $minSg->mid : 0;
+        $defaultSg = ($defaultSousgare !== null && (int) $defaultSousgare > 0)
+            ? (int) $defaultSousgare
+            : $fallbackSg;
+
+        $rows = $CI->db->query(
+            "SELECT x.company_code, SUM(x.amount) AS total_amount
+             FROM (
+                SELECT c.cle_compagnie AS company_code,
+                    COALESCE(p.prixvente, 0) AS amount
+                FROM passager p
+                JOIN attributions_role ar ON p.idcptuser = ar.roleattribut
+                JOIN user_login ul ON ar.idgestcompte = ul.uid_login
+                JOIN programme pr ON p.code_pro = pr.code_progr
+                JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
+                JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
+                JOIN gare_dest gd ON lg.gadest_lg = gd.code_gadest
+                JOIN compagnies c ON gd.id_compaga = c.cle_compagnie
+                JOIN entreprise e ON c.id_entrep = e.id_entreprise
+                WHERE e.ekey = ?
+                AND p.idcptuser = ?
+                AND ul.guser = ?
+                AND ar.activeattrib = 1
+                AND p.statutvente = 0
+                AND p.statut_code = 'vendu'
+                AND p.prixvente IS NOT NULL
+                AND p.prixvente > 0
+                UNION ALL
+                SELECT c.cle_compagnie AS company_code,
+                    COALESCE(np.prixretour, 0) AS amount
+                FROM non_passager np
+                JOIN attributions_role ar2 ON np.cptus = ar2.roleattribut
+                JOIN user_login ul2 ON ar2.idgestcompte = ul2.uid_login
+                JOIN lignes lg ON np.id_ligne_pass = lg.ident_ligne
+                JOIN gare_dest gd ON lg.gadest_lg = gd.code_gadest
+                JOIN compagnies c ON gd.id_compaga = c.cle_compagnie
+                JOIN entreprise e ON c.id_entrep = e.id_entreprise
+                WHERE e.ekey = ?
+                AND np.cptus = ?
+                AND ul2.guser = ?
+                AND ar2.activeattrib = 1
+                AND np.statvente = 0
+                AND np.prixretour IS NOT NULL
+                AND np.prixretour > 0
+             ) x
+             GROUP BY x.company_code",
+            array(
+                $companyEkey, $roleAttributionId, $gareCode,
+                $companyEkey, $roleAttributionId, $gareCode,
+            )
+        )->result();
+
+        $out = array();
+        foreach ($rows as $row) {
+            $comp = (int) $row->company_code;
+            $montant = round((float) $row->total_amount, 2);
+            if ($comp <= 0 || $montant <= 0) {
+                continue;
+            }
+            $out[] = array(
+                'comp' => $comp,
+                'montant' => $montant,
+                'idsousgare' => $defaultSg > 0 ? $defaultSg : $fallbackSg,
+                'commentaire' => '',
+            );
+        }
+        return $out;
+    }
+}
+
+if (!function_exists('sales_closure_montant_compte_guichet_pending')) {
+    /**
+     * Somme des montants déjà envoyés au chef (non validés) pour agent + compagnie.
+     */
+    function sales_closure_montant_compte_guichet_pending($roleAttributionId, $companyCode)
+    {
+        $CI =& get_instance();
+        $row = $CI->db->query(
+            "SELECT COALESCE(SUM(cg.montcomtpte), 0) AS total
+            FROM compte_guichet cg
+            WHERE cg.idusercompt = ?
+            AND cg.comp = ?
+            AND cg.is_validcompte = 0
+            AND cg.actifcompt = 0",
+            array((int) $roleAttributionId, (int) $companyCode)
+        )->row();
+        return $row ? round((float) $row->total, 2) : 0.0;
     }
 }
 

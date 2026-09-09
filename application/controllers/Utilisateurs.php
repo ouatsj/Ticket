@@ -774,10 +774,17 @@
                             $this->m_report->update($iters->code_report, $reparras);
                         }
 
-                        $arpass = $this->db->query("SELECT p.code_passager, p.code_ticket, p.statutvente, p.is_valdtick, p.idcptuser FROM passager p
-                        WHERE p.idcptuser = '$compt_id' AND p.departclient_idgare = '$idsoug' 
-                        AND p.statutvente = 1
-                        AND p.is_valdtick = 0")->result();
+                        $arpass = $this->db->query(
+                            "SELECT p.code_passager, p.code_ticket
+                            FROM passager p
+                            JOIN attributions_role ar ON p.idcptuser = ar.roleattribut
+                            JOIN user_login ul ON ar.idgestcompte = ul.uid_login
+                            WHERE p.idcptuser = ?
+                            AND ul.guser = ?
+                            AND p.statutvente = 1
+                            AND p.is_valdtick = 0",
+                            array((int) $compt_id, $identifiant_gare)
+                        )->result();
 
                         foreach ($arpass as $item1) {
                             $plarras = array(
@@ -786,11 +793,17 @@
                             $this->m_passager->update($item1->code_passager, $item1->code_ticket, $plarras);
                         }
 
-                        $arnonpass = $this->db->query("SELECT np.code_non_pass, np.codeticket, np.statvente, np.is_valedtick, np.cptus FROM non_passager np
-                        WHERE np.cptus = '$compt_id'
-                        AND np.statvente = 1
-                        AND np.sousgareidentif = '$idsoug'
-                        AND np.is_valedtick = 0")->result();
+                        $arnonpass = $this->db->query(
+                            "SELECT np.code_non_pass, np.codeticket
+                            FROM non_passager np
+                            JOIN attributions_role ar ON np.cptus = ar.roleattribut
+                            JOIN user_login ul ON ar.idgestcompte = ul.uid_login
+                            WHERE np.cptus = ?
+                            AND ul.guser = ?
+                            AND np.statvente = 1
+                            AND np.is_valedtick = 0",
+                            array((int) $compt_id, $identifiant_gare)
+                        )->result();
 
                         foreach ($arnonpass as $ites) {
                             $plarrayn = array(

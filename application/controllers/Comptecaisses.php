@@ -77,284 +77,102 @@
             $this->company = $this->m_entreprises->get_key($ckey);
             $idcpt = compte_arret_resolve_roleattribut($this->company->ekey, $gd, $idcpt);
             $idcpt = (int) $idcpt;
-        
-            $sgares = $this->db->query("SELECT count(idsousgare) AS sog FROM sousgare s
-                    WHERE s.gareprinceid = '$gd'")->row();
-                   if($sgares->sog == 1){             
-                        $arpassbag = $this->db->query("SELECT b.id_bagage, b.isvalidbag, b.idoperabagage FROM bagages b
-                            WHERE b.idoperabagage = '$idcpt'
-                            AND b.isvalidbag = 0")->result();
-        
-                            foreach ($arpassbag as $itemsb1) {
-                                $plarrasb = array(
-                                    'isvalidbag' => 1,
-                                );
-                                
-                            $insertbag = $this->m_bagage->update($itemsb1->id_bagage, $plarrasb);
-                            }
-        
-                            
-                   }else
-                   {
-                           $arpassbag = $this->db->query("SELECT b.id_bagage, b.isvalidbag, b.idoperabagage FROM bagages b
-                            WHERE b.idoperabagage = '$idcpt'
-                            AND b.idsgarebag = '$isg'
-                            AND b.isvalidbag = 0")->result();
-        
-                            foreach ($arpassbag as $itemsb1) {
-                                $plarrasb = array(
-                                    'isvalidbag' => 1,
-                                );
-                               
-                               $insertbag = $this->m_bagage->update($itemsb1->id_bagage, $plarrasb);
-                            }
-        
-                            $arpassbag1 = $this->db->query("SELECT b.id_bagage, b.isvalidbag, b.idoperabagage, b.idsgarebag FROM bagages b
-                            WHERE b.idoperabagage = '$idcpt'
-                            AND b.isvalidbag = 0
-                            AND b.idsgarebag NOT IN (SELECT s.idsousgare FROM sousgare s
-                            WHERE s.gareprinceid = '$gd')")->result();
+            $gd = (string) $gd;
+            $isg = (int) $isg;
+            $ekey = $this->company->ekey;
+            $date_arret = mdate('%Y/%m/%d', now('UTC'));
 
-        
-                            foreach ($arpassbag1 as $itemsb2) {
-                                $plarrasb2 = array(
-                                    'isvalidbag' => 1,
-                                );
-                               
-                               $insertbag2 = $this->m_bagage->update($itemsb2->id_bagage, $plarrasb2);
-                            } 
-                   }
-                    
-                
-                    
-                    $cd = $this->input->post('comppremierbag');
-                    $mt = $this->input->post('montbag');
-                    $sg = $this ->input->post('sousgabag');
+            $sg_count = (int) $this->db->query(
+                'SELECT COUNT(idsousgare) AS sog FROM sousgare s WHERE s.gareprinceid = ?',
+                array($gd)
+            )->row()->sog;
+            $mono_sg = ($sg_count <= 1);
 
-                    $i = count($cd);
-                    
-                    if($arpassbag != NULL)
-                    {
+            $this->db->trans_start();
 
-                
-                        if($i === 1)
-                        {
+            // Totaux serveur AVANT clôture (alignés affichage comptegroup*).
+            if ($mono_sg) {
+                $groupes = $this->m_bagage->comptegroup($ekey, $idcpt, $gd);
+                $lockSql = "SELECT b.id_bagage
+                    FROM bagages b
+                    JOIN attributions_role ar ON b.idoperabagage = ar.roleattribut
+                    JOIN user_login ul ON ar.idgestcompte = ul.uid_login
+                    WHERE b.idoperabagage = ?
+                    AND ul.guser = ?
+                    AND b.isvalidbag = 0
+                    AND b.annulebag = 0
+                    AND b.actifbag = 0
+                    FOR UPDATE";
+                $this->db->query($lockSql, array($idcpt, $gd));
+                $this->db->query(
+                    "UPDATE bagages b
+                    JOIN attributions_role ar ON b.idoperabagage = ar.roleattribut
+                    JOIN user_login ul ON ar.idgestcompte = ul.uid_login
+                    SET b.isvalidbag = 1
+                    WHERE b.idoperabagage = ?
+                    AND ul.guser = ?
+                    AND b.isvalidbag = 0
+                    AND b.annulebag = 0
+                    AND b.actifbag = 0",
+                    array($idcpt, $gd)
+                );
+            } else {
+                $groupes = $this->m_bagage->comptegroups($ekey, $idcpt, $gd, $isg);
+                $lockSql = "SELECT b.id_bagage
+                    FROM bagages b
+                    JOIN attributions_role ar ON b.idoperabagage = ar.roleattribut
+                    JOIN user_login ul ON ar.idgestcompte = ul.uid_login
+                    WHERE b.idoperabagage = ?
+                    AND ul.guser = ?
+                    AND b.idsgarebag = ?
+                    AND b.isvalidbag = 0
+                    AND b.annulebag = 0
+                    AND b.actifbag = 0
+                    FOR UPDATE";
+                $this->db->query($lockSql, array($idcpt, $gd, $isg));
+                $this->db->query(
+                    "UPDATE bagages b
+                    JOIN attributions_role ar ON b.idoperabagage = ar.roleattribut
+                    JOIN user_login ul ON ar.idgestcompte = ul.uid_login
+                    SET b.isvalidbag = 1
+                    WHERE b.idoperabagage = ?
+                    AND ul.guser = ?
+                    AND b.idsgarebag = ?
+                    AND b.isvalidbag = 0
+                    AND b.annulebag = 0
+                    AND b.actifbag = 0",
+                    array($idcpt, $gd, $isg)
+                );
+            }
 
-
-                            $cde1 = $cd[0];
-                            $sg1 = $sg[0];
-                            
-                            $mt1 = $mt[0];
-                            
-                            $sgares = $this->db->query("SELECT count(idsousgare) AS sog FROM sousgare sg
-                            WHERE sg.gareprinceid = '$gd'")->row();
-                            if($sgares->sog == 1){
-                                
-                                $sg1 = $isg;
-                            }
-                            else
-                            {
-                                $sg1 = $sg[0];
-                            }
-                            $arraycomptb = array(
-                                'idusercomptbg' => $idcpt,
-                                'compbg' => $cde1,
-                                'montcomtptebg' => $mt1,
-                                'idsousgabg' => $sg1,
-                                'datearretcomptbg' => mdate("%Y/%m/%d", now('UTC')),
-                            );
-                            $this->m_comptes_bagage->create($arraycomptb);
-
-                        }
-                        if($i === 2)
-                        {
-
-                            $cde1 = $cd[0];
-                            $cde2 = $cd[1];
-                            $sg1 = $sg[0];
-                            $sg2 = $sg[1];
-                            $mt1 = $mt[0];
-                            $mt2 = $mt[1];
-
-                            $sgares = $this->db->query("SELECT count(idsousgare) AS sog  FROM sousgare sg
-                            WHERE sg.gareprinceid = '$gd'")->row();
-                            if($sgares->sog == 1){
-                                
-                                $sg1 = $isg;
-                            }else{
-                                $sg1 = $sg[0];
-                            }
-
-                            $sgares1 = $this->db->query("SELECT count(idsousgare) AS sog1  FROM sousgare sg
-                            WHERE sg.gareprinceid = '$gd'")->row();
-                            if($sgares1->sog1 == 1){
-                                
-                                $sg2 = $isg;
-                            }else{
-                                $sg2 = $sg[1];
-                            }
-
-                            $arraycomptb = array(
-                                'idusercomptbg' => $idcpt,
-                                'compbg' => $cde1,
-                                'idsousgabg' => $sg1,
-                                'montcomtptebg' => $mt1,
-                                'datearretcomptbg' => mdate("%Y/%m/%d", now('UTC')),
-                            );
-                            $this->m_comptes_bagage->create($arraycomptb);
-
-                                $arraycomptb2 = array(
-                                'idusercomptbg' => $idcpt,
-                                'compbg' => $cde2,
-                                'idsousgabg' => $sg2,
-                                'montcomtptebg' => $mt2,
-                                'datearretcomptbg' => mdate("%Y/%m/%d", now('UTC')),
-                            );
-                            $this->m_comptes_bagage->create($arraycomptb2);
-                        }
-                        if($i === 3)
-                        {
-                            $cde1 = $cd[0];
-                            $cde2 = $cd[1];
-                            $cde3 = $cd[2];
-                            $sg1 = $sg[0];
-                            $sg2 = $sg[1];
-                            $sg3 = $sg[2];
-                            
-                            $mt1 = $mt[0];
-                            $mt2 = $mt[1];
-                            $mt3 = $mt[2];
-
-                            $sgares = $this->db->query("SELECT count(idsousgare) AS sog  FROM sousgare sg
-                            WHERE sg.gareprinceid = '$gd'")->row();
-                            if($sgares->sog == 1){
-                                
-                                $sg1 = $isg;
-                            }else{
-                                $sg1 = $sg[0];
-                            }
-                            $sgares1 = $this->db->query("SELECT count(idsousgare) AS sog1 FROM sousgare sg
-                            WHERE sg.gareprinceid = '$gd'")->row();
-                            if($sgares1->sog1 == 1){
-                                
-                                $sg2 = $isg;
-                            }else{
-                                $sg2 = $sg[1];
-                            }
-                            $sgares2 = $this->db->query("SELECT count(idsousgare) AS sog2 FROM sousgare sg
-                            WHERE sg.gareprinceid = '$gd'")->row();
-                            if($sgares2->sog2 == 1){
-                                
-                                $sg3 = $isg;
-                            }else{
-                                $sg3 = $sg[2];
-                            }
-
-                            $arraycomptb = array(
-                                'idusercomptbg' => $idcpt,
-                                'compbg' => $cde1,
-                                'idsousgabg' => $sg1,
-                                'montcomtptebg' => $mt1,
-                                'datearretcomptbg' => mdate("%Y/%m/%d", now('UTC')),
-                            );
-                            $this->m_comptes_bagage->create($arraycomptb);
-
-                                $arraycomptb2 = array(
-                                'idusercomptbg' => $idcpt,
-                                'compbg' => $cde2,
-                                'idsousgabg' => $sg2,
-                                'montcomtptebg' => $mt2,
-                                'datearretcomptbg' => mdate("%Y/%m/%d", now('UTC')),
-                            );
-                            $this->m_comptes_bagage->create($arraycomptb2);
-
-                            $arraycomptb3 = array(
-                                'idusercomptbg' => $idcpt,
-                                'compbg' => $cde3,
-                                'idsousgabg' => $sg3,
-                                'montcomtptebg' => $mt3,
-                                'datearretcomptbg' => mdate("%Y/%m/%d", now('UTC')),
-                            );
-                            $this->m_comptes_bagage->create($arraycomptb3);
-                        }
-
-                        if($i === 4)
-                        {
-                            $cde1 = $cd[0];
-                            $cde2 = $cd[1];
-                            $cde3 = $cd[2];
-                            $cde4 = $cd[3];
-                            $sg1 = $sg[0];
-                            $sg2 = $sg[1];
-                            $sg3 = $sg[2];
-                            $sg4 = $sg[3];
-                            $mt1 = $mt[0];
-                            $mt2 = $mt[1];
-                            $mt3 = $mt[2];
-                            $mt4 = $mt[3];
-
-                            $sgares = $this->db->query("SELECT count(idsousgare) AS sog  FROM sousgare sg
-                            WHERE sg.gareprinceid = '$gd'")->row();
-                            if($sgares->sog == 1){
-                                
-                                $sg1 = $isg;
-                            }else{
-                                $sg1 = $sg[0];
-                            }
-                            $sgares1 = $this->db->query("SELECT count(idsousgare) AS sog1 FROM sousgare sg
-                            WHERE sg.gareprinceid = '$gd'")->row();
-                            if($sgares1->sog1 == 1){
-                                
-                                $sg2 = $isg;
-                            }else{
-                                $sg2 = $sg[1];
-                            }
-                            $sgares2 = $this->db->query("SELECT count(idsousgare) AS sog2 FROM sousgare sg
-                            WHERE sg.gareprinceid = '$gd'")->row();
-                            if($sgares2->sog2 == 1){
-                                
-                                $sg3 = $isg;
-                            }else{
-                                $sg3 = $sg[2];
-                            }
-                            $arraycomptb = array(
-                                'idusercomptbg' => $idcpt,
-                                'compbg' => $cde1,
-                                'idsousgabg' => $sg1,
-                                'montcomtptebg' => $mt1,
-                                'datearretcomptbg' => mdate("%Y/%m/%d", now('UTC')),
-                            );
-                            $this->m_comptes_bagage->create($arraycomptb);
-
-                                $arraycomptb2 = array(
-                                'idusercomptbg' => $idcpt,
-                                'compbg' => $cde2,
-                                'idsousgabg' => $sg2,
-                                'montcomtptebg' => $mt2,
-                                'datearretcomptbg' => mdate("%Y/%m/%d", now('UTC')),
-                            );
-                            $this->m_comptes_bagage->create($arraycomptb2);
-
-                            $arraycomptb3 = array(
-                                'idusercomptbg' => $idcpt,
-                                'compbg' => $cde3,
-                                'idsousgabg' => $sg3,
-                                'montcomtptebg' => $mt3,
-                                'datearretcomptbg' => mdate("%Y/%m/%d", now('UTC')),
-                            );
-                            $this->m_comptes_bagage->create($arraycomptb3);
-
-                            $arraycomptb4 = array(
-                                'idusercomptbg' => $idcpt,
-                                'compbg' => $cde4,
-                                'idsousgabg' => $sg4,
-                                'montcomtptebg' => $mt4,
-                                'datearretcomptbg' => mdate("%Y/%m/%d", now('UTC')),
-                            );
-                            $this->m_comptes_bagage->create($arraycomptb4);
-                        }
+            $has_open = is_array($groupes) && count($groupes) > 0;
+            if ($has_open) {
+                foreach ($groupes as $ligne) {
+                    $comp = isset($ligne->id_compaga) ? (int) $ligne->id_compaga : 0;
+                    $montant = isset($ligne->bagtotal) ? round((float) $ligne->bagtotal, 2) : 0.0;
+                    $sg_ligne = !empty($ligne->idsgarebag) ? (int) $ligne->idsgarebag : $isg;
+                    if ($mono_sg) {
+                        $sg_ligne = $isg;
                     }
-            
+                    if ($comp <= 0 || $montant < 0) {
+                        continue;
+                    }
+                    $this->m_comptes_bagage->create(array(
+                        'idusercomptbg' => $idcpt,
+                        'compbg' => $comp,
+                        'montcomtptebg' => $montant,
+                        'idsousgabg' => $sg_ligne,
+                        'datearretcomptbg' => $date_arret,
+                    ));
+                }
+            }
+
+            $this->db->trans_complete();
+            if ($this->db->trans_status() === false) {
+                show_error('L’arrêt bagage n’a pas pu être enregistré. Veuillez réessayer.', 500);
+                return;
+            }
+
             compte_arret_track_activity_safe();
             redirect('comptecaisses/compte/'.$this->session->company->ekey. '/' . $idcpt.'/'.$gd.'/'.$isg);
         }
@@ -442,265 +260,97 @@
             $this->company = $this->m_entreprises->get_key($ckey);
             $idcpt = compte_arret_resolve_roleattribut($this->company->ekey, $gd, $idcpt);
             $idcpt = (int) $idcpt;
-        
-            $sgares = $this->db->query("SELECT count(idsousgare) AS sog FROM sousgare s
-                    WHERE s.gareprinceid = '$gd'")->row();
-                    if($sgares->sog == 1){             
-                        $arpassbag = $this->db->query("SELECT b.id_bagageesc, b.isvalidbagesc, b.idoperabagageesc FROM bagagesesc b
-                            WHERE b.idoperabagageesc = '$idcpt'
-                            AND b.isvalidbagesc = 0")->result();
-        
-                            foreach ($arpassbag as $itemsb1) {
-                                $plarrasb = array(
-                                    'isvalidbagesc' => 1,
-                                );
-                                
-                                $insertbag = $this->m_bagageesc->update($itemsb1->id_bagageesc, $plarrasb);
-                            }
-                            
-                    }else
-                    {
-                           $arpassbag = $this->db->query("SELECT b.id_bagageesc, b.isvalidbagesc, b.idoperabagageesc FROM bagagesesc b
-                            WHERE b.idoperabagageesc = '$idcpt'
-                            AND b.idsgarebagesc = '$isg'
-                            AND b.isvalidbagesc = 0")->result();
-        
-                            foreach ($arpassbag as $itemsb1) {
-                                $plarrasb = array(
-                                    'isvalidbagesc' => 1,
-                                );
-                               
-                               $insertbag = $this->m_bagageesc->update($itemsb1->id_bagageesc, $plarrasb);
-                            }      
+            $gd = (string) $gd;
+            $isg = (int) $isg;
+            $ekey = $this->company->ekey;
+            $date_arret = mdate('%Y/%m/%d', now('UTC'));
+
+            $sg_count = (int) $this->db->query(
+                'SELECT COUNT(idsousgare) AS sog FROM sousgare s WHERE s.gareprinceid = ?',
+                array($gd)
+            )->row()->sog;
+            $mono_sg = ($sg_count <= 1);
+
+            $this->db->trans_start();
+
+            if ($mono_sg) {
+                $groupes = $this->m_bagageesc->comptegroup($ekey, $idcpt, $gd);
+                $this->db->query(
+                    "SELECT b.id_bagageesc
+                    FROM bagagesesc b
+                    JOIN attributions_role ar ON b.idoperabagageesc = ar.roleattribut
+                    JOIN user_login ul ON ar.idgestcompte = ul.uid_login
+                    WHERE b.idoperabagageesc = ?
+                    AND ul.guser = ?
+                    AND b.isvalidbagesc = 0
+                    FOR UPDATE",
+                    array($idcpt, $gd)
+                );
+                $this->db->query(
+                    "UPDATE bagagesesc b
+                    JOIN attributions_role ar ON b.idoperabagageesc = ar.roleattribut
+                    JOIN user_login ul ON ar.idgestcompte = ul.uid_login
+                    SET b.isvalidbagesc = 1
+                    WHERE b.idoperabagageesc = ?
+                    AND ul.guser = ?
+                    AND b.isvalidbagesc = 0",
+                    array($idcpt, $gd)
+                );
+            } else {
+                $groupes = $this->m_bagageesc->comptegroups($ekey, $idcpt, $gd, $isg);
+                $this->db->query(
+                    "SELECT b.id_bagageesc
+                    FROM bagagesesc b
+                    JOIN attributions_role ar ON b.idoperabagageesc = ar.roleattribut
+                    JOIN user_login ul ON ar.idgestcompte = ul.uid_login
+                    WHERE b.idoperabagageesc = ?
+                    AND ul.guser = ?
+                    AND b.idsgarebagesc = ?
+                    AND b.isvalidbagesc = 0
+                    FOR UPDATE",
+                    array($idcpt, $gd, $isg)
+                );
+                $this->db->query(
+                    "UPDATE bagagesesc b
+                    JOIN attributions_role ar ON b.idoperabagageesc = ar.roleattribut
+                    JOIN user_login ul ON ar.idgestcompte = ul.uid_login
+                    SET b.isvalidbagesc = 1
+                    WHERE b.idoperabagageesc = ?
+                    AND ul.guser = ?
+                    AND b.idsgarebagesc = ?
+                    AND b.isvalidbagesc = 0",
+                    array($idcpt, $gd, $isg)
+                );
+            }
+
+            if (is_array($groupes) && count($groupes) > 0) {
+                foreach ($groupes as $ligne) {
+                    $comp = isset($ligne->id_compaga) ? (int) $ligne->id_compaga : 0;
+                    $montant = isset($ligne->bagtotalesc) ? round((float) $ligne->bagtotalesc, 2) : 0.0;
+                    $sg_ligne = !empty($ligne->idsgarebagesc) ? (int) $ligne->idsgarebagesc : $isg;
+                    if ($mono_sg) {
+                        $sg_ligne = $isg;
                     }
-                    
-                    $cd = $this->input->post('comppremierbag');
-                    $mt = $this->input->post('montbag');
-                    $sg = $this ->input->post('sousgabag');
-
-                    $i = count($cd);
-                    
-                    if($arpassbag != NULL)
-                    {
-
-                
-                        if($i === 1)
-                        {
-
-
-                            $cde1 = $cd[0];
-                            $sg1 = $sg[0];
-                            
-                            $mt1 = $mt[0];
-                            
-                            $sgares = $this->db->query("SELECT count(idsousgare) AS sog FROM sousgare sg
-                            WHERE sg.gareprinceid = '$gd'")->row();
-                            if($sgares->sog == 1){
-                                
-                                $sg1 = $isg;
-                            }
-                            else
-                            {
-                                $sg1 = $sg[0];
-                            }
-                            $arraycomptb = array(
-                                'idusercomptbg' => $idcpt,
-                                'compbg' => $cde1,
-                                'montcomtptebg' => $mt1,
-                                'idsousgabg' => $sg1,
-                                'datearretcomptbg' => mdate("%Y/%m/%d", now('UTC')),
-                            );
-                            $this->m_comptes_bagage->create($arraycomptb);
-
-                        }
-                        if($i === 2)
-                        {
-
-                            $cde1 = $cd[0];
-                            $cde2 = $cd[1];
-                            $sg1 = $sg[0];
-                            $sg2 = $sg[1];
-                            $mt1 = $mt[0];
-                            $mt2 = $mt[1];
-
-                            $sgares = $this->db->query("SELECT count(idsousgare) AS sog  FROM sousgare sg
-                            WHERE sg.gareprinceid = '$gd'")->row();
-                            if($sgares->sog == 1){
-                                
-                                $sg1 = $isg;
-                            }else{
-                                $sg1 = $sg[0];
-                            }
-
-                            $sgares1 = $this->db->query("SELECT count(idsousgare) AS sog1  FROM sousgare sg
-                            WHERE sg.gareprinceid = '$gd'")->row();
-                            if($sgares1->sog1 == 1){
-                                
-                                $sg2 = $isg;
-                            }else{
-                                $sg2 = $sg[1];
-                            }
-
-                            $arraycomptb = array(
-                                'idusercomptbg' => $idcpt,
-                                'compbg' => $cde1,
-                                'idsousgabg' => $sg1,
-                                'montcomtptebg' => $mt1,
-                                'datearretcomptbg' => mdate("%Y/%m/%d", now('UTC')),
-                            );
-                            $this->m_comptes_bagage->create($arraycomptb);
-
-                                $arraycomptb2 = array(
-                                'idusercomptbg' => $idcpt,
-                                'compbg' => $cde2,
-                                'idsousgabg' => $sg2,
-                                'montcomtptebg' => $mt2,
-                                'datearretcomptbg' => mdate("%Y/%m/%d", now('UTC')),
-                            );
-                            $this->m_comptes_bagage->create($arraycomptb2);
-                        }
-                        if($i === 3)
-                        {
-                            $cde1 = $cd[0];
-                            $cde2 = $cd[1];
-                            $cde3 = $cd[2];
-                            $sg1 = $sg[0];
-                            $sg2 = $sg[1];
-                            $sg3 = $sg[2];
-                            
-                            $mt1 = $mt[0];
-                            $mt2 = $mt[1];
-                            $mt3 = $mt[2];
-
-                            $sgares = $this->db->query("SELECT count(idsousgare) AS sog  FROM sousgare sg
-                            WHERE sg.gareprinceid = '$gd'")->row();
-                            if($sgares->sog == 1){
-                                
-                                $sg1 = $isg;
-                            }else{
-                                $sg1 = $sg[0];
-                            }
-                            $sgares1 = $this->db->query("SELECT count(idsousgare) AS sog1 FROM sousgare sg
-                            WHERE sg.gareprinceid = '$gd'")->row();
-                            if($sgares1->sog1 == 1){
-                                
-                                $sg2 = $isg;
-                            }else{
-                                $sg2 = $sg[1];
-                            }
-                            $sgares2 = $this->db->query("SELECT count(idsousgare) AS sog2 FROM sousgare sg
-                            WHERE sg.gareprinceid = '$gd'")->row();
-                            if($sgares2->sog2 == 1){
-                                
-                                $sg3 = $isg;
-                            }else{
-                                $sg3 = $sg[2];
-                            }
-
-                            $arraycomptb = array(
-                                'idusercomptbg' => $idcpt,
-                                'compbg' => $cde1,
-                                'idsousgabg' => $sg1,
-                                'montcomtptebg' => $mt1,
-                                'datearretcomptbg' => mdate("%Y/%m/%d", now('UTC')),
-                            );
-                            $this->m_comptes_bagage->create($arraycomptb);
-
-                                $arraycomptb2 = array(
-                                'idusercomptbg' => $idcpt,
-                                'compbg' => $cde2,
-                                'idsousgabg' => $sg2,
-                                'montcomtptebg' => $mt2,
-                                'datearretcomptbg' => mdate("%Y/%m/%d", now('UTC')),
-                            );
-                            $this->m_comptes_bagage->create($arraycomptb2);
-
-                            $arraycomptb3 = array(
-                                'idusercomptbg' => $idcpt,
-                                'compbg' => $cde3,
-                                'idsousgabg' => $sg3,
-                                'montcomtptebg' => $mt3,
-                                'datearretcomptbg' => mdate("%Y/%m/%d", now('UTC')),
-                            );
-                            $this->m_comptes_bagage->create($arraycomptb3);
-                        }
-
-                        if($i === 4)
-                        {
-                            $cde1 = $cd[0];
-                            $cde2 = $cd[1];
-                            $cde3 = $cd[2];
-                            $cde4 = $cd[3];
-                            $sg1 = $sg[0];
-                            $sg2 = $sg[1];
-                            $sg3 = $sg[2];
-                            $sg4 = $sg[3];
-                            $mt1 = $mt[0];
-                            $mt2 = $mt[1];
-                            $mt3 = $mt[2];
-                            $mt4 = $mt[3];
-
-                            $sgares = $this->db->query("SELECT count(idsousgare) AS sog  FROM sousgare sg
-                            WHERE sg.gareprinceid = '$gd'")->row();
-                            if($sgares->sog == 1){
-                                
-                                $sg1 = $isg;
-                            }else{
-                                $sg1 = $sg[0];
-                            }
-                            $sgares1 = $this->db->query("SELECT count(idsousgare) AS sog1 FROM sousgare sg
-                            WHERE sg.gareprinceid = '$gd'")->row();
-                            if($sgares1->sog1 == 1){
-                                
-                                $sg2 = $isg;
-                            }else{
-                                $sg2 = $sg[1];
-                            }
-                            $sgares2 = $this->db->query("SELECT count(idsousgare) AS sog2 FROM sousgare sg
-                            WHERE sg.gareprinceid = '$gd'")->row();
-                            if($sgares2->sog2 == 1){
-                                
-                                $sg3 = $isg;
-                            }else{
-                                $sg3 = $sg[2];
-                            }
-                            $arraycomptb = array(
-                                'idusercomptbg' => $idcpt,
-                                'compbg' => $cde1,
-                                'idsousgabg' => $sg1,
-                                'montcomtptebg' => $mt1,
-                                'datearretcomptbg' => mdate("%Y/%m/%d", now('UTC')),
-                            );
-                            $this->m_comptes_bagage->create($arraycomptb);
-
-                                $arraycomptb2 = array(
-                                'idusercomptbg' => $idcpt,
-                                'compbg' => $cde2,
-                                'idsousgabg' => $sg2,
-                                'montcomtptebg' => $mt2,
-                                'datearretcomptbg' => mdate("%Y/%m/%d", now('UTC')),
-                            );
-                            $this->m_comptes_bagage->create($arraycomptb2);
-
-                            $arraycomptb3 = array(
-                                'idusercomptbg' => $idcpt,
-                                'compbg' => $cde3,
-                                'idsousgabg' => $sg3,
-                                'montcomtptebg' => $mt3,
-                                'datearretcomptbg' => mdate("%Y/%m/%d", now('UTC')),
-                            );
-                            $this->m_comptes_bagage->create($arraycomptb3);
-
-                            $arraycomptb3 = array(
-                                'idusercomptbg' => $idcpt,
-                                'compbg' => $cde4,
-                                'idsousgabg' => $sg4,
-                                'montcomtptebg' => $mt4,
-                                'datearretcomptbg' => mdate("%Y/%m/%d", now('UTC')),
-                            );
-                            $this->m_comptes_bagage->create($arraycomptb4);
-                        }
+                    if ($comp <= 0 || $montant < 0) {
+                        continue;
                     }
+                    $this->m_comptes_bagage->create(array(
+                        'idusercomptbg' => $idcpt,
+                        'compbg' => $comp,
+                        'montcomtptebg' => $montant,
+                        'idsousgabg' => $sg_ligne,
+                        'datearretcomptbg' => $date_arret,
+                    ));
+                }
+            }
+
+            $this->db->trans_complete();
+            if ($this->db->trans_status() === false) {
+                show_error('L’arrêt bagage escale n’a pas pu être enregistré. Veuillez réessayer.', 500);
+                return;
+            }
+
+            compte_arret_track_activity_safe();
             redirect('comptecaisses/arcompteescalbag/'.$this->session->company->ekey.'/'.$idcpt.'/'.$gd.'/'.$isg);
         }
 
