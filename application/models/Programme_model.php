@@ -1313,7 +1313,13 @@
         public function getall($cd, $cdg, $pr_id = FALSE, $idsousgare = null)
         {
             $today = mdate("%Y-%m-%d", now('UTC'));
-            $sgFilter = $this->sql_filtre_sousgare($idsousgare);
+            // Liste admin gare : sans SG explicite, montrer TOUS les départs de la gare
+            // (y compris portées multi sous-gares). Le filtre restrictif sql_filtre_sousgare(null)
+            // est réservé à la résolution vente, pas à l’écran Programmes.
+            $sgFilter = '';
+            if ($idsousgare !== null && $idsousgare !== '' && $idsousgare !== FALSE && (int) $idsousgare > 0) {
+                $sgFilter = $this->sql_filtre_sousgare($idsousgare);
+            }
             $CI =& get_instance();
             if (!isset($CI->m_programme_reconduction)) {
                 $CI->load->model('Programme_reconduction_model', 'm_programme_reconduction');

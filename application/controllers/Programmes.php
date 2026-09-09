@@ -864,7 +864,7 @@
                 'createdpg_at' => now('UTC'),
             );
 
-            if($sub_gdp != '' AND $tp != '' AND $cts != '' AND $dts >= '$today'){
+            if ($sub_gdp != '' AND $tp != '' AND $cts != '' AND $dts >= $today) {
                 $pr = $this->m_programme->create($arrayprog);
                 if ($pr != NULL) {
                     $this->m_programme->sync_portee_sousgares($pcd2, $selected_sg, $total_sg);
@@ -875,7 +875,14 @@
                         (int) $quota['intervalle2']
                     );
                     $this->property['INSERT_SUCCESS'] = TRUE;
+                } else {
+                    $this->session->set_flashdata('prog_edit_error', 'Création non enregistrée (échec base de données).');
                 }
+            } else {
+                $this->session->set_flashdata(
+                    'prog_edit_error',
+                    'Création impossible : horaire, tarif, catégorie ou date manquant / date antérieure à aujourd\'hui.'
+                );
             }
             redirect('gares/'.$this->session->company->ekey. '/gTv/'.$gd .'/prog/'.$iduser.'/'.$idsg.'/'.mdate("%d/%m/%Y", now('UTC')));
         }

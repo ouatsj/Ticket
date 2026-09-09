@@ -387,7 +387,6 @@
                  AND ctp.tamponcodtr = {$trEsc}
                  AND ctp.actif_tamp = 0
                  AND p.actif_pas = 0
-                 AND p.num_siege_categorie IS NOT NULL
                  AND (p.statut_reprog IS NULL OR p.statut_reprog = '' OR p.statut_reprog != 'repor')
                  {$retourSql}
                  ORDER BY pr.date_progr ASC, h.heure ASC, p.code_passager ASC"

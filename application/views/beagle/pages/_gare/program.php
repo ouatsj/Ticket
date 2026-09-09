@@ -236,11 +236,18 @@
   window.__applyPorteeScopeMode = applyScopeMode;
   document.addEventListener('DOMContentLoaded', function () {
     bindPortee(document);
-    // Les cases désactivées ne partent pas en POST : les réactiver juste avant envoi si cochées
+    // Portée : en mode « Toute gare », les cases restent désactivées (non postées).
+    // En mode « Sous-gares », réactiver uniquement les cases cochées verrouillées pour qu'elles partent en POST.
     document.querySelectorAll('form').forEach(function (form) {
       form.addEventListener('submit', function () {
-        form.querySelectorAll('.js-sg-check:checked[disabled]').forEach(function (c) {
-          c.disabled = false;
+        var box = form.querySelector('[id^="portee_sousgares"]');
+        var isSg = !!(box && box.querySelector('.js-scope-mode[value="sousgare"]:checked'));
+        form.querySelectorAll('.js-sg-check').forEach(function (c) {
+          if (!isSg) {
+            c.disabled = true;
+          } else if (c.checked && c.disabled) {
+            c.disabled = false;
+          }
         });
       });
     });
