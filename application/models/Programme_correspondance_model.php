@@ -380,7 +380,8 @@ class Programme_correspondance_model extends CI_Model
         return $this->db->query(
             "SELECT pr.*, lh.id_ligneheure, lh.ligne_id, h.heure, h.id_heure,
                     lg.nom_ligne, lg.gaexp_lg, lg.gadest_lg,
-                    ga.id_compaga, ca.nom_compagnie AS nom_compagnie_arrivee,
+                    ga.id_compaga, ga.id_villega, ga.nom_gadest,
+                    ca.nom_compagnie AS nom_compagnie_arrivee,
                     ca.cle_compagnie AS cle_compagnie_arrivee
              FROM programme pr
              JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
@@ -531,6 +532,40 @@ class Programme_correspondance_model extends CI_Model
             return false;
         }
         return $na === $nb || strpos($na, $nb) === 0 || strpos($nb, $na) === 0;
+    }
+
+    /**
+     * Suite hub : même destination que le principal (code, ville id, ou nom ville).
+     * Évite les jambes intermédiaires (ex. Bobo→Niangoloko pour un OD Bamako).
+     *
+     * @param object $principal
+     * @param object $ligneSuite
+     * @return bool
+     */
+    protected function _ligne_meme_destination_suite($principal, $ligneSuite)
+    {
+        if (!$principal || !$ligneSuite) {
+            return false;
+        }
+        $destP = isset($principal->gadest_lg) ? trim((string) $principal->gadest_lg) : '';
+        $destS = isset($ligneSuite->gadest_lg) ? trim((string) $ligneSuite->gadest_lg) : '';
+        if ($destP !== '' && $destS !== '' && $destP === $destS) {
+            return true;
+        }
+
+        $villeP = isset($principal->id_villega) ? (int) $principal->id_villega : 0;
+        $villeS = isset($ligneSuite->id_villega) ? (int) $ligneSuite->id_villega : 0;
+        if ($villeP > 0 && $villeS > 0 && $villeP === $villeS) {
+            return true;
+        }
+
+        $nomP = isset($principal->nom_gadest) ? (string) $principal->nom_gadest : '';
+        $nomS = isset($ligneSuite->nom_gadest) ? (string) $ligneSuite->nom_gadest : '';
+        if ($nomP !== '' && $nomS !== '' && $this->_villes_noms_compatibles($nomP, $nomS)) {
+            return true;
+        }
+
+        return false;
     }
 
     /**
@@ -883,6 +918,7 @@ class Programme_correspondance_model extends CI_Model
 
     /**
      * Lignes catalogue « suite » (hub → même destination, autre gare exp.).
+     * Étapes d'itinéraire filtrées sur la destination du principal + union catalogue.
      * @return object[]
      */
     public function resolve_lignes_suite($ekey, $principal)
@@ -895,25 +931,45 @@ class Programme_correspondance_model extends CI_Model
         $seen = array();
         $out = array();
 
+        $push = function ($lgRow) use (&$seen, &$out, $principal, $prefComp, $prefNom) {
+            if (!$lgRow) {
+                return;
+            }
+            $code = isset($lgRow->ident_ligne) ? (string) $lgRow->ident_ligne : '';
+            if ($code === '' || isset($seen[$code])) {
+                return;
+            }
+            if ((string) $lgRow->gaexp_lg === (string) $principal->gaexp_lg) {
+                return;
+            }
+            if ($code === (string) $principal->ligne_id) {
+                return;
+            }
+            if (!$this->_ligne_matche_compagnie($lgRow, $prefComp, $prefNom)) {
+                return;
+            }
+            if (!$this->_ligne_meme_destination_suite($principal, $lgRow)) {
+                return;
+            }
+            $seen[$code] = true;
+            $out[] = $lgRow;
+        };
+
+        // A — étapes d'itinéraire (jambes hub), filtrées même destination.
         $etapes = $this->m_itineraire_etape->get_by_parent($ekey, $principal->ligne_id);
         if (!empty($etapes)) {
             foreach ($etapes as $et) {
                 $code = isset($et->code_itineraires) ? (string) $et->code_itineraires : '';
-                if ($code === '' || $code === (string) $principal->ligne_id) {
+                if ($code === '') {
                     continue;
                 }
-                $lgRow = $this->_ligne_avec_compagnie($code);
-                if ($lgRow
-                    && (string) $lgRow->gaexp_lg !== (string) $principal->gaexp_lg
-                    && $this->_ligne_matche_compagnie($lgRow, $prefComp, $prefNom)
-                    && !isset($seen[$code])) {
-                    $seen[$code] = true;
-                    $out[] = $lgRow;
-                }
+                $push($this->_ligne_avec_compagnie($code));
             }
         }
 
-        if (empty($out)) {
+        // B — catalogue : toujours en union (ne plus court-circuiter dès qu'il y a des étapes).
+        $destPrincipal = isset($principal->gadest_lg) ? (string) $principal->gadest_lg : '';
+        if ($destPrincipal !== '') {
             $rows = $this->db->query(
                 "SELECT lg.ident_ligne, lg.nom_ligne, lg.gaexp_lg, lg.gadest_lg,
                         ga.id_compaga, ga.id_villega, ga.nom_gadest,
@@ -925,22 +981,25 @@ class Programme_correspondance_model extends CI_Model
                  JOIN compagnies c ON ge.id_compagd = c.cle_compagnie
                  JOIN entreprise e ON c.id_entrep = e.id_entreprise
                  WHERE e.ekey = ?
-                   AND lg.gadest_lg = ?
+                   AND (
+                        lg.gadest_lg = ?
+                        OR ga.id_villega = (
+                            SELECT ga0.id_villega FROM gare_dest ga0 WHERE ga0.code_gadest = ? LIMIT 1
+                        )
+                   )
                    AND lg.gaexp_lg <> ?
                    AND lg.ident_ligne <> ?
                  ORDER BY lg.ident_ligne ASC",
-                array($ekey, $principal->gadest_lg, $principal->gaexp_lg, $principal->ligne_id)
+                array(
+                    $ekey,
+                    $destPrincipal,
+                    $destPrincipal,
+                    $principal->gaexp_lg,
+                    $principal->ligne_id,
+                )
             )->result();
             foreach ($rows as $row) {
-                $id = isset($row->ident_ligne) ? (string) $row->ident_ligne : '';
-                if ($id === '' || isset($seen[$id])) {
-                    continue;
-                }
-                if (!$this->_ligne_matche_compagnie($row, $prefComp, $prefNom)) {
-                    continue;
-                }
-                $seen[$id] = true;
-                $out[] = $row;
+                $push($row);
             }
         }
 
@@ -989,7 +1048,7 @@ class Programme_correspondance_model extends CI_Model
         $ph = implode(',', array_fill(0, count($ids), '?'));
         $rows = $this->db->query(
             "SELECT lh.id_ligneheure, lh.ligne_id, lg.ident_ligne, lg.nom_ligne, lg.gaexp_lg, lg.gadest_lg,
-                    h.heure, ga.id_compaga, ca.nom_compagnie AS nom_compagnie_arrivee
+                    h.heure, ga.id_compaga, ga.nom_gadest, ca.nom_compagnie AS nom_compagnie_arrivee
              FROM ligne_heure lh
              JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
              JOIN heures h ON lh.heure_identif = h.id_heure
@@ -1023,7 +1082,11 @@ class Programme_correspondance_model extends CI_Model
                 $hhmm = substr((string) $r->heure, 0, 5);
                 $isLendemain = ((string) $date !== (string) $principal->date_progr);
                 $cie = isset($r->nom_compagnie_arrivee) ? trim((string) $r->nom_compagnie_arrivee) : '';
+                $dest = isset($r->nom_gadest) ? trim((string) $r->nom_gadest) : '';
                 $label = $r->nom_ligne . ' ' . $hhmm;
+                if ($dest !== '') {
+                    $label .= ' → ' . $dest;
+                }
                 if ($cie !== '') {
                     $label .= ' · ' . $cie;
                 }
@@ -1034,6 +1097,8 @@ class Programme_correspondance_model extends CI_Model
                     'id_ligneheure' => (int) $r->id_ligneheure,
                     'ligne_id' => $r->ident_ligne,
                     'nom_ligne' => $r->nom_ligne,
+                    'nom_gadest' => $dest,
+                    'gadest_lg' => isset($r->gadest_lg) ? $r->gadest_lg : '',
                     'heure' => $r->heure,
                     'gareidentif' => $r->gaexp_lg,
                     'date_progr' => $date,
