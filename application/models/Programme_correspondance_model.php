@@ -381,6 +381,7 @@ class Programme_correspondance_model extends CI_Model
             "SELECT pr.*, lh.id_ligneheure, lh.ligne_id, h.heure, h.id_heure,
                     lg.nom_ligne, lg.gaexp_lg, lg.gadest_lg,
                     ga.id_compaga, ga.id_villega, ga.nom_gadest,
+                    ge.nom_gaep,
                     ca.nom_compagnie AS nom_compagnie_arrivee,
                     ca.cle_compagnie AS cle_compagnie_arrivee
              FROM programme pr
@@ -456,12 +457,15 @@ class Programme_correspondance_model extends CI_Model
         }
         return $this->db->query(
             "SELECT lg.ident_ligne, lg.nom_ligne, lg.gaexp_lg, lg.gadest_lg,
-                    ga.id_compaga, ga.id_villega, ga.nom_gadest,
+                    ga.id_compaga, ga.id_villega, ga.nom_gadest, ga.actif_ga,
+                    ge.nom_gaep,
                     ca.nom_compagnie AS nom_compagnie_arrivee
              FROM lignes lg
              JOIN gare_dest ga ON ga.code_gadest = lg.gadest_lg
+             JOIN gare_exp ge ON ge.code_gaexp = lg.gaexp_lg
              JOIN compagnies ca ON ga.id_compaga = ca.cle_compagnie
              WHERE lg.ident_ligne = ?
+               AND IFNULL(ga.actif_ga, 1) = 1
              LIMIT 1",
             array($code)
         )->row();
@@ -514,13 +518,13 @@ class Programme_correspondance_model extends CI_Model
     }
 
     /**
-     * BOBO, BAMAKO_VIP, BAMAKO_VIPSD → même ville métier.
+     * Nom de destination gare tel quel (sans fusion VIP/CMT/SD).
+     * BAMAKO ≠ BAMAKO_CMTSD ≠ BAMAKO_VIP.
      */
     protected function _nom_ville_normalise($nom)
     {
         $n = strtoupper(trim((string) $nom));
-        $n = preg_replace('/_(VIPSD|CMTSD|VIP|CMT|CBT|CIT|SD)+$/', '', $n);
-        $n = preg_replace('/[^A-Z]/', '', $n);
+        $n = preg_replace('/\s+/', '', $n);
         return $n;
     }
 
@@ -531,12 +535,13 @@ class Programme_correspondance_model extends CI_Model
         if ($na === '' || $nb === '') {
             return false;
         }
-        return $na === $nb || strpos($na, $nb) === 0 || strpos($nb, $na) === 0;
+        // Correspondance : égalité stricte du nom de gare (jamais id_villega, jamais strip VIP/CMT).
+        return $na === $nb;
     }
 
     /**
-     * Suite hub : même destination que le principal (code, ville id, ou nom ville).
-     * Évite les jambes intermédiaires (ex. Bobo→Niangoloko pour un OD Bamako).
+     * Suite hub : même nom de gare d'arrivée (affecté à la compagnie), pas les codes.
+     * BAMAKO ≠ BAMAKO_CMTSD ≠ BAMAKO_VIP. Ignore actif_ga = 0.
      *
      * @param object $principal
      * @param object $ligneSuite
@@ -547,25 +552,44 @@ class Programme_correspondance_model extends CI_Model
         if (!$principal || !$ligneSuite) {
             return false;
         }
-        $destP = isset($principal->gadest_lg) ? trim((string) $principal->gadest_lg) : '';
-        $destS = isset($ligneSuite->gadest_lg) ? trim((string) $ligneSuite->gadest_lg) : '';
-        if ($destP !== '' && $destS !== '' && $destP === $destS) {
-            return true;
-        }
-
-        $villeP = isset($principal->id_villega) ? (int) $principal->id_villega : 0;
-        $villeS = isset($ligneSuite->id_villega) ? (int) $ligneSuite->id_villega : 0;
-        if ($villeP > 0 && $villeS > 0 && $villeP === $villeS) {
-            return true;
+        if (isset($ligneSuite->actif_ga) && (int) $ligneSuite->actif_ga === 0) {
+            return false;
         }
 
         $nomP = isset($principal->nom_gadest) ? (string) $principal->nom_gadest : '';
         $nomS = isset($ligneSuite->nom_gadest) ? (string) $ligneSuite->nom_gadest : '';
-        if ($nomP !== '' && $nomS !== '' && $this->_villes_noms_compatibles($nomP, $nomS)) {
-            return true;
+        if ($nomP === '' || $nomS === '') {
+            return false;
         }
+        return $this->_villes_noms_compatibles($nomP, $nomS);
+    }
 
-        return false;
+    /**
+     * Même gare de départ (nom compagnie), indépendamment du code gaexp.
+     */
+    protected function _meme_gare_depart($a, $b)
+    {
+        $nomA = isset($a->nom_gaep) ? (string) $a->nom_gaep : '';
+        $nomB = isset($b->nom_gaep) ? (string) $b->nom_gaep : '';
+        if ($nomA !== '' && $nomB !== '') {
+            return $this->_villes_noms_compatibles($nomA, $nomB);
+        }
+        $codeA = isset($a->gaexp_lg) ? trim((string) $a->gaexp_lg) : '';
+        $codeB = isset($b->gaexp_lg) ? trim((string) $b->gaexp_lg) : '';
+        return $codeA !== '' && $codeB !== '' && $codeA === $codeB;
+    }
+
+    /**
+     * Même gare d'arrivée (nom compagnie), indépendamment du code gadest.
+     */
+    protected function _meme_gare_arrivee($a, $b)
+    {
+        $nomA = isset($a->nom_gadest) ? (string) $a->nom_gadest : '';
+        $nomB = isset($b->nom_gadest) ? (string) $b->nom_gadest : '';
+        if ($nomA === '' || $nomB === '') {
+            return false;
+        }
+        return $this->_villes_noms_compatibles($nomA, $nomB);
     }
 
     /**
@@ -602,21 +626,21 @@ class Programme_correspondance_model extends CI_Model
 
     /**
      * Lignes hub VIP/CMT/CBT selon le principal, sans clone du même OD.
-     * Si l'étape catalogue est CBT (ex. OUA1-BOB32) alors que le principal est VIP,
-     * on prend le jumeau VIP vers la même ville (ex. OUA1-BOB87).
+     * Priorité : tronçons d'itinéraire vers le hub de la suite choisie, puis géo hub.
      * @return object[]
      */
     protected function _candidats_ligne_derive($ekey, $principal, $suite)
     {
         $prefComp = $this->_compagnie_arrivee_preferee($principal, $suite);
         $prefNom = $this->_nom_compagnie_preferee($principal, $suite);
-        $destPrincipal = isset($principal->gadest_lg) ? (string) $principal->gadest_lg : '';
-        $gaexpPrincipal = isset($principal->gaexp_lg) ? (string) $principal->gaexp_lg : '';
         $excludeLigne = isset($principal->ligne_id) ? (string) $principal->ligne_id : '';
+        $hub = isset($suite->gaexp_lg) ? (string) $suite->gaexp_lg : '';
+        $nomHub = $this->_nom_gare_exp($hub);
         $seen = array();
-        $out = array();
+        $prioritaires = array();
+        $autres = array();
 
-        $ajouter = function ($row) use (&$seen, &$out, $prefComp, $prefNom) {
+        $ajouter = function ($row, $prioritaire) use (&$seen, &$prioritaires, &$autres, $prefComp, $prefNom) {
             if (!$row || empty($row->ident_ligne)) {
                 return;
             }
@@ -628,7 +652,11 @@ class Programme_correspondance_model extends CI_Model
                 return;
             }
             $seen[$id] = true;
-            $out[] = $row;
+            if ($prioritaire) {
+                $prioritaires[] = $row;
+            } else {
+                $autres[] = $row;
+            }
         };
 
         $etapes = $this->m_itineraire_etape->get_by_parent($ekey, $principal->ligne_id);
@@ -639,23 +667,41 @@ class Programme_correspondance_model extends CI_Model
                     continue;
                 }
                 $row = $this->_ligne_avec_compagnie($code);
-                if (!$row || (string) $row->gaexp_lg !== $gaexpPrincipal) {
+                // Tronçon : même gare départ (nom) que le principal, pas la dest finale (nom).
+                if (!$row || !$this->_meme_gare_depart($row, $principal)) {
                     continue;
                 }
-                if ($destPrincipal !== '' && (string) $row->gadest_lg === $destPrincipal) {
+                if ($this->_meme_gare_arrivee($row, $principal)) {
                     continue;
                 }
-                $ajouter($row);
-                foreach ($this->_jumeaux_ligne_compagnie($row, $prefComp, $prefNom, $excludeLigne, $destPrincipal) as $twin) {
-                    $ajouter($twin);
+                $versHub = ($nomHub !== '' && $this->_ligne_vers_hub_nom($row, $nomHub));
+                $ajouter($row, $versHub);
+                foreach ($this->_jumeaux_ligne_compagnie($row, $prefComp, $prefNom, $excludeLigne, $principal) as $twin) {
+                    $ajouter($twin, ($nomHub !== '' && $this->_ligne_vers_hub_nom($twin, $nomHub)));
                 }
             }
         }
 
-        $hub = isset($suite->gaexp_lg) ? (string) $suite->gaexp_lg : '';
-        if ($hub !== '') {
-            foreach ($this->_lignes_hub_depuis_exp($gaexpPrincipal, $hub, $excludeLigne, $destPrincipal, $prefComp, $prefNom) as $row) {
-                $ajouter($row);
+        $out = !empty($prioritaires) ? $prioritaires : $autres;
+
+        if ($hub !== '' && $nomHub !== '') {
+            foreach ($this->_lignes_hub_depuis_exp(
+                $principal,
+                $hub,
+                $nomHub,
+                $excludeLigne,
+                $prefComp,
+                $prefNom
+            ) as $row) {
+                $id = isset($row->ident_ligne) ? (string) $row->ident_ligne : '';
+                if ($id === '' || isset($seen[$id])) {
+                    continue;
+                }
+                if (!$this->_ligne_matche_compagnie($row, $prefComp, $prefNom)) {
+                    continue;
+                }
+                $seen[$id] = true;
+                $out[] = $row;
             }
         }
 
@@ -663,37 +709,76 @@ class Programme_correspondance_model extends CI_Model
     }
 
     /**
-     * Même origine, même ville d'arrivée, compagnie du principal (VIP→VIP).
+     * Nom de gare d'expédition (compagnie), pas le code.
+     */
+    protected function _nom_gare_exp($code_gaexp)
+    {
+        $code = trim((string) $code_gaexp);
+        if ($code === '') {
+            return '';
+        }
+        $row = $this->db->query(
+            "SELECT nom_gaep FROM gare_exp WHERE code_gaexp = ? LIMIT 1",
+            array($code)
+        )->row();
+        return $row && isset($row->nom_gaep) ? trim((string) $row->nom_gaep) : '';
+    }
+
+    /**
+     * Tronçon vers le hub : nom d'arrivée = nom de la gare hub (compagnie).
+     */
+    protected function _ligne_vers_hub_nom($ligne, $nomHub)
+    {
+        if (!$ligne || $nomHub === '') {
+            return false;
+        }
+        $nomDest = isset($ligne->nom_gadest) ? (string) $ligne->nom_gadest : '';
+        return $nomDest !== '' && $this->_villes_noms_compatibles($nomHub, $nomDest);
+    }
+
+    /**
+     * Même origine, même nom d'arrivée (gare compagnie), compagnie du principal (VIP→VIP).
      * @return object[]
      */
-    protected function _jumeaux_ligne_compagnie($ligneRef, $prefComp, $prefNom, $excludeLigne, $excludeDest)
+    protected function _jumeaux_ligne_compagnie($ligneRef, $prefComp, $prefNom, $excludeLigne, $principal)
     {
-        if (!$ligneRef) {
+        if (!$ligneRef || !$principal) {
             return array();
         }
-        $villeId = isset($ligneRef->id_villega) ? (int) $ligneRef->id_villega : 0;
         $nomDest = isset($ligneRef->nom_gadest) ? (string) $ligneRef->nom_gadest : '';
+        $nomDepart = isset($ligneRef->nom_gaep) ? (string) $ligneRef->nom_gaep : '';
+        $comp = trim((string) $prefComp);
         $rows = $this->db->query(
             "SELECT lg.ident_ligne, lg.nom_ligne, lg.gaexp_lg, lg.gadest_lg,
-                    gd.id_compaga, gd.id_villega, gd.nom_gadest,
+                    gd.id_compaga, gd.id_villega, gd.nom_gadest, gd.actif_ga,
+                    ge.nom_gaep,
                     ca.nom_compagnie AS nom_compagnie_arrivee
              FROM lignes lg
              JOIN gare_dest gd ON gd.code_gadest = lg.gadest_lg
+             JOIN gare_exp ge ON ge.code_gaexp = lg.gaexp_lg
              JOIN compagnies ca ON gd.id_compaga = ca.cle_compagnie
-             WHERE lg.gaexp_lg = ?
-               AND lg.ident_ligne <> ?
-               AND lg.gadest_lg <> ?
+             WHERE lg.ident_ligne <> ?
+               AND IFNULL(gd.actif_ga, 1) = 1
+               AND (? = '' OR gd.id_compaga = ?)
              ORDER BY lg.ident_ligne ASC",
-            array($ligneRef->gaexp_lg, $excludeLigne, $excludeDest)
+            array($excludeLigne, $comp, $comp)
         )->result();
         $out = array();
         foreach ($rows as $row) {
             if (!$this->_ligne_matche_compagnie($row, $prefComp, $prefNom)) {
                 continue;
             }
-            $sameVille = $villeId > 0 && isset($row->id_villega) && (int) $row->id_villega === $villeId;
-            $sameNom = $this->_villes_noms_compatibles($nomDest, isset($row->nom_gadest) ? $row->nom_gadest : '');
-            if ($sameVille || $sameNom) {
+            // Même gare départ + même gare arrivée (noms compagnie), pas les codes.
+            if ($nomDepart !== '' && !$this->_villes_noms_compatibles($nomDepart, isset($row->nom_gaep) ? $row->nom_gaep : '')) {
+                continue;
+            }
+            if ($nomDepart === '' && (string) $row->gaexp_lg !== (string) $ligneRef->gaexp_lg) {
+                continue;
+            }
+            if ($this->_meme_gare_arrivee($row, $principal)) {
+                continue;
+            }
+            if ($this->_villes_noms_compatibles($nomDest, isset($row->nom_gadest) ? $row->nom_gadest : '')) {
                 $out[] = $row;
             }
         }
@@ -701,45 +786,46 @@ class Programme_correspondance_model extends CI_Model
     }
 
     /**
-     * Hub = gare d'expédition de la suite (Bobo), compagnie du principal.
+     * Hub = gare d'expédition de la suite (nom), compagnie du principal.
+     * Matching par noms de gares compagnie uniquement (pas préfixe de codes).
      * @return object[]
      */
-    protected function _lignes_hub_depuis_exp($gaexpPrincipal, $hubExp, $excludeLigne, $excludeDest, $prefComp, $prefNom)
+    protected function _lignes_hub_depuis_exp($principal, $hubExp, $nomHub, $excludeLigne, $prefComp, $prefNom)
     {
+        $nomDepart = isset($principal->nom_gaep) ? (string) $principal->nom_gaep : '';
+        if ($nomDepart === '' && isset($principal->gaexp_lg)) {
+            $nomDepart = $this->_nom_gare_exp($principal->gaexp_lg);
+        }
+        $comp = trim((string) $prefComp);
         $geo = $this->db->query(
             "SELECT lg.ident_ligne, lg.nom_ligne, lg.gaexp_lg, lg.gadest_lg,
-                    gd.id_compaga, gd.id_villega, gd.nom_gadest,
-                    ca.nom_compagnie AS nom_compagnie_arrivee,
-                    ge.nom_gaep, ge.id_villegd
+                    gd.id_compaga, gd.id_villega, gd.nom_gadest, gd.actif_ga,
+                    ge.nom_gaep,
+                    ca.nom_compagnie AS nom_compagnie_arrivee
              FROM lignes lg
              JOIN gare_dest gd ON gd.code_gadest = lg.gadest_lg
+             JOIN gare_exp ge ON ge.code_gaexp = lg.gaexp_lg
              JOIN compagnies ca ON gd.id_compaga = ca.cle_compagnie
-             JOIN gare_exp ge ON ge.code_gaexp = ?
-             WHERE lg.gaexp_lg = ?
-               AND lg.ident_ligne <> ?
-               AND lg.gadest_lg <> ?
+             WHERE lg.ident_ligne <> ?
+               AND IFNULL(gd.actif_ga, 1) = 1
+               AND (? = '' OR gd.id_compaga = ?)
              ORDER BY lg.ident_ligne ASC",
-            array($hubExp, $gaexpPrincipal, $excludeLigne, $excludeDest)
+            array($excludeLigne, $comp, $comp)
         )->result();
 
-        $prefix = preg_replace('/[0-9]+$/', '', $hubExp);
-        if ($prefix === '') {
-            $prefix = $hubExp;
-        }
         $out = array();
         foreach ($geo as $row) {
             if (!$this->_ligne_matche_compagnie($row, $prefComp, $prefNom)) {
                 continue;
             }
-            $sameVille = isset($row->id_villega, $row->id_villegd)
-                && (int) $row->id_villega === (int) $row->id_villegd;
-            $sameNom = $this->_villes_noms_compatibles(
-                isset($row->nom_gaep) ? $row->nom_gaep : '',
-                isset($row->nom_gadest) ? $row->nom_gadest : ''
-            );
-            $samePrefix = $prefix !== '' && isset($row->gadest_lg)
-                && stripos((string) $row->gadest_lg, $prefix) === 0;
-            if ($sameVille || $sameNom || $samePrefix) {
+            if ($nomDepart !== '' && !$this->_villes_noms_compatibles($nomDepart, isset($row->nom_gaep) ? $row->nom_gaep : '')) {
+                continue;
+            }
+            if ($this->_meme_gare_arrivee($row, $principal)) {
+                continue;
+            }
+            // Arrivée du tronçon = nom de la gare hub (ex. BOBO), pas le code BOB32.
+            if ($this->_villes_noms_compatibles($nomHub, isset($row->nom_gadest) ? $row->nom_gadest : '')) {
                 $out[] = $row;
             }
         }
@@ -917,8 +1003,8 @@ class Programme_correspondance_model extends CI_Model
     }
 
     /**
-     * Lignes catalogue « suite » (hub → même destination, autre gare exp.).
-     * Étapes d'itinéraire filtrées sur la destination du principal + union catalogue.
+     * Lignes « suite » (hub → même destination, autre gare exp.).
+     * Priorité : étapes d'itinéraire (hub métier). Catalogue uniquement si aucune étape valide.
      * @return object[]
      */
     public function resolve_lignes_suite($ekey, $principal)
@@ -935,11 +1021,15 @@ class Programme_correspondance_model extends CI_Model
             if (!$lgRow) {
                 return;
             }
+            if (isset($lgRow->actif_ga) && (int) $lgRow->actif_ga === 0) {
+                return;
+            }
             $code = isset($lgRow->ident_ligne) ? (string) $lgRow->ident_ligne : '';
             if ($code === '' || isset($seen[$code])) {
                 return;
             }
-            if ((string) $lgRow->gaexp_lg === (string) $principal->gaexp_lg) {
+            // Suite = autre gare de départ (nom compagnie), pas le même nom que le principal.
+            if ($this->_meme_gare_depart($lgRow, $principal)) {
                 return;
             }
             if ($code === (string) $principal->ligne_id) {
@@ -955,7 +1045,7 @@ class Programme_correspondance_model extends CI_Model
             $out[] = $lgRow;
         };
 
-        // A — étapes d'itinéraire (jambes hub), filtrées même destination.
+        // A — étapes d'itinéraire uniquement (ex. Bobo→Bamako pour Ouaga→Bamako).
         $etapes = $this->m_itineraire_etape->get_by_parent($ekey, $principal->ligne_id);
         if (!empty($etapes)) {
             foreach ($etapes as $et) {
@@ -963,46 +1053,101 @@ class Programme_correspondance_model extends CI_Model
                 if ($code === '') {
                     continue;
                 }
-                $push($this->_ligne_avec_compagnie($code));
+                $lgRow = $this->_ligne_avec_compagnie($code);
+                $push($lgRow);
+                // Même hub / même dest (noms), jumeau compagnie si l'étape est CBT.
+                if ($lgRow
+                    && !$this->_meme_gare_depart($lgRow, $principal)
+                    && $this->_ligne_meme_destination_suite($principal, $lgRow)
+                    && !$this->_ligne_matche_compagnie($lgRow, $prefComp, $prefNom)
+                ) {
+                    foreach ($this->_jumeaux_suite_compagnie($lgRow, $prefComp, $prefNom, $principal) as $twin) {
+                        $push($twin);
+                    }
+                }
             }
         }
 
-        // B — catalogue : toujours en union (ne plus court-circuiter dès qu'il y a des étapes).
-        $destPrincipal = isset($principal->gadest_lg) ? (string) $principal->gadest_lg : '';
-        if ($destPrincipal !== '') {
-            $rows = $this->db->query(
-                "SELECT lg.ident_ligne, lg.nom_ligne, lg.gaexp_lg, lg.gadest_lg,
-                        ga.id_compaga, ga.id_villega, ga.nom_gadest,
-                        ca.nom_compagnie AS nom_compagnie_arrivee
-                 FROM lignes lg
-                 JOIN gare_dest ga ON ga.code_gadest = lg.gadest_lg
-                 JOIN compagnies ca ON ga.id_compaga = ca.cle_compagnie
-                 JOIN gare_exp ge ON lg.gaexp_lg = ge.code_gaexp
-                 JOIN compagnies c ON ge.id_compagd = c.cle_compagnie
-                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                 WHERE e.ekey = ?
-                   AND (
-                        lg.gadest_lg = ?
-                        OR ga.id_villega = (
-                            SELECT ga0.id_villega FROM gare_dest ga0 WHERE ga0.code_gadest = ? LIMIT 1
-                        )
-                   )
-                   AND lg.gaexp_lg <> ?
-                   AND lg.ident_ligne <> ?
-                 ORDER BY lg.ident_ligne ASC",
-                array(
-                    $ekey,
-                    $destPrincipal,
-                    $destPrincipal,
-                    $principal->gaexp_lg,
-                    $principal->ligne_id,
-                )
-            )->result();
-            foreach ($rows as $row) {
-                $push($row);
-            }
+        // B — catalogue : secours uniquement si aucune jambe hub dans les étapes.
+        if (!empty($out)) {
+            return $out;
         }
 
+        $compPrincipal = isset($principal->id_compaga) ? (string) $principal->id_compaga : '';
+        $rows = $this->db->query(
+            "SELECT lg.ident_ligne, lg.nom_ligne, lg.gaexp_lg, lg.gadest_lg,
+                    ga.id_compaga, ga.id_villega, ga.nom_gadest, ga.actif_ga,
+                    ge.nom_gaep,
+                    ca.nom_compagnie AS nom_compagnie_arrivee
+             FROM lignes lg
+             JOIN gare_dest ga ON ga.code_gadest = lg.gadest_lg
+             JOIN compagnies ca ON ga.id_compaga = ca.cle_compagnie
+             JOIN gare_exp ge ON lg.gaexp_lg = ge.code_gaexp
+             JOIN compagnies c ON ge.id_compagd = c.cle_compagnie
+             JOIN entreprise e ON c.id_entrep = e.id_entreprise
+             WHERE e.ekey = ?
+               AND lg.ident_ligne <> ?
+               AND IFNULL(ga.actif_ga, 1) = 1
+               AND (? = '' OR ga.id_compaga = ?)
+             ORDER BY lg.ident_ligne ASC",
+            array(
+                $ekey,
+                $principal->ligne_id,
+                $compPrincipal,
+                $compPrincipal,
+            )
+        )->result();
+        foreach ($rows as $row) {
+            $push($row);
+        }
+
+        return $out;
+    }
+
+    /**
+     * Jumeau suite : même nom gare départ hub + même nom dest, compagnie du principal.
+     * @return object[]
+     */
+    protected function _jumeaux_suite_compagnie($ligneRef, $prefComp, $prefNom, $principal)
+    {
+        if (!$ligneRef || !$principal) {
+            return array();
+        }
+        $nomDest = isset($principal->nom_gadest) ? (string) $principal->nom_gadest : '';
+        if ($nomDest === '' && isset($ligneRef->nom_gadest)) {
+            $nomDest = (string) $ligneRef->nom_gadest;
+        }
+        $nomHub = isset($ligneRef->nom_gaep) ? (string) $ligneRef->nom_gaep : '';
+        $exclude = isset($principal->ligne_id) ? (string) $principal->ligne_id : '';
+        $comp = trim((string) $prefComp);
+        $rows = $this->db->query(
+            "SELECT lg.ident_ligne, lg.nom_ligne, lg.gaexp_lg, lg.gadest_lg,
+                    gd.id_compaga, gd.id_villega, gd.nom_gadest, gd.actif_ga,
+                    ge.nom_gaep,
+                    ca.nom_compagnie AS nom_compagnie_arrivee
+             FROM lignes lg
+             JOIN gare_dest gd ON gd.code_gadest = lg.gadest_lg
+             JOIN gare_exp ge ON ge.code_gaexp = lg.gaexp_lg
+             JOIN compagnies ca ON gd.id_compaga = ca.cle_compagnie
+             WHERE lg.ident_ligne <> ?
+               AND IFNULL(gd.actif_ga, 1) = 1
+               AND (? = '' OR gd.id_compaga = ?)
+             ORDER BY lg.ident_ligne ASC",
+            array($exclude, $comp, $comp)
+        )->result();
+        $out = array();
+        foreach ($rows as $row) {
+            if (!$this->_ligne_matche_compagnie($row, $prefComp, $prefNom)) {
+                continue;
+            }
+            if ($nomHub !== '' && !$this->_villes_noms_compatibles($nomHub, isset($row->nom_gaep) ? $row->nom_gaep : '')) {
+                continue;
+            }
+            if (!$this->_villes_noms_compatibles($nomDest, isset($row->nom_gadest) ? $row->nom_gadest : '')) {
+                continue;
+            }
+            $out[] = $row;
+        }
         return $out;
     }
 
@@ -1057,6 +1202,7 @@ class Programme_correspondance_model extends CI_Model
              WHERE lh.ligne_id IN ($ph)
                AND lh.actif_lh = 1
                AND h.h_active = 1
+               AND IFNULL(ga.actif_ga, 1) = 1
              ORDER BY h.heure ASC, lg.ident_ligne ASC",
             $ids
         )->result();
@@ -1164,6 +1310,7 @@ class Programme_correspondance_model extends CI_Model
                AND lh.ligne_id IN ($ph)
                AND lh.actif_lh = 1
                AND h.h_active = 1
+               AND IFNULL(ga.actif_ga, 1) = 1
              LIMIT 1",
             $params
         )->row();
