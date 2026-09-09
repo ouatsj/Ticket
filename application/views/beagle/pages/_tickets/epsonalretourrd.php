@@ -113,7 +113,7 @@
                                 
                                 <tr><td>BON VOYAGE AVEC <?= $item->nom_compagnie;?> <?= $nge;?></td></tr>
                                 <tr><td style="font-size: 35px; width: 90%;"> <?= ticket_barcode_img($item->tamponcod, 250, 40); ?></td></tr>
-                                <tr><td style="font-size: 15px;">emis : <?= $dtoday; ?></td></tr>
+                                <?= ticket_emis_html(isset($item) ? $item : null, $dtoday, '15px', isset($conex) ? $conex : null); ?>
                         </table>
                     </body>
                 </div>
@@ -192,7 +192,7 @@
                                 <tr><td style="border:2px solid; font-size: 23px;"><b>N° BUS :......</b></td></tr>
                                 <tr><td>BON VOYAGE AVEC <?= $item->nom_compagnie;?></td></tr>
                                 <tr><td style="font-size: 35px; width: 90%;"> <?= ticket_barcode_img($item->tamponcod, 250, 40); ?></td></tr>
-                                <tr><td style="font-size: 15px;">emis : <?= $dtoday; ?></td></tr>
+                                <?= ticket_emis_html(isset($item) ? $item : null, $dtoday, '15px', isset($conex) ? $conex : null); ?>
                         </table>
                     </body>
                 </div>

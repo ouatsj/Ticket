@@ -36,10 +36,11 @@ $code = (string) $item->idclescal;
 $prix_val = isset($item->prixescal) ? $item->prixescal : (isset($item->prix) ? $item->prix : 0);
 $prix = number_format((float) $prix_val, 0, '', ' ');
 if (!empty($item->dateheureescal) && $item->dateheureescal !== '0000-00-00 00:00:00') {
-    $emis = (string) $item->dateheureescal;
+    $emis_raw = (string) $item->dateheureescal;
 } else {
-    $emis = mdate('%Y-%m-%d %H:%i:%s', now('UTC'));
+    $emis_raw = mdate('%Y-%m-%d %H:%i:%s', now('UTC'));
 }
+$emis = ticket_emis_texte($item, $emis_raw, isset($conex) ? $conex : null);
 $logo = !empty($item->logo) ? site_url($item->logo) : '';
 ?>
 <style>
@@ -240,7 +241,7 @@ html, body {
             </td>
         </tr>
         <tr>
-            <td style="font-size:50px;">emis : <?= htmlspecialchars($emis, ENT_QUOTES, 'UTF-8'); ?></td>
+            <td style="font-size:50px;"><?= htmlspecialchars($emis, ENT_QUOTES, 'UTF-8'); ?></td>
         </tr>
     </table>
 </div>

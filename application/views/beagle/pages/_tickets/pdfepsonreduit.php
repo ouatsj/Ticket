@@ -88,7 +88,7 @@
                         <tr><td style="border:2px solid; font-size: 60px;"><b>N° BUS :<?=$x;?></b></td></tr>
                         <tr><td style="font-size: 45px;">BON VOYAGE AVEC <?= $item->nom_compagnie;?> <?= $nge;?></td></tr>
                         <tr><td style="font-size: 35px; width:40%;"> <?= ticket_barcode_img($item->tamponcod, 450, 40); ?></td></tr>
-                        <tr><td style="font-size: 60px;">emis : <?= $dtoday; ?></td></tr>
+                        <?= ticket_emis_html(isset($item) ? $item : null, $dtoday, '60px', isset($conex) ? $conex : null); ?>
                         </table>
                     </body>
                 </div>

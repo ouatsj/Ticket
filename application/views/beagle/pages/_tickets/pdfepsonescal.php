@@ -52,7 +52,7 @@
                     <tr><td style="font-size: 70px;">Prix : <?= number_format("{$item->prix}", 0, '', ' '); ?> &nbsp;FCFA </td></tr>
                     <tr><td style="font-size: 50px;"><b>BON VOYAGE AVEC <?= $item->nom_compagnie;?></b></td></tr>
                     <tr><td style="font-size: 35px; width:40%;"> <?= ticket_barcode_img($item->idclescal, 400, 40); ?></td></tr>
-                    <tr><td style="font-size: 50px;">emis : <?= $dtoday; ?></td></tr>
+                    <?= ticket_emis_html(isset($item) ? $item : null, $dtoday, '50px', isset($conex) ? $conex : null); ?>
                     </table>
                 </body>
             </div>

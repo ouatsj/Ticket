@@ -140,7 +140,7 @@
                         <tr><td>BON VOYAGE AVEC <?= $item->nom_compagnie;?> <?= $nge;?></td></tr>
                         <tr><td style="font-size: 35px; width: 90%;"><?= ticket_barcode_img($item->tamponcod, 250, 40); ?></td></tr>
                         <tr><td style="font-size: 14px; letter-spacing: 1px;"><?= htmlspecialchars((string) $item->tamponcod, ENT_QUOTES, 'UTF-8'); ?></td></tr>
-                        <tr><td style="font-size: 15px;">emis : <?= $dtoday; ?></td></tr>
+                        <?= ticket_emis_html(isset($item) ? $item : null, $dtoday, '15px', isset($conex) ? $conex : null); ?>
                         </table>
                     </body>
                 </div>

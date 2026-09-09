@@ -453,20 +453,107 @@ if (!function_exists('ticket_est_reporte')) {
     }
 }
 
-if (!function_exists('ticket_emis_html')) {
+if (!function_exists('ticket_agent_nom')) {
     /**
-     * Ligne « emis : … » (+ NON REPROGRAMMABLE si reporté).
+     * Nom agent pour la ligne d'émission ticket.
+     * Priorité : agent courant (conex / session) puis username stocké sur le passager.
      *
      * @param object|null $item
-     * @param string $dtoday
+     * @param object|null $conex
+     * @return string
+     */
+    function ticket_agent_nom($item = null, $conex = null)
+    {
+        if ($conex && is_object($conex) && !empty($conex->username)) {
+            return trim((string) $conex->username);
+        }
+        $CI =& get_instance();
+        if ($CI && !empty($CI->session->agent) && !empty($CI->session->agent->username)) {
+            return trim((string) $CI->session->agent->username);
+        }
+        if ($item && is_object($item) && !empty($item->username)) {
+            return trim((string) $item->username);
+        }
+        return '';
+    }
+}
+
+if (!function_exists('ticket_emis_datetime')) {
+    /**
+     * Horodatage d'émission « YYYY-MM-DD à HH:MM:SS » (locale serveur).
+     *
+     * @param string|null $dtoday déjà formaté éventuel
+     * @return string
+     */
+    function ticket_emis_datetime($dtoday = null)
+    {
+        $dtoday = trim((string) $dtoday);
+        if ($dtoday !== '') {
+            // « YYYY-MM-DD HH:MM:SS » → « YYYY-MM-DD à HH:MM:SS »
+            if (preg_match('/^(\d{4}-\d{2}-\d{2})\s+(\d{1,2}:\d{2}(?::\d{2})?)$/', $dtoday, $m)) {
+                return $m[1] . ' à ' . $m[2];
+            }
+            return $dtoday;
+        }
+        $tim = date('H');
+        $dats = ($tim === '00') ? '01:00:00' : date('H:i:s');
+        return mdate('%Y-%m-%d', now()) . ' à ' . $dats;
+    }
+}
+
+if (!function_exists('ticket_emis_texte')) {
+    /**
+     * Texte « émis par NOM le DATE à HEURE » (+ suffixe optionnel).
+     *
+     * @param object|null $item
+     * @param string|null $dtoday
+     * @param object|null $conex
+     * @param string $suffix
+     * @return string
+     */
+    function ticket_emis_texte($item = null, $dtoday = null, $conex = null, $suffix = '')
+    {
+        $nom = ticket_agent_nom($item, $conex);
+        $when = ticket_emis_datetime($dtoday);
+        $suffix = trim((string) $suffix);
+        if ($nom !== '') {
+            $txt = 'émis par ' . $nom . ' le ' . $when;
+        } else {
+            $txt = 'émis : ' . $when;
+        }
+        if ($suffix !== '') {
+            $txt .= ' ' . $suffix;
+        }
+        return $txt;
+    }
+}
+
+if (!function_exists('ticket_emis_html')) {
+    /**
+     * Ligne HTML « émis par … le … à … » (+ NON REPROGRAMMABLE / CONFIRMER…).
+     *
+     * @param object|null $item
+     * @param string|null $dtoday
+     * @param string $fontSize
+     * @param object|null $conex
+     * @param string $extra_suffix CONFIRMER, etc.
      * @return string HTML <tr>…
      */
-    function ticket_emis_html($item, $dtoday)
+    function ticket_emis_html($item, $dtoday, $fontSize = '15px', $conex = null, $extra_suffix = '')
     {
-        $suffix = ticket_est_reporte($item) ? ' NON REPROGRAMMABLE' : '';
-        return '<tr><td style="font-size: 15px;">emis : '
-            . htmlspecialchars((string) $dtoday, ENT_QUOTES, 'UTF-8')
-            . $suffix . '</td></tr>';
+        $suffix = '';
+        if (ticket_est_reporte($item)) {
+            $suffix = 'NON REPROGRAMMABLE';
+        }
+        $extra_suffix = trim((string) $extra_suffix);
+        if ($extra_suffix !== '') {
+            $suffix = trim($suffix . ' ' . $extra_suffix);
+        }
+        $texte = ticket_emis_texte($item, $dtoday, $conex, $suffix);
+        $fs = htmlspecialchars((string) $fontSize, ENT_QUOTES, 'UTF-8');
+        return '<tr><td style="font-size: ' . $fs . ';">'
+            . htmlspecialchars($texte, ENT_QUOTES, 'UTF-8')
+            . '</td></tr>';
     }
 }
 

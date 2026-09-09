@@ -97,7 +97,7 @@
                         <tr><td style="font-size: 9px;">Suivez et surveillez bien vos bagages</td></tr>
                         <tr><td>BON VOYAGE AVEC <?= $item->nom_compagnie;?> <?= $nge;?></td></tr>
                         <tr><td style="font-size: 35px; width: 90%;"> <?= ticket_barcode_img($item->tamponcod, 250, 40); ?></td></tr>
-                        <tr><td style="font-size: 15px;">emis : <?= $dtoday; ?> NON REPROGRAMMABLE</td></tr>
+                        <?= ticket_emis_html(isset($item) ? $item : null, $dtoday, '15px', isset($conex) ? $conex : null); ?>
                         </table>
                     </body>
                 </div>

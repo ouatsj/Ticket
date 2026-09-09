@@ -87,7 +87,7 @@
                         $dat = explode("-", $item->date_progr);
                         $day = $dat[2]. '-'. $dat[1]. '-' .$dat[0];?>
                          
-                          <tr><td width="25%" style="font-size: 15px;"><?= $item->code_ticket; ?></td><td colspan="2" align=left style="font-size: 15px;"></td><td align=center style="font-size: 12px;"><?= $item->nom_client; ?> <?= $item->prenom_client; ?></td><td align=center style="font-size: 9px;"><?= $item->tamponcod; ?> emis : <?= $dtoday; ?></td><td style="font-size: 9px;"></td>
+                          <tr><td width="25%" style="font-size: 15px;"><?= $item->code_ticket; ?></td><td colspan="2" align=left style="font-size: 15px;"></td><td align=center style="font-size: 12px;"><?= $item->nom_client; ?> <?= $item->prenom_client; ?></td><td align=center style="font-size: 9px;"><?= $item->tamponcod; ?> <?= htmlspecialchars(ticket_emis_texte(isset($item) ? $item : null, $dtoday, isset($conex) ? $conex : null), ENT_QUOTES, 'UTF-8'); ?></td><td style="font-size: 9px;"></td>
                           </tr>
                           <tr><td style="font-size: 15px;"><?= $itemar->codeticket; ?></td><td colspan="2" align=left style="font-size: 17px;"></td><td align=center><?= $item->nom_ligne; ?></td><td align=left>ALLER</td><td align=left>RETOUR</td></tr>
 
@@ -568,7 +568,7 @@
                               $dat1 = explode("-", $itemtrans->date_progr);
                               $day1 = $dat1[2]. '-'. $dat1[1]. '-' .$dat1[0];?>
                    
-                            <tr><td width="25%" style="font-size: 15px;"><?= $itemtrans->code_ticket; ?></td><td colspan="2" align=left style="font-size: 15px;"></td><td align=center style="font-size: 12px;"><?= $item->nom_client; ?> <?= $item->prenom_client; ?></td><td align=center style="font-size: 9px;"><?= $itemtrans->tamponcod; ?> emis : <?= $dtoday; ?></td><td style="font-size: 9px;"></td>
+                            <tr><td width="25%" style="font-size: 15px;"><?= $itemtrans->code_ticket; ?></td><td colspan="2" align=left style="font-size: 15px;"></td><td align=center style="font-size: 12px;"><?= $item->nom_client; ?> <?= $item->prenom_client; ?></td><td align=center style="font-size: 9px;"><?= $itemtrans->tamponcod; ?> <?= htmlspecialchars(ticket_emis_texte(isset($item) ? $item : null, $dtoday, isset($conex) ? $conex : null), ENT_QUOTES, 'UTF-8'); ?></td><td style="font-size: 9px;"></td>
                             </tr>
                             <tr><td style="font-size: 15px;"><?= $itemartrans->codeticket; ?></td><td colspan="2" align=left style="font-size: 17px;"></td><td align=center><?= $itemtrans->nom_ligne; ?></td><td align=left>ALLER</td><td align=left>RETOUR</td></tr>
 
@@ -1050,7 +1050,7 @@
                               $dat2 = explode("-", $itemtrans2->date_progr);
                               $day2 = $dat2[2]. '-'. $dat2[1]. '-' .$dat2[0];?>
                    
-                            <tr><td width="25%" style="font-size: 15px;"><?= $itemtrans2->code_ticket; ?></td><td colspan="2" align=left style="font-size: 15px;"></td><td align=center style="font-size: 12px;"><?= $item->nom_client; ?> <?= $item->prenom_client; ?></td><td align=center style="font-size: 9px;"><?= $itemtrans2->tamponcod; ?> emis : <?= $dtoday; ?></td><td style="font-size: 9px;"></td>
+                            <tr><td width="25%" style="font-size: 15px;"><?= $itemtrans2->code_ticket; ?></td><td colspan="2" align=left style="font-size: 15px;"></td><td align=center style="font-size: 12px;"><?= $item->nom_client; ?> <?= $item->prenom_client; ?></td><td align=center style="font-size: 9px;"><?= $itemtrans2->tamponcod; ?> <?= htmlspecialchars(ticket_emis_texte(isset($item) ? $item : null, $dtoday, isset($conex) ? $conex : null), ENT_QUOTES, 'UTF-8'); ?></td><td style="font-size: 9px;"></td>
                             </tr>
                             <tr><td style="font-size: 15px;"><?= $itemartrans2->codeticket; ?></td><td colspan="2" align=left style="font-size: 17px;"></td><td align=center><?= $itemtrans2->nom_ligne; ?></td><td align=left>ALLER</td><td align=left>RETOUR</td></tr>
 
@@ -1532,7 +1532,7 @@
                               $dat3 = explode("-", $itemtrans3->date_progr);
                               $day3 = $dat3[2]. '-'. $dat3[1]. '-' .$dat3[0];?>
                    
-                            <tr><td width="25%" style="font-size: 15px;"><?= $itemtrans3->code_ticket; ?></td><td colspan="2" align=left style="font-size: 15px;"></td><td align=center style="font-size: 12px;"><?= $item->nom_client; ?> <?= $item->prenom_client; ?></td><td align=center style="font-size: 9px;"><?= $itemtrans3->tamponcod; ?> emis : <?= $dtoday; ?></td><td style="font-size: 9px;"></td>
+                            <tr><td width="25%" style="font-size: 15px;"><?= $itemtrans3->code_ticket; ?></td><td colspan="2" align=left style="font-size: 15px;"></td><td align=center style="font-size: 12px;"><?= $item->nom_client; ?> <?= $item->prenom_client; ?></td><td align=center style="font-size: 9px;"><?= $itemtrans3->tamponcod; ?> <?= htmlspecialchars(ticket_emis_texte(isset($item) ? $item : null, $dtoday, isset($conex) ? $conex : null), ENT_QUOTES, 'UTF-8'); ?></td><td style="font-size: 9px;"></td>
                             </tr>
                             <tr><td style="font-size: 15px;"><?= $itemartrans3->codeticket; ?></td><td colspan="2" align=left style="font-size: 17px;"></td><td align=center><?= $itemtrans3->nom_ligne; ?></td><td align=left>ALLER</td><td align=left>RETOUR</td></tr>
 

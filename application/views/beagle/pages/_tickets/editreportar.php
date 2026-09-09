@@ -85,7 +85,7 @@
                         $dat = explode("-", $reponse->date_progr);
                         $day = $dat[2]. '-'. $dat[1]. '-' .$dat[0];?>
                    
-                            <tr><td width="25%" style="font-size: 15px;"><?= $item->code_ticket; ?></td><td colspan="2" align=left style="font-size: 15px;"></td><td align=center style="font-size: 12px;"><?= $item->nom_client; ?> <?= $item->prenom_client; ?></td><td align=center style="font-size: 9px;"><?= $item->tamponcod; ?> emis : <?= $dtoday; ?></td><td style="font-size: 9px;"></td>
+                            <tr><td width="25%" style="font-size: 15px;"><?= $item->code_ticket; ?></td><td colspan="2" align=left style="font-size: 15px;"></td><td align=center style="font-size: 12px;"><?= $item->nom_client; ?> <?= $item->prenom_client; ?></td><td align=center style="font-size: 9px;"><?= $item->tamponcod; ?> <?= htmlspecialchars(ticket_emis_texte(isset($item) ? $item : null, $dtoday, isset($conex) ? $conex : null), ENT_QUOTES, 'UTF-8'); ?></td><td style="font-size: 9px;"></td>
                             </tr>
                             <tr><td style="font-size: 15px;"><?= $fiche->codeticket; ?></td><td colspan="2" align=left style="font-size: 17px;"></td><td align=center><?= $item->nom_ligne; ?></td><td align=left>ALLER</td><td align=left>RETOUR</td></tr>
 

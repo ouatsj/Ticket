@@ -85,7 +85,7 @@
                         $dat = explode("-", $item->date_progr);
                         $day = $dat[2]. '-'. $dat[1]. '-' .$dat[0];?>
                    
-                        <tr><td width="25%" style="font-size: 17px;"><?= $item->code_ticket; ?></td><td colspan="3" align=left><?= $item->nom_client; ?> <?= $item->prenom_client; ?></td><td style="font-size: 9px;"><?= $item->tamponcod; ?> emis : <?= $dtoday; ?></td>
+                        <tr><td width="25%" style="font-size: 17px;"><?= $item->code_ticket; ?></td><td colspan="3" align=left><?= $item->nom_client; ?> <?= $item->prenom_client; ?></td><td style="font-size: 9px;"><?= $item->tamponcod; ?> <?= htmlspecialchars(ticket_emis_texte(isset($item) ? $item : null, $dtoday, isset($conex) ? $conex : null), ENT_QUOTES, 'UTF-8'); ?></td>
                         </tr>
                         <tr><td align=left style="font-size: 17px;"><?= $item->nom_ligne; ?></td><td colspan="3" align=left style="font-size: 17px;">CODE:<?= $item->code_ticket; ?></td><td style="font-size: 17px;" align=left>SIEGE:<?= str_pad($item->num_siege_categorie, 2, "0", STR_PAD_LEFT);?></td>
                         </tr>

@@ -62,7 +62,7 @@
                                 <tr><td style="font-size: 9px;">Suivez et surveillez bien vos bagages</td></tr>
                                 <tr><td>BON VOYAGE AVEC <?= $fiche->nom_compagnie;?></td></tr>
                                 <tr><td style="font-size: 35px; width: 90%;"> <?= ticket_barcode_img($fiche->code_non_pass, 250, 40); ?></td></tr>
-                                <tr><td style="font-size: 15px;">emis : <?= $dtoday; ?></td></tr>
+                                <?= ticket_emis_html(isset($item) ? $item : null, $dtoday, '15px', isset($conex) ? $conex : null); ?>
                         </table>
                     </body>
                 </div>
