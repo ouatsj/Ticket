@@ -1300,7 +1300,7 @@ class Programme_correspondance_model extends CI_Model
         $params = array_merge(array($id_ligneheure), $ids);
         return $this->db->query(
             "SELECT lh.id_ligneheure, lh.ligne_id, lg.ident_ligne, lg.nom_ligne, lg.gaexp_lg, lg.gadest_lg,
-                    h.heure, ga.id_compaga, ca.nom_compagnie AS nom_compagnie_arrivee
+                    h.heure, ga.id_compaga, ga.nom_gadest, ca.nom_compagnie AS nom_compagnie_arrivee
              FROM ligne_heure lh
              JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
              JOIN heures h ON lh.heure_identif = h.id_heure
@@ -1317,25 +1317,53 @@ class Programme_correspondance_model extends CI_Model
     }
 
     /**
+     * Nouveau code_progr unique pour la gare (préfixe date+gare + suffixe numérique).
+     * Utilise MAX(suffixe) puis boucle EXISTS — jamais COUNT+1 (collision BOB13..19 → BOB18).
      * @return string
      */
     protected function _nouveau_code_progr($gareidentif)
     {
         $today = mdate('%Y-%m-%d', now('UTC'));
         $gd = trim((string) $gareidentif);
-        $compter = $this->db->query(
-            "SELECT COUNT(code_progr) AS id FROM programme WHERE createdatepr = ? AND gareidentif = ?",
-            array($today, $gd)
-        )->row();
         $gd4 = ($gd === 'OUA12') ? 'WUA12' : $gd;
-        return mdate('%y%m%d', now('UTC')) . $gd4 . ((int) $compter->id + 1);
+        $prefix = mdate('%y%m%d', now('UTC')) . $gd4;
+        $prefixLen = strlen($prefix);
+
+        $row = $this->db->query(
+            "SELECT MAX(CAST(SUBSTRING(code_progr, ?) AS UNSIGNED)) AS maxn
+             FROM programme
+             WHERE createdatepr = ?
+               AND gareidentif = ?
+               AND code_progr LIKE ?",
+            array($prefixLen + 1, $today, $gd, $prefix . '%')
+        )->row();
+        $n = ($row && $row->maxn !== null && $row->maxn !== '') ? ((int) $row->maxn + 1) : 1;
+        if ($n < 1) {
+            $n = 1;
+        }
+
+        for ($i = 0; $i < 100; $i++) {
+            $code = $prefix . (string) ($n + $i);
+            $exists = $this->db->query(
+                "SELECT 1 AS ok FROM programme WHERE code_progr = ? LIMIT 1",
+                array($code)
+            )->row();
+            if (!$exists) {
+                return $code;
+            }
+        }
+
+        // Dernier recours : horodatage pour rester unique.
+        return $prefix . (string) $n . 'T' . mdate('%H%i%s', now('UTC'));
     }
 
     /**
      * Crée un programme aligné sur le principal (même bus, depart_code, intervalles).
+     * Vérifie l'INSERT (affected_rows) puis ligne / dest / cie attendues.
+     * $attendu optionnel : ligne_id, nom_gadest, id_compaga (contrôle post-création).
      * @return array{ok:bool,code_progr?:string,error?:string}
      */
-    protected function _creer_programme_lie($principal, $gareidentif, $id_ligneheure, $date_progr, $heure)
+    protected function _creer_programme_lie($principal, $gareidentif, $id_ligneheure, $date_progr, $heure, array $attendu = array())
     {
         $gd = trim((string) $gareidentif);
         $date = trim((string) $date_progr);
@@ -1358,31 +1386,198 @@ class Programme_correspondance_model extends CI_Model
             return array('ok' => false, 'error' => 'depart_hub_existe');
         }
 
-        $pcd = $this->_nouveau_code_progr($gd);
         $today = mdate('%Y-%m-%d', now('UTC'));
         $suheure = $heure ? $heure : $principal->heure;
-        $arrayprog = array(
-            'code_progr' => $pcd,
-            'depart_code' => $principal->depart_code,
-            'id_heur' => $idHeur,
-            'gareidentif' => $gd,
-            'idsousgare_prog' => null,
-            'typetarif' => $principal->typetarif,
-            'categori' => $principal->categori,
-            'intervalle1' => (int) $principal->intervalle1,
-            'intervalle2' => (int) $principal->intervalle2,
-            'dateheure_prog' => $date . '-' . $suheure,
-            'date_progr' => $date,
-            'createdatepr' => $today,
-            'createdpg_at' => now('UTC'),
-            'statut_prog' => 'actif',
-            'actif_prog' => 0,
-        );
-        $ok = $this->m_programme->create($arrayprog);
-        if ($ok === null || $ok === FALSE) {
-            return array('ok' => false, 'error' => 'echec_creation_programme');
+        $departCode = isset($principal->depart_code) ? (string) $principal->depart_code : '';
+
+        for ($attempt = 0; $attempt < 5; $attempt++) {
+            $pcd = $this->_nouveau_code_progr($gd);
+            $arrayprog = array(
+                'code_progr' => $pcd,
+                'depart_code' => $departCode,
+                'id_heur' => $idHeur,
+                'gareidentif' => $gd,
+                'idsousgare_prog' => null,
+                'typetarif' => $principal->typetarif,
+                'categori' => $principal->categori,
+                'intervalle1' => (int) $principal->intervalle1,
+                'intervalle2' => (int) $principal->intervalle2,
+                'dateheure_prog' => $date . '-' . $suheure,
+                'date_progr' => $date,
+                'createdatepr' => $today,
+                'createdpg_at' => now('UTC'),
+                'statut_prog' => 'actif',
+                'actif_prog' => 0,
+            );
+
+            $inserted = $this->db->insert('programme', $arrayprog);
+            if ($inserted && (int) $this->db->affected_rows() === 1) {
+                $errCoh = $this->_verifier_programme_cree($pcd, $gd, $date, $idHeur, $departCode, $attendu);
+                if ($errCoh !== null) {
+                    $this->db->where('code_progr', $pcd)->delete('programme');
+                    return array('ok' => false, 'error' => $errCoh);
+                }
+                return array('ok' => true, 'code_progr' => $pcd);
+            }
+
+            // Collision PK / échec INSERT → réessayer avec un nouveau code.
+            $err = $this->db->error();
+            $msg = isset($err['message']) ? (string) $err['message'] : '';
+            $isDup = (stripos($msg, 'Duplicate') !== false) || ((int) (isset($err['code']) ? $err['code'] : 0) === 1062);
+            if (!$isDup && $attempt === 0) {
+                return array('ok' => false, 'error' => 'echec_creation_programme');
+            }
         }
-        return array('ok' => true, 'code_progr' => $pcd);
+
+        return array('ok' => false, 'error' => 'echec_creation_programme');
+    }
+
+    /**
+     * Après INSERT : bonne gare/date/heure/depart_code + ligne/dest/cie si fournis.
+     * @return string|null code erreur ou null si OK
+     */
+    protected function _verifier_programme_cree($code, $gareidentif, $date_progr, $id_heur, $depart_code, array $attendu = array())
+    {
+        $row = $this->db->query(
+            "SELECT pr.code_progr, pr.id_heur, pr.depart_code, pr.gareidentif, pr.date_progr, pr.statut_prog,
+                    lh.ligne_id, lg.gaexp_lg, lg.gadest_lg, ga.nom_gadest, ga.id_compaga,
+                    ca.nom_compagnie AS nom_compagnie_arrivee
+             FROM programme pr
+             JOIN ligne_heure lh ON lh.id_ligneheure = pr.id_heur
+             JOIN lignes lg ON lg.ident_ligne = lh.ligne_id
+             JOIN gare_dest ga ON ga.code_gadest = lg.gadest_lg
+             JOIN compagnies ca ON ca.cle_compagnie = ga.id_compaga
+             WHERE pr.code_progr = ?
+             LIMIT 1",
+            array($code)
+        )->row();
+        if (!$row) {
+            return 'echec_creation_programme';
+        }
+        if ((string) $row->statut_prog !== 'actif') {
+            return 'programme_inactif';
+        }
+        if ((int) $row->id_heur !== (int) $id_heur
+            || (string) $row->gareidentif !== (string) $gareidentif
+            || (string) $row->date_progr !== (string) $date_progr
+            || (string) $row->depart_code !== (string) $depart_code
+        ) {
+            return 'programme_incoherent';
+        }
+        if (!empty($attendu['ligne_id']) && (string) $row->ligne_id !== (string) $attendu['ligne_id']) {
+            return 'suite_ligne_incoherente';
+        }
+        if (!empty($attendu['nom_gadest'])
+            && !$this->_villes_noms_compatibles($attendu['nom_gadest'], isset($row->nom_gadest) ? $row->nom_gadest : '')
+        ) {
+            return 'suite_destination_incoherente';
+        }
+        if (!empty($attendu['id_compaga'])
+            && (string) $row->id_compaga !== (string) $attendu['id_compaga']
+        ) {
+            return 'suite_compagnie_incoherente';
+        }
+        return null;
+    }
+
+    /**
+     * Programme utilisable dans un lien : actif, non déjà présent dans programme_correspondance.
+     * @return string|null erreur ou null si OK
+     */
+    protected function _refus_programme_lien($code_progr)
+    {
+        $code = trim((string) $code_progr);
+        if ($code === '') {
+            return 'programme_introuvable';
+        }
+        $pr = $this->db->query(
+            "SELECT code_progr, statut_prog, actif_prog FROM programme WHERE code_progr = ? LIMIT 1",
+            array($code)
+        )->row();
+        if (!$pr) {
+            return 'programme_introuvable';
+        }
+        if ((string) $pr->statut_prog !== 'actif') {
+            return 'programme_inactif';
+        }
+        if ($this->get_by_any_code($code)) {
+            return 'programme_deja_lie';
+        }
+        return null;
+    }
+
+    /**
+     * Suite créée cohérente avec le créneau choisi + principal (dest/cie).
+     * @return string|null
+     */
+    protected function _assert_suite_pour_lien($principal, $suite, $lhSuite, $dateSuite)
+    {
+        if (!$suite || !$lhSuite) {
+            return 'echec_creation_suite';
+        }
+        if ((string) $suite->statut_prog !== 'actif') {
+            return 'programme_inactif';
+        }
+        $idHeurProg = isset($suite->id_heur) ? (int) $suite->id_heur : 0;
+        if ($idHeurProg <= 0 && isset($suite->id_ligneheure)) {
+            $idHeurProg = (int) $suite->id_ligneheure;
+        }
+        if ($idHeurProg !== (int) $lhSuite->id_ligneheure) {
+            return 'suite_ligne_incoherente';
+        }
+        if ((string) $suite->gareidentif !== (string) $lhSuite->gaexp_lg) {
+            return 'suite_gare_incoherente';
+        }
+        if ((string) $suite->date_progr !== (string) $dateSuite) {
+            return 'suite_date_incoherente';
+        }
+        if (!$this->_ligne_meme_destination_suite($principal, $suite)) {
+            return 'suite_destination_incoherente';
+        }
+        $prefComp = $this->_compagnie_arrivee_preferee($principal);
+        $prefNom = $this->_nom_compagnie_preferee($principal);
+        if (!$this->_ligne_matche_compagnie($suite, $prefComp, $prefNom)) {
+            return 'suite_compagnie_incoherente';
+        }
+        return null;
+    }
+
+    /**
+     * Dérivé cohérent : hub (nom), cie principal, actif, pas déjà lié.
+     * @return string|null
+     */
+    protected function _assert_derive_pour_lien($principal, $suite, $derive, $ligneDerive, $idHeur)
+    {
+        if (!$derive || !$ligneDerive) {
+            return 'echec_creation_derive';
+        }
+        if ((string) $derive->statut_prog !== 'actif') {
+            return 'programme_inactif';
+        }
+        if ($this->get_by_any_code($derive->code_progr)) {
+            return 'programme_deja_lie';
+        }
+        $idHeurDer = isset($derive->id_heur) ? (int) $derive->id_heur : 0;
+        if ($idHeurDer <= 0 && isset($derive->id_ligneheure)) {
+            $idHeurDer = (int) $derive->id_ligneheure;
+        }
+        if ($idHeurDer !== (int) $idHeur) {
+            return 'derive_ligne_incoherente';
+        }
+        if ((string) $derive->ligne_id !== (string) $ligneDerive->ident_ligne) {
+            return 'derive_ligne_incoherente';
+        }
+        $prefComp = $this->_compagnie_arrivee_preferee($principal, $suite);
+        $prefNom = $this->_nom_compagnie_preferee($principal, $suite);
+        if (!$this->_ligne_matche_compagnie($derive, $prefComp, $prefNom)) {
+            return 'derive_compagnie_incoherente';
+        }
+        $nomHub = isset($suite->nom_gaep) ? (string) $suite->nom_gaep : $this->_nom_gare_exp($suite->gaexp_lg);
+        $nomDestDerive = isset($derive->nom_gadest) ? (string) $derive->nom_gadest : '';
+        if ($nomHub !== '' && $nomDestDerive !== '' && !$this->_villes_noms_compatibles($nomHub, $nomDestDerive)) {
+            return 'derive_hub_incoherent';
+        }
+        return null;
     }
 
     protected function _public_prog($p)
@@ -1505,6 +1700,9 @@ class Programme_correspondance_model extends CI_Model
         if (!$principal) {
             return array('ok' => false, 'error' => 'programme_introuvable');
         }
+        if ((string) $principal->statut_prog !== 'actif') {
+            return array('ok' => false, 'error' => 'programme_inactif');
+        }
 
         $idHeurSuite = isset($options['id_ligneheure']) ? (int) $options['id_ligneheure'] : 0;
         $dateSuite = isset($options['date_progr_suite']) ? trim((string) $options['date_progr_suite']) : '';
@@ -1516,7 +1714,8 @@ class Programme_correspondance_model extends CI_Model
             return array('ok' => false, 'error' => 'dates_hors_plage');
         }
 
-        if ($this->get_by_principal($code_progr_principal)) {
+        // Déjà principal OU déjà suite/dérivé d'un autre lien.
+        if ($this->get_by_any_code($code_progr_principal)) {
             return array('ok' => false, 'error' => 'deja_lie');
         }
 
@@ -1548,34 +1747,44 @@ class Programme_correspondance_model extends CI_Model
         $hasScopeBanfora = !empty($options['has_scope_banfora']);
         $hasScopeBobo = !empty($options['has_scope_bobo']);
 
+        $attenduSuite = array(
+            'ligne_id' => isset($lhSuite->ident_ligne) ? $lhSuite->ident_ligne : (isset($lhSuite->ligne_id) ? $lhSuite->ligne_id : ''),
+            'nom_gadest' => isset($lhSuite->nom_gadest) ? $lhSuite->nom_gadest : (isset($principal->nom_gadest) ? $principal->nom_gadest : ''),
+            'id_compaga' => isset($lhSuite->id_compaga) ? $lhSuite->id_compaga : (isset($principal->id_compaga) ? $principal->id_compaga : ''),
+        );
         $creerSuite = $this->_creer_programme_lie(
             $principal,
             $lhSuite->gaexp_lg,
             $idHeurSuite,
             $dateSuite,
-            $lhSuite->heure
+            $lhSuite->heure,
+            $attenduSuite
         );
         if (empty($creerSuite['ok'])) {
             return array('ok' => false, 'error' => isset($creerSuite['error']) ? $creerSuite['error'] : 'echec_creation_suite');
         }
         $codeSuite = $creerSuite['code_progr'];
         $suite = $this->prog_detail($ekey, $codeSuite);
-        if (!$suite) {
-            return array('ok' => false, 'error' => 'echec_creation_suite');
+        $errSuite = $this->_assert_suite_pour_lien($principal, $suite, $lhSuite, $dateSuite);
+        if ($errSuite !== null) {
+            $this->db->where('code_progr', $codeSuite)->delete('programme');
+            return array('ok' => false, 'error' => $errSuite);
         }
 
         $pair = $this->resolve_derive_avec_heure($ekey, $principal, $suite);
         if (!$pair || empty($pair['ligne'])) {
+            $this->db->where('code_progr', $codeSuite)->delete('programme');
             return array('ok' => false, 'error' => 'ligne_derive_introuvable');
         }
         $ligneDerive = $pair['ligne'];
         $idHeur = isset($pair['id_heur']) ? (int) $pair['id_heur'] : 0;
         if ($idHeur <= 0) {
+            $this->db->where('code_progr', $codeSuite)->delete('programme');
             return array('ok' => false, 'error' => 'heure_derive_introuvable');
         }
 
         $existDerive = $this->db->query(
-            "SELECT pr.code_progr FROM programme pr
+            "SELECT pr.code_progr, pr.statut_prog FROM programme pr
              JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
              JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
              JOIN gare_dest ga ON lg.gadest_lg = ga.code_gadest
@@ -1597,6 +1806,14 @@ class Programme_correspondance_model extends CI_Model
             )
         )->row();
 
+        // Ne jamais réutiliser un programme inactif ou déjà dans un autre lien.
+        if ($existDerive) {
+            $refusReuse = $this->_refus_programme_lien($existDerive->code_progr);
+            if ($refusReuse !== null) {
+                $existDerive = null;
+            }
+        }
+
         $codeDerive = null;
         $int1 = (int) $principal->intervalle1;
         $int2 = (int) $principal->intervalle2;
@@ -1617,18 +1834,34 @@ class Programme_correspondance_model extends CI_Model
             if ($heureRow && !empty($heureRow->heure)) {
                 $heureDerive = $heureRow->heure;
             }
+            $attenduDerive = array(
+                'ligne_id' => $ligneDerive->ident_ligne,
+                'nom_gadest' => isset($ligneDerive->nom_gadest) ? $ligneDerive->nom_gadest : '',
+                'id_compaga' => isset($ligneDerive->id_compaga) ? $ligneDerive->id_compaga : '',
+            );
             $creerDerive = $this->_creer_programme_lie(
                 $principal,
                 $principal->gareidentif,
                 $idHeur,
                 $principal->date_progr,
-                $heureDerive
+                $heureDerive,
+                $attenduDerive
             );
             if (empty($creerDerive['ok'])) {
                 $this->db->where('code_progr', $codeSuite)->delete('programme');
                 return array('ok' => false, 'error' => isset($creerDerive['error']) ? $creerDerive['error'] : 'echec_creation_derive');
             }
             $codeDerive = $creerDerive['code_progr'];
+        }
+
+        $derive = $this->prog_detail($ekey, $codeDerive);
+        $errDerive = $this->_assert_derive_pour_lien($principal, $suite, $derive, $ligneDerive, $idHeur);
+        if ($errDerive !== null) {
+            if (!$existDerive && $codeDerive) {
+                $this->db->where('code_progr', $codeDerive)->delete('programme');
+            }
+            $this->db->where('code_progr', $codeSuite)->delete('programme');
+            return array('ok' => false, 'error' => $errDerive);
         }
 
         $porteeErrors = array();
@@ -1668,12 +1901,40 @@ class Programme_correspondance_model extends CI_Model
             }
         }
 
-        $this->db->insert($this->table, array(
+        // Dernière barrière avant INSERT du lien.
+        if ($this->get_by_any_code($principal->code_progr)
+            || $this->get_by_any_code($suite->code_progr)
+            || ($codeDerive && $this->get_by_any_code($codeDerive))
+        ) {
+            if (!$existDerive && $codeDerive) {
+                $this->db->where('code_progr', $codeDerive)->delete('programme');
+            }
+            $this->db->where('code_progr', $codeSuite)->delete('programme');
+            return array('ok' => false, 'error' => 'programme_deja_lie');
+        }
+        if ((string) $suite->statut_prog !== 'actif'
+            || ($derive && (string) $derive->statut_prog !== 'actif')
+        ) {
+            if (!$existDerive && $codeDerive) {
+                $this->db->where('code_progr', $codeDerive)->delete('programme');
+            }
+            $this->db->where('code_progr', $codeSuite)->delete('programme');
+            return array('ok' => false, 'error' => 'programme_inactif');
+        }
+
+        $okLien = $this->db->insert($this->table, array(
             'code_progr_principal' => $principal->code_progr,
             'code_progr_suite' => $suite->code_progr,
             'code_progr_derive' => $codeDerive,
             'ekey' => $ekey,
         ));
+        if (!$okLien || (int) $this->db->affected_rows() !== 1) {
+            if (!$existDerive && $codeDerive) {
+                $this->db->where('code_progr', $codeDerive)->delete('programme');
+            }
+            $this->db->where('code_progr', $codeSuite)->delete('programme');
+            return array('ok' => false, 'error' => 'echec_creation_lien');
+        }
 
         return array(
             'ok' => true,
