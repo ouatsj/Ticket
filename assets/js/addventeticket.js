@@ -136,7 +136,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     /**
      * Remplit #hdepartitine (J et J+1).
-     * L'heure OD choisie = départ 1re jambe : filtre J ≥ ancre, présélection par HH:MM.
+     * Présélection par HH:MM (l'heure OD = départ 1re jambe) — sans filtre qui vide la liste.
      */
     function __venteFillHeureItineSelect(selectEl, rows, preselectHour) {
         var sel = typeof selectEl === 'string' ? document.querySelector(selectEl) : selectEl;
@@ -148,24 +148,13 @@ document.addEventListener('DOMContentLoaded', () => {
         var dateEl = document.querySelector('#date_depheure') || document.querySelector('#date_depheurefid');
         var voyageDate = dateEl ? String(dateEl.value || '').slice(0, 10) : '';
         var anchorRaw = __venteHourFromPreselect(preselectHour);
-        var anchorMin = __venteHeureToMinutes(anchorRaw);
         var bySlot = {};
         var order = [];
         for (var i = 0; i < list.length; i++) {
             var row = list[i];
-            if (!row || row.id_ligneheure == null || row.heure == null) continue;
+            if (!row || row.id_ligneheure == null || row.heure == null || row.heure === '') continue;
             var dprog = row.date_progr ? String(row.date_progr).slice(0, 10) : '';
-            var rowMin = __venteHeureToMinutes(row.heure);
-            // Jour J : uniquement départs ≥ heure choisie (ancre = départ 1re jambe).
-            if (voyageDate && dprog && dprog === voyageDate && anchorMin != null && rowMin != null && rowMin < anchorMin) {
-                continue;
-            }
-            // Ne pas remonter des créneaux avant le jour de voyage.
-            if (voyageDate && dprog && dprog < voyageDate) {
-                continue;
-            }
-            var hh = String(row.heure).trim();
-            var slot = dprog + '|' + hh;
+            var slot = dprog + '|' + String(row.heure).trim();
             if (!bySlot[slot]) {
                 bySlot[slot] = row;
                 order.push(slot);
@@ -192,9 +181,11 @@ document.addEventListener('DOMContentLoaded', () => {
             sel.add(opt);
         }
         if (preselectHour && (preselectHour.value || preselectHour.heure || anchorRaw)) {
-            __venteSelectHourInSelect(sel, preselectHour, voyageDate);
+            try {
+                __venteSelectHourInSelect(sel, preselectHour, voyageDate);
+            } catch (eSel) {}
             if (sel.selectedIndex > 0 && typeof sel.onchange === 'function') {
-                sel.onchange();
+                try { sel.onchange(); } catch (eCh) {}
             }
         }
     }
@@ -2256,8 +2247,30 @@ document.addEventListener('DOMContentLoaded', () => {
                                                                     httpH.onload = function () {
                                                                         try {
                                                                             var infositin = JSON.parse(httpH.responseText);
-                                                                            __venteFillHeureItineSelect(hd, infositin, window.__venteSelectedHour);
-                                                                        } catch (eH) {}
+                                                                            if (typeof __venteFillHeureItineSelect === 'function') {
+                                                                                __venteFillHeureItineSelect(hd, infositin, window.__venteSelectedHour);
+                                                                            } else if (typeof window.__venteFillHeureItineSelect === 'function') {
+                                                                                window.__venteFillHeureItineSelect(hd, infositin, window.__venteSelectedHour);
+                                                                            }
+                                                                        } catch (eH) {
+                                                                            try {
+                                                                                var raw = JSON.parse(httpH.responseText);
+                                                                                var arr = Array.isArray(raw) ? raw
+                                                                                    : (raw && typeof raw === 'object' ? Object.keys(raw).map(function (k) { return raw[k]; }) : []);
+                                                                                if (hd) {
+                                                                                    hd.options.length = 1;
+                                                                                    for (var ri = 0; ri < arr.length; ri++) {
+                                                                                        if (!arr[ri] || arr[ri].id_ligneheure == null) continue;
+                                                                                        var o = document.createElement('option');
+                                                                                        o.value = String(arr[ri].id_ligneheure) + '/' + String(arr[ri].heure || '');
+                                                                                        o.setAttribute('data-heure', String(arr[ri].heure || ''));
+                                                                                        if (arr[ri].date_progr) o.setAttribute('data-date-progr', String(arr[ri].date_progr).slice(0, 10));
+                                                                                        o.innerHTML = String(arr[ri].heure || '');
+                                                                                        hd.add(o);
+                                                                                    }
+                                                                                }
+                                                                            } catch (eH2) {}
+                                                                        }
                                                                     };
                                                                     httpH.setRequestHeader('Content-Type', 'application/json');
                                                                     httpH.send();

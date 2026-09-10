@@ -455,15 +455,11 @@ document.addEventListener('DOMContentLoaded', () => {
             var dateEl = document.querySelector('#date_depheurefid') || document.querySelector('#date_depheure');
             var voyageDate = dateEl ? String(dateEl.value || '').slice(0, 10) : '';
             var anchorRaw = _fromPre(preselectHour);
-            var anchorMin = _min(anchorRaw);
             var bySlot = {}, order = [];
             for (var i = 0; i < list.length; i++) {
                 var row = list[i];
-                if (!row || row.id_ligneheure == null || row.heure == null) continue;
+                if (!row || row.id_ligneheure == null || row.heure == null || row.heure === '') continue;
                 var dprog = row.date_progr ? String(row.date_progr).slice(0, 10) : '';
-                var rowMin = _min(row.heure);
-                if (voyageDate && dprog && dprog === voyageDate && anchorMin != null && rowMin != null && rowMin < anchorMin) continue;
-                if (voyageDate && dprog && dprog < voyageDate) continue;
                 var slot = dprog + '|' + String(row.heure).trim();
                 if (!bySlot[slot]) { bySlot[slot] = row; order.push(slot); }
             }
@@ -488,8 +484,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 sel.add(opt);
             }
             if (preselectHour && (preselectHour.value || preselectHour.heure || anchorRaw)) {
-                _select(sel, preselectHour, voyageDate);
-                if (sel.selectedIndex > 0 && typeof sel.onchange === 'function') sel.onchange();
+                try { _select(sel, preselectHour, voyageDate); } catch (e1) {}
+                if (sel.selectedIndex > 0 && typeof sel.onchange === 'function') {
+                    try { sel.onchange(); } catch (e2) {}
+                }
             }
         }
         if (typeof window.__venteSelectHourInSelect !== 'function') {
