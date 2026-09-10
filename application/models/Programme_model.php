@@ -2821,7 +2821,8 @@
             $tamponAnd = $this->_cdprog_tampon_and($stockCodes);
             $actifPas = $this->_cdprog_actif_pas_and('p');
 
-            $occupes = $this->_sql_in_codes($this->codes_sieges_occupes($cd));
+            // Même périmètre que assert_siege_vendable (frères depart_code/date inclus).
+            $occupes = $this->_sql_in_codes($stockCodes);
 
             return $this->db->query(
                 "SELECT * FROM siege_categorie sc
@@ -3018,7 +3019,8 @@
             $tamponAnd = $this->_cdprog_tampon_and($stockCodes);
             $actifPas = $this->_cdprog_actif_pas_and('p');
 
-            $occupes = $this->_sql_in_codes($this->codes_sieges_occupes($cd));
+            // Même périmètre que assert_siege_vendable (frères depart_code/date inclus).
+            $occupes = $this->_sql_in_codes($stockCodes);
 
             return $this->db->query(
                 "SELECT * FROM siege_categorie sc
