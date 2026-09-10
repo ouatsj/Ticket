@@ -581,15 +581,71 @@
                 $nOrig = 4;
             }
 
-            $codes = array();
-            $total = 0.0;
-            $firstRow = null;
-            $lastRow = null;
-
+            // Collecte des passagers distincts (POST + fratrie tamponcodtr).
+            $wanted = array(); // code_passager => code_ticket hint
             for ($i = 1; $i <= $nOrig; $i++) {
                 $sfx = ($i === 1) ? '' : (($i === 2) ? '2' : (string) $i);
                 $cdpa = trim((string) $this->input->post('passeridtransit' . $sfx));
                 $cdpt = trim((string) $this->input->post('codeclienttransit' . $sfx));
+                if ($cdpa === '' && $cdpt === '') {
+                    continue;
+                }
+                $key = ($cdpa !== '') ? $cdpa : ('t:' . $cdpt);
+                if (!isset($wanted[$key])) {
+                    $wanted[$key] = array('passager' => $cdpa, 'ticket' => $cdpt);
+                }
+            }
+
+            // Fratrie transit via tampon (source de vérité si POST incomplet / doublé).
+            $tampTr = trim((string) $this->input->post('lgecodeticketstransit'));
+            if ($tampTr === '') {
+                $tampTr = trim((string) $this->input->post('codeticketsclienttransit'));
+            }
+            $principalTamp = trim((string) $this->input->post('codeticketsclienttransit'));
+            if ($principalTamp !== '') {
+                $trRow = $this->db->query(
+                    "SELECT tamponcodtr FROM tamponcode
+                     WHERE tamponcod = ?
+                     LIMIT 1",
+                    array($principalTamp)
+                )->row();
+                if ($trRow && !empty($trRow->tamponcodtr)) {
+                    $tampTr = trim((string) $trRow->tamponcodtr);
+                }
+            }
+            if ($tampTr !== '') {
+                $sibs = $this->db->query(
+                    "SELECT ctp.tamponcod, p.code_passager, p.code_ticket
+                     FROM tamponcode ctp
+                     JOIN passager p ON p.code_passager = ctp.tamponcod
+                     WHERE ctp.tamponcodtr = ?
+                       AND ctp.actif_tamp = 0
+                       AND p.actif_pas = 0
+                     ORDER BY p.code_passager ASC
+                     LIMIT 4",
+                    array($tampTr)
+                )->result();
+                foreach ($sibs as $sib) {
+                    $pa = isset($sib->code_passager) ? trim((string) $sib->code_passager) : '';
+                    if ($pa === '' || isset($wanted[$pa])) {
+                        continue;
+                    }
+                    $wanted[$pa] = array(
+                        'passager' => $pa,
+                        'ticket' => isset($sib->code_ticket) ? trim((string) $sib->code_ticket) : '',
+                    );
+                }
+            }
+
+            $codes = array();
+            $total = 0.0;
+            $firstRow = null;
+            $lastRow = null;
+            $seenPassager = array();
+
+            foreach ($wanted as $w) {
+                $cdpa = isset($w['passager']) ? trim((string) $w['passager']) : '';
+                $cdpt = isset($w['ticket']) ? trim((string) $w['ticket']) : '';
                 if ($cdpa === '' && $cdpt === '') {
                     continue;
                 }
@@ -627,16 +683,32 @@
                         array($cdpa)
                     )->row();
                 }
+                if (!$row && $cdpt !== '') {
+                    $row = $this->db->query(
+                        "SELECT p.code_ticket, p.code_passager, p.prixvente,
+                                lg.nom_ligne, lg.gaexp_lg, lg.gadest_lg, ga.nom_gadest,
+                                ge.nom_gaep
+                         FROM passager p
+                         JOIN programme pr ON p.code_pro = pr.code_progr
+                         JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
+                         JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
+                         JOIN gare_dest ga ON lg.gadest_lg = ga.code_gadest
+                         JOIN gare_exp ge ON lg.gaexp_lg = ge.code_gaexp
+                         WHERE BINARY p.code_ticket = ?
+                         LIMIT 1",
+                        array($cdpt)
+                    )->row();
+                }
                 if (!$row) {
-                    $pxKey = ($i === 1) ? 'prixventeunifie' : ('prixventeunifie' . (($i === 2) ? '2' : (string) $i));
-                    $pxPost = $this->input->post($pxKey);
-                    if ($cdpt !== '') {
-                        $codes[] = $cdpt;
-                    }
-                    if ($pxPost !== false && $pxPost !== null && trim((string) $pxPost) !== '') {
-                        $total += (float) $pxPost;
-                    }
+                    // Ne jamais additionner prixventeunifie (souvent = total JS) comme prix d'une jambe.
                     continue;
+                }
+                $paKey = trim((string) $row->code_passager);
+                if ($paKey !== '' && isset($seenPassager[$paKey])) {
+                    continue;
+                }
+                if ($paKey !== '') {
+                    $seenPassager[$paKey] = true;
                 }
                 if (!empty($row->code_ticket)) {
                     $codes[] = trim((string) $row->code_ticket);
@@ -2216,6 +2288,23 @@
                 }
 
                 $p_sieg = $this->input->post('numsiegetransit');
+                // Siège 00 / vide / 0 : invalide (l'impression affiche "00" via str_pad).
+                $p_sieg_int = (int) $p_sieg;
+                if ($p_sieg === null || trim((string) $p_sieg) === '' || $p_sieg_int <= 0) {
+                    if (isset($this->session) && method_exists($this->session, 'set_flashdata')) {
+                        $this->session->set_flashdata(
+                            'reprog_error',
+                            'Report refusé : choisissez un siège valide (le siège 00 n\'existe pas).'
+                        );
+                    }
+                    redirect(
+                        'gares/' . $this->session->company->ekey
+                        . '/gTc/' . $gidc . '/compte/' . $iduser . '/' . $sgid . '/'
+                        . mdate('%d/%m/%Y', now('UTC'))
+                    );
+                    return;
+                }
+                $p_sieg = (string) $p_sieg_int;
                 if ($dpclientAvant !== $dpclient && $p_sieg) {
                     $this->db->where('codepro', $dpclientAvant)
                         ->where('numsieg', $p_sieg)
