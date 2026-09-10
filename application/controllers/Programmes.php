@@ -1970,7 +1970,12 @@
                 'typetarif' => $this->input->post('typetarif'),
                 'date_progr' => $this->input->post('date_progr'),
                 'created_by' => isset($this->session->agent->username) ? $this->session->agent->username : null,
+                'scope_depart' => $this->input->post('scope_depart'),
+                'scope_sousgares' => $this->input->post('scope_sousgares'),
             );
+            if (!is_array($options['scope_sousgares'])) {
+                $options['scope_sousgares'] = array();
+            }
             $out = $this->m_programme_reconduction->creer_depart_aval(
                 $this->session->company->ekey,
                 $source,

@@ -3,7 +3,7 @@
 /**
  * Sortie d'un départ + reconduction des numéros de sièges restants
  * vers un nouveau départ à la gare de correspondance :
- * même catégorie de bus, même depart_code que le principal,
+ * même catégorie de bus, depart_code propre au complément (stock sièges séparé),
  * horaire = départ de la gare de correspondance (pas l'heure du principal).
  */
 class Programme_reconduction_model extends CI_Model
@@ -1074,10 +1074,8 @@ class Programme_reconduction_model extends CI_Model
         if ($idHeur <= 0) {
             return array('ok' => false, 'error' => 'heure_incompatible');
         }
-        $departCode = !empty($hor['depart_code']) ? $hor['depart_code'] : $source->depart_code;
-        if (trim((string) $departCode) === '') {
-            return array('ok' => false, 'error' => 'depart_code_manquant');
-        }
+        // Le complément est un bus distinct du principal gare aval :
+        // ne pas réutiliser le depart_code du créneau existant (sinon stock sièges fusionné).
 
         $heureOk = $this->db->query(
             "SELECT lh.id_ligneheure, h.heure, lg.gadest_lg, lg.gaexp_lg, lg.nom_ligne
@@ -1127,7 +1125,6 @@ class Programme_reconduction_model extends CI_Model
             $seq++;
             $pcd = mdate('%y%m%d', now('UTC')) . $gd4 . $seq;
         }
-        $pc = $departCode;
         $minS = (int) $source->intervalle1;
         $maxS = (int) $source->intervalle2;
         if ($maxS < $minS) {
@@ -1135,13 +1132,42 @@ class Programme_reconduction_model extends CI_Model
             $maxS = max($sieges);
         }
 
+        $selectedSg = array();
+        if (!empty($options['scope_sousgares']) && is_array($options['scope_sousgares'])) {
+            foreach ($options['scope_sousgares'] as $sgId) {
+                $sgId = (int) $sgId;
+                if ($sgId > 0) {
+                    $selectedSg[$sgId] = $sgId;
+                }
+            }
+            $selectedSg = array_values($selectedSg);
+        }
+        $scopeDepart = isset($options['scope_depart']) ? trim((string) $options['scope_depart']) : '';
+        if ($scopeDepart !== 'sousgare') {
+            $selectedSg = array();
+        }
+        $sgRows = $this->db->query(
+            "SELECT idsousgare FROM sousgare WHERE gareprinceid = ?",
+            array($gareStore)
+        )->result();
+        $totalSg = is_array($sgRows) ? count($sgRows) : 0;
+        $idsousProg = $this->m_programme->idsousgare_prog_depuis_selection($selectedSg, $totalSg);
+
         $this->db->trans_begin();
+
+        // depart_code unique = stock sièges indépendant du principal du même créneau.
+        $pc = $this->m_programme->depart_code_depuis_code_progr($gareStore, $pcd);
+        if (trim((string) $pc) === '') {
+            $this->db->trans_rollback();
+            return array('ok' => false, 'error' => 'depart_code_manquant');
+        }
 
         $arrayprog = array(
             'code_progr' => $pcd,
             'depart_code' => $pc,
             'id_heur' => $idHeur,
             'gareidentif' => $gareStore,
+            'idsousgare_prog' => $idsousProg,
             'typetarif' => $typetarif,
             'categori' => $source->categori,
             'intervalle1' => $minS,
@@ -1154,12 +1180,12 @@ class Programme_reconduction_model extends CI_Model
             'actif_prog' => 0,
         );
         $this->m_programme->create($arrayprog);
-        $this->db->query(
-            "UPDATE programme SET idsousgare_prog = NULL, statut_prog = 'actif', actif_prog = 0
-             WHERE code_progr = ?",
-            array($pcd)
-        );
-        $this->db->where('code_progr', $pcd)->delete('programme_sousgare');
+        $this->db->where('code_progr', $pcd)->update('programme', array(
+            'statut_prog' => 'actif',
+            'actif_prog' => 0,
+            'idsousgare_prog' => $idsousProg,
+        ));
+        $this->m_programme->sync_portee_sousgares($pcd, $selectedSg, $totalSg);
         $exists = $this->db->query(
             "SELECT code_progr FROM programme WHERE code_progr = ? LIMIT 1",
             array($pcd)

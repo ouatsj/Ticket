@@ -390,7 +390,8 @@
         }
 
         /**
-         * Un départ reconduit doit être visible à la gare aval (toute portée, actif).
+         * Un départ reconduit doit rester visible à la gare aval (actif),
+         * sans écraser la portée sous-gares déjà choisie.
          */
         public function assurer_visibilite_reconduits($gareidentif)
         {
@@ -402,7 +403,6 @@
                 "UPDATE programme pr
                  JOIN programme_reconduction r ON r.code_progr_cible = pr.code_progr
                  SET pr.gareidentif = r.gare_cible,
-                     pr.idsousgare_prog = NULL,
                      pr.statut_prog = 'actif',
                      pr.actif_prog = 0
                  WHERE r.gare_cible = ?",
@@ -773,14 +773,23 @@
                 // ignore
             }
 
+            // Complément reconduit = stock propre : ne pas fusionner avec le principal du créneau.
+            $estCibleReco = $this->db->query(
+                "SELECT 1 FROM programme_reconduction WHERE code_progr_cible = ? LIMIT 1",
+                array($code)
+            )->row();
+
             $pr = $this->db->query(
                 "SELECT depart_code, date_progr FROM programme WHERE code_progr = ? LIMIT 1",
                 array($code)
             )->row();
-            if ($pr && !empty($pr->depart_code) && !empty($pr->date_progr)) {
+            if (!$estCibleReco && $pr && !empty($pr->depart_code) && !empty($pr->date_progr)) {
                 $siblings = $this->db->query(
-                    "SELECT code_progr FROM programme
-                     WHERE depart_code = ? AND date_progr = ?",
+                    "SELECT pr.code_progr
+                     FROM programme pr
+                     LEFT JOIN programme_reconduction r ON r.code_progr_cible = pr.code_progr
+                     WHERE pr.depart_code = ? AND pr.date_progr = ?
+                       AND r.code_progr_cible IS NULL",
                     array($pr->depart_code, $pr->date_progr)
                 )->result();
                 foreach ($siblings as $s) {
@@ -1490,12 +1499,13 @@
                     AND h.h_active = 1
                     AND pr.actif_prog = 0
                     AND (
-                        (pr.gareidentif = '$cdg' {$sgFilter})
+                        (pr.gareidentif = '$cdg')
                         OR pr.code_progr IN (
                             SELECT r.code_progr_cible FROM programme_reconduction r
                             WHERE r.gare_cible = '{$cdgEsc}'
                         )
                     )
+                    {$sgFilter}
                     ORDER BY ca.nom_compagnie ASC, pr.date_progr ASC, h.heure ASC")->result();
             } else
                 return $this->db->query(
@@ -1614,6 +1624,19 @@
             $has_transit = !empty($evalTransit['has_transit']);
             $transit_sources = !empty($evalTransit['sources']) ? $evalTransit['sources'] : array();
 
+            // Priorité : portée exacte sous-gare > quota mono-SG > toute gare.
+            $porteeOrder = '(pr.idsousgare_prog IS NULL) ASC';
+            if ($sg !== null && $sg > 0) {
+                $porteeOrder = "(CASE
+                    WHEN EXISTS (
+                        SELECT 1 FROM programme_sousgare psx
+                        WHERE psx.code_progr = pr.code_progr AND psx.idsousgare = {$sg}
+                    ) THEN 0
+                    WHEN pr.idsousgare_prog = {$sg} THEN 0
+                    ELSE 1
+                END) ASC, (pr.idsousgare_prog IS NULL) ASC";
+            }
+
             // Programmes sur l'OD (jumeaux même ville/compagnie dest, heure réelle).
             $progs = $this->db->query(
                 "SELECT lh.id_ligneheure, lh.ligne_id, pr.code_progr, pr.idsousgare_prog, h.heure
@@ -1631,7 +1654,7 @@
                  AND pr.actif_prog = 0
                  AND h.h_active = 1
                  {$sgFilter}
-                 ORDER BY (lh.ligne_id = '{$axeEsc}') DESC, (pr.idsousgare_prog IS NULL) ASC, pr.code_progr DESC"
+                 ORDER BY (lh.ligne_id = '{$axeEsc}') DESC, {$porteeOrder}, pr.code_progr DESC"
             )->result();
 
             $byLh = array();

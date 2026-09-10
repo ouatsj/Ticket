@@ -2477,8 +2477,9 @@ window.__PROG_CREATED_CODE = <?= json_encode((string) $__prog_created_code); ?>;
         </div>
         <div class="modal-body">
             <p class="text-muted small mb-2">
-                Un bus en amont a déclaré sa sortie. Le nouveau départ reprend le même code de départ et la même catégorie de bus,
-                à l’heure de départ de la gare de correspondance (pas l’heure du départ principal).
+                Un bus en amont a déclaré sa sortie. Le nouveau départ reprend la même catégorie de bus,
+                avec un code de départ propre, à l’heure de la gare de correspondance.
+                Choisissez les sous-gares autorisées à vendre les sièges reconduits.
             </p>
             <div id="reco-offres-list"></div>
             <div id="reco-detail" class="mt-3" style="display:none;">
@@ -2491,6 +2492,42 @@ window.__PROG_CREATED_CODE = <?= json_encode((string) $__prog_created_code); ?>;
                 <div class="form-group">
                     <label>Date</label>
                     <input type="date" class="form-control form-control-sm" id="reco-date">
+                </div>
+                <div class="form-group" id="reco-portee-box">
+                    <label>PORTÉE DU COMPLÉMENT (vente)</label>
+                    <div class="mb-2" style="display:flex;flex-wrap:wrap;align-items:center;gap:1.25rem;">
+                        <label class="mb-0" style="font-weight:400;color:#404040;cursor:pointer;white-space:nowrap;">
+                            <input type="radio" class="js-reco-scope-mode" name="reco_scope_depart" value="gare" style="margin-right:0.4rem;vertical-align:middle;">
+                            Toute gare
+                        </label>
+                        <label class="mb-0" style="font-weight:400;color:#404040;cursor:pointer;white-space:nowrap;">
+                            <input type="radio" class="js-reco-scope-mode" name="reco_scope_depart" value="sousgare" checked style="margin-right:0.4rem;vertical-align:middle;">
+                            Sous-gares seulement
+                        </label>
+                    </div>
+                    <div class="js-reco-sg-wrap">
+                        <div class="mb-1">
+                            <button type="button" class="btn btn-sm btn-outline-secondary js-reco-sg-all">Tout cocher</button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary js-reco-sg-none">Tout décocher</button>
+                        </div>
+                        <div class="row" id="reco-scope-sousgares">
+                            <?php if (!empty($sousgares)): ?>
+                                <?php foreach ($sousgares as $sous): ?>
+                                    <div class="form-group col-sm-4 col-md-3 mb-1">
+                                        <label class="custom-control custom-checkbox mb-0">
+                                            <input class="custom-control-input js-reco-sg-check" type="checkbox"
+                                                   value="<?= (int) $sous->idsousgare; ?>" checked>
+                                            <span class="custom-control-label">
+                                                <?= htmlspecialchars($sous->nomsousgare, ENT_QUOTES, 'UTF-8'); ?>
+                                            </span>
+                                        </label>
+                                    </div>
+                                <?php endforeach; ?>
+                            <?php else: ?>
+                                <div class="col-12"><small class="text-muted">Aucune sous-gare listée.</small></div>
+                            <?php endif; ?>
+                        </div>
+                    </div>
                 </div>
                 <div class="mb-2">
                     <label>Sièges (lecture seule en gare aval)</label>
@@ -2519,6 +2556,48 @@ window.__PROG_CREATED_CODE = <?= json_encode((string) $__prog_created_code); ?>;
     if (!modalEl) return;
 
     var state = { offre: null, sieges: [], heures: [] };
+
+    function syncRecoScopeUi() {
+        var modeSg = document.querySelector('.js-reco-scope-mode[value="sousgare"]');
+        var wrap = document.querySelector('.js-reco-sg-wrap');
+        var checks = document.querySelectorAll('.js-reco-sg-check');
+        var isSg = !!(modeSg && modeSg.checked);
+        if (wrap) wrap.style.opacity = isSg ? '1' : '0.55';
+        checks.forEach(function (c) { c.disabled = !isSg; });
+        var allBtn = document.querySelector('.js-reco-sg-all');
+        var noneBtn = document.querySelector('.js-reco-sg-none');
+        if (allBtn) allBtn.disabled = !isSg;
+        if (noneBtn) noneBtn.disabled = !isSg;
+    }
+    function recoSelectedSousgares() {
+        var modeSg = document.querySelector('.js-reco-scope-mode[value="sousgare"]');
+        if (!(modeSg && modeSg.checked)) return [];
+        var out = [];
+        document.querySelectorAll('.js-reco-sg-check:checked').forEach(function (c) {
+            out.push(c.value);
+        });
+        return out;
+    }
+    document.querySelectorAll('.js-reco-scope-mode').forEach(function (r) {
+        r.addEventListener('change', syncRecoScopeUi);
+    });
+    var recoAll = document.querySelector('.js-reco-sg-all');
+    var recoNone = document.querySelector('.js-reco-sg-none');
+    if (recoAll) {
+        recoAll.addEventListener('click', function () {
+            document.querySelectorAll('.js-reco-sg-check').forEach(function (c) {
+                if (!c.disabled) c.checked = true;
+            });
+        });
+    }
+    if (recoNone) {
+        recoNone.addEventListener('click', function () {
+            document.querySelectorAll('.js-reco-sg-check').forEach(function (c) {
+                if (!c.disabled) c.checked = false;
+            });
+        });
+    }
+    syncRecoScopeUi();
 
     function $m() {
         return (window.jQuery && typeof jQuery.fn.niftyModal === 'function')
@@ -2811,6 +2890,13 @@ window.__PROG_CREATED_CODE = <?= json_encode((string) $__prog_created_code); ?>;
                 setMsg('Choisissez un horaire local.', true);
                 return;
             }
+            var modeEl = document.querySelector('.js-reco-scope-mode:checked');
+            var scopeDepart = modeEl ? modeEl.value : 'sousgare';
+            var selectedSg = recoSelectedSousgares();
+            if (scopeDepart === 'sousgare' && !selectedSg.length) {
+                setMsg('Cochez au moins une sous-gare autorisée à vendre, ou choisissez « Toute gare ».', true);
+                return;
+            }
             saveEl.disabled = true;
             setMsg('Création du départ…', false);
             var body = new URLSearchParams();
@@ -2818,6 +2904,8 @@ window.__PROG_CREATED_CODE = <?= json_encode((string) $__prog_created_code); ?>;
             body.set('gare_cible', gareExp);
             body.set('id_ligneheure', idH);
             body.set('date_progr', document.getElementById('reco-date').value || '');
+            body.set('scope_depart', scopeDepart);
+            selectedSg.forEach(function (id) { body.append('scope_sousgares[]', id); });
             body.set('sieges_csv', sieges.join(','));
             sieges.forEach(function (n) { body.append('sieges[]', n); });
             appendCsrf(body);
