@@ -348,6 +348,161 @@ document.addEventListener('DOMContentLoaded', () => {
     /** Autre vente FI : prix saisis à la main (0 = ticket gratuit), jamais écrasés par le tarif programme. */
     window.__venteFiPrixManuel = true;
 
+    /**
+     * Helpers jambe 1 si addventeticket.js absent (rôles FI seuls).
+     * Filtre J ≥ ancre + présélection par HH:MM.
+     */
+    (function __venteFiEnsureHeureItineHelpers() {
+        if (typeof window.__venteFillHeureItineSelect === 'function'
+            && typeof window.__venteSelectHourInSelect === 'function') {
+            return;
+        }
+        function _min(h) {
+            if (h == null || h === '') return null;
+            var parts = String(h).trim().split(/[:hH]/);
+            if (!parts || !parts.length) return null;
+            var hh = parseInt(parts[0], 10);
+            if (isNaN(hh)) return null;
+            var mm = (parts[1] != null && parts[1] !== '') ? parseInt(parts[1], 10) : 0;
+            if (isNaN(mm)) mm = 0;
+            return (hh * 60) + mm;
+        }
+        function _hhmm(h) {
+            var m = _min(h);
+            if (m == null || m < 0) return '';
+            var hh = Math.floor(m / 60) % 24;
+            var mm = m % 60;
+            return (hh < 10 ? '0' : '') + hh + ':' + (mm < 10 ? '0' : '') + mm;
+        }
+        function _fromPre(pre) {
+            if (!pre) return '';
+            if (pre.heure) return String(pre.heure);
+            if (pre.value) {
+                var p = String(pre.value).split('/');
+                if (p.length >= 2) return p[1] || '';
+            }
+            return '';
+        }
+        function _fmtDate(ymd) {
+            if (!ymd || String(ymd).length < 10) return '';
+            var p = String(ymd).slice(0, 10).split('-');
+            return (p.length === 3) ? (p[2] + '/' + p[1]) : String(ymd).slice(0, 10);
+        }
+        function _multiDays(rows) {
+            var seen = {}, n = 0;
+            for (var i = 0; i < rows.length; i++) {
+                var d = rows[i] && rows[i].date_progr ? String(rows[i].date_progr).slice(0, 10) : '';
+                if (!d || seen[d]) continue;
+                seen[d] = 1;
+                n++;
+                if (n > 1) return true;
+            }
+            return false;
+        }
+        function _label(heure, dateProgr, voyageDate, forceDate) {
+            var label = String(heure || '');
+            var dprog = dateProgr ? String(dateProgr).slice(0, 10) : '';
+            var vDate = voyageDate ? String(voyageDate).slice(0, 10) : '';
+            if ((!!forceDate || (dprog && vDate && dprog !== vDate)) && dprog) {
+                var short = _fmtDate(dprog);
+                if (short) label = label + ' — ' + short;
+            }
+            return label;
+        }
+        function _select(selectEl, hour, preferDate) {
+            if (!hour) return;
+            var sel = typeof selectEl === 'string' ? document.querySelector(selectEl) : selectEl;
+            if (!sel || !sel.options) return;
+            if (!preferDate) {
+                var dateEl = document.querySelector('#date_depheurefid') || document.querySelector('#date_depheure');
+                preferDate = dateEl ? String(dateEl.value || '').slice(0, 10) : '';
+            } else {
+                preferDate = String(preferDate).slice(0, 10);
+            }
+            var targetRaw = _fromPre(hour);
+            var targetHhmm = _hhmm(targetRaw);
+            var targetMin = _min(targetRaw);
+            var exactIdx = -1, sameDayHhmmIdx = -1, anyHhmmIdx = -1, sameDayGeIdx = -1;
+            for (var i = 0; i < sel.options.length; i++) {
+                var opt = sel.options[i];
+                if (!opt) continue;
+                if (i === 0 && (!opt.value || opt.value === '')) continue;
+                if (hour.value && opt.value === hour.value) { exactIdx = i; break; }
+                var optH = opt.getAttribute('data-heure') || (String(opt.value).split('/')[1] || '');
+                var optHhmm = _hhmm(optH);
+                var optDate = opt.getAttribute('data-date-progr') ? String(opt.getAttribute('data-date-progr')).slice(0, 10) : '';
+                var optMin = _min(optH);
+                if (targetHhmm && optHhmm === targetHhmm) {
+                    if (preferDate && optDate === preferDate) sameDayHhmmIdx = i;
+                    else if (anyHhmmIdx < 0) anyHhmmIdx = i;
+                }
+                if (sameDayGeIdx < 0 && preferDate && optDate === preferDate && targetMin != null && optMin != null && optMin >= targetMin) {
+                    sameDayGeIdx = i;
+                }
+            }
+            var pick = exactIdx >= 0 ? exactIdx
+                : (sameDayHhmmIdx >= 0 ? sameDayHhmmIdx
+                    : (anyHhmmIdx >= 0 ? anyHhmmIdx : sameDayGeIdx));
+            if (pick >= 0) sel.selectedIndex = pick;
+        }
+        function _fill(selectEl, rows, preselectHour) {
+            var sel = typeof selectEl === 'string' ? document.querySelector(selectEl) : selectEl;
+            if (!sel) return;
+            sel.options.length = 1;
+            if (!rows) return;
+            var list = Array.isArray(rows) ? rows
+                : (typeof rows === 'object' ? Object.keys(rows).map(function (k) { return rows[k]; }) : []);
+            var dateEl = document.querySelector('#date_depheurefid') || document.querySelector('#date_depheure');
+            var voyageDate = dateEl ? String(dateEl.value || '').slice(0, 10) : '';
+            var anchorRaw = _fromPre(preselectHour);
+            var anchorMin = _min(anchorRaw);
+            var bySlot = {}, order = [];
+            for (var i = 0; i < list.length; i++) {
+                var row = list[i];
+                if (!row || row.id_ligneheure == null || row.heure == null) continue;
+                var dprog = row.date_progr ? String(row.date_progr).slice(0, 10) : '';
+                var rowMin = _min(row.heure);
+                if (voyageDate && dprog && dprog === voyageDate && anchorMin != null && rowMin != null && rowMin < anchorMin) continue;
+                if (voyageDate && dprog && dprog < voyageDate) continue;
+                var slot = dprog + '|' + String(row.heure).trim();
+                if (!bySlot[slot]) { bySlot[slot] = row; order.push(slot); }
+            }
+            order.sort(function (a, b) {
+                var ra = bySlot[a], rb = bySlot[b];
+                var da = String(ra.date_progr || '').slice(0, 10);
+                var db = String(rb.date_progr || '').slice(0, 10);
+                if (da < db) return -1;
+                if (da > db) return 1;
+                return (_min(ra.heure) || 0) - (_min(rb.heure) || 0);
+            });
+            var slotRows = order.map(function (k) { return bySlot[k]; });
+            var forceDate = _multiDays(slotRows);
+            for (var j = 0; j < order.length; j++) {
+                var r = bySlot[order[j]];
+                var opt = document.createElement('option');
+                var dprogOpt = r.date_progr ? String(r.date_progr).slice(0, 10) : '';
+                opt.value = String(r.id_ligneheure) + '/' + String(r.heure);
+                if (dprogOpt) opt.setAttribute('data-date-progr', dprogOpt);
+                opt.setAttribute('data-heure', String(r.heure || ''));
+                opt.innerHTML = _label(r.heure, r.date_progr, voyageDate, forceDate);
+                sel.add(opt);
+            }
+            if (preselectHour && (preselectHour.value || preselectHour.heure || anchorRaw)) {
+                _select(sel, preselectHour, voyageDate);
+                if (sel.selectedIndex > 0 && typeof sel.onchange === 'function') sel.onchange();
+            }
+        }
+        if (typeof window.__venteSelectHourInSelect !== 'function') {
+            window.__venteSelectHourInSelect = _select;
+        }
+        if (typeof window.__venteFillHeureItineSelect !== 'function') {
+            window.__venteFillHeureItineSelect = _fill;
+        }
+        if (typeof window.__venteNormalizeHhmm !== 'function') {
+            window.__venteNormalizeHhmm = _hhmm;
+        }
+    })();
+
     function __venteFiShouldSkipAutoPrix() {
         return window.__venteFiPrixManuel !== false;
     }
