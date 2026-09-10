@@ -134,23 +134,69 @@ document.addEventListener('DOMContentLoaded', () => {
         return label;
     }
 
+    /** Ancre immuable : heure OD qui a déclenché le transit (= départ obligatoire jambe 1). */
+    window.__venteTransitAnchorHour = null;
+    window.__venteLeg1HourReqId = 0;
+    window.__venteLeg1HourXhr = null;
+
+    function __venteSetTransitAnchorFromHour(hour) {
+        var raw = __venteHourFromPreselect(hour);
+        var hhmm = __venteNormalizeHhmm(raw);
+        if (!hhmm) {
+            window.__venteTransitAnchorHour = null;
+            return null;
+        }
+        window.__venteTransitAnchorHour = {
+            value: hour && hour.value ? String(hour.value) : '',
+            idLh: hour && hour.idLh != null ? String(hour.idLh) : '',
+            heure: raw,
+            hhmm: hhmm,
+            hasProg: !!(hour && hour.hasProg)
+        };
+        return window.__venteTransitAnchorHour;
+    }
+
+    function __venteGetTransitAnchorHour() {
+        if (window.__venteTransitAnchorHour && window.__venteTransitAnchorHour.heure) {
+            return window.__venteTransitAnchorHour;
+        }
+        if (window.__venteSelectedHour && (window.__venteSelectedHour.heure || window.__venteSelectedHour.value)) {
+            return __venteSetTransitAnchorFromHour(window.__venteSelectedHour);
+        }
+        return null;
+    }
+
+    function __venteClearTransitAnchor() {
+        window.__venteTransitAnchorHour = null;
+        window.__venteLeg1HourReqId = (window.__venteLeg1HourReqId || 0) + 1;
+        if (window.__venteLeg1HourXhr) {
+            try { window.__venteLeg1HourXhr.abort(); } catch (eA) {}
+            window.__venteLeg1HourXhr = null;
+        }
+    }
+
     /**
-     * Remplit #hdepartitine (J et J+1).
-     * Heure OD = départ 1re jambe : filtre J ≥ ancre (repli si vide) + présélection HH:MM forcée.
+     * Remplit #hdepartitine.
+     * Règle métier : heure OD déclenchant le transit = départ 1re jambe (exact, sinon prochain ≥).
      */
     function __venteFillHeureItineSelect(selectEl, rows, preselectHour) {
         var sel = typeof selectEl === 'string' ? document.querySelector(selectEl) : selectEl;
-        if (!sel) return;
+        if (!sel) return false;
+        sel.disabled = false;
+        sel.removeAttribute('disabled');
         sel.options.length = 1;
-        if (!rows) return;
+        if (!rows) return false;
         var list = Array.isArray(rows) ? rows
             : (typeof rows === 'object' ? Object.keys(rows).map(function (k) { return rows[k]; }) : []);
         var dateEl = document.querySelector('#date_depheure') || document.querySelector('#date_depheurefid');
         var voyageDate = dateEl ? String(dateEl.value || '').slice(0, 10) : '';
-        var anchorRaw = __venteHourFromPreselect(preselectHour);
+        var anchor = preselectHour || __venteGetTransitAnchorHour();
+        var anchorRaw = __venteHourFromPreselect(anchor);
+        var anchorHhmm = __venteNormalizeHhmm(anchorRaw);
         var anchorMin = __venteHeureToMinutes(anchorRaw);
 
-        function buildOrder(applyAnchorFilter) {
+        function buildOrder(mode) {
+            // mode: 'exact' | 'ge' | 'all'
             var bySlot = {};
             var order = [];
             for (var i = 0; i < list.length; i++) {
@@ -158,10 +204,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (!row || row.id_ligneheure == null || row.heure == null || row.heure === '') continue;
                 var dprog = row.date_progr ? String(row.date_progr).slice(0, 10) : '';
                 var rowMin = __venteHeureToMinutes(row.heure);
+                var rowHhmm = __venteNormalizeHhmm(row.heure);
                 if (voyageDate && dprog && dprog < voyageDate) continue;
-                if (applyAnchorFilter && voyageDate && dprog === voyageDate
-                    && anchorMin != null && rowMin != null && rowMin < anchorMin) {
-                    continue;
+                if (mode === 'exact') {
+                    if (!(voyageDate && dprog === voyageDate && anchorHhmm && rowHhmm === anchorHhmm)) continue;
+                } else if (mode === 'ge') {
+                    if (voyageDate && dprog === voyageDate && anchorMin != null && rowMin != null && rowMin < anchorMin) continue;
+                    if (voyageDate && dprog && dprog > voyageDate) {
+                        // J+1 OK seulement s'il n'y a rien ≥ ancre le jour J (décidé après)
+                    }
                 }
                 var slot = dprog + '|' + String(row.heure).trim();
                 if (!bySlot[slot]) {
@@ -180,10 +231,30 @@ document.addEventListener('DOMContentLoaded', () => {
             return { bySlot: bySlot, order: order };
         }
 
-        var built = buildOrder(anchorMin != null);
-        if (!built.order.length) {
-            built = buildOrder(false);
+        var built = null;
+        var usedMode = 'all';
+        if (anchorHhmm) {
+            built = buildOrder('exact');
+            usedMode = 'exact';
+            if (!built.order.length) {
+                built = buildOrder('ge');
+                usedMode = 'ge';
+                // Sur mode ge : préférer uniquement J si possible
+                if (voyageDate && built.order.length) {
+                    var onlyJ = [];
+                    for (var oj = 0; oj < built.order.length; oj++) {
+                        var rj = built.bySlot[built.order[oj]];
+                        if (String(rj.date_progr || '').slice(0, 10) === voyageDate) onlyJ.push(built.order[oj]);
+                    }
+                    if (onlyJ.length) built = { bySlot: built.bySlot, order: onlyJ };
+                }
+            }
         }
+        if (!built || !built.order.length) {
+            built = buildOrder('all');
+            usedMode = 'all';
+        }
+
         var bySlot = built.bySlot;
         var order = built.order;
         var slotRows = order.map(function (k) { return bySlot[k]; });
@@ -198,45 +269,48 @@ document.addEventListener('DOMContentLoaded', () => {
             opt.innerHTML = __venteHeureOptionLabel(r.heure, r.date_progr, voyageDate, forceDate);
             sel.add(opt);
         }
-        var hourForSelect = preselectHour;
-        if ((!hourForSelect || (!hourForSelect.value && !hourForSelect.heure)) && anchorRaw) {
-            hourForSelect = { value: '', heure: anchorRaw, hasProg: false };
+
+        var hourForSelect = anchor || { value: '', heure: anchorRaw, hasProg: false };
+        try {
+            __venteSelectHourInSelect(sel, hourForSelect, voyageDate);
+        } catch (eSel) {}
+
+        if (sel.selectedIndex < 1 && sel.options.length > 1) {
+            sel.selectedIndex = 1;
         }
-        if (hourForSelect && (hourForSelect.value || hourForSelect.heure || anchorRaw)) {
-            try {
-                __venteSelectHourInSelect(sel, hourForSelect, voyageDate);
-            } catch (eSel) {}
-        }
-        // Ne jamais laisser le placeholder si une ancre existe et qu'il reste des options.
-        if (sel.selectedIndex < 1 && sel.options.length > 1 && anchorMin != null) {
-            var forced = -1;
-            for (var fi = 1; fi < sel.options.length; fi++) {
-                var fo = sel.options[fi];
-                var fMin = __venteHeureToMinutes(fo.getAttribute('data-heure') || '');
-                var fDate = fo.getAttribute('data-date-progr') ? String(fo.getAttribute('data-date-progr')).slice(0, 10) : '';
-                if (voyageDate && fDate && fDate === voyageDate && fMin != null && fMin >= anchorMin) {
-                    forced = fi;
-                    break;
-                }
+
+        // Heure OD trouvée exactement → verrouiller la jambe 1 (pas de changement accidentel vers 14H15).
+        if (usedMode === 'exact' && sel.selectedIndex > 0 && anchorHhmm) {
+            var selH = __venteNormalizeHhmm(sel.options[sel.selectedIndex].getAttribute('data-heure') || '');
+            if (selH === anchorHhmm) {
+                sel.disabled = true;
+                sel.setAttribute('disabled', 'disabled');
             }
-            if (forced < 0) {
-                for (var fj = 1; fj < sel.options.length; fj++) {
-                    var fo2 = sel.options[fj];
-                    var fMin2 = __venteHeureToMinutes(fo2.getAttribute('data-heure') || '');
-                    if (fMin2 != null && fMin2 >= anchorMin) {
-                        forced = fj;
-                        break;
-                    }
-                }
-            }
-            if (forced >= 1) sel.selectedIndex = forced;
         }
+
+        var errEl = document.querySelector('#erreurMess') || document.querySelector('#erreurMessfid');
+        if (anchorHhmm && usedMode === 'exact') {
+            // ok silencieux
+        } else if (anchorHhmm && usedMode === 'ge' && sel.selectedIndex > 0) {
+            if (errEl) {
+                errEl.innerHTML = 'Pas de départ jambe 1 à ' + anchorHhmm + ' — prochain créneau ≥ cette heure sélectionné.';
+            }
+        } else if (anchorHhmm && usedMode === 'all') {
+            if (errEl) {
+                errEl.innerHTML = 'Aucun départ jambe 1 ≥ ' + anchorHhmm + ' pour cette date.';
+            }
+        }
+
         if (sel.selectedIndex > 0 && typeof sel.onchange === 'function') {
             try { sel.onchange(); } catch (eCh) {}
         }
+        return sel.selectedIndex > 0;
     }
     window.__venteFillHeureItineSelect = __venteFillHeureItineSelect;
     window.__venteNormalizeHhmm = __venteNormalizeHhmm;
+    window.__venteSetTransitAnchorFromHour = __venteSetTransitAnchorFromHour;
+    window.__venteGetTransitAnchorHour = __venteGetTransitAnchorHour;
+    window.__venteClearTransitAnchor = __venteClearTransitAnchor;
 
     function __venteClearDownstreamCheminHeures() {
         ['idcheminsheur', 'idcheminsheur1', 'idcheminsheur2'].forEach(function (id) {
@@ -671,6 +745,7 @@ document.addEventListener('DOMContentLoaded', () => {
         window.__venteHasTransit = false;
         window.__venteLastHeuresVente = [];
         window.__venteSelectedHour = null;
+        if (typeof __venteClearTransitAnchor === 'function') __venteClearTransitAnchor();
         window.__venteOdCtx = null;
         window.__venteSavedHourValue = '';
         window.__venteSavedQuartierValue = null;
@@ -1473,6 +1548,8 @@ document.addEventListener('DOMContentLoaded', () => {
         ].forEach(function (s) {
             var el = document.querySelector(s);
             if (el && el.options) {
+                el.disabled = false;
+                el.removeAttribute('disabled');
                 el.options.length = 1;
                 el.value = '';
                 el.onchange = null;
@@ -1846,6 +1923,9 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
+        // Figé dès le déclenchement transit : jambe 1 = cette heure.
+        __venteSetTransitAnchorFromHour(hour);
+
         __venteHideCheminSelector();
         if (messEl) messEl.style.display = 'block';
         if (errEl) errEl.innerHTML = 'Recherche des itinéraires…';
@@ -1890,6 +1970,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Aligné « Autres ventes » : départ réel → vente directe ; sinon transit si disponible.
         if (hour.hasProg) {
+            if (typeof __venteClearTransitAnchor === 'function') __venteClearTransitAnchor();
             __venteHideCheminSelector();
             if (messEl) messEl.style.display = 'none';
             __venteApplyDirectProgrammeForHour(hour, window.__venteOdCtx);
@@ -1897,6 +1978,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         if (!window.__venteHasTransit) {
+            if (typeof __venteClearTransitAnchor === 'function') __venteClearTransitAnchor();
             __venteHideCheminSelector();
             __venteShowDirectHourUi();
             if (messEl) messEl.style.display = 'block';
@@ -2308,44 +2390,61 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
                                                                 document.querySelector('#idcompg').value = `${donitines[0].id_compaga}`;
-                                                                var __hourAnchorLeg1 = window.__venteSelectedHour
+                                                                var __hourAnchorLeg1 = (typeof __venteGetTransitAnchorHour === 'function'
+                                                                    ? __venteGetTransitAnchorHour()
+                                                                    : null)
+                                                                    || window.__venteSelectedHour
                                                                     || (typeof __venteHourFromEtape === 'function' ? __venteHourFromEtape(donitines[0]) : null);
+                                                                if (__hourAnchorLeg1 && typeof __venteSetTransitAnchorFromHour === 'function') {
+                                                                    __venteSetTransitAnchorFromHour(__hourAnchorLeg1);
+                                                                    __hourAnchorLeg1 = __venteGetTransitAnchorHour() || __hourAnchorLeg1;
+                                                                }
                                                                 __venteFillLigne1Locked(donitines[0], function (codeSel) {
                                                                     if (!codeSel) return;
                                                                     var hd = document.querySelector('#hdepartitine');
-                                                                    if (hd) hd.options.length = 1;
+                                                                    if (hd) {
+                                                                        hd.disabled = false;
+                                                                        hd.removeAttribute('disabled');
+                                                                        hd.options.length = 1;
+                                                                    }
                                                                     var datedepart = document.querySelector('#date_depheure') ? document.querySelector('#date_depheure').value : '';
+                                                                    var anchorHhmm = '';
+                                                                    if (__hourAnchorLeg1) {
+                                                                        anchorHhmm = (typeof __venteNormalizeHhmm === 'function')
+                                                                            ? __venteNormalizeHhmm(__hourAnchorLeg1.heure || __hourAnchorLeg1.hhmm || '')
+                                                                            : String(__hourAnchorLeg1.heure || '');
+                                                                    }
+                                                                    if (window.__venteLeg1HourXhr) {
+                                                                        try { window.__venteLeg1HourXhr.abort(); } catch (eAb) {}
+                                                                    }
+                                                                    var reqId = (window.__venteLeg1HourReqId = (window.__venteLeg1HourReqId || 0) + 1);
                                                                     var httpH = new XMLHttpRequest();
-                                                                    httpH.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifheureitine/${encodeURIComponent(codeSel)}/${encodeURIComponent(datedepart)}`, true);
+                                                                    window.__venteLeg1HourXhr = httpH;
+                                                                    var urlH = window.location.origin + `${APP_ROOT}/programmes/verifheureitine/${encodeURIComponent(codeSel)}/${encodeURIComponent(datedepart)}`;
+                                                                    if (anchorHhmm) urlH += '?heure=' + encodeURIComponent(anchorHhmm);
+                                                                    httpH.open('GET', urlH, true);
                                                                     httpH.onload = function () {
+                                                                        if (reqId !== window.__venteLeg1HourReqId) return;
                                                                         try {
                                                                             var infositin = JSON.parse(httpH.responseText);
-                                                                            var anchor = __hourAnchorLeg1 || window.__venteSelectedHour
-                                                                                || (typeof __venteHourFromEtape === 'function' ? __venteHourFromEtape(donitines[0]) : null);
+                                                                            var anchor = (typeof __venteGetTransitAnchorHour === 'function'
+                                                                                ? __venteGetTransitAnchorHour()
+                                                                                : null)
+                                                                                || __hourAnchorLeg1
+                                                                                || window.__venteSelectedHour;
                                                                             if (typeof __venteFillHeureItineSelect === 'function') {
                                                                                 __venteFillHeureItineSelect(hd, infositin, anchor);
                                                                             } else if (typeof window.__venteFillHeureItineSelect === 'function') {
                                                                                 window.__venteFillHeureItineSelect(hd, infositin, anchor);
                                                                             }
                                                                         } catch (eH) {
+                                                                            if (reqId !== window.__venteLeg1HourReqId) return;
                                                                             try {
                                                                                 var raw = JSON.parse(httpH.responseText);
                                                                                 var arr = Array.isArray(raw) ? raw
                                                                                     : (raw && typeof raw === 'object' ? Object.keys(raw).map(function (k) { return raw[k]; }) : []);
-                                                                                if (hd) {
-                                                                                    hd.options.length = 1;
-                                                                                    for (var ri = 0; ri < arr.length; ri++) {
-                                                                                        if (!arr[ri] || arr[ri].id_ligneheure == null) continue;
-                                                                                        var o = document.createElement('option');
-                                                                                        o.value = String(arr[ri].id_ligneheure) + '/' + String(arr[ri].heure || '');
-                                                                                        o.setAttribute('data-heure', String(arr[ri].heure || ''));
-                                                                                        if (arr[ri].date_progr) o.setAttribute('data-date-progr', String(arr[ri].date_progr).slice(0, 10));
-                                                                                        o.innerHTML = String(arr[ri].heure || '');
-                                                                                        hd.add(o);
-                                                                                    }
-                                                                                    if (typeof __venteSelectHourInSelect === 'function') {
-                                                                                        __venteSelectHourInSelect(hd, __hourAnchorLeg1 || window.__venteSelectedHour, datedepart);
-                                                                                    }
+                                                                                if (hd && typeof __venteFillHeureItineSelect === 'function') {
+                                                                                    __venteFillHeureItineSelect(hd, arr, __hourAnchorLeg1);
                                                                                 }
                                                                             } catch (eH2) {}
                                                                         }

@@ -2115,10 +2115,39 @@
 
         public function verifheureitine($axe, $da)
         {
-            
             $lgh = $this->m_programme->heureligne($this->session->company->ekey, $axe, $da);
+            $heure = trim((string) $this->input->get('heure'));
+            if ($heure !== '' && is_array($lgh)) {
+                // Normalise HH:MM ; garde exact puis ≥ ancre sur le jour demandé.
+                if (preg_match('/^(\d{1,2})[:hH]?(\d{2})/', $heure, $m)) {
+                    $anchorMin = ((int) $m[1]) * 60 + (int) $m[2];
+                    $daNorm = substr((string) $da, 0, 10);
+                    $exact = array();
+                    $ge = array();
+                    foreach ($lgh as $row) {
+                        if (!is_object($row) || !isset($row->heure)) {
+                            continue;
+                        }
+                        if (!preg_match('/^(\d{1,2})[:hH]?(\d{2})/', (string) $row->heure, $rm)) {
+                            continue;
+                        }
+                        $rowMin = ((int) $rm[1]) * 60 + (int) $rm[2];
+                        $dprog = isset($row->date_progr) ? substr((string) $row->date_progr, 0, 10) : '';
+                        if ($dprog === $daNorm && $rowMin === $anchorMin) {
+                            $exact[] = $row;
+                        }
+                        if ($dprog < $daNorm) {
+                            continue;
+                        }
+                        if ($dprog === $daNorm && $rowMin < $anchorMin) {
+                            continue;
+                        }
+                        $ge[] = $row;
+                    }
+                    $lgh = !empty($exact) ? $exact : $ge;
+                }
+            }
             return $this->load->view('beagle/pages/_programme/json', array('json' => $lgh));
-            
         }
         public function verifiligne($lg, $h)
         {
