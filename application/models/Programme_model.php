@@ -2286,12 +2286,57 @@
                 )";
             }
 
+            $idEsc = (int) $id_escale;
             if ($nom !== '') {
-                // Source de vérité métier : nom de ligne + départ gare de report.
+                // Source de vérité : nom de ligne parent (+ gare de report).
                 $odSql = ' AND lg.nom_ligne = ' . $this->db->escape($nom) . $depVilleSql;
+                // Ticket escale : élargir aux lignes du même départ qui portent cette escale
+                // (évite de chercher une fausse ligne OUAGA-FEREKE_CIT sans programmes).
+                if ($idEsc > 0) {
+                    $odSql = ' AND ('
+                        . ' lg.nom_ligne = ' . $this->db->escape($nom)
+                        . ' OR EXISTS (
+                            SELECT 1 FROM itineraire_escales ie
+                            WHERE ie.id_lignes = lg.ident_ligne
+                              AND ie.actif_escale = 1
+                              AND (
+                                ie.id_escale = ' . $idEsc . '
+                                OR ie.code_gadest = (
+                                    SELECT ie0.code_gadest FROM itineraire_escales ie0
+                                    WHERE ie0.id_escale = ' . $idEsc . ' LIMIT 1
+                                )
+                              )
+                        )'
+                        . ' OR lg.gadest_lg = (
+                            SELECT ie0.code_gadest FROM itineraire_escales ie0
+                            WHERE ie0.id_escale = ' . $idEsc . ' LIMIT 1
+                        )'
+                        . ')' . $depVilleSql;
+                }
+            } elseif ($idEsc > 0) {
+                // Sans nom_ligne mais avec escale : lignes qui portent l'escale depuis la gare report.
+                $odSql = ' AND EXISTS (
+                    SELECT 1 FROM itineraire_escales ie
+                    WHERE ie.id_lignes = lg.ident_ligne
+                      AND ie.actif_escale = 1
+                      AND ie.id_escale = ' . $idEsc . '
+                )' . $depVilleSql;
             } else {
                 // Reprog unifiée : pas de recherche par codes seuls (BAM6≠BAM53, etc.).
                 $odSql = ' AND 1=0';
+            }
+
+            // Prix / escale : si prix fourni, restreindre ; sinon id_escale sert déjà au filtre OD ci-dessus.
+            if ($prix !== null && $prix !== '') {
+                // $prixSql déjà construit plus haut
+            } elseif ($idEsc > 0 && ($prix === null || $prix === '')) {
+                // S'assurer que le programme appartient à une ligne qui porte encore l'escale.
+                $prixSql = " AND EXISTS (
+                    SELECT 1 FROM itineraire_escales ie
+                    WHERE ie.id_lignes = lg.ident_ligne
+                      AND ie.actif_escale = 1
+                      AND ie.id_escale = {$idEsc}
+                )";
             }
 
             return $this->db->query(

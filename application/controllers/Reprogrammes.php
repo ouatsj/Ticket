@@ -412,16 +412,14 @@
             }
             $out->nbr_jambes = count($out->jambes);
 
-            // OD métier globale = départ 1ʳᵉ jambe → arrivée dernière jambe.
+            // OD métier globale = départ 1ʳᵉ jambe → terminus ligne parent dernière jambe.
+            // Ne jamais utiliser code_gadest_vente (escale) comme gadest : sinon od_metier
+            // invente une fausse ligne (ex. OUAGA-FEREKE_CIT) au lieu de ABIDJAN_CIT.
             if ($out->nbr_jambes >= 2) {
                 $first = $out->jambes[0];
                 $last = $out->jambes[$out->nbr_jambes - 1];
                 $gaOd = isset($first['gaexp_lg']) ? (string) $first['gaexp_lg'] : '';
                 $gdOd = isset($last['gadest_lg']) ? (string) $last['gadest_lg'] : '';
-                // Escale sur dernière jambe : destination ticket = code_gadest_vente.
-                if (!empty($last['code_gadest_vente'])) {
-                    $gdOd = (string) $last['code_gadest_vente'];
-                }
                 if (!isset($this->m_programme)) {
                     $this->load->model('Programme_model', 'm_programme');
                 }
@@ -438,6 +436,147 @@
                 $out->nom_ligne_od = $od['nom_ligne'];
                 $out->axes_od = $od['axes'];
             }
+
+            return $out;
+        }
+
+        /**
+         * Ticket vendu à une escale : garder la ligne PARENT (ex. OUAGA-ABIDJAN_CIT),
+         * jamais inventer une ligne « OUAGA-FEREKE_CIT » à partir du code escale.
+         *
+         * @param object $out
+         * @return object
+         */
+        protected function _reprog_normalize_escale_od($out)
+        {
+            if (!$out || !is_object($out)) {
+                return $out;
+            }
+            $idEsc = isset($out->id_escale_vente) ? (int) $out->id_escale_vente : 0;
+            $codeEsc = isset($out->code_gadest_vente) ? trim((string) $out->code_gadest_vente) : '';
+            $nomEsc = isset($out->nom_dest_vente) ? trim((string) $out->nom_dest_vente) : '';
+            $hasEsc = ($idEsc > 0 || $codeEsc !== '' || $nomEsc !== '');
+            $out->est_escale_vente = $hasEsc ? 1 : 0;
+            if (!$hasEsc) {
+                return $out;
+            }
+
+            if (!isset($this->m_itineraire_escale)) {
+                $this->load->model('Itineraire_escale_model', 'm_itineraire_escale');
+            }
+
+            $parentNom = isset($out->nom_ligne) ? trim((string) $out->nom_ligne) : '';
+            $parentGa = isset($out->gaexp_lg) ? trim((string) $out->gaexp_lg) : '';
+            $parentGd = isset($out->gadest_lg) ? trim((string) $out->gadest_lg) : '';
+            $parentIdent = isset($out->ident_ligne) ? trim((string) $out->ident_ligne)
+                : (isset($out->ligne_id) ? trim((string) $out->ligne_id) : '');
+
+            $escRow = null;
+            $cid = isset($this->session->company->id_entreprise)
+                ? (int) $this->session->company->id_entreprise
+                : 0;
+            if ($idEsc > 0 && $cid > 0) {
+                $escRow = $this->m_itineraire_escale->get($cid, $idEsc);
+            }
+            if (!$escRow && $idEsc > 0) {
+                $escRow = $this->db->query(
+                    "SELECT ie.*, parent.nom_ligne AS nom_ligne_parent, parent.gaexp_lg,
+                            parent.gadest_lg AS gadest_parent, parent.ident_ligne AS id_lignes
+                     FROM itineraire_escales ie
+                     JOIN lignes parent ON parent.ident_ligne = ie.id_lignes
+                     WHERE ie.id_escale = ?
+                     LIMIT 1",
+                    array($idEsc)
+                )->row();
+            }
+
+            if ($escRow) {
+                if (!empty($escRow->nom_ligne_parent)) {
+                    $parentNom = trim((string) $escRow->nom_ligne_parent);
+                }
+                if (!empty($escRow->gaexp_lg)) {
+                    $parentGa = trim((string) $escRow->gaexp_lg);
+                }
+                if (!empty($escRow->gadest_parent)) {
+                    $parentGd = trim((string) $escRow->gadest_parent);
+                }
+                if (!empty($escRow->id_lignes)) {
+                    $parentIdent = trim((string) $escRow->id_lignes);
+                }
+                if ($codeEsc === '' && !empty($escRow->code_gadest)) {
+                    $codeEsc = trim((string) $escRow->code_gadest);
+                    $out->code_gadest_vente = $codeEsc;
+                }
+                if ($nomEsc === '' && !empty($escRow->nom_escale)) {
+                    $nomEsc = trim((string) $escRow->nom_escale);
+                    $out->nom_dest_vente = $nomEsc;
+                }
+                if ($idEsc <= 0 && !empty($escRow->id_escale)) {
+                    $idEsc = (int) $escRow->id_escale;
+                    $out->id_escale_vente = $idEsc;
+                }
+            }
+
+            // Si nom_ligne a été réécrit façon ticket_axe_label (OUAGA-FEREKE_CIT),
+            // le remplacer par le vrai parent quand on le connaît.
+            if ($parentNom !== '' && $nomEsc !== '') {
+                $fake = '';
+                if (strpos($parentNom, '-') !== false) {
+                    $parts = explode('-', $parentNom, 2);
+                    $fake = trim($parts[0]) . '-' . $nomEsc;
+                }
+                $current = isset($out->nom_ligne) ? trim((string) $out->nom_ligne) : '';
+                if ($fake !== '' && strcasecmp($current, $fake) === 0 && strcasecmp($current, $parentNom) !== 0) {
+                    // current est le faux libellé escale — on restaure le parent ci-dessous.
+                } elseif ($current !== '' && strcasecmp($current, $parentNom) !== 0
+                    && stripos($current, $nomEsc) !== false
+                    && stripos($parentNom, 'ABIDJAN') !== false
+                ) {
+                    // ex. current=OUAGA-FEREKE_CIT alors que parent=OUAGA-ABIDJAN_CIT
+                }
+            }
+
+            if ($parentNom !== '') {
+                $out->nom_ligne = $parentNom;
+                $out->nom_ligne_parent = $parentNom;
+            }
+            if ($parentGa !== '') {
+                $out->gaexp_lg = $parentGa;
+            }
+            if ($parentGd !== '') {
+                $out->gadest_lg = $parentGd;
+                // gadest_od doit rester le terminus parent, jamais le code escale.
+                if (!empty($out->gadest_od) && $codeEsc !== ''
+                    && strcasecmp(trim((string) $out->gadest_od), $codeEsc) === 0
+                ) {
+                    $out->gadest_od = $parentGd;
+                }
+                if (empty($out->gadest_od)) {
+                    $out->gadest_od = $parentGd;
+                }
+            }
+            if ($parentIdent !== '') {
+                $out->ident_ligne = $parentIdent;
+            }
+            if (!empty($out->nom_ligne_od)) {
+                $odNom = trim((string) $out->nom_ligne_od);
+                if ($nomEsc !== '' && stripos($odNom, $nomEsc) !== false
+                    && $parentNom !== '' && strcasecmp($odNom, $parentNom) !== 0
+                ) {
+                    $out->nom_ligne_od = $parentNom;
+                }
+            }
+
+            $destAff = $nomEsc !== '' ? $nomEsc : $codeEsc;
+            if ($destAff === '' && function_exists('ticket_destination_label')) {
+                $destAff = ticket_destination_label($out, $parentGd);
+            }
+            $out->dest_affiche = $destAff !== '' ? $destAff : (isset($out->dest_affiche) ? $out->dest_affiche : '');
+            $out->direction_affiche = trim(
+                ($parentGa !== '' ? $parentGa : '—')
+                . ' → escale ' . ($destAff !== '' ? $destAff : '—')
+                . ($parentNom !== '' ? (' (ligne ' . $parentNom . ')') : '')
+            );
 
             return $out;
         }
@@ -868,15 +1007,18 @@
             }
             if (is_object($out)) {
                 $out->ok = true;
-                $hasEsc = !empty($out->id_escale_vente) || !empty($out->nom_dest_vente) || !empty($out->code_gadest_vente);
-                $out->est_escale_vente = $hasEsc ? 1 : 0;
-                if (function_exists('ticket_destination_label')) {
-                    $out->dest_affiche = ticket_destination_label($out, isset($out->gadest_lg) ? $out->gadest_lg : '');
-                } else {
-                    $out->dest_affiche = !empty($out->nom_dest_vente) ? $out->nom_dest_vente : (isset($out->gadest_lg) ? $out->gadest_lg : '');
+                $out = $this->_reprog_normalize_escale_od($out);
+                if (empty($out->dest_affiche)) {
+                    if (function_exists('ticket_destination_label')) {
+                        $out->dest_affiche = ticket_destination_label($out, isset($out->gadest_lg) ? $out->gadest_lg : '');
+                    } else {
+                        $out->dest_affiche = !empty($out->nom_dest_vente) ? $out->nom_dest_vente : (isset($out->gadest_lg) ? $out->gadest_lg : '');
+                    }
                 }
                 $out = $this->_reprog_enrich_retour_meta($out);
                 $out = $this->_reprog_enrich_transit_meta($out);
+                // Re-normaliser après enrich transit (évite gadest_od = code escale).
+                $out = $this->_reprog_normalize_escale_od($out);
                 $out = $this->_reprog_ensure_nom_ligne($out);
             }
 
@@ -916,7 +1058,15 @@
                     : (isset($out->gaexp_lg) ? trim((string) $out->gaexp_lg) : '');
                 $gd = !empty($out->gadest_od) ? trim((string) $out->gadest_od)
                     : (isset($out->gadest_lg) ? trim((string) $out->gadest_lg) : '');
-                if ($ga !== '' && $gd !== '') {
+                // Escale : ne jamais résoudre OD avec le code escale (FER44) → fausse ligne.
+                $codeEsc = isset($out->code_gadest_vente) ? trim((string) $out->code_gadest_vente) : '';
+                if ($codeEsc !== '' && strcasecmp($gd, $codeEsc) === 0
+                    && isset($out->gadest_lg) && trim((string) $out->gadest_lg) !== ''
+                    && strcasecmp(trim((string) $out->gadest_lg), $codeEsc) !== 0
+                ) {
+                    $gd = trim((string) $out->gadest_lg);
+                }
+                if ($ga !== '' && $gd !== '' && ($codeEsc === '' || strcasecmp($gd, $codeEsc) !== 0)) {
                     $od = $this->m_programme->od_metier_globale(
                         $ga,
                         $gd,
@@ -929,6 +1079,14 @@
                             $out->axes_od = $od['axes'];
                         }
                     }
+                }
+            }
+            // Ticket escale : préférer nom_ligne_parent si le nom courant ressemble à un faux axe escale.
+            if (!empty($out->est_escale_vente) && !empty($out->nom_ligne_parent)) {
+                $parent = trim((string) $out->nom_ligne_parent);
+                $nomEsc = isset($out->nom_dest_vente) ? trim((string) $out->nom_dest_vente) : '';
+                if ($parent !== '' && ($nom === '' || ($nomEsc !== '' && stripos($nom, $nomEsc) !== false && strcasecmp($nom, $parent) !== 0))) {
+                    $nom = $parent;
                 }
             }
             if ($nom !== '') {
