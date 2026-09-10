@@ -15838,6 +15838,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 __reprogSetPost(synced.prog, synced.compaga, synced.siege);
                 if (synced.row) {
                     __reprogQ('catreprogrammeunifie').value = synced.row.categori || '';
+                    if (synced.row.nom_ligne) {
+                        __reprogSetVal('replignunifie', synced.row.nom_ligne);
+                    }
+                    if (synced.row.ident_ligne || synced.row.ligne_id) {
+                        __reprogSetVal('idreplignunifie', synced.row.ident_ligne || synced.row.ligne_id);
+                    }
+                }
+                // Transit → direct : poster le prix TOTAL des jambes vérifiées.
+                if (window.__reprogState.isTransitTicket) {
+                    var totD = __reprogPrixRef();
+                    __reprogSetVal('prixventeunifie', totD);
+                    __reprogSetVal('prixventeunifie_ref', totD);
                 }
                 return true;
             }
@@ -15853,6 +15865,11 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             var opt = cie.options[cie.selectedIndex];
             __reprogSetPost(cie.value, opt ? opt.getAttribute('data-compaga') : '', sie.value);
+            if (window.__reprogState.isTransitTicket) {
+                var tot = __reprogPrixRef();
+                __reprogSetVal('prixventeunifie', tot);
+                __reprogSetVal('prixventeunifie_ref', tot);
+            }
             return true;
         });
     })();

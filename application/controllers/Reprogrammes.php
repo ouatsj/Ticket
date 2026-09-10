@@ -557,6 +557,193 @@
         }
 
         /**
+         * Transit → départ direct unique : agrège les jambes vérifiées
+         * (codes tickets, prix total, OD / destination finale) sur le billet unique.
+         *
+         * @return array champs passager à merger (peut être vide)
+         */
+        protected function _reprog_fields_transit_collapse_direct()
+        {
+            if ((string) $this->input->post('reprog_is_transit_ticket') !== '1') {
+                return array();
+            }
+            $mode = strtolower(trim((string) $this->input->post('reprog_mode')));
+            if ($mode === 'transit') {
+                // Multi-segments : chaque jambe a déjà son prix / code.
+                return array();
+            }
+
+            $nOrig = (int) $this->input->post('reprog_nbr_jambes_origine');
+            if ($nOrig < 2) {
+                $nOrig = 2;
+            }
+            if ($nOrig > 4) {
+                $nOrig = 4;
+            }
+
+            $codes = array();
+            $total = 0.0;
+            $firstRow = null;
+            $lastRow = null;
+
+            for ($i = 1; $i <= $nOrig; $i++) {
+                $sfx = ($i === 1) ? '' : (($i === 2) ? '2' : (string) $i);
+                $cdpa = trim((string) $this->input->post('passeridtransit' . $sfx));
+                $cdpt = trim((string) $this->input->post('codeclienttransit' . $sfx));
+                if ($cdpa === '' && $cdpt === '') {
+                    continue;
+                }
+                $row = null;
+                if ($cdpa !== '' && $cdpt !== '') {
+                    $row = $this->db->query(
+                        "SELECT p.code_ticket, p.code_passager, p.prixvente,
+                                lg.nom_ligne, lg.gaexp_lg, lg.gadest_lg, ga.nom_gadest,
+                                ge.nom_gaep
+                         FROM passager p
+                         JOIN programme pr ON p.code_pro = pr.code_progr
+                         JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
+                         JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
+                         JOIN gare_dest ga ON lg.gadest_lg = ga.code_gadest
+                         JOIN gare_exp ge ON lg.gaexp_lg = ge.code_gaexp
+                         WHERE p.code_passager = ?
+                           AND BINARY p.code_ticket = ?
+                         LIMIT 1",
+                        array($cdpa, $cdpt)
+                    )->row();
+                }
+                if (!$row && $cdpa !== '') {
+                    $row = $this->db->query(
+                        "SELECT p.code_ticket, p.code_passager, p.prixvente,
+                                lg.nom_ligne, lg.gaexp_lg, lg.gadest_lg, ga.nom_gadest,
+                                ge.nom_gaep
+                         FROM passager p
+                         JOIN programme pr ON p.code_pro = pr.code_progr
+                         JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
+                         JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
+                         JOIN gare_dest ga ON lg.gadest_lg = ga.code_gadest
+                         JOIN gare_exp ge ON lg.gaexp_lg = ge.code_gaexp
+                         WHERE p.code_passager = ?
+                         LIMIT 1",
+                        array($cdpa)
+                    )->row();
+                }
+                if (!$row) {
+                    $pxKey = ($i === 1) ? 'prixventeunifie' : ('prixventeunifie' . (($i === 2) ? '2' : (string) $i));
+                    $pxPost = $this->input->post($pxKey);
+                    if ($cdpt !== '') {
+                        $codes[] = $cdpt;
+                    }
+                    if ($pxPost !== false && $pxPost !== null && trim((string) $pxPost) !== '') {
+                        $total += (float) $pxPost;
+                    }
+                    continue;
+                }
+                if (!empty($row->code_ticket)) {
+                    $codes[] = trim((string) $row->code_ticket);
+                }
+                if (isset($row->prixvente) && $row->prixvente !== null && $row->prixvente !== '') {
+                    $total += (float) $row->prixvente;
+                }
+                if ($firstRow === null) {
+                    $firstRow = $row;
+                }
+                $lastRow = $row;
+            }
+
+            // Dédupliquer codes en gardant l'ordre.
+            $uniq = array();
+            $codesClean = array();
+            foreach ($codes as $c) {
+                if ($c === '' || isset($uniq[$c])) {
+                    continue;
+                }
+                $uniq[$c] = true;
+                $codesClean[] = $c;
+            }
+
+            // Secours : total POST ref (JS) si lecture DB incomplète.
+            if ($total <= 0) {
+                $ref = $this->input->post('prixventeunifie_ref');
+                if ($ref !== false && $ref !== null && trim((string) $ref) !== '') {
+                    $total = (float) $ref;
+                }
+            }
+
+            $fields = array();
+            if ($total > 0) {
+                $fields['prixvente'] = round($total, 2);
+            }
+
+            $hasItine = $this->db->query("SHOW COLUMNS FROM passager LIKE 'itinecode_vendu'")->num_rows() > 0;
+            $hasLigneOd = $this->db->query("SHOW COLUMNS FROM passager LIKE 'lignetineraire_vendu'")->num_rows() > 0;
+            if ($hasItine && count($codesClean) >= 1) {
+                $fields['itinecode_vendu'] = implode('+', $codesClean);
+            }
+            if ($hasLigneOd) {
+                $nomOd = trim((string) $this->input->post('repligntransit'));
+                if ($nomOd === '' && $firstRow && $lastRow) {
+                    if (!isset($this->m_programme)) {
+                        $this->load->model('Programme_model', 'm_programme');
+                    }
+                    if (isset($this->m_programme)) {
+                        $nomOd = $this->m_programme->composer_nom_ligne_od(
+                            isset($firstRow->nom_ligne) ? $firstRow->nom_ligne : '',
+                            isset($lastRow->nom_ligne) ? $lastRow->nom_ligne : ''
+                        );
+                    }
+                }
+                if ($nomOd === '' && $firstRow && $lastRow) {
+                    $dep = isset($firstRow->nom_gaep) ? trim((string) $firstRow->nom_gaep) : '';
+                    $arr = isset($lastRow->nom_gadest) ? trim((string) $lastRow->nom_gadest) : '';
+                    if ($dep !== '' && $arr !== '') {
+                        $nomOd = $dep . '-' . $arr;
+                    }
+                }
+                if ($nomOd === '' && $lastRow && !empty($lastRow->nom_ligne)) {
+                    $nomOd = trim((string) $lastRow->nom_ligne);
+                }
+                if ($nomOd !== '') {
+                    $fields['lignetineraire_vendu'] = $nomOd;
+                }
+            }
+
+            // Destination finale : escale préservée, sinon arrivée de la dernière jambe vérifiée.
+            $escaleId = (int) $this->input->post('id_escale_vente_reprog');
+            $hasNomDest = $this->db->query("SHOW COLUMNS FROM passager LIKE 'nom_dest_vente'")->num_rows() > 0;
+            $hasCodeDest = $this->db->query("SHOW COLUMNS FROM passager LIKE 'code_gadest_vente'")->num_rows() > 0;
+            if ($escaleId > 0) {
+                $nomEsc = trim((string) $this->input->post('nom_dest_vente_reprog'));
+                $codeEsc = trim((string) $this->input->post('code_gadest_vente_reprog'));
+                if ($nomEsc !== '' && $hasNomDest) {
+                    $fields['nom_dest_vente'] = $nomEsc;
+                }
+                if ($codeEsc !== '' && $hasCodeDest) {
+                    $fields['code_gadest_vente'] = $codeEsc;
+                }
+                if ($this->db->query("SHOW COLUMNS FROM passager LIKE 'id_escale_vente'")->num_rows() > 0) {
+                    $fields['id_escale_vente'] = $escaleId;
+                }
+            } elseif ($lastRow) {
+                $nomFin = isset($lastRow->nom_gadest) ? trim((string) $lastRow->nom_gadest) : '';
+                $codeFin = isset($lastRow->gadest_lg) ? trim((string) $lastRow->gadest_lg) : '';
+                if ($nomFin === '') {
+                    $nomFin = trim((string) $this->input->post('nom_dest_vente_reprog'));
+                }
+                if ($codeFin === '') {
+                    $codeFin = trim((string) $this->input->post('code_gadest_vente_reprog'));
+                }
+                if ($nomFin !== '' && $hasNomDest) {
+                    $fields['nom_dest_vente'] = $nomFin;
+                }
+                if ($codeFin !== '' && $hasCodeDest) {
+                    $fields['code_gadest_vente'] = $codeFin;
+                }
+            }
+
+            return $fields;
+        }
+
+        /**
          * True si le ticket a déjà été reprogrammé (report actif ou statut_reprog).
          *
          * @param string $tamponcod
@@ -684,13 +871,20 @@
         const REPROG_STATUTVENTE_HORS_CA = 2;
 
         /**
-         * Ticket transit N codes : invalide les jambes d’origine 2..N (POST).
+         * Ticket transit N codes : traite les jambes d’origine 2..N (POST).
+         * - Mode transit (nouvelle multi) : désactive (actif_pas) comme avant.
+         * - Mode direct (collapse) : libère le siège + marque repor, mais
+         *   laisse actif_pas / tampon actifs pour l’historique.
          */
         protected function _reprog_invalidate_transit_leg2_if_needed()
         {
             if ((string) $this->input->post('reprog_is_transit_ticket') !== '1') {
                 return;
             }
+            $mode = strtolower(trim((string) $this->input->post('reprog_mode')));
+            // Transit → direct unique : ne pas bloquer les jambes 2..N.
+            $collapseDirect = ($mode !== 'transit');
+
             $nOrig = (int) $this->input->post('reprog_nbr_jambes_origine');
             if ($nOrig < 2) {
                 $nOrig = 2;
@@ -705,14 +899,19 @@
                 if (!$cdpa || !$cdpt) {
                     continue;
                 }
-                $this->m_passager->update($cdpa, $cdpt, array(
+                $upd = array(
                     'num_siege_categorie' => null,
-                    'actif_pas' => 1,
                     'statut_reprog' => 'repor',
-                ));
-                $tamp = $this->input->post('codeticketsclienttransit' . $suffix);
-                if ($tamp) {
-                    $this->m_tamponcode->update($tamp, array('actif_tamp' => 1));
+                );
+                if (!$collapseDirect) {
+                    $upd['actif_pas'] = 1;
+                }
+                $this->m_passager->update($cdpa, $cdpt, $upd);
+                if (!$collapseDirect) {
+                    $tamp = $this->input->post('codeticketsclienttransit' . $suffix);
+                    if ($tamp) {
+                        $this->m_tamponcode->update($tamp, array('actif_tamp' => 1));
+                    }
                 }
             }
         }
@@ -2107,6 +2306,11 @@
                                     'num_cat' => $this->input->post('catreprogramtransit'),
                                     'statut_reprog' => 'repor',
                                 );
+                                // Transit → direct : prix total des jambes + codes vérifiés + OD.
+                                $collapse = $this->_reprog_fields_transit_collapse_direct();
+                                if (!empty($collapse)) {
+                                    $passagerarray = array_merge($passagerarray, $collapse);
+                                }
 
                                 $passrid = $this->m_passager->update($cdpa, $cdpt, $passagerarray);
 
@@ -2169,9 +2373,15 @@
                                         if ($statConfCie === 'confirm') {
                                             $pasarray['statut_confirme'] = 'confirm';
                                         }
-                                        $prixOrigCie = $this->input->post('prixventeunifie');
-                                        if ($prixOrigCie !== false && $prixOrigCie !== null && trim((string) $prixOrigCie) !== '') {
-                                            $pasarray['prixvente'] = $prixOrigCie;
+                                        // Transit → direct : prioriser somme des jambes vérifiées.
+                                        $collapseCie = $this->_reprog_fields_transit_collapse_direct();
+                                        if (!empty($collapseCie)) {
+                                            $pasarray = array_merge($pasarray, $collapseCie);
+                                        } else {
+                                            $prixOrigCie = $this->input->post('prixventeunifie');
+                                            if ($prixOrigCie !== false && $prixOrigCie !== null && trim((string) $prixOrigCie) !== '') {
+                                                $pasarray['prixvente'] = $prixOrigCie;
+                                            }
                                         }
                                     $passrid = $this->m_passager->create($pasarray);
                                     if ($passrid != FALSE) {
