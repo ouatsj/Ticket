@@ -361,6 +361,8 @@
                 AND r.idopera = '$use'
                 AND r.type_recet <> 'Courrier'
                 AND r.is_actifrecet = 0
+                AND r.is_validerecet = 0
+                AND COALESCE(r.valid_recet, '') = 'valid'
                 ORDER BY r.id_recette DESC")->result();
             }
             return $this->db->query(
@@ -377,6 +379,8 @@
                 AND r.idopera = '$use'
                 AND r.type_recet <> 'Courrier'
                 AND r.is_actifrecet = 0
+                AND r.is_validerecet = 0
+                AND COALESCE(r.valid_recet, '') = 'valid'
                 ORDER BY r.id_recette DESC")->row();
         }
         
@@ -1191,6 +1195,7 @@
                 AND cs.gexp_caiss = '$gid'
                 AND r.idopera = '$use'
                 AND r.is_validerecet = 0
+                AND COALESCE(r.valid_recet, '') = 'valid'
                 AND r.actif_rect = 0
                 AND r.type_recet <> 'Courrier'
                 AND r.date_recet <= '$today'
@@ -1254,9 +1259,7 @@
         /** Agrégat validation compte selon le rôle du profil affiché. */
         public function valideget_par_profil($cid, $gid, $idcais, $use, $userole)
         {
-            if (recette_role_is_saisie($userole)) {
-                return $this->valideget_saisie($cid, $gid, $idcais, $use);
-            }
+            // File 4/18 : uniquement après arrêt chef (active_*=1). Pas de file « saisie ouverte ».
             if (recette_role_is_validateur_adjoint($userole)) {
                 return $this->validegead($cid, $gid, $idcais, $use);
             }

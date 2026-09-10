@@ -2341,7 +2341,6 @@ if (!function_exists('caissier_arret_pending_map')) {
         $CI =& get_instance();
         $gid = roleattribut_guard_normalize_gare_id($ekey, $gid);
         $idcais = ($idcais !== null && (int) $idcais > 0) ? (int) $idcais : null;
-        $today = mdate('%Y-%m-%d', now());
         $caisse_sql = $idcais !== null ? ' AND cs.id_caiss = ' . $idcais : '';
         $map = array();
 
@@ -2360,7 +2359,8 @@ if (!function_exists('caissier_arret_pending_map')) {
             }
         };
 
-        // File arrêt masse (active_*=0) + file ligne RdD (active_*=1, is_actif*=0).
+        // File caissier/adjoint : UNIQUEMENT après arrêt chef (unstop → active_*=1 / valid_*='valid').
+        // Les saisies encore ouvertes (active_*=0) restent chez le chef jusqu'à son arrêt.
         // Exclure les lignes déjà validées par un adjoint (is_actif*ad=1) : elles
         // passent dans la file « confirmation principal » (caissier_arret_pending_map_adjoint).
         $rec_rows = $CI->db->query(
@@ -2379,13 +2379,12 @@ if (!function_exists('caissier_arret_pending_map')) {
             AND (r.is_actifrecetad = 0 OR r.is_actifrecetad IS NULL)
             AND r.actif_rect = 0
             AND r.type_recet <> 'Courrier'
-            AND (
-                (r.active_recet = 0 AND r.is_validerecet = 0 AND r.date_recet <= ?)
-                OR (r.active_recet = 1 AND r.is_validerecet = 0)
-            )
+            AND r.active_recet = 1
+            AND r.is_validerecet = 0
+            AND COALESCE(r.valid_recet, '') = 'valid'
             {$caisse_sql}
             GROUP BY r.idopera",
-            array($ekey, $gid, $today)
+            array($ekey, $gid)
         )->result();
 
         foreach ($rec_rows as $row) {
@@ -2410,13 +2409,13 @@ if (!function_exists('caissier_arret_pending_map')) {
             AND (d.is_actifdepad = 0 OR d.is_actifdepad IS NULL)
             AND d.actif_deps = 0
             AND d.type_depense <> 'Courrier'
-            AND (
-                (d.active_dep = 0 AND d.is_validedep = 0 AND d.date_depens <= ?)
-                OR (d.active_dep = 1 AND d.is_validedep = 0 AND d.ferme_caisdep = 0)
-            )
+            AND d.active_dep = 1
+            AND d.is_validedep = 0
+            AND d.ferme_caisdep = 0
+            AND COALESCE(d.valid_depens, '') = 'valid'
             {$caisse_sql}
             GROUP BY d.idop_dep",
-            array($ekey, $gid, $today)
+            array($ekey, $gid)
         )->result();
 
         foreach ($dep_rows as $row) {
@@ -2443,10 +2442,10 @@ if (!function_exists('caissier_arret_pending_map')) {
             AND d.is_validdepo = 0
             AND d.actif_depo = 0
             AND d.type_depot <> 'Courrier'
-            AND d.datedepot <= ?
+            AND COALESCE(d.valid_depo, '') = 'valid'
             {$caisse_sql}
             GROUP BY d.idop_depot",
-            array($ekey, $gid, $today)
+            array($ekey, $gid)
         )->result();
 
         foreach ($depo_rows as $row) {

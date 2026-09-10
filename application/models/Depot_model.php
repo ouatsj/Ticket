@@ -553,6 +553,7 @@
                 AND d.idcaisse_depot = '$idcais'
                 AND d.idop_depot = '$use'
                 AND d.is_validdepo = 0
+                AND COALESCE(d.valid_depo, '') = 'valid'
                 AND d.datedepot <= '$today'
                 AND d.actif_depo = 0
                 AND d.type_depot <> 'Courrier'
@@ -616,9 +617,7 @@
         /** Agrégat validation dépôt selon le rôle du profil affiché. */
         public function valideget_par_profil($cid, $gid, $idcais, $use, $userole)
         {
-            if (recette_role_is_saisie($userole)) {
-                return $this->valideget_saisie($cid, $gid, $idcais, $use);
-            }
+            // File 4/18 : uniquement après arrêt chef. Pas de file « saisie ouverte ».
             if (recette_role_is_validateur_adjoint($userole)) {
                 return $this->validegead($cid, $gid, $idcais, $use);
             }
@@ -1141,6 +1140,8 @@
                 AND cs.gexp_caiss = '$gid'
                 AND cs.id_caiss = '$idcais'
                 AND pt.type_depot <> 'Courrier'
+                AND pt.is_validdepo = 0
+                AND COALESCE(pt.valid_depo, '') = 'valid'
                 ORDER BY pt.id_depot DESC")->result();
             }
             return $this->db->query(
@@ -1157,6 +1158,8 @@
                 AND cs.id_caiss = '$idcais'
                 AND pt.id_depot = '$pk'
                 AND pt.type_depot <> 'Courrier'
+                AND pt.is_validdepo = 0
+                AND COALESCE(pt.valid_depo, '') = 'valid'
                 ORDER BY pt.id_depot DESC")->row();
         }
 

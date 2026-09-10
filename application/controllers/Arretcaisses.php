@@ -217,6 +217,7 @@
                             ar.userole IN (5, 16)
                             AND r.active_recet = 1
                             AND r.is_validerecet = 0
+                            AND COALESCE(r.valid_recet, '') = 'valid'
                         )
                     )",
                     array($ekey, $gid, $adjoint_ra, $today)
@@ -252,6 +253,7 @@
                             AND d.active_dep = 1
                             AND d.is_validedep = 0
                             AND d.ferme_caisdep = 0
+                            AND COALESCE(d.valid_depens, '') = 'valid'
                         )
                     )",
                     array($ekey, $gid, $adjoint_ra, $today)
@@ -613,29 +615,23 @@
             $ctx = caissier_validation_bind_operateurs($this->company->ekey, $g, $idcpt, $iduser);
             $idcpt = $ctx['chef_ra'];
             $iduser = $ctx['caissier_ra'];
-            $is_saisie = recette_role_is_saisie($ctx['chef_userole']);
+            // Validation 4/18 uniquement après arrêt chef (active_*=1), jamais sur saisie ouverte.
+            $arrete = caisse_validation_chef_arrete_recette_sql('r');
 
-            if ($is_saisie) {
-                $cfrecet = $this->db->query("SELECT r.id_recette, r.active_recet, r.is_validerecet, r.idopera, r.idcaisse FROM recette r
-                    WHERE r.idopera = '$idcpt'
-                    AND r.active_recet = 0
-                    AND r.idcaisse ='$idc'
-                    AND r.is_validerecet = 0
-                    AND r.is_actifrecet = 0
-                    AND r.actif_rect = 0")->result();
-            } else {
-                $cfrecet = $this->db->query("SELECT r.id_recette, r.active_recet, r.is_validerecet, r.idopera, r.idcaisse FROM recette r
-                    WHERE r.idopera = '$idcpt'
-                    AND r.active_recet = 1
-                    AND r.idcaisse ='$idc'
-                    AND r.is_validerecet = 0")->result();
-            }
+            $cfrecet = $this->db->query(
+                "SELECT r.id_recette, r.active_recet, r.is_validerecet, r.idopera, r.idcaisse
+                FROM recette r
+                WHERE r.idopera = ?
+                AND r.idcaisse = ?
+                AND {$arrete}",
+                array($idcpt, (int) $idc)
+            )->result();
 
                     foreach ($cfrecet as $item9) {
                         $plarray = caisse_validation_flags_chef_by_validator(
                             $this->session->agent->userole,
                             $iduser,
-                            $is_saisie
+                            false
                         );
                         if ((int) $sgid > 0) {
                             $plarray['recetsgid'] = (int) $sgid;
@@ -664,17 +660,16 @@
             $ctx = caissier_validation_bind_operateurs($this->company->ekey, $g, $idcpt, $iduser);
             $idcpt = $ctx['chef_ra'];
             $iduser = $ctx['caissier_ra'];
-            $is_saisie = recette_role_is_saisie($ctx['chef_userole']);
-            $active_filter = $is_saisie ? 0 : 1;
+            $arrete = caisse_validation_chef_arrete_recette_sql('r');
            
-                $cfrecet = $this->db->query("SELECT r.id_recette, r.active_recet, r.is_validerecet, r.idopera, r.idcaisse, r.valid_recet FROM recette r
-                    WHERE r.idopera = '$idcpt'
-                    AND r.active_recet = $active_filter
-                    AND r.idcaisse ='$idc'
-                    AND r.is_validerecet = 0
-                    AND r.valid_recet = 'valid'" . ($is_saisie ? "
-                    AND r.is_actifrecet = 0
-                    AND r.actif_rect = 0" : ''))->result();
+                $cfrecet = $this->db->query(
+                    "SELECT r.id_recette, r.active_recet, r.is_validerecet, r.idopera, r.idcaisse, r.valid_recet
+                    FROM recette r
+                    WHERE r.idopera = ?
+                    AND r.idcaisse = ?
+                    AND {$arrete}",
+                    array($idcpt, (int) $idc)
+                )->result();
 
                     foreach ($cfrecet as $item10) {
 
@@ -719,29 +714,22 @@
             $ctx = caissier_validation_bind_operateurs($this->company->ekey, $g, $idcpt, $iduser);
             $idcpt = $ctx['chef_ra'];
             $iduser = $ctx['caissier_ra'];
-            $is_saisie = recette_role_is_saisie($ctx['chef_userole']);
+            $arrete = caisse_validation_chef_arrete_depense_sql('d');
 
-            if ($is_saisie) {
-                $cfdepes = $this->db->query("SELECT d.id_depense, d.active_dep, d.is_validedep, d.idop_dep, d.idcaisse_depens FROM depense d
-                    WHERE d.idop_dep = '$idcpt'
-                    AND d.active_dep = 0
-                    AND d.idcaisse_depens = '$idc'
-                    AND d.is_validedep = 0
-                    AND d.is_actifdep = 0
-                    AND d.actif_deps = 0")->result();
-            } else {
-                $cfdepes = $this->db->query("SELECT d.id_depense, d.active_dep, d.is_validedep, d.idop_dep, d.idcaisse_depens FROM depense d
-                    WHERE d.idop_dep = '$idcpt'
-                    AND d.active_dep = 1
-                    AND d.idcaisse_depens = '$idc'
-                    AND d.is_validedep = 0")->result();
-            }
+            $cfdepes = $this->db->query(
+                "SELECT d.id_depense, d.active_dep, d.is_validedep, d.idop_dep, d.idcaisse_depens
+                FROM depense d
+                WHERE d.idop_dep = ?
+                AND d.idcaisse_depens = ?
+                AND {$arrete}",
+                array($idcpt, (int) $idc)
+            )->result();
 
                     foreach ($cfdepes as $cfdep) {
                         $dplarray = caisse_validation_flags_depense_chef_by_validator(
                             $this->session->agent->userole,
                             $iduser,
-                            $is_saisie
+                            false
                         );
                         if ((int) $sgid > 0) {
                             $dplarray['sousgidepens'] = (int) $sgid;
@@ -767,17 +755,16 @@
             $ctx = caissier_validation_bind_operateurs($this->company->ekey, $g, $idcpt, $iduser);
             $idcpt = $ctx['chef_ra'];
             $iduser = $ctx['caissier_ra'];
-            $is_saisie = recette_role_is_saisie($ctx['chef_userole']);
-            $active_filter = $is_saisie ? 0 : 1;
+            $arrete = caisse_validation_chef_arrete_depense_sql('d');
            
-                $cfdepe = $this->db->query("SELECT d.id_depense, d.active_dep, d.is_validedep, d.valid_depens, d.idop_dep, d.idcaisse_depens FROM depense d
-                    WHERE d.idop_dep = '$idcpt'
-                    AND d.active_dep = $active_filter
-                    AND d.idcaisse_depens = '$idc'
-                    AND d.is_validedep = 0
-                    AND d.valid_depens = 'valid'" . ($is_saisie ? "
-                    AND d.is_actifdep = 0
-                    AND d.actif_deps = 0" : ''))->result();
+                $cfdepe = $this->db->query(
+                    "SELECT d.id_depense, d.active_dep, d.is_validedep, d.valid_depens, d.idop_dep, d.idcaisse_depens
+                    FROM depense d
+                    WHERE d.idop_dep = ?
+                    AND d.idcaisse_depens = ?
+                    AND {$arrete}",
+                    array($idcpt, (int) $idc)
+                )->result();
 
                     foreach ($cfdepe as $teme1) {
 
@@ -819,28 +806,22 @@
             $ctx = caissier_validation_bind_operateurs($this->company->ekey, $g, $idcpt, $iduser);
             $idcpt = $ctx['chef_ra'];
             $iduser = $ctx['caissier_ra'];
-            $is_saisie = recette_role_is_saisie($ctx['chef_userole']);
+            $arrete = caisse_validation_chef_arrete_depot_sql('d');
 
-            if ($is_saisie) {
-                $cfdepo = $this->db->query("SELECT d.id_depot, d.is_validdepo, d.idop_depot, d.idcaisse_depot FROM depot d
-                    WHERE d.idop_depot = '$idcpt'
-                    AND d.idcaisse_depot = '$idc'
-                    AND d.is_validdepo = 0
-                    AND d.is_actifdepo = 0
-                    AND d.is_actifdepoad = 0
-                    AND d.actif_depo = 0")->result();
-            } else {
-                $cfdepo = $this->db->query("SELECT d.id_depot, d.is_validdepo, d.idop_depot, d.idcaisse_depot FROM depot d
-                    WHERE d.idop_depot = '$idcpt'
-                    AND d.idcaisse_depot = '$idc'
-                    AND d.is_validdepo = 0")->result();
-            }
+            $cfdepo = $this->db->query(
+                "SELECT d.id_depot, d.is_validdepo, d.idop_depot, d.idcaisse_depot
+                FROM depot d
+                WHERE d.idop_depot = ?
+                AND d.idcaisse_depot = ?
+                AND {$arrete}",
+                array($idcpt, (int) $idc)
+            )->result();
 
                     foreach ($cfdepo as $tems) {
                         $dpolarray = caisse_validation_flags_depot_chef_by_validator(
                             $this->session->agent->userole,
                             $iduser,
-                            $is_saisie
+                            false
                         );
                         if ((int) $sgid > 0) {
                             $dpolarray['sousgdepot'] = (int) $sgid;
@@ -865,24 +846,16 @@
             $ctx = caissier_validation_bind_operateurs($this->company->ekey, $g, $idcpt, $iduser);
             $idcpt = $ctx['chef_ra'];
             $iduser = $ctx['caissier_ra'];
-            $is_saisie = recette_role_is_saisie($ctx['chef_userole']);
+            $arrete = caisse_validation_chef_arrete_depot_sql('d');
 
-            if ($is_saisie) {
-                $cfdepo = $this->db->query("SELECT d.id_depot, d.is_validdepo, d.idop_depot, d.valid_depo, d.idcaisse_depot FROM depot d
-                    WHERE d.idop_depot = '$idcpt'
-                    AND d.idcaisse_depot = '$idc'
-                    AND d.is_validdepo = 0
-                    AND d.is_actifdepo = 0
-                    AND d.is_actifdepoad = 0
-                    AND d.actif_depo = 0
-                    AND d.valid_depo = 'valid'")->result();
-            } else {
-                $cfdepo = $this->db->query("SELECT d.id_depot, d.is_validdepo, d.idop_depot, d.valid_depo, d.idcaisse_depot FROM depot d
-                    WHERE d.idop_depot = '$idcpt'
-                    AND d.idcaisse_depot = '$idc'
-                    AND d.is_validdepo = 0
-                    AND d.valid_depo = 'valid'")->result();
-            }
+            $cfdepo = $this->db->query(
+                "SELECT d.id_depot, d.is_validdepo, d.idop_depot, d.valid_depo, d.idcaisse_depot
+                FROM depot d
+                WHERE d.idop_depot = ?
+                AND d.idcaisse_depot = ?
+                AND {$arrete}",
+                array($idcpt, (int) $idc)
+            )->result();
 
                     foreach ($cfdepo as $tem) {
                         if (recette_role_is_validateur_adjoint($this->session->agent->userole))
@@ -929,35 +902,45 @@
             ));
             $idcpt = $bind['chef_ra'];
             $iduser = $bind['caissier_ra'];
-                    
-                    if($this->session->agent->userole === '18')
-                    {
-                        $plarray = array(
-                            'commentaire_recet'=> $this->input->post('comment'),
-                            'idcaisse' => $idc,
-                            'active_recet' => 1,
-                            'is_actifrecet' => 1,
-                            'is_actifrecetad' => 1,
-                            'is_validerecet' => 1,
-                            'operavalid' => $iduser,
-                            'operavalidad' => $iduser,
-                        );
-                    }
-                    else{
+            $arrete = caisse_validation_chef_arrete_recette_sql('r');
 
-                        $plarray = array(
-                            'commentaire_recet'=> $this->input->post('comment'),
-                            'idcaisse' => $idc,
-                            'active_recet' => 1,
-                            'is_actifrecet' => 1,
-                            'is_validerecet' => 1,
-                            'operavalid' => $iduser,
-                        );
-                    }
-                    if ($sgid > 0) {
-                        $plarray['recetsgid'] = $sgid;
-                    }
-                    $vald_recet = $this->m_recette->update($recet, $plarray);
+            $row = $this->db->query(
+                "SELECT r.id_recette FROM recette r
+                WHERE r.id_recette = ?
+                AND r.idopera = ?
+                AND r.idcaisse = ?
+                AND {$arrete}
+                LIMIT 1",
+                array((int) $recet, $idcpt, (int) $idc)
+            )->row();
+            if (!$row) {
+                $this->session->set_flashdata(
+                    'UPDATE_ERROR',
+                    'Validation impossible : le chef guichet n’a pas encore arrêté cette opération.'
+                );
+                caissier_validation_rdd_redirect(
+                    $this->company->ekey,
+                    $g,
+                    $idc,
+                    $idcpt,
+                    $iduser,
+                    $sgid,
+                    'validation_recettes'
+                );
+                return;
+            }
+
+            $plarray = caisse_validation_flags_chef_by_validator(
+                $this->session->agent->userole,
+                $iduser,
+                false
+            );
+            $plarray['commentaire_recet'] = $this->input->post('comment');
+            $plarray['idcaisse'] = $idc;
+            if ($sgid > 0) {
+                $plarray['recetsgid'] = $sgid;
+            }
+            $vald_recet = $this->m_recette->update($recet, $plarray);
                    
                 $this->property['UPDATE_SUCCESS'] = TRUE;
             
@@ -1038,35 +1021,45 @@
             ));
             $idcpt = $bind['chef_ra'];
             $iduser = $bind['caissier_ra'];
-                if (recette_role_is_validateur_adjoint($this->session->agent->userole))
-                {
-                        $dplarray = array(
-                            'commentaire'=> $this->input->post('comment'),
-                            'idcaisse_depens' => $idc,
-                            'active_dep' => 1,
-                            'is_actifdep' => 1,
-                            'is_actifdepad' => 1,
-                            'is_validedep' => 1,
-                            'opevalid' => $iduser,
-                            'opevalidad' => $iduser,
-                        );
+            $arrete = caisse_validation_chef_arrete_depense_sql('d');
 
-                }
-                else{
+            $row = $this->db->query(
+                "SELECT d.id_depense FROM depense d
+                WHERE d.id_depense = ?
+                AND d.idop_dep = ?
+                AND d.idcaisse_depens = ?
+                AND {$arrete}
+                LIMIT 1",
+                array((int) $idp, $idcpt, (int) $idc)
+            )->row();
+            if (!$row) {
+                $this->session->set_flashdata(
+                    'UPDATE_ERROR',
+                    'Validation impossible : le chef guichet n’a pas encore arrêté cette opération.'
+                );
+                caissier_validation_rdd_redirect(
+                    $this->company->ekey,
+                    $g,
+                    $idc,
+                    $idcpt,
+                    $iduser,
+                    $sgid,
+                    'validation_depenses'
+                );
+                return;
+            }
 
-                    $dplarray = array(
-                            'commentaire'=> $this->input->post('comment'),
-                            'idcaisse_depens' => $idc,
-                            'active_dep' => 1,
-                            'is_actifdep' => 1,
-                            'is_validedep' => 1,
-                            'opevalid' => $iduser, 
-                        );
-                }
-                    if ($sgid > 0) {
-                        $dplarray['sousgidepens'] = $sgid;
-                    }
-                        $vald_dep = $this->m_depense->update($idp, $dplarray);
+            $dplarray = caisse_validation_flags_depense_chef_by_validator(
+                $this->session->agent->userole,
+                $iduser,
+                false
+            );
+            $dplarray['commentaire'] = $this->input->post('comment');
+            $dplarray['idcaisse_depens'] = $idc;
+            if ($sgid > 0) {
+                $dplarray['sousgidepens'] = $sgid;
+            }
+            $vald_dep = $this->m_depense->update($idp, $dplarray);
                    
                 
                 $this->property['UPDATE_SUCCESS'] = TRUE;
@@ -1146,33 +1139,46 @@
             ));
             $idcpt = $bind['chef_ra'];
             $iduser = $bind['caissier_ra'];
-                if(recette_role_is_validateur_adjoint($this->session->agent->userole))
-                {
-                    $dpolarray = array(
-                        'commentaire_depot'=> $this->input->post('comment'),
-                        'idcaisse_depot' => $idc,
-                        'is_actifdepo' => 1,
-                        'is_actifdepoad' => 1,
-                        'is_validdepo' => 1,
-                        'opvalid' => $iduser,
-                        'opvalidad' => $iduser,
-                    );
-                }
-                else
-                {
-                     $dpolarray = array(
-                        'commentaire_depot'=> $this->input->post('comment'),
-                        'idcaisse_depot' => $idc,
-                        'is_actifdepo' => 1,
-                        'is_validdepo' => 1,
-                        'opvalid' => $iduser,
-                    );
-                }
-                    if ($sgid > 0) {
-                        $dpolarray['sousgdepot'] = $sgid;
-                    }
+            $arrete = caisse_validation_chef_arrete_depot_sql('d');
 
-                        $vald_depo = $this->m_depot->update($idpo, $dpolarray);
+            $row = $this->db->query(
+                "SELECT d.id_depot FROM depot d
+                WHERE d.id_depot = ?
+                AND d.idop_depot = ?
+                AND d.idcaisse_depot = ?
+                AND {$arrete}
+                LIMIT 1",
+                array((int) $idpo, $idcpt, (int) $idc)
+            )->row();
+            if (!$row) {
+                $this->session->set_flashdata(
+                    'UPDATE_ERROR',
+                    'Validation impossible : le chef guichet n’a pas encore arrêté cette opération.'
+                );
+                caissier_validation_rdd_redirect(
+                    $this->company->ekey,
+                    $g,
+                    $idc,
+                    $idcpt,
+                    $iduser,
+                    $sgid,
+                    'validation_depots'
+                );
+                return;
+            }
+
+            $dpolarray = caisse_validation_flags_depot_chef_by_validator(
+                $this->session->agent->userole,
+                $iduser,
+                false
+            );
+            $dpolarray['commentaire_depot'] = $this->input->post('comment');
+            $dpolarray['idcaisse_depot'] = $idc;
+            if ($sgid > 0) {
+                $dpolarray['sousgdepot'] = $sgid;
+            }
+
+            $vald_depo = $this->m_depot->update($idpo, $dpolarray);
                     
                 $this->property['UPDATE_SUCCESS'] = TRUE;
             
@@ -1185,7 +1191,7 @@
                 $sgid,
                 'validation_depots'
             );
-            }
+        }
 
         public function rejetdepo($ckey, $g, $idc, $idcpt, $idpo)
         {

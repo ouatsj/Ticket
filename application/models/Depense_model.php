@@ -312,6 +312,8 @@
                 AND d.type_depense <> 'Courrier'
                 AND d.actif_deps = 0
                 AND d.ferme_caisdep = 0
+                AND d.is_validedep = 0
+                AND COALESCE(d.valid_depens, '') = 'valid'
                 ORDER BY d.id_depense DESC")->result();
             }
             return $this->db->query(
@@ -330,6 +332,8 @@
                 AND d.id_depense = '$pk'
                 AND d.type_depense <> 'Courrier'
                 AND d.actif_deps = 0
+                AND d.is_validedep = 0
+                AND COALESCE(d.valid_depens, '') = 'valid'
                 ORDER BY d.id_depense DESC")->row();
         }
 
@@ -892,6 +896,7 @@
                 AND d.idop_dep = '$use'
                 AND cs.gexp_caiss = '$gid'
                 AND d.is_validedep = 0
+                AND COALESCE(d.valid_depens, '') = 'valid'
                 AND d.actif_deps = 0
                 AND d.date_depens <= '$today'
                 AND d.type_depense <> 'Courrier'
@@ -953,9 +958,7 @@
         /** Agrégat validation dépense selon le rôle du profil affiché. */
         public function valideget_par_profil($cid, $gid, $idcais, $use, $userole)
         {
-            if (recette_role_is_saisie($userole)) {
-                return $this->valideget_saisie($cid, $gid, $idcais, $use);
-            }
+            // File 4/18 : uniquement après arrêt chef. Pas de file « saisie ouverte ».
             if (recette_role_is_validateur_adjoint($userole)) {
                 return $this->validegead($cid, $gid, $idcais, $use);
             }

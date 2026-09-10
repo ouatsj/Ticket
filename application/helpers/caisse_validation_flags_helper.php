@@ -6,7 +6,11 @@
  * Règle d’or : jamais écraser l’auteur (idopera / idop_dep / idop_depot).
  * On n’ajoute que les ids validateurs (operavalid / operavalidad, etc.).
  *
+ * Prérequis métier : le chef (5/16) doit avoir fait son arrêt (unstop :
+ * active_*=1 + valid_*='valid') avant toute validation 4/18.
+ *
  * États recette (même logique dépense/dépôt) :
+ * - Après arrêt chef : active_recet=1, valid_recet='valid', is_validerecet=0
  * - Après validation adjoint (18) : operavalidad + is_actifrecetad=1 ; is_actifrecet=0
  * - Après confirmation principal (4) : + operavalid + is_actifrecet=1 ; piste ad conservée (audit + solde A)
  * - Validation directe 4 sur chef : operavalid + is_actifrecet=1 (sans toucher operavalidad)
@@ -187,6 +191,44 @@ if (!function_exists('caisse_validation_flags_reject_adjoint_depense')) {
             'opevalidad' => null,
             'valid_depens' => 'rejet',
         ));
+    }
+}
+
+if (!function_exists('caisse_validation_chef_arrete_recette_sql')) {
+    /**
+     * Recettes chef déjà arrêtées (unstop), en attente de validation 4/18.
+     */
+    function caisse_validation_chef_arrete_recette_sql($alias = 'r')
+    {
+        return "{$alias}.active_recet = 1
+            AND {$alias}.is_validerecet = 0
+            AND {$alias}.is_actifrecet = 0
+            AND ({$alias}.is_actifrecetad = 0 OR {$alias}.is_actifrecetad IS NULL)
+            AND COALESCE({$alias}.valid_recet, '') = 'valid'";
+    }
+}
+
+if (!function_exists('caisse_validation_chef_arrete_depense_sql')) {
+    function caisse_validation_chef_arrete_depense_sql($alias = 'd')
+    {
+        return "{$alias}.active_dep = 1
+            AND {$alias}.is_validedep = 0
+            AND {$alias}.is_actifdep = 0
+            AND ({$alias}.is_actifdepad = 0 OR {$alias}.is_actifdepad IS NULL)
+            AND {$alias}.ferme_caisdep = 0
+            AND COALESCE({$alias}.valid_depens, '') = 'valid'";
+    }
+}
+
+if (!function_exists('caisse_validation_chef_arrete_depot_sql')) {
+    function caisse_validation_chef_arrete_depot_sql($alias = 'd')
+    {
+        return "{$alias}.is_validdepo = 0
+            AND {$alias}.is_actifdepo = 0
+            AND ({$alias}.is_actifdepoad = 0 OR {$alias}.is_actifdepoad IS NULL)
+            AND {$alias}.arret_caisdepo = 0
+            AND {$alias}.actif_depo = 0
+            AND COALESCE({$alias}.valid_depo, '') = 'valid'";
     }
 }
 
