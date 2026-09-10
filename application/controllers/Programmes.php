@@ -2355,7 +2355,8 @@
                         $sgGraph,
                         ($axTry === $axe) ? $declRows : array(),
                         $force_transit,
-                        $force_transit ? $heure_label : null
+                        // Toujours ancrer sur l'heure guichet (départ 1re jambe), pas seulement si force.
+                        ($heure_label !== null && $heure_label !== '') ? $heure_label : null
                     );
                     if ($decision === null) {
                         $decision = $one;

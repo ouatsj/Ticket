@@ -481,7 +481,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     /**
      * Remplit #hdepartitine (J et J+1).
-     * Présélection par HH:MM (l'heure OD = départ 1re jambe) — sans filtre qui vide la liste.
+     * Heure OD = départ 1re jambe : filtre J ≥ ancre (repli si vide) + présélection HH:MM forcée.
      */
     function __venteFillHeureItineSelect(selectEl, rows, preselectHour) {
         var sel = typeof selectEl === 'string' ? document.querySelector(selectEl) : selectEl;
@@ -493,26 +493,44 @@ document.addEventListener('DOMContentLoaded', () => {
         var dateEl = document.querySelector('#date_depheure') || document.querySelector('#date_depheurefid');
         var voyageDate = dateEl ? String(dateEl.value || '').slice(0, 10) : '';
         var anchorRaw = __venteHourFromPreselect(preselectHour);
-        var bySlot = {};
-        var order = [];
-        for (var i = 0; i < list.length; i++) {
-            var row = list[i];
-            if (!row || row.id_ligneheure == null || row.heure == null || row.heure === '') continue;
-            var dprog = row.date_progr ? String(row.date_progr).slice(0, 10) : '';
-            var slot = dprog + '|' + String(row.heure).trim();
-            if (!bySlot[slot]) {
-                bySlot[slot] = row;
-                order.push(slot);
+        var anchorMin = __venteHeureToMinutes(anchorRaw);
+
+        function buildOrder(applyAnchorFilter) {
+            var bySlot = {};
+            var order = [];
+            for (var i = 0; i < list.length; i++) {
+                var row = list[i];
+                if (!row || row.id_ligneheure == null || row.heure == null || row.heure === '') continue;
+                var dprog = row.date_progr ? String(row.date_progr).slice(0, 10) : '';
+                var rowMin = __venteHeureToMinutes(row.heure);
+                if (voyageDate && dprog && dprog < voyageDate) continue;
+                if (applyAnchorFilter && voyageDate && dprog === voyageDate
+                    && anchorMin != null && rowMin != null && rowMin < anchorMin) {
+                    continue;
+                }
+                var slot = dprog + '|' + String(row.heure).trim();
+                if (!bySlot[slot]) {
+                    bySlot[slot] = row;
+                    order.push(slot);
+                }
             }
+            order.sort(function (a, b) {
+                var ra = bySlot[a], rb = bySlot[b];
+                var da = String(ra.date_progr || '').slice(0, 10);
+                var db = String(rb.date_progr || '').slice(0, 10);
+                if (da < db) return -1;
+                if (da > db) return 1;
+                return (__venteHeureToMinutes(ra.heure) || 0) - (__venteHeureToMinutes(rb.heure) || 0);
+            });
+            return { bySlot: bySlot, order: order };
         }
-        order.sort(function (a, b) {
-            var ra = bySlot[a], rb = bySlot[b];
-            var da = String(ra.date_progr || '').slice(0, 10);
-            var db = String(rb.date_progr || '').slice(0, 10);
-            if (da < db) return -1;
-            if (da > db) return 1;
-            return (__venteHeureToMinutes(ra.heure) || 0) - (__venteHeureToMinutes(rb.heure) || 0);
-        });
+
+        var built = buildOrder(anchorMin != null);
+        if (!built.order.length) {
+            built = buildOrder(false);
+        }
+        var bySlot = built.bySlot;
+        var order = built.order;
         var slotRows = order.map(function (k) { return bySlot[k]; });
         var forceDate = __venteListSpansMultipleDays(slotRows);
         for (var j = 0; j < order.length; j++) {
@@ -525,13 +543,41 @@ document.addEventListener('DOMContentLoaded', () => {
             opt.innerHTML = __venteHeureOptionLabel(r.heure, r.date_progr, voyageDate, forceDate);
             sel.add(opt);
         }
-        if (preselectHour && (preselectHour.value || preselectHour.heure || anchorRaw)) {
+        var hourForSelect = preselectHour;
+        if ((!hourForSelect || (!hourForSelect.value && !hourForSelect.heure)) && anchorRaw) {
+            hourForSelect = { value: '', heure: anchorRaw, hasProg: false };
+        }
+        if (hourForSelect && (hourForSelect.value || hourForSelect.heure || anchorRaw)) {
             try {
-                __venteSelectHourInSelect(sel, preselectHour, voyageDate);
+                __venteSelectHourInSelect(sel, hourForSelect, voyageDate);
             } catch (eSel) {}
-            if (sel.selectedIndex > 0 && typeof sel.onchange === 'function') {
-                try { sel.onchange(); } catch (eCh) {}
+        }
+        // Ne jamais laisser le placeholder si une ancre existe et qu'il reste des options.
+        if (sel.selectedIndex < 1 && sel.options.length > 1 && anchorMin != null) {
+            var forced = -1;
+            for (var fi = 1; fi < sel.options.length; fi++) {
+                var fo = sel.options[fi];
+                var fMin = __venteHeureToMinutes(fo.getAttribute('data-heure') || '');
+                var fDate = fo.getAttribute('data-date-progr') ? String(fo.getAttribute('data-date-progr')).slice(0, 10) : '';
+                if (voyageDate && fDate && fDate === voyageDate && fMin != null && fMin >= anchorMin) {
+                    forced = fi;
+                    break;
+                }
             }
+            if (forced < 0) {
+                for (var fj = 1; fj < sel.options.length; fj++) {
+                    var fo2 = sel.options[fj];
+                    var fMin2 = __venteHeureToMinutes(fo2.getAttribute('data-heure') || '');
+                    if (fMin2 != null && fMin2 >= anchorMin) {
+                        forced = fj;
+                        break;
+                    }
+                }
+            }
+            if (forced >= 1) sel.selectedIndex = forced;
+        }
+        if (sel.selectedIndex > 0 && typeof sel.onchange === 'function') {
+            try { sel.onchange(); } catch (eCh) {}
         }
     }
     window.__venteFillHeureItineSelect = __venteFillHeureItineSelect;
@@ -1859,7 +1905,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 + encodeURIComponent(seltdep + '-' + arr) + '/'
                 + encodeURIComponent(datedepart) + '/'
                 + encodeURIComponent(sg) + '/'
-                + forceFlag,
+                + forceFlag
+                + (window.__venteSelectedHour && window.__venteSelectedHour.heure
+                    ? ('?heure=' + encodeURIComponent(window.__venteSelectedHour.heure))
+                    : ''),
             true
         );
         httpRequestitine.onload = function () {
@@ -1909,7 +1958,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     /**
-     * Présélection jambe 1 : d'abord même value, sinon même HH:MM (priorité jour voyage).
+     * Présélection jambe 1 : value exacte, sinon HH:MM (jour voyage), sinon 1er ≥ ancre.
      * Ne déclenche pas onchange (appelant responsable).
      */
     function __venteSelectHourInSelect(selectEl, hour, preferDate) {
@@ -1929,16 +1978,19 @@ document.addEventListener('DOMContentLoaded', () => {
         var sameDayHhmmIdx = -1;
         var anyHhmmIdx = -1;
         var sameDayGeIdx = -1;
+        var anyGeIdx = -1;
         for (var i = 0; i < sel.options.length; i++) {
             var opt = sel.options[i];
-            if (!opt || i === 0 && (!opt.value || opt.value === '')) continue;
-            if (hour.value && opt.value === hour.value) {
+            if (!opt) continue;
+            if (i === 0 && (!opt.value || opt.value === '')) continue;
+            if (hour.value && String(opt.value) === String(hour.value)) {
                 exactIdx = i;
                 break;
             }
-            var optHhmm = __venteNormalizeHhmm(opt.getAttribute('data-heure') || (String(opt.value).split('/')[1] || ''));
+            var optH = opt.getAttribute('data-heure') || (String(opt.value).split('/')[1] || '');
+            var optHhmm = __venteNormalizeHhmm(optH);
             var optDate = opt.getAttribute('data-date-progr') ? String(opt.getAttribute('data-date-progr')).slice(0, 10) : '';
-            var optMin = __venteHeureToMinutes(opt.getAttribute('data-heure') || (String(opt.value).split('/')[1] || ''));
+            var optMin = __venteHeureToMinutes(optH);
             if (targetHhmm && optHhmm === targetHhmm) {
                 if (preferDate && optDate === preferDate) {
                     sameDayHhmmIdx = i;
@@ -1946,19 +1998,38 @@ document.addEventListener('DOMContentLoaded', () => {
                     anyHhmmIdx = i;
                 }
             }
-            if (sameDayGeIdx < 0 && preferDate && optDate === preferDate && targetMin != null && optMin != null && optMin >= targetMin) {
-                sameDayGeIdx = i;
+            if (targetMin != null && optMin != null && optMin >= targetMin) {
+                if (sameDayGeIdx < 0 && preferDate && optDate === preferDate) {
+                    sameDayGeIdx = i;
+                }
+                if (anyGeIdx < 0) {
+                    anyGeIdx = i;
+                }
             }
         }
         var pick = exactIdx >= 0 ? exactIdx
             : (sameDayHhmmIdx >= 0 ? sameDayHhmmIdx
                 : (anyHhmmIdx >= 0 ? anyHhmmIdx
-                    : sameDayGeIdx));
+                    : (sameDayGeIdx >= 0 ? sameDayGeIdx : anyGeIdx)));
         if (pick >= 0) {
             sel.selectedIndex = pick;
         }
     }
     window.__venteSelectHourInSelect = __venteSelectHourInSelect;
+
+    /** Ancre heure depuis étape graphe (fallback si __venteSelectedHour perdu). */
+    function __venteHourFromEtape(etape) {
+        if (!etape) return null;
+        var h = etape._graphe_heure != null ? String(etape._graphe_heure) : '';
+        if (!h) return null;
+        var idLh = etape._graphe_id_ligneheure != null ? String(etape._graphe_id_ligneheure) : '';
+        return {
+            value: idLh ? (idLh + '/' + h) : '',
+            idLh: idLh,
+            heure: h,
+            hasProg: false
+        };
+    }
 
     function __venteCheminsFromPayload(payload) {
         if (!payload || typeof payload !== 'object') return [];
@@ -2582,6 +2653,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
                                                                 document.querySelector('#idcompg').value = `${donitines[0].id_compaga}`;
+                                                                var __hourAnchorLeg1 = window.__venteSelectedHour
+                                                                    || (typeof __venteHourFromEtape === 'function' ? __venteHourFromEtape(donitines[0]) : null);
                                                                 __venteFillLigne1Locked(donitines[0], function (codeSel) {
                                                                     if (!codeSel) return;
                                                                     var hd = document.querySelector('#hdepartitine');
@@ -2592,10 +2665,12 @@ document.addEventListener('DOMContentLoaded', () => {
                                                                     httpH.onload = function () {
                                                                         try {
                                                                             var infositin = JSON.parse(httpH.responseText);
+                                                                            var anchor = __hourAnchorLeg1 || window.__venteSelectedHour
+                                                                                || (typeof __venteHourFromEtape === 'function' ? __venteHourFromEtape(donitines[0]) : null);
                                                                             if (typeof __venteFillHeureItineSelect === 'function') {
-                                                                                __venteFillHeureItineSelect(hd, infositin, window.__venteSelectedHour);
+                                                                                __venteFillHeureItineSelect(hd, infositin, anchor);
                                                                             } else if (typeof window.__venteFillHeureItineSelect === 'function') {
-                                                                                window.__venteFillHeureItineSelect(hd, infositin, window.__venteSelectedHour);
+                                                                                window.__venteFillHeureItineSelect(hd, infositin, anchor);
                                                                             }
                                                                         } catch (eH) {
                                                                             try {
@@ -2612,6 +2687,9 @@ document.addEventListener('DOMContentLoaded', () => {
                                                                                         if (arr[ri].date_progr) o.setAttribute('data-date-progr', String(arr[ri].date_progr).slice(0, 10));
                                                                                         o.innerHTML = String(arr[ri].heure || '');
                                                                                         hd.add(o);
+                                                                                    }
+                                                                                    if (typeof __venteSelectHourInSelect === 'function') {
+                                                                                        __venteSelectHourInSelect(hd, __hourAnchorLeg1 || window.__venteSelectedHour, datedepart);
                                                                                     }
                                                                                 }
                                                                             } catch (eH2) {}
@@ -7378,6 +7456,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
                                                                 document.querySelector('#prix_axefid1').style.display = 'none';
                                                                 document.querySelector('#prix_axefid').style.display = 'none';
+                                                                var __hourAnchorLeg1Fi = window.__venteSelectedHour;
+                                                                if ((!__hourAnchorLeg1Fi || !__hourAnchorLeg1Fi.heure) && donitinesfi[0] && donitinesfi[0]._graphe_heure) {
+                                                                    __hourAnchorLeg1Fi = {
+                                                                        value: (donitinesfi[0]._graphe_id_ligneheure != null
+                                                                            ? String(donitinesfi[0]._graphe_id_ligneheure) + '/' + String(donitinesfi[0]._graphe_heure)
+                                                                            : ''),
+                                                                        heure: String(donitinesfi[0]._graphe_heure),
+                                                                        hasProg: false
+                                                                    };
+                                                                }
                                                                 __venteFiFillLigne1Locked(donitinesfi[0], function (codeSel) {
                                                                     if (!codeSel) return;
                                                                     var hd = document.querySelector('#hdepartitinefid');
@@ -7390,15 +7478,21 @@ document.addEventListener('DOMContentLoaded', () => {
                                                                     httpH.onload = function () {
                                                                         try {
                                                                             var infositin = JSON.parse(httpH.responseText);
+                                                                            var anchorFi = __hourAnchorLeg1Fi || window.__venteSelectedHour;
                                                                             if (typeof window.__venteFillHeureItineSelect === 'function') {
-                                                                                window.__venteFillHeureItineSelect(hd, infositin, window.__venteSelectedHour);
+                                                                                window.__venteFillHeureItineSelect(hd, infositin, anchorFi);
                                                                             } else if (hd && infositin && Object.entries(infositin).length >= 1) {
                                                                                 hd.options.length = 1;
                                                                                 for (var key in Object.entries(infositin)) {
                                                                                     var opt = document.createElement('option');
                                                                                     opt.value = `${infositin[key].id_ligneheure}/${infositin[key].heure}`;
+                                                                                    opt.setAttribute('data-heure', String(infositin[key].heure || ''));
+                                                                                    if (infositin[key].date_progr) opt.setAttribute('data-date-progr', String(infositin[key].date_progr).slice(0, 10));
                                                                                     opt.innerHTML = `${infositin[key].heure}`;
                                                                                     hd.add(opt);
+                                                                                }
+                                                                                if (typeof window.__venteSelectHourInSelect === 'function') {
+                                                                                    window.__venteSelectHourInSelect(hd, anchorFi, datedepart);
                                                                                 }
                                                                             }
                                                                         } catch (eH) {}

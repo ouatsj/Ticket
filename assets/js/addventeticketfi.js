@@ -1736,6 +1736,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
                                                                 document.querySelector('#prix_axefid1').style.display = 'none';
                                                                 document.querySelector('#prix_axefid').style.display = 'none';
+                                                                var __hourAnchorLeg1Fi = window.__venteSelectedHour;
+                                                                if ((!__hourAnchorLeg1Fi || !__hourAnchorLeg1Fi.heure) && donitinesfi[0] && donitinesfi[0]._graphe_heure) {
+                                                                    __hourAnchorLeg1Fi = {
+                                                                        value: (donitinesfi[0]._graphe_id_ligneheure != null
+                                                                            ? String(donitinesfi[0]._graphe_id_ligneheure) + '/' + String(donitinesfi[0]._graphe_heure)
+                                                                            : ''),
+                                                                        heure: String(donitinesfi[0]._graphe_heure),
+                                                                        hasProg: false
+                                                                    };
+                                                                }
                                                                 __venteFiFillLigne1Locked(donitinesfi[0], function (codeSel) {
                                                                     if (!codeSel) return;
                                                                     var hd = document.querySelector('#hdepartitinefid');
@@ -1748,15 +1758,21 @@ document.addEventListener('DOMContentLoaded', () => {
                                                                     httpH.onload = function () {
                                                                         try {
                                                                             var infositin = JSON.parse(httpH.responseText);
+                                                                            var anchorFi = __hourAnchorLeg1Fi || window.__venteSelectedHour;
                                                                             if (typeof window.__venteFillHeureItineSelect === 'function') {
-                                                                                window.__venteFillHeureItineSelect(hd, infositin, window.__venteSelectedHour);
+                                                                                window.__venteFillHeureItineSelect(hd, infositin, anchorFi);
                                                                             } else if (hd && infositin && Object.entries(infositin).length >= 1) {
                                                                                 hd.options.length = 1;
                                                                                 for (var key in Object.entries(infositin)) {
                                                                                     var opt = document.createElement('option');
                                                                                     opt.value = `${infositin[key].id_ligneheure}/${infositin[key].heure}`;
+                                                                                    opt.setAttribute('data-heure', String(infositin[key].heure || ''));
+                                                                                    if (infositin[key].date_progr) opt.setAttribute('data-date-progr', String(infositin[key].date_progr).slice(0, 10));
                                                                                     opt.innerHTML = `${infositin[key].heure}`;
                                                                                     hd.add(opt);
+                                                                                }
+                                                                                if (typeof window.__venteSelectHourInSelect === 'function') {
+                                                                                    window.__venteSelectHourInSelect(hd, anchorFi, datedepart);
                                                                                 }
                                                                             }
                                                                         } catch (eH) {}
