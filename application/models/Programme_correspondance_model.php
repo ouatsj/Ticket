@@ -1326,7 +1326,132 @@ class Programme_correspondance_model extends CI_Model
     }
 
     /**
+     * Tarif du hub/tronçon = tarif de SA ligne_heure (pas celui du principal).
+     *
+     * @param int         $id_ligneheure
+     * @param string|null $typetarif_prefere
+     * @return string
+     */
+    protected function _typetarif_pour_ligneheure($id_ligneheure, $typetarif_prefere = null)
+    {
+        $idHeur = (int) $id_ligneheure;
+        if ($idHeur <= 0) {
+            return $typetarif_prefere !== null ? (string) $typetarif_prefere : '1';
+        }
+        $pref = trim((string) $typetarif_prefere);
+        if ($pref !== '') {
+            $hit = $this->db->query(
+                "SELECT tf.typetarif_id FROM tarification tf
+                 WHERE tf.ligne_heure_id = ?
+                   AND tf.typetarif_id = ?
+                   AND tf.actif_taf = 1
+                 LIMIT 1",
+                array($idHeur, $pref)
+            )->row();
+            if ($hit && isset($hit->typetarif_id)) {
+                return (string) $hit->typetarif_id;
+            }
+        }
+        $any = $this->db->query(
+            "SELECT tf.typetarif_id FROM tarification tf
+             WHERE tf.ligne_heure_id = ?
+               AND tf.actif_taf = 1
+             ORDER BY tf.typeclient_id ASC, tf.typetarif_id ASC
+             LIMIT 1",
+            array($idHeur)
+        )->row();
+        if ($any && isset($any->typetarif_id) && trim((string) $any->typetarif_id) !== '') {
+            return (string) $any->typetarif_id;
+        }
+        return $pref !== '' ? $pref : '1';
+    }
+
+    /**
+     * Oriente code_progr vers le programme du lien (dérivé/suite/principal)
+     * qui porte la ligne métier du segment (ex. Banfora au lieu de NIA).
+     *
+     * @param string $code_progr
+     * @param string $ligne_id
+     * @return string
+     */
+    public function orienter_code_progr_vers_ligne($code_progr, $ligne_id)
+    {
+        $code = trim((string) $code_progr);
+        $ligne = trim((string) $ligne_id);
+        if ($code === '' || $ligne === '') {
+            return $code;
+        }
+
+        $cur = $this->db->query(
+            "SELECT pr.code_progr, pr.depart_code, pr.date_progr,
+                    lh.ligne_id, h.heure
+             FROM programme pr
+             JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
+             JOIN heures h ON lh.heure_identif = h.id_heure
+             WHERE pr.code_progr = ?
+             LIMIT 1",
+            array($code)
+        )->row();
+        if (!$cur) {
+            return $code;
+        }
+        if ((string) $cur->ligne_id === $ligne) {
+            return $code;
+        }
+
+        $candidats = array();
+        $lien = $this->get_by_any_code($code);
+        if ($lien) {
+            foreach (array('code_progr_derive', 'code_progr_suite', 'code_progr_principal') as $col) {
+                if (!empty($lien->$col)) {
+                    $candidats[] = trim((string) $lien->$col);
+                }
+            }
+        }
+
+        if (!empty($cur->depart_code) && !empty($cur->date_progr) && !empty($cur->heure)) {
+            $sibs = $this->db->query(
+                "SELECT pr.code_progr
+                 FROM programme pr
+                 JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
+                 JOIN heures h ON lh.heure_identif = h.id_heure
+                 WHERE pr.depart_code = ?
+                   AND pr.date_progr = ?
+                   AND h.heure = ?
+                   AND lh.ligne_id = ?
+                   AND pr.statut_prog = 'actif'
+                   AND pr.actif_prog = 0
+                 ORDER BY pr.code_progr ASC",
+                array($cur->depart_code, $cur->date_progr, $cur->heure, $ligne)
+            )->result();
+            foreach ($sibs as $s) {
+                $candidats[] = trim((string) $s->code_progr);
+            }
+        }
+
+        $seen = array();
+        foreach ($candidats as $c) {
+            if ($c === '' || isset($seen[$c])) {
+                continue;
+            }
+            $seen[$c] = true;
+            $row = $this->db->query(
+                "SELECT lh.ligne_id FROM programme pr
+                 JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
+                 WHERE pr.code_progr = ?
+                 LIMIT 1",
+                array($c)
+            )->row();
+            if ($row && (string) $row->ligne_id === $ligne) {
+                return $c;
+            }
+        }
+        return $code;
+    }
+
+    /**
      * Crée un programme aligné sur le principal (même bus, depart_code, intervalles).
+     * Nom de ligne = ligne du id_heur hub/tronçon ; typetarif = tarif de cette lh.
      * Vérifie l'INSERT (affected_rows) puis ligne / dest / cie attendues.
      * $attendu optionnel : ligne_id, nom_gadest, id_compaga (contrôle post-création).
      * @return array{ok:bool,code_progr?:string,error?:string}
@@ -1357,6 +1482,10 @@ class Programme_correspondance_model extends CI_Model
         $today = mdate('%Y-%m-%d', now('UTC'));
         $suheure = $heure ? $heure : $principal->heure;
         $departCode = isset($principal->depart_code) ? (string) $principal->depart_code : '';
+        $typetarif = $this->_typetarif_pour_ligneheure(
+            $idHeur,
+            isset($principal->typetarif) ? $principal->typetarif : null
+        );
 
         for ($attempt = 0; $attempt < 5; $attempt++) {
             $pcd = $this->_nouveau_code_progr($gd);
@@ -1366,7 +1495,7 @@ class Programme_correspondance_model extends CI_Model
                 'id_heur' => $idHeur,
                 'gareidentif' => $gd,
                 'idsousgare_prog' => null,
-                'typetarif' => $principal->typetarif,
+                'typetarif' => $typetarif,
                 'categori' => $principal->categori,
                 'intervalle1' => (int) $principal->intervalle1,
                 'intervalle2' => (int) $principal->intervalle2,
@@ -1787,11 +1916,16 @@ class Programme_correspondance_model extends CI_Model
         $int2 = (int) $principal->intervalle2;
         if ($existDerive) {
             $codeDerive = $existDerive->code_progr;
+            $tfDerive = $this->_typetarif_pour_ligneheure(
+                $idHeur,
+                isset($principal->typetarif) ? $principal->typetarif : null
+            );
             $this->m_programme->update($codeDerive, array(
                 'intervalle1' => $int1,
                 'intervalle2' => $int2,
                 'categori' => $principal->categori,
                 'depart_code' => $principal->depart_code,
+                'typetarif' => $tfDerive,
             ));
         } else {
             $heureDerive = $principal->heure;

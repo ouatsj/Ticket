@@ -843,10 +843,9 @@ class Graphe_correspondance
             if ($et === null) {
                 continue;
             }
+            // OD commercial parent seulement — ne pas écraser la jambe (dérivé = vraie ligne).
             if ($axeParent !== '') {
                 $et->id_lignes = $axeParent;
-                $et->nom_ligne = $axeParent;
-                $et->ident_ligne = $axeParent;
             }
             $et->ordre_etape = $ordre;
             $et->actifint = 1;
@@ -1203,6 +1202,7 @@ class Graphe_correspondance
             $o = new stdClass();
             $o->id_tabitinligne = null;
             $o->id_itineraire = null;
+            // id_lignes = OD commercial ; nom/ident = jambe réelle (ex. dérivé Banfora).
             $o->id_lignes = $axeParent;
             $o->code_itineraires = $leg['ident_ligne'];
             $o->ordre_etape = $ordre;
@@ -1217,11 +1217,33 @@ class Graphe_correspondance
             $o->nom_gadest = $nomDest;
             $o->id_compagd = $idCompagd;
             $o->id_compaga = $idCompaga;
-            $o->nom_ligne = $axeParent;
-            $o->ident_ligne = $axeParent;
+            $o->nom_ligne = $leg['nom_ligne'];
+            $o->ident_ligne = $leg['ident_ligne'];
             $o->_graphe_heure = $leg['depart']['heure'];
             $o->_graphe_id_ligneheure = $leg['depart']['id_ligneheure'];
-            $o->_graphe_code_progr = $leg['depart']['code_progr'];
+            $codeProg = isset($leg['depart']['code_progr']) ? (string) $leg['depart']['code_progr'] : '';
+            // Dérivé hub : code_progr du graphe peut encore être le principal → oriente vers la jambe.
+            if ($codeProg !== '' && !empty($leg['ident_ligne'])) {
+                if (!isset($this->CI->m_programme_correspondance)) {
+                    $this->CI->load->model('Programme_correspondance_model', 'm_programme_correspondance');
+                }
+                $oriented = $this->CI->m_programme_correspondance->orienter_code_progr_vers_ligne(
+                    $codeProg,
+                    $leg['ident_ligne']
+                );
+                if ($oriented !== '' && $oriented !== $codeProg) {
+                    $codeProg = $oriented;
+                    $ekey = isset($this->CI->session->company->ekey)
+                        ? (string) $this->CI->session->company->ekey : '';
+                    if ($ekey !== '') {
+                        $det = $this->CI->m_programme_correspondance->prog_detail($ekey, $oriented);
+                        if ($det && !empty($det->id_ligneheure)) {
+                            $o->_graphe_id_ligneheure = $det->id_ligneheure;
+                        }
+                    }
+                }
+            }
+            $o->_graphe_code_progr = $codeProg;
             $o->_graphe_date_progr = isset($leg['depart']['date_progr']) ? $leg['depart']['date_progr'] : null;
             $o->_graphe_day_offset = isset($leg['depart']['day_offset']) ? (int) $leg['depart']['day_offset'] : 0;
             if ($idx > 0 && isset($attentes[$idx - 1])) {
@@ -1238,8 +1260,8 @@ class Graphe_correspondance
     /**
      * Prépare la payload multi-chemins pour le guichet (verifchemins).
      * Mode vente : composition déclarative en tête / fallback config.
-     * Mode reprog ($opts['reprog']) : uniquement chemins graphe multi (≥2 jambes)
-     * basés sur les programmes du jour pour l'OD — pas de config déclarative seule.
+     * Mode reprog ($opts['reprog']) : chemins graphe multi (≥2 jambes) ancrés gare de report,
+     * + composition déclarative si sa 1ʳᵉ jambe part de cette gare.
      *
      * @param array $decision resoudre_pour_vente()
      * @param array|object[] $declaratif
@@ -1651,17 +1673,26 @@ class Graphe_correspondance
 
             // A : composition déclarée en tête — sauf si une heure ancre un départ gare
             // (ex. Banfora–Ouaga 21h → priorité Banfora–Ouaga→Ouaga–Manga).
+            // Exception : si la composition a PLUS de jambes que le chemin gare
+            // (hub/tronçons, ex. Ouaga→Niangoloko via Banfora), la composition gagne.
             $hasGareHourFirst = false;
+            $gareFirstNb = 0;
             if ($heureOpt !== '') {
                 foreach ($cheminsOut as $cChk) {
                     $srcChk = isset($cChk['source']) ? (string) $cChk['source'] : '';
                     if ($srcChk === 'graphe_gare' || $srcChk === 'gare_composition') {
                         $hasGareHourFirst = true;
+                        $gareFirstNb = isset($cChk['nb_jambes']) ? (int) $cChk['nb_jambes'] : 0;
+                        if ($gareFirstNb <= 0 && !empty($cChk['codes']) && is_array($cChk['codes'])) {
+                            $gareFirstNb = count($cChk['codes']);
+                        }
                         break;
                     }
                 }
             }
-            if (!$hasGareHourFirst && $sigDecl !== '' && count($declCodes) >= 2 && count($cheminsOut) > 1) {
+            $declNb = count($declCodes);
+            $forceDeclOverGare = $hasGareHourFirst && $sigDecl !== '' && $declNb >= 2 && $declNb > $gareFirstNb;
+            if ((!$hasGareHourFirst || $forceDeclOverGare) && $sigDecl !== '' && count($declCodes) >= 2 && count($cheminsOut) > 1) {
                 $declIdx = null;
                 foreach ($cheminsOut as $i => $c) {
                     if (implode('>', $c['codes']) === $sigDecl) {
@@ -1696,15 +1727,105 @@ class Graphe_correspondance
                 }
             }
         } else {
-            // Reprog : si un chemin programmes = composition déclarée, le marquer (sans exclure les autres).
+            // Mode reprog : composition déclarative si 1ʳᵉ jambe ancrée sur la gare de report.
             if ($sigDecl !== '' && count($declCodes) >= 2) {
-                foreach ($cheminsOut as $i => $c) {
-                    if (implode('>', isset($c['codes']) ? $c['codes'] : array()) === $sigDecl) {
-                        if (strpos((string) $c['label'], 'composition') === false) {
-                            $cheminsOut[$i]['label'] = rtrim((string) $c['label']) . ' · composition déclarée';
+                $gareRep = isset($opts['gareidentif']) ? trim((string) $opts['gareidentif']) : '';
+                if ($gareRep === '' && !empty($opts['gaexp_od'])) {
+                    $gareRep = trim((string) $opts['gaexp_od']);
+                }
+                $dateRep = isset($opts['date']) ? trim((string) $opts['date']) : '';
+                if ($dateRep === '' && !empty($decision['meta']['date'])) {
+                    $dateRep = trim((string) $decision['meta']['date']);
+                }
+                $ekeyRep = isset($opts['ekey']) ? trim((string) $opts['ekey']) : '';
+                $firstDecl = (string) $declCodes[0];
+                $firstDeclOk = false;
+                if ($gareRep !== '' && $dateRep !== '' && $ekeyRep !== '') {
+                    if (!isset($this->CI->m_programme)) {
+                        $this->CI->load->model('Programme_model', 'm_programme');
+                    }
+                    $lignesRep = $this->CI->m_programme->lignes_depart_gare_date(
+                        $ekeyRep,
+                        $gareRep,
+                        $dateRep,
+                        null,
+                        $heureOpt !== '' ? $heureOpt : null
+                    );
+                    foreach ($lignesRep as $lgR) {
+                        if ((string) $lgR === $firstDecl) {
+                            $firstDeclOk = true;
+                            break;
                         }
-                        $cheminsOut[$i]['source'] = 'graphe_declaratif';
-                        break;
+                    }
+                    if (!$firstDeclOk && $heureOpt !== '') {
+                        foreach ($this->CI->m_programme->lignes_depart_gare_date(
+                            $ekeyRep, $gareRep, $dateRep, null, null
+                        ) as $lgR2) {
+                            if ((string) $lgR2 === $firstDecl) {
+                                $firstDeclOk = true;
+                                break;
+                            }
+                        }
+                    }
+                }
+                if ($firstDeclOk) {
+                    $hasDecl = false;
+                    foreach ($cheminsOut as $i => $c) {
+                        if (implode('>', isset($c['codes']) ? $c['codes'] : array()) === $sigDecl) {
+                            $hasDecl = true;
+                            if (strpos((string) $c['label'], 'composition') === false) {
+                                $cheminsOut[$i]['label'] = rtrim((string) $c['label']) . ' · composition déclarée';
+                            }
+                            $cheminsOut[$i]['source'] = 'graphe_declaratif';
+                            break;
+                        }
+                    }
+                    if (!$hasDecl) {
+                        $nb = count($declCodes);
+                        $cheminsOut[] = array(
+                            'id' => count($cheminsOut),
+                            'label' => (!empty($declNoms) ? implode(' → ', $declNoms) . ' · ' : '')
+                                . $nb . ' jambe' . ($nb > 1 ? 's' : '') . ' · composition déclarée',
+                            'codes' => $declCodes,
+                            'nb_jambes' => $nb,
+                            'score' => null,
+                            'attente_totale_min' => null,
+                            'attente_totale_label' => null,
+                            'attentes_min' => array(),
+                            'etapes' => array_values(is_array($declaratif) ? $declaratif : array($declaratif)),
+                            'source' => 'declaratif',
+                        );
+                    }
+                    // Préférer la composition plus longue (hub) sur un raccourci graphe.
+                    $declNb = count($declCodes);
+                    $declIdx = null;
+                    $maxOther = 0;
+                    foreach ($cheminsOut as $i => $c) {
+                        $sig = implode('>', isset($c['codes']) ? $c['codes'] : array());
+                        $nbC = isset($c['nb_jambes']) ? (int) $c['nb_jambes'] : 0;
+                        if ($sig === $sigDecl) {
+                            $declIdx = $i;
+                        } else {
+                            if ($nbC > $maxOther) {
+                                $maxOther = $nbC;
+                            }
+                        }
+                    }
+                    if ($declIdx !== null && $declNb >= 2 && $declNb >= $maxOther) {
+                        $item = $cheminsOut[$declIdx];
+                        array_splice($cheminsOut, $declIdx, 1);
+                        array_unshift($cheminsOut, $item);
+                    }
+                } else {
+                    // Marquer seulement si déjà présent (sans injecter hors gare report).
+                    foreach ($cheminsOut as $i => $c) {
+                        if (implode('>', isset($c['codes']) ? $c['codes'] : array()) === $sigDecl) {
+                            if (strpos((string) $c['label'], 'composition') === false) {
+                                $cheminsOut[$i]['label'] = rtrim((string) $c['label']) . ' · composition déclarée';
+                            }
+                            $cheminsOut[$i]['source'] = 'graphe_declaratif';
+                            break;
+                        }
                     }
                 }
             }

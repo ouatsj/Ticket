@@ -124,6 +124,439 @@
         }
 
         /**
+         * Oriente un code_progr vers la ligne métier du segment (hub dérivé/suite).
+         * Même logique que la vente (_sale_orient_transit_code_progr).
+         *
+         * @param string      $code_progr
+         * @param string|null $ligne_id
+         * @return string
+         */
+        protected function _reprog_orient_code_progr($code_progr, $ligne_id = null)
+        {
+            $code = trim((string) $code_progr);
+            $ligne = trim((string) $ligne_id);
+            if ($code === '' || $ligne === '') {
+                return $code;
+            }
+            if (!isset($this->m_programme_correspondance)) {
+                $this->load->model('Programme_correspondance_model', 'm_programme_correspondance');
+            }
+            return $this->m_programme_correspondance->orienter_code_progr_vers_ligne($code, $ligne);
+        }
+
+        /**
+         * Ligne catalogue depuis un id_ligneheure (secours si POST sans ligne_id).
+         *
+         * @param string|int $id_ligneheure
+         * @return string
+         */
+        protected function _reprog_ligne_from_id_lh($id_ligneheure)
+        {
+            $id = (int) $id_ligneheure;
+            if ($id <= 0) {
+                return '';
+            }
+            $row = $this->db->query(
+                "SELECT ligne_id FROM ligne_heure WHERE id_ligneheure = ? LIMIT 1",
+                array($id)
+            )->row();
+            return ($row && !empty($row->ligne_id)) ? trim((string) $row->ligne_id) : '';
+        }
+
+        /**
+         * Après orientation : vérifie que le programme porte bien la ligne cible.
+         *
+         * @param string $code_progr
+         * @param string $ligne_id
+         * @return bool
+         */
+        protected function _reprog_code_matches_ligne($code_progr, $ligne_id)
+        {
+            $code = trim((string) $code_progr);
+            $ligne = trim((string) $ligne_id);
+            if ($code === '' || $ligne === '') {
+                return $code !== '';
+            }
+            $row = $this->db->query(
+                "SELECT lh.ligne_id FROM programme pr
+                 JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
+                 WHERE pr.code_progr = ?
+                 LIMIT 1",
+                array($code)
+            )->row();
+            return $row && (string) $row->ligne_id === $ligne;
+        }
+
+        /**
+         * Applique l’orientation hub sur une liste de programmes (seg_progs / miroir chemintr).
+         *
+         * @param array  $rows
+         * @param string $ligne
+         * @param string $ekey
+         * @return array
+         */
+        protected function _reprog_orient_prog_rows($rows, $ligne, $ekey)
+        {
+            if (!is_array($rows) || empty($rows)) {
+                return $rows;
+            }
+            $ligne = trim((string) $ligne);
+            if ($ligne === '') {
+                return $rows;
+            }
+            if (!isset($this->m_programme_correspondance)) {
+                $this->load->model('Programme_correspondance_model', 'm_programme_correspondance');
+            }
+            foreach ($rows as $row) {
+                if (!is_object($row) || empty($row->code_progr)) {
+                    continue;
+                }
+                $oriented = $this->m_programme_correspondance->orienter_code_progr_vers_ligne(
+                    $row->code_progr,
+                    $ligne
+                );
+                if ($oriented === '' || $oriented === (string) $row->code_progr) {
+                    continue;
+                }
+                $det = $this->m_programme_correspondance->prog_detail($ekey, $oriented);
+                if (!$det) {
+                    continue;
+                }
+                $row->code_progr = $oriented;
+                if (isset($det->intervalle1)) {
+                    $row->intervalle1 = $det->intervalle1;
+                }
+                if (isset($det->intervalle2)) {
+                    $row->intervalle2 = $det->intervalle2;
+                }
+                if (isset($det->nom_ligne)) {
+                    $row->nom_ligne = $det->nom_ligne;
+                }
+                if (isset($det->ligne_id)) {
+                    $row->ident_ligne = $det->ligne_id;
+                    $row->ligne_id = $det->ligne_id;
+                }
+                if (isset($det->id_ligneheure)) {
+                    $row->id_ligneheure = $det->id_ligneheure;
+                }
+                if (isset($det->typetarif)) {
+                    $row->typetarif = $det->typetarif;
+                }
+                if (isset($det->categori)) {
+                    $row->categori = $det->categori;
+                }
+                if (!empty($row->id_ligneheure) && !empty($row->typetarif)) {
+                    $px = $this->db->query(
+                        "SELECT tf.prix FROM tarification tf
+                         WHERE tf.ligne_heure_id = ?
+                           AND tf.typetarif_id = ?
+                           AND tf.actif_taf = 1
+                         ORDER BY tf.typeclient_id ASC
+                         LIMIT 1",
+                        array($row->id_ligneheure, $row->typetarif)
+                    )->row();
+                    if ($px) {
+                        $row->prix = $px->prix;
+                    }
+                }
+            }
+            return $rows;
+        }
+
+        /**
+         * Oriente un segment POST et resynchronise id_lh / typetarif / prix.
+         * @return bool false si ligne cible fournie mais code impossible à aligner
+         */
+        protected function _reprog_orient_seg_fields(array &$seg)
+        {
+            $ligne = isset($seg['ligne_id']) ? trim((string) $seg['ligne_id']) : '';
+            if ($ligne === '' && !empty($seg['id_ligneheure'])) {
+                $ligne = $this->_reprog_ligne_from_id_lh($seg['id_ligneheure']);
+                $seg['ligne_id'] = $ligne;
+            }
+            if ($ligne === '') {
+                return true;
+            }
+            $avant = $seg['code_progr'];
+            $code = $this->_reprog_orient_code_progr($avant, $ligne);
+            if ($code === '') {
+                return false;
+            }
+            if (!$this->_reprog_code_matches_ligne($code, $ligne)) {
+                return false;
+            }
+            $seg['code_progr'] = $code;
+            if ($code !== $avant && !empty($seg['siege'])) {
+                $this->db->where('codepro', $avant)
+                    ->where('numsieg', $seg['siege'])
+                    ->update('tampon_siege', array('codepro' => $code));
+            }
+            if (!isset($this->m_programme_correspondance)) {
+                $this->load->model('Programme_correspondance_model', 'm_programme_correspondance');
+            }
+            $ekey = isset($this->session->company->ekey) ? (string) $this->session->company->ekey : '';
+            $det = ($ekey !== '') ? $this->m_programme_correspondance->prog_detail($ekey, $code) : null;
+            if ($det) {
+                if (!empty($det->id_ligneheure)) {
+                    $seg['id_ligneheure'] = (string) $det->id_ligneheure;
+                }
+                if (isset($det->typetarif) && trim((string) $det->typetarif) !== '') {
+                    $seg['typetarif'] = (string) $det->typetarif;
+                }
+                if (!empty($det->nom_ligne)) {
+                    $seg['nom_ligne'] = (string) $det->nom_ligne;
+                }
+                if ($seg['prix'] === '' && !empty($det->id_ligneheure) && !empty($det->typetarif)) {
+                    $px = $this->db->query(
+                        "SELECT tf.prix FROM tarification tf
+                         WHERE tf.ligne_heure_id = ?
+                           AND tf.typetarif_id = ?
+                           AND tf.actif_taf = 1
+                         ORDER BY tf.typeclient_id ASC
+                         LIMIT 1",
+                        array($det->id_ligneheure, $det->typetarif)
+                    )->row();
+                    if ($px) {
+                        $seg['prix'] = $px->prix;
+                    }
+                }
+            }
+            return true;
+        }
+
+        /**
+         * Oriente le code_pro direct (heuredeparttransit) vers idrpligntransit.
+         * Met à jour $code et $idLh si besoin. @return bool
+         */
+        protected function _reprog_orient_direct_code(&$code, &$idLh)
+        {
+            $code = trim((string) $code);
+            $idLh = trim((string) $idLh);
+            $ligne = trim((string) $this->input->post('idrpligntransit'));
+            if ($ligne === '') {
+                $ligne = $this->_reprog_ligne_from_id_lh($idLh);
+            }
+            if ($ligne === '' || $code === '') {
+                return true;
+            }
+            $oriented = $this->_reprog_orient_code_progr($code, $ligne);
+            if ($oriented === '' || !$this->_reprog_code_matches_ligne($oriented, $ligne)) {
+                return false;
+            }
+            if ($oriented === $code) {
+                return true;
+            }
+            $code = $oriented;
+            if (!isset($this->m_programme_correspondance)) {
+                $this->load->model('Programme_correspondance_model', 'm_programme_correspondance');
+            }
+            $ekey = isset($this->session->company->ekey) ? (string) $this->session->company->ekey : '';
+            $det = ($ekey !== '') ? $this->m_programme_correspondance->prog_detail($ekey, $oriented) : null;
+            if ($det && !empty($det->id_ligneheure)) {
+                $idLh = (string) $det->id_ligneheure;
+            }
+            return true;
+        }
+
+        /**
+         * Nom de ligne catalogue d'un programme.
+         */
+        protected function _reprog_nom_ligne_of_code($code_progr)
+        {
+            $code = trim((string) $code_progr);
+            if ($code === '') {
+                return '';
+            }
+            $row = $this->db->query(
+                "SELECT lg.nom_ligne FROM programme pr
+                 JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
+                 JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
+                 WHERE pr.code_progr = ?
+                 LIMIT 1",
+                array($code)
+            )->row();
+            return ($row && !empty($row->nom_ligne)) ? trim((string) $row->nom_ligne) : '';
+        }
+
+        /**
+         * P1 métier : interdiction de changer de produit hub (ex. Banfora ↔ Niangoloko).
+         * La ligne commerciale du ticket est conservée.
+         *
+         * @param string $code_progr
+         * @param string $nomTicket
+         * @return bool
+         */
+        protected function _reprog_assert_ligne_conservee($code_progr, $nomTicket)
+        {
+            $nomTicket = trim((string) $nomTicket);
+            if ($nomTicket === '') {
+                $nomTicket = trim((string) $this->input->post('repligntransit'));
+            }
+            if ($nomTicket === '') {
+                return true;
+            }
+            $nomProg = $this->_reprog_nom_ligne_of_code($code_progr);
+            if ($nomProg === '') {
+                return true;
+            }
+            return strcasecmp($nomProg, $nomTicket) === 0;
+        }
+
+        /**
+         * Prix catalogue approximatif d'un programme (1er tarif actif).
+         */
+        protected function _reprog_prix_catalogue_code($code_progr)
+        {
+            $code = trim((string) $code_progr);
+            if ($code === '') {
+                return null;
+            }
+            $row = $this->db->query(
+                "SELECT tf.prix FROM programme pr
+                 JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
+                 JOIN tarification tf ON tf.ligne_heure_id = lh.id_ligneheure
+                   AND tf.typetarif_id = pr.typetarif
+                   AND tf.actif_taf = 1
+                 WHERE pr.code_progr = ?
+                 ORDER BY tf.typeclient_id ASC
+                 LIMIT 1",
+                array($code)
+            )->row();
+            return $row ? (float) $row->prix : null;
+        }
+
+        /**
+         * P2 cas E : ticket sur principal hub mais prix ≈ dérivé/suite → aligner lookup
+         * sur le tronçon cohérent (ligne + code suggéré) pour le report.
+         */
+        protected function _reprog_enrich_hub_cas_e($out)
+        {
+            if (!$out || !is_object($out) || !empty($out->est_transit)) {
+                return $out;
+            }
+            $code = '';
+            if (!empty($out->code_progr)) {
+                $code = trim((string) $out->code_progr);
+            } elseif (!empty($out->code_pro)) {
+                $code = trim((string) $out->code_pro);
+            }
+            if ($code === '') {
+                return $out;
+            }
+            if (!isset($this->m_programme_correspondance)) {
+                $this->load->model('Programme_correspondance_model', 'm_programme_correspondance');
+            }
+            $lien = $this->m_programme_correspondance->get_by_any_code($code);
+            if (!$lien || empty($lien->code_progr_principal)) {
+                return $out;
+            }
+            $principal = trim((string) $lien->code_progr_principal);
+            if ($code !== $principal) {
+                return $out; // déjà sur dérivé/suite
+            }
+            $prixVente = isset($out->prixvente) ? (float) $out->prixvente : null;
+            if ($prixVente === null || $prixVente <= 0) {
+                return $out;
+            }
+            $prixPrinc = $this->_reprog_prix_catalogue_code($principal);
+            $candidats = array();
+            if (!empty($lien->code_progr_derive)) {
+                $candidats['derive'] = trim((string) $lien->code_progr_derive);
+            }
+            if (!empty($lien->code_progr_suite)) {
+                $candidats['suite'] = trim((string) $lien->code_progr_suite);
+            }
+            $bestCode = null;
+            $bestRole = null;
+            $bestDiff = null;
+            foreach ($candidats as $role => $cCand) {
+                $px = $this->_reprog_prix_catalogue_code($cCand);
+                if ($px === null) {
+                    continue;
+                }
+                $diff = abs($prixVente - $px);
+                $diffPrinc = ($prixPrinc !== null) ? abs($prixVente - $prixPrinc) : null;
+                // Prix vente plus proche du tronçon que du principal (ou égalité stricte tronçon).
+                if ($diff <= 1 || ($diffPrinc !== null && $diff + 0.01 < $diffPrinc)) {
+                    if ($bestDiff === null || $diff < $bestDiff) {
+                        $bestDiff = $diff;
+                        $bestCode = $cCand;
+                        $bestRole = $role;
+                    }
+                }
+            }
+            if ($bestCode === null) {
+                return $out;
+            }
+            $ekey = isset($this->session->company->ekey) ? (string) $this->session->company->ekey : '';
+            $det = ($ekey !== '') ? $this->m_programme_correspondance->prog_detail($ekey, $bestCode) : null;
+            if (!$det) {
+                return $out;
+            }
+            $out->hub_cas_e = 1;
+            $out->hub_cas_e_role = $bestRole;
+            $out->hub_cas_e_from = $code;
+            $out->code_progr_origine_hub = $code;
+            $out->code_progr = $bestCode;
+            $out->code_pro = $bestCode;
+            if (!empty($det->nom_ligne)) {
+                $out->nom_ligne = $det->nom_ligne;
+                $out->hub_cas_e_nom_ligne = $det->nom_ligne;
+            }
+            if (!empty($det->ligne_id)) {
+                $out->ident_ligne = $det->ligne_id;
+                $out->ligne_id = $det->ligne_id;
+            }
+            if (!empty($det->id_ligneheure)) {
+                $out->id_ligneheure = $det->id_ligneheure;
+            }
+            if (isset($det->typetarif)) {
+                $out->typetarif = $det->typetarif;
+            }
+            $out->hub_cas_e_msg = 'Ticket réeligné sur le tronçon hub (« '
+                . (isset($det->nom_ligne) ? $det->nom_ligne : $bestCode)
+                . ' ») : le prix correspondait à ce segment, pas au principal.';
+            return $out;
+        }
+
+        /**
+         * P3 : report d'une seule jambe d'un transit.
+         * Remappe les POST vers les champs « principal » et désactive l'invalidation multi.
+         */
+        protected function _reprog_apply_jambe_isolee_post()
+        {
+            $iso = (int) $this->input->post('reprog_jambe_isolee');
+            if ($iso < 1 || $iso > 4) {
+                return;
+            }
+            if ($iso >= 2) {
+                $sfx = ($iso === 2) ? '2' : (string) $iso;
+                $pairs = array(
+                    'passeridtransit' => 'passeridtransit' . $sfx,
+                    'codeclienttransit' => 'codeclienttransit' . $sfx,
+                    'codeticketsclienttransit' => 'codeticketsclienttransit' . $sfx,
+                );
+                foreach ($pairs as $dst => $src) {
+                    if (!isset($_POST[$src])) {
+                        continue;
+                    }
+                    $val = trim((string) $_POST[$src]);
+                    if ($val !== '') {
+                        $_POST[$dst] = $val;
+                    }
+                }
+                $prixKey = 'prixventeunifie' . (($iso === 2) ? '2' : (string) $iso);
+                if (isset($_POST[$prixKey]) && trim((string) $_POST[$prixKey]) !== '') {
+                    $_POST['prixventeunifie'] = $_POST[$prixKey];
+                }
+            }
+            $_POST['reprog_mode'] = 'direct';
+            $_POST['reprog_nbr_seg'] = '0';
+            // Ne pas invalider les autres jambes du transit d'origine.
+            $_POST['reprog_is_transit_ticket'] = '0';
+        }
+
+        /**
          * True si le ticket a déjà été reprogrammé (report actif ou statut_reprog).
          *
          * @param string $tamponcod
@@ -222,6 +655,7 @@
                     return false;
                 }
                 $parts = explode('/', $prog);
+                $ligneId = trim((string) $this->input->post('reprog_seg_ligne_id_' . $i));
                 $segs[] = array(
                     'code_progr' => isset($parts[0]) ? trim($parts[0]) : '',
                     'id_ligneheure' => isset($parts[1]) ? trim($parts[1]) : '',
@@ -230,8 +664,13 @@
                     'compaga' => trim((string) $this->input->post('reprog_seg_compaga_' . $i)),
                     'cat' => trim((string) $this->input->post('reprog_seg_cat_' . $i)),
                     'prix' => trim((string) $this->input->post('reprog_seg_prix_' . $i)),
+                    'ligne_id' => $ligneId,
                 );
                 if ($segs[$i]['code_progr'] === '') {
+                    return false;
+                }
+                // Hub : aligner code_pro sur la ligne du segment (dérivé/suite).
+                if (!$this->_reprog_orient_seg_fields($segs[$i])) {
                     return false;
                 }
             }
@@ -910,6 +1349,8 @@
                     }
                 }
             }
+            // Orientation hub (miroir chemintr) : principal → dérivé/suite de la ligne demandée.
+            $rows = $this->_reprog_orient_prog_rows($rows, $ligne, $ekey);
             return $this->load->view('beagle/pages/_programme/json', array('json' => $rows));
         }
 
@@ -1020,6 +1461,11 @@
                 // Re-normaliser après enrich transit (évite gadest_od = code escale).
                 $out = $this->_reprog_normalize_escale_od($out);
                 $out = $this->_reprog_ensure_nom_ligne($out);
+                // P2 : principal hub + prix tronçon → aligner sur dérivé/suite avant listing.
+                $out = $this->_reprog_enrich_hub_cas_e($out);
+                if (!empty($out->hub_cas_e)) {
+                    $out = $this->_reprog_ensure_nom_ligne($out);
+                }
             }
 
             return $this->load->view('beagle/pages/_programme/json', array('json' => $out));
@@ -1495,6 +1941,9 @@
         {
             $this->company = $this->m_entreprises->get_key($ckey);
 
+            // P3 : jambe isolée — remap passager cible + forcer report direct (sans invalider les autres).
+            $this->_reprog_apply_jambe_isolee_post();
+
             $today = mdate("%Y-%m-%d", now('UTC'));
             $imprimeordinaire = $this->input->post('ordinairetransit');
             $imprimeepson = $this->input->post('epsontransit');
@@ -1514,7 +1963,7 @@
                 $iduser = roleattribut_guard_post_hint($this->company->ekey);
                 if (isset($this->session) && method_exists($this->session, 'set_flashdata')) {
                     $msg = ($multiseg_probe === false)
-                        ? 'Itinéraire incomplet : renseignez compagnie, heure et siège pour chaque correspondance.'
+                        ? 'Itinéraire incomplet ou programme hors ligne (hub) : renseignez compagnie, heure et siège pour chaque correspondance.'
                         : 'Impression multi-correspondances : utilisez EPSON.';
                     $this->session->set_flashdata('reprog_error', $msg);
                 }
@@ -1550,7 +1999,48 @@
                 $dpclient1 = substr($hrp, 0, $cderep1);
                 $hrp1 = substr($hrp, $cderep1 + 1, strlen($hrp));
 
+                $dpclientAvant = $dpclient;
+                // Hub : aligner code_pro sur la ligne postée (dérivé/suite).
+                if (!$this->_reprog_orient_direct_code($dpclient, $dpclient1)) {
+                    if (isset($this->session) && method_exists($this->session, 'set_flashdata')) {
+                        $this->session->set_flashdata(
+                            'reprog_error',
+                            'Programme incompatible avec la ligne du report (hub/dérivé). Resélectionnez l\'heure.'
+                        );
+                    }
+                    redirect(
+                        'gares/' . $this->session->company->ekey
+                        . '/gTc/' . $gidc . '/compte/' . $iduser . '/' . $sgid . '/'
+                        . mdate('%d/%m/%Y', now('UTC'))
+                    );
+                    return;
+                }
+
                 $p_sieg = $this->input->post('numsiegetransit');
+                if ($dpclientAvant !== $dpclient && $p_sieg) {
+                    $this->db->where('codepro', $dpclientAvant)
+                        ->where('numsieg', $p_sieg)
+                        ->update('tampon_siege', array('codepro' => $dpclient));
+                }
+
+                // P1 : interdiction Banfora ↔ Niangoloko (ligne commerciale conservée).
+                $nomConserve = trim((string) $this->input->post('repligntransit'));
+                if (!$this->_reprog_assert_ligne_conservee($dpclient, $nomConserve)) {
+                    if (isset($this->session) && method_exists($this->session, 'set_flashdata')) {
+                        $this->session->set_flashdata(
+                            'reprog_error',
+                            'Report refusé : la ligne du ticket est conservée (pas de bascule hub Banfora ↔ Niangoloko). '
+                            . 'Choisissez un départ sur « ' . $nomConserve . ' ».'
+                        );
+                    }
+                    redirect(
+                        'gares/' . $this->session->company->ekey
+                        . '/gTc/' . $gidc . '/compte/' . $iduser . '/' . $sgid . '/'
+                        . mdate('%d/%m/%Y', now('UTC'))
+                    );
+                    return;
+                }
+
                 $ct = $this->input->post('catreprogramtransit');
                 $cdpa = $this->input->post('passeridtransit');
                 $cdpt = $this->input->post('codeclienttransit');

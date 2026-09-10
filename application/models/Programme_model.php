@@ -1294,8 +1294,14 @@
             $cd = $this->db->escape_str($cd);
             $id = $this->db->escape_str($id);
             $dt = $this->db->escape_str($dt);
-            $t = $this->db->escape_str($t);
             $dtoday = $this->db->escape_str($dtoday);
+
+            // Tarif optionnel : si vide, ne pas filtrer (dérivé hub peut avoir un typetarif ≠ jambe 1).
+            $tarifSql = '';
+            if ($t !== null && $t !== '' && $t !== '0') {
+                $t = $this->db->escape_str($t);
+                $tarifSql = "AND pr.typetarif = '{$t}'";
+            }
 
             // Requête légère (sans JOIN tarification) + compagnie pour le guichet.
             return $this->db->query(
@@ -1326,7 +1332,7 @@
                 AND pr.statut_prog ='actif'
                 AND h.h_active = 1
                 AND pr.actif_prog = 0
-                AND pr.typetarif = '{$t}'
+                {$tarifSql}
                 AND DATE_FORMAT(pr.dateheure_prog, '%Y-%m-%d-%H:%i:%s') >= '{$dtoday}'
                 ORDER BY pr.date_progr ASC, h.heure ASC
                 LIMIT 200")->result();

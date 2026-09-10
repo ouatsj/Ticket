@@ -1973,6 +1973,26 @@ document.addEventListener('DOMContentLoaded', () => {
             __venteLoadSiegesChemin(cfg, list[0]);
             return;
         }
+        var preferLigne = '';
+        if (legKey === 'tr2') {
+            var s2 = document.getElementById('idchemins');
+            preferLigne = s2 && s2.value ? String(s2.value) : '';
+        } else if (legKey === 'tr3') {
+            var s3 = document.getElementById('idchemins1');
+            preferLigne = s3 && s3.value ? String(s3.value) : '';
+        } else if (legKey === 'tr4') {
+            var s4 = document.getElementById('idchemins2');
+            preferLigne = s4 && s4.value ? String(s4.value) : '';
+        }
+        if (preferLigne) {
+            for (var pi = 0; pi < list.length; pi++) {
+                var idl = String(list[pi].ident_ligne || list[pi].ligne_id || '');
+                if (idl === preferLigne) {
+                    list = [list[pi]].concat(list.filter(function (_, ix) { return ix !== pi; }));
+                    break;
+                }
+            }
+        }
         var box = document.getElementById(cfg.progBox);
         var sel = document.getElementById(cfg.progSel);
         if (!sel) {
@@ -2604,13 +2624,44 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function __venteDefaultCheminIndex(chemins, hour) {
         if (!Array.isArray(chemins) || !chemins.length) return 0;
-        var preferGare = hour && !hour.hasProg;
-        if (preferGare) {
-            for (var g = 0; g < chemins.length; g++) {
-                var sg = chemins[g] && chemins[g].source;
-                if (sg === 'graphe_gare' || sg === 'gare_composition') return g;
+        function nbJ(c) {
+            if (!c) return 0;
+            var n = parseInt(c.nb_jambes, 10);
+            if (!isNaN(n) && n > 0) return n;
+            if (Array.isArray(c.etapes)) return c.etapes.length;
+            if (Array.isArray(c.codes)) return c.codes.length;
+            return 0;
+        }
+        var declIdx = -1;
+        var declN = 0;
+        for (var d = 0; d < chemins.length; d++) {
+            var sd = chemins[d] && chemins[d].source;
+            if (sd === 'declaratif' || sd === 'graphe_declaratif') {
+                var nd = nbJ(chemins[d]);
+                if (declIdx < 0 || nd > declN) {
+                    declIdx = d;
+                    declN = nd;
+                }
             }
         }
+        var preferGare = hour && !hour.hasProg;
+        if (preferGare) {
+            var gareIdx = -1;
+            var gareN = 0;
+            for (var g = 0; g < chemins.length; g++) {
+                var sg = chemins[g] && chemins[g].source;
+                if (sg === 'graphe_gare' || sg === 'gare_composition') {
+                    if (gareIdx < 0) {
+                        gareIdx = g;
+                        gareN = nbJ(chemins[g]);
+                    }
+                }
+            }
+            // Composition hub plus longue (ex. via Banfora) prioritaire sur raccourci 2 jambes.
+            if (declIdx >= 0 && declN > gareN) return declIdx;
+            if (gareIdx >= 0) return gareIdx;
+        }
+        if (declIdx >= 0) return declIdx;
         for (var i = 0; i < chemins.length; i++) {
             if (hour && !hour.hasProg && chemins[i].source === 'direct') continue;
             return i;
@@ -10466,7 +10517,10 @@ document.addEventListener('DOMContentLoaded', () => {
         legsVerified: {},
         lookup1Done: false,
         lookup2Done: false,
-        tamponcodtr: ''
+        tamponcodtr: '',
+        hubCasEMsg: '',
+        jambeIsolee: 0,
+        nomLigneOd: ''
     };
 
     function __reprogQ(id) { return document.getElementById(id); }
@@ -10599,7 +10653,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (modeEl) modeEl.value = 'direct';
         if (nbrEl) nbrEl.value = '0';
         for (var i = 0; i < 4; i++) {
-            ['prog', 'siege', 'compaga', 'cat', 'prix'].forEach(function (k) {
+            ['prog', 'ligne_id', 'siege', 'compaga', 'cat', 'prix'].forEach(function (k) {
                 var el = __reprogQ('reprog_seg_' + k + '_' + i);
                 if (el) el.value = '';
             });
@@ -10612,7 +10666,7 @@ document.addEventListener('DOMContentLoaded', () => {
         var siegeSel = __reprogUiSiege(idx);
         var seg = window.__reprogState.segData[idx];
         if (!cieSel || cieSel.value === '' || !seg || !heureSel || !heureSel.value) {
-            ['prog', 'siege', 'compaga', 'cat', 'prix'].forEach(function (k) {
+            ['prog', 'ligne_id', 'siege', 'compaga', 'cat', 'prix'].forEach(function (k) {
                 var el = __reprogQ('reprog_seg_' + k + '_' + idx);
                 if (el) el.value = '';
             });
@@ -10627,13 +10681,17 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         if (!row || !row.code_progr) return null;
         var progVal = row.code_progr + '/' + (row.id_ligneheure || '') + '/'
-            + (row.typetarif || __reprogSegTarif());
+            + (row.typetarif || __reprogSegTarif(idx) || '1');
         var elP = __reprogQ('reprog_seg_prog_' + idx);
+        var elL = __reprogQ('reprog_seg_ligne_id_' + idx);
         var elS = __reprogQ('reprog_seg_siege_' + idx);
         var elC = __reprogQ('reprog_seg_compaga_' + idx);
         var elCat = __reprogQ('reprog_seg_cat_' + idx);
         var elPx = __reprogQ('reprog_seg_prix_' + idx);
         if (elP) elP.value = progVal;
+        if (elL) {
+            elL.value = String(seg.ligneId || row.ident_ligne || row.ligne_id || '');
+        }
         if (elS) elS.value = siegeSel ? (siegeSel.value || '') : '';
         if (elC) {
             elC.value = (row.id_compaga || row.cle_compagnie_arrivee
@@ -10856,6 +10914,15 @@ document.addEventListener('DOMContentLoaded', () => {
         window.__reprogState.id_escale = '';
         window.__reprogState.lookup1Done = false;
         window.__reprogState.lookup2Done = false;
+        window.__reprogState.hubCasEMsg = '';
+        window.__reprogState.jambeIsolee = 0;
+        window.__reprogState.nomLigneOd = '';
+        var isoEl = __reprogQ('reprog_jambe_isolee');
+        if (isoEl) isoEl.value = '0';
+        var scopeWrap = __reprogQ('reprog_jambe_scope_wrap');
+        if (scopeWrap) scopeWrap.style.display = 'none';
+        var casE = __reprogQ('reprog_hub_cas_e_msg');
+        if (casE) { casE.style.display = 'none'; casE.textContent = ''; }
         window.__reprogState.tamponcodtr = '';
         window.__reprogState.isTransitTicket = false;
         window.__reprogState.isRetourConfirme = false;
@@ -10906,9 +10973,22 @@ document.addEventListener('DOMContentLoaded', () => {
             resume.style.display = 'block';
             resume.textContent = (st.isRetourConfirme ? 'Retour confirmé à reporter : ' : 'Parcours à reporter : ')
                 + (st.nom_ligne || ((st.gaexp || '—') + ' → ' + (st.gadest || '—')))
-                + (st.isTransitTicket ? (' (transit ' + (st.nbrJambes || '') + ' jambes)') : ' (direct)')
+                + (st.isTransitTicket && !(parseInt((__reprogQ('reprog_jambe_isolee') || {}).value, 10) > 0)
+                    ? (' (transit ' + (st.nbrJambes || '') + ' jambes)')
+                    : ' (direct)')
                 + escHint
-                + '. Choisissez une date puis un itinéraire (direct ou correspondance).';
+                + '. Ligne commerciale conservée (pas de bascule hub Banfora ↔ Niangoloko).'
+                + ' Choisissez une date puis un itinéraire (direct ou correspondance).';
+        }
+        var casE = __reprogQ('reprog_hub_cas_e_msg');
+        if (casE) {
+            if (st.hubCasEMsg) {
+                casE.style.display = 'block';
+                casE.textContent = st.hubCasEMsg;
+            } else {
+                casE.style.display = 'none';
+                casE.textContent = '';
+            }
         }
 
         __reprogQ('reprog_choix_wrap').style.display = 'block';
@@ -11924,7 +12004,107 @@ document.addEventListener('DOMContentLoaded', () => {
         el.textContent = msg;
     }
 
-    function __reprogSegTarif() {
+    /** P3 : périmètre report transit — global ou jambe isolée. */
+    function __reprogFillJambeScope(nbrJambes, jambes) {
+        var wrap = __reprogQ('reprog_jambe_scope_wrap');
+        var sel = __reprogQ('reprog_jambe_scope');
+        var hid = __reprogQ('reprog_jambe_isolee');
+        if (!wrap || !sel) return;
+        sel.innerHTML = '';
+        var opt0 = document.createElement('option');
+        opt0.value = '0';
+        opt0.textContent = 'Toutes les jambes (report global)';
+        sel.appendChild(opt0);
+        var n = parseInt(nbrJambes, 10) || 0;
+        if (n < 2) {
+            wrap.style.display = 'none';
+            if (hid) hid.value = '0';
+            window.__reprogState.jambeIsolee = 0;
+            return;
+        }
+        for (var i = 1; i <= n; i++) {
+            var j = (jambes && jambes[i - 1]) ? jambes[i - 1] : null;
+            var lab = j && (j.nom_ligne || j.code_ticket)
+                ? ('Jambe ' + i + ' seule — ' + (j.nom_ligne || j.code_ticket))
+                : ('Jambe ' + i + ' seule');
+            var opt = document.createElement('option');
+            opt.value = String(i);
+            opt.textContent = lab;
+            sel.appendChild(opt);
+        }
+        wrap.style.display = 'block';
+        sel.value = '0';
+        if (hid) hid.value = '0';
+        window.__reprogState.jambeIsolee = 0;
+        sel.onchange = function () {
+            __reprogApplyJambeScope(parseInt(sel.value, 10) || 0);
+        };
+    }
+
+    function __reprogApplyJambeScope(iso) {
+        var st = window.__reprogState;
+        var hid = __reprogQ('reprog_jambe_isolee');
+        iso = parseInt(iso, 10) || 0;
+        if (hid) hid.value = String(iso);
+        st.jambeIsolee = iso;
+        if (!st.nomLigneOd && st.nom_ligne) {
+            st.nomLigneOd = st.nom_ligne;
+        }
+        if (iso >= 1 && st.jambesExpected && st.jambesExpected[iso - 1]) {
+            var j = st.jambesExpected[iso - 1];
+            if (j.nom_ligne) {
+                st.nom_ligne = String(j.nom_ligne).trim();
+            }
+            // Remplir les champs commit avec cette jambe (isolee 2+ → champs principaux).
+            if (j.code_passager) __reprogSetVal('passerpunifie', j.code_passager);
+            if (j.code_ticket) __reprogSetVal('codeclient_ticket_unifie', j.code_ticket);
+            if (j.tamponcod) __reprogSetVal('codeticketsunifie', j.tamponcod);
+            if (j.prixvente != null) __reprogSetVal('prixventeunifie', j.prixvente);
+            if (__reprogQ('replignunifie') && st.nom_ligne) {
+                __reprogQ('replignunifie').value = st.nom_ligne;
+            }
+            st.isTransitTicket = false;
+            var hidTr = __reprogQ('reprog_is_transit_ticket');
+            if (hidTr) hidTr.value = '0';
+            st.lookup2Done = true;
+        } else {
+            if (st.nomLigneOd) {
+                st.nom_ligne = st.nomLigneOd;
+            }
+            var n = st.nbrJambes || 1;
+            st.isTransitTicket = n >= 2;
+            var hidTr2 = __reprogQ('reprog_is_transit_ticket');
+            if (hidTr2) hidTr2.value = st.isTransitTicket ? '1' : '0';
+            if (st.isTransitTicket) {
+                st.lookup2Done = __reprogAllLegsVerified();
+            }
+        }
+        __reprogResetChoix();
+        var dateEl = __reprogQ('datereprog_unifie');
+        if (!st.isTransitTicket || st.lookup2Done) {
+            if (typeof __reprogOpenChoixIfReady === 'function') {
+                __reprogOpenChoixIfReady(dateEl);
+            }
+        }
+    }
+
+    function __reprogSegTarif(idx) {
+        if (idx != null && idx !== '') {
+            var seg = window.__reprogState.segData[idx];
+            if (seg && seg.etape) {
+                var tfE = seg.etape.typetarif || seg.etape._typetarif || seg.etape._graphe_typetarif;
+                if (tfE != null && String(tfE).trim() !== '' && String(tfE) !== '0') {
+                    return String(tfE).trim();
+                }
+            }
+            if (seg && seg.selectedRow && seg.selectedRow.typetarif != null
+                && String(seg.selectedRow.typetarif).trim() !== ''
+                && String(seg.selectedRow.typetarif) !== '0') {
+                return String(seg.selectedRow.typetarif).trim();
+            }
+            // P3 : pas de filtre forcé au tarif ticket — laisse seg_progs lister le segment.
+            return '';
+        }
         var st = window.__reprogState;
         var tf = st.tarif != null ? String(st.tarif).trim() : '';
         if (tf === '' || tf === '0') return '1';
@@ -11971,15 +12151,17 @@ document.addEventListener('DOMContentLoaded', () => {
             __reprogSegErr(idx, 'Choisissez d’abord une date pour ce segment.');
             return;
         }
-        var tarif = __reprogSegTarif();
+        var tarif = __reprogSegTarif(idx);
         var root = (typeof APP_ROOT !== 'undefined' && APP_ROOT != null) ? APP_ROOT : '';
         var lignePath = encodeURIComponent(String(seg.ligneId));
         var datePath = encodeURIComponent(String(dateYmd));
         var prefCie = __reprogEtapeCieKey(seg.etape);
         var prefGadest = __reprogEtapeGadest(seg.etape);
         var urlSeg = window.location.origin + root
-            + '/reprogrammes/seg_progs/' + lignePath + '/' + datePath
-            + '/' + encodeURIComponent(tarif);
+            + '/reprogrammes/seg_progs/' + lignePath + '/' + datePath;
+        if (tarif) {
+            urlSeg += '/' + encodeURIComponent(tarif);
+        }
         var qs = [];
         if (prefCie) qs.push('compaga=' + encodeURIComponent(prefCie));
         if (prefGadest) qs.push('gadest=' + encodeURIComponent(prefGadest));
@@ -11987,6 +12169,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         function fillCompanies(rows, fromChemin) {
             // Jambe unique (direct) : injecter le programme exact si seg_progs l’a filtré.
+            // Ne jamais réinjecter un code hors ligne du segment (ex. principal NIA sur dérivé Banfora).
             var preferCode = __reprogEtapePreferCode(seg.etape);
             if (preferCode) {
                 var hasPref = false;
@@ -11997,13 +12180,19 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 }
                 if (!hasPref) {
+                    var ligneSeg = String(seg.ligneId || '');
                     var fromState = __reprogRowsArray(window.__reprogState.rows).filter(function (r) {
-                        return r && String(r.code_progr) === preferCode;
+                        if (!r || String(r.code_progr) !== preferCode) return false;
+                        var idl = String(r.ident_ligne || r.ligne_id || '');
+                        return !ligneSeg || !idl || idl === ligneSeg;
                     });
                     if (fromState.length) {
                         rows = rows.concat(fromState);
-                    } else if (seg.etape && (seg.etape.intervalle1 != null || seg.etape._code_progr)) {
-                        // Reconstruire une ligne minimale depuis l’étape directe.
+                    } else if (seg.etape && (seg.etape.intervalle1 != null || seg.etape._code_progr)
+                        && (!ligneSeg || !seg.etape.ident_ligne
+                            || String(seg.etape.ident_ligne || seg.etape.code_itineraires || '') === ligneSeg
+                            || String(seg.etape.code_itineraires || '') === ligneSeg)) {
+                        // Reconstruire une ligne minimale depuis l’étape (même ligne uniquement).
                         rows = rows.concat([{
                             code_progr: preferCode,
                             id_ligneheure: seg.etape.id_ligneheure || seg.etape._id_ligneheure || '',
@@ -12220,7 +12409,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (idx === 0) {
             var progVal = row.code_progr + '/' + (row.id_ligneheure || '') + '/'
-                + (row.typetarif || __reprogSegTarif());
+                + (row.typetarif || __reprogSegTarif(idx) || '1');
             __reprogSetPost(progVal, compaga, '');
             __reprogSetVal('replignunifie', row.nom_ligne || '');
             __reprogSetVal('repherunifie', row.heure || '');
@@ -12861,6 +13050,20 @@ document.addEventListener('DOMContentLoaded', () => {
                             __reprogApplyOdFromLegs();
                         }
                         __reprogEnsureNomLigne(donnees);
+                        window.__reprogState.nomLigneOd = window.__reprogState.nom_ligne || '';
+                        if (parseInt(donnees.hub_cas_e, 10) === 1) {
+                            window.__reprogState.hubCasEMsg = donnees.hub_cas_e_msg
+                                || 'Ticket réeligné sur le tronçon hub (prix cohérent).';
+                            if (donnees.hub_cas_e_nom_ligne) {
+                                window.__reprogState.nom_ligne = String(donnees.hub_cas_e_nom_ligne).trim();
+                                window.__reprogState.nomLigneOd = window.__reprogState.nom_ligne;
+                            }
+                            if (__reprogQ('replignunifie') && window.__reprogState.nom_ligne) {
+                                __reprogQ('replignunifie').value = window.__reprogState.nom_ligne;
+                            }
+                        } else {
+                            window.__reprogState.hubCasEMsg = '';
+                        }
                         // Ancre programmes = gare qui reporte (session), pas gareidentif ticket.
                         window.__reprogState.gid = __reprogResolveGareReport();
                         if (!window.__reprogState.gid && donnees.gareidentif) {
@@ -12910,6 +13113,10 @@ document.addEventListener('DOMContentLoaded', () => {
                         }
 
                         if (estTr) {
+                            __reprogFillJambeScope(
+                                window.__reprogState.nbrJambes,
+                                window.__reprogState.jambesExpected
+                            );
                             __reprogBuildExtraCodeFields(
                                 window.__reprogState.nbrJambes,
                                 window.__reprogState.jambesExpected,
@@ -12920,11 +13127,12 @@ document.addEventListener('DOMContentLoaded', () => {
                                 __reprogQ('erreurSmspunifie').textContent =
                                     '1er code OK. Vérifiez les '
                                     + (window.__reprogState.nbrJambes - 1)
-                                    + ' autre(s) code(s) du transit.';
+                                    + ' autre(s) code(s) du transit — ou choisissez une jambe isolée.';
                             }
                             return;
                         }
 
+                        __reprogFillJambeScope(1, null);
                         __reprogOpenChoixIfReady(dateEl);
                     }
                 );

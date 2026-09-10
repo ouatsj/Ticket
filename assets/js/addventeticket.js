@@ -1166,6 +1166,26 @@ document.addEventListener('DOMContentLoaded', () => {
             __venteLoadSiegesChemin(cfg, list[0]);
             return;
         }
+        var preferLigne = '';
+        if (legKey === 'tr2') {
+            var s2 = document.getElementById('idchemins');
+            preferLigne = s2 && s2.value ? String(s2.value) : '';
+        } else if (legKey === 'tr3') {
+            var s3 = document.getElementById('idchemins1');
+            preferLigne = s3 && s3.value ? String(s3.value) : '';
+        } else if (legKey === 'tr4') {
+            var s4 = document.getElementById('idchemins2');
+            preferLigne = s4 && s4.value ? String(s4.value) : '';
+        }
+        if (preferLigne) {
+            for (var pi = 0; pi < list.length; pi++) {
+                var idl = String(list[pi].ident_ligne || list[pi].ligne_id || '');
+                if (idl === preferLigne) {
+                    list = [list[pi]].concat(list.filter(function (_, ix) { return ix !== pi; }));
+                    break;
+                }
+            }
+        }
         var box = document.getElementById(cfg.progBox);
         var sel = document.getElementById(cfg.progSel);
         if (!sel) {
@@ -1797,13 +1817,44 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function __venteDefaultCheminIndex(chemins, hour) {
         if (!Array.isArray(chemins) || !chemins.length) return 0;
-        var preferGare = hour && !hour.hasProg;
-        if (preferGare) {
-            for (var g = 0; g < chemins.length; g++) {
-                var sg = chemins[g] && chemins[g].source;
-                if (sg === 'graphe_gare' || sg === 'gare_composition') return g;
+        function nbJ(c) {
+            if (!c) return 0;
+            var n = parseInt(c.nb_jambes, 10);
+            if (!isNaN(n) && n > 0) return n;
+            if (Array.isArray(c.etapes)) return c.etapes.length;
+            if (Array.isArray(c.codes)) return c.codes.length;
+            return 0;
+        }
+        var declIdx = -1;
+        var declN = 0;
+        for (var d = 0; d < chemins.length; d++) {
+            var sd = chemins[d] && chemins[d].source;
+            if (sd === 'declaratif' || sd === 'graphe_declaratif') {
+                var nd = nbJ(chemins[d]);
+                if (declIdx < 0 || nd > declN) {
+                    declIdx = d;
+                    declN = nd;
+                }
             }
         }
+        var preferGare = hour && !hour.hasProg;
+        if (preferGare) {
+            var gareIdx = -1;
+            var gareN = 0;
+            for (var g = 0; g < chemins.length; g++) {
+                var sg = chemins[g] && chemins[g].source;
+                if (sg === 'graphe_gare' || sg === 'gare_composition') {
+                    if (gareIdx < 0) {
+                        gareIdx = g;
+                        gareN = nbJ(chemins[g]);
+                    }
+                }
+            }
+            // Composition hub plus longue (ex. via Banfora) prioritaire sur raccourci 2 jambes.
+            if (declIdx >= 0 && declN > gareN) return declIdx;
+            if (gareIdx >= 0) return gareIdx;
+        }
+        if (declIdx >= 0) return declIdx;
         for (var i = 0; i < chemins.length; i++) {
             if (hour && !hour.hasProg && chemins[i].source === 'direct') continue;
             return i;

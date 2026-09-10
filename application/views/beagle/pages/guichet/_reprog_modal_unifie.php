@@ -123,6 +123,7 @@ $allow_prix_diff_unifie = true;
         <input type="hidden" name="reprog_nbr_seg" id="reprog_nbr_seg_unifie" value="0">
         <input type="hidden" name="reprog_is_transit_ticket" id="reprog_is_transit_ticket" value="0">
         <input type="hidden" name="reprog_nbr_jambes_origine" id="reprog_nbr_jambes_origine" value="1">
+        <input type="hidden" name="reprog_jambe_isolee" id="reprog_jambe_isolee" value="0">
         <?php for ($li = 2; $li <= 4; $li++): ?>
         <input type="hidden" id="passerpunifie<?= $li; ?>" name="passeridtransit<?= $li; ?>" value="">
         <input type="hidden" id="codeticketsunifie<?= $li; ?>" name="codeticketsclienttransit<?= $li; ?>" value="">
@@ -131,6 +132,7 @@ $allow_prix_diff_unifie = true;
         <?php endfor; ?>
         <?php for ($si = 0; $si < 4; $si++): ?>
         <input type="hidden" name="reprog_seg_prog_<?= $si; ?>" id="reprog_seg_prog_<?= $si; ?>" value="">
+        <input type="hidden" name="reprog_seg_ligne_id_<?= $si; ?>" id="reprog_seg_ligne_id_<?= $si; ?>" value="">
         <input type="hidden" name="reprog_seg_siege_<?= $si; ?>" id="reprog_seg_siege_<?= $si; ?>" value="">
         <input type="hidden" name="reprog_seg_compaga_<?= $si; ?>" id="reprog_seg_compaga_<?= $si; ?>" value="">
         <input type="hidden" name="reprog_seg_cat_<?= $si; ?>" id="reprog_seg_cat_<?= $si; ?>" value="">
@@ -189,6 +191,16 @@ $allow_prix_diff_unifie = true;
                 Reprogrammation gratuite : aucun montant n’est facturé à l’agent (même en cas de changement de compagnie ou de correspondance).
             </p>
             <p class="small text-info mb-2" id="reprog_od_resume" style="display:none"></p>
+            <p class="small text-warning mb-2" id="reprog_hub_cas_e_msg" style="display:none"></p>
+            <div class="form-group mb-2" id="reprog_jambe_scope_wrap" style="display:none">
+                <label class="small mb-0">Périmètre du report</label>
+                <select class="form-control form-control-sm" id="reprog_jambe_scope">
+                    <option value="0">Toutes les jambes (report global)</option>
+                </select>
+                <p class="small text-muted mb-0 mt-1">
+                    Jambe isolée : seule cette correspondance est reportée ; les autres tickets du transit restent inchangés.
+                </p>
+            </div>
             <div class="form-row">
                 <div class="form-group col-md-4 mb-2">
                     <label class="small mb-0">Date de report</label>

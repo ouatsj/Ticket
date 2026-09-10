@@ -468,7 +468,162 @@
             return 'Vente transit non enregistrée : manque ' . implode(', ', $missing) . '. Resélectionnez l\'heure/siège de la correspondance 1 puis cliquez EPSON.';
         }
 
+        /**
+         * Code programme transit orienté hub/tronçon : aligne code_pro sur la ligne du segment
+         * (ex. dérivé Banfora si idchemin = BOB1-BAN1, pas le principal NIA).
+         *
+         * @param string      $code_progr
+         * @param string|null $ligne_id
+         * @return string
+         */
+        protected function _sale_orient_transit_code_progr($code_progr, $ligne_id = null)
+        {
+            $code = trim((string) $code_progr);
+            $ligne = trim((string) $ligne_id);
+            if ($code === '' || $ligne === '') {
+                return $code;
+            }
+            if (!isset($this->m_programme_correspondance)) {
+                $this->load->model('Programme_correspondance_model', 'm_programme_correspondance');
+            }
+            return $this->m_programme_correspondance->orienter_code_progr_vers_ligne($code, $ligne);
+        }
 
+        /**
+         * Extrait le code_progr d'un champ idcheminheure* et l'oriente vers la ligne idchemin*.
+         *
+         * @param string $postCheminheure ex. idcheminheure
+         * @param string $postLigne       ex. idchemin
+         * @return string
+         */
+        protected function _sale_code_progr_from_chemin_post($postCheminheure, $postLigne)
+        {
+            $raw = trim((string) $this->input->post($postCheminheure));
+            if ($raw === '') {
+                return '';
+            }
+            $pos = strpos($raw, '/');
+            $code = ($pos === false) ? $raw : substr($raw, 0, $pos);
+            $ligne = trim((string) $this->input->post($postLigne));
+            if ($ligne === '') {
+                $ligne = trim((string) $this->input->post('lignedepatrans1'));
+            }
+            return $this->_sale_orient_transit_code_progr($code, $ligne);
+        }
+
+        /**
+         * Transit hub : avant enregistrement, aligne code_pro / ligne / nom / prix
+         * sur le programme de la ligne choisie (dérivé = ligne normale).
+         * Réécrit aussi idcheminheure* et migre le tampon siège si le code change.
+         */
+        protected function _sale_normalize_transit_hub_post()
+        {
+            $legs = array(
+                array(
+                    'heure' => 'idcheminheure',
+                    'ligneSel' => 'idchemin',
+                    'lign' => 'lignedepatrans1',
+                    'nom' => 'nomitinetrans1',
+                    'prix' => 'prixtransit',
+                    'siege' => 'passagersiegesitines1',
+                ),
+                array(
+                    'heure' => 'idcheminheure1',
+                    'ligneSel' => 'idchemin1',
+                    'lign' => 'lignedepatrans2',
+                    'nom' => 'nomitinetrans2',
+                    'prix' => 'prixtransit1',
+                    'siege' => 'passagersiegesitines2',
+                ),
+                array(
+                    'heure' => 'idcheminheure2',
+                    'ligneSel' => 'idchemin2',
+                    'lign' => 'lignedepatrans3',
+                    'nom' => 'nomitinetrans3',
+                    'prix' => 'prixtransit2',
+                    'siege' => 'passagersiegesitines3',
+                ),
+            );
+
+            if (!isset($this->m_programme_correspondance)) {
+                $this->load->model('Programme_correspondance_model', 'm_programme_correspondance');
+            }
+            $ekey = isset($this->session->company->ekey) ? (string) $this->session->company->ekey : '';
+
+            foreach ($legs as $leg) {
+                $raw = isset($_POST[$leg['heure']]) ? trim((string) $_POST[$leg['heure']]) : '';
+                if ($raw === '') {
+                    continue;
+                }
+                $pos = strpos($raw, '/');
+                $codeAvant = ($pos === false) ? $raw : substr($raw, 0, $pos);
+                $ligne = '';
+                if (!empty($leg['ligneSel']) && isset($_POST[$leg['ligneSel']])) {
+                    $ligne = trim((string) $_POST[$leg['ligneSel']]);
+                }
+                if ($ligne === '' && isset($_POST[$leg['lign']])) {
+                    $ligne = trim((string) $_POST[$leg['lign']]);
+                }
+                $code = $this->_sale_orient_transit_code_progr($codeAvant, $ligne);
+                if ($code === '') {
+                    continue;
+                }
+
+                $det = ($ekey !== '')
+                    ? $this->m_programme_correspondance->prog_detail($ekey, $code)
+                    : null;
+                if (!$det) {
+                    if ($code !== $codeAvant && $pos !== false) {
+                        $_POST[$leg['heure']] = $code . substr($raw, $pos);
+                    }
+                    continue;
+                }
+
+                $prix = null;
+                if (!empty($det->id_ligneheure) && isset($det->typetarif) && $det->typetarif !== '') {
+                    $px = $this->db->query(
+                        "SELECT tf.prix FROM tarification tf
+                         WHERE tf.ligne_heure_id = ?
+                           AND tf.typetarif_id = ?
+                           AND tf.actif_taf = 1
+                         ORDER BY tf.typeclient_id ASC
+                         LIMIT 1",
+                        array($det->id_ligneheure, $det->typetarif)
+                    )->row();
+                    if ($px) {
+                        $prix = $px->prix;
+                    }
+                }
+
+                $_POST[$leg['heure']] = $code
+                    . '/' . (isset($det->intervalle1) ? $det->intervalle1 : '')
+                    . '/' . (isset($det->intervalle2) ? $det->intervalle2 : '')
+                    . '/' . (isset($det->id_ligneheure) ? $det->id_ligneheure : '')
+                    . '/' . ($prix !== null ? $prix : '');
+
+                if (!empty($det->ligne_id)) {
+                    $_POST[$leg['lign']] = (string) $det->ligne_id;
+                    if (!empty($leg['ligneSel'])) {
+                        $_POST[$leg['ligneSel']] = (string) $det->ligne_id;
+                    }
+                }
+                if (!empty($det->nom_ligne)) {
+                    $_POST[$leg['nom']] = (string) $det->nom_ligne;
+                }
+                if ($prix !== null && $prix !== '') {
+                    $_POST[$leg['prix']] = $prix;
+                }
+
+                if ($code !== $codeAvant && !empty($leg['siege']) && !empty($_POST[$leg['siege']])) {
+                    $siege = trim((string) $_POST[$leg['siege']]);
+                    $this->db->where('codepro', $codeAvant)
+                        ->where('numsieg', $siege)
+                        ->update('tampon_siege', array('codepro' => $code));
+                }
+            }
+        }
+
+        
         
         public function busindex($ckey, $gd, $uid, $sg)
         {
@@ -2602,6 +2757,69 @@
             $ekey = $this->session->company->ekey;
             session_release_lock();
             $outcht = $this->m_programme->getchtr($ekey, $ax, $d, $t);
+            // Dérivé / hub : typetarif peut différer de la jambe 1 — retenter sans filtre tarif.
+            if (empty($outcht) && $t !== null && $t !== '' && $t !== '0') {
+                $outcht = $this->m_programme->getchtr($ekey, $ax, $d, '');
+            }
+            // Orientation hub : si un code pointe encore sur le principal d'un autre axe,
+            // le ramener sur le programme de la ligne demandée (dérivé/suite).
+            if (is_array($outcht) && !empty($outcht)) {
+                if (!isset($this->m_programme_correspondance)) {
+                    $this->load->model('Programme_correspondance_model', 'm_programme_correspondance');
+                }
+                $ligne = trim((string) $ax);
+                foreach ($outcht as $row) {
+                    if (!is_object($row) || empty($row->code_progr)) {
+                        continue;
+                    }
+                    $oriented = $this->m_programme_correspondance->orienter_code_progr_vers_ligne(
+                        $row->code_progr,
+                        $ligne
+                    );
+                    if ($oriented !== '' && $oriented !== (string) $row->code_progr) {
+                        $det = $this->m_programme_correspondance->prog_detail($ekey, $oriented);
+                        if ($det) {
+                            $row->code_progr = $oriented;
+                            if (isset($det->intervalle1)) {
+                                $row->intervalle1 = $det->intervalle1;
+                            }
+                            if (isset($det->intervalle2)) {
+                                $row->intervalle2 = $det->intervalle2;
+                            }
+                            if (isset($det->nom_ligne)) {
+                                $row->nom_ligne = $det->nom_ligne;
+                            }
+                            if (isset($det->ligne_id)) {
+                                $row->ident_ligne = $det->ligne_id;
+                            }
+                            if (isset($det->id_ligneheure)) {
+                                $row->id_ligneheure = $det->id_ligneheure;
+                            }
+                            if (isset($det->typetarif)) {
+                                $row->typetarif = $det->typetarif;
+                            }
+                            if (isset($det->categori)) {
+                                $row->categori = $det->categori;
+                            }
+                            // Recalcul prix sur la lh orientée.
+                            if (!empty($row->id_ligneheure) && !empty($row->typetarif)) {
+                                $px = $this->db->query(
+                                    "SELECT tf.prix FROM tarification tf
+                                     WHERE tf.ligne_heure_id = ?
+                                       AND tf.typetarif_id = ?
+                                       AND tf.actif_taf = 1
+                                     ORDER BY tf.typeclient_id ASC
+                                     LIMIT 1",
+                                    array($row->id_ligneheure, $row->typetarif)
+                                )->row();
+                                if ($px) {
+                                    $row->prix = $px->prix;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
             return $this->load->view('beagle/pages/_programme/json', array('json' => $outcht));
         }
 
@@ -2728,6 +2946,9 @@
             if ($this->_sale_siege_bloque_guard()) {
                 return;
             }
+
+            // Correspondances hub/dérivé : code + ligne + nom + prix alignés sur la ligne choisie.
+            $this->_sale_normalize_transit_hub_post();
 
             $this->_purge_tampon_siege_expired();
 
@@ -4160,15 +4381,18 @@
                             $h_posdtr = strpos($this->input->post('idcheminheure'), '/');
                                                 
                             $dpclient2 = substr($this->input->post('idcheminheure'), 0, $h_posdtr);
+                            $dpclient2 = $this->_sale_orient_transit_code_progr($dpclient2, $this->input->post('idchemin'));
                             $p_sieg2 = $this->input->post('passagersiegesitines1');
 
                             $h_posdtr1 = strpos($this->input->post('idcheminheure1'), '/');
                                                 
                             $dpclient3 = substr($this->input->post('idcheminheure1'), 0, $h_posdtr1);
+                            $dpclient3 = $this->_sale_orient_transit_code_progr($dpclient3, $this->input->post('idchemin1'));
                             $p_sieg3 = $this->input->post('passagersiegesitines2');
                             $h_posdtr2 = strpos($this->input->post('idcheminheure2'), '/');
                                                 
                             $dpclient4 = substr($this->input->post('idcheminheure2'), 0, $h_posdtr2);
+                            $dpclient4 = $this->_sale_orient_transit_code_progr($dpclient4, $this->input->post('idchemin2'));
                             $p_sieg4 = $this->input->post('passagersiegesitines3');
 
                             $rcl = $this->input->post('cprclient');
@@ -4292,6 +4516,7 @@
                                                         $h_posd = strpos($this->input->post('idcheminheure'), '/');
                                                 
                                                         $h_gdp = substr($this->input->post('idcheminheure'), 0, $h_posd);
+                                                        $h_gdp = $this->_sale_orient_transit_code_progr($h_gdp, $this->input->post('idchemin'));
                                                         $h_direction = substr($this->input->post('idcheminheure'), $h_posd + 1, strlen($this->input->post('idcheminheure')));
                                                         $hr_posd = strpos($h_direction, '/');
                                                         $post_trans = substr($h_direction, 0, $hr_posd);
@@ -4528,6 +4753,7 @@
                                                         $h_posd = strpos($this->input->post('idcheminheure'), '/');
                                             
                                                         $h_gdp = substr($this->input->post('idcheminheure'), 0, $h_posd);
+                                                        $h_gdp = $this->_sale_orient_transit_code_progr($h_gdp, $this->input->post('idchemin'));
                                                         $h_direction = substr($this->input->post('idcheminheure'), $h_posd + 1, strlen($this->input->post('idcheminheure')));
                                                         $hr_posd = strpos($h_direction, '/');
                                                         $post_trans = substr($h_direction, 0, $hr_posd);
@@ -4604,6 +4830,7 @@
                                                         $h_posd1 = strpos($this->input->post('idcheminheure1'), '/');
                                             
                                                         $h_gdp1 = substr($this->input->post('idcheminheure1'), 0, $h_posd1);
+                                                        $h_gdp1 = $this->_sale_orient_transit_code_progr($h_gdp1, $this->input->post('idchemin1'));
                                                         $h_direction1 = substr($this->input->post('idcheminheure1'), $h_posd1 + 1, strlen($this->input->post('idcheminheure1')));
                                                         $hr_posd1 = strpos($h_direction1, '/');
                                                         $post_trans1 = substr($h_direction1, 0, $hr_posd1);
@@ -4861,6 +5088,7 @@
                                             $h_posd = strpos($this->input->post('idcheminheure'), '/');
                                                 
                                                 $h_gdp = substr($this->input->post('idcheminheure'), 0, $h_posd);
+                                                        $h_gdp = $this->_sale_orient_transit_code_progr($h_gdp, $this->input->post('idchemin'));
                                                 $h_direction = substr($this->input->post('idcheminheure'), $h_posd + 1, strlen($this->input->post('idcheminheure')));
                                                 $hr_posd = strpos($h_direction, '/');
                                                 $post_trans = substr($h_direction, 0, $hr_posd);
@@ -4934,6 +5162,7 @@
                                                     $h_posd1 = strpos($this->input->post('idcheminheure1'), '/');
                                                 
                                                     $h_gdp1 = substr($this->input->post('idcheminheure1'), 0, $h_posd1);
+                                                        $h_gdp1 = $this->_sale_orient_transit_code_progr($h_gdp1, $this->input->post('idchemin1'));
                                                     $h_direction1 = substr($this->input->post('idcheminheure1'), $h_posd1 + 1, strlen($this->input->post('idcheminheure1')));
                                                     $hr_posd1 = strpos($h_direction1, '/');
                                                     $post_trans1 = substr($h_direction1, 0, $hr_posd1);
@@ -5009,6 +5238,7 @@
                                                          $h_posd2 = strpos($this->input->post('idcheminheure2'), '/');
                                                 
                                                         $h_gdp2 = substr($this->input->post('idcheminheure2'), 0, $h_posd2);
+                                                        $h_gdp2 = $this->_sale_orient_transit_code_progr($h_gdp2, $this->input->post('idchemin2'));
                                                         $h_direction2 = substr($this->input->post('idcheminheure2'), $h_posd1 + 1, strlen($this->input->post('idcheminheure2')));
                                                             $hr_posd2 = strpos($h_direction2, '/');
                                                             $post_trans2 = substr($h_direction2, 0, $hr_posd2);
@@ -5321,6 +5551,7 @@
                                                     $h_posd = strpos($this->input->post('idcheminheure'), '/');
                                                     
                                                     $h_gdp = substr($this->input->post('idcheminheure'), 0, $h_posd);
+                                                        $h_gdp = $this->_sale_orient_transit_code_progr($h_gdp, $this->input->post('idchemin'));
                                                     $h_direction = substr($this->input->post('idcheminheure'), $h_posd + 1, strlen($this->input->post('idcheminheure')));
                                                     $hr_posd = strpos($h_direction, '/');
                                                     $post_trans = substr($h_direction, 0, $hr_posd);
@@ -5541,6 +5772,7 @@
                                                     $h_posd = strpos($this->input->post('idcheminheure'), '/');
                                                 
                                                     $h_gdp = substr($this->input->post('idcheminheure'), 0, $h_posd);
+                                                        $h_gdp = $this->_sale_orient_transit_code_progr($h_gdp, $this->input->post('idchemin'));
                                                     
                                                     $h_direction = substr($this->input->post('idcheminheure'), $h_posd + 1, strlen($this->input->post('idcheminheure')));
                                                             
@@ -5616,6 +5848,7 @@
                                                         $h_posd1 = strpos($this->input->post('idcheminheure1'), '/');
                                                     
                                                         $h_gdp1 = substr($this->input->post('idcheminheure1'), 0, $h_posd1);
+                                                        $h_gdp1 = $this->_sale_orient_transit_code_progr($h_gdp1, $this->input->post('idchemin1'));
                                                         
                                                         $h_direction1 = substr($this->input->post('idcheminheure1'), $h_posd1 + 1, strlen($this->input->post('idcheminheure1')));
                                                             
@@ -5881,6 +6114,7 @@
                                                         $h_posd = strpos($this->input->post('idcheminheure'), '/');
                                                 
                                                         $h_gdp = substr($this->input->post('idcheminheure'), 0, $h_posd);
+                                                        $h_gdp = $this->_sale_orient_transit_code_progr($h_gdp, $this->input->post('idchemin'));
                                                         $h_direction = substr($this->input->post('idcheminheure'), $h_posd + 1, strlen($this->input->post('idcheminheure')));
                                                         $hr_posd = strpos($h_direction, '/');
                                                         $post_trans = substr($h_direction, 0, $hr_posd);
@@ -5953,6 +6187,7 @@
                                                     $h_posd1 = strpos($this->input->post('idcheminheure1'), '/');
                                                 
                                                     $h_gdp1 = substr($this->input->post('idcheminheure1'), 0, $h_posd1);
+                                                        $h_gdp1 = $this->_sale_orient_transit_code_progr($h_gdp1, $this->input->post('idchemin1'));
                                                     $h_direction1 = substr($this->input->post('idcheminheure1'), $h_posd1 + 1, strlen($this->input->post('idcheminheure1')));
                                     
                                                     $hr_posd1 = strpos($h_direction1, '/');
@@ -6026,6 +6261,7 @@
                                                         $h_posd2 = strpos($this->input->post('idcheminheure2'), '/');
                                                 
                                                         $h_gdp2 = substr($this->input->post('idcheminheure2'), 0, $h_posd2);
+                                                        $h_gdp2 = $this->_sale_orient_transit_code_progr($h_gdp2, $this->input->post('idchemin2'));
                                                         $h_direction2 = substr($this->input->post('idcheminheure2'), $h_posd1 + 1, strlen($this->input->post('idcheminheure2')));
                                                             $hr_posd2 = strpos($h_direction2, '/');
                                                             $post_trans2 = substr($h_direction2, 0, $hr_posd2);
@@ -6283,15 +6519,18 @@
                             $h_posdtr = strpos($this->input->post('idcheminheure'), '/');
                                                 
                             $dpclient2 = substr($this->input->post('idcheminheure'), 0, $h_posdtr);
+                            $dpclient2 = $this->_sale_orient_transit_code_progr($dpclient2, $this->input->post('idchemin'));
                             $p_sieg2 = $this->input->post('passagersiegesitines1');
 
                             $h_posdtr1 = strpos($this->input->post('idcheminheure1'), '/');
                                                 
                             $dpclient3 = substr($this->input->post('idcheminheure1'), 0, $h_posdtr1);
+                            $dpclient3 = $this->_sale_orient_transit_code_progr($dpclient3, $this->input->post('idchemin1'));
                             $p_sieg3 = $this->input->post('passagersiegesitines2');
                             $h_posdtr2 = strpos($this->input->post('idcheminheure2'), '/');
                                                 
                             $dpclient4 = substr($this->input->post('idcheminheure2'), 0, $h_posdtr2);
+                            $dpclient4 = $this->_sale_orient_transit_code_progr($dpclient4, $this->input->post('idchemin2'));
                             $p_sieg4 = $this->input->post('passagersiegesitines3');
                             $rcl = $this->input->post('cprclient');
                             $rcp = $this->input->post('cpprclient');
@@ -6417,6 +6656,7 @@
                                                         $h_posd = strpos($this->input->post('idcheminheure'), '/');
                                                     
                                                         $h_gdp = substr($this->input->post('idcheminheure'), 0, $h_posd);
+                                                        $h_gdp = $this->_sale_orient_transit_code_progr($h_gdp, $this->input->post('idchemin'));
                                                         $h_direction = substr($this->input->post('idcheminheure'), $h_posd + 1, strlen($this->input->post('idcheminheure')));
                                                         $hr_posd = strpos($h_direction, '/');
                                                         $post_trans = substr($h_direction, 0, $hr_posd);
@@ -6645,6 +6885,7 @@
                                                     $h_posd = strpos($this->input->post('idcheminheure'), '/');
                                             
                                                         $h_gdp = substr($this->input->post('idcheminheure'), 0, $h_posd);
+                                                        $h_gdp = $this->_sale_orient_transit_code_progr($h_gdp, $this->input->post('idchemin'));
                                                         $h_direction = substr($this->input->post('idcheminheure'), $h_posd + 1, strlen($this->input->post('idcheminheure')));
                                                         $hr_posd = strpos($h_direction, '/');
                                                         $post_trans = substr($h_direction, 0, $hr_posd);
@@ -6718,6 +6959,7 @@
                                                         $h_posd1 = strpos($this->input->post('idcheminheure1'), '/');
                                             
                                                         $h_gdp1 = substr($this->input->post('idcheminheure1'), 0, $h_posd1);
+                                                        $h_gdp1 = $this->_sale_orient_transit_code_progr($h_gdp1, $this->input->post('idchemin1'));
                                                         $h_direction1 = substr($this->input->post('idcheminheure1'), $h_posd1 + 1, strlen($this->input->post('idcheminheure1')));
                                                         $hr_posd1 = strpos($h_direction1, '/');
                                                         $post_trans1 = substr($h_direction1, 0, $hr_posd1);
@@ -6973,6 +7215,7 @@
                                                         $h_posd = strpos($this->input->post('idcheminheure'), '/');
                                                     
                                                         $h_gdp = substr($this->input->post('idcheminheure'), 0, $h_posd);
+                                                        $h_gdp = $this->_sale_orient_transit_code_progr($h_gdp, $this->input->post('idchemin'));
                                                         $h_direction = substr($this->input->post('idcheminheure'), $h_posd + 1, strlen($this->input->post('idcheminheure')));
                                                         $hr_posd = strpos($h_direction, '/');
                                                         $post_trans = substr($h_direction, 0, $hr_posd);
@@ -7044,6 +7287,7 @@
                                                         $h_posd1 = strpos($this->input->post('idcheminheure1'), '/');
                                                     
                                                         $h_gdp1 = substr($this->input->post('idcheminheure1'), 0, $h_posd1);
+                                                        $h_gdp1 = $this->_sale_orient_transit_code_progr($h_gdp1, $this->input->post('idchemin1'));
                                                         $h_direction1 = substr($this->input->post('idcheminheure1'), $h_posd1 + 1, strlen($this->input->post('idcheminheure1')));
                                                             $hr_posd1 = strpos($h_direction1, '/');
                                                             $post_trans1 = substr($h_direction1, 0, $hr_posd1);
@@ -7114,6 +7358,7 @@
                                                             $h_posd2 = strpos($this->input->post('idcheminheure2'), '/');
                                                     
                                                             $h_gdp2 = substr($this->input->post('idcheminheure2'), 0, $h_posd2);
+                                                        $h_gdp2 = $this->_sale_orient_transit_code_progr($h_gdp2, $this->input->post('idchemin2'));
                                                             $h_direction2 = substr($this->input->post('idcheminheure2'), $h_posd1 + 1, strlen($this->input->post('idcheminheure2')));
                                                             $hr_posd2 = strpos($h_direction2, '/');
                                                             $post_trans2 = substr($h_direction2, 0, $hr_posd2);
@@ -7424,6 +7669,7 @@
                                                     $h_posd = strpos($this->input->post('idcheminheure'), '/');
                                                         
                                                     $h_gdp = substr($this->input->post('idcheminheure'), 0, $h_posd);
+                                                        $h_gdp = $this->_sale_orient_transit_code_progr($h_gdp, $this->input->post('idchemin'));
                                                     $h_direction = substr($this->input->post('idcheminheure'), $h_posd + 1, strlen($this->input->post('idcheminheure')));                                      $hr_posd = strpos($h_direction, '/');
                                                     $post_trans = substr($h_direction, 0, $hr_posd);
                                                     $itinetras = substr($h_direction, $hr_posd + 1, strlen($h_direction));
@@ -7638,6 +7884,7 @@
                                                     $h_posd = strpos($this->input->post('idcheminheure'), '/');
                                                 
                                                     $h_gdp = substr($this->input->post('idcheminheure'), 0, $h_posd);
+                                                        $h_gdp = $this->_sale_orient_transit_code_progr($h_gdp, $this->input->post('idchemin'));
                                                     $h_direction = substr($this->input->post('idcheminheure'), $h_posd + 1, strlen($this->input->post('idcheminheure')));
                                                     $hr_posd = strpos($h_direction, '/');
                                                     $post_trans = substr($h_direction, 0, $hr_posd);
@@ -7709,6 +7956,7 @@
                                                             $h_posd1 = strpos($this->input->post('idcheminheure1'), '/');
                                                 
                                                         $h_gdp1 = substr($this->input->post('idcheminheure1'), 0, $h_posd1);
+                                                        $h_gdp1 = $this->_sale_orient_transit_code_progr($h_gdp1, $this->input->post('idchemin1'));
                                                             $h_direction1 = substr($this->input->post('idcheminheure1'), $h_posd1 + 1, strlen($this->input->post('idcheminheure1')));
                                                             $hr_posd1 = strpos($h_direction1, '/');
                                                             $post_trans1 = substr($h_direction1, 0, $hr_posd1);
@@ -7967,6 +8215,7 @@
                                                     $h_posd = strpos($this->input->post('idcheminheure'), '/');
                                                 
                                                     $h_gdp = substr($this->input->post('idcheminheure'), 0, $h_posd);
+                                                        $h_gdp = $this->_sale_orient_transit_code_progr($h_gdp, $this->input->post('idchemin'));
                                                     $h_direction = substr($this->input->post('idcheminheure'), $h_posd + 1, strlen($this->input->post('idcheminheure')));
                                                     $hr_posd = strpos($h_direction, '/');
                                                     $post_trans = substr($h_direction, 0, $hr_posd);
@@ -8039,6 +8288,7 @@
                                                         $h_posd1 = strpos($this->input->post('idcheminheure1'), '/');
                                             
                                                         $h_gdp1 = substr($this->input->post('idcheminheure1'), 0, $h_posd1);
+                                                        $h_gdp1 = $this->_sale_orient_transit_code_progr($h_gdp1, $this->input->post('idchemin1'));
                                                         $h_direction1 = substr($this->input->post('idcheminheure1'), $h_posd1 + 1, strlen($this->input->post('idcheminheure1')));
                                                         $hr_posd1 = strpos($h_direction1, '/');
                                                         $post_trans1 = substr($h_direction1, 0, $hr_posd1);
@@ -8107,6 +8357,7 @@
                                                         $h_posd2 = strpos($this->input->post('idcheminheure2'), '/');
                                                 
                                                         $h_gdp2 = substr($this->input->post('idcheminheure2'), 0, $h_posd2);
+                                                        $h_gdp2 = $this->_sale_orient_transit_code_progr($h_gdp2, $this->input->post('idchemin2'));
                                                             $h_direction2 = substr($this->input->post('idcheminheure2'), $h_posd2 + 1, strlen($this->input->post('idcheminheure2')));
                                                             $hr_posd2 = strpos($h_direction2, '/');
                                                             $post_trans2 = substr($h_direction2, 0, $hr_posd2);
@@ -8337,15 +8588,18 @@
                             $h_posdtr = strpos($this->input->post('idcheminheure'), '/');
                                                 
                             $dpclient2 = substr($this->input->post('idcheminheure'), 0, $h_posdtr);
+                            $dpclient2 = $this->_sale_orient_transit_code_progr($dpclient2, $this->input->post('idchemin'));
                             $p_sieg2 = $this->input->post('passagersiegesitines1');
 
                             $h_posdtr1 = strpos($this->input->post('idcheminheure1'), '/');
                                                 
                             $dpclient3 = substr($this->input->post('idcheminheure1'), 0, $h_posdtr1);
+                            $dpclient3 = $this->_sale_orient_transit_code_progr($dpclient3, $this->input->post('idchemin1'));
                             $p_sieg3 = $this->input->post('passagersiegesitines2');
                             $h_posdtr2 = strpos($this->input->post('idcheminheure2'), '/');
                                                 
                             $dpclient4 = substr($this->input->post('idcheminheure2'), 0, $h_posdtr2);
+                            $dpclient4 = $this->_sale_orient_transit_code_progr($dpclient4, $this->input->post('idchemin2'));
                             $p_sieg4 = $this->input->post('passagersiegesitines3');
                                 $rcl = $this->input->post('cprclient');
                                 $rcp = $this->input->post('cpprclient');
@@ -8522,6 +8776,7 @@
                                                         $h_posd = strpos($this->input->post('idcheminheure'), '/');
                                             
                                                         $h_gdp = substr($this->input->post('idcheminheure'), 0, $h_posd);
+                                                        $h_gdp = $this->_sale_orient_transit_code_progr($h_gdp, $this->input->post('idchemin'));
                                                         $h_direction = substr($this->input->post('idcheminheure'), $h_posd + 1, strlen($this->input->post('idcheminheure')));
                                                         $hr_posd = strpos($h_direction, '/');
                                                         $post_trans = substr($h_direction, 0, $hr_posd);
@@ -8842,6 +9097,7 @@
                                                         $h_posd = strpos($this->input->post('idcheminheure'), '/');
                                             
                                                         $h_gdp = substr($this->input->post('idcheminheure'), 0, $h_posd);
+                                                        $h_gdp = $this->_sale_orient_transit_code_progr($h_gdp, $this->input->post('idchemin'));
                                                         $h_direction = substr($this->input->post('idcheminheure'), $h_posd + 1, strlen($this->input->post('idcheminheure')));
                                                         $hr_posd = strpos($h_direction, '/');
                                                         $post_trans = substr($h_direction, 0, $hr_posd);
@@ -8946,6 +9202,7 @@
                                                     $h_posd1 = strpos($this->input->post('idcheminheure1'), '/');
                                                 
                                                     $h_gdp1 = substr($this->input->post('idcheminheure1'), 0, $h_posd1);
+                                                        $h_gdp1 = $this->_sale_orient_transit_code_progr($h_gdp1, $this->input->post('idchemin1'));
                                                     $h_direction1 = substr($this->input->post('idcheminheure1'), $h_posd1 + 1, strlen($this->input->post('idcheminheure1')));
                                                     $hr_posd1 = strpos($h_direction1, '/');
                                                     $post_trans1 = substr($h_direction1, 0, $hr_posd1);
@@ -9347,6 +9604,7 @@
                                                         $h_posd = strpos($this->input->post('idcheminheure'), '/');
                                             
                                                         $h_gdp = substr($this->input->post('idcheminheure'), 0, $h_posd);
+                                                        $h_gdp = $this->_sale_orient_transit_code_progr($h_gdp, $this->input->post('idchemin'));
                                                         $h_direction = substr($this->input->post('idcheminheure'), $h_posd + 1, strlen($this->input->post('idcheminheure')));
                                                         $hr_posd = strpos($h_direction, '/');
                                                         $post_trans = substr($h_direction, 0, $hr_posd);
@@ -9452,6 +9710,7 @@
                                                         $h_posd1 = strpos($this->input->post('idcheminheure1'), '/');
                                             
                                                         $h_gdp1 = substr($this->input->post('idcheminheure1'), 0, $h_posd1);
+                                                        $h_gdp1 = $this->_sale_orient_transit_code_progr($h_gdp1, $this->input->post('idchemin1'));
                                                         $h_direction1 = substr($this->input->post('idcheminheure1'), $h_posd1 + 1, strlen($this->input->post('idcheminheure1')));
                                                         $hr_posd1 = strpos($h_direction1, '/');
                                                         $post_trans1 = substr($h_direction1, 0, $hr_posd1);
@@ -9554,6 +9813,7 @@
                                                             $h_posd2 = strpos($this->input->post('idcheminheure2'), '/');
                                                 
                                                             $h_gdp2 = substr($this->input->post('idcheminheure2'), 0, $h_posd2);
+                                                        $h_gdp2 = $this->_sale_orient_transit_code_progr($h_gdp2, $this->input->post('idchemin2'));
                                                             $h_direction2 = substr($this->input->post('idcheminheure2'), $h_posd2 + 1, strlen($this->input->post('idcheminheure2')));
                                                             $hr_posd2 = strpos($h_direction2, '/');
                                                             $post_trans2 = substr($h_direction2, 0, $hr_posd2);
@@ -10027,6 +10287,7 @@
                                                     $h_posd = strpos($this->input->post('idcheminheure'), '/');
                                             
                                                         $h_gdp = substr($this->input->post('idcheminheure'), 0, $h_posd);
+                                                        $h_gdp = $this->_sale_orient_transit_code_progr($h_gdp, $this->input->post('idchemin'));
                                                         $h_direction = substr($this->input->post('idcheminheure'), $h_posd + 1, strlen($this->input->post('idcheminheure')));
                                                         $hr_posd = strpos($h_direction, '/');
                                                         $post_trans = substr($h_direction, 0, $hr_posd);
@@ -10346,6 +10607,7 @@
                                                         $h_posd = strpos($this->input->post('idcheminheure'), '/');
                                             
                                                         $h_gdp = substr($this->input->post('idcheminheure'), 0, $h_posd);
+                                                        $h_gdp = $this->_sale_orient_transit_code_progr($h_gdp, $this->input->post('idchemin'));
                                                         $h_direction = substr($this->input->post('idcheminheure'), $h_posd + 1, strlen($this->input->post('idcheminheure')));
                                                         $hr_posd = strpos($h_direction, '/');
                                                         $post_trans = substr($h_direction, 0, $hr_posd);
@@ -10450,6 +10712,7 @@
                                                     $h_posd1 = strpos($this->input->post('idcheminheure1'), '/');
                                         
                                                     $h_gdp1 = substr($this->input->post('idcheminheure1'), 0, $h_posd1);
+                                                        $h_gdp1 = $this->_sale_orient_transit_code_progr($h_gdp1, $this->input->post('idchemin1'));
                                                     $h_direction1 = substr($this->input->post('idcheminheure1'), $h_posd1 + 1, strlen($this->input->post('idcheminheure1')));
                                                     $hr_posd1 = strpos($h_direction1, '/');
                                                     $post_trans1 = substr($h_direction1, 0, $hr_posd1);
@@ -10842,6 +11105,7 @@
                                                         $h_posd = strpos($this->input->post('idcheminheure'), '/');
                                             
                                                         $h_gdp = substr($this->input->post('idcheminheure'), 0, $h_posd);
+                                                        $h_gdp = $this->_sale_orient_transit_code_progr($h_gdp, $this->input->post('idchemin'));
                                                         $h_direction = substr($this->input->post('idcheminheure'), $h_posd + 1, strlen($this->input->post('idcheminheure')));
                                                         $hr_posd = strpos($h_direction, '/');
                                                         $post_trans = substr($h_direction, 0, $hr_posd);
@@ -10947,6 +11211,7 @@
                                                         $h_posd1 = strpos($this->input->post('idcheminheure1'), '/');
                                             
                                                         $h_gdp1 = substr($this->input->post('idcheminheure1'), 0, $h_posd1);
+                                                        $h_gdp1 = $this->_sale_orient_transit_code_progr($h_gdp1, $this->input->post('idchemin1'));
                                                         $h_direction1 = substr($this->input->post('idcheminheure1'), $h_posd1 + 1, strlen($this->input->post('idcheminheure1')));
                                                         $hr_posd1 = strpos($h_direction1, '/');
                                                         $post_trans1 = substr($h_direction1, 0, $hr_posd1);
@@ -11050,6 +11315,7 @@
                                                         $h_posd2 = strpos($this->input->post('idcheminheure2'), '/');
                                             
                                                         $h_gdp2 = substr($this->input->post('idcheminheure2'), 0, $h_posd2);
+                                                        $h_gdp2 = $this->_sale_orient_transit_code_progr($h_gdp2, $this->input->post('idchemin2'));
                                                         $h_direction2 = substr($this->input->post('idcheminheure2'), $h_posd2 + 1, strlen($this->input->post('idcheminheure2')));
                                                         $hr_posd2 = strpos($h_direction2, '/');
                                                         $post_trans2 = substr($h_direction2, 0, $hr_posd2);
@@ -11433,15 +11699,18 @@
                                 $h_posdtr = strpos($this->input->post('idcheminheure'), '/');
                                                 
                             $dpclient2 = substr($this->input->post('idcheminheure'), 0, $h_posdtr);
+                            $dpclient2 = $this->_sale_orient_transit_code_progr($dpclient2, $this->input->post('idchemin'));
                             $p_sieg2 = $this->input->post('passagersiegesitines1');
 
                             $h_posdtr1 = strpos($this->input->post('idcheminheure1'), '/');
                                                 
                             $dpclient3 = substr($this->input->post('idcheminheure1'), 0, $h_posdtr1);
+                            $dpclient3 = $this->_sale_orient_transit_code_progr($dpclient3, $this->input->post('idchemin1'));
                             $p_sieg3 = $this->input->post('passagersiegesitines2');
                             $h_posdtr2 = strpos($this->input->post('idcheminheure2'), '/');
                                                 
                             $dpclient4 = substr($this->input->post('idcheminheure2'), 0, $h_posdtr2);
+                            $dpclient4 = $this->_sale_orient_transit_code_progr($dpclient4, $this->input->post('idchemin2'));
                             $p_sieg4 = $this->input->post('passagersiegesitines3');
                                 $rcl = $this->input->post('cprclient');
                                 $rcp = $this->input->post('cpprclient');
@@ -11616,6 +11885,7 @@
                                                         $h_posd = strpos($this->input->post('idcheminheure'), '/');
                                             
                                                         $h_gdp = substr($this->input->post('idcheminheure'), 0, $h_posd);
+                                                        $h_gdp = $this->_sale_orient_transit_code_progr($h_gdp, $this->input->post('idchemin'));
                                                         $h_direction = substr($this->input->post('idcheminheure'), $h_posd + 1, strlen($this->input->post('idcheminheure')));
                                                         $hr_posd = strpos($h_direction, '/');
                                                         $post_trans = substr($h_direction, 0, $hr_posd);
@@ -11933,6 +12203,7 @@
                                                         $h_posd = strpos($this->input->post('idcheminheure'), '/');
                                             
                                                         $h_gdp = substr($this->input->post('idcheminheure'), 0, $h_posd);
+                                                        $h_gdp = $this->_sale_orient_transit_code_progr($h_gdp, $this->input->post('idchemin'));
                                                         $h_direction = substr($this->input->post('idcheminheure'), $h_posd + 1, strlen($this->input->post('idcheminheure')));
                                                         $hr_posd = strpos($h_direction, '/');
                                                         $post_trans = substr($h_direction, 0, $hr_posd);
@@ -12038,6 +12309,7 @@
                                                     $h_posd1 = strpos($this->input->post('idcheminheure1'), '/');
                                                 
                                                     $h_gdp1 = substr($this->input->post('idcheminheure1'), 0, $h_posd1);
+                                                        $h_gdp1 = $this->_sale_orient_transit_code_progr($h_gdp1, $this->input->post('idchemin1'));
                                                     $h_direction1 = substr($this->input->post('idcheminheure1'), $h_posd1 + 1, strlen($this->input->post('idcheminheure1')));
                                                         $hr_posd1 = strpos($h_direction1, '/');
                                                         $post_trans1 = substr($h_direction1, 0, $hr_posd1);
@@ -12429,6 +12701,7 @@
                                                         $h_posd = strpos($this->input->post('idcheminheure'), '/');
                                             
                                                         $h_gdp = substr($this->input->post('idcheminheure'), 0, $h_posd);
+                                                        $h_gdp = $this->_sale_orient_transit_code_progr($h_gdp, $this->input->post('idchemin'));
                                                         $h_direction = substr($this->input->post('idcheminheure'), $h_posd + 1, strlen($this->input->post('idcheminheure')));
                                                         $hr_posd = strpos($h_direction, '/');
                                                         $post_trans = substr($h_direction, 0, $hr_posd);
@@ -12534,6 +12807,7 @@
                                                         $h_posd1 = strpos($this->input->post('idcheminheure1'), '/');
                                             
                                                         $h_gdp1 = substr($this->input->post('idcheminheure1'), 0, $h_posd1);
+                                                        $h_gdp1 = $this->_sale_orient_transit_code_progr($h_gdp1, $this->input->post('idchemin1'));
                                                         $h_direction1 = substr($this->input->post('idcheminheure1'), $h_posd1 + 1, strlen($this->input->post('idcheminheure1')));
                                                         $hr_posd1 = strpos($h_direction1, '/');
                                                         $post_trans1 = substr($h_direction1, 0, $hr_posd1);
@@ -12641,6 +12915,7 @@
                                                             $h_posd2 = strpos($this->input->post('idcheminheure2'), '/');
                                                 
                                                             $h_gdp2 = substr($this->input->post('idcheminheure2'), 0, $h_posd2);
+                                                        $h_gdp2 = $this->_sale_orient_transit_code_progr($h_gdp2, $this->input->post('idchemin2'));
                                                             $h_direction2 = substr($this->input->post('idcheminheure2'), $h_posd2 + 1, strlen($this->input->post('idcheminheure2')));
                                                             $hr_posd2 = strpos($h_direction2, '/');
                                                             $post_trans2 = substr($h_direction2, 0, $hr_posd2);
@@ -13110,6 +13385,7 @@
                                                     $h_posd = strpos($this->input->post('idcheminheure'), '/');
                                             
                                                         $h_gdp = substr($this->input->post('idcheminheure'), 0, $h_posd);
+                                                        $h_gdp = $this->_sale_orient_transit_code_progr($h_gdp, $this->input->post('idchemin'));
                                                         $h_direction = substr($this->input->post('idcheminheure'), $h_posd + 1, strlen($this->input->post('idcheminheure')));
                                                         $hr_posd = strpos($h_direction, '/');
                                                         $post_trans = substr($h_direction, 0, $hr_posd);
@@ -13430,6 +13706,7 @@
                                                         $h_posd = strpos($this->input->post('idcheminheure'), '/');
                                             
                                                         $h_gdp = substr($this->input->post('idcheminheure'), 0, $h_posd);
+                                                        $h_gdp = $this->_sale_orient_transit_code_progr($h_gdp, $this->input->post('idchemin'));
                                                         $h_direction = substr($this->input->post('idcheminheure'), $h_posd + 1, strlen($this->input->post('idcheminheure')));
                                                         $hr_posd = strpos($h_direction, '/');
                                                         $post_trans = substr($h_direction, 0, $hr_posd);
@@ -13531,6 +13808,7 @@
                                                         $h_posd1 = strpos($this->input->post('idcheminheure1'), '/');
                                             
                                                         $h_gdp1 = substr($this->input->post('idcheminheure1'), 0, $h_posd1);
+                                                        $h_gdp1 = $this->_sale_orient_transit_code_progr($h_gdp1, $this->input->post('idchemin1'));
                                                         $h_direction1 = substr($this->input->post('idcheminheure1'), $h_posd1 + 1, strlen($this->input->post('idcheminheure1')));
                                                         $hr_posd1 = strpos($h_direction1, '/');
                                                         $post_trans1 = substr($h_direction1, 0, $hr_posd1);
@@ -13921,6 +14199,7 @@
                                                         $h_posd = strpos($this->input->post('idcheminheure'), '/');
                                             
                                                         $h_gdp = substr($this->input->post('idcheminheure'), 0, $h_posd);
+                                                        $h_gdp = $this->_sale_orient_transit_code_progr($h_gdp, $this->input->post('idchemin'));
                                                         $h_direction = substr($this->input->post('idcheminheure'), $h_posd + 1, strlen($this->input->post('idcheminheure')));
                                                         $hr_posd = strpos($h_direction, '/');
                                                         $post_trans = substr($h_direction, 0, $hr_posd);
@@ -14024,6 +14303,7 @@
                                                         $h_posd1 = strpos($this->input->post('idcheminheure1'), '/');
                                             
                                                         $h_gdp1 = substr($this->input->post('idcheminheure1'), 0, $h_posd1);
+                                                        $h_gdp1 = $this->_sale_orient_transit_code_progr($h_gdp1, $this->input->post('idchemin1'));
                                                         $h_direction1 = substr($this->input->post('idcheminheure1'), $h_posd1 + 1, strlen($this->input->post('idcheminheure1')));
                                                         $hr_posd1 = strpos($h_direction1, '/');
                                                         $post_trans1 = substr($h_direction1, 0, $hr_posd1);
@@ -14125,6 +14405,7 @@
                                                             $h_posd2 = strpos($this->input->post('idcheminheure2'), '/');
                                                 
                                                             $h_gdp2 = substr($this->input->post('idcheminheure2'), 0, $h_posd2);
+                                                        $h_gdp2 = $this->_sale_orient_transit_code_progr($h_gdp2, $this->input->post('idchemin2'));
                                                             $h_direction2 = substr($this->input->post('idcheminheure2'), $h_posd2 + 1, strlen($this->input->post('idcheminheure2')));
                                                             $hr_posd2 = strpos($h_direction2, '/');
                                                             $post_trans2 = substr($h_direction2, 0, $hr_posd2);
