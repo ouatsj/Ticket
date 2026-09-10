@@ -93,6 +93,20 @@
                 }
                 form.dataset.submitting = '1';
 
+                // Un champ disabled n'est PAS posté. Ex. #hdepartitine verrouillé en transit
+                // (heure OD) → heuredeptitine manquant → « date, heure, siège ou tarif manquant ».
+                form.querySelectorAll('select[disabled], input[disabled], textarea[disabled]').forEach(function (el) {
+                    var t = String(el.type || '').toLowerCase();
+                    if (t === 'submit' || t === 'button' || t === 'image' || t === 'reset') {
+                        return;
+                    }
+                    if (!el.getAttribute('name')) {
+                        return;
+                    }
+                    el.disabled = false;
+                    el.removeAttribute('disabled');
+                });
+
                 // Un bouton disabled n'est PAS envoyé dans le POST. Or on désactive
                 // les submit juste après — il faut donc mirorer name/value EPSON etc.
                 var submitter = ev.submitter || form._rgLastSubmitter || null;

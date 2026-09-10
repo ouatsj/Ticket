@@ -2760,18 +2760,34 @@
 
                 // Vente directe : heuredept + passagersieges
                 // Vente transit : heuredeptitine + passagersiegesitines (les champs directs restent vides)
-                $vente_directe = $this->input->post('datedepart') != NULL
-                    && $this->input->post('heuredept') != NULL
-                    && $this->input->post('passagersieges') != NULL
-                    && $this->input->post('tarifattribuer') != NULL;
-                $vente_transit = $this->input->post('datedepart') != NULL
-                    && $this->input->post('heuredeptitine') != NULL
-                    && $this->input->post('passagersiegesitines') != NULL
-                    && $this->input->post('tarifattribuer') != NULL;
+                $vente_directe = $this->_sale_post_filled('datedepart')
+                    && $this->_sale_post_filled('heuredept')
+                    && $this->_sale_post_filled('passagersieges')
+                    && $this->_sale_post_filled('tarifattribuer');
+                $vente_transit = $this->_sale_post_filled('datedepart')
+                    && $this->_sale_post_filled('heuredeptitine')
+                    && $this->_sale_post_filled('passagersiegesitines')
+                    && $this->_sale_post_filled('tarifattribuer');
 
                 if (!$vente_directe && !$vente_transit) {
+                    $missing = array();
+                    if (!$this->_sale_post_filled('datedepart')) {
+                        $missing[] = 'date';
+                    }
+                    if (!$this->_sale_post_filled('heuredept') && !$this->_sale_post_filled('heuredeptitine')) {
+                        $missing[] = 'heure';
+                    }
+                    if (!$this->_sale_post_filled('passagersieges') && !$this->_sale_post_filled('passagersiegesitines')) {
+                        $missing[] = 'siège';
+                    }
+                    if (!$this->_sale_post_filled('tarifattribuer')) {
+                        $missing[] = 'tarif';
+                    }
+                    $detail = $missing ? (' Manque : ' . implode(', ', $missing) . '.') : '';
                     $this->_addpassager_redirect_back(
-                        'Vente non enregistrée : date, heure, siège ou tarif manquant (direct ou transit). Complétez le formulaire puis cliquez EPSON.'
+                        'Vente non enregistrée : date, heure, siège ou tarif manquant (direct ou transit).'
+                        . $detail
+                        . ' Complétez le formulaire puis cliquez EPSON.'
                     );
                     return;
                 }
