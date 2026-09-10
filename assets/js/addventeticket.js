@@ -207,11 +207,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 var rowHhmm = __venteNormalizeHhmm(row.heure);
                 if (voyageDate && dprog && dprog < voyageDate) continue;
                 if (mode === 'exact') {
-                    if (!(voyageDate && dprog === voyageDate && anchorHhmm && rowHhmm === anchorHhmm)) continue;
+                    // Match HH:MM ; privilégie le jour voyage mais accepte sans date_progr.
+                    if (!anchorHhmm || rowHhmm !== anchorHhmm) continue;
+                    if (voyageDate && dprog && dprog !== voyageDate) continue;
                 } else if (mode === 'ge') {
-                    if (voyageDate && dprog === voyageDate && anchorMin != null && rowMin != null && rowMin < anchorMin) continue;
-                    if (voyageDate && dprog && dprog > voyageDate) {
-                        // J+1 OK seulement s'il n'y a rien ≥ ancre le jour J (décidé après)
+                    if (anchorMin != null && rowMin != null) {
+                        if (voyageDate && dprog && dprog === voyageDate && rowMin < anchorMin) continue;
+                        if ((!dprog || !voyageDate || dprog === voyageDate) && rowMin < anchorMin) continue;
                     }
                 }
                 var slot = dprog + '|' + String(row.heure).trim();
@@ -239,13 +241,14 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!built.order.length) {
                 built = buildOrder('ge');
                 usedMode = 'ge';
-                // Sur mode ge : préférer uniquement J si possible
                 if (voyageDate && built.order.length) {
                     var onlyJ = [];
                     for (var oj = 0; oj < built.order.length; oj++) {
                         var rj = built.bySlot[built.order[oj]];
-                        if (String(rj.date_progr || '').slice(0, 10) === voyageDate) onlyJ.push(built.order[oj]);
+                        var dj = String(rj.date_progr || '').slice(0, 10);
+                        if (!dj || dj === voyageDate) onlyJ.push(built.order[oj]);
                     }
+                    // Ne vider jamais la liste : onlyJ uniquement s'il reste des créneaux.
                     if (onlyJ.length) built = { bySlot: built.bySlot, order: onlyJ };
                 }
             }
@@ -289,16 +292,18 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         var errEl = document.querySelector('#erreurMess') || document.querySelector('#erreurMessfid');
-        if (anchorHhmm && usedMode === 'exact') {
-            // ok silencieux
-        } else if (anchorHhmm && usedMode === 'ge' && sel.selectedIndex > 0) {
-            if (errEl) {
-                errEl.innerHTML = 'Pas de départ jambe 1 à ' + anchorHhmm + ' — prochain créneau ≥ cette heure sélectionné.';
-            }
-        } else if (anchorHhmm && usedMode === 'all') {
+        if (anchorHhmm && sel.options.length <= 1) {
             if (errEl) {
                 errEl.innerHTML = 'Aucun départ jambe 1 ≥ ' + anchorHhmm + ' pour cette date.';
             }
+        } else if (anchorHhmm && usedMode === 'ge' && sel.selectedIndex > 0) {
+            var selHh = __venteNormalizeHhmm(sel.options[sel.selectedIndex].getAttribute('data-heure') || '');
+            if (selHh && selHh !== anchorHhmm && errEl) {
+                errEl.innerHTML = 'Pas de départ jambe 1 à ' + anchorHhmm + ' — prochain créneau ' + selHh + ' sélectionné.';
+            }
+        } else if (errEl && usedMode === 'exact' && sel.selectedIndex > 0) {
+            // Succès : effacer un éventuel message d'échec précédent.
+            errEl.innerHTML = '';
         }
 
         if (sel.selectedIndex > 0 && typeof sel.onchange === 'function') {
@@ -2420,32 +2425,60 @@ document.addEventListener('DOMContentLoaded', () => {
                                                                     var reqId = (window.__venteLeg1HourReqId = (window.__venteLeg1HourReqId || 0) + 1);
                                                                     var httpH = new XMLHttpRequest();
                                                                     window.__venteLeg1HourXhr = httpH;
-                                                                    var urlH = window.location.origin + `${APP_ROOT}/programmes/verifheureitine/${encodeURIComponent(codeSel)}/${encodeURIComponent(datedepart)}`;
+                                                                    var urlBase = window.location.origin + `${APP_ROOT}/programmes/verifheureitine/${encodeURIComponent(codeSel)}/${encodeURIComponent(datedepart)}`;
+                                                                    function __venteApplyLeg1Hours(infositin) {
+                                                                        var anchor = (typeof __venteGetTransitAnchorHour === 'function'
+                                                                            ? __venteGetTransitAnchorHour()
+                                                                            : null)
+                                                                            || __hourAnchorLeg1
+                                                                            || window.__venteSelectedHour;
+                                                                        if (typeof __venteFillHeureItineSelect === 'function') {
+                                                                            __venteFillHeureItineSelect(hd, infositin, anchor);
+                                                                        } else if (typeof window.__venteFillHeureItineSelect === 'function') {
+                                                                            window.__venteFillHeureItineSelect(hd, infositin, anchor);
+                                                                        }
+                                                                    }
+                                                                    function __venteParseHourRows(txt) {
+                                                                        var raw = JSON.parse(txt);
+                                                                        if (Array.isArray(raw)) return raw;
+                                                                        if (raw && typeof raw === 'object') {
+                                                                            return Object.keys(raw).map(function (k) { return raw[k]; });
+                                                                        }
+                                                                        return [];
+                                                                    }
+                                                                    function __venteRowsNonEmpty(rows) {
+                                                                        if (!rows) return false;
+                                                                        if (Array.isArray(rows)) return rows.length > 0;
+                                                                        if (typeof rows === 'object') return Object.keys(rows).length > 0;
+                                                                        return false;
+                                                                    }
+                                                                    var urlH = urlBase;
                                                                     if (anchorHhmm) urlH += '?heure=' + encodeURIComponent(anchorHhmm);
                                                                     httpH.open('GET', urlH, true);
                                                                     httpH.onload = function () {
                                                                         if (reqId !== window.__venteLeg1HourReqId) return;
                                                                         try {
-                                                                            var infositin = JSON.parse(httpH.responseText);
-                                                                            var anchor = (typeof __venteGetTransitAnchorHour === 'function'
-                                                                                ? __venteGetTransitAnchorHour()
-                                                                                : null)
-                                                                                || __hourAnchorLeg1
-                                                                                || window.__venteSelectedHour;
-                                                                            if (typeof __venteFillHeureItineSelect === 'function') {
-                                                                                __venteFillHeureItineSelect(hd, infositin, anchor);
-                                                                            } else if (typeof window.__venteFillHeureItineSelect === 'function') {
-                                                                                window.__venteFillHeureItineSelect(hd, infositin, anchor);
+                                                                            var infositin = __venteParseHourRows(httpH.responseText);
+                                                                            // Si filtre ?heure= a vidé la réponse, retenter sans filtre (JS ancre ensuite).
+                                                                            if (anchorHhmm && !__venteRowsNonEmpty(infositin)) {
+                                                                                var httpRetry = new XMLHttpRequest();
+                                                                                window.__venteLeg1HourXhr = httpRetry;
+                                                                                httpRetry.open('GET', urlBase, true);
+                                                                                httpRetry.onload = function () {
+                                                                                    if (reqId !== window.__venteLeg1HourReqId) return;
+                                                                                    try {
+                                                                                        __venteApplyLeg1Hours(__venteParseHourRows(httpRetry.responseText));
+                                                                                    } catch (eR) {}
+                                                                                };
+                                                                                httpRetry.setRequestHeader('Content-Type', 'application/json');
+                                                                                httpRetry.send();
+                                                                                return;
                                                                             }
+                                                                            __venteApplyLeg1Hours(infositin);
                                                                         } catch (eH) {
                                                                             if (reqId !== window.__venteLeg1HourReqId) return;
                                                                             try {
-                                                                                var raw = JSON.parse(httpH.responseText);
-                                                                                var arr = Array.isArray(raw) ? raw
-                                                                                    : (raw && typeof raw === 'object' ? Object.keys(raw).map(function (k) { return raw[k]; }) : []);
-                                                                                if (hd && typeof __venteFillHeureItineSelect === 'function') {
-                                                                                    __venteFillHeureItineSelect(hd, arr, __hourAnchorLeg1);
-                                                                                }
+                                                                                __venteApplyLeg1Hours(__venteParseHourRows(httpH.responseText));
                                                                             } catch (eH2) {}
                                                                         }
                                                                     };

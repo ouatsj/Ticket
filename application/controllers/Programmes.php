@@ -2116,38 +2116,44 @@
         public function verifheureitine($axe, $da)
         {
             $lgh = $this->m_programme->heureligne($this->session->company->ekey, $axe, $da);
+            if (!is_array($lgh)) {
+                $lgh = array();
+            }
             $heure = trim((string) $this->input->get('heure'));
-            if ($heure !== '' && is_array($lgh)) {
-                // Normalise HH:MM ; garde exact puis ≥ ancre sur le jour demandé.
-                if (preg_match('/^(\d{1,2})[:hH]?(\d{2})/', $heure, $m)) {
-                    $anchorMin = ((int) $m[1]) * 60 + (int) $m[2];
-                    $daNorm = substr((string) $da, 0, 10);
-                    $exact = array();
-                    $ge = array();
-                    foreach ($lgh as $row) {
-                        if (!is_object($row) || !isset($row->heure)) {
-                            continue;
-                        }
-                        if (!preg_match('/^(\d{1,2})[:hH]?(\d{2})/', (string) $row->heure, $rm)) {
-                            continue;
-                        }
-                        $rowMin = ((int) $rm[1]) * 60 + (int) $rm[2];
-                        $dprog = isset($row->date_progr) ? substr((string) $row->date_progr, 0, 10) : '';
-                        if ($dprog === $daNorm && $rowMin === $anchorMin) {
-                            $exact[] = $row;
-                        }
-                        if ($dprog < $daNorm) {
-                            continue;
-                        }
-                        if ($dprog === $daNorm && $rowMin < $anchorMin) {
-                            continue;
-                        }
-                        $ge[] = $row;
+            $filtered = $lgh;
+            if ($heure !== '' && !empty($lgh) && preg_match('/(\d{1,2})[:hH](\d{2})/', $heure, $m)) {
+                $anchorMin = ((int) $m[1]) * 60 + (int) $m[2];
+                $daNorm = substr((string) $da, 0, 10);
+                $exact = array();
+                $ge = array();
+                foreach ($lgh as $row) {
+                    if (!is_object($row) || !isset($row->heure)) {
+                        continue;
                     }
-                    $lgh = !empty($exact) ? $exact : $ge;
+                    if (!preg_match('/(\d{1,2})[:hH](\d{2})/', (string) $row->heure, $rm)) {
+                        continue;
+                    }
+                    $rowMin = ((int) $rm[1]) * 60 + (int) $rm[2];
+                    $dprog = isset($row->date_progr) ? substr((string) $row->date_progr, 0, 10) : '';
+                    // Exact HH:MM le jour demandé (ou sans date_progr).
+                    if ($rowMin === $anchorMin && ($dprog === '' || $dprog === $daNorm)) {
+                        $exact[] = $row;
+                    }
+                    if ($dprog !== '' && $daNorm !== '' && $dprog < $daNorm) {
+                        continue;
+                    }
+                    if (($dprog === '' || $dprog === $daNorm) && $rowMin < $anchorMin) {
+                        continue;
+                    }
+                    $ge[] = $row;
+                }
+                $filtered = !empty($exact) ? $exact : $ge;
+                // Ne jamais renvoyer vide si des programmes existent : le JS ancre ensuite.
+                if (empty($filtered)) {
+                    $filtered = $lgh;
                 }
             }
-            return $this->load->view('beagle/pages/_programme/json', array('json' => $lgh));
+            return $this->load->view('beagle/pages/_programme/json', array('json' => $filtered));
         }
         public function verifiligne($lg, $h)
         {

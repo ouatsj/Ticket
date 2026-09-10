@@ -5320,31 +5320,61 @@ document.addEventListener('DOMContentLoaded', () => {
                                                                             : String(__hourAnchorLeg1Fi.heure || '');
                                                                     }
                                                                     var httpH = new XMLHttpRequest();
-                                                                    var urlH = window.location.origin + `${APP_ROOT}/programmes/verifheureitine/${encodeURIComponent(codeSel)}/${encodeURIComponent(datedepart)}`;
+                                                                    var urlBaseFi = window.location.origin + `${APP_ROOT}/programmes/verifheureitine/${encodeURIComponent(codeSel)}/${encodeURIComponent(datedepart)}`;
+                                                                    function __venteFiApplyLeg1Hours(infositin) {
+                                                                        var anchorFi = (typeof window.__venteGetTransitAnchorHour === 'function'
+                                                                            ? window.__venteGetTransitAnchorHour()
+                                                                            : null) || __hourAnchorLeg1Fi || window.__venteSelectedHour;
+                                                                        if (typeof window.__venteFillHeureItineSelect === 'function') {
+                                                                            window.__venteFillHeureItineSelect(hd, infositin, anchorFi);
+                                                                        } else if (hd && infositin && Object.entries(infositin).length >= 1) {
+                                                                            hd.options.length = 1;
+                                                                            for (var key in Object.entries(infositin)) {
+                                                                                var opt = document.createElement('option');
+                                                                                opt.value = `${infositin[key].id_ligneheure}/${infositin[key].heure}`;
+                                                                                opt.setAttribute('data-heure', String(infositin[key].heure || ''));
+                                                                                if (infositin[key].date_progr) opt.setAttribute('data-date-progr', String(infositin[key].date_progr).slice(0, 10));
+                                                                                opt.innerHTML = `${infositin[key].heure}`;
+                                                                                hd.add(opt);
+                                                                            }
+                                                                            if (typeof window.__venteSelectHourInSelect === 'function') {
+                                                                                window.__venteSelectHourInSelect(hd, anchorFi, datedepart);
+                                                                            }
+                                                                        }
+                                                                    }
+                                                                    function __venteFiParseHourRows(txt) {
+                                                                        var raw = JSON.parse(txt);
+                                                                        if (Array.isArray(raw)) return raw;
+                                                                        if (raw && typeof raw === 'object') {
+                                                                            return Object.keys(raw).map(function (k) { return raw[k]; });
+                                                                        }
+                                                                        return [];
+                                                                    }
+                                                                    function __venteFiRowsNonEmpty(rows) {
+                                                                        if (!rows) return false;
+                                                                        if (Array.isArray(rows)) return rows.length > 0;
+                                                                        if (typeof rows === 'object') return Object.keys(rows).length > 0;
+                                                                        return false;
+                                                                    }
+                                                                    var urlH = urlBaseFi;
                                                                     if (anchorHhmmFi) urlH += '?heure=' + encodeURIComponent(anchorHhmmFi);
                                                                     httpH.open('GET', urlH, true);
                                                                     httpH.onload = function () {
                                                                         try {
-                                                                            var infositin = JSON.parse(httpH.responseText);
-                                                                            var anchorFi = (typeof window.__venteGetTransitAnchorHour === 'function'
-                                                                                ? window.__venteGetTransitAnchorHour()
-                                                                                : null) || __hourAnchorLeg1Fi || window.__venteSelectedHour;
-                                                                            if (typeof window.__venteFillHeureItineSelect === 'function') {
-                                                                                window.__venteFillHeureItineSelect(hd, infositin, anchorFi);
-                                                                            } else if (hd && infositin && Object.entries(infositin).length >= 1) {
-                                                                                hd.options.length = 1;
-                                                                                for (var key in Object.entries(infositin)) {
-                                                                                    var opt = document.createElement('option');
-                                                                                    opt.value = `${infositin[key].id_ligneheure}/${infositin[key].heure}`;
-                                                                                    opt.setAttribute('data-heure', String(infositin[key].heure || ''));
-                                                                                    if (infositin[key].date_progr) opt.setAttribute('data-date-progr', String(infositin[key].date_progr).slice(0, 10));
-                                                                                    opt.innerHTML = `${infositin[key].heure}`;
-                                                                                    hd.add(opt);
-                                                                                }
-                                                                                if (typeof window.__venteSelectHourInSelect === 'function') {
-                                                                                    window.__venteSelectHourInSelect(hd, anchorFi, datedepart);
-                                                                                }
+                                                                            var infositin = __venteFiParseHourRows(httpH.responseText);
+                                                                            if (anchorHhmmFi && !__venteFiRowsNonEmpty(infositin)) {
+                                                                                var httpRetryFi = new XMLHttpRequest();
+                                                                                httpRetryFi.open('GET', urlBaseFi, true);
+                                                                                httpRetryFi.onload = function () {
+                                                                                    try {
+                                                                                        __venteFiApplyLeg1Hours(__venteFiParseHourRows(httpRetryFi.responseText));
+                                                                                    } catch (eRFi) {}
+                                                                                };
+                                                                                httpRetryFi.setRequestHeader('Content-Type', 'application/json');
+                                                                                httpRetryFi.send();
+                                                                                return;
                                                                             }
+                                                                            __venteFiApplyLeg1Hours(infositin);
                                                                         } catch (eH) {}
                                                                     };
                                                                     httpH.setRequestHeader('Content-Type', 'application/json');
