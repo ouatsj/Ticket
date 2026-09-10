@@ -704,10 +704,7 @@ if (!function_exists('sales_arret_totals_lines')) {
 if (!function_exists('sales_closure_arret_lines_agent_gare')) {
     /**
      * Bordereau monétaire unique agent + gare (identifiants roleattribut / guser).
-     * Même périmètre que le rapport EPSON (jour + antérieur + retours) :
-     * - passager : statut_code=vendu, prixvente>0, statutvente=0
-     * - retours  : prixretour>0, statvente=0
-     * Agrégé par compagnie (toutes sous-gares) pour égalité rapport ↔ chef.
+     * Délègue au snapshot atomique (mêmes IDs que la fermeture).
      *
      * @param int|string $companyEkey
      * @param int|string $roleAttributionId
@@ -717,12 +714,57 @@ if (!function_exists('sales_closure_arret_lines_agent_gare')) {
      */
     function sales_closure_arret_lines_agent_gare($companyEkey, $roleAttributionId, $gareCode, $defaultSousgare = null)
     {
+        $snap = sales_closure_arret_snapshot_agent_gare(
+            $companyEkey,
+            $roleAttributionId,
+            $gareCode,
+            $defaultSousgare,
+            null
+        );
+
+        return isset($snap['lignes']) ? $snap['lignes'] : array();
+    }
+}
+
+if (!function_exists('sales_closure_arret_snapshot_agent_gare')) {
+    /**
+     * Snapshot atomique arrêt vendeur : montants par compagnie + IDs exacts à clôturer.
+     * Même périmètre pour le calcul et la fermeture (évite écarts type retour oublié).
+     *
+     * @param int|string      $companyEkey
+     * @param int|string      $roleAttributionId
+     * @param string          $gareCode
+     * @param int|string|null $defaultSousgare
+     * @param int|string|null $idsousgareVente null = toute la gare ; >0 = filtre lieu de vente
+     * @param bool            $excludeTicketCodeR exclure passager.code_ticket = R
+     * @return array{
+     *   lignes:array<int,array{comp:int,montant:float,idsousgare:int,commentaire:string}>,
+     *   passager_codes:array<int,string>,
+     *   non_passager_codes:array<int,string>,
+     *   totals_by_comp:array<string,float>
+     * }
+     */
+    function sales_closure_arret_snapshot_agent_gare(
+        $companyEkey,
+        $roleAttributionId,
+        $gareCode,
+        $defaultSousgare = null,
+        $idsousgareVente = null,
+        $excludeTicketCodeR = false
+    ) {
+        $empty = array(
+            'lignes' => array(),
+            'passager_codes' => array(),
+            'non_passager_codes' => array(),
+            'totals_by_comp' => array(),
+        );
+
         $CI =& get_instance();
         $companyEkey = (int) $companyEkey;
         $roleAttributionId = (int) $roleAttributionId;
         $gareCode = trim((string) $gareCode);
         if ($companyEkey <= 0 || $roleAttributionId <= 0 || $gareCode === '') {
-            return array();
+            return $empty;
         }
 
         $minSg = $CI->db->query(
@@ -734,68 +776,147 @@ if (!function_exists('sales_closure_arret_lines_agent_gare')) {
             ? (int) $defaultSousgare
             : $fallbackSg;
 
-        $rows = $CI->db->query(
-            "SELECT x.company_code, SUM(x.amount) AS total_amount
-             FROM (
-                SELECT c.cle_compagnie AS company_code,
-                    COALESCE(p.prixvente, 0) AS amount
-                FROM passager p
-                JOIN attributions_role ar ON p.idcptuser = ar.roleattribut
-                JOIN user_login ul ON ar.idgestcompte = ul.uid_login
-                JOIN programme pr ON p.code_pro = pr.code_progr
-                JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
-                JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
-                JOIN gare_dest gd ON lg.gadest_lg = gd.code_gadest
-                JOIN compagnies c ON gd.id_compaga = c.cle_compagnie
-                JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                WHERE e.ekey = ?
-                AND p.idcptuser = ?
-                AND ul.guser = ?
-                AND ar.activeattrib = 1
-                AND p.statutvente = 0
-                AND p.statut_code = 'vendu'
-                AND p.prixvente IS NOT NULL
-                AND p.prixvente > 0
-                UNION ALL
-                SELECT c.cle_compagnie AS company_code,
-                    COALESCE(np.prixretour, 0) AS amount
-                FROM non_passager np
-                JOIN attributions_role ar2 ON np.cptus = ar2.roleattribut
-                JOIN user_login ul2 ON ar2.idgestcompte = ul2.uid_login
-                JOIN lignes lg ON np.id_ligne_pass = lg.ident_ligne
-                JOIN gare_dest gd ON lg.gadest_lg = gd.code_gadest
-                JOIN compagnies c ON gd.id_compaga = c.cle_compagnie
-                JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                WHERE e.ekey = ?
-                AND np.cptus = ?
-                AND ul2.guser = ?
-                AND ar2.activeattrib = 1
-                AND np.statvente = 0
-                AND np.prixretour IS NOT NULL
-                AND np.prixretour > 0
-             ) x
-             GROUP BY x.company_code",
-            array(
-                $companyEkey, $roleAttributionId, $gareCode,
-                $companyEkey, $roleAttributionId, $gareCode,
-            )
+        $idsousgareVente = ($idsousgareVente !== null && $idsousgareVente !== false && $idsousgareVente !== '')
+            ? (int) $idsousgareVente
+            : 0;
+
+        $sgPass = '';
+        $sgNp = '';
+        $paramsPass = array($companyEkey, $roleAttributionId, $gareCode);
+        $paramsNp = array($companyEkey, $roleAttributionId, $gareCode);
+        if ($idsousgareVente > 0) {
+            $sgPass = " AND (
+                p.idsousgare_vente = ?
+                OR (
+                    p.idsousgare_vente IS NULL
+                    AND ? = (SELECT MIN(s.idsousgare) FROM sousgare s WHERE s.gareprinceid = ?)
+                )
+            ) ";
+            $sgNp = " AND (
+                np.idsousgare_vente = ?
+                OR (
+                    np.idsousgare_vente IS NULL
+                    AND ? = (SELECT MIN(s.idsousgare) FROM sousgare s WHERE s.gareprinceid = ?)
+                )
+            ) ";
+            $paramsPass[] = $idsousgareVente;
+            $paramsPass[] = $idsousgareVente;
+            $paramsPass[] = $gareCode;
+            $paramsNp[] = $idsousgareVente;
+            $paramsNp[] = $idsousgareVente;
+            $paramsNp[] = $gareCode;
+        }
+
+        // Pas de filtre activeattrib : aligné sur la fermeture (agent + gare).
+        $excludeRSql = !empty($excludeTicketCodeR) ? " AND p.code_ticket <> 'R' " : '';
+        $passRows = $CI->db->query(
+            "SELECT p.code_passager, c.cle_compagnie AS company_code,
+                COALESCE(p.prixvente, 0) AS amount
+            FROM passager p
+            JOIN attributions_role ar ON p.idcptuser = ar.roleattribut
+            JOIN user_login ul ON ar.idgestcompte = ul.uid_login
+            JOIN programme pr ON p.code_pro = pr.code_progr
+            JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
+            JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
+            JOIN gare_dest gd ON lg.gadest_lg = gd.code_gadest
+            JOIN compagnies c ON gd.id_compaga = c.cle_compagnie
+            JOIN entreprise e ON c.id_entrep = e.id_entreprise
+            WHERE e.ekey = ?
+            AND p.idcptuser = ?
+            AND ul.guser = ?
+            AND p.statutvente = 0
+            AND p.statut_code = 'vendu'
+            AND p.prixvente IS NOT NULL
+            AND p.prixvente > 0
+            {$sgPass}
+            {$excludeRSql}
+            FOR UPDATE",
+            $paramsPass
         )->result();
 
-        $out = array();
-        foreach ($rows as $row) {
-            $comp = (int) $row->company_code;
-            $montant = round((float) $row->total_amount, 2);
-            if ($comp <= 0 || $montant <= 0) {
+        $npRows = $CI->db->query(
+            "SELECT np.code_non_pass, c.cle_compagnie AS company_code,
+                COALESCE(np.prixretour, 0) AS amount
+            FROM non_passager np
+            JOIN attributions_role ar2 ON np.cptus = ar2.roleattribut
+            JOIN user_login ul2 ON ar2.idgestcompte = ul2.uid_login
+            JOIN lignes lg ON np.id_ligne_pass = lg.ident_ligne
+            JOIN gare_dest gd ON lg.gadest_lg = gd.code_gadest
+            JOIN compagnies c ON gd.id_compaga = c.cle_compagnie
+            JOIN entreprise e ON c.id_entrep = e.id_entreprise
+            WHERE e.ekey = ?
+            AND np.cptus = ?
+            AND ul2.guser = ?
+            AND np.statvente = 0
+            AND np.prixretour IS NOT NULL
+            AND np.prixretour > 0
+            {$sgNp}
+            FOR UPDATE",
+            $paramsNp
+        )->result();
+
+        $totals = array();
+        $passCodes = array();
+        $npCodes = array();
+
+        foreach ($passRows as $row) {
+            $comp = (string) $row->company_code;
+            $code = (string) $row->code_passager;
+            if ($comp === '' || $code === '') {
                 continue;
             }
-            $out[] = array(
-                'comp' => $comp,
+            $passCodes[] = $code;
+            if (!isset($totals[$comp])) {
+                $totals[$comp] = 0.0;
+            }
+            $totals[$comp] += (float) $row->amount;
+        }
+        foreach ($npRows as $row) {
+            $comp = (string) $row->company_code;
+            $code = (string) $row->code_non_pass;
+            if ($comp === '' || $code === '') {
+                continue;
+            }
+            $npCodes[] = $code;
+            if (!isset($totals[$comp])) {
+                $totals[$comp] = 0.0;
+            }
+            $totals[$comp] += (float) $row->amount;
+        }
+
+        $passCodes = array_values(array_unique($passCodes));
+        $npCodes = array_values(array_unique($npCodes));
+
+        $lignes = array();
+        foreach ($totals as $comp => $montant) {
+            $compInt = (int) $comp;
+            $montant = round((float) $montant, 2);
+            if ($compInt <= 0 || $montant <= 0) {
+                continue;
+            }
+            $lignes[] = array(
+                'comp' => $compInt,
                 'montant' => $montant,
                 'idsousgare' => $defaultSg > 0 ? $defaultSg : $fallbackSg,
                 'commentaire' => '',
             );
+            $totals[$comp] = $montant;
         }
-        return $out;
+
+        // Cache antifraude / sales_arret_totals_lines (même snapshot).
+        $cacheKey = $companyEkey . ':' . $roleAttributionId . ':' . $gareCode . ':' . $idsousgareVente;
+        if (!isset($GLOBALS['sales_closure_totals']) || !is_array($GLOBALS['sales_closure_totals'])) {
+            $GLOBALS['sales_closure_totals'] = array();
+        }
+        $GLOBALS['sales_closure_totals'][$cacheKey] = $totals;
+        $GLOBALS['sales_closure_totals_key'] = $cacheKey;
+
+        return array(
+            'lignes' => $lignes,
+            'passager_codes' => $passCodes,
+            'non_passager_codes' => $npCodes,
+            'totals_by_comp' => $totals,
+        );
     }
 }
 

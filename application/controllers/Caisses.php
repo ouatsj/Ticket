@@ -1450,6 +1450,14 @@
             $idsousgare = isset($options['idsousgare']) ? (int) $options['idsousgare'] : 0;
             $forUpdate = !empty($options['for_update']);
             $allGare = !empty($options['all_gare']);
+            $closeByCodes = array_key_exists('passager_codes', $options)
+                || array_key_exists('non_passager_codes', $options);
+            $passCodes = isset($options['passager_codes']) && is_array($options['passager_codes'])
+                ? array_values(array_filter(array_map('strval', $options['passager_codes'])))
+                : array();
+            $npCodes = isset($options['non_passager_codes']) && is_array($options['non_passager_codes'])
+                ? array_values(array_filter(array_map('strval', $options['non_passager_codes'])))
+                : array();
 
             $sgFilterPass = '';
             $sgFilterNp = '';
@@ -1473,62 +1481,107 @@
                 $sgParams = array($idsousgare, $idsousgare, $gd);
             }
 
-            $passSql = "SELECT p.code_passager, p.code_ticket
-                FROM passager p
-                JOIN attributions_role ar ON p.idcptuser = ar.roleattribut
-                JOIN user_login ul ON ar.idgestcompte = ul.uid_login
-                WHERE p.idcptuser = ?
-                AND ul.guser = ?
-                AND p.statutvente = 0"
-                . $sgFilterPass;
-            $passParams = array_merge(array($idcpt, $gd), $sgParams);
-            if ($excludeR) {
-                $passSql .= " AND p.code_ticket != 'R'";
-            }
-            if ($forUpdate) {
-                $passSql .= " FOR UPDATE";
-            }
-            $arpass = $this->db->query($passSql, $passParams)->result();
+            $arpass = array();
 
-            $setVal = $withVal ? ', p.is_valdtick = 1' : '';
-            $updPassSql = "UPDATE passager p
-                JOIN attributions_role ar ON p.idcptuser = ar.roleattribut
-                JOIN user_login ul ON ar.idgestcompte = ul.uid_login
-                SET p.statutvente = 1{$setVal}
-                WHERE p.idcptuser = ?
-                AND ul.guser = ?
-                AND p.statutvente = 0"
-                . $sgFilterPass;
-            $updPassParams = array_merge(array($idcpt, $gd), $sgParams);
-            if ($excludeR) {
-                $updPassSql .= " AND p.code_ticket != 'R'";
-            }
-            $this->db->query($updPassSql, $updPassParams);
+            if ($closeByCodes) {
+                // Fermeture stricte : uniquement les IDs du snapshot (même périmètre que le montant).
+                $setVal = $withVal ? ', is_valdtick = 1' : '';
+                foreach (array_chunk($passCodes, 400) as $chunk) {
+                    if (!$chunk) {
+                        continue;
+                    }
+                    $ph = implode(',', array_fill(0, count($chunk), '?'));
+                    $sel = $this->db->query(
+                        "SELECT code_passager, code_ticket FROM passager
+                        WHERE idcptuser = ?
+                        AND statutvente = 0
+                        AND code_passager IN ({$ph})",
+                        array_merge(array($idcpt), $chunk)
+                    )->result();
+                    $arpass = array_merge($arpass, $sel);
+                    $this->db->query(
+                        "UPDATE passager
+                        SET statutvente = 1{$setVal}
+                        WHERE idcptuser = ?
+                        AND statutvente = 0
+                        AND code_passager IN ({$ph})",
+                        array_merge(array($idcpt), $chunk)
+                    );
+                }
 
-            $npSql = "SELECT np.code_non_pass, np.codeticket
-                FROM non_passager np
-                JOIN attributions_role ar ON np.cptus = ar.roleattribut
-                JOIN user_login ul ON ar.idgestcompte = ul.uid_login
-                WHERE np.cptus = ?
-                AND ul.guser = ?
-                AND np.statvente = 0"
-                . $sgFilterNp;
-            $npParams = array_merge(array($idcpt, $gd), $sgParams);
-            if ($forUpdate) {
-                $npSql .= " FOR UPDATE";
-            }
-            $this->db->query($npSql, $npParams)->result();
+                $setNpVal = $withVal ? ', is_valedtick = 1' : '';
+                foreach (array_chunk($npCodes, 400) as $chunk) {
+                    if (!$chunk) {
+                        continue;
+                    }
+                    $ph = implode(',', array_fill(0, count($chunk), '?'));
+                    $this->db->query(
+                        "UPDATE non_passager
+                        SET statvente = 1{$setNpVal}
+                        WHERE cptus = ?
+                        AND statvente = 0
+                        AND code_non_pass IN ({$ph})",
+                        array_merge(array($idcpt), $chunk)
+                    );
+                }
+            } else {
+                $passSql = "SELECT p.code_passager, p.code_ticket
+                    FROM passager p
+                    JOIN attributions_role ar ON p.idcptuser = ar.roleattribut
+                    JOIN user_login ul ON ar.idgestcompte = ul.uid_login
+                    WHERE p.idcptuser = ?
+                    AND ul.guser = ?
+                    AND p.statutvente = 0"
+                    . $sgFilterPass;
+                $passParams = array_merge(array($idcpt, $gd), $sgParams);
+                if ($excludeR) {
+                    $passSql .= " AND p.code_ticket != 'R'";
+                }
+                if ($forUpdate) {
+                    $passSql .= " FOR UPDATE";
+                }
+                $arpass = $this->db->query($passSql, $passParams)->result();
 
-            $setNpVal = $withVal ? ', np.is_valedtick = 1' : '';
-            $updNpSql = "UPDATE non_passager np
-                JOIN attributions_role ar ON np.cptus = ar.roleattribut
-                JOIN user_login ul ON ar.idgestcompte = ul.uid_login
-                SET np.statvente = 1{$setNpVal}
-                WHERE np.cptus = ?
-                AND ul.guser = ?
-                AND np.statvente = 0"
-                . $sgFilterNp;
-            $this->db->query($updNpSql, array_merge(array($idcpt, $gd), $sgParams));
+                $setVal = $withVal ? ', p.is_valdtick = 1' : '';
+                $updPassSql = "UPDATE passager p
+                    JOIN attributions_role ar ON p.idcptuser = ar.roleattribut
+                    JOIN user_login ul ON ar.idgestcompte = ul.uid_login
+                    SET p.statutvente = 1{$setVal}
+                    WHERE p.idcptuser = ?
+                    AND ul.guser = ?
+                    AND p.statutvente = 0"
+                    . $sgFilterPass;
+                $updPassParams = array_merge(array($idcpt, $gd), $sgParams);
+                if ($excludeR) {
+                    $updPassSql .= " AND p.code_ticket != 'R'";
+                }
+                $this->db->query($updPassSql, $updPassParams);
+
+                $npSql = "SELECT np.code_non_pass, np.codeticket
+                    FROM non_passager np
+                    JOIN attributions_role ar ON np.cptus = ar.roleattribut
+                    JOIN user_login ul ON ar.idgestcompte = ul.uid_login
+                    WHERE np.cptus = ?
+                    AND ul.guser = ?
+                    AND np.statvente = 0"
+                    . $sgFilterNp;
+                $npParams = array_merge(array($idcpt, $gd), $sgParams);
+                if ($forUpdate) {
+                    $npSql .= " FOR UPDATE";
+                }
+                $this->db->query($npSql, $npParams)->result();
+
+                $setNpVal = $withVal ? ', np.is_valedtick = 1' : '';
+                $updNpSql = "UPDATE non_passager np
+                    JOIN attributions_role ar ON np.cptus = ar.roleattribut
+                    JOIN user_login ul ON ar.idgestcompte = ul.uid_login
+                    SET np.statvente = 1{$setNpVal}
+                    WHERE np.cptus = ?
+                    AND ul.guser = ?
+                    AND np.statvente = 0"
+                    . $sgFilterNp;
+                $this->db->query($updNpSql, array_merge(array($idcpt, $gd), $sgParams));
+            }
 
             // Filet : invalidation SOLDE + guérison is_valdtick=1 / statutvente=0.
             if (function_exists('guichet_statutvente_heal_incoherent')) {
@@ -1675,16 +1728,13 @@
 
             $this->db->trans_start();
 
-            $this->_arret_lock_open_ticket_sales($idcpt, $gd, $closeOpts);
-
-            $lignes = function_exists('sales_closure_arret_lines_agent_gare')
-                ? sales_closure_arret_lines_agent_gare($this->company->ekey, $idcpt, $gd, $isg)
-                : array();
-
-            // Aussi peupler le cache antifraude (même périmètre gare).
-            if (function_exists('sales_closure_totals_prepare')) {
-                sales_closure_totals_prepare($this->company->ekey, $idcpt, $gd, null);
-            }
+            // Snapshot atomique : montants + IDs exacts (évite close sans comptage).
+            $snap = function_exists('sales_closure_arret_snapshot_agent_gare')
+                ? sales_closure_arret_snapshot_agent_gare($this->company->ekey, $idcpt, $gd, $isg, null)
+                : array('lignes' => array(), 'passager_codes' => array(), 'non_passager_codes' => array());
+            $lignes = isset($snap['lignes']) ? $snap['lignes'] : array();
+            $closeOpts['passager_codes'] = isset($snap['passager_codes']) ? $snap['passager_codes'] : array();
+            $closeOpts['non_passager_codes'] = isset($snap['non_passager_codes']) ? $snap['non_passager_codes'] : array();
 
             $arpass = $this->_arret_close_open_ticket_sales($idcpt, $gd, $closeOpts);
 
@@ -6212,15 +6262,19 @@
 
             $this->db->trans_start();
 
-            $this->_arret_lock_open_ticket_sales($idcpt, $gd, $closeOpts);
-            if (function_exists('sales_closure_totals_prepare')) {
-                sales_closure_totals_prepare(
+            // Snapshot atomique (même IDs pour montant + fermeture).
+            $snap = function_exists('sales_closure_arret_snapshot_agent_gare')
+                ? sales_closure_arret_snapshot_agent_gare(
                     $this->company->ekey,
                     $idcpt,
                     $gd,
-                    $scope['prepare_sg']
-                );
-            }
+                    $sgid,
+                    $scope['prepare_sg'],
+                    true
+                )
+                : array('lignes' => array(), 'passager_codes' => array(), 'non_passager_codes' => array());
+            $closeOpts['passager_codes'] = isset($snap['passager_codes']) ? $snap['passager_codes'] : array();
+            $closeOpts['non_passager_codes'] = isset($snap['non_passager_codes']) ? $snap['non_passager_codes'] : array();
 
             // Phase A/B : gare + vendeur ; lieu de vente aligné sur les totaux.
             $arpass = $this->_arret_close_open_ticket_sales($idcpt, $gd, $closeOpts);
