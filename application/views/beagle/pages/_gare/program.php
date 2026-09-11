@@ -508,6 +508,11 @@ window.__PROG_CREATED_CODE = <?= json_encode((string) $__prog_created_code); ?>;
                                                     $this->load->model('Programme_reconduction_model', 'm_programme_reconduction');
                                                 }
                                                 echo $this->m_programme_reconduction->badge_html($__reco);
+                                                if ((string) $this->session->agent->userole === '1') {
+                                                    echo ' <button type="button" class="btn btn-sm btn-outline-danger py-0 px-1 js-admin-debloquer-complement"'
+                                                        . ' data-code="' . htmlspecialchars($__code_prog, ENT_QUOTES, 'UTF-8') . '"'
+                                                        . ' title="Admin : débloquer les sièges du complément">Débloquer sièges</button>';
+                                                }
                                             }
                                         ?>
                                     </td>
@@ -3227,6 +3232,98 @@ window.__PROG_CREATED_CODE = <?= json_encode((string) $__prog_created_code); ?>;
     }
 })();
 </script>
+
+<?php if (isset($this->session->agent->userole) && (string) $this->session->agent->userole === '1'): ?>
+<script>
+(function () {
+    var ekey = <?= json_encode($this->session->company->ekey); ?>;
+    var base = <?= json_encode(rtrim(site_url('Programmes'), '/')); ?>;
+
+    function appendCsrf(body) {
+        var metaToken = document.querySelector('meta[name="csrf-token"]');
+        var metaParam = document.querySelector('meta[name="csrf-param"]');
+        var name = (metaParam && metaParam.getAttribute('content')) || 'csrf_raketa';
+        var hash = metaToken ? metaToken.getAttribute('content') : '';
+        if (hash) body.set(name, hash);
+        return body;
+    }
+    function parseJsonResponse(r) {
+        return r.text().then(function (t) {
+            try { return JSON.parse(t); }
+            catch (e) { throw new Error('Réponse non JSON (HTTP ' + r.status + ')'); }
+        });
+    }
+
+    document.addEventListener('click', function (e) {
+        var btn = e.target.closest ? e.target.closest('.js-admin-debloquer-complement') : null;
+        if (!btn) return;
+        e.preventDefault();
+        var code = btn.getAttribute('data-code') || '';
+        if (!code) return;
+        btn.disabled = true;
+        fetch(base + '/etat_sieges_complement/' + encodeURIComponent(ekey) + '/' + encodeURIComponent(code), {
+            credentials: 'same-origin',
+            headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' }
+        }).then(parseJsonResponse).then(function (etat) {
+            if (!etat || !etat.ok) {
+                alert((etat && etat.error) ? etat.error : 'Impossible de lire l’état des sièges.');
+                btn.disabled = false;
+                return;
+            }
+            var bloq = (etat.bloques_amont || []).concat(etat.bloques_cible || []);
+            var cand = etat.candidats_extension || [];
+            var msg = 'Complément ' + code + '\n'
+                + 'Sièges reconduits : ' + ((etat.sieges_reconduits || []).join(', ') || '—') + '\n'
+                + 'Encore bloqués (amont/cible) : ' + (bloq.length ? bloq.join(', ') : 'aucun') + '\n'
+                + 'Candidats à ajouter (bloqués oubliés) : ' + (cand.length ? cand.join(', ') : 'aucun') + '\n\n'
+                + 'OK = débloquer les sièges reconduits.\n'
+                + 'Si des candidats existent, la confirmation suivante proposera de les ajouter.';
+            if (!window.confirm(msg)) {
+                btn.disabled = false;
+                return;
+            }
+            var etendre = false;
+            if (cand.length) {
+                etendre = window.confirm(
+                    'Ajouter aussi au complément les sièges encore bloqués à Banfora : '
+                    + cand.join(', ') + ' ?'
+                );
+            }
+            var body = new URLSearchParams();
+            body.set('code_progr_cible', code);
+            body.set('etendre', etendre ? '1' : '0');
+            appendCsrf(body);
+            return fetch(base + '/debloquer_sieges_complement/' + encodeURIComponent(ekey), {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Accept': 'application/json'
+                },
+                body: body.toString()
+            }).then(parseJsonResponse).then(function (data) {
+                if (!data || !data.ok) {
+                    alert((data && data.error) ? data.error : 'Échec du déblocage.');
+                    btn.disabled = false;
+                    return;
+                }
+                alert(
+                    'Débloqué : ' + ((data.debloques || []).join(', ') || '—')
+                    + (data.ajoutes && data.ajoutes.length
+                        ? ('\nAjoutés au complément : ' + data.ajoutes.join(', '))
+                        : '')
+                );
+                window.location.reload();
+            });
+        }).catch(function (err) {
+            alert((err && err.message) ? err.message : 'Erreur réseau');
+            btn.disabled = false;
+        });
+    });
+})();
+</script>
+<?php endif; ?>
 
 <!--End of file: program.php-->
 <!--File location: application/views/beagle/pages/_gares/program.php-->

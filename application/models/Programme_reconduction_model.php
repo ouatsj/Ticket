@@ -1219,6 +1219,9 @@ class Programme_reconduction_model extends CI_Model
             }
         }
 
+        // Les sièges reconduits ne doivent plus rester « bloqués » côté amont.
+        $this->_debloquer_sieges_programme($code_progr_source, $sieges);
+
         if ($this->db->trans_status() === FALSE) {
             $this->db->trans_rollback();
             return array('ok' => false, 'error' => 'echec_transaction');
@@ -1268,6 +1271,218 @@ class Programme_reconduction_model extends CI_Model
                 'source_ferme' => 1,
                 'ferme_at' => date('Y-m-d H:i:s'),
             ));
+    }
+
+    /**
+     * Retire des trous hors-vente (programme_siege_bloque).
+     *
+     * @param string $code_progr
+     * @param int[]  $sieges
+     */
+    protected function _debloquer_sieges_programme($code_progr, array $sieges)
+    {
+        $code = trim((string) $code_progr);
+        if ($code === '' || empty($sieges)) {
+            return;
+        }
+        if (!isset($this->m_programme)) {
+            $this->load->model('Programme_model', 'm_programme');
+        }
+        $this->m_programme->ensure_siege_bloque_table();
+        $nums = array();
+        foreach ($sieges as $n) {
+            $n = (int) $n;
+            if ($n > 0) {
+                $nums[$n] = $n;
+            }
+        }
+        if (empty($nums)) {
+            return;
+        }
+        $this->db->where('code_progr', $code)
+            ->where_in('siege_num', array_values($nums))
+            ->delete('programme_siege_bloque');
+    }
+
+    /**
+     * Admin : débloque les sièges d'un complément (amont + cible) et peut
+     * étendre le pool avec des sièges encore libres mais restés bloqués à l'amont.
+     *
+     * @param string     $ekey
+     * @param string     $code_progr_cible
+     * @param int[]|null $sieges null = tous les reconduits (+ extension si $etendre)
+     * @param bool       $etendre ajouter les sièges libres encore bloqués côté amont
+     * @param string|null $by
+     * @return array{ok:bool,error?:string,debloques?:int[],ajoutes?:int[],sieges?:int[]}
+     */
+    public function admin_debloquer_sieges_complement($ekey, $code_progr_cible, $sieges = null, $etendre = false, $by = null)
+    {
+        $cible = trim((string) $code_progr_cible);
+        $reco = $this->get_reco_by_cible($cible);
+        if (!$reco) {
+            return array('ok' => false, 'error' => 'pas_complement');
+        }
+        $source = trim((string) $reco->code_progr_source);
+        $prSrc = $this->db->query(
+            "SELECT intervalle1, intervalle2 FROM programme WHERE code_progr = ? LIMIT 1",
+            array($source)
+        )->row();
+        if (!$prSrc) {
+            return array('ok' => false, 'error' => 'programme_introuvable');
+        }
+
+        $alloues = $this->sieges_cibles($cible);
+        $occupesSrc = $this->sieges_occupes($source);
+        $occSet = array();
+        foreach ($occupesSrc as $n) {
+            $occSet[(int) $n] = true;
+        }
+
+        $toProcess = array();
+        if (is_array($sieges) && !empty($sieges)) {
+            foreach ($this->_normaliser_sieges($sieges) as $n) {
+                $toProcess[$n] = $n;
+            }
+        } else {
+            foreach ($alloues as $n) {
+                $toProcess[(int) $n] = (int) $n;
+            }
+        }
+
+        $ajoutes = array();
+        if ($etendre) {
+            $d = (int) $prSrc->intervalle1;
+            $f = (int) $prSrc->intervalle2;
+            if ($d > 0 && $f >= $d) {
+                if (!isset($this->m_programme)) {
+                    $this->load->model('Programme_model', 'm_programme');
+                }
+                $bloquesSrc = $this->m_programme->sieges_bloques_programme($source, $d, $f);
+                $alloueSet = array();
+                foreach ($alloues as $n) {
+                    $alloueSet[(int) $n] = true;
+                }
+                foreach ($bloquesSrc as $n) {
+                    $n = (int) $n;
+                    if ($n <= 0 || !empty($occSet[$n]) || !empty($alloueSet[$n])) {
+                        continue;
+                    }
+                    $toProcess[$n] = $n;
+                    $ajoutes[$n] = $n;
+                }
+            }
+        }
+
+        if (empty($toProcess)) {
+            return array('ok' => false, 'error' => 'aucun_siege');
+        }
+
+        $this->db->trans_begin();
+
+        $debloques = array_values($toProcess);
+        $this->_debloquer_sieges_programme($source, $debloques);
+        $this->_debloquer_sieges_programme($cible, $debloques);
+
+        foreach ($ajoutes as $n) {
+            $exists = $this->db->query(
+                "SELECT 1 FROM {$this->table_siege}
+                 WHERE code_progr_cible = ? AND siege_num = ? LIMIT 1",
+                array($cible, $n)
+            )->row();
+            if (!$exists) {
+                $this->db->insert($this->table_siege, array(
+                    'code_progr_source' => $source,
+                    'code_progr_cible' => $cible,
+                    'siege_num' => (int) $n,
+                ));
+            }
+            $pub = $this->db->query(
+                "SELECT 1 FROM {$this->table_sortie_siege}
+                 WHERE code_progr_source = ? AND siege_num = ? LIMIT 1",
+                array($source, $n)
+            )->row();
+            if (!$pub) {
+                $this->db->insert($this->table_sortie_siege, array(
+                    'code_progr_source' => $source,
+                    'siege_num' => (int) $n,
+                ));
+            }
+        }
+
+        if ($this->db->trans_status() === FALSE) {
+            $this->db->trans_rollback();
+            return array('ok' => false, 'error' => 'echec_transaction');
+        }
+        $this->db->trans_commit();
+
+        return array(
+            'ok' => true,
+            'debloques' => $debloques,
+            'ajoutes' => array_values($ajoutes),
+            'sieges' => $this->sieges_cibles($cible),
+            'by' => $by,
+        );
+    }
+
+    /**
+     * Sièges reconduits encore marqués bloqués à l'amont (ou sur la cible).
+     *
+     * @return array{ok:bool,error?:string,bloques_amont?:int[],bloques_cible?:int[],sieges_reconduits?:int[],candidats_extension?:int[]}
+     */
+    public function admin_etat_sieges_complement($code_progr_cible)
+    {
+        $cible = trim((string) $code_progr_cible);
+        $reco = $this->get_reco_by_cible($cible);
+        if (!$reco) {
+            return array('ok' => false, 'error' => 'pas_complement');
+        }
+        $source = trim((string) $reco->code_progr_source);
+        if (!isset($this->m_programme)) {
+            $this->load->model('Programme_model', 'm_programme');
+        }
+        $alloues = $this->sieges_cibles($cible);
+        $bloquesSrc = $this->m_programme->sieges_bloques_programme($source);
+        $bloquesCible = $this->m_programme->sieges_bloques_programme($cible);
+        $alloueSet = array();
+        foreach ($alloues as $n) {
+            $alloueSet[(int) $n] = true;
+        }
+        $bloquesAmontReco = array();
+        foreach ($bloquesSrc as $n) {
+            if (!empty($alloueSet[(int) $n])) {
+                $bloquesAmontReco[] = (int) $n;
+            }
+        }
+        $occupesSrc = $this->sieges_occupes($source);
+        $occSet = array();
+        foreach ($occupesSrc as $n) {
+            $occSet[(int) $n] = true;
+        }
+        $prSrc = $this->db->query(
+            "SELECT intervalle1, intervalle2 FROM programme WHERE code_progr = ? LIMIT 1",
+            array($source)
+        )->row();
+        $candidats = array();
+        if ($prSrc) {
+            $d = (int) $prSrc->intervalle1;
+            $f = (int) $prSrc->intervalle2;
+            foreach ($bloquesSrc as $n) {
+                $n = (int) $n;
+                if ($n < $d || $n > $f || !empty($occSet[$n]) || !empty($alloueSet[$n])) {
+                    continue;
+                }
+                $candidats[] = $n;
+            }
+        }
+        return array(
+            'ok' => true,
+            'code_progr_cible' => $cible,
+            'code_progr_source' => $source,
+            'sieges_reconduits' => $alloues,
+            'bloques_amont' => $bloquesAmontReco,
+            'bloques_cible' => array_values(array_intersect($bloquesCible, $alloues)),
+            'candidats_extension' => $candidats,
+        );
     }
 
     /**

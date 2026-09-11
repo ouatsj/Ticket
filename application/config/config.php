@@ -492,6 +492,8 @@
         'programmes/offres_reconduction.*',
         'programmes/heures_reconduction.*',
         'programmes/creer_reconduction.*',
+        'programmes/etat_sieges_complement.*',
+        'programmes/debloquer_sieges_complement.*',
         'programmes/lire_alerte_sortie.*',
         'programmes/alertes_sortie.*',
         'programmes/annuler_complement_expire.*',

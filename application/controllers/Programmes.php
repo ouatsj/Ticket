@@ -101,6 +101,8 @@
                 'offres_reconduction' => array('m_programme_reconduction', 'm_entreprises'),
                 'heures_reconduction' => array('m_programme_reconduction', 'm_entreprises'),
                 'creer_reconduction' => array('m_programme', 'm_programme_reconduction', 'm_entreprises'),
+                'etat_sieges_complement' => array('m_programme_reconduction', 'm_entreprises', 'm_programme'),
+                'debloquer_sieges_complement' => array('m_programme_reconduction', 'm_entreprises', 'm_programme'),
                 'lire_alerte_sortie' => array('m_programme_reconduction', 'm_entreprises'),
                 'alertes_sortie' => array('m_programme_reconduction', 'm_entreprises'),
                 'annuler_complement_expire' => array('m_programme_reconduction', 'm_entreprises'),
@@ -1985,6 +1987,67 @@
                 $options
             );
             return $this->load->view('beagle/pages/_programme/json', array('json' => $out));
+        }
+
+        /**
+         * Admin : état des sièges bloqués d'un complément.
+         * GET Programmes/etat_sieges_complement/{ekey}/{code_progr_cible}
+         */
+        public function etat_sieges_complement($ckey, $code_progr_cible = null)
+        {
+            session_release_lock();
+            $this->company = $this->m_entreprises->get_key($ckey);
+            if (!$this->_peut_admin_complement_sieges()) {
+                return $this->load->view('beagle/pages/_programme/json', array(
+                    'json' => array('ok' => false, 'error' => 'droit_insuffisant'),
+                ));
+            }
+            if (!$code_progr_cible) {
+                $code_progr_cible = $this->input->get('code_progr');
+            }
+            $out = $this->m_programme_reconduction->admin_etat_sieges_complement($code_progr_cible);
+            return $this->load->view('beagle/pages/_programme/json', array('json' => $out));
+        }
+
+        /**
+         * Admin : débloque (et optionnellement étend) les sièges d'un complément.
+         * POST Programmes/debloquer_sieges_complement/{ekey}
+         */
+        public function debloquer_sieges_complement($ckey)
+        {
+            session_release_lock();
+            $this->company = $this->m_entreprises->get_key($ckey);
+            if (!$this->_peut_admin_complement_sieges()) {
+                return $this->load->view('beagle/pages/_programme/json', array(
+                    'json' => array('ok' => false, 'error' => 'droit_insuffisant'),
+                ));
+            }
+            $cible = trim((string) $this->input->post('code_progr_cible'));
+            $sieges = $this->input->post('sieges');
+            if (!is_array($sieges)) {
+                $raw = trim((string) $this->input->post('sieges_csv'));
+                $sieges = $raw !== '' ? explode(',', $raw) : null;
+            }
+            $etendre = (string) $this->input->post('etendre') === '1'
+                || (string) $this->input->post('etendre') === 'true';
+            $by = isset($this->session->agent->username) ? $this->session->agent->username : null;
+            $out = $this->m_programme_reconduction->admin_debloquer_sieges_complement(
+                $this->session->company->ekey,
+                $cible,
+                $sieges,
+                $etendre,
+                $by
+            );
+            return $this->load->view('beagle/pages/_programme/json', array('json' => $out));
+        }
+
+        /**
+         * Compte admin uniquement (userole 1) pour déblocage sièges complément.
+         */
+        protected function _peut_admin_complement_sieges()
+        {
+            $role = isset($this->session->agent->userole) ? (string) $this->session->agent->userole : '';
+            return $role === '1';
         }
 
         /**

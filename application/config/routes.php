@@ -283,6 +283,8 @@
             $route['programmes/offres_reconduction/(:any)/(:any)'] = 'Programmes/offres_reconduction/$1/$2';
             $route['programmes/heures_reconduction/(:any)/(:any)/(:any)'] = 'Programmes/heures_reconduction/$1/$2/$3';
             $route['programmes/creer_reconduction/(:any)'] = 'Programmes/creer_reconduction/$1';
+            $route['programmes/etat_sieges_complement/(:any)/(:any)'] = 'Programmes/etat_sieges_complement/$1/$2';
+            $route['programmes/debloquer_sieges_complement/(:any)'] = 'Programmes/debloquer_sieges_complement/$1';
             $route['programmes/lire_alerte_sortie/(:any)'] = 'Programmes/lire_alerte_sortie/$1';
             $route['programmes/alertes_sortie/(:any)/(:any)'] = 'Programmes/alertes_sortie/$1/$2';
             $route['programmes/annuler_complement_expire/(:any)'] = 'Programmes/annuler_complement_expire/$1';
