@@ -298,6 +298,38 @@ class Sale_passager_service
                 $matchedId = (int) $row->id_escale;
             }
         }
+        // Autre compagnie : même nom d'escale (SIKASSO) même si code_gadest diffère (SIK23 ≠ SIK54).
+        if ($matchedId <= 0 && $nom_dest !== '') {
+            $row = $this->ci->db->query(
+                "SELECT id_escale FROM itineraire_escales
+                 WHERE id_lignes = ?
+                   AND UPPER(TRIM(nom_escale)) = UPPER(TRIM(?))
+                   AND actif_escale = 1
+                 LIMIT 1",
+                array($ligne, $nom_dest)
+            )->row();
+            if ($row) {
+                $matchedId = (int) $row->id_escale;
+            }
+        }
+        // Secours : nom d'escale dérivé de l'id ticket (report CMT → VIP).
+        if ($matchedId <= 0 && $id_escale > 0) {
+            $src = $this->escale_row_by_id($id_escale);
+            $nomSrc = ($src && isset($src->nom_escale)) ? trim((string) $src->nom_escale) : '';
+            if ($nomSrc !== '') {
+                $row = $this->ci->db->query(
+                    "SELECT id_escale FROM itineraire_escales
+                     WHERE id_lignes = ?
+                       AND UPPER(TRIM(nom_escale)) = UPPER(TRIM(?))
+                       AND actif_escale = 1
+                     LIMIT 1",
+                    array($ligne, $nomSrc)
+                )->row();
+                if ($row) {
+                    $matchedId = (int) $row->id_escale;
+                }
+            }
+        }
 
         if ($matchedId > 0) {
             $fields = $this->escale_passager_fields($matchedId);

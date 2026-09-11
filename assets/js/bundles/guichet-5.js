@@ -9781,10 +9781,15 @@ document.addEventListener('DOMContentLoaded', () => {
             if (typeof after === 'function') after([]);
             return;
         }
-        var axeSearch = __reprogAxeDepuisGareReport() || st.axe;
-        // force=0 si un direct existe déjà pour la date → pas de multi parasite.
+        // Direct déjà chargé (heures_unifie, toutes cie) → pas d’appel multi parasite.
         var hasDirectDate = __reprogFilterByDate(dateYmd).length > 0;
-        var force = hasDirectDate ? '0' : '1';
+        if (hasDirectDate) {
+            st.chemins = [];
+            if (after) after([]);
+            return;
+        }
+        var axeSearch = __reprogAxeDepuisGareReport() || st.axe;
+        var force = '1';
         var url = window.location.origin + APP_ROOT
             + '/programmes/verifchemins/'
             + encodeURIComponent(axeSearch) + '/'
@@ -9862,17 +9867,23 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function __reprogMergeItineraires(directs, chemins) {
-        // Directs = programmes de la gare de report (heures_unifie) ;
-        // multi = correspondances gare report → dest (jamais contre-sens).
+        // Directs = programmes de la gare de report (heures_unifie, toutes compagnies).
+        // Si un direct existe → uniquement les directs (pas de multi parasite).
+        // Sinon multi = correspondances gare report → dest (jamais contre-sens).
         var out = [];
         var seenDirectKey = {};
-        __reprogRowsArray(directs).forEach(function (ch) {
-            if (!ch || !__reprogCheminSensOk(ch)) return;
+        var directList = __reprogRowsArray(directs).filter(function (ch) {
+            return ch && __reprogCheminSensOk(ch);
+        });
+        directList.forEach(function (ch) {
             var et = __reprogNormalizeEtapes(ch.etapes || ch.legs);
             var k = et.length === 1 ? __reprogDirectKey(et[0]) : '';
             if (k) seenDirectKey[k] = true;
             out.push(ch);
         });
+        if (out.length > 0) {
+            return out;
+        }
         __reprogRowsArray(chemins).forEach(function (ch) {
             if (!ch) return;
             if (ch.source === 'declaratif') return;
@@ -10760,8 +10771,8 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             __reprogShowCorrExclusive(
                 all,
-                'Itinéraires (programmes) pour ' + odLabel + ' le ' + dateYmd
-                + ' — direct et/ou correspondance selon les départs du jour.'
+                'Itinéraires (programmes de la gare de report) pour ' + odLabel + ' le ' + dateYmd
+                + ' — toutes compagnies ; direct prioritaire, correspondance seulement si aucun direct.'
             );
         });
     }

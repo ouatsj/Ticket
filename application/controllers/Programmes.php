@@ -2583,10 +2583,12 @@
                 $axesSearch[] = $axe;
             }
 
-            // Reprog : ne pas forcer le multi si un départ direct existe (évite transit parasite).
-            if ($mode_reprog && $force_transit && $nom !== '') {
+            // Reprog : un direct sur N’IMPORTE quelle compagnie du nom_ligne → pas de multi.
+            $hasAnyDirectNom = false;
+            if ($mode_reprog && $nom !== '') {
                 foreach ($axesSearch as $axTry) {
                     if ($this->graphe_correspondance->od_a_depart_direct($ekey, $axTry, $date, null)) {
+                        $hasAnyDirectNom = true;
                         $force_transit = false;
                         break;
                     }
@@ -2602,9 +2604,20 @@
                 'nom_ligne' => $nom !== '' ? $nom : null,
                 'axes_nom_ligne' => $axesSearch,
                 'gare_report' => $gareidentif,
+                'has_direct' => $hasAnyDirectNom ? true : false,
             );
 
-            if ($this->graphe_correspondance->is_serve_enabled()) {
+            if ($mode_reprog && $hasAnyDirectNom) {
+                // Directs = heures_unifie (toutes cie). Pas de correspondance parasite.
+                $decision = array(
+                    'mode' => 'direct',
+                    'etapes' => array(),
+                    'chemins' => array(),
+                    'meta' => array_merge($mergedMeta, array(
+                        'reason' => 'reprog_prefer_direct_any_cie',
+                    )),
+                );
+            } elseif ($this->graphe_correspondance->is_serve_enabled()) {
                 foreach ($axesSearch as $axTry) {
                     $one = $this->graphe_correspondance->resoudre_pour_vente(
                         $ekey,

@@ -1345,6 +1345,42 @@ class Graphe_correspondance
                             $villeOd = (int) $rowVo->id_villegd;
                         }
                     }
+                    // Destinations cibles = villes d’arrivée de TOUTES les lignes du nom_ligne
+                    // (BAM6 et BAM53) — jamais filtré par compagnie ticket.
+                    $targetDestVilles = array();
+                    $nomOpt = isset($opts['nom_ligne']) ? trim((string) $opts['nom_ligne']) : '';
+                    $gdOdOpt = isset($opts['gadest_od']) ? trim((string) $opts['gadest_od']) : '';
+                    if ($nomOpt !== '') {
+                        $axesNl = $this->CI->m_programme->axes_par_nom_ligne(
+                            $nomOpt,
+                            $ekey,
+                            $gare !== '' ? $gare : null,
+                            null
+                        );
+                        if (!empty($axesNl)) {
+                            $inL = $this->CI->m_programme->sql_in_ident_lignes($axesNl);
+                            $rowsD = $this->CI->db->query(
+                                "SELECT DISTINCT ga.id_villega
+                                 FROM lignes lg
+                                 JOIN gare_dest ga ON ga.code_gadest = lg.gadest_lg
+                                 WHERE lg.ident_ligne IN ({$inL})"
+                            )->result();
+                            foreach ($rowsD as $rd) {
+                                if ($rd && $rd->id_villega !== null && $rd->id_villega !== '') {
+                                    $targetDestVilles[(int) $rd->id_villega] = true;
+                                }
+                            }
+                        }
+                    }
+                    if ($gdOdOpt !== '') {
+                        $rdGd = $this->CI->db->query(
+                            "SELECT id_villega FROM gare_dest WHERE code_gadest = ? LIMIT 1",
+                            array($gdOdOpt)
+                        )->row();
+                        if ($rdGd && $rdGd->id_villega !== null) {
+                            $targetDestVilles[(int) $rdGd->id_villega] = true;
+                        }
+                    }
                     $villeFirstCache = array();
                     $keptGare = array();
                     foreach ($cheminsOut as $c) {
@@ -1430,6 +1466,37 @@ class Graphe_correspondance
                         }
                         if ($gdOd !== '' && $gaFirst !== '' && $gaFirst === $gdOd) {
                             continue; // part de la destination ticket
+                        }
+                        // Arrivée finale doit viser une dest du nom_ligne (toutes cie), pas un OD parasite.
+                        $last = null;
+                        if (!empty($ets)) {
+                            $last = is_array($ets) ? end($ets) : $ets;
+                        }
+                        $gdLast = '';
+                        if (is_object($last)) {
+                            if (!empty($last->code_gadest)) {
+                                $gdLast = (string) $last->code_gadest;
+                            } elseif (!empty($last->gadest_lg)) {
+                                $gdLast = (string) $last->gadest_lg;
+                            }
+                        } elseif (is_array($last)) {
+                            if (!empty($last['code_gadest'])) {
+                                $gdLast = (string) $last['code_gadest'];
+                            } elseif (!empty($last['gadest_lg'])) {
+                                $gdLast = (string) $last['gadest_lg'];
+                            }
+                        }
+                        if ($gdLast !== '' && !empty($targetDestVilles)) {
+                            if (!isset($villeFirstCache['d:' . $gdLast])) {
+                                $rdL = $this->CI->db->query(
+                                    "SELECT id_villega FROM gare_dest WHERE code_gadest = ? LIMIT 1",
+                                    array($gdLast)
+                                )->row();
+                                $villeFirstCache['d:' . $gdLast] = $rdL ? (int) $rdL->id_villega : -2;
+                            }
+                            if (!isset($targetDestVilles[$villeFirstCache['d:' . $gdLast]])) {
+                                continue;
+                            }
                         }
                         $keptGare[] = $c;
                     }

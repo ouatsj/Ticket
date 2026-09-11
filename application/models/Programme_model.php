@@ -2255,17 +2255,28 @@
             $cidEsc = $this->db->escape($cid);
             $exEsc = $this->db->escape($exclude_code);
 
+            // Filtre prix : jamais par compagnie. Escale ticket → même nom/code (CMT≠VIP).
             $prixSql = '';
             if ($prix !== null && $prix !== '') {
                 $prixEsc = $this->db->escape($prix);
-                $idEsc = (int) $id_escale;
-                if ($idEsc > 0) {
+                $idEscPrix = (int) $id_escale;
+                if ($idEscPrix > 0) {
                     $prixSql = " AND EXISTS (
                         SELECT 1 FROM itineraire_escales ie
                         WHERE ie.id_lignes = lg.ident_ligne
                           AND ie.actif_escale = 1
-                          AND ie.id_escale = {$idEsc}
                           AND ie.prix_escale = {$prixEsc}
+                          AND (
+                            ie.id_escale = {$idEscPrix}
+                            OR ie.code_gadest = (
+                                SELECT ie0.code_gadest FROM itineraire_escales ie0
+                                WHERE ie0.id_escale = {$idEscPrix} LIMIT 1
+                            )
+                            OR UPPER(TRIM(ie.nom_escale)) = (
+                                SELECT UPPER(TRIM(ie0.nom_escale)) FROM itineraire_escales ie0
+                                WHERE ie0.id_escale = {$idEscPrix} LIMIT 1
+                            )
+                          )
                     )";
                 } else {
                     $prixSql = " AND EXISTS (
@@ -2317,54 +2328,53 @@
 
             $idEsc = (int) $id_escale;
             if ($nom !== '') {
-                // Source de vérité : nom de ligne parent (+ gare de report).
+                // Tous les reports : programmes de la gare de report, même nom de ligne,
+                // toutes compagnies / codes dest (BAM6 ≠ BAM53). Pas d’OR parasite hors OD.
                 $odSql = ' AND lg.nom_ligne = ' . $this->db->escape($nom) . $depVilleSql;
-                // Ticket escale : élargir aux lignes du même départ qui portent cette escale
-                // (évite de chercher une fausse ligne OUAGA-FEREKE_CIT sans programmes).
-                if ($idEsc > 0) {
-                    $odSql = ' AND ('
-                        . ' lg.nom_ligne = ' . $this->db->escape($nom)
-                        . ' OR EXISTS (
-                            SELECT 1 FROM itineraire_escales ie
-                            WHERE ie.id_lignes = lg.ident_ligne
-                              AND ie.actif_escale = 1
-                              AND (
-                                ie.id_escale = ' . $idEsc . '
-                                OR ie.code_gadest = (
-                                    SELECT ie0.code_gadest FROM itineraire_escales ie0
-                                    WHERE ie0.id_escale = ' . $idEsc . ' LIMIT 1
-                                )
-                              )
-                        )'
-                        . ' OR lg.gadest_lg = (
-                            SELECT ie0.code_gadest FROM itineraire_escales ie0
-                            WHERE ie0.id_escale = ' . $idEsc . ' LIMIT 1
-                        )'
-                        . ')' . $depVilleSql;
-                }
             } elseif ($idEsc > 0) {
-                // Sans nom_ligne mais avec escale : lignes qui portent l'escale depuis la gare report.
+                // Sans nom_ligne : lignes du départ report qui portent la même escale (nom/code).
                 $odSql = ' AND EXISTS (
                     SELECT 1 FROM itineraire_escales ie
                     WHERE ie.id_lignes = lg.ident_ligne
                       AND ie.actif_escale = 1
-                      AND ie.id_escale = ' . $idEsc . '
+                      AND (
+                        ie.id_escale = ' . $idEsc . '
+                        OR ie.code_gadest = (
+                            SELECT ie0.code_gadest FROM itineraire_escales ie0
+                            WHERE ie0.id_escale = ' . $idEsc . ' LIMIT 1
+                        )
+                        OR UPPER(TRIM(ie.nom_escale)) = (
+                            SELECT UPPER(TRIM(ie0.nom_escale)) FROM itineraire_escales ie0
+                            WHERE ie0.id_escale = ' . $idEsc . ' LIMIT 1
+                        )
+                      )
                 )' . $depVilleSql;
             } else {
                 // Reprog unifiée : pas de recherche par codes seuls (BAM6≠BAM53, etc.).
                 $odSql = ' AND 1=0';
             }
 
-            // Prix / escale : si prix fourni, restreindre ; sinon id_escale sert déjà au filtre OD ci-dessus.
+            // Prix / escale : si prix fourni, restreindre ; sinon pour une escale ticket
+            // matcher la MÊME destination d'escale (nom / code) sur TOUTES les compagnies
+            // (ex. SIKASSO id 51/SIK23 sur CMT ≠ id 54/SIK54 sur VIP — même ville).
             if ($prix !== null && $prix !== '') {
                 // $prixSql déjà construit plus haut
             } elseif ($idEsc > 0 && ($prix === null || $prix === '')) {
-                // S'assurer que le programme appartient à une ligne qui porte encore l'escale.
                 $prixSql = " AND EXISTS (
                     SELECT 1 FROM itineraire_escales ie
                     WHERE ie.id_lignes = lg.ident_ligne
                       AND ie.actif_escale = 1
-                      AND ie.id_escale = {$idEsc}
+                      AND (
+                        ie.id_escale = {$idEsc}
+                        OR ie.code_gadest = (
+                            SELECT ie0.code_gadest FROM itineraire_escales ie0
+                            WHERE ie0.id_escale = {$idEsc} LIMIT 1
+                        )
+                        OR UPPER(TRIM(ie.nom_escale)) = (
+                            SELECT UPPER(TRIM(ie0.nom_escale)) FROM itineraire_escales ie0
+                            WHERE ie0.id_escale = {$idEsc} LIMIT 1
+                        )
+                      )
                 )";
             }
 
