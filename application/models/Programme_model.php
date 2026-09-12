@@ -758,9 +758,9 @@
 
             $codes = array($code => true);
 
-            if (!isset($this->m_programme_correspondance)) {
-                $this->load->model('Programme_correspondance_model', 'm_programme_correspondance');
-            }
+            // Charger sur le super-objet CI (isset($this->…) ne marche pas dans un modèle).
+            $this->load->model('Programme_correspondance_model', 'm_programme_correspondance');
+            $corr = get_instance()->m_programme_correspondance;
 
             try {
                 foreach ($this->codes_sieges_occupes($code) as $c) {
@@ -797,9 +797,10 @@
                     if ($c === '') {
                         continue;
                     }
-                    if (isset($this->m_programme_correspondance)
-                        && method_exists($this->m_programme_correspondance, 'siege_occupation_compatible')
-                        && !$this->m_programme_correspondance->siege_occupation_compatible($code, $c)
+                    // Option 3 : suite ∥ dérivé ne se bloquent pas.
+                    if ($corr
+                        && method_exists($corr, 'siege_occupation_compatible')
+                        && !$corr->siege_occupation_compatible($code, $c)
                     ) {
                         continue;
                     }
