@@ -843,6 +843,34 @@
 
                 }
                 
+                $cgRow = $this->db->query(
+                    "SELECT idcpguichet, montcomtpte, comp, is_validcompte
+                     FROM compte_guichet
+                     WHERE idcpguichet = ?
+                     LIMIT 1",
+                    array((int) $idcptvers)
+                )->row();
+                if (!$cgRow) {
+                    show_error('Bordereau introuvable.', 404, 'Validation impossible');
+                    return;
+                }
+                if ((int) $cgRow->is_validcompte === 1) {
+                    show_error('Ce bordereau est déjà validé.', 409, 'Validation impossible');
+                    return;
+                }
+                $montantBordereau = round((float) $cgRow->montcomtpte, 2);
+                $montantSaisi = round((float) str_replace(array(' ', ','), array('', '.'), (string) $this->input->post('montantverse')), 2);
+                if (abs($montantSaisi - $montantBordereau) > 0.009) {
+                    show_error(
+                        'Écart interdit : le montant réel (' . number_format($montantSaisi, 0, ',', ' ')
+                        . ') doit être égal au bordereau (' . number_format($montantBordereau, 0, ',', ' ')
+                        . '). Relancez l’arrêt vendeur si le bordereau est faux.',
+                        422,
+                        'Validation refusée'
+                    );
+                    return;
+                }
+
                 $arrayrecette = array(
                     'idcaisse' => $this->input->post('idgar'),
                     'id_genre_recet' => $this->input->post('genre'),
@@ -851,7 +879,7 @@
                     'type_recet' => $this->input->post('interne'),
                     'idopera' => $idopera_recette,
                     'nom' => $this->input->post('nom'),
-                    'montant_recet' => $this->input->post('montantverse'),
+                    'montant_recet' => $montantBordereau,
                     'commentaire_recet' => $this->input->post('comment'),
                     'date_recet' => $this->input->post('daterecep'),
                     'createdrecet_at' => now('UTC'),

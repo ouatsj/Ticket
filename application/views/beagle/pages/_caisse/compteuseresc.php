@@ -90,13 +90,15 @@
                                                 
                                             </div>
                                             <div class="form-group col-sm-4">
-                                                <label>MONTANT</label>
+                                                <label>MONTANT BORDEREAU</label>
                                                 <input class="form-control form-control-sm" type="text" name="montantenvoyer" autocomplete="off"
-                                                    value="<?= $item->montcomtpte; ?>">
+                                                    value="<?= $item->montcomtpte; ?>" readonly>
                                             </div>
                                             <div class="form-group col-sm-4">
-                                                <label>MONTANT REEL</label>
-                                                <input class="form-control form-control-sm" type="text" name="montantverse" autocomplete="off">
+                                                <label>MONTANT RÉEL (doit = bordereau)</label>
+                                                <input class="form-control form-control-sm" type="text" name="montantverse" autocomplete="off"
+                                                    value="<?= $item->montcomtpte; ?>" required>
+                                                <small class="text-muted">Tout écart est refusé.</small>
                                             </div>
                                             <div class="form-group col-sm-4">
                                                 <label>COMMENTAIRE</label>

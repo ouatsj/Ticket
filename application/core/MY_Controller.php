@@ -83,6 +83,10 @@ class MY_Controller extends CI_Controller
         if (in_array($class, array('super_administration', 'caisses', 'historique_passagers'), true)) {
             $helpers[] = 'super_admin';
         }
+        if (in_array($class, array('caisses', 'utilisateurs'), true)) {
+            $helpers[] = 'arret_compte_complet';
+            $helpers[] = 'sales_price';
+        }
         if ($this->config->item('sales_price_controls_enabled')
             || $this->config->item('fraud_controls_mode') !== 'off') {
             $helpers[] = 'sales_price';

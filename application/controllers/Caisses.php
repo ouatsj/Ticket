@@ -1726,17 +1726,50 @@
                 'all_gare' => true,
             );
 
+            $this->load->helper(array('sales_price', 'arret_compte_complet'));
+
             $this->db->trans_start();
 
-            // Snapshot atomique : montants + IDs exacts (évite close sans comptage).
-            $snap = function_exists('sales_closure_arret_snapshot_agent_gare')
-                ? sales_closure_arret_snapshot_agent_gare($this->company->ekey, $idcpt, $gd, $isg, null)
-                : array('lignes' => array(), 'passager_codes' => array(), 'non_passager_codes' => array());
+            // Arrêt complet : snapshot + fusion oubliés + montant = somme exacte des codes.
+            $snap = $this->_arret_build_complete_snapshot($idcpt, $gd, $isg, null, false, 'valide');
+            if (empty($snap['ok'])) {
+                $this->db->trans_rollback();
+                if (function_exists('sales_closure_arret_audit_log')) {
+                    sales_closure_arret_audit_log($this->company->ekey, $idcpt, $gd, 'valide', $snap);
+                }
+                $detail = '';
+                if (!empty($snap['orphans']) && is_array($snap['orphans'])) {
+                    $bits = array();
+                    foreach (array_slice($snap['orphans'], 0, 5) as $o) {
+                        $bits[] = (isset($o['type']) ? $o['type'] : '?') . ':' . (isset($o['code']) ? $o['code'] : '');
+                    }
+                    $detail = $bits ? (' (' . implode(', ', $bits) . ')') : '';
+                }
+                show_error(
+                    (!empty($snap['error']) ? $snap['error'] : 'Arrêt de compte refusé.') . $detail,
+                    422,
+                    'Arrêt impossible'
+                );
+                return;
+            }
+
             $lignes = isset($snap['lignes']) ? $snap['lignes'] : array();
             $closeOpts['passager_codes'] = isset($snap['passager_codes']) ? $snap['passager_codes'] : array();
             $closeOpts['non_passager_codes'] = isset($snap['non_passager_codes']) ? $snap['non_passager_codes'] : array();
 
             $arpass = $this->_arret_close_open_ticket_sales($idcpt, $gd, $closeOpts);
+            $this->_arret_close_extra_ops_and_write_bagage($idcpt, $isg, $snap);
+
+            // Filet final : plus aucune opération ouverte sur le compte agent.
+            if (!$this->_arret_assert_no_open_remainder($idcpt, $gd, null, false)) {
+                $this->db->trans_rollback();
+                show_error(
+                    'Arrêt annulé : des opérations non arrêtées subsistent sur le compte (tickets, retours, escales ou bagages). Réessayez.',
+                    409,
+                    'Écart détecté'
+                );
+                return;
+            }
 
             $arnonreport = $this->db->query(
                 "SELECT rp.code_report FROM report rp
@@ -1750,7 +1783,7 @@
                 $this->m_report->update($items3->code_report, array('statutreport' => 1));
             }
 
-            // Bordereau → chef (compte_guichet, is_validcompte=0).
+            // Bordereau tickets+escales → chef (compte_guichet).
             $this->_arret_write_compte_guichet_from_totals($idcpt, $isg, $lignes);
 
                     //$cdse = $this ->input->post('compcted');
@@ -4937,6 +4970,9 @@
                 show_error('L’arrêt de compte n’a pas pu être enregistré. Veuillez réessayer.', 500);
                 return;
             }
+            if (function_exists('sales_closure_arret_audit_log') && !empty($snap) && is_array($snap)) {
+                sales_closure_arret_audit_log($this->company->ekey, $idcpt, $gd, 'valide', $snap);
+            }
             $this->_track_arret_activity();
             redirect('caisses/compte/'.$this->session->company->ekey. '/' . $idcpt.'/'.$gd.'/'.$isg);
         }
@@ -5022,6 +5058,123 @@
                 'prepare_sg' => $prepare_sg,
                 'close_opts' => $close_opts,
             );
+        }
+
+        /**
+         * Snapshot d'arrêt sans écart (capture + filet + montant = codes).
+         *
+         * @return array
+         */
+        protected function _arret_build_complete_snapshot(
+            $idcpt,
+            $gd,
+            $defaultSg,
+            $idsousgareVente = null,
+            $excludeTicketCodeR = false,
+            $source = 'valide'
+        ) {
+            $this->load->helper(array('sales_price', 'arret_compte_complet'));
+            if (!function_exists('sales_closure_complete_arret')) {
+                $snap = function_exists('sales_closure_arret_snapshot_agent_gare')
+                    ? sales_closure_arret_snapshot_agent_gare(
+                        $this->company->ekey,
+                        $idcpt,
+                        $gd,
+                        $defaultSg,
+                        $idsousgareVente,
+                        $excludeTicketCodeR
+                    )
+                    : array(
+                        'lignes' => array(),
+                        'passager_codes' => array(),
+                        'non_passager_codes' => array(),
+                        'totals_by_comp' => array(),
+                    );
+                $snap['ok'] = true;
+                return $snap;
+            }
+
+            $snap = sales_closure_complete_arret(
+                $this->company->ekey,
+                $idcpt,
+                $gd,
+                $defaultSg,
+                $idsousgareVente,
+                $excludeTicketCodeR
+            );
+            // Pas d'audit ici : l'INSERT serait annulé par un rollback.
+            $snap['_audit_source'] = $source;
+            return $snap;
+        }
+
+        /**
+         * True si plus aucune opération ouverte sur le compte agent.
+         */
+        protected function _arret_assert_no_open_remainder(
+            $idcpt,
+            $gd = null,
+            $idsousgareVente = null,
+            $excludeTicketCodeR = false
+        ) {
+            $this->load->helper(array('sales_price', 'arret_compte_complet', 'guichet_totaux'));
+            if (function_exists('sales_closure_agent_has_open_remainder')) {
+                return !sales_closure_agent_has_open_remainder($idcpt, $excludeTicketCodeR);
+            }
+            if (!function_exists('sales_closure_wide_open_sales')) {
+                return true;
+            }
+            $wide = sales_closure_wide_open_sales(
+                $this->company->ekey,
+                $idcpt,
+                $gd,
+                $idsousgareVente,
+                $excludeTicketCodeR
+            );
+            return empty($wide['passagers'])
+                && empty($wide['nps'])
+                && empty($wide['escales'])
+                && empty($wide['bagages']);
+        }
+
+        /**
+         * Ferme escales + bagages du snapshot, écrit compte_bagage si besoin.
+         */
+        protected function _arret_close_extra_ops_and_write_bagage($idcpt, $isg, array $snap)
+        {
+            $escalIds = isset($snap['escal_ids']) && is_array($snap['escal_ids']) ? $snap['escal_ids'] : array();
+            $bagageIds = isset($snap['bagage_ids']) && is_array($snap['bagage_ids']) ? $snap['bagage_ids'] : array();
+            if ($escalIds && function_exists('sales_closure_close_escal_ids')) {
+                sales_closure_close_escal_ids($idcpt, $escalIds);
+            }
+            if ($bagageIds && function_exists('sales_closure_close_bagage_ids')) {
+                sales_closure_close_bagage_ids($idcpt, $bagageIds);
+            }
+
+            $lignesBag = isset($snap['lignes_bagage']) && is_array($snap['lignes_bagage'])
+                ? $snap['lignes_bagage']
+                : array();
+            if (!$lignesBag) {
+                return;
+            }
+            if (!isset($this->m_comptes_bagage)) {
+                $this->load->model('Comptes_bagage_model', 'm_comptes_bagage');
+            }
+            $date_arret = mdate('%Y-%m-%d', now('UTC'));
+            foreach ($lignesBag as $ligne) {
+                $comp = isset($ligne['comp']) ? (int) $ligne['comp'] : 0;
+                $montant = isset($ligne['montant']) ? round((float) $ligne['montant'], 2) : 0.0;
+                if ($comp <= 0 || $montant <= 0) {
+                    continue;
+                }
+                $sg = isset($ligne['idsousgare']) ? (int) $ligne['idsousgare'] : (int) $isg;
+                $this->m_comptes_bagage->create(array(
+                    'idusercomptbg' => $idcpt,
+                    'compbg' => $comp,
+                    'idsousgabg' => $sg > 0 ? $sg : (int) $isg,
+                    'montcomtptebg' => $montant,
+                    'datearretcomptbg' => $date_arret,
+                ));
+            }
         }
 
         /**
@@ -6260,24 +6413,47 @@
             $closeOpts['exclude_report_code_R'] = true;
             $closeOpts['for_update'] = true;
 
+            $this->load->helper(array('sales_price', 'arret_compte_complet'));
+
             $this->db->trans_start();
 
-            // Snapshot atomique (même IDs pour montant + fermeture).
-            $snap = function_exists('sales_closure_arret_snapshot_agent_gare')
-                ? sales_closure_arret_snapshot_agent_gare(
-                    $this->company->ekey,
-                    $idcpt,
-                    $gd,
-                    $sgid,
-                    $scope['prepare_sg'],
-                    true
-                )
-                : array('lignes' => array(), 'passager_codes' => array(), 'non_passager_codes' => array());
+            // Arrêt complet (même IDs / montants réconciliés).
+            $snap = $this->_arret_build_complete_snapshot(
+                $idcpt,
+                $gd,
+                $sgid,
+                $scope['prepare_sg'],
+                true,
+                'validerec'
+            );
+            if (empty($snap['ok'])) {
+                $this->db->trans_rollback();
+                if (function_exists('sales_closure_arret_audit_log')) {
+                    sales_closure_arret_audit_log($this->company->ekey, $idcpt, $gd, 'validerec', $snap);
+                }
+                show_error(
+                    !empty($snap['error']) ? $snap['error'] : 'Arrêt de compte refusé.',
+                    422,
+                    'Arrêt impossible'
+                );
+                return;
+            }
             $closeOpts['passager_codes'] = isset($snap['passager_codes']) ? $snap['passager_codes'] : array();
             $closeOpts['non_passager_codes'] = isset($snap['non_passager_codes']) ? $snap['non_passager_codes'] : array();
 
             // Phase A/B : gare + vendeur ; lieu de vente aligné sur les totaux.
             $arpass = $this->_arret_close_open_ticket_sales($idcpt, $gd, $closeOpts);
+            $this->_arret_close_extra_ops_and_write_bagage($idcpt, $sgid, $snap);
+
+            if (!$this->_arret_assert_no_open_remainder($idcpt, $gd, $scope['prepare_sg'], true)) {
+                $this->db->trans_rollback();
+                show_error(
+                    'Arrêt annulé : des opérations non arrêtées subsistent sur le compte (tickets, retours, escales ou bagages). Réessayez.',
+                    409,
+                    'Écart détecté'
+                );
+                return;
+            }
 
                     $arnonreport = $this->db->query(
                         "SELECT rp.code_report FROM report rp
@@ -6291,8 +6467,11 @@
                         $this->m_report->update($ite3->code_report, array('statutreport' => 1));
                     }
 
-                    // Agrégation serveur (total clôturé) — pas de ligne fantôme comp=0.
-                    $lignes_ecriture = $this->_validerec_aggregate_post_lines();
+                    // Lignes = totaux réconciliés du snapshot complet (pas POST).
+                    $lignes_ecriture = isset($snap['lignes']) ? $snap['lignes'] : array();
+                    if (empty($lignes_ecriture) && function_exists('sales_arret_totals_lines')) {
+                        $lignes_ecriture = $this->_validerec_aggregate_post_lines();
+                    }
                     $idcaisse = $this->input->post('idcaisse');
                     $genre = $this->input->post('genre');
                     $nomcais = $this->session->agent->username;
@@ -6316,7 +6495,7 @@
                             'recetsgid' => $sgid,
                             'nom' => $nomcais,
                             'montant_recet' => $ligne['montant'],
-                            'commentaire_recet' => $ligne['commentaire'],
+                            'commentaire_recet' => isset($ligne['commentaire']) ? $ligne['commentaire'] : '',
                             'date_recet' => $date_arret,
                             'createdrecet_at' => now('UTC'),
                         ));
@@ -6328,6 +6507,10 @@
                 show_error('L’arrêt de compte n’a pas pu être enregistré. Veuillez réessayer.', 500);
                 return;
             }
+
+                    if (function_exists('sales_closure_arret_audit_log') && !empty($snap) && is_array($snap)) {
+                        sales_closure_arret_audit_log($this->company->ekey, $idcpt, $gd, 'validerec', $snap);
+                    }
 
                     $this->_track_arret_activity();
 
