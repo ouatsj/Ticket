@@ -4780,25 +4780,10 @@
                         }
 
                         $nod = $sub_heure;
-                              $nget = substr($nod, 3);
-
-                        if($ligneh === 'OUA12')
-                        {
-
-                           $de = 'O';
-                           $cx = $de.$nget;
-
-                           $d = explode($ligneh, $cx);
-                           $x = $d[1];
+                        if (!function_exists('ticket_nbus_from_depart_code')) {
+                            $this->load->helper('ticket_prix');
                         }
-                        else
-                        {
-
-                            $d = explode($ligneh, $sub_heure);
-
-                            $x = $d[1];
-
-                        }
+                        $x = ticket_nbus_from_depart_code($sub_heure, $ligneh);
                         
                       $pdf = new TCPDF(PDF_PAGE_ORIENTATION, PDF_UNIT, PDF_PAGE_FORMAT, true, 'UTF-8', false);
                       
@@ -5130,25 +5115,10 @@
                       
          
                       $nod = $cod;
-                        $nget = substr($nod, 3);
-
-                        if($gident === 'OUA12')
-                        {
-
-                           $de = 'O';
-                           $cx = $de.$nget;
-
-                           $d = explode($gident, $cx);
-                           $x = $d[1];
+                        if (!function_exists('ticket_nbus_from_depart_code')) {
+                            $this->load->helper('ticket_prix');
                         }
-                        else
-                        {
-
-                            $d = explode($gident, $cod);
-
-                            $x = $d[1];
-
-                        }
+                        $x = ticket_nbus_from_depart_code($cod, $gident);
 
                         $pdf = new TCPDF(PDF_PAGE_ORIENTATION, PDF_UNIT, PDF_PAGE_FORMAT, true, 'UTF-8', false);
          

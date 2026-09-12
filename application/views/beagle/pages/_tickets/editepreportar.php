@@ -76,9 +76,7 @@
                         $nom = $item->code_progr;
                         $nge = substr($nom, 6, 6);
 
-                        $d = explode($item->gareidentif, $item->depart_code);
-
-                        $x =$d[1];
+                        $x = function_exists('ticket_nbus_from_item') ? ticket_nbus_from_item($item) : '';
                         
                         $dat = explode("-", $item->date_progr);
                         $day = $dat[2]. '-'. $dat[1]. '-' .$dat[0];?>

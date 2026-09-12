@@ -51,7 +51,7 @@
                                 
                             <div class="col-lg-3">
                                 <label>montant aller</label>
-                                <input class="form-control form-control-sm" type="text" name="montaller[]" value="<?=$item->total; ?>"> 
+                                <input class="form-control form-control-sm" type="text" name="montaller[]" value="<?=$item->total; ?>" readonly> 
 
                             </div>
                         <? endforeach; ?>

@@ -359,349 +359,86 @@
             $this->company = $this->m_entreprises->get_key($ckey);
             $idcpt = compte_arret_resolve_roleattribut($this->company->ekey, $gd, $idcpt);
             $idcpt = (int) $idcpt;
-        
-                $arcour = $this->db->query("SELECT e.courrierexpidesc, e.num_couresc, e.departcolisesc, e.statutcouresc, e.courrierdepartgareesc FROM courriers_expesc e
-                    WHERE e.idoperateuresc = '$idcpt'
-                    AND e.statutcouresc = 0
-                    AND e.courrierdepartgareesc = '$isg'")->result();
+            $gd = (string) $gd;
+            $isg = (int) $isg;
+            $date_arret = mdate('%Y/%m/%d', now('UTC'));
 
-                    foreach ($arcour as $items1) {
-                        $plarras = array(
-                            'statutcouresc' => 1,
-                        );
-                        $this->m_courrier_expedieresc->update($items1->courrierexpidesc, $items1->num_couresc, $items1->departcolisesc, $plarras);
-                    }
+            $this->db->trans_start();
 
-                    $arcourtr = $this->db->query("SELECT e.courrierexpidesc, e.num_couresc, e.departcolisesc, e.statutcouresc, e.courrierdepartgareesc FROM courriers_expesc e
-                    WHERE e.idoperateuresc = '$idcpt'
-                    AND e.statutcouresc = 0
-                    AND e.courrierdepartgareesc NOT IN (SELECT s.idsousgare FROM sousgare s
-                            WHERE s.gareprinceid = '$gd')")->result();
+            // Snapshot serveur : courriers ouverts (SG locale + transit hors gare).
+            $rows = $this->db->query(
+                "SELECT e.courrierexpidesc, e.num_couresc, e.departcolisesc,
+                        e.courrierdepartgareesc, e.prixcolisesc,
+                        COALESCE(c.cle_compagnie, 5000) AS company_code
+                 FROM courriers_expesc e
+                 LEFT JOIN ligne_heure lh ON e.departcolisesc = lh.id_ligneheure
+                 LEFT JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
+                 LEFT JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
+                 LEFT JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
+                 WHERE e.idoperateuresc = ?
+                 AND e.statutcouresc = 0
+                 AND e.prixcolisesc IS NOT NULL
+                 AND e.prixcolisesc > 0
+                 AND (
+                    e.courrierdepartgareesc = ?
+                    OR e.courrierdepartgareesc NOT IN (
+                        SELECT s.idsousgare FROM sousgare s WHERE s.gareprinceid = ?
+                    )
+                 )
+                 FOR UPDATE",
+                array($idcpt, $isg, $gd)
+            )->result();
 
-                    foreach ($arcourtr as $items1tr) {
-                        $plarrastr = array(
-                            'statutcouresc' => 1,
-                        );
-                        $this->m_courrier_expedieresc->update($items1tr->courrierexpidesc, $items1tr->num_couresc, $items1tr->departcolisesc, $plarrastr);
-                    }
+            $totals = array();
+            foreach ($rows as $row) {
+                $comp = (int) $row->company_code;
+                if ($comp <= 0) {
+                    $comp = 5000;
+                }
+                $amount = round((float) $row->prixcolisesc, 2);
+                if ($amount <= 0) {
+                    continue;
+                }
+                if (!isset($totals[$comp])) {
+                    $totals[$comp] = 0.0;
+                }
+                $totals[$comp] = round($totals[$comp] + $amount, 2);
 
-                    
-                    $cd = $this->input->post('comppremieresc');
-                    $mt = $this->input->post('montcolisesc');
-                    $sg = $this->input->post('sousgesc');
-                    
-                    $i = count($cd);
-                   
-                    if($arcour != NULL)
-                    {
-                        if($i === 1)
-                        {
-                        
-                            $cde1 = $cd[0];
-                            $idsg1 = $sg[0];
-                            
-                            
-                            $mt1 = $mt[0];
-                            
-                            $rcde1 = $cd[0];
-                            $ridsg1 = $sg[0];
-                            
-                            $rmt1 = $mt[0];
-                            
-                            $arraycompt = array(
-                                'comptiduser' => $idcpt,
-                                'compcour' => $cde1,
-                                'comptemont' => $mt1,
-                                'idsousg' => $idsg1,
-                                'comptdatearret' => mdate("%Y/%m/%d", now('UTC')),
-                            );
+                $this->m_courrier_expedieresc->update(
+                    $row->courrierexpidesc,
+                    $row->num_couresc,
+                    $row->departcolisesc,
+                    array('statutcouresc' => 1)
+                );
+            }
 
-                            $cr = $this->m_comptes_courrier->create($arraycompt);
+            foreach ($totals as $comp => $montant) {
+                if ($montant <= 0) {
+                    continue;
+                }
+                $this->m_comptes_courrier->create(array(
+                    'comptiduser' => $idcpt,
+                    'compcour' => $comp,
+                    'comptemont' => $montant,
+                    'idsousg' => $isg,
+                    'comptdatearret' => $date_arret,
+                ));
+                $this->m_comptes_courrierrecet->create(array(
+                    'comptiduserrecet' => $idcpt,
+                    'compcourrecet' => $comp,
+                    'comptemontrecet' => $montant,
+                    'idsousgrecet' => $isg,
+                    'comptdatearretrecet' => $date_arret,
+                ));
+            }
 
-                            if ($cr != NULL)
+            $this->db->trans_complete();
+            if ($this->db->trans_status() === false) {
+                show_error('L’arrêt courrier escale n’a pas pu être enregistré. Veuillez réessayer.', 500);
+                return;
+            }
 
-                            $rarraycompt = array(
-                                'comptiduserrecet' => $idcpt,
-                                'compcourrecet' => $rcde1,
-                                'comptemontrecet' => $rmt1,
-                                'idsousgrecet' => $ridsg1,
-                                'comptdatearretrecet' => mdate("%Y/%m/%d", now('UTC')),
-                            );
-                            
-                            $crt = $this->m_comptes_courrierrecet->create($rarraycompt);
-
-                               
-                        }
-                        if($i === 2)
-                        {
-
-                            $cde1 = $cd[0];
-                            $idsg1 = $sg[0];
-                            $mt1 = $mt[0];
-
-                            $cde2 = $cd[1];
-                            $idsg2 = $sg[1];
-
-                            $mt2 = $mt[1];
-                            
-                            $rcde1 = $cd[0];
-                            $ridsg1 = $sg[0];
-                            $rmt1 = $mt[0];
-
-                            $rcde2 = $cd[1];
-                            $ridsg2 = $sg[1];
-                            $rmt2 = $mt[1];
-                            
-
-                            $arraycompt = array(
-                                'comptiduser' => $idcpt,
-                                'compcour' => $cde1,
-                                'comptemont' => $mt1,
-                                'idsousg' => $idsg1,
-                                'comptdatearret' => mdate("%Y/%m/%d", now('UTC')),
-                            );
-                             $cr = $this->m_comptes_courrier->create($arraycompt);
-
-                             if ($cr != NULL)
-                                $arraycompt2 = array(
-                                'comptiduser' => $idcpt,
-                                'compcour' => $cde2,
-                                'comptemont' => $mt2,
-                                'idsousg' => $idsg2,
-                                'comptdatearret' => mdate("%Y/%m/%d", now('UTC')),
-                            );
-                            $cr1 = $this->m_comptes_courrier->create($arraycompt2);
-
-                            if ($cr1 != NULL)
-
-                            $rarraycompt = array(
-                                'comptiduserrecet' => $idcpt,
-                                'compcourrecet' => $rcde1,
-                                'comptemontrecet' => $rmt1,
-                                'idsousgrecet' => $ridsg1,
-                                'comptdatearretrecet' => mdate("%Y/%m/%d", now('UTC')),
-                            );
-                            $crt = $this->m_comptes_courrierrecet->create($rarraycompt);
-
-                            if ($crt != NULL)
-
-                                $rarraycompt2 = array(
-                                'comptiduserrecet' => $idcpt,
-                                'compcourrecet' => $rcde2,
-                                'comptemontrecet' => $rmt2,
-                                'idsousgrecet' => $ridsg2,
-                                'comptdatearretrecet' => mdate("%Y/%m/%d", now('UTC')),
-                            );
-                            
-                            $crt1 = $this->m_comptes_courrierrecet->create($rarraycompt2);
-
-                            
-                        }
-                        if($i === 3)
-                        {
-                            $cde1 = $cd[0];
-                            $idsg1 = $sg[0];
-                            $mt1 = $mt[0];
-
-                            $cde2 = $cd[1];
-                            $idsg2 = $sg[1];
-                            $mt2 = $mt[1];
-
-                            $cde3 = $cd[2];
-                            $idsg3 = $sg[2];
-                            $mt3 = $mt[2];
-
-                            $rcde1 = $cd[0];
-                            $ridsg1 = $sg[0];
-                            $rmt1 = $mt[0];
-
-                            $rcde2 = $cd[1];
-                            $ridsg2 = $sg[1];
-                            $rmt2 = $mt[1];
-
-                            $rcde3 = $cd[2];
-                            $ridsg3 = $sg[2];
-                            $rmt3 = $mt[2];
-
-
-                            $arraycompt = array(
-                                'comptiduser' => $idcpt,
-                                'compcour' => $cde1,
-                                'comptemont' => $mt1,
-                                'idsousg' => $idsg1,
-                                'comptdatearret' => mdate("%Y/%m/%d", now('UTC')),
-                            );
-                            $cr = $this->m_comptes_courrier->create($arraycompt);
-
-                            if ($cr != NULL)
-                                $arraycompt2 = array(
-                                'comptiduser' => $idcpt,
-                                'compcour' => $cde2,
-                                'comptemont' => $mt2,
-                                'idsousg' => $idsg2,
-                                'comptdatearret' => mdate("%Y/%m/%d", now('UTC')),
-                            );
-                            $cr1 = $this->m_comptes_courrier->create($arraycompt2);
-
-                            if ($cr1 != NULL)
-
-                            $arraycompt3 = array(
-                                'comptiduser' => $idcpt,
-                                'compcour' => $cde3,
-                                'comptemont' => $mt3,
-                                'idsousg' => $idsg3,
-                                'comptdatearret' => mdate("%Y/%m/%d", now('UTC')),
-                            );
-                            $cr2 = $this->m_comptes_courrier->create($arraycompt3);
-
-                            if ($cr2 != NULL)
-                            
-                            $rarraycompt = array(
-                                'comptiduserrecet' => $idcpt,
-                                'compcourrecet' => $rcde1,
-                                'comptemontrecet' => $rmt1,
-                                'idsousgrecet' => $ridsg1,
-                                'comptdatearretrecet' => mdate("%Y/%m/%d", now('UTC')),
-                            );
-                            $crt = $this->m_comptes_courrierrecet->create($rarraycompt);
-
-                            if ($crt != NULL)
-
-                                $rarraycompt2 = array(
-                                'comptiduserrecet' => $idcpt,
-                                'compcourrecet' => $rcde2,
-                                'comptemontrecet' => $rmt2,
-                                'idsousgrecet' => $ridsg2,
-                                'comptdatearretrecet' => mdate("%Y/%m/%d", now('UTC')),
-                            );
-                            $crt1 = $this->m_comptes_courrierrecet->create($rarraycompt2);
-                        }
-
-                        if($i === 4)
-                        {
-                            $cde1 = $cd[0];
-                            $idsg1 = $sg[0];
-                            $mt1 = $mt[0];
-
-                            $cde2 = $cd[1];
-                            $idsg2 = $sg[1];
-                            $mt2 = $mt[1];
-
-                            $cde3 = $cd[2];
-                            $idsg3 = $sg[2];
-                            $mt3 = $mt[2];
-
-                            $cde4 = $cd[3];
-                            $idsg4 = $sg[3];
-                            $mt4 = $mt[3];
-
-                            $rcde1 = $cd[0];
-                            $ridsg1 = $sg[0];
-                            $rmt1 = $mt[0];
-
-                            $rcde2 = $cd[1];
-                            $ridsg2 = $sg[1];
-                            $rmt2 = $mt[1];
-                            
-                            $rcde3 = $cd[2];
-                            $ridsg3 = $sg[2];
-                            $rmt3 = $mt[2];
-
-                            $rcde4 = $cd[3];
-                            $ridsg4 = $sg[3];
-                            $rmt4 = $mt[3];
-
-                            $arraycompt = array(
-                                'comptiduser' => $idcpt,
-                                'compcour' => $cde1,
-                                'comptemont' => $mt1,
-                                'idsousg' => $idsg1,
-                                'comptdatearret' => mdate("%Y/%m/%d", now('UTC')),
-                            );
-                            $cr = $this->m_comptes_courrier->create($arraycompt);
-
-                            if ($cr != NULL)
-                                $arraycompt2 = array(
-                                'comptiduser' => $idcpt,
-                                'compcour' => $cde2,
-                                'comptemont' => $mt2,
-                                'idsousg' => $idsg2,
-                                'comptdatearret' => mdate("%Y/%m/%d", now('UTC')),
-                            );
-                            
-                            $cr1 = $this->m_comptes_courrier->create($arraycompt2);
-
-                            if ($cr1 != NULL)
-                            $arraycompt3 = array(
-                                'comptiduser' => $idcpt,
-                                'compcour' => $cde3,
-                                'comptemont' => $mt3,
-                                'idsousg' => $idsg3,
-                                'comptdatearret' => mdate("%Y/%m/%d", now('UTC')),
-                            );
-                            
-                            $cr2 = $this->m_comptes_courrier->create($arraycompt3);
-
-                            if ($cr2 != NULL)
-
-                            $arraycompt4 = array(
-                                'comptiduser' => $idcpt,
-                                'compcour' => $cde4,
-                                'comptemont' => $mt4,
-                                'idsousg' => $idsg4,
-                                'comptdatearret' => mdate("%Y/%m/%d", now('UTC')),
-                            );
-                            $cr3 = $this->m_comptes_courrier->create($arraycompt4);
-
-                            if ($cr3 != NULL)
-                            
-                            $rarraycompt = array(
-                                'comptiduserrecet' => $idcpt,
-                                'compcourrecet' => $rcde1,
-                                'comptemontrecet' => $rmt1,
-                                'idsousgrecet' => $ridsg1,
-                                'comptdatearretrecet' => mdate("%Y/%m/%d", now('UTC')),
-                            );
-                             $crt = $this->m_comptes_courrierrecet->create($rarraycompt);
-
-                            if ($crt != NULL)
-
-                                $rarraycompt2 = array(
-                                'comptiduserrecet' => $idcpt,
-                                'compcourrecet' => $rcde2,
-                                'comptemontrecet' => $rmt2,
-                                'idsousgrecet' => $ridsg2,
-                                'comptdatearretrecet' => mdate("%Y/%m/%d", now('UTC')),
-                            );
-
-                            $crt1 = $this->m_comptes_courrierrecet->create($rarraycompt2);
-
-                            if ($crt1 != NULL)
-
-                            $rarraycompt3 = array(
-                                'comptiduserrecet' => $idcpt,
-                                'compcourrecet' => $rcde3,
-                                'comptemontrecet' => $rmt3,
-                                'idsousgrecet' => $ridsg3,
-                                'comptdatearretrecet' => mdate("%Y/%m/%d", now('UTC')),
-                            );
-                            $crt2 = $this->m_comptes_courrierrecet->create($rarraycompt3);
-
-                            if ($crt2 != NULL)
-
-                            $rarraycompt4 = array(
-                                'comptiduserrecet' => $idcpt,
-                                'compcourrecet' => $rcde4,
-                                'comptemontrecet' => $rmt4,
-                                'idsousgrecet' => $ridsg4,
-                                'comptdatearretrecet' => mdate("%Y/%m/%d", now('UTC')),
-                            );
-
-                            $crt3 = $this->m_comptes_courrierrecet->create($rarraycompt4);
-                        }
-
-                    }
-                compte_arret_track_activity_safe();
-                redirect('comptecaisses/arcompteescalcour/'.$this->session->company->ekey. '/' . $idcpt.'/'.$gd.'/'.$isg);
+            compte_arret_track_activity_safe();
+            redirect('comptecaisses/arcompteescalcour/'.$this->session->company->ekey. '/' . $idcpt.'/'.$gd.'/'.$isg);
         }
     }

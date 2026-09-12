@@ -108,7 +108,10 @@ if (!function_exists('sales_closure_agent_open_all')) {
 
         $excludeRSql = !empty($excludeTicketCodeR) ? " AND p.code_ticket <> 'R' " : '';
 
-        // Tickets : aligné SOLDE (compteur) — actif_pas=0, prix>0, non arrêtés.
+        // Tickets monétaires non arrêtés (statutvente=0) :
+        // - actifs normaux (actif_pas=0)
+        // - origines reportées (actif_pas=1 + statut_reprog=repor) : la vente reste au CA agent
+        // Les clones émis au report (statutvente=2) sont exclus (jamais statutvente=0).
         $passRows = $CI->db->query(
             "SELECT p.code_passager AS code,
                     COALESCE(c.cle_compagnie, gd2.id_compaga, 5000) AS company_code,
@@ -125,7 +128,13 @@ if (!function_exists('sales_closure_agent_open_all')) {
              AND p.statut_code = 'vendu'
              AND p.prixvente IS NOT NULL
              AND p.prixvente > 0
-             AND IFNULL(p.actif_pas, 0) = 0
+             AND (
+                IFNULL(p.actif_pas, 0) = 0
+                OR (
+                    IFNULL(p.actif_pas, 0) = 1
+                    AND IFNULL(p.statut_reprog, '') = 'repor'
+                )
+             )
              {$excludeRSql}",
             array($ra)
         )->result();
@@ -267,8 +276,9 @@ if (!function_exists('sales_closure_complete_arret')) {
         $excludeTicketCodeR = false
     ) {
         $CI =& get_instance();
+        $heal = array('passager' => 0, 'retour' => 0);
         if (function_exists('guichet_statutvente_heal_incoherent')) {
-            guichet_statutvente_heal_incoherent($roleAttributionId);
+            $heal = guichet_statutvente_heal_incoherent($roleAttributionId);
         }
 
         $open = sales_closure_agent_open_all($roleAttributionId, $excludeTicketCodeR);
@@ -359,6 +369,7 @@ if (!function_exists('sales_closure_complete_arret')) {
             'bagage_ids' => $bagageIds,
             'totals_by_comp' => $totals,
             'totals_bagage_by_comp' => $totalsBag,
+            'heal' => $heal,
             'meta' => array(
                 'merged_extra' => 0,
                 'pass_n' => count($passCodes),
@@ -387,8 +398,105 @@ if (!function_exists('sales_closure_agent_has_open_remainder')) {
     }
 }
 
+if (!function_exists('sales_closure_agent_has_open_escales')) {
+    /**
+     * True s'il reste au moins une escale monétaire ouverte (périmètre valideesc).
+     */
+    function sales_closure_agent_has_open_escales($roleAttributionId)
+    {
+        $open = sales_closure_agent_open_all($roleAttributionId, false);
+        return !empty($open['escales']);
+    }
+}
+
+if (!function_exists('sales_closure_complete_arret_escale')) {
+    /**
+     * Snapshot arrêt escale uniquement (rôle 17 / valideesc) — montants serveur.
+     * Même règles monétaires que sales_closure_agent_open_all (escales).
+     *
+     * @return array
+     */
+    function sales_closure_complete_arret_escale(
+        $companyEkey,
+        $roleAttributionId,
+        $gareCode,
+        $defaultSousgare = null
+    ) {
+        $CI =& get_instance();
+        $heal = array('passager' => 0, 'retour' => 0);
+        if (function_exists('guichet_statutvente_heal_incoherent')) {
+            $heal = guichet_statutvente_heal_incoherent($roleAttributionId);
+        }
+
+        $open = sales_closure_agent_open_all($roleAttributionId, false);
+        $escalIds = array();
+        $totals = array();
+
+        $addTot = function (&$bucket, $comp, $amount) {
+            $comp = trim((string) $comp);
+            if ($comp === '') {
+                $comp = '5000';
+            }
+            $amount = round((float) $amount, 2);
+            if ($amount <= 0) {
+                return;
+            }
+            if (!isset($bucket[$comp])) {
+                $bucket[$comp] = 0.0;
+            }
+            $bucket[$comp] = round($bucket[$comp] + $amount, 2);
+        };
+
+        foreach ($open['escales'] as $row) {
+            $escalIds[] = $row['code'];
+            $addTot($totals, $row['company_code'], $row['amount']);
+        }
+        $escalIds = array_values(array_unique($escalIds));
+
+        $fallbackSg = 0;
+        $minSg = $CI->db->query(
+            'SELECT MIN(s.idsousgare) AS mid FROM sousgare s WHERE s.gareprinceid = ?',
+            array(trim((string) $gareCode))
+        )->row();
+        if ($minSg && !empty($minSg->mid)) {
+            $fallbackSg = (int) $minSg->mid;
+        }
+        $defaultSg = ($defaultSousgare !== null && (int) $defaultSousgare > 0)
+            ? (int) $defaultSousgare
+            : $fallbackSg;
+
+        $lignes = sales_closure_build_lignes_from_totals($totals, $defaultSg);
+        $totalEsc = round(array_sum($totals), 2);
+
+        return array(
+            'ok' => true,
+            'error' => null,
+            'orphans' => array(),
+            'lignes' => $lignes,
+            'lignes_bagage' => array(),
+            'passager_codes' => array(),
+            'non_passager_codes' => array(),
+            'escal_ids' => $escalIds,
+            'bagage_ids' => array(),
+            'totals_by_comp' => $totals,
+            'totals_bagage_by_comp' => array(),
+            'heal' => $heal,
+            'meta' => array(
+                'merged_extra' => 0,
+                'pass_n' => 0,
+                'np_n' => 0,
+                'escal_n' => count($escalIds),
+                'bagage_n' => 0,
+                'total' => $totalEsc,
+                'total_bagage' => 0.0,
+                'scope' => 'agent_escales_only',
+            ),
+        );
+    }
+}
+
 if (!function_exists('sales_closure_close_escal_ids')) {
-    function sales_closure_close_escal_ids($roleAttributionId, array $ids)
+    function sales_closure_close_escal_ids($roleAttributionId, array $ids, $forUpdate = true)
     {
         $CI =& get_instance();
         $ra = (int) $roleAttributionId;
@@ -398,13 +506,24 @@ if (!function_exists('sales_closure_close_escal_ids')) {
                 continue;
             }
             $ph = implode(',', array_fill(0, count($chunk), '?'));
+            $params = array_merge(array($ra), $chunk);
+            if ($forUpdate) {
+                $CI->db->query(
+                    "SELECT idclescal FROM escalclients
+                     WHERE iduseescal = ?
+                     AND arrcptescal = 0
+                     AND idclescal IN ({$ph})
+                     FOR UPDATE",
+                    $params
+                );
+            }
             $CI->db->query(
                 "UPDATE escalclients
                  SET arrcptescal = 1
                  WHERE iduseescal = ?
                  AND arrcptescal = 0
                  AND idclescal IN ({$ph})",
-                array_merge(array($ra), $chunk)
+                $params
             );
             $n += (int) $CI->db->affected_rows();
         }
@@ -413,7 +532,7 @@ if (!function_exists('sales_closure_close_escal_ids')) {
 }
 
 if (!function_exists('sales_closure_close_bagage_ids')) {
-    function sales_closure_close_bagage_ids($roleAttributionId, array $ids)
+    function sales_closure_close_bagage_ids($roleAttributionId, array $ids, $forUpdate = true)
     {
         $CI =& get_instance();
         $ra = (int) $roleAttributionId;
@@ -423,13 +542,24 @@ if (!function_exists('sales_closure_close_bagage_ids')) {
                 continue;
             }
             $ph = implode(',', array_fill(0, count($chunk), '?'));
+            $params = array_merge(array($ra), $chunk);
+            if ($forUpdate) {
+                $CI->db->query(
+                    "SELECT id_bagage FROM bagages
+                     WHERE idoperabagage = ?
+                     AND isvalidbag = 0
+                     AND id_bagage IN ({$ph})
+                     FOR UPDATE",
+                    $params
+                );
+            }
             $CI->db->query(
                 "UPDATE bagages
                  SET isvalidbag = 1
                  WHERE idoperabagage = ?
                  AND isvalidbag = 0
                  AND id_bagage IN ({$ph})",
-                array_merge(array($ra), $chunk)
+                $params
             );
             $n += (int) $CI->db->affected_rows();
         }
@@ -483,13 +613,23 @@ if (!function_exists('sales_closure_arret_audit_log')) {
         $payload = array(
             'tickets' => $totals,
             'bagages' => isset($snap['totals_bagage_by_comp']) ? $snap['totals_bagage_by_comp'] : array(),
+            'escal_ids_n' => isset($meta['escal_n']) ? (int) $meta['escal_n'] : 0,
+            'bagage_ids_n' => isset($meta['bagage_n']) ? (int) $meta['bagage_n'] : 0,
+            'heal' => isset($snap['heal']) ? $snap['heal'] : null,
+            'scope' => isset($meta['scope']) ? $meta['scope'] : null,
             'meta' => $meta,
         );
+        $idsousgare = null;
+        if (isset($snap['idsousgare']) && (int) $snap['idsousgare'] > 0) {
+            $idsousgare = (int) $snap['idsousgare'];
+        } elseif (isset($meta['idsousgare']) && (int) $meta['idsousgare'] > 0) {
+            $idsousgare = (int) $meta['idsousgare'];
+        }
         return $CI->db->insert('arret_compte_audit', array(
             'company_ekey' => (int) $companyEkey,
             'roleattribut' => (int) $roleAttributionId,
             'gare_code' => trim((string) $gareCode),
-            'idsousgare' => null,
+            'idsousgare' => $idsousgare,
             'source' => substr(trim((string) $source), 0, 32),
             'totals_json' => json_encode($payload),
             'pass_count' => isset($meta['pass_n']) ? (int) $meta['pass_n'] : 0,

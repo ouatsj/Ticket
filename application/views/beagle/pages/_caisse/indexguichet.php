@@ -77,7 +77,7 @@
                             </div>
                                 
                             <div class="col-lg-3">
-                                <input class="form-control form-control-sm" type="text" name="montallerbisinter[]" value="<?=$itembisinter->total+$itembisinter->totalr; ?>"> 
+                                <input class="form-control form-control-sm" type="text" name="montallerbisinter[]" value="<?=$itembisinter->total+$itembisinter->totalr; ?>" readonly> 
                             </div>
                     
                         <? endforeach; ?>
@@ -101,7 +101,7 @@
                             </div>
                                 
                             <div class="col-lg-3">
-                                <input class="form-control form-control-sm" type="text" name="montallernat[]" value="<?=$itemnat->total+$itemnat->totalr; ?>"> 
+                                <input class="form-control form-control-sm" type="text" name="montallernat[]" value="<?=$itemnat->total+$itemnat->totalr; ?>" readonly> 
 
                             </div>
                         <? endforeach; ?>
@@ -124,7 +124,7 @@
                             </div>
                                 
                             <div class="col-lg-3">
-                                <input class="form-control form-control-sm" type="text" name="montallernattr[]" value="<?=$itemnattr->total+$itemnattr->totalr; ?>"> 
+                                <input class="form-control form-control-sm" type="text" name="montallernattr[]" value="<?=$itemnattr->total+$itemnattr->totalr; ?>" readonly> 
 
                             </div>
                         <? endforeach; ?>
@@ -152,7 +152,7 @@
                                 
                             <div class="col-lg-3">
                                 <label>montant aller</label>
-                                <input class="form-control form-control-sm" type="text" name="montaller[]" value="<?=$item->total; ?>"> 
+                                <input class="form-control form-control-sm" type="text" name="montaller[]" value="<?=$item->total; ?>" readonly> 
 
                             </div>
                         <? endforeach; ?>
@@ -175,7 +175,7 @@
                             </div>
                             <div class="col-lg-3">
                                 <label>montant retour</label>
-                                <input class="form-control form-control-sm" type="text" name="montretour[]" value="<?=$item1->totalr; ?>">
+                                <input class="form-control form-control-sm" type="text" name="montretour[]" value="<?=$item1->totalr; ?>" readonly>
 
                             </div>
                         <? endforeach; ?>
@@ -201,7 +201,7 @@
                                 
                             <div class="col-lg-3">
                                 <label>montant aller</label>
-                                <input class="form-control form-control-sm" type="text" name="montallerbis[]" value="<?=$itembis->total; ?>"> 
+                                <input class="form-control form-control-sm" type="text" name="montallerbis[]" value="<?=$itembis->total; ?>" readonly> 
 
                             </div>
                     
@@ -251,7 +251,7 @@
                             </div>
                             <div class="col-lg-3">
                                 <label>montant retour</label>
-                                <input class="form-control form-control-sm" type="text" name="montretourbis[]" value="<?=$item1bis->totalr; ?>">
+                                <input class="form-control form-control-sm" type="text" name="montretourbis[]" value="<?=$item1bis->totalr; ?>" readonly>
 
                             </div>
                         <? endforeach; ?>

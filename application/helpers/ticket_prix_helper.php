@@ -332,6 +332,131 @@ if (!function_exists('ticket_sg_label')) {
     }
 }
 
+if (!function_exists('ticket_nbus_gare_codes')) {
+    /**
+     * Codes gare pour découper depart_code (plus longs d'abord). Inclut WUA12.
+     *
+     * @return string[]
+     */
+    function ticket_nbus_gare_codes()
+    {
+        static $codes = null;
+        if (is_array($codes)) {
+            return $codes;
+        }
+        $codes = array('WUA12', 'OUA12');
+        $CI =& get_instance();
+        if ($CI && isset($CI->db)) {
+            try {
+                $rows = $CI->db->query(
+                    "SELECT DISTINCT gareidentif AS g FROM programme
+                     WHERE gareidentif IS NOT NULL AND gareidentif <> ''
+                     UNION
+                     SELECT DISTINCT code_gaexp AS g FROM gare_exp
+                     WHERE code_gaexp IS NOT NULL AND code_gaexp <> ''"
+                )->result();
+                foreach ($rows as $r) {
+                    $g = trim((string) $r->g);
+                    if ($g !== '') {
+                        $codes[] = $g;
+                    }
+                }
+            } catch (Exception $e) {
+                // ignore
+            }
+        }
+        $codes = array_values(array_unique($codes));
+        usort($codes, function ($a, $b) {
+            return strlen($b) - strlen($a);
+        });
+        return $codes;
+    }
+}
+
+if (!function_exists('ticket_nbus_from_depart_code')) {
+    /**
+     * N° BUS = suffixe de depart_code après le code gare embarqué.
+     * Identique pour principal / dérivé / suite (même depart_code partagé).
+     *
+     * @param string $depart_code
+     * @param string $gareidentif gare locale (prioritaire si elle matche)
+     * @return string
+     */
+    function ticket_nbus_from_depart_code($depart_code, $gareidentif = '')
+    {
+        $dep = trim((string) $depart_code);
+        if ($dep === '') {
+            return '';
+        }
+
+        $extract = function ($gid, $hay) {
+            $gid = trim((string) $gid);
+            $hay = (string) $hay;
+            if ($gid === '' || $hay === '') {
+                return '';
+            }
+            if ($gid === 'OUA12' || strtoupper($gid) === 'WUA12') {
+                if (stripos($hay, 'WUA12') !== false) {
+                    $parts = explode('WUA12', $hay, 2);
+                    return isset($parts[1]) ? (string) $parts[1] : '';
+                }
+                if (strlen($hay) > 3) {
+                    $cx = 'O' . substr($hay, 3);
+                    $parts = explode('OUA12', $cx, 2);
+                    if (isset($parts[1]) && $parts[1] !== '') {
+                        return (string) $parts[1];
+                    }
+                }
+                return '';
+            }
+            if (strpos($hay, $gid) === false) {
+                return '';
+            }
+            $parts = explode($gid, $hay, 2);
+            return isset($parts[1]) ? (string) $parts[1] : '';
+        };
+
+        $gid = trim((string) $gareidentif);
+        $n = $extract($gid, $dep);
+        if ($n !== '') {
+            return $n;
+        }
+
+        // Suite/dérivé : depart_code du principal (autre gare).
+        foreach (ticket_nbus_gare_codes() as $g) {
+            if ($gid !== '' && strcasecmp($g, $gid) === 0) {
+                continue;
+            }
+            $n = $extract($g, $dep);
+            if ($n !== '') {
+                return $n;
+            }
+        }
+
+        return '';
+    }
+}
+
+if (!function_exists('ticket_nbus_from_item')) {
+    /**
+     * @param object|array|null $item
+     * @return string
+     */
+    function ticket_nbus_from_item($item)
+    {
+        if (is_array($item)) {
+            $dep = isset($item['depart_code']) ? $item['depart_code'] : '';
+            $gid = isset($item['gareidentif']) ? $item['gareidentif'] : '';
+        } elseif (is_object($item)) {
+            $dep = isset($item->depart_code) ? $item->depart_code : '';
+            $gid = isset($item->gareidentif) ? $item->gareidentif : '';
+        } else {
+            return '';
+        }
+        return ticket_nbus_from_depart_code($dep, $gid);
+    }
+}
+
 if (!function_exists('ticket_print_ctx')) {
     /**
      * Heure / sous-gare / n° bus pour une vue ticket. Ne lève jamais sur getgar null.
@@ -412,11 +537,7 @@ if (!function_exists('ticket_print_ctx')) {
 
         $gid = isset($item->gareidentif) ? (string) $item->gareidentif : '';
         $dep = isset($item->depart_code) ? (string) $item->depart_code : '';
-        if ($gid !== '' && $dep !== '') {
-            $hay = ($gid === 'OUA12') ? ('O' . substr($dep, 3)) : $dep;
-            $d = explode($gid, $hay);
-            $out['nbus'] = isset($d[1]) ? (string) $d[1] : '';
-        }
+        $out['nbus'] = ticket_nbus_from_depart_code($dep, $gid);
 
         if (!empty($item->date_progr)) {
             $dat = explode('-', (string) $item->date_progr);

@@ -167,6 +167,7 @@
 
         public function comptes($cd, $idcox, $g, $sg)
         {
+            // Pas de filtre session (is_conect / activeattrib) : lisible après arrêt / déconnexion.
             $today = mdate("%Y-%m-%d", now('UTC'));
             return $this->db->query("SELECT COUNT(idclescal) AS cd, SUM(prixescal) AS total FROM escalclients es
                 JOIN attributions_role ar ON es.iduseescal = ar.roleattribut
@@ -184,8 +185,6 @@
                 AND ar.roleattribut = '$idcox'
                 AND ul.guser = '$g'
                 AND es.departsgescal = '$sg'
-                AND cu.is_conect = 1
-                AND ar.activeattrib = 1
                 AND es.arrcptescal = 0
                 AND cu.date_conect <= '$today'
                 AND es.cptarrchgescal = 0
@@ -194,6 +193,7 @@
 
         public function comptegroups($cd, $idcox, $g, $sg)
         {
+            // Pas de filtre session (is_conect / activeattrib) : lisible après arrêt / déconnexion.
             $today = mdate("%Y-%m-%d", now('UTC'));
 
             return $this->db->query("SELECT COUNT(idclescal) AS cd, SUM(prixescal) AS total, c.nom_compagnie, dest.id_compaga, es.departsgescal FROM escalclients es
@@ -212,8 +212,6 @@
                 AND ar.roleattribut = '$idcox'
                 AND ul.guser = '$g'
                 AND es.departsgescal = '$sg'
-                AND cu.is_conect = 1
-                AND ar.activeattrib = 1
                 AND es.arrcptescal = 0
                 AND cu.date_conect <= '$today'
                 AND es.cptarrchgescal = 0
@@ -270,6 +268,7 @@
 
         public function rapportaller($cd, $idcox, $comp, $g)
         {
+            // Pas de filtre session (is_conect / activeattrib) : lisible après arrêt / déconnexion.
             $today = mdate("%Y-%m-%d", now('UTC'));
             
             return $this->db->query("SELECT COUNT(idclescal) AS cd, SUM(prixescal) AS total, lg.ident_ligne, lg.nom_ligne, es.prixescal, dest.id_compaga, ar.roleattribut FROM escalclients es
@@ -288,8 +287,6 @@
                 AND es.dateescal <= '$today'
                 AND ar.roleattribut = '$idcox'
                 AND ul.guser = '$g'
-                AND cu.is_conect = 1
-                AND ar.activeattrib = 1
                 AND es.arrcptescal = 1
                 AND es.arrcptchefgescal = 0
                 AND dest.id_compaga = '$comp'
@@ -307,7 +304,6 @@
                 JOIN attributions_role ar ON es.iduseescal = ar.roleattribut
                 WHERE ar.roleattribut = '$idcox'
                 AND es.dateescal <= '$today'
-                AND ar.activeattrib = 1
                 AND es.arrcptescal = 0
                 AND es.cptarrchgescal = 0
                 GROUP BY es.iduseescal")->row();
@@ -315,13 +311,13 @@
 
         public function compteurcd($cd, $idcox, $g)
         {
+            // Pas de filtre session (is_conect / activeattrib) : lisible après arrêt / déconnexion.
             $today = mdate("%Y-%m-%d", now('UTC'));
             
             return $this->db->query("SELECT SUM(prixescal) AS total FROM escalclients es
                 JOIN attributions_role ar ON es.iduseescal = ar.roleattribut
                 WHERE ar.roleattribut = '$idcox'
                 AND es.dateescal < '$today'
-                AND ar.activeattrib = 1
                 AND es.arrcptescal = 0
                 GROUP BY es.iduseescal")->row();
         }

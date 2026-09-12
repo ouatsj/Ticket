@@ -1491,13 +1491,15 @@
                         continue;
                     }
                     $ph = implode(',', array_fill(0, count($chunk), '?'));
-                    $sel = $this->db->query(
-                        "SELECT code_passager, code_ticket FROM passager
+                    $params = array_merge(array($idcpt), $chunk);
+                    $selSql = "SELECT code_passager, code_ticket FROM passager
                         WHERE idcptuser = ?
                         AND statutvente = 0
-                        AND code_passager IN ({$ph})",
-                        array_merge(array($idcpt), $chunk)
-                    )->result();
+                        AND code_passager IN ({$ph})";
+                    if ($forUpdate) {
+                        $selSql .= ' FOR UPDATE';
+                    }
+                    $sel = $this->db->query($selSql, $params)->result();
                     $arpass = array_merge($arpass, $sel);
                     $this->db->query(
                         "UPDATE passager
@@ -1505,7 +1507,7 @@
                         WHERE idcptuser = ?
                         AND statutvente = 0
                         AND code_passager IN ({$ph})",
-                        array_merge(array($idcpt), $chunk)
+                        $params
                     );
                 }
 
@@ -1515,13 +1517,24 @@
                         continue;
                     }
                     $ph = implode(',', array_fill(0, count($chunk), '?'));
+                    $params = array_merge(array($idcpt), $chunk);
+                    if ($forUpdate) {
+                        $this->db->query(
+                            "SELECT code_non_pass FROM non_passager
+                            WHERE cptus = ?
+                            AND statvente = 0
+                            AND code_non_pass IN ({$ph})
+                            FOR UPDATE",
+                            $params
+                        );
+                    }
                     $this->db->query(
                         "UPDATE non_passager
                         SET statvente = 1{$setNpVal}
                         WHERE cptus = ?
                         AND statvente = 0
                         AND code_non_pass IN ({$ph})",
-                        array_merge(array($idcpt), $chunk)
+                        $params
                     );
                 }
             } else {
@@ -1758,6 +1771,7 @@
             $closeOpts['non_passager_codes'] = isset($snap['non_passager_codes']) ? $snap['non_passager_codes'] : array();
 
             $arpass = $this->_arret_close_open_ticket_sales($idcpt, $gd, $closeOpts);
+            $this->_arret_close_confirmations($idcpt);
             $this->_arret_close_extra_ops_and_write_bagage($idcpt, $isg, $snap);
 
             // Filet final : plus aucune opération ouverte sur le compte agent.
@@ -5137,6 +5151,32 @@
         }
 
         /**
+         * Ferme les confirmations ouvertes (hors CA monétaire) pour le rapport EPSON.
+         * Les confirmations n'ont pas de prixvente : elles n'entrent pas dans compte_guichet.
+         *
+         * @param int|string $idcpt
+         * @return int
+         */
+        protected function _arret_close_confirmations($idcpt)
+        {
+            $idcpt = (int) $idcpt;
+            if ($idcpt <= 0) {
+                return 0;
+            }
+            $this->db->query(
+                "UPDATE passager
+                 SET statutvente = 1
+                 WHERE idcptuser = ?
+                 AND statutvente = 0
+                 AND statut_confirme = 'confirm'
+                 AND prixvente IS NULL
+                 AND IFNULL(actif_pas, 0) = 0",
+                array($idcpt)
+            );
+            return (int) $this->db->affected_rows();
+        }
+
+        /**
          * Ferme escales + bagages du snapshot, écrit compte_bagage si besoin.
          */
         protected function _arret_close_extra_ops_and_write_bagage($idcpt, $isg, array $snap)
@@ -5387,85 +5427,64 @@
         {
             $this->company = $this->m_entreprises->get_key($ckey);
             $idcpt = $this->_resolve_arret_roleattribut($this->company->ekey, $gd, $idcpt);
-        
-            $cus = $this->input->post('compconnected');
-            $today = mdate("%Y-%m-%d", now());
 
-            if (function_exists('sales_closure_totals_prepare')) {
-                sales_closure_totals_prepare($this->company->ekey, $idcpt, $gd);
+            $this->load->helper(array('sales_price', 'arret_compte_complet', 'guichet_totaux'));
+
+            $this->db->trans_start();
+
+            // Même pipeline monétaire que valide, périmètre escales uniquement (rôle 17).
+            $snap = function_exists('sales_closure_complete_arret_escale')
+                ? sales_closure_complete_arret_escale($this->company->ekey, $idcpt, $gd, $isg)
+                : array('ok' => false, 'error' => 'Helper arrêt escale indisponible.');
+            $snap['_audit_source'] = 'valideesc';
+            $snap['idsousgare'] = (int) $isg;
+
+            if (empty($snap['ok'])) {
+                $this->db->trans_rollback();
+                if (function_exists('sales_closure_arret_audit_log')) {
+                    sales_closure_arret_audit_log($this->company->ekey, $idcpt, $gd, 'valideesc', $snap);
+                }
+                show_error(
+                    !empty($snap['error']) ? $snap['error'] : 'Arrêt de compte escale refusé.',
+                    422,
+                    'Arrêt impossible'
+                );
+                return;
             }
 
-            $sgares = $this->db->query("SELECT count(idsousgare) AS sog FROM sousgare s
-                    WHERE s.gareprinceid = '$gd'")->row();
-               
-                    $arpass = $this->db->query("SELECT es.idclescal, es.arrcptescal, es.iduseescal FROM escalclients es
-                        WHERE es.iduseescal = '$idcpt'
-                        AND es.departsgescal = '$isg'
-                        AND es.arrcptescal = 0")->result();
-    
-                        foreach ($arpass as $items1) {
-                            $plarras = array(
-                                'arrcptescal' => 1,
-                            );
-                            $this->m_escalclients->update($items1->idclescal, $plarras);
+            $escalIds = isset($snap['escal_ids']) && is_array($snap['escal_ids']) ? $snap['escal_ids'] : array();
+            if ($escalIds && function_exists('sales_closure_close_escal_ids')) {
+                sales_closure_close_escal_ids($idcpt, $escalIds, true);
+            }
 
-                        }
-    
-                        /*$scode = $this->db->select('*')
-                              ->from('verifcompte_user v')
-                              ->where('v.verifis_conect', 0)
-                              ->where('v.verifuserlog_id', $cus)
-                              ->get()
-                              ->row();
+            // Filet : plus aucune escale ouverte sur le compte agent.
+            if (function_exists('sales_closure_agent_has_open_escales')
+                && sales_closure_agent_has_open_escales($idcpt)
+            ) {
+                $this->db->trans_rollback();
+                show_error(
+                    'Arrêt annulé : des escales non arrêtées subsistent sur le compte. Réessayez.',
+                    409,
+                    'Écart détecté'
+                );
+                return;
+            }
 
+            $lignes = isset($snap['lignes']) ? $snap['lignes'] : array();
+            $this->_arret_write_compte_guichet_from_totals($idcpt, $isg, $lignes);
 
-                            $act_array = array(
-                                'verifis_conect' => 1,
-                            );
-
-                        $this->m_verifcompte_user->update($scode->verifcpuser_id, $act_array);*/
-
-                    $cd = $this->input->post('comppremier');
-                    $mt = $this->input->post('montaller');
-                    $sg = $this ->input->post('sousga');
-
-                    $i = count($cd);
-
-                    
-                    if($arpass != NULL)
-                    {
-                        if($i === 1)
-                        {
-
-                            $cde1 = $cd[0];
-                            $sg1 = $sg[0];
-                            $mt1 = $mt[0];
-                            
-                            $sgares = $this->db->query("SELECT count(idsousgare) AS sog FROM sousgare sg
-                            WHERE sg.gareprinceid = '$gd'")->row();
-                            
-                            if($sgares->sog == 1)
-                            {
-                                
-                                $sg1 = $isg;
-                            }
-                            else
-                            {
-                                $sg1 = $sg[0];
-                            }
-
-                            $arraycompt = array(
-                                'idusercompt' => $idcpt,
-                                'comp' => $cde1,
-                                'montcomtpte' => $mt1,
-                                'idsousga' => $sg1,
-                                'datearretcompt' => mdate("%Y/%m/%d", now('UTC')),
-                            );
-                            $this->m_comptes_guichet->create($arraycompt);
-
-                        }
-                        
-                    }
+            $this->db->trans_complete();
+            if ($this->db->trans_status() === false) {
+                show_error('L’arrêt de compte escale n’a pas pu être enregistré. Veuillez réessayer.', 500);
+                return;
+            }
+            if (function_exists('sales_closure_arret_audit_log') && !empty($snap) && is_array($snap)) {
+                sales_closure_arret_audit_log($this->company->ekey, $idcpt, $gd, 'valideesc', $snap);
+            }
+            if (function_exists('guichet_totaux_cache_invalidate')) {
+                guichet_totaux_cache_invalidate($idcpt);
+            }
+            $this->_track_arret_activity();
             redirect('caisses/compteescal/'.$this->session->company->ekey. '/' . $idcpt.'/'.$gd.'/'.$isg);
         }
         //arret chefguichet
@@ -6443,6 +6462,7 @@
 
             // Phase A/B : gare + vendeur ; lieu de vente aligné sur les totaux.
             $arpass = $this->_arret_close_open_ticket_sales($idcpt, $gd, $closeOpts);
+            $this->_arret_close_confirmations($idcpt);
             $this->_arret_close_extra_ops_and_write_bagage($idcpt, $sgid, $snap);
 
             if (!$this->_arret_assert_no_open_remainder($idcpt, $gd, $scope['prepare_sg'], true)) {

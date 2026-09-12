@@ -165,6 +165,7 @@
 
         public function compte($cd, $idcox, $g)
         {
+            // Pas de filtre session (is_conect / activeattrib) : lisible après arrêt / déconnexion.
             $today = mdate("%Y-%m-%d", now('UTC'));
             $today1 = date("Y-m-d", strtotime("-1 day"));
 
@@ -181,13 +182,13 @@
                 AND np.datevente <='$today'
                 AND cu.date_conect <= '$today'
                 AND ar.roleattribut = '$idcox'
-                AND cu.is_conect = 1
                 AND np.statvente = 0
                 AND ul.guser = '$g'
                 GROUP BY np.cptus")->row();
         }
         public function comptebis($cd, $idcox, $g, $cpg)
         {
+            // Pas de filtre session (is_conect / activeattrib) : lisible après arrêt / déconnexion.
             $today = mdate("%Y-%m-%d", now('UTC'));
             $today1 = date("Y-m-d", strtotime("-1 day"));
             
@@ -205,8 +206,7 @@
                     AND cu.date_conect <= '$today'
                     AND ar.roleattribut = '$idcox'
                     AND dest.id_compaga !='$cpg'
-                    AND cu.is_conect = 1
-                    AND np.statvente = 0
+                        AND np.statvente = 0
                     AND ul.guser = '$g'
                     GROUP BY np.cptus")->row();
             
@@ -226,6 +226,7 @@
         }
         public function comptegroup($cd, $idcox, $g)
         {
+            // Pas de filtre session (is_conect / activeattrib) : lisible après arrêt / déconnexion.
             $today = mdate("%Y-%m-%d", now('UTC'));
             
             $today1 = date("Y-m-d", strtotime("-1 day"));
@@ -243,7 +244,6 @@
                 AND np.datevente <= '$today'
                 AND cu.date_conect <= '$today'
                 AND ar.roleattribut = '$idcox'
-                AND cu.is_conect = 1
                 AND np.statvente = 0
                 AND ul.guser = '$g'
                 GROUP BY np.cptus, dest.id_compaga, c.nom_compagnie, np.sousgareidentif")->result();
@@ -267,7 +267,6 @@
                 AND np.datevente <= '$today'
                 AND cu.date_conect <= '$today'
                 AND ar.roleattribut = '$idcox'
-                AND cu.is_conect = 1
                 AND np.statvente = 0
                 AND ul.guser = '$g'
 				AND np.sousgareidentif = '$sg'
@@ -275,6 +274,7 @@
         }
         public function comptegroups($cd, $idcox, $g, $sg)
         {
+            // Pas de filtre session (is_conect / activeattrib) : lisible après arrêt / déconnexion.
             $today = mdate("%Y-%m-%d", now('UTC'));
             $today1 = date("Y-m-d", strtotime("-1 day"));
             return $this->db->query("SELECT COUNT(code_non_pass) AS cod, SUM(prixretour) AS totalr, c.nom_compagnie, dest.id_compaga, np.sousgareidentif FROM non_passager np
@@ -290,7 +290,6 @@
                 AND np.datevente <= '$today'
                 AND cu.date_conect <= '$today'
                 AND ar.roleattribut = '$idcox'
-                AND cu.is_conect = 1
                 AND np.statvente = 0
                 AND ul.guser = '$g'
 				AND np.sousgareidentif = '$sg'
@@ -299,6 +298,7 @@
        
         public function comptesbis($cd, $idcox, $g, $sg, $cpg)
         {
+            // Pas de filtre session (is_conect / activeattrib) : lisible après arrêt / déconnexion.
             $today = mdate("%Y-%m-%d", now('UTC'));
             $today1 = date("Y-m-d", strtotime("-1 day"));
 
@@ -317,14 +317,14 @@
                     AND cu.date_conect <= '$today'
                     AND ar.roleattribut = '$idcox'
                     AND dest.id_compaga ='$cpg'
-                    AND cu.is_conect = 1
-                    AND np.statvente = 0
+                        AND np.statvente = 0
                     AND ul.guser = '$g'
                     AND np.sousgareidentif = '$sg'
                     GROUP BY np.cptus")->row();
         }
         public function comptegroupsbis($cd, $idcox, $g, $sg, $cpg)
         {
+            // Pas de filtre session (is_conect / activeattrib) : lisible après arrêt / déconnexion.
             $today = mdate("%Y-%m-%d", now('UTC'));
             
             $today1 = date("Y-m-d", strtotime("-1 day"));
@@ -343,7 +343,6 @@
                 AND cu.date_conect <= '$today'
                 AND ar.roleattribut = '$idcox'
                 AND dest.id_compaga = '$cpg'
-                AND cu.is_conect = 1
                 AND np.statvente = 0
                 AND ul.guser = '$g'
                 AND (
@@ -354,6 +353,7 @@
         }
         public function comptegroupbis($cd, $idcox, $g, $cpg)
         {
+            // Pas de filtre session (is_conect / activeattrib) : lisible après arrêt / déconnexion.
             $today = mdate("%Y-%m-%d", now('UTC'));
             
             $today1 = date("Y-m-d", strtotime("-1 day"));
@@ -372,14 +372,14 @@
                     AND cu.date_conect <= '$today'
                     AND ar.roleattribut = '$idcox'
                     AND dest.id_compaga !='$cpg'
-                    AND cu.is_conect = 1
-                    AND np.statvente = 0
+                        AND np.statvente = 0
                     AND ul.guser = '$g'
                     GROUP BY np.cptus, dest.id_compaga, c.nom_compagnie, np.sousgareidentif")->result();  
         }
 
         public function comptegroupb($cd, $idcox, $g, $cpg)
         {
+            // Pas de filtre session (is_conect / activeattrib) : lisible après arrêt / déconnexion.
             $today = mdate("%Y-%m-%d", now('UTC'));
             
             $today1 = date("Y-m-d", strtotime("-1 day"));
@@ -398,8 +398,7 @@
                     AND cu.date_conect <= '$today'
                     AND ar.roleattribut = '$idcox'
                     AND dest.id_compaga = '$cpg'
-                    AND cu.is_conect = 1
-                    AND np.statvente = 0
+                        AND np.statvente = 0
                     AND ul.guser = '$g'
                     GROUP BY np.cptus, dest.id_compaga, c.nom_compagnie, np.sousgareidentif")->result();
         }
@@ -419,7 +418,6 @@
                 WHERE e.ekey = ?
                 AND np.datevente = ?
                 AND ar.roleattribut = ?
-                AND ar.activeattrib = 1
                 AND np.statvente = 1
                 AND dest.id_compaga = ?
                 AND np.is_valedtick = 0
@@ -449,7 +447,6 @@
                 WHERE e.ekey = ?
                 AND np.datevente < ?
                 AND ar.roleattribut = ?
-                AND ar.activeattrib = 1
                 AND np.statvente = 1
                 AND dest.id_compaga = ?
                 AND np.is_valedtick = 0

@@ -77,27 +77,7 @@
                           $nom = $item->code_progr;
                           $nge = substr($nom, 6, 6);
 
-                              $nod = $item->depart_code;
-                              $nget = substr($nod, 3);
-
-
-                              if($item->gareidentif === 'OUA12')
-                              {
-
-                                 $de = 'O';
-                                 $cx = $de.$nget;
-
-                                 $d = explode($item->gareidentif, $cx);
-                                 $x = $d[1];
-                              }
-                              else
-                              {
-
-                                  $d = explode($item->gareidentif, $item->depart_code);
-
-                                  $x = $d[1];
-
-                              }
+                              $x = function_exists('ticket_nbus_from_item') ? ticket_nbus_from_item($item) : '';
 
                           $dat = explode("-", $item->date_progr);
                           $day = $dat[2].'-'.$dat[1].'-'.$dat[0];?>
@@ -345,23 +325,7 @@
                               $nget2 = substr($nod2, 3);
 
 
-                              if($itemtrans->gareidentif === 'OUA12')
-                              {
-
-                                 $de2 = 'O';
-                                 $cx2 = $de2.$nget2;
-
-                                 $dx2 = explode($itemtrans->gareidentif, $cx2);
-                                 $x2 = $dx2[1];
-                              }
-                              else
-                              {
-
-                                  $dx2 = explode($itemtrans->gareidentif, $itemtrans->depart_code);
-
-                                  $x2 = $dx2[1];
-
-                              }
+                              $x2 = function_exists('ticket_nbus_from_item') ? ticket_nbus_from_item($itemtrans) : '';
 
                               $dat1 = explode("-", $itemtrans->date_progr);
 
@@ -608,23 +572,7 @@
                               $nget3 = substr($nod3, 3);
 
 
-                              if($itemtrans2->gareidentif === 'OUA12')
-                              {
-
-                                 $de3 = 'O';
-                                 $cx3 = $de3.$nget3;
-
-                                 $dx2 = explode($itemtrans2->gareidentif, $cx3);
-                                 $x3 = $dx2[1];
-                              }
-                              else
-                              {
-
-                                  $dx2 = explode($itemtrans2->gareidentif, $itemtrans2->depart_code);
-
-                                  $x3 = $dx2[1];
-
-                              }
+                              $x3 = function_exists('ticket_nbus_from_item') ? ticket_nbus_from_item($itemtrans2) : '';
 
                             $key = mdate("%Y-%m-%d", now());
                             $dtoday = $key.' à '.$dats;

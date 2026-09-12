@@ -84,27 +84,7 @@
                           $nge = substr($nom, 6, 6);
 
                           
-                            $nod = $reponse->depart_code;
-                            $nget = substr($nod, 3);
-
-
-                        if($reponse->gareidentif === 'OUA12')
-                        {
-
-                           $de = 'O';
-                           $cx = $de.$nget;
-
-                           $d = explode($reponse->gareidentif, $cx);
-                           $x = $d[1];
-                        }
-                        else
-                        {
-
-                            $d = explode($reponse->gareidentif, $reponse->depart_code);
-
-                            $x = $d[1];
-
-                        }
+                            $x = function_exists('ticket_nbus_from_item') ? ticket_nbus_from_item($reponse) : '';
 
                           $dat = explode("-", $reponse->date_progr);
                           $day = $dat[2]. '-'. $dat[1]. '-' .$dat[0];?>

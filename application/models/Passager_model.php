@@ -2818,6 +2818,7 @@
         //nb passagers aller et montant
         public function compte($cd, $idcox, $g)
         {
+            // Pas de filtre session (is_conect / activeattrib) : lisible après arrêt / déconnexion.
             $today = mdate("%Y-%m-%d", now('UTC'));
 
             $today1 = date("Y-m-d", strtotime("-1 day"));
@@ -2838,8 +2839,6 @@
                 AND p.datep_create <= '$today'
                 AND ar.roleattribut = '$idcox'
                 AND ul.guser = '$g'
-                AND cu.is_conect = 1
-                AND ar.activeattrib = 1
                 AND p.statutvente = 0
                 AND p.prixvente IS NOT NULL
                 AND p.statut_code = 'vendu'
@@ -2852,6 +2851,8 @@
             // $cd / $g volontairement non utilisés : cumul agent toutes gares.
             $today = mdate("%Y-%m-%d", now('UTC'));
             
+            // Même périmètre monétaire que l'arrêt : ventes ouvertes + origines reportées
+            // (actif_pas=1 / repor). Clones report (statutvente=2) exclus.
             $row = $this->db->query("SELECT SUM(prixvente) AS total FROM passager p
                 WHERE p.idcptuser = '$idcox'
                 AND p.statut_code = 'vendu'
@@ -2859,10 +2860,18 @@
                 AND IFNULL(p.is_valdtick, 0) = 0
                 AND p.datep_create <= '$today'
                 AND p.prixvente IS NOT NULL
-                AND p.actif_pas = 0")->row(); return $this->normalize_ticket_prix_row($row);
+                AND p.prixvente > 0
+                AND (
+                    IFNULL(p.actif_pas, 0) = 0
+                    OR (
+                        IFNULL(p.actif_pas, 0) = 1
+                        AND IFNULL(p.statut_reprog, '') = 'repor'
+                    )
+                )")->row(); return $this->normalize_ticket_prix_row($row);
         }
         public function comptegroup($cd, $idcox, $g)
         {
+            // Pas de filtre session (is_conect / activeattrib) : lisible après arrêt / déconnexion.
             $today = mdate("%Y-%m-%d", now('UTC'));
             $today1 = date("Y-m-d", strtotime("-1 day"));
 
@@ -2882,8 +2891,6 @@
                 AND p.datep_create <='$today'
                 AND ar.roleattribut = '$idcox'
                 AND ul.guser = '$g'
-                AND cu.is_conect = 1
-                AND ar.activeattrib = 1
                 AND p.statutvente = 0
                 AND p.prixvente IS NOT NULL
                 AND p.statut_code = 'vendu'
@@ -2893,7 +2900,8 @@
         public function compteurcd($cd, $idcox, $g)
         {
             $today = mdate("%Y-%m-%d", now('UTC'));
-                        
+
+            // Aligné sur compteur / arrêt : origines reportées (actif_pas=1 + repor) incluses.
             $row = $this->db->query("SELECT SUM(prixvente) AS total FROM passager p
                 WHERE p.idcptuser = '$idcox'
                 AND p.statut_code = 'vendu'
@@ -2901,10 +2909,18 @@
                 AND IFNULL(p.is_valdtick, 0) = 0
                 AND p.datep_create < '$today'
                 AND p.prixvente IS NOT NULL
-                AND p.actif_pas = 0")->row(); return $this->normalize_ticket_prix_row($row);
+                AND p.prixvente > 0
+                AND (
+                    IFNULL(p.actif_pas, 0) = 0
+                    OR (
+                        IFNULL(p.actif_pas, 0) = 1
+                        AND IFNULL(p.statut_reprog, '') = 'repor'
+                    )
+                )")->row(); return $this->normalize_ticket_prix_row($row);
         }
 		public function comptes($cd, $idcox, $g, $sg)
         {
+            // Pas de filtre session (is_conect / activeattrib) : lisible après arrêt / déconnexion.
             $today = mdate("%Y-%m-%d", now('UTC'));
             $today1 = date("Y-m-d", strtotime("-1 day"));
             $row = $this->db->query("SELECT COUNT(code_passager) AS cd, SUM(prixvente) AS total FROM passager p
@@ -2924,8 +2940,6 @@
                 AND ar.roleattribut = '$idcox'
                 AND ul.guser = '$g'
 				AND p.departclient_idgare= '$sg'
-                AND cu.is_conect = 1
-                AND ar.activeattrib = 1
                 AND p.statutvente = 0
                 AND p.prixvente IS NOT NULL
                 AND p.statut_code = 'vendu'
@@ -2935,6 +2949,7 @@
 
         public function comptegroups($cd, $idcox, $g, $sg)
         {
+            // Pas de filtre session (is_conect / activeattrib) : lisible après arrêt / déconnexion.
             $today = mdate("%Y-%m-%d", now('UTC'));
             $today1 = date("Y-m-d", strtotime("-1 day"));
             $rows = $this->db->query("SELECT COUNT(code_passager) AS cd, SUM(prixvente) AS total, c.nom_compagnie, dest.id_compaga, p.departclient_idgare FROM passager p
@@ -2954,8 +2969,6 @@
                 AND ar.roleattribut = '$idcox'
                 AND ul.guser = '$g'
 				AND p.departclient_idgare= '$sg'
-                AND cu.is_conect = 1
-                AND ar.activeattrib = 1
                 AND p.statutvente = 0
                 AND p.prixvente IS NOT NULL
                 AND p.statut_code = 'vendu'
@@ -2963,6 +2976,7 @@
                 GROUP BY p.idcptuser, dest.id_compaga, c.nom_compagnie, p.departclient_idgare")->result(); return $this->normalize_ticket_prix_rows($rows);        }
         public function comptegroupsbis($cd, $idcox, $g, $sg, $cpg)
         {
+            // Pas de filtre session (is_conect / activeattrib) : lisible après arrêt / déconnexion.
             $today = mdate("%Y-%m-%d", now('UTC'));
             $today1 = date("Y-m-d", strtotime("-1 day"));
             $exRat = $this->sql_exclure_rattrapage_arret();
@@ -2988,9 +3002,7 @@
                         p.idsousgare_vente = '$sg'
                         OR p.idsousgare_vente IS NULL
                     )
-                    AND cu.is_conect = 1
-                    AND ar.activeattrib = 1
-                    AND p.statutvente = 0
+                            AND p.statutvente = 0
                     {$exRat}
                     AND p.prixvente IS NOT NULL
                     AND p.statut_code = 'vendu'
@@ -2999,6 +3011,7 @@
         }
         public function comptebis($cd, $idcox, $g, $cpg)
         {
+            // Pas de filtre session (is_conect / activeattrib) : lisible après arrêt / déconnexion.
             $today = mdate("%Y-%m-%d", now('UTC'));
 
             $today1 = date("Y-m-d", strtotime("-1 day"));
@@ -3020,9 +3033,7 @@
                     AND ar.roleattribut = '$idcox'
                     AND dest.id_compaga !='$cpg'
                     AND ul.guser = '$g'
-                    AND cu.is_conect = 1
-                    AND ar.activeattrib = 1
-                    AND p.statutvente = 0
+                            AND p.statutvente = 0
                     AND p.prixvente IS NOT NULL
                     AND p.statut_code = 'vendu'
                     AND cu.date_conect <= '$today'
@@ -3030,6 +3041,7 @@
         }
         public function comptegroupbis($cd, $idcox, $g, $cpg)
         {
+            // Pas de filtre session (is_conect / activeattrib) : lisible après arrêt / déconnexion.
             $today = mdate("%Y-%m-%d", now('UTC'));
             $today1 = date("Y-m-d", strtotime("-1 day"));
             $exRat = $this->sql_exclure_rattrapage_arret();
@@ -3051,9 +3063,7 @@
                     AND ar.roleattribut = '$idcox'
                     AND dest.id_compaga !='$cpg'
                     AND ul.guser = '$g'
-                    AND cu.is_conect = 1
-                    AND ar.activeattrib = 1
-                    AND p.statutvente = 0
+                            AND p.statutvente = 0
                     {$exRat}
                     AND p.prixvente IS NOT NULL
                     AND p.statut_code = 'vendu'
@@ -3062,6 +3072,7 @@
 
         public function comptegroupetranstr($cd, $idcox, $g, $sg, $cpg)
         {
+            // Pas de filtre session (is_conect / activeattrib) : lisible après arrêt / déconnexion.
             $today = mdate("%Y-%m-%d", now('UTC'));
             $exRat = $this->sql_exclure_rattrapage_arret();
             
@@ -3083,9 +3094,7 @@
                     AND ar.roleattribut = '$idcox'
                     AND dest.id_compaga = '$cpg'
                     AND ul.guser = '$g'
-                    AND cu.is_conect = 1
-                    AND ar.activeattrib = 1
-                    AND p.statutvente = 0
+                            AND p.statutvente = 0
                     {$exRat}
                     AND p.prixvente IS NOT NULL
                     AND p.statut_code = 'vendu'
@@ -3109,6 +3118,7 @@
         
         public function comptegroupeptranstr($cd, $idcox, $g, $sg, $cpg)
         {
+            // Pas de filtre session (is_conect / activeattrib) : lisible après arrêt / déconnexion.
             $today = mdate("%Y-%m-%d", now('UTC'));
             $exRat = $this->sql_exclure_rattrapage_arret();
             
@@ -3130,9 +3140,7 @@
                     AND ar.roleattribut = '$idcox'
                     AND dest.id_compaga = '$cpg'
                     AND ul.guser = '$g'
-                    AND cu.is_conect = 1
-                    AND ar.activeattrib = 1
-                    AND p.statutvente = 0
+                            AND p.statutvente = 0
                     {$exRat}
                     AND p.prixvente IS NOT NULL
                     AND p.statut_code = 'vendu'
@@ -3153,6 +3161,7 @@
         }
         public function comptegroupbisinter($cd, $idcox, $g, $cpg)
         {
+            // Pas de filtre session (is_conect / activeattrib) : lisible après arrêt / déconnexion.
             $today = mdate("%Y-%m-%d", now('UTC'));
             $exRat = $this->sql_exclure_rattrapage_arret();
             
@@ -3174,9 +3183,7 @@
                     AND ar.roleattribut = '$idcox'
                     AND dest.id_compaga !='$cpg'
                     AND ul.guser = '$g'
-                    AND cu.is_conect = 1
-                    AND ar.activeattrib = 1
-                    AND p.statutvente = 0
+                            AND p.statutvente = 0
                     {$exRat}
                     AND p.prixvente IS NOT NULL
                     AND p.statut_code = 'vendu'
@@ -3184,6 +3191,7 @@
                     GROUP BY p.idcptuser, dest.id_compaga, c.nom_compagnie, p.departclient_idgare")->result(); return $this->normalize_ticket_prix_rows($rows);        }
         public function comptegroupb($cd, $idcox, $g, $cpg)
         {
+            // Pas de filtre session (is_conect / activeattrib) : lisible après arrêt / déconnexion.
             $today = mdate("%Y-%m-%d", now('UTC'));
             $today1 = date("Y-m-d", strtotime("-1 day"));
             $exRat = $this->sql_exclure_rattrapage_arret();
@@ -3205,9 +3213,7 @@
                     AND ar.roleattribut = '$idcox'
                     AND dest.id_compaga = '$cpg'
                     AND ul.guser = '$g'
-                    AND cu.is_conect = 1
-                    AND ar.activeattrib = 1
-                    AND p.statutvente = 0
+                            AND p.statutvente = 0
                     {$exRat}
                     AND p.prixvente IS NOT NULL
                     AND p.statut_code = 'vendu'
@@ -3219,6 +3225,7 @@
          */
         public function comptegroup_rattrapage($cd, $idcox, $g)
         {
+            // Pas de filtre session (is_conect / activeattrib) : lisible après arrêt / déconnexion.
             $today = mdate('%Y-%m-%d', now('UTC'));
             $onlyRat = $this->sql_seulement_rattrapage_arret();
 
@@ -3239,8 +3246,6 @@
                 AND p.datep_create <= '$today'
                 AND ar.roleattribut = '$idcox'
                 AND ul.guser = '$g'
-                AND cu.is_conect = 1
-                AND ar.activeattrib = 1
                 AND p.statutvente = 0
                 {$onlyRat}
                 AND p.prixvente IS NOT NULL
@@ -3252,6 +3257,7 @@
 
         public function comptesbis($cd, $idcox, $g, $sg, $cpg)
         {
+            // Pas de filtre session (is_conect / activeattrib) : lisible après arrêt / déconnexion.
             $today = mdate("%Y-%m-%d", now('UTC'));
             $today1 = date("Y-m-d", strtotime("-1 day"));
             
@@ -3273,8 +3279,6 @@
                 AND ul.guser = '$g'
                 AND dest.id_compaga ='$cpg'
                 AND p.departclient_idgare= '$sg'
-                AND cu.is_conect = 1
-                AND ar.activeattrib = 1
                 AND p.statutvente = 0
                 AND p.prixvente IS NOT NULL
                 AND p.statut_code = 'vendu'
@@ -3361,6 +3365,7 @@
         //pass repro
         public function comptrep($cd, $idcox, $g)
         {
+            // Pas de filtre session (is_conect / activeattrib) : lisible après arrêt / déconnexion.
             $today = mdate("%Y-%m-%d", now('UTC'));
             $today1 = date("Y-m-d", strtotime("-1 day"));
             $row = $this->db->query("SELECT COUNT(code_passager) AS cd FROM passager p
@@ -3380,8 +3385,6 @@
                 AND rp.date <= '$today'
                 AND ar.roleattribut = '$idcox'
                 AND ul.guser = '$g'
-                AND cu.is_conect = 1
-                AND ar.activeattrib = 1
                 AND rp.statutreport = 0
                 AND p.statut_reprog ='repor'
                 AND cu.date_conect <= '$today'
@@ -3392,6 +3395,7 @@
         //pass confirm
         public function comptconf($cd, $idcox, $g)
         {
+            // Pas de filtre session (is_conect / activeattrib) : lisible après arrêt / déconnexion.
             $today1 = date("Y-m-d", strtotime("-1 day"));
             $today = mdate("%Y-%m-%d", now('UTC'));
             
@@ -3410,8 +3414,6 @@
                 AND p.datep_create <= '$today'
                 AND ar.roleattribut = '$idcox'
                 AND ul.guser = '$g'
-                AND cu.is_conect = 1
-                AND ar.activeattrib = 1
                 AND p.statutvente = 0
                 AND p.statut_confirme = 'confirm'
                 AND p.prixvente IS NULL
@@ -3426,6 +3428,7 @@
             $today = mdate("%Y-%m-%d", now('UTC'));
             $exRat = $this->sql_exclure_rattrapage_arret();
             // $sg ignoré : total rapport = total envoyé chef (toutes sous-gares de la gare).
+            // Pas de filtre activeattrib : le rapport doit sortir après arrêt / déconnexion.
 
             $nomLine = $this->rapport_nom_ligne_sql();
             $nomLineSelect = $nomLine['select'];
@@ -3448,7 +3451,6 @@
                 AND p.datep_create = ?
                 AND ar.roleattribut = ?
                 AND ul.guser = ?
-                AND ar.activeattrib = 1
                 AND p.statutvente = 1
                 {$exRat}
                 AND p.is_valdtick = 0
@@ -3496,7 +3498,6 @@
                 AND p.datep_create <= ?
                 AND ar.roleattribut = ?
                 AND ul.guser = ?
-                AND ar.activeattrib = 1
                 AND p.statutvente = 1
                 {$anterieurSql}
                 AND p.is_valdtick = 0
@@ -3512,22 +3513,21 @@
 
         public function rapportrep($cd, $idcox, $comp, $g)
         {
-            $today1 = date("Y-m-d", strtotime("-1 day"));
             $today = mdate("%Y-%m-%d", now('UTC'));
 
             $nomLine = $this->rapport_nom_ligne_sql();
             $nomLineSelect = $nomLine['select'];
             $nomLineGroup = $nomLine['group'];
 
-            $rows = $this->db->query("SELECT COUNT(code_passager) AS cdrep,
+            // Pas de filtre session (is_conect / activeattrib) : rapport après arrêt / déconnexion.
+            $rows = $this->db->query(
+                "SELECT COUNT(code_passager) AS cdrep,
                 {$nomLineSelect},
                 ar.roleattribut FROM passager p
-                JOIN tamponcode tp ON p.code_passager = tp.tamponcod 
+                JOIN tamponcode tp ON p.code_passager = tp.tamponcod
                 JOIN report rp ON rp.code_tick_tamp = tp.tamponcod
                 JOIN attributions_role ar ON rp.idcpuserconect = ar.roleattribut
                 JOIN user_login ul ON ar.idgestcompte = ul.uid_login
-                JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
-                JOIN gares g ON ul.guser = g.idengare
                 JOIN programme pr ON p.code_pro = pr.code_progr
                 JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
                 JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
@@ -3535,34 +3535,38 @@
                 JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
                 JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                WHERE e.ekey = '$cd'
-                AND rp.date <= '$today'
-                AND ar.roleattribut = '$idcox'
-                AND ul.guser = '$g'
-                AND cu.is_conect = 1
-                AND ar.activeattrib = 1
+                WHERE e.ekey = ?
+                AND rp.date <= ?
+                AND ar.roleattribut = ?
+                AND ul.guser = ?
                 AND rp.statutreport = 1
                 AND rp.is_statutreport = 0
                 AND p.statut_reprog = 'repor'
-                AND dest.id_compaga = '$comp'
-                GROUP BY ar.roleattribut, {$nomLineGroup}")->result(); return $this->normalize_ticket_prix_rows($rows);        }
+                AND dest.id_compaga = ?
+                GROUP BY ar.roleattribut, {$nomLineGroup}",
+                array($cd, $today, (int) $idcox, $g, (int) $comp)
+            )->result();
+            return $this->normalize_ticket_prix_rows($rows);
+        }
         //pass confirm
         public function rapportconf($cd, $idcox, $comp, $g)
         {
-            $today1 = date("Y-m-d", strtotime("-1 day"));
             $today = mdate("%Y-%m-%d", now('UTC'));
-            
+
             $nomLine = $this->rapport_nom_ligne_sql();
             $nomLineSelect = $nomLine['select'];
             $nomLineGroup = $nomLine['group'];
 
-            $rows = $this->db->query("SELECT COUNT(code_passager) AS cdconf,
+            // Confirmations fermées à l'arrêt (statutvente=1). Pas de filtre session
+            // (is_conect / activeattrib) : le rapport reste lisible après déconnexion.
+            // JOIN gare_exp requis par rapport_nom_ligne_sql (ex.nom_gaep).
+            // Borne au jour : évite de recharger tout l'historique déjà tiré.
+            $rows = $this->db->query(
+                "SELECT COUNT(code_passager) AS cdconf,
                 {$nomLineSelect},
                 ar.roleattribut FROM passager p
                 JOIN attributions_role ar ON p.idcptuser = ar.roleattribut
                 JOIN user_login ul ON ar.idgestcompte = ul.uid_login
-                JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
-                JOIN gares g ON ul.guser = g.idengare
                 JOIN programme pr ON p.code_pro = pr.code_progr
                 JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
                 JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
@@ -3570,18 +3574,20 @@
                 JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
                 JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                WHERE e.ekey = '$cd'
-                AND p.datep_create <= '$today'
-                AND ar.roleattribut = '$idcox'
-                AND ul.guser = '$g'
-                AND cu.is_conect = 1
-                AND ar.activeattrib = 1
+                WHERE e.ekey = ?
+                AND p.datep_create = ?
+                AND ar.roleattribut = ?
+                AND ul.guser = ?
                 AND p.statutvente = 1
-                AND p.statut_confirme ='confirm'
-                AND p.is_valdtick = 0
+                AND p.statut_confirme = 'confirm'
                 AND p.prixvente IS NULL
-                AND dest.id_compaga = '$comp'
-                GROUP BY ar.roleattribut, {$nomLineGroup}")->result(); return $this->normalize_ticket_prix_rows($rows);        }
+                AND IFNULL(p.actif_pas, 0) = 0
+                AND dest.id_compaga = ?
+                GROUP BY ar.roleattribut, {$nomLineGroup}",
+                array($cd, $today, (int) $idcox, $g, (int) $comp)
+            )->result();
+            return $this->normalize_ticket_prix_rows($rows);
+        }
         
         //etat des ventes
         public function vente($cid, $datedb, $datef, $gid)

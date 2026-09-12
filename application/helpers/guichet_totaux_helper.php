@@ -186,6 +186,15 @@ if (!function_exists('guichet_statutvente_heal_incoherent')) {
 
         if ($out['passager'] > 0 || $out['retour'] > 0) {
             guichet_totaux_cache_invalidate($ra);
+            log_message(
+                'error',
+                sprintf(
+                    'guichet_statutvente_heal_incoherent ra=%d passager=%d retour=%d',
+                    $ra,
+                    $out['passager'],
+                    $out['retour']
+                )
+            );
         }
 
         return $out;
@@ -276,8 +285,12 @@ if (!function_exists('ticket_close_flags_normalize_passager')) {
         if (isset($data['actif_pas']) && (int) $data['actif_pas'] === 1
             && !array_key_exists('statutvente', $data)
         ) {
-            // Annulation / archive : sortir du compteur SOLDE.
-            $data['statutvente'] = 1;
+            $reprog = isset($data['statut_reprog']) ? trim((string) $data['statut_reprog']) : '';
+            // Report : libère le siège mais la vente reste au CA agent (statutvente ouvert).
+            // Annulation / archive (sans repor) : sortir du compteur SOLDE.
+            if ($reprog !== 'repor') {
+                $data['statutvente'] = 1;
+            }
         }
         if (array_key_exists('statutvente', $data)
             && (int) $data['statutvente'] === 0

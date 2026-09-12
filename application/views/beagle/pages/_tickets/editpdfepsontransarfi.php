@@ -89,27 +89,7 @@
                           $nom = $item->code_progr;
                           $nge = substr($nom, 6, 6);
 
-                            $nod = $item->depart_code;
-                              $nget = substr($nod, 3);
-
-
-                              if($item->gareidentif === 'OUA12')
-                              {
-
-                                 $de = 'O';
-                                 $cx = $de.$nget;
-
-                                 $d = explode($item->gareidentif, $cx);
-                                 $x = $d[1];
-                              }
-                              else
-                              {
-
-                                  $d = explode($item->gareidentif, $item->depart_code);
-
-                                  $x = $d[1];
-
-                              }
+                            $x = function_exists('ticket_nbus_from_item') ? ticket_nbus_from_item($item) : '';
 
                           $dat = explode("-", $item->date_progr);
                           $day = $dat[2]. '-'. $dat[1]. '-' .$dat[0];?>
@@ -378,23 +358,7 @@
                               $nget1 = substr($nod1, 3);
 
 
-                              if($itemtrans->gareidentif === 'OUA12')
-                              {
-
-                                 $de1 = 'O';
-                                 $cx1 = $de1.$nget1;
-
-                                 $dx = explode($itemtrans->gareidentif, $cx1);
-                                 $x1 = $dx[1];
-                              }
-                              else
-                              {
-
-                                  $dx = explode($itemtrans->gareidentif, $itemtrans->depart_code);
-
-                                  $x1 = $dx[1];
-
-                              }
+                              $x1 = function_exists('ticket_nbus_from_item') ? ticket_nbus_from_item($itemtrans) : '';
 
                               $day1 = $dat1[2]. '-'. $dat1[1]. '-' .$dat1[0];?>
                               <tr><td style="font-size: 55px; width: 50%;"> <img src="<?echo site_url($itemtrans->logo);?>" width="300" height=""></td></tr>

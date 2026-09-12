@@ -2489,6 +2489,7 @@
                                     $passagerarray1 = array(
                                         'num_siege_categorie' => NULL,
                                         'actif_pas' => 1,
+                                        'statut_reprog' => 'repor',
                                     );
 
                                     $passrid1 = $this->m_passager->update($cdpa1, $cdpt1, $passagerarray1);
@@ -2573,6 +2574,7 @@
                                     $passagerarray1 = array(
                                         'num_siege_categorie' => NULL,
                                         'actif_pas' => 1,
+                                        'statut_reprog' => 'repor',
                                     );
 
                                     $passrid1 = $this->m_passager->update($cdpa1, $cdpt1, $passagerarray1);

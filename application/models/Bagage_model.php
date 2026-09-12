@@ -538,7 +538,6 @@
             return $this->db->query("SELECT SUM(prix_bagage) AS bagtotal FROM bagages bg
                 JOIN attributions_role ar ON bg.idoperabagage = ar.roleattribut
                 WHERE ar.roleattribut = '$idcox'
-                AND ar.activeattrib = 1
                 AND bg.isvalidbag = 0
                 AND bg.date_create <= '$today'
                 AND bg.prix_bagage IS NOT NULL
@@ -549,11 +548,11 @@
 
         public function compteurcd($cd, $idcox, $g)
         {
+            // Pas de filtre session (is_conect / activeattrib) : lisible après arrêt / déconnexion.
             $today = mdate("%Y-%m-%d", now('UTC'));            
             return $this->db->query("SELECT SUM(prix_bagage) AS bagtotal FROM bagages bg
                 JOIN attributions_role ar ON bg.idoperabagage = ar.roleattribut
                 WHERE ar.roleattribut = '$idcox'
-                AND ar.activeattrib = 1
                 AND bg.isvalidbag = 0
                 AND bg.date_create < '$today'
                 AND bg.prix_bagage IS NOT NULL
@@ -562,6 +561,7 @@
         }
         public function compte($cd, $idcox, $g)
         {
+            // Pas de filtre session (is_conect / activeattrib) : lisible après arrêt / déconnexion.
             $today = mdate("%Y-%m-%d", now('UTC'));
             $today1 = date("Y-m-d", strtotime("-1 day"));
             
@@ -578,7 +578,6 @@
                 WHERE e.ekey = '$cd'
                 AND ar.roleattribut = '$idcox'
                 AND ul.guser = '$g'
-                AND ar.activeattrib = 1
                 AND bg.isvalidbag = 0
                 AND bg.date_create <= '$today'
                 AND bg.prix_bagage IS NOT NULL
@@ -590,6 +589,7 @@
         
         public function comptegroup($cd, $idcox, $g)
         {
+            // Pas de filtre session (is_conect / activeattrib) : lisible après arrêt / déconnexion.
             $today1 = date("Y-m-d", strtotime("-1 day"));
             $today = mdate("%Y-%m-%d", now('UTC'));
 
@@ -606,7 +606,6 @@
                 WHERE e.ekey = '$cd'
                 AND ar.roleattribut = '$idcox'
                 AND ul.guser = '$g'
-                AND ar.activeattrib = 1
                 AND bg.isvalidbag = 0
                 AND bg.date_create <= '$today'
                 AND bg.prix_bagage IS NOT NULL
@@ -617,6 +616,7 @@
 
         public function comptes($cd, $idcox, $g, $sg)
         {
+            // Pas de filtre session (is_conect / activeattrib) : lisible après arrêt / déconnexion.
             $today = mdate("%Y-%m-%d", now('UTC'));
            
             return $this->db->query("SELECT COUNT(idoperabagage) AS cbg, SUM(prix_bagage) AS bagtotal FROM bagages bg
@@ -633,7 +633,6 @@
                 AND ar.roleattribut = '$idcox'
                 AND ul.guser = '$g'
                 AND bg.idsgarebag = '$sg'
-                AND ar.activeattrib = 1
                 AND bg.isvalidbag = 0
                 AND bg.date_create <= '$today'
                 AND bg.prix_bagage IS NOT NULL
@@ -645,6 +644,7 @@
         
         public function comptegroups($cd, $idcox, $g, $sg)
         {
+            // Pas de filtre session (is_conect / activeattrib) : lisible après arrêt / déconnexion.
             $today1 = date("Y-m-d", strtotime("-1 day"));
             $today = mdate("%Y-%m-%d", now('UTC'));
 
@@ -662,7 +662,6 @@
                 AND ar.roleattribut = '$idcox'
                 AND ul.guser = '$g'
                 AND bg.idsgarebag = '$sg'
-                AND ar.activeattrib = 1
                 AND bg.isvalidbag = 0
                 AND bg.date_create <= '$today'
                 AND bg.prix_bagage IS NOT NULL
@@ -674,6 +673,7 @@
         //rapport journalier
         public function rapportbg($cd, $idcox, $comp, $g)
         {
+            // Pas de filtre session (is_conect / activeattrib) : lisible après arrêt / déconnexion.
             $today = mdate("%Y-%m-%d", now('UTC'));
             
             return $this->db->query("SELECT COUNT(idoperabagage) AS cbg, SUM(prix_bagage) AS bagtotal, lg.nom_ligne, bg.prix_bagage FROM bagages bg
@@ -688,8 +688,6 @@
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = '$cd'
                 AND ul.guser = '$g'
-                AND cu.is_conect = 1
-                AND ar.activeattrib = 1
                 AND bg.validbag = 0
                 AND dest.id_compaga = '$comp'
                 AND bg.isvalidbag = 1
