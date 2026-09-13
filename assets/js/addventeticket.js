@@ -10,6 +10,33 @@ document.addEventListener('DOMContentLoaded', () => {
         var el = document.querySelector('#' + id);
         if (el) el.style.display = display;
     }
+    /**
+     * OD métier d’une jambe : gaexp_lg / gadest_lg (pas un split fragile de ident_ligne).
+     * Repli : premier « - » de code_itineraires (gaexp-gadest…).
+     */
+    function __venteOdFromEtapeOrCode(etape, codeFallback) {
+        var ga = '';
+        var gd = '';
+        if (etape) {
+            ga = String(etape.gaexp_lg || etape.code_gaexp || etape.gaexp || '').trim();
+            gd = String(etape.gadest_lg || etape.code_gadest || etape.gadest || '').trim();
+        }
+        var code = String(codeFallback || '').trim();
+        if ((!ga || !gd) && code) {
+            var i = code.indexOf('-');
+            if (i > 0) {
+                if (!ga) ga = code.slice(0, i).trim();
+                if (!gd) gd = code.slice(i + 1).trim();
+            }
+        }
+        return { gaexp: ga, gadest: gd };
+    }
+    window.__venteOdFromEtapeOrCode = __venteOdFromEtapeOrCode;
+    function __venteEtapeAt(idx) {
+        var et = window.__venteCheminEtapes;
+        if (!et || !et.length) return null;
+        return et[idx] || null;
+    }
     function __venteSafeReset(sel, keepOpts) {
         var el = document.querySelector(sel);
         if (!el) return;
@@ -1825,42 +1852,44 @@ document.addEventListener('DOMContentLoaded', () => {
             if (Array.isArray(c.codes)) return c.codes.length;
             return 0;
         }
-        var declIdx = -1;
-        var declN = 0;
-        for (var d = 0; d < chemins.length; d++) {
-            var sd = chemins[d] && chemins[d].source;
-            if (sd === 'declaratif' || sd === 'graphe_declaratif') {
-                var nd = nbJ(chemins[d]);
-                if (declIdx < 0 || nd > declN) {
-                    declIdx = d;
-                    declN = nd;
-                }
+        function prio(c) {
+            if (!c) return -1;
+            if (typeof c.priority === 'number') return c.priority;
+            var s = c.source || '';
+            if (s === 'hub_lie') return 100;
+            if (s === 'programmes') return 80;
+            if (s === 'programmes_aval') return 70;
+            if (s === 'graphe_gare') return 60;
+            if (s === 'gare_composition') return 55;
+            if (s === 'graphe') return 40;
+            if (s === 'graphe_declaratif' || s === 'declaratif') return 20;
+            if (s === 'direct') return 10;
+            return 30;
+        }
+        var best = 0;
+        var bestP = prio(chemins[0]);
+        var bestN = nbJ(chemins[0]) || 99;
+        var bestS = typeof chemins[0].score === 'number' ? chemins[0].score : 0;
+        for (var i = 1; i < chemins.length; i++) {
+            var p = prio(chemins[i]);
+            var n = nbJ(chemins[i]) || 99;
+            var s = typeof chemins[i].score === 'number' ? chemins[i].score : 0;
+            if (p > bestP || (p === bestP && n < bestN) || (p === bestP && n === bestN && s > bestS)) {
+                best = i;
+                bestP = p;
+                bestN = n;
+                bestS = s;
             }
         }
-        var preferGare = hour && !hour.hasProg;
-        if (preferGare) {
-            var gareIdx = -1;
-            var gareN = 0;
-            for (var g = 0; g < chemins.length; g++) {
-                var sg = chemins[g] && chemins[g].source;
-                if (sg === 'graphe_gare' || sg === 'gare_composition') {
-                    if (gareIdx < 0) {
-                        gareIdx = g;
-                        gareN = nbJ(chemins[g]);
-                    }
-                }
+        // Heure sans prog OD : éviter un « direct » synthétique en tête.
+        if (hour && !hour.hasProg && chemins[best] && chemins[best].source === 'direct') {
+            for (var j = 0; j < chemins.length; j++) {
+                if (chemins[j].source !== 'direct') return j;
             }
-            // Composition hub plus longue (ex. via Banfora) prioritaire sur raccourci 2 jambes.
-            if (declIdx >= 0 && declN > gareN) return declIdx;
-            if (gareIdx >= 0) return gareIdx;
         }
-        if (declIdx >= 0) return declIdx;
-        for (var i = 0; i < chemins.length; i++) {
-            if (hour && !hour.hasProg && chemins[i].source === 'direct') continue;
-            return i;
-        }
-        return 0;
+        return best;
     }
+    window.__venteDefaultCheminIndex = __venteDefaultCheminIndex;
 
     function __venteFetchChemins(ctx, hour, callback) {
         if (!ctx || !ctx.seltdep || !ctx.arr || !ctx.datedepart) {
@@ -2544,9 +2573,9 @@ document.addEventListener('DOMContentLoaded', () => {
                                                                 document.querySelector('#idcompg').value = `${donitines[0].id_compaga}`;
                                                                 document.querySelector('#idcompg1').value = `${donitines[1].id_compaga}`;
                                                                 var typgare1 = (donitines[0] && donitines[0].code_itineraires) ? String(donitines[0].code_itineraires) : (document.querySelector('#itinecode').value || '');
-                                                                var post_typgare1 = typgare1.split('-');
-                                                                var seltypgare1 = post_typgare1[0];
-                                                                var typgaresel = post_typgare1[1];
+                                                                var odLeg1 = __venteOdFromEtapeOrCode(donitines[0], typgare1);
+                                                                var seltypgare1 = odLeg1.gaexp;
+                                                                var typgaresel = odLeg1.gadest;
                                                                     let httptypequart1;
                                                                     httptypequart1 = new XMLHttpRequest();
                                                                     
@@ -2791,9 +2820,9 @@ document.addEventListener('DOMContentLoaded', () => {
                                                                         const prostranschemin = document.querySelector('#idchemins')
                                                                         .options[document.querySelector('#idchemins').options.selectedIndex].value;
 
-                                                                        var post_typgare2 = prostranschemin.split('-');
-                                                                        var seltypgare2 = post_typgare2[0];
-                                                                        var typgaresel1 = post_typgare2[1];
+                                                                        var odLeg2 = __venteOdFromEtapeOrCode(__venteEtapeAt(1), prostranschemin);
+                                                                        var seltypgare2 = odLeg2.gaexp;
+                                                                        var typgaresel1 = odLeg2.gadest;
                                                                         var tfbs = document.querySelector('#tarifattrib').value;
                                                                         var datedepart = document.querySelector('#date_depheure').value;
                                                                         httpSiegeschemin.open('GET', window.location.origin + `${APP_ROOT}/programmes/chemintr/${prostranschemin}/${datedepart}/${tfbs}`, true);
@@ -2949,9 +2978,9 @@ document.addEventListener('DOMContentLoaded', () => {
                                                                 document.querySelector('#idcompg1').value = `${donitines[1].id_compaga}`;
                                                                 document.querySelector('#idcompg2').value = `${donitines[2].id_compaga}`;
                                                                 var typgare1 = (donitines[0] && donitines[0].code_itineraires) ? String(donitines[0].code_itineraires) : (document.querySelector('#itinecode').value || '');
-                                                                var post_typgare1 = typgare1.split('-');
-                                                                var seltypgare1 = post_typgare1[0];
-                                                                var typgaresel = post_typgare1[1];
+                                                                var odLeg1 = __venteOdFromEtapeOrCode(donitines[0], typgare1);
+                                                                var seltypgare1 = odLeg1.gaexp;
+                                                                var typgaresel = odLeg1.gadest;
                                                                     let httptypequart1;
                                                                     httptypequart1 = new XMLHttpRequest();
                                                                     
@@ -3169,9 +3198,9 @@ document.addEventListener('DOMContentLoaded', () => {
                                                                         const prostranschemin = document.querySelector('#idchemins')
                                                                         .options[document.querySelector('#idchemins').options.selectedIndex].value;
 
-                                                                        var post_typgare2 = prostranschemin.split('-');
-                                                                        var seltypgare2 = post_typgare2[0];
-                                                                        var typgaresel1 = post_typgare2[1];
+                                                                        var odLeg2 = __venteOdFromEtapeOrCode(__venteEtapeAt(1), prostranschemin);
+                                                                        var seltypgare2 = odLeg2.gaexp;
+                                                                        var typgaresel1 = odLeg2.gadest;
                                                                         let httptypequart2;
                                                                         httptypequart2 = new XMLHttpRequest();
                                                                         
@@ -3361,9 +3390,9 @@ document.addEventListener('DOMContentLoaded', () => {
                                                                         const prostranschemin32 = document.querySelector('#idchemins1')
                                                                         .options[document.querySelector('#idchemins1').options.selectedIndex].value;
 
-                                                                        var post_typgare32 = prostranschemin32.split('-');
-                                                                        var seltypgare32 = post_typgare32[0];
-                                                                        var typgaresel31 = post_typgare32[1];
+                                                                        var odLeg3 = __venteOdFromEtapeOrCode(__venteEtapeAt(2), prostranschemin32);
+                                                                        var seltypgare32 = odLeg3.gaexp;
+                                                                        var typgaresel31 = odLeg3.gadest;
                                                                       
                                                                         let httpSiegeschemin1;
                                                                         httpSiegeschemin1 = new XMLHttpRequest();
@@ -3520,9 +3549,9 @@ document.addEventListener('DOMContentLoaded', () => {
                                                                 document.querySelector('#idcompg2').value = `${donitines[2].id_compaga}`;
                                                                 document.querySelector('#idcompg3').value = `${donitines[3].id_compaga}`;
                                                                 var typgare1 = (donitines[0] && donitines[0].code_itineraires) ? String(donitines[0].code_itineraires) : (document.querySelector('#itinecode').value || '');
-                                                                var post_typgare1 = typgare1.split('-');
-                                                                var seltypgare1 = post_typgare1[0];
-                                                                var typgaresel = post_typgare1[1];
+                                                                var odLeg1 = __venteOdFromEtapeOrCode(donitines[0], typgare1);
+                                                                var seltypgare1 = odLeg1.gaexp;
+                                                                var typgaresel = odLeg1.gadest;
                                                                     let httptypequart1;
                                                                     httptypequart1 = new XMLHttpRequest();
                                                                     
@@ -3741,9 +3770,9 @@ document.addEventListener('DOMContentLoaded', () => {
                                                                         const prostranschemin = document.querySelector('#idchemins')
                                                                         .options[document.querySelector('#idchemins').options.selectedIndex].value;
 
-                                                                        var post_typgare2 = prostranschemin.split('-');
-                                                                        var seltypgare2 = post_typgare2[0];
-                                                                        var typgaresel1 = post_typgare2[1];
+                                                                        var odLeg2 = __venteOdFromEtapeOrCode(__venteEtapeAt(1), prostranschemin);
+                                                                        var seltypgare2 = odLeg2.gaexp;
+                                                                        var typgaresel1 = odLeg2.gadest;
                                                                         let httptypequart2;
                                                                         httptypequart2 = new XMLHttpRequest();
                                                                         
@@ -3930,9 +3959,9 @@ document.addEventListener('DOMContentLoaded', () => {
                                                                         const prostranschemin32 = document.querySelector('#idchemins1')
                                                                         .options[document.querySelector('#idchemins1').options.selectedIndex].value;
 
-                                                                        var post_typgare32 = prostranschemin32.split('-');
-                                                                        var seltypgare32 = post_typgare32[0];
-                                                                        var typgaresel31 = post_typgare32[1];
+                                                                        var odLeg3 = __venteOdFromEtapeOrCode(__venteEtapeAt(2), prostranschemin32);
+                                                                        var seltypgare32 = odLeg3.gaexp;
+                                                                        var typgaresel31 = odLeg3.gadest;
                                                                         let httptypequart32;
                                                                         httptypequart32 = new XMLHttpRequest();
                                                                         
@@ -4118,9 +4147,9 @@ document.addEventListener('DOMContentLoaded', () => {
                                                                         const prostranschemin42 = document.querySelector('#idchemins2')
                                                                         .options[document.querySelector('#idchemins2').options.selectedIndex].value;
 
-                                                                        var post_typgare42 = prostranschemin42.split('-');
-                                                                        var seltypgare42 = post_typgare42[0];
-                                                                        var typgaresel41 = post_typgare42[1];
+                                                                        var odLeg4 = __venteOdFromEtapeOrCode(__venteEtapeAt(3), prostranschemin42);
+                                                                        var seltypgare42 = odLeg4.gaexp;
+                                                                        var typgaresel41 = odLeg4.gadest;
 
                                                                         // Jambe 4 : #quartier = arrivée finale (déjà chargé via arrsgare).
                                                                         // Ne pas reconstruire le select ici — ça vidait la sélection du client.

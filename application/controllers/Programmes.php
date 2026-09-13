@@ -2544,26 +2544,53 @@
             }
             $sgFilterPayload = $mode_reprog ? null : $sg;
 
-            // Reprog : TOUJOURS par nom de ligne (toutes compagnies / codes dest).
-            // Sans nom_ligne → aucun itinéraire (évite BAM6≠BAM53 / contre-sens codes).
+            // Reprog : par nom de ligne (toutes compagnies / codes dest).
+            // Sans nom_ligne : uniquement chemins programmes de la gare d'opération (pas graphe multi-cie).
             if ($mode_reprog) {
                 if ($nom === '') {
+                    $gaOpEmpty = ($gareidentif !== null && $gareidentif !== '')
+                        ? $gareidentif
+                        : $gaOd;
+                    $cheminsOnly = array();
+                    if ($gaOpEmpty !== '' && $gdOd !== '') {
+                        $this->load->library('chemins_programmes_vente');
+                        $cheminsOnly = $this->chemins_programmes_vente->chemins(
+                            $ekey,
+                            $gaOpEmpty,
+                            $gdOd,
+                            $date,
+                            array(
+                                'heure' => ($heure_label !== null && $heure_label !== '') ? $heure_label : '',
+                                'horizon' => 3,
+                                'limit' => 12,
+                            )
+                        );
+                        $cheminsOnly = $this->chemins_programmes_vente->merge_et_prioriser(
+                            $cheminsOnly,
+                            array(),
+                            $gaOpEmpty,
+                            $gdOd
+                        );
+                    }
                     return array(
-                        'mode' => 'none',
+                        'mode' => !empty($cheminsOnly) ? 'programmes' : 'none',
                         'meta' => array(
                             'axe' => $axe,
                             'date' => $date,
                             'nom_ligne' => null,
                             'gare_report' => $gareidentif,
-                            'reason' => 'reprog_requires_nom_ligne',
+                            'gare_operation' => $gaOpEmpty,
+                            'reason' => !empty($cheminsOnly) ? 'programmes_gare_sans_nom' : 'reprog_requires_nom_ligne',
+                            'ranking' => 'hub_lie>programmes>programmes_aval',
                         ),
                         'declaratif' => $decl,
-                        'multi' => false,
-                        'chemins' => array(),
-                        'etapes' => array(),
+                        'multi' => count($cheminsOnly) > 1
+                            || (!empty($cheminsOnly[0]['nb_jambes']) && (int) $cheminsOnly[0]['nb_jambes'] >= 2),
+                        'chemins' => $cheminsOnly,
+                        'etapes' => !empty($cheminsOnly[0]['etapes']) ? $cheminsOnly[0]['etapes'] : array(),
                         'etapes_servies' => array(),
-                        'has_transit' => false,
-                        'transit_sources' => array(),
+                        'has_transit' => !empty($cheminsOnly),
+                        'transit_sources' => array('programmes_gare'),
                     );
                 }
                 $alts = $this->m_programme->axes_par_nom_ligne($nom, $ekey, $gaOd !== '' ? $gaOd : null, null);
@@ -2731,6 +2758,54 @@
                     'gadest_od' => $gdOd !== '' ? $gdOd : null,
                 )
             );
+
+            // Vente + reprog + confirm : chemins depuis programmes de la gare d'opération
+            // (+ hubs/dérivés liés + gares aval même sens). Anti contre-sens dans merge.
+            // Gare opération = gare report/confirm (?gare=) sinon gaexp OD.
+            $gaOperation = ($gareidentif !== null && $gareidentif !== '')
+                ? $gareidentif
+                : $gaOd;
+            $skipProgMerge = (!$force_transit && isset($payload['mode']) && $payload['mode'] === 'direct');
+            if ($mode_reprog && !empty($hasAnyDirectNom)) {
+                $skipProgMerge = true;
+            }
+            if (!$skipProgMerge && $gaOperation !== '' && $gdOd !== '') {
+                $this->load->library('chemins_programmes_vente');
+                $cheminsProg = $this->chemins_programmes_vente->chemins(
+                    $ekey,
+                    $gaOperation,
+                    $gdOd,
+                    $date,
+                    array(
+                        'heure' => ($heure_label !== null && $heure_label !== '') ? $heure_label : '',
+                        'horizon' => 3,
+                        'limit' => 12,
+                    )
+                );
+                $payload['chemins'] = $this->chemins_programmes_vente->merge_et_prioriser(
+                    $cheminsProg,
+                    isset($payload['chemins']) && is_array($payload['chemins']) ? $payload['chemins'] : array(),
+                    $gaOperation,
+                    $gdOd
+                );
+                if (!empty($payload['chemins'])) {
+                    $payload['multi'] = count($payload['chemins']) > 1
+                        || (isset($payload['chemins'][0]['nb_jambes']) && (int) $payload['chemins'][0]['nb_jambes'] >= 2);
+                    if ($payload['mode'] === 'none' || $payload['mode'] === 'direct') {
+                        $payload['mode'] = 'programmes';
+                    }
+                    if (empty($payload['etapes']) && !empty($payload['chemins'][0]['etapes'])) {
+                        $payload['etapes'] = $payload['chemins'][0]['etapes'];
+                    }
+                    if (!isset($payload['meta']) || !is_array($payload['meta'])) {
+                        $payload['meta'] = array();
+                    }
+                    $payload['meta']['chemins_programmes'] = count($cheminsProg);
+                    $payload['meta']['gare_operation'] = $gaOperation;
+                    $payload['meta']['ranking'] = 'hub_lie>programmes>programmes_aval>graphe>declaratif';
+                }
+            }
+
             $evalTransit = $this->graphe_correspondance->evaluer_transit_od($ekey, $axe, $date, $sg);
             $out = array(
                 'mode' => $payload['mode'],
@@ -2740,7 +2815,7 @@
                 'chemins' => $payload['chemins'],
                 'etapes' => $payload['etapes'],
                 'etapes_servies' => array(),
-                'has_transit' => !empty($evalTransit['has_transit']),
+                'has_transit' => !empty($evalTransit['has_transit']) || (!empty($payload['chemins']) && !$mode_reprog),
                 'transit_sources' => !empty($evalTransit['sources']) ? $evalTransit['sources'] : array(),
             );
             foreach ($payload['etapes'] as $e) {

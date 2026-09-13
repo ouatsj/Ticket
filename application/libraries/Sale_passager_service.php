@@ -299,14 +299,22 @@ class Sale_passager_service
             }
         }
         // Autre compagnie : même nom d'escale (SIKASSO) même si code_gadest diffère (SIK23 ≠ SIK54).
+        // Variantes VIP : SIKASSO ↔ SIKASSO_VIP.
         if ($matchedId <= 0 && $nom_dest !== '') {
             $row = $this->ci->db->query(
                 "SELECT id_escale FROM itineraire_escales
                  WHERE id_lignes = ?
-                   AND UPPER(TRIM(nom_escale)) = UPPER(TRIM(?))
+                   AND (
+                     UPPER(TRIM(nom_escale)) = UPPER(TRIM(?))
+                     OR UPPER(TRIM(nom_escale)) LIKE CONCAT(UPPER(TRIM(?)), '_%')
+                     OR UPPER(TRIM(?)) LIKE CONCAT(UPPER(TRIM(nom_escale)), '_%')
+                     OR REPLACE(REPLACE(REPLACE(UPPER(TRIM(nom_escale)), '_VIP', ''), '_CMT', ''), '_ORD', '')
+                      = REPLACE(REPLACE(REPLACE(UPPER(TRIM(?)), '_VIP', ''), '_CMT', ''), '_ORD', '')
+                   )
                    AND actif_escale = 1
+                 ORDER BY (UPPER(TRIM(nom_escale)) = UPPER(TRIM(?))) DESC, id_escale ASC
                  LIMIT 1",
-                array($ligne, $nom_dest)
+                array($ligne, $nom_dest, $nom_dest, $nom_dest, $nom_dest, $nom_dest)
             )->row();
             if ($row) {
                 $matchedId = (int) $row->id_escale;
@@ -320,10 +328,17 @@ class Sale_passager_service
                 $row = $this->ci->db->query(
                     "SELECT id_escale FROM itineraire_escales
                      WHERE id_lignes = ?
-                       AND UPPER(TRIM(nom_escale)) = UPPER(TRIM(?))
+                       AND (
+                         UPPER(TRIM(nom_escale)) = UPPER(TRIM(?))
+                         OR UPPER(TRIM(nom_escale)) LIKE CONCAT(UPPER(TRIM(?)), '_%')
+                         OR UPPER(TRIM(?)) LIKE CONCAT(UPPER(TRIM(nom_escale)), '_%')
+                         OR REPLACE(REPLACE(REPLACE(UPPER(TRIM(nom_escale)), '_VIP', ''), '_CMT', ''), '_ORD', '')
+                          = REPLACE(REPLACE(REPLACE(UPPER(TRIM(?)), '_VIP', ''), '_CMT', ''), '_ORD', '')
+                       )
                        AND actif_escale = 1
+                     ORDER BY (UPPER(TRIM(nom_escale)) = UPPER(TRIM(?))) DESC, id_escale ASC
                      LIMIT 1",
-                    array($ligne, $nomSrc)
+                    array($ligne, $nomSrc, $nomSrc, $nomSrc, $nomSrc, $nomSrc)
                 )->row();
                 if ($row) {
                     $matchedId = (int) $row->id_escale;
@@ -421,6 +436,129 @@ class Sale_passager_service
             array($code_pro)
         )->row();
         return $row && !empty($row->ligne_id) ? (string) $row->ligne_id : '';
+    }
+
+    /**
+     * OD métier d’un programme (gaexp / gadest / ligne).
+     *
+     * @param string $code_pro
+     * @return array{gaexp:string,gadest:string,ident_ligne:string}|null
+     */
+    public function programme_od($code_pro)
+    {
+        $code_pro = trim((string) $code_pro);
+        if ($code_pro === '') {
+            return null;
+        }
+        $row = $this->ci->db->query(
+            "SELECT lg.gaexp_lg AS gaexp, lg.gadest_lg AS gadest, lg.ident_ligne
+             FROM programme pr
+             JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
+             JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
+             WHERE pr.code_progr = ?
+             LIMIT 1",
+            array($code_pro)
+        )->row();
+        if (!$row) {
+            return null;
+        }
+        return array(
+            'gaexp' => trim((string) $row->gaexp),
+            'gadest' => trim((string) $row->gadest),
+            'ident_ligne' => trim((string) $row->ident_ligne),
+        );
+    }
+
+    /**
+     * Sous-gare de départ pour une jambe : SG du gaexp du programme.
+     * Conserve preferred_sg si elle appartient à ce gaexp ; sinon SG par défaut (Marche/Gare).
+     *
+     * @param string $code_pro
+     * @param string|int|null $preferred_sg
+     * @return string
+     */
+    public function resolve_depart_sousgare($code_pro, $preferred_sg = null)
+    {
+        $preferred = ($preferred_sg === null || $preferred_sg === false)
+            ? ''
+            : trim((string) $preferred_sg);
+        $od = $this->programme_od($code_pro);
+        if (!$od || $od['gaexp'] === '') {
+            return $preferred;
+        }
+        $gaexp = $od['gaexp'];
+        if ($preferred !== '') {
+            $ok = $this->ci->db->query(
+                "SELECT s.idsousgare FROM sousgare s
+                 WHERE s.gareprinceid = ?
+                   AND s.idsousgare = ?
+                 LIMIT 1",
+                array($gaexp, $preferred)
+            )->row();
+            if ($ok) {
+                return (string) $ok->idsousgare;
+            }
+        }
+        $def = $this->ci->db->query(
+            "SELECT s.idsousgare FROM sousgare s
+             WHERE s.gareprinceid = ?
+             ORDER BY CASE
+                WHEN LOWER(s.nomsousgare) LIKE '%marche%' THEN 0
+                WHEN LOWER(s.nomsousgare) LIKE '%gare%' THEN 1
+                ELSE 2 END,
+                s.idsousgare ASC
+             LIMIT 1",
+            array($gaexp)
+        )->row();
+        return $def ? (string) $def->idsousgare : $preferred;
+    }
+
+    /**
+     * Quartier de destination pour une jambe (ville du gadest).
+     * Conserve preferred si listé ; sinon Marche / premier quartier.
+     *
+     * @param string $code_pro
+     * @param string|null $preferred_quart
+     * @return string|null
+     */
+    public function resolve_dest_quartier($code_pro, $preferred_quart = null)
+    {
+        $preferred = ($preferred_quart === null || $preferred_quart === false)
+            ? ''
+            : trim((string) $preferred_quart);
+        $od = $this->programme_od($code_pro);
+        if (!$od || $od['gadest'] === '') {
+            return ($preferred !== '') ? $preferred : null;
+        }
+        $ekey = '';
+        if (isset($this->ci->session->company->ekey)) {
+            $ekey = (string) $this->ci->session->company->ekey;
+        }
+        if ($ekey === '') {
+            return ($preferred !== '') ? $preferred : null;
+        }
+        if (!isset($this->ci->m_quartier)) {
+            $this->ci->load->model('Quartier_model', 'm_quartier');
+        }
+        $rows = $this->ci->m_quartier->getqartr1($ekey, $od['gadest']);
+        if (empty($rows)) {
+            return ($preferred !== '') ? $preferred : null;
+        }
+        $names = array();
+        foreach ($rows as $r) {
+            if (!empty($r->nom_quartier)) {
+                $names[] = (string) $r->nom_quartier;
+            }
+        }
+        if ($preferred !== '' && in_array($preferred, $names, true)) {
+            return $preferred;
+        }
+        foreach ($names as $n) {
+            if (stripos($n, 'Marche') !== false) {
+                return $n;
+            }
+        }
+        return !empty($names) ? $names[0] : (($preferred !== '') ? $preferred : null);
     }
 
     /**

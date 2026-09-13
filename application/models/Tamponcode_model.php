@@ -235,6 +235,173 @@
             )->row();
         }
 
+        /**
+         * Lookup confirmation unifiée : retour aller-retour non encore confirmé + client + OD.
+         *
+         * @param string $cid ekey
+         * @param string $code codeticket retour
+         * @return object|null
+         */
+        public function lookup_retour_confirm($cid, $code)
+        {
+            $code = trim((string) $code);
+            if ($code === '') {
+                return null;
+            }
+            $cidEsc = $this->db->escape($cid);
+            $codeEsc = $this->db->escape($code);
+            return $this->db->query(
+                "SELECT np.codeticket, np.code_non_pass, np.prixretour, np.id_ligne_pass, np.nom_ligne AS np_nom_ligne,
+                        np.id_client_npass, np.sousgareidentif, np.datevente, np.creatednp_at,
+                        cl.id_client, cl.nom_client, cl.prenom_client, cl.contact_client,
+                        cl.num_CNIB, cl.date_delivre, cl.lieu_delivre, cl.type_client,
+                        lg.ident_ligne, lg.nom_ligne, lg.gaexp_lg, lg.gadest_lg,
+                        ex.id_villegd AS ville_depart_retour,
+                        ex.code_gaexp AS gaexp_retour,
+                        ga.code_gadest AS gadest_retour, ga.id_compaga, ga.id_villega AS ville_dest_retour,
+                        ca.nom_compagnie AS nom_compagnie_arrivee
+                 FROM non_passager np
+                 JOIN lignes lg ON np.id_ligne_pass = lg.ident_ligne
+                 JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
+                 JOIN gare_dest ga ON lg.gadest_lg = ga.code_gadest
+                 JOIN compagnies c ON ex.id_compagd = c.cle_compagnie
+                 JOIN compagnies ca ON ga.id_compaga = ca.cle_compagnie
+                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
+                 LEFT JOIN client cl ON cl.id_client = np.id_client_npass
+                 WHERE e.ekey = {$cidEsc}
+                 AND BINARY np.codeticket = {$codeEsc}
+                 AND (np.actif_nonp = 0 OR np.actif_nonp IS NULL)
+                 AND NOT EXISTS (
+                    SELECT 1 FROM passager p
+                    WHERE BINARY p.code_ticket = BINARY np.codeticket
+                      AND p.actif_pas = 0
+                      AND p.statut_confirme = 'confirm'
+                 )
+                 LIMIT 1"
+            )->row();
+        }
+
+        /**
+         * Frères retour d’une même vente A/R transit (même client + creatednp_at).
+         * Chaîne ordonnée départ→arrivée (ex. BANFORA-BOBO puis BOBO-OUAGA).
+         *
+         * @return object[]
+         */
+        public function lookup_freres_retour_confirm($cid, $code)
+        {
+            $seed = $this->lookup_retour_confirm($cid, $code);
+            if (!$seed || empty($seed->id_client_npass) || !isset($seed->creatednp_at)) {
+                return $seed ? array($seed) : array();
+            }
+            $cidEsc = $this->db->escape($cid);
+            $clientId = (int) $seed->id_client_npass;
+            $created = (int) $seed->creatednp_at;
+            $rows = $this->db->query(
+                "SELECT np.codeticket, np.code_non_pass, np.prixretour, np.id_ligne_pass, np.nom_ligne AS np_nom_ligne,
+                        np.id_client_npass, np.sousgareidentif, np.datevente, np.creatednp_at,
+                        cl.id_client, cl.nom_client, cl.prenom_client, cl.contact_client,
+                        cl.num_CNIB, cl.date_delivre, cl.lieu_delivre, cl.type_client,
+                        lg.ident_ligne, lg.nom_ligne, lg.gaexp_lg, lg.gadest_lg,
+                        ex.id_villegd AS ville_depart_retour,
+                        ex.code_gaexp AS gaexp_retour,
+                        ga.code_gadest AS gadest_retour, ga.id_compaga, ga.id_villega AS ville_dest_retour,
+                        ca.nom_compagnie AS nom_compagnie_arrivee
+                 FROM non_passager np
+                 JOIN lignes lg ON np.id_ligne_pass = lg.ident_ligne
+                 JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
+                 JOIN gare_dest ga ON lg.gadest_lg = ga.code_gadest
+                 JOIN compagnies c ON ex.id_compagd = c.cle_compagnie
+                 JOIN compagnies ca ON ga.id_compaga = ca.cle_compagnie
+                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
+                 LEFT JOIN client cl ON cl.id_client = np.id_client_npass
+                 WHERE e.ekey = {$cidEsc}
+                   AND np.id_client_npass = {$clientId}
+                   AND np.creatednp_at = {$created}
+                   AND (np.actif_nonp = 0 OR np.actif_nonp IS NULL)
+                   AND NOT EXISTS (
+                      SELECT 1 FROM passager p
+                      WHERE BINARY p.code_ticket = BINARY np.codeticket
+                        AND p.actif_pas = 0
+                        AND p.statut_confirme = 'confirm'
+                   )
+                 ORDER BY np.code_non_pass ASC"
+            )->result();
+            if (count($rows) <= 1) {
+                return $rows ? $rows : array($seed);
+            }
+            return $this->_ordonner_jambes_retour_aller($rows);
+        }
+
+        /**
+         * Ordonne les jambes aller par continuité de ville (départ → hub → terminus).
+         *
+         * @param object[] $rows
+         * @return object[]
+         */
+        protected function _ordonner_jambes_retour_aller(array $rows)
+        {
+            if (count($rows) <= 1) {
+                return $rows;
+            }
+            $byDep = array();
+            $destVilles = array();
+            foreach ($rows as $r) {
+                $dep = isset($r->ville_depart_retour) ? (int) $r->ville_depart_retour : 0;
+                $dst = isset($r->ville_dest_retour) ? (int) $r->ville_dest_retour : 0;
+                if (!isset($byDep[$dep])) {
+                    $byDep[$dep] = array();
+                }
+                $byDep[$dep][] = $r;
+                if ($dst > 0) {
+                    $destVilles[$dst] = true;
+                }
+            }
+            $start = null;
+            foreach ($rows as $r) {
+                $dep = isset($r->ville_depart_retour) ? (int) $r->ville_depart_retour : 0;
+                if ($dep > 0 && empty($destVilles[$dep])) {
+                    $start = $r;
+                    break;
+                }
+            }
+            if (!$start) {
+                $start = $rows[0];
+            }
+            $ordered = array($start);
+            $used = array(spl_object_hash($start) => true);
+            $guard = 0;
+            while (count($ordered) < count($rows) && $guard < 8) {
+                $guard++;
+                $last = $ordered[count($ordered) - 1];
+                $need = isset($last->ville_dest_retour) ? (int) $last->ville_dest_retour : -1;
+                $next = null;
+                if ($need > 0 && !empty($byDep[$need])) {
+                    foreach ($byDep[$need] as $cand) {
+                        $h = spl_object_hash($cand);
+                        if (empty($used[$h])) {
+                            $next = $cand;
+                            break;
+                        }
+                    }
+                }
+                if (!$next) {
+                    foreach ($rows as $cand) {
+                        $h = spl_object_hash($cand);
+                        if (empty($used[$h])) {
+                            $next = $cand;
+                            break;
+                        }
+                    }
+                }
+                if (!$next) {
+                    break;
+                }
+                $ordered[] = $next;
+                $used[spl_object_hash($next)] = true;
+            }
+            return $ordered;
+        }
+
         public function verifirecu($cid, $gid, $code)
         {
                 

@@ -71,12 +71,8 @@
                                 <i class="fas fa-edit text-warning"></i>&nbsp;REPROGRAMMER&nbsp;
                             </a>
           <a href="#" data-cle_compagnie="<?= $this->session->company->ekey; ?>"
-                                class="btn btn-secondary btn-space addconfirme md-trigger" data-modal="confirm-0">
-                                <i class="fas fa-book text-warning"></i>&nbsp;CONFIRMER AUTRE TICKET&nbsp;
-                            </a>
-          <a href="#" data-cle_compagnie="<?= $this->session->company->ekey; ?>"
-                                class="btn btn-secondary btn-space addconfirmadmintran md-trigger" data-modal="adminconfirmtran-0">
-                                <i class="fas fa-book text-warning"></i>&nbsp;CONFIRMER TICKET&nbsp;
+                                class="btn btn-secondary btn-space addconfirm_unifie md-trigger" data-modal="confirm-unifie-0">
+                                <i class="fas fa-book text-warning"></i>&nbsp;CONFIRMER&nbsp;
                             </a>
           <a href="#" data-cle_compagnie="<?= $this->session->company->ekey; ?>"
                                 class="btn btn-secondary btn-space addreserve md-trigger" data-modal="reserve-0">

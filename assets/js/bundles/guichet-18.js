@@ -348,6 +348,33 @@ document.addEventListener('DOMContentLoaded', () => {
     /** Autre vente FI : prix saisis à la main (0 = ticket gratuit), jamais écrasés par le tarif programme. */
     window.__venteFiPrixManuel = true;
 
+    /** OD jambe (gaexp/gadest métier) — même logique que addventeticket.js. */
+    function __venteFiOdFromEtapeOrCode(etape, codeFallback) {
+        if (typeof window.__venteOdFromEtapeOrCode === 'function') {
+            return window.__venteOdFromEtapeOrCode(etape, codeFallback);
+        }
+        var ga = '';
+        var gd = '';
+        if (etape) {
+            ga = String(etape.gaexp_lg || etape.code_gaexp || etape.gaexp || '').trim();
+            gd = String(etape.gadest_lg || etape.code_gadest || etape.gadest || '').trim();
+        }
+        var code = String(codeFallback || '').trim();
+        if ((!ga || !gd) && code) {
+            var i = code.indexOf('-');
+            if (i > 0) {
+                if (!ga) ga = code.slice(0, i).trim();
+                if (!gd) gd = code.slice(i + 1).trim();
+            }
+        }
+        return { gaexp: ga, gadest: gd };
+    }
+    function __venteFiEtapeAt(idx) {
+        var et = window.__venteFiCheminEtapes || window.__venteCheminEtapes;
+        if (!et || !et.length) return null;
+        return et[idx] || null;
+    }
+
     /**
      * Helpers jambe 1 si addventeticket.js absent (rôles FI seuls).
      * Filtre J ≥ ancre + présélection par HH:MM.
@@ -1583,17 +1610,45 @@ document.addEventListener('DOMContentLoaded', () => {
             applyIdx(idx);
         };
         var defaultIdx = 0;
-        var hourFi = window.__venteSelectedHour;
-        var preferGareFi = hourFi && !hourFi.hasProg;
-        if (preferGareFi) {
-            for (var g = 0; g < chemins.length; g++) {
-                var sg = chemins[g] && chemins[g].source;
-                if (sg === 'graphe_gare' || sg === 'gare_composition') { defaultIdx = g; break; }
+        if (typeof window.__venteDefaultCheminIndex === 'function') {
+            defaultIdx = window.__venteDefaultCheminIndex(chemins, window.__venteSelectedHour);
+        } else {
+            // Même ranking que guichet : hub_lie > programmes > court > déclaratif.
+            function prioFi(c) {
+                if (!c) return -1;
+                if (typeof c.priority === 'number') return c.priority;
+                var s = c.source || '';
+                if (s === 'hub_lie') return 100;
+                if (s === 'programmes') return 80;
+                if (s === 'programmes_aval') return 70;
+                if (s === 'graphe_gare') return 60;
+                if (s === 'gare_composition') return 55;
+                if (s === 'graphe') return 40;
+                if (s === 'declaratif' || s === 'graphe_declaratif') return 20;
+                if (s === 'direct') return 10;
+                return 30;
             }
-        }
-        if (!(preferGareFi && (chemins[defaultIdx] && (chemins[defaultIdx].source === 'graphe_gare' || chemins[defaultIdx].source === 'gare_composition')))) {
-            for (var d = 0; d < chemins.length; d++) {
-                if (chemins[d].source !== 'direct') { defaultIdx = d; break; }
+            function nbFi(c) {
+                var n = parseInt(c && c.nb_jambes, 10);
+                if (!isNaN(n) && n > 0) return n;
+                return (c && c.etapes && c.etapes.length) || 99;
+            }
+            var bestP = prioFi(chemins[0]);
+            var bestN = nbFi(chemins[0]);
+            for (var i = 1; i < chemins.length; i++) {
+                var p = prioFi(chemins[i]);
+                var n = nbFi(chemins[i]);
+                if (p > bestP || (p === bestP && n < bestN)) {
+                    defaultIdx = i;
+                    bestP = p;
+                    bestN = n;
+                }
+            }
+            if (window.__venteSelectedHour && !window.__venteSelectedHour.hasProg
+                && chemins[defaultIdx] && chemins[defaultIdx].source === 'direct') {
+                for (var j = 0; j < chemins.length; j++) {
+                    if (chemins[j].source !== 'direct') { defaultIdx = j; break; }
+                }
             }
         }
         sel.selectedIndex = defaultIdx + 1;
@@ -2185,9 +2240,9 @@ document.addEventListener('DOMContentLoaded', () => {
                                                                     
 
                                                                 var typgare1fi = (donitinesfi[0] && donitinesfi[0].code_itineraires) ? String(donitinesfi[0].code_itineraires) : (document.querySelector('#itinecodefid').value || '');
-                                                                var post_typgare1fi = typgare1fi.split('-');
-                                                                var seltypgare1fi = post_typgare1fi[0];
-                                                                var typgareselfi = post_typgare1fi[1];
+                                                                var odLeg1fi = __venteFiOdFromEtapeOrCode(donitinesfi[0], typgare1fi);
+                                                                var seltypgare1fi = odLeg1fi.gaexp;
+                                                                var typgareselfi = odLeg1fi.gadest;
                                                                     let httptypequart1fi;
                                                                     httptypequart1fi = new XMLHttpRequest();
                                                                     
@@ -2404,9 +2459,9 @@ document.addEventListener('DOMContentLoaded', () => {
                                                                         const prostranscheminfi = document.querySelector('#idcheminsfid')
                                                                         .options[document.querySelector('#idcheminsfid').options.selectedIndex].value;
 
-                                                                        var post_typgare2fi = prostranscheminfi.split('-');
-                                                                        var seltypgare2fi = post_typgare2fi[0];
-                                                                        var typgaresel1fi = post_typgare2fi[1];
+                                                                        var odLeg2fi = __venteFiOdFromEtapeOrCode(__venteFiEtapeAt(1), prostranscheminfi);
+                                                                        var seltypgare2fi = odLeg2fi.gaexp;
+                                                                        var typgaresel1fi = odLeg2fi.gadest;
  
                                                                         var datedepartfi = document.querySelector('#date_depheurefid').value;
                                                                         httpSiegescheminfi.open('GET', window.location.origin + `${APP_ROOT}/programmes/chemin/${prostranscheminfi}/${datedepartfi}`, true);
@@ -2557,9 +2612,9 @@ document.addEventListener('DOMContentLoaded', () => {
                                                                
 
                                                                 var typgare1fi = (donitinesfi[0] && donitinesfi[0].code_itineraires) ? String(donitinesfi[0].code_itineraires) : (document.querySelector('#itinecodefid').value || '');
-                                                                var post_typgare1fi = typgare1fi.split('-');
-                                                                var seltypgare1fi = post_typgare1fi[0];
-                                                                var typgareselfi = post_typgare1fi[1];
+                                                                var odLeg1fi = __venteFiOdFromEtapeOrCode(donitinesfi[0], typgare1fi);
+                                                                var seltypgare1fi = odLeg1fi.gaexp;
+                                                                var typgareselfi = odLeg1fi.gadest;
                                                                     let httptypequart1fi;
                                                                     httptypequart1fi = new XMLHttpRequest();
                                                                     
@@ -2754,9 +2809,9 @@ document.addEventListener('DOMContentLoaded', () => {
                                                                         const prostranscheminfi = document.querySelector('#idcheminsfid')
                                                                         .options[document.querySelector('#idcheminsfid').options.selectedIndex].value;
 
-                                                                        var post_typgare2fi = prostranscheminfi.split('-');
-                                                                        var seltypgare2fi = post_typgare2fi[0];
-                                                                        var typgaresel1fi = post_typgare2fi[1];
+                                                                        var odLeg2fi = __venteFiOdFromEtapeOrCode(__venteFiEtapeAt(1), prostranscheminfi);
+                                                                        var seltypgare2fi = odLeg2fi.gaexp;
+                                                                        var typgaresel1fi = odLeg2fi.gadest;
                                                                         let httptypequart2fi;
                                                                         httptypequart2fi = new XMLHttpRequest();
                                                                         
@@ -2940,9 +2995,9 @@ document.addEventListener('DOMContentLoaded', () => {
                                                                         const prostranschemin32fi = document.querySelector('#idchemins1fid')
                                                                         .options[document.querySelector('#idchemins1fid').options.selectedIndex].value;
 
-                                                                        var post_typgare32fi = prostranschemin32fi.split('-');
-                                                                        var seltypgare32fi = post_typgare32fi[0];
-                                                                        var typgaresel31fi = post_typgare32fi[1];
+                                                                        var odLeg3fi = __venteFiOdFromEtapeOrCode(__venteFiEtapeAt(2), prostranschemin32fi);
+                                                                        var seltypgare32fi = odLeg3fi.gaexp;
+                                                                        var typgaresel31fi = odLeg3fi.gadest;
                                                                         
                                                                         let httpSiegeschemin1fi;
                                                                         httpSiegeschemin1fi = new XMLHttpRequest();
@@ -3093,9 +3148,9 @@ document.addEventListener('DOMContentLoaded', () => {
                                                                 document.querySelector('#itinecodesfid').value = `${donitinesfi[0].id_lignes}`;
 
                                                                     var typgare1fi = (donitinesfi[0] && donitinesfi[0].code_itineraires) ? String(donitinesfi[0].code_itineraires) : (document.querySelector('#itinecodefid').value || '');
-                                                                var post_typgare1fi = typgare1fi.split('-');
-                                                                var seltypgare1fi = post_typgare1fi[0];
-                                                                var typgareselfi = post_typgare1fi[1];
+                                                                var odLeg1fi = __venteFiOdFromEtapeOrCode(donitinesfi[0], typgare1fi);
+                                                                var seltypgare1fi = odLeg1fi.gaexp;
+                                                                var typgareselfi = odLeg1fi.gadest;
                                                                     let httptypequart1fi;
                                                                     httptypequart1fi = new XMLHttpRequest();
                                                                     
@@ -3298,9 +3353,9 @@ document.addEventListener('DOMContentLoaded', () => {
                                                                         const prostranscheminfi = document.querySelector('#idcheminsfid')
                                                                         .options[document.querySelector('#idcheminsfid').options.selectedIndex].value;
 
-                                                                        var post_typgare2fi = prostranscheminfi.split('-');
-                                                                        var seltypgare2fi = post_typgare2fi[0];
-                                                                        var typgaresel1fi = post_typgare2fi[1];
+                                                                        var odLeg2fi = __venteFiOdFromEtapeOrCode(__venteFiEtapeAt(1), prostranscheminfi);
+                                                                        var seltypgare2fi = odLeg2fi.gaexp;
+                                                                        var typgaresel1fi = odLeg2fi.gadest;
                                                                         let httptypequart2fi;
                                                                         httptypequart2fi = new XMLHttpRequest();
                                                                         
@@ -3481,9 +3536,9 @@ document.addEventListener('DOMContentLoaded', () => {
                                                                         const prostranschemin32fi = document.querySelector('#idchemins1fid')
                                                                         .options[document.querySelector('#idchemins1fid').options.selectedIndex].value;
 
-                                                                        var post_typgare32fi = prostranschemin32fi.split('-');
-                                                                        var seltypgare32fi = post_typgare32fi[0];
-                                                                        var typgaresel31fi = post_typgare32fi[1];
+                                                                        var odLeg3fi = __venteFiOdFromEtapeOrCode(__venteFiEtapeAt(2), prostranschemin32fi);
+                                                                        var seltypgare32fi = odLeg3fi.gaexp;
+                                                                        var typgaresel31fi = odLeg3fi.gadest;
                                                                         let httptypequart32fi;
                                                                         httptypequart32fi = new XMLHttpRequest();
                                                                         
@@ -3665,9 +3720,9 @@ document.addEventListener('DOMContentLoaded', () => {
                                                                         const prostranschemin42fi = document.querySelector('#idchemins2fid')
                                                                         .options[document.querySelector('#idchemins2fid').options.selectedIndex].value;
 
-                                                                        var post_typgare42fi = prostranschemin42fi.split('-');
-                                                                        var seltypgare42fi = post_typgare42fi[0];
-                                                                        var typgaresel41fi = post_typgare42fi[1];
+                                                                        var odLeg4fi = __venteFiOdFromEtapeOrCode(__venteFiEtapeAt(3), prostranschemin42fi);
+                                                                        var seltypgare42fi = odLeg4fi.gaexp;
+                                                                        var typgaresel41fi = odLeg4fi.gadest;
 
                                                                         // Jambe 4 FID : #quartierfid déjà chargé via arrivée — ne pas écraser la sélection.
                                                                         var qMain4fi = document.querySelector('#quartierfid');

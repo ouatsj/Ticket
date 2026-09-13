@@ -87,7 +87,14 @@
                                         <option value="">Choisissez Heure</option>
                                         
                                     </select>
-                                </div>                   
+                                </div>
+                                <div class="form-group col-sm-12" id="boxchemin_mob" style="display:none">
+                                    <label>Itinéraire (correspondance)</label>
+                                    <select class="form-control form-control-sm" id="selchemin_transit_mob">
+                                        <option value="">Choisissez un itinéraire</option>
+                                    </select>
+                                    <small class="text-muted" id="hintchemin_mob"></small>
+                                </div>
                                 <div class="form-group col-sm-4">
                                     <select style="display:block" class="form-control form-control-sm" name="passagersiegesmob" id="psiegesmob">
                                         <option value="">Choisissez siège</option>

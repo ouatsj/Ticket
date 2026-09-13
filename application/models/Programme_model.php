@@ -2242,13 +2242,61 @@
             )";
         }
 
-        public function heurereprog_unifie($cid, $gaexp, $gadest, $exclude_code, $prix = null, $id_escale = null, $gareidentif = null, $idsousgare = null, $nom_ligne = null, $axes = null)
+        /**
+         * EXISTS : la ligne lg porte la même escale métier qu’id_escale
+         * (id exact, code, nom, ou variante SIKASSO ↔ SIKASSO_VIP).
+         *
+         * @param int $id_escale
+         * @return string fragment SQL sans AND initial (ou vide)
+         */
+        public function sql_escale_match_ligne($id_escale)
         {
-            $tim = date('H', time('H'));
+            $id = (int) $id_escale;
+            if ($id <= 0) {
+                return '1=0';
+            }
+            // Normalise SIKASSO_VIP / SIKASSO_CMT → SIKASSO pour match multi-cie.
+            $baseNom = "REPLACE(REPLACE(REPLACE(UPPER(TRIM(%s)), '_VIP', ''), '_CMT', ''), '_ORD', '')";
+            $ieBase = sprintf($baseNom, 'ie.nom_escale');
+            $ie0Base = sprintf($baseNom, 'ie0.nom_escale');
+            return "EXISTS (
+                SELECT 1 FROM itineraire_escales ie
+                WHERE ie.id_lignes = lg.ident_ligne
+                  AND ie.actif_escale = 1
+                  AND (
+                    ie.id_escale = {$id}
+                    OR ie.code_gadest = (
+                        SELECT ie0.code_gadest FROM itineraire_escales ie0
+                        WHERE ie0.id_escale = {$id} LIMIT 1
+                    )
+                    OR UPPER(TRIM(ie.nom_escale)) = (
+                        SELECT UPPER(TRIM(ie0.nom_escale)) FROM itineraire_escales ie0
+                        WHERE ie0.id_escale = {$id} LIMIT 1
+                    )
+                    OR {$ieBase} = (
+                        SELECT {$ie0Base} FROM itineraire_escales ie0
+                        WHERE ie0.id_escale = {$id} LIMIT 1
+                    )
+                    OR UPPER(TRIM(ie.nom_escale)) LIKE CONCAT((
+                        SELECT UPPER(TRIM(ie0.nom_escale)) FROM itineraire_escales ie0
+                        WHERE ie0.id_escale = {$id} LIMIT 1
+                    ), '_%')
+                    OR (
+                        SELECT UPPER(TRIM(ie0.nom_escale)) FROM itineraire_escales ie0
+                        WHERE ie0.id_escale = {$id} LIMIT 1
+                    ) LIKE CONCAT(UPPER(TRIM(ie.nom_escale)), '_%')
+                  )
+            )";
+        }
+
+        public function heurereprog_unifie($cid, $gaexp, $gadest, $exclude_code, $prix = null, $id_escale = null, $gareidentif = null, $idsousgare = null, $nom_ligne = null, $axes = null, $date_filter = null)
+        {
+            // PHP 8 : time() n'accepte plus d'argument (anciens time('H') / time('H:i:s')).
+            $tim = date('H');
             if ($tim === '00') {
-                $dat = date('01:00:00', time('01:00:00') - 3600);
+                $dat = '00:00:00';
             } else {
-                $dat = date('H:i:s', time('H:i:s') - 3600);
+                $dat = date('H:i:s', time() - 3600);
             }
             $key = mdate('%Y-%m-%d', now());
             $dtoday = $key . '-' . $dat;
@@ -2256,27 +2304,42 @@
             $cidEsc = $this->db->escape($cid);
             $exEsc = $this->db->escape($exclude_code);
 
+            // Filtre date : programmes à partir d’aujourd’hui (date_progr), pas dateheure_prog
+            // (évite d’exclure un départ J+1 si dateheure_prog est mal renseigné).
+            $dateSql = " AND pr.date_progr >= " . $this->db->escape($key);
+            $df = trim((string) $date_filter);
+            if ($df !== '' && preg_match('/^\d{4}-\d{2}-\d{2}$/', $df)) {
+                // Date choisie au guichet : J et J+1 (nuit / correspondance).
+                $df2 = date('Y-m-d', strtotime($df . ' +1 day'));
+                $dateSql = ' AND pr.date_progr IN ('
+                    . $this->db->escape($df) . ', '
+                    . $this->db->escape($df2) . ')';
+                // Heures déjà passées uniquement si la date demandée est aujourd’hui.
+                if ($df === $key) {
+                    $dateSql .= " AND DATE_FORMAT(pr.dateheure_prog, '%Y-%m-%d-%H:%i:%s') >= "
+                        . $this->db->escape($dtoday);
+                }
+            }
+
             // Filtre prix : jamais par compagnie. Escale ticket → même nom/code (CMT≠VIP).
             $prixSql = '';
             if ($prix !== null && $prix !== '') {
                 $prixEsc = $this->db->escape($prix);
                 $idEscPrix = (int) $id_escale;
                 if ($idEscPrix > 0) {
-                    $prixSql = " AND EXISTS (
-                        SELECT 1 FROM itineraire_escales ie
-                        WHERE ie.id_lignes = lg.ident_ligne
-                          AND ie.actif_escale = 1
-                          AND ie.prix_escale = {$prixEsc}
+                    $prixSql = ' AND ' . $this->sql_escale_match_ligne($idEscPrix)
+                        . " AND EXISTS (
+                        SELECT 1 FROM itineraire_escales iep
+                        WHERE iep.id_lignes = lg.ident_ligne
+                          AND iep.actif_escale = 1
+                          AND iep.prix_escale = {$prixEsc}
                           AND (
-                            ie.id_escale = {$idEscPrix}
-                            OR ie.code_gadest = (
-                                SELECT ie0.code_gadest FROM itineraire_escales ie0
-                                WHERE ie0.id_escale = {$idEscPrix} LIMIT 1
-                            )
-                            OR UPPER(TRIM(ie.nom_escale)) = (
-                                SELECT UPPER(TRIM(ie0.nom_escale)) FROM itineraire_escales ie0
-                                WHERE ie0.id_escale = {$idEscPrix} LIMIT 1
-                            )
+                            iep.id_escale = {$idEscPrix}
+                            OR UPPER(REPLACE(REPLACE(TRIM(iep.nom_escale), '_VIP', ''), '_CMT', ''))
+                             = (
+                                SELECT UPPER(REPLACE(REPLACE(TRIM(ie0.nom_escale), '_VIP', ''), '_CMT', ''))
+                                FROM itineraire_escales ie0 WHERE ie0.id_escale = {$idEscPrix} LIMIT 1
+                             )
                           )
                     )";
                 } else {
@@ -2328,55 +2391,32 @@
             }
 
             $idEsc = (int) $id_escale;
+            // Variantes multi-compagnies : BOBO-BAMAKO ↔ BOBO-BAMAKO_VIP (même OD métier).
+            $nomLigneSql = '';
             if ($nom !== '') {
-                // Tous les reports : programmes de la gare de report, même nom de ligne,
-                // toutes compagnies / codes dest (BAM6 ≠ BAM53). Pas d’OR parasite hors OD.
-                $odSql = ' AND lg.nom_ligne = ' . $this->db->escape($nom) . $depVilleSql;
+                $nomEsc = $this->db->escape($nom);
+                $nomLike = $this->db->escape($nom . '_%');
+                $nomLigneSql = " AND (lg.nom_ligne = {$nomEsc} OR lg.nom_ligne LIKE {$nomLike})";
+            }
+
+            if ($nom !== '') {
+                // Report : même nom (ou variante _VIP/_CMT…) + gare départ ville, toutes cie.
+                $odSql = $nomLigneSql . $depVilleSql;
             } elseif ($idEsc > 0) {
-                // Sans nom_ligne : lignes du départ report qui portent la même escale (nom/code).
-                $odSql = ' AND EXISTS (
-                    SELECT 1 FROM itineraire_escales ie
-                    WHERE ie.id_lignes = lg.ident_ligne
-                      AND ie.actif_escale = 1
-                      AND (
-                        ie.id_escale = ' . $idEsc . '
-                        OR ie.code_gadest = (
-                            SELECT ie0.code_gadest FROM itineraire_escales ie0
-                            WHERE ie0.id_escale = ' . $idEsc . ' LIMIT 1
-                        )
-                        OR UPPER(TRIM(ie.nom_escale)) = (
-                            SELECT UPPER(TRIM(ie0.nom_escale)) FROM itineraire_escales ie0
-                            WHERE ie0.id_escale = ' . $idEsc . ' LIMIT 1
-                        )
-                      )
-                )' . $depVilleSql;
+                // Sans nom_ligne : lignes du départ report qui portent la même escale (nom/code/variante).
+                $odSql = ' AND ' . $this->sql_escale_match_ligne($idEsc) . $depVilleSql;
             } else {
                 // Reprog unifiée : pas de recherche par codes seuls (BAM6≠BAM53, etc.).
                 $odSql = ' AND 1=0';
             }
 
             // Prix / escale : si prix fourni, restreindre ; sinon pour une escale ticket
-            // matcher la MÊME destination d'escale (nom / code) sur TOUTES les compagnies
-            // (ex. SIKASSO id 51/SIK23 sur CMT ≠ id 54/SIK54 sur VIP — même ville).
+            // matcher la MÊME destination d'escale (nom / variante VIP) sur TOUTES les compagnies
+            // (ex. SIKASSO / SIK23 CMT ≠ SIKASSO_VIP / SIK54 VIP).
             if ($prix !== null && $prix !== '') {
                 // $prixSql déjà construit plus haut
             } elseif ($idEsc > 0 && ($prix === null || $prix === '')) {
-                $prixSql = " AND EXISTS (
-                    SELECT 1 FROM itineraire_escales ie
-                    WHERE ie.id_lignes = lg.ident_ligne
-                      AND ie.actif_escale = 1
-                      AND (
-                        ie.id_escale = {$idEsc}
-                        OR ie.code_gadest = (
-                            SELECT ie0.code_gadest FROM itineraire_escales ie0
-                            WHERE ie0.id_escale = {$idEsc} LIMIT 1
-                        )
-                        OR UPPER(TRIM(ie.nom_escale)) = (
-                            SELECT UPPER(TRIM(ie0.nom_escale)) FROM itineraire_escales ie0
-                            WHERE ie0.id_escale = {$idEsc} LIMIT 1
-                        )
-                      )
-                )";
+                $prixSql = ' AND ' . $this->sql_escale_match_ligne($idEsc);
             }
 
             return $this->db->query(
@@ -2402,7 +2442,7 @@
                 AND h.h_active = 1
                 AND lh.actif_lh = 1
                 AND pr.actif_prog = 0
-                AND DATE_FORMAT(pr.dateheure_prog, '%Y-%m-%d-%H:%i:%s') >= '{$dtoday}'
+                {$dateSql}
                 {$gareSql}
                 {$sgSql}
                 {$prixSql}
@@ -2600,8 +2640,10 @@
                     JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
                     JOIN gare_dest ga ON lg.gadest_lg = ga.code_gadest";
             $params = array();
-            $where = array('lg.nom_ligne = ?');
+            // BOBO-BAMAKO et BOBO-BAMAKO_VIP = même OD métier (compagnies différentes).
+            $where = array('(lg.nom_ligne = ? OR lg.nom_ligne LIKE ?)');
             $params[] = $nom;
+            $params[] = $nom . '_%';
 
             if ($ek !== '') {
                 $sql .= " JOIN compagnies c ON ex.id_compagd = c.cle_compagnie

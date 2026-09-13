@@ -91,55 +91,114 @@ document.addEventListener('DOMContentLoaded', () => {
                         var sougidmob = post_lhdepmob[1];
                         if(datedepartmob >= dateactumob)
                         {
-                            
-                            httpRequetesmob.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifheure1/${seltdepmob}-${arrmob}/${datedepartmob}`, true);
+                            // Même pipeline que le guichet : heures selon programmes gare (+ transit).
+                            httpRequetesmob.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifheuresvente/${seltdepmob}-${arrmob}/${datedepartmob}/${sougidmob || '0'}`, true);
                             httpRequetesmob.onload = () => {
-                                const dataAxemob = JSON.parse(httpRequetesmob.responseText);
-                                
-                                    if (dataAxemob == '') {
-                                        
-                                        document.querySelector('#smsdtmob').style.display = 'none';
-                                        document.querySelector('#date_depheuremob').style.color = "black";
-                                        document.querySelector('#date_depheuremob').style.border = "1px solid";
-                                        
-                                    } 
-                                    else 
-                                    {       
-                                        
-                                        document.querySelector('#smsdtmob').style.display = 'none';
-                                        document.querySelector('#date_depheuremob').style.color = "black";
-                                        document.querySelector('#date_depheuremob').style.border = "1px solid";
-                                        if (Object.entries(dataAxemob).length >= 1) 
-                                        {
-                                                
-                                            
-    
-                                            for (let key in Object.entries(dataAxemob)) {
-                                                    let opt = document.createElement('option');
-                                                    opt.value = `${dataAxemob[key].id_ligneheure}/${dataAxemob[key].heure}`;
-                                                    opt.innerHTML = `${dataAxemob[key].heure}`;
-                                                    document.querySelector('#hdepartmob').add(opt);
-                                                }
-                                        } else {
-                                            document.querySelector('#hdepartmob').options.length = 1;
-                                        }
-                                    }
+                                var payloadHv = null;
+                                try { payloadHv = JSON.parse(httpRequetesmob.responseText); } catch (eHv) { payloadHv = null; }
+                                var heuresList = (payloadHv && Array.isArray(payloadHv.heures)) ? payloadHv.heures : [];
+                                // Compat ancien format tableau plat.
+                                if (!heuresList.length && Array.isArray(payloadHv) && payloadHv.length) {
+                                    heuresList = payloadHv;
+                                }
+                                window.__venteMobHasTransit = !!(payloadHv && payloadHv.has_transit);
+                                document.querySelector('#smsdtmob').style.display = 'none';
+                                document.querySelector('#date_depheuremob').style.color = "black";
+                                document.querySelector('#date_depheuremob').style.border = "1px solid";
+                                var hSel = document.querySelector('#hdepartmob');
+                                if (hSel) hSel.options.length = 1;
+                                var boxCh = document.getElementById('boxchemin_mob');
+                                if (boxCh) boxCh.style.display = 'none';
+                                for (var hi = 0; hi < heuresList.length; hi++) {
+                                    var hr = heuresList[hi] || {};
+                                    var opt = document.createElement('option');
+                                    var hasProg = !!(hr.has_programme === true || hr.has_programme === 1 || hr.has_programme === '1');
+                                    opt.value = String(hr.id_ligneheure || '') + '/' + String(hr.heure || '');
+                                    opt.setAttribute('data-has-programme', hasProg ? '1' : '0');
+                                    opt.innerHTML = hasProg
+                                        ? String(hr.heure || '')
+                                        : (String(hr.heure || '') + ' (correspondance)');
+                                    if (hSel) hSel.add(opt);
+                                }
 
                                         let hrdepartmob = document.querySelector('#hdepartmob');
                                         if (hrdepartmob !== null) {
                                             hrdepartmob.onchange = () => 
                                             {
                                                 document.querySelector('#psiegesmob').options.length = 1;
-                                                const httpRequestmob = new XMLHttpRequest();
+                                                var messEl = document.querySelector('#messmob');
+                                                var errEl = document.querySelector('#erreurMessmob');
+                                                if (messEl) messEl.style.display = 'none';
+                                                var boxCh2 = document.getElementById('boxchemin_mob');
+                                                if (boxCh2) boxCh2.style.display = 'none';
                                                 const selemob = document.querySelector('#hdepartmob')
                                                     .options[document.querySelector('#hdepartmob').options.selectedIndex].value;
+                                                if (!selemob || selemob.indexOf('/') < 0) return;
 
                                                     var post_lhmob = selemob.split('/');
                                                     var selmob = post_lhmob[0];
                                                     var lhselmob = post_lhmob[1];
+                                                var hOpt = document.querySelector('#hdepartmob').options[document.querySelector('#hdepartmob').options.selectedIndex];
+                                                var hasProgMob = hOpt && hOpt.getAttribute('data-has-programme') === '1';
+                                                window.__venteSelectedHour = { value: selemob, heure: lhselmob, hasProg: hasProgMob };
 
                                                     const dpt_datemob = document.querySelector('#date_depheuremob').value;
-                                                    
+
+                                                // Heure sans départ OD : chemins programmes/hub (même moteur que guichet).
+                                                if (!hasProgMob) {
+                                                    var urlCh = window.location.origin + `${APP_ROOT}/programmes/verifchemins/`
+                                                        + encodeURIComponent(seltdepmob + '-' + arrmob) + '/'
+                                                        + encodeURIComponent(dpt_datemob) + '/'
+                                                        + encodeURIComponent(sougidmob || '0') + '/1'
+                                                        + '?heure=' + encodeURIComponent(lhselmob || '');
+                                                    var xhrCh = new XMLHttpRequest();
+                                                    xhrCh.open('GET', urlCh, true);
+                                                    xhrCh.onload = function () {
+                                                        var payloadCh = null;
+                                                        try { payloadCh = JSON.parse(xhrCh.responseText); } catch (eCh) { payloadCh = null; }
+                                                        var chemins = (payloadCh && Array.isArray(payloadCh.chemins)) ? payloadCh.chemins : [];
+                                                        if (!chemins.length) {
+                                                            if (messEl && errEl) {
+                                                                messEl.style.display = 'block';
+                                                                errEl.innerHTML = 'Aucun départ ni correspondance pour cette heure.';
+                                                            }
+                                                            return;
+                                                        }
+                                                        var defIdx = 0;
+                                                        if (typeof window.__venteDefaultCheminIndex === 'function') {
+                                                            defIdx = window.__venteDefaultCheminIndex(chemins, window.__venteSelectedHour);
+                                                        }
+                                                        var selCh = document.getElementById('selchemin_transit_mob');
+                                                        var hintCh = document.getElementById('hintchemin_mob');
+                                                        if (boxCh2 && selCh) {
+                                                            selCh.options.length = 0;
+                                                            var o0 = document.createElement('option');
+                                                            o0.value = '';
+                                                            o0.textContent = 'Choisissez un itinéraire';
+                                                            selCh.add(o0);
+                                                            chemins.forEach(function (ch, idx) {
+                                                                var o = document.createElement('option');
+                                                                o.value = String(idx);
+                                                                o.textContent = (ch.label || ('Itinéraire ' + (idx + 1)))
+                                                                    + (ch.source ? (' [' + ch.source + ']') : '');
+                                                                selCh.add(o);
+                                                            });
+                                                            selCh.selectedIndex = defIdx + 1;
+                                                            boxCh2.style.display = 'block';
+                                                            if (hintCh) {
+                                                                hintCh.textContent = 'Correspondance : finalisez la vente multi-jambes sur le guichet (sièges par segment).';
+                                                            }
+                                                            if (messEl && errEl) {
+                                                                messEl.style.display = 'block';
+                                                                errEl.innerHTML = 'Destination en correspondance — sélectionnez l’itinéraire puis utilisez la vente guichet pour les sièges.';
+                                                            }
+                                                        }
+                                                    };
+                                                    xhrCh.send();
+                                                    return;
+                                                }
+
+                                                const httpRequestmob = new XMLHttpRequest();
                                                 httpRequestmob.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifprog/${seltdepmob}-${arrmob}/${dpt_datemob}/${selmob}`, true);
                                                 httpRequestmob.onload = () => 
                                                 {
@@ -308,9 +367,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                                     httpRequestmob.send();
                                                      
                                                 };
-                                                
-                                        
-                                            }
+                                        }
                                 };
                                 httpRequetesmob.setRequestHeader('Content-Type', 'application/json');
                                 httpRequetesmob.send();

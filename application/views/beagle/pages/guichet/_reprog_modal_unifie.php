@@ -202,17 +202,22 @@ $allow_prix_diff_unifie = true;
                 </p>
             </div>
             <div class="form-row">
-                <div class="form-group col-md-4 mb-2">
+                <div class="form-group col-md-6 mb-2">
                     <label class="small mb-0">Date de report</label>
                     <input class="form-control form-control-sm" type="date" id="datereprog_unifie">
                 </div>
-                <div class="form-group col-md-4 mb-2" id="reprog_ancre_heure_wrap" style="display:none">
-                    <label class="small mb-0">Heure d’ancrage</label>
+                <div class="form-group col-md-6 mb-2" id="reprog_ancre_heure_wrap" style="display:none">
+                    <label class="small mb-0">Heure (départs programmes)</label>
                     <select class="form-control form-control-sm" id="heuredepartpunifie">
                         <option value="">Choisissez l'heure</option>
                     </select>
+                    <p class="small text-muted mb-0 mt-1">
+                        Tous les départs programmes de la date : même heure → 1ER, 2ème… ;
+                        mention <em>normal</em> ou <em>hub/dérivé</em>.
+                    </p>
                 </div>
-                <div class="form-group col-md-4 mb-2" id="reprog_cie_ancre_wrap" style="display:none">
+                <!-- Compagnie / « départ » retiré : le choix se fait dans Heure (1 programme = 1 option). -->
+                <div class="form-group col-md-4 mb-2" id="reprog_cie_ancre_wrap" style="display:none" hidden aria-hidden="true">
                     <label class="small mb-0">Compagnie</label>
                     <select class="form-control form-control-sm" id="compagniepunifie">
                         <option value="">Choisissez la compagnie</option>
@@ -221,7 +226,7 @@ $allow_prix_diff_unifie = true;
             </div>
 
             <div id="reprog_direct_wrap" style="display:none">
-                <div class="reprog-section-title">Départ direct</div>
+                <div class="reprog-section-title">Siège</div>
                 <p class="small mb-2 text-muted" id="reprog_direct_info"></p>
                 <div class="form-row">
                     <div class="form-group col-md-6 mb-2">

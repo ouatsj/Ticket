@@ -211,10 +211,112 @@ if (!function_exists('ticket_prix_depuis_programme')) {
     }
 }
 
+if (!function_exists('passager_confirmation_statuts_gratuits')) {
+    /**
+     * Règle métier ancrée : toute confirmation est non facturable / toujours gratuite (0 F).
+     * Statuts concernés (retour, externe, carte, catégorie).
+     *
+     * @return string[]
+     */
+    function passager_confirmation_statuts_gratuits()
+    {
+        return array('confirm', 'catconfirm', 'confirmcarte');
+    }
+}
+
+if (!function_exists('passager_est_confirmation_gratuite')) {
+    /**
+     * @param mixed $statut
+     * @return bool
+     */
+    function passager_est_confirmation_gratuite($statut)
+    {
+        return in_array(trim((string) $statut), passager_confirmation_statuts_gratuits(), true);
+    }
+}
+
+if (!function_exists('passager_sql_confirmation_statuts_in')) {
+    /**
+     * Liste SQL quotée pour IN (...) — confirmation gratuite.
+     *
+     * @return string ex. 'confirm','catconfirm','confirmcarte'
+     */
+    function passager_sql_confirmation_statuts_in()
+    {
+        return "'" . implode("','", passager_confirmation_statuts_gratuits()) . "'";
+    }
+}
+
+if (!function_exists('passager_appliquer_confirmation_gratuite')) {
+    /**
+     * Ancre métier : confirmation = prixvente 0 (jamais catalogue / jamais caisse).
+     * À appeler sur tout create/update passager.
+     *
+     * @param array      $data
+     * @param mixed|null $statut_existant statut déjà en base (update partiel)
+     * @return array
+     */
+    function passager_appliquer_confirmation_gratuite(array $data, $statut_existant = null)
+    {
+        $stat = null;
+        if (array_key_exists('statut_confirme', $data)
+            && $data['statut_confirme'] !== null
+            && trim((string) $data['statut_confirme']) !== ''
+        ) {
+            $stat = $data['statut_confirme'];
+        } elseif ($statut_existant !== null && trim((string) $statut_existant) !== '') {
+            $stat = $statut_existant;
+        }
+        if (passager_est_confirmation_gratuite($stat)) {
+            $data['prixvente'] = 0;
+        }
+        return $data;
+    }
+}
+
+if (!function_exists('passager_sql_hors_confirmation_vente')) {
+    /**
+     * Fragment SQL : exclure toute confirmation des totaux / caisses vente.
+     *
+     * @param string $alias alias table passager ('' = sans alias)
+     * @return string
+     */
+    function passager_sql_hors_confirmation_vente($alias = 'p')
+    {
+        $list = passager_sql_confirmation_statuts_in();
+        $col = ($alias === '' || $alias === null) ? 'statut_confirme' : $alias . '.statut_confirme';
+        return " AND COALESCE({$col}, '') NOT IN ({$list}) ";
+    }
+}
+
+if (!function_exists('passager_sql_est_confirmation')) {
+    /**
+     * Fragment SQL : uniquement les lignes confirmation (gratuites).
+     *
+     * @param string $alias
+     * @return string
+     */
+    function passager_sql_est_confirmation($alias = 'p')
+    {
+        $list = passager_sql_confirmation_statuts_in();
+        $col = ($alias === '' || $alias === null) ? 'statut_confirme' : $alias . '.statut_confirme';
+        return " AND {$col} IN ({$list}) ";
+    }
+}
+
 if (!function_exists('ticket_impression_prix_row')) {
     function ticket_impression_prix_row($row)
     {
         if (!$row || !is_object($row)) {
+            return $row;
+        }
+        // Confirmation : toujours 0 F sur le ticket imprimé.
+        if (isset($row->statut_confirme)
+            && function_exists('passager_est_confirmation_gratuite')
+            && passager_est_confirmation_gratuite($row->statut_confirme)
+        ) {
+            $row->prixvente = 0;
+            $row->prix = 0;
             return $row;
         }
         if (isset($row->prixvente) && $row->prixvente !== null && $row->prixvente !== '') {

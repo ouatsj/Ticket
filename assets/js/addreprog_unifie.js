@@ -528,8 +528,8 @@ document.addEventListener('DOMContentLoaded', () => {
             window.location.origin + APP_ROOT
                 + '/reprogrammes/heures_unifie/'
                 + encodeURIComponent(gaReport) + '/'
-                + encodeURIComponent(window.__reprogState.gadest) + '/'
-                + encodeURIComponent(window.__reprogState.exclude)
+                + encodeURIComponent(window.__reprogState.gadest || '0') + '/'
+                + encodeURIComponent(window.__reprogState.exclude || '0')
                 + (qs.length ? ('?' + qs.join('&')) : ''),
             function (data2) {
                 window.__reprogState.rows = __reprogRowsArray(data2);
@@ -845,40 +845,6 @@ document.addEventListener('DOMContentLoaded', () => {
         return __reprogRowsArray(window.__reprogState.rows).filter(function (r) {
             return r && String(r.date_progr || '').slice(0, 10) === d;
         });
-    }
-
-    function __reprogFillHeuresForDate(dateYmd) {
-        var sel = __reprogQ('heuredepartpunifie');
-        __reprogResetSelect(sel, "Choisissez l'heure");
-        __reprogHideDirect();
-        __reprogHideCorr();
-
-        var seen = {};
-        __reprogFilterByDate(dateYmd).forEach(function (row) {
-            var hh = __reprogHhmm(row.heure);
-            if (!hh || seen[hh]) return;
-            seen[hh] = 1;
-            var opt = document.createElement('option');
-            opt.value = hh;
-            opt.textContent = hh;
-            opt.setAttribute('data-has-prog', '1');
-            sel.add(opt);
-        });
-
-        if (window.__reprogState.hasTransit) {
-            __reprogRowsArray(window.__reprogState.transitHours).forEach(function (hr) {
-                var hh = __reprogHhmm(hr.heure || hr);
-                if (!hh || seen[hh]) return;
-                if (hr.has_programme === false || hr.has_programme === 0 || hr.has_programme === '0') {
-                    seen[hh] = 1;
-                    var optT = document.createElement('option');
-                    optT.value = hh;
-                    optT.textContent = hh + ' (correspondance)';
-                    optT.setAttribute('data-has-prog', '0');
-                    sel.add(optT);
-                }
-            });
-        }
     }
 
     function __reprogFillCompagnies(dateYmd, hhmm, chemins) {
@@ -1200,12 +1166,34 @@ document.addEventListener('DOMContentLoaded', () => {
                 else if (Array.isArray(payload)) chemins = payload;
                 else if (payload.chemins) chemins = __reprogRowsArray(payload.chemins);
             }
+            function prioR(c) {
+                if (!c) return -1;
+                if (typeof c.priority === 'number') return c.priority;
+                var s = c.source || '';
+                if (s === 'hub_lie') return 100;
+                if (s === 'programmes') return 80;
+                if (s === 'programmes_aval') return 70;
+                if (s === 'graphe_gare' || s === 'gare_composition') return 60;
+                if (s === 'graphe') return 40;
+                if (s === 'declaratif' || s === 'graphe_declaratif') return 20;
+                return 30;
+            }
             chemins = chemins.filter(function (c) {
                 if (!c) return false;
+                // Garder hub/programmes/aval ; exclure déclaratif seul.
                 if (c.source === 'declaratif') return false;
                 var et = __reprogNormalizeEtapes(c.etapes || c.legs);
                 if (et.length < 2) return false;
                 return __reprogCheminSensOk(c);
+            });
+            chemins.sort(function (a, b) {
+                var pa = prioR(a);
+                var pb = prioR(b);
+                if (pa !== pb) return pb - pa;
+                var na = (a.nb_jambes || (__reprogNormalizeEtapes(a.etapes || a.legs).length) || 99);
+                var nb = (b.nb_jambes || (__reprogNormalizeEtapes(b.etapes || b.legs).length) || 99);
+                if (na !== nb) return na - nb;
+                return (b.score || 0) - (a.score || 0);
             });
             st.chemins = chemins;
             if (after) after(chemins);
@@ -1295,10 +1283,95 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function __reprogSetAncreVisible(show) {
         var h = __reprogQ('reprog_ancre_heure_wrap');
+        // Compagnie / « départ » retiré : on n’affiche que Heure.
         var c = __reprogQ('reprog_cie_ancre_wrap');
-        var disp = show ? '' : 'none';
-        if (h) h.style.display = disp;
-        if (c) c.style.display = disp;
+        if (h) h.style.display = show ? '' : 'none';
+        if (c) {
+            c.style.display = 'none';
+            c.setAttribute('hidden', 'hidden');
+        }
+    }
+
+    function __reprogOrdinalFr(n) {
+        var i = parseInt(n, 10) || 0;
+        if (i <= 1) return '1ER';
+        return i + 'ème';
+    }
+
+    function __reprogHubLabel(row) {
+        if (!row) return 'normal';
+        var lab = String(row.hub_label || '').trim();
+        if (lab) return lab;
+        var role = String(row.hub_role || '').trim();
+        if (role === 'derive') return 'dérivé';
+        if (role === 'suite') return 'hub/suite';
+        if (role === 'principal') return 'hub/principal';
+        return 'normal';
+    }
+
+    /**
+     * Remplit le select Heure : 1 option = 1 programme de la date.
+     * Même HH:MM → 1ER, 2ème… + mention normal / hub|dérivé.
+     */
+    function __reprogFillHeuresForDate(dateYmd) {
+        var sel = __reprogQ('heuredepartpunifie');
+        __reprogResetSelect(sel, "Choisissez l'heure");
+        __reprogHideDirect();
+        __reprogHideCorr();
+        if (!sel) return 0;
+
+        var rows = __reprogFilterByDate(dateYmd).slice().sort(function (a, b) {
+            var ha = __reprogHhmm(a.heure);
+            var hb = __reprogHhmm(b.heure);
+            if (ha !== hb) return ha < hb ? -1 : 1;
+            var ca = String(a.code_progr || '');
+            var cb = String(b.code_progr || '');
+            return ca < cb ? -1 : (ca > cb ? 1 : 0);
+        });
+
+        var countByHh = {};
+        rows.forEach(function (row) {
+            var hh = __reprogHhmm(row.heure);
+            if (!hh) return;
+            countByHh[hh] = (countByHh[hh] || 0) + 1;
+        });
+        var idxByHh = {};
+
+        rows.forEach(function (row) {
+            var hh = __reprogHhmm(row.heure);
+            if (!hh || !row.code_progr) return;
+            idxByHh[hh] = (idxByHh[hh] || 0) + 1;
+            var ord = idxByHh[hh];
+            var multi = (countByHh[hh] || 0) > 1;
+            var hub = __reprogHubLabel(row);
+            var cie = __reprogCieName(row) || 'Compagnie';
+            var ligne = row.nom_ligne || '';
+            var progVal = String(row.code_progr) + '/'
+                + String(row.id_ligneheure || '') + '/'
+                + String(row.typetarif || '');
+            var opt = document.createElement('option');
+            opt.value = progVal;
+            opt.setAttribute('data-kind', 'direct');
+            opt.setAttribute('data-heure', hh);
+            opt.setAttribute('data-date', String(row.date_progr || dateYmd).slice(0, 10));
+            opt.setAttribute('data-compaga', row.id_compaga || '');
+            opt.setAttribute('data-cie-key', __reprogRowCieKey(row));
+            opt.setAttribute('data-ligne', ligne);
+            opt.setAttribute('data-hub-role', row.hub_role || '');
+            opt.setAttribute('data-hub-label', hub);
+            opt.setAttribute('data-has-prog', '1');
+            var parts = [hh];
+            if (multi) {
+                parts.push(__reprogOrdinalFr(ord));
+            }
+            parts.push(cie);
+            parts.push(hub);
+            if (ligne) parts.push(ligne);
+            opt.textContent = parts.join(' — ');
+            sel.add(opt);
+        });
+
+        return rows.length;
     }
 
     function __reprogFillItineraireSelect(chemins, message) {
@@ -2081,7 +2154,8 @@ document.addEventListener('DOMContentLoaded', () => {
         __reprogSetPost('', '', '');
         __reprogClearSegPosts();
         __reprogSetDirectInfo('');
-        __reprogSetAncreVisible(false);
+        // Heure visible dès qu’une date est choisie (remplie après reload programmes).
+        __reprogSetAncreVisible(!!dateYmd);
         if (__reprogQ('smspunifie')) __reprogQ('smspunifie').style.display = 'none';
         if (!dateYmd) return;
 
@@ -2119,7 +2193,8 @@ document.addEventListener('DOMContentLoaded', () => {
         st.gid = __reprogResolveGareReport();
         var gaReport = st.gid || st.gaexp || '';
         var qs = [
-            'nom_ligne=' + encodeURIComponent(String(st.nom_ligne))
+            'nom_ligne=' + encodeURIComponent(String(st.nom_ligne)),
+            'date=' + encodeURIComponent(String(dateYmd || '').slice(0, 10))
         ];
         var axesQ = __reprogAxesQuery();
         if (axesQ) qs.push(axesQ.replace(/^&/, ''));
@@ -2129,8 +2204,8 @@ document.addEventListener('DOMContentLoaded', () => {
             window.location.origin + APP_ROOT
                 + '/reprogrammes/heures_unifie/'
                 + encodeURIComponent(gaReport) + '/'
-                + encodeURIComponent(st.gadest || '') + '/'
-                + encodeURIComponent(st.exclude || '')
+                + encodeURIComponent(st.gadest || '0') + '/'
+                + encodeURIComponent(st.exclude || '0')
                 + (qs.length ? ('?' + qs.join('&')) : ''),
             function (data2) {
                 st.rows = __reprogRowsArray(data2);
@@ -2141,8 +2216,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function __reprogOnDateChangeAfterRows(dateYmd) {
         var st = window.__reprogState;
+        var n = __reprogFillHeuresForDate(dateYmd);
+        __reprogSetAncreVisible(true);
+        if (__reprogQ('smspunifie')) __reprogQ('smspunifie').style.display = 'none';
+
+        if (n > 0) {
+            // Programmes présents → choix dans Heure (1ER/2ème + hub).
+            return;
+        }
+
+        // Aucun départ programme : tenter correspondances multi.
         __reprogFetchChemins(dateYmd, '', function (chemins) {
-            var all = __reprogMergeItineraires(__reprogDirectsAsChemins(dateYmd), chemins);
+            var all = __reprogMergeItineraires([], chemins);
             st.chemins = all;
             var odLabel = st.nom_ligne || st.axe || '—';
             if (!all.length) {
@@ -2150,18 +2235,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 var err = __reprogQ('erreurSmspunifie');
                 if (box) box.style.display = 'block';
                 if (err) {
-                    var escMsg = (st.id_escale || st.dest_escale)
-                        ? (' (escale ' + (st.dest_escale || 'ticket') + ')')
-                        : '';
-                    err.textContent = 'Aucun départ ni correspondance (programmes) pour la ligne '
-                        + odLabel + escMsg + ' à cette date.';
+                    err.textContent = 'Aucun départ programme ni correspondance pour '
+                        + odLabel + ' le ' + dateYmd + '.';
                 }
                 return;
             }
             __reprogShowCorrExclusive(
                 all,
-                'Itinéraires (programmes de la gare de report) pour ' + odLabel + ' le ' + dateYmd
-                + ' — toutes compagnies ; direct prioritaire, correspondance seulement si aucun direct.'
+                'Pas de départ direct programme : correspondances pour ' + odLabel + ' le ' + dateYmd
             );
         });
     }
@@ -2174,37 +2255,74 @@ document.addEventListener('DOMContentLoaded', () => {
         __reprogHideDirect();
         __reprogHideCorr();
         __reprogSetDirectInfo('');
-        __reprogResetSelect(__reprogQ('compagniepunifie'), 'Choisissez la compagnie');
         __reprogResetSelect(__reprogQ('numsiegepunifie'), 'Choisissez le siège');
         if (__reprogQ('smspunifie')) __reprogQ('smspunifie').style.display = 'none';
 
         if (!heureSel || !dateYmd || !heureSel.value) return;
-        var hh = __reprogHhmm(heureSel.value);
-        var st = window.__reprogState;
 
-        function afterCieFill(nDirect) {
+        var opt = heureSel.options[heureSel.selectedIndex];
+        var kind = opt ? (opt.getAttribute('data-kind') || '') : '';
+        var progVal = heureSel.value;
+        // Nouvelle UX : value = code_progr/id_lh/typetarif (départ programme).
+        var isProg = progVal.indexOf('/') !== -1 && kind !== 'corr';
+
+        if (isProg) {
+            var compaga = opt ? (opt.getAttribute('data-compaga') || '') : '';
+            var hh = opt ? (opt.getAttribute('data-heure') || __reprogHhmm(progVal)) : '';
+            var ligne = opt ? (opt.getAttribute('data-ligne') || '') : '';
+            var hub = opt ? (opt.getAttribute('data-hub-label') || 'normal') : 'normal';
+            var cieKey = opt ? (opt.getAttribute('data-cie-key') || '') : '';
+            window.__reprogState.mode = 'direct';
+            __reprogShowDirectExclusive();
+            __reprogSetPost(progVal, compaga, '');
+            // Remplir aussi le select compagnie caché (submit legacy).
             var cieSel = __reprogQ('compagniepunifie');
-            if (!cieSel || cieSel.options.length <= 1) {
+            if (cieSel) {
+                __reprogResetSelect(cieSel, 'Choisissez la compagnie');
+                var o = document.createElement('option');
+                o.value = progVal;
+                o.setAttribute('data-compaga', compaga);
+                o.setAttribute('data-cie-key', cieKey);
+                o.setAttribute('data-kind', 'direct');
+                o.setAttribute('data-ligne', ligne);
+                o.setAttribute('data-heure', hh);
+                o.selected = true;
+                o.textContent = progVal;
+                cieSel.add(o);
+            }
+            var cieName = '';
+            var rows = __reprogFilterByDate(dateYmd);
+            for (var i = 0; i < rows.length; i++) {
+                var pv = String(rows[i].code_progr) + '/' + String(rows[i].id_ligneheure || '')
+                    + '/' + String(rows[i].typetarif || '');
+                if (pv === progVal) {
+                    cieName = __reprogCieName(rows[i]) || '';
+                    break;
+                }
+            }
+            __reprogSetDirectInfo(
+                (ligne ? (ligne + ' — ') : '')
+                + (cieName ? (cieName + ' — ') : '')
+                + hh + ' — ' + hub
+            );
+            __reprogLoadSiegesDirect(progVal);
+            return;
+        }
+
+        // Ancien format HH:MM (repli) → chemins / cie.
+        var hhOnly = __reprogHhmm(progVal);
+        __reprogFetchChemins(dateYmd, hhOnly, function (chemins) {
+            var nDirect = __reprogFillCompagnies(dateYmd, hhOnly, chemins);
+            var cieSel2 = __reprogQ('compagniepunifie');
+            if (cieSel2 && cieSel2.options.length === 2) {
+                cieSel2.selectedIndex = 1;
+                __reprogFireChange(cieSel2);
+            } else if (!nDirect && (!cieSel2 || cieSel2.options.length <= 1)) {
                 var box = __reprogQ('smspunifie');
                 var err = __reprogQ('erreurSmspunifie');
                 if (box) box.style.display = 'block';
-                if (err) {
-                    err.textContent = nDirect > 0
-                        ? 'Aucune compagnie pour cette heure.'
-                        : 'Aucun départ ni correspondance pour cette heure.';
-                }
-                return;
+                if (err) err.textContent = 'Aucun départ pour cette heure.';
             }
-            if (cieSel.options.length === 2) {
-                cieSel.selectedIndex = 1;
-                __reprogFireChange(cieSel);
-            }
-        }
-
-        // Toujours chercher les chemins : date → heure → compagnie → itinéraire (direct ou segments).
-        __reprogFetchChemins(dateYmd, hh, function (chemins) {
-            var nDirect = __reprogFillCompagnies(dateYmd, hh, chemins);
-            afterCieFill(nDirect);
         });
     }
 
@@ -2745,15 +2863,26 @@ document.addEventListener('DOMContentLoaded', () => {
 
             __reprogClearSegPosts();
             __reprogQ('reprog_mode_unifie').value = 'direct';
+            var heureSel = __reprogQ('heuredepartpunifie');
             var cie = __reprogQ('compagniepunifie');
             var sie = __reprogQ('numsiegepunifie');
-            if (!cie || !cie.value || cie.value.indexOf('corr:') === 0 || !sie || !sie.value) {
+            var progVal = '';
+            var compaga = '';
+            if (heureSel && heureSel.value && String(heureSel.value).indexOf('/') !== -1) {
+                progVal = heureSel.value;
+                var oH = heureSel.options[heureSel.selectedIndex];
+                compaga = oH ? (oH.getAttribute('data-compaga') || '') : '';
+            } else if (cie && cie.value && cie.value.indexOf('corr:') !== 0) {
+                progVal = cie.value;
+                var opt = cie.options[cie.selectedIndex];
+                compaga = opt ? (opt.getAttribute('data-compaga') || '') : '';
+            }
+            if (!progVal || !sie || !sie.value) {
                 ev.preventDefault();
-                alert('Choisissez la compagnie et le siège pour le départ direct.');
+                alert('Choisissez l\'heure (départ programme) et le siège.');
                 return false;
             }
-            var opt = cie.options[cie.selectedIndex];
-            __reprogSetPost(cie.value, opt ? opt.getAttribute('data-compaga') : '', sie.value);
+            __reprogSetPost(progVal, compaga, sie.value);
             if (window.__reprogState.isTransitTicket) {
                 var tot = __reprogPrixRef();
                 __reprogSetVal('prixventeunifie', tot);

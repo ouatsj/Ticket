@@ -4404,6 +4404,1241 @@
 
             redirect('confirmation/voircourrierescal/' . $this->session->company->ekey.'/'.$iduser.'/'.$gid.'/'.$sgid);
         }
+
+        /**
+         * non_passager stocke l’OD **aller**. Le voyage retour part de la ville d’arrivée
+         * (ex. aller OUAGA→BOBO ⇒ confirmer à Bobo vers Ouaga).
+         *
+         * @return array{ville_confirm:int,gaexp_lg:string,gadest_lg:string,nom_ligne:string,ident_ligne:string,nom_ligne_aller:string,gaexp_aller:string,gadest_aller:string}
+         */
+        protected function _confirm_sens_retour_od($row, $gareAgent)
+        {
+            $gaAller = trim((string) (isset($row->gaexp_lg) ? $row->gaexp_lg : ''));
+            $gdAller = trim((string) (isset($row->gadest_lg) ? $row->gadest_lg : ''));
+            $nomAller = trim((string) (isset($row->nom_ligne) ? $row->nom_ligne : ''));
+            if ($nomAller === '' && !empty($row->np_nom_ligne)) {
+                $nomAller = trim((string) $row->np_nom_ligne);
+            }
+            $villeConfirm = isset($row->ville_dest_retour) ? (int) $row->ville_dest_retour : 0;
+            $compPrefer = isset($row->id_compaga) ? trim((string) $row->id_compaga) : '';
+
+            $gareAgent = trim((string) $gareAgent);
+            $gaRetour = $gareAgent;
+            if ($gaRetour === '' && $gdAller !== '') {
+                $ex = $this->db->query(
+                    "SELECT ex.code_gaexp FROM gare_exp ex
+                     JOIN gare_dest ga ON ga.code_gadest = ?
+                     WHERE ex.id_villegd = ga.id_villega
+                     ORDER BY ex.code_gaexp ASC
+                     LIMIT 1",
+                    array($gdAller)
+                )->row();
+                if ($ex) {
+                    $gaRetour = trim((string) $ex->code_gaexp);
+                }
+            }
+
+            // Destination retour = gare_dest dans la ville d’origine de l’aller.
+            $gdRetour = '';
+            if ($gaAller !== '') {
+                $sql = "SELECT ga.code_gadest
+                        FROM gare_dest ga
+                        JOIN gare_exp ex ON ex.code_gaexp = ?
+                        WHERE ga.id_villega = ex.id_villegd";
+                $params = array($gaAller);
+                if ($compPrefer !== '') {
+                    $sql .= " AND ga.id_compaga = ?";
+                    $params[] = $compPrefer;
+                }
+                $sql .= " ORDER BY ga.code_gadest ASC LIMIT 1";
+                $d = $this->db->query($sql, $params)->row();
+                if ($d) {
+                    $gdRetour = trim((string) $d->code_gadest);
+                }
+                if ($gdRetour === '') {
+                    $d = $this->db->query(
+                        "SELECT ga.code_gadest FROM gare_dest ga
+                         JOIN gare_exp ex ON ex.code_gaexp = ?
+                         WHERE ga.id_villega = ex.id_villegd
+                         ORDER BY ga.code_gadest ASC LIMIT 1",
+                        array($gaAller)
+                    )->row();
+                    if ($d) {
+                        $gdRetour = trim((string) $d->code_gadest);
+                    }
+                }
+            }
+
+            $nomRetour = '';
+            if ($nomAller !== '' && strpos($nomAller, '-') !== false) {
+                $parts = explode('-', $nomAller);
+                if (count($parts) >= 2) {
+                    $nomRetour = trim($parts[count($parts) - 1]) . '-' . trim($parts[0]);
+                }
+            }
+
+            if (!isset($this->m_programme)) {
+                $this->load->model('Programme_model', 'm_programme');
+            }
+            $ekey = isset($this->session->company->ekey) ? $this->session->company->ekey : null;
+            $ident = '';
+            if ($gaRetour !== '' && $gdRetour !== '') {
+                $od = $this->m_programme->od_metier_globale($gaRetour, $gdRetour, $ekey, $nomRetour, null);
+                if (!empty($od['nom_ligne'])) {
+                    $nomRetour = trim((string) $od['nom_ligne']);
+                }
+                if (!empty($od['axes']) && is_array($od['axes']) && !empty($od['axes'][0])) {
+                    $ident = trim((string) $od['axes'][0]);
+                }
+            }
+            if ($ident === '' && $nomRetour !== '') {
+                $lg = $this->db->query(
+                    "SELECT ident_ligne FROM lignes WHERE nom_ligne = ? ORDER BY ident_ligne ASC LIMIT 1",
+                    array($nomRetour)
+                )->row();
+                if ($lg) {
+                    $ident = trim((string) $lg->ident_ligne);
+                }
+            }
+
+            return array(
+                'ville_confirm' => $villeConfirm,
+                'gaexp_lg' => $gaRetour,
+                'gadest_lg' => $gdRetour,
+                'nom_ligne' => $nomRetour !== '' ? $nomRetour : $nomAller,
+                'ident_ligne' => $ident,
+                'nom_ligne_aller' => $nomAller,
+                'gaexp_aller' => $gaAller,
+                'gadest_aller' => $gdAller,
+            );
+        }
+
+        /**
+         * Message de refus gare : précise la ville où confirmer le retour.
+         */
+        protected function _confirm_gare_refuse_reason($villeConfirm, $nomLigneAller = '')
+        {
+            $villeConfirm = (int) $villeConfirm;
+            $nomVille = '';
+            if ($villeConfirm > 0) {
+                $v = $this->db->query(
+                    "SELECT nom_ville FROM ville WHERE id_ville = ? LIMIT 1",
+                    array($villeConfirm)
+                )->row();
+                if ($v && !empty($v->nom_ville)) {
+                    $nomVille = trim((string) $v->nom_ville);
+                }
+            }
+            $nomLigneAller = trim((string) $nomLigneAller);
+            if ($nomVille !== '') {
+                $msg = 'Confirmation possible uniquement à ' . $nomVille
+                    . ' (ville de départ du retour';
+                if ($nomLigneAller !== '') {
+                    $msg .= ', arrivée de l’aller ' . $nomLigneAller;
+                }
+                return $msg . ').';
+            }
+            return 'Confirmation possible uniquement dans la gare (ville) de départ du retour.';
+        }
+
+        /**
+         * Lookup confirmation unifiée (retour connu).
+         * GET/POST : code, gare ; optionnel code2..code4 ou codes=a,b,c (transit multi-jambes).
+         */
+        public function lookup_unifie()
+        {
+            session_release_lock();
+            $code = trim((string) $this->input->get_post('code'));
+            $gare = trim((string) $this->input->get_post('gare'));
+            if ($gare === '') {
+                $gare = trim((string) $this->input->get_post('gareconnect_code'));
+            }
+            if ($code === '') {
+                return $this->load->view('beagle/pages/_programme/json', array(
+                    'json' => array('ok' => false, 'error' => 'code_vide', 'reason' => 'Saisissez un code ticket.'),
+                ));
+            }
+            if (!isset($this->m_programme)) {
+                $this->load->model('Programme_model', 'm_programme');
+            }
+            $gare = $this->m_programme->normalize_gareidentif($gare);
+            $ekey = $this->session->company->ekey;
+
+            $row = $this->m_tamponcode->lookup_retour_confirm($ekey, $code);
+            if (!$row) {
+                // Déjà confirmé ?
+                $deja = $this->db->query(
+                    "SELECT p.code_ticket FROM passager p
+                     WHERE BINARY p.code_ticket = ?
+                       AND p.actif_pas = 0
+                       AND p.statut_confirme = 'confirm'
+                     LIMIT 1",
+                    array($code)
+                )->row();
+                if ($deja) {
+                    return $this->load->view('beagle/pages/_programme/json', array(
+                        'json' => array(
+                            'ok' => false,
+                            'error' => 'deja_confirme',
+                            'reason' => 'Ce retour est déjà confirmé.',
+                        ),
+                    ));
+                }
+                $role = isset($this->session->agent->userole) ? (string) $this->session->agent->userole : '';
+                $allowExterne = in_array($role, array('1', '2', '5', '15'), true);
+                return $this->load->view('beagle/pages/_programme/json', array(
+                    'json' => array(
+                        'ok' => false,
+                        'error' => 'inconnu',
+                        'allow_externe' => $allowExterne,
+                        'reason' => $allowExterne
+                            ? 'Aucun retour non confirmé pour ce code. Cochez « Code provenant d’ailleurs » pour une confirmation externe.'
+                            : 'Aucun retour non confirmé pour ce code.',
+                    ),
+                ));
+            }
+
+            $freres = $this->m_tamponcode->lookup_freres_retour_confirm($ekey, $code);
+            if (empty($freres)) {
+                $freres = array($row);
+            }
+            $nbrJambes = count($freres);
+            $codesFournis = $this->_confirm_collect_lookup_codes($code);
+            $codesAttendus = array();
+            foreach ($freres as $fr) {
+                $codesAttendus[] = strtoupper(trim((string) $fr->codeticket));
+            }
+            $codesFournisNorm = array();
+            foreach ($codesFournis as $cf) {
+                $codesFournisNorm[] = strtoupper($cf);
+            }
+            $codesFournisNorm = array_values(array_unique($codesFournisNorm));
+
+            if ($nbrJambes >= 2) {
+                $manquants = array();
+                $jambesOut = array();
+                foreach ($freres as $idx => $fr) {
+                    $ct = strtoupper(trim((string) $fr->codeticket));
+                    $saisi = in_array($ct, $codesFournisNorm, true);
+                    $jambesOut[] = array(
+                        'ord' => $idx + 1,
+                        'nom_ligne' => isset($fr->nom_ligne) ? (string) $fr->nom_ligne : '',
+                        'gaexp_lg' => isset($fr->gaexp_lg) ? (string) $fr->gaexp_lg : '',
+                        'gadest_lg' => isset($fr->gadest_lg) ? (string) $fr->gadest_lg : '',
+                        'saisi' => $saisi,
+                        // Ne révéler le code que s’il a déjà été fourni.
+                        'codeticket' => $saisi ? (string) $fr->codeticket : '',
+                    );
+                    if (!$saisi) {
+                        $manquants[] = $idx + 1;
+                    }
+                }
+                // Codes fournis hors fratrie ?
+                foreach ($codesFournisNorm as $cf) {
+                    if (!in_array($cf, $codesAttendus, true)) {
+                        return $this->load->view('beagle/pages/_programme/json', array(
+                            'json' => array(
+                                'ok' => false,
+                                'error' => 'code_hors_transit',
+                                'reason' => 'Le code ' . $cf . ' n’appartient pas au même ticket transit.',
+                                'nbr_jambes' => $nbrJambes,
+                                'jambes' => $jambesOut,
+                            ),
+                        ));
+                    }
+                }
+                if (!empty($manquants)) {
+                    $labels = array();
+                    foreach ($jambesOut as $j) {
+                        if (empty($j['saisi'])) {
+                            $labels[] = $j['ord'] . 'ᵉ (' . ($j['nom_ligne'] !== '' ? $j['nom_ligne'] : 'jambe') . ')';
+                        }
+                    }
+                    return $this->load->view('beagle/pages/_programme/json', array(
+                        'json' => array(
+                            'ok' => false,
+                            'error' => 'need_codes',
+                            'nbr_jambes' => $nbrJambes,
+                            'jambes' => $jambesOut,
+                            'reason' => 'Ticket transit ' . $nbrJambes . ' jambes : saisissez aussi '
+                                . implode(', ', $labels) . '.',
+                        ),
+                    ));
+                }
+            }
+
+            // OD globale = 1ʳᵉ jambe aller → dernière (ex. BANFORA→OUAGA).
+            $first = $freres[0];
+            $last = $freres[$nbrJambes - 1];
+            $sens = $this->_confirm_sens_retour_od_global($first, $last, $gare);
+
+            if ($gare !== '') {
+                $villeAgent = $this->db->query(
+                    "SELECT id_villegd FROM gare_exp WHERE code_gaexp = ? LIMIT 1",
+                    array($gare)
+                )->row();
+                $villeRet = (int) $sens['ville_confirm'];
+                $villeAg = ($villeAgent && $villeAgent->id_villegd !== null) ? (int) $villeAgent->id_villegd : -1;
+                if ($villeRet > 0 && $villeAg >= 0 && $villeRet !== $villeAg) {
+                    return $this->load->view('beagle/pages/_programme/json', array(
+                        'json' => array(
+                            'ok' => false,
+                            'error' => 'gare_refuse',
+                            'reason' => $this->_confirm_gare_refuse_reason(
+                                $villeRet,
+                                isset($sens['nom_ligne_aller']) ? $sens['nom_ligne_aller'] : ''
+                            ),
+                        ),
+                    ));
+                }
+            }
+
+            // Codes retour dans l’ordre de voyage retour (inverse aller).
+            $codesRetour = array();
+            for ($i = $nbrJambes - 1; $i >= 0; $i--) {
+                $codesRetour[] = (string) $freres[$i]->codeticket;
+            }
+            $codesNonPass = array();
+            for ($i = $nbrJambes - 1; $i >= 0; $i--) {
+                $codesNonPass[] = (string) $freres[$i]->code_non_pass;
+            }
+            $prixSum = 0;
+            foreach ($freres as $fr) {
+                if (isset($fr->prixretour)) {
+                    $prixSum += (float) $fr->prixretour;
+                }
+            }
+
+            $retourPlan = $this->_confirm_etapes_retour_from_freres($freres, $gare !== '' ? $gare : $sens['gaexp_lg']);
+
+            $out = array(
+                'ok' => true,
+                'mode' => 'retour',
+                'codeticket' => (string) $last->codeticket,
+                'code_non_pass' => (string) $last->code_non_pass,
+                'codes' => $codesRetour,
+                'codes_non_pass' => $codesNonPass,
+                'nbr_jambes' => $nbrJambes,
+                'prixretour' => $prixSum,
+                'nom_ligne' => $sens['nom_ligne'],
+                'ident_ligne' => $sens['ident_ligne'] !== '' ? $sens['ident_ligne'] : (string) $last->ident_ligne,
+                'gaexp_lg' => $sens['gaexp_lg'] !== '' ? $sens['gaexp_lg'] : $gare,
+                'gadest_lg' => $sens['gadest_lg'],
+                'nom_ligne_aller' => $sens['nom_ligne_aller'],
+                'axes' => isset($retourPlan['axes']) ? $retourPlan['axes'] : array(),
+                'etapes_retour' => isset($retourPlan['etapes']) ? $retourPlan['etapes'] : array(),
+                'id_compaga' => isset($last->id_compaga) ? $last->id_compaga : null,
+                'nom_compagnie' => isset($last->nom_compagnie_arrivee) ? $last->nom_compagnie_arrivee : '',
+                'id_client' => isset($last->id_client) ? (int) $last->id_client : 0,
+                'nom_client' => isset($last->nom_client) ? $last->nom_client : '',
+                'prenom_client' => isset($last->prenom_client) ? $last->prenom_client : '',
+                'contact_client' => isset($last->contact_client) ? $last->contact_client : '',
+                'gratuit' => true,
+                'prix_confirm' => 0,
+            );
+            return $this->load->view('beagle/pages/_programme/json', array('json' => $out));
+        }
+
+        /**
+         * Itinéraires multi-jambes basés UNIQUEMENT sur des programmes créés
+         * (gare de départ + gares hub de transit), pas le catalogue lignes.
+         * GET : gaexp, gadest, date (Y-m-d), gare (optionnel), nom_ligne (optionnel).
+         */
+        public function chemins_programmes()
+        {
+            session_release_lock();
+            if (!isset($this->m_programme)) {
+                $this->load->model('Programme_model', 'm_programme');
+            }
+            $gaexp = trim((string) $this->input->get_post('gaexp'));
+            $gadest = trim((string) $this->input->get_post('gadest'));
+            $gare = trim((string) $this->input->get_post('gare'));
+            $date = trim((string) $this->input->get_post('date'));
+            if ($gare !== '') {
+                $gare = $this->m_programme->normalize_gareidentif($gare);
+            }
+            if ($gaexp !== '') {
+                $gaexp = $this->m_programme->normalize_gareidentif($gaexp);
+            }
+            if ($gaexp === '' && $gare !== '') {
+                $gaexp = $gare;
+            }
+            if ($gaexp === '' || $gadest === '' || $date === '') {
+                return $this->load->view('beagle/pages/_programme/json', array(
+                    'json' => array('ok' => false, 'chemins' => array(), 'reason' => 'gaexp, gadest et date requis.'),
+                ));
+            }
+            $ekey = isset($this->session->company->ekey) ? $this->session->company->ekey : null;
+            // Gare d'opération (confirm) prioritaire sur gaexp catalogue ticket.
+            $gaOp = $gare !== '' ? $gare : $gaexp;
+            $chemins = $this->_confirm_chemins_depuis_programmes($gaOp, $gadest, $date, $ekey);
+            return $this->load->view('beagle/pages/_programme/json', array(
+                'json' => array(
+                    'ok' => true,
+                    'chemins' => $chemins,
+                    'meta' => array(
+                        'gaexp' => $gaOp,
+                        'gadest' => $gadest,
+                        'date' => $date,
+                        'gare' => $gare,
+                        'gare_operation' => $gaOp,
+                        'ranking' => 'hub_lie>programmes>programmes_aval>graphe>declaratif',
+                    ),
+                ),
+            ));
+        }
+
+        /**
+         * Correspondances depuis programmes gare + hubs liés (moteur partagé vente).
+         *
+         * @return array[]
+         */
+        protected function _confirm_chemins_depuis_programmes($gaexp, $gadest, $date, $ekey = null)
+        {
+            $this->load->library('chemins_programmes_vente');
+            $ekey = $ekey !== null ? trim((string) $ekey) : '';
+            if ($ekey === '' && isset($this->session->company->ekey)) {
+                $ekey = (string) $this->session->company->ekey;
+            }
+            return $this->chemins_programmes_vente->chemins(
+                $ekey,
+                $gaexp,
+                $gadest,
+                $date,
+                array('horizon' => 3, 'limit' => 8)
+            );
+        }
+
+        /**
+         * Inverse un nom de ligne A-B → B-A.
+         */
+        protected function _confirm_invert_nom_ligne($nom)
+        {
+            $nom = trim((string) $nom);
+            if ($nom === '' || strpos($nom, '-') === false) {
+                return '';
+            }
+            $parts = explode('-', $nom);
+            if (count($parts) < 2) {
+                return '';
+            }
+            return trim($parts[count($parts) - 1]) . '-' . trim($parts[0]);
+        }
+
+        /**
+         * Itinéraire retour suggéré = inverse des jambes aller (ordre inverse).
+         * Ex. BANFORA-BOBO + BOBO-OUAGA → OUAGA-BOBO puis BOBO-BANFORA.
+         *
+         * @param object[] $freres
+         * @return array{etapes:array,axes:string[]}
+         */
+        protected function _confirm_etapes_retour_from_freres(array $freres, $gareAgent = '')
+        {
+            $etapes = array();
+            $axes = array();
+            $gareAgent = trim((string) $gareAgent);
+            $n = count($freres);
+            for ($i = $n - 1; $i >= 0; $i--) {
+                $fr = $freres[$i];
+                $nomAller = isset($fr->nom_ligne) ? trim((string) $fr->nom_ligne) : '';
+                if ($nomAller === '' && !empty($fr->np_nom_ligne)) {
+                    $nomAller = trim((string) $fr->np_nom_ligne);
+                }
+                $nomRet = $this->_confirm_invert_nom_ligne($nomAller);
+                $villeDep = isset($fr->ville_dest_retour) ? (int) $fr->ville_dest_retour : 0;
+                $villeArr = isset($fr->ville_depart_retour) ? (int) $fr->ville_depart_retour : 0;
+                $compPrefer = isset($fr->id_compaga) ? trim((string) $fr->id_compaga) : '';
+
+                $gaexp = '';
+                $gadest = '';
+                $ident = '';
+                // 1) Ligne catalogue au nom inversé.
+                if ($nomRet !== '') {
+                    $sql = "SELECT lg.ident_ligne, lg.nom_ligne, lg.gaexp_lg, lg.gadest_lg, ex.id_villegd, ga.id_villega
+                            FROM lignes lg
+                            JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
+                            JOIN gare_dest ga ON lg.gadest_lg = ga.code_gadest
+                            WHERE lg.nom_ligne = ?";
+                    $params = array($nomRet);
+                    if ($villeDep > 0) {
+                        $sql .= " AND ex.id_villegd = ?";
+                        $params[] = $villeDep;
+                    }
+                    if ($villeArr > 0) {
+                        $sql .= " AND ga.id_villega = ?";
+                        $params[] = $villeArr;
+                    }
+                    $sql .= " ORDER BY lg.ident_ligne ASC LIMIT 1";
+                    $lg = $this->db->query($sql, $params)->row();
+                    if (!$lg && ($villeDep > 0 || $villeArr > 0)) {
+                        $lg = $this->db->query(
+                            "SELECT lg.ident_ligne, lg.nom_ligne, lg.gaexp_lg, lg.gadest_lg
+                             FROM lignes lg WHERE lg.nom_ligne = ? ORDER BY lg.ident_ligne ASC LIMIT 1",
+                            array($nomRet)
+                        )->row();
+                    }
+                    if ($lg) {
+                        $ident = trim((string) $lg->ident_ligne);
+                        $nomRet = trim((string) $lg->nom_ligne);
+                        $gaexp = trim((string) $lg->gaexp_lg);
+                        $gadest = trim((string) $lg->gadest_lg);
+                    }
+                }
+                // 2) Secours : gares par villes (départ = arrivée aller).
+                if ($ident === '' && $villeDep > 0 && $villeArr > 0) {
+                    // 1ʳᵉ jambe retour (dernier frères) : préférer la gare agent.
+                    if ($gareAgent !== '' && $i === $n - 1) {
+                        $ex = $this->db->query(
+                            "SELECT code_gaexp, id_villegd FROM gare_exp WHERE code_gaexp = ? LIMIT 1",
+                            array($gareAgent)
+                        )->row();
+                        if ($ex && (int) $ex->id_villegd === $villeDep) {
+                            $gaexp = trim((string) $ex->code_gaexp);
+                        }
+                    }
+                    if ($gaexp === '') {
+                        $ex = $this->db->query(
+                            "SELECT code_gaexp FROM gare_exp WHERE id_villegd = ? ORDER BY code_gaexp ASC LIMIT 1",
+                            array($villeDep)
+                        )->row();
+                        if ($ex) {
+                            $gaexp = trim((string) $ex->code_gaexp);
+                        }
+                    }
+                    $gdSql = "SELECT code_gadest FROM gare_dest WHERE id_villega = ?";
+                    $gdParams = array($villeArr);
+                    if ($compPrefer !== '') {
+                        $gdSql .= " AND id_compaga = ?";
+                        $gdParams[] = $compPrefer;
+                    }
+                    $gdSql .= " ORDER BY code_gadest ASC LIMIT 1";
+                    $gd = $this->db->query($gdSql, $gdParams)->row();
+                    if (!$gd) {
+                        $gd = $this->db->query(
+                            "SELECT code_gadest FROM gare_dest WHERE id_villega = ? ORDER BY code_gadest ASC LIMIT 1",
+                            array($villeArr)
+                        )->row();
+                    }
+                    if ($gd) {
+                        $gadest = trim((string) $gd->code_gadest);
+                    }
+                    if ($gaexp !== '' && $gadest !== '') {
+                        $ident = $gaexp . '-' . $gadest;
+                        $hit = $this->db->query(
+                            "SELECT ident_ligne, nom_ligne FROM lignes
+                             WHERE gaexp_lg = ? AND gadest_lg = ? ORDER BY ident_ligne ASC LIMIT 1",
+                            array($gaexp, $gadest)
+                        )->row();
+                        if ($hit) {
+                            $ident = trim((string) $hit->ident_ligne);
+                            if (!empty($hit->nom_ligne)) {
+                                $nomRet = trim((string) $hit->nom_ligne);
+                            }
+                        }
+                    }
+                }
+                if ($nomRet === '' && $gaexp !== '' && $gadest !== '') {
+                    $nomRet = $gaexp . '-' . $gadest;
+                }
+                if ($nomRet === '' && $ident === '') {
+                    continue;
+                }
+                $etapes[] = array(
+                    'nom_ligne' => $nomRet,
+                    'nom_itineraires' => $nomRet,
+                    'code_itineraires' => $ident,
+                    'ident_ligne' => $ident,
+                    'ligne_id' => $ident,
+                    'gaexp_lg' => $gaexp,
+                    'code_gaexp' => $gaexp,
+                    'gadest_lg' => $gadest,
+                    'code_gadest' => $gadest,
+                );
+                if ($ident !== '' && !in_array($ident, $axes, true)) {
+                    $axes[] = $ident;
+                }
+            }
+            return array('etapes' => $etapes, 'axes' => $axes);
+        }
+
+        /**
+         * Codes saisis pour lookup transit (code + code2.. + codes CSV).
+         *
+         * @return string[]
+         */
+        protected function _confirm_collect_lookup_codes($codePrincipal)
+        {
+            $out = array();
+            $codePrincipal = trim((string) $codePrincipal);
+            if ($codePrincipal !== '') {
+                $out[] = $codePrincipal;
+            }
+            for ($i = 2; $i <= 4; $i++) {
+                $c = trim((string) $this->input->get_post('code' . $i));
+                if ($c !== '') {
+                    $out[] = $c;
+                }
+            }
+            $csv = trim((string) $this->input->get_post('codes'));
+            if ($csv !== '') {
+                foreach (preg_split('/[,\s;]+/', $csv) as $p) {
+                    $p = trim((string) $p);
+                    if ($p !== '') {
+                        $out[] = $p;
+                    }
+                }
+            }
+            return array_values(array_unique($out));
+        }
+
+        /**
+         * Codes retour postés au submit (confirm_codes / code_ticket_N / code_ticket).
+         *
+         * @return string[]
+         */
+        protected function _confirm_collect_submit_codes($codePrincipal)
+        {
+            $out = array();
+            $raw = trim((string) $this->input->post('confirm_codes'));
+            if ($raw !== '') {
+                $decoded = json_decode($raw, true);
+                if (is_array($decoded)) {
+                    foreach ($decoded as $p) {
+                        $p = trim((string) $p);
+                        if ($p !== '') {
+                            $out[] = $p;
+                        }
+                    }
+                } else {
+                    foreach (preg_split('/[,\s;]+/', $raw) as $p) {
+                        $p = trim((string) $p);
+                        if ($p !== '') {
+                            $out[] = $p;
+                        }
+                    }
+                }
+            }
+            for ($i = 0; $i < 4; $i++) {
+                $c = trim((string) $this->input->post('confirm_code_' . $i));
+                if ($c !== '') {
+                    $out[] = $c;
+                }
+            }
+            $codePrincipal = trim((string) $codePrincipal);
+            if ($codePrincipal !== '' && empty($out)) {
+                $out[] = $codePrincipal;
+            } elseif ($codePrincipal !== '' && !in_array($codePrincipal, $out, true)) {
+                // Garder l’ordre posté ; le principal peut déjà être dedans.
+            }
+            return array_values(array_unique($out));
+        }
+
+        /**
+         * Sens retour pour un aller multi-jambes : confirmer à l’arrivée finale.
+         *
+         * @param object $first 1ʳᵉ jambe aller
+         * @param object $last  dernière jambe aller
+         */
+        protected function _confirm_sens_retour_od_global($first, $last, $gareAgent)
+        {
+            // Fake row : OD aller = départ first → arrivée last.
+            $pseudo = clone $last;
+            $pseudo->gaexp_lg = isset($first->gaexp_lg) ? $first->gaexp_lg : '';
+            $pseudo->gadest_lg = isset($last->gadest_lg) ? $last->gadest_lg : '';
+            $pseudo->ville_dest_retour = isset($last->ville_dest_retour) ? $last->ville_dest_retour : 0;
+            $nomFirst = isset($first->nom_ligne) ? trim((string) $first->nom_ligne) : '';
+            $nomLast = isset($last->nom_ligne) ? trim((string) $last->nom_ligne) : '';
+            if ($nomFirst !== '' && $nomLast !== '' && $nomFirst !== $nomLast) {
+                $partsF = explode('-', $nomFirst);
+                $partsL = explode('-', $nomLast);
+                $depName = trim($partsF[0]);
+                $arrName = trim($partsL[count($partsL) - 1]);
+                $pseudo->nom_ligne = ($depName !== '' && $arrName !== '')
+                    ? ($depName . '-' . $arrName)
+                    : $nomLast;
+            } elseif ($nomFirst !== '') {
+                $pseudo->nom_ligne = $nomFirst;
+            }
+            if (!empty($first->np_nom_ligne) && empty($pseudo->nom_ligne)) {
+                $pseudo->np_nom_ligne = $first->np_nom_ligne;
+            }
+            return $this->_confirm_sens_retour_od($pseudo, $gareAgent);
+        }
+
+        /**
+         * Submit confirmation unifiée — direct ou transit (toutes jambes), gratuit.
+         * Réponse JSON : infos à noter sur le ticket.
+         */
+        public function submit_unifie()
+        {
+            $ekey = $this->session->company->ekey;
+            $gid = $this->input->post('gareconnect');
+            $iduser = $this->_roleattribut_guard_post_id($ekey);
+            $sgid = $this->input->post('sousgareconnect');
+            $gareCode = trim((string) $this->input->post('gareconnect_code'));
+
+            if ((int) $iduser <= 0) {
+                return $this->load->view('beagle/pages/_programme/json', array(
+                    'json' => array('ok' => false, 'reason' => 'Session ou guichet invalide.'),
+                ));
+            }
+            if ($msg = compte_arret_guard_sale('ticket', $iduser, $gid)) {
+                return $this->load->view('beagle/pages/_programme/json', array(
+                    'json' => array('ok' => false, 'reason' => $msg),
+                ));
+            }
+
+            $mode = trim((string) $this->input->post('confirm_mode'));
+            if ($mode === '') {
+                $mode = 'retour';
+            }
+            $role = isset($this->session->agent->userole) ? (string) $this->session->agent->userole : '';
+            $allowExterne = in_array($role, array('1', '2', '5', '15'), true);
+            if ($mode === 'externe' && !$allowExterne) {
+                return $this->load->view('beagle/pages/_programme/json', array(
+                    'json' => array('ok' => false, 'reason' => 'Votre rôle ne permet pas la confirmation de code d’ailleurs.'),
+                ));
+            }
+            $pathMode = trim((string) $this->input->post('confirm_path_mode'));
+            if ($pathMode === '') {
+                $pathMode = 'direct';
+            }
+            $codeTicket = trim((string) $this->input->post('code_ticket'));
+            $codesPost = $this->_confirm_collect_submit_codes($codeTicket);
+            $clientId = (int) $this->input->post('client_id');
+            // SG guichet = préférence jambe 1 ; jambes 2+ = SG du gaexp de la jambe.
+            $departGidPref = trim((string) $this->input->post('sousgareconnect'));
+            if ($departGidPref === '') {
+                $departGidPref = trim((string) $this->input->post('departclient_idgare'));
+            }
+            if ($departGidPref === '') {
+                $departGidPref = (string) $sgid;
+            }
+
+            $nbrSeg = (int) $this->input->post('confirm_nbr_seg');
+            if ($nbrSeg < 1) {
+                $nbrSeg = 1;
+            }
+            if ($nbrSeg > 4) {
+                $nbrSeg = 4;
+            }
+
+            // Segments (direct = 1 jambe via confirm_seg_*_0 ou champs legacy).
+            $segs = array();
+            for ($i = 0; $i < $nbrSeg; $i++) {
+                $prog = trim((string) $this->input->post('confirm_seg_prog_' . $i));
+                $siege = trim((string) $this->input->post('confirm_seg_siege_' . $i));
+                if ($i === 0 && $prog === '') {
+                    $prog = trim((string) $this->input->post('code_pro'));
+                }
+                if ($i === 0 && $siege === '') {
+                    $siege = trim((string) $this->input->post('num_siege'));
+                }
+                $cat = trim((string) $this->input->post('confirm_seg_cat_' . $i));
+                if ($i === 0 && $cat === '') {
+                    $cat = trim((string) $this->input->post('categori'));
+                }
+                if ($prog === '' || $siege === '' || $siege === '0' || $siege === '00') {
+                    return $this->load->view('beagle/pages/_programme/json', array(
+                        'json' => array(
+                            'ok' => false,
+                            'reason' => 'Segment ' . ($i + 1) . ' : programme ou siège manquant.',
+                        ),
+                    ));
+                }
+                $segs[] = array(
+                    'code_pro' => $prog,
+                    'siege' => $siege,
+                    'cat' => $cat,
+                    'ligne' => trim((string) $this->input->post('confirm_seg_ligne_' . $i)),
+                    'date' => trim((string) $this->input->post('confirm_seg_date_' . $i)),
+                    'heure' => trim((string) $this->input->post('confirm_seg_heure_' . $i)),
+                    'compaga' => trim((string) $this->input->post('confirm_seg_compaga_' . $i)),
+                );
+            }
+
+            if ($codeTicket === '' && empty($codesPost)) {
+                return $this->load->view('beagle/pages/_programme/json', array(
+                    'json' => array('ok' => false, 'reason' => 'Code ticket manquant.'),
+                ));
+            }
+            if ($codeTicket === '' && !empty($codesPost)) {
+                $codeTicket = $codesPost[0];
+            }
+
+            // Re-vérifier retour + gare (arrivée finale aller = départ du retour).
+            $codesRetourOrdered = array($codeTicket);
+            if ($mode === 'retour') {
+                $seedCode = !empty($codesPost) ? $codesPost[0] : $codeTicket;
+                $freres = $this->m_tamponcode->lookup_freres_retour_confirm($ekey, $seedCode);
+                if (empty($freres)) {
+                    return $this->load->view('beagle/pages/_programme/json', array(
+                        'json' => array('ok' => false, 'reason' => 'Retour introuvable ou déjà confirmé.'),
+                    ));
+                }
+                $attendus = array();
+                foreach ($freres as $fr) {
+                    $attendus[strtoupper(trim((string) $fr->codeticket))] = $fr;
+                }
+                if (count($freres) >= 2) {
+                    $fournis = !empty($codesPost) ? $codesPost : array($codeTicket);
+                    $fournisNorm = array();
+                    foreach ($fournis as $cf) {
+                        $fournisNorm[] = strtoupper(trim((string) $cf));
+                    }
+                    $fournisNorm = array_values(array_unique($fournisNorm));
+                    foreach ($fournisNorm as $cf) {
+                        if (!isset($attendus[$cf])) {
+                            return $this->load->view('beagle/pages/_programme/json', array(
+                                'json' => array(
+                                    'ok' => false,
+                                    'reason' => 'Code hors ticket transit : ' . $cf,
+                                ),
+                            ));
+                        }
+                    }
+                    foreach ($attendus as $ct => $_fr) {
+                        if (!in_array($ct, $fournisNorm, true)) {
+                            return $this->load->view('beagle/pages/_programme/json', array(
+                                'json' => array(
+                                    'ok' => false,
+                                    'reason' => 'Ticket transit : tous les codes retour sont obligatoires.',
+                                ),
+                            ));
+                        }
+                    }
+                }
+                if (!isset($this->m_programme)) {
+                    $this->load->model('Programme_model', 'm_programme');
+                }
+                $gareNorm = $this->m_programme->normalize_gareidentif($gareCode);
+                $first = $freres[0];
+                $last = $freres[count($freres) - 1];
+                $sens = $this->_confirm_sens_retour_od_global($first, $last, $gareNorm);
+                if ($gareNorm !== '') {
+                    $villeAgent = $this->db->query(
+                        "SELECT id_villegd FROM gare_exp WHERE code_gaexp = ? LIMIT 1",
+                        array($gareNorm)
+                    )->row();
+                    $villeRet = (int) $sens['ville_confirm'];
+                    $villeAg = ($villeAgent && $villeAgent->id_villegd !== null) ? (int) $villeAgent->id_villegd : -1;
+                    if ($villeRet > 0 && $villeAg >= 0 && $villeRet !== $villeAg) {
+                        return $this->load->view('beagle/pages/_programme/json', array(
+                            'json' => array(
+                                'ok' => false,
+                                'reason' => $this->_confirm_gare_refuse_reason(
+                                    $villeRet,
+                                    isset($sens['nom_ligne_aller']) ? $sens['nom_ligne_aller'] : ''
+                                ),
+                            ),
+                        ));
+                    }
+                }
+                $row = $last;
+                if ($clientId <= 0 && !empty($row->id_client)) {
+                    $clientId = (int) $row->id_client;
+                }
+                // Ordre voyage retour = inverse aller.
+                $codesRetourOrdered = array();
+                for ($i = count($freres) - 1; $i >= 0; $i--) {
+                    $codesRetourOrdered[] = (string) $freres[$i]->codeticket;
+                }
+                if (empty($codesRetourOrdered)) {
+                    $codesRetourOrdered = array($codeTicket);
+                }
+                $codeTicket = $codesRetourOrdered[0];
+            }
+
+            // Mode externe : client (lookup tél. ou création) + code non déjà en passager actif.
+            if ($mode === 'externe') {
+                $dejaPass = $this->db->query(
+                    "SELECT p.code_passager FROM passager p
+                     WHERE BINARY p.code_ticket = ?
+                       AND p.actif_pas = 0
+                     LIMIT 1",
+                    array($codeTicket)
+                )->row();
+                if ($dejaPass) {
+                    return $this->load->view('beagle/pages/_programme/json', array(
+                        'json' => array(
+                            'ok' => false,
+                            'reason' => 'Ce code ticket est déjà enregistré dans le système.',
+                        ),
+                    ));
+                }
+                if ($clientId <= 0) {
+                    if (!isset($this->m_client)) {
+                        $this->load->model('Client_model', 'm_client');
+                    }
+                    $tel = trim((string) $this->input->post('ext_tel'));
+                    $nom = trim((string) $this->input->post('ext_nom'));
+                    $prenom = trim((string) $this->input->post('ext_prenom'));
+                    if ($tel === '' || $nom === '' || $prenom === '') {
+                        return $this->load->view('beagle/pages/_programme/json', array(
+                            'json' => array(
+                                'ok' => false,
+                                'reason' => 'Téléphone, nom et prénom obligatoires pour un code d’ailleurs.',
+                            ),
+                        ));
+                    }
+                    $found = $this->m_client->infocl($tel);
+                    if (empty($found)) {
+                        $digits = preg_replace('/\D/', '', $tel);
+                        if ($digits !== '' && $digits !== $tel) {
+                            $found = $this->m_client->infocl($digits);
+                        }
+                    }
+                    if (!empty($found) && !empty($found->id_client)) {
+                        $clientId = (int) $found->id_client;
+                    } else {
+                        $clientId = (int) $this->m_client->create(array(
+                            'type_client' => 'Adulte',
+                            'nom_client' => $nom,
+                            'prenom_client' => $prenom,
+                            'contact_client' => $tel,
+                            'datedoc' => mdate('%Y/%m/%d', now('UTC')),
+                        ));
+                    }
+                }
+                $gaexpOd = trim((string) $this->input->post('gaexp'));
+                $gadestOd = trim((string) $this->input->post('gadest'));
+                if ($gaexpOd === '' || $gadestOd === '') {
+                    return $this->load->view('beagle/pages/_programme/json', array(
+                        'json' => array('ok' => false, 'reason' => 'Trajet (départ / arrivée) manquant.'),
+                    ));
+                }
+            }
+
+            if ($clientId <= 0) {
+                return $this->load->view('beagle/pages/_programme/json', array(
+                    'json' => array('ok' => false, 'reason' => 'Client introuvable.'),
+                ));
+            }
+
+            // Contrôle sièges libres sur chaque jambe.
+            foreach ($segs as $si => $sg) {
+                $siegeoccuper = $this->db->query(
+                    "SELECT code_passager FROM passager ps
+                     WHERE ps.code_pro = ? AND ps.num_siege_categorie = ? AND ps.actif_pas = 0
+                     LIMIT 1",
+                    array($sg['code_pro'], $sg['siege'])
+                )->row();
+                if ($siegeoccuper) {
+                    return $this->load->view('beagle/pages/_programme/json', array(
+                        'json' => array(
+                            'ok' => false,
+                            'reason' => 'Siège déjà occupé sur le segment ' . ($si + 1) . '.',
+                        ),
+                    ));
+                }
+            }
+
+            if (!isset($this->sale_passager_service)) {
+                $this->load->library('sale_passager_service');
+            }
+
+            $idEscConfirm = (int) $this->input->post('id_escale_vente_confirm');
+            $codeGEscConfirm = trim((string) $this->input->post('code_gadest_vente_confirm'));
+            $nomEscConfirm = trim((string) $this->input->post('nom_dest_vente_confirm'));
+            $lastSegProg = !empty($segs) ? $segs[count($segs) - 1]['code_pro'] : '';
+
+            $usen = substr((string) $this->session->agent->username, 0, 1);
+            $today = mdate('%Y-%m-%d', now('UTC'));
+            $passecompter = $this->db->query(
+                "SELECT COUNT(code_passager) AS id FROM passager p
+                 WHERE p.datep_create = ? AND p.idcptuser = ? AND p.code_ticket != 'R'",
+                array($today, $iduser)
+            )->row();
+            $nbBase = ($passecompter && isset($passecompter->id)) ? (int) $passecompter->id : 0;
+
+            // Un seul tampon transit pour toutes les jambes.
+            $tampoKey = $iduser . $usen . $gid . ($nbBase + 1) . mdate('%y%m%d', now('UTC'));
+            $tampo = $this->m_tamponcodetr->create(array('codtampon' => $tampoKey));
+
+            $jambesOut = array();
+            $firstCode = '';
+            $printLegs = array();
+
+            // Une création par segment ; code ticket = jambe retour correspondante.
+            $jobs = array();
+            foreach ($segs as $si => $sg) {
+                $ct = isset($codesRetourOrdered[$si])
+                    ? $codesRetourOrdered[$si]
+                    : (isset($codesRetourOrdered[0]) ? $codesRetourOrdered[0] : $codeTicket);
+                $jobs[] = array('seg' => $sg, 'code_ticket' => $ct, 'absorb' => false);
+            }
+            // Codes transit restants (ex. direct 1 seg pour 2 codes) : même programme, siège déjà pris ignoré → siège null.
+            if ($mode === 'retour' && count($codesRetourOrdered) > count($segs)) {
+                $lastSg = $segs[count($segs) - 1];
+                for ($ci = count($segs); $ci < count($codesRetourOrdered); $ci++) {
+                    $jobs[] = array(
+                        'seg' => array(
+                            'code_pro' => $lastSg['code_pro'],
+                            'siege' => null,
+                            'cat' => $lastSg['cat'],
+                            'ligne' => $lastSg['ligne'],
+                            'date' => $lastSg['date'],
+                            'heure' => $lastSg['heure'],
+                            'compaga' => $lastSg['compaga'],
+                        ),
+                        'code_ticket' => $codesRetourOrdered[$ci],
+                        'absorb' => true,
+                    );
+                }
+            }
+
+            foreach ($jobs as $si => $job) {
+                $sg = $job['seg'];
+                $ctJob = $job['code_ticket'];
+                $tppasconf = mdate('%y%m%d', now('UTC')) . ($nbBase + 1 + $si) . $gid . $usen . $iduser;
+                if ($si === 0) {
+                    $firstCode = $tppasconf;
+                }
+                $this->m_tamponcode->create(array(
+                    'tamponcod' => $tppasconf,
+                    'tamponcodtr' => $tampo,
+                ));
+
+                // Jambe 1 : SG guichet si compatible ; suite : SG du gaexp de la jambe.
+                $sgLegPref = ($si === 0) ? $departGidPref : null;
+                $sgLeg = $this->sale_passager_service->resolve_depart_sousgare(
+                    $sg['code_pro'],
+                    $sgLegPref !== null ? $sgLegPref : ''
+                );
+                if ($sgLeg === '' && $departGidPref !== '') {
+                    $sgLeg = $departGidPref;
+                }
+                $quartLeg = $this->sale_passager_service->resolve_dest_quartier($sg['code_pro'], null);
+                $passagerarray = array(
+                    'code_passager' => $tppasconf,
+                    'code_ticket' => $ctJob,
+                    'idcptuser' => $iduser,
+                    'id_client_pass' => $clientId,
+                    'code_pro' => $sg['code_pro'],
+                    'departclient_idgare' => $sgLeg,
+                    'num_siege_categorie' => $sg['siege'],
+                    'num_cat' => $sg['cat'] !== '' ? $sg['cat'] : null,
+                    'statut_confirme' => 'confirm',
+                    'statut_code' => 'vendu',
+                    'prixvente' => 0,
+                    'statutvente' => 0,
+                    'createpas_at' => now('UTC'),
+                    'datep_create' => mdate('%Y-%m-%d', now('UTC')),
+                );
+                if ($quartLeg !== null && $quartLeg !== '') {
+                    $passagerarray['quart'] = $quartLeg;
+                }
+                $this->m_passager->create($passagerarray);
+                // Filet anti-facturation : confirmation = 0 F (caisse + ticket EPSON).
+                $this->m_passager->update($tppasconf, $ctJob, array(
+                    'prixvente' => 0,
+                    'statutvente' => 0,
+                    'statut_confirme' => 'confirm',
+                ));
+
+                // Escale sur la dernière jambe (ligne d’arrivée), confirmation gratuite.
+                if ($lastSegProg !== '' && $sg['code_pro'] === $lastSegProg
+                    && ($idEscConfirm > 0 || $codeGEscConfirm !== '' || $nomEscConfirm !== '')
+                ) {
+                    $escFields = $this->sale_passager_service->preserve_escale_on_programme(
+                        $sg['code_pro'],
+                        $idEscConfirm,
+                        $codeGEscConfirm,
+                        $nomEscConfirm,
+                        false
+                    );
+                    if (!empty($escFields)) {
+                        $this->m_passager->update($tppasconf, $ctJob, $escFields);
+                    }
+                }
+
+                if (!$job['absorb'] && method_exists($this->sale_passager_service, 'release_tampon_siege')) {
+                    $this->sale_passager_service->release_tampon_siege($sg['code_pro'], $sg['siege']);
+                }
+
+                $prog = $this->db->query(
+                    "SELECT pr.date_progr, pr.typetarif, h.heure, h.id_heure, lh.id_ligneheure, lh.heure_identif,
+                            lg.nom_ligne, lg.gaexp_lg, lg.gadest_lg, ca.nom_compagnie
+                     FROM programme pr
+                     JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
+                     JOIN heures h ON lh.heure_identif = h.id_heure
+                     JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
+                     JOIN gare_dest ga ON lg.gadest_lg = ga.code_gadest
+                     JOIN compagnies ca ON ga.id_compaga = ca.cle_compagnie
+                     WHERE pr.code_progr = ?
+                     LIMIT 1",
+                    array($sg['code_pro'])
+                )->row();
+
+                if ($prog && empty($job['absorb'])) {
+                    $printLegs[] = array(
+                        'code_passager' => $tppasconf,
+                        'typetarif' => isset($prog->typetarif) ? (string) $prog->typetarif : '',
+                        'id_ligneheure' => isset($prog->id_ligneheure) ? (string) $prog->id_ligneheure : '',
+                    );
+                }
+
+                $jambesOut[] = array(
+                    'code_passager' => $tppasconf,
+                    'code_ticket' => $ctJob,
+                    'num_siege' => $sg['siege'],
+                    'date_progr' => $prog ? (string) $prog->date_progr : $sg['date'],
+                    'heure' => $prog ? (string) $prog->heure : $sg['heure'],
+                    'nom_ligne' => $prog ? (string) $prog->nom_ligne : $sg['ligne'],
+                    'compagnie' => $prog ? (string) $prog->nom_compagnie : '',
+                    'od' => $prog ? ($prog->gaexp_lg . ' → ' . $prog->gadest_lg) : '',
+                );
+            }
+
+            $first = !empty($jambesOut) ? $jambesOut[0] : array();
+            $isTransit = count($jambesOut) >= 2;
+
+            // Ticket type vente (EPSON) — prixvente=0 → non facturable.
+            $printUrl = '';
+            if ($mode === 'externe' && !empty($printLegs)) {
+                $leg0 = $printLegs[0];
+                $tf0 = $leg0['typetarif'];
+                $lh0 = $leg0['id_ligneheure'];
+                $cd0 = $leg0['code_passager'];
+                if ($cd0 !== '' && $tf0 !== '' && $lh0 !== '') {
+                    $base = rawurlencode($ekey) . '/'
+                        . rawurlencode($cd0) . '/'
+                        . rawurlencode($tf0) . '/'
+                        . rawurlencode($lh0);
+                    $tail = '/' . rawurlencode((string) $gid)
+                        . '/' . rawurlencode((string) $iduser)
+                        . '/' . rawurlencode((string) $sgid);
+                    $nPrint = count($printLegs);
+                    if ($nPrint === 1) {
+                        $printUrl = site_url('Historique_Passagers/editpdfepson/' . $base . $tail);
+                    } elseif ($nPrint === 2) {
+                        $printUrl = site_url(
+                            'Historique_Passagers/editpdfepsontrans/' . $base . '/'
+                            . rawurlencode($printLegs[1]['code_passager']) . '/'
+                            . rawurlencode($printLegs[1]['id_ligneheure'])
+                            . $tail
+                        );
+                    } elseif ($nPrint === 3) {
+                        $printUrl = site_url(
+                            'Historique_Passagers/editpdfepsontrans2/' . $base . '/'
+                            . rawurlencode($printLegs[1]['code_passager']) . '/'
+                            . rawurlencode($printLegs[1]['id_ligneheure']) . '/'
+                            . rawurlencode($printLegs[2]['code_passager']) . '/'
+                            . rawurlencode($printLegs[2]['id_ligneheure'])
+                            . $tail
+                        );
+                    } else {
+                        $printUrl = site_url(
+                            'Historique_Passagers/editpdfepsontrans3/' . $base . '/'
+                            . rawurlencode($printLegs[1]['code_passager']) . '/'
+                            . rawurlencode($printLegs[1]['id_ligneheure']) . '/'
+                            . rawurlencode($printLegs[2]['code_passager']) . '/'
+                            . rawurlencode($printLegs[2]['id_ligneheure']) . '/'
+                            . rawurlencode($printLegs[3]['code_passager']) . '/'
+                            . rawurlencode($printLegs[3]['id_ligneheure'])
+                            . $tail
+                        );
+                    }
+                }
+            }
+
+            return $this->load->view('beagle/pages/_programme/json', array(
+                'json' => array(
+                    'ok' => true,
+                    'mode' => $mode,
+                    'path_mode' => $isTransit ? 'transit' : 'direct',
+                    'code_ticket' => $codeTicket,
+                    'code_externe' => $mode === 'externe' ? $codeTicket : '',
+                    'code_passager' => $firstCode,
+                    'num_siege' => isset($first['num_siege']) ? $first['num_siege'] : '',
+                    'date_progr' => isset($first['date_progr']) ? $first['date_progr'] : '',
+                    'heure' => isset($first['heure']) ? $first['heure'] : '',
+                    'nom_ligne' => isset($first['nom_ligne']) ? $first['nom_ligne'] : '',
+                    'compagnie' => isset($first['compagnie']) ? $first['compagnie'] : '',
+                    'od' => isset($first['od']) ? $first['od'] : '',
+                    'jambes' => $jambesOut,
+                    'prixvente' => 0,
+                    'print_url' => $printUrl,
+                    'message' => $mode === 'externe'
+                        ? ($isTransit
+                            ? 'Confirmation externe transit enregistrée — non facturable (0 F). Imprimez ou notez les codes.'
+                            : 'Confirmation externe enregistrée — non facturable (0 F). Imprimez ou notez les codes.')
+                        : ($isTransit
+                            ? 'Confirmation transit enregistrée — non facturable (0 F). Notez toutes les jambes sur le ticket.'
+                            : 'Confirmation enregistrée — non facturable (0 F). Notez ces infos sur le ticket.'),
+                ),
+            ));
+        }
+
+        /**
+         * Résout nom_ligne / axes pour un OD externe (gare confirme → arrivée choisie).
+         * GET : gaexp, gadest
+         */
+        public function od_externe()
+        {
+            session_release_lock();
+            $role = isset($this->session->agent->userole) ? (string) $this->session->agent->userole : '';
+            if (!in_array($role, array('1', '2', '5', '15'), true)) {
+                return $this->load->view('beagle/pages/_programme/json', array(
+                    'json' => array('ok' => false, 'reason' => 'Rôle non autorisé.'),
+                ));
+            }
+            $ga = trim((string) $this->input->get_post('gaexp'));
+            $gd = trim((string) $this->input->get_post('gadest'));
+            // Valeur select éventuelle "CODE/xxx" → code seul.
+            if (strpos($gd, '/') !== false) {
+                $gd = trim(explode('/', $gd, 2)[0]);
+            }
+            if ($ga === '' || $gd === '') {
+                return $this->load->view('beagle/pages/_programme/json', array(
+                    'json' => array('ok' => false, 'reason' => 'Départ et arrivée requis.'),
+                ));
+            }
+            if (!isset($this->m_programme)) {
+                $this->load->model('Programme_model', 'm_programme');
+            }
+            $ga = $this->m_programme->normalize_gareidentif($ga);
+            $ekey = isset($this->session->company->ekey) ? $this->session->company->ekey : null;
+            $od = $this->m_programme->od_metier_globale($ga, $gd, $ekey);
+            $nom = isset($od['nom_ligne']) ? trim((string) $od['nom_ligne']) : '';
+            $ident = '';
+            if (!empty($od['axes']) && is_array($od['axes'])) {
+                $ident = trim((string) $od['axes'][0]);
+            }
+            if ($ident === '' && $nom !== '') {
+                $row = $this->db->query(
+                    "SELECT lg.ident_ligne FROM lignes lg
+                     WHERE lg.nom_ligne = ?
+                     ORDER BY lg.ident_ligne ASC LIMIT 1",
+                    array($nom)
+                )->row();
+                if ($row) {
+                    $ident = trim((string) $row->ident_ligne);
+                }
+            }
+            if ($nom === '' && $ident === '') {
+                return $this->load->view('beagle/pages/_programme/json', array(
+                    'json' => array(
+                        'ok' => false,
+                        'reason' => 'Aucune ligne trouvée pour ce trajet. Vérifiez l’arrivée ou utilisez un transit.',
+                    ),
+                ));
+            }
+            // Nom dérivé des codes si besoin (heures_unifie / verifchemins s’appuient dessus).
+            if ($nom === '') {
+                $nom = $ga . '-' . $gd;
+            }
+            return $this->load->view('beagle/pages/_programme/json', array(
+                'json' => array(
+                    'ok' => true,
+                    'gaexp' => $ga,
+                    'gadest' => $gd,
+                    'nom_ligne' => $nom,
+                    'ident_ligne' => $ident,
+                    'axes' => isset($od['axes']) ? $od['axes'] : array(),
+                ),
+            ));
+        }
     }
     
     /* End of file: Confirmation.php */

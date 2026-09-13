@@ -1213,6 +1213,8 @@ class Graphe_correspondance
             $o->arrive_itine = $nomDest;
             $o->code_gaexp = $gaexp;
             $o->code_gadest = $gadest;
+            $o->gaexp_lg = $gaexp;
+            $o->gadest_lg = $gadest;
             $o->nom_gaep = $nomExp;
             $o->nom_gadest = $nomDest;
             $o->id_compagd = $idCompagd;
@@ -1738,48 +1740,10 @@ class Graphe_correspondance
                 }
             }
 
-            // A : composition déclarée en tête — sauf si une heure ancre un départ gare
-            // (ex. Banfora–Ouaga 21h → priorité Banfora–Ouaga→Ouaga–Manga).
-            // Exception : si la composition a PLUS de jambes que le chemin gare
-            // (hub/tronçons, ex. Ouaga→Niangoloko via Banfora), la composition gagne.
-            $hasGareHourFirst = false;
-            $gareFirstNb = 0;
-            if ($heureOpt !== '') {
-                foreach ($cheminsOut as $cChk) {
-                    $srcChk = isset($cChk['source']) ? (string) $cChk['source'] : '';
-                    if ($srcChk === 'graphe_gare' || $srcChk === 'gare_composition') {
-                        $hasGareHourFirst = true;
-                        $gareFirstNb = isset($cChk['nb_jambes']) ? (int) $cChk['nb_jambes'] : 0;
-                        if ($gareFirstNb <= 0 && !empty($cChk['codes']) && is_array($cChk['codes'])) {
-                            $gareFirstNb = count($cChk['codes']);
-                        }
-                        break;
-                    }
-                }
-            }
-            $declNb = count($declCodes);
-            $forceDeclOverGare = $hasGareHourFirst && $sigDecl !== '' && $declNb >= 2 && $declNb > $gareFirstNb;
-            if ((!$hasGareHourFirst || $forceDeclOverGare) && $sigDecl !== '' && count($declCodes) >= 2 && count($cheminsOut) > 1) {
-                $declIdx = null;
-                foreach ($cheminsOut as $i => $c) {
-                    if (implode('>', $c['codes']) === $sigDecl) {
-                        $declIdx = $i;
-                        break;
-                    }
-                }
-                if ($declIdx !== null) {
-                    $item = $cheminsOut[$declIdx];
-                    if (strpos((string) $item['label'], 'composition') === false) {
-                        $item['label'] = rtrim((string) $item['label']) . ' · composition déclarée';
-                    }
-                    $item['source'] = (!empty($item['source']) && $item['source'] === 'graphe')
-                        ? 'graphe_declaratif'
-                        : (isset($item['source']) ? $item['source'] : 'declaratif');
-                    array_splice($cheminsOut, $declIdx, 1);
-                    array_unshift($cheminsOut, $item);
-                }
-            } elseif ($hasGareHourFirst && $sigDecl !== '' && count($declCodes) >= 2) {
-                // Marquer le déclaratif sans le remonter devant le départ gare.
+            // Ne plus remonter le déclaratif long devant un chemin gare plus court :
+            // le ranking final (hub_lie > programmes > graphe > déclaratif) se fait
+            // dans Chemins_programmes_vente::merge_et_prioriser / UI.
+            if ($sigDecl !== '' && count($declCodes) >= 2) {
                 foreach ($cheminsOut as $i => $c) {
                     if (implode('>', isset($c['codes']) ? $c['codes'] : array()) !== $sigDecl) {
                         continue;

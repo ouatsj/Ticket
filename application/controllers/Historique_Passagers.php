@@ -429,6 +429,23 @@
                 return $this->view($ckey, $uid, $g, $sg, $this->property);
             }
 
+            // Confirmation : toujours 0 F — bloquer avant tout calcul de prix.
+            $ticketConfirm = $this->db
+                ->select('statut_confirme')
+                ->from('passager')
+                ->where('code_passager', $cdp)
+                ->where('code_ticket', $ct)
+                ->limit(1)
+                ->get()
+                ->row();
+            if ($ticketConfirm
+                && function_exists('passager_est_confirmation_gratuite')
+                && passager_est_confirmation_gratuite($ticketConfirm->statut_confirme)
+            ) {
+                show_error('Une confirmation est non facturable (toujours 0 F). Modification du prix interdite.', 403);
+                return;
+            }
+
             if (sales_price_controls_enabled()) {
                 if (strtoupper($this->input->method()) !== 'POST'
                     || (string) $this->session->company->ekey !== (string) $ckey

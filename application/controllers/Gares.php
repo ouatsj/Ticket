@@ -796,13 +796,16 @@
                             return $this->m_compagnies->get();
                         });
                         
-                        $this->property['allgaredepart'] = $this->m_gare_depart->getbis($cid);
+                        $this->property['allgaredepart'] = app_cache_remember('gare_depart_bis_' . $cid, 300, function () use ($cid) {
+                            return $this->m_gare_depart->getbis($cid);
+                        });
                         $today_key = mdate('%Y-%m-%d', now('UTC'));
                         $totaux_key = guichet_totaux_cache_key($ekey, (int) $cpus, $today_key);
-                        if (function_exists('guichet_statutvente_heal_incoherent')) {
-                            guichet_statutvente_heal_incoherent((int) $cpus);
-                        }
+                        // Heal + compteurs seulement sur miss cache (évite 7+ requêtes à chaque F5).
                         $totaux = app_cache_remember($totaux_key, 90, function () use ($ekey, $cpus, $gid) {
+                            if (function_exists('guichet_statutvente_heal_incoherent')) {
+                                guichet_statutvente_heal_incoherent((int) $cpus);
+                            }
                             return array(
                                 'cptaller' => $this->m_passager->compteur($ekey, $cpus, $gid),
                                 'cptretour' => $this->m_non_passager->compteur($ekey, $cpus, $gid),
@@ -837,7 +840,9 @@
                             $this->property['gareactuelles'] = app_cache_remember('gare_depart_gidbis_' . $cid, 300, function () use ($cid) {
                                 return $this->m_gare_depart->getgidbisad($cid);
                             });
-                            $this->property['nom_vendeuses'] = $this->m_compte_user->get_userad3($ekey);
+                            $this->property['nom_vendeuses'] = app_cache_remember('vendeuses_ad3_' . $ekey, 300, function () use ($ekey) {
+                                return $this->m_compte_user->get_userad3($ekey);
+                            });
                             $this->property['lignesgare'] = app_cache_remember('lignes_lggaread_' . $cid, 300, function () use ($cid) {
                                 return $this->m_lignes->getlggaread($cid);
                             });
@@ -850,8 +855,16 @@
                             // KPI scoped entreprise (pas count_all global) — dérivé des listes déjà chargées.
                             $this->property['dashboard_axes_count'] = is_array($this->property['lignes'])
                                 ? count($this->property['lignes']) : 0;
-                            $this->property['dashboard_clients_count'] = app_cache_remember('dash_count_clients', 600, function () {
-                                return (int) $this->db->count_all('client');
+                            // ~1.3M lignes : COUNT(*) exact trop lent sous charge → approx information_schema.
+                            $this->property['dashboard_clients_count'] = app_cache_remember('dash_count_clients_approx', 3600, function () {
+                                $row = $this->db->query(
+                                    "SELECT TABLE_ROWS AS c
+                                     FROM information_schema.TABLES
+                                     WHERE TABLE_SCHEMA = DATABASE()
+                                       AND TABLE_NAME = 'client'
+                                     LIMIT 1"
+                                )->row();
+                                return $row ? (int) $row->c : 0;
                             });
                             $this->property['passagers'] = array();
                             $this->property['passagers_deferred'] = true;
@@ -859,13 +872,25 @@
                         }else
                         {
                             $this->property['garedeparts'] = $this->m_sousgare->getes($ekey, $gid, $idsg);
-                            $this->property['garearrivees'] = $this->m_gare_arrivee->get($cid, $gid);
-                            $this->property['garedepartcomp'] = $this->m_gare_depart->cmpget($cid, $gid);
-                            $this->property['garedepartcompt'] = $this->m_gare_depart->cmpgetad($cid);
-                            $this->property['gareactuelles'] = $this->m_gare_depart->getgidbis($cid, $gid);
+                            $this->property['garearrivees'] = app_cache_remember('gare_arrivee_' . $cid . '_' . $gid, 300, function () use ($cid, $gid) {
+                                return $this->m_gare_arrivee->get($cid, $gid);
+                            });
+                            $this->property['garedepartcomp'] = app_cache_remember('gare_depart_cmp_g_' . $cid . '_' . $gid, 300, function () use ($cid, $gid) {
+                                return $this->m_gare_depart->cmpget($cid, $gid);
+                            });
+                            $this->property['garedepartcompt'] = app_cache_remember('gare_depart_cmp_' . $cid, 300, function () use ($cid) {
+                                return $this->m_gare_depart->cmpgetad($cid);
+                            });
+                            $this->property['gareactuelles'] = app_cache_remember('gare_actuelles_' . $cid . '_' . $gid, 300, function () use ($cid, $gid) {
+                                return $this->m_gare_depart->getgidbis($cid, $gid);
+                            });
 
-                            $this->property['lignesgare'] = $this->m_lignes->getlggare($cid, $gid);
-                            $this->property['lignes'] = $this->m_lignes->get($cid, $gid);
+                            $this->property['lignesgare'] = app_cache_remember('lignes_lggare_' . $cid . '_' . $gid, 300, function () use ($cid, $gid) {
+                                return $this->m_lignes->getlggare($cid, $gid);
+                            });
+                            $this->property['lignes'] = app_cache_remember('lignes_g_' . $cid . '_' . $gid, 300, function () use ($cid, $gid) {
+                                return $this->m_lignes->get($cid, $gid);
+                            });
                         }
                         $this->property['typesclients'] = app_cache_remember('type_client_all', 600, function () {
                             return $this->m_type_client->get();
@@ -879,10 +904,13 @@
                             ? $bus_stop->code_gaexp
                             : (isset($bus_stop->gareprinceid) ? $bus_stop->gareprinceid : '');
                         $this->property['code_gaexp_vente'] = $code_gaexp_vente;
-                        $this->property['escales_depart'] = $this->m_itineraire_escale->points_depart_vente(
-                            (int) $cid,
-                            $code_gaexp_vente
-                        );
+                        $escale_cache_key = 'escales_depart_vente_' . $cid . '_' . $code_gaexp_vente;
+                        $this->property['escales_depart'] = app_cache_remember($escale_cache_key, 300, function () use ($cid, $code_gaexp_vente) {
+                            return $this->m_itineraire_escale->points_depart_vente(
+                                (int) $cid,
+                                $code_gaexp_vente
+                            );
+                        });
 
                         // Rôle 17 : escale déjà choisie dans la liste → départ figé.
                         $this->property['escale_depart_fixe'] = null;

@@ -1452,20 +1452,34 @@
                 // Chaque jambe conserve son prix programme ; la somme a été contrôlée (= ticket vérifié).
                 $prix = ($s['prix'] !== '') ? $s['prix'] : $prix_base;
 
+                if (!isset($this->sale_svc)) {
+                    $this->load->library('sale_passager_service', null, 'sale_svc');
+                }
+                // Jambe 1 : SG ticket/guichet si compatible ; suite : SG du gaexp de la jambe.
+                $sgLegPref = ($si === 0) ? $sgidtr : '';
+                $sgLeg = $this->sale_svc->resolve_depart_sousgare($s['code_progr'], $sgLegPref);
+                if ($sgLeg === '') {
+                    $sgLeg = $sgidtr;
+                }
+                $quartLeg = $this->sale_svc->resolve_dest_quartier($s['code_progr'], 'Marche');
+                if ($quartLeg === null || $quartLeg === '') {
+                    $quartLeg = 'Marche';
+                }
+
                 $pas = array(
                     'code_passager' => $tampon,
                     'code_ticket' => $cdtick,
                     'idcptuser' => $iduser,
                     'id_client_pass' => $client_id,
                     'code_pro' => $s['code_progr'],
-                    'departclient_idgare' => $sgidtr,
+                    'departclient_idgare' => $sgLeg,
                     'num_siege_categorie' => $s['siege'],
                     'num_cat' => $cat,
                     'statut_reprog' => 'repor',
                     'statut_code' => 'vendu',
                     // Hors encaissement agent (report gratuit, même multi-compagnie).
                     'statutvente' => self::REPROG_STATUTVENTE_HORS_CA,
-                    'quart' => 'Marche',
+                    'quart' => $quartLeg,
                     'createpas_at' => now('UTC'),
                     'datep_create' => mdate('%Y-%m-%d', now('UTC')),
                 );
@@ -1823,9 +1837,13 @@
          * Report : toutes compagnies / tous prix — ancré sur la gare de report uniquement.
          * Exige nom_ligne (pas de recherche par codes seuls).
          */
-        public function heures_unifie($gaexp, $gadest, $exclude)
+        public function heures_unifie($gaexp, $gadest = '', $exclude = '')
         {
             session_release_lock();
+            // Segment URL vide (ex. …/BOB1/OUA2/) → CI n’envoie pas le 3ᵉ arg.
+            if ($exclude === null || $exclude === '' || $exclude === '-' || $exclude === '0') {
+                $exclude = '';
+            }
             $id_escale = (int) $this->input->get_post('id_escale');
             $gare = trim((string) $this->input->get_post('gare'));
             if ($gare === '') {
@@ -1857,6 +1875,10 @@
                     }
                 }
             }
+            $dateFilter = trim((string) $this->input->get_post('date'));
+            if ($dateFilter !== '' && !preg_match('/^\d{4}-\d{2}-\d{2}$/', $dateFilter)) {
+                $dateFilter = '';
+            }
 
             $rows = $this->m_programme->heurereprog_unifie(
                 $this->session->company->ekey,
@@ -1868,9 +1890,58 @@
                 $gare !== '' ? $gare : null,
                 $sg,
                 $nom_ligne,
-                !empty($axes) ? $axes : null
+                !empty($axes) ? $axes : null,
+                $dateFilter !== '' ? $dateFilter : null
             );
+            // Enrichissement hub/dérivé pour le select Heure (1ER / 2ème + libellé).
+            $rows = $this->_reprog_enrich_heures_hub_labels($rows);
             return $this->load->view('beagle/pages/_programme/json', array('json' => $rows));
+        }
+
+        /**
+         * Ajoute hub_role / hub_label sur chaque programme (normal | derive | suite | principal).
+         *
+         * @param array|object[] $rows
+         * @return array
+         */
+        protected function _reprog_enrich_heures_hub_labels($rows)
+        {
+            if (!is_array($rows) || empty($rows)) {
+                return is_array($rows) ? $rows : array();
+            }
+            if (!isset($this->m_programme_correspondance)) {
+                $this->load->model('Programme_correspondance_model', 'm_programme_correspondance');
+            }
+            $codes = array();
+            foreach ($rows as $r) {
+                if (is_object($r) && !empty($r->code_progr)) {
+                    $codes[] = (string) $r->code_progr;
+                } elseif (is_array($r) && !empty($r['code_progr'])) {
+                    $codes[] = (string) $r['code_progr'];
+                }
+            }
+            $index = $this->m_programme_correspondance->index_for_codes($codes);
+            $out = array();
+            foreach ($rows as $r) {
+                $obj = is_object($r) ? $r : (object) $r;
+                $code = isset($obj->code_progr) ? (string) $obj->code_progr : '';
+                $role = '';
+                if ($code !== '' && isset($index[$code]['role'])) {
+                    $role = (string) $index[$code]['role'];
+                }
+                $obj->hub_role = $role;
+                if ($role === 'derive') {
+                    $obj->hub_label = 'dérivé';
+                } elseif ($role === 'suite') {
+                    $obj->hub_label = 'hub/suite';
+                } elseif ($role === 'principal') {
+                    $obj->hub_label = 'hub/principal';
+                } else {
+                    $obj->hub_label = 'normal';
+                }
+                $out[] = $obj;
+            }
+            return $out;
         }
         
         public function verifretcodecl($gid, $codert, $u)

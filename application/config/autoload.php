@@ -91,7 +91,8 @@
     /*
     | Noyau léger : helpers métier lourds chargés à la demande dans MY_Controller.
     */
-    $autoload['helper'] = array('url', 'form', 'html', 'date', 'string', 'file', 'session');
+    // ticket_prix : ancre confirmation toujours gratuite (create/update/caisse/impression).
+    $autoload['helper'] = array('url', 'form', 'html', 'date', 'string', 'file', 'session', 'ticket_prix');
     
     /*
     | -------------------------------------------------------------------
