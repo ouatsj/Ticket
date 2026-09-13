@@ -30,7 +30,9 @@ document.addEventListener('DOMContentLoaded', () => {
         tamponcodtr: '',
         hubCasEMsg: '',
         jambeIsolee: 0,
-        nomLigneOd: ''
+        nomLigneOd: '',
+        nom_gaep: '',
+        nom_gadest: ''
     };
 
     function __reprogQ(id) { return document.getElementById(id); }
@@ -721,18 +723,35 @@ document.addEventListener('DOMContentLoaded', () => {
         return n;
     }
 
+    /** Vraie vente escale (pas le simple libellé d’arrivée d’une jambe). */
+    function __reprogIsRealEscale(j) {
+        if (!j) return false;
+        var idEsc = j.id_escale_vente != null ? String(j.id_escale_vente).trim() : '';
+        if (idEsc && idEsc !== '0') return true;
+        var codeEsc = String(j.code_gadest_vente || '').trim();
+        var gd = String(j.gadest_lg || '').trim();
+        if (codeEsc && gd && codeEsc.toUpperCase() !== gd.toUpperCase()) return true;
+        var nom = String(j.nom_dest_vente || '').trim();
+        if (nom && codeEsc) return true;
+        return false;
+    }
+
     function __reprogApplyOdFromLegs() {
         var st = window.__reprogState;
         var jambes = st.jambesExpected || [];
         if (!jambes.length) return;
         var first = jambes[0] || {};
         var last = jambes[jambes.length - 1] || {};
-        // OD globale = départ 1ʳᵉ jambe → terminus PARENT dernière jambe (jamais code escale).
+        // OD = noms de gares (BANFORA → OUAGA) ; codes gardés pour les API programmes.
         var ga = first.gaexp_lg || st.gaexp || '';
         var gd = last.gadest_lg || st.gadest || '';
-        var destEscLabel = last.nom_dest_vente || last.dest_affiche || '';
-        if (last.nom_dest_vente || last.id_escale_vente || last.code_gadest_vente) {
-            // escale éventuelle sur dernière jambe — champs préservés, pas dans st.gadest
+        var nomDep = String(first.nom_gaep || st.nom_gaep || '').trim();
+        var nomArr = String(last.nom_gadest || st.nom_gadest || '').trim();
+        var realEsc = __reprogIsRealEscale(last);
+        var destEscLabel = realEsc
+            ? String(last.nom_dest_vente || last.dest_affiche || last.code_gadest_vente || '').trim()
+            : '';
+        if (realEsc) {
             if (__reprogQ('id_escale_vente_reprog') && last.id_escale_vente) {
                 __reprogQ('id_escale_vente_reprog').value = String(last.id_escale_vente);
                 st.id_escale = String(last.id_escale_vente);
@@ -741,12 +760,33 @@ document.addEventListener('DOMContentLoaded', () => {
                 __reprogQ('code_gadest_vente_reprog').value = last.code_gadest_vente || '';
             }
             if (__reprogQ('nom_dest_vente_reprog')) {
-                __reprogQ('nom_dest_vente_reprog').value = last.nom_dest_vente || last.dest_affiche || '';
+                __reprogQ('nom_dest_vente_reprog').value = last.nom_dest_vente || destEscLabel || '';
             }
             st.dest_escale = destEscLabel || st.dest_escale || '';
+        } else {
+            st.id_escale = '';
+            st.dest_escale = '';
+            if (__reprogQ('id_escale_vente_reprog')) __reprogQ('id_escale_vente_reprog').value = '';
+            if (__reprogQ('code_gadest_vente_reprog')) __reprogQ('code_gadest_vente_reprog').value = '';
+            if (__reprogQ('nom_dest_vente_reprog')) __reprogQ('nom_dest_vente_reprog').value = '';
         }
-        if (!st.nom_ligne) {
-            st.nom_ligne = __reprogComposeNomLigne(first.nom_ligne, last.nom_ligne);
+        // Nom de ligne = NOM_DEPART-NOM_ARRIVEE (prioritaire), sinon composition lignes.
+        if (jambes.length >= 2) {
+            var byNames = (nomDep && nomArr) ? (nomDep + '-' + nomArr) : '';
+            var composed = byNames || __reprogComposeNomLigne(first.nom_ligne, last.nom_ligne);
+            if (composed) {
+                st.nom_ligne = composed;
+                st.nomLigneOd = composed;
+            }
+        } else if (!st.nom_ligne) {
+            st.nom_ligne = (nomDep && nomArr)
+                ? (nomDep + '-' + nomArr)
+                : __reprogComposeNomLigne(first.nom_ligne, last.nom_ligne);
+        }
+        st.nom_gaep = nomDep || st.nom_gaep || '';
+        st.nom_gadest = nomArr || st.nom_gadest || '';
+        if (__reprogQ('replignunifie') && st.nom_ligne) {
+            __reprogQ('replignunifie').value = st.nom_ligne;
         }
         if (ga && gd) {
             st.gaexp = ga;
@@ -757,15 +797,11 @@ document.addEventListener('DOMContentLoaded', () => {
             if (__reprogQ('axe_unifie')) __reprogQ('axe_unifie').value = st.axe;
             var dirEl = __reprogQ('directionclpunifie');
             if (dirEl) {
-                if (st.id_escale || st.dest_escale || destEscLabel) {
-                    dirEl.textContent = 'DIRECTION: ' + ga + ' → escale ' + (destEscLabel || st.dest_escale || '—')
-                        + (st.nom_ligne ? (' (ligne ' + st.nom_ligne + ')') : '')
-                        + ' (transit ' + (st.nbrJambes || jambes.length) + ' jambes)';
-                } else {
-                    dirEl.textContent = 'DIRECTION: ' + ga + ' → ' + gd
-                        + (st.nom_ligne ? (' — ' + st.nom_ligne) : '')
-                        + ' (transit ' + (st.nbrJambes || jambes.length) + ' jambes)';
-                }
+                var left = nomDep || ga;
+                var right = realEsc && destEscLabel ? ('escale ' + destEscLabel) : (nomArr || gd);
+                dirEl.textContent = 'DIRECTION: ' + left + ' → ' + right
+                    + (st.nom_ligne ? (' — ' + st.nom_ligne) : '')
+                    + ' (transit ' + (st.nbrJambes || jambes.length) + ' jambes)';
             }
         }
     }
@@ -780,17 +816,28 @@ document.addEventListener('DOMContentLoaded', () => {
         var gdParent = donnees.gadest_lg ? String(donnees.gadest_lg).trim() : '';
         if (gdOd && codeEsc && gdOd.toUpperCase() === codeEsc.toUpperCase() && gdParent) {
             st.gadest = gdParent;
-        } else if (gdParent) {
-            st.gadest = gdParent;
         } else if (gdOd) {
             st.gadest = gdOd;
+        } else if (gdParent) {
+            st.gadest = gdParent;
         }
+        if (donnees.nom_gaep_od) st.nom_gaep = String(donnees.nom_gaep_od).trim();
+        else if (donnees.nom_gaep) st.nom_gaep = String(donnees.nom_gaep).trim();
+        if (donnees.nom_gadest_od) st.nom_gadest = String(donnees.nom_gadest_od).trim();
+        else if (donnees.nom_gadest) st.nom_gadest = String(donnees.nom_gadest).trim();
         if (donnees.axe_od && st.gaexp && st.gadest) st.axe = st.gaexp + '-' + st.gadest;
         else if (donnees.axe_od) st.axe = String(donnees.axe_od);
         else if (st.gaexp && st.gadest) st.axe = st.gaexp + '-' + st.gadest;
-        if (donnees.nom_ligne_parent) st.nom_ligne = String(donnees.nom_ligne_parent).trim();
-        else if (donnees.nom_ligne_od) st.nom_ligne = String(donnees.nom_ligne_od).trim();
-        else if (donnees.nom_ligne) st.nom_ligne = String(donnees.nom_ligne).trim();
+        // Nom de ligne prioritaire = NOM_DEPART-NOM_ARRIVEE.
+        if (st.nom_gaep && st.nom_gadest) {
+            st.nom_ligne = st.nom_gaep + '-' + st.nom_gadest;
+        } else if (donnees.nom_ligne_od) {
+            st.nom_ligne = String(donnees.nom_ligne_od).trim();
+        } else if (donnees.nom_ligne_parent) {
+            st.nom_ligne = String(donnees.nom_ligne_parent).trim();
+        } else if (donnees.nom_ligne) {
+            st.nom_ligne = String(donnees.nom_ligne).trim();
+        }
         if (Array.isArray(donnees.axes_od)) {
             st.axesOd = donnees.axes_od.map(function (a) { return String(a || '').trim(); }).filter(Boolean);
         }
@@ -798,6 +845,9 @@ document.addEventListener('DOMContentLoaded', () => {
         if (__reprogQ('gaexp_unifie')) __reprogQ('gaexp_unifie').value = st.gaexp || '';
         if (__reprogQ('gadest_unifie')) __reprogQ('gadest_unifie').value = st.gadest || '';
         if (__reprogQ('axe_unifie')) __reprogQ('axe_unifie').value = st.axe || '';
+        if (__reprogQ('replignunifie') && st.nom_ligne) {
+            __reprogQ('replignunifie').value = st.nom_ligne;
+        }
     }
 
     function __reprogAxesQuery() {
@@ -1391,16 +1441,16 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function __reprogAllowMultiChecked() {
-        var el = __reprogQ('reprog_allow_multi');
-        return !!(el && el.checked);
+        // Multi uniquement s’il n’y a pas de direct (plus de case à cocher « forcer multi »).
+        return false;
     }
 
     function __reprogSyncAllowMultiWrap(hasDirect) {
         var wrap = __reprogQ('reprog_allow_multi_wrap');
         var cb = __reprogQ('reprog_allow_multi');
-        if (!wrap) return;
-        wrap.style.display = hasDirect ? '' : 'none';
-        if (!hasDirect && cb) cb.checked = false;
+        if (wrap) wrap.style.display = 'none';
+        if (cb) cb.checked = false;
+        // hasDirect ignoré : directs d’abord ; multi proposé seulement s’il n’y en a pas.
     }
 
     function __reprogSetAncreVisible(show) {
@@ -1808,41 +1858,27 @@ document.addEventListener('DOMContentLoaded', () => {
         el.textContent = msg;
     }
 
-    /** P3 : périmètre report transit — global ou jambe isolée. */
+    /**
+     * Périmètre report retiré : toujours report global (OD des codes vérifiés).
+     * Ne plus proposer « jambe isolée » — ça réécrivait l’itinéraire (ex. Banfora-Bobo
+     * au lieu de Banfora-Ouaga) et faussait les directs.
+     */
     function __reprogFillJambeScope(nbrJambes, jambes) {
         var wrap = __reprogQ('reprog_jambe_scope_wrap');
         var sel = __reprogQ('reprog_jambe_scope');
         var hid = __reprogQ('reprog_jambe_isolee');
-        if (!wrap || !sel) return;
-        sel.innerHTML = '';
-        var opt0 = document.createElement('option');
-        opt0.value = '0';
-        opt0.textContent = 'Toutes les jambes (report global)';
-        sel.appendChild(opt0);
-        var n = parseInt(nbrJambes, 10) || 0;
-        if (n < 2) {
-            wrap.style.display = 'none';
-            if (hid) hid.value = '0';
-            window.__reprogState.jambeIsolee = 0;
-            return;
+        if (wrap) wrap.style.display = 'none';
+        if (sel) {
+            sel.innerHTML = '';
+            var opt0 = document.createElement('option');
+            opt0.value = '0';
+            opt0.textContent = 'Toutes les jambes (report global)';
+            sel.appendChild(opt0);
+            sel.value = '0';
+            sel.onchange = null;
         }
-        for (var i = 1; i <= n; i++) {
-            var j = (jambes && jambes[i - 1]) ? jambes[i - 1] : null;
-            var lab = j && (j.nom_ligne || j.code_ticket)
-                ? ('Jambe ' + i + ' seule — ' + (j.nom_ligne || j.code_ticket))
-                : ('Jambe ' + i + ' seule');
-            var opt = document.createElement('option');
-            opt.value = String(i);
-            opt.textContent = lab;
-            sel.appendChild(opt);
-        }
-        wrap.style.display = 'block';
-        sel.value = '0';
         if (hid) hid.value = '0';
         window.__reprogState.jambeIsolee = 0;
-        sel.onchange = function () {
-            __reprogApplyJambeScope(parseInt(sel.value, 10) || 0);
-        };
     }
 
     function __reprogApplyJambeScope(iso) {
@@ -2897,20 +2933,34 @@ document.addEventListener('DOMContentLoaded', () => {
                         __reprogQ('prenomclpunifie').textContent = 'PRENOM: ' + (donnees.prenom_client || '');
                         __reprogQ('contactclpunifie').textContent = 'CONTACT: ' + (donnees.contact_client || '');
                         __reprogQ('refclpunifie').textContent = 'CNIB: ' + (donnees.num_CNIB || '');
-                        var destEsc = donnees.dest_affiche || donnees.nom_dest_vente || '';
+                        var destEsc = donnees.nom_dest_vente || '';
+                        var codeEscVente = String(donnees.code_gadest_vente || '').trim();
+                        var gdParent = String(donnees.gadest_lg || donnees.gadest_od || '').trim();
                         var isEsc = parseInt(donnees.est_escale_vente, 10) === 1
                             || (donnees.id_escale_vente && String(donnees.id_escale_vente) !== '0')
-                            || !!donnees.nom_dest_vente;
-                        var ligneParent = donnees.nom_ligne_parent || donnees.nom_ligne || '';
-                        if (isEsc && donnees.direction_affiche) {
+                            || (codeEscVente !== '' && gdParent !== ''
+                                && codeEscVente.toUpperCase() !== gdParent.toUpperCase());
+                        if (!destEsc && isEsc) {
+                            destEsc = donnees.dest_affiche || codeEscVente || '';
+                        }
+                        var nomDep = String(donnees.nom_gaep_od || donnees.nom_gaep || '').trim();
+                        var nomArr = String(donnees.nom_gadest_od || donnees.nom_gadest || '').trim();
+                        var ligneParent = donnees.nom_ligne_od || donnees.nom_ligne_parent || donnees.nom_ligne || '';
+                        if (nomDep && nomArr && !ligneParent) {
+                            ligneParent = nomDep + '-' + nomArr;
+                        }
+                        if (parseInt(donnees.est_transit, 10) === 1 && donnees.direction_affiche) {
+                            __reprogQ('directionclpunifie').textContent = 'DIRECTION: ' + donnees.direction_affiche;
+                        } else if (isEsc && donnees.direction_affiche) {
                             __reprogQ('directionclpunifie').textContent = 'DIRECTION: ' + donnees.direction_affiche;
                         } else if (isEsc) {
                             __reprogQ('directionclpunifie').textContent =
-                                'DIRECTION: ' + (donnees.gaexp_lg || '') + ' → escale ' + destEsc
+                                'DIRECTION: ' + (nomDep || donnees.gaexp_lg || '') + ' → escale ' + destEsc
                                 + (ligneParent ? (' (ligne ' + ligneParent + ')') : '');
                         } else {
                             __reprogQ('directionclpunifie').textContent =
-                                'DIRECTION: ' + (donnees.gaexp_lg || '') + ' → ' + (donnees.gadest_lg || '')
+                                'DIRECTION: ' + (nomDep || donnees.gaexp_lg || '') + ' → '
+                                + (nomArr || donnees.gadest_lg || '')
                                 + (ligneParent ? (' — ' + ligneParent) : '');
                         }
                         if (__reprogQ('escaleclpunifie')) {
@@ -2983,9 +3033,14 @@ document.addEventListener('DOMContentLoaded', () => {
                         window.__reprogState.gaexp = donnees.gaexp_lg || '';
                         // Terminus de la ligne PARENT (ex. ABI41), jamais le code escale (FER44).
                         window.__reprogState.gadest = donnees.gadest_lg || donnees.gadest_od || '';
+                        window.__reprogState.nom_gaep = String(donnees.nom_gaep_od || donnees.nom_gaep || '').trim();
+                        window.__reprogState.nom_gadest = String(donnees.nom_gadest_od || donnees.nom_gadest || '').trim();
                         window.__reprogState.axe = (window.__reprogState.gaexp || '') + '-' + (window.__reprogState.gadest || '');
                         window.__reprogState.nom_ligne = String(
-                            donnees.nom_ligne_parent
+                            (window.__reprogState.nom_gaep && window.__reprogState.nom_gadest
+                                ? (window.__reprogState.nom_gaep + '-' + window.__reprogState.nom_gadest)
+                                : '')
+                            || donnees.nom_ligne_parent
                             || donnees.nom_ligne_od
                             || donnees.nom_ligne
                             || donnees.ligne_retour
@@ -3123,7 +3178,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                 __reprogQ('erreurSmspunifie').textContent =
                                     '1er code OK. Vérifiez les '
                                     + (window.__reprogState.nbrJambes - 1)
-                                    + ' autre(s) code(s) du transit — ou choisissez une jambe isolée.';
+                                    + ' autre(s) code(s) du transit.';
                             }
                             return;
                         }

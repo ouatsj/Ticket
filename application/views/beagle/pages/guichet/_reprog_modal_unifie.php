@@ -192,15 +192,11 @@ $allow_prix_diff_unifie = true;
             </p>
             <p class="small text-info mb-2" id="reprog_od_resume" style="display:none"></p>
             <p class="small text-warning mb-2" id="reprog_hub_cas_e_msg" style="display:none"></p>
-            <div class="form-group mb-2" id="reprog_jambe_scope_wrap" style="display:none">
-                <label class="small mb-0">Périmètre du report</label>
-                <select class="form-control form-control-sm" id="reprog_jambe_scope">
-                    <option value="0">Toutes les jambes (report global)</option>
+            <!-- Périmètre du report retiré : OD = direction des codes vérifiés (directs d’abord). -->
+            <div class="form-group mb-2" id="reprog_jambe_scope_wrap" style="display:none" hidden aria-hidden="true">
+                <select class="form-control form-control-sm" id="reprog_jambe_scope" tabindex="-1">
+                    <option value="0" selected>Toutes les jambes (report global)</option>
                 </select>
-                <p class="small text-muted mb-0 mt-1">
-                    <strong>Toutes les jambes</strong> : choisir ensuite l’itinéraire (direct ou correspondance) ci-dessous.
-                    <strong>Jambe isolée</strong> : seule cette correspondance est reportée ; les autres tickets du transit restent inchangés.
-                </p>
             </div>
             <div class="form-row">
                 <div class="form-group col-md-6 mb-2">
@@ -210,8 +206,9 @@ $allow_prix_diff_unifie = true;
                 <div class="form-group col-md-6 mb-2" id="reprog_ancre_heure_wrap" style="display:none">
                     <div class="d-flex align-items-center flex-wrap mb-1">
                         <label class="small mb-0 mr-2">Heure (départs programmes)</label>
-                        <label class="custom-control custom-checkbox custom-control-inline mb-0" id="reprog_allow_multi_wrap" style="display:none">
-                            <input type="checkbox" class="custom-control-input" id="reprog_allow_multi" value="1">
+                        <!-- Multi forcé uniquement s’il n’y a aucun direct pour l’OD (pas de case à cocher). -->
+                        <label class="custom-control custom-checkbox custom-control-inline mb-0" id="reprog_allow_multi_wrap" style="display:none" hidden aria-hidden="true">
+                            <input type="checkbox" class="custom-control-input" id="reprog_allow_multi" value="1" tabindex="-1">
                             <span class="custom-control-label small">Multi / correspondances</span>
                         </label>
                     </div>
@@ -219,9 +216,8 @@ $allow_prix_diff_unifie = true;
                         <option value="">Choisissez l'heure</option>
                     </select>
                     <p class="small text-muted mb-0 mt-1">
-                        Tous les départs programmes de la date : même heure → 1ER, 2ème… ;
-                        mention <em>normal</em> ou <em>hub/dérivé</em>.
-                        Cochez <em>Multi</em> pour afficher uniquement les correspondances (heures non-directes).
+                        Directs d’abord pour la date choisie (même OD / noms de gares).
+                        Correspondances multi proposées seulement s’il n’existe pas de départ direct.
                     </p>
                 </div>
                 <!-- Compagnie / « départ » retiré : le choix se fait dans Heure (1 programme = 1 option). -->

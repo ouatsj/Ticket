@@ -600,40 +600,12 @@
         }
 
         /**
-         * P3 : report d'une seule jambe d'un transit.
-         * Remappe les POST vers les champs « principal » et désactive l'invalidation multi.
+         * Périmètre / jambe isolée retiré : toujours report global (OD des codes vérifiés).
+         * Ignore toute valeur POST legacy de reprog_jambe_isolee.
          */
         protected function _reprog_apply_jambe_isolee_post()
         {
-            $iso = (int) $this->input->post('reprog_jambe_isolee');
-            if ($iso < 1 || $iso > 4) {
-                return;
-            }
-            if ($iso >= 2) {
-                $sfx = ($iso === 2) ? '2' : (string) $iso;
-                $pairs = array(
-                    'passeridtransit' => 'passeridtransit' . $sfx,
-                    'codeclienttransit' => 'codeclienttransit' . $sfx,
-                    'codeticketsclienttransit' => 'codeticketsclienttransit' . $sfx,
-                );
-                foreach ($pairs as $dst => $src) {
-                    if (!isset($_POST[$src])) {
-                        continue;
-                    }
-                    $val = trim((string) $_POST[$src]);
-                    if ($val !== '') {
-                        $_POST[$dst] = $val;
-                    }
-                }
-                $prixKey = 'prixventeunifie' . (($iso === 2) ? '2' : (string) $iso);
-                if (isset($_POST[$prixKey]) && trim((string) $_POST[$prixKey]) !== '') {
-                    $_POST['prixventeunifie'] = $_POST[$prixKey];
-                }
-            }
-            $_POST['reprog_mode'] = 'direct';
-            $_POST['reprog_nbr_seg'] = '0';
-            // Ne pas invalider les autres jambes du transit d'origine.
-            $_POST['reprog_is_transit_ticket'] = '0';
+            $_POST['reprog_jambe_isolee'] = '0';
         }
 
         /**
@@ -1089,6 +1061,8 @@
                 'tamponcod' => isset($row->tamponcod) ? (string) $row->tamponcod : '',
                 'gaexp_lg' => isset($row->gaexp_lg) ? (string) $row->gaexp_lg : '',
                 'gadest_lg' => isset($row->gadest_lg) ? (string) $row->gadest_lg : '',
+                'nom_gaep' => isset($row->nom_gaep) ? (string) $row->nom_gaep : '',
+                'nom_gadest' => isset($row->nom_gadest) ? (string) $row->nom_gadest : '',
                 'dest_affiche' => (string) $dest,
                 'heure' => isset($row->heure) ? (string) $row->heure : '',
                 'date_progr' => isset($row->date_progr) ? (string) $row->date_progr : '',
@@ -1163,6 +1137,7 @@
                         p.code_passager, p.code_ticket, p.prixvente, p.id_escale_vente,
                         p.nom_dest_vente, p.code_gadest_vente, p.statut_confirme,
                         h.heure, pr.date_progr, lg.nom_ligne, lg.gaexp_lg, lg.gadest_lg,
+                        ge.nom_gaep, ga.nom_gadest,
                         ca.nom_compagnie AS nom_compagnie
                  FROM tamponcode ctp
                  JOIN passager p ON p.code_passager = ctp.tamponcod
@@ -1170,6 +1145,7 @@
                  JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
                  JOIN heures h ON lh.heure_identif = h.id_heure
                  JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
+                 JOIN gare_exp ge ON lg.gaexp_lg = ge.code_gaexp
                  JOIN gare_dest ga ON lg.gadest_lg = ga.code_gadest
                  JOIN compagnies ca ON ga.id_compaga = ca.cle_compagnie
                  JOIN entreprise e ON ca.id_entrep = e.id_entreprise
@@ -1202,17 +1178,20 @@
             }
             $out->nbr_jambes = count($out->jambes);
 
-            // OD métier globale = départ 1ʳᵉ jambe → terminus ligne parent dernière jambe.
-            // Ne jamais utiliser code_gadest_vente (escale) comme gadest : sinon od_metier
-            // invente une fausse ligne (ex. OUAGA-FEREKE_CIT) au lieu de ABIDJAN_CIT.
+            // OD métier = noms de gares (BANFORA → OUAGA), pas les seuls codes BAN3/OUA2.
+            // Ne jamais utiliser code_gadest_vente (escale) comme gadest.
             if ($out->nbr_jambes >= 2) {
                 $first = $out->jambes[0];
                 $last = $out->jambes[$out->nbr_jambes - 1];
                 $gaOd = isset($first['gaexp_lg']) ? (string) $first['gaexp_lg'] : '';
                 $gdOd = isset($last['gadest_lg']) ? (string) $last['gadest_lg'] : '';
+                $nomDep = isset($first['nom_gaep']) ? trim((string) $first['nom_gaep']) : '';
+                $nomArr = isset($last['nom_gadest']) ? trim((string) $last['nom_gadest']) : '';
                 if (!isset($this->m_programme)) {
                     $this->load->model('Programme_model', 'm_programme');
                 }
+                // Nom de ligne prioritaire : NOM_DEPART-NOM_ARRIVEE (ex. BANFORA-OUAGA).
+                $nomParGares = ($nomDep !== '' && $nomArr !== '') ? ($nomDep . '-' . $nomArr) : '';
                 $od = $this->m_programme->od_metier_globale(
                     $gaOd,
                     $gdOd,
@@ -1220,11 +1199,32 @@
                     isset($first['nom_ligne']) ? $first['nom_ligne'] : null,
                     isset($last['nom_ligne']) ? $last['nom_ligne'] : null
                 );
+                if ($nomParGares !== '') {
+                    $byNom = $this->m_programme->axes_par_nom_ligne(
+                        $nomParGares,
+                        $this->session->company->ekey,
+                        $gaOd,
+                        $gdOd
+                    );
+                    if (!empty($byNom) || empty($od['nom_ligne'])) {
+                        $od['nom_ligne'] = $nomParGares;
+                        if (!empty($byNom)) {
+                            $od['axes'] = $byNom;
+                        }
+                    }
+                }
                 $out->gaexp_od = $od['gaexp'];
                 $out->gadest_od = $od['gadest'];
                 $out->axe_od = $od['axe'];
                 $out->nom_ligne_od = $od['nom_ligne'];
                 $out->axes_od = $od['axes'];
+                $out->nom_gaep_od = $nomDep;
+                $out->nom_gadest_od = $nomArr;
+                if ($nomDep !== '' && $nomArr !== '') {
+                    $out->direction_affiche = $nomDep . ' → ' . $nomArr
+                        . (!empty($od['nom_ligne']) ? (' — ' . $od['nom_ligne']) : '')
+                        . ' (transit ' . $out->nbr_jambes . ' jambes)';
+                }
             }
 
             return $out;
@@ -1362,11 +1362,14 @@
                 $destAff = ticket_destination_label($out, $parentGd);
             }
             $out->dest_affiche = $destAff !== '' ? $destAff : (isset($out->dest_affiche) ? $out->dest_affiche : '');
-            $out->direction_affiche = trim(
-                ($parentGa !== '' ? $parentGa : '—')
-                . ' → escale ' . ($destAff !== '' ? $destAff : '—')
-                . ($parentNom !== '' ? (' (ligne ' . $parentNom . ')') : '')
-            );
+            // Ne pas écraser une OD transit déjà calculée par noms de gares.
+            if (empty($out->est_transit) || empty($out->direction_affiche)) {
+                $out->direction_affiche = trim(
+                    ($parentGa !== '' ? $parentGa : '—')
+                    . ' → escale ' . ($destAff !== '' ? $destAff : '—')
+                    . ($parentNom !== '' ? (' (ligne ' . $parentNom . ')') : '')
+                );
+            }
 
             return $out;
         }
@@ -1856,10 +1859,18 @@
             if ($nom === '' && !empty($out->jambes) && is_array($out->jambes) && count($out->jambes) >= 2) {
                 $first = $out->jambes[0];
                 $last = $out->jambes[count($out->jambes) - 1];
-                $nom = $this->m_programme->composer_nom_ligne_od(
-                    isset($first['nom_ligne']) ? $first['nom_ligne'] : '',
-                    isset($last['nom_ligne']) ? $last['nom_ligne'] : ''
-                );
+                // Priorité : noms de gares (BANFORA-OUAGA), puis composition des noms de lignes.
+                $nd = isset($first['nom_gaep']) ? trim((string) $first['nom_gaep']) : '';
+                $na = isset($last['nom_gadest']) ? trim((string) $last['nom_gadest']) : '';
+                if ($nd !== '' && $na !== '') {
+                    $nom = $nd . '-' . $na;
+                }
+                if ($nom === '') {
+                    $nom = $this->m_programme->composer_nom_ligne_od(
+                        isset($first['nom_ligne']) ? $first['nom_ligne'] : '',
+                        isset($last['nom_ligne']) ? $last['nom_ligne'] : ''
+                    );
+                }
             }
             if ($nom === '') {
                 $ga = !empty($out->gaexp_od) ? trim((string) $out->gaexp_od)
