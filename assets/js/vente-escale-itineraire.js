@@ -319,6 +319,19 @@
             if (!fields) return;
 
             if (isEscaleMode()) {
+                if (typeof window.__venteForceAllerIfEscale === 'function') {
+                    window.__venteForceAllerIfEscale(form.key);
+                } else if (form.key === 'guichet' || form.key === 'fi') {
+                    // Repli si le mutex transit n’est pas encore chargé.
+                    var arSel = form.key === 'fi' ? '#aller_retourfid' : '#aller_retour';
+                    var aSel = form.key === 'fi' ? '#allerfid' : '#aller';
+                    var ar = $(arSel);
+                    var a = $(aSel);
+                    if (ar && ar.checked) {
+                        if (a) a.checked = true;
+                        ar.checked = false;
+                    }
+                }
                 fields.style.display = 'block';
                 refresh(true);
                 if (hasEscaleSelected()) {
@@ -342,6 +355,10 @@
                 form.showQuartier();
                 return;
             }
+            // Aller-retour incompatible avec escale.
+            if (typeof window.__venteForceAllerIfEscale === 'function') {
+                window.__venteForceAllerIfEscale(form.key);
+            }
             var sel = $(form.select);
             if (!sel) return;
             var opt = sel.options[sel.selectedIndex];
@@ -360,7 +377,7 @@
                 $(form.prix).value = prix;
             }
             form.hideQuartier();
-            setHelp('Escale sélectionnée — prix ' + Number(prix).toLocaleString('fr-FR') + ' F (sans quartier).', false);
+            setHelp('Escale sélectionnée — prix ' + Number(prix).toLocaleString('fr-FR') + ' F (sans quartier). Pas d’aller-retour sur escale.', false);
             syncPrixAffiche();
         }
 
@@ -905,6 +922,9 @@
         var fields = $(leg.fields);
         if (!ck || !fields) return;
         if (ck.checked) {
+            if (typeof window.__venteForceAllerIfEscale === 'function') {
+                window.__venteForceAllerIfEscale(leg.sfx === 'fid' ? 'fi' : 'guichet');
+            }
             fields.style.display = 'block';
             onSelect(leg);
         } else {
@@ -997,7 +1017,118 @@
         }
     }
 
+    /**
+     * Aller-retour XOR escale : pas de vente A/R sur une escale.
+     * formKey: 'guichet' | 'fi' | 'cf' (cf ignoré si pas de radio A/R).
+     */
+    function clearAllEscaleChecks(formKey) {
+        var selectors = [];
+        if (formKey === 'fi') {
+            selectors = [
+                '#escale_vente_check_fid',
+                '#escale_vente_check_tr1fid', '#escale_vente_check_tr2fid',
+                '#escale_vente_check_tr3fid', '#escale_vente_check_tr4fid'
+            ];
+        } else if (formKey === 'guichet') {
+            selectors = [
+                '#escale_vente_check',
+                '#escale_vente_check_tr1', '#escale_vente_check_tr2',
+                '#escale_vente_check_tr3', '#escale_vente_check_tr4'
+            ];
+        } else {
+            selectors = ['#escale_vente_check_cf'];
+        }
+        selectors.forEach(function (sel) {
+            var ck = $(sel);
+            if (ck && ck.checked) {
+                ck.checked = false;
+                ck.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+        });
+    }
+
+    function isAllerRetourSelected(formKey) {
+        if (formKey === 'fi') {
+            var arFi = $('#aller_retourfid');
+            if (arFi && arFi.checked) return true;
+            var arFi2 = $('#aller_retourfi');
+            if (arFi2 && arFi2.checked) return true;
+            return false;
+        }
+        var ar = $('#aller_retour');
+        return !!(ar && ar.checked);
+    }
+
+    function forceAllerRadio(formKey) {
+        if (formKey === 'fi') {
+            var a1 = $('#allerfid');
+            var a2 = $('#allerfi');
+            if (a1) a1.checked = true;
+            if (a2) a2.checked = true;
+            var ar1 = $('#aller_retourfid');
+            var ar2 = $('#aller_retourfi');
+            if (ar1) ar1.checked = false;
+            if (ar2) ar2.checked = false;
+            return;
+        }
+        var aller = $('#aller');
+        var ar = $('#aller_retour');
+        if (aller) aller.checked = true;
+        if (ar) ar.checked = false;
+    }
+
+    window.__venteForceAllerIfEscale = function (formKey) {
+        if (isAllerRetourSelected(formKey)) {
+            forceAllerRadio(formKey);
+        }
+    };
+
+    function bindAllerRetourEscaleMutex() {
+        var pairs = [
+            {
+                key: 'guichet',
+                radios: ['#aller', '#aller_retour'],
+                help: '#escale_dest_help'
+            },
+            {
+                key: 'fi',
+                radios: ['#allerfid', '#aller_retourfid', '#allerfi', '#aller_retourfi'],
+                help: '#escale_dest_help_fid'
+            }
+        ];
+        pairs.forEach(function (p) {
+            p.radios.forEach(function (sel) {
+                var el = $(sel);
+                if (!el || el._arEscaleBound) return;
+                el._arEscaleBound = true;
+                el.addEventListener('change', function () {
+                    if (isAllerRetourSelected(p.key)) {
+                        clearAllEscaleChecks(p.key);
+                        var help = $(p.help);
+                        if (help) {
+                            help.textContent = 'Aller-retour : escale indisponible (terminus uniquement).';
+                            help.className = 'form-text text-muted';
+                        }
+                    }
+                });
+            });
+        });
+
+        // Case escale principale : forcer Aller si A/R était coché.
+        ['#escale_vente_check', '#escale_vente_check_fid'].forEach(function (sel) {
+            var ck = $(sel);
+            if (!ck || ck._arEscaleBound) return;
+            ck._arEscaleBound = true;
+            ck.addEventListener('change', function () {
+                if (!ck.checked) return;
+                var key = (sel.indexOf('fid') !== -1) ? 'fi' : 'guichet';
+                forceAllerRadio(key);
+            });
+        });
+    }
+
     function boot() {
+        bindAllerRetourEscaleMutex();
         legs.forEach(function (leg) {
             if (!$(leg.wrap) && !$(leg.check)) return;
             var ck = $(leg.check);

@@ -161,7 +161,7 @@ $allow_externe = in_array($role_confirm, array('1', '2', '5', '15'), true);
                     <div class="form-check mt-1">
                         <label class="custom-control custom-checkbox custom-control-inline mb-0">
                             <input class="custom-control-input" type="checkbox" id="confirm_escale_check" value="1">
-                            <span class="custom-control-label">Escale</span>
+                            <span class="custom-control-label">Escale (destination partielle sur la ligne)</span>
                         </label>
                     </div>
                     <div id="confirm_escale_fields" style="display:none; margin-top:6px;">
@@ -170,7 +170,8 @@ $allow_externe = in_array($role_confirm, array('1', '2', '5', '15'), true);
                             <option value="">Choisissez l&apos;escale</option>
                         </select>
                         <small class="form-text text-muted" id="confirm_escale_help">
-                            Escales de la ligne (dernière jambe en correspondance). Confirmation gratuite.
+                            La ligne reste le trajet parent (terminus) ; l’escale est la destination confirmée.
+                            Confirmation gratuite. Pas lié à une vente A/R escale.
                         </small>
                     </div>
                 </div>

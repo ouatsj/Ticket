@@ -4406,66 +4406,56 @@
         }
 
         /**
-         * non_passager stocke l’OD **aller**. Le voyage retour part de la ville d’arrivée
-         * (ex. aller OUAGA→BOBO ⇒ confirmer à Bobo vers Ouaga).
+         * Sens retour à confirmer : inverse l’OD aller par NOM de gare / ligne
+         * (ex. aller MANGA→OUAGA ⇒ confirmer OUAGA→MANGA).
+         * Ne pas résoudre la destination par code ou id_ville seul : Guiba et Manga
+         * partagent la même ville → bug « escale » à la place du terminus.
          *
          * @return array{ville_confirm:int,gaexp_lg:string,gadest_lg:string,nom_ligne:string,ident_ligne:string,nom_ligne_aller:string,gaexp_aller:string,gadest_aller:string}
          */
         protected function _confirm_sens_retour_od($row, $gareAgent)
         {
+            if (!isset($this->m_programme)) {
+                $this->load->model('Programme_model', 'm_programme');
+            }
+            $stripEx = $this->m_programme->sql_strip_cie_suffix('ex.nom_gaep');
+            $stripGa = $this->m_programme->sql_strip_cie_suffix('ga.nom_gadest');
+            $stripExA = $this->m_programme->sql_strip_cie_suffix('exA.nom_gaep');
+            $stripGaA = $this->m_programme->sql_strip_cie_suffix('gaA.nom_gadest');
+            $stripExR = $this->m_programme->sql_strip_cie_suffix('exR.nom_gaep');
+            $stripGaR = $this->m_programme->sql_strip_cie_suffix('gaR.nom_gadest');
+            $stripEx0 = $this->m_programme->sql_strip_cie_suffix('ex0.nom_gaep');
+            $stripExL = $this->m_programme->sql_strip_cie_suffix('exL.nom_gaep');
+            $stripLg = $this->m_programme->sql_strip_cie_suffix('lg.nom_ligne');
+
             $gaAller = trim((string) (isset($row->gaexp_lg) ? $row->gaexp_lg : ''));
             $gdAller = trim((string) (isset($row->gadest_lg) ? $row->gadest_lg : ''));
             $nomAller = trim((string) (isset($row->nom_ligne) ? $row->nom_ligne : ''));
             if ($nomAller === '' && !empty($row->np_nom_ligne)) {
                 $nomAller = trim((string) $row->np_nom_ligne);
             }
+            $identAller = trim((string) (isset($row->ident_ligne) ? $row->ident_ligne : ''));
+            if ($identAller === '' && !empty($row->id_ligne_pass)) {
+                $identAller = trim((string) $row->id_ligne_pass);
+            }
             $villeConfirm = isset($row->ville_dest_retour) ? (int) $row->ville_dest_retour : 0;
             $compPrefer = isset($row->id_compaga) ? trim((string) $row->id_compaga) : '';
 
             $gareAgent = trim((string) $gareAgent);
             $gaRetour = $gareAgent;
+            // Sans gare agent : gare_exp dont le NOM = nom de la dest aller (pas id_ville).
             if ($gaRetour === '' && $gdAller !== '') {
                 $ex = $this->db->query(
-                    "SELECT ex.code_gaexp FROM gare_exp ex
+                    "SELECT ex.code_gaexp
+                     FROM gare_exp ex
                      JOIN gare_dest ga ON ga.code_gadest = ?
-                     WHERE ex.id_villegd = ga.id_villega
+                     WHERE {$stripEx} = {$stripGa}
                      ORDER BY ex.code_gaexp ASC
                      LIMIT 1",
                     array($gdAller)
                 )->row();
                 if ($ex) {
                     $gaRetour = trim((string) $ex->code_gaexp);
-                }
-            }
-
-            // Destination retour = gare_dest dans la ville d’origine de l’aller.
-            $gdRetour = '';
-            if ($gaAller !== '') {
-                $sql = "SELECT ga.code_gadest
-                        FROM gare_dest ga
-                        JOIN gare_exp ex ON ex.code_gaexp = ?
-                        WHERE ga.id_villega = ex.id_villegd";
-                $params = array($gaAller);
-                if ($compPrefer !== '') {
-                    $sql .= " AND ga.id_compaga = ?";
-                    $params[] = $compPrefer;
-                }
-                $sql .= " ORDER BY ga.code_gadest ASC LIMIT 1";
-                $d = $this->db->query($sql, $params)->row();
-                if ($d) {
-                    $gdRetour = trim((string) $d->code_gadest);
-                }
-                if ($gdRetour === '') {
-                    $d = $this->db->query(
-                        "SELECT ga.code_gadest FROM gare_dest ga
-                         JOIN gare_exp ex ON ex.code_gaexp = ?
-                         WHERE ga.id_villega = ex.id_villegd
-                         ORDER BY ga.code_gadest ASC LIMIT 1",
-                        array($gaAller)
-                    )->row();
-                    if ($d) {
-                        $gdRetour = trim((string) $d->code_gadest);
-                    }
                 }
             }
 
@@ -4476,25 +4466,146 @@
                     $nomRetour = trim($parts[count($parts) - 1]) . '-' . trim($parts[0]);
                 }
             }
-
-            if (!isset($this->m_programme)) {
-                $this->load->model('Programme_model', 'm_programme');
+            $nomRetourBase = $nomRetour;
+            if ($nomRetourBase !== '') {
+                $tmp = preg_replace('/_(VIP|CMT|ORD|EXPRESS|STD|CMTSD|VIPSD)$/i', '', $nomRetourBase);
+                if (is_string($tmp) && $tmp !== '') {
+                    $nomRetourBase = $tmp;
+                }
             }
-            $ekey = isset($this->session->company->ekey) ? $this->session->company->ekey : null;
+
+            // 1) Ligne inverse par NOM de ligne (MANGA-OUAGA → OUAGA-MANGA).
+            $gdRetour = '';
             $ident = '';
+            $lgInv = null;
+            if ($nomRetourBase !== '') {
+                $lgInv = $this->db->query(
+                    "SELECT lg.ident_ligne, lg.nom_ligne, lg.gaexp_lg, lg.gadest_lg
+                     FROM lignes lg
+                     JOIN gare_exp exL ON exL.code_gaexp = lg.gaexp_lg
+                     LEFT JOIN gare_exp ex0 ON ex0.code_gaexp = ?
+                     WHERE {$stripLg} = ?
+                       AND IFNULL(lg.actif_lg, 1) = 1
+                     ORDER BY
+                       CASE WHEN ? <> '' AND ex0.code_gaexp IS NOT NULL
+                         AND {$stripEx0} = {$stripExL} THEN 0 ELSE 1 END ASC,
+                       (INSTR(UPPER(lg.nom_ligne), 'ESCAL') > 0) ASC,
+                       CASE WHEN lg.nom_ligne = ? THEN 0 ELSE 1 END ASC,
+                       lg.ident_ligne ASC
+                     LIMIT 1",
+                    array($gaRetour, strtoupper($nomRetourBase), $gaRetour, $nomRetour)
+                )->row();
+            }
+
+            // 2) Miroir par NOM de gares (dest aller = dép. retour, dép. aller = dest retour).
+            if (!$lgInv && $gaAller !== '' && $gdAller !== '') {
+                $lgInv = $this->db->query(
+                    "SELECT lg.ident_ligne, lg.nom_ligne, lg.gaexp_lg, lg.gadest_lg
+                     FROM lignes lg
+                     JOIN gare_exp exA ON exA.code_gaexp = ?
+                     JOIN gare_dest gaA ON gaA.code_gadest = ?
+                     JOIN gare_exp exR ON exR.code_gaexp = lg.gaexp_lg
+                     JOIN gare_dest gaR ON gaR.code_gadest = lg.gadest_lg
+                     LEFT JOIN gare_exp ex0 ON ex0.code_gaexp = ?
+                     WHERE {$stripExR} = {$stripGaA}
+                       AND {$stripGaR} = {$stripExA}
+                       AND IFNULL(lg.actif_lg, 1) = 1
+                     ORDER BY
+                       CASE WHEN ? <> '' AND ex0.code_gaexp IS NOT NULL
+                         AND {$stripEx0} = {$stripExR} THEN 0 ELSE 1 END ASC,
+                       CASE WHEN ? <> '' AND {$stripLg} = ? THEN 0 ELSE 1 END ASC,
+                       (INSTR(UPPER(lg.nom_ligne), 'ESCAL') > 0) ASC,
+                       lg.ident_ligne ASC
+                     LIMIT 1",
+                    array(
+                        $gaAller, $gdAller, $gaRetour,
+                        $gaRetour,
+                        $nomRetourBase !== '' ? $nomRetourBase : '',
+                        strtoupper($nomRetourBase),
+                    )
+                )->row();
+            }
+
+            if ($lgInv) {
+                if ($gaRetour === '') {
+                    $gaRetour = trim((string) $lgInv->gaexp_lg);
+                }
+                $gdRetour = trim((string) $lgInv->gadest_lg);
+                $ident = trim((string) $lgInv->ident_ligne);
+                if (!empty($lgInv->nom_ligne)) {
+                    $nomRetour = trim((string) $lgInv->nom_ligne);
+                }
+            }
+
+            // 3) Repli : gare_dest dont le NOM = nom de la gare de départ aller (terminus).
+            if ($gdRetour === '' && $gaAller !== '') {
+                $escaleExcludeSql = '';
+                $escParams = array();
+                if ($identAller !== '') {
+                    $escaleExcludeSql = " AND ga.code_gadest NOT IN (
+                        SELECT ie.code_gadest FROM itineraire_escales ie
+                        WHERE ie.id_lignes = ? AND ie.actif_escale = 1
+                    )
+                    AND UPPER(TRIM(ga.nom_gadest)) NOT IN (
+                        SELECT UPPER(TRIM(ie.nom_escale)) FROM itineraire_escales ie
+                        WHERE ie.id_lignes = ? AND ie.actif_escale = 1
+                    )";
+                    $escParams[] = $identAller;
+                    $escParams[] = $identAller;
+                }
+                $sql = "SELECT ga.code_gadest
+                        FROM gare_dest ga
+                        JOIN gare_exp ex ON ex.code_gaexp = ?
+                        WHERE {$stripGa} = {$stripEx}";
+                $params = array_merge(array($gaAller), $escParams);
+                if ($compPrefer !== '') {
+                    $sql .= " AND ga.id_compaga = ?";
+                    $params[] = $compPrefer;
+                }
+                $sql .= $escaleExcludeSql;
+                $sql .= " ORDER BY ga.code_gadest ASC LIMIT 1";
+                $d = $this->db->query($sql, $params)->row();
+                if (!$d && $compPrefer !== '') {
+                    $paramsNoCie = array_merge(array($gaAller), $escParams);
+                    $sqlNoCie = "SELECT ga.code_gadest
+                                 FROM gare_dest ga
+                                 JOIN gare_exp ex ON ex.code_gaexp = ?
+                                 WHERE {$stripGa} = {$stripEx}"
+                        . $escaleExcludeSql
+                        . " ORDER BY ga.code_gadest ASC LIMIT 1";
+                    $d = $this->db->query($sqlNoCie, $paramsNoCie)->row();
+                }
+                if ($d) {
+                    $gdRetour = trim((string) $d->code_gadest);
+                }
+            }
+
+            $ekey = isset($this->session->company->ekey) ? $this->session->company->ekey : null;
             if ($gaRetour !== '' && $gdRetour !== '') {
                 $od = $this->m_programme->od_metier_globale($gaRetour, $gdRetour, $ekey, $nomRetour, null);
                 if (!empty($od['nom_ligne'])) {
-                    $nomRetour = trim((string) $od['nom_ligne']);
+                    $odNom = trim((string) $od['nom_ligne']);
+                    $preferKeep = ($nomRetour !== '' && stripos($nomRetour, 'ESCAL') === false
+                        && stripos($odNom, 'ESCAL') !== false);
+                    if (!$preferKeep) {
+                        $nomRetour = $odNom;
+                    }
                 }
-                if (!empty($od['axes']) && is_array($od['axes']) && !empty($od['axes'][0])) {
+                if ($ident === '' && !empty($od['axes']) && is_array($od['axes']) && !empty($od['axes'][0])) {
                     $ident = trim((string) $od['axes'][0]);
                 }
             }
             if ($ident === '' && $nomRetour !== '') {
+                $nomIdent = preg_replace('/_(VIP|CMT|ORD|EXPRESS|STD|CMTSD|VIPSD)$/i', '', $nomRetour);
+                if (!is_string($nomIdent) || $nomIdent === '') {
+                    $nomIdent = $nomRetour;
+                }
                 $lg = $this->db->query(
-                    "SELECT ident_ligne FROM lignes WHERE nom_ligne = ? ORDER BY ident_ligne ASC LIMIT 1",
-                    array($nomRetour)
+                    "SELECT ident_ligne FROM lignes lg
+                     WHERE {$stripLg} = ?
+                     ORDER BY (INSTR(UPPER(lg.nom_ligne), 'ESCAL') > 0) ASC, lg.ident_ligne ASC
+                     LIMIT 1",
+                    array(strtoupper($nomIdent))
                 )->row();
                 if ($lg) {
                     $ident = trim((string) $lg->ident_ligne);
@@ -5487,7 +5598,17 @@
                     'nom_ligne' => $prog ? (string) $prog->nom_ligne : $sg['ligne'],
                     'compagnie' => $prog ? (string) $prog->nom_compagnie : '',
                     'od' => $prog ? ($prog->gaexp_lg . ' → ' . $prog->gadest_lg) : '',
+                    'dest_escale' => '',
                 );
+                // Dernière jambe + escale : distinguer destination partielle du terminus ligne.
+                if ($lastSegProg !== '' && $sg['code_pro'] === $lastSegProg && $nomEscConfirm !== '') {
+                    $idx = count($jambesOut) - 1;
+                    $jambesOut[$idx]['dest_escale'] = $nomEscConfirm;
+                    $jambesOut[$idx]['od'] = ($prog ? $prog->gaexp_lg : '') . ' → ' . $nomEscConfirm
+                        . ' (escale ; ligne ' . ($prog ? $prog->nom_ligne : '') . ')';
+                    $jambesOut[$idx]['nom_ligne'] = ($prog ? (string) $prog->nom_ligne : $sg['ligne'])
+                        . ' → ' . $nomEscConfirm;
+                }
             }
 
             $first = !empty($jambesOut) ? $jambesOut[0] : array();

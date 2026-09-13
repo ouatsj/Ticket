@@ -95,10 +95,29 @@
                                                     value="<?= $item->montcomtpte; ?>" readonly>
                                             </div>
                                             <div class="form-group col-sm-4">
-                                                <label>MONTANT RÉEL (doit = bordereau)</label>
-                                                <input class="form-control form-control-sm" type="text" name="montantverse" autocomplete="off"
+                                                <label>MONTANT REÇU</label>
+                                                <input class="form-control form-control-sm js-montant-recu" type="text" name="montantverse" autocomplete="off"
                                                     value="<?= $item->montcomtpte; ?>" required>
-                                                <small class="text-muted">Tout écart est refusé — corriger l’arrêt vendeur si besoin.</small>
+                                                <small class="text-muted js-montant-hint">Sans case cochée : doit être égal au bordereau.</small>
+                                            </div>
+                                            <div class="form-group col-sm-4">
+                                                <label>ÉCART DE CAISSE</label>
+                                                <div class="custom-control custom-checkbox">
+                                                    <input class="custom-control-input js-ecart-manquant" type="checkbox"
+                                                           name="ecart_manquant" value="1"
+                                                           id="ecart_manquant-<?= (int) $item->idcpguichet; ?>">
+                                                    <label class="custom-control-label" for="ecart_manquant-<?= (int) $item->idcpguichet; ?>">
+                                                        Manquant (reçu &lt; bordereau)
+                                                    </label>
+                                                </div>
+                                                <div class="custom-control custom-checkbox">
+                                                    <input class="custom-control-input js-ecart-surplus" type="checkbox"
+                                                           name="ecart_surplus" value="1"
+                                                           id="ecart_surplus-<?= (int) $item->idcpguichet; ?>">
+                                                    <label class="custom-control-label" for="ecart_surplus-<?= (int) $item->idcpguichet; ?>">
+                                                        Surplus (reçu &gt; bordereau)
+                                                    </label>
+                                                </div>
                                             </div>
                                             <div class="form-group col-sm-4">
                                                 <label>COMMENTAIRE</label>
@@ -413,5 +432,35 @@
         </div>   
     </div>
 </div>
+<script>
+(function () {
+    function bindEcartCheckboxes(root) {
+        var manquant = root.querySelector('.js-ecart-manquant');
+        var surplus = root.querySelector('.js-ecart-surplus');
+        var hint = root.querySelector('.js-montant-hint');
+        if (!manquant || !surplus) return;
+        function syncHint() {
+            if (!hint) return;
+            if (manquant.checked) {
+                hint.textContent = 'Manquant : saisissez un montant reçu inférieur au bordereau.';
+            } else if (surplus.checked) {
+                hint.textContent = 'Surplus : saisissez un montant reçu supérieur au bordereau.';
+            } else {
+                hint.textContent = 'Sans case cochée : doit être égal au bordereau.';
+            }
+        }
+        manquant.addEventListener('change', function () {
+            if (manquant.checked) surplus.checked = false;
+            syncHint();
+        });
+        surplus.addEventListener('change', function () {
+            if (surplus.checked) manquant.checked = false;
+            syncHint();
+        });
+        syncHint();
+    }
+    document.querySelectorAll('form.modal-body').forEach(bindEcartCheckboxes);
+})();
+</script>
 <!--End of file: compteuser.php-->
 <!--File location: application/views/beagle/pages/_caisse/compteuser.php-->

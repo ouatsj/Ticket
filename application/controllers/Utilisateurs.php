@@ -44,6 +44,86 @@
         }
 
         /**
+         * Montant reçu vs bordereau à la validation chef.
+         * Sans case : égalité stricte. Manquant : reçu < bordereau. Surplus : reçu > bordereau.
+         *
+         * @return array{montant:float,commentaire:string}|null
+         */
+        protected function _validerecette_resolve_montant_recu($montantBordereau)
+        {
+            $montantBordereau = round((float) $montantBordereau, 2);
+            $montantSaisi = round(
+                (float) str_replace(array(' ', ','), array('', '.'), (string) $this->input->post('montantverse')),
+                2
+            );
+            $manquantRaw = $this->input->post('ecart_manquant');
+            $surplusRaw = $this->input->post('ecart_surplus');
+            $isManquant = ($manquantRaw === '1' || $manquantRaw === 1 || $manquantRaw === 'on' || $manquantRaw === true);
+            $isSurplus = ($surplusRaw === '1' || $surplusRaw === 1 || $surplusRaw === 'on' || $surplusRaw === true);
+
+            if ($isManquant && $isSurplus) {
+                show_error(
+                    'Cochez soit Manquant, soit Surplus — pas les deux en même temps.',
+                    422,
+                    'Validation refusée'
+                );
+                return null;
+            }
+
+            $diff = $montantSaisi - $montantBordereau;
+            $fmt = function ($n) {
+                return number_format((float) $n, 0, ',', ' ');
+            };
+
+            if (!$isManquant && !$isSurplus) {
+                if (abs($diff) > 0.009) {
+                    show_error(
+                        'Écart interdit : le montant reçu (' . $fmt($montantSaisi)
+                        . ') doit être égal au bordereau (' . $fmt($montantBordereau)
+                        . '). Cochez Manquant ou Surplus pour valider un écart, ou corrigez l’arrêt vendeur.',
+                        422,
+                        'Validation refusée'
+                    );
+                    return null;
+                }
+            } elseif ($isManquant) {
+                if ($diff >= -0.009) {
+                    show_error(
+                        'Manquant : le montant reçu (' . $fmt($montantSaisi)
+                        . ') doit être inférieur au bordereau (' . $fmt($montantBordereau) . ').',
+                        422,
+                        'Validation refusée'
+                    );
+                    return null;
+                }
+            } else { // surplus
+                if ($diff <= 0.009) {
+                    show_error(
+                        'Surplus : le montant reçu (' . $fmt($montantSaisi)
+                        . ') doit être supérieur au bordereau (' . $fmt($montantBordereau) . ').',
+                        422,
+                        'Validation refusée'
+                    );
+                    return null;
+                }
+            }
+
+            $comment = trim((string) $this->input->post('comment'));
+            if ($isManquant || $isSurplus) {
+                $ecartNote = ($isManquant ? 'Écart MANQUANT' : 'Écart SURPLUS')
+                    . ' : reçu ' . $fmt($montantSaisi)
+                    . ' / bordereau ' . $fmt($montantBordereau)
+                    . ' (écart ' . $fmt(abs($diff)) . ')';
+                $comment = ($comment === '') ? $ecartNote : ($comment . ' | ' . $ecartNote);
+            }
+
+            return array(
+                'montant' => $montantSaisi,
+                'commentaire' => $comment,
+            );
+        }
+
+        /**
          * Lie la page caisse principale sans donner aux rôles 13/14
          * les privilèges globaux des rôles 1/2.
          */
@@ -859,15 +939,8 @@
                     return;
                 }
                 $montantBordereau = round((float) $cgRow->montcomtpte, 2);
-                $montantSaisi = round((float) str_replace(array(' ', ','), array('', '.'), (string) $this->input->post('montantverse')), 2);
-                if (abs($montantSaisi - $montantBordereau) > 0.009) {
-                    show_error(
-                        'Écart interdit : le montant réel (' . number_format($montantSaisi, 0, ',', ' ')
-                        . ') doit être égal au bordereau (' . number_format($montantBordereau, 0, ',', ' ')
-                        . '). Relancez l’arrêt vendeur si le bordereau est faux.',
-                        422,
-                        'Validation refusée'
-                    );
+                $resolved = $this->_validerecette_resolve_montant_recu($montantBordereau);
+                if ($resolved === null) {
                     return;
                 }
 
@@ -879,8 +952,8 @@
                     'type_recet' => $this->input->post('interne'),
                     'idopera' => $idopera_recette,
                     'nom' => $this->input->post('nom'),
-                    'montant_recet' => $montantBordereau,
-                    'commentaire_recet' => $this->input->post('comment'),
+                    'montant_recet' => $resolved['montant'],
+                    'commentaire_recet' => $resolved['commentaire'],
                     'date_recet' => $this->input->post('daterecep'),
                     'createdrecet_at' => now('UTC'),
                 );
@@ -944,8 +1017,27 @@
                             $this->m_escalclients->update($items1->idclescal, $plarrase);
 
                         }
-                
-                
+
+                $cgRowEsc = $this->db->query(
+                    "SELECT idcpguichet, montcomtpte, is_validcompte
+                     FROM compte_guichet
+                     WHERE idcpguichet = ?
+                     LIMIT 1",
+                    array((int) $idcptvers)
+                )->row();
+                if (!$cgRowEsc) {
+                    show_error('Bordereau introuvable.', 404, 'Validation impossible');
+                    return;
+                }
+                if ((int) $cgRowEsc->is_validcompte === 1) {
+                    show_error('Ce bordereau est déjà validé.', 409, 'Validation impossible');
+                    return;
+                }
+                $resolvedEsc = $this->_validerecette_resolve_montant_recu((float) $cgRowEsc->montcomtpte);
+                if ($resolvedEsc === null) {
+                    return;
+                }
+
                 $arrayrecette = array(
                     'idcaisse' => $this->input->post('idgar'),
                     'id_genre_recet' => $this->input->post('genre'),
@@ -954,8 +1046,8 @@
                     'type_recet' => $this->input->post('interne'),
                     'idopera' => $idopera_recette,
                     'nom' => $this->input->post('nom'),
-                    'montant_recet' => $this->input->post('montantverse'),
-                    'commentaire_recet' => $this->input->post('comment'),
+                    'montant_recet' => $resolvedEsc['montant'],
+                    'commentaire_recet' => $resolvedEsc['commentaire'],
                     'date_recet' => $this->input->post('daterecep'),
                     'createdrecet_at' => now('UTC'),
                 );

@@ -252,6 +252,35 @@
         });
     }
 
+    function __cSyncOdLabels() {
+        var ligneEl = __cQ('confirm_ligne_cl');
+        var dirEl = __cQ('confirm_direction_cl');
+        if (!ligneEl && !dirEl) return;
+        var parent = String((__cQ('confirm_nom_ligne') || {}).value || '').trim();
+        var ga = String((__cQ('confirm_gaexp') || {}).value || '').trim();
+        var gd = String((__cQ('confirm_gadest') || {}).value || '').trim();
+        var nomEsc = String((__cQ('nom_dest_vente_confirm') || {}).value || '').trim();
+        var mode = String((__cQ('confirm_mode_unifie') || {}).value || '');
+        var prefixLigne = (mode === 'retour') ? 'LIGNE RETOUR: ' : 'LIGNE: ';
+        if (__cEscaleChecked() && nomEsc) {
+            if (ligneEl) {
+                ligneEl.textContent = prefixLigne + (parent || '—')
+                    + ' — destination escale: ' + nomEsc;
+            }
+            if (dirEl) {
+                dirEl.textContent = 'DIRECTION: ' + (ga || '—') + ' → ' + nomEsc
+                    + ' (escale ; terminus ligne ' + (gd || '—') + ')';
+            }
+            return;
+        }
+        if (ligneEl && parent) {
+            ligneEl.textContent = prefixLigne + parent;
+        }
+        if (dirEl && (ga || gd)) {
+            dirEl.textContent = 'DIRECTION: ' + (ga || '') + ' → ' + (gd || '');
+        }
+    }
+
     function __cOnEscaleCheckChange() {
         var fields = __cQ('confirm_escale_fields');
         if (__cEscaleChecked()) {
@@ -267,6 +296,7 @@
             __cClearEscale();
             var dateYmd2 = __cNormDate((__cQ('date_confirm_unifie') || {}).value || '');
             if (dateYmd2) __cLoadHeures(dateYmd2);
+            __cSyncOdLabels();
         }
         __cUpdateOkBtn();
     }
@@ -275,6 +305,7 @@
         var sel = __cQ('confirm_escale_select');
         if (!sel || !sel.value) {
             __cClearEscale(false);
+            __cSyncOdLabels();
             __cUpdateOkBtn();
             return;
         }
@@ -282,6 +313,7 @@
         __cSetVal('id_escale_vente_confirm', sel.value);
         __cSetVal('code_gadest_vente_confirm', opt ? (opt.getAttribute('data-code') || '') : '');
         __cSetVal('nom_dest_vente_confirm', opt ? (opt.getAttribute('data-nom') || '') : '');
+        __cSyncOdLabels();
         var dateYmd = __cNormDate((__cQ('date_confirm_unifie') || {}).value || '');
         if (dateYmd && window.__confirmState.pathMode !== 'transit') {
             __cLoadHeures(dateYmd);
@@ -1252,12 +1284,14 @@
                 __cQ('confirm_nom_cl').textContent = 'NOM: ' + nom;
                 __cQ('confirm_prenom_cl').textContent = 'PRÉNOM: ' + prenom;
                 __cQ('confirm_contact_cl').textContent = 'CONTACT: ' + tel;
-                __cQ('confirm_direction_cl').textContent = 'DIRECTION: '
-                    + (od.gaexp || gaexp) + ' → ' + (od.gadest || gadest);
-                __cQ('confirm_ligne_cl').textContent = 'LIGNE: ' + (od.nom_ligne || '—');
-                __cQ('confirm_code_cl').textContent = 'CODE EXTERNE: '
-                    + ((__cQ('confirm_code_ticket') || {}).value || '—');
-                __cQ('confirm_prix_info_cl').textContent = 'Confirmation externe : 0 F';
+        __cQ('confirm_direction_cl').textContent = 'DIRECTION: '
+            + (od.gaexp || gaexp) + ' → ' + (od.gadest || gadest)
+            + ' (ligne terminus — cochez Escale pour une destination partielle)';
+        __cQ('confirm_ligne_cl').textContent = 'LIGNE: ' + (od.nom_ligne || '—');
+        __cQ('confirm_code_cl').textContent = 'CODE EXTERNE: '
+            + ((__cQ('confirm_code_ticket') || {}).value || '—');
+        __cQ('confirm_prix_info_cl').textContent = 'Confirmation externe : 0 F';
+        __cSyncOdLabels();
                 __cQ('confirm_infos_wrap').style.display = 'grid';
 
                 var odFields = __cQ('confirm_externe_od_fields');
@@ -1331,6 +1365,7 @@
         __cQ('confirm_prix_info_cl').textContent = 'Prix retour (déjà payé à l’aller): '
             + (donnees.prixretour != null ? donnees.prixretour : '—')
             + ' — confirmation: 0 F';
+        __cSyncOdLabels();
 
         __cQ('confirm_infos_wrap').style.display = 'grid';
         var ew2 = __cQ('confirm_externe_wrap');

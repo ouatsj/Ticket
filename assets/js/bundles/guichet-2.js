@@ -5296,6 +5296,19 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!fields) return;
 
             if (isEscaleMode()) {
+                if (typeof window.__venteForceAllerIfEscale === 'function') {
+                    window.__venteForceAllerIfEscale(form.key);
+                } else if (form.key === 'guichet' || form.key === 'fi') {
+                    // Repli si le mutex transit n’est pas encore chargé.
+                    var arSel = form.key === 'fi' ? '#aller_retourfid' : '#aller_retour';
+                    var aSel = form.key === 'fi' ? '#allerfid' : '#aller';
+                    var ar = $(arSel);
+                    var a = $(aSel);
+                    if (ar && ar.checked) {
+                        if (a) a.checked = true;
+                        ar.checked = false;
+                    }
+                }
                 fields.style.display = 'block';
                 refresh(true);
                 if (hasEscaleSelected()) {
@@ -5319,6 +5332,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 form.showQuartier();
                 return;
             }
+            // Aller-retour incompatible avec escale.
+            if (typeof window.__venteForceAllerIfEscale === 'function') {
+                window.__venteForceAllerIfEscale(form.key);
+            }
             var sel = $(form.select);
             if (!sel) return;
             var opt = sel.options[sel.selectedIndex];
@@ -5337,7 +5354,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 $(form.prix).value = prix;
             }
             form.hideQuartier();
-            setHelp('Escale sélectionnée — prix ' + Number(prix).toLocaleString('fr-FR') + ' F (sans quartier).', false);
+            setHelp('Escale sélectionnée — prix ' + Number(prix).toLocaleString('fr-FR') + ' F (sans quartier). Pas d’aller-retour sur escale.', false);
             syncPrixAffiche();
         }
 
@@ -5882,6 +5899,9 @@ document.addEventListener('DOMContentLoaded', () => {
         var fields = $(leg.fields);
         if (!ck || !fields) return;
         if (ck.checked) {
+            if (typeof window.__venteForceAllerIfEscale === 'function') {
+                window.__venteForceAllerIfEscale(leg.sfx === 'fid' ? 'fi' : 'guichet');
+            }
             fields.style.display = 'block';
             onSelect(leg);
         } else {
@@ -5974,7 +5994,118 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    /**
+     * Aller-retour XOR escale : pas de vente A/R sur une escale.
+     * formKey: 'guichet' | 'fi' | 'cf' (cf ignoré si pas de radio A/R).
+     */
+    function clearAllEscaleChecks(formKey) {
+        var selectors = [];
+        if (formKey === 'fi') {
+            selectors = [
+                '#escale_vente_check_fid',
+                '#escale_vente_check_tr1fid', '#escale_vente_check_tr2fid',
+                '#escale_vente_check_tr3fid', '#escale_vente_check_tr4fid'
+            ];
+        } else if (formKey === 'guichet') {
+            selectors = [
+                '#escale_vente_check',
+                '#escale_vente_check_tr1', '#escale_vente_check_tr2',
+                '#escale_vente_check_tr3', '#escale_vente_check_tr4'
+            ];
+        } else {
+            selectors = ['#escale_vente_check_cf'];
+        }
+        selectors.forEach(function (sel) {
+            var ck = $(sel);
+            if (ck && ck.checked) {
+                ck.checked = false;
+                ck.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+        });
+    }
+
+    function isAllerRetourSelected(formKey) {
+        if (formKey === 'fi') {
+            var arFi = $('#aller_retourfid');
+            if (arFi && arFi.checked) return true;
+            var arFi2 = $('#aller_retourfi');
+            if (arFi2 && arFi2.checked) return true;
+            return false;
+        }
+        var ar = $('#aller_retour');
+        return !!(ar && ar.checked);
+    }
+
+    function forceAllerRadio(formKey) {
+        if (formKey === 'fi') {
+            var a1 = $('#allerfid');
+            var a2 = $('#allerfi');
+            if (a1) a1.checked = true;
+            if (a2) a2.checked = true;
+            var ar1 = $('#aller_retourfid');
+            var ar2 = $('#aller_retourfi');
+            if (ar1) ar1.checked = false;
+            if (ar2) ar2.checked = false;
+            return;
+        }
+        var aller = $('#aller');
+        var ar = $('#aller_retour');
+        if (aller) aller.checked = true;
+        if (ar) ar.checked = false;
+    }
+
+    window.__venteForceAllerIfEscale = function (formKey) {
+        if (isAllerRetourSelected(formKey)) {
+            forceAllerRadio(formKey);
+        }
+    };
+
+    function bindAllerRetourEscaleMutex() {
+        var pairs = [
+            {
+                key: 'guichet',
+                radios: ['#aller', '#aller_retour'],
+                help: '#escale_dest_help'
+            },
+            {
+                key: 'fi',
+                radios: ['#allerfid', '#aller_retourfid', '#allerfi', '#aller_retourfi'],
+                help: '#escale_dest_help_fid'
+            }
+        ];
+        pairs.forEach(function (p) {
+            p.radios.forEach(function (sel) {
+                var el = $(sel);
+                if (!el || el._arEscaleBound) return;
+                el._arEscaleBound = true;
+                el.addEventListener('change', function () {
+                    if (isAllerRetourSelected(p.key)) {
+                        clearAllEscaleChecks(p.key);
+                        var help = $(p.help);
+                        if (help) {
+                            help.textContent = 'Aller-retour : escale indisponible (terminus uniquement).';
+                            help.className = 'form-text text-muted';
+                        }
+                    }
+                });
+            });
+        });
+
+        // Case escale principale : forcer Aller si A/R était coché.
+        ['#escale_vente_check', '#escale_vente_check_fid'].forEach(function (sel) {
+            var ck = $(sel);
+            if (!ck || ck._arEscaleBound) return;
+            ck._arEscaleBound = true;
+            ck.addEventListener('change', function () {
+                if (!ck.checked) return;
+                var key = (sel.indexOf('fid') !== -1) ? 'fi' : 'guichet';
+                forceAllerRadio(key);
+            });
+        });
+    }
+
     function boot() {
+        bindAllerRetourEscaleMutex();
         legs.forEach(function (leg) {
             if (!$(leg.wrap) && !$(leg.check)) return;
             var ck = $(leg.check);
@@ -13569,6 +13700,35 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    function __cSyncOdLabels() {
+        var ligneEl = __cQ('confirm_ligne_cl');
+        var dirEl = __cQ('confirm_direction_cl');
+        if (!ligneEl && !dirEl) return;
+        var parent = String((__cQ('confirm_nom_ligne') || {}).value || '').trim();
+        var ga = String((__cQ('confirm_gaexp') || {}).value || '').trim();
+        var gd = String((__cQ('confirm_gadest') || {}).value || '').trim();
+        var nomEsc = String((__cQ('nom_dest_vente_confirm') || {}).value || '').trim();
+        var mode = String((__cQ('confirm_mode_unifie') || {}).value || '');
+        var prefixLigne = (mode === 'retour') ? 'LIGNE RETOUR: ' : 'LIGNE: ';
+        if (__cEscaleChecked() && nomEsc) {
+            if (ligneEl) {
+                ligneEl.textContent = prefixLigne + (parent || '—')
+                    + ' — destination escale: ' + nomEsc;
+            }
+            if (dirEl) {
+                dirEl.textContent = 'DIRECTION: ' + (ga || '—') + ' → ' + nomEsc
+                    + ' (escale ; terminus ligne ' + (gd || '—') + ')';
+            }
+            return;
+        }
+        if (ligneEl && parent) {
+            ligneEl.textContent = prefixLigne + parent;
+        }
+        if (dirEl && (ga || gd)) {
+            dirEl.textContent = 'DIRECTION: ' + (ga || '') + ' → ' + (gd || '');
+        }
+    }
+
     function __cOnEscaleCheckChange() {
         var fields = __cQ('confirm_escale_fields');
         if (__cEscaleChecked()) {
@@ -13584,6 +13744,7 @@ document.addEventListener('DOMContentLoaded', () => {
             __cClearEscale();
             var dateYmd2 = __cNormDate((__cQ('date_confirm_unifie') || {}).value || '');
             if (dateYmd2) __cLoadHeures(dateYmd2);
+            __cSyncOdLabels();
         }
         __cUpdateOkBtn();
     }
@@ -13592,6 +13753,7 @@ document.addEventListener('DOMContentLoaded', () => {
         var sel = __cQ('confirm_escale_select');
         if (!sel || !sel.value) {
             __cClearEscale(false);
+            __cSyncOdLabels();
             __cUpdateOkBtn();
             return;
         }
@@ -13599,6 +13761,7 @@ document.addEventListener('DOMContentLoaded', () => {
         __cSetVal('id_escale_vente_confirm', sel.value);
         __cSetVal('code_gadest_vente_confirm', opt ? (opt.getAttribute('data-code') || '') : '');
         __cSetVal('nom_dest_vente_confirm', opt ? (opt.getAttribute('data-nom') || '') : '');
+        __cSyncOdLabels();
         var dateYmd = __cNormDate((__cQ('date_confirm_unifie') || {}).value || '');
         if (dateYmd && window.__confirmState.pathMode !== 'transit') {
             __cLoadHeures(dateYmd);
@@ -14569,12 +14732,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 __cQ('confirm_nom_cl').textContent = 'NOM: ' + nom;
                 __cQ('confirm_prenom_cl').textContent = 'PRÉNOM: ' + prenom;
                 __cQ('confirm_contact_cl').textContent = 'CONTACT: ' + tel;
-                __cQ('confirm_direction_cl').textContent = 'DIRECTION: '
-                    + (od.gaexp || gaexp) + ' → ' + (od.gadest || gadest);
-                __cQ('confirm_ligne_cl').textContent = 'LIGNE: ' + (od.nom_ligne || '—');
-                __cQ('confirm_code_cl').textContent = 'CODE EXTERNE: '
-                    + ((__cQ('confirm_code_ticket') || {}).value || '—');
-                __cQ('confirm_prix_info_cl').textContent = 'Confirmation externe : 0 F';
+        __cQ('confirm_direction_cl').textContent = 'DIRECTION: '
+            + (od.gaexp || gaexp) + ' → ' + (od.gadest || gadest)
+            + ' (ligne terminus — cochez Escale pour une destination partielle)';
+        __cQ('confirm_ligne_cl').textContent = 'LIGNE: ' + (od.nom_ligne || '—');
+        __cQ('confirm_code_cl').textContent = 'CODE EXTERNE: '
+            + ((__cQ('confirm_code_ticket') || {}).value || '—');
+        __cQ('confirm_prix_info_cl').textContent = 'Confirmation externe : 0 F';
+        __cSyncOdLabels();
                 __cQ('confirm_infos_wrap').style.display = 'grid';
 
                 var odFields = __cQ('confirm_externe_od_fields');
@@ -14648,6 +14813,7 @@ document.addEventListener('DOMContentLoaded', () => {
         __cQ('confirm_prix_info_cl').textContent = 'Prix retour (déjà payé à l’aller): '
             + (donnees.prixretour != null ? donnees.prixretour : '—')
             + ' — confirmation: 0 F';
+        __cSyncOdLabels();
 
         __cQ('confirm_infos_wrap').style.display = 'grid';
         var ew2 = __cQ('confirm_externe_wrap');

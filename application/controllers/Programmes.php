@@ -452,6 +452,59 @@
             return trim((string) $v) !== '';
         }
 
+        /**
+         * Interdit Aller-retour + escale (A/R = terminus uniquement).
+         * @return bool true si bloqué (redirect déjà fait)
+         */
+        protected function _sale_ar_escale_guard()
+        {
+            $radio = trim((string) $this->input->post('radio-inline'));
+            $radioFi = trim((string) $this->input->post('radio-inlinefid'));
+            $radioFi2 = trim((string) $this->input->post('radio-inlinefi'));
+            $isAr = ($radio === 'aller_retour')
+                || ($radioFi === 'aller_retour')
+                || ($radioFi2 === 'aller_retourfi');
+            if (!$isAr) {
+                return false;
+            }
+            $escKeys = array(
+                'id_escale_vente', 'id_escale_ventefid', 'id_escale_ventecf',
+                'id_escale_vente_tr1', 'id_escale_vente_tr2', 'id_escale_vente_tr3', 'id_escale_vente_tr4',
+                'id_escale_vente_tr1fid', 'id_escale_vente_tr2fid',
+                'id_escale_vente_tr3fid', 'id_escale_vente_tr4fid',
+            );
+            $hasEsc = false;
+            foreach ($escKeys as $k) {
+                if ((int) $this->input->post($k) > 0) {
+                    $hasEsc = true;
+                    break;
+                }
+            }
+            if (!$hasEsc) {
+                $checks = array(
+                    'escale_vente_check', 'escale_vente_check_fid',
+                    'escale_vente_check_tr1', 'escale_vente_check_tr2',
+                    'escale_vente_check_tr3', 'escale_vente_check_tr4',
+                    'escale_vente_check_tr1fid', 'escale_vente_check_tr2fid',
+                    'escale_vente_check_tr3fid', 'escale_vente_check_tr4fid',
+                );
+                foreach ($checks as $k) {
+                    $v = $this->input->post($k);
+                    if ($v === '1' || $v === 1 || $v === 'on' || $v === true) {
+                        $hasEsc = true;
+                        break;
+                    }
+                }
+            }
+            if (!$hasEsc) {
+                return false;
+            }
+            $this->_addpassager_redirect_back(
+                'Aller-retour impossible sur une escale. Choisissez Aller + escale, ou Aller-retour sur le terminus.'
+            );
+            return true;
+        }
+
         protected function _sale_transit_leg1_missing_message()
         {
             $missing = array();
@@ -3102,6 +3155,10 @@
             }
 
             if ($this->_sale_siege_bloque_guard()) {
+                return;
+            }
+
+            if ($this->_sale_ar_escale_guard()) {
                 return;
             }
 
@@ -15318,6 +15375,10 @@
             }
 
             if ($this->_sale_siege_bloque_guard()) {
+                return;
+            }
+
+            if ($this->_sale_ar_escale_guard()) {
                 return;
             }
 
