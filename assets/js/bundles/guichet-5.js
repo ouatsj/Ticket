@@ -8851,10 +8851,14 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!et.length) return false;
         var ga0 = __reprogEtapeCodeGaexp(et[0]);
         var gd0 = __reprogEtapeCodeGadest(et[0]);
+        var gdLast = __reprogEtapeCodeGadest(et[et.length - 1]);
         // Contre-sens : 1ʳᵉ jambe part de la destination ticket.
         if (dest && ga0 && ga0 === dest) return false;
         // Contre-sens / boucle : 1ʳᵉ jambe arrive à la gare de report.
         if (gare && gd0 && gd0 === gare) return false;
+        // Dernière jambe doit viser la destination ticket si on la connaît (codes).
+        // Ne pas exiger égalité stricte BAM6≠BAM53 : seulement rejeter si on repart vers le départ.
+        if (gare && gdLast && gdLast === gare && et.length >= 2) return false;
         return true;
     }
 
@@ -10077,125 +10081,69 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function __reprogOnDateChangeAfterRows(dateYmd) {
         var st = window.__reprogState;
-        var needItin = __reprogNeedsItineraireSelect();
         var n = __reprogFillHeuresForDate(dateYmd);
         var allowMulti = __reprogAllowMultiChecked();
         __reprogSyncAllowMultiWrap(n > 0);
         if (__reprogQ('smspunifie')) __reprogQ('smspunifie').style.display = 'none';
 
-        // Toujours poser replignunifie = ligne OD (report global / direct).
         if (st.nom_ligne && __reprogQ('replignunifie')) {
             __reprogQ('replignunifie').value = st.nom_ligne;
         }
 
-        if (needItin) {
-            // Report global transit : afficher l’itinéraire.
-            __reprogSetAncreVisible(false);
-            __reprogHideDirect();
-            var directs = __reprogDirectsAsChemins(dateYmd);
-            if (directs.length > 0 && !allowMulti) {
-                st.chemins = __reprogMergeItineraires(directs, [], false);
-                __reprogShowCorrExclusive(
-                    st.chemins,
-                    'Report global — directs depuis la gare de report pour '
-                        + (st.nom_ligne || st.axe || '—') + ' le ' + dateYmd
-                );
-                return;
-            }
-            // Multi coché (ou pas de direct) : correspondances multi uniquement.
-            __reprogFetchChemins(dateYmd, '', function (chemins) {
-                var all = allowMulti
-                    ? __reprogRowsArray(chemins).filter(function (ch) {
-                        if (!ch || ch.source === 'declaratif') return false;
-                        if (!__reprogCheminSensOk(ch)) return false;
-                        return __reprogNormalizeEtapes(ch.etapes || ch.legs).length >= 2;
-                    })
-                    : __reprogMergeItineraires([], chemins, false);
-                st.chemins = all;
-                var odLabel = st.nom_ligne || st.axe || '—';
-                if (!all.length) {
-                    var box = __reprogQ('smspunifie');
-                    var err = __reprogQ('erreurSmspunifie');
-                    if (box) box.style.display = 'block';
-                    if (err) {
-                        err.textContent = (allowMulti
-                            ? 'Multi activé : aucune correspondance pour '
-                            : 'Aucun itinéraire (direct ou correspondance) pour ')
-                            + odLabel + ' le ' + dateYmd
-                            + (allowMulti ? '. Décochez Multi pour les directs.' : '.');
-                    }
-                    return;
-                }
-                __reprogShowCorrExclusive(
-                    all,
-                    (allowMulti
-                        ? 'Multi activé — correspondances uniquement pour '
-                        : 'Report global — correspondances depuis la gare de report pour ')
-                        + odLabel + ' le ' + dateYmd
-                );
-            }, true);
-            return;
-        }
+        // Flux unique : date → programmes OD → itinéraires cohérents (du plus simple)
+        // → choix itinéraire → segments + compagnie.
+        __reprogSetAncreVisible(false);
+        __reprogHideDirect();
 
-        // Direct / jambe isolée.
-        // Multi coché : masquer les directs Heure → uniquement correspondances multi.
-        __reprogSetAncreVisible(true);
-        if (n > 0 && allowMulti) {
-            __reprogResetSelect(__reprogQ('heuredepartpunifie'), "Choisissez l'heure");
-            __reprogSetAncreVisible(false);
-            __reprogHideDirect();
-            __reprogFetchChemins(dateYmd, '', function (chemins) {
-                var multiOnly = __reprogRowsArray(chemins).filter(function (ch) {
-                    if (!ch || ch.source === 'declaratif') return false;
-                    if (!__reprogCheminSensOk(ch)) return false;
-                    return __reprogNormalizeEtapes(ch.etapes || ch.legs).length >= 2;
-                });
-                st.chemins = multiOnly;
-                if (!multiOnly.length) {
-                    var boxM = __reprogQ('smspunifie');
-                    var errM = __reprogQ('erreurSmspunifie');
-                    if (boxM) boxM.style.display = 'block';
-                    if (errM) {
-                        errM.textContent = 'Multi activé : aucune correspondance pour '
-                            + (st.nom_ligne || st.axe || '—') + ' le ' + dateYmd
-                            + '. Décochez Multi pour les directs.';
-                    }
-                    return;
-                }
-                __reprogShowCorrExclusive(
-                    multiOnly,
-                    'Multi activé — correspondances uniquement (pas les directs) pour '
-                        + (st.nom_ligne || st.axe || '—') + ' le ' + dateYmd
-                );
-            }, true);
-            return;
-        }
-        if (n > 0) {
-            __reprogHideCorr();
-            return;
-        }
-
-        // Aucun départ programme : tenter correspondances multi.
+        var directs = (!allowMulti) ? __reprogDirectsAsChemins(dateYmd) : [];
         __reprogFetchChemins(dateYmd, '', function (chemins) {
-            var all = __reprogMergeItineraires([], chemins, false);
+            var multi = __reprogRowsArray(chemins).filter(function (ch) {
+                if (!ch || ch.source === 'declaratif') return false;
+                if (!__reprogCheminSensOk(ch)) return false;
+                return __reprogNormalizeEtapes(ch.etapes || ch.legs).length >= 2;
+            });
+            var all;
+            if (allowMulti) {
+                all = multi;
+            } else if (directs.length) {
+                // Directs seuls s’il y en a (XOR).
+                all = __reprogMergeItineraires(directs, [], false);
+            } else {
+                all = __reprogMergeItineraires([], multi, false);
+            }
+            // Du plus simple : 1 jambe puis 2, 3…
+            all.sort(function (a, b) {
+                var na = a.nb_jambes || __reprogNormalizeEtapes(a.etapes || a.legs).length || 99;
+                var nb = b.nb_jambes || __reprogNormalizeEtapes(b.etapes || b.legs).length || 99;
+                if (na !== nb) return na - nb;
+                return 0;
+            });
             st.chemins = all;
             var odLabel = st.nom_ligne || st.axe || '—';
             if (!all.length) {
-                var box2 = __reprogQ('smspunifie');
-                var err2 = __reprogQ('erreurSmspunifie');
-                if (box2) box2.style.display = 'block';
-                if (err2) {
-                    err2.textContent = 'Aucun départ programme ni correspondance pour '
-                        + odLabel + ' le ' + dateYmd + '.';
+                var box = __reprogQ('smspunifie');
+                var err = __reprogQ('erreurSmspunifie');
+                if (box) box.style.display = 'block';
+                if (err) {
+                    err.textContent = (allowMulti
+                        ? 'Multi activé : aucune correspondance réelle pour '
+                        : 'Aucun départ programme ni correspondance réelle pour ')
+                        + odLabel + ' le ' + dateYmd
+                        + '. Vérifiez les programmes actifs (même OD / sens).';
                 }
                 return;
             }
-            __reprogShowCorrExclusive(
-                all,
-                'Pas de départ direct : correspondances depuis la gare de report pour '
-                    + odLabel + ' le ' + dateYmd
-            );
-        }, false);
+            var msg;
+            if (allowMulti) {
+                msg = 'Correspondances (programmes réels) pour ' + odLabel + ' le ' + dateYmd;
+            } else if (directs.length) {
+                msg = 'Directs pour ' + odLabel + ' le ' + dateYmd
+                    + ' — choisissez un itinéraire (compagnie dans le segment)';
+            } else {
+                msg = 'Pas de direct : correspondances cohérentes pour ' + odLabel + ' le ' + dateYmd;
+            }
+            __reprogShowCorrExclusive(all, msg);
+        }, true);
     }
 
     function __reprogOnHeureChange() {

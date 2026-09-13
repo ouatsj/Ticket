@@ -2291,13 +2291,17 @@
                 return '';
             }
             $esc = $this->db->escape($gare);
-            $stripPr = $this->sql_strip_cie_suffix('ex_pr.nom_gaexp');
-            $stripRef = $this->sql_strip_cie_suffix('ex_ref.nom_gaexp');
-            return " AND EXISTS (
-                SELECT 1 FROM gare_exp ex_pr
-                INNER JOIN gare_exp ex_ref ON ex_ref.code_gaexp = {$esc}
-                WHERE ex_pr.code_gaexp = pr.gareidentif
-                  AND {$stripPr} = {$stripRef}
+            $stripPr = $this->sql_strip_cie_suffix('ex_pr.nom_gaep');
+            $stripRef = $this->sql_strip_cie_suffix('ex_ref.nom_gaep');
+            // Code exact OU même nom (suffixes cie retirés) — pas id_villegd.
+            return " AND (
+                pr.gareidentif = {$esc}
+                OR EXISTS (
+                    SELECT 1 FROM gare_exp ex_pr
+                    INNER JOIN gare_exp ex_ref ON ex_ref.code_gaexp = {$esc}
+                    WHERE ex_pr.code_gaexp = pr.gareidentif
+                      AND {$stripPr} = {$stripRef}
+                )
             )";
         }
 
@@ -2441,14 +2445,18 @@
             $depNomSql = '';
             if ($depCode !== '') {
                 $depEsc = $this->db->escape($depCode);
-                $stripLg = $this->sql_strip_cie_suffix('ex_lg.nom_gaexp');
-                $stripDep = $this->sql_strip_cie_suffix('ex_dep.nom_gaexp');
-                // Même NOM de gare départ (pas id_villegd — CMT≠VIP en id ville).
-                $depNomSql = " AND EXISTS (
-                    SELECT 1 FROM gare_exp ex_lg
-                    INNER JOIN gare_exp ex_dep ON ex_dep.code_gaexp = {$depEsc}
-                    WHERE ex_lg.code_gaexp = lg.gaexp_lg
-                      AND {$stripLg} = {$stripDep}
+                $stripLg = $this->sql_strip_cie_suffix('ex_lg.nom_gaep');
+                $stripDep = $this->sql_strip_cie_suffix('ex_dep.nom_gaep');
+                // Code ligne / programme OU même nom de gare (pas id_ville).
+                $depNomSql = " AND (
+                    lg.gaexp_lg = {$depEsc}
+                    OR pr.gareidentif = {$depEsc}
+                    OR EXISTS (
+                        SELECT 1 FROM gare_exp ex_lg
+                        INNER JOIN gare_exp ex_dep ON ex_dep.code_gaexp = {$depEsc}
+                        WHERE ex_lg.code_gaexp = lg.gaexp_lg
+                          AND {$stripLg} = {$stripDep}
+                    )
                 )";
             }
 
@@ -2757,9 +2765,9 @@
                 $params[] = $ek;
             }
             // Comparaison par NOM de gare (suffixes cie retirés), pas id_villeg*.
-            $stripEx = $this->sql_strip_cie_suffix('ex.nom_gaexp');
+            $stripEx = $this->sql_strip_cie_suffix('ex.nom_gaep');
             $stripGa = $this->sql_strip_cie_suffix('ga.nom_gadest');
-            $stripEx0 = $this->sql_strip_cie_suffix('ex0.nom_gaexp');
+            $stripEx0 = $this->sql_strip_cie_suffix('ex0.nom_gaep');
             $stripGa0 = $this->sql_strip_cie_suffix('ga0.nom_gadest');
             if ($ga !== '' && $gd !== '') {
                 $sql .= " JOIN gare_exp ex0 ON ex0.code_gaexp = ?

@@ -2611,13 +2611,13 @@
                 $axesSearch[] = $axe;
             }
 
-            // Reprog : un direct sur N’IMPORTE quelle compagnie du nom_ligne → pas de multi.
+            // Reprog : s’il existe un direct catalogue mais l’appel force le multi
+            // (heures_unifie vide à la gare de report, ou case Multi), ne pas vider les chemins.
             $hasAnyDirectNom = false;
-            if ($mode_reprog && $nom !== '') {
+            if ($mode_reprog && $nom !== '' && !$force_transit) {
                 foreach ($axesSearch as $axTry) {
                     if ($this->graphe_correspondance->od_a_depart_direct($ekey, $axTry, $date, null)) {
                         $hasAnyDirectNom = true;
-                        $force_transit = false;
                         break;
                     }
                 }
@@ -2635,7 +2635,7 @@
                 'has_direct' => $hasAnyDirectNom ? true : false,
             );
 
-            if ($mode_reprog && $hasAnyDirectNom) {
+            if ($mode_reprog && $hasAnyDirectNom && !$force_transit) {
                 // Directs = heures_unifie (toutes cie). Pas de correspondance parasite.
                 $decision = array(
                     'mode' => 'direct',
@@ -2767,7 +2767,7 @@
                 ? $gareidentif
                 : $gaOd;
             $skipProgMerge = (!$force_transit && isset($payload['mode']) && $payload['mode'] === 'direct');
-            if ($mode_reprog && !empty($hasAnyDirectNom)) {
+            if ($mode_reprog && !empty($hasAnyDirectNom) && !$force_transit) {
                 $skipProgMerge = true;
             }
             if (!$skipProgMerge && $gaOperation !== '' && $gdOd !== '') {
