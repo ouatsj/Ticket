@@ -753,31 +753,23 @@
 
         public function reportbag($cid, $cp, $gid, $dt1, $dt2, $algn = FALSE)
         {
-            
-            if ($algn === '') 
-            {
-                return $this->db->query(
-                    "SELECT COUNT(id_bagageesc) AS codid_bagageesc, SUM(prix_bagageesc) AS total, lg.nom_ligne, dest.id_compaga, bg.prix_bagageesc FROM bagagesesc bg
-                        JOIN attributions_role ar ON bg.idoperabagageesc = ar.roleattribut
-                        JOIN user_login ul ON ar.idgestcompte = ul.uid_login
-                        JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
-                        JOIN client cl ON bg.clientbagesc = cl.id_client
-                        JOIN ligne_heure lh ON bg.id_lgeheuresc = lh.id_ligneheure
-                        JOIN heures h ON lh.heure_identif = h.id_heure
-                        JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
-                        JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
-                        JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
-                        JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
-                        JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                        WHERE e.ekey = '$cid'
-                        AND bg.date_createesc BETWEEN '$dt1' AND '$dt2'
-                        AND dest.id_compaga = '$cp'
-                        AND ul.guser = '$gid'
-                        AND bg.prix_bagageesc IS NOT NULL
-                        GROUP BY lg.nom_ligne, dest.id_compaga, bg.prix_bagageesc")->result();
+            $cid = $this->db->escape_str($cid);
+            $dt1 = $this->db->escape_str($dt1);
+            $dt2 = $this->db->escape_str($dt2);
+            $cp = $this->db->escape_str($cp);
+            $gidNorm = ($gid === FALSE || $gid === null) ? '' : trim((string) $gid);
+            $gareSql = '';
+            if ($gidNorm !== '' && $gidNorm !== '0') {
+                $gareSql = " AND ul.guser = '" . $this->db->escape_str($gidNorm) . "'";
             }
-                return $this->db->query(
-                    "SELECT COUNT(id_bagageesc) AS codid_bagageesc, SUM(prix_bagageesc) AS total, lg.nom_ligne, dest.id_compaga, bg.prix_bagageesc FROM bagagesesc bg
+            $algn = ($algn === FALSE || $algn === null) ? '' : trim((string) $algn);
+            $ligneSql = '';
+            if ($algn !== '') {
+                $ligneSql = " AND lg.ident_ligne = '" . $this->db->escape_str($algn) . "'";
+            }
+
+            return $this->db->query(
+                "SELECT COUNT(id_bagageesc) AS codid_bagageesc, SUM(prix_bagageesc) AS total, lg.nom_ligne, dest.id_compaga, bg.prix_bagageesc FROM bagagesesc bg
                         JOIN attributions_role ar ON bg.idoperabagageesc = ar.roleattribut
                         JOIN user_login ul ON ar.idgestcompte = ul.uid_login
                         JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
@@ -789,12 +781,12 @@
                         JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
                         JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                         JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                        WHERE e.ekey = '$cid'
-                        AND bg.date_createesc BETWEEN '$dt1' AND '$dt2'
-                        AND dest.id_compaga = '$cp'
-                        AND ul.guser = '$gid'
-                        AND lg.ident_ligne = '$algn'
+                        WHERE e.ekey = '{$cid}'
+                        AND bg.date_createesc BETWEEN '{$dt1}' AND '{$dt2}'
+                        AND dest.id_compaga = '{$cp}'
                         AND bg.prix_bagageesc IS NOT NULL
+                        {$gareSql}
+                        {$ligneSql}
                         GROUP BY lg.nom_ligne, dest.id_compaga, bg.prix_bagageesc")->result();
         }
 

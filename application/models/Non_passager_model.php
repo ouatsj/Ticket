@@ -1081,20 +1081,11 @@
             if ($sgNorm !== '' && $sgNorm !== '0') {
                 $sgSql = " AND np.sousgareidentif = '" . $this->db->escape_str($sgNorm) . "'";
             }
-
-            if ($algn === '') 
-            {
-                return $this->db->query(
-                    "SELECT COUNT(code_non_pass) AS code_non_pass, SUM(prixretour) AS totalr, lg.nom_ligne, np.prixretour FROM non_passager np
-                    JOIN lignes lg ON np.id_ligne_pass = lg.ident_ligne
-                    JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
-                    JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
-                    JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
-                    JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                    WHERE e.ekey = '$cid'
-                    AND np.datevente BETWEEN '$dt1' AND '$dt2'
-                    AND dest.id_compaga = '$cp'
-                    AND EXISTS (
+            $gidNorm = ($gid === FALSE || $gid === null) ? '' : trim((string) $gid);
+            $gareSql = '';
+            if ($gidNorm !== '' && $gidNorm !== '0') {
+                $gidEsc = $this->db->escape_str($gidNorm);
+                $gareSql = " AND EXISTS (
                       SELECT 1 FROM user_login ul
                       WHERE ul.uid_login = (
                           SELECT ar.idgestcompte
@@ -1102,32 +1093,31 @@
                           WHERE ar.roleattribut = np.cptus
                           LIMIT 1
                       )
-                      AND ul.guser = '$gid'
-                    )
-                    {$sgSql}
-                    GROUP BY lg.nom_ligne, np.prixretour")->result();
+                      AND ul.guser = '{$gidEsc}'
+                    )";
             }
-                return $this->db->query(
-                    "SELECT COUNT(code_non_pass) AS code_non_pass, SUM(prixretour) AS totalr, lg.nom_ligne, np.prixretour FROM non_passager np
+            $cid = $this->db->escape_str($cid);
+            $dt1 = $this->db->escape_str($dt1);
+            $dt2 = $this->db->escape_str($dt2);
+            $cp = $this->db->escape_str($cp);
+            $algn = ($algn === FALSE || $algn === null) ? '' : trim((string) $algn);
+            $ligneSql = '';
+            if ($algn !== '') {
+                $ligneSql = " AND lg.ident_ligne = '" . $this->db->escape_str($algn) . "'";
+            }
+
+            return $this->db->query(
+                "SELECT COUNT(code_non_pass) AS code_non_pass, SUM(prixretour) AS totalr, lg.nom_ligne, np.prixretour FROM non_passager np
                     JOIN lignes lg ON np.id_ligne_pass = lg.ident_ligne
                     JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
                     JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
                     JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                    WHERE e.ekey = '$cid'
-                    AND np.datevente BETWEEN '$dt1' AND '$dt2'
-                    AND dest.id_compaga = '$cp'
-                    AND lg.ident_ligne = '$algn'
-                    AND EXISTS (
-                      SELECT 1 FROM user_login ul
-                      WHERE ul.uid_login = (
-                          SELECT ar.idgestcompte
-                          FROM attributions_role ar
-                          WHERE ar.roleattribut = np.cptus
-                          LIMIT 1
-                      )
-                      AND ul.guser = '$gid'
-                    )
+                    WHERE e.ekey = '{$cid}'
+                    AND np.datevente BETWEEN '{$dt1}' AND '{$dt2}'
+                    AND dest.id_compaga = '{$cp}'
+                    {$gareSql}
+                    {$ligneSql}
                     {$sgSql}
                     GROUP BY lg.nom_ligne, np.prixretour")->result();
         }

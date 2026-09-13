@@ -4875,9 +4875,31 @@
         if ($sgNorm !== '' && $sgNorm !== '0') {
             $sgSql = " AND p.departclient_idgare = '" . $this->db->escape_str($sgNorm) . "'";
         }
+        $gidNorm = ($gid === FALSE || $gid === null) ? '' : trim((string) $gid);
+        $gareSql = '';
+        if ($gidNorm !== '' && $gidNorm !== '0') {
+            $gidEsc = $this->db->escape_str($gidNorm);
+            $gareSql = " AND EXISTS (
+                  SELECT 1 FROM user_login ul
+                  WHERE ul.uid_login = (
+                      SELECT ar.idgestcompte
+                      FROM attributions_role ar
+                      WHERE ar.roleattribut = p.idcptuser
+                      LIMIT 1
+                  )
+                  AND ul.guser = '{$gidEsc}'
+                 )";
+        }
+        $cid = $this->db->escape_str($cid);
+        $dt1 = $this->db->escape_str($dt1);
+        $dt2 = $this->db->escape_str($dt2);
+        $cp = $this->db->escape_str($cp);
+        $algn = ($algn === FALSE || $algn === null) ? '' : trim((string) $algn);
+        $ligneSql = '';
+        if ($algn !== '') {
+            $ligneSql = " AND lg.ident_ligne = '" . $this->db->escape_str($algn) . "'";
+        }
 
-        if ($algn === '') 
-        {
             $rows = $this->db->query(
                 "SELECT 
                     COUNT(p.code_passager) AS codepassager,
@@ -4890,55 +4912,18 @@
                 JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
                 JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                WHERE e.ekey = '$cid'
-                AND p.datep_create BETWEEN '$dt1' AND '$dt2'
-                AND dest.id_compaga = '$cp'
+                WHERE e.ekey = '{$cid}'
+                AND p.datep_create BETWEEN '{$dt1}' AND '{$dt2}'
+                AND dest.id_compaga = '{$cp}'
                 AND p.prixvente IS NOT NULL
                 AND COALESCE(p.statut_confirme, '') NOT IN ('confirm','catconfirm','confirmcarte')
                 AND p.statut_code = 'vendu'
-                AND EXISTS (
-                  SELECT 1 FROM user_login ul
-                  WHERE ul.uid_login = (
-                      SELECT ar.idgestcompte
-                      FROM attributions_role ar
-                      WHERE ar.roleattribut = p.idcptuser
-                      LIMIT 1
-                  )
-                  AND ul.guser = '$gid'
-                 )
+                {$gareSql}
+                {$ligneSql}
                 {$sgSql}
-                GROUP BY {$nomLine['group']}, p.prixvente")->result(); return $this->normalize_ticket_prix_rows($rows);        }
-            $rows = $this->db->query(
-                "SELECT 
-                    COUNT(p.code_passager) AS codepassager,
-                    SUM(p.prixvente) AS total, {$nomLine['select']}, p.prixvente
-                FROM passager p
-                JOIN programme pr ON p.code_pro = pr.code_progr
-                JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
-                JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
-                JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
-                JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
-                JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
-                JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                WHERE e.ekey = '$cid'
-                AND p.datep_create BETWEEN '$dt1' AND '$dt2'
-                AND dest.id_compaga = '$cp'
-                AND p.prixvente IS NOT NULL
-                AND COALESCE(p.statut_confirme, '') NOT IN ('confirm','catconfirm','confirmcarte')
-                AND p.statut_code = 'vendu'
-                AND lg.ident_ligne = '$algn'
-                AND EXISTS (
-                  SELECT 1 FROM user_login ul
-                  WHERE ul.uid_login = (
-                      SELECT ar.idgestcompte
-                      FROM attributions_role ar
-                      WHERE ar.roleattribut = p.idcptuser
-                      LIMIT 1
-                  )
-                  AND ul.guser = '$gid'
-                )
-                {$sgSql}
-                GROUP BY {$nomLine['group']}, p.prixvente")->result(); return $this->normalize_ticket_prix_rows($rows);    }
+                GROUP BY {$nomLine['group']}, p.prixvente")->result();
+            return $this->normalize_ticket_prix_rows($rows);
+    }
 
     public function reporticketgr($cid, $gid, $dt1, $dt2, $cp, $algn = FALSE)
     {

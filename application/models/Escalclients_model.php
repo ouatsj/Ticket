@@ -433,31 +433,23 @@
         //global
         public function reporticketcptad($cid, $gid, $dt1, $dt2, $cp, $algn = FALSE)
         {
-            
-            if ($algn === '') 
-            {
-                return $this->db->query(
-                    "SELECT COUNT(idclescal) AS escalp, SUM(prixescal) AS tota, lg.nom_ligne, esp.prixescal FROM escalclients esp
-                        JOIN attributions_role ar ON esp.iduseescal = ar.roleattribut
-                        JOIN user_login ul ON ar.idgestcompte = ul.uid_login
-                        JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
-                        JOIN gares g ON ul.guser = g.idengare
-                        JOIN utilisateurs u ON cu.userlog_id = u.uid
-                        JOIN lignes lg ON esp.lignintescal = lg.ident_ligne
-                        JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
-                        JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
-                        JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
-                        JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                        WHERE e.ekey = '$cid'
-                        AND esp.datedepescal BETWEEN '$dt1' AND '$dt2'
-                        AND esp.prixescal IS NOT NULL
-                        AND ul.guser = '$gid'
-                        AND esp.arrcptescal = 1
-                        AND dest.id_compaga = '$cp'
-                        GROUP BY lg.nom_ligne, esp.prixescal")->result();
+            $cid = $this->db->escape_str($cid);
+            $dt1 = $this->db->escape_str($dt1);
+            $dt2 = $this->db->escape_str($dt2);
+            $cp = $this->db->escape_str($cp);
+            $gidNorm = ($gid === FALSE || $gid === null) ? '' : trim((string) $gid);
+            $gareSql = '';
+            if ($gidNorm !== '' && $gidNorm !== '0') {
+                $gareSql = " AND ul.guser = '" . $this->db->escape_str($gidNorm) . "'";
             }
-                return $this->db->query(
-                    "SELECT COUNT(idclescal) AS escalp, SUM(prixescal) AS tota, lg.nom_ligne, esp.prixescal FROM escalclients esp
+            $algn = ($algn === FALSE || $algn === null) ? '' : trim((string) $algn);
+            $ligneSql = '';
+            if ($algn !== '') {
+                $ligneSql = " AND lg.ident_ligne = '" . $this->db->escape_str($algn) . "'";
+            }
+
+            return $this->db->query(
+                "SELECT COUNT(idclescal) AS escalp, SUM(prixescal) AS tota, lg.nom_ligne, esp.prixescal FROM escalclients esp
                         JOIN attributions_role ar ON esp.iduseescal = ar.roleattribut
                         JOIN user_login ul ON ar.idgestcompte = ul.uid_login
                         JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
@@ -468,13 +460,13 @@
                         JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
                         JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                         JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                        WHERE e.ekey = '$cid'
-                        AND esp.datedepescal BETWEEN '$dt1' AND '$dt2'
+                        WHERE e.ekey = '{$cid}'
+                        AND esp.datedepescal BETWEEN '{$dt1}' AND '{$dt2}'
                         AND esp.prixescal IS NOT NULL
-                        AND ul.guser = '$gid'
                         AND esp.arrcptescal = 1
-                        AND dest.id_compaga = '$cp'
-                        AND lg.ident_ligne = '$algn'
+                        AND dest.id_compaga = '{$cp}'
+                        {$gareSql}
+                        {$ligneSql}
                         GROUP BY lg.nom_ligne, esp.prixescal")->result();
         }
         //exo

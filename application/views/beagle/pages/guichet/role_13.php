@@ -198,8 +198,8 @@
                              <div class="form-group row">
                                  <div class="form-group col-sm-4">
                                      <label>COMPAGNIE</label>
-                                         <select class="form-control form-control-sm" name="_compagesc">
-                                         <option value=""></option>
+                                         <select class="form-control form-control-sm" name="_compagesc" required>
+                                         <option value="">Choisir…</option>
                                              <? foreach ($compagnies as $compagnie): ?>
                                                  <option value="<?= $compagnie->cle_compagnie; ?>">
                                                      <?= "{$compagnie->nom_compagnie}"; ?>
@@ -210,7 +210,7 @@
                                  <div class="form-group col-sm-4">
                                      <label>GARE DEPART</label>
                                      <select class="form-control form-control-sm" name="departgaresc">
-                                     <option value=""></option>
+                                     <option value="">Toutes</option>
                                      <? foreach ($garedepartcomp as $garedepart): ?>
                                          <option value="<?= $garedepart->code_gaexp; ?>">
                                              <?= "{$garedepart->nom_gaep}"; ?></option>
@@ -219,11 +219,11 @@
                                  </div>
                                  <div class="form-group col-sm-4">
                                          <label>DU</label>
-                                         <input class="form-control form-control-sm" type="date" name="datedebutesc">
+                                         <input class="form-control form-control-sm" type="date" name="datedebutesc" required>
                                      </div> 
                                      <div class="form-group col-sm-4">
                                      <label>AU</label>
-                                         <input class="form-control form-control-sm" type="date" name="datefinesc">
+                                         <input class="form-control form-control-sm" type="date" name="datefinesc" required>
                                      </div>
                                      <div class="form-group col-sm-4">
                                          <label>LIGNE</label>
@@ -236,7 +236,8 @@
                                              <? endforeach; ?>
                                          </select>
                                      </div>
-                                     <div class="modal-footer">
+                                     <div class="form-group col-sm-12"><small class="text-muted"><strong>Obligatoire :</strong> compagnie + DU/AU. Gare, ligne, sous-gare et type sont optionnels pour affiner le PDF.</small></div>
+                                <div class="modal-footer">
                                          <button class="btn btn-secondary modal-close" type="button"
                                                  data-dismiss="modal">
                                              <i class="icon icon-left mdi mdi-undo"></i>&nbsp;ANNULER&nbsp;
@@ -797,8 +798,8 @@
                             <div class="form-group row">
                                 <div class="form-group col-sm-4">
                                     <label>COMPAGNIE</label>
-                                        <select class="form-control form-control-sm" name="_compag">
-                                        <option value=""></option>
+                                        <select class="form-control form-control-sm" name="_compag" required>
+                                        <option value="">Choisir…</option>
                                             <? foreach ($compagnies as $compagnie): ?>
                                                 <option value="<?= $compagnie->cle_compagnie; ?>">
                                                     <?= "{$compagnie->nom_compagnie}"; ?>
@@ -809,7 +810,7 @@
                                 <div class="form-group col-sm-4">
                                     <label>GARE DEPART</label>
                                     <select class="form-control form-control-sm" name="departgar">
-                                    <option value=""></option>
+                                    <option value="">Toutes</option>
                                     <? foreach ($garedepartcomp as $garedepart): ?>
                                         <option value="<?= $garedepart->code_gaexp; ?>" data-garesid="<?= $garedepart->garesid; ?>">
                                             <?= "{$garedepart->nom_gaep}"; ?></option>
@@ -824,12 +825,12 @@
                                 </div>
                                 <div class="form-group col-sm-4">
                                         <label>DU</label>
-                                        <input class="form-control form-control-sm" type="date" name="datedebut"
+                                        <input class="form-control form-control-sm" type="date" name="datedebut" required
                                             id="">
                                     </div> 
                                     <div class="form-group col-sm-4">
                                     <label>AU</label>
-                                        <input class="form-control form-control-sm" type="date" name="datefin"
+                                        <input class="form-control form-control-sm" type="date" name="datefin" required
                                             id="">
                                     </div>
                                     <div class="form-group col-sm-4">
@@ -843,7 +844,8 @@
                                             <? endforeach; ?>
                                         </select>
                                     </div>
-                                    <div class="modal-footer">
+                                    <div class="form-group col-sm-12"><small class="text-muted"><strong>Obligatoire :</strong> compagnie + DU/AU. Gare, ligne, sous-gare et type sont optionnels pour affiner le PDF.</small></div>
+                                <div class="modal-footer">
                                         <button class="btn btn-secondary modal-close" type="button"
                                                 data-dismiss="modal">
                                             <i class="icon icon-left mdi mdi-undo"></i>&nbsp;ANNULER&nbsp;
@@ -1251,8 +1253,8 @@
                             <div class="form-group row">
                                 <div class="form-group col-sm-4">
                                     <label>COMPAGNIE</label>
-                                        <select class="form-control form-control-sm" name="_compagbg">
-                                        <option value=""></option>
+                                        <select class="form-control form-control-sm" name="_compagbg" required>
+                                        <option value="">Choisir…</option>
                                             <? foreach ($compagnies as $compagnie): ?>
                                                 <option value="<?= $compagnie->cle_compagnie; ?>">
                                                     <?= "{$compagnie->nom_compagnie}"; ?>
@@ -1263,7 +1265,7 @@
                                 <div class="form-group col-sm-4">
                                     <label>GARE DEPART</label>
                                     <select class="form-control form-control-sm" name="departgarbg">
-                                    <option value=""></option>
+                                    <option value="">Toutes</option>
                                     <? foreach ($garedepartcomp as $garedepart): ?>
                                         <option value="<?= $garedepart->code_gaexp; ?>">
                                             <?= "{$garedepart->nom_gaep}"; ?></option>
@@ -1272,11 +1274,11 @@
                                 </div>
                                 <div class="form-group col-sm-4">
                                         <label>DU</label>
-                                        <input class="form-control form-control-sm" type="date" name="datedebutbg">
+                                        <input class="form-control form-control-sm" type="date" name="datedebutbg" required>
                                     </div> 
                                     <div class="form-group col-sm-4">
                                     <label>AU</label>
-                                        <input class="form-control form-control-sm" type="date" name="datefinbg">
+                                        <input class="form-control form-control-sm" type="date" name="datefinbg" required>
                                     </div>
                                     <div class="form-group col-sm-4">
                                         <label>LIGNE</label>
@@ -1289,7 +1291,8 @@
                                             <? endforeach; ?>
                                         </select>
                                     </div>
-                                    <div class="modal-footer">
+                                    <div class="form-group col-sm-12"><small class="text-muted"><strong>Obligatoire :</strong> compagnie + DU/AU. Gare, ligne, sous-gare et type sont optionnels pour affiner le PDF.</small></div>
+                                <div class="modal-footer">
                                         <button class="btn btn-secondary modal-close" type="button"
                                                 data-dismiss="modal">
                                             <i class="icon icon-left mdi mdi-undo"></i>&nbsp;ANNULER&nbsp;
@@ -1317,8 +1320,8 @@
                             <div class="form-group row">
                                 <div class="form-group col-sm-4">
                                     <label>COMPAGNIE</label>
-                                        <select class="form-control form-control-sm" name="_compagbgesc">
-                                        <option value=""></option>
+                                        <select class="form-control form-control-sm" name="_compagbgesc" required>
+                                        <option value="">Choisir…</option>
                                             <? foreach ($compagnies as $compagnie): ?>
                                                 <option value="<?= $compagnie->cle_compagnie; ?>">
                                                     <?= "{$compagnie->nom_compagnie}"; ?>
@@ -1329,7 +1332,7 @@
                                 <div class="form-group col-sm-4">
                                     <label>GARE DEPART</label>
                                     <select class="form-control form-control-sm" name="departgarbgesc">
-                                    <option value=""></option>
+                                    <option value="">Toutes</option>
                                     <? foreach ($garedepartcomp as $garedepart): ?>
                                         <option value="<?= $garedepart->code_gaexp; ?>">
                                             <?= "{$garedepart->nom_gaep}"; ?></option>
@@ -1338,11 +1341,11 @@
                                 </div>
                                 <div class="form-group col-sm-4">
                                         <label>DU</label>
-                                        <input class="form-control form-control-sm" type="date" name="datedebutbgesc">
+                                        <input class="form-control form-control-sm" type="date" name="datedebutbgesc" required>
                                     </div> 
                                     <div class="form-group col-sm-4">
                                     <label>AU</label>
-                                        <input class="form-control form-control-sm" type="date" name="datefinbgesc">
+                                        <input class="form-control form-control-sm" type="date" name="datefinbgesc" required>
                                     </div>
                                     <div class="form-group col-sm-4">
                                         <label>LIGNE</label>
@@ -1355,7 +1358,8 @@
                                             <? endforeach; ?>
                                         </select>
                                     </div>
-                                    <div class="modal-footer">
+                                    <div class="form-group col-sm-12"><small class="text-muted"><strong>Obligatoire :</strong> compagnie + DU/AU. Gare, ligne, sous-gare et type sont optionnels pour affiner le PDF.</small></div>
+                                <div class="modal-footer">
                                         <button class="btn btn-secondary modal-close" type="button"
                                                 data-dismiss="modal">
                                             <i class="icon icon-left mdi mdi-undo"></i>&nbsp;ANNULER&nbsp;
@@ -1385,8 +1389,8 @@
                             <div class="form-group row">
                                 <div class="form-group col-sm-4">
                                     <label>COMPAGNIE</label>
-                                        <select class="form-control form-control-sm" name="_compagcrgl">
-                                        <option value=""></option>
+                                        <select class="form-control form-control-sm" name="_compagcrgl" required>
+                                        <option value="">Choisir…</option>
                                             <? foreach ($compagnies as $compagnie): ?>
                                             <option value="<?= $compagnie->cle_compagnie; ?>">
                                             <?= "{$compagnie->nom_compagnie}"; ?>
@@ -1397,7 +1401,7 @@
                                 <div class="form-group col-sm-4">
                                     <label>GARE DEPART</label>
                                     <select class="form-control form-control-sm" name="departgarcrgl">
-                                    <option value=""></option>
+                                    <option value="">Toutes</option>
                                     <? foreach ($garedepartcomp as $garedepart): ?>
                                         <option value="<?= $garedepart->code_gaexp; ?>" data-garesid="<?= $garedepart->garesid; ?>">
                                             <?= "{$garedepart->nom_gaep}"; ?></option>
@@ -1412,11 +1416,11 @@
                                 </div>
                                 <div class="form-group col-sm-4">
                                     <label>DU</label>
-                                    <input class="form-control form-control-sm" type="date" name="datedebutcrgl">
+                                    <input class="form-control form-control-sm" type="date" name="datedebutcrgl" required>
                                 </div> 
                                 <div class="form-group col-sm-4">
                                 <label>AU</label>
-                                    <input class="form-control form-control-sm" type="date" name="datefincrgl">
+                                    <input class="form-control form-control-sm" type="date" name="datefincrgl" required>
                                 </div>
                                 
                                 <div class="form-group col-sm-4">
@@ -1442,6 +1446,7 @@
                                         <? endforeach; ?>
                                     </select>
                                 </div>
+                                <div class="form-group col-sm-12"><small class="text-muted"><strong>Obligatoire :</strong> compagnie + DU/AU. Gare, ligne, sous-gare et type sont optionnels pour affiner le PDF.</small></div>
                                 <div class="modal-footer">
                                     <button class="btn btn-secondary modal-close" type="button"
                                             data-dismiss="modal">
@@ -1473,8 +1478,8 @@
                             <div class="form-group row">
                                 <div class="form-group col-sm-4">
                                     <label>COMPAGNIE</label>
-                                        <select class="form-control form-control-sm" name="_compagcrglesc">
-                                        <option value=""></option>
+                                        <select class="form-control form-control-sm" name="_compagcrglesc" required>
+                                        <option value="">Choisir…</option>
                                             <? foreach ($compagnies as $compagnie): ?>
                                             <option value="<?= $compagnie->cle_compagnie; ?>">
                                             <?= "{$compagnie->nom_compagnie}"; ?>
@@ -1485,7 +1490,7 @@
                                 <div class="form-group col-sm-4">
                                     <label>GARE DEPART</label>
                                     <select class="form-control form-control-sm" name="departgarcrglesc">
-                                    <option value=""></option>
+                                    <option value="">Toutes</option>
                                     <? foreach ($garedepartcomp as $garedepart): ?>
                                         <option value="<?= $garedepart->code_gaexp; ?>">
                                             <?= "{$garedepart->nom_gaep}"; ?></option>
@@ -1494,11 +1499,11 @@
                                 </div>
                                 <div class="form-group col-sm-4">
                                     <label>DU</label>
-                                    <input class="form-control form-control-sm" type="date" name="datedebutcrglesc">
+                                    <input class="form-control form-control-sm" type="date" name="datedebutcrglesc" required>
                                 </div> 
                                 <div class="form-group col-sm-4">
                                 <label>AU</label>
-                                    <input class="form-control form-control-sm" type="date" name="datefincrglesc">
+                                    <input class="form-control form-control-sm" type="date" name="datefincrglesc" required>
                                 </div>
                                 
                                 <div class="form-group col-sm-4">
@@ -1524,6 +1529,7 @@
                                         <? endforeach; ?>
                                     </select>
                                 </div>
+                                <div class="form-group col-sm-12"><small class="text-muted"><strong>Obligatoire :</strong> compagnie + DU/AU. Gare, ligne, sous-gare et type sont optionnels pour affiner le PDF.</small></div>
                                 <div class="modal-footer">
                                     <button class="btn btn-secondary modal-close" type="button"
                                             data-dismiss="modal">

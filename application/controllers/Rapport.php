@@ -62,6 +62,124 @@
         }
 
         /**
+         * RECAP GLOBAL Admin/Superviseur : compagnie + période obligatoires ;
+         * gare / ligne / sous-gare / type restent optionnels.
+         */
+        protected function _assert_recap_global_filters($ekey, $date1, $date2, $company)
+        {
+            $date1 = trim((string) $date1);
+            $date2 = trim((string) $date2);
+            $company = trim((string) $company);
+            if ($company === ''
+                || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $date1)
+                || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $date2)
+                || $date1 > $date2
+            ) {
+                show_error(
+                    'Compagnie et intervalle de dates (DU / AU) sont obligatoires. '
+                    . 'Gare, ligne, sous-gare et type sont optionnels pour affiner.',
+                    400,
+                    'Filtres incomplets'
+                );
+                exit;
+            }
+            $ok = $this->db->query(
+                "SELECT 1 AS ok FROM compagnies c
+                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
+                 WHERE e.ekey = ? AND c.cle_compagnie = ?
+                 LIMIT 1",
+                array($ekey, $company)
+            )->row();
+            if (!$ok) {
+                show_error('La compagnie sélectionnée est invalide.', 403, 'Filtre invalide');
+                exit;
+            }
+        }
+
+        /**
+         * Convertit code_gaexp → garesid (ul.guser) ; vide = pas de filtre gare.
+         */
+        protected function _normalize_recap_gare_filter($raw)
+        {
+            $raw = trim((string) $raw);
+            if ($raw === '' || $raw === '0') {
+                return '';
+            }
+            $byCode = $this->db->query(
+                "SELECT garesid FROM gare_exp WHERE code_gaexp = ? LIMIT 1",
+                array($raw)
+            )->row();
+            if ($byCode && trim((string) $byCode->garesid) !== '') {
+                return trim((string) $byCode->garesid);
+            }
+            $byId = $this->db->query(
+                "SELECT idengare FROM gares WHERE idengare = ? LIMIT 1",
+                array($raw)
+            )->row();
+            if ($byId) {
+                return trim((string) $byId->idengare);
+            }
+            return $raw;
+        }
+
+        /** Formate JJ-MM-AAAA pour titres PDF (dates Y-m-d déjà validées). */
+        protected function _recap_title_dates($dt1, $dt2)
+        {
+            $p1 = explode('-', (string) $dt1);
+            $p2 = explode('-', (string) $dt2);
+            $days = (count($p1) === 3) ? ($p1[2] . '-' . $p1[1] . '-' . $p1[0]) : (string) $dt1;
+            $days1 = (count($p2) === 3) ? ($p2[2] . '-' . $p2[1] . '-' . $p2[0]) : (string) $dt2;
+            return array($days, $days1);
+        }
+
+        /**
+         * Montant ligne PDF : préfère SUM SQL, sinon nbr × prix unitaire.
+         */
+        protected function _recap_line_amount($sumField, $countField, $unitField)
+        {
+            if ($sumField !== null && $sumField !== '') {
+                return round((float) $sumField, 2);
+            }
+            return round(((float) $countField) * ((float) $unitField), 2);
+        }
+
+        /** Inverse nom de ligne A/R (MANGA-OUAGA → OUAGA-MANGA). */
+        protected function _recap_invert_ligne_nom($nom)
+        {
+            $nom = trim((string) $nom);
+            if ($nom === '' || strpos($nom, '-') === false) {
+                return $nom;
+            }
+            $parts = explode('-', $nom);
+            if (count($parts) < 2) {
+                return $nom;
+            }
+            $last = trim($parts[count($parts) - 1]);
+            $first = trim($parts[0]);
+            return ($last !== '' && $first !== '') ? ($last . '-' . $first) : $nom;
+        }
+
+        /** Nom compagnie pour titre PDF (jamais d’accès null). */
+        protected function _recap_compagnie_label($compId)
+        {
+            $compId = trim((string) $compId);
+            if ($compId === '') {
+                return '';
+            }
+            $ncomp = $this->m_compagnies->getn($compId);
+            if (!$ncomp) {
+                return '';
+            }
+            if (!empty($ncomp->nom_compagnie)) {
+                return ' ' . trim((string) $ncomp->nom_compagnie);
+            }
+            if (!empty($ncomp->compagnie)) {
+                return ' ' . trim((string) $ncomp->compagnie);
+            }
+            return '';
+        }
+
+        /**
          * Pour les rôles 13/14, résout le caissier principal ciblé depuis la
          * session et la gare. Les identifiants POST ne sont jamais utilisés seuls.
          */
@@ -4231,14 +4349,18 @@
               $dt2 = $this->input->post('datefin');
               $lign = $this->input->post('axeligne');
               $comp = $this->input->post('_compag');
-              $gid = $this->input->post('departgar');
+              $gid = $this->_normalize_recap_gare_filter($this->input->post('departgar'));
               $sg = $this->input->post('sousgaretgl');
-                $dats = explode("-", $dt1);
-                  $days = $dats[2]. '-'. $dats[1]. '-' .$dats[0];
-                  $dats1 = explode("-", $dt2);
-                  $days1 = $dats1[2]. '-'. $dats1[1]. '-' .$dats1[0];
+              $this->_assert_recap_global_filters($this->entreprise->ekey, $dt1, $dt2, $comp);
+              list($days, $days1) = $this->_recap_title_dates($dt1, $dt2);
               $reportick = $this->m_passager->reporticket($this->entreprise->ekey, $gid, $dt1, $dt2, $comp, $lign, $sg);
               $reportickreour = $this->m_non_passager->reporticketretour($this->entreprise->ekey, $gid, $dt1, $dt2, $comp, $lign, $sg);
+              if (!is_array($reportick)) {
+                  $reportick = array();
+              }
+              if (!is_array($reportickreour)) {
+                  $reportickreour = array();
+              }
 
               $sgTitre = '';
               $sg = trim((string) $sg);
@@ -4298,47 +4420,55 @@
                       </tr>
                   </thead>
                   <tbody>';
-                  $etatglobal = 0;
-                  $etatretours = 0;
+                  $etatglobal = 0.0;
+                  $etatretours = 0.0;
                   $nb = 0;
                   $nbrt = 0;
-                  $p = 0;
-                  $pr = 0;
-              foreach ($reportick as $departick => $lement) {
+              foreach ($reportick as $lement) {
+                  $nbrLigne = (int) round((float) $lement->codepassager);
+                  $montantLigne = $this->_recap_line_amount(
+                      isset($lement->total) ? $lement->total : null,
+                      $nbrLigne,
+                      isset($lement->prixvente) ? $lement->prixvente : 0
+                  );
                   $them .= '<tr>
-                      <td width="20%" align="left"><strong>' . $lement->nom_ligne . '</strong></td>
-                      <td width="15%" align="center"><strong>' . $lement->codepassager . '</strong></td>
-                      <td width="20%" align="center"><strong>' . number_format($lement->prixvente, 0, '', ' ') . '</strong></td>
-                      <td width="20%" align="right"><strong>' . number_format($lement->total, 0, '', ' ') . '</strong></td>
+                      <td width="20%" align="left"><strong>' . htmlspecialchars((string) $lement->nom_ligne, ENT_QUOTES, 'UTF-8') . '</strong></td>
+                      <td width="15%" align="center"><strong>' . $nbrLigne . '</strong></td>
+                      <td width="20%" align="center"><strong>' . number_format((float) $lement->prixvente, 0, '', ' ') . '</strong></td>
+                      <td width="20%" align="right"><strong>' . number_format($montantLigne, 0, '', ' ') . '</strong></td>
                       </tr>';
-                      $etatglobal +=$lement->total;
-                      $nb += round($lement->codepassager);
-                       $p += $lement->prixvente;
+                      $etatglobal += $montantLigne;
+                      $nb += $nbrLigne;
               }
             
         
-            foreach ($reportickreour as $etatretour => $etatreto) {
-              $aler1 = explode("-", $etatreto->nom_ligne);
-                    $allerretour1 = $aler1[1]. '-' .$aler1[0];
+            foreach ($reportickreour as $etatreto) {
+              $allerretour1 = $this->_recap_invert_ligne_nom($etatreto->nom_ligne);
+              $nbrLigne = (int) round((float) $etatreto->code_non_pass);
+              $montantLigne = $this->_recap_line_amount(
+                  isset($etatreto->totalr) ? $etatreto->totalr : null,
+                  $nbrLigne,
+                  isset($etatreto->prixretour) ? $etatreto->prixretour : 0
+              );
               $them .= '<tr>
-                  <td width="20%" align="left"><strong>' . $allerretour1 . '</strong></td>
-                  <td width="15%" align="center"><strong>' . $etatreto->code_non_pass . '</strong></td>
-                  <td width="20%" align="center"><strong>' . number_format($etatreto->prixretour, 0, '', ' ') . '</strong></td>
-                  <td width="20%" align="right"><strong>' . number_format($etatreto->totalr, 0, '', ' ') . '</strong></td>
+                  <td width="20%" align="left"><strong>' . htmlspecialchars($allerretour1, ENT_QUOTES, 'UTF-8') . '</strong></td>
+                  <td width="15%" align="center"><strong>' . $nbrLigne . '</strong></td>
+                  <td width="20%" align="center"><strong>' . number_format((float) $etatreto->prixretour, 0, '', ' ') . '</strong></td>
+                  <td width="20%" align="right"><strong>' . number_format($montantLigne, 0, '', ' ') . '</strong></td>
                   </tr>';
-                    $etatretours +=$etatreto->totalr;
-                    $nbrt +=round($etatreto->code_non_pass);
-                      $pr += $etatreto->prixretour;
+                    $etatretours += $montantLigne;
+                    $nbrt += $nbrLigne;
                   }
+                $somme = $etatglobal + $etatretours;
                 $them .= '<tr>
                         <td width="20%" align="center"><strong>TOTAL</strong></td>
                         <td width="15%" align="center"><strong> '.($nb+$nbrt).'</strong></td>
                         <td width="20%" align="center"><strong></strong></td>
-                        <td width="20%" align="right"><strong> '.number_format($etatglobal + $etatretours, 0, '', ' ').'</strong></td>
+                        <td width="20%" align="right"><strong> '.number_format($somme, 0, '', ' ').'</strong></td>
                         
                    </tr>';
             $them .= ' </tbody></table>';
-            $them.= '<h2>SOMME:'. number_format($etatglobal + $etatretours, 0, '', ' ') .' </h2>';
+            $them.= '<h2>SOMME:'. number_format($somme, 0, '', ' ') .' </h2>';
               $pdf->writeHTML($titre, $linebreak = false, $fill = false, $reseth = true, $cell = false, $align = "");
               $pdf->writeHTML($them, $linebreak = true, $fill = false, $reseth = true, $cell = false, $align = "");
               ob_end_clean();
@@ -4356,16 +4486,15 @@
               $dt2 = $this->input->post('datefinesc');
               $lign = $this->input->post('axeligneesc');
               $comp = $this->input->post('_compagesc');
-              $gid = $this->input->post('departgaresc');
+              $gid = $this->_normalize_recap_gare_filter($this->input->post('departgaresc'));
 
-              $ncomp = $this->m_compagnies->getn($comp);
-
-                $dats = explode("-", $dt1);
-                $days = $dats[2]. '-'. $dats[1]. '-' .$dats[0];
-                $dats1 = explode("-", $dt2);
-                $days1 = $dats1[2]. '-'. $dats1[1]. '-' .$dats1[0];
+              $this->_assert_recap_global_filters($this->entreprise->ekey, $dt1, $dt2, $comp);
+              list($days, $days1) = $this->_recap_title_dates($dt1, $dt2);
                 
                 $reportick = $this->m_escalclients->reporticketcptad($this->entreprise->ekey, $gid, $dt1, $dt2, $comp, $lign);
+                if (!is_array($reportick)) {
+                    $reportick = array();
+                }
               
 
               $pdf = new TCPDF(PDF_PAGE_ORIENTATION, PDF_UNIT, PDF_PAGE_FORMAT, true, 'UTF-8', false);
@@ -4416,29 +4545,33 @@
                       </tr>
                   </thead>
                   <tbody>';
-                  $etatglobale = 0;
+                  $etatglobale = 0.0;
                   $nb = 0;
-                  $p = 0;
-                    foreach ($reportick as $departick => $lement) {
+                    foreach ($reportick as $lement) {
+                      $nbrLigne = (int) round((float) $lement->escalp);
+                      $montantLigne = $this->_recap_line_amount(
+                          isset($lement->tota) ? $lement->tota : null,
+                          $nbrLigne,
+                          isset($lement->prixescal) ? $lement->prixescal : 0
+                      );
                       $them .= '<tr>
-                          <td width="20%" align="left"><strong>' . $lement->nom_ligne . '</strong></td>
-                          <td width="15%" align="center"><strong>' . round($lement->escalp) . '</strong></td>
-                          <td width="20%" align="center"><strong>' . number_format($lement->prixescal, 0, '', ' ') . '</strong></td>
-                          <td width="20%" align="right"><strong>' . number_format(($lement->escalp)*($lement->prixescal), 0, '', ' ') . '</strong></td>
+                          <td width="20%" align="left"><strong>' . htmlspecialchars((string) $lement->nom_ligne, ENT_QUOTES, 'UTF-8') . '</strong></td>
+                          <td width="15%" align="center"><strong>' . $nbrLigne . '</strong></td>
+                          <td width="20%" align="center"><strong>' . number_format((float) $lement->prixescal, 0, '', ' ') . '</strong></td>
+                          <td width="20%" align="right"><strong>' . number_format($montantLigne, 0, '', ' ') . '</strong></td>
                           </tr>';
-                           $etatglobale += ($lement->escalp)*($lement->prixescal);
-                           $nb +=$lement->escalp;
-                           $p += $lement->prixescal;
+                           $etatglobale += $montantLigne;
+                           $nb += $nbrLigne;
                     }
                     $them .= '<tr>
                         <td width="20%" align="center"><strong>TOTAL</strong></td>
                         <td width="15%" align="center"><strong> '.($nb
                           ).'</strong></td>
                         <td width="20%" align="center"><strong></strong></td>
-                        <td width="20%" align="right"><strong> '.number_format($etatglobal, 0, '', ' ').'</strong></td>
+                        <td width="20%" align="right"><strong> '.number_format($etatglobale, 0, '', ' ').'</strong></td>
                    </tr>';
             $them .= ' </tbody></table>';
-            $them.= '<h2>SOMME:'. number_format($etatglobal + $etatretours, 0, '', ' ') .' </h2>';
+            $them.= '<h2>SOMME:'. number_format($etatglobale, 0, '', ' ') .' </h2>';
               $pdf->writeHTML($titre, $linebreak = false, $fill = false, $reseth = true, $cell = false, $align = "");
               $pdf->writeHTML($them, $linebreak = true, $fill = false, $reseth = true, $cell = false, $align = "");
               ob_end_clean();
@@ -4458,12 +4591,13 @@
               $dt2 = $this->input->post('datefinbg');
               $lign = $this->input->post('axelignebg');
               $comp = $this->input->post('_compagbg');
-              $gid = $this->input->post('departgarbg');
-                $dats = explode("-", $dt1);
-                $days = $dats[2]. '-'. $dats[1]. '-' .$dats[0];
-                $dats1 = explode("-", $dt2);
-                $days1 = $dats1[2]. '-'. $dats1[1]. '-' .$dats1[0];
+              $gid = $this->_normalize_recap_gare_filter($this->input->post('departgarbg'));
+              $this->_assert_recap_global_filters($this->entreprise->ekey, $dt1, $dt2, $comp);
+              list($days, $days1) = $this->_recap_title_dates($dt1, $dt2);
               $reportick = $this->m_bagage->reportbag($this->entreprise->ekey, $gid, $dt1, $dt2, $comp, $lign);
+              if (!is_array($reportick)) {
+                  $reportick = array();
+              }
               
               $pdf = new TCPDF(PDF_PAGE_ORIENTATION, PDF_UNIT, PDF_PAGE_FORMAT, true, 'UTF-8', false);
               // set document information
@@ -4513,19 +4647,23 @@
                         </tr>
                     </thead>
                     <tbody>';
-                    $etatglobale = 0;
+                    $etatglobale = 0.0;
                     $nb = 0;
-                    $bg = 0;
-                foreach ($reportick as $departick => $lement) {
+                foreach ($reportick as $lement) {
+                    $nbrLigne = (int) round((float) $lement->codid_bagage);
+                    $montantLigne = $this->_recap_line_amount(
+                        isset($lement->total) ? $lement->total : null,
+                        $nbrLigne,
+                        isset($lement->prix_bagage) ? $lement->prix_bagage : 0
+                    );
                     $them .= '<tr>
-                        <td width="20%" align="left"><strong>' . $lement->nom_ligne . '</strong></td>
-                        <td width="15%" align="center"><strong>' . $lement->codid_bagage . '</strong></td>
-                        <td width="20%" align="center"><strong>' . number_format($lement->prix_bagage, 0, '', ' ') . '</strong></td>
-                        <td width="20%" align="right"><strong>' . number_format(($lement->codid_bagage * $lement->prix_bagage), 0, '', ' ') . '</strong></td>
+                        <td width="20%" align="left"><strong>' . htmlspecialchars((string) $lement->nom_ligne, ENT_QUOTES, 'UTF-8') . '</strong></td>
+                        <td width="15%" align="center"><strong>' . $nbrLigne . '</strong></td>
+                        <td width="20%" align="center"><strong>' . number_format((float) $lement->prix_bagage, 0, '', ' ') . '</strong></td>
+                        <td width="20%" align="right"><strong>' . number_format($montantLigne, 0, '', ' ') . '</strong></td>
                         </tr>';
-                         $etatglobale += $lement->codid_bagage * $lement->prix_bagage;
-                         $nb += $lement->codid_bagage;
-                         $bg += $lement->prix_bagage;
+                         $etatglobale += $montantLigne;
+                         $nb += $nbrLigne;
                 }
 
                     $them .= '<tr>
@@ -4556,12 +4694,13 @@
               $dt2 = $this->input->post('datefinbgesc');
               $lign = $this->input->post('axelignebgesc');
               $comp = $this->input->post('_compagbgesc');
-              $gid = $this->input->post('departgarbgesc');
-                $dats = explode("-", $dt1);
-                $days = $dats[2]. '-'. $dats[1]. '-' .$dats[0];
-                $dats1 = explode("-", $dt2);
-                $days1 = $dats1[2]. '-'. $dats1[1]. '-' .$dats1[0];
+              $gid = $this->_normalize_recap_gare_filter($this->input->post('departgarbgesc'));
+              $this->_assert_recap_global_filters($this->entreprise->ekey, $dt1, $dt2, $comp);
+              list($days, $days1) = $this->_recap_title_dates($dt1, $dt2);
               $reportick = $this->m_bagageesc->reportbag($this->entreprise->ekey, $comp, $gid, $dt1, $dt2, $lign);
+              if (!is_array($reportick)) {
+                  $reportick = array();
+              }
               
               $pdf = new TCPDF(PDF_PAGE_ORIENTATION, PDF_UNIT, PDF_PAGE_FORMAT, true, 'UTF-8', false);
               // set document information
@@ -4611,19 +4750,23 @@
                         </tr>
                     </thead>
                     <tbody>';
-                    $etatglobale = 0;
+                    $etatglobale = 0.0;
                     $nb = 0;
-                    $bg = 0;
-                foreach ($reportick as $departick => $lement) {
+                foreach ($reportick as $lement) {
+                    $nbrLigne = (int) round((float) $lement->codid_bagageesc);
+                    $montantLigne = $this->_recap_line_amount(
+                        isset($lement->total) ? $lement->total : null,
+                        $nbrLigne,
+                        isset($lement->prix_bagageesc) ? $lement->prix_bagageesc : 0
+                    );
                     $them .= '<tr>
-                        <td width="20%" align="left"><strong>' . $lement->nom_ligne . '</strong></td>
-                        <td width="15%" align="center"><strong>' . $lement->codid_bagageesc . '</strong></td>
-                        <td width="20%" align="center"><strong>' . number_format($lement->prix_bagageesc, 0, '', ' ') . '</strong></td>
-                        <td width="20%" align="right"><strong>' . number_format(($lement->codid_bagageesc * $lement->prix_bagageesc), 0, '', ' ') . '</strong></td>
+                        <td width="20%" align="left"><strong>' . htmlspecialchars((string) $lement->nom_ligne, ENT_QUOTES, 'UTF-8') . '</strong></td>
+                        <td width="15%" align="center"><strong>' . $nbrLigne . '</strong></td>
+                        <td width="20%" align="center"><strong>' . number_format((float) $lement->prix_bagageesc, 0, '', ' ') . '</strong></td>
+                        <td width="20%" align="right"><strong>' . number_format($montantLigne, 0, '', ' ') . '</strong></td>
                         </tr>';
-                         $etatglobale += $lement->codid_bagageesc * $lement->prix_bagageesc;
-                         $nb += $lement->codid_bagageesc;
-                         $bg += $lement->prix_bagageesc;
+                         $etatglobale += $montantLigne;
+                         $nb += $nbrLigne;
                 }
 
                     $them .= '<tr>
@@ -8215,11 +8358,12 @@
               $dt2 = $this->input->post('datefincrgl');
               $lign = $this->input->post('axelignecrgl');
               $comp = $this->input->post('_compagcrgl');
-              $gid = $this->input->post('departgarcrgl');
+              $gid = $this->_normalize_recap_gare_filter($this->input->post('departgarcrgl'));
               $tyc = $this->input->post('typcoursgl');
               $sg = $this->input->post('sousgarecrgl');
 
-              $ncomp = $this->m_compagnies->getn($comp);
+              $this->_assert_recap_global_filters($this->entreprise->ekey, $dt1, $dt2, $comp);
+              $compLabel = $this->_recap_compagnie_label($comp);
 
               //$ct = $this->m_categ->getps($this->entreprise->id_entreprise, $tyc);
 
@@ -8229,16 +8373,18 @@
                   $ty3 = $ty2;
                 }elseif($tyc === 'Petit_plis'){
                   $ty3 = $ty;
+                }else{
+                  $ty3 = 'PLIS/COLIS';
                 }
 
-                $dats = explode("-", $dt1);
-                $days = $dats[2]. '-'. $dats[1]. '-' .$dats[0];
-                $dats1 = explode("-", $dt2);
-                  $days1 = $dats1[2]. '-'. $dats1[1]. '-' .$dats1[0];
+                list($days, $days1) = $this->_recap_title_dates($dt1, $dt2);
             
                   //$recapcourrier = $this->m_courrier_expedier->recaptpligl($this->entreprise->ekey, $dt1, $dt2, $gid, $tyc, $comp, $lign);
 
                   $recapcourrier = $this->m_courrier_expedier->trecaptpligl($this->entreprise->ekey, $dt1, $dt2, $comp, $gid, $tyc, $lign, $sg);
+                  if (!is_array($recapcourrier)) {
+                      $recapcourrier = array();
+                  }
 
               $sgTitre = '';
               if ($sg !== null && $sg !== '') {
@@ -8285,7 +8431,7 @@
               // GROUPE DE GAUCHE
               $pdf->SetFont('courier', '', 9);
                           
-              $titre = '<h1 align="center">RECAP GLOBAL COURRIER '.$ty3.' '.$ncomp->compagnie.$sgTitre.' DU '. $days .' AU '.$days1.'</h1>';
+              $titre = '<h1 align="center">RECAP GLOBAL COURRIER '.$ty3.$compLabel.$sgTitre.' DU '. $days .' AU '.$days1.'</h1>';
               $them = '<table border="1" cellpadding="0">
                   <thead>                          
                         <tr> 
@@ -8296,19 +8442,24 @@
                           </tr>
                     </thead>
                     <tbody>';
-                    $tglobal = 0;
+                    $tglobal = 0.0;
                     $nb = 0;
-                foreach ($recapcourrier as $departs => $element) {
+                foreach ($recapcourrier as $element) {
+                    $nbrLigne = (int) round((float) $element->nombres);
+                    $montantLigne = $this->_recap_line_amount(
+                        isset($element->montant) ? $element->montant : null,
+                        $nbrLigne,
+                        isset($element->prixcolis) ? $element->prixcolis : 0
+                    );
                     $them .= '<tr>
-                    <td width="45%" align="left"><strong>' . $element->nom_ligne . '</strong></td>
+                    <td width="45%" align="left"><strong>' . htmlspecialchars((string) $element->nom_ligne, ENT_QUOTES, 'UTF-8') . '</strong></td>
                          
-                          <td width="15%" align="center"><strong>' . $element->nombres. '</strong></td>
-                          <td width="20%" align="center"><strong>' . number_format($element->prixcolis, 0, '', ' ') . '</strong></td>
-                          <td width="20%" align="right"><strong>' . number_format($element->nombres * $element->prixcolis, 0, '', ' ') . '</strong></td>
+                          <td width="15%" align="center"><strong>' . $nbrLigne . '</strong></td>
+                          <td width="20%" align="center"><strong>' . number_format((float) $element->prixcolis, 0, '', ' ') . '</strong></td>
+                          <td width="20%" align="right"><strong>' . number_format($montantLigne, 0, '', ' ') . '</strong></td>
                           </tr>';
-                           $tglobal += ($element->nombres) * ($element->prixcolis);
-                          //$tglobal1 = $tglobal;
-                           $nb +=$element->nombres;
+                           $tglobal += $montantLigne;
+                           $nb += $nbrLigne;
                         }
           
                 $them .= '<tr>
@@ -8341,10 +8492,11 @@
               $dt2 = $this->input->post('datefincrglesc');
               $lign = $this->input->post('axelignecrglesc');
               $comp = $this->input->post('_compagcrglesc');
-              $gid = $this->input->post('departgarcrglesc');
+              $gid = $this->_normalize_recap_gare_filter($this->input->post('departgarcrglesc'));
               $tyc = $this->input->post('typcoursglesc');
 
-              $ncomp = $this->m_compagnies->getn($comp);
+              $this->_assert_recap_global_filters($this->entreprise->ekey, $dt1, $dt2, $comp);
+              $compLabel = $this->_recap_compagnie_label($comp);
 
               //$ct = $this->m_categ->getps($this->entreprise->id_entreprise, $tyc);
 
@@ -8355,18 +8507,18 @@
                   $ty3 = $ty2;
                 }elseif($tyc === 'Petit_plis'){
                   $ty3 = $ty;
-                }elseif($tyc === ''){
+                }else{
                   $ty3 = $ty.'/'.$ty2;
                 }
 
-                $dats = explode("-", $dt1);
-                $days = $dats[2]. '-'. $dats[1]. '-' .$dats[0];
-                $dats1 = explode("-", $dt2);
-                  $days1 = $dats1[2]. '-'. $dats1[1]. '-' .$dats1[0];
+                list($days, $days1) = $this->_recap_title_dates($dt1, $dt2);
             
                   //$recapcourrier = $this->m_courrier_expedieresc->recaptpligl($this->entreprise->ekey, $dt1, $dt2, $gid, $tyc, $comp, $lign);
 
                   $recapcourrier = $this->m_courrier_expedieresc->trecaptpligl($this->entreprise->ekey, $dt1, $dt2, $comp, $gid, $tyc, $lign);
+                  if (!is_array($recapcourrier)) {
+                      $recapcourrier = array();
+                  }
                 
               $pdf = new TCPDF(PDF_PAGE_ORIENTATION, PDF_UNIT, PDF_PAGE_FORMAT, true, 'UTF-8', false);
               // set document information
@@ -8405,7 +8557,7 @@
               // GROUPE DE GAUCHE
               $pdf->SetFont('courier', '', 9);
                           
-              $titre = '<h1 align="center">RECAP GLOBAL COURRIERESCAL '.$ty3.' '.$ncomp->compagnie.' DU '. $days .' AU '.$days1.'</h1>';
+              $titre = '<h1 align="center">RECAP GLOBAL COURRIERESCAL '.$ty3.$compLabel.' DU '. $days .' AU '.$days1.'</h1>';
               $them = '<table border="1" cellpadding="0">
                   <thead>                          
                         <tr> 
@@ -8416,19 +8568,24 @@
                           </tr>
                     </thead>
                     <tbody>';
-                    $tglobal = 0;
+                    $tglobal = 0.0;
                     $nb = 0;
-                foreach ($recapcourrier as $departs => $element) {
+                foreach ($recapcourrier as $element) {
+                    $nbrLigne = (int) round((float) $element->nombresesc);
+                    $montantLigne = $this->_recap_line_amount(
+                        isset($element->montantesc) ? $element->montantesc : null,
+                        $nbrLigne,
+                        isset($element->prixcolisesc) ? $element->prixcolisesc : 0
+                    );
                     $them .= '<tr>
-                    <td width="45%" align="left"><strong>' . $element->nom_ligne . '</strong></td>
+                    <td width="45%" align="left"><strong>' . htmlspecialchars((string) $element->nom_ligne, ENT_QUOTES, 'UTF-8') . '</strong></td>
                          
-                          <td width="15%" align="center"><strong>' . $element->nombresesc. '</strong></td>
-                          <td width="20%" align="center"><strong>' . number_format($element->prixcolisesc, 0, '', ' ') . '</strong></td>
-                          <td width="20%" align="right"><strong>' . number_format($element->nombresesc * $element->prixcolisesc, 0, '', ' ') . '</strong></td>
+                          <td width="15%" align="center"><strong>' . $nbrLigne . '</strong></td>
+                          <td width="20%" align="center"><strong>' . number_format((float) $element->prixcolisesc, 0, '', ' ') . '</strong></td>
+                          <td width="20%" align="right"><strong>' . number_format($montantLigne, 0, '', ' ') . '</strong></td>
                           </tr>';
-                           $tglobal += ($element->nombresesc) * ($element->prixcolisesc);
-                          //$tglobal1 = $tglobal;
-                           $nb +=$element->nombresesc;
+                           $tglobal += $montantLigne;
+                           $nb += $nbrLigne;
                         }
           
                 $them .= '<tr>
