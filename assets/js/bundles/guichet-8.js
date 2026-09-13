@@ -1048,14 +1048,13 @@ document.addEventListener('DOMContentLoaded', function () {
         var allowMulti = __cAllowMultiChecked();
         __cSyncAllowMultiWrap(rows.length > 0);
         // Règle : directs seuls s'il y en a, sinon correspondance.
-        // Case cochée : directs + multi-segments.
+        // Case cochée : uniquement multi / correspondances (pas les directs).
         if (rows.length && allowMulti) {
-            __cSetPathMode('both');
+            __cSetPathMode('transit');
             if (hint) {
                 hint.style.display = 'block';
-                hint.textContent = 'Multi activé : directs et correspondances proposés.';
+                hint.textContent = 'Multi activé : correspondances uniquement (directs masqués).';
             }
-            __cFillHeuresForDate(dateYmd);
             __cFetchChemins(dateYmd);
             return;
         }
@@ -1174,11 +1173,7 @@ document.addEventListener('DOMContentLoaded', function () {
             + '/reprogrammes/seg_progs/'
             + encodeURIComponent(seg.ligneId) + '/'
             + encodeURIComponent(dateYmd);
-        var gadest = '';
-        if (seg.etape) {
-            gadest = String(seg.etape.code_gadest || seg.etape.gadest_lg || '').trim();
-        }
-        if (gadest) url += '?gadest=' + encodeURIComponent(gadest);
+        // Pas de ?gadest= : BAM6≠BAM53 ; le backend élargit par nom OD.
 
         __cSegErr(idx, 'Chargement…');
         __cXhrGet(url, function (data) {
@@ -1214,18 +1209,35 @@ document.addEventListener('DOMContentLoaded', function () {
             }
             __cSegErr(idx, '');
             // 1 option Heure = 1 programme (1ER/2ème si même HH:MM).
+            // Tri : heure, puis cie la plus fournie, puis cie ≠ achat.
             var sorted = rows.slice().filter(function (r) {
                 return r && r.code_progr && __cHhmm(r.heure);
-            }).sort(function (a, b) {
-                var ha = __cHhmm(a.heure);
-                var hb = __cHhmm(b.heure);
-                if (ha !== hb) return ha < hb ? -1 : 1;
-                return String(a.code_progr).localeCompare(String(b.code_progr));
             });
             var countByHh = {};
+            var countByCie = {};
             sorted.forEach(function (r) {
                 var hh = __cHhmm(r.heure);
                 countByHh[hh] = (countByHh[hh] || 0) + 1;
+                var ck = __cCieKey(r) || '_';
+                countByCie[ck] = (countByCie[ck] || 0) + 1;
+            });
+            var purchaseCie = String((__cQ('confirm_id_compaga') || {}).value
+                || (__cQ('id_compaga_confirm') || {}).value || '');
+            sorted.sort(function (a, b) {
+                var ha = __cHhmm(a.heure);
+                var hb = __cHhmm(b.heure);
+                if (ha !== hb) return ha < hb ? -1 : 1;
+                var ca = __cCieKey(a) || '';
+                var cb = __cCieKey(b) || '';
+                var na = countByCie[ca] || 0;
+                var nb = countByCie[cb] || 0;
+                if (na !== nb) return nb - na;
+                if (purchaseCie) {
+                    var aBuy = ca === purchaseCie ? 1 : 0;
+                    var bBuy = cb === purchaseCie ? 1 : 0;
+                    if (aBuy !== bBuy) return aBuy - bBuy;
+                }
+                return String(a.code_progr || '').localeCompare(String(b.code_progr || ''));
             });
             var idxByHh = {};
             sorted.forEach(function (r) {
@@ -1244,6 +1256,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 var parts = [hh];
                 if (multi) parts.push(__cOrdinalFr(idxByHh[hh]));
                 parts.push(__cCieName(r) || 'Compagnie');
+                if (r.nom_ligne) parts.push(r.nom_ligne);
                 parts.push(__cHubLabel(r));
                 o.textContent = parts.join(' — ');
                 heureSel.add(o);
@@ -3450,22 +3463,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 var s = String(h || '').trim();
                 return s.length >= 5 ? s.slice(0, 5) : s;
             };
-        if (hasAnyDirect && allowMulti && hasTransit) {
-            // Directs + créneaux corr dont le HH:MM n’est pas déjà couvert.
-            var directHh = {};
-            list.forEach(function (hr) {
-                if (!hr || !(hr.has_programme === true || hr.has_programme === 1 || hr.has_programme === '1')) {
-                    return;
-                }
-                var hhD = normHh(hr.heure);
-                if (hhD) directHh[hhD] = true;
-            });
+        // Décoché : directs seuls s'il y en a, sinon créneaux correspondance.
+        // Coché : uniquement heures non-directes (correspondances).
+        if (allowMulti && hasTransit) {
             list = list.filter(function (hr) {
-                if (!hr) return false;
-                var isProg = !!(hr.has_programme === true || hr.has_programme === 1 || hr.has_programme === '1');
-                if (isProg) return true;
-                var hhT = normHh(hr.heure);
-                return !!hhT && !directHh[hhT];
+                return hr && !(hr.has_programme === true || hr.has_programme === 1 || hr.has_programme === '1');
             });
         } else if (hasAnyDirect) {
             list = list.filter(function (hr) {

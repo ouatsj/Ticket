@@ -323,25 +323,10 @@ class Chemins_programmes_vente
             return false;
         }
         $nom = trim((string) $meta->nom_ligne);
-        $base = preg_replace('/_(VIP|CMT|ORD|EXPRESS|STD|CMTSD|VIPSD)$/i', '', $nom);
-        if ($base === null || $base === '') {
-            $base = $nom;
-        }
-        $gaexp = trim((string) $meta->gaexp_lg);
+        // Jumelles par nom OD normalisé — pas d’exploration _VIP/_CMT.
+        $axes = $this->CI->m_programme->axes_par_nom_ligne($nom, null, null, null);
         $ids = array();
-        foreach (array($nom, $base, $base . '_VIP', $base . '_CMT', $base . '_VIPSD', $base . '_CMTSD') as $nTry) {
-            if ($nTry === '') {
-                continue;
-            }
-            $axes = $this->CI->m_programme->axes_par_nom_ligne(
-                $nTry,
-                null,
-                $gaexp !== '' ? $gaexp : null,
-                null
-            );
-            if (!is_array($axes)) {
-                continue;
-            }
+        if (is_array($axes)) {
             foreach ($axes as $ax) {
                 $ax = trim((string) $ax);
                 if ($ax !== '' && $ax !== $ligneId) {

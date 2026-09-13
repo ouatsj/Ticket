@@ -2429,8 +2429,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 );
                 return;
             }
+            // Multi coché (ou pas de direct) : correspondances multi uniquement.
             __reprogFetchChemins(dateYmd, '', function (chemins) {
-                var all = __reprogMergeItineraires(directs, chemins, allowMulti && directs.length > 0);
+                var all = allowMulti
+                    ? __reprogRowsArray(chemins).filter(function (ch) {
+                        if (!ch || ch.source === 'declaratif') return false;
+                        if (!__reprogCheminSensOk(ch)) return false;
+                        return __reprogNormalizeEtapes(ch.etapes || ch.legs).length >= 2;
+                    })
+                    : __reprogMergeItineraires([], chemins, false);
                 st.chemins = all;
                 var odLabel = st.nom_ligne || st.axe || '—';
                 if (!all.length) {
@@ -2438,27 +2445,32 @@ document.addEventListener('DOMContentLoaded', () => {
                     var err = __reprogQ('erreurSmspunifie');
                     if (box) box.style.display = 'block';
                     if (err) {
-                        err.textContent = 'Aucun itinéraire (direct ou correspondance) pour '
+                        err.textContent = (allowMulti
+                            ? 'Multi activé : aucune correspondance pour '
+                            : 'Aucun itinéraire (direct ou correspondance) pour ')
                             + odLabel + ' le ' + dateYmd
-                            + '. Essayez une autre date, ou une jambe isolée si besoin.';
+                            + (allowMulti ? '. Décochez Multi pour les directs.' : '.');
                     }
                     return;
                 }
                 __reprogShowCorrExclusive(
                     all,
-                    (allowMulti && directs.length
-                        ? 'Report global — directs et correspondances pour '
+                    (allowMulti
+                        ? 'Multi activé — correspondances uniquement pour '
                         : 'Report global — correspondances depuis la gare de report pour ')
                         + odLabel + ' le ' + dateYmd
                 );
-            }, !!(allowMulti && directs.length > 0));
+            }, true);
             return;
         }
 
-        // Direct / jambe isolée : Heure (1ER/2ème) si programmes, sinon correspondance.
+        // Direct / jambe isolée.
+        // Multi coché : masquer les directs Heure → uniquement correspondances multi.
         __reprogSetAncreVisible(true);
         if (n > 0 && allowMulti) {
-            // Heure a déjà les directs : n’ajouter que les multi ≥2 (pas de 2ᵉ liste des mêmes heures).
+            __reprogResetSelect(__reprogQ('heuredepartpunifie'), "Choisissez l'heure");
+            __reprogSetAncreVisible(false);
+            __reprogHideDirect();
             __reprogFetchChemins(dateYmd, '', function (chemins) {
                 var multiOnly = __reprogRowsArray(chemins).filter(function (ch) {
                     if (!ch || ch.source === 'declaratif') return false;
@@ -2466,13 +2478,22 @@ document.addEventListener('DOMContentLoaded', () => {
                     return __reprogNormalizeEtapes(ch.etapes || ch.legs).length >= 2;
                 });
                 st.chemins = multiOnly;
-                if (multiOnly.length) {
-                    __reprogShowCorrAlongside(
-                        multiOnly,
-                        'Multi activé — correspondances en plus des directs (Heure) pour '
+                if (!multiOnly.length) {
+                    var boxM = __reprogQ('smspunifie');
+                    var errM = __reprogQ('erreurSmspunifie');
+                    if (boxM) boxM.style.display = 'block';
+                    if (errM) {
+                        errM.textContent = 'Multi activé : aucune correspondance pour '
                             + (st.nom_ligne || st.axe || '—') + ' le ' + dateYmd
-                    );
+                            + '. Décochez Multi pour les directs.';
+                    }
+                    return;
                 }
+                __reprogShowCorrExclusive(
+                    multiOnly,
+                    'Multi activé — correspondances uniquement (pas les directs) pour '
+                        + (st.nom_ligne || st.axe || '—') + ' le ' + dateYmd
+                );
             }, true);
             return;
         }

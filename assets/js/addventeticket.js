@@ -1378,22 +1378,11 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         var allowMulti = __venteAllowMultiChecked();
         __venteSyncAllowMultiWrap(hasAnyDirect, !!hasTransit);
-        if (hasAnyDirect && allowMulti && hasTransit) {
-            // Directs + créneaux corr dont le HH:MM n’est pas déjà couvert (évite 08:00 + 08:00 corr).
-            var directHh = {};
-            list.forEach(function (hr) {
-                if (!hr || !(hr.has_programme === true || hr.has_programme === 1 || hr.has_programme === '1')) {
-                    return;
-                }
-                var hhD = __venteNormalizeHhmm(hr.heure);
-                if (hhD) directHh[hhD] = true;
-            });
+        // Décoché : directs seuls s'il y en a, sinon créneaux correspondance.
+        // Coché : uniquement heures non-directes (correspondances).
+        if (allowMulti && hasTransit) {
             list = list.filter(function (hr) {
-                if (!hr) return false;
-                var isProg = !!(hr.has_programme === true || hr.has_programme === 1 || hr.has_programme === '1');
-                if (isProg) return true;
-                var hhT = __venteNormalizeHhmm(hr.heure);
-                return !!hhT && !directHh[hhT];
+                return hr && !(hr.has_programme === true || hr.has_programme === 1 || hr.has_programme === '1');
             });
         } else if (hasAnyDirect) {
             list = list.filter(function (hr) {

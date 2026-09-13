@@ -191,6 +191,7 @@ $allow_externe = in_array($role_confirm, array('1', '2', '5', '15'), true);
                         </select>
                         <small class="form-text text-muted">
                             Programmes de la date : même heure → 1ER, 2ème…
+                            Cochez Multi pour les correspondances uniquement (pas les directs).
                         </small>
                     </div>
                     <!-- Compagnie retirée : le choix se fait dans Heure (1 programme = 1 option). -->

@@ -1352,9 +1352,8 @@
          * Programmes d’un segment reprog : compagnie = gare d’arrivée (id_compaga),
          * comme vente / tickets / « lignes par compagnie d’arrivée ».
          *
-         * En reprog : élargit aux lignes jumelles OD (OUAGA-BAMAKO ↔ OUAGA-BAMAKO_VIP)
-         * pour lister toutes les compagnies disponibles à la date — pas seulement la
-         * ligne CMT de l’étape graphe.
+         * En reprog/confirm : élargit aux lignes jumelles OD par NOM normalisé
+         * (égalité strip, sans explorer les suffixes _VIP/_CMT, sans id_ville).
          *
          * @param string|null $cie     Filtre id_compaga (étape) — ignoré si $expand_siblings
          * @param string|null $gadest  Filtre code_gadest (étape)
@@ -1400,37 +1399,15 @@
                 )->row();
                 if ($meta && trim((string) $meta->nom_ligne) !== '') {
                     $nom = trim((string) $meta->nom_ligne);
-                    $base = preg_replace('/_(VIP|CMT|ORD|EXPRESS|STD|CMTSD|VIPSD)$/i', '', $nom);
-                    if ($base === null || $base === '') {
-                        $base = $nom;
-                    }
-                    $gaexp = trim((string) $meta->gaexp_lg);
+                    // Jumelles par NOM OD (strip cie en SQL) — pas d’exploration _VIP/_CMT,
+                    // pas de filtre id_ville / code gadest.
                     $ids = array($id);
-                    foreach (array($nom, $base) as $nTry) {
-                        if ($nTry === '') {
-                            continue;
-                        }
-                        $axes = $this->axes_par_nom_ligne($nTry, $ekeyRaw, $gaexp !== '' ? $gaexp : null, null);
-                        if (is_array($axes)) {
-                            foreach ($axes as $ax) {
-                                $ax = trim((string) $ax);
-                                if ($ax !== '') {
-                                    $ids[] = $ax;
-                                }
-                            }
-                        }
-                    }
-                    // Variantes inverse : base_VIP si on part de base seule.
-                    if ($base !== '' && strcasecmp($base, $nom) === 0) {
-                        foreach (array('_VIP', '_CMT', '_ORD', '_VIPSD', '_CMTSD') as $suf) {
-                            $axes2 = $this->axes_par_nom_ligne($base . $suf, $ekeyRaw, $gaexp !== '' ? $gaexp : null, null);
-                            if (is_array($axes2)) {
-                                foreach ($axes2 as $ax) {
-                                    $ax = trim((string) $ax);
-                                    if ($ax !== '') {
-                                        $ids[] = $ax;
-                                    }
-                                }
+                    $axes = $this->axes_par_nom_ligne($nom, $ekeyRaw, null, null);
+                    if (is_array($axes)) {
+                        foreach ($axes as $ax) {
+                            $ax = trim((string) $ax);
+                            if ($ax !== '') {
+                                $ids[] = $ax;
                             }
                         }
                     }
@@ -1442,7 +1419,6 @@
                         }
                         $ligneSql = ' AND lh.ligne_id IN (' . implode(',', $in) . ') ';
                     }
-                    // Pas de filtre gadest/ville ici : BAM6≠BAM53 en id_villega.
                 }
             }
 
@@ -2721,28 +2697,33 @@
             if ($nom === '') {
                 return ' AND 1=0 ';
             }
-            $base = preg_replace('/_(VIP|CMT|ORD|EXPRESS|STD|CMTSD)$/i', '', $nom);
+            $base = preg_replace('/_(VIP|CMT|ORD|EXPRESS|STD|CMTSD|VIPSD)$/i', '', $nom);
             if ($base === null || $base === '') {
                 $base = $nom;
             }
-            $nomEsc = $this->db->escape($nom);
-            $baseEsc = $this->db->escape($base);
-            $likeEsc = $this->db->escape($base . '_%');
             $baseU = $this->db->escape(strtoupper($base));
-            // Strip suffixes côté catalogue pour égalité base.
-            $stripLg = "REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(UPPER(TRIM(lg.nom_ligne)),"
-                . " '_VIP', ''), '_CMTSD', ''), '_CMT', ''), '_ORD', ''), '_EXPRESS', '')";
-            return " AND (
-                lg.nom_ligne = {$nomEsc}
-                OR lg.nom_ligne = {$baseEsc}
-                OR lg.nom_ligne LIKE {$likeEsc}
-                OR {$stripLg} = {$baseU}
-            ) ";
+            // Égalité par nom normalisé (suffixes cie retirés) — pas de LIKE _VIP/_CMT.
+            $stripLg = $this->sql_strip_cie_suffix('lg.nom_ligne');
+            return " AND ({$stripLg} = {$baseU}) ";
         }
 
         /**
-         * Axes (ident_ligne) partageant le même nom de ligne (OD métier multi-compagnies).
-         * Optionnel : restreindre au sens gaexp→gadest (mêmes villes) pour éviter le contre-sens.
+         * Normalise un nom gare/ligne SQL (retire suffixes cie) pour comparer par NOM,
+         * jamais par id_ville (Bamako CMT ≠ Bamako VIP en id_villega).
+         *
+         * @param string $expr expression SQL (colonne)
+         * @return string
+         */
+        public function sql_strip_cie_suffix($expr)
+        {
+            return 'REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(UPPER(TRIM(' . $expr . ')),'
+                . " '_VIPSD', ''), '_VIP', ''), '_CMTSD', ''), '_CMT', ''), '_ORD', ''), '_EXPRESS', '')";
+        }
+
+        /**
+         * Axes (ident_ligne) partageant le même nom OD métier (après normalisation).
+         * Pas d’exploration explicite des suffixes _VIP/_CMT : égalité de nom stripé.
+         * Optionnel : restreindre gaexp→gadest par NOM de gare (pas id_ville).
          *
          * @param string      $nom_ligne
          * @param string|null $ekey
@@ -2760,7 +2741,7 @@
             $ga = trim((string) $gaexp);
             $gd = trim((string) $gadest);
 
-            $base = preg_replace('/_(VIP|CMT|ORD|EXPRESS|STD|CMTSD)$/i', '', $nom);
+            $base = preg_replace('/_(VIP|CMT|ORD|EXPRESS|STD|CMTSD|VIPSD)$/i', '', $nom);
             if ($base === null || $base === '') {
                 $base = $nom;
             }
@@ -2770,16 +2751,11 @@
                     JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
                     JOIN gare_dest ga ON lg.gadest_lg = ga.code_gadest";
             $params = array();
-            // Base + variantes (_VIP/_CMT…) + strip symétrique.
-            $stripLg = "REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(UPPER(TRIM(lg.nom_ligne)),"
-                . " '_VIP', ''), '_CMTSD', ''), '_CMT', ''), '_ORD', ''), '_EXPRESS', '')";
+            $stripLg = $this->sql_strip_cie_suffix('lg.nom_ligne');
             $where = array(
-                '(lg.nom_ligne = ? OR lg.nom_ligne = ? OR lg.nom_ligne LIKE ? OR ' . $stripLg . ' = ?)',
+                $stripLg . ' = ?',
                 'IFNULL(lg.actif_lg, 1) = 1',
             );
-            $params[] = $nom;
-            $params[] = $base;
-            $params[] = $base . '_%';
             $params[] = strtoupper($base);
 
             if ($ek !== '') {
@@ -2788,18 +2764,22 @@
                 $where[] = 'e.ekey = ?';
                 $params[] = $ek;
             }
+            // Comparaison par NOM de gare (suffixes cie retirés), pas id_villeg*.
+            $stripEx = $this->sql_strip_cie_suffix('ex.nom_gaexp');
+            $stripGa = $this->sql_strip_cie_suffix('ga.nom_gadest');
+            $stripEx0 = $this->sql_strip_cie_suffix('ex0.nom_gaexp');
+            $stripGa0 = $this->sql_strip_cie_suffix('ga0.nom_gadest');
             if ($ga !== '' && $gd !== '') {
                 $sql .= " JOIN gare_exp ex0 ON ex0.code_gaexp = ?
                           JOIN gare_dest ga0 ON ga0.code_gadest = ?";
                 $params[] = $ga;
                 $params[] = $gd;
-                $where[] = 'ex.id_villegd = ex0.id_villegd';
-                $where[] = 'ga.id_villega = ga0.id_villega';
+                $where[] = "{$stripEx} = {$stripEx0}";
+                $where[] = "{$stripGa} = {$stripGa0}";
             } elseif ($ga !== '') {
-                // Départ seulement (reprog : toutes dest / compagnies du nom de ligne).
                 $sql .= ' JOIN gare_exp ex0 ON ex0.code_gaexp = ?';
                 $params[] = $ga;
-                $where[] = 'ex.id_villegd = ex0.id_villegd';
+                $where[] = "{$stripEx} = {$stripEx0}";
             }
             $sql .= ' WHERE ' . implode(' AND ', $where) . ' ORDER BY lg.ident_ligne ASC';
             $rows = $this->db->query($sql, $params)->result();

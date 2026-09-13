@@ -221,7 +221,7 @@ $allow_prix_diff_unifie = true;
                     <p class="small text-muted mb-0 mt-1">
                         Tous les départs programmes de la date : même heure → 1ER, 2ème… ;
                         mention <em>normal</em> ou <em>hub/dérivé</em>.
-                        Cochez <em>Multi</em> pour proposer aussi les correspondances.
+                        Cochez <em>Multi</em> pour afficher uniquement les correspondances (heures non-directes).
                     </p>
                 </div>
                 <!-- Compagnie / « départ » retiré : le choix se fait dans Heure (1 programme = 1 option). -->
