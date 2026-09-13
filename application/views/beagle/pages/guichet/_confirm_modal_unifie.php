@@ -179,12 +179,16 @@ $allow_externe = in_array($role_confirm, array('1', '2', '5', '15'), true);
             <div id="confirm_direct_fields_wrap">
                 <div class="form-row">
                     <div class="form-group col-md-4 mb-2">
-                        <label class="small mb-0">Heure</label>
+                        <label class="small mb-0">Heure (départs programmes)</label>
                         <select class="form-control form-control-sm" id="heure_confirm_unifie">
                             <option value="">Choisissez l'heure</option>
                         </select>
+                        <small class="form-text text-muted">
+                            Programmes de la date : même heure → 1ER, 2ème…
+                        </small>
                     </div>
-                    <div class="form-group col-md-4 mb-2">
+                    <!-- Compagnie retirée : le choix se fait dans Heure (1 programme = 1 option). -->
+                    <div class="form-group col-md-4 mb-2" id="confirm_cie_wrap" style="display:none" hidden>
                         <label class="small mb-0">Compagnie</label>
                         <select class="form-control form-control-sm" id="cie_confirm_unifie">
                             <option value="">Choisissez la compagnie</option>
@@ -202,7 +206,7 @@ $allow_externe = in_array($role_confirm, array('1', '2', '5', '15'), true);
             <div id="confirm_transit_wrap" style="display:none">
                 <div class="confirm-section-title">Itinéraire (correspondance)</div>
                 <p class="small text-muted mb-2" id="confirm_transit_msg">
-                    Aucun direct : choisissez un itinéraire depuis la gare de confirmation vers la destination du retour.
+                    Aucun direct depuis la gare de confirmation : choisissez une correspondance vers la destination.
                 </p>
                 <div class="form-group mb-2">
                     <label class="small mb-0">Itinéraire</label>

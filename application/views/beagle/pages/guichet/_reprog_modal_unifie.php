@@ -198,7 +198,8 @@ $allow_prix_diff_unifie = true;
                     <option value="0">Toutes les jambes (report global)</option>
                 </select>
                 <p class="small text-muted mb-0 mt-1">
-                    Jambe isolée : seule cette correspondance est reportée ; les autres tickets du transit restent inchangés.
+                    <strong>Toutes les jambes</strong> : choisir ensuite l’itinéraire (direct ou correspondance) ci-dessous.
+                    <strong>Jambe isolée</strong> : seule cette correspondance est reportée ; les autres tickets du transit restent inchangés.
                 </p>
             </div>
             <div class="form-row">
@@ -242,8 +243,8 @@ $allow_prix_diff_unifie = true;
             <div id="corr_unifie_wrap" style="display:none">
                 <div class="reprog-section-title">Itinéraires possibles</div>
                 <p class="small text-muted mb-2" id="corr_unifie_hint">
-                    Selon l’axe du ticket et la date de report : un itinéraire direct = 1 segment ;
-                    une correspondance = plusieurs segments (compagnie, date, heure, siège).
+                    Selon l’axe du ticket et la date de report (depuis la gare de report) :
+                    directs seuls s’il y en a ; sinon correspondance multi-segments.
                 </p>
                 <p class="text-warning small mb-2" id="corr_unifie_msg"></p>
                 <div class="form-group mb-3">

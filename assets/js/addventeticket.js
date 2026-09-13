@@ -970,9 +970,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     /**
-     * Après verifprog : N=0 → false (creedepart) ; N=1 auto ; N>1 sélecteur.
+     * Après verifprog : N=0 → false ; N=1 auto ; N>1 → filtre code_progr (Heure) sinon 1er.
+     * Ne réactive plus le champ « Départ (même heure) ».
      */
-    function __venteHandleProgList(don, idLigneheure, dptDate) {
+    function __venteHandleProgList(don, idLigneheure, dptDate, preferCode) {
         var list = __venteProgListFromResponse(don);
         __venteHideProgSelect();
         var ps = document.querySelector('#psieges');
@@ -980,39 +981,18 @@ document.addEventListener('DOMContentLoaded', () => {
         if (list.length === 0) {
             return false;
         }
-        if (list.length === 1) {
-            __venteApplyProgFields(list[0]);
-            __venteLoadSiegesDirect(idLigneheure, dptDate);
-            return true;
-        }
-        var box = document.getElementById('selprog_box');
-        var sel = document.getElementById('selprog');
-        if (!sel) {
-            // Pas de UI multi : prendre le plus récent (comportement historique).
-            __venteApplyProgFields(list[0]);
-            __venteLoadSiegesDirect(idLigneheure, dptDate);
-            return true;
-        }
-        if (box) box.style.display = 'block';
-        if (sel) sel.style.display = 'block';
-        sel.options.length = 1;
-        for (var i = 0; i < list.length; i++) {
-            var p = list[i];
-            var opt = document.createElement('option');
-            opt.value = String(i);
-            opt.innerHTML = __venteLabelProg(p);
-            sel.add(opt);
-        }
-        sel.onchange = function () {
-            if (ps) ps.options.length = 1;
-            var idx = parseInt(sel.value, 10);
-            if (isNaN(idx) || !list[idx]) {
-                __venteApplyProgFields({});
-                return;
+        var pick = list[0];
+        if (preferCode) {
+            var want = String(preferCode);
+            for (var i = 0; i < list.length; i++) {
+                if (list[i] && String(list[i].code_progr || '') === want) {
+                    pick = list[i];
+                    break;
+                }
             }
-            __venteApplyProgFields(list[idx]);
-            __venteLoadSiegesDirect(idLigneheure, dptDate);
-        };
+        }
+        __venteApplyProgFields(pick);
+        __venteLoadSiegesDirect(idLigneheure, dptDate);
         return true;
     }
 
@@ -1366,24 +1346,76 @@ document.addEventListener('DOMContentLoaded', () => {
         return true;
     }
 
+    function __venteOrdinalFr(n) {
+        var i = parseInt(n, 10) || 0;
+        if (i <= 1) return '1ER';
+        return i + 'ème';
+    }
+
     function __venteFillHeuresVente(heures, hasTransit) {
         var hSel = document.querySelector('#hdepart');
         if (!hSel) return;
         hSel.options.length = 1;
-        var list = Array.isArray(heures) ? heures : [];
+        var list = Array.isArray(heures) ? heures.slice() : [];
+        // Règle unique : directs seuls s'il y en a, sinon créneaux correspondance.
+        var hasAnyDirect = list.some(function (hr) {
+            return hr && (hr.has_programme === true || hr.has_programme === 1 || hr.has_programme === '1');
+        });
+        if (hasAnyDirect) {
+            list = list.filter(function (hr) {
+                return hr && (hr.has_programme === true || hr.has_programme === 1 || hr.has_programme === '1');
+            });
+        } else if (!hasTransit) {
+            list = [];
+        } else {
+            list = list.filter(function (hr) {
+                return hr && !(hr.has_programme === true || hr.has_programme === 1 || hr.has_programme === '1');
+            });
+        }
+        list.sort(function (a, b) {
+            var ha = String((a && a.heure) || '');
+            var hb = String((b && b.heure) || '');
+            if (ha !== hb) return ha < hb ? -1 : 1;
+            var ca = String((a && a.code_progr) || '');
+            var cb = String((b && b.code_progr) || '');
+            return ca < cb ? -1 : (ca > cb ? 1 : 0);
+        });
+        var countByHh = {};
+        list.forEach(function (hr) {
+            if (!hr || !hr.has_programme) return;
+            var hh = String(hr.heure || '');
+            if (!hh) return;
+            countByHh[hh] = (countByHh[hh] || 0) + 1;
+        });
+        var idxByHh = {};
         for (var i = 0; i < list.length; i++) {
             var hr = list[i];
             if (!hr || hr.id_ligneheure == null || hr.id_ligneheure === '') continue;
-            var opt = document.createElement('option');
-            opt.value = hr.id_ligneheure + '/' + hr.heure;
             var hasProg = !!(hr.has_programme === true || hr.has_programme === 1 || hr.has_programme === '1');
+            var code = hasProg && hr.code_progr ? String(hr.code_progr) : '';
+            var opt = document.createElement('option');
+            // Value unique si plusieurs programmes à la même heure.
+            opt.value = String(hr.id_ligneheure) + '/' + String(hr.heure)
+                + (code ? ('/' + code) : '');
             opt.setAttribute('data-has-programme', hasProg ? '1' : '0');
-            // Heures sans départ OD : créneaux transit (itinéraires à choisir après).
-            opt.innerHTML = hasProg
-                ? hr.heure
-                : (String(hr.heure) + (hasTransit ? ' (correspondance)' : ''));
+            opt.setAttribute('data-heure', String(hr.heure || ''));
+            if (code) opt.setAttribute('data-code-progr', code);
+            var label;
+            if (hasProg) {
+                var hh = String(hr.heure || '');
+                idxByHh[hh] = (idxByHh[hh] || 0) + 1;
+                var multi = (countByHh[hh] || 0) > 1;
+                label = multi
+                    ? (hh + ' — ' + __venteOrdinalFr(idxByHh[hh]))
+                    : hh;
+            } else {
+                label = String(hr.heure) + (hasTransit ? ' (correspondance)' : '');
+            }
+            opt.innerHTML = label;
             hSel.add(opt);
         }
+        // Champ « Départ (même heure) » : plus utilisé — le choix est dans Heure.
+        __venteHideProgSelect();
     }
 
     /** Remplit un select « départ correspondance » dès que gareIdentif est connu (reset inclus). */
@@ -1733,10 +1765,12 @@ document.addEventListener('DOMContentLoaded', () => {
     function __venteParseHourOption(hOpt) {
         if (!hOpt || !hOpt.value) return null;
         var parts = String(hOpt.value).split('/');
+        var codeAttr = hOpt.getAttribute('data-code-progr') || '';
         return {
             value: hOpt.value,
             idLh: parts[0] || '',
             heure: parts[1] || '',
+            codeProgr: codeAttr || parts[2] || '',
             hasProg: hOpt.getAttribute('data-has-programme') === '1'
         };
     }
@@ -1833,10 +1867,9 @@ document.addEventListener('DOMContentLoaded', () => {
         return chemins;
     }
 
-    /** Retire l'option « direct » fictive si l'heure choisie n'a pas de programme OD. */
+    /** En mode correspondance : uniquement multi (jamais de « direct » parasite). */
     function __venteFilterCheminsGuichet(chemins, hour) {
         if (!Array.isArray(chemins)) return [];
-        if (hour && hour.hasProg) return chemins.slice();
         return chemins.filter(function (c) {
             return c && c.source !== 'direct';
         });
@@ -1981,7 +2014,7 @@ document.addEventListener('DOMContentLoaded', () => {
             var typ_gare = document.querySelector('#typegare') ? document.querySelector('#typegare').value : '';
             var don = null;
             try { don = JSON.parse(httpRequest.responseText); } catch (eP) { don = null; }
-            if (__venteHandleProgList(don, sel, dpt_date)) {
+            if (__venteHandleProgList(don, sel, dpt_date, hour.codeProgr || '')) {
                 return;
             }
             if (don == '' || __venteProgListFromResponse(don).length === 0) {
@@ -2028,8 +2061,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
             if (errEl) errEl.innerHTML = chemins.length > 1
-                ? 'Choisissez un itinéraire (direct ou correspondances).'
-                : 'Itinéraire proposé — vérifiez les correspondances.';
+                ? 'Choisissez une correspondance depuis la gare de départ.'
+                : 'Correspondance proposée — vérifiez les segments.';
             // Toujours afficher le select dès qu’il y a ≥1 chemin (même un seul).
             __venteShowCheminSelector(chemins);
         });

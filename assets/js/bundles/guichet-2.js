@@ -1315,9 +1315,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     /**
-     * Après verifprog : N=0 → false (creedepart) ; N=1 auto ; N>1 sélecteur.
+     * Après verifprog : N=0 → false ; N=1 auto ; N>1 → filtre code_progr (Heure) sinon 1er.
+     * Ne réactive plus le champ « Départ (même heure) ».
      */
-    function __venteHandleProgList(don, idLigneheure, dptDate) {
+    function __venteHandleProgList(don, idLigneheure, dptDate, preferCode) {
         var list = __venteProgListFromResponse(don);
         __venteHideProgSelect();
         var ps = document.querySelector('#psieges');
@@ -1325,39 +1326,18 @@ document.addEventListener('DOMContentLoaded', () => {
         if (list.length === 0) {
             return false;
         }
-        if (list.length === 1) {
-            __venteApplyProgFields(list[0]);
-            __venteLoadSiegesDirect(idLigneheure, dptDate);
-            return true;
-        }
-        var box = document.getElementById('selprog_box');
-        var sel = document.getElementById('selprog');
-        if (!sel) {
-            // Pas de UI multi : prendre le plus récent (comportement historique).
-            __venteApplyProgFields(list[0]);
-            __venteLoadSiegesDirect(idLigneheure, dptDate);
-            return true;
-        }
-        if (box) box.style.display = 'block';
-        if (sel) sel.style.display = 'block';
-        sel.options.length = 1;
-        for (var i = 0; i < list.length; i++) {
-            var p = list[i];
-            var opt = document.createElement('option');
-            opt.value = String(i);
-            opt.innerHTML = __venteLabelProg(p);
-            sel.add(opt);
-        }
-        sel.onchange = function () {
-            if (ps) ps.options.length = 1;
-            var idx = parseInt(sel.value, 10);
-            if (isNaN(idx) || !list[idx]) {
-                __venteApplyProgFields({});
-                return;
+        var pick = list[0];
+        if (preferCode) {
+            var want = String(preferCode);
+            for (var i = 0; i < list.length; i++) {
+                if (list[i] && String(list[i].code_progr || '') === want) {
+                    pick = list[i];
+                    break;
+                }
             }
-            __venteApplyProgFields(list[idx]);
-            __venteLoadSiegesDirect(idLigneheure, dptDate);
-        };
+        }
+        __venteApplyProgFields(pick);
+        __venteLoadSiegesDirect(idLigneheure, dptDate);
         return true;
     }
 
@@ -1711,24 +1691,76 @@ document.addEventListener('DOMContentLoaded', () => {
         return true;
     }
 
+    function __venteOrdinalFr(n) {
+        var i = parseInt(n, 10) || 0;
+        if (i <= 1) return '1ER';
+        return i + 'ème';
+    }
+
     function __venteFillHeuresVente(heures, hasTransit) {
         var hSel = document.querySelector('#hdepart');
         if (!hSel) return;
         hSel.options.length = 1;
-        var list = Array.isArray(heures) ? heures : [];
+        var list = Array.isArray(heures) ? heures.slice() : [];
+        // Règle unique : directs seuls s'il y en a, sinon créneaux correspondance.
+        var hasAnyDirect = list.some(function (hr) {
+            return hr && (hr.has_programme === true || hr.has_programme === 1 || hr.has_programme === '1');
+        });
+        if (hasAnyDirect) {
+            list = list.filter(function (hr) {
+                return hr && (hr.has_programme === true || hr.has_programme === 1 || hr.has_programme === '1');
+            });
+        } else if (!hasTransit) {
+            list = [];
+        } else {
+            list = list.filter(function (hr) {
+                return hr && !(hr.has_programme === true || hr.has_programme === 1 || hr.has_programme === '1');
+            });
+        }
+        list.sort(function (a, b) {
+            var ha = String((a && a.heure) || '');
+            var hb = String((b && b.heure) || '');
+            if (ha !== hb) return ha < hb ? -1 : 1;
+            var ca = String((a && a.code_progr) || '');
+            var cb = String((b && b.code_progr) || '');
+            return ca < cb ? -1 : (ca > cb ? 1 : 0);
+        });
+        var countByHh = {};
+        list.forEach(function (hr) {
+            if (!hr || !hr.has_programme) return;
+            var hh = String(hr.heure || '');
+            if (!hh) return;
+            countByHh[hh] = (countByHh[hh] || 0) + 1;
+        });
+        var idxByHh = {};
         for (var i = 0; i < list.length; i++) {
             var hr = list[i];
             if (!hr || hr.id_ligneheure == null || hr.id_ligneheure === '') continue;
-            var opt = document.createElement('option');
-            opt.value = hr.id_ligneheure + '/' + hr.heure;
             var hasProg = !!(hr.has_programme === true || hr.has_programme === 1 || hr.has_programme === '1');
+            var code = hasProg && hr.code_progr ? String(hr.code_progr) : '';
+            var opt = document.createElement('option');
+            // Value unique si plusieurs programmes à la même heure.
+            opt.value = String(hr.id_ligneheure) + '/' + String(hr.heure)
+                + (code ? ('/' + code) : '');
             opt.setAttribute('data-has-programme', hasProg ? '1' : '0');
-            // Heures sans départ OD : créneaux transit (itinéraires à choisir après).
-            opt.innerHTML = hasProg
-                ? hr.heure
-                : (String(hr.heure) + (hasTransit ? ' (correspondance)' : ''));
+            opt.setAttribute('data-heure', String(hr.heure || ''));
+            if (code) opt.setAttribute('data-code-progr', code);
+            var label;
+            if (hasProg) {
+                var hh = String(hr.heure || '');
+                idxByHh[hh] = (idxByHh[hh] || 0) + 1;
+                var multi = (countByHh[hh] || 0) > 1;
+                label = multi
+                    ? (hh + ' — ' + __venteOrdinalFr(idxByHh[hh]))
+                    : hh;
+            } else {
+                label = String(hr.heure) + (hasTransit ? ' (correspondance)' : '');
+            }
+            opt.innerHTML = label;
             hSel.add(opt);
         }
+        // Champ « Départ (même heure) » : plus utilisé — le choix est dans Heure.
+        __venteHideProgSelect();
     }
 
     /** Remplit un select « départ correspondance » dès que gareIdentif est connu (reset inclus). */
@@ -2078,10 +2110,12 @@ document.addEventListener('DOMContentLoaded', () => {
     function __venteParseHourOption(hOpt) {
         if (!hOpt || !hOpt.value) return null;
         var parts = String(hOpt.value).split('/');
+        var codeAttr = hOpt.getAttribute('data-code-progr') || '';
         return {
             value: hOpt.value,
             idLh: parts[0] || '',
             heure: parts[1] || '',
+            codeProgr: codeAttr || parts[2] || '',
             hasProg: hOpt.getAttribute('data-has-programme') === '1'
         };
     }
@@ -2178,10 +2212,9 @@ document.addEventListener('DOMContentLoaded', () => {
         return chemins;
     }
 
-    /** Retire l'option « direct » fictive si l'heure choisie n'a pas de programme OD. */
+    /** En mode correspondance : uniquement multi (jamais de « direct » parasite). */
     function __venteFilterCheminsGuichet(chemins, hour) {
         if (!Array.isArray(chemins)) return [];
-        if (hour && hour.hasProg) return chemins.slice();
         return chemins.filter(function (c) {
             return c && c.source !== 'direct';
         });
@@ -2326,7 +2359,7 @@ document.addEventListener('DOMContentLoaded', () => {
             var typ_gare = document.querySelector('#typegare') ? document.querySelector('#typegare').value : '';
             var don = null;
             try { don = JSON.parse(httpRequest.responseText); } catch (eP) { don = null; }
-            if (__venteHandleProgList(don, sel, dpt_date)) {
+            if (__venteHandleProgList(don, sel, dpt_date, hour.codeProgr || '')) {
                 return;
             }
             if (don == '' || __venteProgListFromResponse(don).length === 0) {
@@ -2373,8 +2406,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
             if (errEl) errEl.innerHTML = chemins.length > 1
-                ? 'Choisissez un itinéraire (direct ou correspondances).'
-                : 'Itinéraire proposé — vérifiez les correspondances.';
+                ? 'Choisissez une correspondance depuis la gare de départ.'
+                : 'Correspondance proposée — vérifiez les segments.';
             // Toujours afficher le select dès qu’il y a ≥1 chemin (même un seul).
             __venteShowCheminSelector(chemins);
         });
@@ -6231,43 +6264,24 @@ document.addEventListener('DOMContentLoaded', () => {
         httpRequettefi.send();
     }
 
-    function __venteFiHandleProgList(don, dptDate) {
+    function __venteFiHandleProgList(don, dptDate, preferCode) {
         var list = __venteFiProgListFromResponse(don);
         __venteFiHideProgSelect();
         var ps = document.querySelector('#psiegesfid');
         if (ps) ps.options.length = 1;
         if (list.length === 0) return false;
-        if (list.length === 1) {
-            __venteFiApplyProgFields(list[0]);
-            __venteFiLoadSieges(dptDate);
-            return true;
-        }
-        var box = document.getElementById('selprog_box_fid');
-        var sel = document.getElementById('selprogfid');
-        if (!sel) {
-            __venteFiApplyProgFields(list[0]);
-            __venteFiLoadSieges(dptDate);
-            return true;
-        }
-        if (box) box.style.display = 'block';
-        if (sel) sel.style.display = 'block';
-        sel.options.length = 1;
-        for (var i = 0; i < list.length; i++) {
-            var opt = document.createElement('option');
-            opt.value = String(i);
-            opt.innerHTML = __venteFiLabelProg(list[i]);
-            sel.add(opt);
-        }
-        sel.onchange = function () {
-            if (ps) ps.options.length = 1;
-            var idx = parseInt(sel.value, 10);
-            if (isNaN(idx) || !list[idx]) {
-                __venteFiApplyProgFields({});
-                return;
+        var pick = list[0];
+        if (preferCode) {
+            var want = String(preferCode);
+            for (var i = 0; i < list.length; i++) {
+                if (list[i] && String(list[i].code_progr || '') === want) {
+                    pick = list[i];
+                    break;
+                }
             }
-            __venteFiApplyProgFields(list[idx]);
-            __venteFiLoadSieges(dptDate);
-        };
+        }
+        __venteFiApplyProgFields(pick);
+        __venteFiLoadSieges(dptDate);
         return true;
     }
 
@@ -6933,24 +6947,75 @@ document.addEventListener('DOMContentLoaded', () => {
     window.__venteFiLastHeuresVente = [];
     window.__venteFiApplyTransitLegs = null;
 
+    function __venteFiOrdinalFr(n) {
+        var i = parseInt(n, 10) || 0;
+        if (i <= 1) return '1ER';
+        return i + 'ème';
+    }
+
     function __venteFiFillHeuresVente(heures) {
         var hSel = document.querySelector('#hdepartfid');
         if (!hSel) return;
         hSel.options.length = 1;
-        var list = Array.isArray(heures) ? heures : [];
+        var list = Array.isArray(heures) ? heures.slice() : [];
         var hasTransit = !!window.__venteFiHasTransit;
+        // Règle unique : directs seuls s'il y en a, sinon créneaux correspondance.
+        var hasAnyDirect = list.some(function (hr) {
+            return hr && (hr.has_programme === true || hr.has_programme === 1 || hr.has_programme === '1');
+        });
+        if (hasAnyDirect) {
+            list = list.filter(function (hr) {
+                return hr && (hr.has_programme === true || hr.has_programme === 1 || hr.has_programme === '1');
+            });
+        } else if (!hasTransit) {
+            list = [];
+        } else {
+            list = list.filter(function (hr) {
+                return hr && !(hr.has_programme === true || hr.has_programme === 1 || hr.has_programme === '1');
+            });
+        }
+        list.sort(function (a, b) {
+            var ha = String((a && a.heure) || '');
+            var hb = String((b && b.heure) || '');
+            if (ha !== hb) return ha < hb ? -1 : 1;
+            var ca = String((a && a.code_progr) || '');
+            var cb = String((b && b.code_progr) || '');
+            return ca < cb ? -1 : (ca > cb ? 1 : 0);
+        });
+        var countByHh = {};
+        list.forEach(function (hr) {
+            if (!hr || !hr.has_programme) return;
+            var hh = String(hr.heure || '');
+            if (!hh) return;
+            countByHh[hh] = (countByHh[hh] || 0) + 1;
+        });
+        var idxByHh = {};
         for (var i = 0; i < list.length; i++) {
             var hr = list[i];
             if (!hr || hr.id_ligneheure == null || hr.id_ligneheure === '') continue;
-            var opt = document.createElement('option');
-            opt.value = hr.id_ligneheure + '/' + hr.heure;
             var hasProg = !!(hr.has_programme === true || hr.has_programme === 1 || hr.has_programme === '1');
+            var code = hasProg && hr.code_progr ? String(hr.code_progr) : '';
+            var opt = document.createElement('option');
+            opt.value = String(hr.id_ligneheure) + '/' + String(hr.heure)
+                + (code ? ('/' + code) : '');
             opt.setAttribute('data-has-programme', hasProg ? '1' : '0');
-            opt.innerHTML = hasProg
-                ? hr.heure
-                : (String(hr.heure) + (hasTransit ? ' (correspondance)' : ''));
+            opt.setAttribute('data-heure', String(hr.heure || ''));
+            if (code) opt.setAttribute('data-code-progr', code);
+            var label;
+            if (hasProg) {
+                var hh = String(hr.heure || '');
+                idxByHh[hh] = (idxByHh[hh] || 0) + 1;
+                var multi = (countByHh[hh] || 0) > 1;
+                label = multi
+                    ? (hh + ' — ' + __venteFiOrdinalFr(idxByHh[hh]))
+                    : hh;
+            } else {
+                label = String(hr.heure) + (hasTransit ? ' (correspondance)' : '');
+            }
+            opt.innerHTML = label;
             hSel.add(opt);
         }
+        __venteFiHideProgSelect();
     }
 
     /** Affiche l'UI heures/siège directe FI ; cache le panneau transit. Champs FI (P/O…) inchangés. */
@@ -9552,7 +9617,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                                 {
                                                     var typ_garefi = document.querySelector('#typegarefid').value;    
                                                     const donfi = JSON.parse(httpRequestfi.responseText);
-                                                        if (__venteFiHandleProgList(donfi, dpt_datefi)) {
+                                                        if (__venteFiHandleProgList(donfi, dpt_datefi, (hOptFi && hOptFi.getAttribute('data-code-progr')) || (post_lhfi[2] || ''))) {
                                                             return;
                                                         }
                                                         if (donfi == '' || __venteFiProgListFromResponse(donfi).length === 0) 
@@ -11024,7 +11089,15 @@ document.addEventListener('DOMContentLoaded', () => {
         return true;
     }
 
-    function __reprogFetchChemins(dateYmd, hhmm, after) {
+    function __reprogNeedsItineraireSelect() {
+        var st = window.__reprogState;
+        var iso = parseInt(st.jambeIsolee, 10) || 0;
+        // Report global d’un transit : l’itinéraire (direct ou multi) est obligatoire.
+        // Le « périmètre » ne fait que choisir quelles jambes ; il ne remplace pas l’itinéraire.
+        return !!(st.isTransitTicket && iso <= 0 && (st.nbrJambes || 0) >= 2);
+    }
+
+    function __reprogFetchChemins(dateYmd, hhmm, after, forceEvenIfDirect) {
         var st = window.__reprogState;
         // Ancre = gare de report ; OD recherche = gare report → destination ticket.
         st.gid = __reprogResolveGareReport();
@@ -11032,9 +11105,9 @@ document.addEventListener('DOMContentLoaded', () => {
             if (typeof after === 'function') after([]);
             return;
         }
-        // Direct déjà chargé (heures_unifie, toutes cie) → pas d’appel multi parasite.
+        // Direct déjà chargé → pas d’appel multi parasite (sauf report global transit).
         var hasDirectDate = __reprogFilterByDate(dateYmd).length > 0;
-        if (hasDirectDate) {
+        if (hasDirectDate && !forceEvenIfDirect) {
             st.chemins = [];
             if (after) after([]);
             return;
@@ -11140,9 +11213,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function __reprogMergeItineraires(directs, chemins) {
-        // Directs = programmes de la gare de report (heures_unifie, toutes compagnies).
-        // Si un direct existe → uniquement les directs (pas de multi parasite).
-        // Sinon multi = correspondances gare report → dest (jamais contre-sens).
+        // Règle unique : directs seuls s'il y en a, sinon correspondances multi.
+        // Ancre = gare de départ / gare de report.
         var out = [];
         var seenDirectKey = {};
         var directList = __reprogRowsArray(directs).filter(function (ch) {
@@ -12112,12 +12184,57 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function __reprogOnDateChangeAfterRows(dateYmd) {
         var st = window.__reprogState;
+        var needItin = __reprogNeedsItineraireSelect();
         var n = __reprogFillHeuresForDate(dateYmd);
-        __reprogSetAncreVisible(true);
         if (__reprogQ('smspunifie')) __reprogQ('smspunifie').style.display = 'none';
 
+        // Toujours poser replignunifie = ligne OD (report global / direct).
+        if (st.nom_ligne && __reprogQ('replignunifie')) {
+            __reprogQ('replignunifie').value = st.nom_ligne;
+        }
+
+        if (needItin) {
+            // Report global transit : afficher l’itinéraire.
+            // Règle : directs seuls s'il y en a (gare de report), sinon correspondances.
+            __reprogSetAncreVisible(false);
+            __reprogHideDirect();
+            var directs = __reprogDirectsAsChemins(dateYmd);
+            if (directs.length > 0) {
+                st.chemins = __reprogMergeItineraires(directs, []);
+                __reprogShowCorrExclusive(
+                    st.chemins,
+                    'Report global — directs depuis la gare de report pour '
+                        + (st.nom_ligne || st.axe || '—') + ' le ' + dateYmd
+                );
+                return;
+            }
+            __reprogFetchChemins(dateYmd, '', function (chemins) {
+                var all = __reprogMergeItineraires([], chemins);
+                st.chemins = all;
+                var odLabel = st.nom_ligne || st.axe || '—';
+                if (!all.length) {
+                    var box = __reprogQ('smspunifie');
+                    var err = __reprogQ('erreurSmspunifie');
+                    if (box) box.style.display = 'block';
+                    if (err) {
+                        err.textContent = 'Aucun itinéraire (direct ou correspondance) pour '
+                            + odLabel + ' le ' + dateYmd
+                            + '. Essayez une autre date, ou une jambe isolée si besoin.';
+                    }
+                    return;
+                }
+                __reprogShowCorrExclusive(
+                    all,
+                    'Report global — correspondances depuis la gare de report pour '
+                        + odLabel + ' le ' + dateYmd
+                );
+            }, false);
+            return;
+        }
+
+        // Direct / jambe isolée : Heure (1ER/2ème) si programmes, sinon correspondance.
+        __reprogSetAncreVisible(true);
         if (n > 0) {
-            // Programmes présents → choix dans Heure (1ER/2ème + hub).
             return;
         }
 
@@ -12127,18 +12244,19 @@ document.addEventListener('DOMContentLoaded', () => {
             st.chemins = all;
             var odLabel = st.nom_ligne || st.axe || '—';
             if (!all.length) {
-                var box = __reprogQ('smspunifie');
-                var err = __reprogQ('erreurSmspunifie');
-                if (box) box.style.display = 'block';
-                if (err) {
-                    err.textContent = 'Aucun départ programme ni correspondance pour '
+                var box2 = __reprogQ('smspunifie');
+                var err2 = __reprogQ('erreurSmspunifie');
+                if (box2) box2.style.display = 'block';
+                if (err2) {
+                    err2.textContent = 'Aucun départ programme ni correspondance pour '
                         + odLabel + ' le ' + dateYmd + '.';
                 }
                 return;
             }
             __reprogShowCorrExclusive(
                 all,
-                'Pas de départ direct programme : correspondances pour ' + odLabel + ' le ' + dateYmd
+                'Pas de départ direct : correspondances depuis la gare de report pour '
+                    + odLabel + ' le ' + dateYmd
             );
         });
     }
@@ -13108,6 +13226,11 @@ document.addEventListener('DOMContentLoaded', () => {
         __cResetSelect(__cQ('heure_confirm_unifie'), "Choisissez l'heure");
         __cResetSelect(__cQ('cie_confirm_unifie'), 'Choisissez la compagnie');
         __cResetSelect(__cQ('siege_confirm_unifie'), 'Choisissez le siège');
+        var cieWrap = __cQ('confirm_cie_wrap');
+        if (cieWrap) {
+            cieWrap.style.display = 'none';
+            cieWrap.setAttribute('hidden', 'hidden');
+        }
         __cResetSelect(__cQ('confirm_itineraire_select'), 'Choisissez un itinéraire');
         var box = __cQ('confirm_segments_box');
         if (box) box.innerHTML = '';
@@ -13360,7 +13483,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         if (hint) hint.style.display = 'none';
         if (msg) {
-            msg.textContent = chemins.length + ' itinéraire(s) — chaque segment : compagnie, date, heure, siège.';
+            msg.textContent = chemins.length + ' itinéraire(s) — chaque segment : date, heure, siège.';
         }
         chemins.forEach(function (ch, idx) {
             var et = __cNormalizeEtapes(ch.etapes || ch.legs);
@@ -13381,39 +13504,102 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    function __cOrdinalFr(n) {
+        var i = parseInt(n, 10) || 0;
+        if (i <= 1) return '1ER';
+        return i + 'ème';
+    }
+
+    function __cHubLabel(row) {
+        if (!row) return 'normal';
+        var lab = String(row.hub_label || '').trim();
+        if (lab) return lab;
+        var role = String(row.hub_role || '').trim();
+        if (role === 'derive') return 'dérivé';
+        if (role === 'suite') return 'hub/suite';
+        if (role === 'principal') return 'hub/principal';
+        return 'normal';
+    }
+
+    /**
+     * Remplit Heure : 1 option = 1 programme de la date.
+     * Même HH:MM → 1ER, 2ème… (+ compagnie / hub).
+     */
+    function __cFillHeuresForDate(dateYmd) {
+        var heureSel = __cQ('heure_confirm_unifie');
+        var cieWrap = __cQ('confirm_cie_wrap');
+        var cieSel = __cQ('cie_confirm_unifie');
+        __cResetSelect(heureSel, "Choisissez l'heure");
+        __cResetSelect(cieSel, 'Choisissez la compagnie');
+        __cResetSelect(__cQ('siege_confirm_unifie'), 'Choisissez le siège');
+        __cSetVal('confirm_code_pro', '');
+        if (cieWrap) {
+            cieWrap.style.display = 'none';
+            cieWrap.setAttribute('hidden', 'hidden');
+        }
+        if (!heureSel) return 0;
+
+        var rows = __cFilterByDate(dateYmd).slice().sort(function (a, b) {
+            var ha = __cHhmm(a.heure);
+            var hb = __cHhmm(b.heure);
+            if (ha !== hb) return ha < hb ? -1 : 1;
+            var ca = String(a.code_progr || '');
+            var cb = String(b.code_progr || '');
+            return ca < cb ? -1 : (ca > cb ? 1 : 0);
+        });
+
+        var countByHh = {};
+        rows.forEach(function (row) {
+            var hh = __cHhmm(row.heure);
+            if (!hh) return;
+            countByHh[hh] = (countByHh[hh] || 0) + 1;
+        });
+        var idxByHh = {};
+
+        rows.forEach(function (row) {
+            var hh = __cHhmm(row.heure);
+            if (!hh || !row.code_progr) return;
+            idxByHh[hh] = (idxByHh[hh] || 0) + 1;
+            var multi = (countByHh[hh] || 0) > 1;
+            var hub = __cHubLabel(row);
+            var cie = __cCieName(row) || 'Compagnie';
+            var ligne = row.nom_ligne || '';
+            var o = document.createElement('option');
+            o.value = String(row.code_progr);
+            o.setAttribute('data-heure', hh);
+            o.setAttribute('data-code-progr', row.code_progr || '');
+            o.setAttribute('data-id-lh', row.id_ligneheure || '');
+            o.setAttribute('data-tarif', row.typetarif || '');
+            o.setAttribute('data-cat', row.categori || '');
+            o.setAttribute('data-cie', row.id_compaga || '');
+            o.setAttribute('data-i1', row.intervalle1 || '');
+            o.setAttribute('data-i2', row.intervalle2 || '');
+            o.setAttribute('data-hub-label', hub);
+            o._row = row;
+            var parts = [hh];
+            if (multi) parts.push(__cOrdinalFr(idxByHh[hh]));
+            parts.push(cie);
+            parts.push(hub);
+            if (ligne) parts.push(ligne);
+            o.textContent = parts.join(' — ');
+            heureSel.add(o);
+        });
+        return rows.length;
+    }
+
     function __cOnDateReady(dateYmd) {
         __cResetDepartUi();
         var rows = __cFilterByDate(dateYmd);
         var hint = __cQ('confirm_transit_hint');
-        // Retour multi-jambes : toujours proposer l’itinéraire inverse des codes,
-        // même s’il existe un direct commercial (OUAGA-BANFORA).
-        var etRet = window.__confirmState.etapesRetour || [];
-        if (etRet.length >= 2) {
-            __cSetPathMode('transit');
-            if (hint) {
-                hint.style.display = 'block';
-                hint.textContent = 'Chargement des correspondances…';
-            }
-            __cFetchChemins(dateYmd);
-            return;
-        }
+        // Règle unique (gare départ) : directs seuls s'il y en a, sinon correspondance.
+        // (Plus d'exception « retour multi » qui forçait le transit malgré un direct.)
         if (rows.length) {
             __cSetPathMode('direct');
             if (hint) hint.style.display = 'none';
-            var heureSel = __cQ('heure_confirm_unifie');
-            var seenH = {};
-            rows.forEach(function (r) {
-                var hh = __cHhmm(r.heure);
-                if (!hh || seenH[hh]) return;
-                seenH[hh] = true;
-                var o = document.createElement('option');
-                o.value = hh;
-                o.textContent = hh;
-                heureSel.add(o);
-            });
+            __cFillHeuresForDate(dateYmd);
             return;
         }
-        // Pas de direct → transit
+        // Pas de direct → transit / correspondance depuis la gare de confirmation.
         __cSetPathMode('transit');
         if (hint) {
             hint.style.display = 'block';
@@ -13448,19 +13634,19 @@ document.addEventListener('DOMContentLoaded', () => {
                 + '<input class="form-control form-control-sm" type="text" readonly value="'
                 + String(ligneNom).replace(/"/g, '&quot;') + '">'
                 + '</div>'
-                + '<div class="form-group col-md-6 col-lg-3 mb-2">'
+                + '<div class="form-group col-md-6 col-lg-3 mb-2" style="display:none" hidden>'
                 + '<label class="small mb-0">Compagnie</label>'
                 + '<select class="form-control form-control-sm" id="confirm_ui_cie_' + idx + '">'
                 + '<option value="">Choisissez</option></select></div>'
-                + '<div class="form-group col-md-6 col-lg-2 mb-2">'
+                + '<div class="form-group col-md-6 col-lg-3 mb-2">'
                 + '<label class="small mb-0">Date</label>'
                 + '<input class="form-control form-control-sm" type="date" id="confirm_ui_date_' + idx
                 + '" value="' + String(dateDef).replace(/"/g, '&quot;') + '"></div>'
-                + '<div class="form-group col-md-6 col-lg-2 mb-2">'
-                + '<label class="small mb-0">Heure</label>'
+                + '<div class="form-group col-md-6 col-lg-3 mb-2">'
+                + '<label class="small mb-0">Heure (départs)</label>'
                 + '<select class="form-control form-control-sm" id="confirm_ui_heure_' + idx + '">'
                 + '<option value="">Choisissez l\'heure</option></select></div>'
-                + '<div class="form-group col-md-6 col-lg-2 mb-2">'
+                + '<div class="form-group col-md-6 col-lg-3 mb-2">'
                 + '<label class="small mb-0">Siège</label>'
                 + '<select class="form-control form-control-sm" id="confirm_ui_siege_' + idx + '">'
                 + '<option value="">Choisissez le siège</option></select></div>'
@@ -13555,80 +13741,110 @@ document.addEventListener('DOMContentLoaded', () => {
             __cResetSelect(siegeSel, 'Choisissez le siège');
             __cSetVal('confirm_seg_prog_' + idx, '');
             __cSetVal('confirm_seg_siege_' + idx, '');
-            var keys = Object.keys(seg.byCie);
-            if (!keys.length) {
+            if (!rows.length) {
                 __cSegErr(idx, 'Aucun programme pour ce segment le ' + dateYmd + '.');
                 __cUpdateOkBtn();
                 return;
             }
             __cSegErr(idx, '');
+            // 1 option Heure = 1 programme (1ER/2ème si même HH:MM).
+            var sorted = rows.slice().filter(function (r) {
+                return r && r.code_progr && __cHhmm(r.heure);
+            }).sort(function (a, b) {
+                var ha = __cHhmm(a.heure);
+                var hb = __cHhmm(b.heure);
+                if (ha !== hb) return ha < hb ? -1 : 1;
+                return String(a.code_progr).localeCompare(String(b.code_progr));
+            });
+            var countByHh = {};
+            sorted.forEach(function (r) {
+                var hh = __cHhmm(r.heure);
+                countByHh[hh] = (countByHh[hh] || 0) + 1;
+            });
+            var idxByHh = {};
+            sorted.forEach(function (r) {
+                var hh = __cHhmm(r.heure);
+                idxByHh[hh] = (idxByHh[hh] || 0) + 1;
+                var multi = (countByHh[hh] || 0) > 1;
+                var o = document.createElement('option');
+                o.value = String(r.code_progr);
+                o.setAttribute('data-heure', hh);
+                o.setAttribute('data-code-progr', r.code_progr || '');
+                o.setAttribute('data-cie', r.id_compaga || __cCieKey(r) || '');
+                o.setAttribute('data-cat', r.categori || '');
+                o.setAttribute('data-i1', r.intervalle1 || '');
+                o.setAttribute('data-i2', r.intervalle2 || '');
+                o._row = r;
+                var parts = [hh];
+                if (multi) parts.push(__cOrdinalFr(idxByHh[hh]));
+                parts.push(__cCieName(r) || 'Compagnie');
+                parts.push(__cHubLabel(r));
+                o.textContent = parts.join(' — ');
+                heureSel.add(o);
+            });
+            // Compat : remplir cie cachée si une seule compagnie.
+            var keys = Object.keys(seg.byCie);
             keys.sort().forEach(function (k) {
                 var o = document.createElement('option');
                 o.value = k;
                 o.textContent = seg.byCie[k].label || k;
-                cieSel.add(o);
+                if (cieSel) cieSel.add(o);
             });
-            cieSel.onchange = function () { __cOnSegCie(idx); };
             if (heureSel) heureSel.onchange = function () { __cOnSegHeure(idx); };
             if (siegeSel) siegeSel.onchange = function () { __cOnSegSiege(idx); };
-            if (keys.length === 1) {
-                cieSel.value = keys[0];
-                cieSel.dispatchEvent(new Event('change'));
+            if (sorted.length === 1) {
+                heureSel.selectedIndex = 1;
+                heureSel.dispatchEvent(new Event('change'));
             }
             __cUpdateOkBtn();
         });
     }
 
     function __cOnSegCie(idx) {
-        var seg = window.__confirmState.segData[idx];
-        var cieSel = __cQ('confirm_ui_cie_' + idx);
-        var heureSel = __cQ('confirm_ui_heure_' + idx);
-        var siegeSel = __cQ('confirm_ui_siege_' + idx);
-        __cResetSelect(heureSel, "Choisissez l'heure");
-        __cResetSelect(siegeSel, 'Choisissez le siège');
-        __cSetVal('confirm_seg_prog_' + idx, '');
-        __cSetVal('confirm_seg_siege_' + idx, '');
-        __cSetVal('confirm_seg_compaga_' + idx, (cieSel && cieSel.value) || '');
-        if (!seg || !cieSel || !cieSel.value) {
-            __cUpdateOkBtn();
-            return;
-        }
-        var hours = Object.keys(seg.byCieHour[cieSel.value] || {}).sort();
-        hours.forEach(function (hh) {
-            var o = document.createElement('option');
-            o.value = hh;
-            o.textContent = hh;
-            heureSel.add(o);
-        });
-        if (hours.length === 1) {
-            heureSel.value = hours[0];
-            heureSel.dispatchEvent(new Event('change'));
-        }
-        __cUpdateOkBtn();
+        // Compagnie retirée : le choix se fait dans Heure.
+        __cOnSegHeure(idx);
     }
 
     function __cOnSegHeure(idx) {
         var seg = window.__confirmState.segData[idx];
-        var cieSel = __cQ('confirm_ui_cie_' + idx);
         var heureSel = __cQ('confirm_ui_heure_' + idx);
         var siegeSel = __cQ('confirm_ui_siege_' + idx);
+        var cieSel = __cQ('confirm_ui_cie_' + idx);
         __cResetSelect(siegeSel, 'Choisissez le siège');
         __cSetVal('confirm_seg_prog_' + idx, '');
         __cSetVal('confirm_seg_siege_' + idx, '');
-        if (!seg || !cieSel || !heureSel || !cieSel.value || !heureSel.value) {
+        if (!seg || !heureSel || !heureSel.value) {
             __cUpdateOkBtn();
             return;
         }
-        var list = (seg.byCieHour[cieSel.value] && seg.byCieHour[cieSel.value][heureSel.value]) || [];
-        var row = list[0];
+        var opt = heureSel.options[heureSel.selectedIndex];
+        var row = (opt && opt._row) || null;
+        if (!row && seg.rows) {
+            for (var i = 0; i < seg.rows.length; i++) {
+                if (seg.rows[i] && String(seg.rows[i].code_progr) === String(heureSel.value)) {
+                    row = seg.rows[i];
+                    break;
+                }
+            }
+        }
         if (!row) {
             __cUpdateOkBtn();
             return;
         }
+        var hh = (opt && opt.getAttribute('data-heure')) || __cHhmm(row.heure);
+        var cie = (opt && opt.getAttribute('data-cie')) || row.id_compaga || __cCieKey(row) || '';
+        if (cieSel && cie) {
+            cieSel.value = cie;
+            if (!cieSel.value) {
+                // clé compagnie peut différer : tenter __cCieKey
+                var k = __cCieKey(row);
+                if (k) cieSel.value = k;
+            }
+        }
         __cSetVal('confirm_seg_prog_' + idx, row.code_progr || '');
-        __cSetVal('confirm_seg_cat_' + idx, row.categori || '');
-        __cSetVal('confirm_seg_heure_' + idx, heureSel.value);
-        __cSetVal('confirm_seg_compaga_' + idx, row.id_compaga || cieSel.value);
+        __cSetVal('confirm_seg_cat_' + idx, row.categori || (opt && opt.getAttribute('data-cat')) || '');
+        __cSetVal('confirm_seg_heure_' + idx, hh);
+        __cSetVal('confirm_seg_compaga_' + idx, row.id_compaga || cie);
         // Comme reprog : siegdisponibletrans (code + intervalles), sans date/ligne/heure.
         var i1 = row.intervalle1 != null && row.intervalle1 !== '' ? row.intervalle1 : '1';
         var i2 = row.intervalle2 != null && row.intervalle2 !== '' ? row.intervalle2 : '50';
@@ -13689,64 +13905,45 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function __cOnHeureChange() {
-        var dateYmd = (__cQ('date_confirm_unifie') || {}).value || '';
-        var hh = (__cQ('heure_confirm_unifie') || {}).value || '';
-        __cResetSelect(__cQ('cie_confirm_unifie'), 'Choisissez la compagnie');
-        __cResetSelect(__cQ('siege_confirm_unifie'), 'Choisissez le siège');
-        __cSetVal('confirm_code_pro', '');
-        __cUpdateOkBtn();
-        if (!dateYmd || !hh) return;
-        var rows = __cFilterByDate(dateYmd).filter(function (r) {
-            return __cHhmm(r.heure) === hh;
-        });
-        var cieSel = __cQ('cie_confirm_unifie');
-        var seen = {};
-        rows.forEach(function (r, idx) {
-            var cie = __cCieName(r) || ('Cie ' + (idx + 1));
-            var key = String(r.id_compaga || cie) + '|' + String(r.code_progr || '');
-            if (seen[key]) return;
-            seen[key] = true;
-            var o = document.createElement('option');
-            o.value = String(idx);
-            o.textContent = cie + ' — ' + (r.nom_ligne || '') + ' (' + (r.code_progr || '') + ')';
-            o.setAttribute('data-code-progr', r.code_progr || '');
-            o.setAttribute('data-id-lh', r.id_ligneheure || '');
-            o.setAttribute('data-tarif', r.typetarif || '');
-            o.setAttribute('data-cat', r.categori || '');
-            o.setAttribute('data-cie', r.id_compaga || '');
-            o.setAttribute('data-i1', r.intervalle1 || '');
-            o.setAttribute('data-i2', r.intervalle2 || '');
-            o._row = r;
-            cieSel.add(o);
-        });
-        if (cieSel.options.length === 2) {
-            cieSel.selectedIndex = 1;
-            cieSel.dispatchEvent(new Event('change'));
-        }
-    }
-
-    function __cOnCieChange() {
+        var heureSel = __cQ('heure_confirm_unifie');
         var cieSel = __cQ('cie_confirm_unifie');
         var siegeSel = __cQ('siege_confirm_unifie');
+        __cResetSelect(cieSel, 'Choisissez la compagnie');
         __cResetSelect(siegeSel, 'Choisissez le siège');
+        __cSetVal('confirm_code_pro', '');
         __cUpdateOkBtn();
-        if (!cieSel || !cieSel.value) return;
-        var opt = cieSel.options[cieSel.selectedIndex];
+        if (!heureSel || !heureSel.value) return;
+        var opt = heureSel.options[heureSel.selectedIndex];
         if (!opt) return;
         var row = opt._row || {};
-        var codePro = opt.getAttribute('data-code-progr') || row.code_progr || '';
+        var codePro = opt.getAttribute('data-code-progr') || row.code_progr || heureSel.value || '';
         var i1 = opt.getAttribute('data-i1') || row.intervalle1 || '1';
         var i2 = opt.getAttribute('data-i2') || row.intervalle2 || '50';
+        var cie = opt.getAttribute('data-cie') || row.id_compaga || '';
+        // Remplir le select compagnie caché (submit / legacy).
+        if (cieSel && codePro) {
+            var o = document.createElement('option');
+            o.value = '0';
+            o.textContent = __cCieName(row) || 'Compagnie';
+            o.setAttribute('data-code-progr', codePro);
+            o.setAttribute('data-id-lh', opt.getAttribute('data-id-lh') || '');
+            o.setAttribute('data-tarif', opt.getAttribute('data-tarif') || '');
+            o.setAttribute('data-cat', opt.getAttribute('data-cat') || '');
+            o.setAttribute('data-cie', cie);
+            o.setAttribute('data-i1', i1);
+            o.setAttribute('data-i2', i2);
+            o._row = row;
+            cieSel.add(o);
+            cieSel.selectedIndex = 1;
+        }
         __cSetVal('confirm_code_pro', codePro);
-        __cSetVal('confirm_id_ligneheure', opt.getAttribute('data-id-lh') || '');
-        __cSetVal('confirm_typetarif', opt.getAttribute('data-tarif') || '');
-        __cSetVal('confirm_categori', opt.getAttribute('data-cat') || '');
-        __cSetVal('confirm_id_compaga', opt.getAttribute('data-cie') || '');
+        __cSetVal('confirm_id_ligneheure', opt.getAttribute('data-id-lh') || row.id_ligneheure || '');
+        __cSetVal('confirm_typetarif', opt.getAttribute('data-tarif') || row.typetarif || '');
+        __cSetVal('confirm_categori', opt.getAttribute('data-cat') || row.categori || '');
+        __cSetVal('confirm_id_compaga', cie);
         __cSetVal('confirm_intervalle1', i1);
         __cSetVal('confirm_intervalle2', i2);
         if (!codePro) return;
-        // Même endpoint que reprog unifiée : code + intervalles uniquement
-        // (évite mismatch heure 08:00 vs 08:00:00 / nom_ligne dans l’URI).
         var url = window.location.origin + APP_ROOT
             + '/programmes/siegdisponibletrans/'
             + encodeURIComponent(codePro) + '/'
@@ -13763,13 +13960,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 num = String(num).trim();
                 if (!num || num === '0' || num === '00') return;
-                var o = document.createElement('option');
-                o.value = num;
-                o.textContent = num;
-                siegeSel.add(o);
+                var o2 = document.createElement('option');
+                o2.value = num;
+                o2.textContent = num;
+                siegeSel.add(o2);
             });
             __cUpdateOkBtn();
         });
+    }
+
+    function __cOnCieChange() {
+        // Compagnie retirée : le programme est choisi dans Heure.
+        __cUpdateOkBtn();
     }
 
     function __cOnSiegeChange() {
@@ -14172,7 +14374,14 @@ document.addEventListener('DOMContentLoaded', () => {
             __cSetVal('confirm_seg_cat_0', (__cQ('confirm_categori') || {}).value || '');
             __cSetVal('confirm_seg_compaga_0', (__cQ('confirm_id_compaga') || {}).value || '');
             __cSetVal('confirm_seg_date_0', (__cQ('date_confirm_unifie') || {}).value || '');
-            __cSetVal('confirm_seg_heure_0', (__cQ('heure_confirm_unifie') || {}).value || '');
+            var hOpt = (__cQ('heure_confirm_unifie') || {}).options;
+            var hSel = __cQ('heure_confirm_unifie');
+            var hhPost = '';
+            if (hSel && hSel.selectedIndex > 0 && hOpt && hOpt[hSel.selectedIndex]) {
+                hhPost = hOpt[hSel.selectedIndex].getAttribute('data-heure') || '';
+            }
+            if (!hhPost && hSel) hhPost = __cHhmm(hSel.value) || '';
+            __cSetVal('confirm_seg_heure_0', hhPost);
             __cSetVal('confirm_seg_ligne_0', (__cQ('confirm_ident_ligne') || {}).value || '');
         }
         if (btn) btn.disabled = true;

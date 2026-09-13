@@ -1128,7 +1128,15 @@ document.addEventListener('DOMContentLoaded', () => {
         return true;
     }
 
-    function __reprogFetchChemins(dateYmd, hhmm, after) {
+    function __reprogNeedsItineraireSelect() {
+        var st = window.__reprogState;
+        var iso = parseInt(st.jambeIsolee, 10) || 0;
+        // Report global d’un transit : l’itinéraire (direct ou multi) est obligatoire.
+        // Le « périmètre » ne fait que choisir quelles jambes ; il ne remplace pas l’itinéraire.
+        return !!(st.isTransitTicket && iso <= 0 && (st.nbrJambes || 0) >= 2);
+    }
+
+    function __reprogFetchChemins(dateYmd, hhmm, after, forceEvenIfDirect) {
         var st = window.__reprogState;
         // Ancre = gare de report ; OD recherche = gare report → destination ticket.
         st.gid = __reprogResolveGareReport();
@@ -1136,9 +1144,9 @@ document.addEventListener('DOMContentLoaded', () => {
             if (typeof after === 'function') after([]);
             return;
         }
-        // Direct déjà chargé (heures_unifie, toutes cie) → pas d’appel multi parasite.
+        // Direct déjà chargé → pas d’appel multi parasite (sauf report global transit).
         var hasDirectDate = __reprogFilterByDate(dateYmd).length > 0;
-        if (hasDirectDate) {
+        if (hasDirectDate && !forceEvenIfDirect) {
             st.chemins = [];
             if (after) after([]);
             return;
@@ -1244,9 +1252,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function __reprogMergeItineraires(directs, chemins) {
-        // Directs = programmes de la gare de report (heures_unifie, toutes compagnies).
-        // Si un direct existe → uniquement les directs (pas de multi parasite).
-        // Sinon multi = correspondances gare report → dest (jamais contre-sens).
+        // Règle unique : directs seuls s'il y en a, sinon correspondances multi.
+        // Ancre = gare de départ / gare de report.
         var out = [];
         var seenDirectKey = {};
         var directList = __reprogRowsArray(directs).filter(function (ch) {
@@ -2216,12 +2223,57 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function __reprogOnDateChangeAfterRows(dateYmd) {
         var st = window.__reprogState;
+        var needItin = __reprogNeedsItineraireSelect();
         var n = __reprogFillHeuresForDate(dateYmd);
-        __reprogSetAncreVisible(true);
         if (__reprogQ('smspunifie')) __reprogQ('smspunifie').style.display = 'none';
 
+        // Toujours poser replignunifie = ligne OD (report global / direct).
+        if (st.nom_ligne && __reprogQ('replignunifie')) {
+            __reprogQ('replignunifie').value = st.nom_ligne;
+        }
+
+        if (needItin) {
+            // Report global transit : afficher l’itinéraire.
+            // Règle : directs seuls s'il y en a (gare de report), sinon correspondances.
+            __reprogSetAncreVisible(false);
+            __reprogHideDirect();
+            var directs = __reprogDirectsAsChemins(dateYmd);
+            if (directs.length > 0) {
+                st.chemins = __reprogMergeItineraires(directs, []);
+                __reprogShowCorrExclusive(
+                    st.chemins,
+                    'Report global — directs depuis la gare de report pour '
+                        + (st.nom_ligne || st.axe || '—') + ' le ' + dateYmd
+                );
+                return;
+            }
+            __reprogFetchChemins(dateYmd, '', function (chemins) {
+                var all = __reprogMergeItineraires([], chemins);
+                st.chemins = all;
+                var odLabel = st.nom_ligne || st.axe || '—';
+                if (!all.length) {
+                    var box = __reprogQ('smspunifie');
+                    var err = __reprogQ('erreurSmspunifie');
+                    if (box) box.style.display = 'block';
+                    if (err) {
+                        err.textContent = 'Aucun itinéraire (direct ou correspondance) pour '
+                            + odLabel + ' le ' + dateYmd
+                            + '. Essayez une autre date, ou une jambe isolée si besoin.';
+                    }
+                    return;
+                }
+                __reprogShowCorrExclusive(
+                    all,
+                    'Report global — correspondances depuis la gare de report pour '
+                        + odLabel + ' le ' + dateYmd
+                );
+            }, false);
+            return;
+        }
+
+        // Direct / jambe isolée : Heure (1ER/2ème) si programmes, sinon correspondance.
+        __reprogSetAncreVisible(true);
         if (n > 0) {
-            // Programmes présents → choix dans Heure (1ER/2ème + hub).
             return;
         }
 
@@ -2231,18 +2283,19 @@ document.addEventListener('DOMContentLoaded', () => {
             st.chemins = all;
             var odLabel = st.nom_ligne || st.axe || '—';
             if (!all.length) {
-                var box = __reprogQ('smspunifie');
-                var err = __reprogQ('erreurSmspunifie');
-                if (box) box.style.display = 'block';
-                if (err) {
-                    err.textContent = 'Aucun départ programme ni correspondance pour '
+                var box2 = __reprogQ('smspunifie');
+                var err2 = __reprogQ('erreurSmspunifie');
+                if (box2) box2.style.display = 'block';
+                if (err2) {
+                    err2.textContent = 'Aucun départ programme ni correspondance pour '
                         + odLabel + ' le ' + dateYmd + '.';
                 }
                 return;
             }
             __reprogShowCorrExclusive(
                 all,
-                'Pas de départ direct programme : correspondances pour ' + odLabel + ' le ' + dateYmd
+                'Pas de départ direct : correspondances depuis la gare de report pour '
+                    + odLabel + ' le ' + dateYmd
             );
         });
     }

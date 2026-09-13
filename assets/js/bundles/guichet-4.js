@@ -644,43 +644,24 @@ document.addEventListener('DOMContentLoaded', () => {
         httpRequettefi.send();
     }
 
-    function __venteFiHandleProgList(don, dptDate) {
+    function __venteFiHandleProgList(don, dptDate, preferCode) {
         var list = __venteFiProgListFromResponse(don);
         __venteFiHideProgSelect();
         var ps = document.querySelector('#psiegesfid');
         if (ps) ps.options.length = 1;
         if (list.length === 0) return false;
-        if (list.length === 1) {
-            __venteFiApplyProgFields(list[0]);
-            __venteFiLoadSieges(dptDate);
-            return true;
-        }
-        var box = document.getElementById('selprog_box_fid');
-        var sel = document.getElementById('selprogfid');
-        if (!sel) {
-            __venteFiApplyProgFields(list[0]);
-            __venteFiLoadSieges(dptDate);
-            return true;
-        }
-        if (box) box.style.display = 'block';
-        if (sel) sel.style.display = 'block';
-        sel.options.length = 1;
-        for (var i = 0; i < list.length; i++) {
-            var opt = document.createElement('option');
-            opt.value = String(i);
-            opt.innerHTML = __venteFiLabelProg(list[i]);
-            sel.add(opt);
-        }
-        sel.onchange = function () {
-            if (ps) ps.options.length = 1;
-            var idx = parseInt(sel.value, 10);
-            if (isNaN(idx) || !list[idx]) {
-                __venteFiApplyProgFields({});
-                return;
+        var pick = list[0];
+        if (preferCode) {
+            var want = String(preferCode);
+            for (var i = 0; i < list.length; i++) {
+                if (list[i] && String(list[i].code_progr || '') === want) {
+                    pick = list[i];
+                    break;
+                }
             }
-            __venteFiApplyProgFields(list[idx]);
-            __venteFiLoadSieges(dptDate);
-        };
+        }
+        __venteFiApplyProgFields(pick);
+        __venteFiLoadSieges(dptDate);
         return true;
     }
 
@@ -1346,24 +1327,75 @@ document.addEventListener('DOMContentLoaded', () => {
     window.__venteFiLastHeuresVente = [];
     window.__venteFiApplyTransitLegs = null;
 
+    function __venteFiOrdinalFr(n) {
+        var i = parseInt(n, 10) || 0;
+        if (i <= 1) return '1ER';
+        return i + 'ème';
+    }
+
     function __venteFiFillHeuresVente(heures) {
         var hSel = document.querySelector('#hdepartfid');
         if (!hSel) return;
         hSel.options.length = 1;
-        var list = Array.isArray(heures) ? heures : [];
+        var list = Array.isArray(heures) ? heures.slice() : [];
         var hasTransit = !!window.__venteFiHasTransit;
+        // Règle unique : directs seuls s'il y en a, sinon créneaux correspondance.
+        var hasAnyDirect = list.some(function (hr) {
+            return hr && (hr.has_programme === true || hr.has_programme === 1 || hr.has_programme === '1');
+        });
+        if (hasAnyDirect) {
+            list = list.filter(function (hr) {
+                return hr && (hr.has_programme === true || hr.has_programme === 1 || hr.has_programme === '1');
+            });
+        } else if (!hasTransit) {
+            list = [];
+        } else {
+            list = list.filter(function (hr) {
+                return hr && !(hr.has_programme === true || hr.has_programme === 1 || hr.has_programme === '1');
+            });
+        }
+        list.sort(function (a, b) {
+            var ha = String((a && a.heure) || '');
+            var hb = String((b && b.heure) || '');
+            if (ha !== hb) return ha < hb ? -1 : 1;
+            var ca = String((a && a.code_progr) || '');
+            var cb = String((b && b.code_progr) || '');
+            return ca < cb ? -1 : (ca > cb ? 1 : 0);
+        });
+        var countByHh = {};
+        list.forEach(function (hr) {
+            if (!hr || !hr.has_programme) return;
+            var hh = String(hr.heure || '');
+            if (!hh) return;
+            countByHh[hh] = (countByHh[hh] || 0) + 1;
+        });
+        var idxByHh = {};
         for (var i = 0; i < list.length; i++) {
             var hr = list[i];
             if (!hr || hr.id_ligneheure == null || hr.id_ligneheure === '') continue;
-            var opt = document.createElement('option');
-            opt.value = hr.id_ligneheure + '/' + hr.heure;
             var hasProg = !!(hr.has_programme === true || hr.has_programme === 1 || hr.has_programme === '1');
+            var code = hasProg && hr.code_progr ? String(hr.code_progr) : '';
+            var opt = document.createElement('option');
+            opt.value = String(hr.id_ligneheure) + '/' + String(hr.heure)
+                + (code ? ('/' + code) : '');
             opt.setAttribute('data-has-programme', hasProg ? '1' : '0');
-            opt.innerHTML = hasProg
-                ? hr.heure
-                : (String(hr.heure) + (hasTransit ? ' (correspondance)' : ''));
+            opt.setAttribute('data-heure', String(hr.heure || ''));
+            if (code) opt.setAttribute('data-code-progr', code);
+            var label;
+            if (hasProg) {
+                var hh = String(hr.heure || '');
+                idxByHh[hh] = (idxByHh[hh] || 0) + 1;
+                var multi = (countByHh[hh] || 0) > 1;
+                label = multi
+                    ? (hh + ' — ' + __venteFiOrdinalFr(idxByHh[hh]))
+                    : hh;
+            } else {
+                label = String(hr.heure) + (hasTransit ? ' (correspondance)' : '');
+            }
+            opt.innerHTML = label;
             hSel.add(opt);
         }
+        __venteFiHideProgSelect();
     }
 
     /** Affiche l'UI heures/siège directe FI ; cache le panneau transit. Champs FI (P/O…) inchangés. */
@@ -3965,7 +3997,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                                 {
                                                     var typ_garefi = document.querySelector('#typegarefid').value;    
                                                     const donfi = JSON.parse(httpRequestfi.responseText);
-                                                        if (__venteFiHandleProgList(donfi, dpt_datefi)) {
+                                                        if (__venteFiHandleProgList(donfi, dpt_datefi, (hOptFi && hOptFi.getAttribute('data-code-progr')) || (post_lhfi[2] || ''))) {
                                                             return;
                                                         }
                                                         if (donfi == '' || __venteFiProgListFromResponse(donfi).length === 0) 

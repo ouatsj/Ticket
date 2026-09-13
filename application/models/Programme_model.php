@@ -1658,6 +1658,8 @@
                  ORDER BY (lh.ligne_id = '{$axeEsc}') DESC, {$porteeOrder}, pr.code_progr DESC"
             )->result();
 
+            // Index pour savoir s'il existe un départ OD à une HH:MM / id_ligneheure
+            // (utilisé pour les créneaux correspondance sans programme).
             $byLh = array();
             $byHhmm = array();
             foreach ($progs as $p) {
@@ -1703,70 +1705,91 @@
             }
 
             $heures = array();
-            $seenLh = array();
-            $seenHhmm = array();
+            $seenCodes = array();
+            $seenHhmmProg = array();
 
-            foreach ($catalogue as $row) {
-                $this->_push_heure_vente_od(
-                    $heures, $seenLh, $seenHhmm, $byLh, $byHhmm,
-                    isset($row->id_ligneheure) ? $row->id_ligneheure : '',
-                    isset($row->heure) ? $row->heure : '',
-                    'catalogue',
-                    $axe
-                );
-            }
-
-            foreach ($byLh as $p) {
-                $this->_push_heure_vente_od(
-                    $heures, $seenLh, $seenHhmm, $byLh, $byHhmm,
-                    $p->id_ligneheure,
-                    $p->heure,
-                    'od',
-                    isset($p->ligne_id) ? $p->ligne_id : $axe
-                );
-            }
-
-            foreach ($progsGare as $pg) {
-                $isOd = (isset($pg->ligne_id) && isset($lignesOdSet[(string) $pg->ligne_id]));
-                if ($isOd) {
-                    $this->_push_heure_vente_od(
-                        $heures, $seenLh, $seenHhmm, $byLh, $byHhmm,
-                        $pg->id_ligneheure,
-                        $pg->heure,
-                        'gare',
-                        $pg->ligne_id
-                    );
+            // 1) Un option Heure = un programme OD de la date (même HH:MM → plusieurs lignes).
+            foreach ($progs as $p) {
+                $code = isset($p->code_progr) ? trim((string) $p->code_progr) : '';
+                if ($code === '' || isset($seenCodes[$code])) {
                     continue;
                 }
-                // Autre ligne : utile seulement s'il y a un transit (sinon message d'erreur au clic).
-                if (!$has_transit) {
-                    continue;
-                }
-                $id = (string) $pg->id_ligneheure;
-                $hh = $this->_heure_hhmm(isset($pg->heure) ? $pg->heure : '');
-                if ($id === '' || isset($seenLh[$id])) {
-                    continue;
-                }
-                if ($hh !== '' && isset($seenHhmm[$hh])) {
-                    continue;
-                }
-                $seenLh[$id] = TRUE;
+                $seenCodes[$code] = TRUE;
+                $hh = $this->_heure_hhmm(isset($p->heure) ? $p->heure : '');
                 if ($hh !== '') {
-                    $seenHhmm[$hh] = TRUE;
+                    $seenHhmmProg[$hh] = TRUE;
                 }
                 $heures[] = array(
-                    'id_ligneheure' => $id,
-                    'heure' => isset($pg->heure) ? $pg->heure : '',
-                    'has_programme' => FALSE,
-                    'code_progr' => null,
-                    'scope' => null,
-                    'source' => 'gare',
-                    'ligne_depart' => isset($pg->ligne_id) ? $pg->ligne_id : null,
+                    'id_ligneheure' => (string) $p->id_ligneheure,
+                    'heure' => isset($p->heure) ? $p->heure : '',
+                    'has_programme' => TRUE,
+                    'code_progr' => $code,
+                    'scope' => (($p->idsousgare_prog === null || $p->idsousgare_prog === '')
+                        ? 'gare' : 'sousgare'),
+                    'source' => 'od',
+                    'ligne_depart' => isset($p->ligne_id) ? $p->ligne_id : $axe,
                 );
+            }
+
+            // 2) Créneaux correspondance (sans programme OD à cette HH:MM) si transit dispo.
+            if ($has_transit) {
+                $seenTransitLh = array();
+                $pushTransit = function ($idLh, $heure, $source, $ligneDepart) use (
+                    &$heures, &$seenTransitLh, &$seenHhmmProg
+                ) {
+                    $idLh = (string) $idLh;
+                    $hh = $this->_heure_hhmm($heure);
+                    if ($idLh === '' || isset($seenTransitLh[$idLh])) {
+                        return;
+                    }
+                    // Déjà couvert par un départ programme à la même horloge.
+                    if ($hh !== '' && isset($seenHhmmProg[$hh])) {
+                        return;
+                    }
+                    $seenTransitLh[$idLh] = TRUE;
+                    $heures[] = array(
+                        'id_ligneheure' => $idLh,
+                        'heure' => $heure,
+                        'has_programme' => FALSE,
+                        'code_progr' => null,
+                        'scope' => null,
+                        'source' => $source,
+                        'ligne_depart' => ($ligneDepart !== null && $ligneDepart !== '')
+                            ? $ligneDepart : null,
+                    );
+                };
+
+                foreach ($catalogue as $row) {
+                    $pushTransit(
+                        isset($row->id_ligneheure) ? $row->id_ligneheure : '',
+                        isset($row->heure) ? $row->heure : '',
+                        'catalogue',
+                        $axe
+                    );
+                }
+
+                foreach ($progsGare as $pg) {
+                    $isOd = (isset($pg->ligne_id) && isset($lignesOdSet[(string) $pg->ligne_id]));
+                    if ($isOd) {
+                        continue; // déjà listé via $progs
+                    }
+                    $pushTransit(
+                        isset($pg->id_ligneheure) ? $pg->id_ligneheure : '',
+                        isset($pg->heure) ? $pg->heure : '',
+                        'gare',
+                        isset($pg->ligne_id) ? $pg->ligne_id : null
+                    );
+                }
             }
 
             usort($heures, function ($a, $b) {
-                return strcmp((string) $a['heure'], (string) $b['heure']);
+                $cmp = strcmp((string) $a['heure'], (string) $b['heure']);
+                if ($cmp !== 0) {
+                    return $cmp;
+                }
+                $ca = isset($a['code_progr']) ? (string) $a['code_progr'] : '';
+                $cb = isset($b['code_progr']) ? (string) $b['code_progr'] : '';
+                return strcmp($ca, $cb);
             });
 
             // Ligne directe : ne pas proposer un créneau catalogue sans départ réel
@@ -1791,7 +1814,8 @@
         }
 
         /**
-         * Une option heure : si un départ OD existe à la même HH:MM, on vend sur son id_ligneheure.
+         * Legacy helper (conservé pour compat éventuelle) : une option heure par id_ligneheure.
+         * Preferer désormais la liste programmes étendue dans heures_vente_od.
          */
         protected function _push_heure_vente_od(
             array &$heures,
@@ -1894,15 +1918,15 @@
         //heure avec date
         public function heureligne1($cid, $it, $keys)
         {   
-            $tim = date('H', time('H'));
+            $tim = date('H', time());
 
             if($tim === '00')
             {
-                $dte = date('01:00', time('01:00')-3600);
+                $dte = date('01:00', time() - 3600);
             }
             else
             {
-                $dte = date('H:i', time('H:i')-3600);
+                $dte = date('H:i', time() - 3600);
             }
             $key = mdate("%Y-%m-%d", now());
             
