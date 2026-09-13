@@ -1717,17 +1717,17 @@ document.addEventListener('DOMContentLoaded', () => {
         hSel.options.length = 1;
         var list = Array.isArray(heures) ? heures.slice() : [];
         // Règle : directs seuls s'il y en a, sinon créneaux correspondance.
-        // Case cochée : garder directs + créneaux multi pour activer le multi-segment.
+        // Case cochée : uniquement heures non-directes (autres programmes gare + hub/dérivé).
         var hasAnyDirect = list.some(function (hr) {
             return hr && (hr.has_programme === true || hr.has_programme === 1 || hr.has_programme === '1');
         });
         var allowMulti = __venteAllowMultiChecked();
         __venteSyncAllowMultiWrap(hasAnyDirect, !!hasTransit);
-        // Décoché : directs seuls s'il y en a, sinon créneaux correspondance.
-        // Coché : uniquement heures non-directes (correspondances).
         if (allowMulti && hasTransit) {
             list = list.filter(function (hr) {
-                return hr && !(hr.has_programme === true || hr.has_programme === 1 || hr.has_programme === '1');
+                if (!hr) return false;
+                if (hr.slot_kind === 'multi') return true;
+                return !(hr.has_programme === true || hr.has_programme === 1 || hr.has_programme === '1');
             });
         } else if (hasAnyDirect) {
             list = list.filter(function (hr) {
@@ -1737,17 +1737,25 @@ document.addEventListener('DOMContentLoaded', () => {
             list = [];
         } else {
             list = list.filter(function (hr) {
-                return hr && !(hr.has_programme === true || hr.has_programme === 1 || hr.has_programme === '1');
+                if (!hr) return false;
+                if (hr.slot_kind === 'multi') return true;
+                return !(hr.has_programme === true || hr.has_programme === 1 || hr.has_programme === '1');
             });
         }
-        // Multi / corr : 1 option = 1 HH:MM (programmes de départ, pas de doublons).
+        // Multi : 1 option = 1 programme (code), sinon 1 HH:MM.
         var isCorrList = !!(allowMulti && hasTransit) || (!hasAnyDirect && hasTransit);
         if (isCorrList) {
-            var seenCorrHh = {};
+            var seenCorr = {};
             list = list.filter(function (hr) {
+                var code = hr && hr.code_progr ? String(hr.code_progr) : '';
+                if (code) {
+                    if (seenCorr['c:' + code]) return false;
+                    seenCorr['c:' + code] = true;
+                    return true;
+                }
                 var hh = __venteNormalizeHhmm((hr && hr.heure) || '');
-                if (!hh || seenCorrHh[hh]) return false;
-                seenCorrHh[hh] = true;
+                if (!hh || seenCorr['h:' + hh]) return false;
+                seenCorr['h:' + hh] = true;
                 return true;
             });
         }
@@ -1761,7 +1769,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         var countByHh = {};
         list.forEach(function (hr) {
-            if (!hr || !hr.has_programme) return;
+            if (!hr) return;
             var hh = __venteNormalizeHhmm(hr.heure);
             if (!hh) return;
             countByHh[hh] = (countByHh[hh] || 0) + 1;
@@ -1772,31 +1780,37 @@ document.addEventListener('DOMContentLoaded', () => {
             var hr = list[i];
             if (!hr || hr.id_ligneheure == null || hr.id_ligneheure === '') continue;
             var hasProg = !!(hr.has_programme === true || hr.has_programme === 1 || hr.has_programme === '1');
-            var code = hasProg && hr.code_progr ? String(hr.code_progr) : '';
+            var code = hr.code_progr ? String(hr.code_progr) : '';
             var hhNorm = __venteNormalizeHhmm(hr.heure) || String(hr.heure || '');
-            var dedupeKey = hasProg
-                ? ('p:' + (code || (String(hr.id_ligneheure) + '/' + hhNorm)))
-                : ('t:' + hhNorm);
+            var dedupeKey = code
+                ? ('p:' + code)
+                : (hasProg
+                    ? ('p:' + String(hr.id_ligneheure) + '/' + hhNorm)
+                    : ('t:' + hhNorm));
             if (seenOpt[dedupeKey]) continue;
             seenOpt[dedupeKey] = 1;
             var opt = document.createElement('option');
-            // Value unique si plusieurs programmes à la même heure.
             opt.value = String(hr.id_ligneheure) + '/' + hhNorm
                 + (code ? ('/' + code) : '');
             opt.setAttribute('data-has-programme', hasProg ? '1' : '0');
             opt.setAttribute('data-heure', hhNorm);
             if (code) opt.setAttribute('data-code-progr', code);
-            var label;
-            if (hasProg) {
-                idxByHh[hhNorm] = (idxByHh[hhNorm] || 0) + 1;
-                var multi = (countByHh[hhNorm] || 0) > 1;
-                label = multi
-                    ? (hhNorm + ' — ' + __venteOrdinalFr(idxByHh[hhNorm]))
-                    : hhNorm;
-            } else {
-                label = hhNorm;
+            if (hr.hub_role) opt.setAttribute('data-hub-role', String(hr.hub_role));
+            if (hr.hub_label) opt.setAttribute('data-hub-label', String(hr.hub_label));
+            if (hr.nom_ligne) opt.setAttribute('data-nom-ligne', String(hr.nom_ligne));
+            else if (hr.ligne_depart) opt.setAttribute('data-nom-ligne', String(hr.ligne_depart));
+            idxByHh[hhNorm] = (idxByHh[hhNorm] || 0) + 1;
+            var multi = (countByHh[hhNorm] || 0) > 1;
+            var parts = [hhNorm];
+            if (multi) parts.push(__venteOrdinalFr(idxByHh[hhNorm]));
+            if (!hasProg) {
+                var hubLab = String(hr.hub_label || '').trim();
+                if (hubLab && hubLab !== 'normal') parts.push(hubLab);
+                else if (hr.source === 'hub_lie') parts.push('hub');
+                var nl = String(hr.nom_ligne || hr.ligne_depart || '').trim();
+                if (nl) parts.push(nl);
             }
-            opt.innerHTML = label;
+            opt.innerHTML = parts.join(' — ');
             hSel.add(opt);
         }
         // Champ « Départ (même heure) » : plus utilisé — le choix est dans Heure.
@@ -7024,8 +7038,6 @@ document.addEventListener('DOMContentLoaded', () => {
         hSel.options.length = 1;
         var list = Array.isArray(heures) ? heures.slice() : [];
         var hasTransit = !!window.__venteFiHasTransit;
-        // Règle : directs seuls s'il y en a, sinon créneaux correspondance.
-        // Case cochée : directs + créneaux multi.
         var hasAnyDirect = list.some(function (hr) {
             return hr && (hr.has_programme === true || hr.has_programme === 1 || hr.has_programme === '1');
         });
@@ -7037,11 +7049,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 var s = String(h || '').trim();
                 return s.length >= 5 ? s.slice(0, 5) : s;
             };
-        // Décoché : directs seuls s'il y en a, sinon créneaux correspondance.
-        // Coché : uniquement heures non-directes (correspondances).
         if (allowMulti && hasTransit) {
             list = list.filter(function (hr) {
-                return hr && !(hr.has_programme === true || hr.has_programme === 1 || hr.has_programme === '1');
+                if (!hr) return false;
+                if (hr.slot_kind === 'multi') return true;
+                return !(hr.has_programme === true || hr.has_programme === 1 || hr.has_programme === '1');
             });
         } else if (hasAnyDirect) {
             list = list.filter(function (hr) {
@@ -7051,17 +7063,24 @@ document.addEventListener('DOMContentLoaded', () => {
             list = [];
         } else {
             list = list.filter(function (hr) {
-                return hr && !(hr.has_programme === true || hr.has_programme === 1 || hr.has_programme === '1');
+                if (!hr) return false;
+                if (hr.slot_kind === 'multi') return true;
+                return !(hr.has_programme === true || hr.has_programme === 1 || hr.has_programme === '1');
             });
         }
-        // Multi / corr : 1 option = 1 HH:MM (programmes de départ).
         var isCorrList = !!(allowMulti && hasTransit) || (!hasAnyDirect && hasTransit);
         if (isCorrList) {
-            var seenCorrHh = {};
+            var seenCorr = {};
             list = list.filter(function (hr) {
+                var code = hr && hr.code_progr ? String(hr.code_progr) : '';
+                if (code) {
+                    if (seenCorr['c:' + code]) return false;
+                    seenCorr['c:' + code] = true;
+                    return true;
+                }
                 var hh = normHh((hr && hr.heure) || '');
-                if (!hh || seenCorrHh[hh]) return false;
-                seenCorrHh[hh] = true;
+                if (!hh || seenCorr['h:' + hh]) return false;
+                seenCorr['h:' + hh] = true;
                 return true;
             });
         }
@@ -7075,7 +7094,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         var countByHh = {};
         list.forEach(function (hr) {
-            if (!hr || !hr.has_programme) return;
+            if (!hr) return;
             var hh = normHh(hr.heure);
             if (!hh) return;
             countByHh[hh] = (countByHh[hh] || 0) + 1;
@@ -7086,11 +7105,13 @@ document.addEventListener('DOMContentLoaded', () => {
             var hr = list[i];
             if (!hr || hr.id_ligneheure == null || hr.id_ligneheure === '') continue;
             var hasProg = !!(hr.has_programme === true || hr.has_programme === 1 || hr.has_programme === '1');
-            var code = hasProg && hr.code_progr ? String(hr.code_progr) : '';
+            var code = hr.code_progr ? String(hr.code_progr) : '';
             var hhNorm = normHh(hr.heure) || String(hr.heure || '');
-            var dedupeKey = hasProg
-                ? ('p:' + (code || (String(hr.id_ligneheure) + '/' + hhNorm)))
-                : ('t:' + hhNorm);
+            var dedupeKey = code
+                ? ('p:' + code)
+                : (hasProg
+                    ? ('p:' + String(hr.id_ligneheure) + '/' + hhNorm)
+                    : ('t:' + hhNorm));
             if (seenOpt[dedupeKey]) continue;
             seenOpt[dedupeKey] = 1;
             var opt = document.createElement('option');
@@ -7099,17 +7120,20 @@ document.addEventListener('DOMContentLoaded', () => {
             opt.setAttribute('data-has-programme', hasProg ? '1' : '0');
             opt.setAttribute('data-heure', hhNorm);
             if (code) opt.setAttribute('data-code-progr', code);
-            var label;
-            if (hasProg) {
-                idxByHh[hhNorm] = (idxByHh[hhNorm] || 0) + 1;
-                var multi = (countByHh[hhNorm] || 0) > 1;
-                label = multi
-                    ? (hhNorm + ' — ' + __venteFiOrdinalFr(idxByHh[hhNorm]))
-                    : hhNorm;
-            } else {
-                label = hhNorm;
+            if (hr.hub_role) opt.setAttribute('data-hub-role', String(hr.hub_role));
+            if (hr.hub_label) opt.setAttribute('data-hub-label', String(hr.hub_label));
+            idxByHh[hhNorm] = (idxByHh[hhNorm] || 0) + 1;
+            var multi = (countByHh[hhNorm] || 0) > 1;
+            var parts = [hhNorm];
+            if (multi) parts.push(__venteFiOrdinalFr(idxByHh[hhNorm]));
+            if (!hasProg) {
+                var hubLab = String(hr.hub_label || '').trim();
+                if (hubLab && hubLab !== 'normal') parts.push(hubLab);
+                else if (hr.source === 'hub_lie') parts.push('hub');
+                var nl = String(hr.nom_ligne || hr.ligne_depart || '').trim();
+                if (nl) parts.push(nl);
             }
-            opt.innerHTML = label;
+            opt.innerHTML = parts.join(' — ');
             hSel.add(opt);
         }
         __venteFiHideProgSelect();
@@ -11300,7 +11324,12 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
         // Direct déjà chargé → pas d’appel multi parasite (sauf report global transit).
-        var hasDirectDate = __reprogFilterByDate(dateYmd).length > 0;
+        var hasDirectDate = __reprogFilterByDate(dateYmd).some(function (r) {
+            if (!r) return false;
+            if (String(r.slot_kind || '') === 'multi') return false;
+            if (r.is_od_direct === false || r.is_od_direct === 0 || r.is_od_direct === '0') return false;
+            return !!r.code_progr;
+        });
         if (hasDirectDate && !forceEvenIfDirect) {
             st.chemins = [];
             if (after) after([]);
@@ -11373,7 +11402,15 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function __reprogDirectsAsChemins(dateYmd) {
-        return __reprogFilterByDate(dateYmd).map(function (row, idx) {
+        return __reprogFilterByDate(dateYmd).filter(function (row) {
+            if (!row || !row.code_progr) return false;
+            var kind = String(row.slot_kind || '').trim();
+            if (kind === 'multi') return false;
+            if (row.is_od_direct === false || row.is_od_direct === 0 || row.is_od_direct === '0') {
+                return false;
+            }
+            return true;
+        }).map(function (row, idx) {
             var hh = __reprogHhmm(row.heure);
             var cie = __reprogCieName(row) || 'Compagnie';
             var nom = row.nom_ligne || '';
@@ -11488,7 +11525,7 @@ document.addEventListener('DOMContentLoaded', () => {
      * Remplit le select Heure : 1 option = 1 programme de la date.
      * Même HH:MM → 1ER, 2ème… + mention normal / hub|dérivé.
      */
-    function __reprogFillHeuresForDate(dateYmd) {
+    function __reprogFillHeuresForDate(dateYmd, multiOnly) {
         var sel = __reprogQ('heuredepartpunifie');
         __reprogResetSelect(sel, "Choisissez l'heure");
         __reprogHideDirect();
@@ -11502,6 +11539,16 @@ document.addEventListener('DOMContentLoaded', () => {
         var seenProg = {};
         var rows = __reprogFilterByDate(dateYmd).filter(function (row) {
             if (!row || !row.code_progr) return false;
+            var kind = String(row.slot_kind || '').trim();
+            var isMulti = kind === 'multi'
+                || row.is_od_direct === false
+                || row.is_od_direct === 0
+                || row.is_od_direct === '0';
+            if (multiOnly) {
+                if (!isMulti) return false;
+            } else if (isMulti) {
+                return false;
+            }
             var k = String(row.code_progr);
             if (seenProg[k]) return false;
             seenProg[k] = 1;
@@ -11553,7 +11600,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 + String(row.typetarif || '');
             var opt = document.createElement('option');
             opt.value = progVal;
-            opt.setAttribute('data-kind', 'direct');
+            opt.setAttribute('data-kind', multiOnly ? 'multi' : 'direct');
             opt.setAttribute('data-heure', hh);
             opt.setAttribute('data-date', String(row.date_progr || dateYmd).slice(0, 10));
             opt.setAttribute('data-compaga', row.id_compaga || '');
@@ -12486,6 +12533,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (axesQ) qs.push(axesQ.replace(/^&/, ''));
         if (st.id_escale) qs.push('id_escale=' + encodeURIComponent(String(st.id_escale)));
         if (gaReport) qs.push('gare=' + encodeURIComponent(String(gaReport)));
+        if (__reprogAllowMultiChecked()) qs.push('multi=1');
         __reprogXhrGet(
             window.location.origin + APP_ROOT
                 + '/reprogrammes/heures_unifie/'
@@ -12502,19 +12550,29 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function __reprogOnDateChangeAfterRows(dateYmd) {
         var st = window.__reprogState;
-        var n = __reprogFillHeuresForDate(dateYmd);
         var allowMulti = __reprogAllowMultiChecked();
-        __reprogSyncAllowMultiWrap(n > 0);
+        var allForDay = __reprogFilterByDate(dateYmd);
+        var odCount = allForDay.filter(function (r) {
+            return r && String(r.slot_kind || '') !== 'multi'
+                && !(r.is_od_direct === false || r.is_od_direct === 0 || r.is_od_direct === '0');
+        }).length;
+        __reprogSyncAllowMultiWrap(odCount > 0 || (!allowMulti && allForDay.length > 0));
         if (__reprogQ('smspunifie')) __reprogQ('smspunifie').style.display = 'none';
 
         if (st.nom_ligne && __reprogQ('replignunifie')) {
             __reprogQ('replignunifie').value = st.nom_ligne;
         }
 
-        // Flux unique : date → programmes OD → itinéraires cohérents (du plus simple)
-        // → choix itinéraire → segments + compagnie.
-        __reprogSetAncreVisible(false);
+        // Multi : afficher Heure = autres départs gare (+ dérivé/hub), puis itinéraires.
+        // Sinon : itinéraires directs XOR correspondances (Heure masquée).
         __reprogHideDirect();
+        if (allowMulti) {
+            __reprogSetAncreVisible(true);
+            __reprogFillHeuresForDate(dateYmd, true);
+        } else {
+            __reprogSetAncreVisible(false);
+            __reprogFillHeuresForDate(dateYmd, false);
+        }
 
         var directs = (!allowMulti) ? __reprogDirectsAsChemins(dateYmd) : [];
         __reprogFetchChemins(dateYmd, '', function (chemins) {
@@ -12541,7 +12599,8 @@ document.addEventListener('DOMContentLoaded', () => {
             });
             st.chemins = all;
             var odLabel = st.nom_ligne || st.axe || '—';
-            if (!all.length) {
+            if (!all.length && !(allowMulti && __reprogQ('heuredepartpunifie')
+                && __reprogQ('heuredepartpunifie').options.length > 1)) {
                 var box = __reprogQ('smspunifie');
                 var err = __reprogQ('erreurSmspunifie');
                 if (box) box.style.display = 'block';
@@ -12556,14 +12615,17 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             var msg;
             if (allowMulti) {
-                msg = 'Correspondances (programmes réels) pour ' + odLabel + ' le ' + dateYmd;
+                msg = 'Multi : autres départs gare (+ hub/dérivé) et correspondances pour '
+                    + odLabel + ' le ' + dateYmd;
             } else if (directs.length) {
                 msg = 'Directs pour ' + odLabel + ' le ' + dateYmd
                     + ' — choisissez un itinéraire (compagnie dans le segment)';
             } else {
                 msg = 'Pas de direct : correspondances cohérentes pour ' + odLabel + ' le ' + dateYmd;
             }
-            __reprogShowCorrExclusive(all, msg);
+            if (all.length) {
+                __reprogShowCorrExclusive(all, msg);
+            }
         }, true);
     }
 
@@ -12584,7 +12646,37 @@ document.addEventListener('DOMContentLoaded', () => {
         var kind = opt ? (opt.getAttribute('data-kind') || '') : '';
         var progVal = heureSel.value;
         // Nouvelle UX : value = code_progr/id_lh/typetarif (départ programme).
-        var isProg = progVal.indexOf('/') !== -1 && kind !== 'corr';
+        var isProg = progVal.indexOf('/') !== -1 && kind !== 'corr' && kind !== 'multi';
+
+        // Multi : l’heure choisie ancre les correspondances (pas un report direct OD).
+        if (kind === 'multi' && __reprogAllowMultiChecked()) {
+            var hhMulti = opt ? (opt.getAttribute('data-heure') || __reprogHhmm(progVal)) : '';
+            window.__reprogState.mode = 'corr';
+            __reprogFetchChemins(dateYmd, hhMulti, function (chemins) {
+                var multi = __reprogRowsArray(chemins).filter(function (ch) {
+                    if (!ch || ch.source === 'declaratif') return false;
+                    if (!__reprogCheminSensOk(ch)) return false;
+                    return __reprogNormalizeEtapes(ch.etapes || ch.legs).length >= 2;
+                });
+                var odLabel = (window.__reprogState.nom_ligne || window.__reprogState.axe || '—');
+                if (!multi.length) {
+                    var box = __reprogQ('smspunifie');
+                    var err = __reprogQ('erreurSmspunifie');
+                    if (box) box.style.display = 'block';
+                    if (err) {
+                        err.textContent = 'Aucune correspondance réelle à '
+                            + (hhMulti || 'cette heure') + ' pour ' + odLabel + ' le ' + dateYmd + '.';
+                    }
+                    return;
+                }
+                __reprogShowCorrExclusive(
+                    multi,
+                    'Correspondances ancrées à ' + (hhMulti || '—')
+                        + ' pour ' + odLabel + ' le ' + dateYmd
+                );
+            }, true);
+            return;
+        }
 
         if (isProg) {
             var matchRow = __reprogFindRowByProgVal(progVal, dateYmd);
@@ -12850,7 +12942,7 @@ document.addEventListener('DOMContentLoaded', () => {
             reprogAllowMultiEl.addEventListener('change', function () {
                 var d = __reprogQ('datereprog_unifie');
                 var ymd = d ? d.value : '';
-                if (ymd) __reprogOnDateChangeAfterRows(ymd);
+                if (ymd) __reprogReloadHeuresThenDate(ymd);
             });
         }
         var heurdep = __reprogQ('heuredepartpunifie');
@@ -13795,6 +13887,9 @@ document.addEventListener('DOMContentLoaded', () => {
         if (idEsc && __cEscaleChecked()) {
             qs.push('id_escale=' + encodeURIComponent(idEsc));
         }
+        if (__cAllowMultiChecked()) {
+            qs.push('multi=1');
+        }
         // 3ᵉ segment obligatoire (CI) : '' disparaît de l’URL → exception « 2 args ».
         var excludeSeg = '0';
         __cXhrGet(
@@ -14024,8 +14119,10 @@ document.addEventListener('DOMContentLoaded', () => {
     /**
      * Remplit Heure : 1 option = 1 programme de la date.
      * Même HH:MM → 1ER, 2ème… (+ compagnie / hub).
+     * @param {string} dateYmd
+     * @param {boolean} [multiOnly] si true : uniquement slot_kind multi (hors directs OD)
      */
-    function __cFillHeuresForDate(dateYmd) {
+    function __cFillHeuresForDate(dateYmd, multiOnly) {
         var heureSel = __cQ('heure_confirm_unifie');
         var cieWrap = __cQ('confirm_cie_wrap');
         var cieSel = __cQ('cie_confirm_unifie');
@@ -14042,6 +14139,16 @@ document.addEventListener('DOMContentLoaded', () => {
         var seenProg = {};
         var rows = __cFilterByDate(dateYmd).filter(function (row) {
             if (!row || !row.code_progr) return false;
+            var kind = String(row.slot_kind || '').trim();
+            var isMulti = kind === 'multi'
+                || row.is_od_direct === false
+                || row.is_od_direct === 0
+                || row.is_od_direct === '0';
+            if (multiOnly) {
+                if (!isMulti) return false;
+            } else if (isMulti) {
+                return false;
+            }
             var k = String(row.code_progr);
             if (seenProg[k]) return false;
             seenProg[k] = 1;
@@ -14082,6 +14189,7 @@ document.addEventListener('DOMContentLoaded', () => {
             o.setAttribute('data-i1', row.intervalle1 || '');
             o.setAttribute('data-i2', row.intervalle2 || '');
             o.setAttribute('data-hub-label', hub);
+            o.setAttribute('data-slot-kind', row.slot_kind || (multiOnly ? 'multi' : 'direct'));
             o._row = row;
             var parts = [hh];
             if (multi) parts.push(__cOrdinalFr(idxByHh[hh]));
@@ -14096,32 +14204,46 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function __cOnDateReady(dateYmd) {
         __cResetDepartUi();
-        var rows = __cFilterByDate(dateYmd);
+        var allRows = __cFilterByDate(dateYmd);
+        var odRows = allRows.filter(function (r) {
+            return r && String(r.slot_kind || '') !== 'multi'
+                && !(r.is_od_direct === false || r.is_od_direct === 0 || r.is_od_direct === '0');
+        });
+        var multiRows = allRows.filter(function (r) {
+            return r && (String(r.slot_kind || '') === 'multi'
+                || r.is_od_direct === false || r.is_od_direct === 0 || r.is_od_direct === '0');
+        });
         var hint = __cQ('confirm_transit_hint');
         var allowMulti = __cAllowMultiChecked();
-        __cSyncAllowMultiWrap(rows.length > 0);
+        __cSyncAllowMultiWrap(odRows.length > 0);
         // Règle : directs seuls s'il y en a, sinon correspondance.
-        // Case cochée : uniquement multi / correspondances (pas les directs).
-        if (rows.length && allowMulti) {
+        // Case cochée : heures non-OD de la gare (+ dérivé/hub) + itinéraires multi.
+        if (odRows.length && allowMulti) {
             __cSetPathMode('transit');
             if (hint) {
                 hint.style.display = 'block';
-                hint.textContent = 'Multi activé : correspondances uniquement (directs masqués).';
+                hint.textContent = 'Multi : autres départs programmés (hors OD) + hub/dérivé.';
             }
+            __cFillHeuresForDate(dateYmd, true);
             __cFetchChemins(dateYmd);
             return;
         }
-        if (rows.length) {
+        if (odRows.length) {
             __cSetPathMode('direct');
             if (hint) hint.style.display = 'none';
-            __cFillHeuresForDate(dateYmd);
+            __cFillHeuresForDate(dateYmd, false);
             return;
         }
         // Pas de direct → transit / correspondance depuis la gare de confirmation.
         __cSetPathMode('transit');
         if (hint) {
             hint.style.display = 'block';
-            hint.textContent = 'Aucun direct : chargement des correspondances…';
+            hint.textContent = multiRows.length
+                ? 'Aucun direct OD : départs gare / correspondances…'
+                : 'Aucun direct : chargement des correspondances…';
+        }
+        if (multiRows.length) {
+            __cFillHeuresForDate(dateYmd, true);
         }
         __cFetchChemins(dateYmd);
     }
@@ -15103,7 +15225,7 @@ document.addEventListener('DOMContentLoaded', () => {
         confirmAllowMultiEl.dataset.bound = '1';
         confirmAllowMultiEl.addEventListener('change', function () {
             var v = __cNormDate((__cQ('date_confirm_unifie') || {}).value || '');
-            if (v) __cOnDateReady(v);
+            if (v) __cLoadHeures(v);
         });
     }
     var heureEl = __cQ('heure_confirm_unifie');

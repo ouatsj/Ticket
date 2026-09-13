@@ -1412,8 +1412,6 @@ document.addEventListener('DOMContentLoaded', () => {
         hSel.options.length = 1;
         var list = Array.isArray(heures) ? heures.slice() : [];
         var hasTransit = !!window.__venteFiHasTransit;
-        // Règle : directs seuls s'il y en a, sinon créneaux correspondance.
-        // Case cochée : directs + créneaux multi.
         var hasAnyDirect = list.some(function (hr) {
             return hr && (hr.has_programme === true || hr.has_programme === 1 || hr.has_programme === '1');
         });
@@ -1425,11 +1423,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 var s = String(h || '').trim();
                 return s.length >= 5 ? s.slice(0, 5) : s;
             };
-        // Décoché : directs seuls s'il y en a, sinon créneaux correspondance.
-        // Coché : uniquement heures non-directes (correspondances).
         if (allowMulti && hasTransit) {
             list = list.filter(function (hr) {
-                return hr && !(hr.has_programme === true || hr.has_programme === 1 || hr.has_programme === '1');
+                if (!hr) return false;
+                if (hr.slot_kind === 'multi') return true;
+                return !(hr.has_programme === true || hr.has_programme === 1 || hr.has_programme === '1');
             });
         } else if (hasAnyDirect) {
             list = list.filter(function (hr) {
@@ -1439,17 +1437,24 @@ document.addEventListener('DOMContentLoaded', () => {
             list = [];
         } else {
             list = list.filter(function (hr) {
-                return hr && !(hr.has_programme === true || hr.has_programme === 1 || hr.has_programme === '1');
+                if (!hr) return false;
+                if (hr.slot_kind === 'multi') return true;
+                return !(hr.has_programme === true || hr.has_programme === 1 || hr.has_programme === '1');
             });
         }
-        // Multi / corr : 1 option = 1 HH:MM (programmes de départ).
         var isCorrList = !!(allowMulti && hasTransit) || (!hasAnyDirect && hasTransit);
         if (isCorrList) {
-            var seenCorrHh = {};
+            var seenCorr = {};
             list = list.filter(function (hr) {
+                var code = hr && hr.code_progr ? String(hr.code_progr) : '';
+                if (code) {
+                    if (seenCorr['c:' + code]) return false;
+                    seenCorr['c:' + code] = true;
+                    return true;
+                }
                 var hh = normHh((hr && hr.heure) || '');
-                if (!hh || seenCorrHh[hh]) return false;
-                seenCorrHh[hh] = true;
+                if (!hh || seenCorr['h:' + hh]) return false;
+                seenCorr['h:' + hh] = true;
                 return true;
             });
         }
@@ -1463,7 +1468,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         var countByHh = {};
         list.forEach(function (hr) {
-            if (!hr || !hr.has_programme) return;
+            if (!hr) return;
             var hh = normHh(hr.heure);
             if (!hh) return;
             countByHh[hh] = (countByHh[hh] || 0) + 1;
@@ -1474,11 +1479,13 @@ document.addEventListener('DOMContentLoaded', () => {
             var hr = list[i];
             if (!hr || hr.id_ligneheure == null || hr.id_ligneheure === '') continue;
             var hasProg = !!(hr.has_programme === true || hr.has_programme === 1 || hr.has_programme === '1');
-            var code = hasProg && hr.code_progr ? String(hr.code_progr) : '';
+            var code = hr.code_progr ? String(hr.code_progr) : '';
             var hhNorm = normHh(hr.heure) || String(hr.heure || '');
-            var dedupeKey = hasProg
-                ? ('p:' + (code || (String(hr.id_ligneheure) + '/' + hhNorm)))
-                : ('t:' + hhNorm);
+            var dedupeKey = code
+                ? ('p:' + code)
+                : (hasProg
+                    ? ('p:' + String(hr.id_ligneheure) + '/' + hhNorm)
+                    : ('t:' + hhNorm));
             if (seenOpt[dedupeKey]) continue;
             seenOpt[dedupeKey] = 1;
             var opt = document.createElement('option');
@@ -1487,17 +1494,20 @@ document.addEventListener('DOMContentLoaded', () => {
             opt.setAttribute('data-has-programme', hasProg ? '1' : '0');
             opt.setAttribute('data-heure', hhNorm);
             if (code) opt.setAttribute('data-code-progr', code);
-            var label;
-            if (hasProg) {
-                idxByHh[hhNorm] = (idxByHh[hhNorm] || 0) + 1;
-                var multi = (countByHh[hhNorm] || 0) > 1;
-                label = multi
-                    ? (hhNorm + ' — ' + __venteFiOrdinalFr(idxByHh[hhNorm]))
-                    : hhNorm;
-            } else {
-                label = hhNorm;
+            if (hr.hub_role) opt.setAttribute('data-hub-role', String(hr.hub_role));
+            if (hr.hub_label) opt.setAttribute('data-hub-label', String(hr.hub_label));
+            idxByHh[hhNorm] = (idxByHh[hhNorm] || 0) + 1;
+            var multi = (countByHh[hhNorm] || 0) > 1;
+            var parts = [hhNorm];
+            if (multi) parts.push(__venteFiOrdinalFr(idxByHh[hhNorm]));
+            if (!hasProg) {
+                var hubLab = String(hr.hub_label || '').trim();
+                if (hubLab && hubLab !== 'normal') parts.push(hubLab);
+                else if (hr.source === 'hub_lie') parts.push('hub');
+                var nl = String(hr.nom_ligne || hr.ligne_depart || '').trim();
+                if (nl) parts.push(nl);
             }
-            opt.innerHTML = label;
+            opt.innerHTML = parts.join(' — ');
             hSel.add(opt);
         }
         __venteFiHideProgSelect();

@@ -397,6 +397,9 @@
         if (idEsc && __cEscaleChecked()) {
             qs.push('id_escale=' + encodeURIComponent(idEsc));
         }
+        if (__cAllowMultiChecked()) {
+            qs.push('multi=1');
+        }
         // 3ᵉ segment obligatoire (CI) : '' disparaît de l’URL → exception « 2 args ».
         var excludeSeg = '0';
         __cXhrGet(
@@ -626,8 +629,10 @@
     /**
      * Remplit Heure : 1 option = 1 programme de la date.
      * Même HH:MM → 1ER, 2ème… (+ compagnie / hub).
+     * @param {string} dateYmd
+     * @param {boolean} [multiOnly] si true : uniquement slot_kind multi (hors directs OD)
      */
-    function __cFillHeuresForDate(dateYmd) {
+    function __cFillHeuresForDate(dateYmd, multiOnly) {
         var heureSel = __cQ('heure_confirm_unifie');
         var cieWrap = __cQ('confirm_cie_wrap');
         var cieSel = __cQ('cie_confirm_unifie');
@@ -644,6 +649,16 @@
         var seenProg = {};
         var rows = __cFilterByDate(dateYmd).filter(function (row) {
             if (!row || !row.code_progr) return false;
+            var kind = String(row.slot_kind || '').trim();
+            var isMulti = kind === 'multi'
+                || row.is_od_direct === false
+                || row.is_od_direct === 0
+                || row.is_od_direct === '0';
+            if (multiOnly) {
+                if (!isMulti) return false;
+            } else if (isMulti) {
+                return false;
+            }
             var k = String(row.code_progr);
             if (seenProg[k]) return false;
             seenProg[k] = 1;
@@ -684,6 +699,7 @@
             o.setAttribute('data-i1', row.intervalle1 || '');
             o.setAttribute('data-i2', row.intervalle2 || '');
             o.setAttribute('data-hub-label', hub);
+            o.setAttribute('data-slot-kind', row.slot_kind || (multiOnly ? 'multi' : 'direct'));
             o._row = row;
             var parts = [hh];
             if (multi) parts.push(__cOrdinalFr(idxByHh[hh]));
@@ -698,32 +714,46 @@
 
     function __cOnDateReady(dateYmd) {
         __cResetDepartUi();
-        var rows = __cFilterByDate(dateYmd);
+        var allRows = __cFilterByDate(dateYmd);
+        var odRows = allRows.filter(function (r) {
+            return r && String(r.slot_kind || '') !== 'multi'
+                && !(r.is_od_direct === false || r.is_od_direct === 0 || r.is_od_direct === '0');
+        });
+        var multiRows = allRows.filter(function (r) {
+            return r && (String(r.slot_kind || '') === 'multi'
+                || r.is_od_direct === false || r.is_od_direct === 0 || r.is_od_direct === '0');
+        });
         var hint = __cQ('confirm_transit_hint');
         var allowMulti = __cAllowMultiChecked();
-        __cSyncAllowMultiWrap(rows.length > 0);
+        __cSyncAllowMultiWrap(odRows.length > 0);
         // Règle : directs seuls s'il y en a, sinon correspondance.
-        // Case cochée : uniquement multi / correspondances (pas les directs).
-        if (rows.length && allowMulti) {
+        // Case cochée : heures non-OD de la gare (+ dérivé/hub) + itinéraires multi.
+        if (odRows.length && allowMulti) {
             __cSetPathMode('transit');
             if (hint) {
                 hint.style.display = 'block';
-                hint.textContent = 'Multi activé : correspondances uniquement (directs masqués).';
+                hint.textContent = 'Multi : autres départs programmés (hors OD) + hub/dérivé.';
             }
+            __cFillHeuresForDate(dateYmd, true);
             __cFetchChemins(dateYmd);
             return;
         }
-        if (rows.length) {
+        if (odRows.length) {
             __cSetPathMode('direct');
             if (hint) hint.style.display = 'none';
-            __cFillHeuresForDate(dateYmd);
+            __cFillHeuresForDate(dateYmd, false);
             return;
         }
         // Pas de direct → transit / correspondance depuis la gare de confirmation.
         __cSetPathMode('transit');
         if (hint) {
             hint.style.display = 'block';
-            hint.textContent = 'Aucun direct : chargement des correspondances…';
+            hint.textContent = multiRows.length
+                ? 'Aucun direct OD : départs gare / correspondances…'
+                : 'Aucun direct : chargement des correspondances…';
+        }
+        if (multiRows.length) {
+            __cFillHeuresForDate(dateYmd, true);
         }
         __cFetchChemins(dateYmd);
     }
@@ -1705,7 +1735,7 @@
         confirmAllowMultiEl.dataset.bound = '1';
         confirmAllowMultiEl.addEventListener('change', function () {
             var v = __cNormDate((__cQ('date_confirm_unifie') || {}).value || '');
-            if (v) __cOnDateReady(v);
+            if (v) __cLoadHeures(v);
         });
     }
     var heureEl = __cQ('heure_confirm_unifie');

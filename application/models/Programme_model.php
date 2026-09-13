@@ -1630,10 +1630,234 @@
         }
 
         /**
+         * Programmes de départ à la gare (ville) qui ne sont PAS des directs de l'OD.
+         * Inclut dérivé / hub (principal / suite) issus de programme_correspondance
+         * s'ils partent bien de cette gare à la date.
+         *
+         * @param string      $cid
+         * @param string      $gare
+         * @param string      $date
+         * @param string[]    $exclude_ligne_ids
+         * @param int|null    $idsousgare
+         * @param string|null $date2  J+1 optionnel (report / confirm)
+         * @return object[]
+         */
+        public function programmes_multi_gare(
+            $cid,
+            $gare,
+            $date,
+            array $exclude_ligne_ids = array(),
+            $idsousgare = null,
+            $date2 = null
+        ) {
+            $cid = trim((string) $cid);
+            $gare = $this->normalize_gareidentif($gare);
+            $date = trim((string) $date);
+            if ($cid === '' || $gare === '' || $date === '' || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) {
+                return array();
+            }
+
+            $dates = array($date);
+            $d2 = trim((string) $date2);
+            if ($d2 !== '' && preg_match('/^\d{4}-\d{2}-\d{2}$/', $d2) && $d2 !== $date) {
+                $dates[] = $d2;
+            }
+            $dateIn = implode(',', array_map(function ($d) {
+                return $this->db->escape($d);
+            }, $dates));
+
+            $exclSet = array();
+            foreach ($exclude_ligne_ids as $idLg) {
+                $idLg = trim((string) $idLg);
+                if ($idLg !== '') {
+                    $exclSet[$idLg] = TRUE;
+                }
+            }
+            $exclSql = '';
+            if (!empty($exclSet)) {
+                $parts = array();
+                foreach (array_keys($exclSet) as $idLg) {
+                    $parts[] = $this->db->escape($idLg);
+                }
+                $exclSql = ' AND lg.ident_ligne NOT IN (' . implode(',', $parts) . ')';
+            }
+
+            $gareSql = $this->sql_filtre_gare_depart_ville($gare);
+            $sg = ($idsousgare === null || $idsousgare === '' || $idsousgare === FALSE)
+                ? null
+                : (int) $idsousgare;
+            $sgFilter = $this->sql_filtre_sousgare($sg);
+
+            $timeFilter = '';
+            $keyToday = mdate('%Y-%m-%d', now());
+            if ($date === $keyToday && count($dates) === 1) {
+                $timeFilter = ' AND h.heure >= ' . $this->db->escape(date('H:i', time() - 3600));
+            }
+
+            $cidEsc = $this->db->escape($cid);
+            $sqlBody = "SELECT pr.code_progr, pr.date_progr, pr.typetarif, pr.categori,
+                        pr.intervalle1, pr.intervalle2, pr.gareidentif, pr.idsousgare_prog,
+                        lh.id_ligneheure, h.heure, lg.ident_ligne, lg.nom_ligne,
+                        lg.gaexp_lg, lg.gadest_lg,
+                        ga.id_compaga, ca.nom_compagnie AS nom_compagnie_arrivee,
+                        c.cle_compagnie AS cle_compagnie_depart,
+                        c.nom_compagnie AS nom_compagnie_depart
+                 FROM programme pr
+                 JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
+                 JOIN heures h ON lh.heure_identif = h.id_heure
+                 JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
+                 JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
+                 JOIN gare_dest ga ON lg.gadest_lg = ga.code_gadest
+                 JOIN compagnies c ON ex.id_compagd = c.cle_compagnie
+                 JOIN compagnies ca ON ga.id_compaga = ca.cle_compagnie
+                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
+                 WHERE e.ekey = {$cidEsc}
+                   AND pr.date_progr IN ({$dateIn})
+                   AND pr.statut_prog = 'actif'
+                   AND pr.actif_prog = 0
+                   AND h.h_active = 1
+                   AND lh.actif_lh = 1
+                   AND IFNULL(lg.actif_lg, 1) = 1
+                   {$gareSql}
+                   {$sgFilter}
+                   {$timeFilter}";
+
+            $rows = $this->db->query(
+                $sqlBody . $exclSql . ' ORDER BY pr.date_progr ASC, h.heure ASC, pr.code_progr ASC'
+            )->result();
+
+            $byCode = array();
+            foreach ($rows as $r) {
+                $code = isset($r->code_progr) ? trim((string) $r->code_progr) : '';
+                if ($code !== '' && !isset($byCode[$code])) {
+                    $byCode[$code] = $r;
+                }
+            }
+
+            // Découvrir les liens hub à partir de TOUS les programmes de la gare (y compris OD),
+            // pour ne pas manquer un dérivé / suite / principal lié.
+            $seedRows = $this->db->query(
+                $sqlBody . ' ORDER BY pr.date_progr ASC, h.heure ASC'
+            )->result();
+            $seedCodes = array();
+            foreach ($seedRows as $r) {
+                $code = isset($r->code_progr) ? trim((string) $r->code_progr) : '';
+                if ($code !== '') {
+                    $seedCodes[] = $code;
+                }
+            }
+
+            $CI =& get_instance();
+            if (!isset($CI->m_programme_correspondance)) {
+                $CI->load->model('Programme_correspondance_model', 'm_programme_correspondance');
+            }
+            $index = $CI->m_programme_correspondance->index_for_codes($seedCodes);
+
+            $linkedCodes = array();
+            foreach ($index as $meta) {
+                if (empty($meta['lien'])) {
+                    continue;
+                }
+                $lien = $meta['lien'];
+                foreach (array('code_progr_principal', 'code_progr_suite', 'code_progr_derive') as $f) {
+                    $c = isset($lien->$f) ? trim((string) $lien->$f) : '';
+                    if ($c !== '') {
+                        $linkedCodes[$c] = TRUE;
+                    }
+                }
+            }
+
+            $missing = array();
+            foreach (array_keys($linkedCodes) as $c) {
+                if (!isset($byCode[$c])) {
+                    $missing[] = $c;
+                }
+            }
+            if (!empty($missing)) {
+                $ph = implode(',', array_fill(0, count($missing), '?'));
+                $extra = $this->db->query(
+                    "SELECT pr.code_progr, pr.date_progr, pr.typetarif, pr.categori,
+                            pr.intervalle1, pr.intervalle2, pr.gareidentif, pr.idsousgare_prog,
+                            lh.id_ligneheure, h.heure, lg.ident_ligne, lg.nom_ligne,
+                            lg.gaexp_lg, lg.gadest_lg,
+                            ga.id_compaga, ca.nom_compagnie AS nom_compagnie_arrivee,
+                            c.cle_compagnie AS cle_compagnie_depart,
+                            c.nom_compagnie AS nom_compagnie_depart
+                     FROM programme pr
+                     JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
+                     JOIN heures h ON lh.heure_identif = h.id_heure
+                     JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
+                     JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
+                     JOIN gare_dest ga ON lg.gadest_lg = ga.code_gadest
+                     JOIN compagnies c ON ex.id_compagd = c.cle_compagnie
+                     JOIN compagnies ca ON ga.id_compaga = ca.cle_compagnie
+                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
+                     WHERE e.ekey = ?
+                       AND pr.code_progr IN ({$ph})
+                       AND pr.date_progr IN ({$dateIn})
+                       AND pr.statut_prog = 'actif'
+                       AND pr.actif_prog = 0
+                       AND h.h_active = 1
+                       AND lh.actif_lh = 1
+                       AND IFNULL(lg.actif_lg, 1) = 1
+                       {$gareSql}
+                       {$exclSql}
+                       {$sgFilter}",
+                    array_merge(array($cid), $missing)
+                )->result();
+                foreach ($extra as $r) {
+                    $code = isset($r->code_progr) ? trim((string) $r->code_progr) : '';
+                    if ($code !== '' && !isset($byCode[$code])) {
+                        $byCode[$code] = $r;
+                    }
+                }
+            }
+
+            // Ré-index hub sur le set final.
+            $index = $CI->m_programme_correspondance->index_for_codes(array_keys($byCode));
+            $out = array();
+            foreach ($byCode as $code => $r) {
+                $role = '';
+                if (isset($index[$code]['role'])) {
+                    $role = (string) $index[$code]['role'];
+                }
+                $r->hub_role = $role;
+                if ($role === 'derive') {
+                    $r->hub_label = 'dérivé';
+                } elseif ($role === 'suite') {
+                    $r->hub_label = 'hub/suite';
+                } elseif ($role === 'principal') {
+                    $r->hub_label = 'hub/principal';
+                } else {
+                    $r->hub_label = 'normal';
+                }
+                $r->slot_kind = 'multi';
+                $r->is_od_direct = FALSE;
+                $out[] = $r;
+            }
+
+            usort($out, function ($a, $b) {
+                $da = isset($a->date_progr) ? (string) $a->date_progr : '';
+                $db = isset($b->date_progr) ? (string) $b->date_progr : '';
+                if ($da !== $db) {
+                    return strcmp($da, $db);
+                }
+                $cmp = strcmp((string) $a->heure, (string) $b->heure);
+                if ($cmp !== 0) {
+                    return $cmp;
+                }
+                return strcmp((string) $a->code_progr, (string) $b->code_progr);
+            });
+
+            return $out;
+        }
+
+        /**
          * Heures vente guichet pour un OD + date.
          * has_programme = un départ existe sur cet OD commercial (même ville dest + même compagnie),
          * à la même horloge — pas seulement le même id_ligneheure catalogue.
          * Les départs d'une autre compagnie (CBT Ouaga-Bobo) ne sont pas vendables en VIP.
+         * Créneaux Multi = programmes réels non-OD de la gare (+ dérivé / hub liés).
          */
         public function heures_vente_od($cid, $axe, $date, $idsousgare = null)
         {
@@ -1656,7 +1880,6 @@
             if (strpos($axe, '-') !== FALSE) {
                 $gaexp = explode('-', $axe, 2)[0];
             }
-            $gaexpEsc = $this->db->escape_str($gaexp);
             $mode = 'hybride';
 
             $CI =& get_instance();
@@ -1698,52 +1921,6 @@
                  ORDER BY (lh.ligne_id = '{$axeEsc}') DESC, {$porteeOrder}, pr.code_progr DESC"
             )->result();
 
-            // Index pour savoir s'il existe un départ OD à une HH:MM / id_ligneheure
-            // (utilisé pour les créneaux correspondance sans programme).
-            $byLh = array();
-            $byHhmm = array();
-            foreach ($progs as $p) {
-                $idLh = (string) $p->id_ligneheure;
-                $hh = $this->_heure_hhmm($p->heure);
-                if ($idLh !== '' && !isset($byLh[$idLh])) {
-                    $byLh[$idLh] = $p;
-                }
-                if ($hh !== '' && !isset($byHhmm[$hh])) {
-                    $byHhmm[$hh] = $p;
-                }
-            }
-
-            $timeFilter = '';
-            $keyToday = mdate("%Y-%m-%d", now());
-            if ($date === $keyToday) {
-                $dte = date('H:i', time() - 3600);
-                $dteEsc = $this->db->escape_str($dte);
-                $timeFilter = " AND h.heure >= '{$dteEsc}'";
-            }
-
-            $progsGare = array();
-            if ($gaexp !== '') {
-                $progsGare = $this->db->query(
-                    "SELECT lh.id_ligneheure, lh.ligne_id, h.heure, pr.code_progr, pr.idsousgare_prog
-                     FROM programme pr
-                     JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
-                     JOIN heures h ON lh.heure_identif = h.id_heure
-                     JOIN gare_exp ex ON pr.gareidentif = ex.code_gaexp
-                     JOIN compagnies c ON ex.id_compagd = c.cle_compagnie
-                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                     WHERE e.ekey = '{$cidEsc}'
-                     AND pr.gareidentif = '{$gaexpEsc}'
-                     AND pr.date_progr = '{$dateEsc}'
-                     AND pr.statut_prog = 'actif'
-                     AND pr.actif_prog = 0
-                     AND h.h_active = 1
-                     AND lh.actif_lh = 1
-                     {$sgFilter}
-                     {$timeFilter}
-                     ORDER BY h.heure ASC, (pr.idsousgare_prog IS NULL) ASC, pr.code_progr DESC"
-                )->result();
-            }
-
             $heures = array();
             $seenCodes = array();
             $seenHhmmProg = array();
@@ -1767,51 +1944,59 @@
                     'scope' => (($p->idsousgare_prog === null || $p->idsousgare_prog === '')
                         ? 'gare' : 'sousgare'),
                     'source' => 'od',
+                    'slot_kind' => 'direct',
                     'ligne_depart' => isset($p->ligne_id) ? $p->ligne_id : $axe,
+                    'hub_role' => '',
+                    'hub_label' => 'normal',
                 );
             }
 
-            // 2) Créneaux correspondance = programmes RÉELS de la gare de départ
-            // (pas le catalogue ligne), 1 créneau par HH:MM.
-            if ($has_transit) {
-                $seenTransitHh = array();
-                $pushTransit = function ($idLh, $heure, $source, $ligneDepart) use (
-                    &$heures, &$seenTransitHh, &$seenHhmmProg
-                ) {
-                    $idLh = (string) $idLh;
-                    $hh = $this->_heure_hhmm($heure);
-                    if ($idLh === '' || $hh === '') {
-                        return;
-                    }
-                    // Déjà couvert par un départ OD, ou déjà un créneau corr à cette heure.
-                    if (isset($seenHhmmProg[$hh]) || isset($seenTransitHh[$hh])) {
-                        return;
-                    }
-                    $seenTransitHh[$hh] = TRUE;
-                    $heures[] = array(
-                        'id_ligneheure' => $idLh,
-                        'heure' => $heure,
-                        'has_programme' => FALSE,
-                        'code_progr' => null,
-                        'scope' => null,
-                        'source' => $source,
-                        'ligne_depart' => ($ligneDepart !== null && $ligneDepart !== '')
-                            ? $ligneDepart : null,
-                    );
-                };
-
-                foreach ($progsGare as $pg) {
-                    $isOd = (isset($pg->ligne_id) && isset($lignesOdSet[(string) $pg->ligne_id]));
-                    if ($isOd) {
-                        continue; // déjà listé via $progs
-                    }
-                    $pushTransit(
-                        isset($pg->id_ligneheure) ? $pg->id_ligneheure : '',
-                        isset($pg->heure) ? $pg->heure : '',
-                        'gare',
-                        isset($pg->ligne_id) ? $pg->ligne_id : null
-                    );
+            // 2) Créneaux Multi = autres programmes réels de la gare (hors OD)
+            //    + dérivé / hub créés par le lien de correspondance.
+            $multiRows = ($gaexp !== '')
+                ? $this->programmes_multi_gare($cid, $gaexp, $date, $lignesOd, $sg, null)
+                : array();
+            if (!empty($multiRows)) {
+                $has_transit = TRUE;
+                if (!in_array('programmes_gare', $transit_sources, TRUE)) {
+                    $transit_sources[] = 'programmes_gare';
                 }
+            }
+
+            $seenMultiCodes = array();
+            foreach ($multiRows as $pg) {
+                $code = isset($pg->code_progr) ? trim((string) $pg->code_progr) : '';
+                if ($code !== '' && (isset($seenCodes[$code]) || isset($seenMultiCodes[$code]))) {
+                    continue;
+                }
+                $idLh = isset($pg->id_ligneheure) ? (string) $pg->id_ligneheure : '';
+                $heure = isset($pg->heure) ? $pg->heure : '';
+                $hh = $this->_heure_hhmm($heure);
+                if ($idLh === '' || $hh === '') {
+                    continue;
+                }
+                // Même HH:MM qu'un direct OD : garder le créneau multi (autre ligne / hub).
+                if ($code !== '') {
+                    $seenMultiCodes[$code] = TRUE;
+                }
+                $role = isset($pg->hub_role) ? trim((string) $pg->hub_role) : '';
+                $source = ($role === 'derive' || $role === 'suite' || $role === 'principal')
+                    ? 'hub_lie'
+                    : 'gare';
+                $nomLigne = isset($pg->nom_ligne) ? trim((string) $pg->nom_ligne) : '';
+                $heures[] = array(
+                    'id_ligneheure' => $idLh,
+                    'heure' => $heure,
+                    'has_programme' => FALSE,
+                    'code_progr' => ($code !== '') ? $code : null,
+                    'scope' => null,
+                    'source' => $source,
+                    'slot_kind' => 'multi',
+                    'ligne_depart' => isset($pg->ident_ligne) ? $pg->ident_ligne : null,
+                    'nom_ligne' => ($nomLigne !== '') ? $nomLigne : null,
+                    'hub_role' => $role,
+                    'hub_label' => isset($pg->hub_label) ? (string) $pg->hub_label : 'normal',
+                );
             }
 
             usort($heures, function ($a, $b) {
@@ -1824,8 +2009,7 @@
                 return strcmp($ca, $cb);
             });
 
-            // Ligne directe : ne pas proposer un créneau catalogue sans départ réel
-            // (sinon le 22h CBT s'affiche alors que le départ est VIP, ou l'inverse).
+            // Sans multi / transit : ne garder que les directs OD réels.
             if (!$has_transit) {
                 $kept = array();
                 foreach ($heures as $hr) {

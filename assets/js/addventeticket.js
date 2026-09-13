@@ -1372,17 +1372,17 @@ document.addEventListener('DOMContentLoaded', () => {
         hSel.options.length = 1;
         var list = Array.isArray(heures) ? heures.slice() : [];
         // Règle : directs seuls s'il y en a, sinon créneaux correspondance.
-        // Case cochée : garder directs + créneaux multi pour activer le multi-segment.
+        // Case cochée : uniquement heures non-directes (autres programmes gare + hub/dérivé).
         var hasAnyDirect = list.some(function (hr) {
             return hr && (hr.has_programme === true || hr.has_programme === 1 || hr.has_programme === '1');
         });
         var allowMulti = __venteAllowMultiChecked();
         __venteSyncAllowMultiWrap(hasAnyDirect, !!hasTransit);
-        // Décoché : directs seuls s'il y en a, sinon créneaux correspondance.
-        // Coché : uniquement heures non-directes (correspondances).
         if (allowMulti && hasTransit) {
             list = list.filter(function (hr) {
-                return hr && !(hr.has_programme === true || hr.has_programme === 1 || hr.has_programme === '1');
+                if (!hr) return false;
+                if (hr.slot_kind === 'multi') return true;
+                return !(hr.has_programme === true || hr.has_programme === 1 || hr.has_programme === '1');
             });
         } else if (hasAnyDirect) {
             list = list.filter(function (hr) {
@@ -1392,17 +1392,25 @@ document.addEventListener('DOMContentLoaded', () => {
             list = [];
         } else {
             list = list.filter(function (hr) {
-                return hr && !(hr.has_programme === true || hr.has_programme === 1 || hr.has_programme === '1');
+                if (!hr) return false;
+                if (hr.slot_kind === 'multi') return true;
+                return !(hr.has_programme === true || hr.has_programme === 1 || hr.has_programme === '1');
             });
         }
-        // Multi / corr : 1 option = 1 HH:MM (programmes de départ, pas de doublons).
+        // Multi : 1 option = 1 programme (code), sinon 1 HH:MM.
         var isCorrList = !!(allowMulti && hasTransit) || (!hasAnyDirect && hasTransit);
         if (isCorrList) {
-            var seenCorrHh = {};
+            var seenCorr = {};
             list = list.filter(function (hr) {
+                var code = hr && hr.code_progr ? String(hr.code_progr) : '';
+                if (code) {
+                    if (seenCorr['c:' + code]) return false;
+                    seenCorr['c:' + code] = true;
+                    return true;
+                }
                 var hh = __venteNormalizeHhmm((hr && hr.heure) || '');
-                if (!hh || seenCorrHh[hh]) return false;
-                seenCorrHh[hh] = true;
+                if (!hh || seenCorr['h:' + hh]) return false;
+                seenCorr['h:' + hh] = true;
                 return true;
             });
         }
@@ -1416,7 +1424,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         var countByHh = {};
         list.forEach(function (hr) {
-            if (!hr || !hr.has_programme) return;
+            if (!hr) return;
             var hh = __venteNormalizeHhmm(hr.heure);
             if (!hh) return;
             countByHh[hh] = (countByHh[hh] || 0) + 1;
@@ -1427,31 +1435,37 @@ document.addEventListener('DOMContentLoaded', () => {
             var hr = list[i];
             if (!hr || hr.id_ligneheure == null || hr.id_ligneheure === '') continue;
             var hasProg = !!(hr.has_programme === true || hr.has_programme === 1 || hr.has_programme === '1');
-            var code = hasProg && hr.code_progr ? String(hr.code_progr) : '';
+            var code = hr.code_progr ? String(hr.code_progr) : '';
             var hhNorm = __venteNormalizeHhmm(hr.heure) || String(hr.heure || '');
-            var dedupeKey = hasProg
-                ? ('p:' + (code || (String(hr.id_ligneheure) + '/' + hhNorm)))
-                : ('t:' + hhNorm);
+            var dedupeKey = code
+                ? ('p:' + code)
+                : (hasProg
+                    ? ('p:' + String(hr.id_ligneheure) + '/' + hhNorm)
+                    : ('t:' + hhNorm));
             if (seenOpt[dedupeKey]) continue;
             seenOpt[dedupeKey] = 1;
             var opt = document.createElement('option');
-            // Value unique si plusieurs programmes à la même heure.
             opt.value = String(hr.id_ligneheure) + '/' + hhNorm
                 + (code ? ('/' + code) : '');
             opt.setAttribute('data-has-programme', hasProg ? '1' : '0');
             opt.setAttribute('data-heure', hhNorm);
             if (code) opt.setAttribute('data-code-progr', code);
-            var label;
-            if (hasProg) {
-                idxByHh[hhNorm] = (idxByHh[hhNorm] || 0) + 1;
-                var multi = (countByHh[hhNorm] || 0) > 1;
-                label = multi
-                    ? (hhNorm + ' — ' + __venteOrdinalFr(idxByHh[hhNorm]))
-                    : hhNorm;
-            } else {
-                label = hhNorm;
+            if (hr.hub_role) opt.setAttribute('data-hub-role', String(hr.hub_role));
+            if (hr.hub_label) opt.setAttribute('data-hub-label', String(hr.hub_label));
+            if (hr.nom_ligne) opt.setAttribute('data-nom-ligne', String(hr.nom_ligne));
+            else if (hr.ligne_depart) opt.setAttribute('data-nom-ligne', String(hr.ligne_depart));
+            idxByHh[hhNorm] = (idxByHh[hhNorm] || 0) + 1;
+            var multi = (countByHh[hhNorm] || 0) > 1;
+            var parts = [hhNorm];
+            if (multi) parts.push(__venteOrdinalFr(idxByHh[hhNorm]));
+            if (!hasProg) {
+                var hubLab = String(hr.hub_label || '').trim();
+                if (hubLab && hubLab !== 'normal') parts.push(hubLab);
+                else if (hr.source === 'hub_lie') parts.push('hub');
+                var nl = String(hr.nom_ligne || hr.ligne_depart || '').trim();
+                if (nl) parts.push(nl);
             }
-            opt.innerHTML = label;
+            opt.innerHTML = parts.join(' — ');
             hSel.add(opt);
         }
         // Champ « Départ (même heure) » : plus utilisé — le choix est dans Heure.

@@ -1972,6 +1972,61 @@
             );
             // Enrichissement hub/dérivé pour le select Heure (1ER / 2ème + libellé).
             $rows = $this->_reprog_enrich_heures_hub_labels($rows);
+            foreach ($rows as $r) {
+                if (is_object($r)) {
+                    $r->slot_kind = 'direct';
+                    $r->is_od_direct = TRUE;
+                }
+            }
+
+            // Multi / correspondances : autres programmes de la gare (hors OD) + dérivé / hub.
+            $wantMulti = (string) $this->input->get_post('multi') === '1';
+            if ($wantMulti && $gare !== '' && $dateFilter !== '') {
+                $exclLignes = array();
+                if (!empty($axes)) {
+                    foreach ($axes as $ax) {
+                        $ax = trim((string) $ax);
+                        if ($ax !== '') {
+                            $exclLignes[] = $ax;
+                        }
+                    }
+                }
+                foreach ($this->m_programme->axes_par_nom_ligne($nom_ligne) as $ax) {
+                    $ax = trim((string) $ax);
+                    if ($ax !== '') {
+                        $exclLignes[] = $ax;
+                    }
+                }
+                foreach ($rows as $r) {
+                    if (is_object($r) && !empty($r->ident_ligne)) {
+                        $exclLignes[] = (string) $r->ident_ligne;
+                    }
+                }
+                $date2 = date('Y-m-d', strtotime($dateFilter . ' +1 day'));
+                $multiRows = $this->m_programme->programmes_multi_gare(
+                    $this->session->company->ekey,
+                    $gare,
+                    $dateFilter,
+                    $exclLignes,
+                    null,
+                    $date2
+                );
+                $seen = array();
+                foreach ($rows as $r) {
+                    if (is_object($r) && !empty($r->code_progr)) {
+                        $seen[(string) $r->code_progr] = TRUE;
+                    }
+                }
+                foreach ($multiRows as $mr) {
+                    $code = isset($mr->code_progr) ? trim((string) $mr->code_progr) : '';
+                    if ($code === '' || isset($seen[$code])) {
+                        continue;
+                    }
+                    $seen[$code] = TRUE;
+                    $rows[] = $mr;
+                }
+            }
+
             return $this->load->view('beagle/pages/_programme/json', array('json' => $rows));
         }
 
