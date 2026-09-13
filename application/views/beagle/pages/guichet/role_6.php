@@ -336,7 +336,13 @@ $compte_arret_grace = !empty($compte_arret_grace);
                                     </div>
                                     <div class="form-group col-sm-4">
                                         <div class="col-12 text-info small px-0" id="sms_heure_flow" style="display:none; margin-bottom:6px;"></div>
-                                        <label style="display:block" id="hrid">Heure</label>
+                                        <div class="d-flex align-items-center flex-wrap mb-1">
+                                            <label class="mb-0 mr-2" id="hrid">Heure</label>
+                                            <label class="custom-control custom-checkbox custom-control-inline mb-0" id="vente_allow_multi_wrap" style="display:none">
+                                                <input type="checkbox" class="custom-control-input" id="vente_allow_multi" value="1">
+                                                <span class="custom-control-label small">Multi / correspondances</span>
+                                            </label>
+                                        </div>
                                         <select style="display:block" class="form-control form-control-sm" name="heuredept" id="hdepart">
                                             <option value="">Choisissez départ</option>
                                             

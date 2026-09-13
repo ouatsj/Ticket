@@ -307,8 +307,21 @@
         __cSetVal('confirm_path_mode', mode);
         var dWrap = __cQ('confirm_direct_fields_wrap');
         var tWrap = __cQ('confirm_transit_wrap');
-        if (dWrap) dWrap.style.display = mode === 'direct' ? '' : 'none';
-        if (tWrap) tWrap.style.display = mode === 'transit' ? '' : 'none';
+        if (dWrap) dWrap.style.display = (mode === 'direct' || mode === 'both') ? '' : 'none';
+        if (tWrap) tWrap.style.display = (mode === 'transit' || mode === 'both') ? '' : 'none';
+    }
+
+    function __cAllowMultiChecked() {
+        var el = __cQ('confirm_allow_multi');
+        return !!(el && el.checked);
+    }
+
+    function __cSyncAllowMultiWrap(hasDirect) {
+        var wrap = __cQ('confirm_allow_multi_wrap');
+        var cb = __cQ('confirm_allow_multi');
+        if (!wrap) return;
+        wrap.style.display = hasDirect ? '' : 'none';
+        if (!hasDirect && cb) cb.checked = false;
     }
 
     function __cResetDepartUi() {
@@ -680,8 +693,20 @@
         __cResetDepartUi();
         var rows = __cFilterByDate(dateYmd);
         var hint = __cQ('confirm_transit_hint');
-        // Règle unique (gare départ) : directs seuls s'il y en a, sinon correspondance.
-        // (Plus d'exception « retour multi » qui forçait le transit malgré un direct.)
+        var allowMulti = __cAllowMultiChecked();
+        __cSyncAllowMultiWrap(rows.length > 0);
+        // Règle : directs seuls s'il y en a, sinon correspondance.
+        // Case cochée : directs + multi-segments.
+        if (rows.length && allowMulti) {
+            __cSetPathMode('both');
+            if (hint) {
+                hint.style.display = 'block';
+                hint.textContent = 'Multi activé : directs et correspondances proposés.';
+            }
+            __cFillHeuresForDate(dateYmd);
+            __cFetchChemins(dateYmd);
+            return;
+        }
         if (rows.length) {
             __cSetPathMode('direct');
             if (hint) hint.style.display = 'none';
@@ -1654,6 +1679,14 @@
         };
         dateEl.addEventListener('change', onDatePick);
         dateEl.addEventListener('input', onDatePick);
+    }
+    var confirmAllowMultiEl = __cQ('confirm_allow_multi');
+    if (confirmAllowMultiEl && !confirmAllowMultiEl.dataset.bound) {
+        confirmAllowMultiEl.dataset.bound = '1';
+        confirmAllowMultiEl.addEventListener('change', function () {
+            var v = __cNormDate((__cQ('date_confirm_unifie') || {}).value || '');
+            if (v) __cOnDateReady(v);
+        });
     }
     var heureEl = __cQ('heure_confirm_unifie');
     if (heureEl) heureEl.addEventListener('change', __cOnHeureChange);

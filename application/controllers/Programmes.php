@@ -2569,7 +2569,8 @@
                             $cheminsOnly,
                             array(),
                             $gaOpEmpty,
-                            $gdOd
+                            $gdOd,
+                            $date
                         );
                     }
                     return array(
@@ -2786,7 +2787,8 @@
                     $cheminsProg,
                     isset($payload['chemins']) && is_array($payload['chemins']) ? $payload['chemins'] : array(),
                     $gaOperation,
-                    $gdOd
+                    $gdOd,
+                    $date
                 );
                 if (!empty($payload['chemins'])) {
                     $payload['multi'] = count($payload['chemins']) > 1

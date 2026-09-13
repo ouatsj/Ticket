@@ -208,13 +208,20 @@ $allow_prix_diff_unifie = true;
                     <input class="form-control form-control-sm" type="date" id="datereprog_unifie">
                 </div>
                 <div class="form-group col-md-6 mb-2" id="reprog_ancre_heure_wrap" style="display:none">
-                    <label class="small mb-0">Heure (départs programmes)</label>
+                    <div class="d-flex align-items-center flex-wrap mb-1">
+                        <label class="small mb-0 mr-2">Heure (départs programmes)</label>
+                        <label class="custom-control custom-checkbox custom-control-inline mb-0" id="reprog_allow_multi_wrap" style="display:none">
+                            <input type="checkbox" class="custom-control-input" id="reprog_allow_multi" value="1">
+                            <span class="custom-control-label small">Multi / correspondances</span>
+                        </label>
+                    </div>
                     <select class="form-control form-control-sm" id="heuredepartpunifie">
                         <option value="">Choisissez l'heure</option>
                     </select>
                     <p class="small text-muted mb-0 mt-1">
                         Tous les départs programmes de la date : même heure → 1ER, 2ème… ;
                         mention <em>normal</em> ou <em>hub/dérivé</em>.
+                        Cochez <em>Multi</em> pour proposer aussi les correspondances.
                     </p>
                 </div>
                 <!-- Compagnie / « départ » retiré : le choix se fait dans Heure (1 programme = 1 option). -->

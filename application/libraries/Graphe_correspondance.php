@@ -202,6 +202,7 @@ class Graphe_correspondance
              AND pr.statut_prog = 'actif'
              AND pr.actif_prog = 0
              AND lh.actif_lh = 1
+             AND IFNULL(lg.actif_lg, 1) = 1
              {$sgFilter}
              LIMIT 1",
             array($ekey, $date)
@@ -673,6 +674,7 @@ class Graphe_correspondance
              AND pr.statut_prog = 'actif'
              AND pr.actif_prog = 0
              AND lh.actif_lh = 1
+             AND IFNULL(lg.actif_lg, 1) = 1
              AND h.h_active = 1
              AND ga.nom_gadest != 'OUAGAESCAL'
              {$sgFilter}
@@ -1274,6 +1276,10 @@ class Graphe_correspondance
     {
         $modeReprog = !empty($opts['reprog']);
         $heureOpt = isset($opts['heure']) ? trim((string) $opts['heure']) : '';
+        $dateFilterPayload = isset($opts['date']) ? trim((string) $opts['date']) : '';
+        if ($dateFilterPayload === '' && !empty($decision['meta']['date'])) {
+            $dateFilterPayload = trim((string) $decision['meta']['date']);
+        }
         $cheminsOut = array();
         $list = isset($decision['chemins']) ? $decision['chemins'] : array();
         foreach ($list as $idx => $c) {
@@ -1285,10 +1291,17 @@ class Graphe_correspondance
             if ($modeReprog && $nb < 2) {
                 continue;
             }
+            $codesList = isset($c['codes']) ? $c['codes'] : array();
+            // Graphe : n’exposer que des chemins dont chaque jambe a un programme.
+            if ($dateFilterPayload !== '' && $nb >= 2
+                && !$this->chemin_codes_ont_programmes($codesList, $dateFilterPayload, 3)
+            ) {
+                continue;
+            }
             $cheminsOut[] = array(
                 'id' => (int) $idx,
                 'label' => isset($c['label']) ? $c['label'] : $this->label_chemin($c),
-                'codes' => isset($c['codes']) ? $c['codes'] : array(),
+                'codes' => $codesList,
                 'nb_jambes' => $nb,
                 'score' => isset($c['score']) ? $c['score'] : null,
                 'attente_totale_min' => isset($c['attente_totale_min']) ? (int) $c['attente_totale_min'] : 0,
@@ -1617,6 +1630,14 @@ class Graphe_correspondance
                     if (!$this->jambes_continues_ville($lgFirst, $lastDecl)) {
                         continue;
                     }
+                    // Chaque jambe doit avoir un programme réel (pas composition seule).
+                    if (!$this->chemin_codes_ont_programmes(
+                        array($lgFirst, $lastDecl),
+                        $dateFilterPayload,
+                        3
+                    )) {
+                        continue;
+                    }
                     $axeParent = !empty($decision['meta']['axe'])
                         ? (string) $decision['meta']['axe']
                         : '';
@@ -1695,8 +1716,10 @@ class Graphe_correspondance
         }
 
         if (!$modeReprog) {
-            // Fallback déclaratif si aucun chemin graphe
-            if (empty($cheminsOut) && count($declCodes) >= 2) {
+            // Fallback déclaratif si aucun chemin graphe — seulement si chaque jambe a un programme.
+            if (empty($cheminsOut) && count($declCodes) >= 2
+                && $this->chemin_codes_ont_programmes($declCodes, $dateFilterPayload, 3)
+            ) {
                 $nb = count($declCodes);
                 $cheminsOut[] = array(
                     'id' => 0,
@@ -1714,7 +1737,9 @@ class Graphe_correspondance
             }
 
             // Assurer la présence du déclaratif parmi les options graphe (même hors top_k)
-            if (!empty($list) && count($declCodes) >= 2) {
+            if (!empty($list) && count($declCodes) >= 2
+                && $this->chemin_codes_ont_programmes($declCodes, $dateFilterPayload, 3)
+            ) {
                 $has = false;
                 foreach ($cheminsOut as $c) {
                     if (implode('>', $c['codes']) === $sigDecl) {
@@ -1799,7 +1824,9 @@ class Graphe_correspondance
                         }
                     }
                 }
-                if ($firstDeclOk) {
+                if ($firstDeclOk
+                    && $this->chemin_codes_ont_programmes($declCodes, $dateRep !== '' ? $dateRep : $dateFilterPayload, 3)
+                ) {
                     $hasDecl = false;
                     foreach ($cheminsOut as $i => $c) {
                         if (implode('>', isset($c['codes']) ? $c['codes'] : array()) === $sigDecl) {
@@ -1862,7 +1889,19 @@ class Graphe_correspondance
             }
         }
 
-        // Re-index id
+        // Filet final : aucune jambe sans programme (vente / confirm / reprog).
+        if ($dateFilterPayload !== '') {
+            if (!isset($this->CI->chemins_programmes_vente)) {
+                $this->CI->load->library('chemins_programmes_vente');
+            }
+            $cheminsOut = $this->CI->chemins_programmes_vente->filtrer_chemins_programmes_reels(
+                $cheminsOut,
+                $dateFilterPayload,
+                3
+            );
+        }
+
+        // Re-index id + étapes du meilleur chemin restant
         foreach ($cheminsOut as $i => &$ch) {
             $ch['id'] = $i;
         }
@@ -1882,6 +1921,49 @@ class Graphe_correspondance
             'etapes' => $etapesBest,
             'multi' => count($cheminsOut) > 1,
         );
+    }
+
+    /**
+     * True si chaque code ligne a au moins un programme actif dans la fenêtre.
+     *
+     * @param string[] $codes
+     * @param string   $date
+     * @param int      $horizon
+     * @return bool
+     */
+    protected function chemin_codes_ont_programmes(array $codes, $date, $horizon = 3)
+    {
+        $date = trim((string) $date);
+        if ($date === '' || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) {
+            // Sans date : ne pas inventer — refuse les injections déclaratives.
+            return false;
+        }
+        if (empty($codes)) {
+            return false;
+        }
+        if (!isset($this->CI->chemins_programmes_vente)) {
+            $this->CI->load->library('chemins_programmes_vente');
+        }
+        $lib = $this->CI->chemins_programmes_vente;
+        $dates = array();
+        $ts0 = strtotime($date . ' 12:00:00');
+        if ($ts0 === false) {
+            return false;
+        }
+        $horizon = (int) $horizon;
+        if ($horizon < 1) {
+            $horizon = 1;
+        }
+        for ($i = 0; $i < $horizon; $i++) {
+            $dates[] = date('Y-m-d', $ts0 + ($i * 86400));
+        }
+        foreach ($codes as $lid) {
+            $lid = trim((string) $lid);
+            if ($lid === '' || !$lib->ligne_a_programme_fenetre($lid, $dates)) {
+                return false;
+            }
+        }
+        return true;
     }
 
     protected function load_favoris_codes($ekey, $axe)

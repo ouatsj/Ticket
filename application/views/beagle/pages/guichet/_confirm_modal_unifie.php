@@ -179,7 +179,13 @@ $allow_externe = in_array($role_confirm, array('1', '2', '5', '15'), true);
             <div id="confirm_direct_fields_wrap">
                 <div class="form-row">
                     <div class="form-group col-md-4 mb-2">
-                        <label class="small mb-0">Heure (départs programmes)</label>
+                        <div class="d-flex align-items-center flex-wrap mb-1">
+                            <label class="small mb-0 mr-2">Heure (départs programmes)</label>
+                            <label class="custom-control custom-checkbox custom-control-inline mb-0" id="confirm_allow_multi_wrap" style="display:none">
+                                <input type="checkbox" class="custom-control-input" id="confirm_allow_multi" value="1">
+                                <span class="custom-control-label small">Multi / correspondances</span>
+                            </label>
+                        </div>
                         <select class="form-control form-control-sm" id="heure_confirm_unifie">
                             <option value="">Choisissez l'heure</option>
                         </select>

@@ -1486,6 +1486,8 @@
                 AND pr.date_progr <= DATE_ADD('{$dt}', INTERVAL 1 DAY)
                 AND pr.statut_prog = 'actif'
                 AND h.h_active = 1
+                AND lh.actif_lh = 1
+                AND IFNULL(lg.actif_lg, 1) = 1
                 AND pr.actif_prog = 0
                 {$tarifSql}
                 {$cieSql}
@@ -2487,16 +2489,15 @@
             }
 
             $idEsc = (int) $id_escale;
-            // Variantes multi-compagnies : BOBO-BAMAKO ↔ BOBO-BAMAKO_VIP (même OD métier).
+            // Variantes multi-cie symétriques : BOBO-BAMAKO_CMT ↔ BOBO-BAMAKO_VIP
+            // (strip suffixe puis base / base_% — pas seulement LIKE nom_%).
             $nomLigneSql = '';
             if ($nom !== '') {
-                $nomEsc = $this->db->escape($nom);
-                $nomLike = $this->db->escape($nom . '_%');
-                $nomLigneSql = " AND (lg.nom_ligne = {$nomEsc} OR lg.nom_ligne LIKE {$nomLike})";
+                $nomLigneSql = $this->sql_nom_ligne_od_variants($nom);
             }
 
             if ($nom !== '') {
-                // Report : même nom (ou variante _VIP/_CMT…) + gare départ ville, toutes cie.
+                // Report : même OD métier toutes cie + gare départ ville.
                 $odSql = $nomLigneSql . $depVilleSql;
             } elseif ($idEsc > 0) {
                 // Sans nom_ligne : lignes du départ report qui portent la même escale (nom/code/variante).
@@ -2537,6 +2538,7 @@
                 AND pr.statut_prog = 'actif'
                 AND h.h_active = 1
                 AND lh.actif_lh = 1
+                AND IFNULL(lg.actif_lg, 1) = 1
                 AND pr.actif_prog = 0
                 {$dateSql}
                 {$gareSql}
@@ -2712,6 +2714,38 @@
         }
 
         /**
+         * SQL : nom_ligne OD multi-cie (BOBO-BAMAKO_CMT ↔ BOBO-BAMAKO_VIP).
+         * Alias ligne attendu : lg.
+         *
+         * @param string $nom_ligne
+         * @return string fragment AND (…)
+         */
+        public function sql_nom_ligne_od_variants($nom_ligne)
+        {
+            $nom = trim((string) $nom_ligne);
+            if ($nom === '') {
+                return ' AND 1=0 ';
+            }
+            $base = preg_replace('/_(VIP|CMT|ORD|EXPRESS|STD|CMTSD)$/i', '', $nom);
+            if ($base === null || $base === '') {
+                $base = $nom;
+            }
+            $nomEsc = $this->db->escape($nom);
+            $baseEsc = $this->db->escape($base);
+            $likeEsc = $this->db->escape($base . '_%');
+            $baseU = $this->db->escape(strtoupper($base));
+            // Strip suffixes côté catalogue pour égalité base.
+            $stripLg = "REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(UPPER(TRIM(lg.nom_ligne)),"
+                . " '_VIP', ''), '_CMTSD', ''), '_CMT', ''), '_ORD', ''), '_EXPRESS', '')";
+            return " AND (
+                lg.nom_ligne = {$nomEsc}
+                OR lg.nom_ligne = {$baseEsc}
+                OR lg.nom_ligne LIKE {$likeEsc}
+                OR {$stripLg} = {$baseU}
+            ) ";
+        }
+
+        /**
          * Axes (ident_ligne) partageant le même nom de ligne (OD métier multi-compagnies).
          * Optionnel : restreindre au sens gaexp→gadest (mêmes villes) pour éviter le contre-sens.
          *
@@ -2731,15 +2765,27 @@
             $ga = trim((string) $gaexp);
             $gd = trim((string) $gadest);
 
+            $base = preg_replace('/_(VIP|CMT|ORD|EXPRESS|STD|CMTSD)$/i', '', $nom);
+            if ($base === null || $base === '') {
+                $base = $nom;
+            }
+
             $sql = "SELECT DISTINCT lg.ident_ligne
                     FROM lignes lg
                     JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
                     JOIN gare_dest ga ON lg.gadest_lg = ga.code_gadest";
             $params = array();
-            // BOBO-BAMAKO et BOBO-BAMAKO_VIP = même OD métier (compagnies différentes).
-            $where = array('(lg.nom_ligne = ? OR lg.nom_ligne LIKE ?)');
+            // Base + variantes (_VIP/_CMT…) + strip symétrique.
+            $stripLg = "REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(UPPER(TRIM(lg.nom_ligne)),"
+                . " '_VIP', ''), '_CMTSD', ''), '_CMT', ''), '_ORD', ''), '_EXPRESS', '')";
+            $where = array(
+                '(lg.nom_ligne = ? OR lg.nom_ligne = ? OR lg.nom_ligne LIKE ? OR ' . $stripLg . ' = ?)',
+                'IFNULL(lg.actif_lg, 1) = 1',
+            );
             $params[] = $nom;
-            $params[] = $nom . '_%';
+            $params[] = $base;
+            $params[] = $base . '_%';
+            $params[] = strtoupper($base);
 
             if ($ek !== '') {
                 $sql .= " JOIN compagnies c ON ex.id_compagd = c.cle_compagnie

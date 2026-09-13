@@ -1333,17 +1333,36 @@ document.addEventListener('DOMContentLoaded', () => {
         return i + 'ème';
     }
 
+    function __venteFiAllowMultiChecked() {
+        var el = document.querySelector('#vente_fi_allow_multi');
+        return !!(el && el.checked);
+    }
+
+    function __venteFiSyncAllowMultiWrap(hasAnyDirect, hasTransit) {
+        var wrap = document.querySelector('#vente_fi_allow_multi_wrap');
+        var cb = document.querySelector('#vente_fi_allow_multi');
+        if (!wrap) return;
+        var show = !!(hasAnyDirect && hasTransit);
+        wrap.style.display = show ? '' : 'none';
+        if (!show && cb) cb.checked = false;
+    }
+
     function __venteFiFillHeuresVente(heures) {
         var hSel = document.querySelector('#hdepartfid');
         if (!hSel) return;
         hSel.options.length = 1;
         var list = Array.isArray(heures) ? heures.slice() : [];
         var hasTransit = !!window.__venteFiHasTransit;
-        // Règle unique : directs seuls s'il y en a, sinon créneaux correspondance.
+        // Règle : directs seuls s'il y en a, sinon créneaux correspondance.
+        // Case cochée : directs + créneaux multi.
         var hasAnyDirect = list.some(function (hr) {
             return hr && (hr.has_programme === true || hr.has_programme === 1 || hr.has_programme === '1');
         });
-        if (hasAnyDirect) {
+        var allowMulti = __venteFiAllowMultiChecked();
+        __venteFiSyncAllowMultiWrap(hasAnyDirect, hasTransit);
+        if (hasAnyDirect && allowMulti && hasTransit) {
+            // garder toute la liste
+        } else if (hasAnyDirect) {
             list = list.filter(function (hr) {
                 return hr && (hr.has_programme === true || hr.has_programme === 1 || hr.has_programme === '1');
             });
@@ -4333,6 +4352,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 AppRequestGuard.guardForm('#tafiForm');
                 AppRequestGuard.ensureNonce('#tafiForm', 'sale_nonce');
+
+                var venteFiAllowMultiEl = document.querySelector('#vente_fi_allow_multi');
+                if (venteFiAllowMultiEl && !venteFiAllowMultiEl.dataset.bound) {
+                    venteFiAllowMultiEl.dataset.bound = '1';
+                    venteFiAllowMultiEl.addEventListener('change', function () {
+                        __venteFiFillHeuresVente(window.__venteFiLastHeuresVente || []);
+                    });
+                }
                 
     })
 
@@ -5675,8 +5702,21 @@ document.addEventListener('DOMContentLoaded', () => {
         __cSetVal('confirm_path_mode', mode);
         var dWrap = __cQ('confirm_direct_fields_wrap');
         var tWrap = __cQ('confirm_transit_wrap');
-        if (dWrap) dWrap.style.display = mode === 'direct' ? '' : 'none';
-        if (tWrap) tWrap.style.display = mode === 'transit' ? '' : 'none';
+        if (dWrap) dWrap.style.display = (mode === 'direct' || mode === 'both') ? '' : 'none';
+        if (tWrap) tWrap.style.display = (mode === 'transit' || mode === 'both') ? '' : 'none';
+    }
+
+    function __cAllowMultiChecked() {
+        var el = __cQ('confirm_allow_multi');
+        return !!(el && el.checked);
+    }
+
+    function __cSyncAllowMultiWrap(hasDirect) {
+        var wrap = __cQ('confirm_allow_multi_wrap');
+        var cb = __cQ('confirm_allow_multi');
+        if (!wrap) return;
+        wrap.style.display = hasDirect ? '' : 'none';
+        if (!hasDirect && cb) cb.checked = false;
     }
 
     function __cResetDepartUi() {
@@ -6048,8 +6088,20 @@ document.addEventListener('DOMContentLoaded', () => {
         __cResetDepartUi();
         var rows = __cFilterByDate(dateYmd);
         var hint = __cQ('confirm_transit_hint');
-        // Règle unique (gare départ) : directs seuls s'il y en a, sinon correspondance.
-        // (Plus d'exception « retour multi » qui forçait le transit malgré un direct.)
+        var allowMulti = __cAllowMultiChecked();
+        __cSyncAllowMultiWrap(rows.length > 0);
+        // Règle : directs seuls s'il y en a, sinon correspondance.
+        // Case cochée : directs + multi-segments.
+        if (rows.length && allowMulti) {
+            __cSetPathMode('both');
+            if (hint) {
+                hint.style.display = 'block';
+                hint.textContent = 'Multi activé : directs et correspondances proposés.';
+            }
+            __cFillHeuresForDate(dateYmd);
+            __cFetchChemins(dateYmd);
+            return;
+        }
         if (rows.length) {
             __cSetPathMode('direct');
             if (hint) hint.style.display = 'none';
@@ -7022,6 +7074,14 @@ document.addEventListener('DOMContentLoaded', () => {
         };
         dateEl.addEventListener('change', onDatePick);
         dateEl.addEventListener('input', onDatePick);
+    }
+    var confirmAllowMultiEl = __cQ('confirm_allow_multi');
+    if (confirmAllowMultiEl && !confirmAllowMultiEl.dataset.bound) {
+        confirmAllowMultiEl.dataset.bound = '1';
+        confirmAllowMultiEl.addEventListener('change', function () {
+            var v = __cNormDate((__cQ('date_confirm_unifie') || {}).value || '');
+            if (v) __cOnDateReady(v);
+        });
     }
     var heureEl = __cQ('heure_confirm_unifie');
     if (heureEl) heureEl.addEventListener('change', __cOnHeureChange);
@@ -8547,6 +8607,11 @@ document.addEventListener('DOMContentLoaded', () => {
         __reprogFillItineraireSelect(chemins, message);
     }
 
+    /** Affiche l’itinéraire multi sans masquer Heure/siège directs (case Multi). */
+    function __reprogShowCorrAlongside(chemins, message) {
+        __reprogFillItineraireSelect(chemins, message);
+    }
+
     function __reprogEtapePreferCode(etape) {
         if (!etape) return '';
         return String(
@@ -8865,9 +8930,9 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    function __reprogMergeItineraires(directs, chemins) {
-        // Règle unique : directs seuls s'il y en a, sinon correspondances multi.
-        // Ancre = gare de départ / gare de report.
+    function __reprogMergeItineraires(directs, chemins, allowBoth) {
+        // Règle : directs seuls s'il y en a, sinon correspondances multi.
+        // allowBoth (case Multi) : directs + correspondances.
         var out = [];
         var seenDirectKey = {};
         var directList = __reprogRowsArray(directs).filter(function (ch) {
@@ -8879,7 +8944,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (k) seenDirectKey[k] = true;
             out.push(ch);
         });
-        if (out.length > 0) {
+        if (out.length > 0 && !allowBoth) {
             return out;
         }
         __reprogRowsArray(chemins).forEach(function (ch) {
@@ -8900,6 +8965,19 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
         return out;
+    }
+
+    function __reprogAllowMultiChecked() {
+        var el = __reprogQ('reprog_allow_multi');
+        return !!(el && el.checked);
+    }
+
+    function __reprogSyncAllowMultiWrap(hasDirect) {
+        var wrap = __reprogQ('reprog_allow_multi_wrap');
+        var cb = __reprogQ('reprog_allow_multi');
+        if (!wrap) return;
+        wrap.style.display = hasDirect ? '' : 'none';
+        if (!hasDirect && cb) cb.checked = false;
     }
 
     function __reprogSetAncreVisible(show) {
@@ -9399,45 +9477,14 @@ document.addEventListener('DOMContentLoaded', () => {
         if (qs.length) urlSeg += '?' + qs.join('&');
 
         function fillCompanies(rows, fromChemin) {
-            // Jambe unique (direct) : injecter le programme exact si seg_progs l’a filtré.
-            // Ne jamais réinjecter un code hors ligne du segment (ex. principal NIA sur dérivé Banfora).
+            // Ne jamais réinjecter un code CMT fantôme hors listing live (sinon cie figée).
             var preferCode = __reprogEtapePreferCode(seg.etape);
+            var preferInLive = false;
             if (preferCode) {
-                var hasPref = false;
                 for (var pi = 0; pi < rows.length; pi++) {
                     if (rows[pi] && String(rows[pi].code_progr) === preferCode) {
-                        hasPref = true;
+                        preferInLive = true;
                         break;
-                    }
-                }
-                if (!hasPref) {
-                    var ligneSeg = String(seg.ligneId || '');
-                    var fromState = __reprogRowsArray(window.__reprogState.rows).filter(function (r) {
-                        if (!r || String(r.code_progr) !== preferCode) return false;
-                        var idl = String(r.ident_ligne || r.ligne_id || '');
-                        return !ligneSeg || !idl || idl === ligneSeg;
-                    });
-                    if (fromState.length) {
-                        rows = rows.concat(fromState);
-                    } else if (seg.etape && (seg.etape.intervalle1 != null || seg.etape._code_progr)
-                        && (!ligneSeg || !seg.etape.ident_ligne
-                            || String(seg.etape.ident_ligne || seg.etape.code_itineraires || '') === ligneSeg
-                            || String(seg.etape.code_itineraires || '') === ligneSeg)) {
-                        // Reconstruire une ligne minimale depuis l’étape (même ligne uniquement).
-                        rows = rows.concat([{
-                            code_progr: preferCode,
-                            id_ligneheure: seg.etape.id_ligneheure || seg.etape._id_ligneheure || '',
-                            typetarif: seg.etape.typetarif || tarif,
-                            heure: seg.etape.heure || '',
-                            id_compaga: seg.etape.id_compaga || '',
-                            nom_ligne: seg.etape.nom_ligne || seg.etape.nom_itineraires || '',
-                            ident_ligne: seg.ligneId,
-                            intervalle1: seg.etape.intervalle1,
-                            intervalle2: seg.etape.intervalle2,
-                            categori: seg.etape.categori || '',
-                            date_progr: seg.etape.date_progr || dateYmd,
-                            prix: seg.etape.prix
-                        }]);
                     }
                 }
             }
@@ -9480,10 +9527,10 @@ document.addEventListener('DOMContentLoaded', () => {
             if (heureSel) heureSel.onchange = function () { __reprogOnSegHeure(idx); };
             if (siegeSel) siegeSel.onchange = function () { __reprogOnSegSiege(idx); };
 
-            // Préférer la cie du programme exact ; sinon cie d’achat SI elle a des départs ;
-            // sinon cie avec le plus de programmes (souvent VIP le jour où CMT n’a rien).
-            var prefCie = __reprogEtapeCieKey(seg.etape);
-            if (preferCode && seg.rows) {
+            // Auto-select : code graphe UNIQUEMENT s’il est dans le listing live ;
+            // sinon cie avec le plus de départs du jour (VIP), jamais coller sur CMT d’achat.
+            var prefCie = '';
+            if (preferInLive && preferCode && seg.rows) {
                 for (var rj = 0; rj < seg.rows.length; rj++) {
                     if (seg.rows[rj] && String(seg.rows[rj].code_progr) === preferCode) {
                         var ck = __reprogRowCieKey(seg.rows[rj]);
@@ -9494,20 +9541,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 }
             }
-            var ticketCie = '';
-            var idCieEl = __reprogQ('id_compaga_unifie');
-            if (idCieEl) ticketCie = String(idCieEl.value || '');
             if (prefCie && seg.byCie[prefCie]) {
                 cieSel.value = prefCie;
             } else if (cieKeys.length >= 1) {
-                // cieKeys[0] = plus de départs (VIP si date VIP). Ne coller sur CMT d’achat
-                // que s’il est déjà en tête.
-                cieSel.value = (ticketCie && ticketCie === cieKeys[0])
-                    ? ticketCie
-                    : cieKeys[0];
+                cieSel.value = cieKeys[0];
             }
             if (cieSel.value) {
-                // Ne pas laisser planter l’affichage compagnies si heure/siège échoue.
                 try {
                     __reprogFireChange(cieSel);
                 } catch (eCie) {
@@ -9879,6 +9918,8 @@ document.addEventListener('DOMContentLoaded', () => {
         var st = window.__reprogState;
         var needItin = __reprogNeedsItineraireSelect();
         var n = __reprogFillHeuresForDate(dateYmd);
+        var allowMulti = __reprogAllowMultiChecked();
+        __reprogSyncAllowMultiWrap(n > 0);
         if (__reprogQ('smspunifie')) __reprogQ('smspunifie').style.display = 'none';
 
         // Toujours poser replignunifie = ligne OD (report global / direct).
@@ -9888,12 +9929,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (needItin) {
             // Report global transit : afficher l’itinéraire.
-            // Règle : directs seuls s'il y en a (gare de report), sinon correspondances.
             __reprogSetAncreVisible(false);
             __reprogHideDirect();
             var directs = __reprogDirectsAsChemins(dateYmd);
-            if (directs.length > 0) {
-                st.chemins = __reprogMergeItineraires(directs, []);
+            if (directs.length > 0 && !allowMulti) {
+                st.chemins = __reprogMergeItineraires(directs, [], false);
                 __reprogShowCorrExclusive(
                     st.chemins,
                     'Report global — directs depuis la gare de report pour '
@@ -9902,7 +9942,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
             __reprogFetchChemins(dateYmd, '', function (chemins) {
-                var all = __reprogMergeItineraires([], chemins);
+                var all = __reprogMergeItineraires(directs, chemins, allowMulti && directs.length > 0);
                 st.chemins = all;
                 var odLabel = st.nom_ligne || st.axe || '—';
                 if (!all.length) {
@@ -9918,22 +9958,41 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 __reprogShowCorrExclusive(
                     all,
-                    'Report global — correspondances depuis la gare de report pour '
+                    (allowMulti && directs.length
+                        ? 'Report global — directs et correspondances pour '
+                        : 'Report global — correspondances depuis la gare de report pour ')
                         + odLabel + ' le ' + dateYmd
                 );
-            }, false);
+            }, !!(allowMulti && directs.length > 0));
             return;
         }
 
         // Direct / jambe isolée : Heure (1ER/2ème) si programmes, sinon correspondance.
         __reprogSetAncreVisible(true);
+        if (n > 0 && allowMulti) {
+            // Directs listés + charger aussi les correspondances multi (sans masquer Heure).
+            __reprogFetchChemins(dateYmd, '', function (chemins) {
+                var directs2 = __reprogDirectsAsChemins(dateYmd);
+                var all = __reprogMergeItineraires(directs2, chemins, true);
+                st.chemins = all;
+                if (all.length) {
+                    __reprogShowCorrAlongside(
+                        all,
+                        'Multi activé — vous pouvez aussi choisir une correspondance pour '
+                            + (st.nom_ligne || st.axe || '—') + ' le ' + dateYmd
+                    );
+                }
+            }, true);
+            return;
+        }
         if (n > 0) {
+            __reprogHideCorr();
             return;
         }
 
         // Aucun départ programme : tenter correspondances multi.
         __reprogFetchChemins(dateYmd, '', function (chemins) {
-            var all = __reprogMergeItineraires([], chemins);
+            var all = __reprogMergeItineraires([], chemins, false);
             st.chemins = all;
             var odLabel = st.nom_ligne || st.axe || '—';
             if (!all.length) {
@@ -9951,7 +10010,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 'Pas de départ direct : correspondances depuis la gare de report pour '
                     + odLabel + ' le ' + dateYmd
             );
-        });
+        }, false);
     }
 
     function __reprogOnHeureChange() {
@@ -10210,6 +10269,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
         var dateEl = __reprogQ('datereprog_unifie');
         if (dateEl) dateEl.onchange = __reprogOnDateChange;
+        var reprogAllowMultiEl = __reprogQ('reprog_allow_multi');
+        if (reprogAllowMultiEl && !reprogAllowMultiEl.dataset.bound) {
+            reprogAllowMultiEl.dataset.bound = '1';
+            reprogAllowMultiEl.addEventListener('change', function () {
+                var d = __reprogQ('datereprog_unifie');
+                var ymd = d ? d.value : '';
+                if (ymd) __reprogOnDateChangeAfterRows(ymd);
+            });
+        }
         var heurdep = __reprogQ('heuredepartpunifie');
         if (heurdep) heurdep.onchange = __reprogOnHeureChange;
         var cieSel = __reprogQ('compagniepunifie');

@@ -652,8 +652,21 @@ document.addEventListener('DOMContentLoaded', function () {
         __cSetVal('confirm_path_mode', mode);
         var dWrap = __cQ('confirm_direct_fields_wrap');
         var tWrap = __cQ('confirm_transit_wrap');
-        if (dWrap) dWrap.style.display = mode === 'direct' ? '' : 'none';
-        if (tWrap) tWrap.style.display = mode === 'transit' ? '' : 'none';
+        if (dWrap) dWrap.style.display = (mode === 'direct' || mode === 'both') ? '' : 'none';
+        if (tWrap) tWrap.style.display = (mode === 'transit' || mode === 'both') ? '' : 'none';
+    }
+
+    function __cAllowMultiChecked() {
+        var el = __cQ('confirm_allow_multi');
+        return !!(el && el.checked);
+    }
+
+    function __cSyncAllowMultiWrap(hasDirect) {
+        var wrap = __cQ('confirm_allow_multi_wrap');
+        var cb = __cQ('confirm_allow_multi');
+        if (!wrap) return;
+        wrap.style.display = hasDirect ? '' : 'none';
+        if (!hasDirect && cb) cb.checked = false;
     }
 
     function __cResetDepartUi() {
@@ -1025,8 +1038,20 @@ document.addEventListener('DOMContentLoaded', function () {
         __cResetDepartUi();
         var rows = __cFilterByDate(dateYmd);
         var hint = __cQ('confirm_transit_hint');
-        // Règle unique (gare départ) : directs seuls s'il y en a, sinon correspondance.
-        // (Plus d'exception « retour multi » qui forçait le transit malgré un direct.)
+        var allowMulti = __cAllowMultiChecked();
+        __cSyncAllowMultiWrap(rows.length > 0);
+        // Règle : directs seuls s'il y en a, sinon correspondance.
+        // Case cochée : directs + multi-segments.
+        if (rows.length && allowMulti) {
+            __cSetPathMode('both');
+            if (hint) {
+                hint.style.display = 'block';
+                hint.textContent = 'Multi activé : directs et correspondances proposés.';
+            }
+            __cFillHeuresForDate(dateYmd);
+            __cFetchChemins(dateYmd);
+            return;
+        }
         if (rows.length) {
             __cSetPathMode('direct');
             if (hint) hint.style.display = 'none';
@@ -1999,6 +2024,14 @@ document.addEventListener('DOMContentLoaded', function () {
         };
         dateEl.addEventListener('change', onDatePick);
         dateEl.addEventListener('input', onDatePick);
+    }
+    var confirmAllowMultiEl = __cQ('confirm_allow_multi');
+    if (confirmAllowMultiEl && !confirmAllowMultiEl.dataset.bound) {
+        confirmAllowMultiEl.dataset.bound = '1';
+        confirmAllowMultiEl.addEventListener('change', function () {
+            var v = __cNormDate((__cQ('date_confirm_unifie') || {}).value || '');
+            if (v) __cOnDateReady(v);
+        });
     }
     var heureEl = __cQ('heure_confirm_unifie');
     if (heureEl) heureEl.addEventListener('change', __cOnHeureChange);
@@ -3377,17 +3410,36 @@ document.addEventListener('DOMContentLoaded', () => {
         return i + 'ème';
     }
 
+    function __venteFiAllowMultiChecked() {
+        var el = document.querySelector('#vente_fi_allow_multi');
+        return !!(el && el.checked);
+    }
+
+    function __venteFiSyncAllowMultiWrap(hasAnyDirect, hasTransit) {
+        var wrap = document.querySelector('#vente_fi_allow_multi_wrap');
+        var cb = document.querySelector('#vente_fi_allow_multi');
+        if (!wrap) return;
+        var show = !!(hasAnyDirect && hasTransit);
+        wrap.style.display = show ? '' : 'none';
+        if (!show && cb) cb.checked = false;
+    }
+
     function __venteFiFillHeuresVente(heures) {
         var hSel = document.querySelector('#hdepartfid');
         if (!hSel) return;
         hSel.options.length = 1;
         var list = Array.isArray(heures) ? heures.slice() : [];
         var hasTransit = !!window.__venteFiHasTransit;
-        // Règle unique : directs seuls s'il y en a, sinon créneaux correspondance.
+        // Règle : directs seuls s'il y en a, sinon créneaux correspondance.
+        // Case cochée : directs + créneaux multi.
         var hasAnyDirect = list.some(function (hr) {
             return hr && (hr.has_programme === true || hr.has_programme === 1 || hr.has_programme === '1');
         });
-        if (hasAnyDirect) {
+        var allowMulti = __venteFiAllowMultiChecked();
+        __venteFiSyncAllowMultiWrap(hasAnyDirect, hasTransit);
+        if (hasAnyDirect && allowMulti && hasTransit) {
+            // garder toute la liste
+        } else if (hasAnyDirect) {
             list = list.filter(function (hr) {
                 return hr && (hr.has_programme === true || hr.has_programme === 1 || hr.has_programme === '1');
             });
@@ -6377,6 +6429,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 AppRequestGuard.guardForm('#tafiForm');
                 AppRequestGuard.ensureNonce('#tafiForm', 'sale_nonce');
+
+                var venteFiAllowMultiEl = document.querySelector('#vente_fi_allow_multi');
+                if (venteFiAllowMultiEl && !venteFiAllowMultiEl.dataset.bound) {
+                    venteFiAllowMultiEl.dataset.bound = '1';
+                    venteFiAllowMultiEl.addEventListener('change', function () {
+                        __venteFiFillHeuresVente(window.__venteFiLastHeuresVente || []);
+                    });
+                }
                 
     })
 

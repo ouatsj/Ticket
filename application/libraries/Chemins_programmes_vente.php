@@ -80,7 +80,7 @@ class Chemins_programmes_vente
             $seen[$sig] = true;
             $out[] = $ch;
             if (count($out) >= $limit) {
-                return $this->sort_chemins($out);
+                return $this->finalize_chemins($out, $date, $horizon);
             }
         }
 
@@ -96,7 +96,7 @@ class Chemins_programmes_vente
             $seen[$sig] = true;
             $out[] = $ch;
             if (count($out) >= $limit) {
-                return $this->sort_chemins($out);
+                return $this->finalize_chemins($out, $date, $horizon);
             }
         }
 
@@ -113,25 +113,41 @@ class Chemins_programmes_vente
             $seen[$sig] = true;
             $out[] = $ch;
             if (count($out) >= $limit) {
-                return $this->sort_chemins($out);
+                return $this->finalize_chemins($out, $date, $horizon);
             }
         }
 
-        return $this->sort_chemins($out);
+        return $this->finalize_chemins($out, $date, $horizon);
+    }
+
+    /**
+     * Filtre programmes réels puis trie.
+     *
+     * @param array[] $out
+     * @param string  $date
+     * @param int     $horizon
+     * @return array[]
+     */
+    protected function finalize_chemins(array $out, $date, $horizon)
+    {
+        return $this->sort_chemins(
+            $this->filtrer_chemins_programmes_reels($out, $date, $horizon)
+        );
     }
 
     /**
      * Fusionne chemins programmes/hub avec chemins graphe/déclaratif existants.
      * Ordre final : hub_lie → programmes → graphe_gare/gare_composition → graphe → déclaratif → reste.
-     * Applique filtre contre-sens unifié.
+     * Applique filtre contre-sens + chaque jambe doit avoir un programme réel (si $date fournie).
      *
-     * @param array[] $cheminsProg
-     * @param array[] $cheminsExistants
-     * @param string $gaexp
-     * @param string $gadest
+     * @param array[]     $cheminsProg
+     * @param array[]     $cheminsExistants
+     * @param string      $gaexp
+     * @param string      $gadest
+     * @param string|null $date Y-m-d — filtre programmes par jambe
      * @return array[]
      */
-    public function merge_et_prioriser(array $cheminsProg, array $cheminsExistants, $gaexp, $gadest)
+    public function merge_et_prioriser(array $cheminsProg, array $cheminsExistants, $gaexp, $gadest, $date = null)
     {
         $villes = $this->villes_od($gaexp, $gadest);
         $idDep = $villes ? $villes['id_dep'] : 0;
@@ -157,12 +173,142 @@ class Chemins_programmes_vente
             $merged[] = $ch;
         }
 
+        $date = trim((string) $date);
+        if ($date !== '' && preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) {
+            $merged = $this->filtrer_chemins_programmes_reels($merged, $date, 3);
+        }
+
         $sorted = $this->sort_chemins($merged);
         foreach ($sorted as $i => &$c) {
             $c['id'] = $i;
         }
         unset($c);
         return $sorted;
+    }
+
+    /**
+     * Ne garde que les chemins dont CHAQUE jambe a au moins un programme actif
+     * dans la fenêtre de dates (pas de ligne catalogue seule).
+     *
+     * @param array[] $chemins
+     * @param string  $date Y-m-d
+     * @param int     $horizon
+     * @return array[]
+     */
+    public function filtrer_chemins_programmes_reels(array $chemins, $date, $horizon = 3)
+    {
+        $date = trim((string) $date);
+        if ($date === '' || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) {
+            return $chemins;
+        }
+        $horizon = (int) $horizon;
+        if ($horizon < 1) {
+            $horizon = 1;
+        }
+        if ($horizon > 7) {
+            $horizon = 7;
+        }
+        $dates = $this->fenetre_dates($date, $horizon);
+        if (empty($dates)) {
+            return array();
+        }
+
+        $cache = array();
+        $out = array();
+        foreach ($chemins as $ch) {
+            if (!is_array($ch)) {
+                continue;
+            }
+            $codes = $this->codes_lignes_du_chemin($ch);
+            if (empty($codes)) {
+                continue;
+            }
+            $ok = true;
+            foreach ($codes as $lid) {
+                if (!array_key_exists($lid, $cache)) {
+                    $cache[$lid] = $this->ligne_a_programme_fenetre($lid, $dates);
+                }
+                if (!$cache[$lid]) {
+                    $ok = false;
+                    break;
+                }
+            }
+            if ($ok) {
+                $out[] = $ch;
+            }
+        }
+        return $out;
+    }
+
+    /**
+     * @param array $ch
+     * @return string[]
+     */
+    protected function codes_lignes_du_chemin(array $ch)
+    {
+        $codes = array();
+        if (!empty($ch['codes']) && is_array($ch['codes'])) {
+            foreach ($ch['codes'] as $c) {
+                $c = trim((string) $c);
+                if ($c !== '') {
+                    $codes[] = $c;
+                }
+            }
+        }
+        if (empty($codes) && !empty($ch['etapes']) && is_array($ch['etapes'])) {
+            foreach ($ch['etapes'] as $et) {
+                $c = '';
+                if (is_array($et)) {
+                    $c = isset($et['code_itineraires']) ? $et['code_itineraires']
+                        : (isset($et['ident_ligne']) ? $et['ident_ligne']
+                            : (isset($et['ligne_id']) ? $et['ligne_id'] : ''));
+                } elseif (is_object($et)) {
+                    $c = isset($et->code_itineraires) ? $et->code_itineraires
+                        : (isset($et->ident_ligne) ? $et->ident_ligne
+                            : (isset($et->ligne_id) ? $et->ligne_id : ''));
+                }
+                $c = trim((string) $c);
+                if ($c !== '') {
+                    $codes[] = $c;
+                }
+            }
+        }
+        return $codes;
+    }
+
+    /**
+     * True si la ligne a au moins un programme actif dans la fenêtre.
+     *
+     * @param string   $ligneId
+     * @param string[] $dates
+     * @return bool
+     */
+    public function ligne_a_programme_fenetre($ligneId, array $dates)
+    {
+        $ligneId = trim((string) $ligneId);
+        if ($ligneId === '' || empty($dates)) {
+            return false;
+        }
+        $placeholders = implode(',', array_fill(0, count($dates), '?'));
+        $params = array_values($dates);
+        $params[] = $ligneId;
+        $row = $this->CI->db->query(
+            "SELECT 1
+             FROM programme pr
+             JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
+             JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
+             JOIN heures h ON lh.heure_identif = h.id_heure
+             WHERE pr.date_progr IN ({$placeholders})
+               AND lg.ident_ligne = ?
+               AND pr.statut_prog = 'actif'
+               AND pr.actif_prog = 0
+               AND lh.actif_lh = 1
+               AND IFNULL(lg.actif_lg, 1) = 1
+               AND h.h_active = 1
+             LIMIT 1",
+            $params
+        )->row();
+        return !empty($row);
     }
 
     /**
@@ -224,17 +370,20 @@ class Chemins_programmes_vente
         $progsGare = $this->CI->db->query(
             "SELECT pr.code_progr, pr.date_progr, h.heure,
                     lg.ident_ligne, lg.nom_ligne, lg.gaexp_lg, lg.gadest_lg,
-                    ge.id_villegd AS ville_dep, ga.id_villega AS ville_arr
+                    ge.id_villegd AS ville_dep, ga.id_villega AS ville_arr,
+                    ga.id_compaga, ca.nom_compagnie AS nom_compagnie_arrivee
              FROM programme pr
              JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
              JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
              JOIN gare_exp ge ON lg.gaexp_lg = ge.code_gaexp
              JOIN gare_dest ga ON lg.gadest_lg = ga.code_gadest
+             JOIN compagnies ca ON ga.id_compaga = ca.cle_compagnie
              JOIN heures h ON lh.heure_identif = h.id_heure
              WHERE pr.date_progr IN ({$datePlaceholders})
                AND pr.actif_prog = 0
                AND pr.statut_prog = 'actif'
                AND lh.actif_lh = 1
+               AND IFNULL(lg.actif_lg, 1) = 1
                AND h.h_active = 1
                AND ge.id_villegd = ?
                AND ga.id_villega <> ge.id_villegd
@@ -391,6 +540,7 @@ class Chemins_programmes_vente
             "SELECT DISTINCT
                 lg.ident_ligne, lg.nom_ligne, lg.gaexp_lg, lg.gadest_lg,
                 ga.id_villega AS hub_ville,
+                ga.id_compaga, ca.nom_compagnie AS nom_compagnie_arrivee,
                 MIN(pr.date_progr) AS date_progr_min,
                 MIN(h.heure) AS heure_min
              FROM programme pr
@@ -398,17 +548,20 @@ class Chemins_programmes_vente
              JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
              JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
              JOIN gare_dest ga ON lg.gadest_lg = ga.code_gadest
+             JOIN compagnies ca ON ga.id_compaga = ca.cle_compagnie
              JOIN heures h ON lh.heure_identif = h.id_heure
              WHERE pr.date_progr IN ({$datePlaceholders})
                AND pr.actif_prog = 0
                AND pr.statut_prog = 'actif'
                AND lh.actif_lh = 1
+               AND IFNULL(lg.actif_lg, 1) = 1
                AND h.h_active = 1
                AND ex.id_villegd = ?
                AND ga.id_villega <> ?
                AND ga.id_villega <> ?
                {$heureSql}
-             GROUP BY lg.ident_ligne, lg.nom_ligne, lg.gaexp_lg, lg.gadest_lg, ga.id_villega
+             GROUP BY lg.ident_ligne, lg.nom_ligne, lg.gaexp_lg, lg.gadest_lg,
+                      ga.id_villega, ga.id_compaga, ca.nom_compagnie
              ORDER BY
                (MIN(pr.date_progr) = ?) DESC,
                lg.nom_ligne ASC
@@ -440,21 +593,25 @@ class Chemins_programmes_vente
             $leg2 = $this->CI->db->query(
                 "SELECT DISTINCT
                     lg.ident_ligne, lg.nom_ligne, lg.gaexp_lg, lg.gadest_lg,
+                    ga.id_compaga, ca.nom_compagnie AS nom_compagnie_arrivee,
                     MIN(pr.date_progr) AS date_progr_min
                  FROM programme pr
                  JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
                  JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
                  JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
                  JOIN gare_dest ga ON lg.gadest_lg = ga.code_gadest
+                 JOIN compagnies ca ON ga.id_compaga = ca.cle_compagnie
                  JOIN heures h ON lh.heure_identif = h.id_heure
                  WHERE pr.date_progr IN ({$datePlaceholders})
                    AND pr.actif_prog = 0
                    AND pr.statut_prog = 'actif'
                    AND lh.actif_lh = 1
+                   AND IFNULL(lg.actif_lg, 1) = 1
                    AND h.h_active = 1
                    AND ex.id_villegd = ?
                    AND ga.id_villega = ?
-                 GROUP BY lg.ident_ligne, lg.nom_ligne, lg.gaexp_lg, lg.gadest_lg
+                 GROUP BY lg.ident_ligne, lg.nom_ligne, lg.gaexp_lg, lg.gadest_lg,
+                          ga.id_compaga, ca.nom_compagnie
                  ORDER BY
                    (lg.gadest_lg = ?) DESC,
                    (MIN(pr.date_progr) >= ?) DESC,
@@ -464,22 +621,7 @@ class Chemins_programmes_vente
                 array_merge($leg2Params, array($dateLeg1))
             )->result();
 
-            if (empty($leg2)) {
-                $leg2 = $this->CI->db->query(
-                    "SELECT lg.ident_ligne, lg.nom_ligne, lg.gaexp_lg, lg.gadest_lg,
-                            ? AS date_progr_min
-                     FROM lignes lg
-                     JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
-                     JOIN gare_dest ga ON lg.gadest_lg = ga.code_gadest
-                     WHERE ex.id_villegd = ?
-                       AND ga.id_villega = ?
-                     ORDER BY
-                       (lg.gadest_lg = ?) DESC,
-                       lg.nom_ligne ASC
-                     LIMIT 4",
-                    array($dateLeg1, $hub, $idArr, $gadest)
-                )->result();
-            }
+            // Pas de fallback catalogue lignes sans programme (évite Ouaga→Po + Po→Banfora fantôme).
             if (empty($leg2)) {
                 continue;
             }
@@ -660,6 +802,7 @@ class Chemins_programmes_vente
                    AND pr.actif_prog = 0
                    AND pr.statut_prog = 'actif'
                    AND lh.actif_lh = 1
+                   AND IFNULL(lg.actif_lg, 1) = 1
                    AND h.h_active = 1
                    AND lg.ident_ligne = ?
                    {$heureSql}
@@ -683,6 +826,7 @@ class Chemins_programmes_vente
                        AND pr.actif_prog = 0
                        AND pr.statut_prog = 'actif'
                        AND lh.actif_lh = 1
+                       AND IFNULL(lg.actif_lg, 1) = 1
                        AND h.h_active = 1
                        AND lg.ident_ligne = ?
                      GROUP BY lg.ident_ligne, lg.nom_ligne, lg.gaexp_lg, lg.gadest_lg

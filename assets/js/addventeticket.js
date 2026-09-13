@@ -1352,16 +1352,35 @@ document.addEventListener('DOMContentLoaded', () => {
         return i + 'ème';
     }
 
+    function __venteAllowMultiChecked() {
+        var el = document.querySelector('#vente_allow_multi');
+        return !!(el && el.checked);
+    }
+
+    function __venteSyncAllowMultiWrap(hasAnyDirect, hasTransit) {
+        var wrap = document.querySelector('#vente_allow_multi_wrap');
+        var cb = document.querySelector('#vente_allow_multi');
+        if (!wrap) return;
+        var show = !!(hasAnyDirect && hasTransit);
+        wrap.style.display = show ? '' : 'none';
+        if (!show && cb) cb.checked = false;
+    }
+
     function __venteFillHeuresVente(heures, hasTransit) {
         var hSel = document.querySelector('#hdepart');
         if (!hSel) return;
         hSel.options.length = 1;
         var list = Array.isArray(heures) ? heures.slice() : [];
-        // Règle unique : directs seuls s'il y en a, sinon créneaux correspondance.
+        // Règle : directs seuls s'il y en a, sinon créneaux correspondance.
+        // Case cochée : garder directs + créneaux multi pour activer le multi-segment.
         var hasAnyDirect = list.some(function (hr) {
             return hr && (hr.has_programme === true || hr.has_programme === 1 || hr.has_programme === '1');
         });
-        if (hasAnyDirect) {
+        var allowMulti = __venteAllowMultiChecked();
+        __venteSyncAllowMultiWrap(hasAnyDirect, !!hasTransit);
+        if (hasAnyDirect && allowMulti && hasTransit) {
+            // garder toute la liste (directs + créneaux corr)
+        } else if (hasAnyDirect) {
             list = list.filter(function (hr) {
                 return hr && (hr.has_programme === true || hr.has_programme === 1 || hr.has_programme === '1');
             });
@@ -4586,6 +4605,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 AppRequestGuard.guardForm('#taForm');
                 AppRequestGuard.ensureNonce('#taForm', 'sale_nonce');
+
+                var venteAllowMultiEl = document.querySelector('#vente_allow_multi');
+                if (venteAllowMultiEl && !venteAllowMultiEl.dataset.bound) {
+                    venteAllowMultiEl.dataset.bound = '1';
+                    venteAllowMultiEl.addEventListener('change', function () {
+                        __venteFillHeuresVente(
+                            window.__venteLastHeuresVente || [],
+                            !!window.__venteHasTransit
+                        );
+                    });
+                }
     })
 
 });
