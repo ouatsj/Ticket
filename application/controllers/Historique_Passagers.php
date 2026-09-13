@@ -61,6 +61,11 @@
                 $this->property['conex'] = $conex;
             $ddbt = $this->input->post('debutdate');
             $dfin = $this->input->post('findate');
+            $triQ = $this->input->post('tri_q');
+            if ($triQ === null || $triQ === false) {
+                $triQ = $this->input->get('tri_q');
+            }
+            $triQ = is_string($triQ) ? trim($triQ) : '';
             // Après Repositionner (redirect GET) ou accès direct : garder les dates de recherche.
             if ($ddbt !== null && $ddbt !== '' && $dfin !== null && $dfin !== '') {
                 $this->session->set_userdata('hp_tri_debut', $ddbt);
@@ -69,33 +74,82 @@
                 $ddbt = $this->session->userdata('hp_tri_debut');
                 $dfin = $this->session->userdata('hp_tri_fin');
             }
+            if ($triQ !== '') {
+                $this->session->set_userdata('hp_tri_q', $triQ);
+            } elseif ($this->input->post('debutdate') !== null || $this->input->post('findate') !== null) {
+                // Nouveau filtre date sans q → reset recherche texte.
+                $this->session->unset_userdata('hp_tri_q');
+                $triQ = '';
+            } else {
+                $sessQ = $this->session->userdata('hp_tri_q');
+                $triQ = is_string($sessQ) ? $sessQ : '';
+            }
             if ($ddbt === null || $ddbt === '' || $dfin === null || $dfin === '') {
                 $today = mdate('%Y-%m-%d', now());
                 $ddbt = $today;
                 $dfin = $today;
             }
-            $role = isset($this->session->agent->userole) ? (string) $this->session->agent->userole : '';
-            // Admin (1/2) + chef guichet (5/15) : toute la compagnie.
-            if (in_array($role, array('1', '2', '5', '15'), true)) {
-                $historiques = $this->m_passager->alldayarchad($this->company->ekey, $ddbt, $dfin);
+
+            // Borne max 31 jours pour éviter timeout / freeze navigateur.
+            $triWarn = '';
+            $tsDebut = strtotime((string) $ddbt);
+            $tsFin = strtotime((string) $dfin);
+            if ($tsDebut && $tsFin && $tsFin < $tsDebut) {
+                $tmp = $ddbt;
+                $ddbt = $dfin;
+                $dfin = $tmp;
+                $tsDebut = strtotime((string) $ddbt);
+                $tsFin = strtotime((string) $dfin);
+            }
+            if ($tsDebut && $tsFin) {
+                $spanDays = (int) floor(($tsFin - $tsDebut) / 86400) + 1;
+                if ($spanDays > 31) {
+                    $dfin = date('Y-m-d', $tsDebut + 30 * 86400);
+                    $this->session->set_userdata('hp_tri_fin', $dfin);
+                    $triWarn = 'Intervalle limité à 31 jours pour éviter un chargement trop long.';
+                }
+            }
+
+            // Toujours borné aux dates du formulaire ET à la gare du tri ($gd).
+            $pack = $this->m_passager->alldayarch($this->company->ekey, $ddbt, $dfin, $gd, $triQ);
+            // Compat : anciennes versions renvoyaient un tableau de lignes.
+            if (isset($pack['rows']) && is_array($pack['rows'])) {
+                $historiques = $pack['rows'];
+                $triTruncated = !empty($pack['truncated']);
+                $triLimit = isset($pack['limit']) ? (int) $pack['limit'] : 1200;
             } else {
-                // Guichet : gare entière (toutes sous-gares) + jambes transit liées.
-                $historiques = $this->m_passager->alldayarch($this->company->ekey, $ddbt, $dfin, $gd);
+                $historiques = is_array($pack) ? $pack : array();
+                $triTruncated = false;
+                $triLimit = 1200;
             }
             $directs = array();
             $transits = array();
             foreach ($historiques as $row) {
+                // Filet : ignorer toute ligne hors dates / hors gare du tri.
+                $dc = isset($row->datep_create) ? substr((string) $row->datep_create, 0, 10) : '';
+                if ($dc !== '' && ($dc < $ddbt || $dc > $dfin)) {
+                    continue;
+                }
+                $gp = isset($row->gareprinceid) ? (string) $row->gareprinceid : '';
+                if ($gp !== '' && $gp !== (string) $gd) {
+                    continue;
+                }
                 if (!empty($row->est_transit) && (int) $row->est_transit === 1) {
                     $transits[] = $row;
                 } else {
                     $directs[] = $row;
                 }
             }
-            $this->property['historiques'] = $historiques;
+            $this->property['historiques'] = array_merge($directs, $transits);
             $this->property['historiques_direct'] = $directs;
             $this->property['historiques_transit'] = $transits;
             $this->property['tri_debut'] = $ddbt;
             $this->property['tri_fin'] = $dfin;
+            $this->property['tri_q'] = $triQ;
+            $this->property['tri_truncated'] = $triTruncated;
+            $this->property['tri_limit'] = $triLimit;
+            $this->property['tri_warn'] = $triWarn;
+            $this->property['tri_gare'] = $gd;
 
                 $this->property['garedeparts'] = $this->m_sousgare->get($this->company->id_entreprise, $gd);
                 $this->property['typesclients'] = $this->m_type_client->get();

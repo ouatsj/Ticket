@@ -63,24 +63,65 @@ defined('BASEPATH') OR exit('No direct script access allowed'); ?>
 
                 <div class="title">Passagers — gare
                     <?= isset($bus_stop->idengare) ? htmlspecialchars($bus_stop->idengare) : ''; ?>
+                    <?php if (!empty($tri_debut) && !empty($tri_fin)): ?>
+                        <span class="text-muted font-weight-normal">
+                            · émission du <?= htmlspecialchars((string) $tri_debut); ?>
+                            au <?= htmlspecialchars((string) $tri_fin); ?>
+                        </span>
+                    <?php endif; ?>
                 </div>
 
             </div>
             <div class="card-body">
-                <div class="row align-items-center mb-3">
-                    <div class="col-md-7 col-lg-6">
-                        <label class="sr-only" for="filtre-tri-passager">Recherche instantanée</label>
+                <?php
+                    $__tri_debut = isset($tri_debut) ? (string) $tri_debut : '';
+                    $__tri_fin = isset($tri_fin) ? (string) $tri_fin : '';
+                    $__tri_q = isset($tri_q) ? (string) $tri_q : '';
+                    $__tri_warn = isset($tri_warn) ? (string) $tri_warn : '';
+                    $__tri_truncated = !empty($tri_truncated);
+                    $__tri_limit = isset($tri_limit) ? (int) $tri_limit : 1200;
+                ?>
+                <?php if ($__tri_warn !== ''): ?>
+                    <div class="alert alert-warning py-2"><?= htmlspecialchars($__tri_warn); ?></div>
+                <?php endif; ?>
+                <?php if ($__tri_truncated): ?>
+                    <div class="alert alert-info py-2">
+                        Affichage limité aux <?= (int) $__tri_limit; ?> tickets les plus récents.
+                        Affinez les dates ou utilisez le filtre serveur (nom, téléphone, code).
+                    </div>
+                <?php endif; ?>
+                <?= form_open(
+                    "historique_passagers/tripassager/{$this->session->company->ekey}/{$conex->roleattribut}/{$bus_stop->idengare}/{$bus_stop->idsousgare}",
+                    array('class' => 'mb-3', 'method' => 'post')
+                ); ?>
+                <div class="row align-items-end">
+                    <div class="col-md-2 col-sm-4">
+                        <label for="tri-debutdate">Du</label>
+                        <input class="form-control form-control-sm" type="date" id="tri-debutdate" name="debutdate" value="<?= htmlspecialchars($__tri_debut); ?>" required>
+                    </div>
+                    <div class="col-md-2 col-sm-4">
+                        <label for="tri-findate">Au</label>
+                        <input class="form-control form-control-sm" type="date" id="tri-findate" name="findate" value="<?= htmlspecialchars($__tri_fin); ?>" required>
+                    </div>
+                    <div class="col-md-5 col-sm-8">
+                        <label for="filtre-tri-passager">Recherche (serveur + instantanée)</label>
                         <input type="search"
                                id="filtre-tri-passager"
-                               class="form-control"
-                               placeholder="Filtrer : nom, téléphone, code, siège, axe, date…"
-                               autocomplete="off"
-                               autofocus>
+                               name="tri_q"
+                               class="form-control form-control-sm"
+                               placeholder="Nom, téléphone, code, siège…"
+                               value="<?= htmlspecialchars($__tri_q); ?>"
+                               autocomplete="off">
                     </div>
-                    <div class="col-md-5 col-lg-6 mt-2 mt-md-0">
-                        <span class="text-muted" id="filtre-tri-passager-count"></span>
+                    <div class="col-md-3 col-sm-4 mt-2 mt-md-0">
+                        <button type="submit" class="btn btn-sm btn-primary btn-block">
+                            <i class="fas fa-search"></i>&nbsp;Filtrer
+                        </button>
+                        <span class="text-muted small d-block mt-1" id="filtre-tri-passager-count"></span>
                     </div>
                 </div>
+                <?= form_close(); ?>
+                <p class="small text-muted mb-3">Max. 31 jours. La recherche instantanée filtre la page déjà chargée ; « Filtrer » relance la requête serveur.</p>
                 <style>
                     #triPassagerTabs.nav-tabs {
                         border-bottom: 2px solid #dee2e6;
@@ -190,50 +231,77 @@ defined('BASEPATH') OR exit('No direct script access allowed'); ?>
     var countEl = document.getElementById('filtre-tri-passager-count');
     if (!input) { return; }
 
-    function filterPane(pane) {
-        if (!pane) { return { visible: 0, total: 0 }; }
-        var q = (input.value || '').toLowerCase().trim();
-        var rows = pane.querySelectorAll('tbody tr[data-search], tbody tr');
-        var visible = 0;
-        var total = rows.length;
-        for (var i = 0; i < rows.length; i++) {
-            var hay = (rows[i].getAttribute('data-search') || rows[i].textContent || '').toLowerCase();
-            var show = !q || hay.indexOf(q) !== -1;
-            rows[i].style.display = show ? '' : 'none';
-            if (show) { visible++; }
+    var cache = null;
+    var timer = null;
+
+    function buildCache() {
+        cache = [];
+        var panes = document.querySelectorAll('#pane-tri-direct, #pane-tri-transit');
+        for (var p = 0; p < panes.length; p++) {
+            var rows = panes[p].querySelectorAll('tbody tr[data-search]');
+            for (var i = 0; i < rows.length; i++) {
+                cache.push({
+                    row: rows[i],
+                    pane: panes[p],
+                    hay: (rows[i].getAttribute('data-search') || '').toLowerCase()
+                });
+            }
         }
+    }
+
+    function filterPaneEmpty(pane, q, visible) {
         var emptyMsg = pane.querySelector('.filtre-tri-vide');
         if (emptyMsg) {
             emptyMsg.classList.toggle('d-none', !(q && visible === 0));
         }
-        return { visible: visible, total: total };
     }
 
     function applyFilter() {
-        var pane = document.querySelector('#triPassagerTabs + .tab-content > .tab-pane.active')
-            || document.querySelector('.tab-content > .tab-pane.active');
-        // Filtrer les deux onglets pour garder le filtre au changement d'onglet
+        if (!cache) { buildCache(); }
+        var q = (input.value || '').toLowerCase().trim();
+        var visibleByPane = {};
+        var totalByPane = {};
+        for (var i = 0; i < cache.length; i++) {
+            var item = cache[i];
+            var pid = item.pane.id || 'p';
+            if (!totalByPane[pid]) {
+                totalByPane[pid] = 0;
+                visibleByPane[pid] = 0;
+            }
+            totalByPane[pid]++;
+            var show = !q || item.hay.indexOf(q) !== -1;
+            item.row.style.display = show ? '' : 'none';
+            if (show) { visibleByPane[pid]++; }
+        }
         var panes = document.querySelectorAll('#pane-tri-direct, #pane-tri-transit');
         for (var p = 0; p < panes.length; p++) {
-            filterPane(panes[p]);
+            var id = panes[p].id || 'p';
+            filterPaneEmpty(panes[p], q, visibleByPane[id] || 0);
         }
-        if (countEl && pane) {
-            var q = (input.value || '').trim();
-            var rows = pane.querySelectorAll('tbody tr');
-            var visible = 0;
-            for (var i = 0; i < rows.length; i++) {
-                if (rows[i].style.display !== 'none') { visible++; }
-            }
-            if (q) {
-                countEl.textContent = visible + ' / ' + rows.length + ' résultat(s)';
-            } else {
-                countEl.textContent = rows.length + ' passager(s)';
-            }
+        var active = document.querySelector('#pane-tri-direct.active, #pane-tri-transit.active')
+            || document.querySelector('#pane-tri-direct');
+        if (countEl && active) {
+            var aid = active.id || 'p';
+            var vis = visibleByPane[aid] || 0;
+            var tot = totalByPane[aid] || 0;
+            countEl.textContent = q ? (vis + ' / ' + tot + ' résultat(s)') : (tot + ' passager(s)');
         }
     }
 
-    input.addEventListener('input', applyFilter);
-    input.addEventListener('search', applyFilter);
+    function scheduleFilter() {
+        if (timer) { clearTimeout(timer); }
+        timer = setTimeout(function () {
+            timer = null;
+            if (window.requestAnimationFrame) {
+                window.requestAnimationFrame(applyFilter);
+            } else {
+                applyFilter();
+            }
+        }, 180);
+    }
+
+    input.addEventListener('input', scheduleFilter);
+    input.addEventListener('search', scheduleFilter);
     var tabLinks = document.querySelectorAll('#triPassagerTabs a[data-toggle="tab"]');
     for (var t = 0; t < tabLinks.length; t++) {
         tabLinks[t].addEventListener('shown.bs.tab', applyFilter);

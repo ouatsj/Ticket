@@ -248,16 +248,17 @@
             <div class="form-group row">
                 <div class="form-group col-sm-4">
                     <label>Date: du</label>
-                    <input class="form-control form-control-sm" type="date" name="debutdate" id="iddatedebut">
+                    <input class="form-control form-control-sm" type="date" name="debutdate" id="iddatedebut" required>
                 </div>
                 <div class="form-group col-sm-4">
                     <label>au</label>
-                    <input class="form-control form-control-sm" type="date" name="findate" id="iddatefin">
+                    <input class="form-control form-control-sm" type="date" name="findate" id="iddatefin" required>
                 </div>
                 
                 <input type="hidden" name='dbu' id="intdebut">
                 <input type="hidden" name='fin' id="intfin">
             </div>
+            <p class="small text-muted px-3 mb-2">Intervalle max. recommandé : 31 jours. Pour un nom / téléphone précis, utilisez ensuite le filtre sur la page résultat.</p>
             <div class="form-group row">
                 <div class="modal-footer">
                     <button class="btn btn-secondary modal-close" type="reset"
