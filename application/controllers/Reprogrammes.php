@@ -1694,7 +1694,7 @@
             if (empty($rows) && $tarif !== null) {
                 $rows = $this->m_programme->getch_seg_reprog($ekey, $ligne, $date, null, null, $gadest, true);
             }
-            // Si filtre gadest trop strict → retenter sans gadest.
+            // Si filtre gadest/ville trop strict → retenter sans contrainte destination.
             if (empty($rows) && $gadest !== null) {
                 $rows = $this->m_programme->getch_seg_reprog($ekey, $ligne, $date, $tarif, null, null, true);
                 if (empty($rows) && $tarif !== null) {

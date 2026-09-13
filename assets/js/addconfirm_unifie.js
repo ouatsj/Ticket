@@ -641,7 +641,14 @@
         }
         if (!heureSel) return 0;
 
-        var rows = __cFilterByDate(dateYmd).slice().sort(function (a, b) {
+        var seenProg = {};
+        var rows = __cFilterByDate(dateYmd).filter(function (row) {
+            if (!row || !row.code_progr) return false;
+            var k = String(row.code_progr);
+            if (seenProg[k]) return false;
+            seenProg[k] = 1;
+            return true;
+        }).slice().sort(function (a, b) {
             var ha = __cHhmm(a.heure);
             var hb = __cHhmm(b.heure);
             if (ha !== hb) return ha < hb ? -1 : 1;

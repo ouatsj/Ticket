@@ -1419,8 +1419,29 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         var allowMulti = __venteFiAllowMultiChecked();
         __venteFiSyncAllowMultiWrap(hasAnyDirect, hasTransit);
+        var normHh = (typeof window.__venteNormalizeHhmm === 'function')
+            ? window.__venteNormalizeHhmm
+            : function (h) {
+                var s = String(h || '').trim();
+                return s.length >= 5 ? s.slice(0, 5) : s;
+            };
         if (hasAnyDirect && allowMulti && hasTransit) {
-            // garder toute la liste
+            // Directs + créneaux corr dont le HH:MM n’est pas déjà couvert.
+            var directHh = {};
+            list.forEach(function (hr) {
+                if (!hr || !(hr.has_programme === true || hr.has_programme === 1 || hr.has_programme === '1')) {
+                    return;
+                }
+                var hhD = normHh(hr.heure);
+                if (hhD) directHh[hhD] = true;
+            });
+            list = list.filter(function (hr) {
+                if (!hr) return false;
+                var isProg = !!(hr.has_programme === true || hr.has_programme === 1 || hr.has_programme === '1');
+                if (isProg) return true;
+                var hhT = normHh(hr.heure);
+                return !!hhT && !directHh[hhT];
+            });
         } else if (hasAnyDirect) {
             list = list.filter(function (hr) {
                 return hr && (hr.has_programme === true || hr.has_programme === 1 || hr.has_programme === '1');
@@ -1433,8 +1454,8 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
         list.sort(function (a, b) {
-            var ha = String((a && a.heure) || '');
-            var hb = String((b && b.heure) || '');
+            var ha = normHh((a && a.heure) || '') || String((a && a.heure) || '');
+            var hb = normHh((b && b.heure) || '') || String((b && b.heure) || '');
             if (ha !== hb) return ha < hb ? -1 : 1;
             var ca = String((a && a.code_progr) || '');
             var cb = String((b && b.code_progr) || '');
@@ -1443,32 +1464,38 @@ document.addEventListener('DOMContentLoaded', () => {
         var countByHh = {};
         list.forEach(function (hr) {
             if (!hr || !hr.has_programme) return;
-            var hh = String(hr.heure || '');
+            var hh = normHh(hr.heure);
             if (!hh) return;
             countByHh[hh] = (countByHh[hh] || 0) + 1;
         });
         var idxByHh = {};
+        var seenOpt = {};
         for (var i = 0; i < list.length; i++) {
             var hr = list[i];
             if (!hr || hr.id_ligneheure == null || hr.id_ligneheure === '') continue;
             var hasProg = !!(hr.has_programme === true || hr.has_programme === 1 || hr.has_programme === '1');
             var code = hasProg && hr.code_progr ? String(hr.code_progr) : '';
+            var hhNorm = normHh(hr.heure) || String(hr.heure || '');
+            var dedupeKey = hasProg
+                ? ('p:' + (code || (String(hr.id_ligneheure) + '/' + hhNorm)))
+                : ('t:' + String(hr.id_ligneheure) + '/' + hhNorm);
+            if (seenOpt[dedupeKey]) continue;
+            seenOpt[dedupeKey] = 1;
             var opt = document.createElement('option');
-            opt.value = String(hr.id_ligneheure) + '/' + String(hr.heure)
+            opt.value = String(hr.id_ligneheure) + '/' + hhNorm
                 + (code ? ('/' + code) : '');
             opt.setAttribute('data-has-programme', hasProg ? '1' : '0');
-            opt.setAttribute('data-heure', String(hr.heure || ''));
+            opt.setAttribute('data-heure', hhNorm);
             if (code) opt.setAttribute('data-code-progr', code);
             var label;
             if (hasProg) {
-                var hh = String(hr.heure || '');
-                idxByHh[hh] = (idxByHh[hh] || 0) + 1;
-                var multi = (countByHh[hh] || 0) > 1;
+                idxByHh[hhNorm] = (idxByHh[hhNorm] || 0) + 1;
+                var multi = (countByHh[hhNorm] || 0) > 1;
                 label = multi
-                    ? (hh + ' — ' + __venteFiOrdinalFr(idxByHh[hh]))
-                    : hh;
+                    ? (hhNorm + ' — ' + __venteFiOrdinalFr(idxByHh[hhNorm]))
+                    : hhNorm;
             } else {
-                label = String(hr.heure) + (hasTransit ? ' (correspondance)' : '');
+                label = hhNorm + (hasTransit ? ' (correspondance)' : '');
             }
             opt.innerHTML = label;
             hSel.add(opt);

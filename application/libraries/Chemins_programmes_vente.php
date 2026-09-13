@@ -308,7 +308,71 @@ class Chemins_programmes_vente
              LIMIT 1",
             $params
         )->row();
-        return !empty($row);
+        if (!empty($row)) {
+            return true;
+        }
+        // CMT sans prog mais VIP jumelle active (BOB1-BAM6 → BOB1-BAM53).
+        if (!isset($this->CI->m_programme)) {
+            $this->CI->load->model('Programme_model', 'm_programme');
+        }
+        $meta = $this->CI->db->query(
+            "SELECT nom_ligne, gaexp_lg FROM lignes WHERE ident_ligne = ? LIMIT 1",
+            array($ligneId)
+        )->row();
+        if (!$meta || trim((string) $meta->nom_ligne) === '') {
+            return false;
+        }
+        $nom = trim((string) $meta->nom_ligne);
+        $base = preg_replace('/_(VIP|CMT|ORD|EXPRESS|STD|CMTSD|VIPSD)$/i', '', $nom);
+        if ($base === null || $base === '') {
+            $base = $nom;
+        }
+        $gaexp = trim((string) $meta->gaexp_lg);
+        $ids = array();
+        foreach (array($nom, $base, $base . '_VIP', $base . '_CMT', $base . '_VIPSD', $base . '_CMTSD') as $nTry) {
+            if ($nTry === '') {
+                continue;
+            }
+            $axes = $this->CI->m_programme->axes_par_nom_ligne(
+                $nTry,
+                null,
+                $gaexp !== '' ? $gaexp : null,
+                null
+            );
+            if (!is_array($axes)) {
+                continue;
+            }
+            foreach ($axes as $ax) {
+                $ax = trim((string) $ax);
+                if ($ax !== '' && $ax !== $ligneId) {
+                    $ids[$ax] = true;
+                }
+            }
+        }
+        foreach (array_keys($ids) as $sid) {
+            $p2 = array_values($dates);
+            $p2[] = $sid;
+            $hit = $this->CI->db->query(
+                "SELECT 1
+                 FROM programme pr
+                 JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
+                 JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
+                 JOIN heures h ON lh.heure_identif = h.id_heure
+                 WHERE pr.date_progr IN ({$placeholders})
+                   AND lg.ident_ligne = ?
+                   AND pr.statut_prog = 'actif'
+                   AND pr.actif_prog = 0
+                   AND lh.actif_lh = 1
+                   AND IFNULL(lg.actif_lg, 1) = 1
+                   AND h.h_active = 1
+                 LIMIT 1",
+                $p2
+            )->row();
+            if (!empty($hit)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**

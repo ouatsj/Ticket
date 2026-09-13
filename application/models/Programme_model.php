@@ -1381,10 +1381,14 @@
                 $cieSql = " AND ga.id_compaga = '{$cie}' ";
             }
 
+            // Exact gadest (ex. BAM6 CMT) exclut les jumelles VIP (BAM53) — et la
+            // « même ville » échoue aussi : Bamako CMT/VIP ont des id_villega distincts.
+            // En multi-cie : pas de filtre gadest ; les jumelles par nom OD suffisent.
+            $gadestHint = ($gadest !== null) ? trim((string) $gadest) : '';
             $gadestSql = '';
-            if ($gadest !== null && trim((string) $gadest) !== '') {
-                $gadest = $this->db->escape_str(trim((string) $gadest));
-                $gadestSql = " AND lg.gadest_lg = '{$gadest}' ";
+            if (!$expand_siblings && $gadestHint !== '') {
+                $gadestEsc = $this->db->escape_str($gadestHint);
+                $gadestSql = " AND lg.gadest_lg = '{$gadestEsc}' ";
             }
 
             $ligneSql = " AND lh.ligne_id = '{$idEsc}' ";
@@ -1396,7 +1400,7 @@
                 )->row();
                 if ($meta && trim((string) $meta->nom_ligne) !== '') {
                     $nom = trim((string) $meta->nom_ligne);
-                    $base = preg_replace('/_(VIP|CMT|ORD|EXPRESS|STD|CMTSD)$/i', '', $nom);
+                    $base = preg_replace('/_(VIP|CMT|ORD|EXPRESS|STD|CMTSD|VIPSD)$/i', '', $nom);
                     if ($base === null || $base === '') {
                         $base = $nom;
                     }
@@ -1418,7 +1422,7 @@
                     }
                     // Variantes inverse : base_VIP si on part de base seule.
                     if ($base !== '' && strcasecmp($base, $nom) === 0) {
-                        foreach (array('_VIP', '_CMT', '_ORD') as $suf) {
+                        foreach (array('_VIP', '_CMT', '_ORD', '_VIPSD', '_CMTSD') as $suf) {
                             $axes2 = $this->axes_par_nom_ligne($base . $suf, $ekeyRaw, $gaexp !== '' ? $gaexp : null, null);
                             if (is_array($axes2)) {
                                 foreach ($axes2 as $ax) {
@@ -1437,17 +1441,8 @@
                             $in[] = "'" . $this->db->escape_str($lid) . "'";
                         }
                         $ligneSql = ' AND lh.ligne_id IN (' . implode(',', $in) . ') ';
-                        // Destination : restreindre à la même ville d’arrivée métier si possible.
-                        if ($gadestSql === '' && !empty($meta->gadest_lg)) {
-                            $gadestSql = " AND EXISTS (
-                                SELECT 1 FROM gare_dest ga0
-                                JOIN gare_dest ga1 ON ga1.code_gadest = '"
-                                . $this->db->escape_str(trim((string) $meta->gadest_lg)) . "'
-                                WHERE ga0.code_gadest = lg.gadest_lg
-                                  AND ga0.id_villega = ga1.id_villega
-                            ) ";
-                        }
                     }
+                    // Pas de filtre gadest/ville ici : BAM6≠BAM53 en id_villega.
                 }
             }
 

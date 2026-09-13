@@ -271,7 +271,11 @@ document.addEventListener('DOMContentLoaded', () => {
         var elPx = __reprogQ('reprog_seg_prix_' + idx);
         if (elP) elP.value = progVal;
         if (elL) {
-            elL.value = String(seg.ligneId || row.ident_ligne || row.ligne_id || '');
+            // Programme live prime sur la ligne CMT d’étape (VIP BOB1-BAM53 ≠ BOB1-BAM6).
+            elL.value = String(row.ident_ligne || row.ligne_id || seg.ligneId || '');
+            if (row.ident_ligne || row.ligne_id) {
+                seg.ligneId = String(row.ident_ligne || row.ligne_id);
+            }
         }
         if (elS) elS.value = siegeSel ? (siegeSel.value || '') : '';
         if (elC) {
@@ -1421,7 +1425,14 @@ document.addEventListener('DOMContentLoaded', () => {
         __reprogHideCorr();
         if (!sel) return 0;
 
-        var rows = __reprogFilterByDate(dateYmd).slice().sort(function (a, b) {
+        var seenProg = {};
+        var rows = __reprogFilterByDate(dateYmd).filter(function (row) {
+            if (!row || !row.code_progr) return false;
+            var k = String(row.code_progr);
+            if (seenProg[k]) return false;
+            seenProg[k] = 1;
+            return true;
+        }).slice().sort(function (a, b) {
             var ha = __reprogHhmm(a.heure);
             var hb = __reprogHhmm(b.heure);
             if (ha !== hb) return ha < hb ? -1 : 1;
@@ -1483,7 +1494,29 @@ document.addEventListener('DOMContentLoaded', () => {
         if (segs) segs.innerHTML = '';
         __reprogResetSelect(sel, 'Choisissez un itinéraire');
         if (msg) msg.textContent = message || '';
+
+        var purchaseCie = '';
+        var idCieEl = __reprogQ('id_compaga_unifie');
+        if (idCieEl) purchaseCie = String(idCieEl.value || '');
+
+        // Tri : itinéraires dont la cie d’arrivée ≠ cie d’achat en tête
+        // (ex. VIP Bobo-Bamako avant CMT quand le ticket est CMT).
+        var indexed = [];
         chemins.forEach(function (ch, idx) {
+            indexed.push({ ch: ch, idx: idx });
+        });
+        indexed.sort(function (a, b) {
+            var ca = __reprogCieFromEtapes(__reprogNormalizeEtapes(a.ch.etapes || a.ch.legs));
+            var cb = __reprogCieFromEtapes(__reprogNormalizeEtapes(b.ch.etapes || b.ch.legs));
+            var aAlt = ca && purchaseCie && ca.id && ca.id !== purchaseCie ? 0 : 1;
+            var bAlt = cb && purchaseCie && cb.id && cb.id !== purchaseCie ? 0 : 1;
+            if (aAlt !== bAlt) return aAlt - bAlt;
+            return a.idx - b.idx;
+        });
+
+        indexed.forEach(function (item) {
+            var ch = item.ch;
+            var idx = item.idx;
             var etapes = __reprogNormalizeEtapes(ch.etapes || ch.legs);
             var label = ch.label || ch.nom || ch.resume || ('Itinéraire ' + (idx + 1));
             if (ch.source !== 'direct' && etapes.length) {
@@ -1865,18 +1898,13 @@ document.addEventListener('DOMContentLoaded', () => {
         var root = (typeof APP_ROOT !== 'undefined' && APP_ROOT != null) ? APP_ROOT : '';
         var lignePath = encodeURIComponent(String(seg.ligneId));
         var datePath = encodeURIComponent(String(dateYmd));
-        var prefCie = __reprogEtapeCieKey(seg.etape);
-        var prefGadest = __reprogEtapeGadest(seg.etape);
+        // Hint gadest volontairement omis : BAM6 (CMT) ≠ BAM53 (VIP) en id_villega ;
+        // le backend élargit déjà aux jumelles OD (BOBO-BAMAKO*).
         var urlSeg = window.location.origin + root
             + '/reprogrammes/seg_progs/' + lignePath + '/' + datePath;
         if (tarif) {
             urlSeg += '/' + encodeURIComponent(tarif);
         }
-        // Ne PAS filtrer dur sur compaga CMT de l’étape — le backend liste les jumelles VIP.
-        // gadest reste un hint (backend retente sans si vide).
-        var qs = [];
-        if (prefGadest) qs.push('gadest=' + encodeURIComponent(prefGadest));
-        if (qs.length) urlSeg += '?' + qs.join('&');
 
         function fillCompanies(rows, fromChemin) {
             // Ne jamais réinjecter un code CMT fantôme hors listing live (sinon cie figée).
@@ -1910,11 +1938,19 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
             __reprogSegErr(idx, '');
-            // Plus de départs d’abord (date VIP → VIP en tête).
+            // Plus de départs d’abord ; à égalité, cie ≠ achat avant cie d’achat.
             cieKeys.sort(function (a, b) {
                 var na = (seg.byCie[a] && seg.byCie[a].rows) ? seg.byCie[a].rows.length : 0;
                 var nb = (seg.byCie[b] && seg.byCie[b].rows) ? seg.byCie[b].rows.length : 0;
                 if (na !== nb) return nb - na;
+                var purchaseCieSort = '';
+                var idCieSort = __reprogQ('id_compaga_unifie');
+                if (idCieSort) purchaseCieSort = String(idCieSort.value || '');
+                if (purchaseCieSort) {
+                    var aBuy = a === purchaseCieSort ? 1 : 0;
+                    var bBuy = b === purchaseCieSort ? 1 : 0;
+                    if (aBuy !== bBuy) return aBuy - bBuy;
+                }
                 return String(a).localeCompare(String(b));
             });
             cieKeys.forEach(function (k) {
@@ -1929,8 +1965,12 @@ document.addEventListener('DOMContentLoaded', () => {
             if (heureSel) heureSel.onchange = function () { __reprogOnSegHeure(idx); };
             if (siegeSel) siegeSel.onchange = function () { __reprogOnSegSiege(idx); };
 
-            // Auto-select : code graphe UNIQUEMENT s’il est dans le listing live ;
-            // sinon cie avec le plus de départs du jour (VIP), jamais coller sur CMT d’achat.
+            // Auto-select : ne coller JAMAIS sur la cie d’achat (CMT) s’il existe
+            // une autre cie avec des programmes le jour J (ex. VIP depuis Bobo).
+            var purchaseCie = '';
+            var idCieEl = __reprogQ('id_compaga_unifie');
+            if (idCieEl) purchaseCie = String(idCieEl.value || '');
+
             var prefCie = '';
             if (preferInLive && preferCode && seg.rows) {
                 for (var rj = 0; rj < seg.rows.length; rj++) {
@@ -1943,8 +1983,31 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 }
             }
-            if (prefCie && seg.byCie[prefCie]) {
+            // Si le code graphe est la cie d’achat mais qu’une autre cie a des départs → l’ignorer.
+            if (prefCie && purchaseCie && prefCie === purchaseCie) {
+                var othersLive = cieKeys.filter(function (k) {
+                    return k && k !== purchaseCie;
+                });
+                if (othersLive.length) {
+                    prefCie = '';
+                }
+            }
+            if (prefCie && cieKeys.length > 1 && seg.byCie[prefCie]) {
+                var nPref = (seg.byCie[prefCie].rows || []).length;
+                var nTop = (seg.byCie[cieKeys[0]].rows || []).length;
+                if (nTop > nPref) {
+                    prefCie = cieKeys[0];
+                }
+            }
+
+            var nonPurchase = cieKeys.filter(function (k) {
+                return k && (!purchaseCie || k !== purchaseCie);
+            });
+            if (prefCie && seg.byCie[prefCie] && (!purchaseCie || prefCie !== purchaseCie || !nonPurchase.length)) {
                 cieSel.value = prefCie;
+            } else if (nonPurchase.length >= 1) {
+                // VIP (ou autre) en tête parmi les cie ≠ achat.
+                cieSel.value = nonPurchase[0];
             } else if (cieKeys.length >= 1) {
                 cieSel.value = cieKeys[0];
             }
@@ -2004,11 +2067,18 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        // Afficher tout de suite la cie choisie (VIP) — ne pas laisser le label CMT d’achat.
-        if (idx === 0 && seg.byCie && seg.byCie[cieSel.value]) {
+        // Afficher la cie choisie — jambe 0 ou dernière jambe (destination VIP).
+        var nSeg = (window.__reprogState.etapes || []).length;
+        var isDestLeg = (idx === 0 && nSeg <= 1) || (nSeg > 1 && idx === nSeg - 1);
+        if (isDestLeg && seg.byCie && seg.byCie[cieSel.value]) {
             var cieInfo = seg.byCie[cieSel.value];
             var cieLab = (cieInfo && cieInfo.label) ? String(cieInfo.label).split(' / ')[0] : cieSel.value;
             __reprogUpdateCieCibleLabel(cieLab, cieSel.value);
+            __reprogSetVal('compgcfunifie', cieSel.value);
+        } else if (idx === 0 && seg.byCie && seg.byCie[cieSel.value]) {
+            var cieInfo0 = seg.byCie[cieSel.value];
+            var cieLab0 = (cieInfo0 && cieInfo0.label) ? String(cieInfo0.label).split(' / ')[0] : cieSel.value;
+            __reprogUpdateCieCibleLabel(cieLab0, cieSel.value);
             __reprogSetVal('compgcfunifie', cieSel.value);
         }
 
@@ -2114,6 +2184,22 @@ document.addEventListener('DOMContentLoaded', () => {
             __reprogSetVal('placevenduunifie', i1);
             __reprogSetVal('dplacevenduunifie', i2);
             __reprogUpdateCieCibleLabel(__reprogCieName(row), compaga);
+        }
+        // Dernière jambe correspondance : compagnie cible = cie du programme live (VIP).
+        var nEt = (window.__reprogState.etapes || []).length;
+        if (nEt > 1 && idx === nEt - 1) {
+            __reprogUpdateCieCibleLabel(__reprogCieName(row), compaga);
+            if (compaga) __reprogSetVal('compgcfunifie', String(compaga));
+            // Aligner aussi la ligne POST sur la jumelle live (BOB1-BAM53 vs BOB1-BAM6).
+            if (row.ident_ligne || row.ligne_id) {
+                var elLigne = __reprogQ('reprog_seg_ligne_id_' + idx);
+                if (elLigne) elLigne.value = String(row.ident_ligne || row.ligne_id);
+                if (window.__reprogState.segData[idx]) {
+                    window.__reprogState.segData[idx].ligneId = String(
+                        row.ident_ligne || row.ligne_id || window.__reprogState.segData[idx].ligneId || ''
+                    );
+                }
+            }
         }
         __reprogSyncSegPost(idx);
         __reprogUpdatePrixSum();
@@ -2372,15 +2458,18 @@ document.addEventListener('DOMContentLoaded', () => {
         // Direct / jambe isolée : Heure (1ER/2ème) si programmes, sinon correspondance.
         __reprogSetAncreVisible(true);
         if (n > 0 && allowMulti) {
-            // Directs listés + charger aussi les correspondances multi (sans masquer Heure).
+            // Heure a déjà les directs : n’ajouter que les multi ≥2 (pas de 2ᵉ liste des mêmes heures).
             __reprogFetchChemins(dateYmd, '', function (chemins) {
-                var directs2 = __reprogDirectsAsChemins(dateYmd);
-                var all = __reprogMergeItineraires(directs2, chemins, true);
-                st.chemins = all;
-                if (all.length) {
+                var multiOnly = __reprogRowsArray(chemins).filter(function (ch) {
+                    if (!ch || ch.source === 'declaratif') return false;
+                    if (!__reprogCheminSensOk(ch)) return false;
+                    return __reprogNormalizeEtapes(ch.etapes || ch.legs).length >= 2;
+                });
+                st.chemins = multiOnly;
+                if (multiOnly.length) {
                     __reprogShowCorrAlongside(
-                        all,
-                        'Multi activé — vous pouvez aussi choisir une correspondance pour '
+                        multiOnly,
+                        'Multi activé — correspondances en plus des directs (Heure) pour '
                             + (st.nom_ligne || st.axe || '—') + ' le ' + dateYmd
                     );
                 }
@@ -2614,6 +2703,12 @@ document.addEventListener('DOMContentLoaded', () => {
             if (segs) segs.innerHTML = '<p class="text-danger small">Itinéraire sans segments.</p>';
             return;
         }
+        // Afficher tout de suite la cie d’arrivée de l’itinéraire (VIP), pas celle d’achat.
+        var cieItin = __reprogCieFromEtapes(etapes);
+        if (cieItin) {
+            __reprogUpdateCieCibleLabel(cieItin.name || '', cieItin.id || '');
+            if (cieItin.id) __reprogSetVal('compgcfunifie', cieItin.id);
+        }
         __reprogHideDirect();
         __reprogClearSegPosts();
         if (etapes.length >= 2) {
@@ -2627,6 +2722,21 @@ document.addEventListener('DOMContentLoaded', () => {
             __reprogQ('reprog_nbr_seg_unifie').value = '0';
         }
         __reprogBuildSegments(etapes);
+    }
+
+    /** Compagnie d’arrivée préférée d’un itinéraire (dernière jambe, sinon 1ʳᵉ). */
+    function __reprogCieFromEtapes(etapes) {
+        var list = __reprogNormalizeEtapes(etapes);
+        if (!list.length) return null;
+        for (var i = list.length - 1; i >= 0; i--) {
+            var e = list[i];
+            var name = e.nom_compagnie_arrivee || e.nom_compagnie || '';
+            var id = String(e.id_compaga || e.cle_compagnie_arrivee || e.cle_compagnie || '');
+            if (name || id) {
+                return { name: String(name || ''), id: id };
+            }
+        }
+        return null;
     }
 
     function __reprogLookupRefused(donnees, fallbackMsg) {

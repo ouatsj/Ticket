@@ -1379,7 +1379,22 @@ document.addEventListener('DOMContentLoaded', () => {
         var allowMulti = __venteAllowMultiChecked();
         __venteSyncAllowMultiWrap(hasAnyDirect, !!hasTransit);
         if (hasAnyDirect && allowMulti && hasTransit) {
-            // garder toute la liste (directs + créneaux corr)
+            // Directs + créneaux corr dont le HH:MM n’est pas déjà couvert (évite 08:00 + 08:00 corr).
+            var directHh = {};
+            list.forEach(function (hr) {
+                if (!hr || !(hr.has_programme === true || hr.has_programme === 1 || hr.has_programme === '1')) {
+                    return;
+                }
+                var hhD = __venteNormalizeHhmm(hr.heure);
+                if (hhD) directHh[hhD] = true;
+            });
+            list = list.filter(function (hr) {
+                if (!hr) return false;
+                var isProg = !!(hr.has_programme === true || hr.has_programme === 1 || hr.has_programme === '1');
+                if (isProg) return true;
+                var hhT = __venteNormalizeHhmm(hr.heure);
+                return !!hhT && !directHh[hhT];
+            });
         } else if (hasAnyDirect) {
             list = list.filter(function (hr) {
                 return hr && (hr.has_programme === true || hr.has_programme === 1 || hr.has_programme === '1');
@@ -1392,8 +1407,8 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
         list.sort(function (a, b) {
-            var ha = String((a && a.heure) || '');
-            var hb = String((b && b.heure) || '');
+            var ha = __venteNormalizeHhmm((a && a.heure) || '') || String((a && a.heure) || '');
+            var hb = __venteNormalizeHhmm((b && b.heure) || '') || String((b && b.heure) || '');
             if (ha !== hb) return ha < hb ? -1 : 1;
             var ca = String((a && a.code_progr) || '');
             var cb = String((b && b.code_progr) || '');
@@ -1402,33 +1417,39 @@ document.addEventListener('DOMContentLoaded', () => {
         var countByHh = {};
         list.forEach(function (hr) {
             if (!hr || !hr.has_programme) return;
-            var hh = String(hr.heure || '');
+            var hh = __venteNormalizeHhmm(hr.heure);
             if (!hh) return;
             countByHh[hh] = (countByHh[hh] || 0) + 1;
         });
         var idxByHh = {};
+        var seenOpt = {};
         for (var i = 0; i < list.length; i++) {
             var hr = list[i];
             if (!hr || hr.id_ligneheure == null || hr.id_ligneheure === '') continue;
             var hasProg = !!(hr.has_programme === true || hr.has_programme === 1 || hr.has_programme === '1');
             var code = hasProg && hr.code_progr ? String(hr.code_progr) : '';
+            var hhNorm = __venteNormalizeHhmm(hr.heure) || String(hr.heure || '');
+            var dedupeKey = hasProg
+                ? ('p:' + (code || (String(hr.id_ligneheure) + '/' + hhNorm)))
+                : ('t:' + String(hr.id_ligneheure) + '/' + hhNorm);
+            if (seenOpt[dedupeKey]) continue;
+            seenOpt[dedupeKey] = 1;
             var opt = document.createElement('option');
             // Value unique si plusieurs programmes à la même heure.
-            opt.value = String(hr.id_ligneheure) + '/' + String(hr.heure)
+            opt.value = String(hr.id_ligneheure) + '/' + hhNorm
                 + (code ? ('/' + code) : '');
             opt.setAttribute('data-has-programme', hasProg ? '1' : '0');
-            opt.setAttribute('data-heure', String(hr.heure || ''));
+            opt.setAttribute('data-heure', hhNorm);
             if (code) opt.setAttribute('data-code-progr', code);
             var label;
             if (hasProg) {
-                var hh = String(hr.heure || '');
-                idxByHh[hh] = (idxByHh[hh] || 0) + 1;
-                var multi = (countByHh[hh] || 0) > 1;
+                idxByHh[hhNorm] = (idxByHh[hhNorm] || 0) + 1;
+                var multi = (countByHh[hhNorm] || 0) > 1;
                 label = multi
-                    ? (hh + ' — ' + __venteOrdinalFr(idxByHh[hh]))
-                    : hh;
+                    ? (hhNorm + ' — ' + __venteOrdinalFr(idxByHh[hhNorm]))
+                    : hhNorm;
             } else {
-                label = String(hr.heure) + (hasTransit ? ' (correspondance)' : '');
+                label = hhNorm + (hasTransit ? ' (correspondance)' : '');
             }
             opt.innerHTML = label;
             hSel.add(opt);
