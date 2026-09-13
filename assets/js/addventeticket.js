@@ -1395,6 +1395,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 return hr && !(hr.has_programme === true || hr.has_programme === 1 || hr.has_programme === '1');
             });
         }
+        // Multi / corr : 1 option = 1 HH:MM (programmes de départ, pas de doublons).
+        var isCorrList = !!(allowMulti && hasTransit) || (!hasAnyDirect && hasTransit);
+        if (isCorrList) {
+            var seenCorrHh = {};
+            list = list.filter(function (hr) {
+                var hh = __venteNormalizeHhmm((hr && hr.heure) || '');
+                if (!hh || seenCorrHh[hh]) return false;
+                seenCorrHh[hh] = true;
+                return true;
+            });
+        }
         list.sort(function (a, b) {
             var ha = __venteNormalizeHhmm((a && a.heure) || '') || String((a && a.heure) || '');
             var hb = __venteNormalizeHhmm((b && b.heure) || '') || String((b && b.heure) || '');
@@ -1420,7 +1431,7 @@ document.addEventListener('DOMContentLoaded', () => {
             var hhNorm = __venteNormalizeHhmm(hr.heure) || String(hr.heure || '');
             var dedupeKey = hasProg
                 ? ('p:' + (code || (String(hr.id_ligneheure) + '/' + hhNorm)))
-                : ('t:' + String(hr.id_ligneheure) + '/' + hhNorm);
+                : ('t:' + hhNorm);
             if (seenOpt[dedupeKey]) continue;
             seenOpt[dedupeKey] = 1;
             var opt = document.createElement('option');
@@ -1438,7 +1449,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     ? (hhNorm + ' — ' + __venteOrdinalFr(idxByHh[hhNorm]))
                     : hhNorm;
             } else {
-                label = hhNorm + (hasTransit ? ' (correspondance)' : '');
+                label = hhNorm;
             }
             opt.innerHTML = label;
             hSel.add(opt);

@@ -1637,11 +1637,6 @@
          */
         public function heures_vente_od($cid, $axe, $date, $idsousgare = null)
         {
-            $catalogue = $this->heureligne1($cid, $axe, $date);
-            if (!is_array($catalogue)) {
-                $catalogue = array();
-            }
-
             $axeEsc = $this->db->escape_str($axe);
             $dateEsc = $this->db->escape_str($date);
             $cidEsc = $this->db->escape_str($cid);
@@ -1776,22 +1771,23 @@
                 );
             }
 
-            // 2) Créneaux correspondance (sans programme OD à cette HH:MM) si transit dispo.
+            // 2) Créneaux correspondance = programmes RÉELS de la gare de départ
+            // (pas le catalogue ligne), 1 créneau par HH:MM.
             if ($has_transit) {
-                $seenTransitLh = array();
+                $seenTransitHh = array();
                 $pushTransit = function ($idLh, $heure, $source, $ligneDepart) use (
-                    &$heures, &$seenTransitLh, &$seenHhmmProg
+                    &$heures, &$seenTransitHh, &$seenHhmmProg
                 ) {
                     $idLh = (string) $idLh;
                     $hh = $this->_heure_hhmm($heure);
-                    if ($idLh === '' || isset($seenTransitLh[$idLh])) {
+                    if ($idLh === '' || $hh === '') {
                         return;
                     }
-                    // Déjà couvert par un départ programme à la même horloge.
-                    if ($hh !== '' && isset($seenHhmmProg[$hh])) {
+                    // Déjà couvert par un départ OD, ou déjà un créneau corr à cette heure.
+                    if (isset($seenHhmmProg[$hh]) || isset($seenTransitHh[$hh])) {
                         return;
                     }
-                    $seenTransitLh[$idLh] = TRUE;
+                    $seenTransitHh[$hh] = TRUE;
                     $heures[] = array(
                         'id_ligneheure' => $idLh,
                         'heure' => $heure,
@@ -1803,15 +1799,6 @@
                             ? $ligneDepart : null,
                     );
                 };
-
-                foreach ($catalogue as $row) {
-                    $pushTransit(
-                        isset($row->id_ligneheure) ? $row->id_ligneheure : '',
-                        isset($row->heure) ? $row->heure : '',
-                        'catalogue',
-                        $axe
-                    );
-                }
 
                 foreach ($progsGare as $pg) {
                     $isOd = (isset($pg->ligne_id) && isset($lignesOdSet[(string) $pg->ligne_id]));
@@ -2291,7 +2278,8 @@
         }
 
         /**
-         * Filtre programmes : même ville de départ que le code gare donné (BOB1 ≡ BOB2…).
+         * Filtre programmes : même gare de départ par NOM (suffixes cie retirés).
+         * BOB1 (CMT) ≡ BOB_VIP — ne pas utiliser id_villegd (villes distinctes).
          *
          * @param string|null $gare code_gaexp ou idengare
          * @return string fragment SQL (préfixé AND …) ou ''
@@ -2303,11 +2291,13 @@
                 return '';
             }
             $esc = $this->db->escape($gare);
+            $stripPr = $this->sql_strip_cie_suffix('ex_pr.nom_gaexp');
+            $stripRef = $this->sql_strip_cie_suffix('ex_ref.nom_gaexp');
             return " AND EXISTS (
                 SELECT 1 FROM gare_exp ex_pr
                 INNER JOIN gare_exp ex_ref ON ex_ref.code_gaexp = {$esc}
                 WHERE ex_pr.code_gaexp = pr.gareidentif
-                  AND ex_pr.id_villegd = ex_ref.id_villegd
+                  AND {$stripPr} = {$stripRef}
             )";
         }
 
@@ -2448,34 +2438,36 @@
             }
 
             $depCode = $gareRef !== '' ? $gareRef : $ga;
-            $depVilleSql = '';
+            $depNomSql = '';
             if ($depCode !== '') {
                 $depEsc = $this->db->escape($depCode);
-                $depVilleSql = " AND EXISTS (
+                $stripLg = $this->sql_strip_cie_suffix('ex_lg.nom_gaexp');
+                $stripDep = $this->sql_strip_cie_suffix('ex_dep.nom_gaexp');
+                // Même NOM de gare départ (pas id_villegd — CMT≠VIP en id ville).
+                $depNomSql = " AND EXISTS (
                     SELECT 1 FROM gare_exp ex_lg
                     INNER JOIN gare_exp ex_dep ON ex_dep.code_gaexp = {$depEsc}
                     WHERE ex_lg.code_gaexp = lg.gaexp_lg
-                      AND ex_lg.id_villegd = ex_dep.id_villegd
+                      AND {$stripLg} = {$stripDep}
                 )";
             }
 
             $idEsc = (int) $id_escale;
-            // Variantes multi-cie symétriques : BOBO-BAMAKO_CMT ↔ BOBO-BAMAKO_VIP
-            // (strip suffixe puis base / base_% — pas seulement LIKE nom_%).
+            // OD multi-cie : égalité de nom_ligne normalisé (pas d’exploration _VIP/_CMT).
             $nomLigneSql = '';
             if ($nom !== '') {
                 $nomLigneSql = $this->sql_nom_ligne_od_variants($nom);
             }
 
             if ($nom !== '') {
-                // Report : même OD métier toutes cie + gare départ ville.
-                $odSql = $nomLigneSql . $depVilleSql;
+                // Report : même OD métier toutes cie + gare départ par nom.
+                $odSql = $nomLigneSql . $depNomSql;
             } elseif ($idEsc > 0) {
-                // Sans nom_ligne : lignes du départ report qui portent la même escale (nom/code/variante).
-                $odSql = ' AND ' . $this->sql_escale_match_ligne($idEsc) . $depVilleSql;
+                // Sans nom_ligne : lignes du départ report qui portent la même escale (nom/code).
+                $odSql = ' AND ' . $this->sql_escale_match_ligne($idEsc) . $depNomSql;
             } else {
                 // Reprog unifiée : pas de recherche par codes seuls (BAM6≠BAM53, etc.).
-                $odSql = ' AND 1=0';
+                $odSql = ' AND 1=0 ';
             }
 
             // Prix / escale : si prix fourni, restreindre ; sinon pour une escale ticket

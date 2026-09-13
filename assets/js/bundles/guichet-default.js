@@ -1740,6 +1740,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 return hr && !(hr.has_programme === true || hr.has_programme === 1 || hr.has_programme === '1');
             });
         }
+        // Multi / corr : 1 option = 1 HH:MM (programmes de départ, pas de doublons).
+        var isCorrList = !!(allowMulti && hasTransit) || (!hasAnyDirect && hasTransit);
+        if (isCorrList) {
+            var seenCorrHh = {};
+            list = list.filter(function (hr) {
+                var hh = __venteNormalizeHhmm((hr && hr.heure) || '');
+                if (!hh || seenCorrHh[hh]) return false;
+                seenCorrHh[hh] = true;
+                return true;
+            });
+        }
         list.sort(function (a, b) {
             var ha = __venteNormalizeHhmm((a && a.heure) || '') || String((a && a.heure) || '');
             var hb = __venteNormalizeHhmm((b && b.heure) || '') || String((b && b.heure) || '');
@@ -1765,7 +1776,7 @@ document.addEventListener('DOMContentLoaded', () => {
             var hhNorm = __venteNormalizeHhmm(hr.heure) || String(hr.heure || '');
             var dedupeKey = hasProg
                 ? ('p:' + (code || (String(hr.id_ligneheure) + '/' + hhNorm)))
-                : ('t:' + String(hr.id_ligneheure) + '/' + hhNorm);
+                : ('t:' + hhNorm);
             if (seenOpt[dedupeKey]) continue;
             seenOpt[dedupeKey] = 1;
             var opt = document.createElement('option');
@@ -1783,7 +1794,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     ? (hhNorm + ' — ' + __venteOrdinalFr(idxByHh[hhNorm]))
                     : hhNorm;
             } else {
-                label = hhNorm + (hasTransit ? ' (correspondance)' : '');
+                label = hhNorm;
             }
             opt.innerHTML = label;
             hSel.add(opt);
@@ -7043,6 +7054,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 return hr && !(hr.has_programme === true || hr.has_programme === 1 || hr.has_programme === '1');
             });
         }
+        // Multi / corr : 1 option = 1 HH:MM (programmes de départ).
+        var isCorrList = !!(allowMulti && hasTransit) || (!hasAnyDirect && hasTransit);
+        if (isCorrList) {
+            var seenCorrHh = {};
+            list = list.filter(function (hr) {
+                var hh = normHh((hr && hr.heure) || '');
+                if (!hh || seenCorrHh[hh]) return false;
+                seenCorrHh[hh] = true;
+                return true;
+            });
+        }
         list.sort(function (a, b) {
             var ha = normHh((a && a.heure) || '') || String((a && a.heure) || '');
             var hb = normHh((b && b.heure) || '') || String((b && b.heure) || '');
@@ -7068,7 +7090,7 @@ document.addEventListener('DOMContentLoaded', () => {
             var hhNorm = normHh(hr.heure) || String(hr.heure || '');
             var dedupeKey = hasProg
                 ? ('p:' + (code || (String(hr.id_ligneheure) + '/' + hhNorm)))
-                : ('t:' + String(hr.id_ligneheure) + '/' + hhNorm);
+                : ('t:' + hhNorm);
             if (seenOpt[dedupeKey]) continue;
             seenOpt[dedupeKey] = 1;
             var opt = document.createElement('option');
@@ -7085,7 +7107,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     ? (hhNorm + ' — ' + __venteFiOrdinalFr(idxByHh[hhNorm]))
                     : hhNorm;
             } else {
-                label = hhNorm + (hasTransit ? ' (correspondance)' : '');
+                label = hhNorm;
             }
             opt.innerHTML = label;
             hSel.add(opt);
@@ -13729,6 +13751,10 @@ document.addEventListener('DOMContentLoaded', () => {
         __reprogHideCorr();
         if (!sel) return 0;
 
+        var purchaseCie = '';
+        var idCieEl = __reprogQ('id_compaga_unifie');
+        if (idCieEl) purchaseCie = String(idCieEl.value || '');
+
         var seenProg = {};
         var rows = __reprogFilterByDate(dateYmd).filter(function (row) {
             if (!row || !row.code_progr) return false;
@@ -13736,13 +13762,29 @@ document.addEventListener('DOMContentLoaded', () => {
             if (seenProg[k]) return false;
             seenProg[k] = 1;
             return true;
-        }).slice().sort(function (a, b) {
+        });
+
+        var countByCie = {};
+        rows.forEach(function (row) {
+            var ck = __reprogRowCieKey(row) || '_';
+            countByCie[ck] = (countByCie[ck] || 0) + 1;
+        });
+        // Tri : heure, puis cie la plus fournie le jour J, puis cie ≠ ticket d’origine.
+        rows.sort(function (a, b) {
             var ha = __reprogHhmm(a.heure);
             var hb = __reprogHhmm(b.heure);
             if (ha !== hb) return ha < hb ? -1 : 1;
-            var ca = String(a.code_progr || '');
-            var cb = String(b.code_progr || '');
-            return ca < cb ? -1 : (ca > cb ? 1 : 0);
+            var ca = __reprogRowCieKey(a) || '';
+            var cb = __reprogRowCieKey(b) || '';
+            var na = countByCie[ca] || 0;
+            var nb = countByCie[cb] || 0;
+            if (na !== nb) return nb - na;
+            if (purchaseCie) {
+                var aBuy = ca === purchaseCie ? 1 : 0;
+                var bBuy = cb === purchaseCie ? 1 : 0;
+                if (aBuy !== bBuy) return aBuy - bBuy;
+            }
+            return String(a.code_progr || '').localeCompare(String(b.code_progr || ''));
         });
 
         var countByHh = {};
@@ -13787,6 +13829,20 @@ document.addEventListener('DOMContentLoaded', () => {
             opt.textContent = parts.join(' — ');
             sel.add(opt);
         });
+
+        // Ne pas laisser afficher la cie/heure d’origine du ticket comme si c’était le choix.
+        if (rows.length) {
+            var orig = (window.__reprogState && window.__reprogState.cieOrigName) || '';
+            var elCie = __reprogQ('compagnieclpunifie');
+            if (elCie) {
+                elCie.textContent = orig
+                    ? ('COMPAGNIE ticket: ' + orig + ' — choisissez un départ ci-dessous')
+                    : 'Choisissez un départ (heure + compagnie) ci-dessous';
+            }
+        } else {
+            __reprogSetVal('compgcfunifie', '');
+            __reprogSetVal('programrepunifie', '');
+        }
 
         return rows.length;
     }
@@ -14331,13 +14387,7 @@ document.addEventListener('DOMContentLoaded', () => {
         __reprogXhrGet(urlSeg, function (dataSeg, errSeg) {
             try {
                 var rows = __reprogRowsArray(dataSeg);
-                // Même sans résultat seg_progs : 1 jambe avec code connu → injecter via fillCompanies.
-                if (!rows.length && __reprogEtapePreferCode(seg.etape)) {
-                    fillCompanies([], false);
-                    if (Object.keys((window.__reprogState.segData[idx] || {}).byCie || {}).length) {
-                        return;
-                    }
-                }
+                // Ne jamais injecter le code ticket d’origine s’il n’est pas dans les programmes live.
                 if (rows.length) {
                     fillCompanies(rows, false);
                     return;
@@ -15184,13 +15234,14 @@ document.addEventListener('DOMContentLoaded', () => {
                         __reprogQ('codeclpunifie').textContent =
                             'TICKET: ' + (donnees.code_ticket || '') + ' / PASS: ' + (donnees.code_passager || '');
                         __reprogQ('heureclpunifie').textContent =
-                            'HEURE: ' + (donnees.heure || '') + ' — SIÈGE: ' + (donnees.num_siege_categorie || '')
+                            'TICKET (origine): ' + (donnees.heure || '') + ' — SIÈGE: ' + (donnees.num_siege_categorie || '')
                             + ' — DATE: ' + (donnees.date_progr || '');
                         var cieArr = donnees.nom_compagnie || '';
                         var cieDep = donnees.nom_compagnie_depart || '';
                         window.__reprogState.cieOrigName = cieArr || '';
                         __reprogQ('compagnieclpunifie').textContent = cieArr
-                            ? ('COMPAGNIE: ' + cieArr + (cieDep && cieDep !== cieArr ? ' (dép. ' + cieDep + ')' : ''))
+                            ? ('COMPAGNIE ticket: ' + cieArr + (cieDep && cieDep !== cieArr ? ' (dép. ' + cieDep + ')' : '')
+                                + ' — choisissez un départ après la date')
                             : '';
                         __reprogQ('prixclpunifie').textContent =
                             'PRIX: ' + (donnees.prixvente != null ? donnees.prixvente : '')
