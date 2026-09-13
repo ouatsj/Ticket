@@ -523,7 +523,7 @@ class Chemins_programmes_vente
         $nom = trim((string) $row->nom_ligne);
         $ga = trim((string) $row->gaexp_lg);
         $gd = trim((string) $row->gadest_lg);
-        return array(
+        $out = array(
             'nom_ligne' => $nom,
             'nom_itineraires' => $nom,
             'code_itineraires' => $id,
@@ -535,6 +535,16 @@ class Chemins_programmes_vente
             'code_gadest' => $gd,
             '_graphe_date_progr' => $dateProgr,
         );
+        if (isset($row->id_compaga) && $row->id_compaga !== '' && $row->id_compaga !== null) {
+            $out['id_compaga'] = (string) $row->id_compaga;
+        }
+        if (!empty($row->nom_compagnie_arrivee)) {
+            $out['nom_compagnie_arrivee'] = (string) $row->nom_compagnie_arrivee;
+            $out['nom_compagnie'] = (string) $row->nom_compagnie_arrivee;
+        } elseif (!empty($row->nom_compagnie)) {
+            $out['nom_compagnie'] = (string) $row->nom_compagnie;
+        }
+        return $out;
     }
 
     /**
@@ -761,7 +771,7 @@ class Chemins_programmes_vente
         $gd = trim((string) (isset($p->gadest_lg) ? $p->gadest_lg : ''));
         $date = isset($p->date_progr) ? substr((string) $p->date_progr, 0, 10) : '';
         $code = isset($p->code_progr) ? (string) $p->code_progr : '';
-        return array(
+        $out = array(
             'nom_ligne' => $nom,
             'nom_itineraires' => $nom,
             'code_itineraires' => $id,
@@ -775,6 +785,17 @@ class Chemins_programmes_vente
             '_graphe_code_progr' => $code,
             'code_progr' => $code,
         );
+        if (isset($p->id_compaga) && $p->id_compaga !== '' && $p->id_compaga !== null) {
+            $out['id_compaga'] = (string) $p->id_compaga;
+        }
+        if (!empty($p->nom_compagnie_arrivee)) {
+            $out['nom_compagnie_arrivee'] = (string) $p->nom_compagnie_arrivee;
+            $out['nom_compagnie'] = (string) $p->nom_compagnie_arrivee;
+        }
+        if (!empty($p->cle_compagnie_arrivee)) {
+            $out['cle_compagnie_arrivee'] = (string) $p->cle_compagnie_arrivee;
+        }
+        return $out;
     }
 
     protected function ville_dest_match($progDetail, $idArr, $gadest)

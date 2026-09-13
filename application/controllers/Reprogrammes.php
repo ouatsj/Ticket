@@ -1689,33 +1689,30 @@
             if ($gadest === false || $gadest === null || trim((string) $gadest) === '') {
                 $gadest = null;
             }
-            $rows = $this->m_programme->getch_seg_reprog($ekey, $ligne, $date, $tarif, $cie, $gadest);
-            // Si filtre tarif trop strict → retenter sans tarif (garde cie + gadest).
+            $rows = $this->m_programme->getch_seg_reprog($ekey, $ligne, $date, $tarif, null, $gadest, true);
+            // Si filtre tarif trop strict → retenter sans tarif (multi-cie conservé).
             if (empty($rows) && $tarif !== null) {
-                $rows = $this->m_programme->getch_seg_reprog($ekey, $ligne, $date, null, $cie, $gadest);
+                $rows = $this->m_programme->getch_seg_reprog($ekey, $ligne, $date, null, null, $gadest, true);
             }
-            // Si filtre gadest trop strict → retenter sans gadest (garde cie).
+            // Si filtre gadest trop strict → retenter sans gadest.
             if (empty($rows) && $gadest !== null) {
-                $rows = $this->m_programme->getch_seg_reprog($ekey, $ligne, $date, $tarif, $cie, null);
+                $rows = $this->m_programme->getch_seg_reprog($ekey, $ligne, $date, $tarif, null, null, true);
                 if (empty($rows) && $tarif !== null) {
-                    $rows = $this->m_programme->getch_seg_reprog($ekey, $ligne, $date, null, $cie, null);
+                    $rows = $this->m_programme->getch_seg_reprog($ekey, $ligne, $date, null, null, null, true);
                 }
             }
-            // Dernier recours : sans cie (mais ne devrait pas arriver si l’étape a id_compaga).
-            if (empty($rows) && $cie !== null) {
-                $rows = $this->m_programme->getch_seg_reprog($ekey, $ligne, $date, $tarif, null, $gadest);
-                if (empty($rows) && $tarif !== null) {
-                    $rows = $this->m_programme->getch_seg_reprog($ekey, $ligne, $date, null, null, $gadest);
-                }
-                if (empty($rows) && $gadest !== null) {
-                    $rows = $this->m_programme->getch_seg_reprog($ekey, $ligne, $date, $tarif, null, null);
-                    if (empty($rows) && $tarif !== null) {
-                        $rows = $this->m_programme->getch_seg_reprog($ekey, $ligne, $date, null, null, null);
-                    }
+            // Ne PAS réorienter tout le listing vers la ligne CMT demandée :
+            // sinon les programmes VIP sont remappés vers CMT (cie figée).
+            // Orientation hub unitaire : uniquement si une seule ligne_id dans le résultat.
+            $ligneIds = array();
+            foreach ($rows as $r) {
+                if (is_object($r) && !empty($r->ident_ligne)) {
+                    $ligneIds[trim((string) $r->ident_ligne)] = true;
                 }
             }
-            // Orientation hub (miroir chemintr) : principal → dérivé/suite de la ligne demandée.
-            $rows = $this->_reprog_orient_prog_rows($rows, $ligne, $ekey);
+            if (count($ligneIds) === 1 && isset($ligneIds[$ligne])) {
+                $rows = $this->_reprog_orient_prog_rows($rows, $ligne, $ekey);
+            }
             return $this->load->view('beagle/pages/_programme/json', array('json' => $rows));
         }
 

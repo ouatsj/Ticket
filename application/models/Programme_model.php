@@ -1352,13 +1352,20 @@
          * Programmes d’un segment reprog : compagnie = gare d’arrivée (id_compaga),
          * comme vente / tickets / « lignes par compagnie d’arrivée ».
          *
-         * @param string|null $cie     Filtre id_compaga (étape)
+         * En reprog : élargit aux lignes jumelles OD (OUAGA-BAMAKO ↔ OUAGA-BAMAKO_VIP)
+         * pour lister toutes les compagnies disponibles à la date — pas seulement la
+         * ligne CMT de l’étape graphe.
+         *
+         * @param string|null $cie     Filtre id_compaga (étape) — ignoré si $expand_siblings
          * @param string|null $gadest  Filtre code_gadest (étape)
+         * @param bool        $expand_siblings  true = multi-cie (défaut reprog)
          */
-        public function getch_seg_reprog($cd, $id, $dt, $t = null, $cie = null, $gadest = null)
+        public function getch_seg_reprog($cd, $id, $dt, $t = null, $cie = null, $gadest = null, $expand_siblings = true)
         {
-            $cd = $this->db->escape_str($cd);
-            $id = $this->db->escape_str($id);
+            $ekeyRaw = trim((string) $cd);
+            $cd = $this->db->escape_str($ekeyRaw);
+            $id = trim((string) $id);
+            $idEsc = $this->db->escape_str($id);
             $dt = $this->db->escape_str($dt);
 
             $tarifSql = '';
@@ -1367,8 +1374,9 @@
                 $tarifSql = " AND pr.typetarif = '{$t}' ";
             }
 
+            // Multi-cie : ne pas filtrer dur sur la cie de l’étape (sinon VIP invisible).
             $cieSql = '';
-            if ($cie !== null && trim((string) $cie) !== '') {
+            if (!$expand_siblings && $cie !== null && trim((string) $cie) !== '') {
                 $cie = $this->db->escape_str(trim((string) $cie));
                 $cieSql = " AND ga.id_compaga = '{$cie}' ";
             }
@@ -1377,6 +1385,70 @@
             if ($gadest !== null && trim((string) $gadest) !== '') {
                 $gadest = $this->db->escape_str(trim((string) $gadest));
                 $gadestSql = " AND lg.gadest_lg = '{$gadest}' ";
+            }
+
+            $ligneSql = " AND lh.ligne_id = '{$idEsc}' ";
+            if ($expand_siblings && $id !== '') {
+                $meta = $this->db->query(
+                    "SELECT lg.nom_ligne, lg.gaexp_lg, lg.gadest_lg
+                     FROM lignes lg WHERE lg.ident_ligne = ? LIMIT 1",
+                    array($id)
+                )->row();
+                if ($meta && trim((string) $meta->nom_ligne) !== '') {
+                    $nom = trim((string) $meta->nom_ligne);
+                    $base = preg_replace('/_(VIP|CMT|ORD|EXPRESS|STD|CMTSD)$/i', '', $nom);
+                    if ($base === null || $base === '') {
+                        $base = $nom;
+                    }
+                    $gaexp = trim((string) $meta->gaexp_lg);
+                    $ids = array($id);
+                    foreach (array($nom, $base) as $nTry) {
+                        if ($nTry === '') {
+                            continue;
+                        }
+                        $axes = $this->axes_par_nom_ligne($nTry, $ekeyRaw, $gaexp !== '' ? $gaexp : null, null);
+                        if (is_array($axes)) {
+                            foreach ($axes as $ax) {
+                                $ax = trim((string) $ax);
+                                if ($ax !== '') {
+                                    $ids[] = $ax;
+                                }
+                            }
+                        }
+                    }
+                    // Variantes inverse : base_VIP si on part de base seule.
+                    if ($base !== '' && strcasecmp($base, $nom) === 0) {
+                        foreach (array('_VIP', '_CMT', '_ORD') as $suf) {
+                            $axes2 = $this->axes_par_nom_ligne($base . $suf, $ekeyRaw, $gaexp !== '' ? $gaexp : null, null);
+                            if (is_array($axes2)) {
+                                foreach ($axes2 as $ax) {
+                                    $ax = trim((string) $ax);
+                                    if ($ax !== '') {
+                                        $ids[] = $ax;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    $ids = array_values(array_unique($ids));
+                    if (count($ids) > 1) {
+                        $in = array();
+                        foreach ($ids as $lid) {
+                            $in[] = "'" . $this->db->escape_str($lid) . "'";
+                        }
+                        $ligneSql = ' AND lh.ligne_id IN (' . implode(',', $in) . ') ';
+                        // Destination : restreindre à la même ville d’arrivée métier si possible.
+                        if ($gadestSql === '' && !empty($meta->gadest_lg)) {
+                            $gadestSql = " AND EXISTS (
+                                SELECT 1 FROM gare_dest ga0
+                                JOIN gare_dest ga1 ON ga1.code_gadest = '"
+                                . $this->db->escape_str(trim((string) $meta->gadest_lg)) . "'
+                                WHERE ga0.code_gadest = lg.gadest_lg
+                                  AND ga0.id_villega = ga1.id_villega
+                            ) ";
+                        }
+                    }
+                }
             }
 
             // Entreprise via cie départ ; libellé / clé commerciale = cie d’arrivée.
@@ -1409,7 +1481,7 @@
                 JOIN gare_dest ga ON lg.gadest_lg = ga.code_gadest
                 JOIN compagnies ca ON ga.id_compaga = ca.cle_compagnie
                 WHERE e.ekey = '{$cd}'
-                AND lh.ligne_id = '{$id}'
+                {$ligneSql}
                 AND pr.date_progr >= '{$dt}'
                 AND pr.date_progr <= DATE_ADD('{$dt}', INTERVAL 1 DAY)
                 AND pr.statut_prog = 'actif'

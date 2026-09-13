@@ -13646,6 +13646,20 @@ document.addEventListener('DOMContentLoaded', () => {
             } else if (etapes.length > 1 && ch.source === 'direct') {
                 label += ' (' + etapes.length + ' segments)';
             }
+            // Mention compagnie(s) pour distinguer CMT vs VIP dans la liste.
+            var cies = [];
+            etapes.forEach(function (e) {
+                var n = e.nom_compagnie_arrivee || e.nom_compagnie || '';
+                if (!n && e.id_compaga) n = String(e.id_compaga);
+                if (n && cies.indexOf(n) === -1) cies.push(n);
+            });
+            if (!cies.length && ch.source === 'direct') {
+                var dn = ch.nom_compagnie_arrivee || ch.nom_compagnie || '';
+                if (dn) cies.push(dn);
+            }
+            if (cies.length) {
+                label += ' — ' + cies.join('/');
+            }
             var opt = document.createElement('option');
             opt.value = String(idx);
             opt.textContent = label;
@@ -14008,8 +14022,9 @@ document.addEventListener('DOMContentLoaded', () => {
         if (tarif) {
             urlSeg += '/' + encodeURIComponent(tarif);
         }
+        // Ne PAS filtrer dur sur compaga CMT de l’étape — le backend liste les jumelles VIP.
+        // gadest reste un hint (backend retente sans si vide).
         var qs = [];
-        if (prefCie) qs.push('compaga=' + encodeURIComponent(prefCie));
         if (prefGadest) qs.push('gadest=' + encodeURIComponent(prefGadest));
         if (qs.length) urlSeg += '?' + qs.join('&');
 
@@ -14076,7 +14091,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
             __reprogSegErr(idx, '');
-            cieKeys.sort().forEach(function (k) {
+            // Plus de départs d’abord (date VIP → VIP en tête).
+            cieKeys.sort(function (a, b) {
+                var na = (seg.byCie[a] && seg.byCie[a].rows) ? seg.byCie[a].rows.length : 0;
+                var nb = (seg.byCie[b] && seg.byCie[b].rows) ? seg.byCie[b].rows.length : 0;
+                if (na !== nb) return nb - na;
+                return String(a).localeCompare(String(b));
+            });
+            cieKeys.forEach(function (k) {
                 var info = seg.byCie[k];
                 var opt = document.createElement('option');
                 opt.value = k;
@@ -14088,7 +14110,8 @@ document.addEventListener('DOMContentLoaded', () => {
             if (heureSel) heureSel.onchange = function () { __reprogOnSegHeure(idx); };
             if (siegeSel) siegeSel.onchange = function () { __reprogOnSegSiege(idx); };
 
-            // Prefer compagnie du programme exact (1 jambe / graphe).
+            // Préférer la cie du programme exact ; sinon cie d’achat SI elle a des départs ;
+            // sinon cie avec le plus de programmes (souvent VIP le jour où CMT n’a rien).
             var prefCie = __reprogEtapeCieKey(seg.etape);
             if (preferCode && seg.rows) {
                 for (var rj = 0; rj < seg.rows.length; rj++) {
@@ -14101,10 +14124,17 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 }
             }
+            var ticketCie = '';
+            var idCieEl = __reprogQ('id_compaga_unifie');
+            if (idCieEl) ticketCie = String(idCieEl.value || '');
             if (prefCie && seg.byCie[prefCie]) {
                 cieSel.value = prefCie;
-            } else if (cieKeys.length === 1) {
-                cieSel.value = cieKeys[0];
+            } else if (cieKeys.length >= 1) {
+                // cieKeys[0] = plus de départs (VIP si date VIP). Ne coller sur CMT d’achat
+                // que s’il est déjà en tête.
+                cieSel.value = (ticketCie && ticketCie === cieKeys[0])
+                    ? ticketCie
+                    : cieKeys[0];
             }
             if (cieSel.value) {
                 // Ne pas laisser planter l’affichage compagnies si heure/siège échoue.
@@ -14161,6 +14191,14 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!heureSel) {
             __reprogSegErr(idx, 'Champ heure introuvable sur ce segment.');
             return;
+        }
+
+        // Afficher tout de suite la cie choisie (VIP) — ne pas laisser le label CMT d’achat.
+        if (idx === 0 && seg.byCie && seg.byCie[cieSel.value]) {
+            var cieInfo = seg.byCie[cieSel.value];
+            var cieLab = (cieInfo && cieInfo.label) ? String(cieInfo.label).split(' / ')[0] : cieSel.value;
+            __reprogUpdateCieCibleLabel(cieLab, cieSel.value);
+            __reprogSetVal('compgcfunifie', cieSel.value);
         }
 
         var hoursMap = (seg.byCieHour && seg.byCieHour[cieSel.value]) || {};
@@ -14264,6 +14302,7 @@ document.addEventListener('DOMContentLoaded', () => {
             __reprogSetVal('idreplignunifie', row.ident_ligne || row.ligne_id || '');
             __reprogSetVal('placevenduunifie', i1);
             __reprogSetVal('dplacevenduunifie', i2);
+            __reprogUpdateCieCibleLabel(__reprogCieName(row), compaga);
         }
         __reprogSyncSegPost(idx);
         __reprogUpdatePrixSum();
