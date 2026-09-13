@@ -137,32 +137,46 @@ document.addEventListener('DOMContentLoaded', () => {
             var dateEl = document.querySelector('#date_depheurefid') || document.querySelector('#date_depheure');
             var voyageDate = dateEl ? String(dateEl.value || '').slice(0, 10) : '';
             var anchorRaw = _fromPre(preselectHour);
-            var bySlot = {}, order = [];
+            var filtered = [], seen = {};
             for (var i = 0; i < list.length; i++) {
                 var row = list[i];
                 if (!row || row.id_ligneheure == null || row.heure == null || row.heure === '') continue;
-                var dprog = row.date_progr ? String(row.date_progr).slice(0, 10) : '';
-                var slot = dprog + '|' + String(row.heure).trim();
-                if (!bySlot[slot]) { bySlot[slot] = row; order.push(slot); }
+                var code = row.code_progr ? String(row.code_progr) : '';
+                var key = code || (String(row.id_ligneheure) + '|' + String(row.heure));
+                if (seen[key]) continue;
+                seen[key] = 1;
+                filtered.push(row);
             }
-            order.sort(function (a, b) {
-                var ra = bySlot[a], rb = bySlot[b];
-                var da = String(ra.date_progr || '').slice(0, 10);
-                var db = String(rb.date_progr || '').slice(0, 10);
+            filtered.sort(function (a, b) {
+                var da = String(a.date_progr || '').slice(0, 10);
+                var db = String(b.date_progr || '').slice(0, 10);
                 if (da < db) return -1;
                 if (da > db) return 1;
-                return (_min(ra.heure) || 0) - (_min(rb.heure) || 0);
+                return (_min(a.heure) || 0) - (_min(b.heure) || 0);
             });
-            var slotRows = order.map(function (k) { return bySlot[k]; });
-            var forceDate = _multiDays(slotRows);
-            for (var j = 0; j < order.length; j++) {
-                var r = bySlot[order[j]];
+            var forceDate = _multiDays(filtered);
+            var countByHh = {}, idxByHh = {};
+            filtered.forEach(function (row) {
+                var hh = _hhmm(row.heure);
+                if (hh) countByHh[hh] = (countByHh[hh] || 0) + 1;
+            });
+            for (var j = 0; j < filtered.length; j++) {
+                var r = filtered[j];
                 var opt = document.createElement('option');
                 var dprogOpt = r.date_progr ? String(r.date_progr).slice(0, 10) : '';
-                opt.value = String(r.id_ligneheure) + '/' + String(r.heure);
+                var code = r.code_progr ? String(r.code_progr) : '';
+                var hhNorm = _hhmm(r.heure);
+                opt.value = String(r.id_ligneheure) + '/' + String(r.heure) + (code ? ('/' + code) : '');
                 if (dprogOpt) opt.setAttribute('data-date-progr', dprogOpt);
                 opt.setAttribute('data-heure', String(r.heure || ''));
-                opt.innerHTML = _label(r.heure, r.date_progr, voyageDate, forceDate);
+                if (code) opt.setAttribute('data-code-progr', code);
+                idxByHh[hhNorm] = (idxByHh[hhNorm] || 0) + 1;
+                var lab = _label(r.heure, r.date_progr, voyageDate, forceDate);
+                if ((countByHh[hhNorm] || 0) > 1) {
+                    var n = idxByHh[hhNorm];
+                    lab = lab + ' — ' + (n <= 1 ? '1ER' : (n + 'ème'));
+                }
+                opt.innerHTML = lab;
                 sel.add(opt);
             }
             if (preselectHour && (preselectHour.value || preselectHour.heure || anchorRaw)) {
@@ -498,60 +512,73 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         var voyageDate = document.querySelector('#date_depheurefid')
             ? String(document.querySelector('#date_depheurefid').value || '').slice(0, 10) : '';
-        var groups = {};
-        var order = [];
+        function rowVal(row) {
+            return String(row.code_progr) + '/' + row.intervalle1 + '/' + row.intervalle2 + '/'
+                + row.id_ligneheure + '/' + (row.prix != null ? row.prix : '');
+        }
+        function ordFr(n) {
+            var i = parseInt(n, 10) || 0;
+            if (i <= 1) return '1ER';
+            return i + 'ème';
+        }
+        var filtered = [];
+        var seen = {};
         for (var i = 0; i < list.length; i++) {
             var row = list[i];
             if (!row || row.code_progr == null || row.code_progr === '') continue;
             var lh = String(row.id_ligneheure != null ? row.id_ligneheure : '');
             if (!lh) continue;
-            var dprog = row.date_progr ? String(row.date_progr).slice(0, 10) : '';
-            var hh = String(row.heure || '').trim();
-            var gkey = dprog + '|' + hh;
-            if (!groups[gkey]) {
-                groups[gkey] = {
-                    heure: row.heure || '',
-                    date_progr: dprog,
-                    minutes: __venteFiHeureToMinutes(row.heure),
-                    rows: []
-                };
-                order.push(gkey);
-            }
-            var exists = false;
-            for (var j = 0; j < groups[gkey].rows.length; j++) {
-                if (String(groups[gkey].rows[j].code_progr) === String(row.code_progr)) { exists = true; break; }
-            }
-            if (!exists) groups[gkey].rows.push(row);
+            var code = String(row.code_progr);
+            if (seen[code]) continue;
+            seen[code] = 1;
+            filtered.push(row);
         }
-        order.sort(function (a, b) {
-            var ga = groups[a], gb = groups[b];
-            var da = ga.date_progr || '', db = gb.date_progr || '';
+        filtered.sort(function (a, b) {
+            var da = a.date_progr ? String(a.date_progr).slice(0, 10) : '';
+            var db = b.date_progr ? String(b.date_progr).slice(0, 10) : '';
             if (da < db) return -1;
             if (da > db) return 1;
-            return (ga.minutes != null ? ga.minutes : 0) - (gb.minutes != null ? gb.minutes : 0);
+            return (__venteFiHeureToMinutes(a.heure) || 0) - (__venteFiHeureToMinutes(b.heure) || 0);
+        });
+        var groups = {};
+        filtered.forEach(function (row) {
+            var val = rowVal(row);
+            groups[val] = { heure: row.heure || '', date_progr: row.date_progr ? String(row.date_progr).slice(0, 10) : '', rows: [row] };
         });
         if (!window.__venteFiCheminGroups) window.__venteFiCheminGroups = {};
         window.__venteFiCheminGroups[selectId] = groups;
         var forceDate = false;
-        var seenDates = {};
-        var nDates = 0;
-        for (var sd = 0; sd < order.length; sd++) {
-            var gd = groups[order[sd]].date_progr || '';
+        var seenDates = {}, nDates = 0;
+        for (var sd = 0; sd < filtered.length; sd++) {
+            var gd = filtered[sd].date_progr ? String(filtered[sd].date_progr).slice(0, 10) : '';
             if (!gd || seenDates[gd]) continue;
             seenDates[gd] = 1;
             nDates++;
             if (nDates > 1) { forceDate = true; break; }
         }
-        for (var k = 0; k < order.length; k++) {
-            var key = order[k];
-            var g = groups[key];
+        var countByHh = {};
+        filtered.forEach(function (row) {
+            var hh = (typeof window.__venteNormalizeHhmm === 'function')
+                ? window.__venteNormalizeHhmm(row.heure) : String(row.heure || '').slice(0, 5);
+            if (!hh) return;
+            countByHh[hh] = (countByHh[hh] || 0) + 1;
+        });
+        var idxByHh = {};
+        for (var k = 0; k < filtered.length; k++) {
+            var r = filtered[k];
             var opt = document.createElement('option');
-            opt.value = key;
-            opt.setAttribute('data-group-key', key);
-            opt.setAttribute('data-date-progr', g.date_progr || '');
-            opt.setAttribute('data-heure', g.heure || '');
-            var label = __venteFiHeureOptionLabel(g.heure || key, g.date_progr, voyageDate, forceDate);
-            if (g.rows.length > 1) label = label + ' (' + g.rows.length + ' départs)';
+            var val = rowVal(r);
+            var dprog = r.date_progr ? String(r.date_progr).slice(0, 10) : '';
+            var hhNorm = (typeof window.__venteNormalizeHhmm === 'function')
+                ? window.__venteNormalizeHhmm(r.heure) : String(r.heure || '').slice(0, 5);
+            opt.value = val;
+            opt.setAttribute('data-group-key', val);
+            opt.setAttribute('data-date-progr', dprog);
+            opt.setAttribute('data-heure', r.heure || '');
+            opt.setAttribute('data-code-progr', String(r.code_progr));
+            idxByHh[hhNorm] = (idxByHh[hhNorm] || 0) + 1;
+            var label = __venteFiHeureOptionLabel(r.heure || '', r.date_progr, voyageDate, forceDate);
+            if ((countByHh[hhNorm] || 0) > 1) label = label + ' — ' + ordFr(idxByHh[hhNorm]);
             opt.innerHTML = label;
             sel.add(opt);
         }
@@ -580,42 +607,23 @@ document.addEventListener('DOMContentLoaded', () => {
         var targetLh = (etape && etape._graphe_id_ligneheure != null) ? String(etape._graphe_id_ligneheure) : '';
         var targetHeure = (etape && etape._graphe_heure != null) ? String(etape._graphe_heure) : '';
         var targetDate = (etape && etape._graphe_date_progr) ? String(etape._graphe_date_progr).slice(0, 10) : '';
-        var groups = (window.__venteFiCheminGroups && window.__venteFiCheminGroups[sel.id]) || {};
         for (var idx = 1; idx < sel.options.length; idx++) {
             var opt = sel.options[idx];
-            var g = groups[opt.value] || groups[opt.getAttribute('data-group-key')];
-            if (!g || !g.rows || !g.rows.length) continue;
-            var pickRow = null;
-            for (var r = 0; r < g.rows.length; r++) {
-                var row = g.rows[r];
-                if (targetCode && String(row.code_progr) === targetCode) {
-                    pickRow = row;
-                    break;
-                }
-                if (!pickRow && targetLh && String(row.id_ligneheure) === targetLh) {
-                    if (!targetHeure || String(row.heure) === targetHeure) pickRow = row;
-                }
+            var optCode = opt.getAttribute('data-code-progr') || '';
+            var parts = String(opt.value || '').split('/');
+            if (!optCode && parts.length) optCode = parts[0];
+            var optLh = parts.length >= 4 ? parts[3] : '';
+            var optH = opt.getAttribute('data-heure') || '';
+            var optDate = opt.getAttribute('data-date-progr') || '';
+            var match = false;
+            if (targetCode && optCode && optCode === targetCode) match = true;
+            else if (targetLh && optLh && optLh === targetLh) {
+                if (!targetHeure || String(optH) === targetHeure) match = true;
             }
-            if (pickRow && targetDate && String(pickRow.date_progr || '').slice(0, 10) !== targetDate) {
-                pickRow = null;
-            }
-            if (!pickRow) continue;
+            if (match && targetDate && optDate && optDate !== targetDate) match = false;
+            if (!match) continue;
             sel.selectedIndex = idx;
-            if (g.rows.length === 1) {
-                __venteFiLoadSiegesChemin(cfg, pickRow);
-            } else {
-                __venteFiOnCheminHeurChange(legKey);
-                var selProg = document.getElementById(cfg.progSel);
-                if (selProg && targetCode) {
-                    for (var pi = 1; pi < selProg.options.length; pi++) {
-                        if (g.rows[pi - 1] && String(g.rows[pi - 1].code_progr) === targetCode) {
-                            selProg.selectedIndex = pi;
-                            if (typeof selProg.onchange === 'function') selProg.onchange();
-                            break;
-                        }
-                    }
-                }
-            }
+            __venteFiOnCheminHeurChange(legKey);
             return true;
         }
         if (sel.options.length > 1) {
@@ -733,31 +741,7 @@ document.addEventListener('DOMContentLoaded', () => {
         var g = groups[idLh];
         var list = (g && g.rows) ? g.rows : [];
         if (!list.length) return;
-        if (list.length === 1) {
-            __venteFiLoadSiegesChemin(cfg, list[0]);
-            return;
-        }
-        var box = document.getElementById(cfg.progBox);
-        var sel = document.getElementById(cfg.progSel);
-        if (!sel) {
-            __venteFiLoadSiegesChemin(cfg, list[0]);
-            return;
-        }
-        if (box) box.style.display = 'block';
-        if (sel) sel.style.display = 'block';
-        sel.options.length = 1;
-        for (var i = 0; i < list.length; i++) {
-            var opt = document.createElement('option');
-            opt.value = String(i);
-            opt.innerHTML = __venteFiLabelProg(list[i]);
-            sel.add(opt);
-        }
-        sel.onchange = function () {
-            if (ps) ps.options.length = 1;
-            var idx = parseInt(sel.value, 10);
-            if (isNaN(idx) || !list[idx]) return;
-            __venteFiLoadSiegesChemin(cfg, list[idx]);
-        };
+        __venteFiLoadSiegesChemin(cfg, list[0]);
     }
 
     function __venteFiWireCheminHeur(heurId, legKey) {
@@ -1513,40 +1497,35 @@ document.addEventListener('DOMContentLoaded', () => {
         http.send();
     }
 
-    function __venteFiHandleTransit1ProgList(don, idLh, dptDate) {
+    function __venteFiHandleTransit1ProgList(don, idLh, dptDate, preferCode) {
         var list = __venteFiProgListFromResponse(don);
         __venteFiHideProgSelectAny('selprog_box_tr1fid', 'selprog_tr1fid');
         var ps = document.querySelector('#psiegesitinesfid');
         if (ps) ps.options.length = 1;
         if (!list.length) return false;
-        if (list.length === 1) {
-            __venteFiApplyTransit1Fields(list[0]);
-            __venteFiLoadSiegesTransit1(idLh, dptDate);
-            return true;
+        if (!preferCode) {
+            var hd = document.querySelector('#hdepartitinefid');
+            if (hd && hd.selectedIndex >= 0) {
+                var opt = hd.options[hd.selectedIndex];
+                preferCode = (opt && opt.getAttribute('data-code-progr')) || '';
+                if (!preferCode && opt && opt.value) {
+                    var parts = String(opt.value).split('/');
+                    if (parts.length >= 3) preferCode = parts[2];
+                }
+            }
         }
-        var box = document.getElementById('selprog_box_tr1fid');
-        var sel = document.getElementById('selprog_tr1fid');
-        if (!sel) {
-            __venteFiApplyTransit1Fields(list[0]);
-            __venteFiLoadSiegesTransit1(idLh, dptDate);
-            return true;
+        var pick = list[0];
+        if (preferCode) {
+            var want = String(preferCode);
+            for (var i = 0; i < list.length; i++) {
+                if (list[i] && String(list[i].code_progr || '') === want) {
+                    pick = list[i];
+                    break;
+                }
+            }
         }
-        if (box) box.style.display = 'block';
-        if (sel) sel.style.display = 'block';
-        sel.options.length = 1;
-        for (var i = 0; i < list.length; i++) {
-            var opt = document.createElement('option');
-            opt.value = String(i);
-            opt.innerHTML = __venteFiLabelProg(list[i]);
-            sel.add(opt);
-        }
-        sel.onchange = function () {
-            if (ps) ps.options.length = 1;
-            var idx = parseInt(sel.value, 10);
-            if (isNaN(idx) || !list[idx]) return;
-            __venteFiApplyTransit1Fields(list[idx]);
-            __venteFiLoadSiegesTransit1(idLh, dptDate);
-        };
+        __venteFiApplyTransit1Fields(pick);
+        __venteFiLoadSiegesTransit1(idLh, dptDate);
         return true;
     }
 

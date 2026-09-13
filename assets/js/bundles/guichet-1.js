@@ -1068,7 +1068,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     /**
      * Remplit #hdepartitine.
-     * Règle métier : heure OD déclenchant le transit = départ 1re jambe (exact, sinon prochain ≥).
+     * 1 option = 1 programme de départ (même HH → 1ER / 2ème).
+     * Plus de champ « Départ (même heure) ».
      */
     function __venteFillHeureItineSelect(selectEl, rows, preselectHour) {
         var sel = typeof selectEl === 'string' ? document.querySelector(selectEl) : selectEl;
@@ -1085,86 +1086,121 @@ document.addEventListener('DOMContentLoaded', () => {
         var anchorRaw = __venteHourFromPreselect(anchor);
         var anchorHhmm = __venteNormalizeHhmm(anchorRaw);
         var anchorMin = __venteHeureToMinutes(anchorRaw);
+        var preferCode = '';
+        if (anchor && anchor.codeProgr) preferCode = String(anchor.codeProgr);
+        else if (anchor && anchor.code_progr) preferCode = String(anchor.code_progr);
 
-        function buildOrder(mode) {
-            // mode: 'exact' | 'ge' | 'all'
-            var bySlot = {};
-            var order = [];
+        function ordFr(n) {
+            var i = parseInt(n, 10) || 0;
+            if (i <= 1) return '1ER';
+            return i + 'ème';
+        }
+
+        function rowMatches(mode, row) {
+            if (!row || row.id_ligneheure == null || row.heure == null || row.heure === '') return false;
+            var dprog = row.date_progr ? String(row.date_progr).slice(0, 10) : '';
+            var rowMin = __venteHeureToMinutes(row.heure);
+            var rowHhmm = __venteNormalizeHhmm(row.heure);
+            if (voyageDate && dprog && dprog < voyageDate) return false;
+            if (mode === 'exact') {
+                if (!anchorHhmm || rowHhmm !== anchorHhmm) return false;
+                if (voyageDate && dprog && dprog !== voyageDate) return false;
+                return true;
+            }
+            if (mode === 'ge') {
+                if (anchorMin != null && rowMin != null) {
+                    if (voyageDate && dprog && dprog === voyageDate && rowMin < anchorMin) return false;
+                    if ((!dprog || !voyageDate || dprog === voyageDate) && rowMin < anchorMin) return false;
+                }
+                return true;
+            }
+            return true;
+        }
+
+        function collect(mode) {
+            var out = [];
+            var seen = {};
             for (var i = 0; i < list.length; i++) {
                 var row = list[i];
-                if (!row || row.id_ligneheure == null || row.heure == null || row.heure === '') continue;
-                var dprog = row.date_progr ? String(row.date_progr).slice(0, 10) : '';
-                var rowMin = __venteHeureToMinutes(row.heure);
-                var rowHhmm = __venteNormalizeHhmm(row.heure);
-                if (voyageDate && dprog && dprog < voyageDate) continue;
-                if (mode === 'exact') {
-                    // Match HH:MM ; privilégie le jour voyage mais accepte sans date_progr.
-                    if (!anchorHhmm || rowHhmm !== anchorHhmm) continue;
-                    if (voyageDate && dprog && dprog !== voyageDate) continue;
-                } else if (mode === 'ge') {
-                    if (anchorMin != null && rowMin != null) {
-                        if (voyageDate && dprog && dprog === voyageDate && rowMin < anchorMin) continue;
-                        if ((!dprog || !voyageDate || dprog === voyageDate) && rowMin < anchorMin) continue;
-                    }
-                }
-                var slot = dprog + '|' + String(row.heure).trim();
-                if (!bySlot[slot]) {
-                    bySlot[slot] = row;
-                    order.push(slot);
-                }
+                if (!rowMatches(mode, row)) continue;
+                var code = row.code_progr ? String(row.code_progr) : '';
+                var key = code || (String(row.id_ligneheure) + '|' + String(row.heure) + '|' + String(row.date_progr || ''));
+                if (seen[key]) continue;
+                seen[key] = 1;
+                out.push(row);
             }
-            order.sort(function (a, b) {
-                var ra = bySlot[a], rb = bySlot[b];
-                var da = String(ra.date_progr || '').slice(0, 10);
-                var db = String(rb.date_progr || '').slice(0, 10);
+            out.sort(function (a, b) {
+                var da = String(a.date_progr || '').slice(0, 10);
+                var db = String(b.date_progr || '').slice(0, 10);
                 if (da < db) return -1;
                 if (da > db) return 1;
-                return (__venteHeureToMinutes(ra.heure) || 0) - (__venteHeureToMinutes(rb.heure) || 0);
+                var ma = __venteHeureToMinutes(a.heure) || 0;
+                var mb = __venteHeureToMinutes(b.heure) || 0;
+                if (ma !== mb) return ma - mb;
+                return String(a.code_progr || '').localeCompare(String(b.code_progr || ''));
             });
-            return { bySlot: bySlot, order: order };
+            return out;
         }
 
-        var built = null;
+        var filtered = [];
         var usedMode = 'all';
         if (anchorHhmm) {
-            built = buildOrder('exact');
+            filtered = collect('exact');
             usedMode = 'exact';
-            if (!built.order.length) {
-                built = buildOrder('ge');
+            if (!filtered.length) {
+                filtered = collect('ge');
                 usedMode = 'ge';
-                if (voyageDate && built.order.length) {
-                    var onlyJ = [];
-                    for (var oj = 0; oj < built.order.length; oj++) {
-                        var rj = built.bySlot[built.order[oj]];
+                if (voyageDate && filtered.length) {
+                    var onlyJ = filtered.filter(function (rj) {
                         var dj = String(rj.date_progr || '').slice(0, 10);
-                        if (!dj || dj === voyageDate) onlyJ.push(built.order[oj]);
-                    }
-                    // Ne vider jamais la liste : onlyJ uniquement s'il reste des créneaux.
-                    if (onlyJ.length) built = { bySlot: built.bySlot, order: onlyJ };
+                        return !dj || dj === voyageDate;
+                    });
+                    if (onlyJ.length) filtered = onlyJ;
                 }
             }
         }
-        if (!built || !built.order.length) {
-            built = buildOrder('all');
+        if (!filtered.length) {
+            filtered = collect('all');
             usedMode = 'all';
         }
 
-        var bySlot = built.bySlot;
-        var order = built.order;
-        var slotRows = order.map(function (k) { return bySlot[k]; });
-        var forceDate = __venteListSpansMultipleDays(slotRows);
-        for (var j = 0; j < order.length; j++) {
-            var r = bySlot[order[j]];
+        var forceDate = __venteListSpansMultipleDays(filtered);
+        var countByHh = {};
+        filtered.forEach(function (row) {
+            var hh = __venteNormalizeHhmm(row.heure) || String(row.heure || '');
+            if (!hh) return;
+            countByHh[hh] = (countByHh[hh] || 0) + 1;
+        });
+        var idxByHh = {};
+        for (var j = 0; j < filtered.length; j++) {
+            var r = filtered[j];
             var opt = document.createElement('option');
             var dprogOpt = r.date_progr ? String(r.date_progr).slice(0, 10) : '';
-            opt.value = String(r.id_ligneheure) + '/' + String(r.heure);
+            var code = r.code_progr ? String(r.code_progr) : '';
+            var hhNorm = __venteNormalizeHhmm(r.heure) || String(r.heure || '');
+            opt.value = String(r.id_ligneheure) + '/' + String(r.heure)
+                + (code ? ('/' + code) : '');
             if (dprogOpt) opt.setAttribute('data-date-progr', dprogOpt);
             opt.setAttribute('data-heure', String(r.heure || ''));
-            opt.innerHTML = __venteHeureOptionLabel(r.heure, r.date_progr, voyageDate, forceDate);
+            if (code) opt.setAttribute('data-code-progr', code);
+            idxByHh[hhNorm] = (idxByHh[hhNorm] || 0) + 1;
+            var parts = [__venteHeureOptionLabel(r.heure, r.date_progr, voyageDate, forceDate)];
+            if ((countByHh[hhNorm] || 0) > 1) {
+                parts.push(ordFr(idxByHh[hhNorm]));
+            }
+            opt.innerHTML = parts.join(' — ');
             sel.add(opt);
         }
 
         var hourForSelect = anchor || { value: '', heure: anchorRaw, hasProg: false };
+        if (preferCode) {
+            hourForSelect = {
+                value: hourForSelect.value || '',
+                heure: hourForSelect.heure || anchorRaw,
+                codeProgr: preferCode,
+                hasProg: !!hourForSelect.hasProg
+            };
+        }
         try {
             __venteSelectHourInSelect(sel, hourForSelect, voyageDate);
         } catch (eSel) {}
@@ -1173,12 +1209,19 @@ document.addEventListener('DOMContentLoaded', () => {
             sel.selectedIndex = 1;
         }
 
-        // Heure OD trouvée exactement → verrouiller la jambe 1 (pas de changement accidentel vers 14H15).
+        // Verrouiller uniquement s’il n’y a qu’un seul programme à l’heure ancre.
         if (usedMode === 'exact' && sel.selectedIndex > 0 && anchorHhmm) {
-            var selH = __venteNormalizeHhmm(sel.options[sel.selectedIndex].getAttribute('data-heure') || '');
-            if (selH === anchorHhmm) {
-                sel.disabled = true;
-                sel.setAttribute('disabled', 'disabled');
+            var nAtHh = 0;
+            for (var oi = 1; oi < sel.options.length; oi++) {
+                var oh = __venteNormalizeHhmm(sel.options[oi].getAttribute('data-heure') || '');
+                if (oh === anchorHhmm) nAtHh++;
+            }
+            if (nAtHh === 1) {
+                var selH = __venteNormalizeHhmm(sel.options[sel.selectedIndex].getAttribute('data-heure') || '');
+                if (selH === anchorHhmm) {
+                    sel.disabled = true;
+                    sel.setAttribute('disabled', 'disabled');
+                }
             }
         }
 
@@ -1193,7 +1236,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 errEl.innerHTML = 'Pas de départ jambe 1 à ' + anchorHhmm + ' — prochain créneau ' + selHh + ' sélectionné.';
             }
         } else if (errEl && usedMode === 'exact' && sel.selectedIndex > 0) {
-            // Succès : effacer un éventuel message d'échec précédent.
             errEl.innerHTML = '';
         }
 
@@ -1202,6 +1244,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         return sel.selectedIndex > 0;
     }
+
     window.__venteFillHeureItineSelect = __venteFillHeureItineSelect;
     window.__venteNormalizeHhmm = __venteNormalizeHhmm;
     window.__venteSetTransitAnchorFromHour = __venteSetTransitAnchorFromHour;
@@ -1318,67 +1361,59 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         var voyageDate = document.querySelector('#date_depheure')
             ? String(document.querySelector('#date_depheure').value || '').slice(0, 10) : '';
-        var groups = {};
-        var order = [];
+        var filtered = [];
+        var seen = {};
         for (var i = 0; i < list.length; i++) {
             var row = list[i];
             if (!row || row.code_progr == null || row.code_progr === '') continue;
             var lh = String(row.id_ligneheure != null ? row.id_ligneheure : '');
             if (!lh) continue;
-            var dprog = row.date_progr ? String(row.date_progr).slice(0, 10) : '';
-            var hh = String(row.heure || '').trim();
-            // Clé date|heure : 1 option visible par créneau (plusieurs id_lh / code_progr → sélecteur prog).
-            var gkey = dprog + '|' + hh;
-            if (!groups[gkey]) {
-                groups[gkey] = {
-                    heure: row.heure || '',
-                    date_progr: dprog,
-                    minutes: __venteHeureToMinutes(row.heure),
-                    rows: []
-                };
-                order.push(gkey);
-            }
-            var exists = false;
-            for (var j = 0; j < groups[gkey].rows.length; j++) {
-                if (String(groups[gkey].rows[j].code_progr) === String(row.code_progr)) {
-                    exists = true;
-                    break;
-                }
-            }
-            if (!exists) groups[gkey].rows.push(row);
+            var code = String(row.code_progr);
+            if (seen[code]) continue;
+            seen[code] = 1;
+            filtered.push(row);
         }
-        order.sort(function (a, b) {
-            var ga = groups[a], gb = groups[b];
-            var da = ga.date_progr || '', db = gb.date_progr || '';
+        filtered.sort(function (a, b) {
+            var da = a.date_progr ? String(a.date_progr).slice(0, 10) : '';
+            var db = b.date_progr ? String(b.date_progr).slice(0, 10) : '';
             if (da < db) return -1;
             if (da > db) return 1;
-            var ma = ga.minutes != null ? ga.minutes : 0;
-            var mb = gb.minutes != null ? gb.minutes : 0;
-            return ma - mb;
+            var ma = __venteHeureToMinutes(a.heure) || 0;
+            var mb = __venteHeureToMinutes(b.heure) || 0;
+            if (ma !== mb) return ma - mb;
+            return String(a.code_progr || '').localeCompare(String(b.code_progr || ''));
+        });
+        // Groupes legacy (1 ligne / code) pour préselection.
+        var groups = {};
+        filtered.forEach(function (row) {
+            var val = __venteCheminRowValue(row);
+            groups[val] = { heure: row.heure || '', date_progr: row.date_progr ? String(row.date_progr).slice(0, 10) : '', rows: [row] };
         });
         if (!window.__venteCheminGroups) window.__venteCheminGroups = {};
         window.__venteCheminGroups[sel.id] = groups;
-        var forceDate = false;
-        var seenDates = {};
-        var nDates = 0;
-        for (var sd = 0; sd < order.length; sd++) {
-            var gd = groups[order[sd]].date_progr || '';
-            if (!gd || seenDates[gd]) continue;
-            seenDates[gd] = 1;
-            nDates++;
-            if (nDates > 1) { forceDate = true; break; }
-        }
-        for (var k = 0; k < order.length; k++) {
-            var key = order[k];
-            var g = groups[key];
+        var forceDate = __venteListSpansMultipleDays(filtered);
+        var countByHh = {};
+        filtered.forEach(function (row) {
+            var hh = __venteNormalizeHhmm(row.heure) || String(row.heure || '');
+            if (!hh) return;
+            countByHh[hh] = (countByHh[hh] || 0) + 1;
+        });
+        var idxByHh = {};
+        for (var k = 0; k < filtered.length; k++) {
+            var r = filtered[k];
             var opt = document.createElement('option');
-            opt.value = key;
-            opt.setAttribute('data-group-key', key);
-            opt.setAttribute('data-date-progr', g.date_progr || '');
-            opt.setAttribute('data-heure', g.heure || '');
-            var label = __venteHeureOptionLabel(g.heure || key, g.date_progr, voyageDate, forceDate);
-            if (g.rows.length > 1) {
-                label = label + ' (' + g.rows.length + ' départs)';
+            var val = __venteCheminRowValue(r);
+            var dprog = r.date_progr ? String(r.date_progr).slice(0, 10) : '';
+            var hhNorm = __venteNormalizeHhmm(r.heure) || String(r.heure || '');
+            opt.value = val;
+            opt.setAttribute('data-group-key', val);
+            opt.setAttribute('data-date-progr', dprog);
+            opt.setAttribute('data-heure', r.heure || '');
+            opt.setAttribute('data-code-progr', String(r.code_progr));
+            idxByHh[hhNorm] = (idxByHh[hhNorm] || 0) + 1;
+            var label = __venteHeureOptionLabel(r.heure || '', r.date_progr, voyageDate, forceDate);
+            if ((countByHh[hhNorm] || 0) > 1) {
+                label = label + ' — ' + __venteOrdinalFr(idxByHh[hhNorm]);
             }
             opt.innerHTML = label;
             sel.add(opt);
@@ -1410,45 +1445,23 @@ document.addEventListener('DOMContentLoaded', () => {
         var targetLh = (etape && etape._graphe_id_ligneheure != null) ? String(etape._graphe_id_ligneheure) : '';
         var targetHeure = (etape && etape._graphe_heure != null) ? String(etape._graphe_heure) : '';
         var targetDate = (etape && etape._graphe_date_progr) ? String(etape._graphe_date_progr).slice(0, 10) : '';
-        var groups = (window.__venteCheminGroups && window.__venteCheminGroups[sel.id]) || {};
         for (var idx = 1; idx < sel.options.length; idx++) {
             var opt = sel.options[idx];
-            var g = groups[opt.value] || groups[opt.getAttribute('data-group-key')];
-            if (!g || !g.rows || !g.rows.length) continue;
-            var pickRow = null;
-            for (var r = 0; r < g.rows.length; r++) {
-                var row = g.rows[r];
-                if (targetCode && String(row.code_progr) === targetCode) {
-                    pickRow = row;
-                    break;
-                }
-                if (!pickRow && targetLh && String(row.id_ligneheure) === targetLh) {
-                    if (!targetHeure || String(row.heure) === targetHeure) {
-                        pickRow = row;
-                    }
-                }
+            var optCode = opt.getAttribute('data-code-progr') || '';
+            var parts = String(opt.value || '').split('/');
+            if (!optCode && parts.length) optCode = parts[0];
+            var optLh = parts.length >= 4 ? parts[3] : '';
+            var optH = opt.getAttribute('data-heure') || '';
+            var optDate = opt.getAttribute('data-date-progr') || '';
+            var match = false;
+            if (targetCode && optCode && optCode === targetCode) match = true;
+            else if (targetLh && optLh && optLh === targetLh) {
+                if (!targetHeure || String(optH) === targetHeure) match = true;
             }
-            if (pickRow && targetDate && String(pickRow.date_progr || '').slice(0, 10) !== targetDate) {
-                pickRow = null;
-            }
-            if (!pickRow) continue;
+            if (match && targetDate && optDate && optDate !== targetDate) match = false;
+            if (!match) continue;
             sel.selectedIndex = idx;
-            if (g.rows.length === 1) {
-                __venteApplyCheminRow(cfg, pickRow);
-                __venteLoadSiegesChemin(cfg, pickRow);
-            } else {
-                __venteOnCheminHeurChange(legKey);
-                var selProg = document.getElementById(cfg.progSel);
-                if (selProg && targetCode) {
-                    for (var pi = 1; pi < selProg.options.length; pi++) {
-                        if (g.rows[pi - 1] && String(g.rows[pi - 1].code_progr) === targetCode) {
-                            selProg.selectedIndex = pi;
-                            if (typeof selProg.onchange === 'function') selProg.onchange();
-                            break;
-                        }
-                    }
-                }
-            }
+            __venteOnCheminHeurChange(legKey);
             return true;
         }
         if (sel.options.length > 1) {
@@ -1874,10 +1887,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function __venteShowProgSelectAny(boxId, selId) {
-        var box = document.getElementById(boxId);
-        var sel = document.getElementById(selId);
-        if (box) box.style.display = 'block';
-        if (sel) sel.style.display = 'block';
+        // Champ « Départ (même heure) » retiré : ne plus jamais l’afficher.
+        __venteHideProgSelectAny(boxId, selId);
     }
 
     function __venteHideAllTransitProgSelects() {
@@ -2016,73 +2027,31 @@ document.addEventListener('DOMContentLoaded', () => {
         if (ps) ps.options.length = 1;
         var idLh = heur.value;
         if (!idLh) return;
-        // si déjà format historique code/i1/i2/lh/prix (après choix)
+        // Valeur = code/i1/i2/lh/prix (1 option Heure = 1 programme).
         if (String(idLh).indexOf('/') !== -1) {
             var parts = String(idLh).split('/');
-            __venteLoadSiegesChemin(cfg, {
+            var row = {
                 code_progr: parts[0],
                 intervalle1: parts[1],
                 intervalle2: parts[2],
                 id_ligneheure: parts[3],
                 prix: parts[4]
-            });
+            };
+            var opt = heur.options[heur.selectedIndex];
+            if (opt) {
+                if (opt.getAttribute('data-heure')) row.heure = opt.getAttribute('data-heure');
+                if (opt.getAttribute('data-date-progr')) row.date_progr = opt.getAttribute('data-date-progr');
+            }
+            __venteApplyCheminRow(cfg, row);
+            __venteLoadSiegesChemin(cfg, row);
             return;
         }
         var groups = (window.__venteCheminGroups && window.__venteCheminGroups[cfg.heur]) || {};
         var g = groups[idLh];
         var list = (g && g.rows) ? g.rows : [];
         if (list.length === 0) return;
-        if (list.length === 1) {
-            __venteApplyCheminRow(cfg, list[0]);
-            __venteLoadSiegesChemin(cfg, list[0]);
-            return;
-        }
-        var preferLigne = '';
-        if (legKey === 'tr2') {
-            var s2 = document.getElementById('idchemins');
-            preferLigne = s2 && s2.value ? String(s2.value) : '';
-        } else if (legKey === 'tr3') {
-            var s3 = document.getElementById('idchemins1');
-            preferLigne = s3 && s3.value ? String(s3.value) : '';
-        } else if (legKey === 'tr4') {
-            var s4 = document.getElementById('idchemins2');
-            preferLigne = s4 && s4.value ? String(s4.value) : '';
-        }
-        if (preferLigne) {
-            for (var pi = 0; pi < list.length; pi++) {
-                var idl = String(list[pi].ident_ligne || list[pi].ligne_id || '');
-                if (idl === preferLigne) {
-                    list = [list[pi]].concat(list.filter(function (_, ix) { return ix !== pi; }));
-                    break;
-                }
-            }
-        }
-        var box = document.getElementById(cfg.progBox);
-        var sel = document.getElementById(cfg.progSel);
-        if (!sel) {
-            __venteApplyCheminRow(cfg, list[0]);
-            __venteLoadSiegesChemin(cfg, list[0]);
-            return;
-        }
-        if (box) {
-            box.style.display = 'block';
-        }
-        if (sel) sel.style.display = 'block';
-        // afficher le box même si les champs transit sont en display none sur le label heure
-        sel.options.length = 1;
-        for (var i = 0; i < list.length; i++) {
-            var opt = document.createElement('option');
-            opt.value = String(i);
-            opt.innerHTML = __venteLabelProg(list[i]);
-            sel.add(opt);
-        }
-        sel.onchange = function () {
-            if (ps) ps.options.length = 1;
-            var idx = parseInt(sel.value, 10);
-            if (isNaN(idx) || !list[idx]) return;
-            __venteApplyCheminRow(cfg, list[idx]);
-            __venteLoadSiegesChemin(cfg, list[idx]);
-        };
+        __venteApplyCheminRow(cfg, list[0]);
+        __venteLoadSiegesChemin(cfg, list[0]);
     }
 
     function __venteWireCheminHeur(heurId, legKey) {
@@ -2172,41 +2141,36 @@ document.addEventListener('DOMContentLoaded', () => {
         httpRequetteit.send();
     }
 
-    /** Corr. 1 : multi-départs même heure. */
-    function __venteHandleTransit1ProgList(don, idLigneheure, dptDate) {
+    /** Corr. 1 : choisit le programme via Heure (code_progr) — jamais le champ « Départ (même heure) ». */
+    function __venteHandleTransit1ProgList(don, idLigneheure, dptDate, preferCode) {
         var list = __venteProgListFromResponse(don);
         __venteHideProgSelectAny('selprog_box_tr1', 'selprog_tr1');
         var ps = document.querySelector('#psiegesitines');
         if (ps) ps.options.length = 1;
         if (list.length === 0) return false;
-        if (list.length === 1) {
-            __venteApplyTransit1Fields(list[0]);
-            __venteLoadSiegesTransit1(idLigneheure, dptDate);
-            return true;
+        if (!preferCode) {
+            var hd = document.querySelector('#hdepartitine');
+            if (hd && hd.selectedIndex >= 0) {
+                var opt = hd.options[hd.selectedIndex];
+                preferCode = (opt && opt.getAttribute('data-code-progr')) || '';
+                if (!preferCode && opt && opt.value) {
+                    var parts = String(opt.value).split('/');
+                    if (parts.length >= 3) preferCode = parts[2];
+                }
+            }
         }
-        var box = document.getElementById('selprog_box_tr1');
-        var sel = document.getElementById('selprog_tr1');
-        if (!sel) {
-            __venteApplyTransit1Fields(list[0]);
-            __venteLoadSiegesTransit1(idLigneheure, dptDate);
-            return true;
+        var pick = list[0];
+        if (preferCode) {
+            var want = String(preferCode);
+            for (var i = 0; i < list.length; i++) {
+                if (list[i] && String(list[i].code_progr || '') === want) {
+                    pick = list[i];
+                    break;
+                }
+            }
         }
-        if (box) box.style.display = 'block';
-        if (sel) sel.style.display = 'block';
-        sel.options.length = 1;
-        for (var i = 0; i < list.length; i++) {
-            var opt = document.createElement('option');
-            opt.value = String(i);
-            opt.innerHTML = __venteLabelProg(list[i]);
-            sel.add(opt);
-        }
-        sel.onchange = function () {
-            if (ps) ps.options.length = 1;
-            var idx = parseInt(sel.value, 10);
-            if (isNaN(idx) || !list[idx]) return;
-            __venteApplyTransit1Fields(list[idx]);
-            __venteLoadSiegesTransit1(idLigneheure, dptDate);
-        };
+        __venteApplyTransit1Fields(pick);
+        __venteLoadSiegesTransit1(idLigneheure, dptDate);
         return true;
     }
 
@@ -2720,6 +2684,16 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!opt) continue;
             if (i === 0 && (!opt.value || opt.value === '')) continue;
             if (hour.value && String(opt.value) === String(hour.value)) {
+                exactIdx = i;
+                break;
+            }
+            var optCode = opt.getAttribute('data-code-progr') || '';
+            var hourCode = hour.codeProgr || hour.code_progr || '';
+            if (!hourCode) {
+                var vp = String(hour.value || '').split('/');
+                if (vp.length >= 3) hourCode = vp[2];
+            }
+            if (hourCode && optCode && String(optCode) === String(hourCode)) {
                 exactIdx = i;
                 break;
             }
@@ -6686,32 +6660,46 @@ document.addEventListener('DOMContentLoaded', () => {
             var dateEl = document.querySelector('#date_depheurefid') || document.querySelector('#date_depheure');
             var voyageDate = dateEl ? String(dateEl.value || '').slice(0, 10) : '';
             var anchorRaw = _fromPre(preselectHour);
-            var bySlot = {}, order = [];
+            var filtered = [], seen = {};
             for (var i = 0; i < list.length; i++) {
                 var row = list[i];
                 if (!row || row.id_ligneheure == null || row.heure == null || row.heure === '') continue;
-                var dprog = row.date_progr ? String(row.date_progr).slice(0, 10) : '';
-                var slot = dprog + '|' + String(row.heure).trim();
-                if (!bySlot[slot]) { bySlot[slot] = row; order.push(slot); }
+                var code = row.code_progr ? String(row.code_progr) : '';
+                var key = code || (String(row.id_ligneheure) + '|' + String(row.heure));
+                if (seen[key]) continue;
+                seen[key] = 1;
+                filtered.push(row);
             }
-            order.sort(function (a, b) {
-                var ra = bySlot[a], rb = bySlot[b];
-                var da = String(ra.date_progr || '').slice(0, 10);
-                var db = String(rb.date_progr || '').slice(0, 10);
+            filtered.sort(function (a, b) {
+                var da = String(a.date_progr || '').slice(0, 10);
+                var db = String(b.date_progr || '').slice(0, 10);
                 if (da < db) return -1;
                 if (da > db) return 1;
-                return (_min(ra.heure) || 0) - (_min(rb.heure) || 0);
+                return (_min(a.heure) || 0) - (_min(b.heure) || 0);
             });
-            var slotRows = order.map(function (k) { return bySlot[k]; });
-            var forceDate = _multiDays(slotRows);
-            for (var j = 0; j < order.length; j++) {
-                var r = bySlot[order[j]];
+            var forceDate = _multiDays(filtered);
+            var countByHh = {}, idxByHh = {};
+            filtered.forEach(function (row) {
+                var hh = _hhmm(row.heure);
+                if (hh) countByHh[hh] = (countByHh[hh] || 0) + 1;
+            });
+            for (var j = 0; j < filtered.length; j++) {
+                var r = filtered[j];
                 var opt = document.createElement('option');
                 var dprogOpt = r.date_progr ? String(r.date_progr).slice(0, 10) : '';
-                opt.value = String(r.id_ligneheure) + '/' + String(r.heure);
+                var code = r.code_progr ? String(r.code_progr) : '';
+                var hhNorm = _hhmm(r.heure);
+                opt.value = String(r.id_ligneheure) + '/' + String(r.heure) + (code ? ('/' + code) : '');
                 if (dprogOpt) opt.setAttribute('data-date-progr', dprogOpt);
                 opt.setAttribute('data-heure', String(r.heure || ''));
-                opt.innerHTML = _label(r.heure, r.date_progr, voyageDate, forceDate);
+                if (code) opt.setAttribute('data-code-progr', code);
+                idxByHh[hhNorm] = (idxByHh[hhNorm] || 0) + 1;
+                var lab = _label(r.heure, r.date_progr, voyageDate, forceDate);
+                if ((countByHh[hhNorm] || 0) > 1) {
+                    var n = idxByHh[hhNorm];
+                    lab = lab + ' — ' + (n <= 1 ? '1ER' : (n + 'ème'));
+                }
+                opt.innerHTML = lab;
                 sel.add(opt);
             }
             if (preselectHour && (preselectHour.value || preselectHour.heure || anchorRaw)) {
@@ -7047,60 +7035,73 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         var voyageDate = document.querySelector('#date_depheurefid')
             ? String(document.querySelector('#date_depheurefid').value || '').slice(0, 10) : '';
-        var groups = {};
-        var order = [];
+        function rowVal(row) {
+            return String(row.code_progr) + '/' + row.intervalle1 + '/' + row.intervalle2 + '/'
+                + row.id_ligneheure + '/' + (row.prix != null ? row.prix : '');
+        }
+        function ordFr(n) {
+            var i = parseInt(n, 10) || 0;
+            if (i <= 1) return '1ER';
+            return i + 'ème';
+        }
+        var filtered = [];
+        var seen = {};
         for (var i = 0; i < list.length; i++) {
             var row = list[i];
             if (!row || row.code_progr == null || row.code_progr === '') continue;
             var lh = String(row.id_ligneheure != null ? row.id_ligneheure : '');
             if (!lh) continue;
-            var dprog = row.date_progr ? String(row.date_progr).slice(0, 10) : '';
-            var hh = String(row.heure || '').trim();
-            var gkey = dprog + '|' + hh;
-            if (!groups[gkey]) {
-                groups[gkey] = {
-                    heure: row.heure || '',
-                    date_progr: dprog,
-                    minutes: __venteFiHeureToMinutes(row.heure),
-                    rows: []
-                };
-                order.push(gkey);
-            }
-            var exists = false;
-            for (var j = 0; j < groups[gkey].rows.length; j++) {
-                if (String(groups[gkey].rows[j].code_progr) === String(row.code_progr)) { exists = true; break; }
-            }
-            if (!exists) groups[gkey].rows.push(row);
+            var code = String(row.code_progr);
+            if (seen[code]) continue;
+            seen[code] = 1;
+            filtered.push(row);
         }
-        order.sort(function (a, b) {
-            var ga = groups[a], gb = groups[b];
-            var da = ga.date_progr || '', db = gb.date_progr || '';
+        filtered.sort(function (a, b) {
+            var da = a.date_progr ? String(a.date_progr).slice(0, 10) : '';
+            var db = b.date_progr ? String(b.date_progr).slice(0, 10) : '';
             if (da < db) return -1;
             if (da > db) return 1;
-            return (ga.minutes != null ? ga.minutes : 0) - (gb.minutes != null ? gb.minutes : 0);
+            return (__venteFiHeureToMinutes(a.heure) || 0) - (__venteFiHeureToMinutes(b.heure) || 0);
+        });
+        var groups = {};
+        filtered.forEach(function (row) {
+            var val = rowVal(row);
+            groups[val] = { heure: row.heure || '', date_progr: row.date_progr ? String(row.date_progr).slice(0, 10) : '', rows: [row] };
         });
         if (!window.__venteFiCheminGroups) window.__venteFiCheminGroups = {};
         window.__venteFiCheminGroups[selectId] = groups;
         var forceDate = false;
-        var seenDates = {};
-        var nDates = 0;
-        for (var sd = 0; sd < order.length; sd++) {
-            var gd = groups[order[sd]].date_progr || '';
+        var seenDates = {}, nDates = 0;
+        for (var sd = 0; sd < filtered.length; sd++) {
+            var gd = filtered[sd].date_progr ? String(filtered[sd].date_progr).slice(0, 10) : '';
             if (!gd || seenDates[gd]) continue;
             seenDates[gd] = 1;
             nDates++;
             if (nDates > 1) { forceDate = true; break; }
         }
-        for (var k = 0; k < order.length; k++) {
-            var key = order[k];
-            var g = groups[key];
+        var countByHh = {};
+        filtered.forEach(function (row) {
+            var hh = (typeof window.__venteNormalizeHhmm === 'function')
+                ? window.__venteNormalizeHhmm(row.heure) : String(row.heure || '').slice(0, 5);
+            if (!hh) return;
+            countByHh[hh] = (countByHh[hh] || 0) + 1;
+        });
+        var idxByHh = {};
+        for (var k = 0; k < filtered.length; k++) {
+            var r = filtered[k];
             var opt = document.createElement('option');
-            opt.value = key;
-            opt.setAttribute('data-group-key', key);
-            opt.setAttribute('data-date-progr', g.date_progr || '');
-            opt.setAttribute('data-heure', g.heure || '');
-            var label = __venteFiHeureOptionLabel(g.heure || key, g.date_progr, voyageDate, forceDate);
-            if (g.rows.length > 1) label = label + ' (' + g.rows.length + ' départs)';
+            var val = rowVal(r);
+            var dprog = r.date_progr ? String(r.date_progr).slice(0, 10) : '';
+            var hhNorm = (typeof window.__venteNormalizeHhmm === 'function')
+                ? window.__venteNormalizeHhmm(r.heure) : String(r.heure || '').slice(0, 5);
+            opt.value = val;
+            opt.setAttribute('data-group-key', val);
+            opt.setAttribute('data-date-progr', dprog);
+            opt.setAttribute('data-heure', r.heure || '');
+            opt.setAttribute('data-code-progr', String(r.code_progr));
+            idxByHh[hhNorm] = (idxByHh[hhNorm] || 0) + 1;
+            var label = __venteFiHeureOptionLabel(r.heure || '', r.date_progr, voyageDate, forceDate);
+            if ((countByHh[hhNorm] || 0) > 1) label = label + ' — ' + ordFr(idxByHh[hhNorm]);
             opt.innerHTML = label;
             sel.add(opt);
         }
@@ -7129,42 +7130,23 @@ document.addEventListener('DOMContentLoaded', () => {
         var targetLh = (etape && etape._graphe_id_ligneheure != null) ? String(etape._graphe_id_ligneheure) : '';
         var targetHeure = (etape && etape._graphe_heure != null) ? String(etape._graphe_heure) : '';
         var targetDate = (etape && etape._graphe_date_progr) ? String(etape._graphe_date_progr).slice(0, 10) : '';
-        var groups = (window.__venteFiCheminGroups && window.__venteFiCheminGroups[sel.id]) || {};
         for (var idx = 1; idx < sel.options.length; idx++) {
             var opt = sel.options[idx];
-            var g = groups[opt.value] || groups[opt.getAttribute('data-group-key')];
-            if (!g || !g.rows || !g.rows.length) continue;
-            var pickRow = null;
-            for (var r = 0; r < g.rows.length; r++) {
-                var row = g.rows[r];
-                if (targetCode && String(row.code_progr) === targetCode) {
-                    pickRow = row;
-                    break;
-                }
-                if (!pickRow && targetLh && String(row.id_ligneheure) === targetLh) {
-                    if (!targetHeure || String(row.heure) === targetHeure) pickRow = row;
-                }
+            var optCode = opt.getAttribute('data-code-progr') || '';
+            var parts = String(opt.value || '').split('/');
+            if (!optCode && parts.length) optCode = parts[0];
+            var optLh = parts.length >= 4 ? parts[3] : '';
+            var optH = opt.getAttribute('data-heure') || '';
+            var optDate = opt.getAttribute('data-date-progr') || '';
+            var match = false;
+            if (targetCode && optCode && optCode === targetCode) match = true;
+            else if (targetLh && optLh && optLh === targetLh) {
+                if (!targetHeure || String(optH) === targetHeure) match = true;
             }
-            if (pickRow && targetDate && String(pickRow.date_progr || '').slice(0, 10) !== targetDate) {
-                pickRow = null;
-            }
-            if (!pickRow) continue;
+            if (match && targetDate && optDate && optDate !== targetDate) match = false;
+            if (!match) continue;
             sel.selectedIndex = idx;
-            if (g.rows.length === 1) {
-                __venteFiLoadSiegesChemin(cfg, pickRow);
-            } else {
-                __venteFiOnCheminHeurChange(legKey);
-                var selProg = document.getElementById(cfg.progSel);
-                if (selProg && targetCode) {
-                    for (var pi = 1; pi < selProg.options.length; pi++) {
-                        if (g.rows[pi - 1] && String(g.rows[pi - 1].code_progr) === targetCode) {
-                            selProg.selectedIndex = pi;
-                            if (typeof selProg.onchange === 'function') selProg.onchange();
-                            break;
-                        }
-                    }
-                }
-            }
+            __venteFiOnCheminHeurChange(legKey);
             return true;
         }
         if (sel.options.length > 1) {
@@ -7282,31 +7264,7 @@ document.addEventListener('DOMContentLoaded', () => {
         var g = groups[idLh];
         var list = (g && g.rows) ? g.rows : [];
         if (!list.length) return;
-        if (list.length === 1) {
-            __venteFiLoadSiegesChemin(cfg, list[0]);
-            return;
-        }
-        var box = document.getElementById(cfg.progBox);
-        var sel = document.getElementById(cfg.progSel);
-        if (!sel) {
-            __venteFiLoadSiegesChemin(cfg, list[0]);
-            return;
-        }
-        if (box) box.style.display = 'block';
-        if (sel) sel.style.display = 'block';
-        sel.options.length = 1;
-        for (var i = 0; i < list.length; i++) {
-            var opt = document.createElement('option');
-            opt.value = String(i);
-            opt.innerHTML = __venteFiLabelProg(list[i]);
-            sel.add(opt);
-        }
-        sel.onchange = function () {
-            if (ps) ps.options.length = 1;
-            var idx = parseInt(sel.value, 10);
-            if (isNaN(idx) || !list[idx]) return;
-            __venteFiLoadSiegesChemin(cfg, list[idx]);
-        };
+        __venteFiLoadSiegesChemin(cfg, list[0]);
     }
 
     function __venteFiWireCheminHeur(heurId, legKey) {
@@ -8062,40 +8020,35 @@ document.addEventListener('DOMContentLoaded', () => {
         http.send();
     }
 
-    function __venteFiHandleTransit1ProgList(don, idLh, dptDate) {
+    function __venteFiHandleTransit1ProgList(don, idLh, dptDate, preferCode) {
         var list = __venteFiProgListFromResponse(don);
         __venteFiHideProgSelectAny('selprog_box_tr1fid', 'selprog_tr1fid');
         var ps = document.querySelector('#psiegesitinesfid');
         if (ps) ps.options.length = 1;
         if (!list.length) return false;
-        if (list.length === 1) {
-            __venteFiApplyTransit1Fields(list[0]);
-            __venteFiLoadSiegesTransit1(idLh, dptDate);
-            return true;
+        if (!preferCode) {
+            var hd = document.querySelector('#hdepartitinefid');
+            if (hd && hd.selectedIndex >= 0) {
+                var opt = hd.options[hd.selectedIndex];
+                preferCode = (opt && opt.getAttribute('data-code-progr')) || '';
+                if (!preferCode && opt && opt.value) {
+                    var parts = String(opt.value).split('/');
+                    if (parts.length >= 3) preferCode = parts[2];
+                }
+            }
         }
-        var box = document.getElementById('selprog_box_tr1fid');
-        var sel = document.getElementById('selprog_tr1fid');
-        if (!sel) {
-            __venteFiApplyTransit1Fields(list[0]);
-            __venteFiLoadSiegesTransit1(idLh, dptDate);
-            return true;
+        var pick = list[0];
+        if (preferCode) {
+            var want = String(preferCode);
+            for (var i = 0; i < list.length; i++) {
+                if (list[i] && String(list[i].code_progr || '') === want) {
+                    pick = list[i];
+                    break;
+                }
+            }
         }
-        if (box) box.style.display = 'block';
-        if (sel) sel.style.display = 'block';
-        sel.options.length = 1;
-        for (var i = 0; i < list.length; i++) {
-            var opt = document.createElement('option');
-            opt.value = String(i);
-            opt.innerHTML = __venteFiLabelProg(list[i]);
-            sel.add(opt);
-        }
-        sel.onchange = function () {
-            if (ps) ps.options.length = 1;
-            var idx = parseInt(sel.value, 10);
-            if (isNaN(idx) || !list[idx]) return;
-            __venteFiApplyTransit1Fields(list[idx]);
-            __venteFiLoadSiegesTransit1(idLh, dptDate);
-        };
+        __venteFiApplyTransit1Fields(pick);
+        __venteFiLoadSiegesTransit1(idLh, dptDate);
         return true;
     }
 
