@@ -327,14 +327,35 @@
         /**
          * Oriente le code_pro direct (heuredeparttransit) vers idrpligntransit.
          * Met à jour $code et $idLh si besoin. @return bool
+         *
+         * Changement de compagnie (CMT→VIP…) : on conserve le programme choisi —
+         * pas de remap hub vers la ligne d’origine (sinon cie figée à l’achat).
          */
         protected function _reprog_orient_direct_code(&$code, &$idLh)
         {
             $code = trim((string) $code);
             $idLh = trim((string) $idLh);
+
+            $cieOrig = trim((string) $this->input->post('trid_compaga'));
+            $cieCible = trim((string) $this->input->post('compgcftranst'));
+            if ($cieOrig !== '' && $cieCible !== '' && (string) $cieOrig !== (string) $cieCible) {
+                // Faire confiance au code_pro sélectionné ; resync idLh depuis ce code.
+                $natLh = $this->_reprog_id_lh_of_code($code);
+                if ($natLh !== '') {
+                    $idLh = $natLh;
+                }
+                return true;
+            }
+
             $ligne = trim((string) $this->input->post('idrpligntransit'));
             if ($ligne === '') {
                 $ligne = $this->_reprog_ligne_from_id_lh($idLh);
+            }
+            // Si la ligne POST ne correspond pas au programme choisi, prioriser la ligne native
+            // du code (évite remap VIP→CMT quand idrpligntransit est stale).
+            $ligneNat = $this->_reprog_ligne_of_code($code);
+            if ($ligneNat !== '' && $ligne !== '' && $ligneNat !== $ligne) {
+                $ligne = $ligneNat;
             }
             if ($ligne === '' || $code === '') {
                 return true;
@@ -359,6 +380,41 @@
         }
 
         /**
+         * id_ligneheure natif d'un programme.
+         */
+        protected function _reprog_id_lh_of_code($code_progr)
+        {
+            $code = trim((string) $code_progr);
+            if ($code === '') {
+                return '';
+            }
+            $row = $this->db->query(
+                "SELECT pr.id_heur FROM programme pr WHERE pr.code_progr = ? LIMIT 1",
+                array($code)
+            )->row();
+            return ($row && !empty($row->id_heur)) ? trim((string) $row->id_heur) : '';
+        }
+
+        /**
+         * ligne_id native d'un programme.
+         */
+        protected function _reprog_ligne_of_code($code_progr)
+        {
+            $code = trim((string) $code_progr);
+            if ($code === '') {
+                return '';
+            }
+            $row = $this->db->query(
+                "SELECT lh.ligne_id FROM programme pr
+                 JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
+                 WHERE pr.code_progr = ?
+                 LIMIT 1",
+                array($code)
+            )->row();
+            return ($row && !empty($row->ligne_id)) ? trim((string) $row->ligne_id) : '';
+        }
+
+        /**
          * Nom de ligne catalogue d'un programme.
          */
         protected function _reprog_nom_ligne_of_code($code_progr)
@@ -379,8 +435,32 @@
         }
 
         /**
+         * Variantes multi-cie : OUAGA-BOBO ↔ OUAGA-BOBO_VIP / _CMT (même OD métier).
+         */
+        protected function _reprog_noms_ligne_equivalents($a, $b)
+        {
+            $a = trim((string) $a);
+            $b = trim((string) $b);
+            if ($a === '' || $b === '') {
+                return $a === $b;
+            }
+            if (strcasecmp($a, $b) === 0) {
+                return true;
+            }
+            $au = strtoupper($a);
+            $bu = strtoupper($b);
+            if (strpos($bu, $au . '_') === 0 || strpos($au, $bu . '_') === 0) {
+                return true;
+            }
+            $strip = function ($n) {
+                return preg_replace('/_(VIP|CMT|ORD|EXPRESS|STD)$/i', '', $n);
+            };
+            return strcasecmp($strip($au), $strip($bu)) === 0;
+        }
+
+        /**
          * P1 métier : interdiction de changer de produit hub (ex. Banfora ↔ Niangoloko).
-         * La ligne commerciale du ticket est conservée.
+         * La ligne commerciale du ticket est conservée (variantes _VIP/_CMT acceptées).
          *
          * @param string $code_progr
          * @param string $nomTicket
@@ -399,7 +479,7 @@
             if ($nomProg === '') {
                 return true;
             }
-            return strcasecmp($nomProg, $nomTicket) === 0;
+            return $this->_reprog_noms_ligne_equivalents($nomProg, $nomTicket);
         }
 
         /**

@@ -10118,6 +10118,77 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    /**
+     * Aligne ligne + compagnie POST sur le programme choisi (évite remap CMT←VIP).
+     * @param {HTMLOptionElement|null} opt
+     * @param {object|null} row
+     * @param {string} [cieName]
+     */
+    function __reprogSyncDirectProgMeta(opt, row, cieName) {
+        var ident = '';
+        var nomLigne = '';
+        var compaga = '';
+        var cieLbl = cieName || '';
+        if (opt) {
+            ident = opt.getAttribute('data-ident-ligne') || '';
+            nomLigne = opt.getAttribute('data-ligne') || '';
+            compaga = opt.getAttribute('data-compaga') || '';
+        }
+        if (row) {
+            if (!ident) ident = String(row.ident_ligne || row.ligne_id || '');
+            if (!nomLigne) nomLigne = String(row.nom_ligne || '');
+            if (!compaga) {
+                compaga = String(row.id_compaga || row.cle_compagnie_arrivee || '');
+            }
+            if (!cieLbl) cieLbl = __reprogCieName(row) || '';
+        }
+        if (nomLigne) __reprogSetVal('replignunifie', nomLigne);
+        if (ident) __reprogSetVal('idreplignunifie', ident);
+        if (compaga) __reprogSetVal('compgcfunifie', compaga);
+        __reprogUpdateCieCibleLabel(cieLbl, compaga);
+    }
+
+    /** Affiche la compagnie cible du report (pas seulement celle d’achat). */
+    function __reprogUpdateCieCibleLabel(cieCibleName, compagaCible) {
+        var el = __reprogQ('compagnieclpunifie');
+        if (!el) return;
+        var origName = (window.__reprogState && window.__reprogState.cieOrigName) || '';
+        var origId = '';
+        var idEl = __reprogQ('id_compaga_unifie');
+        if (idEl) origId = String(idEl.value || '');
+        var cible = String(cieCibleName || '').trim();
+        var cid = String(compagaCible || '').trim();
+        if (!cible && !cid) return;
+        if (cible) {
+            if (origName && origName !== cible) {
+                el.textContent = 'COMPAGNIE: ' + cible + ' (report ← ' + origName + ')';
+            } else if (origId && cid && origId !== cid && origName) {
+                el.textContent = 'COMPAGNIE: ' + cible + ' (report ← ' + origName + ')';
+            } else {
+                el.textContent = 'COMPAGNIE: ' + cible;
+            }
+        } else if (cid && origId && cid !== origId) {
+            el.textContent = 'COMPAGNIE: #' + cid + ' (changement depuis #' + origId + ')';
+        }
+    }
+
+    function __reprogFindRowByProgVal(progVal, dateYmd) {
+        var rows = dateYmd
+            ? __reprogFilterByDate(dateYmd)
+            : __reprogRowsArray(window.__reprogState.rows);
+        for (var i = 0; i < rows.length; i++) {
+            var pv = String(rows[i].code_progr) + '/' + String(rows[i].id_ligneheure || '')
+                + '/' + String(rows[i].typetarif || '');
+            if (pv === progVal) return rows[i];
+        }
+        var codeOnly = String(progVal || '').split('/')[0];
+        if (!codeOnly) return null;
+        for (var j = 0; j < rows.length; j++) {
+            if (String(rows[j].code_progr) === codeOnly) return rows[j];
+        }
+        return null;
+    }
+
     function __reprogClearSegPosts() {
         var modeEl = __reprogQ('reprog_mode_unifie');
         var nbrEl = __reprogQ('reprog_nbr_seg_unifie');
@@ -10979,6 +11050,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 __reprogSetVal('idreplignunifie', fromRows.ident_ligne || fromRows.ligne_id);
             }
             if (fromRows.id_compaga) __reprogSetVal('compgcfunifie', fromRows.id_compaga);
+            __reprogUpdateCieCibleLabel(__reprogCieName(fromRows), fromRows.id_compaga || '');
             loadWithIntervals(fromRows.intervalle1, fromRows.intervalle2);
             return;
         }
@@ -11005,6 +11077,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 __reprogSetVal('catreprogrammeunifie', meta.categori || '');
                 __reprogSetVal('idreplignunifie', meta.ident_ligne || meta.ligne_id || '');
                 if (meta.id_compaga) __reprogSetVal('compgcfunifie', meta.id_compaga);
+                __reprogUpdateCieCibleLabel(
+                    meta.nom_compagnie_arrivee || meta.nom_compagnie || '',
+                    meta.id_compaga || ''
+                );
                 loadWithIntervals(i1, i2);
             }
         );
@@ -11325,6 +11401,7 @@ document.addEventListener('DOMContentLoaded', () => {
             opt.setAttribute('data-compaga', row.id_compaga || '');
             opt.setAttribute('data-cie-key', __reprogRowCieKey(row));
             opt.setAttribute('data-ligne', ligne);
+            opt.setAttribute('data-ident-ligne', String(row.ident_ligne || row.ligne_id || ''));
             opt.setAttribute('data-hub-role', row.hub_role || '');
             opt.setAttribute('data-hub-label', hub);
             opt.setAttribute('data-has-prog', '1');
@@ -12281,14 +12358,25 @@ document.addEventListener('DOMContentLoaded', () => {
         var isProg = progVal.indexOf('/') !== -1 && kind !== 'corr';
 
         if (isProg) {
+            var matchRow = __reprogFindRowByProgVal(progVal, dateYmd);
             var compaga = opt ? (opt.getAttribute('data-compaga') || '') : '';
+            if (!compaga && matchRow) {
+                compaga = String(matchRow.id_compaga || matchRow.cle_compagnie_arrivee || '');
+            }
             var hh = opt ? (opt.getAttribute('data-heure') || __reprogHhmm(progVal)) : '';
             var ligne = opt ? (opt.getAttribute('data-ligne') || '') : '';
+            if (!ligne && matchRow) ligne = String(matchRow.nom_ligne || '');
             var hub = opt ? (opt.getAttribute('data-hub-label') || 'normal') : 'normal';
             var cieKey = opt ? (opt.getAttribute('data-cie-key') || '') : '';
+            var identL = opt ? (opt.getAttribute('data-ident-ligne') || '') : '';
+            if (!identL && matchRow) {
+                identL = String(matchRow.ident_ligne || matchRow.ligne_id || '');
+            }
             window.__reprogState.mode = 'direct';
             __reprogShowDirectExclusive();
             __reprogSetPost(progVal, compaga, '');
+            // Ligne + cie cible = programme choisi (jamais la ligne d’achat CMT).
+            __reprogSyncDirectProgMeta(opt, matchRow, matchRow ? __reprogCieName(matchRow) : '');
             // Remplir aussi le select compagnie caché (submit legacy).
             var cieSel = __reprogQ('compagniepunifie');
             if (cieSel) {
@@ -12299,21 +12387,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 o.setAttribute('data-cie-key', cieKey);
                 o.setAttribute('data-kind', 'direct');
                 o.setAttribute('data-ligne', ligne);
+                o.setAttribute('data-ident-ligne', identL);
                 o.setAttribute('data-heure', hh);
                 o.selected = true;
                 o.textContent = progVal;
                 cieSel.add(o);
             }
-            var cieName = '';
-            var rows = __reprogFilterByDate(dateYmd);
-            for (var i = 0; i < rows.length; i++) {
-                var pv = String(rows[i].code_progr) + '/' + String(rows[i].id_ligneheure || '')
-                    + '/' + String(rows[i].typetarif || '');
-                if (pv === progVal) {
-                    cieName = __reprogCieName(rows[i]) || '';
-                    break;
-                }
-            }
+            var cieName = matchRow ? (__reprogCieName(matchRow) || '') : '';
             __reprogSetDirectInfo(
                 (ligne ? (ligne + ' — ') : '')
                 + (cieName ? (cieName + ' — ') : '')
@@ -12587,6 +12667,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             + ' — DATE: ' + (donnees.date_progr || '');
                         var cieArr = donnees.nom_compagnie || '';
                         var cieDep = donnees.nom_compagnie_depart || '';
+                        window.__reprogState.cieOrigName = cieArr || '';
                         __reprogQ('compagnieclpunifie').textContent = cieArr
                             ? ('COMPAGNIE: ' + cieArr + (cieDep && cieDep !== cieArr ? ' (dép. ' + cieDep + ')' : ''))
                             : '';
@@ -12882,19 +12963,39 @@ document.addEventListener('DOMContentLoaded', () => {
             var sie = __reprogQ('numsiegepunifie');
             var progVal = '';
             var compaga = '';
+            var oMeta = null;
             if (heureSel && heureSel.value && String(heureSel.value).indexOf('/') !== -1) {
                 progVal = heureSel.value;
-                var oH = heureSel.options[heureSel.selectedIndex];
-                compaga = oH ? (oH.getAttribute('data-compaga') || '') : '';
+                oMeta = heureSel.options[heureSel.selectedIndex];
+                compaga = oMeta ? (oMeta.getAttribute('data-compaga') || '') : '';
             } else if (cie && cie.value && cie.value.indexOf('corr:') !== 0) {
                 progVal = cie.value;
-                var opt = cie.options[cie.selectedIndex];
-                compaga = opt ? (opt.getAttribute('data-compaga') || '') : '';
+                oMeta = cie.options[cie.selectedIndex];
+                compaga = oMeta ? (oMeta.getAttribute('data-compaga') || '') : '';
             }
             if (!progVal || !sie || !sie.value) {
                 ev.preventDefault();
                 alert('Choisissez l\'heure (départ programme) et le siège.');
                 return false;
+            }
+            var dateElSub = __reprogQ('datereprog_unifie');
+            var rowSub = __reprogFindRowByProgVal(
+                progVal,
+                dateElSub ? dateElSub.value : ''
+            );
+            if (!compaga && rowSub) {
+                compaga = String(rowSub.id_compaga || rowSub.cle_compagnie_arrivee || '');
+            }
+            // Resync ligne/cie du programme choisi avant POST (anti remap hub autre cie).
+            __reprogSyncDirectProgMeta(
+                oMeta,
+                rowSub,
+                rowSub ? __reprogCieName(rowSub) : ''
+            );
+            if (rowSub && (rowSub.id_compaga || rowSub.cle_compagnie_arrivee)) {
+                compaga = String(rowSub.id_compaga || rowSub.cle_compagnie_arrivee);
+            } else if (oMeta && oMeta.getAttribute('data-compaga')) {
+                compaga = oMeta.getAttribute('data-compaga') || compaga;
             }
             __reprogSetPost(progVal, compaga, sie.value);
             if (window.__reprogState.isTransitTicket) {
