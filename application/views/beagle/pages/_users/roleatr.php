@@ -18,9 +18,10 @@
                     <div class="card-header card-header-contrast"><?= $item->first_name; ?>
 
                         <div class="tools">
-                            <a href="<?= site_url('utilisateurs/actifs/'.$this->session->company->ekey.'/'.$item->roleattribut.'/'.$item->uid_login.'/'.$item->guser.'/'.$item->activer_role);?> "class="btn btn-space btn-secondary">
-                                <?= ($item->activer_role === '0') ? '<span class="icon mdi text-success">Activer</span>' : '<span
-                                class="icon mdi text-danger">Désactiver</span>' ?>
+                            <a href="<?= site_url('utilisateurs/actifs/'.$this->session->company->ekey.'/'.$item->roleattribut.'/'.$item->uid_login.'/'.$item->guser.'/'.$item->activer_role);?> "class="btn btn-space btn-secondary" title="<?= ((int) $item->activer_role === 0) ? 'Désactiver ce rôle' : 'Réactiver ce rôle'; ?>">
+                                <?= ((int) $item->activer_role === 0)
+                                    ? '<span class="icon mdi text-danger">Désactiver</span>'
+                                    : '<span class="icon mdi text-success">Activer</span>'; ?>
                             </a>&nbsp;
                             &nbsp;
                             
@@ -122,12 +123,14 @@
                         <p>Contact2: <?= $item->phone2; ?></p>
                         <p>GARE: <?= $item->garenom; ?></p>
                         <p>PROFIL: <?= $item->type_rols; ?></p>
-                        <p><?= ($item->is_conect === '1' AND $item->activeattrib === '1') ? '<span
-                                class="icon mdi text-success">En ligne</span>' : '<span
+                        <p><?= ((int) $item->is_conect === 1) ? '<span
+                                class="icon mdi text-success">En ligne</span>'
+                                . (((int) $item->activeattrib === 1) ? ' <small class="text-muted">(gare active)</small>' : '')
+                                : '<span
                                 class="icon mdi text-danger">Déconnecté</span>&nbsp;<i class="fas fa-power-off text-danger"></i>' ?></p>
-                        <p><?= ($item->activer_role === '1') ? '<span
-                                class="icon mdi text-danger">Compte désactivé</span>' : '<span
-                                class="icon mdi text-success">Compte activé</span>' ?>
+                        <p><?= ((int) $item->activer_role === 1) ? '<span
+                                class="icon mdi text-danger">Rôle désactivé</span>' : '<span
+                                class="icon mdi text-success">Rôle activé</span>' ?>
                         </p>
                        
                     </div>

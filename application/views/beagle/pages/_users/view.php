@@ -71,9 +71,10 @@
                 <div class="card-header card-header-contrast"><?= $item->first_name; ?> <?= $item->last_name; ?>
 
                     <div class="tools">
-                        <a href="<?= site_url('Utilisateurs/active/' . $this->session->company->ekey . '/' . $item->cpuser_id. '/' . $item->uid. '/' . $item->activer);?> "class="btn btn-space btn-secondary">
-                            <?= ($item->activer === '0') ? '<span class="icon mdi text-success">Activer</span>' : '<span
-                            class="icon mdi text-danger">Désactiver</span>' ?>
+                        <a href="<?= site_url('Utilisateurs/active/' . $this->session->company->ekey . '/' . $item->cpuser_id. '/' . $item->uid. '/' . $item->activer);?> "class="btn btn-space btn-secondary" title="<?= ((int) $item->activer === 0) ? 'Désactiver ce compte' : 'Réactiver ce compte'; ?>">
+                            <?= ((int) $item->activer === 0)
+                                ? '<span class="icon mdi text-danger">Désactiver</span>'
+                                : '<span class="icon mdi text-success">Activer</span>'; ?>
                         </a>&nbsp;
                         &nbsp;
                         
@@ -182,13 +183,13 @@
                     <p>Login: <?= htmlspecialchars($item->username, ENT_QUOTES, 'UTF-8'); ?></p>
                     <p>Contact: <?= $item->phone; ?></p>
                     <p>Contact2: <?= $item->phone2; ?></p>
-                    <p><?= ($item->is_conect === '1') ? '<span
+                    <p><?= ((int) $item->is_conect === 1) ? '<span
                             class="icon mdi text-success">En ligne</span>' : '<span
                             class="icon mdi text-danger">Déconnecté</span>&nbsp;<i class="fas fa-power-off text-danger"></i>' ?></p>
                     <? if (!empty($item->derniere_activite_at)): ?>
                     <p><small class="text-muted">Dernière activité : <?= htmlspecialchars($item->derniere_activite_at, ENT_QUOTES, 'UTF-8'); ?></small></p>
                     <? endif; ?>
-                    <? if (!empty($item->desactivation_motif) && (string) $item->activer !== '0'): ?>
+                    <? if (!empty($item->desactivation_motif) && (int) $item->activer !== 0): ?>
                     <p class="text-danger"><small>Motif désactivation : <?= htmlspecialchars($item->desactivation_motif, ENT_QUOTES, 'UTF-8'); ?></small></p>
                     <? endif; ?>
                     <? if (!empty($item->autorisation_vente_forcee) && $item->autorisation_vente_forcee === '1'): ?>

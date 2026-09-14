@@ -67,7 +67,7 @@
                                 <td>
                                     
                                     <a href="<?= site_url('Utilisateurs/activeprofil/' . $this->session->company->ekey . '/' . $us->uid_login. '/' . $us->cpuser_id. '/' . $us->uid. '/' . $us->comptactif);?> "class="btn btn-space btn-secondary">
-                                        <?= ($us->comptactif === '0') ? '<span class="icon mdi text-danger">désactiver</span>' : '<span
+                                        <?= ((int) $us->comptactif === 0) ? '<span class="icon mdi text-danger">désactiver</span>' : '<span
                                         class="icon mdi text-success">activer</span>' ?>
                                     </a>&nbsp;
                                     &nbsp;

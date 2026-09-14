@@ -18,9 +18,10 @@
                 <div class="card-header card-header-contrast"><?= $item->first_name; ?>
 
                     <div class="tools">
-                        <a href="<?= site_url('Utilisateurs/actif/'.$this->session->company->ekey.'/'.$item->uid_login.'/'.$item->uid.'/'.$item->cpuser_id.'/'.$item->comptactif);?> "class="btn btn-space btn-secondary">
-                            <?= ($item->comptactif === '0') ? '<span class="icon mdi text-success">Activer</span>' : '<span
-                            class="icon mdi text-danger">Désactiver</span>' ?>
+                        <a href="<?= site_url('Utilisateurs/actif/'.$this->session->company->ekey.'/'.$item->uid_login.'/'.$item->uid.'/'.$item->cpuser_id.'/'.$item->comptactif);?> "class="btn btn-space btn-secondary" title="<?= ((int) $item->comptactif === 0) ? 'Désactiver cette gare' : 'Réactiver cette gare'; ?>">
+                            <?= ((int) $item->comptactif === 0)
+                                ? '<span class="icon mdi text-danger">Désactiver</span>'
+                                : '<span class="icon mdi text-success">Activer</span>'; ?>
                         </a>&nbsp;
                         &nbsp;
                         
@@ -80,9 +81,9 @@
                     <p>Contact: <?= $item->phone; ?></p>
                     <p>Contact2: <?= $item->phone2; ?></p>
                     <p>GARE: <?= $item->garenom; ?></p>
-                    <p><?= ($item->comptactif === '1') ? '<span
-                            class="icon mdi text-danger"> Désactivé</span>' : '<span
-                            class="icon mdi text-success"> Activé</span>' ?>
+                    <p><?= ((int) $item->comptactif === 1) ? '<span
+                            class="icon mdi text-danger"> Gare désactivée</span>' : '<span
+                            class="icon mdi text-success"> Gare activée</span>' ?>
                     </p>
                         <a href="<?= site_url('utilisateurs/'
                                 . $this->session->company->ekey . '/gTv/'

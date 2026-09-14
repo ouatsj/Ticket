@@ -1754,7 +1754,13 @@
                 'upassword' => $hash,
                 'confirm_password' => $hash,
                 'createdcptus_at' => now('UTC'),
+                // 0 = compte utilisable (convention historique).
+                'activer' => 0,
+                'is_conect' => 0,
             );
+            if ($this->db->field_exists('derniere_activite_at', 'compte_user')) {
+                $comptelogin['derniere_activite_at'] = mdate('%Y-%m-%d %H:%i:%s', now('UTC'));
+            }
 
             $this->m_compte_user->create($comptelogin);
             $this->session->set_flashdata('compte_success', 'Compte créé avec succès.');
@@ -2030,6 +2036,8 @@
                         'uid_usercpte' => $id,
                         'guser' => $this->input->post('gareuser'),
                         'created_atuslg' => now('UTC'),
+                        // 0 = gare utilisable.
+                        'comptactif' => 0,
                     );
                     
                     $this->m_user_login->create($comptelogin);
@@ -2053,6 +2061,9 @@
                     $comptelogin = array(
                         'idgestcompte' => $ul,
                         'userole' => $this->input->post('fonction'),
+                        // 0 = rôle utilisable (courrier inclus).
+                        'activer_role' => 0,
+                        'activeattrib' => 0,
                     );
                     
                     $this->m_roleattribution->create($comptelogin);

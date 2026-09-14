@@ -1656,9 +1656,21 @@ if (!function_exists('compte_arret_compte_card_status')) {
             ];
         }
 
-        $actif = !isset($row->activer) || (string) $row->activer === '0';
+        $actif = !isset($row->activer) || $row->activer === null || $row->activer === ''
+            || (int) $row->activer === 0;
+
+        // Compte réellement connecté : ne jamais afficher « Désactivé » (faux négatif UI).
+        $en_ligne = isset($row->is_conect) && (int) $row->is_conect === 1;
 
         if (!compte_arret_rules_enabled()) {
+            if ($en_ligne) {
+                return [
+                    'label' => 'En ligne',
+                    'class' => 'success',
+                    'motif' => 'Session active.',
+                    'actif' => true,
+                ];
+            }
             return [
                 'label' => $actif ? 'Actif' : 'Désactivé',
                 'class' => $actif ? 'success' : 'danger',
@@ -1667,14 +1679,14 @@ if (!function_exists('compte_arret_compte_card_status')) {
             ];
         }
 
-        if ($actif) {
-            $motif = 'Connexion et vente autorisées.';
+        if ($actif || $en_ligne) {
+            $motif = $en_ligne ? 'Session active — connexion et vente autorisées.' : 'Connexion et vente autorisées.';
             if (!empty($row->autorisation_vente_forcee) && (string) $row->autorisation_vente_forcee === '1') {
                 $motif = 'Dérogation vente active.';
             }
 
             return [
-                'label' => 'Actif',
+                'label' => $en_ligne ? 'En ligne' : 'Actif',
                 'class' => 'success',
                 'motif' => $motif,
                 'actif' => true,

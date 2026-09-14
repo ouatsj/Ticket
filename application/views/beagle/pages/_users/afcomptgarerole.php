@@ -74,7 +74,7 @@
                                 <td>
                                     
                                     <a href="<?= site_url('Utilisateurs/activeprofilgd/' . $this->session->company->ekey .'/' . $us->roleattribut. '/'. '/' . $us->uid_login. '/' . $us->cpuser_id. '/' . $us->uid. '/' . $us->activeattrib);?> "class="btn btn-space btn-secondary">
-                                        <?= ($us->activeattrib === '0') ? '<span class="icon mdi text-danger">désactiver</span>' : '<span
+                                        <?= ((int) $us->activeattrib === 0) ? '<span class="icon mdi text-danger">désactiver</span>' : '<span
                                         class="icon mdi text-success">activer</span>' ?>
                                     </a>&nbsp;
                                     &nbsp;
