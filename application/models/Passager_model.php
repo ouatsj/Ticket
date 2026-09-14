@@ -1257,12 +1257,13 @@
                     AND p.actif_pas = 0")->result(); return $this->normalize_ticket_prix_rows($rows);        }
         /**
          * Colonnes utiles pour Tri passager (évite SELECT * sur ~14 JOINs).
+         * gare_vente_princeid = gare du guichet vendeur (pas la gare de départ de jambe).
          */
         protected function _tri_passager_select_cols()
         {
             return "p.code_passager, p.code_ticket, p.code_pro, p.num_siege_categorie, p.prixvente,
                     p.datep_create, p.departclient_idgare, p.id_client_pass, p.quart,
-                    p.nom_dest_vente, p.statut_code,
+                    p.nom_dest_vente, p.statut_code, p.idsousgare_vente, p.idcptuser,
                     ctp.tamponcod, ctp.tamponcodtr, ctp.is_activecode,
                     cl.id_client, cl.nom_client, cl.prenom_client, cl.contact_client,
                     cl.num_CNIB, cl.date_delivre, cl.lieu_delivre, cl.type_client,
@@ -1273,7 +1274,8 @@
                     ex.nom_gaep,
                     dest.nom_gadest,
                     np.prixretour, np.codeticket,
-                    sg.idsousgare, sg.gareprinceid";
+                    sg.idsousgare, sg.gareprinceid,
+                    COALESCE(sgv.gareprinceid, ul.guser, sg.gareprinceid) AS gare_vente_princeid";
         }
 
         /**
@@ -1317,13 +1319,16 @@
         }
 
         /**
-         * Jointures communes Tri passager (départ = passager indexé sur datep_create).
+         * Jointures communes Tri passager + lieu de vente (agent / idsousgare_vente).
          */
         protected function _tri_passager_from_sql()
         {
             return "FROM passager p
                 JOIN tamponcode ctp ON p.code_passager = ctp.tamponcod
                 JOIN sousgare sg ON p.departclient_idgare = sg.idsousgare
+                LEFT JOIN attributions_role ar ON p.idcptuser = ar.roleattribut
+                LEFT JOIN user_login ul ON ar.idgestcompte = ul.uid_login
+                LEFT JOIN sousgare sgv ON p.idsousgare_vente = sgv.idsousgare
                 LEFT JOIN non_passager np ON ctp.tamponcod = np.code_non_pass
                 JOIN client cl ON p.id_client_pass = cl.id_client
                 JOIN programme pr ON p.code_pro = pr.code_progr
@@ -1336,9 +1341,22 @@
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise";
         }
 
+        /**
+         * Scope gare du tri = gare où l’agent a vendu
+         * (idsousgare_vente → sinon gare login agent → sinon gare départ legacy).
+         */
+        protected function _tri_passager_vente_scope_sql($pAlias = 'p', $sgvAlias = 'sgv', $ulAlias = 'ul', $sgAlias = 'sg')
+        {
+            $pAlias = preg_replace('/[^a-zA-Z0-9_]/', '', (string) $pAlias);
+            $sgvAlias = preg_replace('/[^a-zA-Z0-9_]/', '', (string) $sgvAlias);
+            $ulAlias = preg_replace('/[^a-zA-Z0-9_]/', '', (string) $ulAlias);
+            $sgAlias = preg_replace('/[^a-zA-Z0-9_]/', '', (string) $sgAlias);
+            return " AND COALESCE({$sgvAlias}.gareprinceid, {$ulAlias}.guser, {$sgAlias}.gareprinceid) = ? ";
+        }
+
         public function alldayarch($cid, $datedb, $datef, $gid, $q = '', $limit = null)
         {
-            // Guichet : passagers facturés / embarqués sur toute la gare (toutes sous-gares).
+            // Guichet : tickets vendus depuis cette gare (lieu de vente agent), toutes sous-gares.
             if ($limit === null) {
                 $limit = $this->_tri_passager_row_limit();
             }
@@ -1346,13 +1364,17 @@
             list($searchSql, $searchParams) = $this->_tri_passager_search_sql($q);
             $cols = $this->_tri_passager_select_cols();
             $fetch = $limit + 1;
+            $venteScope0 = $this->_tri_passager_vente_scope_sql('p0', 'sgv0', 'ul0', 'sg0');
+            $venteScope = $this->_tri_passager_vente_scope_sql('p', 'sgv', 'ul', 'sg');
 
-            // Préfiltre indexé sur la gare (évite de tronquer avant le filtre gare).
-            $preJoin = '';
+            // Préfiltre indexé sur la gare de vente (évite de tronquer avant le filtre gare).
+            $preJoin = ' LEFT JOIN attributions_role ar0 ON p0.idcptuser = ar0.roleattribut
+                         LEFT JOIN user_login ul0 ON ar0.idgestcompte = ul0.uid_login
+                         LEFT JOIN sousgare sgv0 ON p0.idsousgare_vente = sgv0.idsousgare ';
             $preWhere = '';
             $preParams = array($datedb, $datef);
             if ($q !== '') {
-                $preJoin = ' JOIN client cl0 ON p0.id_client_pass = cl0.id_client
+                $preJoin .= ' JOIN client cl0 ON p0.id_client_pass = cl0.id_client
                              JOIN tamponcode ctp0 ON p0.code_passager = ctp0.tamponcod';
                 // Réutiliser la même logique LIKE, alias cl0/ctp0/p0.
                 $likeSql = str_replace(
@@ -1379,13 +1401,16 @@
                     AND p0.statut_confirme IS NULL
                     AND p0.statut_reprog IS NULL
                     {$preWhere}
-                    AND sg0.gareprinceid = ?
+                    {$venteScope0}
                     ORDER BY p0.datep_create DESC, p0.code_passager DESC
                     LIMIT ?
                 ) filt
                 JOIN passager p ON p.code_passager = filt.code_passager
                 JOIN tamponcode ctp ON p.code_passager = ctp.tamponcod
                 JOIN sousgare sg ON p.departclient_idgare = sg.idsousgare
+                LEFT JOIN attributions_role ar ON p.idcptuser = ar.roleattribut
+                LEFT JOIN user_login ul ON ar.idgestcompte = ul.uid_login
+                LEFT JOIN sousgare sgv ON p.idsousgare_vente = sgv.idsousgare
                 LEFT JOIN non_passager np ON ctp.tamponcod = np.code_non_pass
                 JOIN client cl ON p.id_client_pass = cl.id_client
                 JOIN programme pr ON p.code_pro = pr.code_progr
@@ -1398,7 +1423,7 @@
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = ?
                 AND p.datep_create BETWEEN ? AND ?
-                AND sg.gareprinceid = ?
+                {$venteScope}
                 ORDER BY p.datep_create DESC, p.code_passager DESC",
                 $params
             );
@@ -1410,7 +1435,7 @@
             if ($truncated) {
                 $rows = array_slice($rows, 0, $limit);
             }
-            // Expansion transit : uniquement jambes dans les mêmes dates + même gare.
+            // Expansion transit : jambes vendues depuis la même gare (même si départ ailleurs).
             $rows = $this->_tri_expand_transit_jambes($cid, $rows, $datedb, $datef, $gid);
             $rows = $this->_tri_annotate_nbr_jambes($rows);
             $rows = $this->_tri_filter_scope_rows($rows, $datedb, $datef, $gid);
@@ -1465,6 +1490,9 @@
                     JOIN passager p ON p.code_passager = filt.code_passager
                     JOIN tamponcode ctp ON p.code_passager = ctp.tamponcod
                     JOIN sousgare sg ON p.departclient_idgare = sg.idsousgare
+                    LEFT JOIN attributions_role ar ON p.idcptuser = ar.roleattribut
+                    LEFT JOIN user_login ul ON ar.idgestcompte = ul.uid_login
+                    LEFT JOIN sousgare sgv ON p.idsousgare_vente = sgv.idsousgare
                     LEFT JOIN non_passager np ON ctp.tamponcod = np.code_non_pass
                     JOIN client cl ON p.id_client_pass = cl.id_client
                     JOIN programme pr ON p.code_pro = pr.code_progr
@@ -1488,6 +1516,7 @@
                 if ($truncated) {
                     $rows = array_slice($rows, 0, $limit);
                 }
+                $rows = $this->_tri_expand_transit_jambes($cid, $rows, $datedb, $datef, null);
                 $rows = $this->_tri_annotate_nbr_jambes($rows);
                 $rows = $this->_tri_filter_scope_rows($rows, $datedb, $datef, null);
                 return array('rows' => $rows, 'truncated' => $truncated, 'limit' => $limit);
@@ -1496,7 +1525,7 @@
         }
 
         /**
-         * Filet final : dates du formulaire (+ gare du tri si fournie).
+         * Filet final : dates du formulaire (+ gare de vente du tri si fournie).
          *
          * @param object[] $rows
          * @return object[]
@@ -1513,7 +1542,12 @@
                     continue;
                 }
                 if ($gid !== null) {
-                    $gp = isset($r->gareprinceid) ? (string) $r->gareprinceid : '';
+                    $gp = '';
+                    if (isset($r->gare_vente_princeid) && (string) $r->gare_vente_princeid !== '') {
+                        $gp = (string) $r->gare_vente_princeid;
+                    } elseif (isset($r->gareprinceid)) {
+                        $gp = (string) $r->gareprinceid;
+                    }
                     if ($gp !== '' && $gp !== $gid) {
                         continue;
                     }
@@ -1524,8 +1558,9 @@
         }
 
         /**
-         * Pour un voyage transit vu sur la gare : charger aussi les autres jambes
-         * strictement dans les mêmes dates et la même gare que le tri.
+         * Pour un voyage transit vu sur la gare : détecter le transit via le nombre
+         * global de jambes, puis charger les autres jambes vendues depuis la même gare
+         * (lieu de vente agent), même si le départ de jambe est ailleurs.
          *
          * @param object[] $rows
          * @return object[]
@@ -1550,14 +1585,8 @@
                 $inTr[] = $this->db->escape($tr);
             }
 
-            // Comptage global des jambes (pour flag transit), borné aux dates du tri.
-            $countParams = array($cid);
-            $countDateSql = '';
-            if ($datedb !== null && $datedb !== '' && $datef !== null && $datef !== '') {
-                $countDateSql = ' AND p.datep_create BETWEEN ? AND ? ';
-                $countParams[] = $datedb;
-                $countParams[] = $datef;
-            }
+            // Comptage GLOBAL des jambes (sans filtre date/gare) : un transit reste
+            // transit même si une seule jambe est visible sur la gare du tri.
             $counts = $this->db->query(
                 "SELECT ctp.tamponcodtr, COUNT(DISTINCT p.code_passager) AS nbr
                  FROM tamponcode ctp
@@ -1574,9 +1603,8 @@
                  AND p.statut_code = 'vendu'
                  AND p.statut_confirme IS NULL
                  AND (p.statut_reprog IS NULL OR p.statut_reprog = '')
-                 {$countDateSql}
                  GROUP BY ctp.tamponcodtr",
-                $countParams
+                array($cid)
             )->result();
             $transitTr = array();
             $nbrByTr = array();
@@ -1615,7 +1643,7 @@
                 $extraParams[] = $datef;
             }
             if ($gid !== null && $gid !== '' && $gid !== false) {
-                $extraSql .= ' AND sg.gareprinceid = ? ';
+                $extraSql .= $this->_tri_passager_vente_scope_sql('p', 'sgv', 'ul', 'sg');
                 $extraParams[] = $gid;
             }
             $q = $this->db->query(
@@ -1634,6 +1662,11 @@
                 foreach ($extra as $r) {
                     $cp = isset($r->code_passager) ? (string) $r->code_passager : '';
                     if ($cp !== '' && !isset($seen[$cp])) {
+                        $tr = isset($r->tamponcodtr) ? trim((string) $r->tamponcodtr) : '';
+                        if ($tr !== '' && isset($nbrByTr[$tr])) {
+                            $r->nbr_jambes = $nbrByTr[$tr];
+                            $r->est_transit = ($nbrByTr[$tr] >= 2) ? 1 : 0;
+                        }
                         $rows[] = $r;
                         $seen[$cp] = true;
                     }
@@ -1644,6 +1677,8 @@
 
         /**
          * Annoter nbr_jambes / est_transit et trier (voyage, date, heure).
+         * Conserve le nbr_jambes global déjà posé par l’expansion transit
+         * (sinon un transit multi-gares avec 1 jambe visible serait classé « direct »).
          *
          * @param object[] $rows
          * @return object[]
@@ -1666,7 +1701,9 @@
                 if ($tr === '') {
                     $tr = isset($r->tamponcod) ? ('solo:' . $r->tamponcod) : ('id:' . spl_object_hash($r));
                 }
-                $n = isset($byTr[$tr]) ? (int) $byTr[$tr] : 1;
+                $localN = isset($byTr[$tr]) ? (int) $byTr[$tr] : 1;
+                $knownN = isset($r->nbr_jambes) ? (int) $r->nbr_jambes : 0;
+                $n = max($localN, $knownN, 1);
                 $r->nbr_jambes = $n;
                 $r->est_transit = ($n >= 2) ? 1 : 0;
             }

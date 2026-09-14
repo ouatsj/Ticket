@@ -125,12 +125,17 @@
             $directs = array();
             $transits = array();
             foreach ($historiques as $row) {
-                // Filet : ignorer toute ligne hors dates / hors gare du tri.
+                // Filet : dates + gare de vente (agent), pas gare de départ de jambe.
                 $dc = isset($row->datep_create) ? substr((string) $row->datep_create, 0, 10) : '';
                 if ($dc !== '' && ($dc < $ddbt || $dc > $dfin)) {
                     continue;
                 }
-                $gp = isset($row->gareprinceid) ? (string) $row->gareprinceid : '';
+                $gp = '';
+                if (isset($row->gare_vente_princeid) && (string) $row->gare_vente_princeid !== '') {
+                    $gp = (string) $row->gare_vente_princeid;
+                } elseif (isset($row->gareprinceid)) {
+                    $gp = (string) $row->gareprinceid;
+                }
                 if ($gp !== '' && $gp !== (string) $gd) {
                     continue;
                 }

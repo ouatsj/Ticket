@@ -77,15 +77,22 @@ if (!isset($__peut_repositionner)) { $__peut_repositionner = false; }
                                     </a>&nbsp;
                                     <?php endif; ?>
                                 <?php else: ?>
-                                    <?php if ((int) (isset($item->num_jambe) ? $item->num_jambe : 1) === 1): ?>
+                                    <?php
+                                    // Impression globale une fois par voyage (1ʳᵉ jambe visible).
+                                    // Si une seule jambe de la gare est listée, elle porte num_jambe local = 1.
+                                    $__tr_code = isset($item->tamponcodtr) ? trim((string) $item->tamponcodtr) : '';
+                                    $__show_print_tr = ($__tr_code !== '')
+                                        && ((int) (isset($item->num_jambe) ? $item->num_jambe : 1) === 1);
+                                    ?>
+                                    <?php if ($__show_print_tr): ?>
                                     <?php if ($item->prixretour === null): ?>
                                     <a class="icon" title="Imprimer tous les tickets du transit"
-                                        href="<?= site_url('Historique_Passagers/reditpdfepson/' . $this->session->company->ekey . '/' . $item->tamponcodtr.'/'. $bus_stop->idengare.'/'. $conex->roleattribut .'/'. $bus_stop->idsousgare); ?>">
+                                        href="<?= site_url('Historique_Passagers/reditpdfepson/' . $this->session->company->ekey . '/' . rawurlencode($__tr_code) .'/'. $bus_stop->idengare.'/'. $conex->roleattribut .'/'. $bus_stop->idsousgare); ?>">
                                         <i class="fas fa-print text-success"></i>
                                     </a>&nbsp;
                                     <?php else: ?>
                                     <a class="icon" title="Imprimer tous les tickets A/R du transit"
-                                        href="<?= site_url('Historique_Passagers/repsonalretour/' . $this->session->company->ekey . '/' . $item->tamponcodtr.'/'. $bus_stop->idengare.'/'. $conex->roleattribut .'/'. $bus_stop->idsousgare); ?>">
+                                        href="<?= site_url('Historique_Passagers/repsonalretour/' . $this->session->company->ekey . '/' . rawurlencode($__tr_code) .'/'. $bus_stop->idengare.'/'. $conex->roleattribut .'/'. $bus_stop->idsousgare); ?>">
                                         <i class="fas fa-print text-success"></i>
                                     </a>&nbsp;
                                     <?php endif; ?>

@@ -63,6 +63,7 @@ defined('BASEPATH') OR exit('No direct script access allowed'); ?>
 
                 <div class="title">Passagers — gare
                     <?= isset($bus_stop->idengare) ? htmlspecialchars($bus_stop->idengare) : ''; ?>
+                    <span class="text-muted font-weight-normal">(lieu de vente)</span>
                     <?php if (!empty($tri_debut) && !empty($tri_fin)): ?>
                         <span class="text-muted font-weight-normal">
                             · émission du <?= htmlspecialchars((string) $tri_debut); ?>
@@ -194,7 +195,7 @@ defined('BASEPATH') OR exit('No direct script access allowed'); ?>
                         <p class="text-muted filtre-tri-vide d-none mb-0">Aucun ticket direct pour cette recherche.</p>
                     </div>
                     <div class="tab-pane fade" id="pane-tri-transit" role="tabpanel">
-                        <p class="small text-muted mb-2">Liste détaillée des jambes — impression globale de tous les tickets du voyage.</p>
+                        <p class="small text-muted mb-2">Jambes du voyage vendues depuis cette gare (même si un départ est ailleurs) — impression globale de tous les tickets.</p>
                         <table class="table table-striped table-borderless" id="table1-transit">
                             <thead>
                             <tr>
