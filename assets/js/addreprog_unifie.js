@@ -3064,16 +3064,16 @@ document.addEventListener('DOMContentLoaded', () => {
                         window.__reprogState.nom_gaep = __reprogStripCieSuffix(donnees.nom_gaep_od || donnees.nom_gaep || '');
                         window.__reprogState.nom_gadest = __reprogStripCieSuffix(donnees.nom_gadest_od || donnees.nom_gadest || '');
                         window.__reprogState.axe = (window.__reprogState.gaexp || '') + '-' + (window.__reprogState.gadest || '');
-                        window.__reprogState.nom_ligne = String(
-                            donnees.nom_ligne_od
+                        // Éviter String(...).trim() minifié en String(x.trim(), y) (casse le bundle guichet).
+                        var nomLigneCat = donnees.nom_ligne_od
                             || donnees.nom_ligne_parent
                             || donnees.nom_ligne
                             || donnees.ligne_retour
                             || (window.__reprogState.nom_gaep && window.__reprogState.nom_gadest
                                 ? (window.__reprogState.nom_gaep + '-' + window.__reprogState.nom_gadest)
                                 : '')
-                            || ''
-                        ).trim();
+                            || '';
+                        window.__reprogState.nom_ligne = String(nomLigneCat).trim();
                         window.__reprogState.axesOd = [];
                         window.__reprogState.exclude = donnees.code_progr || '';
                         window.__reprogState.prix = donnees.prixvente != null ? String(donnees.prixvente) : '';
@@ -3094,7 +3094,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         window.__reprogState.lookup1Done = true;
                         window.__reprogState.legsVerified = { 1: true };
                         window.__reprogState.isRetourConfirme = parseInt(donnees.est_retour, 10) === 1;
-                        var sgEl = document.querySelector('input[name="sousgareconnect"]');
+                        var sgEl = document.querySelector('input[name=sousgareconnect]');
                         window.__reprogState.sgid = (sgEl && sgEl.value) ? sgEl.value : '0';
                         // Gare de départ provisoire (rafraîchie après OD transit ci-dessous).
                         if (donnees.gareidentif && !window.__reprogState.gaexp) {
