@@ -2145,49 +2145,17 @@
                         )));
                     }
                 }
-            } elseif (!empty($multiRows)) {
-                $cieOnly = array();
-                $strict = array();
-                foreach ($multiRows as $pg) {
-                    $pgCie = isset($pg->id_compaga) ? trim((string) $pg->id_compaga) : '';
-                    if ($cie !== '' && $pgCie !== '' && $pgCie !== $cie) {
-                        continue;
-                    }
-                    $cieOnly[] = $pg;
-                    $role = isset($pg->hub_role) ? trim((string) $pg->hub_role) : '';
-                    $isHub = ($role === 'derive' || $role === 'suite' || $role === 'principal');
-                    $pgGd = isset($pg->gadest_lg) ? trim((string) $pg->gadest_lg) : '';
-                    $pgVille = isset($pg->id_villega) ? (int) $pg->id_villega : 0;
-                    $pgNom = isset($pg->nom_ligne) ? $this->normalize_nom_ligne_od($pg->nom_ligne) : '';
-                    $pgNomDest = isset($pg->nom_gadest) ? $this->normalize_nom_ligne_od($pg->nom_gadest) : '';
-                    $matchDest = false;
-                    if ($gdAxe !== '' && strcasecmp($pgGd, $gdAxe) === 0) {
-                        $matchDest = true;
-                    } elseif ($villeCible > 0 && $pgVille === $villeCible) {
-                        $matchDest = true;
-                    } elseif ($nomDestNorm !== '' && (
-                        ($pgNom !== '' && strpos($pgNom, $nomDestNorm) !== false)
-                        || ($pgNomDest !== '' && $pgNomDest === $nomDestNorm)
-                    )) {
-                        $matchDest = true;
-                    }
-                    if ($isHub || $matchDest || ($gdAxe === '' && $cie !== '')) {
-                        $strict[] = $pg;
-                    }
+            } elseif (!empty($multiAll)) {
+                // Avec directs OD : tous les autres programmes de la gare (hors lignes OD),
+                // pas seulement hub/dérivé ni dest OD — la case « Multi / correspondances »
+                // doit lister ces créneaux ; le JS n’affiche les multi que si cochée.
+                $multiRows = $multiAll;
+                $has_transit = TRUE;
+                if (!in_array('programmes_gare', $transit_sources, TRUE)) {
+                    $transit_sources[] = 'programmes_gare';
                 }
-                if (!empty($strict)) {
-                    $multiRows = $strict;
-                } elseif (!empty($cieOnly)) {
-                    $multiRows = $cieOnly;
-                } else {
-                    $multiRows = array();
-                }
-                if (!empty($multiRows)) {
-                    $has_transit = TRUE;
-                    if (!in_array('programmes_gare', $transit_sources, TRUE)) {
-                        $transit_sources[] = 'programmes_gare';
-                    }
-                }
+            } else {
+                $multiRows = array();
             }
 
             $seenMultiCodes = array();
