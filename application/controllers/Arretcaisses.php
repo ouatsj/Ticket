@@ -57,6 +57,16 @@
                 return;
             }
 
+            // Adjoint : pas d’arrêt/unstop sur un compte chef — validation dédiée uniquement.
+            if (caisse_adjoint_blocked_arret_on_chef($idcpt, $this->session->agent->userole)) {
+                show_error(
+                    'En tant que caissier adjoint, vous ne pouvez pas arrêter le compte d’un chef guichet. '
+                    . 'Utilisez l’écran de validation / rejet des arrêts chefs.',
+                    403
+                );
+                return;
+            }
+
             $r=$this->input->post('recettetotal');
             $dpe=$this->input->post('depensetotal');
             $dpo=$this->input->post('totaldepot');
@@ -69,13 +79,25 @@
 
             $this->db->trans_start();
 
-                $cfrecet = $this->db->query(
-                    "SELECT r.id_recette, r.active_recet, r.idopera FROM recette r
-                    WHERE r.idopera = ?
-                    AND r.active_recet = 0
-                    AND r.idcaisse = ?",
-                    array($idcpt, (int) $idc)
-                )->result();
+                // Adjoint : uniquement ce qu’il a validé (*validad), comme les soldes.
+                if ($is_adjoint) {
+                    $cfrecet = $this->db->query(
+                        "SELECT r.id_recette, r.active_recet, r.idopera FROM recette r
+                        WHERE r.operavalidad = ?
+                        AND r.is_actifrecetad = 1
+                        AND r.is_actifrecet = 0
+                        AND r.idcaisse = ?",
+                        array($idcpt, (int) $idc)
+                    )->result();
+                } else {
+                    $cfrecet = $this->db->query(
+                        "SELECT r.id_recette, r.active_recet, r.idopera FROM recette r
+                        WHERE r.idopera = ?
+                        AND r.active_recet = 0
+                        AND r.idcaisse = ?",
+                        array($idcpt, (int) $idc)
+                    )->result();
+                }
 
                     foreach ($cfrecet as $item7) {
                         if ($is_adjoint) {
@@ -90,13 +112,24 @@
                         $vald_recet = $this->m_recette->update($item7->id_recette, $plarray);
                     }
 
-                $cfdepe = $this->db->query(
-                    "SELECT d.id_depense, d.active_dep, d.idop_dep FROM depense d
-                    WHERE d.idop_dep = ?
-                    AND d.active_dep = 0
-                    AND d.idcaisse_depens = ?",
-                    array($idcpt, (int) $idc)
-                )->result();
+                if ($is_adjoint) {
+                    $cfdepe = $this->db->query(
+                        "SELECT d.id_depense, d.active_dep, d.idop_dep FROM depense d
+                        WHERE d.opevalidad = ?
+                        AND d.is_actifdepad = 1
+                        AND d.is_actifdep = 0
+                        AND d.idcaisse_depens = ?",
+                        array($idcpt, (int) $idc)
+                    )->result();
+                } else {
+                    $cfdepe = $this->db->query(
+                        "SELECT d.id_depense, d.active_dep, d.idop_dep FROM depense d
+                        WHERE d.idop_dep = ?
+                        AND d.active_dep = 0
+                        AND d.idcaisse_depens = ?",
+                        array($idcpt, (int) $idc)
+                    )->result();
+                }
 
                     foreach ($cfdepe as $item8) {
                         if ($is_adjoint) {
@@ -111,17 +144,30 @@
                         $vald_dep = $this->m_depense->update($item8->id_depense, $dplarray);
                     }
 
-                $cfdepo = $this->db->query(
-                    "SELECT d.id_depot FROM depot d
-                    WHERE d.idop_depot = ?
-                    AND d.idcaisse_depot = ?
-                    AND d.arret_caisdepo = 0
-                    AND d.is_validdepo = 0
-                    AND d.is_actifdepo = 0
-                    AND d.actif_depo = 0
-                    AND COALESCE(d.valid_depo, '') <> 'valid'",
-                    array($idcpt, (int) $idc)
-                )->result();
+                if ($is_adjoint) {
+                    $cfdepo = $this->db->query(
+                        "SELECT d.id_depot FROM depot d
+                        WHERE d.opvalidad = ?
+                        AND d.idcaisse_depot = ?
+                        AND d.arret_caisdepo = 0
+                        AND d.is_actifdepoad = 1
+                        AND d.is_actifdepo = 0
+                        AND d.actif_depo = 0",
+                        array($idcpt, (int) $idc)
+                    )->result();
+                } else {
+                    $cfdepo = $this->db->query(
+                        "SELECT d.id_depot FROM depot d
+                        WHERE d.idop_depot = ?
+                        AND d.idcaisse_depot = ?
+                        AND d.arret_caisdepo = 0
+                        AND d.is_validdepo = 0
+                        AND d.is_actifdepo = 0
+                        AND d.actif_depo = 0
+                        AND COALESCE(d.valid_depo, '') <> 'valid'",
+                        array($idcpt, (int) $idc)
+                    )->result();
+                }
 
                 foreach ($cfdepo as $item9) {
                     if ($is_adjoint) {
@@ -170,7 +216,6 @@
             $ekey = (string) $this->company->ekey;
             $cpuser_id = (int) $this->session->agent->cpuser_id;
             $gares = $this->m_compte_user->attrib($cpuser_id, '18');
-            $today = mdate('%Y-%m-%d', now());
             $nb_recettes = 0;
             $nb_depenses = 0;
             $nb_depots = 0;
@@ -191,8 +236,8 @@
                 $flags_dp = caisse_validation_flags_depot_chef_by_validator('18', $adjoint_ra, true);
                 $flags_dp['valid_depo'] = 'valid';
 
-                // Lignes ouvertes du compte adjoint (sa caisse) + arrêts chefs DÉJÀ envoyés
-                // en attente de validation adjoint — scope caisse = gare (gexp_caiss).
+                // Arrêts chefs (5/16) déjà envoyés, en attente de validation adjoint → pose *validad.
+                // Pas de branche idopera = adjoint (saisie sur son compte) : scope = validations uniquement.
                 $cfrecet = $this->db->query(
                     "SELECT r.id_recette
                     FROM recette r
@@ -206,21 +251,11 @@
                     AND (r.is_actifrecetad = 0 OR r.is_actifrecetad IS NULL)
                     AND r.actif_rect = 0
                     AND r.type_recet <> 'Courrier'
-                    AND (
-                        (
-                            r.idopera = ?
-                            AND r.active_recet = 0
-                            AND r.is_validerecet = 0
-                            AND r.date_recet <= ?
-                        )
-                        OR (
-                            ar.userole IN (5, 16)
-                            AND r.active_recet = 1
-                            AND r.is_validerecet = 0
-                            AND COALESCE(r.valid_recet, '') = 'valid'
-                        )
-                    )",
-                    array($ekey, $gid, $adjoint_ra, $today)
+                    AND ar.userole IN (5, 16)
+                    AND r.active_recet = 1
+                    AND r.is_validerecet = 0
+                    AND COALESCE(r.valid_recet, '') = 'valid'",
+                    array($ekey, $gid)
                 )->result();
 
                 foreach ($cfrecet as $row) {
@@ -241,22 +276,12 @@
                     AND (d.is_actifdepad = 0 OR d.is_actifdepad IS NULL)
                     AND d.actif_deps = 0
                     AND d.type_depense <> 'Courrier'
-                    AND (
-                        (
-                            d.idop_dep = ?
-                            AND d.active_dep = 0
-                            AND d.is_validedep = 0
-                            AND d.date_depens <= ?
-                        )
-                        OR (
-                            ar.userole IN (5, 16)
-                            AND d.active_dep = 1
-                            AND d.is_validedep = 0
-                            AND d.ferme_caisdep = 0
-                            AND COALESCE(d.valid_depens, '') = 'valid'
-                        )
-                    )",
-                    array($ekey, $gid, $adjoint_ra, $today)
+                    AND ar.userole IN (5, 16)
+                    AND d.active_dep = 1
+                    AND d.is_validedep = 0
+                    AND d.ferme_caisdep = 0
+                    AND COALESCE(d.valid_depens, '') = 'valid'",
+                    array($ekey, $gid)
                 )->result();
 
                 foreach ($cfdepe as $row) {
@@ -279,17 +304,9 @@
                     AND d.is_validdepo = 0
                     AND d.actif_depo = 0
                     AND d.type_depot <> 'Courrier'
-                    AND (
-                        (
-                            d.idop_depot = ?
-                            AND COALESCE(d.valid_depo, '') <> 'valid'
-                        )
-                        OR (
-                            ar.userole IN (5, 16)
-                            AND COALESCE(d.valid_depo, '') = 'valid'
-                        )
-                    )",
-                    array($ekey, $gid, $adjoint_ra)
+                    AND ar.userole IN (5, 16)
+                    AND COALESCE(d.valid_depo, '') = 'valid'",
+                    array($ekey, $gid)
                 )->result();
 
                 foreach ($cfdepo as $row) {

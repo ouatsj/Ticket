@@ -74,7 +74,11 @@ if (!function_exists('recette_role_op_sql_recette')) {
     function recette_role_op_sql_recette($roleattribut, $userole = null, $alias = 'r')
     {
         $roleattribut = (int) $roleattribut;
-        if (recette_role_is_saisie($userole) || recette_role_is_validateur_adjoint($userole)) {
+        if (recette_role_is_validateur_adjoint($userole)) {
+            // Adjoint : uniquement ce qu’il a validé (comme les soldes).
+            return "AND {$alias}.operavalidad = {$roleattribut}";
+        }
+        if (recette_role_is_saisie($userole)) {
             return "AND ({$alias}.idopera = {$roleattribut} OR {$alias}.operavalid = {$roleattribut} OR {$alias}.operavalidad = {$roleattribut})";
         }
 
@@ -89,7 +93,8 @@ if (!function_exists('recette_role_pending_recette_sql')) {
             return "AND {$alias}.is_actifrecet = 0";
         }
         if (recette_role_is_validateur_adjoint($userole)) {
-            return "AND {$alias}.is_actifrecetad = 0";
+            // Validé par l’adjoint, pas encore confirmé par le principal.
+            return "AND {$alias}.is_actifrecetad = 1 AND {$alias}.is_actifrecet = 0";
         }
 
         return "AND {$alias}.actif_rect = 0";
@@ -100,7 +105,10 @@ if (!function_exists('recette_role_op_sql_depense')) {
     function recette_role_op_sql_depense($roleattribut, $userole = null, $alias = 'd')
     {
         $roleattribut = (int) $roleattribut;
-        if (recette_role_is_saisie($userole) || recette_role_is_validateur_adjoint($userole)) {
+        if (recette_role_is_validateur_adjoint($userole)) {
+            return "AND {$alias}.opevalidad = {$roleattribut}";
+        }
+        if (recette_role_is_saisie($userole)) {
             return "AND ({$alias}.idop_dep = {$roleattribut} OR {$alias}.opevalid = {$roleattribut} OR {$alias}.opevalidad = {$roleattribut})";
         }
 
@@ -115,10 +123,39 @@ if (!function_exists('recette_role_pending_depense_sql')) {
             return "AND {$alias}.is_actifdep = 0";
         }
         if (recette_role_is_validateur_adjoint($userole)) {
-            return "AND {$alias}.is_actifdepad = 0";
+            return "AND {$alias}.is_actifdepad = 1 AND {$alias}.is_actifdep = 0";
         }
 
         return "AND {$alias}.actif_deps = 0";
+    }
+}
+
+if (!function_exists('recette_role_op_sql_depot')) {
+    function recette_role_op_sql_depot($roleattribut, $userole = null, $alias = 'd')
+    {
+        $roleattribut = (int) $roleattribut;
+        if (recette_role_is_validateur_adjoint($userole)) {
+            return "AND {$alias}.opvalidad = {$roleattribut}";
+        }
+        if (recette_role_is_saisie($userole)) {
+            return "AND ({$alias}.idop_depot = {$roleattribut} OR {$alias}.opvalid = {$roleattribut} OR {$alias}.opvalidad = {$roleattribut})";
+        }
+
+        return "AND {$alias}.idop_depot = {$roleattribut}";
+    }
+}
+
+if (!function_exists('recette_role_pending_depot_sql')) {
+    function recette_role_pending_depot_sql($userole = null, $alias = 'd')
+    {
+        if (recette_role_is_saisie($userole)) {
+            return "AND {$alias}.is_actifdepo = 0";
+        }
+        if (recette_role_is_validateur_adjoint($userole)) {
+            return "AND {$alias}.is_actifdepoad = 1 AND {$alias}.is_actifdepo = 0";
+        }
+
+        return "AND {$alias}.actif_depo = 0";
     }
 }
 
@@ -163,9 +200,13 @@ if (!function_exists('recette_role_op_sql_depense_list')) {
 if (!function_exists('recette_role_rd_open_recette_sql')) {
     /**
      * Période ouverte chef guichet : saisie en cours, pas encore passée à l'arrêt caisse (unstop).
+     * Adjoint : pas de filtre active_recet (ses validations ont active_recet=1).
      */
     function recette_role_rd_open_recette_sql($userole, $gare_scope, $alias = 'r')
     {
+        if (recette_role_is_validateur_adjoint($userole)) {
+            return '';
+        }
         if (!recette_role_is_chef_guichet_rd_list($userole, $gare_scope)) {
             return "AND {$alias}.active_recet = 0";
         }
@@ -179,6 +220,9 @@ if (!function_exists('recette_role_rd_open_recette_sql')) {
 if (!function_exists('recette_role_rd_open_depense_sql')) {
     function recette_role_rd_open_depense_sql($userole, $gare_scope, $alias = 'd')
     {
+        if (recette_role_is_validateur_adjoint($userole)) {
+            return '';
+        }
         if (!recette_role_is_chef_guichet_rd_list($userole, $gare_scope)) {
             return "AND {$alias}.active_dep = 0";
         }

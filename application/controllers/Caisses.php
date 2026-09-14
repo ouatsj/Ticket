@@ -1005,12 +1005,31 @@
                 
                 $db = $this->input->post('datedebut');
                 $df = $this->input->post('datefin');
-                $cfrecet = $this->db->query("SELECT r.id_recette, r.arret_caisrecet, r.active_recet, r.idopera, r.is_validerecet FROM recette r
-                    WHERE r.idopera = '$idcpt'
-                    AND r.is_validerecet = 1
-                    AND r.arret_caisrecet = 0
-                    AND r.idcaisse ='$identifiant_caisse'
-                    AND r.date_recet BETWEEN '$db' AND '$df'")->result();
+                $is_adjoint = recette_role_is_validateur_adjoint($this->session->agent->userole);
+                $idcpt = (int) $idcpt;
+
+                if ($is_adjoint) {
+                    $cfrecet = $this->db->query(
+                        "SELECT r.id_recette FROM recette r
+                        WHERE r.operavalidad = ?
+                        AND r.is_actifrecetad = 1
+                        AND r.is_actifrecet = 0
+                        AND r.arret_caisrecet = 0
+                        AND r.idcaisse = ?
+                        AND r.date_recet BETWEEN ? AND ?",
+                        array($idcpt, $identifiant_caisse, $db, $df)
+                    )->result();
+                } else {
+                    $cfrecet = $this->db->query(
+                        "SELECT r.id_recette FROM recette r
+                        WHERE r.idopera = ?
+                        AND r.is_validerecet = 1
+                        AND r.arret_caisrecet = 0
+                        AND r.idcaisse = ?
+                        AND r.date_recet BETWEEN ? AND ?",
+                        array($idcpt, $identifiant_caisse, $db, $df)
+                    )->result();
+                }
 
                     foreach ($cfrecet as $item) {
                         $plarray = array(
@@ -1019,12 +1038,28 @@
                         $vald_recet = $this->m_recette->update($item->id_recette, $plarray);
                     }
 
-                $cfdepe = $this->db->query("SELECT d.id_depense, d.active_dep, d.arret_caisdep, d.idop_dep, d.is_validedep FROM depense d
-                    WHERE d.idop_dep = '$idcpt'
-                    AND d.is_validedep = 1
-                    AND d.arret_caisdep = 0
-                    AND d.idcaisse_depens = '$identifiant_caisse'
-                    AND d.date_depens BETWEEN '$db' AND '$df'")->result();
+                if ($is_adjoint) {
+                    $cfdepe = $this->db->query(
+                        "SELECT d.id_depense FROM depense d
+                        WHERE d.opevalidad = ?
+                        AND d.is_actifdepad = 1
+                        AND d.is_actifdep = 0
+                        AND d.arret_caisdep = 0
+                        AND d.idcaisse_depens = ?
+                        AND d.date_depens BETWEEN ? AND ?",
+                        array($idcpt, $identifiant_caisse, $db, $df)
+                    )->result();
+                } else {
+                    $cfdepe = $this->db->query(
+                        "SELECT d.id_depense FROM depense d
+                        WHERE d.idop_dep = ?
+                        AND d.is_validedep = 1
+                        AND d.arret_caisdep = 0
+                        AND d.idcaisse_depens = ?
+                        AND d.date_depens BETWEEN ? AND ?",
+                        array($idcpt, $identifiant_caisse, $db, $df)
+                    )->result();
+                }
 
                     foreach ($cfdepe as $item1) {
                         $dplarray = array(
@@ -1032,12 +1067,29 @@
                         );
                         $vald_dep = $this->m_depense->update($item1->id_depense, $dplarray);
                     }
-                $cfdepo = $this->db->query("SELECT d.id_depot, d.idop_depot, d.arret_caisdepo, d.is_validdepo FROM depot d
-                    WHERE d.idop_depot = '$idcpt'
-                    AND d.is_validdepo = 0
-                    AND d.arret_caisdepo = 0
-                    AND d.idcaisse_depot = '$identifiant_caisse'
-                    AND d.datedepot BETWEEN '$db' AND '$df'")->result();
+
+                if ($is_adjoint) {
+                    $cfdepo = $this->db->query(
+                        "SELECT d.id_depot FROM depot d
+                        WHERE d.opvalidad = ?
+                        AND d.is_actifdepoad = 1
+                        AND d.is_actifdepo = 0
+                        AND d.arret_caisdepo = 0
+                        AND d.idcaisse_depot = ?
+                        AND d.datedepot BETWEEN ? AND ?",
+                        array($idcpt, $identifiant_caisse, $db, $df)
+                    )->result();
+                } else {
+                    $cfdepo = $this->db->query(
+                        "SELECT d.id_depot FROM depot d
+                        WHERE d.idop_depot = ?
+                        AND d.is_validdepo = 0
+                        AND d.arret_caisdepo = 0
+                        AND d.idcaisse_depot = ?
+                        AND d.datedepot BETWEEN ? AND ?",
+                        array($idcpt, $identifiant_caisse, $db, $df)
+                    )->result();
+                }
 
                     foreach ($cfdepo as $item2) {
                         $dpolarray = array(
@@ -5405,19 +5457,28 @@
                 return;
             }
             $role = (string) $this->session->agent->userole;
+            // Toujours le RA session pour la piste validateur (jamais le RA du chef arrêté).
+            $validator_ra = 0;
+            if ($this->session->userdata('agent') && !empty($this->session->agent->roleattribut)) {
+                $validator_ra = (int) $this->session->agent->roleattribut;
+            }
+            if ($validator_ra <= 0) {
+                $validator_ra = (int) $iduser;
+            }
             if ($role === '4') {
                 $this->m_recette->update($recette_id, array(
                     'active_recet' => 1,
                     'is_validerecet' => 1,
                     'is_actifrecet' => 1,
-                    'operavalid' => $iduser,
+                    'operavalid' => $validator_ra,
                 ));
             } elseif ($role === '18') {
+                // Ne devrait plus être atteint sur compte chef (garde caisse_adjoint_blocked_arret_on_chef).
                 $this->m_recette->update($recette_id, array(
                     'active_recet' => 1,
                     'is_validerecet' => 1,
                     'is_actifrecetad' => 1,
-                    'operavalidad' => $iduser,
+                    'operavalidad' => $validator_ra,
                 ));
             }
         }
@@ -5427,6 +5488,15 @@
         {
             $this->company = $this->m_entreprises->get_key($ckey);
             $idcpt = $this->_resolve_arret_roleattribut($this->company->ekey, $gd, $idcpt);
+
+            if (caisse_adjoint_blocked_arret_on_chef($idcpt, $this->session->agent->userole)) {
+                show_error(
+                    'En tant que caissier adjoint, vous ne pouvez pas lancer l’arrêt de compte escale d’un chef guichet. '
+                    . 'Utilisez l’écran de validation / rejet dédié.',
+                    403
+                );
+                return;
+            }
 
             $this->load->helper(array('sales_price', 'arret_compte_complet', 'guichet_totaux'));
 
@@ -6420,6 +6490,17 @@
             $this->company = $this->m_entreprises->get_key($ckey);
             $gid = $this->input->post('gareconnect');
             $idcpt = $this->_resolve_arret_roleattribut($this->company->ekey, $gd, $idcpt);
+
+            // Adjoint : interdiction d’exécuter l’arrêt tickets d’un chef (sinon *validad auto).
+            if (caisse_adjoint_blocked_arret_on_chef($idcpt, $this->session->agent->userole)) {
+                show_error(
+                    'En tant que caissier adjoint, vous ne pouvez pas lancer l’arrêt de compte tickets d’un chef guichet. '
+                    . 'Le chef doit arrêter son compte ; vous validez ou rejetez ensuite via l’écran dédié.',
+                    403
+                );
+                return;
+            }
+
             $iduser = (string) $idcpt;
             $sgid = $this->input->post('sousgareconnect');
             $idcmpt = $this->input->post('compconnected');

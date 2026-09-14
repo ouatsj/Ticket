@@ -35,6 +35,47 @@ if (!function_exists('caisse_validation_flags_strip_author')) {
     }
 }
 
+if (!function_exists('caisse_adjoint_blocked_arret_on_chef')) {
+    /**
+     * Adjoint (18) : interdit unstop / validerec sur un compte chef (5/16).
+     * La validation des arrêts chefs passe par validerecette / rejetrecette (etc.).
+     *
+     * @param int|string      $target_roleattribut compte ciblé (URL / bind)
+     * @param string|int|null $session_userole
+     * @return bool true = bloquer l’action
+     */
+    function caisse_adjoint_blocked_arret_on_chef($target_roleattribut, $session_userole = null)
+    {
+        if ($session_userole === null) {
+            $CI =& get_instance();
+            if (!$CI->session->userdata('agent') || empty($CI->session->agent->userole)) {
+                return false;
+            }
+            $session_userole = $CI->session->agent->userole;
+        }
+        if (!recette_role_is_validateur_adjoint($session_userole)) {
+            return false;
+        }
+
+        $target_ra = (int) $target_roleattribut;
+        if ($target_ra <= 0) {
+            return false;
+        }
+
+        // Toujours résoudre le rôle du compte ciblé en DB (pas la session adjoint).
+        $CI =& get_instance();
+        $row = $CI->db->query(
+            'SELECT ar.userole FROM attributions_role ar WHERE ar.roleattribut = ? LIMIT 1',
+            array($target_ra)
+        )->row();
+        if (!$row || empty($row->userole)) {
+            return false;
+        }
+
+        return recette_role_is_saisie($row->userole);
+    }
+}
+
 if (!function_exists('caisse_validation_flags_chef_by_validator')) {
     /**
      * Flags posés quand 4 ou 18 valide l’arrêt d’un chef (5/16).

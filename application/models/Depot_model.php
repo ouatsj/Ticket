@@ -1727,6 +1727,12 @@
         public function ad_depocais($cid, $g, $idcais, $conect)
         {
             $today = mdate('%Y-%m-%d', now());
+            $conect = (int) $conect;
+            $userole = recette_role_userole_for_attribut($conect);
+            $op_sql = recette_role_is_validateur_adjoint($userole)
+                ? "AND d.opvalidad = {$conect} AND d.is_actifdepoad = 1 AND d.is_actifdepo = 0"
+                : "AND d.idop_depot = {$conect}";
+
             return $this->db->query(
                 "SELECT SUM(montant_depot) AS total FROM depot d
                 JOIN attributions_role ar ON d.idop_depot = ar.roleattribut
@@ -1741,7 +1747,7 @@
                 AND d.arret_caisdepo = 0
                 AND d.actif_depo = 0
                 AND cs.id_caiss = '$idcais'
-                AND d.idop_depot = '$conect'
+                {$op_sql}
                 AND d.datedepot <= '$today'
                 AND d.type_depot <> 'Courrier'
                 AND cs.gexp_caiss = '$g'

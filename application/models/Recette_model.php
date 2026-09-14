@@ -1793,6 +1793,11 @@
         public function ad_recet($cid, $g, $idcais, $conect)
         {
             $today = mdate('%Y-%m-%d', now());
+            $conect = (int) $conect;
+            $userole = recette_role_userole_for_attribut($conect);
+            $op_sql = recette_role_is_validateur_adjoint($userole)
+                ? "AND r.operavalidad = {$conect} AND r.is_actifrecetad = 1 AND r.is_actifrecet = 0"
+                : "AND r.idopera = {$conect} AND r.active_recet = 0";
 
             return $this->db->query(
                 "SELECT SUM(montant_recet) AS total FROM recette r
@@ -1805,8 +1810,7 @@
                 JOIN compagnies c ON r.compkey_recet = c.cle_compagnie
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = '$cid'
-                AND r.active_recet = 0
-                AND r.idopera = '$conect'
+                {$op_sql}
                 AND r.date_recet <= '$today'
                 AND cs.id_caiss = '$idcais'
                 AND cs.gexp_caiss = '$g'
@@ -1818,6 +1822,11 @@
         public function ad_recetcais($cid, $g, $idcais, $conect)
         {
             $today = mdate('%Y-%m-%d', now());
+            $conect = (int) $conect;
+            $userole = recette_role_userole_for_attribut($conect);
+            $op_sql = recette_role_is_validateur_adjoint($userole)
+                ? "AND r.operavalidad = {$conect} AND r.is_actifrecetad = 1 AND r.is_actifrecet = 0"
+                : "AND r.idopera = {$conect}";
 
             return $this->db->query(
                 "SELECT SUM(montant_recet) AS total FROM recette r
@@ -1832,7 +1841,7 @@
                 WHERE e.ekey = '$cid'
                 AND r.active_recet = 1
                 AND r.arret_caisrecet = 0
-                AND r.idopera = '$conect'
+                {$op_sql}
                 AND r.date_recet <= '$today'
                 AND cs.id_caiss = '$idcais'
                 AND cs.gexp_caiss = '$g'
@@ -2415,7 +2424,7 @@
                 $op_sql = "AND (r.idopera = {$roleattribut} OR r.operavalid = {$roleattribut} OR r.operavalidad = {$roleattribut})";
                 $closed_sql = 'AND r.is_actifrecet = 1';
             } elseif (recette_role_is_validateur_adjoint($userole)) {
-                $op_sql = "AND (r.idopera = {$roleattribut} OR r.operavalid = {$roleattribut} OR r.operavalidad = {$roleattribut})";
+                $op_sql = "AND r.operavalidad = {$roleattribut}";
                 $closed_sql = 'AND r.is_actifrecetad = 1';
             } else {
                 $op_sql = "AND r.idopera = {$roleattribut}";
@@ -2509,8 +2518,8 @@
                     ? 'AND r.is_actifrecet = 0 AND r.active_recet = 0 AND (r.is_validerecet = 0 OR r.is_validerecet IS NULL)'
                     : 'AND r.is_actifrecet = 0';
             } elseif (recette_role_is_validateur_adjoint($userole)) {
-                $op_sql = "AND (r.idopera = {$roleattribut} OR r.operavalid = {$roleattribut} OR r.operavalidad = {$roleattribut})";
-                $pending_sql = 'AND r.is_actifrecetad = 0';
+                $op_sql = "AND r.operavalidad = {$roleattribut}";
+                $pending_sql = 'AND r.is_actifrecetad = 1 AND r.is_actifrecet = 0';
             } else {
                 $op_sql = "AND r.idopera = {$roleattribut}";
                 $pending_sql = 'AND r.actif_rect = 0';

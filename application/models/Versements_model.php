@@ -749,6 +749,9 @@
                 ? ('AND r.idopera = ' . $cx)
                 : recette_role_op_sql_recette($cx, $userole);
             $pending_sql = recette_role_pending_recette_sql($userole);
+            $active_sql = recette_role_is_validateur_adjoint($userole)
+                ? ''
+                : 'AND r.active_recet = 0';
 
             return $this->db->query("SELECT SUM(montant_recet) AS montant_recet FROM recette r
                 JOIN caisse cs ON r.idcaisse = cs.id_caiss
@@ -760,7 +763,7 @@
                 JOIN compagnies c ON r.compkey_recet = c.cle_compagnie
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = '$cd'
-                AND r.active_recet = 0
+                {$active_sql}
                 {$date_sql}
                 AND cs.gexp_caiss = '$idg'
                 AND cs.id_caiss = '$idcais'

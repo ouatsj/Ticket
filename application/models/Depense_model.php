@@ -1465,6 +1465,11 @@
         public function ad_depens($cid, $g, $idcais, $conect)
         {
             $today = mdate('%Y-%m-%d', now());
+            $conect = (int) $conect;
+            $userole = recette_role_userole_for_attribut($conect);
+            $op_sql = recette_role_is_validateur_adjoint($userole)
+                ? "AND d.opevalidad = {$conect} AND d.is_actifdepad = 1 AND d.is_actifdep = 0"
+                : "AND d.idop_dep = {$conect} AND d.active_dep = 0";
 
             return $this->db->query(
                 "SELECT SUM(montant_depens) AS total FROM depense d
@@ -1476,9 +1481,8 @@
                 JOIN compagnies c ON d.compkey_dep = c.cle_compagnie
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = '$cid'
-                AND d.active_dep = 0
+                {$op_sql}
                 AND d.actif_deps = 0
-                AND d.idop_dep = '$conect'
                 AND d.date_depens <= '$today'
                 AND cs.gexp_caiss = '$g'
                 AND d.type_depense <> 'Courrier'
@@ -1492,6 +1496,11 @@
         public function ad_depenscais($cid, $g, $idcais, $conect, $sg = null)
         {
             $today = mdate('%Y-%m-%d', now());
+            $conect = (int) $conect;
+            $userole = recette_role_userole_for_attribut($conect);
+            $op_sql = recette_role_is_validateur_adjoint($userole)
+                ? "AND d.opevalidad = {$conect} AND d.is_actifdepad = 1 AND d.is_actifdep = 0"
+                : "AND d.idop_dep = {$conect}";
             $sg_sql = '';
             if ($sg !== null && $sg !== '' && $sg !== false) {
                 $sg_sql = 'AND d.sousgidepens = ' . $this->db->escape($sg);
@@ -1510,7 +1519,7 @@
                 AND d.active_dep = 1
                 AND d.actif_deps = 0
                 AND d.arret_caisdep = 0
-                AND d.idop_dep = '$conect'
+                {$op_sql}
                 AND d.date_depens <= '$today'
                 AND cs.gexp_caiss = '$g'
                 AND d.type_depense <> 'Courrier'
@@ -2087,7 +2096,7 @@
                 $op_sql = "AND (d.idop_dep = {$roleattribut} OR d.opevalid = {$roleattribut} OR d.opevalidad = {$roleattribut})";
                 $closed_sql = 'AND d.is_actifdep = 1';
             } elseif (recette_role_is_validateur_adjoint($userole)) {
-                $op_sql = "AND (d.idop_dep = {$roleattribut} OR d.opevalid = {$roleattribut} OR d.opevalidad = {$roleattribut})";
+                $op_sql = "AND d.opevalidad = {$roleattribut}";
                 $closed_sql = 'AND d.is_actifdepad = 1';
             } else {
                 $op_sql = "AND d.idop_dep = {$roleattribut}";
@@ -2181,8 +2190,8 @@
                     ? 'AND d.is_actifdep = 0 AND d.active_dep = 0 AND (d.is_validedep = 0 OR d.is_validedep IS NULL)'
                     : 'AND d.is_actifdep = 0';
             } elseif (recette_role_is_validateur_adjoint($userole)) {
-                $op_sql = "AND (d.idop_dep = {$roleattribut} OR d.opevalid = {$roleattribut} OR d.opevalidad = {$roleattribut})";
-                $pending_sql = 'AND d.is_actifdepad = 0';
+                $op_sql = "AND d.opevalidad = {$roleattribut}";
+                $pending_sql = 'AND d.is_actifdepad = 1 AND d.is_actifdep = 0';
             } else {
                 $op_sql = "AND d.idop_dep = {$roleattribut}";
                 $pending_sql = 'AND d.actif_deps = 0';
