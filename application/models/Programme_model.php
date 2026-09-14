@@ -2027,10 +2027,9 @@
             }
 
             // 2) Créneaux Multi = autres programmes gare (hors OD) + hub.
-            //    - S’il y a des directs OD : filtre cie + gare/ville d’arrivée (cases compagnie).
-            //    - S’il n’y a PAS de direct (ex. OUAGA-ABIDJAN_CIT sans programme CIT) :
-            //      activer le transit et proposer les départs gare comme ancres
-            //      (1ʳᵉ jambe ≠ forcément cie d’arrivée finale).
+            //    - Avec directs OD : tous les programmes gare hors OD (case Multi guichet / Autre vente).
+            //    - Sans direct (ex. OUAGA-ABIDJAN_CIT sans programme CIT) :
+            //      activer le transit et proposer les départs gare comme ancres.
             $multiRows = ($gaexp !== '')
                 ? $this->programmes_multi_gare($cid, $gaexp, $date, $lignesOd, $sg, null)
                 : array();

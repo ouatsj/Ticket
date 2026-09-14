@@ -1,4 +1,4 @@
-/* Bundle guichet role=2 — genere sans terser */
+/* Bundle guichet role=2 — genere par scripts/build_guichet_bundles.php */
 /* --- filtre_arrivee_compagnie.js --- */
 /**
  * Filtre les selects gares d'arrivée par checkboxes compagnies.
@@ -6427,10 +6427,61 @@ document.addEventListener('DOMContentLoaded', () => {
         if (typeof window.__venteNormalizeHhmm !== 'function') {
             window.__venteNormalizeHhmm = _hhmm;
         }
+        // Rôles FI seuls (sans addventeticket.js) : ancre transit jambe 1.
+        if (typeof window.__venteSetTransitAnchorFromHour !== 'function') {
+            window.__venteTransitAnchorHour = window.__venteTransitAnchorHour || null;
+            window.__venteSetTransitAnchorFromHour = function (hour) {
+                var raw = _fromPre(hour);
+                var hhmm = _hhmm(raw);
+                if (!hhmm) {
+                    window.__venteTransitAnchorHour = null;
+                    return null;
+                }
+                window.__venteTransitAnchorHour = {
+                    value: hour && hour.value ? String(hour.value) : '',
+                    idLh: hour && hour.idLh != null ? String(hour.idLh) : '',
+                    heure: raw,
+                    hhmm: hhmm,
+                    hasProg: !!(hour && hour.hasProg)
+                };
+                return window.__venteTransitAnchorHour;
+            };
+        }
+        if (typeof window.__venteGetTransitAnchorHour !== 'function') {
+            window.__venteGetTransitAnchorHour = function () {
+                if (window.__venteTransitAnchorHour && window.__venteTransitAnchorHour.heure) {
+                    return window.__venteTransitAnchorHour;
+                }
+                if (window.__venteSelectedHour && (window.__venteSelectedHour.heure || window.__venteSelectedHour.value)) {
+                    return window.__venteSetTransitAnchorFromHour(window.__venteSelectedHour);
+                }
+                return null;
+            };
+        }
+        if (typeof window.__venteClearTransitAnchor !== 'function') {
+            window.__venteClearTransitAnchor = function () {
+                window.__venteTransitAnchorHour = null;
+            };
+        }
     })();
 
     function __venteFiShouldSkipAutoPrix() {
         return window.__venteFiPrixManuel !== false;
+    }
+
+    /** Recharge les heures FI si OD + date sont déjà renseignés (sans vider la date). */
+    function __venteFiTriggerHeuresReloadIfReady() {
+        var dep = document.querySelector('#depargarefid');
+        var arr = document.querySelector('#arrsgarefid');
+        var da = document.querySelector('#date_depheurefid');
+        var actu = document.querySelector('#actufid');
+        if (!dep || !String(dep.value || '').trim()) return;
+        if (!arr || !String(arr.value || '').trim()) return;
+        if (!da || !String(da.value || '').trim()) return;
+        if (actu && da.value < actu.value) return;
+        if (typeof da.onchange === 'function') {
+            da.onchange();
+        }
     }
 
     function __venteFiClearTransitPrixFields() {
@@ -7794,8 +7845,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (arfi !== null)
             arfi.onchange = () => {
                 document.querySelector('#prix_axefid').value = '';
-                document.querySelector('#prix_axefid').value = '';
-                document.querySelector('#date_depheurefid').value = '';
+                // Ne pas vider la date : recharger les heures comme le guichet.
                 document.querySelector('#hdepartfid').options.length = 1;
                 document.querySelector('#quartierfid').options.length = 1;
                 document.querySelector('#psiegesfid').options.length = 1;
@@ -7854,7 +7904,21 @@ document.addEventListener('DOMContentLoaded', () => {
                     };
                     httptypequartfi.setRequestHeader('Content-Type', 'application/json');
                     httptypequartfi.send();
+                    __venteFiTriggerHeuresReloadIfReady();
             };
+
+            let depfi = document.querySelector('#depargarefid');
+            if (depfi !== null && !depfi.dataset.heuresBound) {
+                depfi.dataset.heuresBound = '1';
+                depfi.addEventListener('change', function () {
+                    var h = document.querySelector('#hdepartfid');
+                    if (h) {
+                        h.options.length = 1;
+                        h.selectedIndex = 0;
+                    }
+                    __venteFiTriggerHeuresReloadIfReady();
+                });
+            }
             
             let dafi = document.querySelector('#date_depheurefid');
             if (dafi !== null){
@@ -9936,6 +10000,9 @@ document.addEventListener('DOMContentLoaded', () => {
                                                 }
 
                                                 // Heure avec départ : vente directe FI (P/O et champs spécifiques conservés).
+                                                if (typeof window.__venteClearTransitAnchor === 'function') {
+                                                    window.__venteClearTransitAnchor();
+                                                }
                                                 __venteFiShowDirectHourUi();
                                                 if (document.querySelector('#messfid')) document.querySelector('#messfid').style.display = 'none';
                                                 const httpRequestfi = new XMLHttpRequest();
@@ -10311,11 +10378,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         h.options.length = 1;
                         h.selectedIndex = 0;
                     }
-                    var da = document.querySelector('#date_depheurefid');
-                    if (da && String(sel.value || '').trim() && String(da.value || '').trim()
-                        && typeof da.onchange === 'function') {
-                        da.onchange();
-                    }
+                    __venteFiTriggerHeuresReloadIfReady();
                 };
 
                 var venteFiAllowMultiEl = document.querySelector('#vente_fi_allow_multi');
