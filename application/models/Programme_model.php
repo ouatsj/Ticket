@@ -2027,11 +2027,15 @@
             }
 
             // 2) Créneaux Multi = autres programmes gare (hors OD) + hub.
-            //    Compagnie d'arrivée cochée + gare/ville d'arrivée choisie
-            //    (hub liés conservés ; fallback cie seule si rien après filtre strict).
+            //    - S’il y a des directs OD : filtre cie + gare/ville d’arrivée (cases compagnie).
+            //    - S’il n’y a PAS de direct (ex. OUAGA-ABIDJAN_CIT sans programme CIT) :
+            //      activer le transit et proposer les départs gare comme ancres
+            //      (1ʳᵉ jambe ≠ forcément cie d’arrivée finale).
             $multiRows = ($gaexp !== '')
                 ? $this->programmes_multi_gare($cid, $gaexp, $date, $lignesOd, $sg, null)
                 : array();
+            $multiAll = $multiRows;
+            $hasDirectOd = !empty($heures);
 
             $gdAxe = '';
             $villeCible = 0;
@@ -2056,7 +2060,92 @@
                 }
             }
 
-            if (!empty($multiRows)) {
+            if (!$hasDirectOd) {
+                // Aucun départ OD pour cette cie → activer transit + ancres 1ʳᵉ jambe.
+                $multiRows = $multiAll;
+                if (!empty($multiRows)) {
+                    $has_transit = TRUE;
+                    if (!in_array('programmes_gare', $transit_sources, TRUE)) {
+                        $transit_sources[] = 'programmes_gare';
+                    }
+                }
+                // Si filtre OD a tout exclu : retenter en n’excluant que l’axe exact.
+                if (empty($multiRows) && $gaexp !== '') {
+                    $multiRetry = $this->programmes_multi_gare(
+                        $cid, $gaexp, $date, array($axe), $sg, null
+                    );
+                    if (!empty($multiRetry)) {
+                        $multiRows = $multiRetry;
+                        $multiAll = $multiRetry;
+                        $has_transit = TRUE;
+                        if (!in_array('programmes_gare', $transit_sources, TRUE)) {
+                            $transit_sources[] = 'programmes_gare';
+                        }
+                    }
+                }
+                // Ancres depuis le graphe (1ʳᵉ jambe des chemins) si toujours vide.
+                if (empty($multiRows) && method_exists($CI->graphe_correspondance, 'chercher_chemins')) {
+                    $resG = $CI->graphe_correspondance->chercher_chemins(
+                        $cid, $axe, $date, $sg, TRUE, null
+                    );
+                    if (!empty($resG['chemins'])) {
+                        $has_transit = TRUE;
+                        if (!in_array('graphe', $transit_sources, TRUE)) {
+                            $transit_sources[] = 'graphe';
+                        }
+                        $seenG = array();
+                        foreach ($resG['chemins'] as $ch) {
+                            if (empty($ch['path'][0]) || !is_array($ch['path'][0])) {
+                                continue;
+                            }
+                            $leg0 = $ch['path'][0];
+                            $dep = isset($leg0['depart']) && is_array($leg0['depart'])
+                                ? $leg0['depart'] : array();
+                            $code = isset($dep['code_progr']) ? trim((string) $dep['code_progr']) : '';
+                            $idLh = isset($dep['id_ligneheure']) ? (string) $dep['id_ligneheure'] : '';
+                            $heure = isset($dep['heure']) ? $dep['heure'] : '';
+                            $hh = $this->_heure_hhmm($heure);
+                            if ($idLh === '' || $hh === '') {
+                                continue;
+                            }
+                            $sig = ($code !== '') ? ('c:' . $code) : ('h:' . $hh . ':' . $idLh);
+                            if (isset($seenG[$sig])) {
+                                continue;
+                            }
+                            $seenG[$sig] = TRUE;
+                            if ($code !== '') {
+                                $seenCodes[$code] = TRUE;
+                            }
+                            $heures[] = array(
+                                'id_ligneheure' => $idLh,
+                                'heure' => $heure,
+                                'has_programme' => FALSE,
+                                'code_progr' => ($code !== '') ? $code : null,
+                                'scope' => null,
+                                'source' => 'gare',
+                                'slot_kind' => 'multi',
+                                'ligne_depart' => isset($leg0['ident_ligne']) ? $leg0['ident_ligne'] : null,
+                                'nom_ligne' => isset($leg0['nom_ligne']) ? trim((string) $leg0['nom_ligne']) : null,
+                                'id_compaga' => null,
+                                'gadest_lg' => isset($leg0['gadest']) ? (string) $leg0['gadest'] : null,
+                                'hub_role' => '',
+                                'hub_label' => 'normal',
+                            );
+                        }
+                    }
+                }
+                // Déclaratif / legacy : au moins signaler le transit même sans créneau listé.
+                if (!$has_transit) {
+                    $eval2 = $CI->graphe_correspondance->evaluer_transit_od($cid, $axe, $date, $sg);
+                    if (!empty($eval2['has_transit'])) {
+                        $has_transit = TRUE;
+                        $transit_sources = array_values(array_unique(array_merge(
+                            $transit_sources,
+                            !empty($eval2['sources']) ? $eval2['sources'] : array()
+                        )));
+                    }
+                }
+            } elseif (!empty($multiRows)) {
                 $cieOnly = array();
                 $strict = array();
                 foreach ($multiRows as $pg) {
@@ -2086,19 +2175,18 @@
                         $strict[] = $pg;
                     }
                 }
-                // Si filtre gare trop strict et qu’il reste du transit déclaré : garder cie seule.
                 if (!empty($strict)) {
                     $multiRows = $strict;
-                } elseif ($cie !== '') {
+                } elseif (!empty($cieOnly)) {
                     $multiRows = $cieOnly;
                 } else {
-                    $multiRows = $cieOnly;
+                    $multiRows = array();
                 }
-            }
-            if (!empty($multiRows)) {
-                $has_transit = TRUE;
-                if (!in_array('programmes_gare', $transit_sources, TRUE)) {
-                    $transit_sources[] = 'programmes_gare';
+                if (!empty($multiRows)) {
+                    $has_transit = TRUE;
+                    if (!in_array('programmes_gare', $transit_sources, TRUE)) {
+                        $transit_sources[] = 'programmes_gare';
+                    }
                 }
             }
 
