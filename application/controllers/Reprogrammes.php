@@ -1190,8 +1190,16 @@
                 if (!isset($this->m_programme)) {
                     $this->load->model('Programme_model', 'm_programme');
                 }
-                // Nom de ligne prioritaire : NOM_DEPART-NOM_ARRIVEE (ex. BANFORA-OUAGA).
-                $nomParGares = ($nomDep !== '' && $nomArr !== '') ? ($nomDep . '-' . $nomArr) : '';
+                // Nom de ligne : garder / résoudre le libellé catalogue (BOBO-ABIDJAN_CIT),
+                // jamais coller « BOBO-ABIDJANCIT » depuis les noms de gares bruts.
+                $nomParGares = '';
+                if ($nomDep !== '' && $nomArr !== '') {
+                    $nomParGares = $this->m_programme->normalize_nom_ligne_od(
+                        $this->m_programme->strip_cie_suffix_php($nomDep)
+                        . '-'
+                        . $this->m_programme->strip_cie_suffix_php($nomArr)
+                    );
+                }
                 $od = $this->m_programme->od_metier_globale(
                     $gaOd,
                     $gdOd,
@@ -1200,17 +1208,34 @@
                     isset($last['nom_ligne']) ? $last['nom_ligne'] : null
                 );
                 if ($nomParGares !== '') {
-                    $byNom = $this->m_programme->axes_par_nom_ligne(
+                    $resolved = $this->m_programme->resolve_nom_ligne_catalogue(
                         $nomParGares,
                         $this->session->company->ekey,
                         $gaOd,
                         $gdOd
                     );
-                    if (!empty($byNom) || empty($od['nom_ligne'])) {
-                        $od['nom_ligne'] = $nomParGares;
-                        if (!empty($byNom)) {
-                            $od['axes'] = $byNom;
+                    $byNom = $this->m_programme->axes_par_nom_ligne(
+                        $resolved !== '' ? $resolved : $nomParGares,
+                        $this->session->company->ekey,
+                        $gaOd,
+                        $gdOd
+                    );
+                    if (empty($od['nom_ligne']) && $resolved !== '') {
+                        $od['nom_ligne'] = $resolved;
+                    } elseif (!empty($od['nom_ligne'])) {
+                        // Aligner sur catalogue si composition foireuse (…ABIDJANCIT).
+                        $canon = $this->m_programme->resolve_nom_ligne_catalogue(
+                            $od['nom_ligne'],
+                            $this->session->company->ekey,
+                            $gaOd,
+                            $gdOd
+                        );
+                        if ($canon !== '') {
+                            $od['nom_ligne'] = $canon;
                         }
+                    }
+                    if (!empty($byNom)) {
+                        $od['axes'] = $byNom;
                     }
                 }
                 $out->gaexp_od = $od['gaexp'];
@@ -1218,11 +1243,14 @@
                 $out->axe_od = $od['axe'];
                 $out->nom_ligne_od = $od['nom_ligne'];
                 $out->axes_od = $od['axes'];
-                $out->nom_gaep_od = $nomDep;
-                $out->nom_gadest_od = $nomArr;
-                if ($nomDep !== '' && $nomArr !== '') {
-                    $out->direction_affiche = $nomDep . ' → ' . $nomArr
-                        . (!empty($od['nom_ligne']) ? (' — ' . $od['nom_ligne']) : '')
+                $depDisp = $this->m_programme->strip_cie_suffix_php($nomDep);
+                $arrDisp = $this->m_programme->strip_cie_suffix_php($nomArr);
+                $out->nom_gaep_od = $depDisp !== '' ? $depDisp : $nomDep;
+                $out->nom_gadest_od = $arrDisp !== '' ? $arrDisp : $nomArr;
+                if ($out->nom_gaep_od !== '' && $out->nom_gadest_od !== '') {
+                    $ligneDisp = !empty($od['nom_ligne']) ? (string) $od['nom_ligne'] : '';
+                    $out->direction_affiche = $out->nom_gaep_od . ' → ' . $out->nom_gadest_od
+                        . ($ligneDisp !== '' ? (' — ' . $ligneDisp) : '')
                         . ' (transit ' . $out->nbr_jambes . ' jambes)';
                 }
             }
@@ -1859,17 +1887,34 @@
             if ($nom === '' && !empty($out->jambes) && is_array($out->jambes) && count($out->jambes) >= 2) {
                 $first = $out->jambes[0];
                 $last = $out->jambes[count($out->jambes) - 1];
-                // Priorité : noms de gares (BANFORA-OUAGA), puis composition des noms de lignes.
+                // Priorité : noms de gares normalisés, puis composition des noms de lignes.
                 $nd = isset($first['nom_gaep']) ? trim((string) $first['nom_gaep']) : '';
                 $na = isset($last['nom_gadest']) ? trim((string) $last['nom_gadest']) : '';
                 if ($nd !== '' && $na !== '') {
-                    $nom = $nd . '-' . $na;
+                    $nom = $this->m_programme->normalize_nom_ligne_od(
+                        $this->m_programme->strip_cie_suffix_php($nd)
+                        . '-'
+                        . $this->m_programme->strip_cie_suffix_php($na)
+                    );
                 }
                 if ($nom === '') {
                     $nom = $this->m_programme->composer_nom_ligne_od(
                         isset($first['nom_ligne']) ? $first['nom_ligne'] : '',
                         isset($last['nom_ligne']) ? $last['nom_ligne'] : ''
                     );
+                }
+                $gaJ = isset($first['gaexp_lg']) ? (string) $first['gaexp_lg'] : '';
+                $gdJ = isset($last['gadest_lg']) ? (string) $last['gadest_lg'] : '';
+                if ($nom !== '') {
+                    $canon = $this->m_programme->resolve_nom_ligne_catalogue(
+                        $nom,
+                        $this->session->company->ekey,
+                        $gaJ !== '' ? $gaJ : null,
+                        $gdJ !== '' ? $gdJ : null
+                    );
+                    if ($canon !== '') {
+                        $nom = $canon;
+                    }
                 }
             }
             if ($nom === '') {
@@ -1909,6 +1954,20 @@
                 }
             }
             if ($nom !== '') {
+                // Toujours tenter le libellé catalogue (évite BOBO-ABIDJANCIT en recherche).
+                $gaR = !empty($out->gaexp_od) ? trim((string) $out->gaexp_od)
+                    : (isset($out->gaexp_lg) ? trim((string) $out->gaexp_lg) : '');
+                $gdR = !empty($out->gadest_od) ? trim((string) $out->gadest_od)
+                    : (isset($out->gadest_lg) ? trim((string) $out->gadest_lg) : '');
+                $canon = $this->m_programme->resolve_nom_ligne_catalogue(
+                    $nom,
+                    $this->session->company->ekey,
+                    $gaR !== '' ? $gaR : null,
+                    $gdR !== '' ? $gdR : null
+                );
+                if ($canon !== '') {
+                    $nom = $canon;
+                }
                 $out->nom_ligne = $nom;
                 if (!empty($out->est_transit) && (empty($out->nom_ligne_od) || trim((string) $out->nom_ligne_od) === '')) {
                     $out->nom_ligne_od = $nom;

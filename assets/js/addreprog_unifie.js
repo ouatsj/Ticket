@@ -673,7 +673,31 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    /** Compose BOBO-OUAGA + OUAGA-MANGA → BOBO-MANGA (même règle PHP). */
+    /** Compose BOBO-OUAGA + OUAGA-MANGA → BOBO-MANGA (même règle PHP, suffixes cie retirés). */
+    function __reprogStripCieSuffix(s) {
+        s = String(s || '').trim().toUpperCase();
+        if (!s) return '';
+        var sufs = ['VIPSD', 'VIP', 'CMTSD', 'CMT', 'CIT', 'CBT', 'ORD', 'EXPRESS', 'STD', 'RAKIETA'];
+        var i;
+        for (i = 0; i < sufs.length; i++) {
+            s = s.replace(new RegExp('_' + sufs[i] + '(?=_|$)', 'g'), '');
+        }
+        var parts = s.split('-');
+        for (i = 0; i < parts.length; i++) {
+            var p = String(parts[i] || '').trim();
+            var j;
+            for (j = 0; j < sufs.length; j++) {
+                var suf = sufs[j];
+                if (p.length > suf.length && p.slice(-suf.length) === suf) {
+                    p = p.slice(0, -suf.length);
+                    break;
+                }
+            }
+            parts[i] = p.replace(/_+$/, '');
+        }
+        return parts.filter(Boolean).join('-').replace(/[_-]+$/, '');
+    }
+
     function __reprogComposeNomLigne(a, b) {
         a = String(a || '').trim();
         b = String(b || '').trim();
@@ -682,8 +706,8 @@ document.addEventListener('DOMContentLoaded', () => {
         var left = p >= 0 ? a.slice(0, p) : a;
         var p2 = b.lastIndexOf('-');
         var right = p2 >= 0 ? b.slice(p2 + 1) : b;
-        left = String(left || '').trim();
-        right = String(right || '').trim();
+        left = __reprogStripCieSuffix(left);
+        right = __reprogStripCieSuffix(right);
         return (left && right) ? (left + '-' + right) : '';
     }
 
@@ -696,8 +720,8 @@ document.addEventListener('DOMContentLoaded', () => {
         var n = String(st.nom_ligne || '').trim();
         if (!n && donnees) {
             n = String(
-                donnees.nom_ligne_parent
-                || donnees.nom_ligne_od
+                donnees.nom_ligne_od
+                || donnees.nom_ligne_parent
                 || donnees.nom_ligne
                 || donnees.ligne_retour
                 || donnees.ligne
@@ -770,21 +794,25 @@ document.addEventListener('DOMContentLoaded', () => {
             if (__reprogQ('code_gadest_vente_reprog')) __reprogQ('code_gadest_vente_reprog').value = '';
             if (__reprogQ('nom_dest_vente_reprog')) __reprogQ('nom_dest_vente_reprog').value = '';
         }
-        // Nom de ligne = NOM_DEPART-NOM_ARRIVEE (prioritaire), sinon composition lignes.
+        // Nom de ligne = catalogue serveur en priorité (jamais coller gares brutes).
         if (jambes.length >= 2) {
-            var byNames = (nomDep && nomArr) ? (nomDep + '-' + nomArr) : '';
-            var composed = byNames || __reprogComposeNomLigne(first.nom_ligne, last.nom_ligne);
-            if (composed) {
-                st.nom_ligne = composed;
-                st.nomLigneOd = composed;
+            if (!st.nom_ligne || !st.nomLigneOd) {
+                var byNames = (nomDep && nomArr)
+                    ? (__reprogStripCieSuffix(nomDep) + '-' + __reprogStripCieSuffix(nomArr))
+                    : '';
+                var composed = byNames || __reprogComposeNomLigne(first.nom_ligne, last.nom_ligne);
+                if (composed && !st.nom_ligne) {
+                    st.nom_ligne = composed;
+                    st.nomLigneOd = composed;
+                }
             }
         } else if (!st.nom_ligne) {
             st.nom_ligne = (nomDep && nomArr)
-                ? (nomDep + '-' + nomArr)
+                ? (__reprogStripCieSuffix(nomDep) + '-' + __reprogStripCieSuffix(nomArr))
                 : __reprogComposeNomLigne(first.nom_ligne, last.nom_ligne);
         }
-        st.nom_gaep = nomDep || st.nom_gaep || '';
-        st.nom_gadest = nomArr || st.nom_gadest || '';
+        st.nom_gaep = __reprogStripCieSuffix(nomDep) || st.nom_gaep || '';
+        st.nom_gadest = __reprogStripCieSuffix(nomArr) || st.nom_gadest || '';
         if (__reprogQ('replignunifie') && st.nom_ligne) {
             __reprogQ('replignunifie').value = st.nom_ligne;
         }
@@ -797,8 +825,8 @@ document.addEventListener('DOMContentLoaded', () => {
             if (__reprogQ('axe_unifie')) __reprogQ('axe_unifie').value = st.axe;
             var dirEl = __reprogQ('directionclpunifie');
             if (dirEl) {
-                var left = nomDep || ga;
-                var right = realEsc && destEscLabel ? ('escale ' + destEscLabel) : (nomArr || gd);
+                var left = st.nom_gaep || nomDep || ga;
+                var right = realEsc && destEscLabel ? ('escale ' + destEscLabel) : (st.nom_gadest || nomArr || gd);
                 dirEl.textContent = 'DIRECTION: ' + left + ' → ' + right
                     + (st.nom_ligne ? (' — ' + st.nom_ligne) : '')
                     + ' (transit ' + (st.nbrJambes || jambes.length) + ' jambes)';
@@ -821,22 +849,22 @@ document.addEventListener('DOMContentLoaded', () => {
         } else if (gdParent) {
             st.gadest = gdParent;
         }
-        if (donnees.nom_gaep_od) st.nom_gaep = String(donnees.nom_gaep_od).trim();
-        else if (donnees.nom_gaep) st.nom_gaep = String(donnees.nom_gaep).trim();
-        if (donnees.nom_gadest_od) st.nom_gadest = String(donnees.nom_gadest_od).trim();
-        else if (donnees.nom_gadest) st.nom_gadest = String(donnees.nom_gadest).trim();
+        if (donnees.nom_gaep_od) st.nom_gaep = __reprogStripCieSuffix(donnees.nom_gaep_od);
+        else if (donnees.nom_gaep) st.nom_gaep = __reprogStripCieSuffix(donnees.nom_gaep);
+        if (donnees.nom_gadest_od) st.nom_gadest = __reprogStripCieSuffix(donnees.nom_gadest_od);
+        else if (donnees.nom_gadest) st.nom_gadest = __reprogStripCieSuffix(donnees.nom_gadest);
         if (donnees.axe_od && st.gaexp && st.gadest) st.axe = st.gaexp + '-' + st.gadest;
         else if (donnees.axe_od) st.axe = String(donnees.axe_od);
         else if (st.gaexp && st.gadest) st.axe = st.gaexp + '-' + st.gadest;
-        // Nom de ligne prioritaire = NOM_DEPART-NOM_ARRIVEE.
-        if (st.nom_gaep && st.nom_gadest) {
-            st.nom_ligne = st.nom_gaep + '-' + st.nom_gadest;
-        } else if (donnees.nom_ligne_od) {
+        // Nom de ligne = catalogue serveur (nom_ligne_od), jamais composition gares.
+        if (donnees.nom_ligne_od) {
             st.nom_ligne = String(donnees.nom_ligne_od).trim();
         } else if (donnees.nom_ligne_parent) {
             st.nom_ligne = String(donnees.nom_ligne_parent).trim();
         } else if (donnees.nom_ligne) {
             st.nom_ligne = String(donnees.nom_ligne).trim();
+        } else if (st.nom_gaep && st.nom_gadest) {
+            st.nom_ligne = st.nom_gaep + '-' + st.nom_gadest;
         }
         if (Array.isArray(donnees.axes_od)) {
             st.axesOd = donnees.axes_od.map(function (a) { return String(a || '').trim(); }).filter(Boolean);
@@ -2947,7 +2975,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         var nomArr = String(donnees.nom_gadest_od || donnees.nom_gadest || '').trim();
                         var ligneParent = donnees.nom_ligne_od || donnees.nom_ligne_parent || donnees.nom_ligne || '';
                         if (nomDep && nomArr && !ligneParent) {
-                            ligneParent = nomDep + '-' + nomArr;
+                            ligneParent = __reprogStripCieSuffix(nomDep) + '-' + __reprogStripCieSuffix(nomArr);
                         }
                         if (parseInt(donnees.est_transit, 10) === 1 && donnees.direction_affiche) {
                             __reprogQ('directionclpunifie').textContent = 'DIRECTION: ' + donnees.direction_affiche;
@@ -2955,12 +2983,12 @@ document.addEventListener('DOMContentLoaded', () => {
                             __reprogQ('directionclpunifie').textContent = 'DIRECTION: ' + donnees.direction_affiche;
                         } else if (isEsc) {
                             __reprogQ('directionclpunifie').textContent =
-                                'DIRECTION: ' + (nomDep || donnees.gaexp_lg || '') + ' → escale ' + destEsc
+                                'DIRECTION: ' + (__reprogStripCieSuffix(nomDep) || donnees.gaexp_lg || '') + ' → escale ' + destEsc
                                 + (ligneParent ? (' (ligne ' + ligneParent + ')') : '');
                         } else {
                             __reprogQ('directionclpunifie').textContent =
-                                'DIRECTION: ' + (nomDep || donnees.gaexp_lg || '') + ' → '
-                                + (nomArr || donnees.gadest_lg || '')
+                                'DIRECTION: ' + (__reprogStripCieSuffix(nomDep) || donnees.gaexp_lg || '') + ' → '
+                                + (__reprogStripCieSuffix(nomArr) || donnees.gadest_lg || '')
                                 + (ligneParent ? (' — ' + ligneParent) : '');
                         }
                         if (__reprogQ('escaleclpunifie')) {
@@ -3033,17 +3061,17 @@ document.addEventListener('DOMContentLoaded', () => {
                         window.__reprogState.gaexp = donnees.gaexp_lg || '';
                         // Terminus de la ligne PARENT (ex. ABI41), jamais le code escale (FER44).
                         window.__reprogState.gadest = donnees.gadest_lg || donnees.gadest_od || '';
-                        window.__reprogState.nom_gaep = String(donnees.nom_gaep_od || donnees.nom_gaep || '').trim();
-                        window.__reprogState.nom_gadest = String(donnees.nom_gadest_od || donnees.nom_gadest || '').trim();
+                        window.__reprogState.nom_gaep = __reprogStripCieSuffix(donnees.nom_gaep_od || donnees.nom_gaep || '');
+                        window.__reprogState.nom_gadest = __reprogStripCieSuffix(donnees.nom_gadest_od || donnees.nom_gadest || '');
                         window.__reprogState.axe = (window.__reprogState.gaexp || '') + '-' + (window.__reprogState.gadest || '');
                         window.__reprogState.nom_ligne = String(
-                            (window.__reprogState.nom_gaep && window.__reprogState.nom_gadest
-                                ? (window.__reprogState.nom_gaep + '-' + window.__reprogState.nom_gadest)
-                                : '')
+                            donnees.nom_ligne_od
                             || donnees.nom_ligne_parent
-                            || donnees.nom_ligne_od
                             || donnees.nom_ligne
                             || donnees.ligne_retour
+                            || (window.__reprogState.nom_gaep && window.__reprogState.nom_gadest
+                                ? (window.__reprogState.nom_gaep + '-' + window.__reprogState.nom_gadest)
+                                : '')
                             || ''
                         ).trim();
                         window.__reprogState.axesOd = [];
@@ -3134,12 +3162,12 @@ document.addEventListener('DOMContentLoaded', () => {
                             } else if (estTr) {
                                 det.style.display = 'block';
                                 det.className = 'small text-info mb-1';
-                                det.textContent = kindLabel + ' transit détecté : '
+                                det.textContent = kindLabel + ' vendu en transit ('
                                     + window.__reprogState.nbrJambes
-                                    + ' codes — OD à rechercher : '
+                                    + ' codes). Recherche sur OD '
                                     + odLbl
                                     + (window.__reprogState.axe ? (' (' + window.__reprogState.axe + ')') : '')
-                                    + '.';
+                                    + ' — les directs sont proposés en priorité s’ils existent.';
                             } else if (window.__reprogState.isRetourConfirme) {
                                 det.style.display = 'block';
                                 det.className = 'small text-info mb-1';

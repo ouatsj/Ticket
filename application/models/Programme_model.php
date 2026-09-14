@@ -2732,12 +2732,66 @@
             if ($p2 !== false) {
                 $right = substr($b, $p2 + 1);
             }
-            $left = trim($left);
-            $right = trim($right);
+            $left = $this->strip_cie_suffix_php($left);
+            $right = $this->strip_cie_suffix_php($right);
             if ($left === '' || $right === '') {
                 return '';
             }
             return $left . '-' . $right;
+        }
+
+        /**
+         * Retrouve le nom_ligne catalogue (ex. BOBO-ABIDJAN_CIT) à partir d’un libellé
+         * composé / collé (BOBO-ABIDJANCIT, BOBO-ABIDJAN).
+         *
+         * @param string      $nom_ligne
+         * @param string|null $ekey
+         * @param string|null $gaexp
+         * @param string|null $gadest
+         * @return string
+         */
+        public function resolve_nom_ligne_catalogue($nom_ligne, $ekey = null, $gaexp = null, $gadest = null)
+        {
+            $nom = trim((string) $nom_ligne);
+            if ($nom === '') {
+                return '';
+            }
+            $axes = $this->axes_par_nom_ligne($nom, $ekey, $gaexp, $gadest);
+            if (empty($axes)) {
+                return $this->normalize_nom_ligne_od($nom);
+            }
+            $in = $this->sql_in_ident_lignes($axes);
+            // Exact match d’abord (conserve BOBO-ABIDJAN_CIT si déjà correct).
+            $exact = $this->db->query(
+                "SELECT lg.nom_ligne FROM lignes lg
+                 WHERE lg.ident_ligne IN ({$in}) AND UPPER(TRIM(lg.nom_ligne)) = ?
+                 LIMIT 1",
+                array(strtoupper($nom))
+            )->row();
+            if ($exact && trim((string) $exact->nom_ligne) !== '') {
+                return trim((string) $exact->nom_ligne);
+            }
+            $nomU = strtoupper($nom);
+            $preferCit = (strpos($nomU, 'CIT') !== false) ? 1 : 0;
+            $preferCmt = (strpos($nomU, 'CMT') !== false) ? 1 : 0;
+            $preferVip = (strpos($nomU, 'VIP') !== false) ? 1 : 0;
+            $row = $this->db->query(
+                "SELECT lg.nom_ligne
+                 FROM lignes lg
+                 WHERE lg.ident_ligne IN ({$in})
+                 ORDER BY
+                   (INSTR(UPPER(lg.nom_ligne), '_CIT') > 0) * {$preferCit} DESC,
+                   (INSTR(UPPER(lg.nom_ligne), '_CMT') > 0) * {$preferCmt} DESC,
+                   (INSTR(UPPER(lg.nom_ligne), '_VIP') > 0) * {$preferVip} DESC,
+                   (INSTR(lg.nom_ligne, '_') > 0) DESC,
+                   CHAR_LENGTH(lg.nom_ligne) ASC,
+                   lg.nom_ligne ASC
+                 LIMIT 1"
+            )->row();
+            if ($row && trim((string) $row->nom_ligne) !== '') {
+                return trim((string) $row->nom_ligne);
+            }
+            return $this->normalize_nom_ligne_od($nom);
         }
 
         /**
@@ -2819,16 +2873,18 @@
                 $out['nom_ligne'] = trim((string) $exact->nom_ligne);
             }
 
-            // 2) Composition depuis les noms de jambes (BOBO-OUAGA + OUAGA-MANGA → BOBO-MANGA).
+            // 2) Composition depuis les noms de jambes (BOBO-OUAGA + OUAGA-ABIDJANCIT → BOBO-ABIDJAN),
+            // puis résolution vers le libellé catalogue (BOBO-ABIDJAN_CIT).
             if ($out['nom_ligne'] === '') {
                 $composed = $this->composer_nom_ligne_od($nom_first, $nom_last);
                 if ($composed !== '') {
-                    $alts = $this->axes_par_nom_ligne($composed, $ek !== '' ? $ek : null, $ga, $gd);
-                    if (!empty($alts)) {
-                        $out['nom_ligne'] = $composed;
-                    } elseif ($out['nom_ligne'] === '') {
-                        $out['nom_ligne'] = $composed;
-                    }
+                    $resolved = $this->resolve_nom_ligne_catalogue(
+                        $composed,
+                        $ek !== '' ? $ek : null,
+                        $ga,
+                        $gd
+                    );
+                    $out['nom_ligne'] = $resolved !== '' ? $resolved : $composed;
                 }
             }
 
@@ -2885,6 +2941,7 @@
             if ($base === null || $base === '') {
                 $base = $nom;
             }
+            $base = $this->normalize_nom_ligne_od($base !== '' ? $base : $nom);
             $baseU = $this->db->escape(strtoupper($base));
             // Égalité par nom normalisé (suffixes cie retirés) — pas de LIKE _VIP/_CMT.
             $stripLg = $this->sql_strip_cie_suffix('lg.nom_ligne');
@@ -2892,16 +2949,88 @@
         }
 
         /**
-         * Normalise un nom gare/ligne SQL (retire suffixes cie) pour comparer par NOM,
+         * Suffixes compagnie à retirer des noms gare/ligne (OD métier).
+         *
+         * @return string[]
+         */
+        public function cie_suffixes_list()
+        {
+            return array(
+                'VIPSD', 'VIP', 'CMTSD', 'CMT', 'CIT', 'CBT',
+                'ORD', 'EXPRESS', 'STD', 'RAKIETA',
+            );
+        }
+
+        /**
+         * Normalise un libellé gare/ligne en PHP (retire _CIT, CIT collé, etc.).
+         * Ex. ABIDJAN_CIT → ABIDJAN ; BOBO-ABIDJANCIT → BOBO-ABIDJAN.
+         *
+         * @param string $s
+         * @return string
+         */
+        public function strip_cie_suffix_php($s)
+        {
+            $s = strtoupper(trim((string) $s));
+            if ($s === '') {
+                return '';
+            }
+            foreach ($this->cie_suffixes_list() as $suf) {
+                $s = preg_replace('/_' . $suf . '(?=_|$)/i', '', $s);
+            }
+            // Segments collés : ABIDJANCIT, BAMAKOCMT…
+            $parts = explode('-', $s);
+            foreach ($parts as &$p) {
+                $p = trim($p);
+                foreach ($this->cie_suffixes_list() as $suf) {
+                    if (strlen($p) > strlen($suf)
+                        && substr($p, -strlen($suf)) === $suf
+                    ) {
+                        $p = substr($p, 0, -strlen($suf));
+                        break;
+                    }
+                }
+                $p = rtrim($p, '_');
+            }
+            unset($p);
+            $s = implode('-', array_filter($parts, function ($x) {
+                return $x !== '';
+            }));
+            return rtrim($s, '_-');
+        }
+
+        /**
+         * Normalise un nom de ligne OD pour recherche (PHP).
+         *
+         * @param string $nom_ligne
+         * @return string
+         */
+        public function normalize_nom_ligne_od($nom_ligne)
+        {
+            return $this->strip_cie_suffix_php($nom_ligne);
+        }
+
+        /**
+         * Normalise un nom de gare/ligne SQL (retire suffixes cie) pour comparer par NOM,
          * jamais par id_ville (Bamako CMT ≠ Bamako VIP en id_villega).
+         * Inclut _CIT/_CBT et suffixes collés (ABIDJANCIT).
+         * Note : ne pas utiliser TRIM(TRAILING 'CIT' …) — en MySQL remstr = jeu de caractères.
          *
          * @param string $expr expression SQL (colonne)
          * @return string
          */
         public function sql_strip_cie_suffix($expr)
         {
-            return 'REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(UPPER(TRIM(' . $expr . ')),'
-                . " '_VIPSD', ''), '_VIP', ''), '_CMTSD', ''), '_CMT', ''), '_ORD', ''), '_EXPRESS', '')";
+            $s = 'UPPER(TRIM(' . $expr . '))';
+            // Formes _SUFFIX (ordre : longs d’abord).
+            foreach (array(
+                '_VIPSD', '_CMTSD', '_VIP', '_CMT', '_CIT', '_CBT',
+                '_ORD', '_EXPRESS', '_STD', '_RAKIETA',
+            ) as $suf) {
+                $s = "REPLACE({$s}, '{$suf}', '')";
+            }
+            // Formes collées en fin de chaîne (ABIDJANCIT → ABIDJAN). REGEXP_REPLACE = suffixe entier.
+            $s = "REGEXP_REPLACE({$s}, '(VIPSD|CMTSD|EXPRESS|RAKIETA|VIP|CMT|CIT|CBT|ORD|STD)$', '')";
+            return "TRIM(TRAILING '_' FROM TRIM(TRAILING '-' FROM {$s}))";
         }
 
         /**
@@ -2925,9 +3054,9 @@
             $ga = trim((string) $gaexp);
             $gd = trim((string) $gadest);
 
-            $base = preg_replace('/_(VIP|CMT|ORD|EXPRESS|STD|CMTSD|VIPSD)$/i', '', $nom);
-            if ($base === null || $base === '') {
-                $base = $nom;
+            $base = $this->normalize_nom_ligne_od($nom);
+            if ($base === '') {
+                $base = strtoupper($nom);
             }
 
             $sql = "SELECT DISTINCT lg.ident_ligne
