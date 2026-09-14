@@ -7403,6 +7403,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     /** Affiche l'UI heures/siège directe FI ; cache le panneau transit. Champs FI (P/O…) inchangés. */
     function __venteFiShowDirectHourUi() {
+        __venteFiHideCheminSelector();
         var hideIds = [
             'depitin1fid','depargareitine1fid','iddeptrans1fid','transitedepargare1fid',
             'iddeptrans2fid','transitedepargare2fid','iddeptrans3fid','transitedepargare3fid',
@@ -7492,6 +7493,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (box) box.style.display = 'none';
         if (sel) { sel.options.length = 1; sel.value = ''; sel.onchange = null; }
         if (hint) hint.textContent = '';
+        window.__venteFiCheminsCache = null;
     }
 
     function __venteFiFormatAttenteLabel(chemin) {
@@ -7514,6 +7516,129 @@ document.addEventListener('DOMContentLoaded', () => {
             return Object.keys(etapes).map(function (k) { return etapes[k]; }).filter(Boolean);
         }
         return [];
+    }
+
+    function __venteFiCheminsFromPayload(payload) {
+        if (!payload || typeof payload !== 'object') return [];
+        var chemins = Array.isArray(payload.chemins) ? payload.chemins.slice() : [];
+        if (chemins.length === 0 && payload.etapes) {
+            var etapes = __venteFiNormalizeEtapes(payload.etapes);
+            if (etapes.length >= 2) {
+                chemins.push({
+                    id: 0,
+                    label: etapes.length + ' jambes · composition',
+                    nb_jambes: etapes.length,
+                    etapes: etapes,
+                    source: payload.mode || 'declaratif'
+                });
+            }
+        }
+        return chemins;
+    }
+
+    function __venteFiFilterCheminsGuichet(chemins) {
+        if (!Array.isArray(chemins)) return [];
+        return chemins.filter(function (c) {
+            return c && c.source !== 'direct';
+        });
+    }
+
+    function __venteFiFetchChemins(ctx, hour, callback) {
+        if (!ctx || !ctx.seltdep || !ctx.arr || !ctx.datedepart) {
+            if (typeof callback === 'function') callback([], null);
+            return;
+        }
+        var sg = (ctx.sougid != null && ctx.sougid !== '') ? ctx.sougid : '0';
+        var url = window.location.origin + `${APP_ROOT}/programmes/verifchemins/`
+            + encodeURIComponent(ctx.seltdep + '-' + ctx.arr) + '/'
+            + encodeURIComponent(ctx.datedepart) + '/'
+            + encodeURIComponent(sg) + '/1';
+        if (hour && hour.heure) {
+            url += '?heure=' + encodeURIComponent(hour.heure);
+        }
+        var xhr = new XMLHttpRequest();
+        xhr.open('GET', url, true);
+        xhr.onload = function () {
+            var payload = null;
+            try { payload = JSON.parse(xhr.responseText); } catch (e) { payload = null; }
+            if (Array.isArray(payload)) {
+                var legacy = payload.length >= 2 ? [{
+                    id: 0,
+                    label: payload.length + ' jambes',
+                    nb_jambes: payload.length,
+                    etapes: payload,
+                    source: 'legacy'
+                }] : [];
+                if (typeof callback === 'function') callback(legacy, { mode: 'legacy', chemins: legacy });
+                return;
+            }
+            var chemins = __venteFiCheminsFromPayload(payload);
+            if (typeof callback === 'function') callback(chemins, payload);
+        };
+        xhr.onerror = function () {
+            if (typeof callback === 'function') callback([], null);
+        };
+        xhr.setRequestHeader('Content-Type', 'application/json');
+        xhr.send();
+    }
+
+    function __venteFiApplyCheminChoice(ch) {
+        if (!ch) return;
+        if (ch.source === 'direct') {
+            return;
+        }
+        var etapes = __venteFiNormalizeEtapes(ch.etapes);
+        if (typeof window.__venteFiApplyTransitLegs === 'function') {
+            window.__venteFiApplyTransitLegs(etapes);
+        }
+    }
+
+    /** Comme guichet : recherche → messages → sélecteur d’itinéraire. */
+    function __venteFiProposeItinerairesAfterHour() {
+        var hour = window.__venteSelectedHour;
+        var ctx = window.__venteFiOdCtx;
+        var messEl = document.querySelector('#messfid');
+        var errEl = document.querySelector('#erreurMessfid');
+        if (!hour || !hour.value || !ctx) {
+            return;
+        }
+        if (typeof window.__venteSetTransitAnchorFromHour === 'function') {
+            window.__venteSetTransitAnchorFromHour(hour);
+        }
+        __venteFiHideCheminSelector();
+        if (messEl) messEl.style.display = 'block';
+        if (errEl) errEl.innerHTML = 'Recherche des itinéraires…';
+        __venteFiFetchChemins(ctx, hour, function (chemins, payload) {
+            if (payload && (payload.mode === 'direct' || payload.mode === 'none')) {
+                chemins = [];
+            }
+            chemins = __venteFiFilterCheminsGuichet(chemins);
+            if (!chemins.length) {
+                __venteFiShowDirectHourUi();
+                if (errEl) errEl.innerHTML = hour && !hour.hasProg && window.__venteFiHasTransit
+                    ? 'Pas de départ à cette heure — aucune correspondance faisable.'
+                    : 'Aucun itinéraire disponible pour cette heure.';
+                return;
+            }
+            if (errEl) errEl.innerHTML = chemins.length > 1
+                ? 'Choisissez une correspondance depuis la gare de départ.'
+                : 'Correspondance proposée — vérifiez les segments.';
+            __venteFiShowCheminSelector(chemins);
+        });
+    }
+
+    function __venteFiParseHourOption(hOpt) {
+        if (!hOpt || !hOpt.value) {
+            return { value: '', idLh: '', heure: '', hasProg: false, codeProgr: '' };
+        }
+        var parts = String(hOpt.value).split('/');
+        return {
+            value: String(hOpt.value),
+            idLh: parts[0] || '',
+            heure: parts[1] || '',
+            hasProg: hOpt.getAttribute('data-has-programme') === '1',
+            codeProgr: hOpt.getAttribute('data-code-progr') || (parts[2] || '')
+        };
     }
 
     /**
@@ -7619,20 +7744,27 @@ document.addEventListener('DOMContentLoaded', () => {
             else if (typeof onPick === 'function') onPick(et0);
             return;
         }
+        window.__venteFiCheminsCache = chemins;
         sel.options.length = 1;
         for (var i = 0; i < chemins.length; i++) {
+            var c = chemins[i];
             var opt = document.createElement('option');
             opt.value = String(i);
-            opt.textContent = chemins[i].label || ('Chemin ' + (i + 1));
+            var nb = c.nb_jambes || (c.etapes && c.etapes.length) || '';
+            opt.textContent = c.label || (('Chemin ' + (i + 1)) + (nb ? (' · ' + nb + ' jambes') : ''));
             sel.add(opt);
         }
         box.style.display = 'block';
+        if (box.scrollIntoView) {
+            try { box.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); } catch (eSc) {}
+        }
         var applyIdx = function (idx) {
             var ch = chemins[idx];
             if (hint) hint.textContent = __venteFiFormatAttenteLabel(ch);
-            var etapes = __venteFiNormalizeEtapes(ch && ch.etapes);
-            if (typeof window.__venteFiApplyTransitLegs === 'function') window.__venteFiApplyTransitLegs(etapes);
-            else if (typeof onPick === 'function') onPick(etapes);
+            __venteFiApplyCheminChoice(ch);
+            if (typeof onPick === 'function') {
+                onPick(__venteFiNormalizeEtapes(ch && ch.etapes));
+            }
         };
         sel.onchange = function () {
             var idx = parseInt(sel.value, 10);
@@ -7648,7 +7780,6 @@ document.addEventListener('DOMContentLoaded', () => {
         if (typeof window.__venteDefaultCheminIndex === 'function') {
             defaultIdx = window.__venteDefaultCheminIndex(chemins, window.__venteSelectedHour);
         } else {
-            // Même ranking que guichet : hub_lie > programmes > court > déclaratif.
             function prioFi(c) {
                 if (!c) return -1;
                 if (typeof c.priority === 'number') return c.priority;
@@ -7670,11 +7801,11 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             var bestP = prioFi(chemins[0]);
             var bestN = nbFi(chemins[0]);
-            for (var i = 1; i < chemins.length; i++) {
-                var p = prioFi(chemins[i]);
-                var n = nbFi(chemins[i]);
+            for (var i2 = 1; i2 < chemins.length; i2++) {
+                var p = prioFi(chemins[i2]);
+                var n = nbFi(chemins[i2]);
                 if (p > bestP || (p === bestP && n < bestN)) {
-                    defaultIdx = i;
+                    defaultIdx = i2;
                     bestP = p;
                     bestN = n;
                 }
@@ -7994,6 +8125,13 @@ document.addEventListener('DOMContentLoaded', () => {
                                 var heuresHvFi = Array.isArray(payloadHvFi.heures) ? payloadHvFi.heures : [];
                                 window.__venteFiHasTransit = !!payloadHvFi.has_transit;
                                 window.__venteFiLastHeuresVente = heuresHvFi;
+                                window.__venteFiOdCtx = {
+                                    seltdep: seltdepfi,
+                                    arr: arrfi,
+                                    sougid: sougidfi,
+                                    datedepart: datedepartfi,
+                                    cie: cieArrFi
+                                };
 
                                 document.querySelector('#smsdtfid').style.display = 'none';
                                 document.querySelector('#date_depheurefid').style.color = "black";
@@ -8008,6 +8146,10 @@ document.addEventListener('DOMContentLoaded', () => {
                                                         ? __venteFiNormalizeEtapes(donitinesfi) : donitinesfi;
                                                     if(donitinesfi === null || donitinesfi === '' || (typeof donitinesfi === 'object' && !Object.keys(donitinesfi).length))
                                                     {
+                                                        __venteFiHideCheminSelector();
+                                                        if (typeof __venteFiResetTransitFieldsBeforeApply === 'function') {
+                                                            __venteFiResetTransitFieldsBeforeApply();
+                                                        }
                                                         document.querySelector('#depitin1fid').style.display = 'none';
                                                         document.querySelector('#depargareitine1fid').style.display = 'none';
                                                         document.querySelector('#iddeptrans1fid').style.display = 'none';
@@ -9970,28 +10112,43 @@ document.addEventListener('DOMContentLoaded', () => {
                                                 document.querySelector('#typegarefid').value = '';
                                                 __venteFiHideProgSelect();
                                                 const hOptFi = document.querySelector('#hdepartfid').options[document.querySelector('#hdepartfid').options.selectedIndex];
-                                                const selefi = hOptFi ? hOptFi.value : '';
-                                                const hasProgHourFi = hOptFi && hOptFi.getAttribute('data-has-programme') === '1';
+                                                const hourFi = __venteFiParseHourOption(hOptFi);
+                                                window.__venteSelectedHour = hourFi;
+                                                const selefi = hourFi.value;
+                                                const hasProgHourFi = hourFi.hasProg;
+                                                var messElFi = document.querySelector('#messfid');
+                                                var errElFi = document.querySelector('#erreurMessfid');
 
-                                                // Heure sans départ → correspondances (comme vente guichet).
-                                                if (selefi && !hasProgHourFi) {
-                                                    var messElFi = document.querySelector('#messfid');
-                                                    var errElFi = document.querySelector('#erreurMessfid');
+                                                if (!selefi) {
+                                                    __venteFiHideCheminSelector();
+                                                    return;
+                                                }
+
+                                                // Heure sans départ → même cheminement que le guichet.
+                                                if (!hasProgHourFi) {
                                                     if (window.__venteFiHasTransit) {
-                                                        var postLhFi = selefi.split('/');
-                                                        window.__venteSelectedHour = {
-                                                            value: selefi,
-                                                            idLh: postLhFi[0] || '',
-                                                            heure: postLhFi[1] || '',
-                                                            hasProg: false
-                                                        };
-                                                        if (typeof window.__venteSetTransitAnchorFromHour === 'function') {
-                                                            window.__venteSetTransitAnchorFromHour(window.__venteSelectedHour);
-                                                        }
                                                         if (messElFi) messElFi.style.display = 'block';
                                                         if (errElFi) errElFi.innerHTML = 'Pas de départ à cette heure — correspondances proposées.';
-                                                        __venteFiRequestTransitLegs(seltdepfi, arrfi, datedepartfi, sougidfi, true);
+                                                        // Contexte OD à jour (date/compagnie peuvent avoir changé).
+                                                        var depafiNow = document.querySelector('#depargarefid');
+                                                        var arrfiNow = document.querySelector('#arrsgarefid');
+                                                        var dafiNow = document.querySelector('#date_depheurefid');
+                                                        if (depafiNow && arrfiNow && dafiNow) {
+                                                            var partsDep = String(depafiNow.value || '').split('/');
+                                                            window.__venteFiOdCtx = {
+                                                                seltdep: partsDep[0] || '',
+                                                                arr: String(arrfiNow.value || '').split('/')[0] || '',
+                                                                sougid: partsDep[1] || '0',
+                                                                datedepart: dafiNow.value,
+                                                                cie: (window.__venteFiOdCtx && window.__venteFiOdCtx.cie) || ''
+                                                            };
+                                                        }
+                                                        __venteFiProposeItinerairesAfterHour();
                                                     } else {
+                                                        if (typeof window.__venteClearTransitAnchor === 'function') {
+                                                            window.__venteClearTransitAnchor();
+                                                        }
+                                                        __venteFiHideCheminSelector();
                                                         __venteFiShowDirectHourUi();
                                                         if (messElFi) messElFi.style.display = 'block';
                                                         if (errElFi) errElFi.innerHTML = 'Aucun départ ni correspondance pour cette heure.';
@@ -10003,6 +10160,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                                 if (typeof window.__venteClearTransitAnchor === 'function') {
                                                     window.__venteClearTransitAnchor();
                                                 }
+                                                __venteFiHideCheminSelector();
                                                 __venteFiShowDirectHourUi();
                                                 if (document.querySelector('#messfid')) document.querySelector('#messfid').style.display = 'none';
                                                 const httpRequestfi = new XMLHttpRequest();

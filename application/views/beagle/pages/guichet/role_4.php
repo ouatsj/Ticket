@@ -415,7 +415,7 @@
                                         <input class="form-control form-control-sm" type="date" name="datedepartfid" id="date_depheurefid">
                                     </div>
                                     
-                                    <div class="card-header text-center" id="tranfid" style="display:none">Transite</div>
+                                    <div class="card-header text-center" id="tranfid" style="display:none">Correspondances</div>
                                     <div class="form-group col-sm-4">
                                         <div class="d-flex align-items-center flex-wrap mb-1">
                                             <label class="mb-0 mr-2">Heure</label>
@@ -470,7 +470,7 @@
                                     </div>
                                     
                                     <div> 
-                                        <label style="display:none" id="ligne1fid">Ligne transite1</label>
+                                        <label style="display:none" id="ligne1fid">Correspondance 1 — ligne</label>
                                         <input class="form-control form-control-sm" style="display:none" type="text" name="lignesitinerairesfid"
                                             id="lignesitinerairefid" disabled="">
                                     </div>
@@ -492,14 +492,14 @@
                                         <input type="hidden" name="nom_dest_vente_tr1fid" id="nom_dest_vente_tr1fid" value="">
                                     </div>
 <div class="form-group col-sm-4">
-                                        <label style="display:none" id="idquart1fid">Quartier</label>
+                                        <label style="display:none" id="idquart1fid">Correspondance 1 — quartier</label>
                                         <select style="display:none" name="quartconfirme1fid" class="form-control form-control-sm" id="quartier1fid">
                                                 <option value="">Choisissez le quartier</option>
                                             
                                         </select>
                                     </div>
                                     <div class="form-group col-sm-4">
-                                        <label style="display:none" id="heureitinfid">Heure</label>
+                                        <label style="display:none" id="heureitinfid">Correspondance 1 — heure</label>
                                         <select style="display:none" class="form-control form-control-sm" name="heuredeptitinefid" id="hdepartitinefid">
                                             <option value="">Choisissez heure départ</option>
                                             
@@ -512,26 +512,26 @@
                                             </select>
                                         </div>
                                     <div class="form-group col-sm-4">
-                                        <label style="display:none" id="siegitinefid">Siège</label>
+                                        <label style="display:none" id="siegitinefid">Correspondance 1 — siège</label>
                                         <select style="display:none" class="form-control form-control-sm" name="passagersiegesitinesfid" id="psiegesitinesfid">
                                             <option value="">Choisissez siège</option>
                                         </select>
                                     </div>
                                     
                                     <div class="form-group col-sm-4">
-                                        <label style="display:none" id="iddeptrans1fid">Départ transite1</label>
+                                        <label style="display:none" id="iddeptrans1fid">Correspondance 1 — départ</label>
                                         <select style="display:none" class="form-control form-control-sm" name="transitedepargare1fid" id="transitedepargare1fid">
                                             
                                         </select>
                                     </div>
                                     <div class="form-group col-sm-4">
-                                        <label style="display:none;" id="prix_axetransfid1">Prix transit1</label>
+                                        <label style="display:none;" id="prix_axetransfid1">Correspondance 1 — prix</label>
                                         <input class="form-control form-control-sm" type="text" inputmode="numeric" oninput="this.value=this.value.replace(/[^0-9]/g,'');" name="prixtransfid" style="display:none;" id="prix_axetransfid"
                                             autocomplete="off">
                                     </div>
                                     
                                     <div class="form-group col-sm-4">
-                                        <label style="display:none" id="arritin1fid">Ligne transite2</label>
+                                        <label style="display:none" id="arritin1fid">Correspondance 2 — ligne</label>
                                         <select style="display:none" class="form-control form-control-sm" name="idcheminfid" id="idcheminsfid">
                                             <option value="">Choisissez la ligne</option>
                                         </select>
@@ -554,14 +554,14 @@
                                         <input type="hidden" name="nom_dest_vente_tr2fid" id="nom_dest_vente_tr2fid" value="">
                                     </div>
 <div class="form-group col-sm-4">
-                                        <label style="display:none" id="idquart2fid">Quartier</label>
+                                        <label style="display:none" id="idquart2fid">Correspondance 2 — quartier</label>
                                         <select style="display:none" name="quartconfirme2fid" class="form-control form-control-sm" id="quartier2fid">
                                                 <option value="">Choisissez le quartier</option>
                                             
                                         </select>
                                     </div>
                                     <div class="form-group col-sm-4">
-                                        <label style="display:none" id="heureitin1fid">Heure</label>
+                                        <label style="display:none" id="heureitin1fid">Correspondance 2 — heure</label>
                                         <select style="display:none" class="form-control form-control-sm" name="idcheminheurefid" id="idcheminsheurfid">
                                             <option value="">Choisissez heure départ</option>
                                             
@@ -574,25 +574,25 @@
                                             </select>
                                         </div>
                                     <div class="form-group col-sm-4">
-                                        <label style="display:none;" id="siegitine1fid">Siège</label>
+                                        <label style="display:none;" id="siegitine1fid">Correspondance 2 — siège</label>
                                         <select style="display:none" class="form-control form-control-sm" name="passagersiegesitines1fid" id="psiegesitines1fid">
                                             <option value="">Choisissez le siège</option>
                                         </select>
                                     </div>
                                     
                                     <div class="form-group col-sm-4">
-                                        <label style="display:none" id="iddeptrans2fid">Départ transite2</label>
+                                        <label style="display:none" id="iddeptrans2fid">Correspondance 2 — départ</label>
                                         <select style="display:none" class="form-control form-control-sm" name="transitedepargare2fid" id="transitedepargare2fid">
                                             
                                         </select>
                                     </div>
                                     <div class="form-group col-sm-4">
-                                        <label style="display:none;" id="prix_axetransitfid1">Prix transit2</label>
+                                        <label style="display:none;" id="prix_axetransitfid1">Correspondance 2 — prix</label>
                                         <input class="form-control form-control-sm" type="text" inputmode="numeric" oninput="this.value=this.value.replace(/[^0-9]/g,'');" name="prixtransitfid" style="display:none;" id="prix_axetransitfid"
                                         autocomplete="off">
                                     </div>
                                     <div class="form-group col-sm-4">
-                                        <label style="display:none" id="arritin2fid">Ligne transite3</label>
+                                        <label style="display:none" id="arritin2fid">Correspondance 3 — ligne</label>
                                         <select style="display:none" class="form-control form-control-sm" name="idchemin1fid" id="idchemins1fid">
                                             <option value="">Choisissez la ligne</option>
                                         </select>
@@ -615,14 +615,14 @@
                                         <input type="hidden" name="nom_dest_vente_tr3fid" id="nom_dest_vente_tr3fid" value="">
                                     </div>
 <div class="form-group col-sm-4">
-                                        <label style="display:none" id="idquart3fid">Quartier</label>
+                                        <label style="display:none" id="idquart3fid">Correspondance 3 — quartier</label>
                                         <select style="display:none" name="quartconfirme3fid" class="form-control form-control-sm" id="quartier3fid">
                                                 <option value="">Choisissez le quartier</option>
                                             
                                         </select>
                                     </div>
                                     <div class="form-group col-sm-4">
-                                        <label style="display:none" id="heureitin2fid">Heure</label>
+                                        <label style="display:none" id="heureitin2fid">Correspondance 3 — heure</label>
                                         <select style="display:none" class="form-control form-control-sm" name="idcheminheure1fid" id="idcheminsheur1fid">
                                             <option value="">Choisissez heure départ</option>
                                             
@@ -636,25 +636,25 @@
                                         </div>
 
                                     <div class="form-group col-sm-4">
-                                        <label style="display:none;" id="siegitine2fid">Siège</label>
+                                        <label style="display:none;" id="siegitine2fid">Correspondance 3 — siège</label>
                                         <select style="display:none" class="form-control form-control-sm" name="passagersiegesitines2fid" id="psiegesitines2fid">
                                             <option value="">Choisissez le siège</option>
                                         </select>
                                     </div>
                                     
                                     <div class="form-group col-sm-4">
-                                        <label style="display:none" id="iddeptrans3fid">Départ transite3</label>
+                                        <label style="display:none" id="iddeptrans3fid">Correspondance 3 — départ</label>
                                         <select style="display:none" class="form-control form-control-sm" name="transitedepargare3fid" id="transitedepargare3fid">
                                             
                                         </select>
                                     </div>
                                     <div class="form-group col-sm-4">
-                                        <label style="display:none;" id="prix_axetransit1fid1">Prix transit3</label>
+                                        <label style="display:none;" id="prix_axetransit1fid1">Correspondance 3 — prix</label>
                                         <input class="form-control form-control-sm" type="text" inputmode="numeric" oninput="this.value=this.value.replace(/[^0-9]/g,'');" name="prixtransit1fid" style="display:none;" id="prix_axetransit1fid"
                                             autocomplete="off">
                                     </div>
                                     <div class="form-group col-sm-4">
-                                        <label style="display:none" id="arritin3d">Ligne transite4</label>
+                                        <label style="display:none" id="arritin3d">Correspondance 4 — ligne</label>
                                         <select style="display:none" class="form-control form-control-sm" name="idchemin2fid" id="idchemins2fid">
                                             <option value="">Choisissez la ligne</option>
                                         </select>
@@ -678,7 +678,7 @@
                                         <input type="hidden" name="nom_dest_vente_tr4fid" id="nom_dest_vente_tr4fid" value="">
                                     </div>
 <div class="form-group col-sm-4">
-                                        <label style="display:none" id="heureitin3fid">Heure</label>
+                                        <label style="display:none" id="heureitin3fid">Correspondance 4 — heure</label>
                                         <select style="display:none" class="form-control form-control-sm" name="idcheminheure2fid" id="idcheminsheur2fid">
                                             <option value="">Choisissez heure départ</option>
                                             
@@ -691,19 +691,19 @@
                                             </select>
                                         </div>
                                     <div class="form-group col-sm-4">
-                                        <label style="display:none;" id="siegitine3fid">Siège</label>
+                                        <label style="display:none;" id="siegitine3fid">Correspondance 4 — siège</label>
                                         <select style="display:none" class="form-control form-control-sm" name="passagersiegesitines3fid" id="psiegesitines3fid">
                                             <option value="">Choisissez le siège</option>
                                         </select>
                                     </div>
                                     <div class="form-group col-sm-4">
-                                        <label style="display:none" id="iddeptrans4fid">Départ transite4</label>
+                                        <label style="display:none" id="iddeptrans4fid">Correspondance 4 — départ</label>
                                         <select style="display:none" class="form-control form-control-sm" name="transitedepargare4fid" id="transitedepargare4fid">
                                             
                                         </select>
                                     </div>
                                     <div class="form-group col-sm-4">
-                                    <label style="display:none;" id="prix_axetransit2fid1">Prix transit4</label>
+                                    <label style="display:none;" id="prix_axetransit2fid1">Correspondance 4 — prix</label>
                                     <input class="form-control form-control-sm" type="text" inputmode="numeric" oninput="this.value=this.value.replace(/[^0-9]/g,'');" name="prixtransit2fid" style="display:none;" id="prix_axetransit2fid"
                                         autocomplete="off">
                                 </div>
