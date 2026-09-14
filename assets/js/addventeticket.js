@@ -1316,6 +1316,16 @@ document.addEventListener('DOMContentLoaded', () => {
         return i + 'ème';
     }
 
+    /** Clé de ligne pour regrouper 1ER/2ème (même OD métier, pas seulement HH:MM). */
+    function __venteLigneKeyHeure(hr) {
+        if (!hr) return '';
+        var n = String(hr.nom_ligne || '').trim().toUpperCase();
+        if (n) return n;
+        return String(hr.ligne_depart || hr.ident_ligne || '').trim().toUpperCase();
+    }
+
+    window.__venteLigneKeyHeure = __venteLigneKeyHeure;
+
     function __venteAllowMultiChecked() {
         var el = document.querySelector('#vente_allow_multi');
         return !!(el && el.checked);
@@ -1382,18 +1392,23 @@ document.addEventListener('DOMContentLoaded', () => {
             var ha = __venteNormalizeHhmm((a && a.heure) || '') || String((a && a.heure) || '');
             var hb = __venteNormalizeHhmm((b && b.heure) || '') || String((b && b.heure) || '');
             if (ha !== hb) return ha < hb ? -1 : 1;
+            var la = __venteLigneKeyHeure(a);
+            var lb = __venteLigneKeyHeure(b);
+            if (la !== lb) return la < lb ? -1 : 1;
             var ca = String((a && a.code_progr) || '');
             var cb = String((b && b.code_progr) || '');
             return ca < cb ? -1 : (ca > cb ? 1 : 0);
         });
-        var countByHh = {};
+        // 1ER/2ème uniquement si plusieurs programmes de LA MÊME ligne à la même HH:MM.
+        var countByHhLigne = {};
         list.forEach(function (hr) {
             if (!hr) return;
             var hh = __venteNormalizeHhmm(hr.heure);
             if (!hh) return;
-            countByHh[hh] = (countByHh[hh] || 0) + 1;
+            var key = hh + '|' + __venteLigneKeyHeure(hr);
+            countByHhLigne[key] = (countByHhLigne[key] || 0) + 1;
         });
-        var idxByHh = {};
+        var idxByHhLigne = {};
         var seenOpt = {};
         for (var i = 0; i < list.length; i++) {
             var hr = list[i];
@@ -1401,11 +1416,13 @@ document.addEventListener('DOMContentLoaded', () => {
             var hasProg = !!(hr.has_programme === true || hr.has_programme === 1 || hr.has_programme === '1');
             var code = hr.code_progr ? String(hr.code_progr) : '';
             var hhNorm = __venteNormalizeHhmm(hr.heure) || String(hr.heure || '');
+            var ligneKey = __venteLigneKeyHeure(hr);
+            var ligneLabel = String(hr.nom_ligne || hr.ligne_depart || '').trim();
             var dedupeKey = code
                 ? ('p:' + code)
                 : (hasProg
                     ? ('p:' + String(hr.id_ligneheure) + '/' + hhNorm)
-                    : ('t:' + hhNorm));
+                    : ('t:' + hhNorm + '|' + ligneKey));
             if (seenOpt[dedupeKey]) continue;
             seenOpt[dedupeKey] = 1;
             var opt = document.createElement('option');
@@ -1416,18 +1433,29 @@ document.addEventListener('DOMContentLoaded', () => {
             if (code) opt.setAttribute('data-code-progr', code);
             if (hr.hub_role) opt.setAttribute('data-hub-role', String(hr.hub_role));
             if (hr.hub_label) opt.setAttribute('data-hub-label', String(hr.hub_label));
-            if (hr.nom_ligne) opt.setAttribute('data-nom-ligne', String(hr.nom_ligne));
-            else if (hr.ligne_depart) opt.setAttribute('data-nom-ligne', String(hr.ligne_depart));
-            idxByHh[hhNorm] = (idxByHh[hhNorm] || 0) + 1;
-            var multi = (countByHh[hhNorm] || 0) > 1;
+            if (ligneLabel) opt.setAttribute('data-nom-ligne', ligneLabel);
+            var groupKey = hhNorm + '|' + ligneKey;
+            idxByHhLigne[groupKey] = (idxByHhLigne[groupKey] || 0) + 1;
+            var sameLigneMulti = (countByHhLigne[groupKey] || 0) > 1;
             var parts = [hhNorm];
-            if (multi) parts.push(__venteOrdinalFr(idxByHh[hhNorm]));
-            if (!hasProg) {
+            if (sameLigneMulti) {
+                parts.push(__venteOrdinalFr(idxByHhLigne[groupKey]));
+            } else if (!hasProg) {
+                // Multi / autre ligne : préciser hub + nom de ligne (pas d’ordinal croisé).
                 var hubLab = String(hr.hub_label || '').trim();
                 if (hubLab && hubLab !== 'normal') parts.push(hubLab);
                 else if (hr.source === 'hub_lie') parts.push('hub');
-                var nl = String(hr.nom_ligne || hr.ligne_depart || '').trim();
-                if (nl) parts.push(nl);
+                if (ligneLabel) parts.push(ligneLabel);
+            } else if (ligneLabel && !sameLigneMulti) {
+                // Direct d’une autre ligne à la même HH:MM : libellé ligne, sans 1ER/2ème.
+                // (Si une seule ligne OD dans la liste, on garde l’heure seule.)
+                var otherLigneSameHh = list.some(function (x) {
+                    if (!x) return false;
+                    var hx = __venteNormalizeHhmm(x.heure);
+                    if (hx !== hhNorm) return false;
+                    return __venteLigneKeyHeure(x) !== ligneKey;
+                });
+                if (otherLigneSameHh) parts.push(ligneLabel);
             }
             opt.innerHTML = parts.join(' — ');
             hSel.add(opt);
@@ -2158,13 +2186,59 @@ document.addEventListener('DOMContentLoaded', () => {
         window.__venteSavedHourValue = '';
     }
 
+    function __venteCieArriveeFromSelect(sel) {
+        if (!sel) return '';
+        if (sel.selectedIndex > 0) {
+            var opt = sel.options[sel.selectedIndex];
+            if (opt) {
+                var fromOpt = String(opt.getAttribute('data-compagnie') || '').trim();
+                if (fromOpt) return fromOpt;
+            }
+        }
+        var tid = sel.id || '';
+        var box = tid
+            ? document.querySelector('.js-filtre-compagnie-arrivee-vente[data-target-arrivee="' + tid + '"]')
+            : null;
+        if (!box) {
+            box = document.querySelector('.js-filtre-compagnie-arrivee-vente');
+        }
+        var chk = box ? box.querySelector('.js-filtre-compagnie-check:checked') : null;
+        return chk ? String(chk.value || '').trim() : '';
+    }
+
+    function __venteHeuresVenteUrl(seltdep, arr, datedepart, sougid, cie) {
+        var url = window.location.origin + APP_ROOT
+            + '/programmes/verifheuresvente/'
+            + encodeURIComponent(String(seltdep) + '-' + String(arr)) + '/'
+            + encodeURIComponent(String(datedepart)) + '/'
+            + encodeURIComponent(String(sougid || '0'));
+        cie = String(cie || '').trim();
+        if (cie) {
+            url += '?cie=' + encodeURIComponent(cie);
+        }
+        return url;
+    }
+
+    function __venteClearHeuresSelect() {
+        var h = document.querySelector('#hdepart');
+        if (h) {
+            h.options.length = 1;
+            h.selectedIndex = 0;
+        }
+        window.__venteLastHeuresVente = [];
+        window.__venteSelectedHour = null;
+    }
+
     function __venteTriggerHeuresReloadIfReady() {
         var depa = document.querySelector('#depargare');
         var arrpa = document.querySelector('#arrsgare');
         var da = document.querySelector('#date_depheure');
         var actu = document.querySelector('#actu');
         if (!depa || !String(depa.value || '').trim()) return;
-        if (!arrpa || !String(arrpa.value || '').trim()) return;
+        if (!arrpa || !String(arrpa.value || '').trim()) {
+            __venteClearHeuresSelect();
+            return;
+        }
         if (!da || !String(da.value || '').trim()) return;
         if (actu && da.value < actu.value) return;
         __venteHideCheminSelector();
@@ -2185,6 +2259,18 @@ document.addEventListener('DOMContentLoaded', () => {
         __venteSaveHourSelection();
         __venteTriggerHeuresReloadIfReady();
     }
+
+    window.__venteOnCompagnieArriveeChange = function (box) {
+        var sel = (box && box._arriveeSelect)
+            || document.querySelector('#arrsgare');
+        if (!sel || sel.id !== 'arrsgare') return;
+        __venteSaveHourSelection();
+        if (!String(sel.value || '').trim()) {
+            __venteClearHeuresSelect();
+            return;
+        }
+        __venteTriggerHeuresReloadIfReady();
+    };
 
     function __venteFillQuartierSelect(rows) {
         var q = document.querySelector('#quartier');
@@ -2331,17 +2417,19 @@ document.addEventListener('DOMContentLoaded', () => {
                         var post_lhdep = depa.split('/');
                         var seltdep = post_lhdep[0];
                         var sougid = post_lhdep[1];
+                        var cieArr = __venteCieArriveeFromSelect(document.querySelector('#arrsgare'));
                         window.__venteOdCtx = {
                             seltdep: seltdep,
                             arr: arr,
                             arr2: arr2,
                             sougid: sougid,
-                            datedepart: datedepart
+                            datedepart: datedepart,
+                            cie: cieArr
                         };
                         if(datedepart >= dateactu)
                         {
                             
-                            httpRequetes.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifheuresvente/${seltdep}-${arr}/${datedepart}/${sougid || '0'}`, true);
+                            httpRequetes.open('GET', __venteHeuresVenteUrl(seltdep, arr, datedepart, sougid || '0', cieArr), true);
                             httpRequetes.onload = () => {
                                 var payloadHv = {};
                                 try { payloadHv = JSON.parse(httpRequetes.responseText) || {}; } catch (eHv) { payloadHv = {}; }

@@ -312,6 +312,15 @@ document.addEventListener('DOMContentLoaded', function () {
             }
 
             applyArriveeFilter(box);
+            if (typeof window.__venteOnCompagnieArriveeChange === 'function') {
+                window.__venteOnCompagnieArriveeChange(box);
+            }
+            if (typeof window.__venteFiOnCompagnieArriveeChange === 'function') {
+                window.__venteFiOnCompagnieArriveeChange(box);
+            }
+            if (typeof window.__venteMobOnCompagnieArriveeChange === 'function') {
+                window.__venteMobOnCompagnieArriveeChange(box);
+            }
         });
 
         applyArriveeFilter(box);

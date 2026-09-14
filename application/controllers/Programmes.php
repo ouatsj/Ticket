@@ -2347,7 +2347,17 @@
             if (!isset($this->m_itineraire)) {
                 $this->load->model('Itineraire_model', 'm_itineraire');
             }
-            $out = $this->m_programme->heures_vente_od($this->session->company->ekey, $axe, $da, $sgid);
+            $cie = trim((string) $this->input->get_post('cie'));
+            if ($cie === '') {
+                $cie = trim((string) $this->input->get_post('id_compaga'));
+            }
+            $out = $this->m_programme->heures_vente_od(
+                $this->session->company->ekey,
+                $axe,
+                $da,
+                $sgid,
+                $cie !== '' ? $cie : null
+            );
             return $this->load->view('beagle/pages/_programme/json', array('json' => $out));
         }
 

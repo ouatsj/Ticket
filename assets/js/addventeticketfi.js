@@ -972,6 +972,16 @@ document.addEventListener('DOMContentLoaded', () => {
         return i + 'ème';
     }
 
+    function __venteFiLigneKeyHeure(hr) {
+        if (typeof window.__venteLigneKeyHeure === 'function') {
+            return window.__venteLigneKeyHeure(hr);
+        }
+        if (!hr) return '';
+        var n = String(hr.nom_ligne || '').trim().toUpperCase();
+        if (n) return n;
+        return String(hr.ligne_depart || hr.ident_ligne || '').trim().toUpperCase();
+    }
+
     function __venteFiAllowMultiChecked() {
         var el = document.querySelector('#vente_fi_allow_multi');
         return !!(el && el.checked);
@@ -1042,18 +1052,22 @@ document.addEventListener('DOMContentLoaded', () => {
             var ha = normHh((a && a.heure) || '') || String((a && a.heure) || '');
             var hb = normHh((b && b.heure) || '') || String((b && b.heure) || '');
             if (ha !== hb) return ha < hb ? -1 : 1;
+            var la = __venteFiLigneKeyHeure(a);
+            var lb = __venteFiLigneKeyHeure(b);
+            if (la !== lb) return la < lb ? -1 : 1;
             var ca = String((a && a.code_progr) || '');
             var cb = String((b && b.code_progr) || '');
             return ca < cb ? -1 : (ca > cb ? 1 : 0);
         });
-        var countByHh = {};
+        var countByHhLigne = {};
         list.forEach(function (hr) {
             if (!hr) return;
             var hh = normHh(hr.heure);
             if (!hh) return;
-            countByHh[hh] = (countByHh[hh] || 0) + 1;
+            var key = hh + '|' + __venteFiLigneKeyHeure(hr);
+            countByHhLigne[key] = (countByHhLigne[key] || 0) + 1;
         });
-        var idxByHh = {};
+        var idxByHhLigne = {};
         var seenOpt = {};
         for (var i = 0; i < list.length; i++) {
             var hr = list[i];
@@ -1061,11 +1075,13 @@ document.addEventListener('DOMContentLoaded', () => {
             var hasProg = !!(hr.has_programme === true || hr.has_programme === 1 || hr.has_programme === '1');
             var code = hr.code_progr ? String(hr.code_progr) : '';
             var hhNorm = normHh(hr.heure) || String(hr.heure || '');
+            var ligneKey = __venteFiLigneKeyHeure(hr);
+            var ligneLabel = String(hr.nom_ligne || hr.ligne_depart || '').trim();
             var dedupeKey = code
                 ? ('p:' + code)
                 : (hasProg
                     ? ('p:' + String(hr.id_ligneheure) + '/' + hhNorm)
-                    : ('t:' + hhNorm));
+                    : ('t:' + hhNorm + '|' + ligneKey));
             if (seenOpt[dedupeKey]) continue;
             seenOpt[dedupeKey] = 1;
             var opt = document.createElement('option');
@@ -1076,16 +1092,25 @@ document.addEventListener('DOMContentLoaded', () => {
             if (code) opt.setAttribute('data-code-progr', code);
             if (hr.hub_role) opt.setAttribute('data-hub-role', String(hr.hub_role));
             if (hr.hub_label) opt.setAttribute('data-hub-label', String(hr.hub_label));
-            idxByHh[hhNorm] = (idxByHh[hhNorm] || 0) + 1;
-            var multi = (countByHh[hhNorm] || 0) > 1;
+            if (ligneLabel) opt.setAttribute('data-nom-ligne', ligneLabel);
+            var groupKey = hhNorm + '|' + ligneKey;
+            idxByHhLigne[groupKey] = (idxByHhLigne[groupKey] || 0) + 1;
+            var sameLigneMulti = (countByHhLigne[groupKey] || 0) > 1;
             var parts = [hhNorm];
-            if (multi) parts.push(__venteFiOrdinalFr(idxByHh[hhNorm]));
-            if (!hasProg) {
+            if (sameLigneMulti) {
+                parts.push(__venteFiOrdinalFr(idxByHhLigne[groupKey]));
+            } else if (!hasProg) {
                 var hubLab = String(hr.hub_label || '').trim();
                 if (hubLab && hubLab !== 'normal') parts.push(hubLab);
                 else if (hr.source === 'hub_lie') parts.push('hub');
-                var nl = String(hr.nom_ligne || hr.ligne_depart || '').trim();
-                if (nl) parts.push(nl);
+                if (ligneLabel) parts.push(ligneLabel);
+            } else if (ligneLabel) {
+                var otherLigneSameHh = list.some(function (x) {
+                    if (!x) return false;
+                    if (normHh(x.heure) !== hhNorm) return false;
+                    return __venteFiLigneKeyHeure(x) !== ligneKey;
+                });
+                if (otherLigneSameHh) parts.push(ligneLabel);
             }
             opt.innerHTML = parts.join(' — ');
             hSel.add(opt);
@@ -1566,6 +1591,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 document.querySelector('#quartier2fid').options.length = 1;
                 document.querySelector('#quartier3fid').options.length = 1;
                     const typgarefi = document.querySelector('#arrsgarefid').value;
+                    if (!String(typgarefi || '').trim()) {
+                        return;
+                    }
                     let httptypequartfi;
                     httptypequartfi = new XMLHttpRequest();
                     
@@ -1640,11 +1668,30 @@ document.addEventListener('DOMContentLoaded', () => {
                         var post_lhdepfi = depafi.split('/');
                         var seltdepfi = post_lhdepfi[0];
                         var sougidfi = post_lhdepfi[1];
+                        var cieArrFi = '';
+                        (function () {
+                            var selArr = document.querySelector('#arrsgarefid');
+                            if (selArr && selArr.selectedIndex > 0) {
+                                var opt = selArr.options[selArr.selectedIndex];
+                                cieArrFi = opt ? String(opt.getAttribute('data-compagnie') || '').trim() : '';
+                            }
+                            if (!cieArrFi) {
+                                var box = document.querySelector('.js-filtre-compagnie-arrivee-vente[data-target-arrivee="arrsgarefid"]');
+                                var chk = box ? box.querySelector('.js-filtre-compagnie-check:checked') : null;
+                                cieArrFi = chk ? String(chk.value || '').trim() : '';
+                            }
+                        })();
                         if(datedepartfi >= dateactufi)
                         {
                             let httpRequetesfi;
                             httpRequetesfi = new XMLHttpRequest();
-                            httpRequetesfi.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifheuresvente/${seltdepfi}-${arrfi}/${datedepartfi}/${sougidfi || '0'}`, true);
+                            var urlHvFi = window.location.origin + APP_ROOT
+                                + '/programmes/verifheuresvente/'
+                                + encodeURIComponent(seltdepfi + '-' + arrfi) + '/'
+                                + encodeURIComponent(datedepartfi) + '/'
+                                + encodeURIComponent(sougidfi || '0');
+                            if (cieArrFi) urlHvFi += '?cie=' + encodeURIComponent(cieArrFi);
+                            httpRequetesfi.open('GET', urlHvFi, true);
                             httpRequetesfi.onload = () => {
                                 var payloadHvFi = {};
                                 try { payloadHvFi = JSON.parse(httpRequetesfi.responseText) || {}; } catch (eHvFi) { payloadHvFi = {}; }
@@ -4023,6 +4070,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 AppRequestGuard.guardForm('#tafiForm');
                 AppRequestGuard.ensureNonce('#tafiForm', 'sale_nonce');
+
+                window.__venteFiOnCompagnieArriveeChange = function (box) {
+                    var sel = (box && box._arriveeSelect) || document.querySelector('#arrsgarefid');
+                    if (!sel || sel.id !== 'arrsgarefid') return;
+                    var h = document.querySelector('#hdepartfid');
+                    if (h) {
+                        h.options.length = 1;
+                        h.selectedIndex = 0;
+                    }
+                    var da = document.querySelector('#date_depheurefid');
+                    if (da && String(sel.value || '').trim() && String(da.value || '').trim()
+                        && typeof da.onchange === 'function') {
+                        da.onchange();
+                    }
+                };
 
                 var venteFiAllowMultiEl = document.querySelector('#vente_fi_allow_multi');
                 if (venteFiAllowMultiEl && !venteFiAllowMultiEl.dataset.bound) {

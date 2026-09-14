@@ -539,7 +539,7 @@
          * OUA1-BOB32 et un autre code dest Bobo CBT restent ensemble ; CBT ≠ VIP.
          * @return string[]
          */
-        public function ident_lignes_od_compatibles($axe)
+        public function ident_lignes_od_compatibles($axe, $id_compaga = null)
         {
             $axe = trim((string) $axe);
             $out = array();
@@ -549,6 +549,11 @@
             if ($axe === '' || strpos($axe, '-') === FALSE) {
                 return $out;
             }
+            $parts = explode('-', $axe, 2);
+            $ga = trim((string) $parts[0]);
+            $gd = trim((string) $parts[1]);
+
+            // 1) ident_ligne exact (souvent = gaexp-gadest).
             $row = $this->db->query(
                 "SELECT lg.ident_ligne, lg.gaexp_lg, gd.id_compaga, gd.id_villega
                  FROM lignes lg
@@ -557,18 +562,58 @@
                  LIMIT 1",
                 array($axe)
             )->row();
-            if (!$row || $row->gaexp_lg === '' || $row->id_compaga === '' || $row->id_compaga === null) {
+
+            // 2) Sinon résoudre par codes gare départ/arrivée (programme créé sur la ligne OD).
+            if ((!$row || $row->gaexp_lg === '') && $ga !== '' && $gd !== '') {
+                $row = $this->db->query(
+                    "SELECT lg.ident_ligne, lg.gaexp_lg, gd.id_compaga, gd.id_villega
+                     FROM lignes lg
+                     JOIN gare_dest gd ON gd.code_gadest = lg.gadest_lg
+                     WHERE lg.gaexp_lg = ? AND lg.gadest_lg = ?
+                       AND IFNULL(lg.actif_lg, 1) = 1
+                     ORDER BY lg.ident_ligne ASC
+                     LIMIT 1",
+                    array($ga, $gd)
+                )->row();
+            }
+
+            $cie = trim((string) $id_compaga);
+            $ville = 0;
+            if ($cie === '' && $row && $row->id_compaga !== null && $row->id_compaga !== '') {
+                $cie = trim((string) $row->id_compaga);
+                $ville = (int) $row->id_villega;
+            }
+            if ($cie === '' && $gd !== '') {
+                $dest = $this->db->query(
+                    "SELECT id_compaga, id_villega FROM gare_dest WHERE code_gadest = ? LIMIT 1",
+                    array($gd)
+                )->row();
+                if ($dest && $dest->id_compaga !== null && $dest->id_compaga !== '') {
+                    $cie = trim((string) $dest->id_compaga);
+                    $ville = (int) $dest->id_villega;
+                }
+            }
+
+            $gaRef = ($row && trim((string) $row->gaexp_lg) !== '')
+                ? trim((string) $row->gaexp_lg)
+                : $ga;
+            if ($gaRef === '' || $cie === '') {
                 return $out;
             }
+            if ($ville <= 0 && $row) {
+                $ville = (int) $row->id_villega;
+            }
+
+            // Jumeaux : même gare départ + même compagnie d'arrivée (+ même ville dest).
             $sql = "SELECT lg.ident_ligne
                     FROM lignes lg
                     JOIN gare_dest gd ON gd.code_gadest = lg.gadest_lg
                     WHERE lg.gaexp_lg = ?
-                      AND gd.id_compaga = ?";
-            $params = array($row->gaexp_lg, $row->id_compaga);
-            $ville = (int) $row->id_villega;
+                      AND gd.id_compaga = ?
+                      AND IFNULL(lg.actif_lg, 1) = 1";
+            $params = array($gaRef, $cie);
             if ($ville > 0) {
-                $sql .= " AND gd.id_villega = ?";
+                $sql .= ' AND gd.id_villega = ?';
                 $params[] = $ville;
             }
             $rows = $this->db->query($sql, $params)->result();
@@ -1699,7 +1744,8 @@
                         pr.intervalle1, pr.intervalle2, pr.gareidentif, pr.idsousgare_prog,
                         lh.id_ligneheure, h.heure, lg.ident_ligne, lg.nom_ligne,
                         lg.gaexp_lg, lg.gadest_lg,
-                        ga.id_compaga, ca.nom_compagnie AS nom_compagnie_arrivee,
+                        ga.id_compaga, ga.id_villega, ga.nom_gadest,
+                        ca.nom_compagnie AS nom_compagnie_arrivee,
                         c.cle_compagnie AS cle_compagnie_depart,
                         c.nom_compagnie AS nom_compagnie_depart
                  FROM programme pr
@@ -1780,7 +1826,8 @@
                             pr.intervalle1, pr.intervalle2, pr.gareidentif, pr.idsousgare_prog,
                             lh.id_ligneheure, h.heure, lg.ident_ligne, lg.nom_ligne,
                             lg.gaexp_lg, lg.gadest_lg,
-                            ga.id_compaga, ca.nom_compagnie AS nom_compagnie_arrivee,
+                            ga.id_compaga, ga.id_villega, ga.nom_gadest,
+                            ca.nom_compagnie AS nom_compagnie_arrivee,
                             c.cle_compagnie AS cle_compagnie_depart,
                             c.nom_compagnie AS nom_compagnie_depart
                      FROM programme pr
@@ -1859,7 +1906,7 @@
          * Les départs d'une autre compagnie (CBT Ouaga-Bobo) ne sont pas vendables en VIP.
          * Créneaux Multi = programmes réels non-OD de la gare (+ dérivé / hub liés).
          */
-        public function heures_vente_od($cid, $axe, $date, $idsousgare = null)
+        public function heures_vente_od($cid, $axe, $date, $idsousgare = null, $id_compaga = null)
         {
             $axeEsc = $this->db->escape_str($axe);
             $dateEsc = $this->db->escape_str($date);
@@ -1868,8 +1915,22 @@
                 ? null
                 : (int) $idsousgare;
 
+            $cie = trim((string) $id_compaga);
+            if ($cie === '' && strpos((string) $axe, '-') !== FALSE) {
+                $gdAxe = trim(explode('-', (string) $axe, 2)[1]);
+                if ($gdAxe !== '') {
+                    $dRow = $this->db->query(
+                        "SELECT id_compaga FROM gare_dest WHERE code_gadest = ? LIMIT 1",
+                        array($gdAxe)
+                    )->row();
+                    if ($dRow && $dRow->id_compaga !== null && $dRow->id_compaga !== '') {
+                        $cie = trim((string) $dRow->id_compaga);
+                    }
+                }
+            }
+
             $sgFilter = $this->sql_filtre_sousgare($sg);
-            $lignesOd = $this->ident_lignes_od_compatibles($axe);
+            $lignesOd = $this->ident_lignes_od_compatibles($axe, $cie !== '' ? $cie : null);
             $inLignes = $this->sql_in_ident_lignes($lignesOd);
             $lignesOdSet = array();
             foreach ($lignesOd as $idLg) {
@@ -1901,15 +1962,24 @@
                 END) ASC, (pr.idsousgare_prog IS NULL) ASC";
             }
 
+            $cieSql = '';
+            if ($cie !== '') {
+                $cieEsc = $this->db->escape($cie);
+                $cieSql = " AND ga.id_compaga = {$cieEsc} ";
+            }
+
             // Programmes sur l'OD (jumeaux même ville/compagnie dest, heure réelle).
             $progs = $this->db->query(
-                "SELECT lh.id_ligneheure, lh.ligne_id, pr.code_progr, pr.idsousgare_prog, h.heure
+                "SELECT lh.id_ligneheure, lh.ligne_id, pr.code_progr, pr.idsousgare_prog, h.heure,
+                        ga.id_compaga, ca.nom_compagnie AS nom_compagnie_arrivee, lg.nom_ligne
                  FROM programme pr
                  JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
                  JOIN heures h ON lh.heure_identif = h.id_heure
                  JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
                  JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
+                 JOIN gare_dest ga ON lg.gadest_lg = ga.code_gadest
                  JOIN compagnies c ON ex.id_compagd = c.cle_compagnie
+                 JOIN compagnies ca ON ga.id_compaga = ca.cle_compagnie
                  JOIN entreprise e ON c.id_entrep = e.id_entreprise
                  WHERE e.ekey = '{$cidEsc}'
                  AND lh.ligne_id IN ({$inLignes})
@@ -1917,6 +1987,7 @@
                  AND pr.statut_prog = 'actif'
                  AND pr.actif_prog = 0
                  AND h.h_active = 1
+                 {$cieSql}
                  {$sgFilter}
                  ORDER BY (lh.ligne_id = '{$axeEsc}') DESC, {$porteeOrder}, pr.code_progr DESC"
             )->result();
@@ -1946,16 +2017,84 @@
                     'source' => 'od',
                     'slot_kind' => 'direct',
                     'ligne_depart' => isset($p->ligne_id) ? $p->ligne_id : $axe,
+                    'nom_ligne' => isset($p->nom_ligne) ? trim((string) $p->nom_ligne) : null,
+                    'id_compaga' => isset($p->id_compaga) ? (string) $p->id_compaga : $cie,
+                    'nom_compagnie_arrivee' => isset($p->nom_compagnie_arrivee)
+                        ? (string) $p->nom_compagnie_arrivee : null,
                     'hub_role' => '',
                     'hub_label' => 'normal',
                 );
             }
 
-            // 2) Créneaux Multi = autres programmes réels de la gare (hors OD)
-            //    + dérivé / hub créés par le lien de correspondance.
+            // 2) Créneaux Multi = autres programmes gare (hors OD) + hub.
+            //    Compagnie d'arrivée cochée + gare/ville d'arrivée choisie
+            //    (hub liés conservés ; fallback cie seule si rien après filtre strict).
             $multiRows = ($gaexp !== '')
                 ? $this->programmes_multi_gare($cid, $gaexp, $date, $lignesOd, $sg, null)
                 : array();
+
+            $gdAxe = '';
+            $villeCible = 0;
+            $nomDestNorm = '';
+            if (strpos((string) $axe, '-') !== FALSE) {
+                $gdAxe = trim(explode('-', (string) $axe, 2)[1]);
+            }
+            if ($gdAxe !== '') {
+                $dMeta = $this->db->query(
+                    "SELECT id_compaga, id_villega, nom_gadest
+                     FROM gare_dest WHERE code_gadest = ? LIMIT 1",
+                    array($gdAxe)
+                )->row();
+                if ($dMeta) {
+                    if ($cie === '' && $dMeta->id_compaga !== null && $dMeta->id_compaga !== '') {
+                        $cie = trim((string) $dMeta->id_compaga);
+                    }
+                    $villeCible = (int) $dMeta->id_villega;
+                    $nomDestNorm = $this->normalize_nom_ligne_od(
+                        isset($dMeta->nom_gadest) ? $dMeta->nom_gadest : ''
+                    );
+                }
+            }
+
+            if (!empty($multiRows)) {
+                $cieOnly = array();
+                $strict = array();
+                foreach ($multiRows as $pg) {
+                    $pgCie = isset($pg->id_compaga) ? trim((string) $pg->id_compaga) : '';
+                    if ($cie !== '' && $pgCie !== '' && $pgCie !== $cie) {
+                        continue;
+                    }
+                    $cieOnly[] = $pg;
+                    $role = isset($pg->hub_role) ? trim((string) $pg->hub_role) : '';
+                    $isHub = ($role === 'derive' || $role === 'suite' || $role === 'principal');
+                    $pgGd = isset($pg->gadest_lg) ? trim((string) $pg->gadest_lg) : '';
+                    $pgVille = isset($pg->id_villega) ? (int) $pg->id_villega : 0;
+                    $pgNom = isset($pg->nom_ligne) ? $this->normalize_nom_ligne_od($pg->nom_ligne) : '';
+                    $pgNomDest = isset($pg->nom_gadest) ? $this->normalize_nom_ligne_od($pg->nom_gadest) : '';
+                    $matchDest = false;
+                    if ($gdAxe !== '' && strcasecmp($pgGd, $gdAxe) === 0) {
+                        $matchDest = true;
+                    } elseif ($villeCible > 0 && $pgVille === $villeCible) {
+                        $matchDest = true;
+                    } elseif ($nomDestNorm !== '' && (
+                        ($pgNom !== '' && strpos($pgNom, $nomDestNorm) !== false)
+                        || ($pgNomDest !== '' && $pgNomDest === $nomDestNorm)
+                    )) {
+                        $matchDest = true;
+                    }
+                    if ($isHub || $matchDest || ($gdAxe === '' && $cie !== '')) {
+                        $strict[] = $pg;
+                    }
+                }
+                // Si filtre gare trop strict et qu’il reste du transit déclaré : garder cie seule.
+                if (!empty($strict)) {
+                    $multiRows = $strict;
+                } elseif ($cie !== '') {
+                    $multiRows = $cieOnly;
+                } else {
+                    $multiRows = $cieOnly;
+                }
+            }
             if (!empty($multiRows)) {
                 $has_transit = TRUE;
                 if (!in_array('programmes_gare', $transit_sources, TRUE)) {
@@ -1994,6 +2133,8 @@
                     'slot_kind' => 'multi',
                     'ligne_depart' => isset($pg->ident_ligne) ? $pg->ident_ligne : null,
                     'nom_ligne' => ($nomLigne !== '') ? $nomLigne : null,
+                    'id_compaga' => isset($pg->id_compaga) ? (string) $pg->id_compaga : null,
+                    'gadest_lg' => isset($pg->gadest_lg) ? (string) $pg->gadest_lg : null,
                     'hub_role' => $role,
                     'hub_label' => isset($pg->hub_label) ? (string) $pg->hub_label : 'normal',
                 );
@@ -2023,6 +2164,7 @@
             return array(
                 'ligne' => $axe,
                 'mode_depart' => $mode,
+                'id_compaga' => $cie !== '' ? $cie : null,
                 'has_transit' => $has_transit ? TRUE : FALSE,
                 'transit_sources' => $transit_sources,
                 'heures' => $heures,
