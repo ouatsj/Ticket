@@ -5217,10 +5217,10 @@
             $codeTicket = trim((string) $this->input->post('code_ticket'));
             $codesPost = $this->_confirm_collect_submit_codes($codeTicket);
             $clientId = (int) $this->input->post('client_id');
-            // SG guichet = préférence jambe 1 ; jambes 2+ = SG du gaexp de la jambe.
-            $departGidPref = trim((string) $this->input->post('sousgareconnect'));
+            // SG choisie dans le formulaire (sous-gare embarquement) prioritaire sur la session guichet.
+            $departGidPref = trim((string) $this->input->post('departclient_idgare'));
             if ($departGidPref === '') {
-                $departGidPref = trim((string) $this->input->post('departclient_idgare'));
+                $departGidPref = trim((string) $this->input->post('sousgareconnect'));
             }
             if ($departGidPref === '') {
                 $departGidPref = (string) $sgid;
@@ -5568,7 +5568,8 @@
                 }
 
                 $prog = $this->db->query(
-                    "SELECT pr.date_progr, pr.typetarif, h.heure, h.id_heure, lh.id_ligneheure, lh.heure_identif,
+                    "SELECT pr.date_progr, pr.typetarif, pr.depart_code, pr.gareidentif,
+                            h.heure, h.id_heure, lh.id_ligneheure, lh.heure_identif,
                             lg.nom_ligne, lg.gaexp_lg, lg.gadest_lg, ca.nom_compagnie
                      FROM programme pr
                      JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
@@ -5589,6 +5590,23 @@
                     );
                 }
 
+                if (!function_exists('ticket_nbus_from_depart_code')) {
+                    $this->load->helper('ticket_prix');
+                }
+                $nbusLeg = '';
+                if ($prog && function_exists('ticket_nbus_from_depart_code')) {
+                    $nbusLeg = ticket_nbus_from_depart_code(
+                        isset($prog->depart_code) ? $prog->depart_code : '',
+                        isset($prog->gareidentif) ? $prog->gareidentif : ''
+                    );
+                    if ($nbusLeg === '' && !empty($prog->gaexp_lg)) {
+                        $nbusLeg = ticket_nbus_from_depart_code(
+                            isset($prog->depart_code) ? $prog->depart_code : '',
+                            $prog->gaexp_lg
+                        );
+                    }
+                }
+
                 $jambesOut[] = array(
                     'code_passager' => $tppasconf,
                     'code_ticket' => $ctJob,
@@ -5598,6 +5616,7 @@
                     'nom_ligne' => $prog ? (string) $prog->nom_ligne : $sg['ligne'],
                     'compagnie' => $prog ? (string) $prog->nom_compagnie : '',
                     'od' => $prog ? ($prog->gaexp_lg . ' → ' . $prog->gadest_lg) : '',
+                    'nbus' => $nbusLeg,
                     'dest_escale' => '',
                 );
                 // Dernière jambe + escale : distinguer destination partielle du terminus ligne.
@@ -5663,6 +5682,8 @@
                 }
             }
 
+            $nbusFirst = isset($first['nbus']) ? (string) $first['nbus'] : '';
+
             return $this->load->view('beagle/pages/_programme/json', array(
                 'json' => array(
                     'ok' => true,
@@ -5677,6 +5698,7 @@
                     'nom_ligne' => isset($first['nom_ligne']) ? $first['nom_ligne'] : '',
                     'compagnie' => isset($first['compagnie']) ? $first['compagnie'] : '',
                     'od' => isset($first['od']) ? $first['od'] : '',
+                    'nbus' => $nbusFirst,
                     'jambes' => $jambesOut,
                     'prixvente' => 0,
                     'print_url' => $printUrl,
@@ -5749,11 +5771,29 @@
             if ($nom === '') {
                 $nom = $ga . '-' . $gd;
             }
+            $nomGa = '';
+            $nomGd = '';
+            $rowGa = $this->db->query(
+                "SELECT nom_gaep FROM gare_exp WHERE code_gaexp = ? LIMIT 1",
+                array($ga)
+            )->row();
+            if ($rowGa && !empty($rowGa->nom_gaep)) {
+                $nomGa = trim((string) $rowGa->nom_gaep);
+            }
+            $rowGd = $this->db->query(
+                "SELECT nom_gadest FROM gare_dest WHERE code_gadest = ? LIMIT 1",
+                array($gd)
+            )->row();
+            if ($rowGd && !empty($rowGd->nom_gadest)) {
+                $nomGd = trim((string) $rowGd->nom_gadest);
+            }
             return $this->load->view('beagle/pages/_programme/json', array(
                 'json' => array(
                     'ok' => true,
                     'gaexp' => $ga,
                     'gadest' => $gd,
+                    'nom_gaexp' => $nomGa,
+                    'nom_gadest' => $nomGd,
                     'nom_ligne' => $nom,
                     'ident_ligne' => $ident,
                     'axes' => isset($od['axes']) ? $od['axes'] : array(),

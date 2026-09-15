@@ -259,6 +259,15 @@
         var parent = String((__cQ('confirm_nom_ligne') || {}).value || '').trim();
         var ga = String((__cQ('confirm_gaexp') || {}).value || '').trim();
         var gd = String((__cQ('confirm_gadest') || {}).value || '').trim();
+        var gaNom = String((window.__confirmState.nomGaexp || '')).trim() || ga;
+        var gdNom = String((window.__confirmState.nomGadest || '')).trim() || gd;
+        var arrSel = __cQ('arrsgare_confirm');
+        if ((!gdNom || gdNom === gd) && arrSel && arrSel.selectedIndex > 0) {
+            var optTxt = String(arrSel.options[arrSel.selectedIndex].text || '').trim();
+            if (optTxt) gdNom = optTxt;
+        }
+        var extNom = String((__cQ('ext_depart_nom') || {}).value || '').trim();
+        if (extNom) gaNom = extNom;
         var nomEsc = String((__cQ('nom_dest_vente_confirm') || {}).value || '').trim();
         var mode = String((__cQ('confirm_mode_unifie') || {}).value || '');
         var prefixLigne = (mode === 'retour') ? 'LIGNE RETOUR: ' : 'LIGNE: ';
@@ -268,17 +277,109 @@
                     + ' — destination escale: ' + nomEsc;
             }
             if (dirEl) {
-                dirEl.textContent = 'DIRECTION: ' + (ga || '—') + ' → ' + nomEsc
-                    + ' (escale ; terminus ligne ' + (gd || '—') + ')';
+                dirEl.textContent = 'DIRECTION: ' + (gaNom || '—') + ' → ' + nomEsc
+                    + ' (escale ; terminus ligne ' + (gdNom || '—') + ')';
             }
             return;
         }
         if (ligneEl && parent) {
             ligneEl.textContent = prefixLigne + parent;
         }
-        if (dirEl && (ga || gd)) {
-            dirEl.textContent = 'DIRECTION: ' + (ga || '') + ' → ' + (gd || '');
+        if (dirEl && (gaNom || gdNom || ga || gd)) {
+            dirEl.textContent = 'DIRECTION: ' + (gaNom || ga || '') + ' → ' + (gdNom || gd || '');
         }
+    }
+
+    function __cSyncSousgareHidden() {
+        var sel = __cQ('depargare_confirm');
+        var v = sel ? String(sel.value || '').trim() : '';
+        if (!v) {
+            v = String((__cQ('confirm_depart_gid') || {}).value || '').trim();
+        }
+        // Ne jamais poster un code gare (ex. OUA12) comme idsousgare.
+        if (v && !/^\d+$/.test(v)) {
+            v = '';
+        }
+        if (v) {
+            __cSetVal('confirm_depart_gid', v);
+            var sg = document.querySelector('input[name="sousgareconnect"]');
+            if (sg) sg.value = v;
+        }
+    }
+
+    function __cFillSousgares(done) {
+        var sel = __cQ('depargare_confirm');
+        var wrap = __cQ('confirm_sousgare_wrap');
+        var gare = String((__cQ('confirm_gareconnect_code') || {}).value || '').trim();
+        if (!sel) {
+            if (typeof done === 'function') done();
+            return;
+        }
+        sel.options.length = 0;
+        var placeholder = document.createElement('option');
+        placeholder.value = '';
+        placeholder.textContent = 'Choisissez la sous-gare';
+        sel.add(placeholder);
+        if (!gare) {
+            if (wrap) wrap.style.display = 'block';
+            if (typeof done === 'function') done();
+            return;
+        }
+        __cXhrGet(
+            window.location.origin + APP_ROOT
+                + '/programmes/verifsousgares/' + encodeURIComponent(gare),
+            function (rows) {
+                sel.options.length = 0;
+                var list = [];
+                if (rows && typeof rows === 'object') {
+                    if (Array.isArray(rows)) {
+                        list = rows;
+                    } else {
+                        Object.keys(rows).forEach(function (k) {
+                            if (rows[k] && typeof rows[k] === 'object') list.push(rows[k]);
+                        });
+                    }
+                }
+                list.forEach(function (r) {
+                    if (!r) return;
+                    var id = r.idsousgare != null ? String(r.idsousgare) : '';
+                    if (!id) return;
+                    var opt = document.createElement('option');
+                    opt.value = id;
+                    opt.textContent = r.nomsousgare || id;
+                    sel.add(opt);
+                });
+                if (sel.options.length === 0) {
+                    sel.add(placeholder);
+                } else if (sel.options.length === 1) {
+                    sel.selectedIndex = 0;
+                } else {
+                    var sessionSg = String(
+                        (document.querySelector('input[name="sousgareconnect"]') || {}).value || ''
+                    ).trim();
+                    var matched = false;
+                    if (sessionSg && /^\d+$/.test(sessionSg)) {
+                        for (var i = 0; i < sel.options.length; i++) {
+                            if (sel.options[i].value === sessionSg) {
+                                sel.selectedIndex = i;
+                                matched = true;
+                                break;
+                            }
+                        }
+                    }
+                    if (!matched) {
+                        var ph = document.createElement('option');
+                        ph.value = '';
+                        ph.textContent = 'Choisissez la sous-gare';
+                        sel.insertBefore(ph, sel.firstChild);
+                        sel.selectedIndex = 0;
+                    }
+                }
+                if (wrap) wrap.style.display = 'block';
+                __cSyncSousgareHidden();
+                if (typeof done === 'function') done();
+            }
+        );
     }
 
     function __cOnEscaleCheckChange() {
@@ -1194,9 +1295,11 @@
         if (__cEscaleChecked()) {
             __cLoadEscales();
         }
-        if (dateEl && dateEl.value) {
-            __cLoadHeures(dateEl.value);
-        }
+        __cFillSousgares(function () {
+            if (dateEl && dateEl.value) {
+                __cLoadHeures(dateEl.value);
+            }
+        });
     }
 
     function __cStartExterneForm(code) {
@@ -1208,7 +1311,9 @@
         __cSetVal('confirm_ident_ligne', '');
         __cSetVal('confirm_gaexp', (__cQ('confirm_gareconnect_code') || {}).value || '');
         __cSetVal('confirm_gadest', '');
-        __cSetVal('confirm_depart_gid', (__cQ('confirm_gareconnect_code') || {}).value || '');
+        __cSetVal('confirm_depart_gid', '');
+        window.__confirmState.nomGaexp = String((__cQ('ext_depart_nom') || {}).value || '').trim();
+        window.__confirmState.nomGadest = '';
         var iw = __cQ('confirm_infos_wrap');
         if (iw) iw.style.display = 'none';
         var dw = __cQ('confirm_depart_wrap');
@@ -1279,13 +1384,23 @@
                 __cSetVal('confirm_ident_ligne', od.ident_ligne || '');
                 __cSetVal('confirm_gaexp', od.gaexp || gaexp);
                 __cSetVal('confirm_gadest', od.gadest || gadest);
-                __cSetVal('confirm_depart_gid', od.gaexp || gaexp);
+                window.__confirmState.nomGaexp = od.nom_gaexp
+                    || String((__cQ('ext_depart_nom') || {}).value || '').trim()
+                    || (od.gaexp || gaexp);
+                window.__confirmState.nomGadest = od.nom_gadest || '';
+                if (!window.__confirmState.nomGadest && arrSel && arrSel.selectedIndex > 0) {
+                    window.__confirmState.nomGadest = String(
+                        arrSel.options[arrSel.selectedIndex].text || ''
+                    ).trim();
+                }
 
+                var depLabel = window.__confirmState.nomGaexp || od.gaexp || gaexp;
+                var arrLabel = window.__confirmState.nomGadest || od.gadest || gadest;
                 __cQ('confirm_nom_cl').textContent = 'NOM: ' + nom;
                 __cQ('confirm_prenom_cl').textContent = 'PRÉNOM: ' + prenom;
                 __cQ('confirm_contact_cl').textContent = 'CONTACT: ' + tel;
         __cQ('confirm_direction_cl').textContent = 'DIRECTION: '
-            + (od.gaexp || gaexp) + ' → ' + (od.gadest || gadest)
+            + depLabel + ' → ' + arrLabel
             + ' (ligne terminus — cochez Escale pour une destination partielle)';
         __cQ('confirm_ligne_cl').textContent = 'LIGNE: ' + (od.nom_ligne || '—');
         __cQ('confirm_code_cl').textContent = 'CODE EXTERNE: '
@@ -1350,13 +1465,17 @@
         __cSetVal('confirm_ident_ligne', donnees.ident_ligne || '');
         __cSetVal('confirm_gaexp', donnees.gaexp_lg || '');
         __cSetVal('confirm_gadest', donnees.gadest_lg || '');
-        __cSetVal('confirm_depart_gid', (__cQ('confirm_gareconnect_code') || {}).value || '');
+        window.__confirmState.nomGaexp = donnees.nom_gaexp || donnees.gaexp_lg || '';
+        window.__confirmState.nomGadest = donnees.nom_gadest || donnees.gadest_lg || '';
+        __cSetVal('confirm_depart_gid', '');
 
         __cQ('confirm_nom_cl').textContent = 'NOM: ' + (donnees.nom_client || '—');
         __cQ('confirm_prenom_cl').textContent = 'PRÉNOM: ' + (donnees.prenom_client || '—');
         __cQ('confirm_contact_cl').textContent = 'CONTACT: ' + (donnees.contact_client || '—');
         __cQ('confirm_direction_cl').textContent = 'DIRECTION: '
-            + (donnees.gaexp_lg || '') + ' → ' + (donnees.gadest_lg || '');
+            + (window.__confirmState.nomGaexp || donnees.gaexp_lg || '')
+            + ' → '
+            + (window.__confirmState.nomGadest || donnees.gadest_lg || '');
         __cQ('confirm_ligne_cl').textContent = 'LIGNE RETOUR: ' + (donnees.nom_ligne || '—');
         var codesLbl = window.__confirmState.codes.filter(Boolean).join(' + ');
         __cQ('confirm_code_cl').textContent = 'CODE'
@@ -1566,6 +1685,13 @@
         var form = __cQ('cFormUnifie');
         var btn = __cQ('confirm_ok_btn');
         if (!form) return;
+        __cSyncSousgareHidden();
+        var sgVal = String((__cQ('confirm_depart_gid') || {}).value || '').trim();
+        var sgSel = __cQ('depargare_confirm');
+        if (sgSel && sgSel.options.length > 0 && !sgVal) {
+            __cShowErr('Choisissez la sous-gare d’embarquement avant de confirmer.');
+            return;
+        }
         if (window.__confirmState.pathMode === 'direct') {
             __cSetVal('confirm_nbr_seg', '1');
             __cSetVal('confirm_seg_prog_0', (__cQ('confirm_code_pro') || {}).value || '');
@@ -1633,6 +1759,7 @@
                                 + '</strong> · ' + (j.nom_ligne || '') + ' · '
                                 + (j.date_progr || '') + ' ' + __cHhmm(j.heure)
                                 + ' · siège <strong>' + (j.num_siege || '') + '</strong>'
+                                + (j.nbus ? (' · N° BUS <strong>' + j.nbus + '</strong>') : '')
                                 + (j.compagnie ? (' · ' + j.compagnie) : '')
                                 + '</li>';
                         });
@@ -1645,6 +1772,9 @@
                             + 'Compagnie : ' + (res.compagnie || '') + '<br>'
                             + 'Date : ' + (res.date_progr || '') + ' — Heure : ' + __cHhmm(res.heure) + '<br>'
                             + 'Siège : <strong>' + (res.num_siege || '') + '</strong><br>';
+                        if (res.nbus) {
+                            html += 'N° BUS : <strong>' + res.nbus + '</strong><br>';
+                        }
                     }
                     html += 'Prix confirmation : <strong>0 F</strong> <em>(non facturable)</em>';
                     body.innerHTML = html;
@@ -1764,6 +1894,15 @@
         };
         dateEl.addEventListener('change', onDatePick);
         dateEl.addEventListener('input', onDatePick);
+    }
+    var sgSel = __cQ('depargare_confirm');
+    if (sgSel && !sgSel.dataset.bound) {
+        sgSel.dataset.bound = '1';
+        sgSel.addEventListener('change', function () {
+            __cSyncSousgareHidden();
+            var v = __cNormDate((__cQ('date_confirm_unifie') || {}).value || '');
+            if (v) __cLoadHeures(v);
+        });
     }
     var confirmAllowMultiEl = __cQ('confirm_allow_multi');
     if (confirmAllowMultiEl && !confirmAllowMultiEl.dataset.bound) {

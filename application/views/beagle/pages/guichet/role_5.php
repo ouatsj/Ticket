@@ -788,7 +788,7 @@ if ($compte_arret_only_compte) {
                                     <div class="card-header text-center" id="tranfid" style="display:none">Correspondances</div>
                                     <div class="form-group col-sm-4">
                                         <div class="d-flex align-items-center flex-wrap mb-1">
-                                            <label class="mb-0 mr-2">Heure</label>
+                                            <label class="mb-0 mr-2" id="hridfid">Heure</label>
                                             <label class="custom-control custom-checkbox custom-control-inline mb-0" id="vente_fi_allow_multi_wrap" style="display:none">
                                                 <input type="checkbox" class="custom-control-input" id="vente_fi_allow_multi" value="1">
                                                 <span class="custom-control-label small">Multi / correspondances</span>

@@ -179,6 +179,13 @@ $allow_externe = in_array($role_confirm, array('1', '2', '5', '15'), true);
 
             <div id="confirm_direct_fields_wrap">
                 <div class="form-row">
+                    <div class="form-group col-md-4 mb-2" id="confirm_sousgare_wrap">
+                        <label class="small mb-0" for="depargare_confirm">Sous-gare (embarquement)</label>
+                        <select class="form-control form-control-sm" id="depargare_confirm" name="depargare_confirm">
+                            <option value="">Choisissez la sous-gare</option>
+                        </select>
+                        <small class="form-text text-muted">Sous-gare de la gare de confirmation avant l’heure et le siège.</small>
+                    </div>
                     <div class="form-group col-md-4 mb-2">
                         <div class="d-flex align-items-center flex-wrap mb-1">
                             <label class="small mb-0 mr-2">Heure (départs programmes)</label>
@@ -262,12 +269,19 @@ $allow_externe = in_array($role_confirm, array('1', '2', '5', '15'), true);
                         <label class="small mb-0">Départ (gare de confirmation)</label>
                         <input class="form-control form-control-sm" type="text" id="ext_depart_display" readonly
                                value="<?= htmlspecialchars(
-                                   !empty($bus_stop->nom_gaexp)
-                                       ? $bus_stop->nom_gaexp . ' (' . (!empty($bus_stop->code_gaexp) ? $bus_stop->code_gaexp : $bus_stop->gareprinceid) . ')'
-                                       : (!empty($bus_stop->code_gaexp) ? $bus_stop->code_gaexp : $bus_stop->gareprinceid),
+                                   !empty($bus_stop->nom_gaep)
+                                       ? $bus_stop->nom_gaep
+                                       : (!empty($bus_stop->garenom) ? $bus_stop->garenom : ''),
                                    ENT_QUOTES,
                                    'UTF-8'
                                ); ?>">
+                        <input type="hidden" id="ext_depart_nom" value="<?= htmlspecialchars(
+                            !empty($bus_stop->nom_gaep)
+                                ? $bus_stop->nom_gaep
+                                : (!empty($bus_stop->garenom) ? $bus_stop->garenom : ''),
+                            ENT_QUOTES,
+                            'UTF-8'
+                        ); ?>">
                     </div>
                     <div class="form-group col-md-6 mb-2">
                         <label class="small mb-0">Arrivée</label>

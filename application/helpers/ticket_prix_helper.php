@@ -548,14 +548,36 @@ if (!function_exists('ticket_nbus_from_item')) {
     {
         if (is_array($item)) {
             $dep = isset($item['depart_code']) ? $item['depart_code'] : '';
-            $gid = isset($item['gareidentif']) ? $item['gareidentif'] : '';
+            $gids = array(
+                isset($item['gareidentif']) ? $item['gareidentif'] : '',
+                isset($item['code_gaexp']) ? $item['code_gaexp'] : '',
+                isset($item['gaexp_lg']) ? $item['gaexp_lg'] : '',
+                isset($item['gareprinceid']) ? $item['gareprinceid'] : '',
+            );
         } elseif (is_object($item)) {
             $dep = isset($item->depart_code) ? $item->depart_code : '';
-            $gid = isset($item->gareidentif) ? $item->gareidentif : '';
+            $gids = array(
+                isset($item->gareidentif) ? $item->gareidentif : '',
+                isset($item->code_gaexp) ? $item->code_gaexp : '',
+                isset($item->gaexp_lg) ? $item->gaexp_lg : '',
+                isset($item->gareprinceid) ? $item->gareprinceid : '',
+            );
         } else {
             return '';
         }
-        return ticket_nbus_from_depart_code($dep, $gid);
+        $seen = array();
+        foreach ($gids as $gid) {
+            $gid = trim((string) $gid);
+            if ($gid === '' || isset($seen[$gid])) {
+                continue;
+            }
+            $seen[$gid] = true;
+            $n = ticket_nbus_from_depart_code($dep, $gid);
+            if ($n !== '') {
+                return $n;
+            }
+        }
+        return ticket_nbus_from_depart_code($dep, '');
     }
 }
 

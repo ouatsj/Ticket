@@ -1,4 +1,4 @@
-/* Bundle guichet role=17 — genere sans terser */
+/* Bundle guichet role=17 — genere par scripts/build_guichet_bundles.php */
 /* --- adventeescale_libre.js --- */
 document.addEventListener('DOMContentLoaded', () => {
     function bindVenteEscaleLibre(root) {

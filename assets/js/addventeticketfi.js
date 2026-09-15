@@ -237,6 +237,11 @@ document.addEventListener('DOMContentLoaded', () => {
         return window.__venteFiPrixManuel !== false;
     }
 
+    function __venteFiSetDisplay(id, mode) {
+        var el = document.getElementById(id);
+        if (el) el.style.display = mode;
+    }
+
     /** Recharge les heures FI si OD + date sont déjà renseignés (sans vider la date). */
     function __venteFiTriggerHeuresReloadIfReady() {
         var dep = document.querySelector('#depargarefid');
@@ -1974,7 +1979,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                                         document.querySelector('#hdepartitinefid').style.display = 'none';
                                                         document.querySelector('#siegitinefid').style.display = 'none';
                                                         document.querySelector('#psiegesitinesfid').style.display = 'none';
-                                                        document.querySelector('#hridfid').style.display = 'block';
+                                                        __venteFiSetDisplay('hridfid', 'block');
                                                         document.querySelector('#hdepartfid').style.display = 'block';
                                                         document.querySelector('#sigidfid').style.display = 'block';
                                                         document.querySelector('#psiegesfid').style.display = 'block';
@@ -2101,7 +2106,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                                                 document.querySelector('#ligne1fid').style.display = 'block';
                                                                 document.querySelector('#siegitinefid').style.display = 'block';
                                                                 document.querySelector('#psiegesitinesfid').style.display = 'block';
-                                                                document.querySelector('#hridfid').style.display = 'none';
+                                                                __venteFiSetDisplay('hridfid', 'none');
                                                                 document.querySelector('#hdepartfid').style.display = 'none';
                                                                 document.querySelector('#sigidfid').style.display = 'none';
                                                                 document.querySelector('#psiegesfid').style.display = 'none';

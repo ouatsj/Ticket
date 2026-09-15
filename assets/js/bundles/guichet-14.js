@@ -1,4 +1,4 @@
-/* Bundle guichet role=14 — genere sans terser */
+/* Bundle guichet role=14 — genere par scripts/build_guichet_bundles.php */
 /* --- adreportgl.js --- */
 document.addEventListener('DOMContentLoaded', () => {
     
