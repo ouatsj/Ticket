@@ -1889,6 +1889,8 @@
                         auth_session_invalidate_user((int) $id);
                     }
                     else{
+                        // Réactivation : remonter derniere_activite_at pour repartir
+                        // avec une fenêtre pleine (compte_desactivation_jours).
                         $stat = 0;
                         $comptelogin = array(
                             'activer' => $stat,
@@ -1900,6 +1902,9 @@
                         }
                         if ($this->db->field_exists('desactivation_at', 'compte_user')) {
                             $comptelogin['desactivation_at'] = null;
+                        }
+                        if ($this->db->field_exists('derniere_activite_at', 'compte_user')) {
+                            $comptelogin['derniere_activite_at'] = mdate('%Y-%m-%d %H:%i:%s', now('UTC'));
                         }
                     }
                     

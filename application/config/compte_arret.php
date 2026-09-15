@@ -30,7 +30,7 @@ $config['restriction_vendeur_gares'] = array();
 $config['restriction_vendeur_delai_heures'] = 48;
 $config['restriction_vendeur_delai_par_gare'] = array();
 
-/** Cron désactivation comptes sans activité (5 jours) + motif. */
+/** Cron désactivation comptes sans activité (7 jours) + motif. */
 $config['compte_arret_inactivite_cron'] = TRUE;
 
 /** Cron / garde : déconnexion si aucune activité pendant N minutes. */
@@ -38,4 +38,4 @@ $config['session_deconnexion_auto'] = TRUE;
 $config['session_inactivite_minutes'] = 30;
 
 /** Seuil désactivation automatique (jours sans activité). */
-$config['compte_desactivation_jours'] = 5;
+$config['compte_desactivation_jours'] = 7;

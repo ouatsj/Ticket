@@ -421,7 +421,7 @@ if (!function_exists('compte_arret_param_get_all_effective')) {
         $out = array();
         $defaults = array(
             'compte_arret_inactivite_cron' => true,
-            'compte_desactivation_jours' => 5,
+            'compte_desactivation_jours' => 7,
             'session_deconnexion_auto' => true,
             'session_inactivite_minutes' => 30,
             'chef_arret_obligatoire' => true,
@@ -967,8 +967,8 @@ if (!function_exists('compte_arret_hours_limit')) {
 if (!function_exists('compte_arret_desactivation_jours')) {
     function compte_arret_desactivation_jours()
     {
-        $jours = (int) compte_arret_config_item('compte_desactivation_jours', 3);
-        return $jours > 0 ? $jours : 3;
+        $jours = (int) compte_arret_config_item('compte_desactivation_jours', 7);
+        return $jours > 0 ? $jours : 7;
     }
 }
 
