@@ -179,12 +179,12 @@ $allow_externe = in_array($role_confirm, array('1', '2', '5', '15'), true);
 
             <div id="confirm_direct_fields_wrap">
                 <div class="form-row">
-                    <div class="form-group col-md-4 mb-2" id="confirm_sousgare_wrap">
-                        <label class="small mb-0" for="depargare_confirm">Sous-gare (embarquement)</label>
-                        <select class="form-control form-control-sm" id="depargare_confirm" name="depargare_confirm">
-                            <option value="">Choisissez la sous-gare</option>
+                    <div class="form-group col-md-4 mb-2" id="confirm_quartier_wrap">
+                        <label class="small mb-0" for="quartier_confirm">Quartier</label>
+                        <select class="form-control form-control-sm" id="quartier_confirm" name="quartconfirm">
+                            <option value="">Choisissez le quartier</option>
                         </select>
-                        <small class="form-text text-muted">Sous-gare de la gare de confirmation avant l’heure et le siège.</small>
+                        <small class="form-text text-muted">Quartier de la gare d’arrivée avant l’heure et le siège.</small>
                     </div>
                     <div class="form-group col-md-4 mb-2">
                         <div class="d-flex align-items-center flex-wrap mb-1">

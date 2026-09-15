@@ -5217,13 +5217,17 @@
             $codeTicket = trim((string) $this->input->post('code_ticket'));
             $codesPost = $this->_confirm_collect_submit_codes($codeTicket);
             $clientId = (int) $this->input->post('client_id');
-            // SG choisie dans le formulaire (sous-gare embarquement) prioritaire sur la session guichet.
-            $departGidPref = trim((string) $this->input->post('departclient_idgare'));
+            // SG guichet = préférence jambe 1 ; jambes 2+ = SG du gaexp de la jambe.
+            $departGidPref = trim((string) $this->input->post('sousgareconnect'));
             if ($departGidPref === '') {
-                $departGidPref = trim((string) $this->input->post('sousgareconnect'));
+                $departGidPref = trim((string) $this->input->post('departclient_idgare'));
             }
             if ($departGidPref === '') {
                 $departGidPref = (string) $sgid;
+            }
+            $quartConfirm = trim((string) $this->input->post('quartconfirm'));
+            if ($quartConfirm === '') {
+                $quartConfirm = trim((string) $this->input->post('quartier_confirm'));
             }
 
             $nbrSeg = (int) $this->input->post('confirm_nbr_seg');
@@ -5519,7 +5523,10 @@
                 if ($sgLeg === '' && $departGidPref !== '') {
                     $sgLeg = $departGidPref;
                 }
-                $quartLeg = $this->sale_passager_service->resolve_dest_quartier($sg['code_pro'], null);
+                $quartLeg = $this->sale_passager_service->resolve_dest_quartier(
+                    $sg['code_pro'],
+                    $quartConfirm !== '' ? $quartConfirm : null
+                );
                 $passagerarray = array(
                     'code_passager' => $tppasconf,
                     'code_ticket' => $ctJob,

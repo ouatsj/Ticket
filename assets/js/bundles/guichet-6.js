@@ -14332,27 +14332,13 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    function __cSyncSousgareHidden() {
-        var sel = __cQ('depargare_confirm');
-        var v = sel ? String(sel.value || '').trim() : '';
-        if (!v) {
-            v = String((__cQ('confirm_depart_gid') || {}).value || '').trim();
+    function __cFillQuartiers(done) {
+        var sel = __cQ('quartier_confirm');
+        var wrap = __cQ('confirm_quartier_wrap');
+        var gd = String((__cQ('confirm_gadest') || {}).value || '').trim();
+        if (gd.indexOf('/') !== -1) {
+            gd = gd.split('/')[0].trim();
         }
-        // Ne jamais poster un code gare (ex. OUA12) comme idsousgare.
-        if (v && !/^\d+$/.test(v)) {
-            v = '';
-        }
-        if (v) {
-            __cSetVal('confirm_depart_gid', v);
-            var sg = document.querySelector('input[name="sousgareconnect"]');
-            if (sg) sg.value = v;
-        }
-    }
-
-    function __cFillSousgares(done) {
-        var sel = __cQ('depargare_confirm');
-        var wrap = __cQ('confirm_sousgare_wrap');
-        var gare = String((__cQ('confirm_gareconnect_code') || {}).value || '').trim();
         if (!sel) {
             if (typeof done === 'function') done();
             return;
@@ -14360,35 +14346,33 @@ document.addEventListener('DOMContentLoaded', () => {
         sel.options.length = 0;
         var placeholder = document.createElement('option');
         placeholder.value = '';
-        placeholder.textContent = 'Choisissez la sous-gare';
+        placeholder.textContent = 'Choisissez le quartier';
         sel.add(placeholder);
-        if (!gare) {
+        if (!gd) {
             if (wrap) wrap.style.display = 'block';
             if (typeof done === 'function') done();
             return;
         }
         __cXhrGet(
             window.location.origin + APP_ROOT
-                + '/programmes/verifsousgares/' + encodeURIComponent(gare),
+                + '/confirmation/verifquart/' + encodeURIComponent(gd),
             function (rows) {
                 sel.options.length = 0;
                 var list = [];
-                if (rows && typeof rows === 'object') {
-                    if (Array.isArray(rows)) {
-                        list = rows;
-                    } else {
-                        Object.keys(rows).forEach(function (k) {
-                            if (rows[k] && typeof rows[k] === 'object') list.push(rows[k]);
-                        });
-                    }
+                if (Array.isArray(rows)) {
+                    list = rows;
+                } else if (rows && typeof rows === 'object') {
+                    Object.keys(rows).forEach(function (k) {
+                        if (rows[k] && typeof rows[k] === 'object') list.push(rows[k]);
+                    });
                 }
                 list.forEach(function (r) {
                     if (!r) return;
-                    var id = r.idsousgare != null ? String(r.idsousgare) : '';
-                    if (!id) return;
+                    var nom = r.nom_quartier || r.nom || '';
+                    if (!nom) return;
                     var opt = document.createElement('option');
-                    opt.value = id;
-                    opt.textContent = r.nomsousgare || id;
+                    opt.value = nom;
+                    opt.textContent = nom;
                     sel.add(opt);
                 });
                 if (sel.options.length === 0) {
@@ -14396,32 +14380,32 @@ document.addEventListener('DOMContentLoaded', () => {
                 } else if (sel.options.length === 1) {
                     sel.selectedIndex = 0;
                 } else {
-                    var sessionSg = String(
-                        (document.querySelector('input[name="sousgareconnect"]') || {}).value || ''
-                    ).trim();
-                    var matched = false;
-                    if (sessionSg && /^\d+$/.test(sessionSg)) {
-                        for (var i = 0; i < sel.options.length; i++) {
-                            if (sel.options[i].value === sessionSg) {
-                                sel.selectedIndex = i;
-                                matched = true;
-                                break;
-                            }
+                    var ph = document.createElement('option');
+                    ph.value = '';
+                    ph.textContent = 'Choisissez le quartier';
+                    sel.insertBefore(ph, sel.firstChild);
+                    // Préférer un quartier « Marché » si présent.
+                    var pick = 0;
+                    for (var i = 0; i < sel.options.length; i++) {
+                        if (/marche/i.test(sel.options[i].textContent || '')) {
+                            pick = i;
+                            break;
                         }
                     }
-                    if (!matched) {
-                        var ph = document.createElement('option');
-                        ph.value = '';
-                        ph.textContent = 'Choisissez la sous-gare';
-                        sel.insertBefore(ph, sel.firstChild);
-                        sel.selectedIndex = 0;
-                    }
+                    sel.selectedIndex = pick;
                 }
                 if (wrap) wrap.style.display = 'block';
-                __cSyncSousgareHidden();
                 if (typeof done === 'function') done();
             }
         );
+    }
+
+    function __cSyncDepartGidFromSession() {
+        var sg = document.querySelector('input[name="sousgareconnect"]');
+        var v = sg ? String(sg.value || '').trim() : '';
+        if (v && /^\d+$/.test(v)) {
+            __cSetVal('confirm_depart_gid', v);
+        }
     }
 
     function __cOnEscaleCheckChange() {
@@ -15337,7 +15321,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if (__cEscaleChecked()) {
             __cLoadEscales();
         }
-        __cFillSousgares(function () {
+        __cSyncDepartGidFromSession();
+        __cFillQuartiers(function () {
             if (dateEl && dateEl.value) {
                 __cLoadHeures(dateEl.value);
             }
@@ -15356,6 +15341,14 @@ document.addEventListener('DOMContentLoaded', () => {
         __cSetVal('confirm_depart_gid', '');
         window.__confirmState.nomGaexp = String((__cQ('ext_depart_nom') || {}).value || '').trim();
         window.__confirmState.nomGadest = '';
+        var qSel = __cQ('quartier_confirm');
+        if (qSel) {
+            qSel.options.length = 0;
+            var o = document.createElement('option');
+            o.value = '';
+            o.textContent = 'Choisissez le quartier';
+            qSel.add(o);
+        }
         var iw = __cQ('confirm_infos_wrap');
         if (iw) iw.style.display = 'none';
         var dw = __cQ('confirm_depart_wrap');
@@ -15727,11 +15720,11 @@ document.addEventListener('DOMContentLoaded', () => {
         var form = __cQ('cFormUnifie');
         var btn = __cQ('confirm_ok_btn');
         if (!form) return;
-        __cSyncSousgareHidden();
-        var sgVal = String((__cQ('confirm_depart_gid') || {}).value || '').trim();
-        var sgSel = __cQ('depargare_confirm');
-        if (sgSel && sgSel.options.length > 0 && !sgVal) {
-            __cShowErr('Choisissez la sous-gare d’embarquement avant de confirmer.');
+        __cSyncDepartGidFromSession();
+        var qSel = __cQ('quartier_confirm');
+        var qVal = qSel ? String(qSel.value || '').trim() : '';
+        if (qSel && qSel.options.length > 1 && !qVal) {
+            __cShowErr('Choisissez le quartier d’arrivée avant de confirmer.');
             return;
         }
         if (window.__confirmState.pathMode === 'direct') {
@@ -15937,13 +15930,11 @@ document.addEventListener('DOMContentLoaded', () => {
         dateEl.addEventListener('change', onDatePick);
         dateEl.addEventListener('input', onDatePick);
     }
-    var sgSel = __cQ('depargare_confirm');
-    if (sgSel && !sgSel.dataset.bound) {
-        sgSel.dataset.bound = '1';
-        sgSel.addEventListener('change', function () {
-            __cSyncSousgareHidden();
-            var v = __cNormDate((__cQ('date_confirm_unifie') || {}).value || '');
-            if (v) __cLoadHeures(v);
+    var qSel = __cQ('quartier_confirm');
+    if (qSel && !qSel.dataset.bound) {
+        qSel.dataset.bound = '1';
+        qSel.addEventListener('change', function () {
+            // Quartier choisi : pas de rechargement obligatoire, mais garde le focus UX.
         });
     }
     var confirmAllowMultiEl = __cQ('confirm_allow_multi');
