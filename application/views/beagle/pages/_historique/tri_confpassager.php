@@ -44,7 +44,9 @@
 
                 </div>
 
-                <div class="title">Confirmations
+                <div class="title">Confirmations de la gare
+                    <?= isset($bus_stop->idengare) ? htmlspecialchars((string) $bus_stop->idengare) : ''; ?>
+                    <span class="text-muted font-weight-normal">(agent ayant confirmé)</span>
                     <?php if (!empty($tri_conf_debut) && !empty($tri_conf_fin)): ?>
                         <span class="text-muted font-weight-normal">
                             · du <?= htmlspecialchars((string) $tri_conf_debut); ?>
@@ -129,7 +131,7 @@
                         <?php endif; ?>
                     </div>
                     <div class="tab-pane fade" id="pane-conf-transit" role="tabpanel">
-                        <p class="small text-muted mb-2">Chaque jambe du voyage confirmé a son bouton Epson pour réimprimer ce ticket.</p>
+                        <p class="small text-muted mb-2">Toutes les jambes du voyage confirmé dans cette gare — chacune a son bouton Epson.</p>
                         <table class="table table-striped table-borderless" id="table1-conf-transit">
                             <thead>
                             <tr>

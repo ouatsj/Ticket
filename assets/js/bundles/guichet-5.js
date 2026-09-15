@@ -7163,6 +7163,15 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         var msg = __cQ('ext_client_msg');
         if (msg) msg.textContent = '';
+        __cSetVal('ext_tel_confirm', '');
+        __cSetVal('ext_nom_confirm', '');
+        __cSetVal('ext_prenom_confirm', '');
+        __cSetVal('ext_type_doc_confirm', '');
+        __cSetVal('ext_type_doc_autre_confirm', '');
+        __cSetVal('ext_num_doc_confirm', '');
+        __cSetVal('ext_date_doc_confirm', '');
+        __cSetVal('ext_lieu_doc_confirm', '');
+        __cToggleExtDocAutre();
         if (typeof window.__bindFiltreArriveeCompagnie === 'function') {
             window.__bindFiltreArriveeCompagnie(ew || document);
         }
@@ -7186,6 +7195,9 @@ document.addEventListener('DOMContentLoaded', () => {
         var tel = String((__cQ('ext_tel_confirm') || {}).value || '').trim();
         var nom = String((__cQ('ext_nom_confirm') || {}).value || '').trim();
         var prenom = String((__cQ('ext_prenom_confirm') || {}).value || '').trim();
+        var typeDoc = String((__cQ('ext_type_doc_confirm') || {}).value || '').trim();
+        var typeDocAutre = String((__cQ('ext_type_doc_autre_confirm') || {}).value || '').trim();
+        var numDoc = String((__cQ('ext_num_doc_confirm') || {}).value || '').trim();
         var arrSel = __cQ('arrsgare_confirm');
         var gadest = String((arrSel && arrSel.value) || '').trim();
         if (gadest.indexOf('/') !== -1) {
@@ -7194,6 +7206,14 @@ document.addEventListener('DOMContentLoaded', () => {
         var gaexp = String((__cQ('confirm_gareconnect_code') || {}).value || '').trim();
         if (!tel || !nom || !prenom) {
             showOdErr('Téléphone, nom et prénom obligatoires.');
+            return;
+        }
+        if (!typeDoc || !numDoc) {
+            showOdErr('Type et numéro de document obligatoires.');
+            return;
+        }
+        if (typeDoc === 'Autre' && !typeDocAutre) {
+            showOdErr('Précisez le type de document (Autre).');
             return;
         }
         if (!gaexp || !gadest) {
@@ -7645,6 +7665,12 @@ document.addEventListener('DOMContentLoaded', () => {
         __cSetVal('ext_tel_confirm', '');
         __cSetVal('ext_nom_confirm', '');
         __cSetVal('ext_prenom_confirm', '');
+        __cSetVal('ext_type_doc_confirm', '');
+        __cSetVal('ext_type_doc_autre_confirm', '');
+        __cSetVal('ext_num_doc_confirm', '');
+        __cSetVal('ext_date_doc_confirm', '');
+        __cSetVal('ext_lieu_doc_confirm', '');
+        __cToggleExtDocAutre();
         var arrSel = __cQ('arrsgare_confirm');
         if (arrSel) arrSel.value = '';
         var extMsg = __cQ('ext_client_msg');
@@ -7681,6 +7707,40 @@ document.addEventListener('DOMContentLoaded', () => {
         if (extCb) extCb.checked = false;
     }
 
+    function __cToggleExtDocAutre() {
+        var sel = __cQ('ext_type_doc_confirm');
+        var wrap = __cQ('ext_type_doc_autre_wrap');
+        if (!wrap) return;
+        wrap.style.display = (sel && sel.value === 'Autre') ? 'block' : 'none';
+        if (!sel || sel.value !== 'Autre') {
+            __cSetVal('ext_type_doc_autre_confirm', '');
+        }
+    }
+
+    function __cApplyExtDocTypeFromComment(comment) {
+        var raw = String(comment || '').trim();
+        var sel = __cQ('ext_type_doc_confirm');
+        if (!sel) return;
+        if (raw.indexOf('DOC:Autre:') === 0) {
+            sel.value = 'Autre';
+            __cSetVal('ext_type_doc_autre_confirm', raw.slice(10).trim());
+        } else if (raw === 'DOC:Autre') {
+            sel.value = 'Autre';
+        } else if (raw === 'DOC:CNIB' || raw === 'DOC:Passeport') {
+            sel.value = raw.slice(4);
+            __cSetVal('ext_type_doc_autre_confirm', '');
+        } else if (raw === 'CNIB' || raw === 'Passeport') {
+            sel.value = raw;
+        } else {
+            // Ancien client avec n° seulement : proposer CNIB par défaut.
+            var num = String((__cQ('ext_num_doc_confirm') || {}).value || '').trim();
+            if (num && !sel.value) {
+                sel.value = 'CNIB';
+            }
+        }
+        __cToggleExtDocAutre();
+    }
+
     function __cBindExtClientLookup() {
         var tel = __cQ('ext_tel_confirm');
         if (!tel) return;
@@ -7695,14 +7755,23 @@ document.addEventListener('DOMContentLoaded', () => {
                         __cSetVal('confirm_client_id', infos.id_client);
                         if (__cQ('ext_nom_confirm')) __cQ('ext_nom_confirm').value = infos.nom_client || '';
                         if (__cQ('ext_prenom_confirm')) __cQ('ext_prenom_confirm').value = infos.prenom_client || '';
-                        if (msg) msg.textContent = 'Client trouvé — id ' + infos.id_client;
+                        if (__cQ('ext_num_doc_confirm')) __cQ('ext_num_doc_confirm').value = infos.num_CNIB || '';
+                        if (__cQ('ext_date_doc_confirm')) __cQ('ext_date_doc_confirm').value = infos.date_delivre || '';
+                        if (__cQ('ext_lieu_doc_confirm')) __cQ('ext_lieu_doc_confirm').value = infos.lieu_delivre || '';
+                        __cApplyExtDocTypeFromComment(infos.comment_client || '');
+                        if (msg) msg.textContent = 'Client trouvé — identité et document chargés.';
                     } else {
                         __cSetVal('confirm_client_id', '');
-                        if (msg) msg.textContent = 'Nouveau client : sera créé à la validation.';
+                        if (msg) msg.textContent = 'Nouveau client : renseignez nom, prénom et document.';
                     }
                 }
             );
         });
+        var typeSel = __cQ('ext_type_doc_confirm');
+        if (typeSel && !typeSel.dataset.boundDoc) {
+            typeSel.dataset.boundDoc = '1';
+            typeSel.addEventListener('change', __cToggleExtDocAutre);
+        }
     }
 
     document.querySelectorAll('.addconfirm_unifie').forEach(function (btn) {

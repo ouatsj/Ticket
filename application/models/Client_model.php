@@ -31,7 +31,7 @@
 
         public function infocl($num)
         {
-            return $this->db->query("SELECT cl.id_client, cl.type_client, cl.contact_client, cl.nom_client, cl.prenom_client, cl.num_CNIB, cl.date_delivre, cl.lieu_delivre FROM client cl  
+            return $this->db->query("SELECT cl.id_client, cl.type_client, cl.contact_client, cl.nom_client, cl.prenom_client, cl.num_CNIB, cl.date_delivre, cl.lieu_delivre, cl.comment_client FROM client cl  
                 WHERE cl.contact_client = ?
                 AND cl.type_client <> 'autre'
                 AND cl.type_client <> 'eleve'
@@ -45,7 +45,7 @@
 
         public function infocl2($num)
         {
-            return $this->db->query("SELECT cl.id_client, cl.type_client, cl.contact_client, cl.nom_client, cl.prenom_client, cl.num_CNIB, cl.date_delivre, cl.lieu_delivre FROM client cl  
+            return $this->db->query("SELECT cl.id_client, cl.type_client, cl.contact_client, cl.nom_client, cl.prenom_client, cl.num_CNIB, cl.date_delivre, cl.lieu_delivre, cl.comment_client FROM client cl  
                 WHERE cl.contact_client = ?
                 AND cl.type_client <> 'autre'
                 AND cl.type_client <> 'eleve'

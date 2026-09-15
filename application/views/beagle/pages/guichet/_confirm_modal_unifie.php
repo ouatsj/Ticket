@@ -261,6 +261,42 @@ $allow_externe = in_array($role_confirm, array('1', '2', '5', '15'), true);
                            name="ext_prenom" id="ext_prenom_confirm" autocomplete="off">
                 </div>
             </div>
+            <div class="form-row">
+                <div class="form-group col-md-4 mb-2">
+                    <label class="small mb-0" for="ext_type_doc_confirm">Type de document</label>
+                    <select class="form-control form-control-sm" name="ext_type_doc" id="ext_type_doc_confirm">
+                        <option value="">Choisissez</option>
+                        <option value="CNIB">CNIB</option>
+                        <option value="Passeport">Passeport</option>
+                        <option value="Autre">Autre (à spécifier)</option>
+                    </select>
+                </div>
+                <div class="form-group col-md-4 mb-2" id="ext_type_doc_autre_wrap" style="display:none">
+                    <label class="small mb-0" for="ext_type_doc_autre_confirm">Précisez le type</label>
+                    <input class="form-control form-control-sm" type="text"
+                           name="ext_type_doc_autre" id="ext_type_doc_autre_confirm"
+                           autocomplete="off" placeholder="Ex. carte consulaire">
+                </div>
+                <div class="form-group col-md-4 mb-2">
+                    <label class="small mb-0" for="ext_num_doc_confirm">N° du document</label>
+                    <input class="form-control form-control-sm" type="text"
+                           name="ext_num_doc" id="ext_num_doc_confirm" autocomplete="off"
+                           placeholder="Numéro">
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group col-md-4 mb-2">
+                    <label class="small mb-0" for="ext_date_doc_confirm">Date de délivrance</label>
+                    <input class="form-control form-control-sm" type="date"
+                           name="ext_date_doc" id="ext_date_doc_confirm">
+                </div>
+                <div class="form-group col-md-8 mb-2">
+                    <label class="small mb-0" for="ext_lieu_doc_confirm">Lieu de délivrance</label>
+                    <input class="form-control form-control-sm" type="text"
+                           name="ext_lieu_doc" id="ext_lieu_doc_confirm" autocomplete="off"
+                           placeholder="Ville / autorité">
+                </div>
+            </div>
             <p class="small text-info mb-2" id="ext_client_msg"></p>
 
             <div id="confirm_externe_od_fields">

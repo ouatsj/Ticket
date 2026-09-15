@@ -5381,21 +5381,58 @@
                         ),
                     ));
                 }
+                if (!isset($this->m_client)) {
+                    $this->load->model('Client_model', 'm_client');
+                }
+                $tel = trim((string) $this->input->post('ext_tel'));
+                $nom = trim((string) $this->input->post('ext_nom'));
+                $prenom = trim((string) $this->input->post('ext_prenom'));
+                $typeDoc = trim((string) $this->input->post('ext_type_doc'));
+                $typeDocAutre = trim((string) $this->input->post('ext_type_doc_autre'));
+                $numDoc = trim((string) $this->input->post('ext_num_doc'));
+                $dateDoc = trim((string) $this->input->post('ext_date_doc'));
+                $lieuDoc = trim((string) $this->input->post('ext_lieu_doc'));
+                if ($tel === '' || $nom === '' || $prenom === '') {
+                    return $this->load->view('beagle/pages/_programme/json', array(
+                        'json' => array(
+                            'ok' => false,
+                            'reason' => 'Téléphone, nom et prénom obligatoires pour un code d’ailleurs.',
+                        ),
+                    ));
+                }
+                if ($typeDoc === '' || $numDoc === '') {
+                    return $this->load->view('beagle/pages/_programme/json', array(
+                        'json' => array(
+                            'ok' => false,
+                            'reason' => 'Type et numéro de document obligatoires pour un code d’ailleurs.',
+                        ),
+                    ));
+                }
+                if ($typeDoc === 'Autre' && $typeDocAutre === '') {
+                    return $this->load->view('beagle/pages/_programme/json', array(
+                        'json' => array(
+                            'ok' => false,
+                            'reason' => 'Précisez le type de document (Autre).',
+                        ),
+                    ));
+                }
+                if ($typeDoc === 'Autre') {
+                    $commentDoc = $typeDocAutre !== '' ? ('DOC:Autre:' . $typeDocAutre) : 'DOC:Autre';
+                } elseif ($typeDoc === 'CNIB' || $typeDoc === 'Passeport') {
+                    $commentDoc = 'DOC:' . $typeDoc;
+                } else {
+                    $commentDoc = '';
+                }
+                $clientPayload = array(
+                    'nom_client' => $nom,
+                    'prenom_client' => $prenom,
+                    'contact_client' => $tel,
+                    'num_CNIB' => $numDoc,
+                    'date_delivre' => $dateDoc !== '' ? $dateDoc : null,
+                    'lieu_delivre' => $lieuDoc !== '' ? $lieuDoc : null,
+                    'comment_client' => $commentDoc,
+                );
                 if ($clientId <= 0) {
-                    if (!isset($this->m_client)) {
-                        $this->load->model('Client_model', 'm_client');
-                    }
-                    $tel = trim((string) $this->input->post('ext_tel'));
-                    $nom = trim((string) $this->input->post('ext_nom'));
-                    $prenom = trim((string) $this->input->post('ext_prenom'));
-                    if ($tel === '' || $nom === '' || $prenom === '') {
-                        return $this->load->view('beagle/pages/_programme/json', array(
-                            'json' => array(
-                                'ok' => false,
-                                'reason' => 'Téléphone, nom et prénom obligatoires pour un code d’ailleurs.',
-                            ),
-                        ));
-                    }
                     $found = $this->m_client->infocl($tel);
                     if (empty($found)) {
                         $digits = preg_replace('/\D/', '', $tel);
@@ -5405,15 +5442,14 @@
                     }
                     if (!empty($found) && !empty($found->id_client)) {
                         $clientId = (int) $found->id_client;
+                        $this->m_client->update($clientId, $clientPayload);
                     } else {
-                        $clientId = (int) $this->m_client->create(array(
-                            'type_client' => 'Adulte',
-                            'nom_client' => $nom,
-                            'prenom_client' => $prenom,
-                            'contact_client' => $tel,
-                            'datedoc' => mdate('%Y/%m/%d', now('UTC')),
-                        ));
+                        $clientPayload['type_client'] = 'Adulte';
+                        $clientPayload['datedoc'] = mdate('%Y/%m/%d', now('UTC'));
+                        $clientId = (int) $this->m_client->create($clientPayload);
                     }
+                } else {
+                    $this->m_client->update($clientId, $clientPayload);
                 }
                 $gaexpOd = trim((string) $this->input->post('gaexp'));
                 $gadestOd = trim((string) $this->input->post('gadest'));

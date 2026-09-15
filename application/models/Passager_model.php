@@ -2092,7 +2092,7 @@
                     AND p.statut_confirme = 'confirm'
 					AND tf.ligne_heure_id = '$h'
                     AND t.id_tarifs = '$tf'
-                    AND ex.code_gaexp = '$gid'
+                    AND ul.guser = '$gid'
                     AND p.actif_pas = 0")->row(); return $this->normalize_ticket_prix_row($row);
         }
 
@@ -2119,7 +2119,7 @@
                     WHERE e.ekey = '$cid'
                     AND ctp.tamponcod = '$cdconf'
                     AND p.statut_confirme = 'confirm'
-                    AND ex.code_gaexp = '$gid'
+                    AND ul.guser = '$gid'
                     AND p.actif_pas = 0")->row(); return $this->normalize_ticket_prix_row($row);
         }
 
@@ -4129,11 +4129,15 @@
             return $this->_tri_annotate_nbr_jambes($rows);
         }
 
-        public function triconfarch($cid, $datedb, $datef, $gid, $sg)
+        public function triconfarch($cid, $datedb, $datef, $gid, $sg = FALSE)
         {
+                // Gare = celle de l’agent qui a confirmé (ul.guser), pas la gare de ligne / sous-gare d’embarquement.
+                // Ainsi le chef voit toutes les jambes d’un transit confirmé dans sa gare.
                 $rows = $this->db->query(
                     "SELECT * FROM tamponcode ctp
                     JOIN passager p ON p.code_passager = ctp.tamponcod
+                    JOIN attributions_role ar ON p.idcptuser = ar.roleattribut
+                    JOIN user_login ul ON ar.idgestcompte = ul.uid_login
                     JOIN sousgare sg ON p.departclient_idgare = sg.idsousgare 
                     JOIN client cl ON p.id_client_pass = cl.id_client
                     JOIN type_client tcl ON cl.type_client = tcl.nom_type
@@ -4149,20 +4153,22 @@
                     WHERE e.ekey = '$cid'
                     AND p.datep_create BETWEEN '$datedb' AND '$datef'
                     AND p.statut_confirme = 'confirm'
-                    AND ex.code_gaexp = '$gid'
+                    AND ul.guser = '$gid'
                     AND h.h_active = 1
                     AND p.actif_pas = 0
-                    AND p.departclient_idgare = '$sg'
                     AND ctp.actif_tamp = 0")->result();
                 $rows = $this->normalize_ticket_prix_rows($rows);
                 return $this->_conf_annotate_and_expand_transit($cid, $rows);
         }
 
-        public function triconf($cid, $datedb, $datef, $gid, $sg)
+        public function triconf($cid, $datedb, $datef, $gid, $sg = FALSE)
         {
+                // Gare = celle de l’agent qui a confirmé (ul.guser), pas la gare de ligne / sous-gare d’embarquement.
                 $rows = $this->db->query(
                     "SELECT * FROM tamponcode ctp
                     JOIN passager p ON p.code_passager = ctp.tamponcod
+                    JOIN attributions_role ar ON p.idcptuser = ar.roleattribut
+                    JOIN user_login ul ON ar.idgestcompte = ul.uid_login
                     JOIN sousgare sg ON p.departclient_idgare = sg.idsousgare 
                     JOIN client cl ON p.id_client_pass = cl.id_client
                     JOIN type_client tcl ON cl.type_client = tcl.nom_type
@@ -4178,10 +4184,9 @@
                     WHERE e.ekey = '$cid'
                     AND p.datep_create BETWEEN '$datedb' AND '$datef'
                     AND p.statut_confirme = 'confirm'
-                    AND ex.code_gaexp = '$gid'
+                    AND ul.guser = '$gid'
                     AND h.h_active = 1
                     AND p.actif_pas = 0
-                    AND p.departclient_idgare = '$sg'        
                     AND ctp.actif_tamp = 0")->result();
                 $rows = $this->normalize_ticket_prix_rows($rows);
                 return $this->_conf_annotate_and_expand_transit($cid, $rows);
