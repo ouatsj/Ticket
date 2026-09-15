@@ -44,6 +44,24 @@ $render_validation_cards = function ($items, $pending_map, $label_badge) use ($c
                     </p>
                     <? if ($pending->has_pending): ?>
                         <p class="mb-1"><strong>Arrêt en attente :</strong></p>
+                        <?php
+                        $dmin = !empty($pending->date_min) ? $pending->date_min : null;
+                        $dmax = !empty($pending->date_max) ? $pending->date_max : null;
+                        if ($dmin || $dmax):
+                            $fmt = function ($d) {
+                                $d = substr(trim((string) $d), 0, 10);
+                                if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $d)) {
+                                    return '—';
+                                }
+                                $p = explode('-', $d);
+                                return $p[2] . '/' . $p[1] . '/' . $p[0];
+                            };
+                            $labelDate = ($dmin && $dmax && $dmin !== $dmax)
+                                ? ($fmt($dmin) . ' → ' . $fmt($dmax))
+                                : $fmt($dmin ?: $dmax);
+                        ?>
+                        <p class="mb-1 small"><strong>Date(s) d'arrêt :</strong> <?= htmlspecialchars($labelDate, ENT_QUOTES, 'UTF-8'); ?></p>
+                        <?php endif; ?>
                         <p class="mb-0 small">Recettes : <?= number_format($pending->total_recettes, 0, ',', ' '); ?> F</p>
                         <p class="mb-0 small">Dépenses : <?= number_format($pending->total_depenses, 0, ',', ' '); ?> F</p>
                         <p class="mb-2 small">Dépôts : <?= number_format($pending->total_depots, 0, ',', ' '); ?> F</p>

@@ -20,7 +20,76 @@ $id_caiss = !empty($caisseident->id_caiss) ? $caisseident->id_caiss : 0;
 $date_nav = mdate('%d/%m/%Y', now('UTC'));
 $chef_nom = trim(($user_connect->first_name ?? '') . ' ' . ($user_connect->last_name ?? ''));
 if ($chef_nom === '') {
-    $chef_nom = !empty($user_connect->username) ? $user_connect->username : 'Chef guichet';
+    $chef_nom = !empty($user_connect->username) ? $user_connect->username : 'Opérateur';
+}
+$is_profil_adjoint = !empty($is_profil_adjoint)
+    || (!empty($user_connect->userole) && function_exists('recette_role_is_validateur_adjoint')
+        && recette_role_is_validateur_adjoint($user_connect->userole));
+$profil_label = $is_profil_adjoint ? 'Caissier adjoint' : 'Chef guichet';
+
+if (!function_exists('indexcompte_fmt_date_fr')) {
+    function indexcompte_fmt_date_fr($ymd)
+    {
+        $ymd = substr(trim((string) $ymd), 0, 10);
+        if ($ymd === '' || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $ymd)) {
+            return '—';
+        }
+        $p = explode('-', $ymd);
+        return $p[2] . '/' . $p[1] . '/' . $p[0];
+    }
+}
+if (!function_exists('indexcompte_fmt_datetime')) {
+    function indexcompte_fmt_datetime($ts, $fallback = '')
+    {
+        if ($ts === null || $ts === '' || $ts === '0000-00-00 00:00:00') {
+            if ($fallback !== '' && $fallback !== null) {
+                return indexcompte_fmt_datetime($fallback, '');
+            }
+            return '—';
+        }
+        if (is_numeric($ts) && (int) $ts > 100000) {
+            return date('d/m/Y H:i', (int) $ts);
+        }
+        $t = strtotime((string) $ts);
+        return $t ? date('d/m/Y H:i', $t) : (string) $ts;
+    }
+}
+if (!function_exists('indexcompte_user_label')) {
+    function indexcompte_user_label($user, $prenom, $nom, $role = '')
+    {
+        $n = trim(trim((string) $prenom) . ' ' . trim((string) $nom));
+        if ($n === '') {
+            $n = trim((string) $user);
+        }
+        if ($n === '') {
+            $n = '—';
+        }
+        $role = trim((string) $role);
+        return $role !== '' ? ($n . ' (rôle ' . $role . ')') : $n;
+    }
+}
+
+$recette_details_by_date = array();
+foreach ((isset($recette_stop_details) ? $recette_stop_details : array()) as $d) {
+    $k = isset($d->date_recet) ? substr((string) $d->date_recet, 0, 10) : '';
+    if ($k === '') {
+        continue;
+    }
+    if (!isset($recette_details_by_date[$k])) {
+        $recette_details_by_date[$k] = array();
+    }
+    $recette_details_by_date[$k][] = $d;
+}
+$depense_details_by_date = array();
+foreach ((isset($depense_stop_details) ? $depense_stop_details : array()) as $d) {
+    $k = isset($d->date_depens) ? substr((string) $d->date_depens, 0, 10) : '';
+    if ($k === '') {
+        continue;
+    }
+    if (!isset($depense_details_by_date[$k])) {
+        $depense_details_by_date[$k] = array();
+    }
+    $depense_details_by_date[$k][] = $d;
 }
 ?>
 <div class="row">
@@ -58,7 +127,8 @@ if ($chef_nom === '') {
         </div>
         <div class="mt-3 p-3 border rounded bg-light">
             <p class="mb-2">
-                Chef guichet : <strong><?= htmlspecialchars($chef_nom, ENT_QUOTES, 'UTF-8'); ?></strong>
+                <?= htmlspecialchars($profil_label, ENT_QUOTES, 'UTF-8'); ?> :
+                <strong><?= htmlspecialchars($chef_nom, ENT_QUOTES, 'UTF-8'); ?></strong>
             </p>
             <div class="d-flex flex-wrap" style="gap: 1.25rem;">
                 <span>Total recettes en attente :
@@ -89,7 +159,7 @@ if ($chef_nom === '') {
                 </div>
                 <div class="card-body">
                     <p class="text-center mb-3">
-                        Total recettes en attente (chef) :
+                        Total recettes en attente :
                         <strong class="text-success" style="font-size:1.25rem;">
                             <?= number_format((float) $pending_totals->total_recettes, 0, ',', ' '); ?> F
                         </strong>
@@ -98,6 +168,9 @@ if ($chef_nom === '') {
                         <table class="table table-striped table-hover" id="table1">
                             <thead>
                                 <tr>
+                                    <? if ($is_profil_adjoint): ?>
+                                    <th>DATE ARRÊT</th>
+                                    <? endif; ?>
                                     <th>TOTAL RECETTE ARRÊT</th>
                                     <th>ACTION</th>
                                 </tr>
@@ -105,34 +178,50 @@ if ($chef_nom === '') {
                             <tbody>
                                 <? if (empty($recette_stop)): ?>
                                     <tr>
-                                        <td colspan="2" class="text-muted">Aucun total recette en attente pour cet arrêt de compte.</td>
+                                        <td colspan="<?= $is_profil_adjoint ? 3 : 2; ?>" class="text-muted">Aucun total recette en attente pour cet arrêt de compte.</td>
                                     </tr>
                                 <? endif; ?>
-                                <? foreach ($recette_stop as $item): ?>
+                                <? foreach ($recette_stop as $item):
+                                    $date_arret = !empty($item->date_arret) ? substr((string) $item->date_arret, 0, 10) : '';
+                                    $date_uri = $date_arret !== '' ? ('/' . $date_arret) : '';
+                                    $modal_id = 'voir-recette-' . preg_replace('/\D+/', '', $date_arret !== '' ? $date_arret : 'all');
+                                ?>
                                     <tr>
-                                    <td><?= number_format((float) $item->total, 0, ',', ' '); ?> F</td>
+                                    <? if ($is_profil_adjoint): ?>
+                                    <td><?= htmlspecialchars(indexcompte_fmt_date_fr($date_arret), ENT_QUOTES, 'UTF-8'); ?></td>
+                                    <? endif; ?>
+                                    <td><?= number_format((float) $item->total, 0, ',', ' '); ?> F
+                                        <? if (!empty($item->nb_ops)): ?>
+                                            <span class="text-muted small">(<?= (int) $item->nb_ops; ?> op.)</span>
+                                        <? endif; ?>
+                                    </td>
                                     <td>
                              <? if (recette_role_is_validateur_adjoint($user_connect->userole) AND recette_role_is_validateur_principal($this->session->agent->userole)): ?>
-                                        <a href="<?= site_url("Arretcaisses/advaliderecette/{$this->session->company->ekey}/{$item->gexp_caiss}/{$item->idcaisse}/{$item->operavalidad}/{$conex->roleattribut}/{$bus_stop->idsousgare}"); ?>"
-                                            class="btn btn-secondary btn-space <?= ($item->is_conect === '0') ? 'btn-danger' : 'btn-success'; ?> md-trigger" data-modal="">
+                                        <? if ($date_arret !== ''): ?>
+                                        <a href="#" class="btn btn-secondary btn-space btn-info md-trigger" data-modal="<?= $modal_id; ?>">
+                                            <i class="fas fa-eye"></i>&nbsp;VOIR&nbsp;
+                                        </a>
+                                        <? endif; ?>
+                                        <a href="<?= site_url("Arretcaisses/advaliderecette/{$this->session->company->ekey}/{$item->gexp_caiss}/{$item->idcaisse}/{$item->operavalidad}/{$conex->roleattribut}/{$bus_stop->idsousgare}{$date_uri}"); ?>"
+                                            class="btn btn-secondary btn-space <?= ($item->is_conect === '0') ? 'btn-danger' : 'btn-success'; ?>">
                                             <i class="fas fa-puzzle-piece"></i>
                                             &nbsp;VALIDER&nbsp;
                                         </a>
 
-                                        <a href="<?= site_url("Arretcaisses/adrejetrecette/{$this->session->company->ekey}/{$item->gexp_caiss}/{$item->idcaisse}/{$item->operavalidad}/{$conex->roleattribut}/{$bus_stop->idsousgare}"); ?>"
-                                            class="btn btn-secondary btn-space <?= ($item->is_conect === '0') ? 'btn-danger' : 'btn-success'; ?> md-trigger" data-modal="">
+                                        <a href="<?= site_url("Arretcaisses/adrejetrecette/{$this->session->company->ekey}/{$item->gexp_caiss}/{$item->idcaisse}/{$item->operavalidad}/{$conex->roleattribut}/{$bus_stop->idsousgare}{$date_uri}"); ?>"
+                                            class="btn btn-secondary btn-space <?= ($item->is_conect === '0') ? 'btn-danger' : 'btn-warning'; ?>">
                                             <i class="fas fa-puzzle-piece"></i>
                                             &nbsp;REJETER&nbsp;
                                         </a>
                                         <?endif;?>
                                         <? if (recette_role_is_saisie($user_connect->userole) AND recette_role_is_validateur_principal($this->session->agent->userole)): ?>
                                         <a href="<?= site_url("Arretcaisses/validerecette/{$this->session->company->ekey}/{$item->gexp_caiss}/{$item->idcaisse}/{$item->idopera}/{$conex->roleattribut}/{$bus_stop->idsousgare}"); ?>"
-                                            class="btn btn-secondary btn-space <?= ($item->is_conect === '0') ? 'btn-danger' : 'btn-success'; ?> md-trigger" data-modal="">
+                                            class="btn btn-secondary btn-space <?= ($item->is_conect === '0') ? 'btn-danger' : 'btn-success'; ?>">
                                             <i class="fas fa-puzzle-piece"></i>
                                             &nbsp;VALIDER&nbsp;
                                         </a>
                                         <a href="<?= site_url("Arretcaisses/rejetrecette/{$this->session->company->ekey}/{$item->gexp_caiss}/{$item->idcaisse}/{$item->idopera}/{$conex->roleattribut}/{$bus_stop->idsousgare}"); ?>"
-                                            class="btn btn-secondary btn-space <?= ($item->is_conect === '0') ? 'btn-danger' : 'btn-success'; ?> md-trigger" data-modal="">
+                                            class="btn btn-secondary btn-space <?= ($item->is_conect === '0') ? 'btn-danger' : 'btn-warning'; ?>">
                                             <i class="fas fa-puzzle-piece"></i>
                                             &nbsp;REJETER&nbsp;
                                         </a>
@@ -140,12 +229,12 @@ if ($chef_nom === '') {
                                         
                                         <? if (recette_role_is_saisie($user_connect->userole) AND recette_role_is_validateur_adjoint($this->session->agent->userole)): ?>
                                         <a href="<?= site_url("Arretcaisses/validerecette/{$this->session->company->ekey}/{$item->gexp_caiss}/{$item->idcaisse}/{$item->idopera}/{$conex->roleattribut}/{$bus_stop->idsousgare}"); ?>"
-                                            class="btn btn-secondary btn-space <?= ($item->is_conect === '0') ? 'btn-danger' : 'btn-success'; ?> md-trigger" data-modal="">
+                                            class="btn btn-secondary btn-space <?= ($item->is_conect === '0') ? 'btn-danger' : 'btn-success'; ?>">
                                             <i class="fas fa-puzzle-piece"></i>
                                             &nbsp;VALIDER&nbsp;
                                         </a>
                                         <a href="<?= site_url("Arretcaisses/rejetrecette/{$this->session->company->ekey}/{$item->gexp_caiss}/{$item->idcaisse}/{$item->idopera}/{$conex->roleattribut}/{$bus_stop->idsousgare}"); ?>"
-                                            class="btn btn-secondary btn-space <?= ($item->is_conect === '0') ? 'btn-danger' : 'btn-success'; ?> md-trigger" data-modal="">
+                                            class="btn btn-secondary btn-space <?= ($item->is_conect === '0') ? 'btn-danger' : 'btn-warning'; ?>">
                                             <i class="fas fa-puzzle-piece"></i>
                                             &nbsp;REJETER&nbsp;
                                         </a>
@@ -170,7 +259,7 @@ if ($chef_nom === '') {
                 </div>
                 <div class="card-body">
                     <p class="text-center mb-3">
-                        Total dépenses en attente (chef) :
+                        Total dépenses en attente :
                         <strong class="text-danger" style="font-size:1.25rem;">
                             <?= number_format((float) $pending_totals->total_depenses, 0, ',', ' '); ?> F
                         </strong>
@@ -179,6 +268,9 @@ if ($chef_nom === '') {
                         <table class="table table-striped table-hover" id="table3">
                             <thead>
                                 <tr>
+                                    <? if ($is_profil_adjoint): ?>
+                                    <th>DATE ARRÊT</th>
+                                    <? endif; ?>
                                     <th>TOTAL DEPENSE ARRÊT</th>
                                     <th>ACTION</th>
                                 </tr>
@@ -186,45 +278,61 @@ if ($chef_nom === '') {
                             <tbody>
                                 <? if (empty($depense_stop)): ?>
                                     <tr>
-                                        <td colspan="2" class="text-muted">Aucun total dépense en attente pour cet arrêt de compte.</td>
+                                        <td colspan="<?= $is_profil_adjoint ? 3 : 2; ?>" class="text-muted">Aucun total dépense en attente pour cet arrêt de compte.</td>
                                     </tr>
                                 <? endif; ?>
-                                <? foreach ($depense_stop as $item): ?>
+                                <? foreach ($depense_stop as $item):
+                                    $date_arret = !empty($item->date_arret) ? substr((string) $item->date_arret, 0, 10) : '';
+                                    $date_uri = $date_arret !== '' ? ('/' . $date_arret) : '';
+                                    $modal_id = 'voir-depense-' . preg_replace('/\D+/', '', $date_arret !== '' ? $date_arret : 'all');
+                                ?>
                                     <tr>
-                                    <td><?= number_format((float) $item->mont, 0, ',', ' '); ?> F</td>
+                                    <? if ($is_profil_adjoint): ?>
+                                    <td><?= htmlspecialchars(indexcompte_fmt_date_fr($date_arret), ENT_QUOTES, 'UTF-8'); ?></td>
+                                    <? endif; ?>
+                                    <td><?= number_format((float) $item->mont, 0, ',', ' '); ?> F
+                                        <? if (!empty($item->nb_ops)): ?>
+                                            <span class="text-muted small">(<?= (int) $item->nb_ops; ?> op.)</span>
+                                        <? endif; ?>
+                                    </td>
                                     <td>
                                         <? if (recette_role_is_validateur_adjoint($user_connect->userole) AND recette_role_is_validateur_principal($this->session->agent->userole)): ?>
-                                        <a href="<?= site_url("Arretcaisses/advalidedepense/{$this->session->company->ekey}/{$item->gexp_caiss}/{$item->idcaisse_depens}/{$item->opevalidad}/{$conex->roleattribut}/{$bus_stop->idsousgare}"); ?>"
-                                            class="btn btn-secondary btn-space <?= ($item->is_conect === '0') ? 'btn-danger' : 'btn-success'; ?> md-trigger" data-modal="">
+                                        <? if ($date_arret !== ''): ?>
+                                        <a href="#" class="btn btn-secondary btn-space btn-info md-trigger" data-modal="<?= $modal_id; ?>">
+                                            <i class="fas fa-eye"></i>&nbsp;VOIR&nbsp;
+                                        </a>
+                                        <? endif; ?>
+                                        <a href="<?= site_url("Arretcaisses/advalidedepense/{$this->session->company->ekey}/{$item->gexp_caiss}/{$item->idcaisse_depens}/{$item->opevalidad}/{$conex->roleattribut}/{$bus_stop->idsousgare}{$date_uri}"); ?>"
+                                            class="btn btn-secondary btn-space <?= ($item->is_conect === '0') ? 'btn-danger' : 'btn-success'; ?>">
                                             <i class="fas fa-puzzle-piece"></i>
                                             &nbsp;VALIDER&nbsp;
                                         </a>
-                                        <a href="<?= site_url("Arretcaisses/adrejetdepense/{$this->session->company->ekey}/{$item->gexp_caiss}/{$item->idcaisse_depens}/{$item->opevalidad}/{$conex->roleattribut}/{$bus_stop->idsousgare}"); ?>"
-                                            class="btn btn-secondary btn-space <?= ($item->is_conect === '0') ? 'btn-danger' : 'btn-success'; ?> md-trigger" data-modal="">
+                                        <a href="<?= site_url("Arretcaisses/adrejetdepense/{$this->session->company->ekey}/{$item->gexp_caiss}/{$item->idcaisse_depens}/{$item->opevalidad}/{$conex->roleattribut}/{$bus_stop->idsousgare}{$date_uri}"); ?>"
+                                            class="btn btn-secondary btn-space <?= ($item->is_conect === '0') ? 'btn-danger' : 'btn-warning'; ?>">
                                             <i class="fas fa-puzzle-piece"></i>
                                             &nbsp;REJETER&nbsp;
                                         </a>
                                         <?endif;?>
                                         <? if (recette_role_is_saisie($user_connect->userole) AND recette_role_is_validateur_principal($this->session->agent->userole)): ?>
                                         <a href="<?= site_url("Arretcaisses/validedepense/{$this->session->company->ekey}/{$item->gexp_caiss}/{$item->idcaisse_depens}/{$item->idop_dep}/{$conex->roleattribut}/{$bus_stop->idsousgare}"); ?>"
-                                            class="btn btn-secondary btn-space <?= ($item->is_conect === '0') ? 'btn-danger' : 'btn-success'; ?> md-trigger" data-modal="">
+                                            class="btn btn-secondary btn-space <?= ($item->is_conect === '0') ? 'btn-danger' : 'btn-success'; ?>">
                                             <i class="fas fa-puzzle-piece"></i>
                                             &nbsp;VALIDER&nbsp;
                                         </a>
                                         <a href="<?= site_url("Arretcaisses/rejetdepense/{$this->session->company->ekey}/{$item->gexp_caiss}/{$item->idcaisse_depens}/{$item->idop_dep}/{$conex->roleattribut}/{$bus_stop->idsousgare}"); ?>"
-                                            class="btn btn-secondary btn-space <?= ($item->is_conect === '0') ? 'btn-danger' : 'btn-success'; ?> md-trigger" data-modal="">
+                                            class="btn btn-secondary btn-space <?= ($item->is_conect === '0') ? 'btn-danger' : 'btn-warning'; ?>">
                                             <i class="fas fa-puzzle-piece"></i>
                                             &nbsp;REJETER&nbsp;
                                         </a>
                                         <?endif;?>
                                         <? if (recette_role_is_saisie($user_connect->userole) AND recette_role_is_validateur_adjoint($this->session->agent->userole)): ?>
                                         <a href="<?= site_url("Arretcaisses/validedepense/{$this->session->company->ekey}/{$item->gexp_caiss}/{$item->idcaisse_depens}/{$item->idop_dep}/{$conex->roleattribut}/{$bus_stop->idsousgare}"); ?>"
-                                            class="btn btn-secondary btn-space <?= ($item->is_conect === '0') ? 'btn-danger' : 'btn-success'; ?> md-trigger" data-modal="">
+                                            class="btn btn-secondary btn-space <?= ($item->is_conect === '0') ? 'btn-danger' : 'btn-success'; ?>">
                                             <i class="fas fa-puzzle-piece"></i>
                                             &nbsp;VALIDER&nbsp;
                                         </a>
                                         <a href="<?= site_url("Arretcaisses/rejetdepense/{$this->session->company->ekey}/{$item->gexp_caiss}/{$item->idcaisse_depens}/{$item->idop_dep}/{$conex->roleattribut}/{$bus_stop->idsousgare}"); ?>"
-                                            class="btn btn-secondary btn-space <?= ($item->is_conect === '0') ? 'btn-danger' : 'btn-success'; ?> md-trigger" data-modal="">
+                                            class="btn btn-secondary btn-space <?= ($item->is_conect === '0') ? 'btn-danger' : 'btn-warning'; ?>">
                                             <i class="fas fa-puzzle-piece"></i>
                                             &nbsp;REJETER&nbsp;
                                         </a>
@@ -242,6 +350,102 @@ if ($chef_nom === '') {
             </div>
             
         </div>
+
+<?php if ($is_profil_adjoint): ?>
+    <?php foreach ($recette_details_by_date as $dkey => $rows):
+        $modal_id = 'voir-recette-' . preg_replace('/\D+/', '', $dkey);
+    ?>
+        <div class="modal-container colored-header colored-header-info custom-width modal-effect-7"
+             id="<?= $modal_id; ?>" style="perspective: none; max-width: 920px;">
+            <div class="modal-content">
+                <div class="modal-header modal-header-colored">
+                    <h3 class="modal-title">Détail recettes — arrêt du <?= htmlspecialchars(indexcompte_fmt_date_fr($dkey), ENT_QUOTES, 'UTF-8'); ?></h3>
+                    <button class="close modal-close" type="button" data-dismiss="modal" aria-hidden="true">
+                        <span class="mdi mdi-close text-white"></span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <div class="table-responsive">
+                        <table class="table table-sm table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Date écriture</th>
+                                    <th>Date op.</th>
+                                    <th>Type</th>
+                                    <th>Montant</th>
+                                    <th>Auteur (chef)</th>
+                                    <th>Validé adjoint</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php foreach ($rows as $op): ?>
+                                <tr>
+                                    <td><?= htmlspecialchars(indexcompte_fmt_datetime($op->date_insertrecet, $op->createdrecet_at), ENT_QUOTES, 'UTF-8'); ?></td>
+                                    <td><?= htmlspecialchars(indexcompte_fmt_date_fr($op->date_recet), ENT_QUOTES, 'UTF-8'); ?></td>
+                                    <td><?= htmlspecialchars((string) $op->type_recet, ENT_QUOTES, 'UTF-8'); ?></td>
+                                    <td class="text-right"><?= number_format((float) $op->montant_recet, 0, ',', ' '); ?> F</td>
+                                    <td><?= htmlspecialchars(indexcompte_user_label($op->auteur_user, $op->auteur_prenom, $op->auteur_nom, $op->auteur_role), ENT_QUOTES, 'UTF-8'); ?></td>
+                                    <td><?= htmlspecialchars(indexcompte_user_label($op->adjoint_user, $op->adjoint_prenom, $op->adjoint_nom, '18'), ENT_QUOTES, 'UTF-8'); ?></td>
+                                </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary modal-close" type="button" data-dismiss="modal">Fermer</button>
+                </div>
+            </div>
+        </div>
+    <?php endforeach; ?>
+
+    <?php foreach ($depense_details_by_date as $dkey => $rows):
+        $modal_id = 'voir-depense-' . preg_replace('/\D+/', '', $dkey);
+    ?>
+        <div class="modal-container colored-header colored-header-info custom-width modal-effect-7"
+             id="<?= $modal_id; ?>" style="perspective: none; max-width: 920px;">
+            <div class="modal-content">
+                <div class="modal-header modal-header-colored">
+                    <h3 class="modal-title">Détail dépenses — arrêt du <?= htmlspecialchars(indexcompte_fmt_date_fr($dkey), ENT_QUOTES, 'UTF-8'); ?></h3>
+                    <button class="close modal-close" type="button" data-dismiss="modal" aria-hidden="true">
+                        <span class="mdi mdi-close text-white"></span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <div class="table-responsive">
+                        <table class="table table-sm table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Date écriture</th>
+                                    <th>Date op.</th>
+                                    <th>Type</th>
+                                    <th>Montant</th>
+                                    <th>Auteur (chef)</th>
+                                    <th>Validé adjoint</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php foreach ($rows as $op): ?>
+                                <tr>
+                                    <td><?= htmlspecialchars(indexcompte_fmt_datetime($op->date_insert, $op->createddep_at), ENT_QUOTES, 'UTF-8'); ?></td>
+                                    <td><?= htmlspecialchars(indexcompte_fmt_date_fr($op->date_depens), ENT_QUOTES, 'UTF-8'); ?></td>
+                                    <td><?= htmlspecialchars((string) $op->type_depense, ENT_QUOTES, 'UTF-8'); ?></td>
+                                    <td class="text-right"><?= number_format((float) $op->montant_depens, 0, ',', ' '); ?> F</td>
+                                    <td><?= htmlspecialchars(indexcompte_user_label($op->auteur_user, $op->auteur_prenom, $op->auteur_nom, $op->auteur_role), ENT_QUOTES, 'UTF-8'); ?></td>
+                                    <td><?= htmlspecialchars(indexcompte_user_label($op->adjoint_user, $op->adjoint_prenom, $op->adjoint_nom, '18'), ENT_QUOTES, 'UTF-8'); ?></td>
+                                </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary modal-close" type="button" data-dismiss="modal">Fermer</button>
+                </div>
+            </div>
+        </div>
+    <?php endforeach; ?>
+<?php endif; ?>
                 <!-- tri-->
         <div class="modal-container colored-header colored-header-success custom-width modal-effect-7"
                 id="formtrirecette" style="perspective: none;">

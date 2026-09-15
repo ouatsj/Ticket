@@ -2503,11 +2503,19 @@ if (!function_exists('caissier_arret_pending_for_chef')) {
                 'total_recettes' => 0.0,
                 'total_depenses' => 0.0,
                 'total_depots' => 0.0,
+                'date_min' => null,
+                'date_max' => null,
                 'has_pending' => false,
             );
         }
 
         $p = $map[$ra];
+        if (!isset($p->date_min)) {
+            $p->date_min = null;
+        }
+        if (!isset($p->date_max)) {
+            $p->date_max = null;
+        }
         $p->has_pending = ($p->total_recettes > 0 || $p->total_depenses > 0 || $p->total_depots > 0);
 
         return $p;
@@ -2541,12 +2549,27 @@ if (!function_exists('caissier_arret_pending_map_adjoint')) {
                     'nb_recettes' => 0,
                     'nb_depenses' => 0,
                     'nb_depots' => 0,
+                    'date_min' => null,
+                    'date_max' => null,
                 );
             }
         };
 
+        $mergeDates = function ($ra, $dmin, $dmax) use (&$map) {
+            $ra = (int) $ra;
+            $dmin = $dmin ? substr((string) $dmin, 0, 10) : null;
+            $dmax = $dmax ? substr((string) $dmax, 0, 10) : null;
+            if ($dmin && ($map[$ra]->date_min === null || $dmin < $map[$ra]->date_min)) {
+                $map[$ra]->date_min = $dmin;
+            }
+            if ($dmax && ($map[$ra]->date_max === null || $dmax > $map[$ra]->date_max)) {
+                $map[$ra]->date_max = $dmax;
+            }
+        };
+
         $rec_rows = $CI->db->query(
-            "SELECT r.operavalidad AS roleattribut, COUNT(*) AS nb, COALESCE(SUM(r.montant_recet), 0) AS total
+            "SELECT r.operavalidad AS roleattribut, COUNT(*) AS nb, COALESCE(SUM(r.montant_recet), 0) AS total,
+                MIN(r.date_recet) AS date_min, MAX(r.date_recet) AS date_max
             FROM recette r
             JOIN attributions_role ar ON r.operavalidad = ar.roleattribut
             JOIN user_login ul ON ar.idgestcompte = ul.uid_login
@@ -2572,10 +2595,12 @@ if (!function_exists('caissier_arret_pending_map_adjoint')) {
             $init($row->roleattribut);
             $map[(int) $row->roleattribut]->total_recettes = (float) $row->total;
             $map[(int) $row->roleattribut]->nb_recettes = (int) $row->nb;
+            $mergeDates($row->roleattribut, $row->date_min, $row->date_max);
         }
 
         $dep_rows = $CI->db->query(
-            "SELECT d.opevalidad AS roleattribut, COUNT(*) AS nb, COALESCE(SUM(d.montant_depens), 0) AS total
+            "SELECT d.opevalidad AS roleattribut, COUNT(*) AS nb, COALESCE(SUM(d.montant_depens), 0) AS total,
+                MIN(d.date_depens) AS date_min, MAX(d.date_depens) AS date_max
             FROM depense d
             JOIN attributions_role ar ON d.opevalidad = ar.roleattribut
             JOIN user_login ul ON ar.idgestcompte = ul.uid_login
@@ -2601,10 +2626,12 @@ if (!function_exists('caissier_arret_pending_map_adjoint')) {
             $init($row->roleattribut);
             $map[(int) $row->roleattribut]->total_depenses = (float) $row->total;
             $map[(int) $row->roleattribut]->nb_depenses = (int) $row->nb;
+            $mergeDates($row->roleattribut, $row->date_min, $row->date_max);
         }
 
         $depo_rows = $CI->db->query(
-            "SELECT d.opvalidad AS roleattribut, COUNT(*) AS nb, COALESCE(SUM(d.montant_depot), 0) AS total
+            "SELECT d.opvalidad AS roleattribut, COUNT(*) AS nb, COALESCE(SUM(d.montant_depot), 0) AS total,
+                MIN(d.datedepot) AS date_min, MAX(d.datedepot) AS date_max
             FROM depot d
             JOIN attributions_role ar ON d.opvalidad = ar.roleattribut
             JOIN user_login ul ON ar.idgestcompte = ul.uid_login
@@ -2630,6 +2657,7 @@ if (!function_exists('caissier_arret_pending_map_adjoint')) {
             $init($row->roleattribut);
             $map[(int) $row->roleattribut]->total_depots = (float) $row->total;
             $map[(int) $row->roleattribut]->nb_depots = (int) $row->nb;
+            $mergeDates($row->roleattribut, $row->date_min, $row->date_max);
         }
 
         return $map;

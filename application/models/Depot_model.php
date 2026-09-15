@@ -566,7 +566,10 @@
             // Option B : dépôts validés adjoint, en attente confirmation principal.
             $today = mdate('%Y-%m-%d', now());
             $pending = caisse_validation_pending_adjoint_depot_sql((int) $use, 'd');
-            return $this->db->query("SELECT SUM(montant_depot) AS totalmont, d.opvalidad, d.idcaisse_depot, cs.gexp_caiss, cu.is_conect FROM depot d
+            return $this->db->query(
+                "SELECT SUM(montant_depot) AS totalmont, d.datedepot AS date_arret, d.opvalidad, d.idcaisse_depot,
+                        cs.gexp_caiss, cu.is_conect, COUNT(*) AS nb_ops
+                FROM depot d
                 JOIN attributions_role ar ON d.idop_depot = ar.roleattribut
                 JOIN user_login ul ON ar.idgestcompte = ul.uid_login
                 JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
@@ -583,7 +586,53 @@
                 AND d.actif_depo = 0
                 AND d.type_depot <> 'Courrier'
                 AND cs.gexp_caiss = '$gid'
-                GROUP BY cs.id_caiss, cu.cpuser_id, d.opvalidad, d.idcaisse_depot, cs.gexp_caiss, cu.is_conect")->result();
+                GROUP BY d.datedepot, cs.id_caiss, d.opvalidad, d.idcaisse_depot, cs.gexp_caiss, cu.is_conect
+                ORDER BY d.datedepot ASC"
+            )->result();
+        }
+
+        /**
+         * Détail dépôts arrêt adjoint (modale caissier).
+         */
+        public function validegead_details($cid, $gid, $idcais, $use, $date = null)
+        {
+            $today = mdate('%Y-%m-%d', now());
+            $pending = caisse_validation_pending_adjoint_depot_sql((int) $use, 'd');
+            $dateSql = '';
+            $df = trim((string) $date);
+            if ($df !== '' && preg_match('/^\d{4}-\d{2}-\d{2}$/', $df)) {
+                $dateSql = ' AND d.datedepot = ' . $this->db->escape($df);
+            }
+            return $this->db->query(
+                "SELECT d.id_depot, d.montant_depot, d.datedepot, d.createddepot_at, d.lastpo_updated,
+                        d.type_depot, d.idop_depot, d.opvalidad,
+                        cu_aut.username AS auteur_user, u_aut.first_name AS auteur_prenom, u_aut.last_name AS auteur_nom,
+                        ar_aut.userole AS auteur_role,
+                        cu_ad.username AS adjoint_user, u_ad.first_name AS adjoint_prenom, u_ad.last_name AS adjoint_nom
+                FROM depot d
+                JOIN attributions_role ar_aut ON d.idop_depot = ar_aut.roleattribut
+                JOIN user_login ul_aut ON ar_aut.idgestcompte = ul_aut.uid_login
+                JOIN compte_user cu_aut ON ul_aut.uid_usercpte = cu_aut.cpuser_id
+                LEFT JOIN utilisateurs u_aut ON cu_aut.userlog_id = u_aut.uid
+                LEFT JOIN attributions_role ar_ad ON d.opvalidad = ar_ad.roleattribut
+                LEFT JOIN user_login ul_ad ON ar_ad.idgestcompte = ul_ad.uid_login
+                LEFT JOIN compte_user cu_ad ON ul_ad.uid_usercpte = cu_ad.cpuser_id
+                LEFT JOIN utilisateurs u_ad ON cu_ad.userlog_id = u_ad.uid
+                JOIN caisse cs ON d.idcaisse_depot = cs.id_caiss
+                JOIN compagnies c ON d.compkey_depo = c.cle_compagnie
+                JOIN entreprise e ON c.id_entrep = e.id_entreprise
+                WHERE e.ekey = ?
+                AND d.arret_caisdepo = 0
+                AND d.idcaisse_depot = ?
+                AND {$pending}
+                AND d.datedepot <= ?
+                AND d.actif_depo = 0
+                AND d.type_depot <> 'Courrier'
+                AND cs.gexp_caiss = ?
+                {$dateSql}
+                ORDER BY d.datedepot ASC, d.createddepot_at ASC, d.id_depot ASC",
+                array($cid, $idcais, $today, $gid)
+            )->result();
         }
 
         /** Dépôts saisis par chef guichet (role 5/16), en attente validation caissier. */

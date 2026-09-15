@@ -1205,10 +1205,13 @@
         public function validegead($cid, $gid, $idcais, $use)
         {
             // Option B : lignes déjà validées par l’adjoint, en attente confirmation principal.
+            // Une ligne = un jour d’arrêt (date_recet).
             $today = mdate('%Y-%m-%d', now());
             $pending = caisse_validation_pending_adjoint_recette_sql((int) $use, 'r');
             return $this->db->query(
-                "SELECT SUM(montant_recet) AS total, r.operavalidad, r.idcaisse, cs.gexp_caiss, cu.is_conect FROM recette r
+                "SELECT SUM(montant_recet) AS total, r.date_recet AS date_arret, r.operavalidad, r.idcaisse,
+                        cs.gexp_caiss, cu.is_conect, COUNT(*) AS nb_ops
+                FROM recette r
                 JOIN attributions_role ar ON r.idopera = ar.roleattribut
                 JOIN user_login ul ON ar.idgestcompte = ul.uid_login
                 JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
@@ -1225,7 +1228,60 @@
                 AND r.actif_rect = 0
                 AND r.type_recet <> 'Courrier'
                 AND r.date_recet <= '$today'
-                GROUP BY cs.id_caiss, ar.roleattribut, r.operavalidad, r.idcaisse, cs.gexp_caiss, cu.is_conect")->result();
+                GROUP BY r.date_recet, cs.id_caiss, r.operavalidad, r.idcaisse, cs.gexp_caiss, cu.is_conect
+                ORDER BY r.date_recet ASC"
+            )->result();
+        }
+
+        /**
+         * Détail des opérations d’un arrêt adjoint (pour modale caissier).
+         *
+         * @param string      $cid
+         * @param string      $gid
+         * @param int|string  $idcais
+         * @param int|string  $use operavalidad adjoint
+         * @param string|null $date Y-m-d optionnel
+         * @return array
+         */
+        public function validegead_details($cid, $gid, $idcais, $use, $date = null)
+        {
+            $today = mdate('%Y-%m-%d', now());
+            $pending = caisse_validation_pending_adjoint_recette_sql((int) $use, 'r');
+            $dateSql = '';
+            $df = trim((string) $date);
+            if ($df !== '' && preg_match('/^\d{4}-\d{2}-\d{2}$/', $df)) {
+                $dateSql = ' AND r.date_recet = ' . $this->db->escape($df);
+            }
+            return $this->db->query(
+                "SELECT r.id_recette, r.montant_recet, r.date_recet, r.date_insertrecet, r.createdrecet_at,
+                        r.type_recet, r.idopera, r.operavalidad,
+                        cu_aut.username AS auteur_user, u_aut.first_name AS auteur_prenom, u_aut.last_name AS auteur_nom,
+                        ar_aut.userole AS auteur_role,
+                        cu_ad.username AS adjoint_user, u_ad.first_name AS adjoint_prenom, u_ad.last_name AS adjoint_nom
+                FROM recette r
+                JOIN attributions_role ar_aut ON r.idopera = ar_aut.roleattribut
+                JOIN user_login ul_aut ON ar_aut.idgestcompte = ul_aut.uid_login
+                JOIN compte_user cu_aut ON ul_aut.uid_usercpte = cu_aut.cpuser_id
+                LEFT JOIN utilisateurs u_aut ON cu_aut.userlog_id = u_aut.uid
+                LEFT JOIN attributions_role ar_ad ON r.operavalidad = ar_ad.roleattribut
+                LEFT JOIN user_login ul_ad ON ar_ad.idgestcompte = ul_ad.uid_login
+                LEFT JOIN compte_user cu_ad ON ul_ad.uid_usercpte = cu_ad.cpuser_id
+                LEFT JOIN utilisateurs u_ad ON cu_ad.userlog_id = u_ad.uid
+                JOIN caisse cs ON r.idcaisse = cs.id_caiss
+                JOIN compagnies c ON r.compkey_recet = c.cle_compagnie
+                JOIN entreprise e ON c.id_entrep = e.id_entreprise
+                WHERE e.ekey = ?
+                AND r.active_recet = 1
+                AND cs.id_caiss = ?
+                AND cs.gexp_caiss = ?
+                AND {$pending}
+                AND r.actif_rect = 0
+                AND r.type_recet <> 'Courrier'
+                AND r.date_recet <= ?
+                {$dateSql}
+                ORDER BY r.date_recet ASC, r.date_insertrecet ASC, r.id_recette ASC",
+                array($cid, $idcais, $gid, $today)
+            )->result();
         }
 
         /** Recettes saisies par chef guichet (role 5/16), en attente validation caissier. */

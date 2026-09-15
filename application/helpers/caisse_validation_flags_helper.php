@@ -311,3 +311,43 @@ if (!function_exists('caisse_validation_pending_adjoint_depot_sql')) {
             AND {$alias}.is_validdepo = 1";
     }
 }
+
+if (!function_exists('caisse_arret_normalize_date_ymd')) {
+    /**
+     * Normalise une date URI (Y-m-d ou d-m-Y) vers Y-m-d, sinon ''.
+     *
+     * @param string|null $date
+     * @return string
+     */
+    function caisse_arret_normalize_date_ymd($date)
+    {
+        $df = trim((string) $date);
+        if ($df === '' || $df === '0' || $df === '-') {
+            return '';
+        }
+        if (preg_match('/^(\d{2})-(\d{2})-(\d{4})$/', $df, $m)) {
+            $df = $m[3] . '-' . $m[2] . '-' . $m[1];
+        }
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $df)) {
+            return '';
+        }
+        return $df;
+    }
+}
+
+if (!function_exists('caisse_arret_date_filter_sql')) {
+    /**
+     * @param string      $column ex. r.date_recet
+     * @param string|null $date
+     * @return string fragment AND …
+     */
+    function caisse_arret_date_filter_sql($column, $date)
+    {
+        $df = caisse_arret_normalize_date_ymd($date);
+        if ($df === '') {
+            return '';
+        }
+        $CI =& get_instance();
+        return ' AND ' . $column . ' = ' . $CI->db->escape($df);
+    }
+}

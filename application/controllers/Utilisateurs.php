@@ -740,6 +740,21 @@
             $this->property['recette_stop'] = $this->m_recette->valideget_par_profil($this->company->ekey, $gid, $idcai, $idcpus, $profil_role);
             $this->property['depense_stop'] = $this->m_depense->valideget_par_profil($this->company->ekey, $gid, $idcai, $idcpus, $profil_role);
             $this->property['depot_stop'] = $this->m_depot->valideget_par_profil($this->company->ekey, $gid, $idcai, $idcpus, $profil_role);
+            $this->property['is_profil_adjoint'] = recette_role_is_validateur_adjoint($profil_role) ? 1 : 0;
+            $this->property['recette_stop_details'] = array();
+            $this->property['depense_stop_details'] = array();
+            $this->property['depot_stop_details'] = array();
+            if (!empty($this->property['is_profil_adjoint'])) {
+                $this->property['recette_stop_details'] = $this->m_recette->validegead_details(
+                    $this->company->ekey, $gid, $idcai, $idcpus
+                );
+                $this->property['depense_stop_details'] = $this->m_depense->validegead_details(
+                    $this->company->ekey, $gid, $idcai, $idcpus
+                );
+                $this->property['depot_stop_details'] = $this->m_depot->validegead_details(
+                    $this->company->ekey, $gid, $idcai, $idcpus
+                );
+            }
 
             if (recette_role_is_validateur_adjoint($profil_role)) {
                 $this->property['pending_totals'] = caissier_validation_adjoint_pending_totals(
