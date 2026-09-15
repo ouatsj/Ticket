@@ -2413,7 +2413,7 @@
         public function trecaptpligl($cid, $dt1, $dt2, $cp = FALSE, $gd = FALSE, $tycr = FALSE, $algn = FALSE)
         {
             $filled = function ($v) {
-                return $v !== FALSE && $v !== null && $v !== '';
+                return $v !== FALSE && $v !== null && $v !== '' && $v !== '0';
             };
             $cid = $this->db->escape_str($cid);
             $dt1 = $this->db->escape_str($dt1);
@@ -2434,14 +2434,16 @@
                     JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                     JOIN entreprise ep ON c.id_entrep = ep.id_entreprise
                     WHERE ep.ekey = '{$cid}'
-                    AND es.dateenvoiesc BETWEEN '{$dt1}' AND '{$dt2}'
+                    AND es.dateenvoiesc >= '{$dt1}'
+                    AND es.dateenvoiesc < DATE_ADD('{$dt2}', INTERVAL 1 DAY)
                     AND es.prixcolisesc IS NOT NULL
                     AND es.partocouresc IS NULL";
             if ($filled($cp)) {
                 $sql .= " AND dest.id_compaga = '" . $this->db->escape_str($cp) . "'";
             }
             if ($filled($gd)) {
-                $sql .= " AND ul.guser = '" . $this->db->escape_str($gd) . "'";
+                // Aligné liste globale : gare de ligne, pas ul.guser.
+                $sql .= " AND gex.code_gaexp = '" . $this->db->escape_str($gd) . "'";
             }
             if ($filled($tycr)) {
                 $sql .= " AND cd.naturecoli = '" . $this->db->escape_str($tycr) . "'";

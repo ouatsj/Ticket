@@ -122,6 +122,43 @@
             return $raw;
         }
 
+        /**
+         * Normalise vers code_gaexp (filtre gare de ligne / liste courrier).
+         * Accepte code_gaexp ou garesid/idengare.
+         */
+        protected function _normalize_recap_gare_code_filter($raw)
+        {
+            $raw = trim((string) $raw);
+            if ($raw === '' || $raw === '0') {
+                return '';
+            }
+            $byCode = $this->db->query(
+                "SELECT code_gaexp FROM gare_exp WHERE code_gaexp = ? LIMIT 1",
+                array($raw)
+            )->row();
+            if ($byCode && trim((string) $byCode->code_gaexp) !== '') {
+                return trim((string) $byCode->code_gaexp);
+            }
+            $byGaresid = $this->db->query(
+                "SELECT code_gaexp FROM gare_exp WHERE garesid = ? LIMIT 1",
+                array($raw)
+            )->row();
+            if ($byGaresid && trim((string) $byGaresid->code_gaexp) !== '') {
+                return trim((string) $byGaresid->code_gaexp);
+            }
+            return $raw;
+        }
+
+        /** Sous-gare optionnelle : vide / 0 = toutes. */
+        protected function _normalize_recap_sousgare_filter($raw)
+        {
+            $raw = trim((string) $raw);
+            if ($raw === '' || $raw === '0') {
+                return '';
+            }
+            return $raw;
+        }
+
         /** Formate JJ-MM-AAAA pour titres PDF (dates Y-m-d déjà validées). */
         protected function _recap_title_dates($dt1, $dt2)
         {
@@ -8358,9 +8395,9 @@
               $dt2 = $this->input->post('datefincrgl');
               $lign = $this->input->post('axelignecrgl');
               $comp = $this->input->post('_compagcrgl');
-              $gid = $this->_normalize_recap_gare_filter($this->input->post('departgarcrgl'));
+              $gid = $this->_normalize_recap_gare_code_filter($this->input->post('departgarcrgl'));
               $tyc = $this->input->post('typcoursgl');
-              $sg = $this->input->post('sousgarecrgl');
+              $sg = $this->_normalize_recap_sousgare_filter($this->input->post('sousgarecrgl'));
 
               $this->_assert_recap_global_filters($this->entreprise->ekey, $dt1, $dt2, $comp);
               $compLabel = $this->_recap_compagnie_label($comp);
@@ -8492,7 +8529,7 @@
               $dt2 = $this->input->post('datefincrglesc');
               $lign = $this->input->post('axelignecrglesc');
               $comp = $this->input->post('_compagcrglesc');
-              $gid = $this->_normalize_recap_gare_filter($this->input->post('departgarcrglesc'));
+              $gid = $this->_normalize_recap_gare_code_filter($this->input->post('departgarcrglesc'));
               $tyc = $this->input->post('typcoursglesc');
 
               $this->_assert_recap_global_filters($this->entreprise->ekey, $dt1, $dt2, $comp);
