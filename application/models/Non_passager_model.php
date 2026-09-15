@@ -468,11 +468,12 @@
                 JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
                 JOIN gares g ON ul.guser = g.idengare
                 JOIN lignes lg ON np.id_ligne_pass = lg.ident_ligne
+                JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
                 JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
                 JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = '$key'
-                AND np.datevente BETWEEN '$db' AND '$df'
+                AND np.datevente >= '$db' AND np.datevente < DATE_ADD('$df', INTERVAL 1 DAY)
                 AND ar.roleattribut = '$use'
                 AND dest.id_compaga = '$cp'
                 GROUP BY np.id_ligne_pass, dest.id_compaga, np.prixretour, lg.nom_ligne, cu.username, np.datevente")->result();
@@ -490,13 +491,14 @@
                 JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
                 JOIN gares g ON ul.guser = g.idengare
                 JOIN lignes lg ON np.id_ligne_pass = lg.ident_ligne
+                JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
                 JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
                 JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = '$key'
-                AND np.datevente BETWEEN '$db' AND '$df'
+                AND np.datevente >= '$db' AND np.datevente < DATE_ADD('$df', INTERVAL 1 DAY)
                 AND dest.id_compaga = '$cp'
-                AND ul.guser = '$gid'
+                AND ex.code_gaexp = '$gid'
                 GROUP BY np.id_ligne_pass, dest.id_compaga, np.prixretour, lg.nom_ligne, cu.username")->result();
             } 
             else{
@@ -506,14 +508,15 @@
                 JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
                 JOIN gares g ON ul.guser = g.idengare
                 JOIN lignes lg ON np.id_ligne_pass = lg.ident_ligne
+                JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
                 JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
                 JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = '$key'
-                AND np.datevente BETWEEN '$db' AND '$df'
+                AND np.datevente >= '$db' AND np.datevente < DATE_ADD('$df', INTERVAL 1 DAY)
                 AND dest.id_compaga = '$cp'
                 AND ar.roleattribut = '$idvd'
-                AND ul.guser = '$gid'
+                AND ex.code_gaexp = '$gid'
                 GROUP BY np.id_ligne_pass, dest.id_compaga, np.prixretour, lg.nom_ligne, cu.username")->result();
             }
                 
@@ -530,13 +533,14 @@
                 JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
                 JOIN gares g ON ul.guser = g.idengare
                 JOIN lignes lg ON np.id_ligne_pass = lg.ident_ligne
+                JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
                 JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
                 JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = '$key'
-                AND np.datevente BETWEEN '$db' AND '$df'
+                AND np.datevente >= '$db' AND np.datevente < DATE_ADD('$df', INTERVAL 1 DAY)
                 AND dest.id_compaga = '$cp'
-                AND ul.guser = '$gid'
+                AND ex.code_gaexp = '$gid'
                 GROUP BY np.id_ligne_pass, dest.id_compaga, np.prixretour, lg.nom_ligne, cu.username")->result();
             } 
             else{
@@ -546,14 +550,15 @@
                 JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
                 JOIN gares g ON ul.guser = g.idengare
                 JOIN lignes lg ON np.id_ligne_pass = lg.ident_ligne
+                JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
                 JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
                 JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = '$key'
-                AND np.datevente BETWEEN '$db' AND '$df'
+                AND np.datevente >= '$db' AND np.datevente < DATE_ADD('$df', INTERVAL 1 DAY)
                 AND dest.id_compaga = '$cp'
                 AND ar.roleattribut = '$idvd'
-                AND ul.guser = '$gid'
+                AND ex.code_gaexp = '$gid'
                 GROUP BY np.id_ligne_pass, dest.id_compaga, np.prixretour, lg.nom_ligne, cu.username")->result();
             }
                 
@@ -571,13 +576,14 @@
                 JOIN gares g ON ul.guser = g.idengare
                 JOIN sousgare sg ON np.sousgareidentif = sg.idsousgare
                 JOIN lignes lg ON np.id_ligne_pass = lg.ident_ligne
+                JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
                 JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
                 JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = '$key'
-                AND np.datevente BETWEEN '$db' AND '$df'
+                AND np.datevente >= '$db' AND np.datevente < DATE_ADD('$df', INTERVAL 1 DAY)
                 AND dest.id_compaga = '$cp'
-                AND ul.guser = '$gid'
+                AND ex.code_gaexp = '$gid'
                 AND np.sousgareidentif = '$sg'
                 GROUP BY np.id_ligne_pass, dest.id_compaga, np.prixretour, lg.nom_ligne, cu.username")->result();
             } 
@@ -589,14 +595,15 @@
                 JOIN gares g ON ul.guser = g.idengare
                 JOIN sousgare sg ON np.sousgareidentif = sg.idsousgare
                 JOIN lignes lg ON np.id_ligne_pass = lg.ident_ligne
+                JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
                 JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
                 JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = '$key'
-                AND np.datevente BETWEEN '$db' AND '$df'
+                AND np.datevente >= '$db' AND np.datevente < DATE_ADD('$df', INTERVAL 1 DAY)
                 AND dest.id_compaga = '$cp'
                 AND ar.roleattribut = '$idvd'
-                AND ul.guser = '$gid'
+                AND ex.code_gaexp = '$gid'
                 AND np.sousgareidentif = '$sg'
                 GROUP BY np.id_ligne_pass, dest.id_compaga, np.prixretour, lg.nom_ligne, cu.username")->result();
             }
@@ -620,9 +627,9 @@
                     JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
                     WHERE e.ekey = '$cid'
-                    AND np.datevente BETWEEN '$dt1' AND '$dt2'
+                    AND np.datevente >= '$dt1' AND np.datevente < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND dest.id_compaga = '$cp'
-                    AND ul.guser = '$gid'
+                    AND ex.code_gaexp = '$gid'
                     GROUP BY np.prixretour, lg.nom_ligne")->result();
             }
             elseif($algn === '')
@@ -639,10 +646,10 @@
                     JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
                     WHERE e.ekey = '$cid'
-                    AND np.datevente BETWEEN '$dt1' AND '$dt2'
+                    AND np.datevente >= '$dt1' AND np.datevente < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND dest.id_compaga = '$cp'
                     AND ar.roleattribut = '$acl'
-                    AND ul.guser = '$gid'
+                    AND ex.code_gaexp = '$gid'
                     GROUP BY np.prixretour, lg.nom_ligne")->result();
             }
                 return $this->db->query(
@@ -658,11 +665,11 @@
                     JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
                     WHERE e.ekey = '$cid'
-                    AND np.datevente BETWEEN '$dt1' AND '$dt2'
+                    AND np.datevente >= '$dt1' AND np.datevente < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND dest.id_compaga = '$cp'
                     AND ar.roleattribut = '$acl'
                     AND lg.ident_ligne = '$algn'
-                    AND ul.guser = '$gid'
+                    AND ex.code_gaexp = '$gid'
                     GROUP BY np.prixretour, lg.nom_ligne")->result();
         }
 
@@ -684,10 +691,10 @@
                     JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
                     WHERE e.ekey = '$cid'
-                    AND np.datevente BETWEEN '$dt1' AND '$dt2'
+                    AND np.datevente >= '$dt1' AND np.datevente < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND np.verifnonpassager IN('A', 'C', 'D')
                     AND dest.id_compaga = '$cp'
-                    AND ul.guser = '$gid'
+                    AND ex.code_gaexp = '$gid'
                     GROUP BY lg.nom_ligne, np.prixretour")->result();
             }
             elseif($algn === '')
@@ -704,11 +711,11 @@
                     JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
                     WHERE e.ekey = '$cid'
-                    AND np.datevente BETWEEN '$dt1' AND '$dt2'
+                    AND np.datevente >= '$dt1' AND np.datevente < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND np.verifnonpassager IN('A', 'C', 'D')
                     AND dest.id_compaga = '$cp'
                     AND ar.roleattribut = '$acl'
-                    AND ul.guser = '$gid'
+                    AND ex.code_gaexp = '$gid'
                     GROUP BY np.prixretour, lg.nom_ligne")->result();
             }
                 return $this->db->query(
@@ -724,12 +731,12 @@
                     JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
                     WHERE e.ekey = '$cid'
-                    AND np.datevente BETWEEN '$dt1' AND '$dt2'
+                    AND np.datevente >= '$dt1' AND np.datevente < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND dest.id_compaga = '$cp'
                     AND np.verifnonpassager IN('A', 'C', 'D')
                     AND ar.roleattribut = '$acl'
                     AND lg.ident_ligne = '$algn'
-                    AND ul.guser = '$gid'
+                    AND ex.code_gaexp = '$gid'
                     GROUP BY np.prixretour, lg.nom_ligne")->result();
         }
 
@@ -750,10 +757,10 @@
                     JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
                     WHERE e.ekey = '$cid'
-                    AND np.datevente BETWEEN '$dt1' AND '$dt2'
+                    AND np.datevente >= '$dt1' AND np.datevente < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND np.verifnonpassager IN('A', 'C', 'D')
                     AND dest.id_compaga = '$cp'
-                    AND ul.guser = '$gid'
+                    AND ex.code_gaexp = '$gid'
                     GROUP BY np.datevente, dest.id_compaga")->result();
             }
             
@@ -770,11 +777,11 @@
                     JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
                     WHERE e.ekey = '$cid'
-                    AND np.datevente BETWEEN '$dt1' AND '$dt2'
+                    AND np.datevente >= '$dt1' AND np.datevente < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND np.verifnonpassager IN('A', 'C', 'D')
                     AND dest.id_compaga = '$cp'
                     AND ar.roleattribut = '$acl'
-                    AND ul.guser = '$gid'
+                    AND ex.code_gaexp = '$gid'
                     GROUP BY np.datevente, dest.id_compaga")->result();
         }
 
@@ -795,7 +802,7 @@
                     JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
                     WHERE e.ekey = '$cid'
-                    AND np.datevente BETWEEN '$dt1' AND '$dt2'
+                    AND np.datevente >= '$dt1' AND np.datevente < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND np.verifnonpassager IN('A', 'C', 'D')
                     AND dest.id_compaga = '$cp'
                     GROUP BY np.datevente, dest.id_compaga")->result();
@@ -814,10 +821,10 @@
                     JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
                     WHERE e.ekey = '$cid'
-                    AND np.datevente BETWEEN '$dt1' AND '$dt2'
+                    AND np.datevente >= '$dt1' AND np.datevente < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND np.verifnonpassager IN('A', 'C', 'D')
                     AND dest.id_compaga = '$cp'
-                    AND ul.guser = '$gid'
+                    AND ex.code_gaexp = '$gid'
                     GROUP BY np.datevente, dest.id_compaga")->result();
             }
                 return $this->db->query(
@@ -833,11 +840,11 @@
                     JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
                     WHERE e.ekey = '$cid'
-                    AND np.datevente BETWEEN '$dt1' AND '$dt2'
+                    AND np.datevente >= '$dt1' AND np.datevente < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND np.verifnonpassager IN('A', 'C', 'D')
                     AND dest.id_compaga = '$cp'
                     AND ar.roleattribut = '$acl'
-                    AND ul.guser = '$gid'
+                    AND ex.code_gaexp = '$gid'
                     GROUP BY np.datevente, dest.id_compaga")->result();
         }
 
@@ -858,9 +865,9 @@
                     JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
                     WHERE e.ekey = '$cid'
-                    AND np.datevente BETWEEN '$dt1' AND '$dt2'
+                    AND np.datevente >= '$dt1' AND np.datevente < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND dest.id_compaga = '$cp'
-                    AND ul.guser = '$gid'
+                    AND ex.code_gaexp = '$gid'
                     GROUP BY np.datevente, dest.id_compaga")->result();
             }
             elseif($acl === '')
@@ -877,9 +884,9 @@
                     JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
                     WHERE e.ekey = '$cid'
-                    AND np.datevente BETWEEN '$dt1' AND '$dt2'
+                    AND np.datevente >= '$dt1' AND np.datevente < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND dest.id_compaga = '$cp'
-                    AND ul.guser = '$gid'
+                    AND ex.code_gaexp = '$gid'
                     GROUP BY np.datevente, dest.id_compaga")->result();
             }
                 return $this->db->query(
@@ -895,10 +902,10 @@
                     JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
                     WHERE e.ekey = '$cid'
-                    AND np.datevente BETWEEN '$dt1' AND '$dt2'
+                    AND np.datevente >= '$dt1' AND np.datevente < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND dest.id_compaga = '$cp'
                     AND ar.roleattribut = '$acl'
-                    AND ul.guser = '$gid'
+                    AND ex.code_gaexp = '$gid'
                     GROUP BY np.datevente, dest.id_compaga")->result();
         }
         
@@ -919,9 +926,9 @@
                     JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
                     WHERE e.ekey = '$cid'
-                    AND np.datevente BETWEEN '$dt1' AND '$dt2'
+                    AND np.datevente >= '$dt1' AND np.datevente < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND dest.id_compaga = '$cp'
-                    AND ul.guser = '$gid'
+                    AND ex.code_gaexp = '$gid'
                     GROUP BY dest.id_compaga, np.datevente")->result();
             }
             elseif($algn === '')
@@ -938,10 +945,10 @@
                     JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
                     WHERE e.ekey = '$cid'
-                    AND np.datevente BETWEEN '$dt1' AND '$dt2'
+                    AND np.datevente >= '$dt1' AND np.datevente < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND dest.id_compaga = '$cp'
                     AND ar.roleattribut = '$acl'
-                    AND ul.guser = '$gid'
+                    AND ex.code_gaexp = '$gid'
                     GROUP BY dest.id_compaga, np.datevente")->result();
             }
                 return $this->db->query(
@@ -957,11 +964,11 @@
                     JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
                     WHERE e.ekey = '$cid'
-                    AND np.datevente BETWEEN '$dt1' AND '$dt2'
+                    AND np.datevente >= '$dt1' AND np.datevente < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND dest.id_compaga = '$cp'
                     AND ar.roleattribut = '$acl'
                     AND lg.ident_ligne = '$algn'
-                    AND ul.guser = '$gid'
+                    AND ex.code_gaexp = '$gid'
                     GROUP BY dest.id_compaga, np.datevente")->result();
         }
     
@@ -982,10 +989,10 @@
                     JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
                     WHERE e.ekey = '$cid'
-                    AND np.datevente BETWEEN '$dt1' AND '$dt2'
+                    AND np.datevente >= '$dt1' AND np.datevente < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND np.verifnonpassager IN('A', 'C', 'D')
                     AND dest.id_compaga = '$cp'
-                    AND ul.guser = '$gid'
+                    AND ex.code_gaexp = '$gid'
                     GROUP BY np.prixretour, lg.nom_ligne")->result();
             }
             elseif($algn === '')
@@ -1002,11 +1009,11 @@
                     JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
                     WHERE e.ekey = '$cid'
-                    AND np.datevente BETWEEN '$dt1' AND '$dt2'
+                    AND np.datevente >= '$dt1' AND np.datevente < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND np.verifnonpassager IN('A', 'C', 'D')
                     AND dest.id_compaga = '$cp'
                     AND ar.roleattribut = '$acl'
-                    AND ul.guser = '$gid'
+                    AND ex.code_gaexp = '$gid'
                     GROUP BY np.prixretour, lg.nom_ligne")->result();
             }
                 return $this->db->query(
@@ -1022,12 +1029,12 @@
                     JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
                     WHERE e.ekey = '$cid'
-                    AND np.datevente BETWEEN '$dt1' AND '$dt2'
+                    AND np.datevente >= '$dt1' AND np.datevente < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND np.verifnonpassager IN('A', 'C', 'D')
                     AND dest.id_compaga = '$cp'
                     AND ar.roleattribut = '$acl'
                     AND lg.ident_ligne = '$algn'
-                    AND ul.guser = '$gid'
+                    AND ex.code_gaexp = '$gid'
                     GROUP BY np.prixretour,lg.nom_ligne")->result();
         }
         //report ticket admin
@@ -1049,9 +1056,9 @@
                     JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
                     WHERE e.ekey = '$cid'
-                    AND np.datevente BETWEEN '$dt1' AND '$dt2'
+                    AND np.datevente >= '$dt1' AND np.datevente < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND dest.id_compaga = '$cp'
-                    AND ul.guser = '$gid'
+                    AND ex.code_gaexp = '$gid'
                     GROUP BY lg.nom_ligne, dest.id_compaga, np.prixretour")->result();
             }
                 return $this->db->query(
@@ -1067,10 +1074,10 @@
                     JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
                     WHERE e.ekey = '$cid'
-                    AND np.datevente BETWEEN '$dt1' AND '$dt2'
+                    AND np.datevente >= '$dt1' AND np.datevente < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND dest.id_compaga = '$cp'
                     AND lg.ident_ligne = '$algn'
-                    AND ul.guser = '$gid'
+                    AND ex.code_gaexp = '$gid'
                     GROUP BY lg.nom_ligne, dest.id_compaga, np.prixretour")->result();
         }*/
 
@@ -1085,16 +1092,7 @@
             $gareSql = '';
             if ($gidNorm !== '' && $gidNorm !== '0') {
                 $gidEsc = $this->db->escape_str($gidNorm);
-                $gareSql = " AND EXISTS (
-                      SELECT 1 FROM user_login ul
-                      WHERE ul.uid_login = (
-                          SELECT ar.idgestcompte
-                          FROM attributions_role ar
-                          WHERE ar.roleattribut = np.cptus
-                          LIMIT 1
-                      )
-                      AND ul.guser = '{$gidEsc}'
-                    )";
+                $gareSql = " AND ex.code_gaexp = '{$gidEsc}'";
             }
             $cid = $this->db->escape_str($cid);
             $dt1 = $this->db->escape_str($dt1);
@@ -1114,7 +1112,7 @@
                     JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
                     WHERE e.ekey = '{$cid}'
-                    AND np.datevente BETWEEN '{$dt1}' AND '{$dt2}'
+                    AND np.datevente >= '{$dt1}' AND np.datevente < DATE_ADD('{$dt2}', INTERVAL 1 DAY)
                     AND dest.id_compaga = '{$cp}'
                     {$gareSql}
                     {$ligneSql}
@@ -1140,9 +1138,9 @@
                     JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
                     WHERE e.ekey = '$cid'
-                    AND np.datevente BETWEEN '$dt1' AND '$dt2'
+                    AND np.datevente >= '$dt1' AND np.datevente < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND dest.id_compaga = '$cp'
-                    AND ul.guser = '$gid'")->result();
+                    AND ex.code_gaexp = '$gid'")->result();
             }
                 return $this->db->query(
                     "SELECT * FROM non_passager np
@@ -1157,10 +1155,10 @@
                     JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
                     WHERE e.ekey = '$cid'
-                    AND np.datevente BETWEEN '$dt1' AND '$dt2'
+                    AND np.datevente >= '$dt1' AND np.datevente < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND dest.id_compaga = '$cp'
                     AND lg.ident_ligne = '$algn'
-                    AND ul.guser = '$gid'")->result();
+                    AND ex.code_gaexp = '$gid'")->result();
         }
 
         //report ticketcomptable
@@ -1183,10 +1181,10 @@
                     JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
                     WHERE e.ekey = '$cid'
-                    AND np.datevente BETWEEN '$dt1' AND '$dt2'
+                    AND np.datevente >= '$dt1' AND np.datevente < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND np.verifnonpassager IN('A', 'C', 'D')
                     AND dest.id_compaga = '$cp'
-                    AND ul.guser = '$gid'
+                    AND ex.code_gaexp = '$gid'
                     GROUP BY lg.nom_ligne, np.prixretour")->result();
             }
                 return $this->db->query(
@@ -1202,11 +1200,11 @@
                     JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
                     WHERE e.ekey = '$cid'
-                    AND np.datevente BETWEEN '$dt1' AND '$dt2'
+                    AND np.datevente >= '$dt1' AND np.datevente < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND np.verifnonpassager IN('A', 'C', 'D')
                     AND dest.id_compaga = '$cp'
                     AND lg.ident_ligne = '$algn'
-                    AND ul.guser = '$gid'
+                    AND ex.code_gaexp = '$gid'
                     GROUP BY lg.nom_ligne, np.prixretour")->result();
         }*/
         public function reporticketretourcpt($cid, $gid, $dt1, $dt2, $cp, $algn = FALSE)
@@ -1222,7 +1220,7 @@
                     JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
                     WHERE e.ekey = '$cid'
-                    AND np.datevente BETWEEN '$dt1' AND '$dt2'
+                    AND np.datevente >= '$dt1' AND np.datevente < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND np.verifnonpassager IN('A', 'C', 'D')
                     AND dest.id_compaga = '$cp'
                     AND EXISTS (
@@ -1233,7 +1231,7 @@
                           WHERE ar.roleattribut = np.cptus
                           LIMIT 1
                       )
-                      AND ul.guser = '$gid'
+                      AND ex.code_gaexp = '$gid'
                      )
                     GROUP BY lg.nom_ligne, np.prixretour")->result();
             }
@@ -1245,7 +1243,7 @@
                     JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
                     WHERE e.ekey = '$cid'
-                    AND np.datevente BETWEEN '$dt1' AND '$dt2'
+                    AND np.datevente >= '$dt1' AND np.datevente < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND np.verifnonpassager IN('A', 'C', 'D')
                     AND dest.id_compaga = '$cp'
                     AND lg.ident_ligne = '$algn'
@@ -1257,7 +1255,7 @@
                           WHERE ar.roleattribut = np.cptus
                           LIMIT 1
                       )
-                      AND ul.guser = '$gid'
+                      AND ex.code_gaexp = '$gid'
                      )
                     GROUP BY lg.nom_ligne, np.prixretour")->result();
         }
@@ -1280,11 +1278,11 @@
                     JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
                     WHERE e.ekey = '$cid'
-                    AND np.datevente BETWEEN '$dt1' AND '$dt2'
+                    AND np.datevente >= '$dt1' AND np.datevente < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND np.statvente = 1
                     AND np.exonp = 1
                     AND dest.id_compaga = '$cp'
-                    AND ul.guser = '$gid'
+                    AND ex.code_gaexp = '$gid'
                     GROUP BY lg.nom_ligne, np.prixretour")->result();
             }
                 return $this->db->query(
@@ -1300,11 +1298,11 @@
                     JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
                     WHERE e.ekey = '$cid'
-                    AND np.datevente BETWEEN '$dt1' AND '$dt2'
+                    AND np.datevente >= '$dt1' AND np.datevente < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND np.statvente = 1
                     AND np.exonp = 1
                     AND dest.id_compaga = '$cp'
-                    AND ul.guser = '$gid'
+                    AND ex.code_gaexp = '$gid'
                     AND lg.ident_ligne = '$algn'
                     GROUP BY lg.nom_ligne, np.prixretour")->result();
         }
@@ -1321,7 +1319,7 @@
                     JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
                     WHERE e.ekey = '$cid'
-                    AND np.datevente BETWEEN '$dt1' AND '$dt2'
+                    AND np.datevente >= '$dt1' AND np.datevente < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND np.statvente = 1
                     AND np.verifnonpassager IN('A', 'C', 'D')
                     AND dest.id_compaga = '$cp'
@@ -1333,7 +1331,7 @@
                           WHERE ar.roleattribut = np.cptus
                           LIMIT 1
                       )
-                      AND ul.guser = '$gid'
+                      AND ex.code_gaexp = '$gid'
                      )")->result();
             }
                 return $this->db->query(
@@ -1344,7 +1342,7 @@
                     JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
                     WHERE e.ekey = '$cid'
-                    AND np.datevente BETWEEN '$dt1' AND '$dt2'
+                    AND np.datevente >= '$dt1' AND np.datevente < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND np.statvente = 1
                     AND np.verifnonpassager IN('A', 'C', 'D')
                     AND dest.id_compaga = '$cp'
@@ -1357,7 +1355,7 @@
                           WHERE ar.roleattribut = np.cptus
                           LIMIT 1
                       )
-                      AND ul.guser = '$gid'
+                      AND ex.code_gaexp = '$gid'
                      )")->result();
         }
         /*public function reporticketretourcptgr($cid, $gid, $dt1, $dt2, $cp, $algn = FALSE)
@@ -1378,11 +1376,11 @@
                     JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
                     WHERE e.ekey = '$cid'
-                    AND np.datevente BETWEEN '$dt1' AND '$dt2'
+                    AND np.datevente >= '$dt1' AND np.datevente < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND np.statvente = 1
                     AND np.verifnonpassager IN('A', 'C', 'D')
                     AND dest.id_compaga = '$cp'
-                    AND ul.guser = '$gid'")->result();
+                    AND ex.code_gaexp = '$gid'")->result();
             }
                 return $this->db->query(
                     "SELECT * FROM non_passager np
@@ -1397,11 +1395,11 @@
                     JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
                     WHERE e.ekey = '$cid'
-                    AND np.datevente BETWEEN '$dt1' AND '$dt2'
+                    AND np.datevente >= '$dt1' AND np.datevente < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND np.statvente = 1
                     AND np.verifnonpassager IN('A', 'C', 'D')
                     AND dest.id_compaga = '$cp'
-                    AND ul.guser = '$gid'
+                    AND ex.code_gaexp = '$gid'
                     AND lg.ident_ligne = '$algn'")->result();
         }*/
         
@@ -1422,10 +1420,10 @@
                     JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
                     WHERE e.ekey = '$cid'
-                    AND np.datevente BETWEEN '$dt1' AND '$dt2'
+                    AND np.datevente >= '$dt1' AND np.datevente < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND np.verifnonpassager IN('A', 'C', 'D')
                     AND dest.id_compaga = '$cp'
-                    AND ul.guser = '$gid'
+                    AND ex.code_gaexp = '$gid'
                     GROUP BY lg.nom_ligne, np.prixretour")->result();
             }
                 return $this->db->query(
@@ -1441,11 +1439,11 @@
                     JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
                     WHERE e.ekey = '$cid'
-                    AND np.datevente BETWEEN '$dt1' AND '$dt2'
+                    AND np.datevente >= '$dt1' AND np.datevente < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND np.verifnonpassager IN('A', 'C', 'D')
                     AND dest.id_compaga = '$cp'
                     AND lg.ident_ligne = '$algn'
-                    AND ul.guser = '$gid'
+                    AND ex.code_gaexp = '$gid'
                     GROUP BY lg.nom_ligne, np.prixretour")->result();
         }*/
 
@@ -1462,7 +1460,7 @@
                     JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
                     WHERE e.ekey = '$cid'
-                    AND np.datevente BETWEEN '$dt1' AND '$dt2'
+                    AND np.datevente >= '$dt1' AND np.datevente < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND np.verifnonpassager IN('A', 'C', 'D')
                     AND dest.id_compaga = '$cp'
                     AND EXISTS (
@@ -1473,7 +1471,7 @@
                           WHERE ar.roleattribut = np.cptus
                           LIMIT 1
                       )
-                      AND ul.guser = '$gid'
+                      AND ex.code_gaexp = '$gid'
                      )
                     GROUP BY lg.nom_ligne, np.prixretour")->result();
             }
@@ -1485,7 +1483,7 @@
                     JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
                     WHERE e.ekey = '$cid'
-                    AND np.datevente BETWEEN '$dt1' AND '$dt2'
+                    AND np.datevente >= '$dt1' AND np.datevente < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND np.verifnonpassager IN('A', 'C', 'D')
                     AND dest.id_compaga = '$cp'
                     AND lg.ident_ligne = '$algn'
@@ -1497,7 +1495,7 @@
                           WHERE ar.roleattribut = np.cptus
                           LIMIT 1
                       )
-                      AND ul.guser = '$gid'
+                      AND ex.code_gaexp = '$gid'
                      )
                     GROUP BY lg.nom_ligne, np.prixretour")->result();
         }
@@ -1542,7 +1540,7 @@
                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
                     WHERE e.ekey = '$cid'
                     AND np.actif_nonp = 0
-                    AND np.datevente BETWEEN '$d1' AND '$d2'
+                    AND np.datevente >= '$d1' AND np.datevente < DATE_ADD('$d2', INTERVAL 1 DAY)
                     AND np.verifnonpassager IN('A', 'C', 'D')
                     AND dest.id_compaga = '$cp'")->result();
 
@@ -1559,7 +1557,7 @@
                     JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
                     WHERE e.ekey = '$cid'
-                    AND np.datevente BETWEEN '$d1' AND '$d2'
+                    AND np.datevente >= '$d1' AND np.datevente < DATE_ADD('$d2', INTERVAL 1 DAY)
                     AND np.verifnonpassager IN('A', 'C', 'D')
                     AND dest.id_compaga = '$cp'
                     AND ex.code_gaexp = '$gd'")->result();
@@ -1578,7 +1576,7 @@
                     JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
                     WHERE e.ekey = '$cid'
-                    AND np.datevente BETWEEN '$d1' AND '$d2'
+                    AND np.datevente >= '$d1' AND np.datevente < DATE_ADD('$d2', INTERVAL 1 DAY)
                     AND dest.id_compaga = '$cp'")->result();
 
             }
@@ -1594,7 +1592,7 @@
                     JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
                     WHERE e.ekey = '$cid'
-                    AND np.datevente BETWEEN '$d1' AND '$d2'
+                    AND np.datevente >= '$d1' AND np.datevente < DATE_ADD('$d2', INTERVAL 1 DAY)
                     AND dest.id_compaga = '$cp'
                     AND ex.code_gaexp = '$gd'")->result();
             }

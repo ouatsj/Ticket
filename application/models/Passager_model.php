@@ -1156,7 +1156,7 @@
                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
                     WHERE e.ekey = '$cid'
                     AND c.cle_compagnie ='$cp'
-                    AND p.datep_create BETWEEN '$d1' AND '$d2'
+                    AND p.datep_create >= '$d1' AND p.datep_create < DATE_ADD('$d2', INTERVAL 1 DAY)
                     AND p.verifpassager IN('A', 'C', 'D')
                     AND p.statut_code = 'vendu'")->result(); return $this->normalize_ticket_prix_rows($rows);
             }
@@ -1176,7 +1176,7 @@
                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
                     WHERE e.ekey = '$cid'
                     AND c.cle_compagnie ='$cp'
-                    AND p.datep_create BETWEEN '$d1' AND '$d2'
+                    AND p.datep_create >= '$d1' AND p.datep_create < DATE_ADD('$d2', INTERVAL 1 DAY)
                     AND ex.code_gaexp = '$gd'
                     AND p.verifpassager IN('A', 'C', 'D')
                     AND p.statut_code = 'vendu'")->result(); return $this->normalize_ticket_prix_rows($rows);            }
@@ -2143,8 +2143,8 @@
                     JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
                     WHERE e.ekey = '$cid'
-                    AND p.datep_create BETWEEN '$d1' AND '$d2'
-                    AND g.idengare = '$gid'")->result(); return $this->normalize_ticket_prix_rows($rows);            }
+                    AND p.datep_create >= '$d1' AND p.datep_create < DATE_ADD('$d2', INTERVAL 1 DAY)
+                    AND ex.code_gaexp = '$gid'")->result(); return $this->normalize_ticket_prix_rows($rows);            }
             
             if( $st === FALSE){
                 $rows = $this->db->query("SELECT * FROM passager p
@@ -2164,8 +2164,8 @@
                     JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
                     WHERE e.ekey = '$cid'
-                    AND p.datep_create BETWEEN '$d1' AND '$d2'
-                    AND g.idengare = '$gid'
+                    AND p.datep_create >= '$d1' AND p.datep_create < DATE_ADD('$d2', INTERVAL 1 DAY)
+                    AND ex.code_gaexp = '$gid'
                     AND ar.roleattribut = '$us'")->result(); return $this->normalize_ticket_prix_rows($rows);            }
             if( $us === FALSE){
                 $rows = $this->db->query("SELECT * FROM passager p
@@ -2185,8 +2185,8 @@
                     JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
                     WHERE e.ekey = '$cid'
-                    AND p.datep_create BETWEEN '$d1' AND '$d2'
-                    AND g.idengare = '$gid'
+                    AND p.datep_create >= '$d1' AND p.datep_create < DATE_ADD('$d2', INTERVAL 1 DAY)
+                    AND ex.code_gaexp = '$gid'
                     AND p.statut_reprog = '$st'")->result(); return $this->normalize_ticket_prix_rows($rows);            }
             $rows = $this->db->query("SELECT * FROM passager p
                     JOIN attributions_role ar ON p.idcptuser = ar.roleattribut
@@ -2205,8 +2205,8 @@
                     JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
                     WHERE e.ekey = '$cid'
-                    AND p.datep_create BETWEEN '$d1' AND '$d2'
-                    AND g.idengare = '$gid'
+                    AND p.datep_create >= '$d1' AND p.datep_create < DATE_ADD('$d2', INTERVAL 1 DAY)
+                    AND ex.code_gaexp = '$gid'
                     AND p.statut_reprog = '$st'
                     AND ar.roleattribut = '$us'")->result(); return $this->normalize_ticket_prix_rows($rows);        }
         
@@ -2230,8 +2230,8 @@
                     JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
                     WHERE e.ekey = '$cid'
-                    AND p.datep_create BETWEEN '$d1' AND '$d2'
-                    AND g.idengare = '$gid'")->result(); return $this->normalize_ticket_prix_rows($rows);            }
+                    AND p.datep_create >= '$d1' AND p.datep_create < DATE_ADD('$d2', INTERVAL 1 DAY)
+                    AND ex.code_gaexp = '$gid'")->result(); return $this->normalize_ticket_prix_rows($rows);            }
             
             if( $st === FALSE){
                 $rows = $this->db->query("SELECT * FROM passager p
@@ -2251,8 +2251,8 @@
                     JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
                     WHERE e.ekey = '$cid'
-                    AND p.datep_create BETWEEN '$d1' AND '$d2'
-                    AND g.idengare = '$gid'
+                    AND p.datep_create >= '$d1' AND p.datep_create < DATE_ADD('$d2', INTERVAL 1 DAY)
+                    AND ex.code_gaexp = '$gid'
                     AND ar.roleattribut = '$us'")->result(); return $this->normalize_ticket_prix_rows($rows);            }
             if( $us === FALSE){
                 $rows = $this->db->query("SELECT * FROM passager p
@@ -2272,8 +2272,8 @@
                     JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
                     WHERE e.ekey = '$cid'
-                    AND p.datep_create BETWEEN '$d1' AND '$d2'
-                    AND g.idengare = '$gid'
+                    AND p.datep_create >= '$d1' AND p.datep_create < DATE_ADD('$d2', INTERVAL 1 DAY)
+                    AND ex.code_gaexp = '$gid'
                     AND p.statut_confirme = '$st'")->result(); return $this->normalize_ticket_prix_rows($rows);            }
             $rows = $this->db->query("SELECT * FROM passager p
                     JOIN attributions_role ar ON p.idcptuser = ar.roleattribut
@@ -2292,8 +2292,8 @@
                     JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
                     WHERE e.ekey = '$cid'
-                    AND p.datep_create BETWEEN '$d1' AND '$d2'
-                    AND g.idengare = '$gid'
+                    AND p.datep_create >= '$d1' AND p.datep_create < DATE_ADD('$d2', INTERVAL 1 DAY)
+                    AND ex.code_gaexp = '$gid'
                     AND p.statut_confirme = '$st'
                     AND ar.roleattribut = '$us'")->result(); return $this->normalize_ticket_prix_rows($rows);        }
 
@@ -2317,8 +2317,8 @@
                     JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
                     WHERE e.ekey = '$cid'
-                    AND p.datep_create BETWEEN '$d1' AND '$d2'
-                    AND g.idengare = '$gid'
+                    AND p.datep_create >= '$d1' AND p.datep_create < DATE_ADD('$d2', INTERVAL 1 DAY)
+                    AND ex.code_gaexp = '$gid'
                     AND p.statut_confirme IS NULL
                     AND p.statut_reprog IS NULL")->result(); return $this->normalize_ticket_prix_rows($rows);            }
             else{
@@ -2339,10 +2339,10 @@
                     JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
                     WHERE e.ekey = '$cid'
-                    AND p.datep_create BETWEEN '$d1' AND '$d2'
+                    AND p.datep_create >= '$d1' AND p.datep_create < DATE_ADD('$d2', INTERVAL 1 DAY)
                     AND p.statut_confirme IS NULL
                     AND p.statut_reprog IS NULL
-                    AND g.idengare = '$gid'
+                    AND ex.code_gaexp = '$gid'
                     AND ar.roleattribut = '$us'")->result(); return $this->normalize_ticket_prix_rows($rows);            }
         }
         public function passeconfirmead($cid, $cdconf, $tf, $h)
@@ -4014,6 +4014,121 @@
                     AND p.departclient_idgare = '$sg'
                     AND ctp.actif_tamp = 0")->result(); return $this->normalize_ticket_prix_rows($rows);        }*/
 
+        /**
+         * Confirmations : annoter direct/transit + ramener toutes les jambes d’un voyage confirmé
+         * (même tamponcodtr) pour réimpression Epson de chaque ticket.
+         *
+         * @param object[] $rows
+         * @return object[]
+         */
+        protected function _conf_annotate_and_expand_transit($cid, array $rows)
+        {
+            if (empty($rows)) {
+                return $rows;
+            }
+            $trCodes = array();
+            foreach ($rows as $r) {
+                $tr = isset($r->tamponcodtr) ? trim((string) $r->tamponcodtr) : '';
+                if ($tr !== '') {
+                    $trCodes[$tr] = true;
+                }
+            }
+            if (empty($trCodes)) {
+                foreach ($rows as $r) {
+                    $r->nbr_jambes = 1;
+                    $r->est_transit = 0;
+                    $r->num_jambe = 1;
+                }
+                return $rows;
+            }
+            $inTr = array();
+            foreach (array_keys($trCodes) as $tr) {
+                $inTr[] = $this->db->escape($tr);
+            }
+            $counts = $this->db->query(
+                "SELECT ctp.tamponcodtr, COUNT(DISTINCT p.code_passager) AS nbr
+                 FROM tamponcode ctp
+                 JOIN passager p ON p.code_passager = ctp.tamponcod
+                 JOIN programme pr ON p.code_pro = pr.code_progr
+                 JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
+                 JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
+                 JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
+                 JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
+                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
+                 WHERE e.ekey = ?
+                 AND ctp.tamponcodtr IN (" . implode(',', $inTr) . ")
+                 AND p.statut_confirme = 'confirm'
+                 AND p.actif_pas = 0
+                 AND ctp.actif_tamp = 0
+                 GROUP BY ctp.tamponcodtr",
+                array($cid)
+            )->result();
+            $nbrByTr = array();
+            $transitTr = array();
+            foreach ($counts as $c) {
+                $nbrByTr[(string) $c->tamponcodtr] = (int) $c->nbr;
+                if ((int) $c->nbr >= 2) {
+                    $transitTr[] = $this->db->escape((string) $c->tamponcodtr);
+                }
+            }
+            foreach ($rows as $r) {
+                $tr = isset($r->tamponcodtr) ? trim((string) $r->tamponcodtr) : '';
+                if ($tr !== '' && isset($nbrByTr[$tr])) {
+                    $r->nbr_jambes = $nbrByTr[$tr];
+                    $r->est_transit = ($nbrByTr[$tr] >= 2) ? 1 : 0;
+                } else {
+                    $r->nbr_jambes = 1;
+                    $r->est_transit = 0;
+                }
+            }
+            if (!empty($transitTr)) {
+                $seen = array();
+                foreach ($rows as $r) {
+                    if (!empty($r->code_passager)) {
+                        $seen[(string) $r->code_passager] = true;
+                    }
+                }
+                $extra = $this->db->query(
+                    "SELECT * FROM tamponcode ctp
+                    JOIN passager p ON p.code_passager = ctp.tamponcod
+                    JOIN sousgare sg ON p.departclient_idgare = sg.idsousgare
+                    JOIN client cl ON p.id_client_pass = cl.id_client
+                    JOIN type_client tcl ON cl.type_client = tcl.nom_type
+                    JOIN programme pr ON p.code_pro = pr.code_progr
+                    JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
+                    JOIN heures h ON lh.heure_identif = h.id_heure
+                    JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
+                    JOIN tarifs t ON pr.typetarif = t.id_tarifs
+                    JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
+                    JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
+                    JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
+                    JOIN entreprise e ON c.id_entrep = e.id_entreprise
+                    WHERE e.ekey = ?
+                    AND ctp.tamponcodtr IN (" . implode(',', $transitTr) . ")
+                    AND p.statut_confirme = 'confirm'
+                    AND h.h_active = 1
+                    AND p.actif_pas = 0
+                    AND ctp.actif_tamp = 0",
+                    array($cid)
+                )->result();
+                $extra = $this->normalize_ticket_prix_rows($extra);
+                foreach ($extra as $r) {
+                    $cp = isset($r->code_passager) ? (string) $r->code_passager : '';
+                    if ($cp === '' || isset($seen[$cp])) {
+                        continue;
+                    }
+                    $tr = isset($r->tamponcodtr) ? trim((string) $r->tamponcodtr) : '';
+                    if ($tr !== '' && isset($nbrByTr[$tr])) {
+                        $r->nbr_jambes = $nbrByTr[$tr];
+                        $r->est_transit = ($nbrByTr[$tr] >= 2) ? 1 : 0;
+                    }
+                    $rows[] = $r;
+                    $seen[$cp] = true;
+                }
+            }
+            return $this->_tri_annotate_nbr_jambes($rows);
+        }
+
         public function triconfarch($cid, $datedb, $datef, $gid, $sg)
         {
                 $rows = $this->db->query(
@@ -4038,7 +4153,10 @@
                     AND h.h_active = 1
                     AND p.actif_pas = 0
                     AND p.departclient_idgare = '$sg'
-                    AND ctp.actif_tamp = 0")->result(); return $this->normalize_ticket_prix_rows($rows);        }
+                    AND ctp.actif_tamp = 0")->result();
+                $rows = $this->normalize_ticket_prix_rows($rows);
+                return $this->_conf_annotate_and_expand_transit($cid, $rows);
+        }
 
         public function triconf($cid, $datedb, $datef, $gid, $sg)
         {
@@ -4064,7 +4182,10 @@
                     AND h.h_active = 1
                     AND p.actif_pas = 0
                     AND p.departclient_idgare = '$sg'        
-                    AND ctp.actif_tamp = 0")->result(); return $this->normalize_ticket_prix_rows($rows);        }
+                    AND ctp.actif_tamp = 0")->result();
+                $rows = $this->normalize_ticket_prix_rows($rows);
+                return $this->_conf_annotate_and_expand_transit($cid, $rows);
+        }
         
         public function ventead($cid, $datedb, $datef)
         {
@@ -4180,9 +4301,9 @@
             JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
             JOIN entreprise e ON c.id_entrep = e.id_entreprise
             WHERE e.ekey = '$key'
-            AND p.datep_create BETWEEN '$db' AND '$df'
+            AND p.datep_create >= '$db' AND p.datep_create < DATE_ADD('$df', INTERVAL 1 DAY)
             AND dest.id_compaga = '$cp'
-            AND ul.guser = '$gid'
+            AND ex.code_gaexp = '$gid'
             AND p.prixvente IS NOT NULL
             AND p.statut_code = 'vendu'
             AND p.actif_pas = 0
@@ -4201,12 +4322,12 @@
             JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
             JOIN entreprise e ON c.id_entrep = e.id_entreprise
             WHERE e.ekey = '$key'
-            AND p.datep_create BETWEEN '$db' AND '$df'
+            AND p.datep_create >= '$db' AND p.datep_create < DATE_ADD('$df', INTERVAL 1 DAY)
             AND dest.id_compaga = '$cp'
             AND ar.roleattribut = '$idvd'
             AND p.prixvente IS NOT NULL
             AND p.statut_code = 'vendu'
-            AND ul.guser = '$gid'
+            AND ex.code_gaexp = '$gid'
             AND p.actif_pas = 0
             GROUP BY lg.ident_ligne, dest.id_compaga, p.prixvente, cu.username")->result(); return $this->normalize_ticket_prix_rows($rows);        }
             
@@ -4231,11 +4352,11 @@
             JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
             JOIN entreprise e ON c.id_entrep = e.id_entreprise
             WHERE e.ekey = '$key'
-            AND p.datep_create BETWEEN '$db' AND '$df'
+            AND p.datep_create >= '$db' AND p.datep_create < DATE_ADD('$df', INTERVAL 1 DAY)
             AND dest.id_compaga = '$cp'
             AND p.prixvente IS NOT NULL
             AND p.statut_code = 'vendu'
-            AND ul.guser = '$gid'
+            AND ex.code_gaexp = '$gid'
             GROUP BY lg.ident_ligne, dest.id_compaga, p.prixvente, cu.username")->result(); return $this->normalize_ticket_prix_rows($rows);        } 
         else{
             $rows = $this->db->query("SELECT SUM(prixvente) AS total, lg.ident_ligne, dest.id_compaga, {$nomLine['select']}, p.prixvente, cu.username FROM passager p
@@ -4251,12 +4372,12 @@
             JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
             JOIN entreprise e ON c.id_entrep = e.id_entreprise
             WHERE e.ekey = '$key'
-            AND p.datep_create BETWEEN '$db' AND '$df'
+            AND p.datep_create >= '$db' AND p.datep_create < DATE_ADD('$df', INTERVAL 1 DAY)
             AND dest.id_compaga = '$cp'
             AND ar.roleattribut = '$idvd'
             AND p.prixvente IS NOT NULL
             AND p.statut_code = 'vendu'
-            AND ul.guser = '$gid'
+            AND ex.code_gaexp = '$gid'
             GROUP BY lg.ident_ligne, dest.id_compaga, p.prixvente, cu.username")->result(); return $this->normalize_ticket_prix_rows($rows);        }
             
     }
@@ -4281,11 +4402,11 @@
             JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
             JOIN entreprise e ON c.id_entrep = e.id_entreprise
             WHERE e.ekey = '$key'
-            AND p.datep_create BETWEEN '$db' AND '$df'
+            AND p.datep_create >= '$db' AND p.datep_create < DATE_ADD('$df', INTERVAL 1 DAY)
             AND dest.id_compaga = '$cp'
             AND p.prixvente IS NOT NULL
             AND p.statut_code = 'vendu'
-            AND ul.guser = '$gid'
+            AND ex.code_gaexp = '$gid'
             AND p.departclient_idgare = '$sg'
             GROUP BY lg.ident_ligne, dest.id_compaga, p.prixvente, cu.username")->result(); return $this->normalize_ticket_prix_rows($rows);        } 
         else{
@@ -4303,12 +4424,12 @@
             JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
             JOIN entreprise e ON c.id_entrep = e.id_entreprise
             WHERE e.ekey = '$key'
-            AND p.datep_create BETWEEN '$db' AND '$df'
+            AND p.datep_create >= '$db' AND p.datep_create < DATE_ADD('$df', INTERVAL 1 DAY)
             AND dest.id_compaga = '$cp'
             AND ar.roleattribut = '$idvd'
             AND p.prixvente IS NOT NULL
             AND p.statut_code = 'vendu'
-            AND ul.guser = '$gid'
+            AND ex.code_gaexp = '$gid'
             AND p.departclient_idgare = '$sg'
             GROUP BY lg.ident_ligne, dest.id_compaga, p.prixvente, cu.username")->result(); return $this->normalize_ticket_prix_rows($rows);        }
             
@@ -4331,12 +4452,12 @@
             JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
             JOIN entreprise e ON c.id_entrep = e.id_entreprise
             WHERE e.ekey = '$key'
-            AND p.datep_create BETWEEN '$db' AND '$df'
+            AND p.datep_create >= '$db' AND p.datep_create < DATE_ADD('$df', INTERVAL 1 DAY)
             AND dest.id_compaga = '$cp'
             AND p.prixvente IS NOT NULL
             AND p.statut_code = 'vendu'
             AND ar.roleattribut = '$use'
-            AND ul.guser = '$gid'
+            AND ex.code_gaexp = '$gid'
             GROUP BY lg.ident_ligne, dest.id_compaga, p.prixvente, cu.username, p.datep_create")->result(); return $this->normalize_ticket_prix_rows($rows);        
             
     }
@@ -4361,9 +4482,9 @@
                 JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = '$cid'
-                AND p.datep_create BETWEEN '$dt1' AND '$dt2'
+                AND p.datep_create >= '$dt1' AND p.datep_create < DATE_ADD('$dt2', INTERVAL 1 DAY)
                 AND dest.id_compaga = '$cp'
-                AND ul.guser = '$gid'
+                AND ex.code_gaexp = '$gid'
                 AND p.prixvente IS NOT NULL
                 AND COALESCE(p.statut_confirme, '') NOT IN ('confirm','catconfirm','confirmcarte')
                 AND p.statut_code = 'vendu'
@@ -4384,9 +4505,9 @@
                 JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = '$cid'
-                AND p.datep_create BETWEEN '$dt1' AND '$dt2'
+                AND p.datep_create >= '$dt1' AND p.datep_create < DATE_ADD('$dt2', INTERVAL 1 DAY)
                 AND dest.id_compaga = '$cp'
-                AND ul.guser = '$gid'
+                AND ex.code_gaexp = '$gid'
                 AND p.prixvente IS NOT NULL
                 AND COALESCE(p.statut_confirme, '') NOT IN ('confirm','catconfirm','confirmcarte')
                 AND p.statut_code = 'vendu'
@@ -4407,9 +4528,9 @@
                 JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = '$cid'
-                AND p.datep_create BETWEEN '$dt1' AND '$dt2'
+                AND p.datep_create >= '$dt1' AND p.datep_create < DATE_ADD('$dt2', INTERVAL 1 DAY)
                 AND dest.id_compaga = '$cp'
-                AND ul.guser = '$gid'
+                AND ex.code_gaexp = '$gid'
                 AND p.prixvente IS NOT NULL
                 AND COALESCE(p.statut_confirme, '') NOT IN ('confirm','catconfirm','confirmcarte')
                 AND p.statut_code = 'vendu'
@@ -4438,10 +4559,10 @@
                 JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = '$cid'
-                AND p.datep_create BETWEEN '$dt1' AND '$dt2'
+                AND p.datep_create >= '$dt1' AND p.datep_create < DATE_ADD('$dt2', INTERVAL 1 DAY)
                 AND p.verifpassager IN('A', 'C', 'D')
                 AND dest.id_compaga = '$cp'
-                AND ul.guser = '$gid'
+                AND ex.code_gaexp = '$gid'
                 AND p.prixvente IS NOT NULL
                 AND COALESCE(p.statut_confirme, '') NOT IN ('confirm','catconfirm','confirmcarte')
                 AND p.statut_code = 'vendu'
@@ -4462,13 +4583,13 @@
                 JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = '$cid'
-                AND p.datep_create BETWEEN '$dt1' AND '$dt2'
+                AND p.datep_create >= '$dt1' AND p.datep_create < DATE_ADD('$dt2', INTERVAL 1 DAY)
                 AND dest.id_compaga = '$cp'
                 AND p.verifpassager IN('A', 'C', 'D')
                 AND p.prixvente IS NOT NULL
                 AND COALESCE(p.statut_confirme, '') NOT IN ('confirm','catconfirm','confirmcarte')
                 AND p.statut_code = 'vendu'
-                AND ul.guser = '$gid'
+                AND ex.code_gaexp = '$gid'
                 AND ar.roleattribut = '$acl'
                 GROUP BY ar.roleattribut, u.first_name, dest.id_compaga, u.last_name, {$nomLine['group']}, p.prixvente")->result(); return $this->normalize_ticket_prix_rows($rows);        }
             $rows = $this->db->query(
@@ -4486,7 +4607,7 @@
                 JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = '$cid'
-                AND p.datep_create BETWEEN '$dt1' AND '$dt2'
+                AND p.datep_create >= '$dt1' AND p.datep_create < DATE_ADD('$dt2', INTERVAL 1 DAY)
                 AND dest.id_compaga = '$cp'
                 AND p.verifpassager IN('A', 'C', 'D')
                 AND p.prixvente IS NOT NULL
@@ -4494,7 +4615,7 @@
                 AND p.statut_code = 'vendu'
                 AND ar.roleattribut = '$acl'
                 AND lg.ident_ligne = '$algn'
-                AND ul.guser = '$gid'
+                AND ex.code_gaexp = '$gid'
                 GROUP BY ar.roleattribut, dest.id_compaga, u.first_name, u.last_name, {$nomLine['group']}, p.prixvente")->result(); return $this->normalize_ticket_prix_rows($rows);    }
 
     public function listereportverscpt($cid, $cp, $gid, $dt1, $dt2, $acl = FALSE)
@@ -4516,10 +4637,10 @@
                 JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = '$cid'
-                AND p.datep_create BETWEEN '$dt1' AND '$dt2'
+                AND p.datep_create >= '$dt1' AND p.datep_create < DATE_ADD('$dt2', INTERVAL 1 DAY)
                 AND p.verifpassager IN('A', 'C', 'D')
                 AND dest.id_compaga = '$cp'
-                AND ul.guser = '$gid'
+                AND ex.code_gaexp = '$gid'
                 AND p.prixvente IS NOT NULL
                 AND COALESCE(p.statut_confirme, '') NOT IN ('confirm','catconfirm','confirmcarte')
                 AND p.statut_code = 'vendu'
@@ -4540,10 +4661,10 @@
                 JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = '$cid'
-                AND p.datep_create BETWEEN '$dt1' AND '$dt2'
+                AND p.datep_create >= '$dt1' AND p.datep_create < DATE_ADD('$dt2', INTERVAL 1 DAY)
                 AND p.verifpassager IN('A', 'C', 'D')
                 AND dest.id_compaga = '$cp'
-                AND ul.guser = '$gid'
+                AND ex.code_gaexp = '$gid'
                 AND ar.roleattribut = '$acl'
                 AND p.prixvente IS NOT NULL
                 AND COALESCE(p.statut_confirme, '') NOT IN ('confirm','catconfirm','confirmcarte')
@@ -4569,9 +4690,9 @@
                 JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = '$cid'
-                AND p.datep_create BETWEEN '$dt1' AND '$dt2'
+                AND p.datep_create >= '$dt1' AND p.datep_create < DATE_ADD('$dt2', INTERVAL 1 DAY)
                 AND dest.id_compaga = '$cp'
-                AND ul.guser = '$gid'
+                AND ex.code_gaexp = '$gid'
                 AND p.prixvente IS NOT NULL
                 AND COALESCE(p.statut_confirme, '') NOT IN ('confirm','catconfirm','confirmcarte')
                 AND p.statut_code = 'vendu'
@@ -4592,12 +4713,12 @@
                 JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = '$cid'
-                AND p.datep_create BETWEEN '$dt1' AND '$dt2'
+                AND p.datep_create >= '$dt1' AND p.datep_create < DATE_ADD('$dt2', INTERVAL 1 DAY)
                 AND dest.id_compaga = '$cp'
                 AND p.prixvente IS NOT NULL
                 AND COALESCE(p.statut_confirme, '') NOT IN ('confirm','catconfirm','confirmcarte')
                 AND p.statut_code = 'vendu'
-                AND ul.guser = '$gid'
+                AND ex.code_gaexp = '$gid'
                 AND ar.roleattribut = '$acl'
                 GROUP BY dest.id_compaga, p.datep_create")->result(); return $this->normalize_ticket_prix_rows($rows);        }
             $rows = $this->db->query(
@@ -4615,14 +4736,14 @@
                 JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = '$cid'
-                AND p.datep_create BETWEEN '$dt1' AND '$dt2'
+                AND p.datep_create >= '$dt1' AND p.datep_create < DATE_ADD('$dt2', INTERVAL 1 DAY)
                 AND dest.id_compaga = '$cp'
                 AND p.prixvente IS NOT NULL
                 AND COALESCE(p.statut_confirme, '') NOT IN ('confirm','catconfirm','confirmcarte')
                 AND p.statut_code = 'vendu'
                 AND ar.roleattribut = '$acl'
                 AND lg.ident_ligne = '$algn'
-                AND ul.guser = '$gid'
+                AND ex.code_gaexp = '$gid'
                 GROUP BY dest.id_compaga, p.datep_create")->result(); return $this->normalize_ticket_prix_rows($rows);    }
 
     public function listereportverscptgle($cid, $cp, $dt1, $dt2, $gid = FALSE, $acl = FALSE)
@@ -4644,7 +4765,7 @@
                 JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = '$cid'
-                AND p.datep_create BETWEEN '$dt1' AND '$dt2'
+                AND p.datep_create >= '$dt1' AND p.datep_create < DATE_ADD('$dt2', INTERVAL 1 DAY)
                 AND dest.id_compaga = '$cp'
                 AND p.prixvente IS NOT NULL
                 AND COALESCE(p.statut_confirme, '') NOT IN ('confirm','catconfirm','confirmcarte')
@@ -4666,9 +4787,9 @@
                 JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = '$cid'
-                AND p.datep_create BETWEEN '$dt1' AND '$dt2'
+                AND p.datep_create >= '$dt1' AND p.datep_create < DATE_ADD('$dt2', INTERVAL 1 DAY)
                 AND dest.id_compaga = '$cp'
-                AND ul.guser = '$gid'
+                AND ex.code_gaexp = '$gid'
                 AND p.prixvente IS NOT NULL
                 AND COALESCE(p.statut_confirme, '') NOT IN ('confirm','catconfirm','confirmcarte')
                 AND p.statut_code = 'vendu'
@@ -4688,9 +4809,9 @@
                 JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = '$cid'
-                AND p.datep_create BETWEEN '$dt1' AND '$dt2'
+                AND p.datep_create >= '$dt1' AND p.datep_create < DATE_ADD('$dt2', INTERVAL 1 DAY)
                 AND dest.id_compaga = '$cp'
-                AND ul.guser = '$gid'
+                AND ex.code_gaexp = '$gid'
                 AND ar.roleattribut = '$acl'
                 AND p.prixvente IS NOT NULL
                 AND COALESCE(p.statut_confirme, '') NOT IN ('confirm','catconfirm','confirmcarte')
@@ -4716,7 +4837,7 @@
                 JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = '$cid'
-                AND p.datep_create BETWEEN '$dt1' AND '$dt2'
+                AND p.datep_create >= '$dt1' AND p.datep_create < DATE_ADD('$dt2', INTERVAL 1 DAY)
                 AND p.verifpassager IN('A', 'C', 'D')
                 AND dest.id_compaga = '$cp'
                 AND p.prixvente IS NOT NULL
@@ -4739,10 +4860,10 @@
                 JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = '$cid'
-                AND p.datep_create BETWEEN '$dt1' AND '$dt2'
+                AND p.datep_create >= '$dt1' AND p.datep_create < DATE_ADD('$dt2', INTERVAL 1 DAY)
                 AND p.verifpassager IN('A', 'C', 'D')
                 AND dest.id_compaga = '$cp'
-                AND ul.guser = '$gid'
+                AND ex.code_gaexp = '$gid'
                 AND p.prixvente IS NOT NULL
                 AND COALESCE(p.statut_confirme, '') NOT IN ('confirm','catconfirm','confirmcarte')
                 AND p.statut_code = 'vendu'
@@ -4762,10 +4883,10 @@
                 JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = '$cid'
-                AND p.datep_create BETWEEN '$dt1' AND '$dt2'
+                AND p.datep_create >= '$dt1' AND p.datep_create < DATE_ADD('$dt2', INTERVAL 1 DAY)
                 AND p.verifpassager IN('A', 'C', 'D')
                 AND dest.id_compaga = '$cp'
-                AND ul.guser = '$gid'
+                AND ex.code_gaexp = '$gid'
                 AND ar.roleattribut = '$acl'
                 AND p.prixvente IS NOT NULL
                 AND COALESCE(p.statut_confirme, '') NOT IN ('confirm','catconfirm','confirmcarte')
@@ -4793,13 +4914,13 @@
                 JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = '$cid'
-                AND p.datep_create BETWEEN '$dt1' AND '$dt2'
+                AND p.datep_create >= '$dt1' AND p.datep_create < DATE_ADD('$dt2', INTERVAL 1 DAY)
                 AND p.verifpassager IN('A', 'C', 'D')
                 AND dest.id_compaga = '$cp'
                 AND p.prixvente IS NOT NULL
                 AND COALESCE(p.statut_confirme, '') NOT IN ('confirm','catconfirm','confirmcarte')
                 AND p.statut_code = 'vendu'
-                AND ul.guser = '$gid'
+                AND ex.code_gaexp = '$gid'
                 GROUP BY {$nomLine['group']}, p.prixvente")->result(); return $this->normalize_ticket_prix_rows($rows);        }
         elseif($algn === '')
         {
@@ -4817,13 +4938,13 @@
                 JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = '$cid'
-                AND p.datep_create BETWEEN '$dt1' AND '$dt2'
+                AND p.datep_create >= '$dt1' AND p.datep_create < DATE_ADD('$dt2', INTERVAL 1 DAY)
                 AND p.verifpassager IN('A', 'C', 'D')
                 AND dest.id_compaga = '$cp'
                 AND p.prixvente IS NOT NULL
                 AND COALESCE(p.statut_confirme, '') NOT IN ('confirm','catconfirm','confirmcarte')
                 AND p.statut_code = 'vendu'
-                AND ul.guser = '$gid'
+                AND ex.code_gaexp = '$gid'
                 AND ar.roleattribut = '$acl'
                 GROUP BY {$nomLine['group']}, p.prixvente")->result(); return $this->normalize_ticket_prix_rows($rows);        }
             $rows = $this->db->query(
@@ -4841,9 +4962,9 @@
                 JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = '$cid'
-                AND p.datep_create BETWEEN '$dt1' AND '$dt2'
+                AND p.datep_create >= '$dt1' AND p.datep_create < DATE_ADD('$dt2', INTERVAL 1 DAY)
                 AND p.verifpassager IN('A', 'C', 'D')
-                AND ul.guser = '$gid'
+                AND ex.code_gaexp = '$gid'
                 AND p.prixvente IS NOT NULL
                 AND COALESCE(p.statut_confirme, '') NOT IN ('confirm','catconfirm','confirmcarte')
                 AND p.statut_code = 'vendu'
@@ -4873,12 +4994,12 @@
                 JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = '$cid'
-                AND p.datep_create BETWEEN '$dt1' AND '$dt2'
+                AND p.datep_create >= '$dt1' AND p.datep_create < DATE_ADD('$dt2', INTERVAL 1 DAY)
                 AND dest.id_compaga = '$cp'
                 AND p.prixvente IS NOT NULL
                 AND COALESCE(p.statut_confirme, '') NOT IN ('confirm','catconfirm','confirmcarte')
                 AND p.statut_code = 'vendu'
-                AND ul.guser = '$gid'
+                AND ex.code_gaexp = '$gid'
                 GROUP BY {$nomLine['group']}, dest.id_compaga, p.prixvente")->result(); return $this->normalize_ticket_prix_rows($rows);        }
             $rows = $this->db->query(
                 "SELECT COUNT(code_passager) AS codepassager, SUM(prixvente) AS total, {$nomLine['select']}, dest.id_compaga, p.prixvente FROM passager p
@@ -4894,9 +5015,9 @@
                 JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = '$cid'
-                AND p.datep_create BETWEEN '$dt1' AND '$dt2'
+                AND p.datep_create >= '$dt1' AND p.datep_create < DATE_ADD('$dt2', INTERVAL 1 DAY)
                 AND dest.id_compaga = '$cp'
-                AND ul.guser = '$gid'
+                AND ex.code_gaexp = '$gid'
                 AND p.prixvente IS NOT NULL
                 AND COALESCE(p.statut_confirme, '') NOT IN ('confirm','catconfirm','confirmcarte')
                 AND p.statut_code = 'vendu'
@@ -4916,16 +5037,7 @@
         $gareSql = '';
         if ($gidNorm !== '' && $gidNorm !== '0') {
             $gidEsc = $this->db->escape_str($gidNorm);
-            $gareSql = " AND EXISTS (
-                  SELECT 1 FROM user_login ul
-                  WHERE ul.uid_login = (
-                      SELECT ar.idgestcompte
-                      FROM attributions_role ar
-                      WHERE ar.roleattribut = p.idcptuser
-                      LIMIT 1
-                  )
-                  AND ul.guser = '{$gidEsc}'
-                 )";
+            $gareSql = " AND ex.code_gaexp = '{$gidEsc}'";
         }
         $cid = $this->db->escape_str($cid);
         $dt1 = $this->db->escape_str($dt1);
@@ -4950,7 +5062,7 @@
                 JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = '{$cid}'
-                AND p.datep_create BETWEEN '{$dt1}' AND '{$dt2}'
+                AND p.datep_create >= '{$dt1}' AND p.datep_create < DATE_ADD('{$dt2}', INTERVAL 1 DAY)
                 AND dest.id_compaga = '{$cp}'
                 AND p.prixvente IS NOT NULL
                 AND COALESCE(p.statut_confirme, '') NOT IN ('confirm','catconfirm','confirmcarte')
@@ -4982,12 +5094,12 @@
                 JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = '$cid'
-                AND p.datep_create BETWEEN '$dt1' AND '$dt2'
+                AND p.datep_create >= '$dt1' AND p.datep_create < DATE_ADD('$dt2', INTERVAL 1 DAY)
                 AND dest.id_compaga = '$cp'
                 AND p.prixvente IS NOT NULL
                 AND COALESCE(p.statut_confirme, '') NOT IN ('confirm','catconfirm','confirmcarte')
                 AND p.statut_code = 'vendu'
-                AND ul.guser = '$gid'")->result(); return $this->normalize_ticket_prix_rows($rows);        }
+                AND ex.code_gaexp = '$gid'")->result(); return $this->normalize_ticket_prix_rows($rows);        }
             $rows = $this->db->query(
                 "SELECT * FROM passager p
                 JOIN attributions_role ar ON p.idcptuser = ar.roleattribut
@@ -5002,9 +5114,9 @@
                 JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = '$cid'
-                AND p.datep_create BETWEEN '$dt1' AND '$dt2'
+                AND p.datep_create >= '$dt1' AND p.datep_create < DATE_ADD('$dt2', INTERVAL 1 DAY)
                 AND dest.id_compaga = '$cp'
-                AND ul.guser = '$gid'
+                AND ex.code_gaexp = '$gid'
                 AND p.prixvente IS NOT NULL
                 AND COALESCE(p.statut_confirme, '') NOT IN ('confirm','catconfirm','confirmcarte')
                 AND p.statut_code = 'vendu'
@@ -5033,10 +5145,10 @@
                 JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = '$cid'
-                AND p.datep_create BETWEEN '$dt1' AND '$dt2'
+                AND p.datep_create >= '$dt1' AND p.datep_create < DATE_ADD('$dt2', INTERVAL 1 DAY)
                 AND p.statutvente = 1
                 AND dest.id_compaga = '$cp'
-                AND ul.guser = '$gid'
+                AND ex.code_gaexp = '$gid'
                 AND p.exop = 1
                 AND p.prixvente IS NOT NULL
                 AND COALESCE(p.statut_confirme, '') NOT IN ('confirm','catconfirm','confirmcarte')
@@ -5056,11 +5168,11 @@
                 JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = '$cid'
-                AND p.datep_create BETWEEN '$dt1' AND '$dt2'
+                AND p.datep_create >= '$dt1' AND p.datep_create < DATE_ADD('$dt2', INTERVAL 1 DAY)
                 AND p.statutvente = 1
                 AND p.exop = 1
                 AND dest.id_compaga = '$cp'
-                AND ul.guser = '$gid'
+                AND ex.code_gaexp = '$gid'
                 AND p.prixvente IS NOT NULL
                 AND COALESCE(p.statut_confirme, '') NOT IN ('confirm','catconfirm','confirmcarte')
                 AND p.statut_code = 'vendu'
@@ -5089,13 +5201,13 @@
                 JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = '$cid'
-                AND p.datep_create BETWEEN '$dt1' AND '$dt2'
+                AND p.datep_create >= '$dt1' AND p.datep_create < DATE_ADD('$dt2', INTERVAL 1 DAY)
                 AND dest.id_compaga = '$cp'
                 AND p.verifpassager IN('A', 'C', 'D')
                 AND p.prixvente IS NOT NULL
                 AND COALESCE(p.statut_confirme, '') NOT IN ('confirm','catconfirm','confirmcarte')
                 AND p.statut_code = 'vendu'
-                AND ul.guser = '$gid'
+                AND ex.code_gaexp = '$gid'
                 GROUP BY {$nomLine['group']}, p.prixvente")->result(); return $this->normalize_ticket_prix_rows($rows);        }
             $rows = $this->db->query(
                 "SELECT COUNT(code_passager) AS codepassager, SUM(prixvente) AS total, {$nomLine['select']}, p.prixvente FROM passager p
@@ -5111,14 +5223,14 @@
                 JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = '$cid'
-                AND p.datep_create BETWEEN '$dt1' AND '$dt2'
+                AND p.datep_create >= '$dt1' AND p.datep_create < DATE_ADD('$dt2', INTERVAL 1 DAY)
                 AND p.verifpassager IN('A', 'C', 'D')
                 AND dest.id_compaga = '$cp'
                 AND p.prixvente IS NOT NULL
                 AND COALESCE(p.statut_confirme, '') NOT IN ('confirm','catconfirm','confirmcarte')
                 AND p.statut_code = 'vendu'
                 AND lg.ident_ligne = '$algn'
-                AND ul.guser = '$gid'
+                AND ex.code_gaexp = '$gid'
                 GROUP BY {$nomLine['group']}, p.prixvente")->result(); return $this->normalize_ticket_prix_rows($rows);    }*/
 
     public function reporticketcptadmin($cid, $gid, $dt1, $dt2, $cp, $algn = FALSE)
@@ -5142,7 +5254,7 @@
                 JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = '$cid'
-                AND p.datep_create BETWEEN '$dt1' AND '$dt2'
+                AND p.datep_create >= '$dt1' AND p.datep_create < DATE_ADD('$dt2', INTERVAL 1 DAY)
                 AND dest.id_compaga = '$cp'
                 AND p.verifpassager IN('A', 'C', 'D')
                 AND p.prixvente IS NOT NULL
@@ -5156,7 +5268,7 @@
                       WHERE ar.roleattribut = p.idcptuser
                       LIMIT 1
                   )
-                AND ul.guser = '$gid'
+                AND ex.code_gaexp = '$gid'
                 )
                 GROUP BY {$nomLine['group']}, p.prixvente")->result(); return $this->normalize_ticket_prix_rows($rows);        }
             $rows = $this->db->query(
@@ -5172,7 +5284,7 @@
                 JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = '$cid'
-                AND p.datep_create BETWEEN '$dt1' AND '$dt2'
+                AND p.datep_create >= '$dt1' AND p.datep_create < DATE_ADD('$dt2', INTERVAL 1 DAY)
                 AND dest.id_compaga = '$cp'
                 AND p.verifpassager IN('A', 'C', 'D')
                 AND p.prixvente IS NOT NULL
@@ -5187,7 +5299,7 @@
                       WHERE ar.roleattribut = p.idcptuser
                       LIMIT 1
                   )
-                  AND ul.guser = '$gid'
+                  AND ex.code_gaexp = '$gid'
                  )
                 GROUP BY {$nomLine['group']}, p.prixvente")->result(); return $this->normalize_ticket_prix_rows($rows);    }
 
@@ -5211,7 +5323,7 @@
                 JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = '$cid'
-                AND p.datep_create BETWEEN '$dt1' AND '$dt2'
+                AND p.datep_create >= '$dt1' AND p.datep_create < DATE_ADD('$dt2', INTERVAL 1 DAY)
                 AND dest.id_compaga = '$cp'
                 AND p.verifpassager IN('A', 'C', 'D')
                 AND p.prixvente IS NOT NULL
@@ -5225,7 +5337,7 @@
                       WHERE ar.roleattribut = p.idcptuser
                       LIMIT 1
                   )
-                  AND ul.guser = '$gid'
+                  AND ex.code_gaexp = '$gid'
                 )
                 GROUP BY {$nomLine['group']}, p.prixvente")->result(); return $this->normalize_ticket_prix_rows($rows);        }
             $rows = $this->db->query(
@@ -5241,7 +5353,7 @@
                 JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = '$cid'
-                AND p.datep_create BETWEEN '$dt1' AND '$dt2'
+                AND p.datep_create >= '$dt1' AND p.datep_create < DATE_ADD('$dt2', INTERVAL 1 DAY)
                 AND dest.id_compaga = '$cp'
                 AND p.verifpassager IN('A', 'C', 'D')
                 AND p.prixvente IS NOT NULL
@@ -5256,7 +5368,7 @@
                       WHERE ar.roleattribut = p.idcptuser
                       LIMIT 1
                   )
-                  AND ul.guser = '$gid'
+                  AND ex.code_gaexp = '$gid'
                  )
                 GROUP BY {$nomLine['group']}, p.prixvente")->result(); return $this->normalize_ticket_prix_rows($rows);    }
 
@@ -5282,13 +5394,13 @@
                 JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = '$cid'
-                AND p.datep_create BETWEEN '$dt1' AND '$dt2'
+                AND p.datep_create >= '$dt1' AND p.datep_create < DATE_ADD('$dt2', INTERVAL 1 DAY)
                 AND dest.id_compaga = '$cp'
                 AND p.verifpassager IN('A', 'C', 'D')
                 AND p.prixvente IS NOT NULL
                 AND COALESCE(p.statut_confirme, '') NOT IN ('confirm','catconfirm','confirmcarte')
                 AND p.statut_code = 'vendu'
-                AND ul.guser = '$gid'
+                AND ex.code_gaexp = '$gid'
                 GROUP BY {$nomLine['group']}, p.prixvente")->result(); return $this->normalize_ticket_prix_rows($rows);        }
             $rows = $this->db->query(
                 "SELECT COUNT(code_passager) AS codepassager, SUM(prixvente) AS total, {$nomLine['select']}, p.prixvente FROM passager p
@@ -5304,14 +5416,14 @@
                 JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = '$cid'
-                AND p.datep_create BETWEEN '$dt1' AND '$dt2'
+                AND p.datep_create >= '$dt1' AND p.datep_create < DATE_ADD('$dt2', INTERVAL 1 DAY)
                 AND p.verifpassager IN('A', 'C', 'D')
                 AND dest.id_compaga = '$cp'
                 AND p.prixvente IS NOT NULL
                 AND COALESCE(p.statut_confirme, '') NOT IN ('confirm','catconfirm','confirmcarte')
                 AND p.statut_code = 'vendu'
                 AND lg.ident_ligne = '$algn'
-                AND ul.guser = '$gid'
+                AND ex.code_gaexp = '$gid'
                 GROUP BY {$nomLine['group']}, p.prixvente")->result(); return $this->normalize_ticket_prix_rows($rows);    }*/
 
     public function reporticketcptgr($cid, $gid, $dt1, $dt2, $cp, $algn = FALSE)
@@ -5329,7 +5441,7 @@
                 JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = '$cid'
-                AND p.datep_create BETWEEN '$dt1' AND '$dt2'
+                AND p.datep_create >= '$dt1' AND p.datep_create < DATE_ADD('$dt2', INTERVAL 1 DAY)
                 AND p.statutvente = 1
                 AND dest.id_compaga = '$cp'
                 AND p.verifpassager IN('A', 'C', 'D')
@@ -5344,7 +5456,7 @@
                       WHERE ar.roleattribut = p.idcptuser
                       LIMIT 1
                   )
-                  AND ul.guser = '$gid'
+                  AND ex.code_gaexp = '$gid'
                 )")->result(); return $this->normalize_ticket_prix_rows($rows);        }
             $rows = $this->db->query(
                 "SELECT * FROM passager p
@@ -5356,7 +5468,7 @@
                 JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = '$cid'
-                AND p.datep_create BETWEEN '$dt1' AND '$dt2'
+                AND p.datep_create >= '$dt1' AND p.datep_create < DATE_ADD('$dt2', INTERVAL 1 DAY)
                 AND p.statutvente = 1
                 AND p.verifpassager IN('A', 'C', 'D')
                 AND dest.id_compaga = '$cp'
@@ -5372,7 +5484,7 @@
                       WHERE ar.roleattribut = p.idcptuser
                       LIMIT 1
                   )
-                  AND ul.guser = '$gid'
+                  AND ex.code_gaexp = '$gid'
                 )")->result(); return $this->normalize_ticket_prix_rows($rows);    }
     public function nifestad($cid, $gid, $dt1, $dt2, $cp, $algn = FALSE)
     {
@@ -5397,11 +5509,11 @@
                 JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = '$cid'
-                AND p.datep_create BETWEEN '$dt1' AND '$dt2'
+                AND p.datep_create >= '$dt1' AND p.datep_create < DATE_ADD('$dt2', INTERVAL 1 DAY)
                 AND dest.id_compaga = '$cp'
                 AND p.prixvente IS NOT NULL
                 AND COALESCE(p.statut_confirme, '') NOT IN ('confirm','catconfirm','confirmcarte')
-                AND ul.guser = '$gid'
+                AND ex.code_gaexp = '$gid'
                 AND p.statut_code = 'vendu'
                 GROUP BY {$nomLine['group']}, dest.id_compaga, p.prixvente, h.id_heure
                 ORDER BY heure ASC")->result(); return $this->normalize_ticket_prix_rows($rows);        }
@@ -5420,12 +5532,12 @@
                 JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = '$cid'
-                AND p.datep_create BETWEEN '$dt1' AND '$dt2'
+                AND p.datep_create >= '$dt1' AND p.datep_create < DATE_ADD('$dt2', INTERVAL 1 DAY)
                 AND dest.id_compaga = '$cp'
                 AND p.prixvente IS NOT NULL
                 AND COALESCE(p.statut_confirme, '') NOT IN ('confirm','catconfirm','confirmcarte')
                 AND p.statut_code = 'vendu'
-                AND ul.guser = '$gid'
+                AND ex.code_gaexp = '$gid'
                 AND lg.ident_ligne = '$algn'
                 GROUP BY {$nomLine['group']}, dest.id_compaga, p.prixvente, h.id_heure
                 ORDER BY heure ASC")->result(); return $this->normalize_ticket_prix_rows($rows);    }
@@ -5449,9 +5561,9 @@
                 JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = '$cid'
-                AND p.datep_create BETWEEN '$dt1' AND '$dt2'
+                AND p.datep_create >= '$dt1' AND p.datep_create < DATE_ADD('$dt2', INTERVAL 1 DAY)
                 AND dest.id_compaga = '$cp'
-                AND ul.guser = '$gid'
+                AND ex.code_gaexp = '$gid'
                 AND p.prixvente IS NOT NULL
                 AND COALESCE(p.statut_confirme, '') NOT IN ('confirm','catconfirm','confirmcarte')
                 AND p.statut_code = 'vendu'
@@ -5469,9 +5581,9 @@
                 JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = '$cid'
-                AND p.datep_create BETWEEN '$dt1' AND '$dt2'
+                AND p.datep_create >= '$dt1' AND p.datep_create < DATE_ADD('$dt2', INTERVAL 1 DAY)
                 AND dest.id_compaga = '$cp'
-                AND ul.guser = '$gid'
+                AND ex.code_gaexp = '$gid'
                 AND p.prixvente IS NOT NULL
                 AND COALESCE(p.statut_confirme, '') NOT IN ('confirm','catconfirm','confirmcarte')
                 AND p.statut_code = 'vendu'
@@ -5500,13 +5612,13 @@
                 JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = '$cid'
-                AND p.datep_create BETWEEN '$dt1' AND '$dt2'
+                AND p.datep_create >= '$dt1' AND p.datep_create < DATE_ADD('$dt2', INTERVAL 1 DAY)
                 AND dest.id_compaga = '$cp'
                 AND p.verifpassager IN('A', 'C', 'D')
                 AND p.prixvente IS NOT NULL
                 AND COALESCE(p.statut_confirme, '') NOT IN ('confirm','catconfirm','confirmcarte')
                 AND p.statut_code = 'vendu'
-                AND ul.guser = '$gid'
+                AND ex.code_gaexp = '$gid'
                 GROUP BY {$nomLine['group']}, p.prixvente, h.id_heure
                 ORDER BY heure ASC")->result(); return $this->normalize_ticket_prix_rows($rows);        }
             $rows = $this->db->query(
@@ -5522,14 +5634,14 @@
                 JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = '$cid'
-                AND p.datep_create BETWEEN '$dt1' AND '$dt2'
+                AND p.datep_create >= '$dt1' AND p.datep_create < DATE_ADD('$dt2', INTERVAL 1 DAY)
                 AND p.verifpassager IN('A', 'C', 'D')
                 AND dest.id_compaga = '$cp'
                 AND p.prixvente IS NOT NULL
                 AND COALESCE(p.statut_confirme, '') NOT IN ('confirm','catconfirm','confirmcarte')
                 AND p.statut_code = 'vendu'
                 AND lg.ident_ligne = '$algn'
-                AND ul.guser = '$gid'
+                AND ex.code_gaexp = '$gid'
                 GROUP BY {$nomLine['group']}, p.prixvente, h.id_heure
                 ORDER BY heure ASC")->result(); return $this->normalize_ticket_prix_rows($rows);    }
 
@@ -5552,13 +5664,13 @@
                 JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = '$cid'
-                AND p.datep_create BETWEEN '$dt1' AND '$dt2'
+                AND p.datep_create >= '$dt1' AND p.datep_create < DATE_ADD('$dt2', INTERVAL 1 DAY)
                 AND dest.id_compaga = '$cp'
                 AND p.verifpassager IN('A', 'C', 'D')
                 AND p.prixvente IS NOT NULL
                 AND COALESCE(p.statut_confirme, '') NOT IN ('confirm','catconfirm','confirmcarte')
                 AND p.statut_code = 'vendu'
-                AND ul.guser = '$gid'
+                AND ex.code_gaexp = '$gid'
                 GROUP BY {$nomLine['group']}, p.prixvente, p.datep_create
                 ORDER BY p.datep_create, nom_ligne ASC")->result(); return $this->normalize_ticket_prix_rows($rows);        }
             $rows = $this->db->query(
@@ -5573,14 +5685,14 @@
                 JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = '$cid'
-                AND p.datep_create BETWEEN '$dt1' AND '$dt2'
+                AND p.datep_create >= '$dt1' AND p.datep_create < DATE_ADD('$dt2', INTERVAL 1 DAY)
                 AND p.verifpassager IN('A', 'C', 'D')
                 AND dest.id_compaga = '$cp'
                 AND p.prixvente IS NOT NULL
                 AND COALESCE(p.statut_confirme, '') NOT IN ('confirm','catconfirm','confirmcarte')
                 AND p.statut_code = 'vendu'
                 AND lg.ident_ligne = '$algn'
-                AND ul.guser = '$gid'
+                AND ex.code_gaexp = '$gid'
                 GROUP BY {$nomLine['group']}, p.prixvente, p.datep_create
                 ORDER BY p.datep_create, nom_ligne ASC")->result(); return $this->normalize_ticket_prix_rows($rows);    }
     public function nifest($cid, $gid, $dt1, $dt2, $cp, $algn = FALSE)
@@ -5603,13 +5715,13 @@
                 JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = '$cid'
-                AND p.datep_create BETWEEN '$dt1' AND '$dt2'
+                AND p.datep_create >= '$dt1' AND p.datep_create < DATE_ADD('$dt2', INTERVAL 1 DAY)
                 AND dest.id_compaga = '$cp'
                 AND p.verifpassager IN('A', 'C', 'D')
                 AND p.prixvente IS NOT NULL
                 AND COALESCE(p.statut_confirme, '') NOT IN ('confirm','catconfirm','confirmcarte')
                 AND p.statut_code = 'vendu'
-                AND ul.guser = '$gid'
+                AND ex.code_gaexp = '$gid'
                 GROUP BY {$nomLine['group']}, p.prixvente, h.id_heure
                 ORDER BY heure ASC")->result(); return $this->normalize_ticket_prix_rows($rows);        }
             $rows = $this->db->query(
@@ -5624,14 +5736,14 @@
                 JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = '$cid'
-                AND p.datep_create BETWEEN '$dt1' AND '$dt2'
+                AND p.datep_create >= '$dt1' AND p.datep_create < DATE_ADD('$dt2', INTERVAL 1 DAY)
                 AND p.verifpassager IN('A', 'C', 'D')
                 AND dest.id_compaga = '$cp'
                 AND p.prixvente IS NOT NULL
                 AND COALESCE(p.statut_confirme, '') NOT IN ('confirm','catconfirm','confirmcarte')
                 AND p.statut_code = 'vendu'
                 AND lg.ident_ligne = '$algn'
-                AND ul.guser = '$gid'
+                AND ex.code_gaexp = '$gid'
                 GROUP BY {$nomLine['group']}, p.prixvente, h.id_heure
                 ORDER BY heure ASC")->result(); return $this->normalize_ticket_prix_rows($rows);    }
 
@@ -5654,13 +5766,13 @@
                 JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = '$cid'
-                AND p.datep_create BETWEEN '$dt1' AND '$dt2'
+                AND p.datep_create >= '$dt1' AND p.datep_create < DATE_ADD('$dt2', INTERVAL 1 DAY)
                 AND dest.id_compaga = '$cp'
                 AND p.verifpassager IN('A', 'C', 'D')
                 AND p.prixvente IS NOT NULL
                 AND COALESCE(p.statut_confirme, '') NOT IN ('confirm','catconfirm','confirmcarte')
                 AND p.statut_code = 'vendu'
-                AND ul.guser = '$gid'
+                AND ex.code_gaexp = '$gid'
                 GROUP BY {$nomLine['group']}, p.prixvente, p.datep_create
                 ORDER BY p.datep_create, nom_ligne ASC")->result(); return $this->normalize_ticket_prix_rows($rows);        }
             $rows = $this->db->query(
@@ -5675,14 +5787,14 @@
                 JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = '$cid'
-                AND p.datep_create BETWEEN '$dt1' AND '$dt2'
+                AND p.datep_create >= '$dt1' AND p.datep_create < DATE_ADD('$dt2', INTERVAL 1 DAY)
                 AND p.verifpassager IN('A', 'C', 'D')
                 AND dest.id_compaga = '$cp'
                 AND p.prixvente IS NOT NULL
                 AND COALESCE(p.statut_confirme, '') NOT IN ('confirm','catconfirm','confirmcarte')
                 AND p.statut_code = 'vendu'
                 AND lg.ident_ligne = '$algn'
-                AND ul.guser = '$gid'
+                AND ex.code_gaexp = '$gid'
                 GROUP BY {$nomLine['group']}, p.prixvente, p.datep_create
                 ORDER BY p.datep_create, nom_ligne ASC")->result(); return $this->normalize_ticket_prix_rows($rows);    }
     //vente du jour par vendeur
@@ -5705,9 +5817,9 @@
                 JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = '$cd'
-                AND p.datep_create BETWEEN '$dd' AND '$fd'
+                AND p.datep_create >= '$dd' AND p.datep_create < DATE_ADD('$fd', INTERVAL 1 DAY)
                 AND ar.roleattribut = '$idcox'
-                AND ul.guser = '$gid'
+                AND ex.code_gaexp = '$gid'
                 AND p.prixvente IS NOT NULL
                 AND COALESCE(p.statut_confirme, '') NOT IN ('confirm','catconfirm','confirmcarte')
                 AND p.statut_code = 'vendu'
@@ -5965,8 +6077,8 @@
                 JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = $cid
-                AND p.datep_create BETWEEN '$dt1' AND '$dt2'
-                AND ul.guser = '$gid'
+                AND p.datep_create >= '$dt1' AND p.datep_create < DATE_ADD('$dt2', INTERVAL 1 DAY)
+                AND ex.code_gaexp = '$gid'
                 AND p.prixvente IS NOT NULL
                 AND COALESCE(p.statut_confirme, '') NOT IN ('confirm','catconfirm','confirmcarte')
                 AND p.statut_code = 'vendu'
@@ -5994,8 +6106,8 @@
                 JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = $cid
-                AND p.datep_create BETWEEN '$dt1' AND '$dt2'
-                AND ul.guser = '$gid'
+                AND p.datep_create >= '$dt1' AND p.datep_create < DATE_ADD('$dt2', INTERVAL 1 DAY)
+                AND ex.code_gaexp = '$gid'
                 AND dest.id_compaga = '$cp'
                 AND p.prixvente IS NOT NULL
                 AND COALESCE(p.statut_confirme, '') NOT IN ('confirm','catconfirm','confirmcarte')
@@ -6023,8 +6135,8 @@
                 JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = $cid
-                AND p.datep_create BETWEEN '$dt1' AND '$dt2'
-                AND ul.guser = '$gid'
+                AND p.datep_create >= '$dt1' AND p.datep_create < DATE_ADD('$dt2', INTERVAL 1 DAY)
+                AND ex.code_gaexp = '$gid'
                 AND p.prixvente IS NOT NULL
                 AND COALESCE(p.statut_confirme, '') NOT IN ('confirm','catconfirm','confirmcarte')
                 AND p.statut_code = 'vendu'
@@ -6060,8 +6172,8 @@
                 JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = $cid
-                AND p.datep_create BETWEEN '$dt1' AND '$dt2'
-                AND ul.guser = '$gid'
+                AND p.datep_create >= '$dt1' AND p.datep_create < DATE_ADD('$dt2', INTERVAL 1 DAY)
+                AND ex.code_gaexp = '$gid'
                 AND p.prixvente IS NOT NULL
                 AND COALESCE(p.statut_confirme, '') NOT IN ('confirm','catconfirm','confirmcarte')
                 AND p.statut_code = 'vendu'
@@ -6088,8 +6200,8 @@
                 JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = $cid
-                AND p.datep_create BETWEEN '$dt1' AND '$dt2'
-                AND ul.guser = '$gid'
+                AND p.datep_create >= '$dt1' AND p.datep_create < DATE_ADD('$dt2', INTERVAL 1 DAY)
+                AND ex.code_gaexp = '$gid'
                 AND dest.id_compaga = '$cp'
                 AND p.prixvente IS NOT NULL
                 AND COALESCE(p.statut_confirme, '') NOT IN ('confirm','catconfirm','confirmcarte')
@@ -6116,8 +6228,8 @@
                 JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = $cid
-                AND p.datep_create BETWEEN '$dt1' AND '$dt2'
-                AND ul.guser = '$gid'
+                AND p.datep_create >= '$dt1' AND p.datep_create < DATE_ADD('$dt2', INTERVAL 1 DAY)
+                AND ex.code_gaexp = '$gid'
                 AND p.prixvente IS NOT NULL
                 AND COALESCE(p.statut_confirme, '') NOT IN ('confirm','catconfirm','confirmcarte')
                 AND p.statut_code = 'vendu'

@@ -981,7 +981,7 @@
               $dt2 = $this->input->post('datefinbag');
               $lign = $this->input->post('axelignebag');
               $comp = $this->input->post('_compagbag');
-              $gid = $this->input->post('departgarbag');
+              $gid = $this->_normalize_recap_gare_code_filter($this->input->post('departgarbag'));
               $ncomp = $this->m_compagnies->getn($comp);
 
                 $dats = explode("-", $dt1);
@@ -1176,7 +1176,7 @@
               $dt2 = $this->input->post('datefinbagesc');
               $lign = $this->input->post('axelignebagesc');
               $comp = $this->input->post('_compagbagesc');
-              $gid = $this->input->post('departgarbagesc');
+              $gid = $this->_normalize_recap_gare_code_filter($this->input->post('departgarbagesc'));
               $ncomp = $this->m_compagnies->getn($comp);
 
                 $dats = explode("-", $dt1);
@@ -1277,7 +1277,7 @@
               $dt2 = $this->input->post('datefinbagop');
               $lign = $this->input->post('axelignebagop');
               $comp = $this->input->post('_compagbagop');
-              $gid = $this->input->post('departgarbagop');
+              $gid = $this->_normalize_recap_gare_code_filter($this->input->post('departgarbagop'));
               $cais = $this->input->post('vendeuseidop');
               $ncomp = $this->m_compagnies->getn($comp);
 
@@ -1479,7 +1479,7 @@
               $dt2 = $this->input->post('datefinbagopesc');
               $lign = $this->input->post('axelignebagopesc');
               $comp = $this->input->post('_compagbagopesc');
-              $gid = $this->input->post('departgarbagopesc');
+              $gid = $this->_normalize_recap_gare_code_filter($this->input->post('departgarbagopesc'));
               $cais = $this->input->post('vendeuseidopesc');
               $ncomp = $this->m_compagnies->getn($comp);
 
@@ -2821,7 +2821,7 @@
             $ddbt = $this->input->post('dated');
             $dfin = $this->input->post('datef');
             $comp = $this->input->post('_compag');
-            $gid = $this->input->post('departgar');
+            $gid = $this->_normalize_recap_gare_code_filter($this->input->post('departgar'));
             $ncgd = $this->m_gare_depart->getn($gid);
             $gar = $ncgd->nom_gaep;
 
@@ -3014,7 +3014,7 @@
             $ddbt = $this->input->post('datedsg');
             $dfin = $this->input->post('datefsg');
             $comp = $this->input->post('_compagsg');
-            $gid = $this->input->post('departgarsg');
+            $gid = $this->_normalize_recap_gare_code_filter($this->input->post('departgarsg'));
             $ncgd = $this->m_gare_depart->getn($gid);
 
             $gar = $ncgd->nom_gaep;
@@ -3123,7 +3123,7 @@
                 $ddbt = $this->input->post('dated');
                 $dfin = $this->input->post('datef');
                 $comp = $this->input->post('_compag');
-                $gid = $this->input->post('departgar');
+                $gid = $this->_normalize_recap_gare_code_filter($this->input->post('departgar'));
                 $uc = $this->m_utilisateur->u($ivd);
               if($uc == NULL){
                 $us = '';
@@ -3232,7 +3232,7 @@
                 $ddbt = $this->input->post('datedcour');
                 $dfin = $this->input->post('datefcour');
                 $comp = $this->input->post('_compagcour');
-                $gid = $this->input->post('departgarcour');
+                $gid = $this->_normalize_recap_gare_code_filter($this->input->post('departgarcour'));
                 $uc = $this->m_utilisateur->u($ivd);
               if($uc == NULL){
                 $us = '';
@@ -3338,7 +3338,7 @@
                 $ddbt = $this->input->post('datedbag');
                 $dfin = $this->input->post('datefbag');
                 $comp = $this->input->post('_compagbag');
-                $gid = $this->input->post('departgarbag');
+                $gid = $this->_normalize_recap_gare_code_filter($this->input->post('departgarbag'));
                 $uc = $this->m_utilisateur->u($ivd);
               if($uc == NULL){
                 $us = '';
@@ -3442,7 +3442,7 @@
             $ddbt = $this->input->post('datedexo');
             $dfin = $this->input->post('datefexo');
             $comp = $this->input->post('_compagexo');
-            $gid = $this->input->post('departgarexo');
+            $gid = $this->_normalize_recap_gare_code_filter($this->input->post('departgarexo'));
             $uc = $this->m_utilisateur->u($ivd);
 
             $ncgd = $this->m_gare_depart->getn($gid);
@@ -3584,7 +3584,7 @@
             $ddbt = $this->input->post('datedexoesc');
             $dfin = $this->input->post('datefexoesc');
             $comp = $this->input->post('_compagexoesc');
-            $gid = $this->input->post('departgarexoesc');
+            $gid = $this->_normalize_recap_gare_code_filter($this->input->post('departgarexoesc'));
             $uc = $this->m_utilisateur->u($ivd);
 
             $ncgd = $this->m_gare_depart->getn($gid);
@@ -3698,7 +3698,7 @@
             $ddbt = $this->input->post('datedexobg');
             $dfin = $this->input->post('datefexobg');
             $comp = $this->input->post('_compagexobg');
-            $gid = $this->input->post('departgarexobg');
+            $gid = $this->_normalize_recap_gare_code_filter($this->input->post('departgarexobg'));
             $uc = $this->m_utilisateur->u($ivd);
 
             $ncgd = $this->m_gare_depart->getn($gid);
@@ -3802,7 +3802,7 @@
             $ddbt = $this->input->post('datedexobgesc');
             $dfin = $this->input->post('datefexobgesc');
             $comp = $this->input->post('_compagexobgesc');
-            $gid = $this->input->post('departgarexobgesc');
+            $gid = $this->_normalize_recap_gare_code_filter($this->input->post('departgarexobgesc'));
 
             $uc = $this->m_utilisateur->u($ivd);
 
@@ -3910,7 +3910,7 @@
                 $ddbt = $this->input->post('datedebutcourdep');
                 $dfin = $this->input->post('datefincourdep');
                 $comp = $this->input->post('_compagcourdep');
-                $gid = $this->input->post('departgarcourdep');
+                $gid = $this->_normalize_recap_gare_code_filter($this->input->post('departgarcourdep'));
 
                 $uc = $this->m_utilisateur->u($ivd);
               if($uc == NULL){
@@ -4015,7 +4015,7 @@
               $cais = $this->input->post('caissiercour');
               $lign = $this->input->post('axelignecour');
               $comp = $this->input->post('_compagcour');
-              $gid = $this->input->post('departgarcour');
+              $gid = $this->_normalize_recap_gare_code_filter($this->input->post('departgarcour'));
 
               $uc = $this->m_utilisateur->u($cais);
               if($uc == NULL){
@@ -4151,7 +4151,7 @@
               $cais = $this->input->post('caissier');
               $lign = $this->input->post('axeligne');
               $comp = $this->input->post('_compag');
-              $gid = $this->input->post('departgar');
+              $gid = $this->_normalize_recap_gare_code_filter($this->input->post('departgar'));
               $uc = $this->m_utilisateur->u($cais);
               if($uc == NULL){
                 $us = '';
@@ -4278,7 +4278,7 @@
               $cais = $this->input->post('caissieresc');
               $lign = $this->input->post('axeligneesc');
               $comp = $this->input->post('_compagesc');
-              $gid = $this->input->post('departgaresc');
+              $gid = $this->_normalize_recap_gare_code_filter($this->input->post('departgaresc'));
               $uc = $this->m_utilisateur->u($cais);
               if($uc == NULL){
                 $us = '';
@@ -4386,8 +4386,8 @@
               $dt2 = $this->input->post('datefin');
               $lign = $this->input->post('axeligne');
               $comp = $this->input->post('_compag');
-              $gid = $this->_normalize_recap_gare_filter($this->input->post('departgar'));
-              $sg = $this->input->post('sousgaretgl');
+              $gid = $this->_normalize_recap_gare_code_filter($this->input->post('departgar'));
+              $sg = $this->_normalize_recap_sousgare_filter($this->input->post('sousgaretgl'));
               $this->_assert_recap_global_filters($this->entreprise->ekey, $dt1, $dt2, $comp);
               list($days, $days1) = $this->_recap_title_dates($dt1, $dt2);
               $reportick = $this->m_passager->reporticket($this->entreprise->ekey, $gid, $dt1, $dt2, $comp, $lign, $sg);
@@ -4523,7 +4523,7 @@
               $dt2 = $this->input->post('datefinesc');
               $lign = $this->input->post('axeligneesc');
               $comp = $this->input->post('_compagesc');
-              $gid = $this->_normalize_recap_gare_filter($this->input->post('departgaresc'));
+              $gid = $this->_normalize_recap_gare_code_filter($this->input->post('departgaresc'));
 
               $this->_assert_recap_global_filters($this->entreprise->ekey, $dt1, $dt2, $comp);
               list($days, $days1) = $this->_recap_title_dates($dt1, $dt2);
@@ -4628,7 +4628,7 @@
               $dt2 = $this->input->post('datefinbg');
               $lign = $this->input->post('axelignebg');
               $comp = $this->input->post('_compagbg');
-              $gid = $this->_normalize_recap_gare_filter($this->input->post('departgarbg'));
+              $gid = $this->_normalize_recap_gare_code_filter($this->input->post('departgarbg'));
               $this->_assert_recap_global_filters($this->entreprise->ekey, $dt1, $dt2, $comp);
               list($days, $days1) = $this->_recap_title_dates($dt1, $dt2);
               $reportick = $this->m_bagage->reportbag($this->entreprise->ekey, $gid, $dt1, $dt2, $comp, $lign);
@@ -4731,7 +4731,7 @@
               $dt2 = $this->input->post('datefinbgesc');
               $lign = $this->input->post('axelignebgesc');
               $comp = $this->input->post('_compagbgesc');
-              $gid = $this->_normalize_recap_gare_filter($this->input->post('departgarbgesc'));
+              $gid = $this->_normalize_recap_gare_code_filter($this->input->post('departgarbgesc'));
               $this->_assert_recap_global_filters($this->entreprise->ekey, $dt1, $dt2, $comp);
               list($days, $days1) = $this->_recap_title_dates($dt1, $dt2);
               $reportick = $this->m_bagageesc->reportbag($this->entreprise->ekey, $comp, $gid, $dt1, $dt2, $lign);
@@ -4834,7 +4834,7 @@
               $dt2 = $this->input->post('datefinbagopgl');
               $lign = $this->input->post('axelignebagopgl');
               $comp = $this->input->post('_compagbagopgl');
-              $gid = $this->input->post('departgarbagopgl');
+              $gid = $this->_normalize_recap_gare_code_filter($this->input->post('departgarbagopgl'));
               $cais = $this->input->post('vendeuseidopgl');
               $ncomp = $this->m_compagnies->getn($comp);
 
@@ -4942,7 +4942,7 @@
               $dt2 = $this->input->post('datefinbagopglesc');
               $lign = $this->input->post('axelignebagopglesc');
               $comp = $this->input->post('_compagbagopglesc');
-              $gid = $this->input->post('departgarbagopglesc');
+              $gid = $this->_normalize_recap_gare_code_filter($this->input->post('departgarbagopglesc'));
               $cais = $this->input->post('vendeuseidopglesc');
               $ncomp = $this->m_compagnies->getn($comp);
 
@@ -5051,7 +5051,7 @@
               $dt2 = $this->input->post('datefin');
               $lign = $this->input->post('axeligne');
               $comp = $this->input->post('_compag');
-              $gid = $this->input->post('departgar');
+              $gid = $this->_normalize_recap_gare_code_filter($this->input->post('departgar'));
               $ncomp = $this->m_compagnies->getn($comp);
 
                 $dats = explode("-", $dt1);
@@ -5291,7 +5291,7 @@
               $dt2 = $this->input->post('datefindc');
               $lign = $this->input->post('axelignedc');
               $comp = $this->input->post('_compagdc');
-              $gid = $this->input->post('departgardc');
+              $gid = $this->_normalize_recap_gare_code_filter($this->input->post('departgardc'));
 
               $ngrd = $this->m_gare_depart->getno($gid);
 
@@ -5395,7 +5395,7 @@
               $dt2 = $this->input->post('datefind');
               $lign = $this->input->post('axeligned');
               $comp = $this->input->post('_compagd');
-              $gid = $this->input->post('departgard');
+              $gid = $this->_normalize_recap_gare_code_filter($this->input->post('departgard'));
 
               $ngrd = $this->m_gare_depart->getno($gid);
 
@@ -5516,7 +5516,7 @@
               $dt2 = $this->input->post('datefindcbg');
               $lign = $this->input->post('axelignedcbg');
               $comp = $this->input->post('_compagdcbg');
-              $gid = $this->input->post('departgardcbg');
+              $gid = $this->_normalize_recap_gare_code_filter($this->input->post('departgardcbg'));
 
               $ncomp = $this->m_compagnies->getn($comp);
 
@@ -5605,7 +5605,7 @@
               $dt2 = $this->input->post('datefindcbgesc');
               $lign = $this->input->post('axelignedcbgesc');
               $comp = $this->input->post('_compagdcbgesc');
-              $gid = $this->input->post('departgardcbgesc');
+              $gid = $this->_normalize_recap_gare_code_filter($this->input->post('departgardcbgesc'));
 
               $ncomp = $this->m_compagnies->getn($comp);
 
@@ -5694,7 +5694,7 @@
               $dt2 = $this->input->post('datefindbg');
               $lign = $this->input->post('axelignedbg');
               $comp = $this->input->post('_compagdbg');
-              $gid = $this->input->post('departgardbg');
+              $gid = $this->_normalize_recap_gare_code_filter($this->input->post('departgardbg'));
 
               $ncomp = $this->m_compagnies->getn($comp);
 
@@ -5801,7 +5801,7 @@
               $dt2 = $this->input->post('datefindbgesc');
               $lign = $this->input->post('axelignedbgesc');
               $comp = $this->input->post('_compagdbgesc');
-              $gid = $this->input->post('departgardbgesc');
+              $gid = $this->_normalize_recap_gare_code_filter($this->input->post('departgardbgesc'));
 
               $ncomp = $this->m_compagnies->getn($comp);
 
@@ -5908,7 +5908,7 @@
               $dt2 = $this->input->post('datefincrcl');
               $lign = $this->input->post('axelignecrcl');
               $comp = $this->input->post('_compagcrcl');
-              $gid = $this->input->post('departgarcrcl');
+              $gid = $this->_normalize_recap_gare_code_filter($this->input->post('departgarcrcl'));
               $tyc = $this->input->post('typcourscl');
 
               $ngrd = $this->m_gare_depart->getno($gid);
@@ -6008,7 +6008,7 @@
               $dt2 = $this->input->post('datefincrclesc');
               $lign = $this->input->post('axelignecrclesc');
               $comp = $this->input->post('_compagcrclesc');
-              $gid = $this->input->post('departgarcrclesc');
+              $gid = $this->_normalize_recap_gare_code_filter($this->input->post('departgarcrclesc'));
               $tyc = $this->input->post('typcoursclesc');
 
               $ngrd = $this->m_gare_depart->getno($gid);
@@ -6107,7 +6107,7 @@
               $dt2 = $this->input->post('datefincrcld');
               $lign = $this->input->post('axelignecrcld');
               $comp = $this->input->post('_compagcrcld');
-              $gid = $this->input->post('departgarcrcld');
+              $gid = $this->_normalize_recap_gare_code_filter($this->input->post('departgarcrcld'));
               $tyc = $this->input->post('typcourscld');
 
                 $ngrd = $this->m_gare_depart->getno($gid);
@@ -6225,7 +6225,7 @@
               $dt2 = $this->input->post('datefincrcldesc');
               $lign = $this->input->post('axelignecrcldesc');
               $comp = $this->input->post('_compagcrcldesc');
-              $gid = $this->input->post('departgarcrcldesc');
+              $gid = $this->_normalize_recap_gare_code_filter($this->input->post('departgarcrcldesc'));
               $tyc = $this->input->post('typcourscldesc');
 
                 $ngrd = $this->m_gare_depart->getno($gid);
@@ -6344,7 +6344,7 @@
               $dt2 = $this->input->post('datefines');
               $lign = $this->input->post('axelignees');
               $comp = $this->input->post('_compages');
-              $gid = $this->input->post('departgares');
+              $gid = $this->_normalize_recap_gare_code_filter($this->input->post('departgares'));
               $ncomp = $this->m_compagnies->getn($comp);
 
                 $dats = explode("-", $dt1);
@@ -6445,7 +6445,7 @@
               $dt2 = $this->input->post('datefindces');
               $lign = $this->input->post('axelignedces');
               $comp = $this->input->post('_compagdces');
-              $gid = $this->input->post('departgardces');
+              $gid = $this->_normalize_recap_gare_code_filter($this->input->post('departgardces'));
 
               $ncomp = $this->m_compagnies->getn($comp);
 
@@ -6533,7 +6533,7 @@
               $dt2 = $this->input->post('datefindes');
               $lign = $this->input->post('axelignedes');
               $comp = $this->input->post('_compagdes');
-              $gid = $this->input->post('departgardes');
+              $gid = $this->_normalize_recap_gare_code_filter($this->input->post('departgardes'));
 
 
                 $ngrd = $this->m_gare_depart->getno($gid);
@@ -6638,7 +6638,7 @@
               //$dt2 = $this->input->post('datefin');
               $lign = $this->input->post('axeligne');
               $comp = $this->input->post('_compag');
-              $gid = $this->input->post('departgar');
+              $gid = $this->_normalize_recap_gare_code_filter($this->input->post('departgar'));
                 $dats = explode("-", $dt1);
                 $days = $dats[2]. '-'. $dats[1]. '-' .$dats[0];
                 //$dats1 = explode("-", $dt2);
@@ -6883,7 +6883,7 @@
               $dt2 = $this->input->post('datefin');
               $lign = $this->input->post('axeligne');
               $comp = $this->input->post('_compag');
-              $gid = $this->input->post('departgar');
+              $gid = $this->_normalize_recap_gare_code_filter($this->input->post('departgar'));
               $ncomp = $this->m_compagnies->getn($comp);
 
               //$key1 = mdate($dt1, now());
@@ -7155,7 +7155,7 @@
               $dt2 = $this->input->post('datefinesc');
               $lign = $this->input->post('axeligneesc');
               $comp = $this->input->post('_compagesc');
-              $gid = $this->input->post('departgaresc');
+              $gid = $this->_normalize_recap_gare_code_filter($this->input->post('departgaresc'));
               $ncomp = $this->m_compagnies->getn($comp);
 
               
@@ -7269,7 +7269,7 @@
               $dt2 = $this->input->post('datefincr');
               $lign = $this->input->post('axelignecr');
               $comp = $this->input->post('_compagcr');
-              $gid = $this->input->post('departgarcr');
+              $gid = $this->_normalize_recap_gare_code_filter($this->input->post('departgarcr'));
               $tyc = $this->input->post('typcours');
 
               $ncomp = $this->m_compagnies->getn($comp);
@@ -7387,7 +7387,7 @@
               $dt2 = $this->input->post('datefincresc');
               $lign = $this->input->post('axelignecresc');
               $comp = $this->input->post('_compagcresc');
-              $gid = $this->input->post('departgarcresc');
+              $gid = $this->_normalize_recap_gare_code_filter($this->input->post('departgarcresc'));
               $tyc = $this->input->post('typcoursesc');
 
               $ncomp = $this->m_compagnies->getn($comp);
@@ -7504,7 +7504,7 @@
             $dt2 = $this->input->post('datefinheb');
             $lign = $this->input->post('axeligneheb');
             $comp = $this->input->post('_compagheb');
-            $gid = $this->input->post('departgarheb');
+            $gid = $this->_normalize_recap_gare_code_filter($this->input->post('departgarheb'));
             $tyc = $this->input->post('typcoursheb');
             $ncomp = $this->m_compagnies->getn($comp);
               $ty = 'PLIS';
@@ -7623,7 +7623,7 @@
             $dt2 = $this->input->post('datefinhebesc');
             $lign = $this->input->post('axelignehebesc');
             $comp = $this->input->post('_compaghebesc');
-            $gid = $this->input->post('departgarhebesc');
+            $gid = $this->_normalize_recap_gare_code_filter($this->input->post('departgarhebesc'));
             $tyc = $this->input->post('typcourshebesc');
             $ncomp = $this->m_compagnies->getn($comp);
               $ty = 'PLIS';
@@ -7742,7 +7742,7 @@
             $dt2 = $this->input->post('datefinhebbg');
             $lign = $this->input->post('axelignehebbg');
             $comp = $this->input->post('_compaghebbg');
-            $gid = $this->input->post('departgarhebbg');
+            $gid = $this->_normalize_recap_gare_code_filter($this->input->post('departgarhebbg'));
             $ncomp = $this->m_compagnies->getn($comp);
               
 
@@ -7852,7 +7852,7 @@
             $dt2 = $this->input->post('datefinhebbge');
             $lign = $this->input->post('axelignehebbge');
             $comp = $this->input->post('_compaghebbge');
-            $gid = $this->input->post('departgarhebbge');
+            $gid = $this->_normalize_recap_gare_code_filter($this->input->post('departgarhebbge'));
             $ncomp = $this->m_compagnies->getn($comp);
               
 
@@ -7964,7 +7964,7 @@
               $cais = $this->input->post('caissier');
               $lign = $this->input->post('axeligne');
               $comp = $this->input->post('_compag');
-              $gid = $this->input->post('departgar');
+              $gid = $this->_normalize_recap_gare_code_filter($this->input->post('departgar'));
               $uc = $this->m_utilisateur->u($cais);
 
               $ncomp = $this->m_compagnies->getn($comp);
@@ -8154,7 +8154,7 @@
               $cais = $this->input->post('caissieresc');
               $lign = $this->input->post('axeligneesc');
               $comp = $this->input->post('_compagesc');
-              $gid = $this->input->post('departgaresc');
+              $gid = $this->_normalize_recap_gare_code_filter($this->input->post('departgaresc'));
               $uc = $this->m_utilisateur->u($cais);
 
               $ncomp = $this->m_compagnies->getn($comp);
@@ -8266,7 +8266,7 @@
 
               $ncomp = $this->m_compagnies->getn($comp);
 
-              $gid = $this->input->post('departgarvers');
+              $gid = $this->_normalize_recap_gare_code_filter($this->input->post('departgarvers'));
               $ncgd = $this->m_gare_depart->getn($gid);
                 $gar = $ncgd->nom_gaep;
 
@@ -8657,7 +8657,7 @@
               $dt2 = $this->input->post('datefincrex');
               $lign = $this->input->post('axelignecrex');
               $comp = $this->input->post('_compagcrex');
-              $gid = $this->input->post('departgarcrex');
+              $gid = $this->_normalize_recap_gare_code_filter($this->input->post('departgarcrex'));
               $tyc = $this->input->post('typcoursex');
 
               $ncgd = $this->m_gare_depart->getn($gid);
@@ -8773,7 +8773,7 @@
               $dt2 = $this->input->post('datefincrex');
               $lign = $this->input->post('axelignecrex');
               $comp = $this->input->post('_compagcrex');
-              $gid = $this->input->post('departgarcrex');
+              $gid = $this->_normalize_recap_gare_code_filter($this->input->post('departgarcrex'));
               $tyc = $this->input->post('typcoursex');
 
               $ncgd = $this->m_gare_depart->getn($gid);
@@ -8842,7 +8842,7 @@
               $dt2 = $this->input->post('datefincrexesc');
               $lign = $this->input->post('axelignecrexesc');
               $comp = $this->input->post('_compagcrexesc');
-              $gid = $this->input->post('departgarcrexesc');
+              $gid = $this->_normalize_recap_gare_code_filter($this->input->post('departgarcrexesc'));
               $tyc = $this->input->post('typcoursexesc');
 
               $ncgd = $this->m_gare_depart->getn($gid);
@@ -8957,7 +8957,7 @@
               $dt2 = $this->input->post('datefincrglb');
               $lign = $this->input->post('axelignecrglb');
               $comp = $this->input->post('_compagcrglb');
-              $gid = $this->input->post('departgarcrglb');
+              $gid = $this->_normalize_recap_gare_code_filter($this->input->post('departgarcrglb'));
               $tyc = $this->input->post('typcoursglb');
 
               //$ct = $this->m_categ->getps($this->entreprise->id_entreprise, $tyc);
@@ -9066,7 +9066,7 @@
               $dt2 = $this->input->post('datefincrglb');
               $lign = $this->input->post('axelignecrglb');
               $comp = $this->input->post('_compagcrglb');
-              $gid = $this->input->post('departgarcrglb');
+              $gid = $this->_normalize_recap_gare_code_filter($this->input->post('departgarcrglb'));
               $tyc = $this->input->post('typcoursglb');
 
               //$ct = $this->m_categ->getps($this->entreprise->id_entreprise, $tyc);
@@ -9136,7 +9136,7 @@
               $dt2 = $this->input->post('datefincrglbesc');
               $lign = $this->input->post('axelignecrglbesc');
               $comp = $this->input->post('_compagcrglbesc');
-              $gid = $this->input->post('departgarcrglbesc');
+              $gid = $this->_normalize_recap_gare_code_filter($this->input->post('departgarcrglbesc'));
               $tyc = $this->input->post('typcoursglbesc');
 
               //$ct = $this->m_categ->getps($this->entreprise->id_entreprise, $tyc);
@@ -9248,7 +9248,7 @@
               $cais = $this->input->post('caissier');
               $lign = $this->input->post('axeligne');
               $comp = $this->input->post('_compag');
-              $gid = $this->input->post('departgar');
+              $gid = $this->_normalize_recap_gare_code_filter($this->input->post('departgar'));
               $uc = $this->m_utilisateur->u($cais);
               if($uc == NULL){
                 $us = '';
@@ -9708,7 +9708,7 @@
               $day2 = $dat2[2]. '-'. $dat2[1]. '-' .$dat2[0];
 
               $cp = $this->input->post('nomcomps');
-              $gid = $this->input->post('nomgares');
+              $gid = $this->_normalize_recap_gare_code_filter($this->input->post('nomgares'));
 
               $ncomp = $this->m_compagnies->getn($cp);
 
@@ -9832,7 +9832,7 @@
             $day2 = $dat2[2] . '-' . $dat2[1] . '-' . $dat2[0];
 
             $cp = $this->input->post('nomcomps');
-            $gid = $this->input->post('nomgares');
+            $gid = $this->_normalize_recap_gare_code_filter($this->input->post('nomgares'));
 
             $ncomp = $this->m_compagnies->getn($cp);
 
@@ -9923,7 +9923,7 @@
             $day2 = $dat2[2]. '-'. $dat2[1]. '-' .$dat2[0];
 
             $cp = $this->input->post('nomcompsesc');
-            $gid = $this->input->post('nomgaresesc');
+            $gid = $this->_normalize_recap_gare_code_filter($this->input->post('nomgaresesc'));
 
             $ncomp = $this->m_compagnies->getn($cp);
 
@@ -10116,7 +10116,7 @@
               $dtp2 = $this->input->post('dateps2');
 
               $cp = $this->input->post('nomcomps');
-              $gid = $this->input->post('nomgares');
+              $gid = $this->_normalize_recap_gare_code_filter($this->input->post('nomgares'));
 
               $ncomp = $this->m_compagnies->getn($cp);
 
@@ -10219,7 +10219,7 @@
               $dtp2 = $this->input->post('dateps2');
 
               $cp = $this->input->post('nomcomps');
-              $gid = $this->input->post('nomgares');
+              $gid = $this->_normalize_recap_gare_code_filter($this->input->post('nomgares'));
 
               $ncomp = $this->m_compagnies->getn($cp);
 
@@ -10285,7 +10285,7 @@
               $dtp2 = $this->input->post('dateps2esc');
 
               $cp = $this->input->post('nomcompsesc');
-              $gid = $this->input->post('nomgaresesc');
+              $gid = $this->_normalize_recap_gare_code_filter($this->input->post('nomgaresesc'));
 
               $ncomp = $this->m_compagnies->getn($cp);
 
@@ -10389,7 +10389,7 @@
 
               $ncomp = $this->m_compagnies->getn($comp);
               
-              $gid = $this->input->post('departgarversgl');
+              $gid = $this->_normalize_recap_gare_code_filter($this->input->post('departgarversgl'));
               $ncgd = $this->m_gare_depart->getn($gid);
                 $gar = $ncgd->nom_gaep;
 
@@ -10513,7 +10513,7 @@
               $cais = $this->input->post('caissierventegl');
               $lign = $this->input->post('axeligneventegl');
               $comp = $this->input->post('_compagventegl');
-              $gid = $this->input->post('departgarventegl');
+              $gid = $this->_normalize_recap_gare_code_filter($this->input->post('departgarventegl'));
 
               $ncgd = $this->m_gare_depart->getn($gid);
                 $gar = $ncgd->nom_gaep;
@@ -10622,7 +10622,7 @@
               $cais = $this->input->post('caissiervente');
               $lign = $this->input->post('axelignevente');
               $comp = $this->input->post('_compagvente');
-              $gid = $this->input->post('departgarvente');
+              $gid = $this->_normalize_recap_gare_code_filter($this->input->post('departgarvente'));
               $uc = $this->m_utilisateur->u($cais);
               if($uc == NULL){
                 $us = '';
@@ -10734,7 +10734,7 @@
               $dt1 = $this->input->post('debudate');
               $dt2 = $this->input->post('fidate');
               $user = $this->input->post('vendeuseid');
-              $gid = $this->input->post('departgar');
+              $gid = $this->_normalize_recap_gare_code_filter($this->input->post('departgar'));
               $sta = $this->input->post('statutticket');
               $uc = $this->m_utilisateur->u($user);
               if($uc == NULL){
@@ -10843,7 +10843,7 @@
             $dt2 = $this->input->post('datefin');
             $ver = $this->input->post('type');
             $nm = $this->input->post('nom');
-            $gid = $this->input->post('departgar');
+            $gid = $this->_normalize_recap_gare_code_filter($this->input->post('departgar'));
             $comp = $this->input->post('_compag');
             $this->_assert_cashbox_recap_filters($this->entreprise->ekey, $dt1, $dt2, $comp, $gid);
             $consultedCashbox = $this->_secured_consulted_cashbox_operator($this->entreprise->ekey);
@@ -11059,7 +11059,7 @@
               $typ = $this->input->post('type');
               $gen = $this->input->post('genre');
               $nm = $this->input->post('nom');
-              $gid = $this->input->post('departgar');
+              $gid = $this->_normalize_recap_gare_code_filter($this->input->post('departgar'));
               $comp = $this->input->post('_compag');
               $this->_assert_cashbox_recap_filters($this->entreprise->ekey, $date1, $date2, $comp, $gid);
               $consultedCashbox = $this->_secured_consulted_cashbox_operator($this->entreprise->ekey);
@@ -11189,7 +11189,7 @@
               $gen = $this->input->post('genre');
               $nm = $this->input->post('nom');
               $comp = $this->input->post('_compag');
-              $gid = $this->input->post('departgar');
+              $gid = $this->_normalize_recap_gare_code_filter($this->input->post('departgar'));
               $this->_assert_cashbox_recap_filters($this->entreprise->ekey, $date1, $date2, $comp, $gid);
               $consultedCashbox = $this->_secured_consulted_cashbox_operator($this->entreprise->ekey);
               $ncomp = $this->m_compagnies->getn($comp);
@@ -11319,7 +11319,7 @@
               $typ = $this->input->post('type');
               $gen = $this->input->post('genre');
               $nm = $this->input->post('nom');
-              $gid = $this->input->post('departgar');
+              $gid = $this->_normalize_recap_gare_code_filter($this->input->post('departgar'));
               $comp = $this->input->post('_compag');
               $this->_assert_cashbox_recap_filters($this->entreprise->ekey, $date1, $date2, $comp, $gid);
               $consultedCashbox = $this->_secured_consulted_cashbox_operator($this->entreprise->ekey);
@@ -11443,7 +11443,7 @@
               $gen = $this->input->post('genre');
               $nm = $this->input->post('nom');
               $comp = $this->input->post('_compag');
-              $gid = $this->input->post('departgar');
+              $gid = $this->_normalize_recap_gare_code_filter($this->input->post('departgar'));
               $this->_assert_cashbox_recap_filters($this->entreprise->ekey, $date1, $date2, $comp, $gid);
               $consultedCashbox = $this->_secured_consulted_cashbox_operator($this->entreprise->ekey);
               $ncomp = $this->m_compagnies->getn($comp);
@@ -11575,7 +11575,7 @@
               $typ = $this->input->post('type');
               $gen = $this->input->post('genre');
               $nm = $this->input->post('nom');
-              $gid = $this->input->post('departgar');
+              $gid = $this->_normalize_recap_gare_code_filter($this->input->post('departgar'));
               $comp = $this->input->post('_compag');
               $this->_assert_cashbox_recap_filters($this->entreprise->ekey, $date1, $date2, $comp, $gid);
               $consultedCashbox = $this->_secured_consulted_cashbox_operator($this->entreprise->ekey);
@@ -11676,7 +11676,7 @@
                 $ddbt = $this->input->post('dated');
                 $dfin = $this->input->post('datef');
                 $comp = $this->input->post('_compag');
-                $gid = $this->input->post('departgar');
+                $gid = $this->_normalize_recap_gare_code_filter($this->input->post('departgar'));
                 $ncomp = $this->m_compagnies->getn($comp);
                 $dats = explode("-", $ddbt);
                           $days = $dats[2]. '-'. $dats[1]. '-' .$dats[0];
@@ -11779,7 +11779,7 @@
                 $ddbt = $this->input->post('dated');
                 $dfin = $this->input->post('datef');
                 $comp = $this->input->post('_compag');
-                $gid = $this->input->post('departgar');
+                $gid = $this->_normalize_recap_gare_code_filter($this->input->post('departgar'));
                 $ncomp = $this->m_compagnies->getn($comp);
                 $dats = explode("-", $ddbt);
                     $days = $dats[2]. '-'. $dats[1]. '-' .$dats[0];
@@ -11869,7 +11869,7 @@
                 $ddbt = $this->input->post('dated');
                 $dfin = $this->input->post('datef');
                 $comp = $this->input->post('_compag');
-                $gid = $this->input->post('departgar');
+                $gid = $this->_normalize_recap_gare_code_filter($this->input->post('departgar'));
                 $ncomp = $this->m_compagnies->getn($comp);
                 $dats = explode("-", $ddbt);
                           $days = $dats[2]. '-'. $dats[1]. '-' .$dats[0];
@@ -12808,7 +12808,7 @@
             $gen = $this->input->post('genre');
             $nm = $this->input->post('nom');
             $comp = $this->input->post('_compag');
-            $gid = $this->input->post('departgar');
+            $gid = $this->_normalize_recap_gare_code_filter($this->input->post('departgar'));
             $ncomp = $this->m_compagnies->getn($comp);
 
               $dats = explode("-", $date1);
@@ -12996,7 +12996,7 @@
                 $lign = $this->input->post('axelignespli');
                 $comp = $this->input->post('_compagnpli');
                 $typcr = $this->input->post('types_courspli');
-                $gid = $this->input->post('deptgaresidpli');
+                $gid = $this->_normalize_recap_gare_code_filter($this->input->post('deptgaresidpli'));
                 
                 $ncomp = $this->m_compagnies->getn($comp);
                 $ncgd = $this->m_gare_depart->getn($gid);
@@ -13114,7 +13114,7 @@
                 $lign = $this->input->post('axelignespliesc');
                 $comp = $this->input->post('_compagnpliesc');
                 $typcr = $this->input->post('types_courspliesc');
-                $gid = $this->input->post('deptgaresidpliesc');
+                $gid = $this->_normalize_recap_gare_code_filter($this->input->post('deptgaresidpliesc'));
                 
                 $ncomp = $this->m_compagnies->getn($comp);
                 $ncgd = $this->m_gare_depart->getn($gid);
@@ -13232,7 +13232,7 @@
                 $lign = $this->input->post('axelignesplivers');
                 $comp = $this->input->post('_compagnplivers');
                 $typcr = $this->input->post('types_coursplivers');
-                $gid = $this->input->post('deptgaresidplivers');
+                $gid = $this->_normalize_recap_gare_code_filter($this->input->post('deptgaresidplivers'));
                 $ncomp = $this->m_compagnies->getn($comp);
                 $ncgd = $this->m_gare_depart->getn($gid);
                 $gar = $ncgd->nom_gaep;
@@ -13350,7 +13350,7 @@
                 $lign = $this->input->post('axelignespliversesc');
                 $comp = $this->input->post('_compagnpliversesc');
                 $typcr = $this->input->post('types_courspliversesc');
-                $gid = $this->input->post('deptgaresidpliversesc');
+                $gid = $this->_normalize_recap_gare_code_filter($this->input->post('deptgaresidpliversesc'));
                 $ncomp = $this->m_compagnies->getn($comp);
                 $ncgd = $this->m_gare_depart->getn($gid);
                 $gar = $ncgd->nom_gaep;
@@ -13466,7 +13466,7 @@
                 $lign = $this->input->post('axelignesplig');
                 $comp = $this->input->post('_compagnplig');
                 $typcr = $this->input->post('types_coursplig');
-                $gid = $this->input->post('deptgaresidplig');
+                $gid = $this->_normalize_recap_gare_code_filter($this->input->post('deptgaresidplig'));
                 
                 $ncomp = $this->m_compagnies->getn($comp);
                 $ncgd = $this->m_gare_depart->getn($gid);
@@ -13590,7 +13590,7 @@
                 $lign = $this->input->post('axelignespligesc');
                 $comp = $this->input->post('_compagnpligesc');
                 $typcr = $this->input->post('types_courspligesc');
-                $gid = $this->input->post('deptgaresidpligesc');
+                $gid = $this->_normalize_recap_gare_code_filter($this->input->post('deptgaresidpligesc'));
                 
                 $ncomp = $this->m_compagnies->getn($comp);
                 $ncgd = $this->m_gare_depart->getn($gid);

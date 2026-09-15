@@ -74,7 +74,7 @@
                 LEFT JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = '$cid'
                 AND ex.code_gaexp = '$gd'
-                AND bg.date_create BETWEEN '$d1' AND '$d2'")->result();
+                AND bg.date_create >= '$d1' AND bg.date_create < DATE_ADD('$d2', INTERVAL 1 DAY)")->result();
         }
         public function stgetuc($cid, $gd, $d1, $d2, $u)
         {
@@ -91,7 +91,7 @@
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = '$cid'
                 AND ex.code_gaexp = '$gd'
-                AND bg.date_create BETWEEN '$d1' AND '$d2'
+                AND bg.date_create >= '$d1' AND bg.date_create < DATE_ADD('$d2', INTERVAL 1 DAY)
                 AND bg.idoperabagage = '$u'")->result();
         }
 
@@ -713,11 +713,11 @@
                 JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = '$cd'
-                AND bg.date_create BETWEEN '$db' AND '$df'
+                AND bg.date_create >= '$db' AND bg.date_create < DATE_ADD('$df', INTERVAL 1 DAY)
                 AND dest.id_compaga = '$cp'
                 AND bg.isvalidbag = 1
                 AND ar.roleattribut = '$use'
-                AND ul.guser = '$gid'
+                AND ex.code_gaexp = '$gid'
                 AND bg.annulebag = 0
                 AND bg.actifbag = 0
                 GROUP BY lg.nom_ligne, cu.username, bg.date_create")->result();
@@ -933,9 +933,9 @@
                     JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
                     WHERE e.ekey = '$cid'
-                    AND bg.date_create BETWEEN '$dt1' AND '$dt2'
+                    AND bg.date_create >= '$dt1' AND bg.date_create < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND dest.id_compaga = '$cp'
-                    AND ul.guser = '$gid'
+                    AND ex.code_gaexp = '$gid'
                     AND bg.couleurcarnet IN('A', 'C')
                     AND bg.prix_bagage IS NOT NULL
                     GROUP BY lg.nom_ligne, dest.id_compaga, bg.prix_bagage")->result();
@@ -955,9 +955,9 @@
                     JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
                     WHERE e.ekey = '$cid'
-                    AND bg.date_create BETWEEN '$dt1' AND '$dt2'
+                    AND bg.date_create >= '$dt1' AND bg.date_create < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND dest.id_compaga = '$cp'
-                    AND ul.guser = '$gid'
+                    AND ex.code_gaexp = '$gid'
                     AND bg.prix_bagage IS NOT NULL
                     AND lg.ident_ligne = '$algn'
                     AND bg.couleurcarnet IN('A', 'C')
@@ -986,9 +986,9 @@
                         JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                         JOIN entreprise e ON c.id_entrep = e.id_entreprise
                         WHERE e.ekey = '$cid'
-                        AND bg.date_create BETWEEN '$dt1' AND '$dt2'
+                        AND bg.date_create >= '$dt1' AND bg.date_create < DATE_ADD('$dt2', INTERVAL 1 DAY)
                         AND dest.id_compaga = '$cp'
-                        AND ul.guser = '$gid'
+                        AND gex.code_gaexp = '$gid'
                         AND bg.couleurcarnet IN('A', 'C')
                         AND bg.prix_bagage IS NOT NULL
                         GROUP BY lg.nom_ligne, bg.prix_bagage")->result();
@@ -1008,9 +1008,9 @@
                         JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                         JOIN entreprise e ON c.id_entrep = e.id_entreprise
                         WHERE e.ekey = '$cid'
-                        AND bg.date_create BETWEEN '$dt1' AND '$dt2'
+                        AND bg.date_create >= '$dt1' AND bg.date_create < DATE_ADD('$dt2', INTERVAL 1 DAY)
                         AND dest.id_compaga = '$cp'
-                        AND ul.guser = '$gid'
+                        AND gex.code_gaexp = '$gid'
                         AND bg.couleurcarnet IN('A', 'C')
                         AND bg.prix_bagage IS NOT NULL
                         AND lg.ident_ligne = '$algn'
@@ -1037,9 +1037,9 @@
                         JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                         JOIN entreprise e ON c.id_entrep = e.id_entreprise
                         WHERE e.ekey = '$cid'
-                        AND bg.date_create BETWEEN '$dt1' AND '$dt2'
+                        AND bg.date_create >= '$dt1' AND bg.date_create < DATE_ADD('$dt2', INTERVAL 1 DAY)
                         AND dest.id_compaga = '$cp'
-                        AND ul.guser = '$gid'
+                        AND gex.code_gaexp = '$gid'
                         AND ar.roleattribut = '$us'
                         AND bg.couleurcarnet IN('A', 'C')
                         AND bg.prix_bagage IS NOT NULL
@@ -1060,9 +1060,9 @@
                         JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                         JOIN entreprise e ON c.id_entrep = e.id_entreprise
                         WHERE e.ekey = '$cid'
-                        AND bg.date_create BETWEEN '$dt1' AND '$dt2'
+                        AND bg.date_create >= '$dt1' AND bg.date_create < DATE_ADD('$dt2', INTERVAL 1 DAY)
                         AND dest.id_compaga = '$cp'
-                        AND ul.guser = '$gid'
+                        AND gex.code_gaexp = '$gid'
                         AND ar.roleattribut = '$us'
                         AND bg.couleurcarnet IN('A', 'C')
                         AND bg.prix_bagage IS NOT NULL
@@ -1090,9 +1090,9 @@
                         JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                         JOIN entreprise e ON c.id_entrep = e.id_entreprise
                         WHERE e.ekey = '$cid'
-                        AND bg.date_create BETWEEN '$dt1' AND '$dt2'
+                        AND bg.date_create >= '$dt1' AND bg.date_create < DATE_ADD('$dt2', INTERVAL 1 DAY)
                         AND dest.id_compaga = '$cp'
-                        AND ul.guser = '$gid'
+                        AND gex.code_gaexp = '$gid'
                         AND bg.prix_bagage IS NOT NULL
                         GROUP BY lg.nom_ligne, dest.id_compaga, bg.prix_bagage")->result();
             }
@@ -1111,9 +1111,9 @@
                         JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                         JOIN entreprise e ON c.id_entrep = e.id_entreprise
                         WHERE e.ekey = '$cid'
-                        AND bg.date_create BETWEEN '$dt1' AND '$dt2'
+                        AND bg.date_create >= '$dt1' AND bg.date_create < DATE_ADD('$dt2', INTERVAL 1 DAY)
                         AND dest.id_compaga = '$cp'
-                        AND ul.guser = '$gid'
+                        AND gex.code_gaexp = '$gid'
                         AND lg.ident_ligne = '$algn'
                         AND bg.prix_bagage IS NOT NULL
                         GROUP BY lg.nom_ligne, dest.id_compaga, bg.prix_bagage")->result();
@@ -1139,9 +1139,9 @@
                         JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                         JOIN entreprise e ON c.id_entrep = e.id_entreprise
                         WHERE e.ekey = '$cid'
-                        AND bg.date_create BETWEEN '$dt1' AND '$dt2'
+                        AND bg.date_create >= '$dt1' AND bg.date_create < DATE_ADD('$dt2', INTERVAL 1 DAY)
                         AND dest.id_compaga = '$cp'
-                        AND ul.guser = '$gid'
+                        AND gex.code_gaexp = '$gid'
                         AND ar.roleattribut = '$us'
                         AND bg.prix_bagage IS NOT NULL
                         GROUP BY lg.nom_ligne, dest.id_compaga, bg.prix_bagage")->result();
@@ -1161,9 +1161,9 @@
                         JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                         JOIN entreprise e ON c.id_entrep = e.id_entreprise
                         WHERE e.ekey = '$cid'
-                        AND bg.date_create BETWEEN '$dt1' AND '$dt2'
+                        AND bg.date_create >= '$dt1' AND bg.date_create < DATE_ADD('$dt2', INTERVAL 1 DAY)
                         AND dest.id_compaga = '$cp'
-                        AND ul.guser = '$gid'
+                        AND gex.code_gaexp = '$gid'
                         AND ar.roleattribut = '$us'
                         AND lg.ident_ligne = '$algn'
                         AND bg.prix_bagage IS NOT NULL
@@ -1191,7 +1191,7 @@
                     JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
                     WHERE e.ekey = '$cid'
-                    AND bg.date_create BETWEEN '$dt1' AND '$dt2'
+                    AND bg.date_create >= '$dt1' AND bg.date_create < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND bg.couleurcarnet IN('A', 'C')
                     AND dest.id_compaga = '$cp'
                     AND bg.prix_bagage IS NOT NULL
@@ -1215,11 +1215,11 @@
                     JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
                     WHERE e.ekey = '$cid'
-                    AND bg.date_create BETWEEN '$dt1' AND '$dt2'
+                    AND bg.date_create >= '$dt1' AND bg.date_create < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND bg.couleurcarnet IN('A', 'C')
                     AND dest.id_compaga = '$cp'
                     AND bg.prix_bagage IS NOT NULL
-                    AND ul.guser = '$gid'
+                    AND ex.code_gaexp = '$gid'
                     GROUP BY dest.id_compaga, bg.date_create")->result();
             }
                 return $this->db->query(
@@ -1239,11 +1239,11 @@
                     JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
                     WHERE e.ekey = '$cid'
-                    AND bg.date_create BETWEEN '$dt1' AND '$dt2'
+                    AND bg.date_create >= '$dt1' AND bg.date_create < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND bg.couleurcarnet IN('A', 'C')
                     AND dest.id_compaga = '$cp'
                     AND bg.prix_bagage IS NOT NULL
-                    AND ul.guser = '$gid'
+                    AND ex.code_gaexp = '$gid'
                     AND ar.roleattribut = '$acl'
                     GROUP BY dest.id_compaga, bg.date_create")->result();
         }
@@ -1266,9 +1266,9 @@
                     JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
                     WHERE e.ekey = '$cid'
-                    AND bg.date_create BETWEEN '$dt1' AND '$dt2'
+                    AND bg.date_create >= '$dt1' AND bg.date_create < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND dest.id_compaga = '$cp'
-                    AND ul.guser = '$gd'
+                    AND gex.code_gaexp = '$gd'
                     AND bg.couleurcarnet IN('A', 'C')
                     GROUP BY lg.nom_ligne, bg.prix_bagage, bg.date_create
                     ORDER BY bg.date_create ASC")->result();
@@ -1288,9 +1288,9 @@
                     JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
                     WHERE e.ekey = '$cid'
-                    AND bg.date_create BETWEEN '$dt1' AND '$dt2'
+                    AND bg.date_create >= '$dt1' AND bg.date_create < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND dest.id_compaga = '$cp'
-                    AND ul.guser = '$gd'
+                    AND gex.code_gaexp = '$gd'
                     AND bg.couleurcarnet IN('A', 'C')
                     AND lg.ident_ligne = '$algn'
                     GROUP BY lg.nom_ligne, bg.prix_bagage
@@ -1317,10 +1317,10 @@
                         JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                         JOIN entreprise e ON c.id_entrep = e.id_entreprise
                         WHERE e.ekey = '$cid'
-                        AND bg.date_create BETWEEN '$dt1' AND '$dt2'
+                        AND bg.date_create >= '$dt1' AND bg.date_create < DATE_ADD('$dt2', INTERVAL 1 DAY)
                         AND dest.id_compaga = '$cp'
                         AND bg.isvalidbag = 1
-                        AND ul.guser = '$gid'
+                        AND ex.code_gaexp = '$gid'
                         AND bg.exobg = 1
                         AND bg.prix_bagage IS NOT NULL
                         GROUP BY lg.nom_ligne, bg.prix_bagage")->result();
@@ -1340,10 +1340,10 @@
                         JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                         JOIN entreprise e ON c.id_entrep = e.id_entreprise
                         WHERE e.ekey = '$cid'
-                        AND bg.date_create BETWEEN '$dt1' AND '$dt2'
+                        AND bg.date_create >= '$dt1' AND bg.date_create < DATE_ADD('$dt2', INTERVAL 1 DAY)
                         AND dest.id_compaga = '$cp'
                         AND bg.isvalidbag = 1
-                        AND ul.guser = '$gid'
+                        AND ex.code_gaexp = '$gid'
                         AND bg.exobg = 1
                         AND bg.prix_bagage IS NOT NULL
                         AND lg.ident_ligne = '$algn'
@@ -1366,7 +1366,7 @@
                     JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
                     WHERE e.ekey = '$cid'
-                    AND bg.date_create BETWEEN '$dt1' AND '$dt2'
+                    AND bg.date_create >= '$dt1' AND bg.date_create < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND bg.couleurcarnet IN('A', 'C')
                     AND dest.id_compaga = '$cp'
                     AND bg.prix_bagage IS NOT NULL
@@ -1379,7 +1379,7 @@
                           WHERE ar.roleattribut = bg.idoperabagage
                           LIMIT 1
                       )
-                      AND ul.guser = '$gid'
+                      AND ex.code_gaexp = '$gid'
                     )")->result();
             }
                 return $this->db->query(
@@ -1393,7 +1393,7 @@
                     JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
                     WHERE e.ekey = '$cid'
-                    AND bg.date_create BETWEEN '$dt1' AND '$dt2'
+                    AND bg.date_create >= '$dt1' AND bg.date_create < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND bg.couleurcarnet IN('A', 'C')
                     AND dest.id_compaga = '$cp'
                     AND bg.prix_bagage IS NOT NULL
@@ -1407,7 +1407,7 @@
                           WHERE ar.roleattribut = bg.idoperabagage
                           LIMIT 1
                       )
-                      AND ul.guser = '$gid'
+                      AND ex.code_gaexp = '$gid'
                     )")->result();
         }*/
         
@@ -1431,6 +1431,7 @@
 
                 LEFT JOIN lignes g ON lh.ligne_id = g.ident_ligne
                 LEFT JOIN lignes lg ON bg.lgidbagage = lg.ident_ligne
+                JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
 
                 LEFT JOIN gare_dest dest
                     ON (lg.gadest_lg = dest.code_gadest 
@@ -1439,9 +1440,9 @@
                 LEFT JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                 LEFT JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE 
-                    bg.date_create BETWEEN '$dt1' AND '$dt2'
+                    bg.date_create >= '$dt1' AND bg.date_create < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND e.ekey = '$cid'
-                    AND ul.guser = '$gid'
+                    AND ex.code_gaexp = '$gid'
                     AND dest.id_compaga = '$cp'
                     AND bg.couleurcarnet IN ('A','C')
                     AND bg.prix_bagage IS NOT NULL
@@ -1462,6 +1463,7 @@
 
                 LEFT JOIN lignes g ON lh.ligne_id = g.ident_ligne
                 LEFT JOIN lignes lg ON bg.lgidbagage = lg.ident_ligne
+                JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
 
                 LEFT JOIN gare_dest dest
                     ON (lg.gadest_lg = dest.code_gadest 
@@ -1470,9 +1472,9 @@
                 LEFT JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                 LEFT JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE 
-                    bg.date_create BETWEEN '$dt1' AND '$dt2'
+                    bg.date_create >= '$dt1' AND bg.date_create < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND e.ekey = '$cid'
-                    AND ul.guser = '$gid'
+                    AND ex.code_gaexp = '$gid'
                     AND dest.id_compaga = '$cp'
                     AND bg.couleurcarnet IN ('A','C')
                     AND lg.ident_ligne = '$algn'
@@ -1502,7 +1504,7 @@
 
                 LEFT JOIN lignes g ON lh.ligne_id = g.ident_ligne
                 LEFT JOIN lignes lg ON bg.lgidbagage = lg.ident_ligne
-
+                LEFT JOIN gare_exp gex ON gex.code_gaexp = COALESCE(lg.gaexp_lg, g.gaexp_lg)
                 LEFT JOIN gare_dest dest
                     ON (lg.gadest_lg = dest.code_gadest 
                         OR g.gadest_lg = dest.code_gadest)
@@ -1510,9 +1512,9 @@
                 LEFT JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                 LEFT JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE 
-                    bg.date_create BETWEEN '$dt1' AND '$dt2'
+                    bg.date_create >= '$dt1' AND bg.date_create < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND e.ekey = '$cid'
-                    AND ul.guser = '$gid'
+                    AND gex.code_gaexp = '$gid'
                     AND dest.id_compaga = '$cp'
                     AND bg.couleurcarnet IN ('A','C')
                     AND bg.prix_bagage IS NOT NULL
@@ -1541,9 +1543,9 @@
                 LEFT JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                 LEFT JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE 
-                    bg.date_create BETWEEN '$dt1' AND '$dt2'
+                    bg.date_create >= '$dt1' AND bg.date_create < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND e.ekey = '$cid'
-                    AND ul.guser = '$gid'
+                    AND gex.code_gaexp = '$gid'
                     AND dest.id_compaga = '$cp'
                     AND bg.couleurcarnet IN ('A','C')
                     AND lg.ident_ligne = '$algn'
@@ -1570,7 +1572,7 @@
 
                 LEFT JOIN lignes g ON lh.ligne_id = g.ident_ligne
                 LEFT JOIN lignes lg ON bg.lgidbagage = lg.ident_ligne
-
+                LEFT JOIN gare_exp gex ON gex.code_gaexp = COALESCE(lg.gaexp_lg, g.gaexp_lg)
                 LEFT JOIN gare_dest dest
                     ON (lg.gadest_lg = dest.code_gadest 
                         OR g.gadest_lg = dest.code_gadest)
@@ -1578,9 +1580,9 @@
                 LEFT JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                 LEFT JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE 
-                    bg.date_create BETWEEN '$dt1' AND '$dt2'
+                    bg.date_create >= '$dt1' AND bg.date_create < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND e.ekey = '$cid'
-                    AND ul.guser = '$gid'
+                    AND gex.code_gaexp = '$gid'
                     AND dest.id_compaga = '$cp'
                     AND bg.couleurcarnet IN ('A','C')
                     AND ar.roleattribut = '$us'
@@ -1610,9 +1612,9 @@
                 LEFT JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                 LEFT JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE 
-                    bg.date_create BETWEEN '$dt1' AND '$dt2'
+                    bg.date_create >= '$dt1' AND bg.date_create < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND e.ekey = '$cid'
-                    AND ul.guser = '$gid'
+                    AND gex.code_gaexp = '$gid'
                     AND dest.id_compaga = '$cp'
                     AND bg.couleurcarnet IN ('A','C')
                     AND ar.roleattribut = '$us'
@@ -1630,7 +1632,7 @@
             $gidNorm = ($gid === FALSE || $gid === null) ? '' : trim((string) $gid);
             $gareSql = '';
             if ($gidNorm !== '' && $gidNorm !== '0') {
-                $gareSql = " AND ul.guser = '" . $this->db->escape_str($gidNorm) . "'";
+                $gareSql = " AND gex.code_gaexp = '" . $this->db->escape_str($gidNorm) . "'";
             }
             $algn = ($algn === FALSE || $algn === null) ? '' : trim((string) $algn);
             $ligneSql = '';
@@ -1653,7 +1655,7 @@
 
                 LEFT JOIN lignes g ON lh.ligne_id = g.ident_ligne
                 LEFT JOIN lignes lg ON bg.lgidbagage = lg.ident_ligne
-
+                LEFT JOIN gare_exp gex ON gex.code_gaexp = COALESCE(lg.gaexp_lg, g.gaexp_lg)
                 LEFT JOIN gare_dest dest
                     ON (lg.gadest_lg = dest.code_gadest 
                         OR g.gadest_lg = dest.code_gadest)
@@ -1661,7 +1663,7 @@
                 LEFT JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                 LEFT JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE 
-                    bg.date_create BETWEEN '{$dt1}' AND '{$dt2}'
+                    bg.date_create >= '{$dt1}' AND bg.date_create < DATE_ADD('{$dt2}', INTERVAL 1 DAY)
                     AND e.ekey = '{$cid}'
                     AND dest.id_compaga = '{$cp}'
                     AND bg.prix_bagage IS NOT NULL
@@ -1690,7 +1692,7 @@
 
                 LEFT JOIN lignes g ON lh.ligne_id = g.ident_ligne
                 LEFT JOIN lignes lg ON bg.lgidbagage = lg.ident_ligne
-
+                LEFT JOIN gare_exp gex ON gex.code_gaexp = COALESCE(lg.gaexp_lg, g.gaexp_lg)
                 LEFT JOIN gare_dest dest
                     ON (lg.gadest_lg = dest.code_gadest 
                         OR g.gadest_lg = dest.code_gadest)
@@ -1698,9 +1700,9 @@
                 LEFT JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                 LEFT JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE 
-                    bg.date_create BETWEEN '$dt1' AND '$dt2'
+                    bg.date_create >= '$dt1' AND bg.date_create < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND e.ekey = '$cid'
-                    AND ul.guser = '$gid'
+                    AND gex.code_gaexp = '$gid'
                     AND dest.id_compaga = '$cp'
                     AND ar.roleattribut = '$us'
                     AND bg.prix_bagage IS NOT NULL
@@ -1729,9 +1731,9 @@
                 LEFT JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                 LEFT JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE 
-                    bg.date_create BETWEEN '$dt1' AND '$dt2'
+                    bg.date_create >= '$dt1' AND bg.date_create < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND e.ekey = '$cid'
-                    AND ul.guser = '$gid'
+                    AND gex.code_gaexp = '$gid'
                     AND dest.id_compaga = '$cp'
                     AND ar.roleattribut = '$us'
                     AND lg.ident_ligne = '$algn'
@@ -1757,6 +1759,7 @@
 
                 LEFT JOIN lignes g ON lh.ligne_id = g.ident_ligne
                 LEFT JOIN lignes lg ON bg.lgidbagage = lg.ident_ligne
+                JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
 
                 LEFT JOIN gare_dest dest
                     ON (lg.gadest_lg = dest.code_gadest 
@@ -1765,7 +1768,7 @@
                 LEFT JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                 LEFT JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE 
-                    bg.date_create BETWEEN '$dt1' AND '$dt2'
+                    bg.date_create >= '$dt1' AND bg.date_create < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND e.ekey = '$cid'
                     AND bg.couleurcarnet IN ('A','C')
                     AND dest.id_compaga = '$cp'
@@ -1787,6 +1790,7 @@
 
                 LEFT JOIN lignes g ON lh.ligne_id = g.ident_ligne
                 LEFT JOIN lignes lg ON bg.lgidbagage = lg.ident_ligne
+                JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
 
                 LEFT JOIN gare_dest dest
                     ON (lg.gadest_lg = dest.code_gadest 
@@ -1795,9 +1799,9 @@
                 LEFT JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                 LEFT JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE 
-                    bg.date_create BETWEEN '$dt1' AND '$dt2'
+                    bg.date_create >= '$dt1' AND bg.date_create < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND e.ekey = '$cid'
-                    AND ul.guser = '$gid'
+                    AND ex.code_gaexp = '$gid'
                     AND dest.id_compaga = '$cp'
                     AND bg.couleurcarnet IN ('A','C')
                 GROUP BY dest.id_compaga, DATE(bg.date_create)")->result();
@@ -1816,6 +1820,7 @@
 
                 LEFT JOIN lignes g ON lh.ligne_id = g.ident_ligne
                 LEFT JOIN lignes lg ON bg.lgidbagage = lg.ident_ligne
+                JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
 
                 LEFT JOIN gare_dest dest
                     ON (lg.gadest_lg = dest.code_gadest 
@@ -1824,9 +1829,9 @@
                 LEFT JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                 LEFT JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE 
-                    bg.date_create BETWEEN '$dt1' AND '$dt2'
+                    bg.date_create >= '$dt1' AND bg.date_create < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND e.ekey = '$cid'
-                    AND ul.guser = '$gid'
+                    AND ex.code_gaexp = '$gid'
                     AND dest.id_compaga = '$cp'
                     AND bg.couleurcarnet IN ('A','C')
                     AND ar.roleattribut = '$acl'
@@ -1854,7 +1859,7 @@
 
                 LEFT JOIN lignes g ON lh.ligne_id = g.ident_ligne
                 LEFT JOIN lignes lg ON bg.lgidbagage = lg.ident_ligne
-
+                LEFT JOIN gare_exp gex ON gex.code_gaexp = COALESCE(lg.gaexp_lg, g.gaexp_lg)
                 LEFT JOIN gare_dest dest
                     ON (lg.gadest_lg = dest.code_gadest 
                         OR g.gadest_lg = dest.code_gadest)
@@ -1862,9 +1867,9 @@
                 LEFT JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                 LEFT JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE 
-                    bg.date_create BETWEEN '$dt1' AND '$dt2'
+                    bg.date_create >= '$dt1' AND bg.date_create < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND e.ekey = '$cid'
-                    AND ul.guser = '$gd'
+                    AND gex.code_gaexp = '$gd'
                     AND dest.id_compaga = '$cp'
                     AND bg.couleurcarnet IN ('A','C')
                 GROUP BY COALESCE(lg.nom_ligne, g.nom_ligne), DATE(bg.date_create), bg.prix_bagage
@@ -1894,9 +1899,9 @@
                 LEFT JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                 LEFT JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE 
-                    bg.date_create BETWEEN '$dt1' AND '$dt2'
+                    bg.date_create >= '$dt1' AND bg.date_create < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND e.ekey = '$cid'
-                    AND ul.guser = '$gd'
+                    AND gex.code_gaexp = '$gd'
                     AND dest.id_compaga = '$cp'
                     AND bg.couleurcarnet IN ('A','C')
                     AND lg.ident_ligne = '$algn'
@@ -1923,6 +1928,7 @@
 
                 LEFT JOIN lignes g ON lh.ligne_id = g.ident_ligne
                 LEFT JOIN lignes lg ON bg.lgidbagage = lg.ident_ligne
+                JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
 
                 LEFT JOIN gare_dest dest
                     ON (lg.gadest_lg = dest.code_gadest 
@@ -1931,9 +1937,9 @@
                 LEFT JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                 LEFT JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE 
-                    bg.date_create BETWEEN '$dt1' AND '$dt2'
+                    bg.date_create >= '$dt1' AND bg.date_create < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND e.ekey = '$cid'
-                    AND ul.guser = '$gid'
+                    AND ex.code_gaexp = '$gid'
                     AND dest.id_compaga = '$cp'
                     AND bg.isvalidbag = 1
                     AND bg.exobg = 1
@@ -1954,6 +1960,7 @@
 
                 LEFT JOIN lignes g ON lh.ligne_id = g.ident_ligne
                 LEFT JOIN lignes lg ON bg.lgidbagage = lg.ident_ligne
+                JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
 
                 LEFT JOIN gare_dest dest
                     ON (lg.gadest_lg = dest.code_gadest 
@@ -1962,9 +1969,9 @@
                 LEFT JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                 LEFT JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE 
-                    bg.date_create BETWEEN '$dt1' AND '$dt2'
+                    bg.date_create >= '$dt1' AND bg.date_create < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND e.ekey = '$cid'
-                    AND ul.guser = '$gid'
+                    AND ex.code_gaexp = '$gid'
                     AND dest.id_compaga = '$cp'
                     AND bg.isvalidbag = 1
                     AND bg.exobg = 1
@@ -1986,6 +1993,7 @@
 
                     LEFT JOIN lignes g ON lh.ligne_id = g.ident_ligne
                     LEFT JOIN lignes lg ON bg.lgidbagage = lg.ident_ligne
+                JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
 
                     LEFT JOIN gare_dest dest
                         ON (lg.gadest_lg = dest.code_gadest 
@@ -1994,7 +2002,7 @@
                     LEFT JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                     LEFT JOIN entreprise e ON c.id_entrep = e.id_entreprise
                     WHERE 
-                    bg.date_create BETWEEN '$dt1' AND '$dt2'
+                    bg.date_create >= '$dt1' AND bg.date_create < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND e.ekey = '$cid'
                         AND dest.id_compaga = '$cp'
                         AND bg.couleurcarnet IN ('A','C')
@@ -2008,7 +2016,7 @@
                           WHERE ar.roleattribut = bg.idoperabagage
                           LIMIT 1
                       )
-                      AND ul.guser = '$gid'
+                      AND ex.code_gaexp = '$gid'
                     )")->result();
             }
                 return $this->db->query(
@@ -2019,6 +2027,7 @@
 
                 LEFT JOIN lignes g ON lh.ligne_id = g.ident_ligne
                 LEFT JOIN lignes lg ON bg.lgidbagage = lg.ident_ligne
+                JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
 
                 LEFT JOIN gare_dest dest
                     ON (lg.gadest_lg = dest.code_gadest 
@@ -2027,7 +2036,7 @@
                 LEFT JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                 LEFT JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE 
-                    bg.date_create BETWEEN '$dt1' AND '$dt2'
+                    bg.date_create >= '$dt1' AND bg.date_create < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND e.ekey = '$cid'
                     AND dest.id_compaga = '$cp'
                     AND bg.couleurcarnet IN ('A','C')
@@ -2040,7 +2049,7 @@
                           WHERE ar.roleattribut = bg.idoperabagage
                           LIMIT 1
                       )
-                      AND ul.guser = '$gid'
+                      AND ex.code_gaexp = '$gid'
                     )")->result();
         }
        

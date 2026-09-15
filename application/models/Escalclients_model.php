@@ -233,11 +233,11 @@
                 JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = '$cd'
-                AND es.dateescal BETWEEN '$db' AND '$df'
+                AND es.dateescal >= '$db' AND es.dateescal < DATE_ADD('$df', INTERVAL 1 DAY)
                 AND dest.id_compaga = '$cp'
                 AND ar.roleattribut = '$use'
                 AND es.cptarrchgescal = 0
-                AND ul.guser = '$gid'
+                AND ex.code_gaexp = '$gid'
                 GROUP BY lg.ident_ligne, dest.id_compaga, es.prixescal, cu.username, es.dateescal")->result();
          
         }
@@ -259,9 +259,9 @@
                 JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = '$cd'
-                AND es.dateescal BETWEEN '$dd' AND '$fd'
+                AND es.dateescal >= '$dd' AND es.dateescal < DATE_ADD('$fd', INTERVAL 1 DAY)
                 AND ar.roleattribut = '$idcox'
-                AND ul.guser = '$gid'
+                AND ex.code_gaexp = '$gid'
                 AND es.cptarrchgescal = 0
                 GROUP BY es.iduseescal, dest.id_compaga, c.id_compagnie, es.idclescal ASC")->result();
         }
@@ -377,7 +377,7 @@
                 JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = '$cid'
-                AND es.datedepescal BETWEEN '$datedb' AND '$datef'
+                AND es.datedepescal >= '$datedb' AND es.datedepescal < DATE_ADD('$datef', INTERVAL 1 DAY)
                 AND es.arrcptchefgescal = 0
                 AND c.cle_compagnie ='$cp'
                 AND ex.code_gaexp = '$gd'")->result();
@@ -398,7 +398,7 @@
                 JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = '$cid'
-                AND es.datedepescal BETWEEN '$datedb' AND '$datef'
+                AND es.datedepescal >= '$datedb' AND es.datedepescal < DATE_ADD('$datef', INTERVAL 1 DAY)
                 AND es.arrcptchefgescal = 0
                 AND c.cle_compagnie ='$cp'
                 AND ex.code_gaexp = '$gd'
@@ -420,7 +420,7 @@
                 JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = '$cid'
-                AND es.datedepescal BETWEEN '$datedb' AND '$datef'
+                AND es.datedepescal >= '$datedb' AND es.datedepescal < DATE_ADD('$datef', INTERVAL 1 DAY)
                 AND es.arrcptchefgescal = 0
                 AND c.cle_compagnie ='$cp'
                 AND ex.code_gaexp = '$gd'
@@ -461,7 +461,7 @@
                         JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                         JOIN entreprise e ON c.id_entrep = e.id_entreprise
                         WHERE e.ekey = '{$cid}'
-                        AND esp.datedepescal BETWEEN '{$dt1}' AND '{$dt2}'
+                        AND esp.datedepescal >= '{$dt1}' AND datedepescal < DATE_ADD('{$dt2}', INTERVAL 1 DAY)
                         AND esp.prixescal IS NOT NULL
                         AND esp.arrcptescal = 1
                         AND dest.id_compaga = '{$cp}'
@@ -488,9 +488,9 @@
                         JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                         JOIN entreprise e ON c.id_entrep = e.id_entreprise
                         WHERE e.ekey = '$cid'
-                        AND esp.datedepescal BETWEEN '$dt1' AND '$dt2'
+                        AND esp.datedepescal >= '$dt1' AND datedepescal < DATE_ADD('$dt2', INTERVAL 1 DAY)
                         AND esp.prixescal IS NOT NULL
-                        AND ul.guser = '$gid'
+                        AND ex.code_gaexp = '$gid'
                         AND esp.arrcptescal = 1
                         AND esp.escalpanier IN('A', 'C', 'D')
                         AND dest.id_compaga = '$cp'
@@ -509,9 +509,9 @@
                         JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                         JOIN entreprise e ON c.id_entrep = e.id_entreprise
                         WHERE e.ekey = '$cid'
-                        AND esp.datedepescal BETWEEN '$dt1' AND '$dt2'
+                        AND esp.datedepescal >= '$dt1' AND datedepescal < DATE_ADD('$dt2', INTERVAL 1 DAY)
                         AND esp.prixescal IS NOT NULL
-                        AND ul.guser = '$gid'
+                        AND ex.code_gaexp = '$gid'
                         AND esp.arrcptescal = 1
                         AND esp.escalpanier IN('A', 'C', 'D')
                         AND dest.id_compaga = '$cp'
@@ -537,9 +537,9 @@
                         JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                         JOIN entreprise e ON c.id_entrep = e.id_entreprise
                         WHERE e.ekey = '$cid'
-                        AND esp.datedepescal BETWEEN '$dt1' AND '$dt2'
+                        AND esp.datedepescal >= '$dt1' AND datedepescal < DATE_ADD('$dt2', INTERVAL 1 DAY)
                         AND esp.prixescal IS NOT NULL
-                        AND ul.guser = '$gid'
+                        AND ex.code_gaexp = '$gid'
                         AND esp.arrcptescal = 1
                         AND esp.escalpanier IN('A', 'C', 'D')
                         AND dest.id_compaga = '$cp'")->result();
@@ -557,9 +557,9 @@
                         JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                         JOIN entreprise e ON c.id_entrep = e.id_entreprise
                         WHERE e.ekey = '$cid'
-                        AND esp.datedepescal BETWEEN '$dt1' AND '$dt2'
+                        AND esp.datedepescal >= '$dt1' AND datedepescal < DATE_ADD('$dt2', INTERVAL 1 DAY)
                         AND esp.prixescal IS NOT NULL
-                        AND ul.guser = '$gid'
+                        AND ex.code_gaexp = '$gid'
                         AND esp.arrcptescal = 1
                         AND esp.escalpanier IN('A', 'C', 'D')
                         AND dest.id_compaga = '$cp'
@@ -584,10 +584,10 @@
                         JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                         JOIN entreprise e ON c.id_entrep = e.id_entreprise
                         WHERE e.ekey = '$cid'
-                        AND esp.datedepescal BETWEEN '$dt1' AND '$dt2'
+                        AND esp.datedepescal >= '$dt1' AND datedepescal < DATE_ADD('$dt2', INTERVAL 1 DAY)
                         AND esp.arrcptescal = 1
                         AND dest.id_compaga = '$cp'
-                        AND ul.guser = '$gid'
+                        AND ex.code_gaexp = '$gid'
                         AND esp.exopes = 1
                         AND esp.prixescal IS NOT NULL
                         GROUP BY lg.nom_ligne, esp.prixescal")->result();
@@ -605,10 +605,10 @@
                         JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                         JOIN entreprise e ON c.id_entrep = e.id_entreprise
                         WHERE e.ekey = '$cid'
-                        AND esp.datedepescal BETWEEN '$dt1' AND '$dt2'
+                        AND esp.datedepescal >= '$dt1' AND datedepescal < DATE_ADD('$dt2', INTERVAL 1 DAY)
                         AND esp.arrcptescal = 1
                         AND dest.id_compaga = '$cp'
-                        AND ul.guser = '$gid'
+                        AND ex.code_gaexp = '$gid'
                         AND esp.exopes = 1
                         AND esp.prixescal IS NOT NULL
                         AND lg.ident_ligne = '$algn'
@@ -632,10 +632,10 @@
                     JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
                     WHERE e.ekey = '$cid'
-                    AND esp.datedepescal BETWEEN '$dt1' AND '$dt2'
+                    AND esp.datedepescal >= '$dt1' AND datedepescal < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND dest.id_compaga = '$cp'
                     AND esp.prixescal IS NOT NULL
-                    AND ul.guser = '$gid'
+                    AND ex.code_gaexp = '$gid'
                     GROUP BY lg.nom_ligne, esp.prixescal")->result();
             }
             elseif($algn === '')
@@ -652,11 +652,11 @@
                     JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
                     WHERE e.ekey = '$cid'
-                    AND esp.datedepescal BETWEEN '$dt1' AND '$dt2'
+                    AND esp.datedepescal >= '$dt1' AND datedepescal < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND dest.id_compaga = '$cp'
                     AND esp.prixescal IS NOT NULL
                     AND ar.roleattribut = '$acl'
-                    AND ul.guser = '$gid'
+                    AND ex.code_gaexp = '$gid'
                     GROUP BY ar.roleattribut, dest.id_compaga, u.first_name, u.last_name, lg.nom_ligne, esp.prixescal")->result();
             }
                 return $this->db->query(
@@ -672,12 +672,12 @@
                     JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
                     WHERE e.ekey = '$cid'
-                    AND esp.datedepescal BETWEEN '$dt1' AND '$dt2'
+                    AND esp.datedepescal >= '$dt1' AND datedepescal < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND dest.id_compaga = '$cp'
                     AND esp.prixescal IS NOT NULL
                     AND ar.roleattribut = '$acl'
                     AND lg.ident_ligne = '$algn'
-                    AND ul.guser = '$gid'
+                    AND ex.code_gaexp = '$gid'
                     GROUP BY ar.roleattribut, dest.id_compaga, u.first_name, u.last_name, lg.nom_ligne, esp.prixescal")->result();
         }
         
@@ -698,11 +698,11 @@
                     JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
                     WHERE e.ekey = '$cid'
-                    AND esp.datedepescal BETWEEN '$dt1' AND '$dt2'
+                    AND esp.datedepescal >= '$dt1' AND datedepescal < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND dest.id_compaga = '$cp'
                     AND esp.escalpanier IN('A', 'C', 'D')
                     AND esp.prixescal IS NOT NULL
-                    AND ul.guser = '$gid'
+                    AND ex.code_gaexp = '$gid'
                     GROUP BY lg.nom_ligne, esp.prixescal")->result();
             }
             elseif($algn === '')
@@ -719,12 +719,12 @@
                     JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
                     WHERE e.ekey = '$cid'
-                    AND esp.datedepescal BETWEEN '$dt1' AND '$dt2'
+                    AND esp.datedepescal >= '$dt1' AND datedepescal < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND dest.id_compaga = '$cp'
                     AND esp.escalpanier IN('A', 'C', 'D')
                     AND esp.prixescal IS NOT NULL
                     AND ar.roleattribut = '$acl'
-                    AND ul.guser = '$gid'
+                    AND ex.code_gaexp = '$gid'
                     GROUP BY ar.roleattribut, dest.id_compaga, u.first_name, u.last_name, lg.nom_ligne, esp.prixescal")->result();
             }
                 return $this->db->query(
@@ -740,13 +740,13 @@
                     JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
                     WHERE e.ekey = '$cid'
-                    AND esp.datedepescal BETWEEN '$dt1' AND '$dt2'
+                    AND esp.datedepescal >= '$dt1' AND datedepescal < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND dest.id_compaga = '$cp'
                     AND esp.escalpanier IN('A', 'C', 'D')
                     AND esp.prixescal IS NOT NULL
                     AND ar.roleattribut = '$acl'
                     AND lg.ident_ligne = '$algn'
-                    AND ul.guser = '$gid'
+                    AND ex.code_gaexp = '$gid'
                     GROUP BY ar.roleattribut, dest.id_compaga, u.first_name, u.last_name, lg.nom_ligne, esp.prixescal")->result();
         }
 
@@ -823,8 +823,8 @@
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = '$cid'
                 AND dest.id_compaga = '$cp'
-                AND esp.datedepescal BETWEEN '$dt1' AND '$dt2'
-                AND ul.guser = '$gid'
+                AND esp.datedepescal >= '$dt1' AND datedepescal < DATE_ADD('$dt2', INTERVAL 1 DAY)
+                AND ex.code_gaexp = '$gid'
                 AND esp.escalpanier IN('A', 'C', 'D')
                 AND esp.prixescal IS NOT NULL
                 GROUP BY lg.nom_ligne, esp.prixescal, esp.datedepescal
@@ -844,8 +844,8 @@
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = '$cid'
                 AND dest.id_compaga = '$cp'
-                AND esp.datedepescal BETWEEN '$dt1' AND '$dt2'
-                AND ul.guser = '$gid'
+                AND esp.datedepescal >= '$dt1' AND datedepescal < DATE_ADD('$dt2', INTERVAL 1 DAY)
+                AND ex.code_gaexp = '$gid'
                 AND esp.escalpanier IN('A', 'C', 'D')
                 AND esp.prixescal IS NOT NULL
                 AND lg.ident_ligne = '$algn'
@@ -871,9 +871,9 @@
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = '$cid'
                 AND dest.id_compaga = '$cp'
-                AND ul.guser = '$gid'
+                AND ex.code_gaexp = '$gid'
                 AND esp.escalpanier IN('A', 'C', 'D')
-                AND esp.datedepescal BETWEEN '$dt1' AND '$dt2'
+                AND esp.datedepescal >= '$dt1' AND datedepescal < DATE_ADD('$dt2', INTERVAL 1 DAY)
                 AND esp.prixescal IS NOT NULL
                 GROUP BY dest.id_compaga, esp.datedepescal")->result();
         }
@@ -891,8 +891,8 @@
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = '$cid'
                 AND dest.id_compaga = '$cp'
-                AND ul.guser = '$gid'
-                AND esp.datedepescal BETWEEN '$dt1' AND '$dt2'
+                AND ex.code_gaexp = '$gid'
+                AND esp.datedepescal >= '$dt1' AND datedepescal < DATE_ADD('$dt2', INTERVAL 1 DAY)
                 AND ar.roleattribut = '$acl'
                 AND esp.escalpanier IN('A', 'C', 'D')
                 AND esp.prixescal IS NOT NULL
@@ -913,7 +913,7 @@
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = '$cid'
                 AND dest.id_compaga = '$cp'
-                AND es.datedepescal BETWEEN '$d1' AND '$d2'
+                AND es.datedepescal >= '$d1' AND es.datedepescal < DATE_ADD('$d2', INTERVAL 1 DAY)
                 AND es.prixescal IS NOT NULL
                 AND ex.code_gaexp = '$gd'
                 AND es.escalpanier IN('A', 'C', 'D')")->result();        
@@ -936,7 +936,7 @@
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = '$cid'
                 AND dest.id_compaga = '$cp'
-                AND es.datedepescal BETWEEN '$d1' AND '$d2'
+                AND es.datedepescal >= '$d1' AND es.datedepescal < DATE_ADD('$d2', INTERVAL 1 DAY)
                 AND es.prixescal IS NOT NULL
                 AND ex.code_gaexp = '$gd'")->result();
         

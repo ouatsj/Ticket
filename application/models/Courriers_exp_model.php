@@ -53,9 +53,9 @@
                     JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                     JOIN entreprise ep ON c.id_entrep = ep.id_entreprise
                     WHERE ep.ekey = '$cid'
-                    AND ul.guser = '$gid'
+                    AND gex.code_gaexp = '$gid'
                     AND dest.id_compaga = '$cp'
-                    AND e.dateenvoi BETWEEN '$dt1' AND '$dt2'
+                    AND e.dateenvoi >= '$dt1' AND dateenvoi < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND e.prixcolis IS NOT NULL
                     AND e.partocour IS NULL
                     AND e.actif_cour = 0
@@ -81,9 +81,9 @@
                     JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                     JOIN entreprise ep ON c.id_entrep = ep.id_entreprise
                     WHERE ep.ekey = '$cid'
-                    AND ul.guser = '$gid'
+                    AND gex.code_gaexp = '$gid'
                     AND dest.id_compaga = '$cp'
-                    AND e.dateenvoi BETWEEN '$dt1' AND '$dt2'
+                    AND e.dateenvoi >= '$dt1' AND dateenvoi < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND e.prixcolis IS NOT NULL
                     AND e.partocour IS NULL
                     AND e.actif_cour = 0
@@ -109,9 +109,9 @@
                     JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                     JOIN entreprise ep ON c.id_entrep = ep.id_entreprise
                     WHERE ep.ekey = '$cid'
-                    AND ul.guser = '$gid'
+                    AND gex.code_gaexp = '$gid'
                     AND dest.id_compaga = '$cp'
-                    AND e.dateenvoi BETWEEN '$dt1' AND '$dt2'
+                    AND e.dateenvoi >= '$dt1' AND dateenvoi < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND e.prixcolis IS NOT NULL
                     AND e.partocour IS NULL
                     AND e.actif_cour = 0
@@ -142,7 +142,7 @@
                     JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                     JOIN entreprise ep ON c.id_entrep = ep.id_entreprise
                     WHERE ep.ekey = '$cid'
-                    AND e.dateenvoi BETWEEN '$dt1' AND '$dt2'
+                    AND e.dateenvoi >= '$dt1' AND dateenvoi < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND e.prixcolis IS NOT NULL
                     AND e.partocour IS NULL
                     AND cd.naturecoli <> 'Carton'
@@ -177,7 +177,7 @@
                     JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                     JOIN entreprise ep ON c.id_entrep = ep.id_entreprise
                     WHERE ep.ekey = '$cid'
-                    AND e.dateenvoi BETWEEN '$dt1' AND '$dt2'
+                    AND e.dateenvoi >= '$dt1' AND dateenvoi < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND e.prixcolis IS NOT NULL
                     AND e.partocour IS NULL
                     AND cd.naturecoli <> 'Carton'
@@ -214,7 +214,7 @@
                     JOIN entreprise ep ON c.id_entrep = ep.id_entreprise
                     WHERE ep.ekey = '$cid'
                     AND dest.id_compaga = '$cp'
-                    AND e.dateenvoi BETWEEN '$dt1' AND '$dt2'
+                    AND e.dateenvoi >= '$dt1' AND dateenvoi < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND e.prixcolis IS NOT NULL
                     AND e.partocour IS NULL
                     AND e.verifcour IN('A', 'C', 'D')
@@ -226,7 +226,7 @@
                     AND cd.naturecoli <> 'Sac_partenaire'
                     AND cd.naturecoli <> 'Petit_colis'
                     AND cd.naturecoli <> 'Gros_colis'
-                    AND ul.guser = '$gd'
+                    AND gex.code_gaexp = '$gd'
                     GROUP BY ar.roleattribut, dest.id_compaga, u.first_name, u.last_name, lg.nom_ligne, cd.naturecoli, e.prixcolis, e.dateenvoi
                     ORDER BY e.dateenvoi ASC")->result();
             }
@@ -250,10 +250,10 @@
                     JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                     JOIN entreprise ep ON c.id_entrep = ep.id_entreprise
                     WHERE ep.ekey = '$cid'
-                    AND e.dateenvoi BETWEEN '$dt1' AND '$dt2'
+                    AND e.dateenvoi >= '$dt1' AND dateenvoi < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND e.prixcolis IS NOT NULL
                     AND e.partocour IS NULL
-                    AND ul.guser = '$gd'
+                    AND gex.code_gaexp = '$gd'
                     AND dest.id_compaga = '$cp'
                     AND cd.naturecoli <> 'Carton'
                     AND cd.naturecoli <> 'Moyen_plis'
@@ -289,10 +289,10 @@
                     JOIN entreprise ep ON c.id_entrep = ep.id_entreprise
                     WHERE ep.ekey = '$cid'
                     AND dest.id_compaga = '$cp'
-                    AND e.dateenvoi BETWEEN '$dt1' AND '$dt2'
+                    AND e.dateenvoi >= '$dt1' AND dateenvoi < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND e.prixcolis IS NOT NULL
                     AND e.partocour IS NULL
-                    AND ul.guser = '$gd'
+                    AND gex.code_gaexp = '$gd'
                     AND ar.roleattribut = '$idconx'
                     AND cd.naturecoli = '$tycr'
                     AND e.verifcour IN('A', 'C', 'D')
@@ -320,10 +320,10 @@
                     JOIN entreprise ep ON c.id_entrep = ep.id_entreprise
                     WHERE ep.ekey = '$cid'
                     AND dest.id_compaga = '$cp'
-                    AND e.dateenvoi BETWEEN '$dt1' AND '$dt2'
+                    AND e.dateenvoi >= '$dt1' AND dateenvoi < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND e.prixcolis IS NOT NULL
                     AND e.partocour IS NULL
-                    AND ul.guser = '$gd'
+                    AND gex.code_gaexp = '$gd'
                     AND ar.roleattribut = '$idconx'
                     AND cd.naturecoli = '$tycr'
                     AND lg.ident_ligne = '$al'
@@ -354,7 +354,7 @@
                     JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                     JOIN entreprise ep ON c.id_entrep = ep.id_entreprise
                     WHERE ep.ekey = '$cid'
-                    AND e.dateenvoi BETWEEN '$dt1' AND '$dt2'
+                    AND e.dateenvoi >= '$dt1' AND e.dateenvoi < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND e.prixcolis IS NOT NULL
                     AND e.partocour IS NULL
                     AND cd.naturecoli <> 'Carton'
@@ -389,7 +389,7 @@
                     JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                     JOIN entreprise ep ON c.id_entrep = ep.id_entreprise
                     WHERE ep.ekey = '$cid'
-                    AND e.dateenvoi BETWEEN '$dt1' AND '$dt2'
+                    AND e.dateenvoi >= '$dt1' AND e.dateenvoi < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND e.prixcolis IS NOT NULL
                     AND e.partocour IS NULL
                     AND e.verifcour IN('A', 'C', 'D')
@@ -401,7 +401,7 @@
                     AND cd.naturecoli <> 'Sac_partenaire'
                     AND cd.naturecoli <> 'Petit_colis'
                     AND cd.naturecoli <> 'Gros_colis'
-                    AND ul.guser = '$gd'
+                    AND gex.code_gaexp = '$gd'
                     GROUP BY ar.roleattribut, dest.id_compaga, u.first_name, u.last_name, lg.nom_ligne, e.prixcolis
                     ORDER BY e.dateenvoi ASC")->result();
             }
@@ -425,10 +425,10 @@
                     JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                     JOIN entreprise ep ON c.id_entrep = ep.id_entreprise
                     WHERE ep.ekey = '$cid'
-                    AND e.dateenvoi BETWEEN '$dt1' AND '$dt2'
+                    AND e.dateenvoi >= '$dt1' AND e.dateenvoi < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND e.prixcolis IS NOT NULL
                     AND e.partocour IS NULL
-                    AND ul.guser = '$gd'
+                    AND gex.code_gaexp = '$gd'
                     AND dest.id_compaga = '$cp'
                     AND cd.naturecoli <> 'Carton'
                     AND cd.naturecoli <> 'Moyen_plis'
@@ -463,9 +463,9 @@
                     JOIN entreprise ep ON c.id_entrep = ep.id_entreprise
                     WHERE ep.ekey = '$cid'
                     AND ar.roleattribut = '$idconx'
-                    AND ul.guser = '$gd'
+                    AND gex.code_gaexp = '$gd'
                     AND dest.id_compaga = '$cp'
-                    AND e.dateenvoi BETWEEN '$dt1' AND '$dt2'
+                    AND e.dateenvoi >= '$dt1' AND e.dateenvoi < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND e.prixcolis IS NOT NULL
                     AND e.partocour IS NULL
                     AND e.verifcour IN('A', 'C', 'D')
@@ -501,10 +501,10 @@
                     JOIN entreprise ep ON c.id_entrep = ep.id_entreprise
                     WHERE ep.ekey = '$cid'
                     AND dest.id_compaga = '$cp'
-                    AND e.dateenvoi BETWEEN '$dt1' AND '$dt2'
+                    AND e.dateenvoi >= '$dt1' AND e.dateenvoi < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND e.prixcolis IS NOT NULL
                     AND e.partocour IS NULL
-                    AND ul.guser = '$gd'
+                    AND gex.code_gaexp = '$gd'
                     AND ar.roleattribut = '$idconx'
                     AND cd.naturecoli = '$tycr'
                     AND e.verifcour IN('A', 'C', 'D')
@@ -532,10 +532,10 @@
                     JOIN entreprise ep ON c.id_entrep = ep.id_entreprise
                     WHERE ep.ekey = '$cid'
                     AND dest.id_compaga = '$cp'
-                    AND e.dateenvoi BETWEEN '$dt1' AND '$dt2'
+                    AND e.dateenvoi >= '$dt1' AND e.dateenvoi < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND e.prixcolis IS NOT NULL
                     AND e.partocour IS NULL
-                    AND ul.guser = '$gd'
+                    AND gex.code_gaexp = '$gd'
                     AND ar.roleattribut = '$idconx'
                     AND cd.naturecoli = '$tycr'
                     AND lg.ident_ligne = '$al'
@@ -566,7 +566,7 @@
                     JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                     JOIN entreprise ep ON c.id_entrep = ep.id_entreprise
                     WHERE ep.ekey = '$cid'
-                    AND e.dateenvoi BETWEEN '$dt1' AND '$dt2'
+                    AND e.dateenvoi >= '$dt1' AND e.dateenvoi < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND e.prixcolis IS NOT NULL
                     AND e.partocour IS NULL
                     AND e.verifcour IN('A', 'C', 'D')
@@ -601,7 +601,7 @@
                     JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                     JOIN entreprise ep ON c.id_entrep = ep.id_entreprise
                     WHERE ep.ekey = '$cid'
-                    AND e.dateenvoi BETWEEN '$dt1' AND '$dt2'
+                    AND e.dateenvoi >= '$dt1' AND e.dateenvoi < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND e.prixcolis IS NOT NULL
                     AND e.partocour IS NULL
                     AND dest.id_compaga = '$cp'
@@ -637,11 +637,11 @@
                     JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                     JOIN entreprise ep ON c.id_entrep = ep.id_entreprise
                     WHERE ep.ekey = '$cid'
-                    AND e.dateenvoi BETWEEN '$dt1' AND '$dt2'
+                    AND e.dateenvoi >= '$dt1' AND e.dateenvoi < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND e.prixcolis IS NOT NULL
                     AND e.partocour IS NULL
                     AND dest.id_compaga = '$cp'
-                    AND ul.guser = '$gd'
+                    AND gex.code_gaexp = '$gd'
                     AND e.verifcour IN('A', 'C', 'D')
                     AND cd.naturecoli <> 'Carton'
                     AND cd.naturecoli <> 'Moyen_plis'
@@ -675,8 +675,8 @@
                     JOIN entreprise ep ON c.id_entrep = ep.id_entreprise
                     WHERE ep.ekey = '$cid'
                     AND ar.roleattribut = '$idconx'
-                    AND ul.guser = '$gd'
-                    AND e.dateenvoi BETWEEN '$dt1' AND '$dt2'
+                    AND gex.code_gaexp = '$gd'
+                    AND e.dateenvoi >= '$dt1' AND e.dateenvoi < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND e.prixcolis IS NOT NULL
                     AND e.partocour IS NULL
                     AND e.verifcour IN('A', 'C', 'D')
@@ -712,10 +712,10 @@
                     JOIN entreprise ep ON c.id_entrep = ep.id_entreprise
                     WHERE ep.ekey = '$cid'
                     AND dest.id_compaga = '$cp'
-                    AND e.dateenvoi BETWEEN '$dt1' AND '$dt2'
+                    AND e.dateenvoi >= '$dt1' AND e.dateenvoi < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND e.prixcolis IS NOT NULL
                     AND e.partocour IS NULL
-                    AND ul.guser = '$gd'
+                    AND gex.code_gaexp = '$gd'
                     AND ar.roleattribut = '$idconx'
                     AND cd.naturecoli = '$tycr'
                     AND e.verifcour IN('A', 'C', 'D')
@@ -746,7 +746,7 @@
                     JOIN entreprise ep ON c.id_entrep = ep.id_entreprise
                     WHERE ep.ekey = '$cid'
                     AND dest.id_compaga = '$cp'
-                    AND e.dateenvoi BETWEEN '$dt1' AND '$dt2'
+                    AND e.dateenvoi >= '$dt1' AND dateenvoi < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND e.prixcolis IS NOT NULL
                     AND e.partocour IS NULL
                     AND e.actif_cour = 0
@@ -773,11 +773,11 @@
                     JOIN entreprise ep ON c.id_entrep = ep.id_entreprise
                     WHERE ep.ekey = '$cid'
                     AND dest.id_compaga = '$cp'
-                    AND e.dateenvoi BETWEEN '$dt1' AND '$dt2'
+                    AND e.dateenvoi >= '$dt1' AND dateenvoi < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND e.prixcolis IS NOT NULL
                     AND e.partocour IS NULL
                     AND e.actif_cour = 0
-                    AND ul.guser = '$gd'
+                    AND gex.code_gaexp = '$gd'
                     GROUP BY dest.id_compaga, lg.nom_ligne, cd.naturecoli, e.prixcolis")->result();
             }
             elseif ($idconx === '' AND $algn === '') {
@@ -801,13 +801,13 @@
                     JOIN entreprise ep ON c.id_entrep = ep.id_entreprise
                     WHERE ep.ekey = '$cid'
                     AND dest.id_compaga = '$cp'
-                    AND e.dateenvoi BETWEEN '$dt1' AND '$dt2'
+                    AND e.dateenvoi >= '$dt1' AND dateenvoi < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND e.prixcolis IS NOT NULL
                     AND e.partocour IS NULL
                     AND e.actif_cour = 0
-                    AND ul.guser = '$gd'
+                    AND gex.code_gaexp = '$gd'
                     AND cd.naturecoli = '$tycr'
-                    AND ul.guser = '$gd'
+                    AND gex.code_gaexp = '$gd'
                     GROUP BY dest.id_compaga, lg.nom_ligne, cd.naturecoli, e.prixcolis")->result();
             }
             elseif($algn === '')
@@ -831,11 +831,11 @@
                     JOIN entreprise ep ON c.id_entrep = ep.id_entreprise
                     WHERE ep.ekey = '$cid'
                     AND dest.id_compaga = '$cp'
-                    AND e.dateenvoi BETWEEN '$dt1' AND '$dt2'
+                    AND e.dateenvoi >= '$dt1' AND dateenvoi < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND e.prixcolis IS NOT NULL
                     AND e.partocour IS NULL
                     AND e.actif_cour = 0
-                    AND ul.guser = '$gd'
+                    AND gex.code_gaexp = '$gd'
                     AND cd.naturecoli = '$tycr'
                     AND ar.roleattribut = '$idconx'
                     GROUP BY dest.id_compaga, lg.nom_ligne, cd.naturecoli, e.prixcolis")->result();
@@ -860,11 +860,11 @@
                     JOIN entreprise ep ON c.id_entrep = ep.id_entreprise
                     WHERE ep.ekey = '$cid'
                     AND dest.id_compaga = '$cp'
-                    AND e.dateenvoi BETWEEN '$dt1' AND '$dt2'
+                    AND e.dateenvoi >= '$dt1' AND dateenvoi < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND e.prixcolis IS NOT NULL
                     AND e.partocour IS NULL
                     AND e.actif_cour = 0
-                    AND ul.guser = '$gd'
+                    AND gex.code_gaexp = '$gd'
                     AND ar.roleattribut = '$idconx'
                     AND lg.ident_ligne = '$algn'
                     AND cd.naturecoli = '$tycr'
@@ -893,7 +893,7 @@
                     JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                     JOIN entreprise ep ON c.id_entrep = ep.id_entreprise
                     WHERE ep.ekey = '$cid'
-                    AND e.dateenvoi BETWEEN '$dt1' AND '$dt2'
+                    AND e.dateenvoi >= '$dt1' AND dateenvoi < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND dest.id_compaga = '$cp'
                     AND e.prixcolis IS NOT NULL
                     AND e.partocour IS NULL
@@ -921,13 +921,13 @@
                     JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                     JOIN entreprise ep ON c.id_entrep = ep.id_entreprise
                     WHERE ep.ekey = '$cid'
-                    AND e.dateenvoi BETWEEN '$dt1' AND '$dt2'
+                    AND e.dateenvoi >= '$dt1' AND dateenvoi < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND dest.id_compaga = '$cp'
                     AND e.prixcolis IS NOT NULL
                     AND e.partocour IS NULL
                     AND e.actif_cour = 0
                     AND e.verifcour IN('A', 'C', 'D')
-                    AND ul.guser = '$gd'
+                    AND gex.code_gaexp = '$gd'
                     GROUP BY e.dateenvoi, cd.naturecoli")->result();
             }
             elseif ($idconx === '') {
@@ -950,12 +950,12 @@
                     JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                     JOIN entreprise ep ON c.id_entrep = ep.id_entreprise
                     WHERE ep.ekey = '$cid'
-                    AND e.dateenvoi BETWEEN '$dt1' AND '$dt2'
+                    AND e.dateenvoi >= '$dt1' AND dateenvoi < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND dest.id_compaga = '$cp'
                     AND e.prixcolis IS NOT NULL
                     AND e.partocour IS NULL
                     AND e.actif_cour = 0
-                    AND ul.guser = '$gd'
+                    AND gex.code_gaexp = '$gd'
                     AND cd.naturecoli = '$tycr'
                     AND e.verifcour IN('A', 'C', 'D')
                     GROUP BY e.dateenvoi, cd.naturecoli")->result();
@@ -980,12 +980,12 @@
                     JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                     JOIN entreprise ep ON c.id_entrep = ep.id_entreprise
                     WHERE ep.ekey = '$cid'
-                    AND e.dateenvoi BETWEEN '$dt1' AND '$dt2'
+                    AND e.dateenvoi >= '$dt1' AND dateenvoi < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND dest.id_compaga = '$cp'
                     AND e.prixcolis IS NOT NULL
                     AND e.partocour IS NULL
                     AND e.actif_cour = 0
-                    AND ul.guser = '$gd'
+                    AND gex.code_gaexp = '$gd'
                     AND cd.naturecoli = '$tycr'
                     AND ar.roleattribut = '$idconx'
                     AND e.verifcour IN('A', 'C', 'D')
@@ -1015,7 +1015,7 @@
                     JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                     JOIN entreprise ep ON c.id_entrep = ep.id_entreprise
                     WHERE ep.ekey = '$cid'
-                    AND e.dateenvoi BETWEEN '$dt1' AND '$dt2'
+                    AND e.dateenvoi >= '$dt1' AND dateenvoi < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND e.prixcolis IS NOT NULL
                     AND e.partocour IS NULL
                     GROUP BY cd.naturecoli, lg.nom_ligne, e.prixcolis")->result();
@@ -1040,10 +1040,10 @@
                     JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                     JOIN entreprise ep ON c.id_entrep = ep.id_entreprise
                     WHERE ep.ekey = '$cid'
-                    AND e.dateenvoi BETWEEN '$dt1' AND '$dt2'
+                    AND e.dateenvoi >= '$dt1' AND dateenvoi < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND e.prixcolis IS NOT NULL
                     AND e.partocour IS NULL
-                    AND ul.guser = '$gd'
+                    AND gex.code_gaexp = '$gd'
                     GROUP BY cd.naturecoli, lg.nom_ligne, e.prixcolis")->result();
             }
             elseif ($tycr === '' AND $cp === '' AND $algn === '') {
@@ -1066,10 +1066,10 @@
                     JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                     JOIN entreprise ep ON c.id_entrep = ep.id_entreprise
                     WHERE ep.ekey = '$cid'
-                    AND e.dateenvoi BETWEEN '$dt1' AND '$dt2'
+                    AND e.dateenvoi >= '$dt1' AND dateenvoi < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND e.prixcolis IS NOT NULL
                     AND e.partocour IS NULL
-                    AND ul.guser = '$gd'
+                    AND gex.code_gaexp = '$gd'
                     AND ar.roleattribut = '$idconx'
                     GROUP BY cd.naturecoli, lg.nom_ligne, e.prixcolis")->result();
             }
@@ -1093,10 +1093,10 @@
                     JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                     JOIN entreprise ep ON c.id_entrep = ep.id_entreprise
                     WHERE ep.ekey = '$cid'
-                    AND e.dateenvoi BETWEEN '$dt1' AND '$dt2'
+                    AND e.dateenvoi >= '$dt1' AND dateenvoi < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND e.prixcolis IS NOT NULL
                     AND e.partocour IS NULL
-                    AND ul.guser = '$gd'
+                    AND gex.code_gaexp = '$gd'
                     AND ar.roleattribut = '$idconx'
                     AND cd.naturecoli = '$tycr'
                     GROUP BY cd.naturecoli, lg.nom_ligne, e.prixcolis")->result();
@@ -1121,11 +1121,11 @@
                     JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                     JOIN entreprise ep ON c.id_entrep = ep.id_entreprise
                     WHERE ep.ekey = '$cid'
-                    AND e.dateenvoi BETWEEN '$dt1' AND '$dt2'
+                    AND e.dateenvoi >= '$dt1' AND dateenvoi < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND e.prixcolis IS NOT NULL
                     AND e.partocour IS NULL
                     AND dest.id_compaga = '$cp'
-                    AND ul.guser = '$gd'
+                    AND gex.code_gaexp = '$gd'
                     AND ar.roleattribut = '$idconx'
                     GROUP BY cd.naturecoli, lg.nom_ligne, e.prixcolis")->result();
             }
@@ -1149,11 +1149,11 @@
                     JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                     JOIN entreprise ep ON c.id_entrep = ep.id_entreprise
                     WHERE ep.ekey = '$cid'
-                    AND e.dateenvoi BETWEEN '$dt1' AND '$dt2'
+                    AND e.dateenvoi >= '$dt1' AND dateenvoi < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND e.prixcolis IS NOT NULL
                     AND e.partocour IS NULL
                     AND dest.id_compaga = '$cp'
-                    AND ul.guser = '$gd'
+                    AND gex.code_gaexp = '$gd'
                     AND cd.naturecoli = '$tycr'
                     AND ar.roleattribut = '$idconx'
                     GROUP BY cd.naturecoli, lg.nom_ligne, e.prixcolis")->result();
@@ -1177,11 +1177,11 @@
                     JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                     JOIN entreprise ep ON c.id_entrep = ep.id_entreprise
                     WHERE ep.ekey = '$cid'
-                    AND e.dateenvoi BETWEEN '$dt1' AND '$dt2'
+                    AND e.dateenvoi >= '$dt1' AND dateenvoi < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND dest.id_compaga = '$cp'
                     AND e.prixcolis IS NOT NULL
                     AND e.partocour IS NULL
-                    AND ul.guser = '$gd'
+                    AND gex.code_gaexp = '$gd'
                     AND cd.naturecoli = '$tycr'
                     AND ar.roleattribut = '$idconx'
                     AND lg.ident_ligne = '$algn'
@@ -1208,7 +1208,7 @@
                     JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                     JOIN entreprise ep ON c.id_entrep = ep.id_entreprise
                     WHERE ep.ekey = '$cid'
-                    AND e.dateenvoi BETWEEN '$dt1' AND '$dt2'
+                    AND e.dateenvoi >= '$dt1' AND e.dateenvoi < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND e.prixcolis IS NOT NULL
                     AND e.partocour IS NULL")->result();
             }
@@ -1229,7 +1229,7 @@
                     JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                     JOIN entreprise ep ON c.id_entrep = ep.id_entreprise
                     WHERE ep.ekey = '$cid'
-                    AND e.dateenvoi BETWEEN '$dt1' AND '$dt2'
+                    AND e.dateenvoi >= '$dt1' AND e.dateenvoi < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND e.prixcolis IS NOT NULL
                     AND e.partocour IS NULL
                     AND gex.code_gaexp = '$gd'")->result();
@@ -1252,7 +1252,7 @@
                     JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                     JOIN entreprise ep ON c.id_entrep = ep.id_entreprise
                     WHERE ep.ekey = '$cid'
-                    AND e.dateenvoi BETWEEN '$dt1' AND '$dt2'
+                    AND e.dateenvoi >= '$dt1' AND e.dateenvoi < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND e.prixcolis IS NOT NULL
                     AND e.partocour IS NULL
                     AND gex.code_gaexp = '$gd'
@@ -1276,7 +1276,7 @@
                     JOIN entreprise ep ON c.id_entrep = ep.id_entreprise
                     WHERE ep.ekey = '$cid'
                     AND dest.id_compaga = '$cp'
-                    AND e.dateenvoi BETWEEN '$dt1' AND '$dt2'
+                    AND e.dateenvoi >= '$dt1' AND e.dateenvoi < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND e.prixcolis IS NOT NULL
                     AND e.partocour IS NULL
                     AND gex.code_gaexp = '$gd'
@@ -1299,7 +1299,7 @@
                     JOIN entreprise ep ON c.id_entrep = ep.id_entreprise
                     WHERE ep.ekey = '$cid'
                     AND dest.id_compaga = '$cp'
-                    AND e.dateenvoi BETWEEN '$dt1' AND '$dt2'
+                    AND e.dateenvoi >= '$dt1' AND e.dateenvoi < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND e.prixcolis IS NOT NULL
                     AND e.partocour IS NULL
                     AND gex.code_gaexp = '$gd'
@@ -1328,7 +1328,7 @@
                     JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                     JOIN entreprise ep ON c.id_entrep = ep.id_entreprise
                     WHERE ep.ekey = '$cid'
-                    AND e.dateenvoi BETWEEN '$dt1' AND '$dt2'
+                    AND e.dateenvoi >= '$dt1' AND e.dateenvoi < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND e.prixcolis IS NOT NULL
                     AND e.partocour IS NULL
                     AND cd.naturecoli <> 'Carton'
@@ -1358,7 +1358,7 @@
                     JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                     JOIN entreprise ep ON c.id_entrep = ep.id_entreprise
                     WHERE ep.ekey = '$cid'
-                    AND e.dateenvoi BETWEEN '$dt1' AND '$dt2'
+                    AND e.dateenvoi >= '$dt1' AND e.dateenvoi < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND e.prixcolis IS NOT NULL
                     AND e.partocour IS NULL
                     AND dest.id_compaga = '$cp'
@@ -1389,7 +1389,7 @@
                     JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                     JOIN entreprise ep ON c.id_entrep = ep.id_entreprise
                     WHERE ep.ekey = '$cid'
-                    AND e.dateenvoi BETWEEN '$dt1' AND '$dt2'
+                    AND e.dateenvoi >= '$dt1' AND e.dateenvoi < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND e.prixcolis IS NOT NULL
                     AND e.partocour IS NULL
                     AND gex.code_gaexp = '$gd'
@@ -1422,7 +1422,7 @@
                     JOIN entreprise ep ON c.id_entrep = ep.id_entreprise
                     WHERE ep.ekey = '$cid'
                     AND dest.id_compaga = '$cp'
-                    AND e.dateenvoi BETWEEN '$dt1' AND '$dt2'
+                    AND e.dateenvoi >= '$dt1' AND e.dateenvoi < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND e.prixcolis IS NOT NULL
                     AND e.partocour IS NULL
                     AND gex.code_gaexp = '$gd'
@@ -1447,7 +1447,7 @@
                     JOIN entreprise ep ON c.id_entrep = ep.id_entreprise
                     WHERE ep.ekey = '$cid'
                     AND dest.id_compaga = '$cp'
-                    AND e.dateenvoi BETWEEN '$dt1' AND '$dt2'
+                    AND e.dateenvoi >= '$dt1' AND e.dateenvoi < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND e.prixcolis IS NOT NULL
                     AND e.partocour IS NULL
                     AND gex.code_gaexp = '$gd'
@@ -1475,7 +1475,7 @@
                     JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                     JOIN entreprise ep ON c.id_entrep = ep.id_entreprise
                     WHERE ep.ekey = '$cid'
-                    AND e.dateenvoi BETWEEN '$dt1' AND '$dt2'
+                    AND e.dateenvoi >= '$dt1' AND e.dateenvoi < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND e.prixcolis IS NOT NULL
                     AND e.partocour IS NULL
                     AND cd.naturecoli <> 'Carton'
@@ -1505,7 +1505,7 @@
                     JOIN entreprise ep ON c.id_entrep = ep.id_entreprise
                     WHERE ep.ekey = '$cid'
                     AND gex.code_gaexp = '$gd'
-                    AND e.dateenvoi BETWEEN '$dt1' AND '$dt2'
+                    AND e.dateenvoi >= '$dt1' AND e.dateenvoi < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND e.prixcolis IS NOT NULL
                     AND e.partocour IS NULL
                     AND cd.naturecoli <> 'Carton'
@@ -1535,7 +1535,7 @@
                     JOIN entreprise ep ON c.id_entrep = ep.id_entreprise
                     WHERE ep.ekey = '$cid'
                     AND gex.code_gaexp = '$gd'
-                    AND e.dateenvoi BETWEEN '$dt1' AND '$dt2'
+                    AND e.dateenvoi >= '$dt1' AND e.dateenvoi < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND e.prixcolis IS NOT NULL
                     AND e.partocour IS NULL
                     AND cd.naturecoli = '$tycr'
@@ -1558,7 +1558,7 @@
                     JOIN entreprise ep ON c.id_entrep = ep.id_entreprise
                     WHERE ep.ekey = '$cid'
                     AND dest.id_compaga = '$cp'
-                    AND e.dateenvoi BETWEEN '$dt1' AND '$dt2'
+                    AND e.dateenvoi >= '$dt1' AND e.dateenvoi < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND e.prixcolis IS NOT NULL
                     AND e.partocour IS NULL
                     AND cd.naturecoli <> 'Carton'
@@ -1590,7 +1590,7 @@
                     JOIN entreprise ep ON c.id_entrep = ep.id_entreprise
                     WHERE ep.ekey = '$cid'
                     AND dest.id_compaga = '$cp'
-                    AND e.dateenvoi BETWEEN '$dt1' AND '$dt2'
+                    AND e.dateenvoi >= '$dt1' AND e.dateenvoi < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND e.prixcolis IS NOT NULL
                     AND e.partocour IS NULL
                     AND gex.code_gaexp = '$gd'
@@ -1613,7 +1613,7 @@
                     JOIN entreprise ep ON c.id_entrep = ep.id_entreprise
                     WHERE ep.ekey = '$cid'
                     AND dest.id_compaga = '$cp'
-                    AND e.dateenvoi BETWEEN '$dt1' AND '$dt2'
+                    AND e.dateenvoi >= '$dt1' AND e.dateenvoi < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND e.prixcolis IS NOT NULL
                     AND e.partocour IS NULL
                     AND gex.code_gaexp = '$gd'
@@ -1640,7 +1640,7 @@
                     JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                     JOIN entreprise ep ON c.id_entrep = ep.id_entreprise
                     WHERE ep.ekey = '$cid'
-                    AND e.dateenvoi BETWEEN '$dt1' AND '$dt2'
+                    AND e.dateenvoi >= '$dt1' AND e.dateenvoi < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND e.prixcolis IS NOT NULL
                     AND e.partocour IS NULL
                     AND cd.naturecoli <> 'Carton'
@@ -1669,7 +1669,7 @@
                     JOIN entreprise ep ON c.id_entrep = ep.id_entreprise
                     WHERE ep.ekey = '$cid'
                     AND gex.code_gaexp = '$gd'
-                    AND e.dateenvoi BETWEEN '$dt1' AND '$dt2'
+                    AND e.dateenvoi >= '$dt1' AND e.dateenvoi < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND e.prixcolis IS NOT NULL
                     AND e.partocour IS NULL
                     AND cd.naturecoli <> 'Carton'
@@ -1698,7 +1698,7 @@
                     JOIN entreprise ep ON c.id_entrep = ep.id_entreprise
                     WHERE ep.ekey = '$cid'
                     AND gex.code_gaexp = '$gd'
-                    AND e.dateenvoi BETWEEN '$dt1' AND '$dt2'
+                    AND e.dateenvoi >= '$dt1' AND e.dateenvoi < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND e.prixcolis IS NOT NULL
                     AND e.partocour IS NULL
                     AND cd.naturecoli = '$tycr'
@@ -1720,7 +1720,7 @@
                     JOIN entreprise ep ON c.id_entrep = ep.id_entreprise
                     WHERE ep.ekey = '$cid'
                     AND dest.id_compaga = '$cp'
-                    AND e.dateenvoi BETWEEN '$dt1' AND '$dt2'
+                    AND e.dateenvoi >= '$dt1' AND e.dateenvoi < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND e.prixcolis IS NOT NULL
                     AND e.partocour IS NULL
                     AND cd.naturecoli <> 'Carton'
@@ -1751,7 +1751,7 @@
                     JOIN entreprise ep ON c.id_entrep = ep.id_entreprise
                     WHERE ep.ekey = '$cid'
                     AND dest.id_compaga = '$cp'
-                    AND e.dateenvoi BETWEEN '$dt1' AND '$dt2'
+                    AND e.dateenvoi >= '$dt1' AND e.dateenvoi < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND e.prixcolis IS NOT NULL
                     AND e.partocour IS NULL
                     AND gex.code_gaexp = '$gd'
@@ -1773,7 +1773,7 @@
                     JOIN entreprise ep ON c.id_entrep = ep.id_entreprise
                     WHERE ep.ekey = '$cid'
                     AND dest.id_compaga = '$cp'
-                    AND e.dateenvoi BETWEEN '$dt1' AND '$dt2'
+                    AND e.dateenvoi >= '$dt1' AND e.dateenvoi < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND e.prixcolis IS NOT NULL
                     AND e.partocour IS NULL
                     AND gex.code_gaexp = '$gd'
@@ -1799,7 +1799,7 @@
                     JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                     JOIN entreprise ep ON c.id_entrep = ep.id_entreprise
                     WHERE ep.ekey = '$cid'
-                    AND e.dateenvoi BETWEEN '$dt1' AND '$dt2'
+                    AND e.dateenvoi >= '$dt1' AND e.dateenvoi < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND e.prixcolis IS NOT NULL
                     AND e.partocour IS NULL
                     AND cd.naturecoli <> 'Carton'
@@ -1829,7 +1829,7 @@
                     JOIN entreprise ep ON c.id_entrep = ep.id_entreprise
                     WHERE ep.ekey = '$cid'
                     AND gex.code_gaexp = '$gd'
-                    AND e.dateenvoi BETWEEN '$dt1' AND '$dt2'
+                    AND e.dateenvoi >= '$dt1' AND e.dateenvoi < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND e.prixcolis IS NOT NULL
                     AND e.partocour IS NULL
                     AND cd.naturecoli <> 'Carton'
@@ -1859,7 +1859,7 @@
                     JOIN entreprise ep ON c.id_entrep = ep.id_entreprise
                     WHERE ep.ekey = '$cid'
                     AND gex.code_gaexp = '$gd'
-                    AND e.dateenvoi BETWEEN '$dt1' AND '$dt2'
+                    AND e.dateenvoi >= '$dt1' AND e.dateenvoi < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND e.prixcolis IS NOT NULL
                     AND e.partocour IS NULL
                     AND cd.naturecoli = '$tycr'
@@ -1882,7 +1882,7 @@
                     JOIN entreprise ep ON c.id_entrep = ep.id_entreprise
                     WHERE ep.ekey = '$cid'
                     AND dest.id_compaga = '$cp'
-                    AND e.dateenvoi BETWEEN '$dt1' AND '$dt2'
+                    AND e.dateenvoi >= '$dt1' AND e.dateenvoi < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND e.prixcolis IS NOT NULL
                     AND e.partocour IS NULL
                     AND cd.naturecoli <> 'Carton'
@@ -1914,7 +1914,7 @@
                     JOIN entreprise ep ON c.id_entrep = ep.id_entreprise
                     WHERE ep.ekey = '$cid'
                     AND dest.id_compaga = '$cp'
-                    AND e.dateenvoi BETWEEN '$dt1' AND '$dt2'
+                    AND e.dateenvoi >= '$dt1' AND e.dateenvoi < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND e.prixcolis IS NOT NULL
                     AND e.partocour IS NULL
                     AND gex.code_gaexp = '$gd'
@@ -1937,7 +1937,7 @@
                     JOIN entreprise ep ON c.id_entrep = ep.id_entreprise
                     WHERE ep.ekey = '$cid'
                     AND dest.id_compaga = '$cp'
-                    AND e.dateenvoi BETWEEN '$dt1' AND '$dt2'
+                    AND e.dateenvoi >= '$dt1' AND e.dateenvoi < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND e.prixcolis IS NOT NULL
                     AND e.partocour IS NULL
                     AND gex.code_gaexp = '$gd'
@@ -1965,7 +1965,7 @@
                     JOIN entreprise ep ON c.id_entrep = ep.id_entreprise
                     WHERE ep.ekey = '$cid'
                     AND dest.id_compaga = '$cp'
-                    AND e.dateenvoi BETWEEN '$dt1' AND '$dt2'
+                    AND e.dateenvoi >= '$dt1' AND e.dateenvoi < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND e.prixcolis IS NOT NULL
                     AND e.partocour IS NULL
                     AND e.verifcour IN('A', 'C', 'D')
@@ -1996,7 +1996,7 @@
                     JOIN entreprise ep ON c.id_entrep = ep.id_entreprise
                     WHERE ep.ekey = '$cid'
                     AND dest.id_compaga = '$cp'
-                    AND e.dateenvoi BETWEEN '$dt1' AND '$dt2'
+                    AND e.dateenvoi >= '$dt1' AND e.dateenvoi < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND e.prixcolis IS NOT NULL
                     AND e.partocour IS NULL
                     AND e.verifcour IN('A', 'C', 'D')
@@ -2029,7 +2029,7 @@
                     JOIN entreprise ep ON c.id_entrep = ep.id_entreprise
                     WHERE ep.ekey = '$cid'
                     AND dest.id_compaga = '$cp'
-                    AND e.dateenvoi BETWEEN '$dt1' AND '$dt2'
+                    AND e.dateenvoi >= '$dt1' AND e.dateenvoi < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND e.prixcolis IS NOT NULL
                     AND e.partocour IS NULL
                     AND gex.code_gaexp = '$gd'
@@ -2053,7 +2053,7 @@
                     JOIN entreprise ep ON c.id_entrep = ep.id_entreprise
                     WHERE ep.ekey = '$cid'
                     AND dest.id_compaga = '$cp'
-                    AND e.dateenvoi BETWEEN '$dt1' AND '$dt2'
+                    AND e.dateenvoi >= '$dt1' AND e.dateenvoi < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND e.prixcolis IS NOT NULL
                     AND e.partocour IS NULL
                     AND gex.code_gaexp = '$gd'
@@ -2081,7 +2081,7 @@
                     JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                     JOIN entreprise ep ON c.id_entrep = ep.id_entreprise
                     WHERE ep.ekey = '$cid'
-                    AND e.dateenvoi BETWEEN '$dt1' AND '$dt2'
+                    AND e.dateenvoi >= '$dt1' AND e.dateenvoi < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND e.prixcolis IS NOT NULL
                     AND e.partocour IS NULL
                     AND e.verifcour IN('A', 'C', 'D')
@@ -2111,7 +2111,7 @@
                     JOIN entreprise ep ON c.id_entrep = ep.id_entreprise
                     WHERE ep.ekey = '$cid'
                     AND gex.code_gaexp = '$gd'
-                    AND e.dateenvoi BETWEEN '$dt1' AND '$dt2'
+                    AND e.dateenvoi >= '$dt1' AND e.dateenvoi < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND e.prixcolis IS NOT NULL
                     AND e.partocour IS NULL
                     AND e.verifcour IN('A', 'C', 'D')
@@ -2141,7 +2141,7 @@
                     JOIN entreprise ep ON c.id_entrep = ep.id_entreprise
                     WHERE ep.ekey = '$cid'
                     AND dest.id_compaga = '$cp'
-                    AND e.dateenvoi BETWEEN '$dt1' AND '$dt2'
+                    AND e.dateenvoi >= '$dt1' AND e.dateenvoi < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND e.prixcolis IS NOT NULL
                     AND e.partocour IS NULL
                     AND e.verifcour IN('A', 'C', 'D')
@@ -2173,7 +2173,7 @@
                     JOIN entreprise ep ON c.id_entrep = ep.id_entreprise
                     WHERE ep.ekey = '$cid'
                     AND dest.id_compaga = '$cp'
-                    AND e.dateenvoi BETWEEN '$dt1' AND '$dt2'
+                    AND e.dateenvoi >= '$dt1' AND e.dateenvoi < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND e.prixcolis IS NOT NULL
                     AND e.partocour IS NULL
                     AND gex.code_gaexp = '$gd'
@@ -2196,7 +2196,7 @@
                     JOIN entreprise ep ON c.id_entrep = ep.id_entreprise
                     WHERE ep.ekey = '$cid'
                     AND dest.id_compaga = '$cp'
-                    AND e.dateenvoi BETWEEN '$dt1' AND '$dt2'
+                    AND e.dateenvoi >= '$dt1' AND e.dateenvoi < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND e.prixcolis IS NOT NULL
                     AND e.partocour IS NULL
                     AND gex.code_gaexp = '$gd'
@@ -2229,7 +2229,7 @@
                     JOIN entreprise ep ON c.id_entrep = ep.id_entreprise
                     WHERE ep.ekey = '$cid'
                     AND dest.id_compaga = '$cp'
-                    AND e.dateenvoi BETWEEN '$dt1' AND '$dt2'
+                    AND e.dateenvoi >= '$dt1' AND dateenvoi < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND e.prixcolis IS NOT NULL
                     AND e.partocour IS NULL
                     AND cd.naturecoli <> 'Carton'
@@ -2262,7 +2262,7 @@
                     JOIN entreprise ep ON c.id_entrep = ep.id_entreprise
                     WHERE ep.ekey = '$cid'
                     AND dest.id_compaga = '$cp'
-                    AND e.dateenvoi BETWEEN '$dt1' AND '$dt2'
+                    AND e.dateenvoi >= '$dt1' AND dateenvoi < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND e.prixcolis IS NOT NULL
                     AND e.partocour IS NULL
                     AND cd.naturecoli <> 'Carton'
@@ -2273,7 +2273,7 @@
                     AND cd.naturecoli <> 'Sac_partenaire'
                     AND cd.naturecoli <> 'Petit_colis'
                     AND cd.naturecoli <> 'Gros_colis'
-                    AND ul.guser = '$gd'
+                    AND gex.code_gaexp = '$gd'
                     GROUP BY dest.id_compaga, lg.nom_ligne, cd.naturecoli, e.prixcolis")->result();
             }
             
@@ -2297,10 +2297,10 @@
                     JOIN entreprise ep ON c.id_entrep = ep.id_entreprise
                     WHERE ep.ekey = '$cid'
                     AND dest.id_compaga = '$cp'
-                    AND e.dateenvoi BETWEEN '$dt1' AND '$dt2'
+                    AND e.dateenvoi >= '$dt1' AND dateenvoi < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND e.prixcolis IS NOT NULL
                     AND e.partocour IS NULL
-                    AND ul.guser = '$gd'
+                    AND gex.code_gaexp = '$gd'
                     AND cd.naturecoli = '$tycr'
                     GROUP BY dest.id_compaga, lg.nom_ligne, cd.naturecoli, e.prixcolis")->result();
             }
@@ -2323,10 +2323,10 @@
                     JOIN entreprise ep ON c.id_entrep = ep.id_entreprise
                     WHERE ep.ekey = '$cid'
                     AND dest.id_compaga = '$cp'
-                    AND e.dateenvoi BETWEEN '$dt1' AND '$dt2'
+                    AND e.dateenvoi >= '$dt1' AND dateenvoi < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND e.prixcolis IS NOT NULL
                     AND e.partocour IS NULL
-                    AND ul.guser = '$gd'
+                    AND gex.code_gaexp = '$gd'
                     AND lg.ident_ligne = '$algn'
                     AND cd.naturecoli = '$tycr'
                     GROUP BY dest.id_compaga, lg.nom_ligne, cd.naturecoli, e.prixcolis")->result();
@@ -2352,7 +2352,7 @@
                     JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                     JOIN entreprise ep ON c.id_entrep = ep.id_entreprise
                     WHERE ep.ekey = '$cid'
-                    AND e.dateenvoi BETWEEN '$dt1' AND '$dt2'
+                    AND e.dateenvoi >= '$dt1' AND dateenvoi < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND e.prixcolis IS NOT NULL
                     AND e.partocour IS NULL
                     GROUP BY dest.id_compaga, lg.nom_ligne, cd.naturecoli, e.prixcolis")->result();
@@ -2376,8 +2376,8 @@
                     JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                     JOIN entreprise ep ON c.id_entrep = ep.id_entreprise
                     WHERE ep.ekey = '$cid'
-                    AND ul.guser = '$gd'
-                    AND e.dateenvoi BETWEEN '$dt1' AND '$dt2'
+                    AND gex.code_gaexp = '$gd'
+                    AND e.dateenvoi >= '$dt1' AND dateenvoi < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND e.prixcolis IS NOT NULL
                     AND e.partocour IS NULL
                     GROUP BY dest.id_compaga, lg.nom_ligne, cd.naturecoli, e.prixcolis")->result();
@@ -2401,10 +2401,10 @@
                     JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                     JOIN entreprise ep ON c.id_entrep = ep.id_entreprise
                     WHERE ep.ekey = '$cid'
-                    AND e.dateenvoi BETWEEN '$dt1' AND '$dt2'
+                    AND e.dateenvoi >= '$dt1' AND dateenvoi < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND e.prixcolis IS NOT NULL
                     AND e.partocour IS NULL
-                    AND ul.guser = '$gd'
+                    AND gex.code_gaexp = '$gd'
                     AND cd.naturecoli = '$tycr'
                     GROUP BY dest.id_compaga, lg.nom_ligne, cd.naturecoli, e.prixcolis")->result();
             }
@@ -2428,10 +2428,10 @@
                     JOIN entreprise ep ON c.id_entrep = ep.id_entreprise
                     WHERE ep.ekey = '$cid'
                     AND dest.id_compaga = '$cp'
-                    AND e.dateenvoi BETWEEN '$dt1' AND '$dt2'
+                    AND e.dateenvoi >= '$dt1' AND dateenvoi < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND e.prixcolis IS NOT NULL
                     AND e.partocour IS NULL
-                    AND ul.guser = '$gd'
+                    AND gex.code_gaexp = '$gd'
                     GROUP BY dest.id_compaga, lg.nom_ligne, cd.naturecoli, e.prixcolis")->result();
             }
             elseif($algn === '')
@@ -2454,10 +2454,10 @@
                     JOIN entreprise ep ON c.id_entrep = ep.id_entreprise
                     WHERE ep.ekey = '$cid'
                     AND dest.id_compaga = '$cp'
-                    AND e.dateenvoi BETWEEN '$dt1' AND '$dt2'
+                    AND e.dateenvoi >= '$dt1' AND dateenvoi < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND e.prixcolis IS NOT NULL
                     AND e.partocour IS NULL
-                    AND ul.guser = '$gd'
+                    AND gex.code_gaexp = '$gd'
                     AND cd.naturecoli = '$tycr'
                     GROUP BY dest.id_compaga, lg.nom_ligne, cd.naturecoli, e.prixcolis")->result();
             }
@@ -2480,10 +2480,10 @@
                     JOIN entreprise ep ON c.id_entrep = ep.id_entreprise
                     WHERE ep.ekey = '$cid'
                     AND dest.id_compaga = '$cp'
-                    AND e.dateenvoi BETWEEN '$dt1' AND '$dt2'
+                    AND e.dateenvoi >= '$dt1' AND dateenvoi < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND e.prixcolis IS NOT NULL
                     AND e.partocour IS NULL
-                    AND ul.guser = '$gd'
+                    AND gex.code_gaexp = '$gd'
                     AND lg.ident_ligne = '$algn'
                     AND cd.naturecoli = '$tycr'
                     GROUP BY dest.id_compaga, lg.nom_ligne, cd.naturecoli, e.prixcolis")->result();
@@ -2560,7 +2560,7 @@
                     JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                     JOIN entreprise ep ON c.id_entrep = ep.id_entreprise
                     WHERE ep.ekey = '$cid'
-                    AND e.dateenvoi BETWEEN '$dt1' AND '$dt2'
+                    AND e.dateenvoi >= '$dt1' AND e.dateenvoi < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND e.prixcolis IS NOT NULL
                     AND e.partocour IS NULL
                     GROUP BY lg.nom_ligne, e.prixcolis")->result();
@@ -2585,10 +2585,10 @@
                     JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                     JOIN entreprise ep ON c.id_entrep = ep.id_entreprise
                     WHERE ep.ekey = '$cid'
-                    AND e.dateenvoi BETWEEN '$dt1' AND '$dt2'
+                    AND e.dateenvoi >= '$dt1' AND e.dateenvoi < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND e.prixcolis IS NOT NULL
                     AND e.partocour IS NULL
-                    AND ul.guser = '$gd'
+                    AND gex.code_gaexp = '$gd'
                     GROUP BY lg.nom_ligne, e.prixcolis")->result();
             }
             elseif ($idconx === '' AND $tycr === '' AND $algn === '') {
@@ -2611,10 +2611,10 @@
                     JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                     JOIN entreprise ep ON c.id_entrep = ep.id_entreprise
                     WHERE ep.ekey = '$cid'
-                    AND e.dateenvoi BETWEEN '$dt1' AND '$dt2'
+                    AND e.dateenvoi >= '$dt1' AND e.dateenvoi < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND e.prixcolis IS NOT NULL
                     AND e.partocour IS NULL
-                    AND ul.guser = '$gd'
+                    AND gex.code_gaexp = '$gd'
                     AND ar.roleattribut = '$idconx'
                     GROUP BY lg.nom_ligne, e.prixcolis")->result();
             }
@@ -2638,11 +2638,11 @@
                     JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                     JOIN entreprise ep ON c.id_entrep = ep.id_entreprise
                     WHERE ep.ekey = '$cid'
-                    AND e.dateenvoi BETWEEN '$dt1' AND '$dt2'
+                    AND e.dateenvoi >= '$dt1' AND e.dateenvoi < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND e.prixcolis IS NOT NULL
                     AND e.partocour IS NULL
                     AND dest.id_compaga = '$cp'
-                    AND ul.guser = '$gd'
+                    AND gex.code_gaexp = '$gd'
                     AND ar.roleattribut = '$idconx'
                     GROUP BY lg.nom_ligne, e.prixcolis")->result();
             }
@@ -2666,11 +2666,11 @@
                     JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                     JOIN entreprise ep ON c.id_entrep = ep.id_entreprise
                     WHERE ep.ekey = '$cid'
-                    AND e.dateenvoi BETWEEN '$dt1' AND '$dt2'
+                    AND e.dateenvoi >= '$dt1' AND e.dateenvoi < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND e.prixcolis IS NOT NULL
                     AND e.partocour IS NULL
                     AND dest.id_compaga = '$cp'
-                    AND ul.guser = '$gd'
+                    AND gex.code_gaexp = '$gd'
                     AND cd.naturecoli = '$tycr'
                     AND ar.roleattribut = '$idconx'
                     GROUP BY cd.naturecoli, lg.nom_ligne, e.prixcolis")->result();
@@ -2694,11 +2694,11 @@
                     JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                     JOIN entreprise ep ON c.id_entrep = ep.id_entreprise
                     WHERE ep.ekey = '$cid'
-                    AND e.dateenvoi BETWEEN '$dt1' AND '$dt2'
+                    AND e.dateenvoi >= '$dt1' AND e.dateenvoi < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND dest.id_compaga = '$cp'
                     AND e.prixcolis IS NOT NULL
                     AND e.partocour IS NULL
-                    AND ul.guser = '$gd'
+                    AND gex.code_gaexp = '$gd'
                     AND cd.naturecoli = '$tycr'
                     AND ar.roleattribut = '$idconx'
                     AND lg.ident_ligne = '$algn'
@@ -2731,7 +2731,7 @@
                 JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                 JOIN entreprise ep ON c.id_entrep = ep.id_entreprise
                 WHERE ep.ekey = '$cid'
-                AND e.dateenvoi BETWEEN '$dt1' AND '$dt2'
+                AND e.dateenvoi >= '$dt1' AND dateenvoi < DATE_ADD('$dt2', INTERVAL 1 DAY)
                 AND ctcl.idtype_client = '$tcl'
                 AND lg.gaexp_lg = '$gd'
                 AND cd.clorecodecour = 1
@@ -2765,7 +2765,7 @@
                 JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                 JOIN entreprise ep ON c.id_entrep = ep.id_entreprise
                 WHERE ep.ekey = '$cid'
-                AND e.dateenvoi BETWEEN '$dt1' AND '$dt2'
+                AND e.dateenvoi >= '$dt1' AND dateenvoi < DATE_ADD('$dt2', INTERVAL 1 DAY)
                 AND ctcl.idtype_client = '$tcl'
                 AND lg.gaexp_lg = '$gd'
                 AND cd.clorecodecour = 1
@@ -2801,7 +2801,7 @@
                 JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                 JOIN entreprise ep ON c.id_entrep = ep.id_entreprise
                 WHERE ep.ekey = '$cid'
-                AND e.dateenvoi BETWEEN '$dt1' AND '$dt2'
+                AND e.dateenvoi >= '$dt1' AND dateenvoi < DATE_ADD('$dt2', INTERVAL 1 DAY)
                 AND ctcl.idtype_client = '$tcl'
                 AND lg.gaexp_lg = '$gd'
                 AND cd.clorecodecour = 1
@@ -2834,7 +2834,7 @@
                 JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                 JOIN entreprise ep ON c.id_entrep = ep.id_entreprise
                 WHERE ep.ekey = '$cid'
-                AND e.dateenvoi BETWEEN '$dt1' AND '$dt2'
+                AND e.dateenvoi >= '$dt1' AND dateenvoi < DATE_ADD('$dt2', INTERVAL 1 DAY)
                 AND ctcl.idtype_client = '$tcl'
                 AND lg.gaexp_lg = '$gd'
                 AND cd.naturecoli = '$nat'
@@ -2872,7 +2872,7 @@
                     JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                     JOIN entreprise ep ON c.id_entrep = ep.id_entreprise
                     WHERE ep.ekey = '$cid'
-                    AND e.dateenvoi BETWEEN '$dt1' AND '$dt2'
+                    AND e.dateenvoi >= '$dt1' AND dateenvoi < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND ctcl.idtype_client = '$tcl'
                     AND lg.gaexp_lg = '$gd'
                     AND cd.clorecodecour = 1
@@ -2905,7 +2905,7 @@
                     JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                     JOIN entreprise ep ON c.id_entrep = ep.id_entreprise
                     WHERE ep.ekey = '$cid'
-                    AND e.dateenvoi BETWEEN '$dt1' AND '$dt2'
+                    AND e.dateenvoi >= '$dt1' AND dateenvoi < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND ctcl.idtype_client = '$tcl'
                     AND cd.naturecoli = '$nt'
                     AND lg.gaexp_lg = '$gd'
@@ -2938,7 +2938,7 @@
                 JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                 JOIN entreprise ep ON c.id_entrep = ep.id_entreprise
                 WHERE ep.ekey = '$cid'
-                AND e.dateenvoi BETWEEN '$dt1' AND '$dt2'
+                AND e.dateenvoi >= '$dt1' AND dateenvoi < DATE_ADD('$dt2', INTERVAL 1 DAY)
                 AND cd.clorecodecour = 1
                 AND e.courclore = 1
                 AND e.partocour = IS NOT NULL
@@ -2969,7 +2969,7 @@
                 AND e.courclore = 1
                 AND e.partocour IS NOT NULL
                 AND e.rexepedier IS NULL
-                AND e.dateenvoi BETWEEN '$dt1' AND '$dt2'")->result();
+                AND e.dateenvoi >= '$dt1' AND dateenvoi < DATE_ADD('$dt2', INTERVAL 1 DAY)")->result();
             }
                 return $this->db->query(
                 "SELECT * FROM courriers_exp e
@@ -2994,7 +2994,7 @@
                 AND e.courclore = 1
                 AND e.partocour IS NOT NULL
                 AND e.rexepedier IS NULL
-                AND e.dateenvoi BETWEEN '$dt1' AND '$dt2'
+                AND e.dateenvoi >= '$dt1' AND dateenvoi < DATE_ADD('$dt2', INTERVAL 1 DAY)
                 AND ctcl.idtype_client = '$tcl'")->result();
         }
 

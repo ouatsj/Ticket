@@ -306,10 +306,28 @@
                 $this->property['conex'] = $conex;
             if ($this->session->agent->userole === '1' OR $this->session->agent->userole === '2'){
 
-                $this->property['historiquesconfirme'] = $this->m_passager->triconfarch($this->company->ekey, $ddbt, $dfin, $gd, $sg);
+                $historiquesconfirme = $this->m_passager->triconfarch($this->company->ekey, $ddbt, $dfin, $gd, $sg);
             }
-            else
-                $this->property['historiquesconfirme'] = $this->m_passager->triconf($this->company->ekey, $ddbt, $dfin, $gd, $sg);
+            else {
+                $historiquesconfirme = $this->m_passager->triconf($this->company->ekey, $ddbt, $dfin, $gd, $sg);
+            }
+            if (!is_array($historiquesconfirme)) {
+                $historiquesconfirme = array();
+            }
+            $directs = array();
+            $transits = array();
+            foreach ($historiquesconfirme as $row) {
+                if (!empty($row->est_transit) && (int) $row->est_transit === 1) {
+                    $transits[] = $row;
+                } else {
+                    $directs[] = $row;
+                }
+            }
+            $this->property['historiquesconfirme'] = $historiquesconfirme;
+            $this->property['historiquesconfirme_direct'] = $directs;
+            $this->property['historiquesconfirme_transit'] = $transits;
+            $this->property['tri_conf_debut'] = $ddbt;
+            $this->property['tri_conf_fin'] = $dfin;
 
                 return $this->layout->view('_historique/tri_confpassager', $this->property);
          
