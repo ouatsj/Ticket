@@ -1277,6 +1277,10 @@
                     foreach ($cfrecet as $item9) {
                         // Option A : ajoute operavalid, conserve operavalidad / idopera.
                         $plarray = caisse_validation_flags_promote_adjoint_recette($iduser);
+                        if (empty($plarray)) {
+                            log_message('error', 'advaliderecette: promote refusé (RA non principal) iduser=' . $iduser);
+                            continue;
+                        }
                         $vald_recet = $this->m_recette->update($item9->id_recette, $plarray);
                     }
 
@@ -1330,6 +1334,10 @@
 
                     foreach ($cfdepes as $cfdep) {
                         $dplarray = caisse_validation_flags_promote_adjoint_depense($iduser);
+                        if (empty($dplarray)) {
+                            log_message('error', 'advalidedepense: promote refusé (RA non principal) iduser=' . $iduser);
+                            continue;
+                        }
                         $vald_dep = $this->m_depense->update($cfdep->id_depense, $dplarray);
                     }
                 

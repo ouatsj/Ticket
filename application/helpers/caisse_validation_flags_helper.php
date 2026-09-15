@@ -76,6 +76,48 @@ if (!function_exists('caisse_adjoint_blocked_arret_on_chef')) {
     }
 }
 
+if (!function_exists('caisse_validation_require_principal_ra')) {
+    /**
+     * N’accepte un roleattribut que s’il est bien caissier principal (userole 4) en DB.
+     * Empêche d’écrire un RA adjoint (18) dans operavalid / opevalid / opvalid.
+     *
+     * @param int|string $principal_ra
+     * @return int 0 si refuse
+     */
+    function caisse_validation_require_principal_ra($principal_ra)
+    {
+        $principal_ra = (int) $principal_ra;
+        if ($principal_ra <= 0) {
+            return 0;
+        }
+
+        $userole = null;
+        if (function_exists('recette_role_userole_for_attribut')) {
+            $userole = recette_role_userole_for_attribut($principal_ra);
+        } else {
+            $CI =& get_instance();
+            $row = $CI->db->query(
+                'SELECT ar.userole FROM attributions_role ar WHERE ar.roleattribut = ? LIMIT 1',
+                array($principal_ra)
+            )->row();
+            $userole = ($row && isset($row->userole)) ? (string) $row->userole : null;
+        }
+
+        if (!function_exists('recette_role_is_validateur_principal')
+            || !recette_role_is_validateur_principal($userole)
+        ) {
+            log_message(
+                'error',
+                'caisse_validation: RA ' . $principal_ra . ' refusé pour piste principal (userole='
+                . var_export($userole, true) . ')'
+            );
+            return 0;
+        }
+
+        return $principal_ra;
+    }
+}
+
 if (!function_exists('caisse_validation_flags_chef_by_validator')) {
     /**
      * Flags posés quand 4 ou 18 valide l’arrêt d’un chef (5/16).
@@ -89,6 +131,13 @@ if (!function_exists('caisse_validation_flags_chef_by_validator')) {
     function caisse_validation_flags_chef_by_validator($validator_userole, $validator_ra, $is_saisie_chef = true)
     {
         $validator_ra = (int) $validator_ra;
+        // Source de vérité = userole DB du RA (évite session/hint incohérents).
+        if ($validator_ra > 0 && function_exists('recette_role_userole_for_attribut')) {
+            $db_userole = recette_role_userole_for_attribut($validator_ra);
+            if ($db_userole !== null && $db_userole !== '') {
+                $validator_userole = $db_userole;
+            }
+        }
         $flags = array();
 
         if (recette_role_is_validateur_adjoint($validator_userole)) {
@@ -100,10 +149,14 @@ if (!function_exists('caisse_validation_flags_chef_by_validator')) {
                 // piste principal volontairement non touchée
             );
         } elseif (recette_role_is_validateur_principal($validator_userole)) {
+            $principal_ra = caisse_validation_require_principal_ra($validator_ra);
+            if ($principal_ra <= 0) {
+                return array();
+            }
             $flags = array(
                 'is_actifrecet' => 1,
                 'is_validerecet' => 1,
-                'operavalid' => $validator_ra,
+                'operavalid' => $principal_ra,
             );
             if ($is_saisie_chef) {
                 $flags['active_recet'] = 1;
@@ -118,6 +171,12 @@ if (!function_exists('caisse_validation_flags_depense_chef_by_validator')) {
     function caisse_validation_flags_depense_chef_by_validator($validator_userole, $validator_ra, $is_saisie_chef = true)
     {
         $validator_ra = (int) $validator_ra;
+        if ($validator_ra > 0 && function_exists('recette_role_userole_for_attribut')) {
+            $db_userole = recette_role_userole_for_attribut($validator_ra);
+            if ($db_userole !== null && $db_userole !== '') {
+                $validator_userole = $db_userole;
+            }
+        }
         $flags = array();
 
         if (recette_role_is_validateur_adjoint($validator_userole)) {
@@ -128,10 +187,14 @@ if (!function_exists('caisse_validation_flags_depense_chef_by_validator')) {
                 'opevalidad' => $validator_ra,
             );
         } elseif (recette_role_is_validateur_principal($validator_userole)) {
+            $principal_ra = caisse_validation_require_principal_ra($validator_ra);
+            if ($principal_ra <= 0) {
+                return array();
+            }
             $flags = array(
                 'is_actifdep' => 1,
                 'is_validedep' => 1,
-                'opevalid' => $validator_ra,
+                'opevalid' => $principal_ra,
             );
             if ($is_saisie_chef) {
                 $flags['active_dep'] = 1;
@@ -146,6 +209,12 @@ if (!function_exists('caisse_validation_flags_depot_chef_by_validator')) {
     function caisse_validation_flags_depot_chef_by_validator($validator_userole, $validator_ra, $is_saisie_chef = true)
     {
         $validator_ra = (int) $validator_ra;
+        if ($validator_ra > 0 && function_exists('recette_role_userole_for_attribut')) {
+            $db_userole = recette_role_userole_for_attribut($validator_ra);
+            if ($db_userole !== null && $db_userole !== '') {
+                $validator_userole = $db_userole;
+            }
+        }
         $flags = array();
 
         if (recette_role_is_validateur_adjoint($validator_userole)) {
@@ -155,10 +224,14 @@ if (!function_exists('caisse_validation_flags_depot_chef_by_validator')) {
                 'opvalidad' => $validator_ra,
             );
         } elseif (recette_role_is_validateur_principal($validator_userole)) {
+            $principal_ra = caisse_validation_require_principal_ra($validator_ra);
+            if ($principal_ra <= 0) {
+                return array();
+            }
             $flags = array(
                 'is_actifdepo' => 1,
                 'is_validdepo' => 1,
-                'opvalid' => $validator_ra,
+                'opvalid' => $principal_ra,
             );
         }
 
@@ -170,13 +243,19 @@ if (!function_exists('caisse_validation_flags_promote_adjoint_recette')) {
     /**
      * Principal (4) confirme une ligne déjà validée par l’adjoint (18).
      * Conserve operavalidad / is_actifrecetad ; ajoute operavalid / is_actifrecet.
+     * Refuse tout RA qui n’est pas userole 4 en base.
      */
     function caisse_validation_flags_promote_adjoint_recette($principal_ra)
     {
+        $principal_ra = caisse_validation_require_principal_ra($principal_ra);
+        if ($principal_ra <= 0) {
+            return array();
+        }
+
         return caisse_validation_flags_strip_author(array(
             'is_actifrecet' => 1,
             'is_actifrecetad' => 1,
-            'operavalid' => (int) $principal_ra,
+            'operavalid' => $principal_ra,
         ));
     }
 }
@@ -184,10 +263,15 @@ if (!function_exists('caisse_validation_flags_promote_adjoint_recette')) {
 if (!function_exists('caisse_validation_flags_promote_adjoint_depense')) {
     function caisse_validation_flags_promote_adjoint_depense($principal_ra)
     {
+        $principal_ra = caisse_validation_require_principal_ra($principal_ra);
+        if ($principal_ra <= 0) {
+            return array();
+        }
+
         return caisse_validation_flags_strip_author(array(
             'is_actifdep' => 1,
             'is_actifdepad' => 1,
-            'opevalid' => (int) $principal_ra,
+            'opevalid' => $principal_ra,
         ));
     }
 }
@@ -195,10 +279,15 @@ if (!function_exists('caisse_validation_flags_promote_adjoint_depense')) {
 if (!function_exists('caisse_validation_flags_promote_adjoint_depot')) {
     function caisse_validation_flags_promote_adjoint_depot($principal_ra)
     {
+        $principal_ra = caisse_validation_require_principal_ra($principal_ra);
+        if ($principal_ra <= 0) {
+            return array();
+        }
+
         return caisse_validation_flags_strip_author(array(
             'is_actifdepo' => 1,
             'is_actifdepoad' => 1,
-            'opvalid' => (int) $principal_ra,
+            'opvalid' => $principal_ra,
         ));
     }
 }

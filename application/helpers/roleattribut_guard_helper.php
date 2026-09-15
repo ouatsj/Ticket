@@ -774,18 +774,70 @@ if (!function_exists('caissier_principale_chef_bind')) {
 }
 
 if (!function_exists('caissier_principale_adjoint_validation_bind')) {
+    /**
+     * Bind confirmation principal (4) sur arrêt adjoint (18).
+     * caissier_ra DOIT être userole 4 en DB — jamais un RA adjoint.
+     *
+     * @return array{adjoint_ra:int,caissier_ra:int}
+     */
     function caissier_principale_adjoint_validation_bind($ekey, $gare_id, $adjoint_ra, $caissier_hint)
     {
+        $CI =& get_instance();
+        $gare_id = roleattribut_guard_normalize_gare_id($ekey, $gare_id);
+
         $adjoint = roleattribut_guard_attribution_on_gare($ekey, $gare_id, $adjoint_ra, array('18'));
         if (!$adjoint) {
             roleattribut_guard_fail_redirect_gare_caisse($ekey, $gare_id);
         }
 
         $caissier = roleattribut_guard_operateur($ekey, $gare_id, $caissier_hint);
-        if (!roleattribut_guard_is_supervisor()) {
-            if (!recette_role_is_validateur_principal($caissier['userole'])) {
-                roleattribut_guard_fail_redirect_gare_caisse($ekey, $gare_id);
+        $caissier_ra = (int) $caissier['roleattribut'];
+        $userole = isset($caissier['userole']) ? $caissier['userole'] : null;
+        if ($caissier_ra > 0 && function_exists('recette_role_userole_for_attribut')) {
+            $db_userole = recette_role_userole_for_attribut($caissier_ra, $caissier['conex']);
+            if ($db_userole !== null && $db_userole !== '') {
+                $userole = $db_userole;
             }
+        }
+
+        // Si le hint/session a résolu un adjoint (ou autre), basculer sur le RA principal
+        // de l’agent connecté sur cette gare (cas URL params inversés / multi-rôles).
+        if (!recette_role_is_validateur_principal($userole)
+            && $CI->session->userdata('agent')
+            && !empty($CI->session->agent->cpuser_id)
+        ) {
+            $CI->load->model('Compte_user_model', 'm_compte_user_guard');
+            $own_principal = $CI->m_compte_user_guard->roleattribut_for_agent_on_gare(
+                (int) $CI->session->agent->cpuser_id,
+                4,
+                $gare_id
+            );
+            if ($own_principal) {
+                $caissier = roleattribut_guard_operateur($ekey, $gare_id, $own_principal);
+                $caissier_ra = (int) $caissier['roleattribut'];
+                $userole = function_exists('recette_role_userole_for_attribut')
+                    ? recette_role_userole_for_attribut($caissier_ra, $caissier['conex'])
+                    : (isset($caissier['userole']) ? $caissier['userole'] : null);
+            }
+        }
+
+        // Garde absolue : piste principal uniquement (y compris superviseur).
+        if (!recette_role_is_validateur_principal($userole)
+            || !function_exists('caisse_validation_require_principal_ra')
+            || caisse_validation_require_principal_ra($caissier_ra) <= 0
+        ) {
+            roleattribut_guard_fail_redirect_gare_caisse($ekey, $gare_id);
+        }
+
+        if ($caissier_ra === (int) $adjoint->roleattribut) {
+            log_message(
+                'error',
+                'caissier_principale_adjoint_validation_bind: caissier_ra=adjoint_ra=' . $caissier_ra
+            );
+            roleattribut_guard_fail_redirect_gare_caisse($ekey, $gare_id);
+        }
+
+        if (!roleattribut_guard_is_supervisor()) {
             if (!roleattribut_guard_assert_conex($caissier['conex'])) {
                 roleattribut_guard_fail_redirect_gare_caisse($ekey, $gare_id);
             }
@@ -793,7 +845,7 @@ if (!function_exists('caissier_principale_adjoint_validation_bind')) {
 
         return array(
             'adjoint_ra' => (int) $adjoint->roleattribut,
-            'caissier_ra' => (int) $caissier['roleattribut'],
+            'caissier_ra' => $caissier_ra,
         );
     }
 }
