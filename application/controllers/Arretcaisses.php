@@ -319,26 +319,50 @@
             if ($this->db->trans_status() === false) {
                 $this->session->set_flashdata(
                     'arret_global_error',
-                    'L’arrêt de compte global n’a pas pu être envoyé. Veuillez réessayer.'
+                    'La validation globale des arrêts chefs n’a pas pu être enregistrée. Veuillez réessayer.'
                 );
                 redirect('home/main');
                 return;
             }
 
             $total = $nb_recettes + $nb_depenses + $nb_depots;
+            $adjoint_ras = array();
+            foreach ($gares as $gare) {
+                $ra = (int) $gare->roleattribut;
+                if ($ra > 0) {
+                    $adjoint_ras[] = $ra;
+                }
+            }
+            $pending_princ = function_exists('adjoint_pending_principal_totals')
+                ? adjoint_pending_principal_totals($ekey, $adjoint_ras)
+                : (object) array('nb' => 0);
+
             if ($total === 0) {
-                $this->session->set_flashdata(
-                    'arret_global_success',
-                    'Aucun mouvement à arrêter sur vos gares.'
-                );
+                if (!empty($pending_princ->nb)) {
+                    $this->session->set_flashdata(
+                        'arret_global_success',
+                        'Aucun nouvel arrêt chef à valider. Déjà validé, en attente caissière ('
+                        . (int) $pending_princ->nb . ' mouvement'
+                        . ((int) $pending_princ->nb > 1 ? 's' : '') . ').'
+                    );
+                } else {
+                    $this->session->set_flashdata(
+                        'arret_global_success',
+                        'Aucun arrêt chef en attente de validation sur vos gares.'
+                    );
+                }
             } else {
-                $this->session->set_flashdata(
-                    'arret_global_success',
-                    'Arrêt global envoyé à la caissière : '
+                $msg = 'Arrêts chefs validés : '
                     . $nb_recettes . ' recette(s), '
                     . $nb_depenses . ' dépense(s), '
-                    . $nb_depots . ' dépôt(s).'
-                );
+                    . $nb_depots . ' dépôt(s). '
+                    . 'Ils sont maintenant en attente de confirmation par la caissière';
+                if (!empty($pending_princ->nb)) {
+                    $msg .= ' (' . (int) $pending_princ->nb . ' mouvement'
+                        . ((int) $pending_princ->nb > 1 ? 's' : '') . ' au total)';
+                }
+                $msg .= '.';
+                $this->session->set_flashdata('arret_global_success', $msg);
             }
 
             redirect('home/main');

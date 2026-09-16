@@ -17,20 +17,30 @@
 
         <button class="btn btn-success md-trigger"
                 type="button"
-                title="Arrêter le compte sur toutes les gares"
+                title="Valider les arrêts chefs sur toutes vos gares"
                 data-modal="arret-compte-global-adjoint">
-            <i class="fas fa-puzzle-piece"></i>&nbsp;ARRÊT COMPTE GLOBAL
+            <i class="fas fa-puzzle-piece"></i>&nbsp;VALIDER ARRÊTS CHEFS (GLOBAL)
         </button>
         <span class="text-muted small ml-2">
-            Envoie les mouvements de toutes vos gares à la caissière pour validation.
+            Valide les arrêts chefs encore en attente sur toutes vos gares (puis file caissière).
         </span>
+        <?php
+        $__pending_princ = isset($adjoint_pending_principal) ? $adjoint_pending_principal : null;
+        $__pending_nb = ($__pending_princ && !empty($__pending_princ->nb)) ? (int) $__pending_princ->nb : 0;
+        ?>
+        <?php if ($__pending_nb > 0): ?>
+            <div class="alert alert-info mt-2 mb-0" role="status">
+                Déjà validé, en attente caissière
+                (<?= $__pending_nb; ?> mouvement<?= $__pending_nb > 1 ? 's' : ''; ?>).
+            </div>
+        <?php endif; ?>
 
         <div class="modal-container colored-header colored-header-success custom-width modal-effect-7"
              id="arret-compte-global-adjoint"
              style="perspective: none;">
             <div class="modal-content">
                 <div class="modal-header modal-header-colored">
-                    <h3 class="modal-title">ARRÊT COMPTE GLOBAL</h3>
+                    <h3 class="modal-title">VALIDER LES ARRÊTS CHEFS (GLOBAL)</h3>
                     <button class="close modal-close" type="button"
                             data-dismiss="modal" aria-hidden="true">
                         <span class="mdi mdi-close text-white"></span>
@@ -41,19 +51,26 @@
                     array('class' => 'modal-body form')
                 ); ?>
                     <p>
-                        Confirmer l’arrêt de compte sur <strong>toutes les gares</strong> auxquelles
-                        vous avez accès&nbsp;?
+                        Confirmer la <strong>validation</strong> des arrêts chefs encore en attente
+                        sur <strong>toutes les gares</strong> auxquelles vous avez accès&nbsp;?
                     </p>
-                    <p class="text-muted small mb-0">
-                        Les recettes, dépenses et dépôts seront transmis au compte de la caissière
+                    <p class="text-muted small">
+                        Cela pose votre validation adjoint ; les mouvements passent ensuite
+                        dans la file de confirmation de la caissière
                         (section «&nbsp;Caissiers adjoints — à confirmer&nbsp;»).
                     </p>
+                    <?php if ($__pending_nb > 0): ?>
+                        <p class="text-info small mb-0">
+                            Déjà validé, en attente caissière
+                            (<?= $__pending_nb; ?> mouvement<?= $__pending_nb > 1 ? 's' : ''; ?>).
+                        </p>
+                    <?php endif; ?>
                     <div class="modal-footer">
                         <button class="btn btn-secondary modal-close" type="button" data-dismiss="modal">
                             <i class="icon icon-left mdi mdi-undo text-dark"></i>&nbsp;ANNULER&nbsp;
                         </button>
                         <button class="btn btn-success" type="submit">
-                            <i class="icon icon-left mdi mdi-check-all text-white"></i>&nbsp;CONFIRMER L’ARRÊT&nbsp;
+                            <i class="icon icon-left mdi mdi-check-all text-white"></i>&nbsp;CONFIRMER LA VALIDATION&nbsp;
                         </button>
                     </div>
                 <?= form_close(); ?>

@@ -156,6 +156,20 @@
                 $this->property['soldes'] = array();
             }
 
+            $this->property['adjoint_pending_principal'] = null;
+            if ($role === '18' && function_exists('adjoint_pending_principal_totals')) {
+                $adjoint_ras = array();
+                foreach ($this->property['gares'] as $g) {
+                    if (isset($g->roleattribut)) {
+                        $adjoint_ras[] = (int) $g->roleattribut;
+                    }
+                }
+                $this->property['adjoint_pending_principal'] = adjoint_pending_principal_totals(
+                    $ekey,
+                    $adjoint_ras
+                );
+            }
+
             $this->property = array_merge($this->property, scripts_bundle_property('accueil'));
             $this->layout->view('index1', $this->property);
         }

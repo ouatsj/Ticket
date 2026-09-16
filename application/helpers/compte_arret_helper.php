@@ -2682,3 +2682,93 @@ if (!function_exists('caissier_validation_adjoint_pending_totals')) {
         );
     }
 }
+
+if (!function_exists('adjoint_pending_principal_totals')) {
+    /**
+     * Mouvements déjà validés par l’adjoint (18), encore en attente de confirmation caissière (4).
+     *
+     * @param string   $ekey
+     * @param int[]    $adjoint_ras  roleattribut(s) adjoint actifs
+     * @return object{nb:int,nb_recettes:int,nb_depenses:int,nb_depots:int}
+     */
+    function adjoint_pending_principal_totals($ekey, array $adjoint_ras)
+    {
+        $empty = (object) array(
+            'nb' => 0,
+            'nb_recettes' => 0,
+            'nb_depenses' => 0,
+            'nb_depots' => 0,
+        );
+        $ras = array();
+        foreach ($adjoint_ras as $ra) {
+            $ra = (int) $ra;
+            if ($ra > 0) {
+                $ras[$ra] = $ra;
+            }
+        }
+        if (!$ras) {
+            return $empty;
+        }
+
+        $CI =& get_instance();
+        $today = mdate('%Y-%m-%d', now());
+        $in = implode(',', $ras);
+        $ekeyEsc = $CI->db->escape($ekey);
+
+        $rec = $CI->db->query(
+            "SELECT COUNT(*) AS nb
+            FROM recette r
+            JOIN compagnies c ON r.compkey_recet = c.cle_compagnie
+            JOIN entreprise e ON c.id_entrep = e.id_entreprise
+            WHERE e.ekey = {$ekeyEsc}
+            AND r.operavalidad IN ({$in})
+            AND r.is_actifrecetad = 1
+            AND r.is_actifrecet = 0
+            AND r.is_validerecet = 1
+            AND r.actif_rect = 0
+            AND r.type_recet <> 'Courrier'
+            AND r.date_recet <= " . $CI->db->escape($today)
+        )->row();
+
+        $dep = $CI->db->query(
+            "SELECT COUNT(*) AS nb
+            FROM depense d
+            JOIN compagnies c ON d.compkey_dep = c.cle_compagnie
+            JOIN entreprise e ON c.id_entrep = e.id_entreprise
+            WHERE e.ekey = {$ekeyEsc}
+            AND d.opevalidad IN ({$in})
+            AND d.is_actifdepad = 1
+            AND d.is_actifdep = 0
+            AND d.is_validedep = 1
+            AND d.actif_deps = 0
+            AND d.type_depense <> 'Courrier'
+            AND d.date_depens <= " . $CI->db->escape($today)
+        )->row();
+
+        $depots = $CI->db->query(
+            "SELECT COUNT(*) AS nb
+            FROM depot d
+            JOIN compagnies c ON d.compkey_depo = c.cle_compagnie
+            JOIN entreprise e ON c.id_entrep = e.id_entreprise
+            WHERE e.ekey = {$ekeyEsc}
+            AND d.opvalidad IN ({$in})
+            AND d.is_actifdepoad = 1
+            AND d.is_actifdepo = 0
+            AND d.is_validdepo = 1
+            AND d.actif_depo = 0
+            AND d.type_depot <> 'Courrier'
+            AND d.datedepot <= " . $CI->db->escape($today)
+        )->row();
+
+        $nb_r = $rec ? (int) $rec->nb : 0;
+        $nb_d = $dep ? (int) $dep->nb : 0;
+        $nb_dp = $depots ? (int) $depots->nb : 0;
+
+        return (object) array(
+            'nb' => $nb_r + $nb_d + $nb_dp,
+            'nb_recettes' => $nb_r,
+            'nb_depenses' => $nb_d,
+            'nb_depots' => $nb_dp,
+        );
+    }
+}
