@@ -114,8 +114,22 @@
                     <?php endif; ?>
                     <?php $montant_rapport = $montantglobal + $montantglobalr + $montantglobal_rat; ?>
                     <h2 style="font-size: 60px;" align="left">total général rapport :<?= number_format($montant_rapport, 0, '', ' '); ?> </h2>
-                    <h2 style="font-size: 60px;" align="left">montant envoyé chef :<?= number_format($montant_envoye_chef, 0, '', ' '); ?> </h2> 
-                    <h1 style="font-size: 60px;" align="left">Reprogrammation</h1>
+                    <h2 style="font-size: 60px;" align="left">montant envoyé chef :<?= number_format($montant_envoye_chef, 0, '', ' '); ?> </h2>
+                    <?php
+                    $reponserepro = isset($reponserepro) ? $reponserepro : array();
+                    $reponseconf = isset($reponseconf) ? $reponseconf : array();
+                    $nb_repro = 0;
+                    foreach ($reponserepro as $_rp) {
+                        $nb_repro += (int) $_rp->cdrep;
+                    }
+                    $nb_conf = 0;
+                    foreach ($reponseconf as $_cf) {
+                        $nb_conf += (int) $_cf->cdconf;
+                    }
+                    ?>
+                    <?php if ($nb_repro > 0): ?>
+                    <h1 style="font-size: 60px;" align="left">Reprogrammation (non facturable)</h1>
+                    <h2 style="font-size: 55px;" align="left">nombre tickets reprogrammés : <?= $nb_repro; ?></h2>
                     <table border="1" cellpadding="0">
                         <thead> 
                             <tr> 
@@ -124,7 +138,6 @@
                             </tr>
                         </thead>
                         <body>
-                        
                             <?foreach ($reponserepro as $reponserepr => $reponserep): ?>
                                 <tr>
                                   <td style="font-size: 60px;" align="left"><strong><?=$reponserep->nom_ligne; ?></strong></td>
@@ -133,7 +146,10 @@
                             <? endforeach; ?>
                         </body>
                     </table>
-                    <h1 style="font-size: 60px;" align="left">Confirmation</h1>
+                    <?php endif; ?>
+                    <?php if ($nb_conf > 0): ?>
+                    <h1 style="font-size: 60px;" align="left">Confirmation (non facturable)</h1>
+                    <h2 style="font-size: 55px;" align="left">nombre tickets confirmés : <?= $nb_conf; ?></h2>
                     <table border="1" cellpadding="0">
                         <thead> 
                             <tr> 
@@ -142,9 +158,7 @@
                             </tr>
                         </thead>
                         <body>
-                        
                             <?foreach ($reponseconf as $reponsecon => $reponsecf): ?>
-                          
                             <tr>
                                   <td style="font-size: 60px;" align="left"><strong><?=$reponsecf->nom_ligne; ?></strong></td>
                                   <td style="font-size: 60px;" align="left"><strong><?= $reponsecf->cdconf; ?></strong></td>
@@ -152,6 +166,7 @@
                             <? endforeach; ?>
                         </body>
                     </table>
+                    <?php endif; ?>
                 </div>
             </div>
 

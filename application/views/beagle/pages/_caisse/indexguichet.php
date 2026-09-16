@@ -260,8 +260,12 @@
                             <p>MONTANT:&nbsp;<span><? if (!empty($passageraller)): ?><?= number_format($passageraller->total, 0, '', ' '); ?><? endif; ?></span></p>
                             <p>NOMBRE DE TICKET RETOUR:&nbsp;<span><? if (!empty($passagerretour)): ?><?= $passagerretour->cod; ?><? endif; ?></span></p>
                             <p>MONTANT:&nbsp;<span><? if (!empty($passagerretour)): ?><?= number_format($passagerretour->totalr, 0, '', ' '); ?><? endif; ?></span></p>
-                            <p>NOMBRE DE TICKET REPROGRAMMER:&nbsp;<span><? if (!empty($passager_repro)): ?><?= $passager_repro->cd; ?><? endif; ?></span></p>
-                            <p>NOMBRE DE TICKET CONFIRMER:&nbsp;<span><? if (!empty($passager_conf)): ?><?= $passager_conf->cd; ?><? endif; ?></span></p>
+                            <?php if (!empty($passager_repro) && (int) $passager_repro->cd > 0): ?>
+                            <p>NOMBRE DE TICKET REPROGRAMMER:&nbsp;<span><?= $passager_repro->cd; ?></span></p>
+                            <?php endif; ?>
+                            <?php if (!empty($passager_conf) && (int) $passager_conf->cd > 0): ?>
+                            <p>NOMBRE DE TICKET CONFIRMER:&nbsp;<span><?= $passager_conf->cd; ?></span></p>
+                            <?php endif; ?>
                             <?php
                             $nb_rat = 0;
                             $mt_rat = 0;

@@ -1955,6 +1955,8 @@
         //report
         public function passereport($cid, $gid, $cdreport, $tf, $cnp, $hr)
         {
+                // LEFT JOIN tarification : l'impression report ne doit pas échouer
+                // si le catalogue tarifaire manque (prix = prixvente via normalize).
                 $row = $this->db->query(
                     "SELECT * FROM report rp
                     JOIN tamponcode tp ON rp.code_tick_tamp = tp.tamponcod
@@ -1967,7 +1969,7 @@
                     JOIN heures h ON lh.heure_identif = h.id_heure
                     JOIN lignes lg ON lh.ligne_id = lg.ident_ligne 
                     JOIN tarifs t ON pr.typetarif = t.id_tarifs
-                    JOIN tarification tf ON tf.typetarif_id = t.id_tarifs AND tf.ligne_heure_id = lh.id_ligneheure
+                    LEFT JOIN tarification tf ON tf.typetarif_id = t.id_tarifs AND tf.ligne_heure_id = lh.id_ligneheure
                     JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
                     JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
                     JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
@@ -1979,7 +1981,7 @@
                     AND h.h_active = 1
                     AND lh.actif_lh = 1
                     AND p.actif_pas = 0
-					AND tf.ligne_heure_id = '$hr'
+					AND lh.id_ligneheure = '$hr'
                     AND t.id_tarifs = '$tf'")->row(); return $this->normalize_ticket_prix_row($row);
         }
         //report
@@ -1997,7 +1999,7 @@
                     JOIN heures h ON lh.heure_identif = h.id_heure
                     JOIN lignes lg ON lh.ligne_id = lg.ident_ligne 
                     JOIN tarifs t ON pr.typetarif = t.id_tarifs
-                    JOIN tarification tf ON tf.typetarif_id = t.id_tarifs AND tf.ligne_heure_id = lh.id_ligneheure
+                    LEFT JOIN tarification tf ON tf.typetarif_id = t.id_tarifs AND tf.ligne_heure_id = lh.id_ligneheure
                     JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
                     JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
                     JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
@@ -2477,7 +2479,7 @@
                     JOIN heures h ON lh.heure_identif = h.id_heure
                     JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
                     JOIN tarifs t ON pr.typetarif = t.id_tarifs
-                    JOIN tarification tf ON tf.typetarif_id = t.id_tarifs AND tf.ligne_heure_id = lh.id_ligneheure
+                    LEFT JOIN tarification tf ON tf.typetarif_id = t.id_tarifs AND tf.ligne_heure_id = lh.id_ligneheure
                     JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
                     JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
                     JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
@@ -2487,7 +2489,7 @@
                     AND h.h_active = 1
                     AND p.code_ticket = '$cnp'
                     AND p.actif_pas = 0
-					AND tf.ligne_heure_id = '$hr'
+					AND lh.id_ligneheure = '$hr'
                     AND t.id_tarifs = '$tf'")->row(); return $this->normalize_ticket_prix_row($row);
         }
         //report
@@ -2505,7 +2507,7 @@
                     JOIN heures h ON lh.heure_identif = h.id_heure
                     JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
                     JOIN tarifs t ON pr.typetarif = t.id_tarifs
-                    JOIN tarification tf ON tf.typetarif_id = t.id_tarifs AND tf.ligne_heure_id = lh.id_ligneheure 
+                    LEFT JOIN tarification tf ON tf.typetarif_id = t.id_tarifs AND tf.ligne_heure_id = lh.id_ligneheure 
                     JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
                     JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
                     JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
@@ -2513,7 +2515,7 @@
                     WHERE e.ekey = '$cid'
                     AND rp.code_report = '$cdreport'
                     AND ex.code_gaexp = '$gid'
-                    AND tf.ligne_heure_id = '$hr'
+                    AND lh.id_ligneheure = '$hr'
                     AND p.code_ticket = '$cnp'
                     AND h.h_active = 1
                     AND p.actif_pas = 0
@@ -3792,6 +3794,74 @@
         }
 
         /**
+         * Tickets du vendeur déjà reportés (statut_reprog=repor) mais toujours
+         * dans son encaissement (report gratuit — ne pas les retirer du total).
+         *
+         * @param int|null $comp compagnie (null = toutes compagnies de la gare)
+         * @param int|null $statutvente 0 avant arrêt, 1 après, null = 0 ou 1
+         * @return object{cd:int,total:float}
+         */
+        public function totaux_repor_inclus_vendeur($cd, $idcox, $comp, $g, $statutvente = null)
+        {
+            $today = mdate('%Y-%m-%d', now('UTC'));
+            $exRat = $this->sql_exclure_rattrapage_arret();
+            $svSql = '';
+            $params = array($cd, $today, (int) $idcox, $g);
+            if ($statutvente === null || $statutvente === '') {
+                $svSql = ' AND p.statutvente IN (0, 1) ';
+            } else {
+                $svSql = ' AND p.statutvente = ? ';
+                $params[] = (int) $statutvente;
+            }
+            $compSql = '';
+            if ($comp !== null && $comp !== '') {
+                $compSql = ' AND dest.id_compaga = ? ';
+                $params[] = (int) $comp;
+            }
+
+            $row = $this->db->query(
+                "SELECT COUNT(p.code_passager) AS cd, COALESCE(SUM(p.prixvente), 0) AS total
+                FROM passager p
+                JOIN attributions_role ar ON p.idcptuser = ar.roleattribut
+                JOIN user_login ul ON ar.idgestcompte = ul.uid_login
+                JOIN programme pr ON p.code_pro = pr.code_progr
+                JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
+                JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
+                JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
+                JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
+                JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
+                JOIN entreprise e ON c.id_entrep = e.id_entreprise
+                WHERE e.ekey = ?
+                AND p.datep_create = ?
+                AND ar.roleattribut = ?
+                AND ul.guser = ?
+                {$svSql}
+                {$exRat}
+                AND p.statut_reprog = 'repor'
+                {$compSql}
+                AND p.prixvente IS NOT NULL
+                AND p.prixvente > 0
+                AND COALESCE(p.statut_confirme, '') NOT IN ('confirm','catconfirm','confirmcarte')
+                AND p.statut_code = 'vendu'
+                AND (
+                    IFNULL(p.actif_pas, 0) = 0
+                    OR (
+                        IFNULL(p.actif_pas, 0) = 1
+                        AND IFNULL(p.statut_reprog, '') = 'repor'
+                    )
+                )",
+                $params
+            )->row();
+
+            if (!$row) {
+                return (object) array('cd' => 0, 'total' => 0);
+            }
+            $row->cd = (int) $row->cd;
+            $row->total = (float) $row->total;
+            return $row;
+        }
+
+        /**
          * Rapport EPSON — section « Antérieur oublié » :
          * tickets jours précédents encore non validés chef, et/ou flag rattrapage.
          * Même périmètre identifiant que l'envoi chef (complément du jour).
@@ -3847,9 +3917,10 @@
             $nomLineSelect = $nomLine['select'];
             $nomLineGroup = $nomLine['group'];
 
-            // Pas de filtre session (is_conect / activeattrib) : rapport après arrêt / déconnexion.
+            // Ops report du jour (non facturables) — la vente d'origine reste dans la recette.
+            // statutreport 0 ou 1 : lisible avant/après clôture d'arrêt.
             $rows = $this->db->query(
-                "SELECT COUNT(code_passager) AS cdrep,
+                "SELECT COUNT(DISTINCT p.code_passager) AS cdrep,
                 {$nomLineSelect},
                 ar.roleattribut FROM passager p
                 JOIN tamponcode tp ON p.code_passager = tp.tamponcod
@@ -3864,11 +3935,11 @@
                 JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = ?
-                AND rp.date <= ?
+                AND rp.date = ?
                 AND ar.roleattribut = ?
                 AND ul.guser = ?
-                AND rp.statutreport = 1
-                AND rp.is_statutreport = 0
+                AND rp.statutreport IN (0, 1)
+                AND IFNULL(rp.actifrep, 0) = 0
                 AND p.statut_reprog = 'repor'
                 AND dest.id_compaga = ?
                 GROUP BY ar.roleattribut, {$nomLineGroup}",
@@ -3885,10 +3956,8 @@
             $nomLineSelect = $nomLine['select'];
             $nomLineGroup = $nomLine['group'];
 
-            // Confirmations fermées à l'arrêt (statutvente=1). Pas de filtre session
-            // (is_conect / activeattrib) : le rapport reste lisible après déconnexion.
-            // JOIN gare_exp requis par rapport_nom_ligne_sql (ex.nom_gaep).
-            // Borne au jour : évite de recharger tout l'historique déjà tiré.
+            // Confirmations du jour (non facturables, prixvente 0).
+            // statutvente 0 ou 1 : lisible avant/après clôture d'arrêt.
             $rows = $this->db->query(
                 "SELECT COUNT(code_passager) AS cdconf,
                 {$nomLineSelect},
@@ -3906,7 +3975,7 @@
                 AND p.datep_create = ?
                 AND ar.roleattribut = ?
                 AND ul.guser = ?
-                AND p.statutvente = 1
+                AND p.statutvente IN (0, 1)
                 AND p.statut_confirme IN ('confirm','catconfirm','confirmcarte')
                 AND p.is_valdtick = 0
                 AND (p.prixvente IS NULL OR p.prixvente = 0)

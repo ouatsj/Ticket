@@ -2064,6 +2064,9 @@
                 $this->property['reponseconf'] = $this->m_passager->rapportconf($this->company->ekey, $idconnex, $comp, $g);
                 $this->property['reponsealler_rattrapage'] = $this->m_passager->rapportaller_rattrapage($this->company->ekey, $idconnex, $comp, $g, $idsg);
                 $this->property['reponseretour_anterieur'] = $this->m_non_passager->rapportretour_anterieur($this->company->ekey, $idconnex, $comp, $g, $idsg);
+                $this->property['repor_inclus_vendeur'] = $this->m_passager->totaux_repor_inclus_vendeur(
+                    $this->company->ekey, $idconnex, $comp, $g, 1
+                );
             
             $this->layout->view('_tickets/pdfepsonrapt', $this->property);
         }
@@ -2088,6 +2091,9 @@
                 $this->property['reponseconf'] = $this->m_passager->rapportconf($this->company->ekey, $idconnex, $comp, $g);
                 $this->property['reponsealler_rattrapage'] = $this->m_passager->rapportaller_rattrapage($this->company->ekey, $idconnex, $comp, $g, $idsg);
                 $this->property['reponseretour_anterieur'] = $this->m_non_passager->rapportretour_anterieur($this->company->ekey, $idconnex, $comp, $g, $idsg);
+                $this->property['repor_inclus_vendeur'] = $this->m_passager->totaux_repor_inclus_vendeur(
+                    $this->company->ekey, $idconnex, $comp, $g, 1
+                );
             
             $this->layout->view('_tickets/pdfeprapt', $this->property);
         }
@@ -2112,6 +2118,9 @@
                 $this->property['reponseconf'] = $this->m_passager->rapportconf($this->company->ekey, $idconnex, $comp, $g);
                 $this->property['reponsealler_rattrapage'] = $this->m_passager->rapportaller_rattrapage($this->company->ekey, $idconnex, $comp, $g, $idsg);
                 $this->property['reponseretour_anterieur'] = $this->m_non_passager->rapportretour_anterieur($this->company->ekey, $idconnex, $comp, $g, $idsg);
+                $this->property['repor_inclus_vendeur'] = $this->m_passager->totaux_repor_inclus_vendeur(
+                    $this->company->ekey, $idconnex, $comp, $g, 1
+                );
             
             $this->layout->view('_tickets/pdfepsonrapt2', $this->property);
         }

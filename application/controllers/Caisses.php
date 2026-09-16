@@ -200,6 +200,9 @@
                 }
                 $this->property['passager_repro'] = $this->m_passager->comptrep($this->company->ekey, $cpr, $cdg);
                 $this->property['passager_conf'] = $this->m_passager->comptconf($this->company->ekey, $cpr, $cdg);
+                $this->property['repor_inclus_vendeur'] = $this->m_passager->totaux_repor_inclus_vendeur(
+                    $this->company->ekey, $cpr, null, $cdg, 0
+                );
                 
                 $this->property['genresguichet'] = $ref['genresguichet'];
                 $this->property['pagetitle'] .= "• ARRÊT COMPTE ET CAISSE<strong>•&nbsp;{$this->company->nom_entreprise}•&nbsp;{$conex->type_rols}</strong>";
@@ -1688,6 +1691,10 @@
             $this->property['passager_repro'] = $this->m_passager->comptrep($ekey, $idc, $gd);
             $this->property['passager_conf'] = $this->m_passager->comptconf($ekey, $idc, $gd);
             $this->property['passagerallergroup_rattrapage'] = $this->m_passager->comptegroup_rattrapage($ekey, $idc, $gd);
+            // Reportés toujours inclus dans le total vendeur (ne pas les retirer à l'arrêt).
+            $this->property['repor_inclus_vendeur'] = $this->m_passager->totaux_repor_inclus_vendeur(
+                $ekey, $idc, null, $gd, 0
+            );
         }
 
              //guichet
@@ -11940,6 +11947,9 @@
                 $this->property['passager_repro'] = $this->m_passager->comptrep($this->company->ekey, $icx, $cdg);
                 $this->property['passager_conf'] = $this->m_passager->comptconf($this->company->ekey, $icx, $cdg);
                 $this->property['passagerallergroup_rattrapage'] = $this->m_passager->comptegroup_rattrapage($this->company->ekey, $icx, $cdg);
+                $this->property['repor_inclus_vendeur'] = $this->m_passager->totaux_repor_inclus_vendeur(
+                    $this->company->ekey, $icx, null, $cdg, 0
+                );
                 
                 $this->property['genresguichet'] = $this->m_genre_recette->getrecet();
                 $this->property['pagetitle'] .= "• ARRÊT COMPTE ET CAISSE<strong>&nbsp;{$this->company->nom_entreprise}•&nbsp;{$conex->type_rols}</strong>";
