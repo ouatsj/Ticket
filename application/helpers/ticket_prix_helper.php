@@ -370,9 +370,74 @@ if (!function_exists('ticket_destination_label')) {
     }
 }
 
+if (!function_exists('ticket_rapport_nom_ligne_sql')) {
+    /**
+     * Expression SQL nom_ligne pour rapports : OD escale (ex. BOBO-BOROMO) si vente partielle,
+     * sinon ligne catalogue parent (ex. BOBO-OUAGA).
+     *
+     * Prérequis JOINs : passager p, gare_exp ex (parent), lignes lg.
+     *
+     * @param string $p  alias passager
+     * @param string $ex alias gare_exp
+     * @param string $lg alias lignes
+     * @return array{select:string,group:string}
+     */
+    function ticket_rapport_nom_ligne_sql($p = 'p', $ex = 'ex', $lg = 'lg')
+    {
+        $p = preg_replace('/[^a-zA-Z0-9_]/', '', (string) $p);
+        $ex = preg_replace('/[^a-zA-Z0-9_]/', '', (string) $ex);
+        $lg = preg_replace('/[^a-zA-Z0-9_]/', '', (string) $lg);
+        if ($p === '') {
+            $p = 'p';
+        }
+        if ($ex === '') {
+            $ex = 'ex';
+        }
+        if ($lg === '') {
+            $lg = 'lg';
+        }
+
+        $hasLigne = true;
+        $hasNomDest = true;
+        if (function_exists('get_instance')) {
+            $CI =& get_instance();
+            if (isset($CI->db) && is_object($CI->db)) {
+                static $colCache = array();
+                foreach (array('lignetineraire_vendu' => &$hasLigne, 'nom_dest_vente' => &$hasNomDest) as $col => &$flag) {
+                    if (!isset($colCache[$col])) {
+                        $q = $CI->db->query("SHOW COLUMNS FROM passager LIKE " . $CI->db->escape($col));
+                        $colCache[$col] = ($q && method_exists($q, 'num_rows') && $q->num_rows() > 0);
+                    }
+                    $flag = (bool) $colCache[$col];
+                }
+                unset($flag);
+            }
+        }
+
+        if ($hasLigne && $hasNomDest) {
+            $expr = "COALESCE(NULLIF(TRIM({$p}.lignetineraire_vendu), ''), " .
+                "CASE WHEN {$p}.nom_dest_vente IS NOT NULL AND TRIM({$p}.nom_dest_vente) <> '' " .
+                "THEN CONCAT(TRIM({$ex}.nom_gaep), '-', TRIM({$p}.nom_dest_vente)) " .
+                "ELSE {$lg}.nom_ligne END)";
+        } elseif ($hasLigne) {
+            $expr = "COALESCE(NULLIF(TRIM({$p}.lignetineraire_vendu), ''), {$lg}.nom_ligne)";
+        } elseif ($hasNomDest) {
+            $expr = "CASE WHEN {$p}.nom_dest_vente IS NOT NULL AND TRIM({$p}.nom_dest_vente) <> '' " .
+                "THEN CONCAT(TRIM({$ex}.nom_gaep), '-', TRIM({$p}.nom_dest_vente)) ELSE {$lg}.nom_ligne END";
+        } else {
+            $expr = "{$lg}.nom_ligne";
+        }
+
+        return array(
+            'select' => "{$expr} AS nom_ligne",
+            'group' => $expr,
+        );
+    }
+}
+
 if (!function_exists('ticket_axe_label')) {
     /**
-     * Libellé d'axe (ex. OUAGA-BOUSSE) : remplace le terminus par l'escale vendue si présente.
+     * Libellé d'axe (ex. BOBO-BOROMO) : escale vendue / lignetineraire, sinon ligne parent.
      *
      * @param object|array|null $row
      * @param string            $fallback
@@ -387,9 +452,14 @@ if (!function_exists('ticket_axe_label')) {
             return (string) $fallback;
         }
 
+        $ligneItin = isset($row->lignetineraire_vendu) ? trim((string) $row->lignetineraire_vendu) : '';
+        if ($ligneItin !== '') {
+            return $ligneItin;
+        }
+
         $destVente = isset($row->nom_dest_vente) ? trim((string) $row->nom_dest_vente) : '';
         if ($destVente !== '') {
-            // Préférer le préfixe de nom_ligne (ex. OUAGA) pour coller à l'affichage habituel.
+            // Préférer le préfixe de nom_ligne (ex. BOBO) pour coller à l'affichage habituel.
             if (!empty($row->nom_ligne) && strpos((string) $row->nom_ligne, '-') !== false) {
                 $parts = explode('-', (string) $row->nom_ligne, 2);
                 return trim($parts[0]) . '-' . $destVente;

@@ -84,7 +84,8 @@
                     continue;
                 }
                 $hasEsc = (isset($row->nom_dest_vente) && trim((string) $row->nom_dest_vente) !== '')
-                    || (isset($row->lignetineraire_vendu) && trim((string) $row->lignetineraire_vendu) !== '');
+                    || (isset($row->lignetineraire_vendu) && trim((string) $row->lignetineraire_vendu) !== '')
+                    || (!empty($row->id_escale_vente) && (int) $row->id_escale_vente > 0);
                 if (!$hasEsc) {
                     continue;
                 }
@@ -165,6 +166,14 @@
          */
         protected function rapport_nom_ligne_sql()
         {
+            if (!function_exists('ticket_rapport_nom_ligne_sql')) {
+                $this->load->helper('ticket_prix');
+            }
+            if (function_exists('ticket_rapport_nom_ligne_sql')) {
+                return ticket_rapport_nom_ligne_sql('p', 'ex', 'lg');
+            }
+
+            // Repli si helper indisponible.
             $hasLigne = $this->passager_column_exists('lignetineraire_vendu');
             $hasNomDest = $this->passager_column_exists('nom_dest_vente');
 
@@ -1084,7 +1093,7 @@
                 AND p.statut_reprog IS NULL
                 AND c.cle_compagnie ='$cp'
                 AND ex.code_gaexp = '$gd'
-                GROUP BY p.code_pro
+                GROUP BY p.code_pro, {$nomLine['group']}, pr.date_progr, h.heure
                 ORDER BY pr.date_progr, {$nomLine['group']}, h.heure ASC")->result(); return $this->normalize_ticket_prix_rows($rows);
             }
 
@@ -1108,7 +1117,7 @@
                 AND c.cle_compagnie ='$cp'
                 AND ex.code_gaexp = '$gd'
                 AND lg.ident_ligne = '$lg'
-                GROUP BY p.code_pro
+                GROUP BY p.code_pro, {$nomLine['group']}, pr.date_progr, h.heure
                 ORDER BY pr.date_progr, {$nomLine['group']}, h.heure ASC")->result(); return $this->normalize_ticket_prix_rows($rows);
             }
 
@@ -1133,7 +1142,7 @@
                 AND ex.code_gaexp = '$gd'
                 AND lg.ident_ligne = '$lg'
                 AND h.id_heure = '$hr'
-                GROUP BY p.code_pro
+                GROUP BY p.code_pro, {$nomLine['group']}, pr.date_progr, h.heure
                 ORDER BY pr.date_progr, {$nomLine['group']}, h.heure ASC")->result(); return $this->normalize_ticket_prix_rows($rows);            }
             
         }
@@ -1263,7 +1272,7 @@
         {
             return "p.code_passager, p.code_ticket, p.code_pro, p.num_siege_categorie, p.prixvente,
                     p.datep_create, p.departclient_idgare, p.id_client_pass, p.quart,
-                    p.nom_dest_vente, p.statut_code, p.idsousgare_vente, p.idcptuser,
+                    p.nom_dest_vente, p.lignetineraire_vendu, p.id_escale_vente, p.statut_code, p.idsousgare_vente, p.idcptuser,
                     ctp.tamponcod, ctp.tamponcodtr, ctp.is_activecode,
                     cl.id_client, cl.nom_client, cl.prenom_client, cl.contact_client,
                     cl.num_CNIB, cl.date_delivre, cl.lieu_delivre, cl.type_client,
@@ -3647,17 +3656,17 @@
             if ($days > 366) {
                 $days = 366;
             }
-            $cache_key = 'totalpassager_' . $cd . '_d' . $days;
+            $cache_key = 'totalpassager_escale_v2_' . $cd . '_d' . $days;
 
             return app_cache_remember($cache_key, 600, function () use ($cd, $days) {
                 $cdEsc = $this->db->escape($cd);
+                $nomLine = $this->rapport_nom_ligne_sql();
                 // Sous-requête filtrée sur date : utilise idx_passager_datep_create.
-                // Agrégat par ligne catalogue (lg.nom_ligne) — la sous-requête n’a pas
-                // les colonnes escale nécessaires à rapport_nom_ligne_sql().
+                // Colonnes escale incluses pour agréger BOBO-BOROMO ≠ BOBO-OUAGA.
                 $rows = $this->db->query(
-                    "SELECT COUNT(p.code_passager) AS cod, lg.ident_ligne, lg.nom_ligne
+                    "SELECT COUNT(p.code_passager) AS cod, {$nomLine['select']}
                     FROM (
-                        SELECT code_passager, code_pro
+                        SELECT code_passager, code_pro, nom_dest_vente, lignetineraire_vendu, id_escale_vente
                         FROM passager
                         WHERE datep_create >= DATE_SUB(CURDATE(), INTERVAL {$days} DAY)
                           AND statut_code = 'vendu'
@@ -3672,8 +3681,8 @@
                     JOIN compagnies c ON ex.id_compagd = c.cle_compagnie
                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
                     WHERE e.ekey = {$cdEsc}
-                    GROUP BY lg.ident_ligne, lg.nom_ligne
-                    ORDER BY cod DESC, lg.nom_ligne ASC"
+                    GROUP BY {$nomLine['group']}
+                    ORDER BY cod DESC, nom_ligne ASC"
                 )->result();
 
                 return is_array($rows) ? $rows : array();
@@ -4312,7 +4321,7 @@
             AND p.prixvente IS NOT NULL
             AND p.statut_code = 'vendu'
             AND p.actif_pas = 0
-            GROUP BY lg.ident_ligne, dest.id_compaga, p.prixvente, cu.username")->result(); return $this->normalize_ticket_prix_rows($rows);        } 
+            GROUP BY {$nomLine['group']}, dest.id_compaga, p.prixvente, cu.username")->result(); return $this->normalize_ticket_prix_rows($rows);        } 
         else{
             $rows = $this->db->query("SELECT SUM(prixvente) AS total, lg.ident_ligne, dest.id_compaga, {$nomLine['select']}, p.prixvente, cu.username FROM passager p
             JOIN attributions_role ar ON p.idcptuser = ar.roleattribut
@@ -4334,7 +4343,7 @@
             AND p.statut_code = 'vendu'
             AND ex.code_gaexp = '$gid'
             AND p.actif_pas = 0
-            GROUP BY lg.ident_ligne, dest.id_compaga, p.prixvente, cu.username")->result(); return $this->normalize_ticket_prix_rows($rows);        }
+            GROUP BY {$nomLine['group']}, dest.id_compaga, p.prixvente, cu.username")->result(); return $this->normalize_ticket_prix_rows($rows);        }
             
     }
 
@@ -4362,7 +4371,7 @@
             AND p.prixvente IS NOT NULL
             AND p.statut_code = 'vendu'
             AND ex.code_gaexp = '$gid'
-            GROUP BY lg.ident_ligne, dest.id_compaga, p.prixvente, cu.username")->result(); return $this->normalize_ticket_prix_rows($rows);        } 
+            GROUP BY {$nomLine['group']}, dest.id_compaga, p.prixvente, cu.username")->result(); return $this->normalize_ticket_prix_rows($rows);        } 
         else{
             $rows = $this->db->query("SELECT SUM(prixvente) AS total, lg.ident_ligne, dest.id_compaga, {$nomLine['select']}, p.prixvente, cu.username FROM passager p
             JOIN attributions_role ar ON p.idcptuser = ar.roleattribut
@@ -4383,7 +4392,7 @@
             AND p.prixvente IS NOT NULL
             AND p.statut_code = 'vendu'
             AND ex.code_gaexp = '$gid'
-            GROUP BY lg.ident_ligne, dest.id_compaga, p.prixvente, cu.username")->result(); return $this->normalize_ticket_prix_rows($rows);        }
+            GROUP BY {$nomLine['group']}, dest.id_compaga, p.prixvente, cu.username")->result(); return $this->normalize_ticket_prix_rows($rows);        }
             
     }
 
@@ -4413,7 +4422,7 @@
             AND p.statut_code = 'vendu'
             AND ex.code_gaexp = '$gid'
             AND p.departclient_idgare = '$sg'
-            GROUP BY lg.ident_ligne, dest.id_compaga, p.prixvente, cu.username")->result(); return $this->normalize_ticket_prix_rows($rows);        } 
+            GROUP BY {$nomLine['group']}, dest.id_compaga, p.prixvente, cu.username")->result(); return $this->normalize_ticket_prix_rows($rows);        } 
         else{
             $rows = $this->db->query("SELECT SUM(prixvente) AS total, lg.ident_ligne, dest.id_compaga, {$nomLine['select']}, p.prixvente, cu.username FROM passager p
             JOIN attributions_role ar ON p.idcptuser = ar.roleattribut
@@ -4436,7 +4445,7 @@
             AND p.statut_code = 'vendu'
             AND ex.code_gaexp = '$gid'
             AND p.departclient_idgare = '$sg'
-            GROUP BY lg.ident_ligne, dest.id_compaga, p.prixvente, cu.username")->result(); return $this->normalize_ticket_prix_rows($rows);        }
+            GROUP BY {$nomLine['group']}, dest.id_compaga, p.prixvente, cu.username")->result(); return $this->normalize_ticket_prix_rows($rows);        }
             
     }
 
@@ -4463,7 +4472,7 @@
             AND p.statut_code = 'vendu'
             AND ar.roleattribut = '$use'
             AND ex.code_gaexp = '$gid'
-            GROUP BY lg.ident_ligne, dest.id_compaga, p.prixvente, cu.username, p.datep_create")->result(); return $this->normalize_ticket_prix_rows($rows);        
+            GROUP BY {$nomLine['group']}, dest.id_compaga, p.prixvente, cu.username, p.datep_create")->result(); return $this->normalize_ticket_prix_rows($rows);        
             
     }
     //report admin
