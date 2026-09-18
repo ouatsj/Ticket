@@ -13732,7 +13732,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     : ' (direct)')
                 + escHint
                 + '. Ligne commerciale conservée (pas de bascule hub Banfora ↔ Niangoloko).'
-                + ' Choisissez une date et une heure : direct si l’heure est au programme, sinon transit.';
+                + ' Choisissez une date : heures directs de la gare de report. '
+                + 'Case « Multi / correspondances » pour un transit (itinéraire après l’heure).';
         }
         var casE = __reprogQ('reprog_hub_cas_e_msg');
         if (casE) {
@@ -16373,7 +16374,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         st.gid = __reprogResolveGareReport();
         var gaReport = st.gid || st.gaexp || '';
-        var wantMulti = true; // directs OD + autres départs (décision direct/transit à l’heure)
+        var wantMulti = __reprogAllowMultiChecked() || !!st._forceMultiLoad;
         var qs = [
             'nom_ligne=' + encodeURIComponent(String(st.nom_ligne)),
             'date=' + encodeURIComponent(String(dateYmd || '').slice(0, 10))
@@ -16403,8 +16404,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 && !(r.is_od_direct === false || r.is_od_direct === 0 || r.is_od_direct === '0');
         });
         var hasDirect = directRows.length > 0;
+        var allowMulti = __reprogAllowMultiChecked();
         var odLabel = st.nom_ligne || st.axe || '—';
 
+        // Case Multi visible dès qu’il y a des directs (sinon transit auto).
         __reprogSyncAllowMultiWrap(hasDirect, true);
         if (__reprogQ('smspunifie')) __reprogQ('smspunifie').style.display = 'none';
 
@@ -16412,26 +16415,39 @@ document.addEventListener('DOMContentLoaded', () => {
             __reprogQ('replignunifie').value = st.nom_ligne;
         }
 
-        // Date seule : Heure visible, pas d’itinéraire tant que l’heure n’est pas choisie.
-        st.multiMode = false;
-        st._forceMultiLoad = false;
         st.transitChemins = [];
         __reprogHideDirect();
         __reprogHideCorr();
         __reprogSetAncreVisible(true);
 
-        var nHeures = __reprogFillHeuresForDate(dateYmd, 'all');
+        // Case Multi cochée (ou aucun direct) → heures de transit, pas d’itinéraire tant que l’heure n’est pas choisie.
+        if (allowMulti || !hasDirect) {
+            st.multiMode = true;
+            st._forceMultiLoad = false;
+            __reprogLoadMultiTransitForDate(dateYmd, '', true);
+            return;
+        }
+
+        // Mode direct par défaut : heures programmes OD de la gare de report → siège (pas d’itinéraire).
+        st.multiMode = false;
+        st._forceMultiLoad = false;
+        var nHeures = __reprogFillHeuresForDate(dateYmd, false);
         var box = __reprogQ('smspunifie');
         var err = __reprogQ('erreurSmspunifie');
         if (!nHeures) {
-            // Aucun programme listable : peupler les heures via transit (sans appliquer encore).
-            __reprogLoadMultiTransitForDate(dateYmd, '', true);
+            if (box) box.style.display = 'block';
+            if (err) {
+                err.textContent = 'Aucun départ direct programme pour ' + odLabel
+                    + ' le ' + dateYmd
+                    + '. Cochez « Multi / correspondances » pour un transit.';
+            }
             return;
         }
         if (box) box.style.display = 'block';
         if (err) {
-            err.textContent = 'Choisissez une heure pour ' + odLabel + ' le ' + dateYmd
-                + ' — direct si l’heure est au programme OD, sinon transit.';
+            err.textContent = 'Direct : choisissez une heure pour ' + odLabel
+                + ' le ' + dateYmd + ' (siège ensuite). '
+                + 'Sinon cochez « Multi / correspondances ».';
         }
     }
 
@@ -16456,11 +16472,14 @@ document.addEventListener('DOMContentLoaded', () => {
         var kind = opt ? (opt.getAttribute('data-kind') || '') : '';
         var progVal = heureSel.value;
         var isProg = progVal.indexOf('/') !== -1 && kind !== 'corr' && kind !== 'multi';
-        // Décision à l’heure : multi explicite / case cochée → transit ; sinon direct si programme OD.
-        var multiMode = !!(__reprogAllowMultiChecked() || kind === 'multi' || kind === 'corr');
+        // Multi uniquement si case cochée (ou heure déjà marquée transit).
+        var multiMode = !!(window.__reprogState.multiMode
+            || __reprogAllowMultiChecked()
+            || kind === 'multi'
+            || kind === 'corr');
 
-        // Multi : un seul transit pour l’heure, direction ticket, segments affichés.
-        if (multiMode || kind === 'multi') {
+        // Multi : l’heure choisie sélectionne l’itinéraire transit (champ Itinéraire visible).
+        if (multiMode) {
             var hhMulti = opt
                 ? (opt.getAttribute('data-heure') || __reprogHhmm(progVal))
                 : __reprogHhmm(progVal);
@@ -16766,13 +16785,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (!ymd) return;
                 window.__reprogState._multiAutoTried = false;
                 window.__reprogState.transitChemins = [];
+                __reprogHideDirect();
+                __reprogHideCorr();
+                __reprogResetSelect(__reprogQ('heuredepartpunifie'), "Choisissez l'heure");
                 if (__reprogAllowMultiChecked()) {
-                    // Active immédiatement le transit (1 itinéraire + segments).
+                    // Charge les heures de transit ; l’itinéraire apparaît après choix de l’heure.
                     window.__reprogState.multiMode = true;
-                    __reprogLoadMultiTransitForDate(ymd, '');
+                    __reprogLoadMultiTransitForDate(ymd, '', true);
                 } else {
+                    // Retour directs : heures OD gare de report, pas d’itinéraire.
                     window.__reprogState.multiMode = false;
-                    __reprogHideCorr();
                     __reprogReloadHeuresThenDate(ymd);
                 }
             });

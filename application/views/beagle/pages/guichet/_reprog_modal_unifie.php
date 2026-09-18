@@ -222,8 +222,9 @@ $allow_prix_diff_unifie = true;
                         <option value="">Choisissez l'heure</option>
                     </select>
                     <p class="small text-muted mb-0 mt-1">
-                        Direct : date → heure → siège. « Multi / correspondances » active un
-                        transit unique vers la destination du ticket (heures + segments).
+                        Direct : date → heure → siège (pas d’itinéraire).
+                        « Multi / correspondances » charge les heures de transit ;
+                        l’itinéraire apparaît après le choix de l’heure.
                     </p>
                 </div>
                 <!-- Compagnie / « départ » retiré : le choix se fait dans Heure (1 programme = 1 option). -->
