@@ -1,4 +1,26 @@
 <?php defined('BASEPATH') OR exit ('No direct script access allowed'); ?>
+<?php
+$role17_mode = role17_is_agent();
+if ($role17_mode && empty($escale_depart_label)) {
+    $f = role17_forced_escale($conex->roleattribut, !empty($bus_stop->idengare) ? $bus_stop->idengare : '');
+    if ($f) {
+        $escale_depart_label = $f['label'];
+        $escale_depart_fixed_admin = !empty($f['fixed']);
+        $escale_id_lignes = $f['id_lignes'];
+    }
+}
+?>
+<div class="<?= $role17_mode ? 'r17-ops' : ''; ?>">
+<?php if ($role17_mode): ?>
+    <?php $this->load->view('beagle/pages/guichet/_role17_ops_chrome'); ?>
+    <div class="row">
+        <p class="mt-0 mb-2 ml-4">
+            <button class="btn btn-space btn-secondary md-trigger" data-modal="add-etat">
+                <i class="fas fa-print text-info"></i>&nbsp;RAPPORT MOBIL 57×40&nbsp;
+            </button>
+        </p>
+    </div>
+<?php else: ?>
 <div class="row">
     <p class="mt-0 mb-2 ml-4">
         <a href="<?= site_url("gares/{$this->session->company->ekey}". "/gTc/".
@@ -23,6 +45,7 @@
         
     </p>
 </div>
+<?php endif; ?>
 <div class="row">    
     <div class="col-lg-8">
         <div class="card text-center">
@@ -67,6 +90,50 @@
                             <p>MONTANT TOTAL:&nbsp;<span><? if (!empty($escalclient)): ?><?= number_format($m, 0, '', ' '); ?><? endif; ?></span></p>        
                         <?endif;?>
 
+                    <?php
+                    $rt_tickets = 0.0;
+                    if (!empty($escalclient) && isset($escalclient->total)) {
+                        $rt_tickets = (float) $escalclient->total;
+                    }
+                    $rt_cour = 0.0;
+                    if (!empty($role17_mode) && !empty($cptcoures) && isset($cptcoures->totaenesc)) {
+                        $rt_cour = (float) $cptcoures->totaenesc;
+                    }
+                    $rt_bag = 0.0;
+                    if (!empty($role17_mode) && !empty($cptbages) && isset($cptbages->bagtot)) {
+                        $rt_bag = (float) $cptbages->bagtot;
+                    }
+                    $rt_global = $rt_tickets + $rt_cour + $rt_bag;
+                    if (!empty($role17_mode)):
+                    ?>
+                        <hr class="my-2">
+                        <p class="mt-2 mb-1"><strong>Récapitulatif ventes ouvertes</strong></p>
+                        <p class="mb-1">TICKETS ESCALE&nbsp;:&nbsp;<span><?= number_format($rt_tickets, 0, '', ' '); ?> FCFA</span></p>
+                        <p class="mb-1">BAGAGE ESCALE&nbsp;:&nbsp;<span><?= number_format($rt_bag, 0, '', ' '); ?> FCFA</span></p>
+                        <?php if (!empty($bagagegroupesc) && is_array($bagagegroupesc)): ?>
+                            <div class="row justify-content-center mb-2">
+                                <?php foreach ($bagagegroupesc as $brow): ?>
+                                    <div class="col-lg-4">
+                                        <small class="d-block text-muted"><?= htmlspecialchars(isset($brow->nom_compagnie) ? $brow->nom_compagnie : '—', ENT_QUOTES, 'UTF-8'); ?></small>
+                                        <strong><?= number_format(isset($brow->bagtotalesc) ? (float) $brow->bagtotalesc : 0, 0, '', ' '); ?></strong>
+                                    </div>
+                                <?php endforeach; ?>
+                            </div>
+                        <?php endif; ?>
+                        <p class="mb-1">COURRIER ESCALE&nbsp;:&nbsp;<span><?= number_format($rt_cour, 0, '', ' '); ?> FCFA</span></p>
+                        <?php if (!empty($totalcoliexpdiers) && is_array($totalcoliexpdiers)): ?>
+                            <div class="row justify-content-center mb-2">
+                                <?php foreach ($totalcoliexpdiers as $crow): ?>
+                                    <div class="col-lg-4">
+                                        <small class="d-block text-muted"><?= htmlspecialchars(isset($crow->nom_compagnie) ? $crow->nom_compagnie : '—', ENT_QUOTES, 'UTF-8'); ?></small>
+                                        <strong><?= number_format(isset($crow->montantesc) ? (float) $crow->montantesc : (isset($crow->total) ? (float) $crow->total : 0), 0, '', ' '); ?></strong>
+                                    </div>
+                                <?php endforeach; ?>
+                            </div>
+                        <?php endif; ?>
+                        <p class="mt-2 mb-1"><strong>TOTAL À ARRÊTER&nbsp;:&nbsp;<?= number_format($rt_global, 0, '', ' '); ?> FCFA</strong></p>
+                    <?php endif; ?>
+
                     <?php if (function_exists('fraud_controls_enabled') && fraud_controls_enabled()): ?>
                     <div class="form-group">
                         <label for="motif_ecart_arret">Motif d’écart (si le montant transmis diffère du recalcul)</label>
@@ -75,11 +142,15 @@
                     <?php endif; ?>
                     
                     <div class="modal-footer">
-                            
-                            <? if (!empty($escalclient)): ?>
+                            <?php
+                            $can_arret_r17 = $rt_tickets > 0
+                                || (!empty($role17_mode) && ($rt_cour > 0 || $rt_bag > 0))
+                                || (!empty($escalclient) && empty($role17_mode));
+                            ?>
+                            <? if ($can_arret_r17): ?>
                                 <button class="btn btn-success md-trigger" type="submit"
                                         data-dismiss="modal">
-                                    <i class="icon icon-left mdi mdi-check-all"></i>&nbsp;ARRÊTER&nbsp;
+                                    <i class="icon icon-left mdi mdi-check-all"></i>&nbsp;ARRÊTER TOUTES LES VENTES&nbsp;
                                 </button>
                             <?endif;?>
                     </div>
@@ -254,3 +325,4 @@
         <?= form_close(); ?>
     </div>
 </div>
+</div><!-- r17-ops-end -->

@@ -185,7 +185,137 @@
         }
 
         /**
+         * Affectation escale admin pour le rôleattribut courant (rôle 17).
+         *
+         * @param int|string $roleattribut
+         * @return array{id_lignes:string,value:string,label:string}|null
+         */
+        protected function _role17_affectation_courante($roleattribut)
+        {
+            $roleattribut = (int) $roleattribut;
+            if ($roleattribut <= 0) {
+                return null;
+            }
+
+            $conex = !empty($this->property['conex']) ? $this->property['conex'] : null;
+            if ($conex
+                && !empty($conex->vente_escale_value)
+                && !empty($conex->vente_escale_id_lignes)
+                && (int) $conex->roleattribut === $roleattribut
+            ) {
+                $value = trim((string) $conex->vente_escale_value);
+                $id_lignes = trim((string) $conex->vente_escale_id_lignes);
+                if ($value !== '' && strpos($value, '~') !== false && $id_lignes !== '') {
+                    $label = trim((string) (!empty($conex->vente_escale_label) ? $conex->vente_escale_label : $value));
+                    return array(
+                        'id_lignes' => $id_lignes,
+                        'value' => $value,
+                        'label' => $label,
+                    );
+                }
+            }
+
+            if (!isset($this->m_roleattribution)) {
+                $this->load->model('Role_attribution_model', 'm_roleattribution');
+            }
+            return $this->m_roleattribution->get_vente_escale($roleattribut);
+        }
+
+        /**
+         * Hydrate session role17_escale (+ itinéraire) pour un départ donné.
+         *
+         * @param array $aff {value,label?,id_lignes?}
+         * @param bool $fixed true si issu de l'affectation admin
+         * @return bool
+         */
+        protected function _role17_hydrate_escale_session($ckey, $gid, $cpus, $idsg, array $aff, $fixed = false)
+        {
+            if (!isset($this->m_itineraire_escale)) {
+                $this->load->model('Itineraire_escale_model', 'm_itineraire_escale');
+            }
+
+            $depart = str_replace('|', '~', trim((string) (isset($aff['value']) ? $aff['value'] : '')));
+            if ($depart === '' || strpos($depart, '~') === false) {
+                return false;
+            }
+
+            $id_lignes = trim((string) (isset($aff['id_lignes']) ? $aff['id_lignes'] : ''));
+            $label = trim((string) (isset($aff['label']) ? $aff['label'] : ''));
+
+            if ($id_lignes === '' && strpos($depart, '~') !== false) {
+                list($kind, $ref) = explode('~', $depart, 2);
+                if ($kind !== 'escale') {
+                    $id_lignes = trim($ref);
+                }
+            }
+
+            $pts = array();
+            if ($id_lignes !== '') {
+                $pts = $this->m_itineraire_escale->points_depart_itineraire($id_lignes);
+            } else {
+                list($kind, $ref) = explode('~', $depart, 2);
+                if ($kind === 'escale' && ctype_digit((string) $ref)) {
+                    $row = $this->db->query(
+                        "SELECT id_lignes FROM itineraire_escales WHERE id_escale = ? LIMIT 1",
+                        array((int) $ref)
+                    )->row();
+                    if ($row && !empty($row->id_lignes)) {
+                        $id_lignes = (string) $row->id_lignes;
+                        $pts = $this->m_itineraire_escale->points_depart_itineraire($id_lignes);
+                    }
+                }
+            }
+
+            $found = false;
+            foreach ($pts as $pt) {
+                if ((string) $pt->value === $depart) {
+                    $label = (string) $pt->label;
+                    $id_lignes = (string) $pt->id_lignes;
+                    $found = true;
+                    break;
+                }
+            }
+
+            if ($fixed && !$found) {
+                $this->session->set_flashdata(
+                    'error',
+                    "Escale affectée introuvable sur la ligne — contactez l'administrateur."
+                );
+                return false;
+            }
+
+            if ($label === '') {
+                $label = $depart;
+            }
+
+            $ligne_nom = $id_lignes;
+            if (!empty($pts) && !empty($pts[0]->nom_ligne)) {
+                $ligne_nom = (string) $pts[0]->nom_ligne;
+            }
+
+            $this->session->set_userdata('role17_itineraire', array(
+                'ident_ligne' => $id_lignes,
+                'nom_ligne' => $ligne_nom,
+                'gare' => (string) $gid,
+                'idsousgare' => (string) $idsg,
+                'cpus' => (string) $cpus,
+            ));
+
+            $this->session->set_userdata('role17_escale', array(
+                'value' => $depart,
+                'label' => $label,
+                'gare' => (string) $gid,
+                'idsousgare' => (string) $idsg,
+                'id_lignes' => $id_lignes,
+                'fixed' => (bool) $fixed,
+            ));
+
+            return true;
+        }
+
+        /**
          * Liste des itinéraires (lignes) liés à la gare — rôle 17.
+         * Si une escale est affectée en admin → entrée directe sur le guichet.
          */
         protected function _role17_liste_itineraires($ckey, $gid, $gare_id, $cpus, $bus_stop, $date_seg)
         {
@@ -195,6 +325,27 @@
 
             $ctx = $this->_role17_resolve_context($ckey, $gid, $gare_id, $bus_stop, $date_seg);
             $bus_stop = $ctx['bus_stop'];
+
+            // Affectation admin : court-circuit vers accueil vente (départ figé).
+            if ((int) $ctx['idsousgare'] > 0) {
+                $aff = $this->_role17_affectation_courante($cpus);
+                if ($aff
+                    && $this->_role17_hydrate_escale_session(
+                        $ckey,
+                        $ctx['idengare'],
+                        $cpus,
+                        $ctx['idsousgare'],
+                        $aff,
+                        true
+                    )
+                ) {
+                    redirect(
+                        'gares/' . $ckey . '/gTc/' . $ctx['idengare']
+                        . '/compte/' . $cpus . '/' . $ctx['idsousgare'] . '/' . $date_seg
+                    );
+                    return;
+                }
+            }
 
             $itineraires = $this->m_itineraire_escale->itineraires_pour_gare(
                 (int) $this->company->id_entreprise,
@@ -264,6 +415,21 @@
             }
             $this->property['company_ekey'] = $ckey;
 
+            // Affectation admin : pas de choix manuel d'escale.
+            $aff_admin = $this->_role17_affectation_courante($cpus);
+            if ($aff_admin) {
+                $ctx = $this->_role17_resolve_context($ckey, $gid, $gid, null, $date_seg);
+                $idsg_use = (int) $ctx['idsousgare'] > 0 ? $ctx['idsousgare'] : $idsg;
+                $gid_use = !empty($ctx['idengare']) ? $ctx['idengare'] : $gid;
+                if ($this->_role17_hydrate_escale_session($ckey, $gid_use, $cpus, $idsg_use, $aff_admin, true)) {
+                    redirect(
+                        'gares/' . $ckey . '/gTc/' . $gid_use
+                        . '/compte/' . $cpus . '/' . $idsg_use . '/' . $date_seg
+                    );
+                    return;
+                }
+            }
+
             $points = $this->m_itineraire_escale->points_depart_itineraire($ident_ligne);
             $ligne_nom = $ident_ligne;
             if (!empty($points[0]->nom_ligne)) {
@@ -323,38 +489,40 @@
                 $this->load->model('Itineraire_escale_model', 'm_itineraire_escale');
             }
 
-            $label = $depart;
-            $id_lignes = '';
-            if (strpos($depart, '~') !== false) {
-                list($kind, $ref) = explode('~', $depart, 2);
-                if ($kind === 'escale') {
-                    $pts = array();
-                    $it = $this->session->userdata('role17_itineraire');
-                    if (is_array($it) && !empty($it['ident_ligne'])) {
-                        $pts = $this->m_itineraire_escale->points_depart_itineraire($it['ident_ligne']);
-                        $id_lignes = (string) $it['ident_ligne'];
-                    }
-                } else {
-                    $id_lignes = trim($ref);
-                    $pts = $this->m_itineraire_escale->points_depart_itineraire($id_lignes);
-                }
-                foreach ($pts as $pt) {
-                    if ((string) $pt->value === $depart) {
-                        $label = (string) $pt->label;
-                        $id_lignes = (string) $pt->id_lignes;
-                        break;
-                    }
+            // Affectation admin figée : ignorer le départ URL.
+            $aff_admin = $this->_role17_affectation_courante($cpus);
+            if ($aff_admin) {
+                $date_seg = ($d && $m && $y)
+                    ? "{$d}/{$m}/{$y}"
+                    : mdate('%d/%m/%Y', now('UTC'));
+                if ($this->_role17_hydrate_escale_session($ckey, $gid, $cpus, $idsg, $aff_admin, true)) {
+                    redirect(
+                        'gares/' . $ckey . '/gTc/' . $gid . '/compte/' . $cpus . '/' . $idsg . '/' . $date_seg
+                    );
+                    return;
                 }
             }
 
-            $it_ctx = $this->session->userdata('role17_itineraire');
-            $this->session->set_userdata('role17_escale', array(
+            $aff = array(
                 'value' => $depart,
-                'label' => $label,
-                'gare' => (string) $gid,
-                'idsousgare' => (string) $idsg,
-                'id_lignes' => $id_lignes !== '' ? $id_lignes : (is_array($it_ctx) && !empty($it_ctx['ident_ligne']) ? $it_ctx['ident_ligne'] : ''),
-            ));
+                'label' => $depart,
+                'id_lignes' => '',
+            );
+            $it = $this->session->userdata('role17_itineraire');
+            if (is_array($it) && !empty($it['ident_ligne'])) {
+                $aff['id_lignes'] = (string) $it['ident_ligne'];
+            } elseif (strpos($depart, '~') !== false) {
+                list($kind, $ref) = explode('~', $depart, 2);
+                if ($kind !== 'escale') {
+                    $aff['id_lignes'] = trim($ref);
+                }
+            }
+
+            if (!$this->_role17_hydrate_escale_session($ckey, $gid, $cpus, $idsg, $aff, false)) {
+                $this->session->set_flashdata('error', 'Escale invalide ou introuvable sur la ligne.');
+                redirect('gares/' . $ckey . '/gTs/' . $gid . '/sousgare/' . $cpus . '/' . mdate('%d/%m/%Y', now('UTC')));
+                return;
+            }
 
             $date_seg = ($d && $m && $y)
                 ? "{$d}/{$m}/{$y}"
@@ -782,6 +950,114 @@
                     $this->property['conex'] = $this->m_compte_user->usget($cp, $gid);
                 }
                 session_release_lock();
+
+                        $is_role17 = ((string) $this->session->agent->userole === '17');
+
+                        // ——— Rôle 17 : chemin léger (TPE) — pas de catalogues gare inutiles ———
+                        if ($is_role17) {
+                            $this->property['typetarifs'] = array();
+                            $this->property['heures'] = array();
+                            $this->property['quartiers'] = array();
+                            $this->property['compagnies'] = array();
+                            $this->property['allgaredepart'] = array();
+                            $this->property['typecourriers'] = array();
+                            $this->property['typecourriersgl'] = array();
+                            $this->property['typesclients'] = array();
+                            $this->property['lignes'] = array();
+                            $this->property['lignesgare'] = array();
+                            $this->property['cptaller'] = null;
+                            $this->property['cptretour'] = null;
+                            $this->property['recettebagages'] = null;
+                            $this->property['cptallercd'] = null;
+                            $this->property['cptallerescd'] = null;
+                            $this->property['recettebagagescd'] = null;
+
+                            if (!function_exists('guichet_totaux_fetch_snapshot')) {
+                                $this->load->helper('guichet_totaux');
+                            }
+                            $snap = guichet_totaux_fetch_snapshot($ekey, (int) $cpus, (int) $gid);
+                            $this->property['cptalleresc'] = (object) array(
+                                'total' => isset($snap['escale']) ? (float) $snap['escale'] : 0.0,
+                            );
+
+                            $code_gaexp_vente = !empty($bus_stop->code_gaexp)
+                                ? $bus_stop->code_gaexp
+                                : (isset($bus_stop->gareprinceid) ? $bus_stop->gareprinceid : '');
+                            $this->property['code_gaexp_vente'] = $code_gaexp_vente;
+                            $this->property['escales_depart'] = array();
+                            $this->property['escale_depart_fixe'] = null;
+                            $this->property['escale_depart_label'] = '';
+                            $this->property['escale_depart_fixed_admin'] = false;
+
+                            $ctx = $this->session->userdata('role17_escale');
+                            if (!is_array($ctx)
+                                || empty($ctx['value'])
+                                || (string) $ctx['gare'] !== (string) $gid
+                            ) {
+                                $aff = $this->_role17_affectation_courante($cpus);
+                                if ($aff) {
+                                    $this->_role17_hydrate_escale_session(
+                                        $ekey,
+                                        $gid,
+                                        $cpus,
+                                        $idsg,
+                                        $aff,
+                                        true
+                                    );
+                                    $ctx = $this->session->userdata('role17_escale');
+                                }
+                            }
+                            if (is_array($ctx)
+                                && !empty($ctx['value'])
+                                && (string) $ctx['gare'] === (string) $gid
+                            ) {
+                                $this->property['escale_depart_fixe'] = (string) $ctx['value'];
+                                $this->property['escale_depart_label'] = !empty($ctx['label'])
+                                    ? (string) $ctx['label']
+                                    : (string) $ctx['value'];
+                                $this->property['escale_depart_fixed_admin'] = !empty($ctx['fixed']);
+                            } else {
+                                // Départ non figé : charger la liste minimale pour la modale.
+                                if (!isset($this->m_itineraire_escale)) {
+                                    $this->load->model('Itineraire_escale_model', 'm_itineraire_escale');
+                                }
+                                $escale_cache_key = 'escales_depart_vente_' . $cid . '_' . $code_gaexp_vente;
+                                $this->property['escales_depart'] = app_cache_remember(
+                                    $escale_cache_key,
+                                    300,
+                                    function () use ($cid, $code_gaexp_vente) {
+                                        return $this->m_itineraire_escale->points_depart_vente(
+                                            (int) $cid,
+                                            $code_gaexp_vente
+                                        );
+                                    }
+                                );
+                            }
+
+                            $arret = compte_arret_status(
+                                $this->session->agent->userole,
+                                $cpus,
+                                $gid,
+                                null,
+                                (int) $this->session->agent->cpuser_id
+                            );
+                            $this->property['compte_arret_blocked'] = $arret['blocked'];
+                            $this->property['compte_arret_only_compte'] = $arret['only_compte'];
+                            $this->property['compte_arret_grace'] = $arret['grace'];
+                            $this->property['compte_arret_message'] = $arret['reason'];
+                            $this->property['compte_arret_warnings'] = $arret['warnings'];
+                            $this->property['layout_minimal'] = TRUE;
+                            $this->property['pagetitle'] .= "•{$bus_stop->garenom}•&nbsp;{$bus_stop->nomsousgare}&nbsp;•ACCUEIL<strong>•&nbsp;{$this->company->nom_entreprise}</strong>";
+                            $this->property = array_merge(
+                                $this->property,
+                                scripts_bundle_property('guichet', '17')
+                            );
+                            return $this->layout->view(
+                                guichet_page_for_role('17'),
+                                $this->property
+                            );
+                        }
+
                         $this->property['typetarifs'] = app_cache_remember('tarifs_all', 600, function () {
                             return $this->m_tarifs->get();
                         });
@@ -912,11 +1188,29 @@
                             );
                         });
 
-                        // Rôle 17 : escale déjà choisie dans la liste → départ figé.
+                        // Rôle 17 : escale session ou affectation admin → départ figé.
                         $this->property['escale_depart_fixe'] = null;
                         $this->property['escale_depart_label'] = '';
+                        $this->property['escale_depart_fixed_admin'] = false;
                         if ((string) $this->session->agent->userole === '17') {
                             $ctx = $this->session->userdata('role17_escale');
+                            if (!is_array($ctx)
+                                || empty($ctx['value'])
+                                || (string) $ctx['gare'] !== (string) $gid
+                            ) {
+                                $aff = $this->_role17_affectation_courante($cpus);
+                                if ($aff) {
+                                    $this->_role17_hydrate_escale_session(
+                                        $ekey,
+                                        $gid,
+                                        $cpus,
+                                        $idsg,
+                                        $aff,
+                                        true
+                                    );
+                                    $ctx = $this->session->userdata('role17_escale');
+                                }
+                            }
                             if (is_array($ctx)
                                 && !empty($ctx['value'])
                                 && (string) $ctx['gare'] === (string) $gid
@@ -925,6 +1219,7 @@
                                 $this->property['escale_depart_label'] = !empty($ctx['label'])
                                     ? (string) $ctx['label']
                                     : (string) $ctx['value'];
+                                $this->property['escale_depart_fixed_admin'] = !empty($ctx['fixed']);
                             }
                         }
 

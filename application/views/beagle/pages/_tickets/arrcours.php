@@ -1,4 +1,11 @@
 <?php defined('BASEPATH') OR exit('No direct script access allowed'); ?>
+<?php
+$role17_mode = !empty($role17_mode) && function_exists('role17_is_agent') && role17_is_agent();
+?>
+<div class="<?= $role17_mode ? 'r17-ops' : ''; ?>">
+<?php if ($role17_mode): ?>
+    <?php $this->load->view('beagle/pages/guichet/_role17_ops_chrome'); ?>
+<?php endif; ?>
     <div class="row">
         <p class="mt-0 mb-2 ml-4">
             <a href="<?= site_url('gares/'.$this->session->company->ekey.'/gTc/'.$bus_stop->idengare.'/compte/'.$conex->roleattribut.'/'.$bus_stop->idsousgare.'/'.mdate("%d/%m/%Y", now('UTC')));?>" class="btn btn-space btn-secondary">
@@ -330,5 +337,6 @@
             <?= form_close(); ?>
         </div>
     </div>
+</div>
 <!--End of file: arrcours.php-->
 <!--File location: application/views/beagle/pages/_courriers/arrcours.php-->

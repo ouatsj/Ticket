@@ -1,4 +1,17 @@
 <?php defined('BASEPATH') OR exit('No direct script access allowed'); ?>
+<?php
+$role17_mode = function_exists('role17_is_agent') && role17_is_agent();
+?>
+<div class="<?= $role17_mode ? 'r17-ops' : ''; ?>">
+<?php if ($role17_mode): ?>
+    <?php
+    if (empty($role17_mode)) { /* noop */ }
+    if (!isset($escale_depart_label) && function_exists('role17_inject_property')) {
+        /* chrome needs label if available */
+    }
+    $this->load->view('beagle/pages/guichet/_role17_ops_chrome');
+    ?>
+<?php else: ?>
 <div class="row">
     <p class="mt-0 mb-2 ml-4">
         <?php $this->load->view('_partials/btn_retour', array(
@@ -11,6 +24,7 @@
         )); ?>
     </p>
 </div>
+<?php endif; ?>
 <div class="col-12">
 
     <div class="card card-table">
@@ -144,3 +158,4 @@
                 
     </div>
 </div>
+</div><!-- r17-ops -->

@@ -2562,19 +2562,53 @@
         public function pdfepsonrapportes($ckey, $idconnex, $n, $g, $cpus, $idsg)
         {
             $this->company = $this->m_entreprises->get_key($ckey);
-                    $comp = $this->input->post('_compag');
+            $comp = $this->input->post('_compag');
 
-                $ncomp = $this->m_compagnies->getn($comp);
-                $this->property['ncomp'] = $ncomp;
-                $bus_stop = $this->m_sousgare->sget($this->company->ekey, $g, $idsg);
-                $this->property['bus_stop'] = $bus_stop;
-                $conex = $this->_roleattribut_guard_bind($cpus, $this->company->ekey, $g);
-                $this->property['conex'] = $conex;
+            $ncomp = $this->m_compagnies->getn($comp);
+            $this->property['ncomp'] = $ncomp;
+            $this->property['rapport_comp_id'] = $comp;
+            $bus_stop = $this->m_sousgare->sget($this->company->ekey, $g, $idsg);
+            $this->property['bus_stop'] = $bus_stop;
+            $conex = $this->_roleattribut_guard_bind($cpus, $this->company->ekey, $g);
+            $this->property['conex'] = $conex;
 
-                $this->property['reponsealler'] = $this->m_escalclients->rapportaller($this->company->ekey, $idconnex, $comp, $g);
+            $this->property['reponsealler'] = $this->m_escalclients->rapportaller(
+                $this->company->ekey,
+                $idconnex,
+                $comp,
+                $g
+            );
 
-            
-            $this->layout->view('_tickets/pdfepescalrapt', $this->property);
+            // Rapport mobile unifié : tickets + bagage + courrier (après arrêt global).
+            if (!isset($this->m_bagageesc)) {
+                $this->load->model('Bagageesc_model', 'm_bagageesc');
+            }
+            if (!isset($this->m_courrier_expedieresc)) {
+                $this->load->model('Courriers_expesc_model', 'm_courrier_expedieresc');
+            }
+            $this->property['reponsebagageesc'] = $this->m_bagageesc->rapport_mobile_arret(
+                $this->company->ekey,
+                $idconnex,
+                $comp,
+                $g
+            );
+            $this->property['reponsecourrieresc'] = $this->m_courrier_expedieresc->rapport_mobile_arret(
+                $this->company->ekey,
+                $idconnex,
+                $comp,
+                $g
+            );
+
+            if (function_exists('role17_is_agent') && role17_is_agent()) {
+                $this->property['role17_mode'] = true;
+                if (!function_exists('role17_inject_property')) {
+                    $this->load->helper('role17_context');
+                }
+                $this->property = role17_inject_property($this->property, $cpus, $g);
+            }
+
+            $this->property['layout_print'] = TRUE;
+            $this->layout->view('_tickets/pdfepsonrapportes_pos', $this->property);
         }
 
         public function pdfepsonescal($ckey, $code_id, $tf, $h, $g, $cpus, $idsg)
@@ -2649,12 +2683,13 @@
                 return;
             }
 
-            // Même principe que les tickets Epson guichet (grands caractères HTML).
-            // layout_print = page blanche sans Beagle (évite capture menu/bandeau).
             $this->property['item'] = $item;
             $this->property['bus_stop'] = $bus_stop;
             $this->property['conex'] = $conex;
             $this->property['layout_print'] = TRUE;
+            if (function_exists('role17_is_agent') && role17_is_agent()) {
+                $this->property['role17_mode'] = true;
+            }
             $this->layout->view('_tickets/pdfepsonescal_libre', $this->property);
         }
 
@@ -2662,12 +2697,20 @@
         {
             $this->company = $this->m_entreprises->get_key($ckey);
             $bus_stop = $this->m_sousgare->sget($this->company->ekey, $g, $idsg);
-                        $this->property['bus_stop'] = $bus_stop;
-                $conex = $this->_roleattribut_guard_bind($cpus, $this->company->ekey, $g);
-                $this->property['conex'] = $conex;
+            $this->property['bus_stop'] = $bus_stop;
+            $conex = $this->_roleattribut_guard_bind($cpus, $this->company->ekey, $g);
+            $this->property['conex'] = $conex;
             $this->bagagesesc = $this->m_bagageesc->get($this->company->ekey, $g, $bg_id);
             $this->property['itemescbag'] = $this->bagagesesc;
-            
+
+            if (function_exists('role17_is_agent') && role17_is_agent()) {
+                $this->property['role17_mode'] = true;
+                if (!function_exists('role17_inject_property')) {
+                    $this->load->helper('role17_context');
+                }
+                $this->property = role17_inject_property($this->property, $cpus, $g);
+            }
+            $this->property['layout_print'] = TRUE;
             $this->layout->view('_tickets/pdfepsonbagesc', $this->property);
         }
 

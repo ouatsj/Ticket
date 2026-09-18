@@ -2253,7 +2253,32 @@
 
         public function codeclientverifesc($cod, $gd, $sgd)
         {
-            $outbagesc = $this->m_escalclients->verifcodbag($this->session->company->ekey, $cod, $gd, $sgd);
+            $id_lignes = null;
+            if (!function_exists('role17_forced_escale')) {
+                $this->load->helper('role17_context');
+            }
+            if (function_exists('role17_is_agent') && role17_is_agent()) {
+                $roleattribut = null;
+                if (!empty($this->session->agent->roleattribut)) {
+                    $roleattribut = $this->session->agent->roleattribut;
+                } elseif (!empty($this->session->userdata('conex')->roleattribut)) {
+                    $roleattribut = $this->session->userdata('conex')->roleattribut;
+                }
+                $forced = role17_forced_escale($roleattribut, $gd);
+                if (!$forced) {
+                    $forced = role17_forced_escale(null, $gd);
+                }
+                if ($forced && !empty($forced['id_lignes'])) {
+                    $id_lignes = $forced['id_lignes'];
+                }
+            }
+            $outbagesc = $this->m_escalclients->verifcodbag(
+                $this->session->company->ekey,
+                $cod,
+                $gd,
+                $sgd,
+                $id_lignes
+            );
 
             return $this->load->view('beagle/pages/_tarif/json', array('json' => $outbagesc));
         }
@@ -4491,9 +4516,39 @@
             $bagepsonesc = $this->input->post('epsonbagsansesc');
             $idcmpt = $this->input->post('compconnectedescalbag');
 
-            $ch = $this->input->post('types_bagsansesc');
+            // Rôle 17 : bagage uniquement sur l'itinéraire de l'escale liée au compte.
+            if (function_exists('role17_is_agent') && role17_is_agent()) {
+                $forced = role17_forced_escale($iduser, $gid);
+                $ligne_post = trim((string) $this->input->post('lignedepaescalbag'));
+                $ligne_forced = $forced && !empty($forced['id_lignes'])
+                    ? (string) $forced['id_lignes']
+                    : '';
+                if ($ligne_forced === '' || $ligne_post === '' || $ligne_post !== $ligne_forced) {
+                    $this->session->set_flashdata(
+                        'error',
+                        'Bagage refusé : le ticket doit appartenir à l’itinéraire de votre escale affectée.'
+                    );
+                    redirect('confirmation/bagageescales/' . $this->company->ekey . '/' . $iduser . '/' . $gid . '/' . $sgid);
+                    return;
+                }
+            }
 
-            $chr = implode(",",$ch);
+            if (!function_exists('role17_guard_frais_expedition')) {
+                $this->load->helper('role17_context');
+            }
+            if (!role17_guard_frais_expedition(
+                $iduser,
+                $gid,
+                $sgid,
+                'confirmation/bagageescales/' . $this->company->ekey . '/' . $iduser . '/' . $gid . '/' . $sgid,
+                'fraisbagsansesc',
+                500
+            )) {
+                return;
+            }
+
+            $ch = $this->input->post('types_bagsansesc');
+            $chr = is_array($ch) ? implode(',', $ch) : (string) $ch;
 
             $quart3 = $this->input->post('quartpassesesc');
             
@@ -4653,6 +4708,26 @@
                 return;
             }
 
+            if (!role17_guard_courrier_destination(
+                $iduser,
+                $gid,
+                $sgid,
+                'confirmation/courrierescal/' . $this->company->ekey . '/' . $iduser . '/' . $gid . '/' . $sgid
+            )) {
+                return;
+            }
+
+            if (!role17_guard_frais_expedition(
+                $iduser,
+                $gid,
+                $sgid,
+                'confirmation/courrierescal/' . $this->company->ekey . '/' . $iduser . '/' . $gid . '/' . $sgid,
+                'fraisexesc',
+                500
+            )) {
+                return;
+            }
+
             $imprimepson = $this->input->post('epsonesc');
             $idcmpt = $this->input->post('compconnected');
             $usen = substr($this->session->agent->username, 0, 1);
@@ -4687,6 +4762,12 @@
                 $argd1 = strpos($argdp, '/');
                 $arreg2 = substr($argdp, 0, $argd1);
                 $argdp3 = substr($argdp, $argd1 + 1, strlen($argdp));
+
+                // Rôle 17 : ligne attribuée (évite BOR-BOB inventé qui casse le reçu).
+                if (!function_exists('role17_courrier_idlignes')) {
+                    $this->load->helper('role17_context');
+                }
+                $id_lignes_code = role17_courrier_idlignes($iduser, $gid, $reg . '-' . $arreg);
 
                 $arecomp = $this->db->query("SELECT d.id_compaga FROM gare_dest d WHERE d.code_gadest = '$arreg'")->row();
 
@@ -4773,7 +4854,7 @@
                         
                         // Get the auto generated CODE
                         $carray = array(
-                            'idlignes' => $reg.'-'.$arreg,
+                            'idlignes' => $id_lignes_code,
                             'exprecepident' => $colis,
                             'valeurscoli'=> $this->input->post('valeur1esc'),
                             'naturecoli' => $natid1,
@@ -4935,7 +5016,7 @@
                         
                         // Get the auto generated CODE
                         $carray = array(
-                            'idlignes' => $reg.'-'.$arreg,
+                            'idlignes' => $id_lignes_code,
                             'exprecepident' => $colis,
                             'valeurscoli'=> $this->input->post('valeur1esc'),
                             'naturecoli' => $natid1,
@@ -5094,7 +5175,7 @@
                         
                         // Get the auto generated CODE
                         $carray = array(
-                            'idlignes' => $reg.'-'.$arreg,
+                            'idlignes' => $id_lignes_code,
                             'exprecepident' => $colis,
                             'valeurscoli'=> $this->input->post('valeur1esc'),
                             'naturecoli' => $natid1,
@@ -5253,7 +5334,7 @@
                         
                         // Get the auto generated CODE
                         $carray = array(
-                            'idlignes' => $reg.'-'.$arreg,
+                            'idlignes' => $id_lignes_code,
                             'exprecepident' => $colis,
                             'valeurscoli'=> $this->input->post('valeur1esc'),
                             'naturecoli' => $natid1,
@@ -5403,7 +5484,7 @@
                         
                         // Get the auto generated CODE
                         $carray = array(
-                            'idlignes' => $reg.'-'.$arreg,
+                            'idlignes' => $id_lignes_code,
                             'exprecepident' => $colis,
                             'valeurscoli'=> $this->input->post('valeur1esc'),
                             'naturecoli' => $natid1,
@@ -5549,7 +5630,7 @@
                         
                         // Get the auto generated CODE
                         $carray = array(
-                            'idlignes' => $reg.'-'.$arreg,
+                            'idlignes' => $id_lignes_code,
                             'exprecepident' => $colis,
                             'valeurscoli'=> $this->input->post('valeur1esc'),
                             'naturecoli' => $natid1,
@@ -5710,7 +5791,7 @@
                         
                         // Get the auto generated CODE
                         $carray = array(
-                            'idlignes' => $reg.'-'.$arreg,
+                            'idlignes' => $id_lignes_code,
                             'exprecepident' => $colis,
                             'valeurscoli'=> $this->input->post('valeur1esc'),
                             'naturecoli' => $natid1,
@@ -5853,7 +5934,7 @@
                         
                         // Get the auto generated CODE
                         $carray = array(
-                            'idlignes' => $reg.'-'.$arreg,
+                            'idlignes' => $id_lignes_code,
                             'exprecepident' => $colis,
                             'valeurscoli'=> $this->input->post('valeur1esc'),
                             'naturecoli' => $natid1,
@@ -6010,7 +6091,7 @@
                         
                         // Get the auto generated CODE
                         $carray = array(
-                            'idlignes' => $reg.'-'.$arreg,
+                            'idlignes' => $id_lignes_code,
                             'exprecepident' => $colis,
                             'valeurscoli'=> $this->input->post('valeur1esc'),
                             'naturecoli' => $natid1,
@@ -6168,7 +6249,7 @@
                         
                         // Get the auto generated CODE
                         $carray = array(
-                            'idlignes' => $reg.'-'.$arreg,
+                            'idlignes' => $id_lignes_code,
                             'exprecepident' => $colis,
                             'valeurscoli'=> $this->input->post('valeur1'),
                             'naturecoli' => $natid1,
@@ -6323,7 +6404,7 @@
                         
                         // Get the auto generated CODE
                         $carray = array(
-                            'idlignes' => $reg.'-'.$arreg,
+                            'idlignes' => $id_lignes_code,
                             'exprecepident' => $colis,
                             'valeurscoli'=> $this->input->post('valeur1'),
                             'naturecoli' => $natid1,
@@ -6448,6 +6529,16 @@
                 return;
             }
 
+            if (!role17_guard_courrier_destination(
+                $iduser,
+                $gid,
+                $sgid,
+                'confirmation/courrierpersoescal/' . $this->company->ekey . '/' . $iduser . '/' . $gid . '/' . $sgid,
+                'arricourpersoesc'
+            )) {
+                return;
+            }
+
             $imprimepson = $this->input->post('epsonesc');
             $idcmpt = $this->input->post('compconnectedperso');
             $usen = substr($this->session->agent->username, 0, 1);
@@ -6479,6 +6570,11 @@
                 $argd = strpos($this->input->post('arricourpersoesc'), '/');
                 $arreg = substr($this->input->post('arricourpersoesc'), 0, $argd);
                 $argdp = substr($this->input->post('arricourpersoesc'), $argd + 1, strlen($this->input->post('arricourpersoesc')));
+
+                if (!function_exists('role17_courrier_idlignes')) {
+                    $this->load->helper('role17_context');
+                }
+                $id_lignes_code = role17_courrier_idlignes($iduser, $gid, $reg . '-' . $arreg);
                 
                 $argd1 = strpos($argdp, '/');
                 $arreg2 = substr($argdp, 0, $argd1);
@@ -6542,7 +6638,7 @@
                         
                         // Get the auto generated CODE
                         $carray = array(
-                            'idlignes' => $reg.'-'.$arreg,
+                            'idlignes' => $id_lignes_code,
                             'exprecepident' => $colis,
                             'valeurscoli'=> $this->input->post('valeur1persoesc'),
                             'naturecoli' => $natid1,
@@ -6629,7 +6725,7 @@
                         
                         // Get the auto generated CODE
                         $carray = array(
-                            'idlignes' => $reg.'-'.$arreg,
+                            'idlignes' => $id_lignes_code,
                             'exprecepident' => $colis,
                             'valeurscoli'=> $this->input->post('valeur1persoesc'),
                             'naturecoli' => $natid1,
@@ -6722,7 +6818,7 @@
                         
                         // Get the auto generated CODE
                         $carray = array(
-                            'idlignes' => $reg.'-'.$arreg,
+                            'idlignes' => $id_lignes_code,
                             'exprecepident' => $colis,
                             'valeurscoli'=> $this->input->post('valeur1persoesc'),
                             'naturecoli' => $natid1,
@@ -6823,7 +6919,7 @@
                         
                         // Get the auto generated CODE
                         $carray = array(
-                            'idlignes' => $reg.'-'.$arreg,
+                            'idlignes' => $id_lignes_code,
                             'exprecepident' => $colis,
                             'valeurscoli'=> $this->input->post('valeur1persoesc'),
                             'naturecoli' => $natid1,
@@ -6908,6 +7004,27 @@
                 return;
             }
 
+            if (!role17_guard_courrier_destination(
+                $iduser,
+                $gid,
+                $sgid,
+                'confirmation/courrierpartoescal/' . $this->company->ekey . '/' . $iduser . '/' . $gid . '/' . $sgid,
+                'arricourpartoesc'
+            )) {
+                return;
+            }
+
+            if (!role17_guard_frais_expedition(
+                $iduser,
+                $gid,
+                $sgid,
+                'confirmation/courrierpartoescal/' . $this->company->ekey . '/' . $iduser . '/' . $gid . '/' . $sgid,
+                'fraisexpartoesc',
+                500
+            )) {
+                return;
+            }
+
             $imprimepson = $this->input->post('epsonesc');
             $idcmpt = $this->input->post('compconnectedparto');
             $usen = substr($this->session->agent->username, 0, 1);
@@ -6939,6 +7056,11 @@
                 $argd = strpos($this->input->post('arricourpartoesc'), '/');
                 $arreg = substr($this->input->post('arricourpartoesc'), 0, $argd);
                 $argdp = substr($this->input->post('arricourpartoesc'), $argd + 1, strlen($this->input->post('arricourpartoesc')));
+
+                if (!function_exists('role17_courrier_idlignes')) {
+                    $this->load->helper('role17_context');
+                }
+                $id_lignes_code = role17_courrier_idlignes($iduser, $gid, $reg . '-' . $arreg);
                 
                 $argd1 = strpos($argdp, '/');
                 $arreg2 = substr($argdp, 0, $argd1);
@@ -7003,7 +7125,7 @@
                         
                         // Get the auto generated CODE
                         $carray = array(
-                            'idlignes' => $reg.'-'.$arreg,
+                            'idlignes' => $id_lignes_code,
                             'exprecepident' => $colis,
                             'valeurscoli'=> $this->input->post('valeur1partoesc'),
                             'naturecoli' => $natid1,
@@ -7149,7 +7271,7 @@
                         
                         // Get the auto generated CODE
                         $carray = array(
-                            'idlignes' => $reg.'-'.$arreg,
+                            'idlignes' => $id_lignes_code,
                             'exprecepident' => $colis,
                             'valeurscoli'=> $this->input->post('valeur1partoesc'),
                             'naturecoli' => $natid1,
@@ -7290,7 +7412,7 @@
                         
                         // Get the auto generated CODE
                         $carray = array(
-                            'idlignes' => $reg.'-'.$arreg,
+                            'idlignes' => $id_lignes_code,
                             'exprecepident' => $colis,
                             'valeurscoli'=> $this->input->post('valeur1partoesc'),
                             'naturecoli' => $natid1,
@@ -7418,7 +7540,7 @@
                         
                         // Get the auto generated CODE
                         $carray = array(
-                            'idlignes' => $reg.'-'.$arreg,
+                            'idlignes' => $id_lignes_code,
                             'exprecepident' => $colis,
                             'valeurscoli'=> $this->input->post('valeur1partoesc'),
                             'naturecoli' => $natid1,

@@ -32,13 +32,26 @@ if (empty($groups)) {
     return;
 }
 
+uasort($groups, function ($a, $b) {
+    return strcasecmp(
+        (string) (isset($a['nom_compagnie']) ? $a['nom_compagnie'] : ''),
+        (string) (isset($b['nom_compagnie']) ? $b['nom_compagnie'] : '')
+    );
+});
+
 foreach ($groups as $cle => $groupe):
     $comp_label = !empty($groupe['nom_compagnie']) ? $groupe['nom_compagnie'] : 'Sans compagnie';
     $cle_attr = htmlspecialchars((string) $cle, ENT_QUOTES, 'UTF-8');
     $nom_attr = htmlspecialchars($comp_label, ENT_QUOTES, 'UTF-8');
+    $gares = !empty($groupe['gares']) ? $groupe['gares'] : array();
+    usort($gares, function ($x, $y) {
+        $nx = !empty($x->nom_gadest) ? (string) $x->nom_gadest : (string) (isset($x->code_gadest) ? $x->code_gadest : '');
+        $ny = !empty($y->nom_gadest) ? (string) $y->nom_gadest : (string) (isset($y->code_gadest) ? $y->code_gadest : '');
+        return strcasecmp($nx, $ny);
+    });
 ?>
 <optgroup label="<?= $nom_attr; ?>" data-compagnie="<?= $cle_attr; ?>">
-    <? foreach ($groupe['gares'] as $garearrivee):
+    <? foreach ($gares as $garearrivee):
         switch ($value_format) {
             case 'code_comp':
                 $val = $garearrivee->code_gadest . '/' . $garearrivee->id_compaga;

@@ -1,5 +1,10 @@
 <?php defined('BASEPATH') OR exit('No direct script access allowed'); ?>
 
+<?php $role17_mode = !empty($role17_mode) && role17_is_agent(); ?>
+<div class="<?= $role17_mode ? 'r17-ops' : ''; ?>">
+<?php if ($role17_mode): ?>
+    <?php $this->load->view('beagle/pages/guichet/_role17_ops_chrome'); ?>
+<?php endif; ?>
 <div class="row">
     <p class="mt-0 mb-2 ml-4">
         <a href="<?= site_url("confirmation/courrierescales/{$this->session->company->ekey}/{$conex->roleattribut}/{$bus_stop->idengare}/{$bus_stop->idsousgare}"); ?>"
@@ -48,6 +53,22 @@
                     
                     <div class="form-group col-sm-4">
                         <label style="display:block" id="iddepcouesc">Expédition</label>
+                        <?php if (!empty($role17_mode) && role17_is_agent() && !empty($garedeparts)): ?>
+                            <?php
+                            $dep0 = $garedeparts[0];
+                            $dep_val = $dep0->code_gaexp . '/' . $dep0->idsousgare . '/' . $dep0->codegares . $dep0->codsousgare;
+                            $dep_lab = !empty($escale_depart_label)
+                                ? $escale_depart_label
+                                : ($dep0->nom_gaep . '/' . $dep0->nomsousgare);
+                            ?>
+                            <input type="hidden" name="deparcourrieresc" id="deparcouresc" value="<?= htmlspecialchars($dep_val, ENT_QUOTES, 'UTF-8'); ?>">
+                            <div class="r17-depart-chip is-fixed">
+                                Départ escale : <strong><?= htmlspecialchars($dep_lab, ENT_QUOTES, 'UTF-8'); ?></strong>
+                                <?php if (!empty($escale_depart_fixed_admin)): ?>
+                                    <span class="r17-badge-fixed">figée</span>
+                                <?php endif; ?>
+                            </div>
+                        <?php else: ?>
                         <select style="display:block" class="form-control form-control-sm" name="deparcourrieresc" id="deparcouresc">
                             <? foreach ($garedeparts as $garedepart): ?>
                                 <option value="<?= $garedepart->code_gaexp; ?>/<?= $garedepart->idsousgare; ?>/<?= $garedepart->codegares; ?><?= $garedepart->codsousgare; ?>">
@@ -55,10 +76,11 @@
                                 </option>
                             <? endforeach; ?>
                         </select>
+                        <?php endif; ?>
                     </div>
                     <div class="form-group col-sm-4">
                         <label>Destination</label>
-                        <select class="form-control form-control-sm" name="arricouresc" id="arrscouresc">
+                        <select class="form-control form-control-sm" name="arricouresc" id="arrscouresc" required>
                             <option value="">Choisissez l'arrivée</option>
                             <?php
                                 $this->load->view('beagle/pages/guichet/_options_gare_arrivee', array(
@@ -70,26 +92,26 @@
                     </div>
                     <div class="form-group col-sm-4">
                         <label>Date départ</label>
-                        <input class="form-control form-control-sm" type="date" name="datedepartesc" id="date_depheurecourexesc">
+                        <input class="form-control form-control-sm" type="date" name="datedepartesc" id="date_depheurecourexesc" required>
                     </div>
                     
                     <div class="form-group col-sm-4">
                         <label>Quartier destination</label>
-                        <select name="quartconfirmeesc" class="form-control form-control-sm" id="quartiercouresc">
+                        <select name="quartconfirmeesc" class="form-control form-control-sm" id="quartiercouresc" required>
                                 <option value="">Choisissez le quartier</option>
                         </select>
                     </div>
                     <div class="form-group col-sm-4">
                         <label>Heure</label>
-                        <select class="form-control form-control-sm" name="heuredpcouresc" style="" id="hdepcouresc">
-                            <option value selected>Choisissez l'heure</option>       
+                        <select class="form-control form-control-sm" name="heuredpcouresc" style="" id="hdepcouresc" required>
+                            <option value="">Choisissez l'heure</option>       
                         </select>
                     </div>
                     
                     <div class="form-group col-sm-4">
                         <label>Type personne</label>
-                        <select name="type_persoesc" class="form-control form-control-sm" id="type_personesc">
-                            <option value selected>Choisissez le type</option>
+                        <select name="type_persoesc" class="form-control form-control-sm" id="type_personesc" required>
+                            <option value="">Choisissez le type</option>
                                 <? foreach ($typepersonnes1 as $ord): ?>
                                         <option value="<?= $ord->idtyp;?>/<?= $ord->nom_type;?>">
                                         <?= "{$ord->nom_type}";?></option>
@@ -101,8 +123,8 @@
                    
                     <div class="form-group col-sm-4">
                         <label>Type courriers</label>
-                        <select name="types_couresc" class="form-control form-control-sm" id="types_courriersesc">
-                            <option value ="">Choisissez le type</option>
+                        <select name="types_couresc" class="form-control form-control-sm" id="types_courriersesc" required>
+                            <option value="">Choisissez le type</option>
                             
                         </select>
                     </div>
@@ -112,13 +134,13 @@
                         <label>Contenu</label>
                         <textarea class="form-control form-control-sm"
                                 name="naturecolesc" autocomplete="off"
-                                cols="30" rows="2"></textarea>
+                                cols="30" rows="2" required></textarea>
                     </div>
                     <div class="form-group col-sm-4">
                         <label>Nombre courrier</label>
                         <input class="form-control form-control-sm" 
                                 name="nombrecolesc" type="number" autocomplete="off" 
-                                placeholder="">            
+                                min="1" placeholder="" required>            
                     </div>
                     <!-- VALEUR -->
                     <div class="form-group col-sm-4">
@@ -126,16 +148,18 @@
                         <input class="form-control form-control-sm"
                                 name="valeur1esc" id="valeur1esc"
                                 type="number" autocomplete="off" style="display:block"
-                                placeholder="Montant du colis">
+                                min="0" placeholder="Montant du colis" required>
                     </div>
 
-                       <!-- frais d'expedition -->
+                       <!-- frais d'expedition : saisie libre, indépendante du tarif ticket -->
                     <div class="form-group col-sm-4">
                         <label style="display:block" id="idfraisesc">Frais d'expédition</label>
                         <input class="form-control form-control-sm" 
                                 name="fraisexesc" type="number" autocomplete="off" 
-                                id="fraisexesc" style="display:block" required 
-                                placeholder="Frais d'expédition">            
+                                id="fraisexesc" style="display:block" required
+                                min="500" step="1" inputmode="numeric"
+                                placeholder="Min. 500 F CFA">
+                        <small class="text-muted">Minimum 500 F CFA (saisie libre)</small>
                     </div>
                 </div>
                 <div class="card-header card-header-divider">EXPEDITEUR<span class="card-subtitle"></span></div>
@@ -248,3 +272,6 @@
         </div>
     </div>
 </div>
+
+</div>
+<?php // Frais d'expédition : saisie libre (≥ 500 F), non liés au prix ticket. ?>

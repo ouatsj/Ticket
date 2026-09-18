@@ -1319,9 +1319,9 @@
                     $caisseident = $this->m_caisse->get($this->company->id_entreprise, $gid, $cdid);
                     $this->property['caisseident'] = $caisseident;
                     
-                        $this->property['montantversers'] = $this->m_comptes_guichet->getcompte($this->company->ekey, $gid, $isg, $ad);
-                        $this->property['versementscourrier'] = $this->m_comptes_courrier->getcompte($this->company->ekey, $gid, $isg, $ad);
-                        $this->property['montantverbags'] = $this->m_comptes_bagage->getcompte($this->company->ekey, $gid, $isg, $ad);
+                        $this->property['montantversers'] = $this->m_comptes_guichet->getcompte_gare($this->company->ekey, $gid, $ad);
+                        $this->property['versementscourrier'] = $this->m_comptes_courrier->getcompte_gare($this->company->ekey, $gid, $ad);
+                        $this->property['montantverbags'] = $this->m_comptes_bagage->getcompte_gare($this->company->ekey, $gid, $ad);
                         $this->property['versementsrecettecour'] = $this->m_comptes_courrierrecet->getcompterct($this->company->ekey, $gid, $isg, $ad);
                         $this->property['genresguichet'] = $this->m_genre_recette->getrecet();
                         $this->property['compagnies'] = $this->m_compagnies->get();
@@ -2071,40 +2071,424 @@
         public function addattrb($ckey, $ul)
         {
             $company = $this->m_entreprises->get_key($ckey);
-                    
-                $gf = $this->input->post('fonction');
+            $ul = (int) $ul;
+            $gf = (string) $this->input->post('fonction');
+            $redirect = 'utilisateurs/' . $this->session->company->ekey;
 
-                $seclgf = $this->db->query("SELECT * FROM attributions_role a WHERE a.idgestcompte = '$ul' AND a.userole = '$gf'")->row();
+            $login = $this->db->query(
+                "SELECT ul.uid_login, ul.guser, ul.uid_usercpte, cu.userlog_id
+                 FROM user_login ul
+                 JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
+                 WHERE ul.uid_login = ?
+                 LIMIT 1",
+                array($ul)
+            )->row();
+            if ($login) {
+                $redirect = 'utilisateurs/' . $company->ekey
+                    . '/gTv/' . (int) $login->userlog_id
+                    . '/' . $ul . '/garecompte/' . mdate('%d/%m/%Y', now('UTC'));
+            }
 
-                if($seclgf == NULL){
+            if ($gf === '') {
+                $this->session->set_flashdata('compte_error', 'Choisissez un rôle.');
+                redirect($redirect);
+                return;
+            }
 
-                    $comptelogin = array(
-                        'idgestcompte' => $ul,
-                        'userole' => $this->input->post('fonction'),
-                        // 0 = rôle utilisable (courrier inclus).
-                        'activer_role' => 0,
-                        'activeattrib' => 0,
-                    );
-                    
-                    $this->m_roleattribution->create($comptelogin);
+            $seclgf = $this->db->query(
+                "SELECT roleattribut FROM attributions_role a
+                 WHERE a.idgestcompte = ? AND a.userole = ?
+                 LIMIT 1",
+                array($ul, $gf)
+            )->row();
+
+            if ($seclgf == NULL) {
+                $comptelogin = array(
+                    'idgestcompte' => $ul,
+                    'userole' => $gf,
+                    'activer_role' => 0,
+                    'activeattrib' => 0,
+                );
+
+                $escale = $this->_vente_escale_from_post($gf);
+                if ($gf === '17' && $escale === false) {
+                    if ($this->m_roleattribution->has_vente_escale_fields()) {
+                        $this->session->set_flashdata(
+                            'compte_error',
+                            'Pour Venteescal, choisissez une ligne et une escale de vente.'
+                        );
+                    }
+                    redirect($redirect);
+                    return;
                 }
-                    $this->property['INSERT_SUCCESS'] = TRUE;
-                redirect('utilisateurs/' . $this->session->company->ekey);
+                if (is_array($escale)) {
+                    $comptelogin = array_merge($comptelogin, $escale);
+                }
+
+                $new_id = $this->m_roleattribution->create($comptelogin);
+                if ($gf === '17' && is_array($escale) && (int) $new_id > 0
+                    && $this->m_roleattribution->has_vente_escale_fields()) {
+                    $this->m_roleattribution->set_vente_escale(
+                        (int) $new_id,
+                        $escale['vente_escale_id_lignes'],
+                        $escale['vente_escale_value'],
+                        $escale['vente_escale_label']
+                    );
+                }
+            }
+
+            $this->property['INSERT_SUCCESS'] = TRUE;
+            redirect($redirect);
         }
 
         public function addattrbs($ckey, $at)
         {
             $company = $this->m_entreprises->get_key($ckey);
-            
-                    $comptelogin = array(
+            $at = (int) $at;
+            $gf = (string) $this->input->post('fonction');
 
-                        'userole' => $this->input->post('fonction'),
+            $row = $this->db->query(
+                "SELECT ar.roleattribut, ar.userole, ul.uid_login, ul.guser, cu.userlog_id
+                 FROM attributions_role ar
+                 JOIN user_login ul ON ar.idgestcompte = ul.uid_login
+                 JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
+                 WHERE ar.roleattribut = ?
+                 LIMIT 1",
+                array($at)
+            )->row();
+
+            $redirect = 'utilisateurs/' . $this->session->company->ekey;
+            if ($row) {
+                $redirect = 'utilisateurs/' . $company->ekey
+                    . '/gTv/' . (int) $row->uid_login
+                    . '/' . rawurlencode((string) $row->guser)
+                    . '/rolecompte/' . mdate('%d/%m/%Y', now('UTC'));
+            }
+
+            if ($gf === '') {
+                $this->session->set_flashdata('compte_error', 'Choisissez un rôle.');
+                redirect($redirect);
+                return;
+            }
+
+            $comptelogin = array(
+                'userole' => $gf,
+            );
+
+            $escale = $this->_vente_escale_from_post($gf);
+            if ($gf === '17' && $escale === false) {
+                if ($this->m_roleattribution->has_vente_escale_fields()) {
+                    $this->session->set_flashdata(
+                        'compte_error',
+                        'Pour Venteescal, choisissez une ligne et une escale de vente.'
                     );
-                    
-                        $this->m_roleattribution->update($at, $comptelogin);
+                }
+                redirect($redirect);
+                return;
+            }
+            if (is_array($escale)) {
+                $comptelogin = array_merge($comptelogin, $escale);
+            } elseif ($this->m_roleattribution->has_vente_escale_fields()) {
+                $comptelogin['vente_escale_id_lignes'] = null;
+                $comptelogin['vente_escale_value'] = null;
+                $comptelogin['vente_escale_label'] = null;
+            }
 
-                    $this->property['INSERT_SUCCESS'] = TRUE;
-                redirect('utilisateurs/' . $this->session->company->ekey);
+            $this->m_roleattribution->update($at, $comptelogin);
+
+            $this->property['UPDATE_SUCCESS'] = TRUE;
+            redirect($redirect);
+        }
+
+        /**
+         * AJAX admin : lignes liées à une gare d'affiliation (rôle 17).
+         */
+        public function ajax_lignes_gare($ckey, $gid)
+        {
+            if (!$this->_admin_json_ok()) {
+                return;
+            }
+            $company = $this->m_entreprises->get_key($ckey);
+            if (!$company) {
+                return $this->_json_out(array());
+            }
+
+            $this->load->model('Itineraire_escale_model', 'm_itineraire_escale');
+            $code_gaexp = $this->_code_gaexp_for_gare($company, $gid);
+            if ($code_gaexp === '') {
+                return $this->_json_out(array());
+            }
+
+            $rows = $this->m_itineraire_escale->itineraires_pour_gare(
+                (int) $company->id_entreprise,
+                $code_gaexp
+            );
+            $filtre_comp = trim((string) $this->input->get('compagnie'));
+
+            // Compter les escales actives pour prioriser la bonne fiche ligne.
+            $escale_counts = array();
+            $ids = array();
+            foreach ($rows as $r) {
+                $id = isset($r->ident_ligne) ? (string) $r->ident_ligne : '';
+                if ($id !== '') {
+                    $ids[$id] = $id;
+                }
+            }
+            if (!empty($ids)) {
+                $in = "'" . implode("','", array_map(array($this->db, 'escape_str'), array_values($ids))) . "'";
+                $cnt_rows = $this->db->query(
+                    "SELECT id_lignes, COUNT(*) AS nb
+                     FROM itineraire_escales
+                     WHERE id_lignes IN ({$in})
+                       AND actif_escale = 1
+                     GROUP BY id_lignes"
+                )->result();
+                foreach ($cnt_rows as $cr) {
+                    $escale_counts[(string) $cr->id_lignes] = (int) $cr->nb;
+                }
+            }
+
+            // Dédupliquer : 1 ligne par compagnie + OD (évite OUAGA-BOBO × N).
+            $best = array();
+            $prio_lien = array('depart' => 3, 'escale' => 2, 'terminus' => 1);
+            foreach ($rows as $r) {
+                $id = isset($r->ident_ligne) ? (string) $r->ident_ligne : '';
+                if ($id === '') {
+                    continue;
+                }
+                $cle_comp = isset($r->cle_compagnie) ? (string) $r->cle_compagnie : '';
+                if ($filtre_comp !== '' && $cle_comp !== $filtre_comp) {
+                    continue;
+                }
+                $dep = isset($r->nom_depart) ? mb_strtoupper(trim((string) $r->nom_depart)) : '';
+                $arr = isset($r->nom_terminus) ? mb_strtoupper(trim((string) $r->nom_terminus)) : '';
+                $gaexp = isset($r->gaexp_lg) ? (string) $r->gaexp_lg : '';
+                $gadest = isset($r->gadest_lg) ? (string) $r->gadest_lg : '';
+                $key = $cle_comp . '|' . ($gaexp !== '' && $gadest !== '' ? ($gaexp . '>' . $gadest) : ($dep . '>' . $arr));
+
+                $nb_esc = isset($escale_counts[$id]) ? $escale_counts[$id] : 0;
+                $lien = isset($r->lien_gare) ? (string) $r->lien_gare : '';
+                $score = ($nb_esc * 100) + (isset($prio_lien[$lien]) ? $prio_lien[$lien] : 0);
+
+                if (!isset($best[$key]) || $score > $best[$key]['score']) {
+                    $label = !empty($r->nom_ligne) ? (string) $r->nom_ligne : $id;
+                    if ($dep !== '' && $arr !== '') {
+                        $label = $r->nom_depart . ' → ' . $r->nom_terminus;
+                    }
+                    $best[$key] = array(
+                        'score' => $score,
+                        'row' => array(
+                            'ident_ligne' => $id,
+                            'label' => $label,
+                            'cle_compagnie' => $cle_comp,
+                            'nom_compagnie' => isset($r->nom_compagnie) ? (string) $r->nom_compagnie : '',
+                            'nb_escales' => $nb_esc,
+                        ),
+                    );
+                }
+            }
+
+            $out = array();
+            foreach ($best as $item) {
+                // Attribution vente escale : ignorer les OD sans aucune escale tarifée.
+                if ((int) $item['row']['nb_escales'] <= 0) {
+                    continue;
+                }
+                unset($item['row']['nb_escales']);
+                $out[] = $item['row'];
+            }
+            usort($out, function ($a, $b) {
+                return strcasecmp($a['label'], $b['label']);
+            });
+            return $this->_json_out($out);
+        }
+
+        /**
+         * AJAX admin : compagnies ayant des lignes sur une gare (rôle 17).
+         */
+        public function ajax_compagnies_gare($ckey, $gid)
+        {
+            if (!$this->_admin_json_ok()) {
+                return;
+            }
+            $company = $this->m_entreprises->get_key($ckey);
+            if (!$company) {
+                return $this->_json_out(array());
+            }
+
+            $this->load->model('Itineraire_escale_model', 'm_itineraire_escale');
+            $code_gaexp = $this->_code_gaexp_for_gare($company, $gid);
+            if ($code_gaexp === '') {
+                return $this->_json_out(array());
+            }
+
+            $rows = $this->m_itineraire_escale->itineraires_pour_gare(
+                (int) $company->id_entreprise,
+                $code_gaexp
+            );
+
+            $ids = array();
+            foreach ($rows as $r) {
+                $id = isset($r->ident_ligne) ? (string) $r->ident_ligne : '';
+                if ($id !== '') {
+                    $ids[$id] = $id;
+                }
+            }
+            $with_escales = array();
+            if (!empty($ids)) {
+                $in = "'" . implode("','", array_map(array($this->db, 'escape_str'), array_values($ids))) . "'";
+                $cnt_rows = $this->db->query(
+                    "SELECT DISTINCT id_lignes
+                     FROM itineraire_escales
+                     WHERE id_lignes IN ({$in})
+                       AND actif_escale = 1"
+                )->result();
+                foreach ($cnt_rows as $cr) {
+                    $with_escales[(string) $cr->id_lignes] = true;
+                }
+            }
+
+            $seen = array();
+            $out = array();
+            foreach ($rows as $r) {
+                $id = isset($r->ident_ligne) ? (string) $r->ident_ligne : '';
+                $cle = isset($r->cle_compagnie) ? (string) $r->cle_compagnie : '';
+                if ($cle === '' || $id === '' || empty($with_escales[$id]) || isset($seen[$cle])) {
+                    continue;
+                }
+                $seen[$cle] = true;
+                $out[] = array(
+                    'cle_compagnie' => $cle,
+                    'nom_compagnie' => !empty($r->nom_compagnie) ? (string) $r->nom_compagnie : $cle,
+                );
+            }
+            usort($out, function ($a, $b) {
+                return strcasecmp($a['nom_compagnie'], $b['nom_compagnie']);
+            });
+            return $this->_json_out($out);
+        }
+
+        /**
+         * AJAX admin : points de départ (escales) d'une ligne.
+         */
+        public function ajax_escales_ligne($ckey, $ident_ligne = '')
+        {
+            if (!$this->_admin_json_ok()) {
+                return;
+            }
+            $company = $this->m_entreprises->get_key($ckey);
+            if (!$company) {
+                return $this->_json_out(array());
+            }
+
+            $ident_ligne = rawurldecode((string) $ident_ligne);
+            if ($ident_ligne === '' && $this->input->get('ident_ligne')) {
+                $ident_ligne = (string) $this->input->get('ident_ligne');
+            }
+            if ($ident_ligne === '') {
+                return $this->_json_out(array());
+            }
+
+            $this->load->model('Itineraire_escale_model', 'm_itineraire_escale');
+            $points = $this->m_itineraire_escale->points_depart_itineraire($ident_ligne);
+            $out = array();
+            foreach ($points as $pt) {
+                $out[] = array(
+                    'value' => (string) $pt->value,
+                    'label' => (string) $pt->label,
+                    'id_lignes' => isset($pt->id_lignes) ? (string) $pt->id_lignes : $ident_ligne,
+                );
+            }
+            return $this->_json_out($out);
+        }
+
+        /**
+         * @param string $userole
+         * @return array|false|null
+         */
+        protected function _vente_escale_from_post($userole)
+        {
+            if (!$this->m_roleattribution->has_vente_escale_fields()) {
+                if ((string) $userole === '17') {
+                    $this->session->set_flashdata(
+                        'compte_error',
+                        'Schéma incomplet : colonnes vente escale absentes. Exécutez la migration role17.'
+                    );
+                    return false;
+                }
+                return null;
+            }
+            if ((string) $userole !== '17') {
+                return array(
+                    'vente_escale_id_lignes' => null,
+                    'vente_escale_value' => null,
+                    'vente_escale_label' => null,
+                );
+            }
+
+            $id_lignes = trim((string) $this->input->post('vente_escale_id_lignes'));
+            $value = trim((string) $this->input->post('vente_escale_value'));
+            $label = trim((string) $this->input->post('vente_escale_label'));
+            // Compat : certains navigateurs / modales n'envoient pas les selects masqués.
+            if ($id_lignes === '') {
+                $id_lignes = trim((string) $this->input->post('vente_escale_id_lignes_ui'));
+            }
+            if ($value === '') {
+                $value = trim((string) $this->input->post('vente_escale_value_ui'));
+            }
+            $value = str_replace('|', '~', $value);
+            if ($id_lignes === '' || $value === '' || strpos($value, '~') === false) {
+                return false;
+            }
+            if ($label === '') {
+                $label = $value;
+            }
+
+            return array(
+                'vente_escale_id_lignes' => $id_lignes,
+                'vente_escale_value' => $value,
+                'vente_escale_label' => $label,
+            );
+        }
+
+        protected function _code_gaexp_for_gare($company, $gid)
+        {
+            $gid = trim((string) $gid);
+            if ($gid === '' || empty($company->id_entreprise)) {
+                return '';
+            }
+            $row = $this->db->query(
+                "SELECT ge.code_gaexp
+                 FROM gare_exp ge
+                 JOIN gares g ON ge.garesid = g.idengare
+                 JOIN compagnies c ON ge.id_compagd = c.cle_compagnie
+                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
+                 WHERE e.id_entreprise = ?
+                   AND (g.idengare = ? OR ge.code_gaexp = ?)
+                 LIMIT 1",
+                array((int) $company->id_entreprise, $gid, $gid)
+            )->row();
+
+            return $row ? (string) $row->code_gaexp : '';
+        }
+
+        protected function _admin_json_ok()
+        {
+            if (!$this->session->userdata('agent')
+                || !in_array((string) $this->session->agent->userole, array('1', '2'), true)) {
+                $this->output->set_status_header(403);
+                $this->_json_out(array('error' => 'forbidden'));
+                return false;
+            }
+            return true;
+        }
+
+        protected function _json_out($data)
+        {
+            $this->output
+                ->set_content_type('application/json', 'utf-8')
+                ->set_output(json_encode($data));
+            return;
         }
 
         public function edit_pro($ckey, $uid, $ucp)

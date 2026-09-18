@@ -1770,6 +1770,26 @@
 
                 $this->property['escalclientgroup'] = $this->m_escalclients->comptegroups($this->company->ekey, $idc, $gd, $sg);
 
+                // Rôle 17 : compte unique = tickets + bagage + courrier (un seul arrêt).
+                if (function_exists('role17_is_agent') && role17_is_agent()) {
+                    if (!function_exists('role17_inject_property')) {
+                        $this->load->helper('role17_context');
+                    }
+                    $this->property = role17_inject_property($this->property, $idc, $gd);
+                    $this->property['role17_mode'] = true;
+
+                    if (!isset($this->m_courrier_expedieresc)) {
+                        $this->load->model('Courriers_expesc_model', 'm_courrier_expedieresc');
+                    }
+                    if (!isset($this->m_bagageesc)) {
+                        $this->load->model('Bagageesc_model', 'm_bagageesc');
+                    }
+                    $this->property['cptcoures'] = $this->m_courrier_expedieresc->compteur($this->company->ekey, $idc, $gd);
+                    $this->property['totalcoliexpdiers'] = $this->m_courrier_expedieresc->groupcountexp($this->company->ekey, $idc, $gd, $sg);
+                    $this->property['cptbages'] = $this->m_bagageesc->compteur($this->company->ekey, $idc, $gd);
+                    $this->property['bagagegroupesc'] = $this->m_bagageesc->comptegroups($this->company->ekey, $idc, $gd, $sg);
+                }
+
                 $this->property['compagnies'] = $this->m_compagnies->get();
                 if ($this->session->agent->userole === '1' OR $this->session->agent->userole === '2'){
                     $this->property['garedepartcomp'] = $this->m_gare_depart->cmpgetad($this->company->id_entreprise);
@@ -5277,6 +5297,179 @@
         }
 
         /**
+         * Ferme les courriers_expesc ouverts (périmètre escale) et écrit comptes courrier.
+         * Couplé à l’arrêt global escale (rôle 17 / valideesc) — même logique que Comptecaisses::validecouresc.
+         *
+         * @param int|string $idcpt
+         * @param string $gd
+         * @param int|string $isg
+         * @return array{closed:int,totals:array}
+         */
+        protected function _arret_close_courriers_expesc($idcpt, $gd, $isg)
+        {
+            $idcpt = (int) $idcpt;
+            $gd = (string) $gd;
+            $isg = (int) $isg;
+            $date_arret = mdate('%Y/%m/%d', now('UTC'));
+
+            $this->load->model('Courriers_expesc_model', 'm_courrier_expedieresc');
+            $this->load->model('Comptes_courrier_model', 'm_comptes_courrier');
+            $this->load->model('Comptes_courrierrecet_model', 'm_comptes_courrierrecet');
+
+            $rows = $this->db->query(
+                "SELECT e.courrierexpidesc, e.num_couresc, e.departcolisesc,
+                        e.courrierdepartgareesc, e.prixcolisesc,
+                        COALESCE(c.cle_compagnie, 5000) AS company_code
+                 FROM courriers_expesc e
+                 LEFT JOIN ligne_heure lh ON e.departcolisesc = lh.id_ligneheure
+                 LEFT JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
+                 LEFT JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
+                 LEFT JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
+                 WHERE e.idoperateuresc = ?
+                 AND e.statutcouresc = 0
+                 AND e.prixcolisesc IS NOT NULL
+                 AND e.prixcolisesc > 0
+                 AND (
+                    e.courrierdepartgareesc = ?
+                    OR e.courrierdepartgareesc NOT IN (
+                        SELECT s.idsousgare FROM sousgare s WHERE s.gareprinceid = ?
+                    )
+                 )
+                 FOR UPDATE",
+                array($idcpt, $isg, $gd)
+            )->result();
+
+            $totals = array();
+            $closed = 0;
+            foreach ($rows as $row) {
+                $comp = (int) $row->company_code;
+                if ($comp <= 0) {
+                    $comp = 5000;
+                }
+                $amount = round((float) $row->prixcolisesc, 2);
+                if ($amount <= 0) {
+                    continue;
+                }
+                if (!isset($totals[$comp])) {
+                    $totals[$comp] = 0.0;
+                }
+                $totals[$comp] = round($totals[$comp] + $amount, 2);
+
+                $this->m_courrier_expedieresc->update(
+                    $row->courrierexpidesc,
+                    $row->num_couresc,
+                    $row->departcolisesc,
+                    array('statutcouresc' => 1)
+                );
+                $closed++;
+            }
+
+            foreach ($totals as $comp => $montant) {
+                if ($montant <= 0) {
+                    continue;
+                }
+                $this->m_comptes_courrier->create(array(
+                    'comptiduser' => $idcpt,
+                    'compcour' => $comp,
+                    'comptemont' => $montant,
+                    'idsousg' => $isg,
+                    'comptdatearret' => $date_arret,
+                ));
+                $this->m_comptes_courrierrecet->create(array(
+                    'comptiduserrecet' => $idcpt,
+                    'compcourrecet' => $comp,
+                    'comptemontrecet' => $montant,
+                    'idsousgrecet' => $isg,
+                    'comptdatearretrecet' => $date_arret,
+                ));
+            }
+
+            return array('closed' => $closed, 'totals' => $totals);
+        }
+
+        /**
+         * Ferme bagagesesc ouverts et écrit compte_bagage — couplé à l’arrêt global escale.
+         *
+         * @param int|string $idcpt
+         * @param string $gd
+         * @param int|string $isg
+         * @return array{closed:int,totals:array}
+         */
+        protected function _arret_close_bagagesesc($idcpt, $gd, $isg)
+        {
+            $idcpt = (int) $idcpt;
+            $gd = (string) $gd;
+            $isg = (int) $isg;
+            $date_arret = mdate('%Y/%m/%d', now('UTC'));
+
+            if (!isset($this->m_bagageesc)) {
+                $this->load->model('Bagageesc_model', 'm_bagageesc');
+            }
+            if (!isset($this->m_comptes_bagage)) {
+                $this->load->model('Comptes_bagage_model', 'm_comptes_bagage');
+            }
+
+            $rows = $this->db->query(
+                "SELECT b.id_bagageesc, b.prix_bagageesc, b.idsgarebagesc,
+                        COALESCE(c.cle_compagnie, 5000) AS company_code
+                 FROM bagagesesc b
+                 LEFT JOIN ligne_heure lh ON b.id_lgeheuresc = lh.id_ligneheure
+                 LEFT JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
+                 LEFT JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
+                 LEFT JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
+                 WHERE b.idoperabagageesc = ?
+                 AND b.isvalidbagesc = 0
+                 AND b.prix_bagageesc IS NOT NULL
+                 AND b.prix_bagageesc > 0
+                 AND (
+                    b.idsgarebagesc = ?
+                    OR b.idgarebagesc = ?
+                    OR b.idsgarebagesc NOT IN (
+                        SELECT s.idsousgare FROM sousgare s WHERE s.gareprinceid = ?
+                    )
+                 )
+                 FOR UPDATE",
+                array($idcpt, $isg, $gd, $gd)
+            )->result();
+
+            $totals = array();
+            $closed = 0;
+            foreach ($rows as $row) {
+                $comp = (int) $row->company_code;
+                if ($comp <= 0) {
+                    $comp = 5000;
+                }
+                $amount = round((float) $row->prix_bagageesc, 2);
+                if ($amount <= 0) {
+                    continue;
+                }
+                if (!isset($totals[$comp])) {
+                    $totals[$comp] = 0.0;
+                }
+                $totals[$comp] = round($totals[$comp] + $amount, 2);
+                $this->m_bagageesc->update((int) $row->id_bagageesc, array('isvalidbagesc' => 1));
+                $closed++;
+            }
+
+            // Même sous-gare que l’arrêt agent ($isg) → visible chef via profilsesc (toute la gare).
+            foreach ($totals as $comp => $montant) {
+                $montant = (float) $montant;
+                if ($montant <= 0) {
+                    continue;
+                }
+                $this->m_comptes_bagage->create(array(
+                    'idusercomptbg' => $idcpt,
+                    'compbg' => $comp,
+                    'idsousgabg' => $isg,
+                    'montcomtptebg' => $montant,
+                    'datearretcomptbg' => $date_arret,
+                ));
+            }
+
+            return array('closed' => $closed, 'totals' => $totals);
+        }
+
+        /**
          * Écrit compte_guichet à partir du total réellement arrêté (serveur),
          * pas des champs POST fragmentés — alignement rapport EPSON / chef.
          *
@@ -5546,6 +5739,12 @@
                 );
                 return;
             }
+
+            // Couplage arrêt courrier escale (sans écran distinct) — même périmètre que validecouresc.
+            $this->_arret_close_courriers_expesc($idcpt, $gd, $isg);
+
+            // Couplage arrêt bagage escale (sans écran distinct) — même périmètre que valideescbag.
+            $this->_arret_close_bagagesesc($idcpt, $gd, $isg);
 
             $lignes = isset($snap['lignes']) ? $snap['lignes'] : array();
             $this->_arret_write_compte_guichet_from_totals($idcpt, $isg, $lignes);

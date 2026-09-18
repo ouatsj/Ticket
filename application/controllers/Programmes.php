@@ -3140,6 +3140,7 @@
 
         /**
          * Destinations + prix_escale depuis un point de départ (origin|… / escale|…).
+         * Rôle 17 : toujours l'escale/ligne attribuée à l'agent (tous les points de la ligne).
          */
         public function verifescalesdestvente($depart = '')
         {
@@ -3148,7 +3149,19 @@
                 $this->load->model('Itineraire_escale_model', 'm_itineraire_escale');
             }
             $depart = rawurldecode((string) $depart);
+            if (!function_exists('role17_is_agent')) {
+                $this->load->helper('role17_context');
+            }
+            if (function_exists('role17_is_agent') && role17_is_agent()) {
+                $forced = role17_forced_escale();
+                if ($forced && !empty($forced['value'])) {
+                    $depart = str_replace('|', '~', trim((string) $forced['value']));
+                }
+            }
             $rows = $this->m_itineraire_escale->destinations_vente($depart);
+            if (empty($rows) && function_exists('role17_destinations')) {
+                $rows = role17_destinations();
+            }
             return $this->load->view('beagle/pages/_programme/json', array('json' => $rows));
         }
 

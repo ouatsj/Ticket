@@ -285,6 +285,31 @@
                     $destination_vente = 'escale~' . $legacy;
                 }
             }
+
+            // Rôle 17 : imposer le départ affecté (session ou BDD) — anti-falsification POST.
+            if ($this->session->userdata('agent')
+                && (string) $this->session->agent->userole === '17') {
+                $forced = null;
+                $ctx = $this->session->userdata('role17_escale');
+                if (is_array($ctx)
+                    && !empty($ctx['value'])
+                    && (string) $ctx['gare'] === (string) $gid
+                ) {
+                    $forced = str_replace('|', '~', trim((string) $ctx['value']));
+                } else {
+                    if (!isset($this->m_roleattribution)) {
+                        $this->load->model('Role_attribution_model', 'm_roleattribution');
+                    }
+                    $aff = $this->m_roleattribution->get_vente_escale((int) $iduser);
+                    if ($aff && !empty($aff['value'])) {
+                        $forced = str_replace('|', '~', trim((string) $aff['value']));
+                    }
+                }
+                if ($forced !== null && $forced !== '') {
+                    $depart_value = $forced;
+                }
+            }
+
             $nom = trim((string) $this->input->post('rclientescal'));
             $prenom = trim((string) $this->input->post('prclientescal'));
             $contact = trim((string) $this->input->post('rclient_contactescal'));
@@ -452,21 +477,56 @@
             }
             $this->property['conex'] = $conex;
 
-            // Admin / superviseur : toutes les réimpressions de la sous-gare (vendeurs inclus).
             $userole = !empty($conex->userole)
                 ? (string) $conex->userole
                 : (string) $this->session->agent->userole;
             $scope_gare = in_array($userole, array('1', '2'), true);
+            $role17 = function_exists('role17_is_agent') && role17_is_agent();
 
-            $this->property['reponseallereimp'] = $this->m_escalclients->getrep(
-                $this->company->ekey,
-                $conex->roleattribut,
-                $gd,
-                $sg,
-                $scope_gare
-            );
+            if ($role17) {
+                // Tickets : uniquement ceux repositionnés par le chef (reimpr=1).
+                $this->property['reponseallereimp'] = $this->m_escalclients->getrep_escale(
+                    $this->company->ekey,
+                    $conex->roleattribut,
+                    $gd,
+                    $sg
+                );
+                if (!isset($this->m_bagageesc)) {
+                    $this->load->model('Bagageesc_model', 'm_bagageesc');
+                }
+                if (!isset($this->m_courrier_expedieresc)) {
+                    $this->load->model('Courriers_expesc_model', 'm_courrier_expedieresc');
+                }
+                // Bagage / courrier : reçus du jour.
+                $this->property['reimpri_bagages'] = $this->m_bagageesc->liste_reimpri_jour(
+                    $this->company->ekey,
+                    $conex->roleattribut,
+                    $gd,
+                    $sg
+                );
+                $this->property['reimpri_courriers'] = $this->m_courrier_expedieresc->liste_reimpri_jour(
+                    $this->company->ekey,
+                    $conex->roleattribut,
+                    $gd,
+                    $sg
+                );
+                if (!function_exists('role17_inject_property')) {
+                    $this->load->helper('role17_context');
+                }
+                $this->property = role17_inject_property($this->property, $conex->roleattribut, $gd);
+                $this->property['role17_mode'] = true;
+                $this->property['layout_minimal'] = TRUE;
+            } else {
+                $this->property['reponseallereimp'] = $this->m_escalclients->getrep(
+                    $this->company->ekey,
+                    $conex->roleattribut,
+                    $gd,
+                    $sg,
+                    $scope_gare
+                );
+            }
 
-            $this->property['pagetitle'] .= "REIMPRESSION TICKET• <strong>{$this->company->nom_entreprise}•&nbsp;{$bus_stop->garenom} •&nbsp;{$bus_stop->nomsousgare}</strong>";
+            $this->property['pagetitle'] .= "REIMPRESSION• <strong>{$this->company->nom_entreprise}•&nbsp;{$bus_stop->garenom} •&nbsp;{$bus_stop->nomsousgare}</strong>";
 
             return $this->layout->view('_tickets/indexreimpri', $this->property);
         }
@@ -499,7 +559,36 @@
             $libre = false;
             if (!$item) {
                 $item = $this->m_escalclients->get_libre($this->company->ekey, $code_id);
+                // Réimpression : le chef doit avoir repositionné (reimpr=1).
+                if ($item && (int) $item->reimpr !== 1) {
+                    $item = null;
+                }
                 $libre = (bool) $item;
+            }
+            if (!$item) {
+                $item = $this->db->query(
+                    "SELECT es.*, cl.nom_client, cl.prenom_client, cl.contact_client,
+                            sg.nomsousgare, h.heure, lg.nom_ligne, dest.nom_gadest,
+                            c.nom_compagnie, c.logo, ge.nom_gaep
+                     FROM escalclients es
+                     JOIN client cl ON es.clientescal = cl.id_client
+                     LEFT JOIN sousgare sg ON es.departsgescal = sg.idsousgare
+                     LEFT JOIN ligne_heure lh ON es.id_lgeheur = lh.id_ligneheure
+                     LEFT JOIN heures h ON lh.heure_identif = h.id_heure
+                     LEFT JOIN lignes lg ON es.lignintescal = lg.ident_ligne
+                     LEFT JOIN gare_exp ge ON lg.gaexp_lg = ge.code_gaexp
+                     LEFT JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
+                     LEFT JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
+                     WHERE BINARY es.idclescal = ?
+                     AND es.reimpr = 1
+                     LIMIT 1",
+                    array($code_id)
+                )->row();
+                if ($item && isset($item->quartier_escal)
+                    && strpos((string) $item->quartier_escal, '[LIBRE]') === 0
+                ) {
+                    $libre = true;
+                }
             }
             if (!$item) {
                 redirect('ventescales/voirreimpri/' . $this->company->ekey . '/'
@@ -522,23 +611,39 @@
             // Une fois chargé pour impression → sort de la file (disparaît de VOIR REIMPRESSION).
             $this->m_escalclients->update($item->idclescal, array('reimpr' => 0));
 
-            $this->property['item'] = $item;
+            // Toujours 57×40 mm (POSPrinter) — libre ou classique.
             if ($libre || (isset($item->quartier_escal) && strpos((string) $item->quartier_escal, '[LIBRE]') === 0)) {
                 if (isset($item->quartier_escal)) {
                     $item->quartier_escal = trim(preg_replace('/^\[LIBRE\]\s*/', '', (string) $item->quartier_escal));
-                    $this->property['item'] = $item;
                 }
-                // Réimp libre → même PDF 57×40 que la vente
-                redirect(
-                    'Historique_Passagers/pdfepsonescal_libre/'
-                    . $this->company->ekey . '/'
-                    . $item->idclescal . '/'
-                    . $g . '/'
-                    . $cpus . '/'
-                    . $idsg
-                );
-                return;
+            } else {
+                $dep = '';
+                if (!empty($item->nomsousgare)) {
+                    $dep = trim((string) $item->nomsousgare);
+                } elseif (!empty($item->nom_gaep)) {
+                    $dep = trim((string) $item->nom_gaep);
+                }
+                $arr = !empty($item->nom_gadest) ? trim((string) $item->nom_gadest) : '';
+                $quart = !empty($item->quartier_escal) ? trim((string) $item->quartier_escal) : '';
+                if ($dep !== '' && $arr !== '') {
+                    $item->quartier_escal = $dep . ' - ' . $arr;
+                } elseif ($quart !== '') {
+                    $item->quartier_escal = $quart;
+                } elseif ($arr !== '') {
+                    $item->quartier_escal = $arr;
+                }
             }
-            $this->layout->view('_tickets/pdfepsonescalrp', $this->property);
+            if (!isset($item->prixescal) && isset($item->prix)) {
+                $item->prixescal = $item->prix;
+            }
+
+            $this->property['item'] = $item;
+            $this->property['bus_stop'] = $bus_stop;
+            $this->property['conex'] = $conex;
+            $this->property['layout_print'] = TRUE;
+            if (function_exists('role17_is_agent') && role17_is_agent()) {
+                $this->property['role17_mode'] = true;
+            }
+            $this->layout->view('_tickets/pdfepsonescal_libre', $this->property);
         }
     }

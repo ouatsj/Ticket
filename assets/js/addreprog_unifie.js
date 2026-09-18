@@ -581,7 +581,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     : ' (direct)')
                 + escHint
                 + '. Ligne commerciale conservée (pas de bascule hub Banfora ↔ Niangoloko).'
-                + ' Choisissez une date puis un itinéraire (direct ou correspondance).';
+                + ' Choisissez une date et une heure : direct si l’heure est au programme, sinon transit.';
         }
         var casE = __reprogQ('reprog_hub_cas_e_msg');
         if (casE) {
@@ -1981,7 +1981,7 @@ document.addEventListener('DOMContentLoaded', () => {
      * Active le transit depuis la GARE DE REPORT vers la destination du ticket.
      * Ex. Banfora → Ouaga (BANFORA-OUAGA), pas BOBO-OUAGA du billet d’origine.
      */
-    function __reprogLoadMultiTransitForDate(dateYmd, preferHh) {
+    function __reprogLoadMultiTransitForDate(dateYmd, preferHh, deferApply) {
         var st = window.__reprogState;
         var t = __reprogDestTargets();
         var destLabel = t.escNom || t.destNom || 'destination';
@@ -2079,6 +2079,16 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             if (__reprogQ('smspunifie')) __reprogQ('smspunifie').style.display = 'none';
             var nH = __reprogFillHeuresDepuisChemins(dateYmd, list);
+            if (deferApply && !preferHh) {
+                var boxH = __reprogQ('smspunifie');
+                var errH = __reprogQ('erreurSmspunifie');
+                if (boxH) boxH.style.display = 'block';
+                if (errH) {
+                    errH.textContent = 'Choisissez une heure pour le transit vers '
+                        + destLabel + ' le ' + dateYmd + '.';
+                }
+                return;
+            }
             var best = __reprogPickUniqueTransit(list, preferHh || '');
             if (!best && list.length) best = list[0];
             if (best) {
@@ -2168,12 +2178,15 @@ document.addEventListener('DOMContentLoaded', () => {
      * Remplit le select Heure : 1 option = 1 programme de la date.
      * Même HH:MM → 1ER, 2ème… + mention normal / hub|dérivé.
      */
-    function __reprogFillHeuresForDate(dateYmd, multiOnly) {
+    function __reprogFillHeuresForDate(dateYmd, mode) {
         var sel = __reprogQ('heuredepartpunifie');
         __reprogResetSelect(sel, "Choisissez l'heure");
         __reprogHideDirect();
         __reprogHideCorr();
         if (!sel) return 0;
+
+        var multiOnly = mode === true || mode === 'multi';
+        var directOnly = mode === false || mode === 'direct';
 
         var purchaseCie = '';
         var idCieEl = __reprogQ('id_compaga_unifie');
@@ -2189,8 +2202,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 || row.is_od_direct === '0';
             if (multiOnly) {
                 if (!isMulti) return false;
-            } else if (isMulti) {
-                return false;
+            } else if (directOnly) {
+                if (isMulti) return false;
             }
             var k = String(row.code_progr);
             if (seenProg[k]) return false;
@@ -2238,12 +2251,17 @@ document.addEventListener('DOMContentLoaded', () => {
             var hub = __reprogHubLabel(row);
             var cie = __reprogCieName(row) || 'Compagnie';
             var ligne = row.nom_ligne || '';
+            var kindRow = String(row.slot_kind || '').trim();
+            var isMultiRow = kindRow === 'multi'
+                || row.is_od_direct === false
+                || row.is_od_direct === 0
+                || row.is_od_direct === '0';
             var progVal = String(row.code_progr) + '/'
                 + String(row.id_ligneheure || '') + '/'
                 + String(row.typetarif || '');
             var opt = document.createElement('option');
             opt.value = progVal;
-            opt.setAttribute('data-kind', multiOnly ? 'multi' : 'direct');
+            opt.setAttribute('data-kind', isMultiRow ? 'multi' : 'direct');
             opt.setAttribute('data-heure', hh);
             opt.setAttribute('data-date', String(row.date_progr || dateYmd).slice(0, 10));
             opt.setAttribute('data-compaga', row.id_compaga || '');
@@ -3204,7 +3222,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         st.gid = __reprogResolveGareReport();
         var gaReport = st.gid || st.gaexp || '';
-        var wantMulti = __reprogAllowMultiChecked() || !!st._forceMultiLoad;
+        var wantMulti = true; // directs OD + autres départs (décision direct/transit à l’heure)
         var qs = [
             'nom_ligne=' + encodeURIComponent(String(st.nom_ligne)),
             'date=' + encodeURIComponent(String(dateYmd || '').slice(0, 10))
@@ -3234,7 +3252,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 && !(r.is_od_direct === false || r.is_od_direct === 0 || r.is_od_direct === '0');
         });
         var hasDirect = directRows.length > 0;
-        var allowMulti = __reprogAllowMultiChecked();
         var odLabel = st.nom_ligne || st.axe || '—';
 
         __reprogSyncAllowMultiWrap(hasDirect, true);
@@ -3244,32 +3261,26 @@ document.addEventListener('DOMContentLoaded', () => {
             __reprogQ('replignunifie').value = st.nom_ligne;
         }
 
+        // Date seule : Heure visible, pas d’itinéraire tant que l’heure n’est pas choisie.
+        st.multiMode = false;
+        st._forceMultiLoad = false;
+        st.transitChemins = [];
         __reprogHideDirect();
+        __reprogHideCorr();
         __reprogSetAncreVisible(true);
 
-        var multiMode = allowMulti || !hasDirect;
-        st.multiMode = multiMode;
-        st._forceMultiLoad = false;
-
-        if (multiMode) {
-            // Case multi / pas de direct : 1 transit vers destination ticket + heures associées.
-            __reprogLoadMultiTransitForDate(dateYmd, '');
+        var nHeures = __reprogFillHeuresForDate(dateYmd, 'all');
+        var box = __reprogQ('smspunifie');
+        var err = __reprogQ('erreurSmspunifie');
+        if (!nHeures) {
+            // Aucun programme listable : peupler les heures via transit (sans appliquer encore).
+            __reprogLoadMultiTransitForDate(dateYmd, '', true);
             return;
         }
-
-        // Mode direct : heures programmes OD, pas d’itinéraire.
-        st.transitChemins = [];
-        __reprogHideCorr();
-        var nHeures = __reprogFillHeuresForDate(dateYmd, false);
-        if (!nHeures) {
-            var box = __reprogQ('smspunifie');
-            var err = __reprogQ('erreurSmspunifie');
-            if (box) box.style.display = 'block';
-            if (err) {
-                err.textContent = 'Aucun départ direct programme pour ' + odLabel
-                    + ' le ' + dateYmd
-                    + '. Cochez « Multi / correspondances » pour un transit.';
-            }
+        if (box) box.style.display = 'block';
+        if (err) {
+            err.textContent = 'Choisissez une heure pour ' + odLabel + ' le ' + dateYmd
+                + ' — direct si l’heure est au programme OD, sinon transit.';
         }
     }
 
@@ -3294,7 +3305,8 @@ document.addEventListener('DOMContentLoaded', () => {
         var kind = opt ? (opt.getAttribute('data-kind') || '') : '';
         var progVal = heureSel.value;
         var isProg = progVal.indexOf('/') !== -1 && kind !== 'corr' && kind !== 'multi';
-        var multiMode = !!(window.__reprogState.multiMode || __reprogAllowMultiChecked() || kind === 'multi');
+        // Décision à l’heure : multi explicite / case cochée → transit ; sinon direct si programme OD.
+        var multiMode = !!(__reprogAllowMultiChecked() || kind === 'multi' || kind === 'corr');
 
         // Multi : un seul transit pour l’heure, direction ticket, segments affichés.
         if (multiMode || kind === 'multi') {
@@ -3394,21 +3406,9 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        // Ancien format HH:MM (repli) → chemins / cie.
+        // Repli HH:MM : transit ancré à cette heure.
         var hhOnly = __reprogHhmm(progVal);
-        __reprogFetchChemins(dateYmd, hhOnly, function (chemins) {
-            var nDirect = __reprogFillCompagnies(dateYmd, hhOnly, chemins);
-            var cieSel2 = __reprogQ('compagniepunifie');
-            if (cieSel2 && cieSel2.options.length === 2) {
-                cieSel2.selectedIndex = 1;
-                __reprogFireChange(cieSel2);
-            } else if (!nDirect && (!cieSel2 || cieSel2.options.length <= 1)) {
-                var box = __reprogQ('smspunifie');
-                var err = __reprogQ('erreurSmspunifie');
-                if (box) box.style.display = 'block';
-                if (err) err.textContent = 'Aucun départ pour cette heure.';
-            }
-        });
+        __reprogLoadMultiTransitForDate(dateYmd, hhOnly);
     }
 
     function __reprogOnCompagnieChange() {

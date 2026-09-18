@@ -230,7 +230,7 @@
                                             <div class="form-group col-sm-4">
                                                 <label>NOM</label>
                                                 <input class="form-control form-control-sm" type="text" name="nom" id="idnomprenom"
-                                                value="<?= $itemesc->first_name;?> <?= $item->last_name;?>">
+                                                value="<?= $itemesc->first_name;?> <?= $itemesc->last_name;?>">
                                             </div>
                                             <div class="form-group col-sm-4">
                                                 <label>MONTANT</label>

@@ -1,18 +1,20 @@
 <?php defined('BASEPATH') OR exit('No direct script access allowed');
 /**
- * Ticket escale libre — même moteur que pdfepsonescal.php (tickets Epson qui marchent).
- * POSPrinter capture l'écran : grands caractères plein page (pas de mini-cadre 57×40).
+ * Ticket escale libre — POSPrinter 57×40 mm.
+ * Écran : message seul (pas d'aperçu). Impression : ticket plein format.
  */
 $this->load->helper('ticket_escale_libre_print');
 
 $item = !empty($item) ? $item : null;
-$accueil_url = site_url(
-    'gares/' . $this->session->company->ekey
-    . '/gTc/' . $bus_stop->idengare
-    . '/compte/' . $conex->roleattribut
-    . '/' . $bus_stop->idsousgare
-    . '/' . mdate('%d/%m/%Y', now('UTC'))
-);
+$accueil_url = (!empty($role17_mode) && function_exists('role17_accueil_url'))
+    ? role17_accueil_url($bus_stop, $conex)
+    : site_url(
+        'gares/' . $this->session->company->ekey
+        . '/gTc/' . $bus_stop->idengare
+        . '/compte/' . $conex->roleattribut
+        . '/' . $bus_stop->idsousgare
+        . '/' . mdate('%d/%m/%Y', now('UTC'))
+    );
 
 if (!$item) {
     echo '<p style="padding:16px;font-family:Arial,sans-serif;">Ticket introuvable</p>';
@@ -44,72 +46,159 @@ $emis = ticket_emis_texte($item, $emis_raw, isset($conex) ? $conex : null);
 $logo = !empty($item->logo) ? site_url($item->logo) : '';
 ?>
 <style>
+@page {
+    size: 57mm 40mm;
+    margin: 0;
+}
 html, body {
     margin: 0 !important;
     padding: 0 !important;
     background: #fff !important;
     color: #000 !important;
+    -webkit-text-size-adjust: 100%;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
 }
-/* Masquer tout chrome pendant l'impression */
+
+/* ——— ÉCRAN : pas d'aperçu ticket (POSPrinter) ——— */
+@media screen {
+    html, body {
+        width: 100%;
+        height: 100%;
+        min-height: 100vh;
+        overflow: hidden;
+    }
+    #printStatus {
+        position: fixed;
+        inset: 0;
+        z-index: 50;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        background: #fff;
+        font-family: Arial, Helvetica, sans-serif;
+        color: #222;
+        text-align: center;
+        padding: 24px;
+    }
+    #printStatus .msg {
+        font-size: 20px;
+        font-weight: 700;
+        margin: 0 0 8px;
+    }
+    #printStatus .sub {
+        font-size: 14px;
+        color: #666;
+        margin: 0;
+    }
+    /* Ticket sous le masque blanc — prêt pour le job d'impression */
+    #ticketEpsonLibre {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 57mm;
+        height: 40mm;
+        z-index: 1;
+    }
+}
+
+/* ——— IMPRESSION : ticket plein 57×40 ——— */
 @media print {
-    .no-print,
-    #ticketActions {
+    #printStatus {
         display: none !important;
-        height: 0 !important;
-        overflow: hidden !important;
     }
     html, body {
+        width: 57mm !important;
+        height: 40mm !important;
         margin: 0 !important;
         padding: 0 !important;
-        background: #fff !important;
+        overflow: hidden !important;
     }
-    #ticketEpsonLibre,
-    #ticketEpsonLibre table {
-        width: 100% !important;
+    #ticketEpsonLibre {
+        position: static !important;
+        width: 57mm !important;
+        height: 40mm !important;
+        margin: 0 !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
     }
 }
-#ticketActions {
-    position: fixed;
-    right: 8px;
-    top: 8px;
-    z-index: 30;
-}
-#ticketActions a {
-    display: inline-block;
-    padding: 8px 12px;
-    background: #6c757d;
-    color: #fff !important;
-    text-decoration: none;
-    border-radius: 6px;
-    font-family: Arial, sans-serif;
-    font-size: 13px;
-    font-weight: 700;
-}
-/* Même rendu que pdfepsonescal.php — grands caractères pour POSPrinter */
+
 #ticketEpsonLibre {
+    box-sizing: border-box;
+    width: 57mm;
+    height: 40mm;
+    margin: 0;
+    padding: 0.6mm 1.8mm 0.5mm;
     background: #fff;
     color: #000;
-    padding: 4px 8px;
+    text-align: center;
+    font-family: Arial, Helvetica, DejaVu Sans, sans-serif;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: space-between;
+    line-height: 1.08;
 }
-#ticketEpsonLibre table {
-    width: 100%;
-    border-collapse: collapse;
-}
-#ticketEpsonLibre td {
-    text-align: left;
-    padding: 2px 0;
-    color: #000;
-    font-family: Arial, Helvetica, sans-serif;
-    word-wrap: break-word;
-}
-#ticketEpsonLibre .logo-cell img {
+#ticketEpsonLibre .t-logo {
     display: block;
-    width: 850px;
-    max-width: 100%;
+    max-width: 28mm;
+    max-height: 6.5mm;
+    width: auto;
     height: auto;
-    max-height: 350px;
+    margin: 0 auto;
     object-fit: contain;
-    object-position: left center;
+}
+#ticketEpsonLibre .t-company {
+    font-size: 8.5pt;
+    font-weight: 700;
+    max-width: 53mm;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+#ticketEpsonLibre .t-od {
+    font-size: 10.5pt;
+    font-weight: 700;
+    max-width: 53mm;
+    overflow: hidden;
+}
+#ticketEpsonLibre .t-passager {
+    font-size: 9pt;
+    font-weight: 700;
+    max-width: 53mm;
+    overflow: hidden;
+}
+#ticketEpsonLibre .t-tel {
+    font-size: 8pt;
+    max-width: 53mm;
+    white-space: nowrap;
+    overflow: hidden;
+}
+#ticketEpsonLibre .t-prix {
+    font-size: 12pt;
+    font-weight: 700;
+}
+#ticketEpsonLibre .t-code {
+    font-size: 8pt;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+}
+#ticketEpsonLibre img.ticket-barcode {
+    display: block !important;
+    width: 50mm !important;
+    max-width: 50mm !important;
+    height: 6.5mm !important;
+    margin: 0 auto !important;
+    object-fit: fill !important;
+}
+#ticketEpsonLibre .t-emis {
+    font-size: 6.5pt;
+    max-width: 53mm;
+    white-space: nowrap;
+    overflow: hidden;
 }
 </style>
 
@@ -128,8 +217,8 @@ html, body {
     function afterPrintGoHome() {
         if (printed) return;
         printed = true;
-        /* Laisse POSPrinter démarrer le job avant de quitter la page */
-        setTimeout(goHome, 1500);
+        /* Laisse POSPrinter démarrer le job avant de quitter */
+        setTimeout(goHome, 1800);
     }
 
     function runPrint() {
@@ -139,7 +228,6 @@ html, body {
             goHome();
             return;
         }
-        /* Secours TPE qui ne déclenchent pas afterprint */
         setTimeout(function () {
             if (!printed) afterPrintGoHome();
         }, 10000);
@@ -148,7 +236,7 @@ html, body {
     function whenImagesReady(cb) {
         var imgs = document.querySelectorAll('#ticketEpsonLibre img');
         if (!imgs.length) {
-            setTimeout(cb, 200);
+            setTimeout(cb, 150);
             return;
         }
         var left = imgs.length;
@@ -157,7 +245,7 @@ html, body {
             left--;
             if (left <= 0 && !done) {
                 done = true;
-                setTimeout(cb, 300);
+                setTimeout(cb, 200);
             }
         }
         for (var i = 0; i < imgs.length; i++) {
@@ -172,7 +260,7 @@ html, body {
                 done = true;
                 cb();
             }
-        }, 3000);
+        }, 2500);
     }
 
     if ('onafterprint' in window) {
@@ -195,53 +283,25 @@ html, body {
 })();
 </script>
 
-<div id="ticketActions" class="no-print">
-    <a href="<?= htmlspecialchars($accueil_url, ENT_QUOTES, 'UTF-8'); ?>">Accueil</a>
+<div id="printStatus">
+    <p class="msg">Impression en cours…</p>
+    <p class="sub">POSPrinter · retour automatique</p>
 </div>
 
 <div id="ticketEpsonLibre">
-    <table>
-        <?php if ($logo !== ''): ?>
-        <tr>
-            <td class="logo-cell" style="font-size:70px;width:40%;">
-                <img src="<?= htmlspecialchars($logo, ENT_QUOTES, 'UTF-8'); ?>" width="850" height="350" alt="">
-            </td>
-        </tr>
-        <?php elseif ($compagnie !== ''): ?>
-        <tr>
-            <td style="font-size:55px;"><b><?= htmlspecialchars($compagnie, ENT_QUOTES, 'UTF-8'); ?></b></td>
-        </tr>
-        <?php endif; ?>
+    <?php if ($logo !== ''): ?>
+        <img class="t-logo" src="<?= htmlspecialchars($logo, ENT_QUOTES, 'UTF-8'); ?>" alt="">
+    <?php elseif ($compagnie !== ''): ?>
+        <div class="t-company"><?= htmlspecialchars($compagnie, ENT_QUOTES, 'UTF-8'); ?></div>
+    <?php endif; ?>
 
-        <tr>
-            <td style="font-size:65px;"><b>CODE:<?= htmlspecialchars($code, ENT_QUOTES, 'UTF-8'); ?></b></td>
-        </tr>
-        <tr>
-            <td style="font-size:60px;"><?= htmlspecialchars($od, ENT_QUOTES, 'UTF-8'); ?></td>
-        </tr>
-        <tr>
-            <td style="font-size:65px;"><?= htmlspecialchars($passager, ENT_QUOTES, 'UTF-8'); ?></td>
-        </tr>
-        <?php if ($tel !== ''): ?>
-        <tr>
-            <td style="font-size:70px;">Contact:<?= htmlspecialchars($tel, ENT_QUOTES, 'UTF-8'); ?></td>
-        </tr>
-        <?php endif; ?>
-        <tr>
-            <td style="font-size:70px;">Prix : <?= $prix; ?> &nbsp;FCFA</td>
-        </tr>
-        <?php if ($compagnie !== ''): ?>
-        <tr>
-            <td style="font-size:50px;"><b>BON VOYAGE AVEC <?= htmlspecialchars($compagnie, ENT_QUOTES, 'UTF-8'); ?></b></td>
-        </tr>
-        <?php endif; ?>
-        <tr>
-            <td style="font-size:35px;width:40%;">
-                <?= ticket_barcode_img($code, 400, 40); ?>
-            </td>
-        </tr>
-        <tr>
-            <td style="font-size:50px;"><?= htmlspecialchars($emis, ENT_QUOTES, 'UTF-8'); ?></td>
-        </tr>
-    </table>
+    <div class="t-od"><?= htmlspecialchars($od, ENT_QUOTES, 'UTF-8'); ?></div>
+    <div class="t-passager"><?= htmlspecialchars($passager, ENT_QUOTES, 'UTF-8'); ?></div>
+    <?php if ($tel !== ''): ?>
+        <div class="t-tel"><?= htmlspecialchars($tel, ENT_QUOTES, 'UTF-8'); ?></div>
+    <?php endif; ?>
+    <div class="t-prix"><?= $prix; ?> FCFA</div>
+    <div class="t-code"><?= htmlspecialchars($code, ENT_QUOTES, 'UTF-8'); ?></div>
+    <?= ticket_barcode_img($code, 280, 40); ?>
+    <div class="t-emis"><?= htmlspecialchars($emis, ENT_QUOTES, 'UTF-8'); ?></div>
 </div>

@@ -134,6 +134,26 @@
                 }
                 $groups[$key]['lignes'][] = $row;
             }
+
+            // Ordre alphabétique : compagnies, puis lignes dans chaque groupe.
+            uasort($groups, function ($a, $b) {
+                return strcasecmp(
+                    (string) (isset($a['nom_compagnie']) ? $a['nom_compagnie'] : ''),
+                    (string) (isset($b['nom_compagnie']) ? $b['nom_compagnie'] : '')
+                );
+            });
+            foreach ($groups as &$groupe) {
+                if (empty($groupe['lignes']) || !is_array($groupe['lignes'])) {
+                    continue;
+                }
+                usort($groupe['lignes'], function ($x, $y) {
+                    $nx = !empty($x->nom_ligne) ? (string) $x->nom_ligne : (string) (isset($x->ident_ligne) ? $x->ident_ligne : '');
+                    $ny = !empty($y->nom_ligne) ? (string) $y->nom_ligne : (string) (isset($y->ident_ligne) ? $y->ident_ligne : '');
+                    return strcasecmp($nx, $ny);
+                });
+            }
+            unset($groupe);
+
             return $groups;
         }
 

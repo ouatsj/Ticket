@@ -351,3 +351,77 @@ SET @sql := IF(@exists = 0,
   'SELECT 1');
 PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 
+
+-- -----------------------------------------------------------------------------
+-- P1.9 Escale TPE : prix_escale_origine + prix_escale_tpe + liaisons escale→escale
+-- -----------------------------------------------------------------------------
+SET @exists := (
+  SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = @db AND TABLE_NAME = 'itineraire_escales' AND COLUMN_NAME = 'prix_escale_origine'
+);
+SET @sql := IF(@exists = 0,
+  'ALTER TABLE itineraire_escales ADD COLUMN prix_escale_origine DECIMAL(12,2) NULL DEFAULT NULL COMMENT ''Segment escale vers origine du parent'' AFTER prix_escale',
+  'SELECT 1');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+SET @exists := (
+  SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = @db AND TABLE_NAME = 'itineraire_escales' AND COLUMN_NAME = 'prix_escale_tpe'
+);
+SET @sql := IF(@exists = 0,
+  'ALTER TABLE itineraire_escales ADD COLUMN prix_escale_tpe DECIMAL(12,2) NULL DEFAULT NULL COMMENT ''TPE exclusif: escale vers destination parent (venteescale)'' AFTER prix_escale_origine',
+  'SELECT 1');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+CREATE TABLE IF NOT EXISTS itineraire_escales_tpe_liaisons (
+  id_liaison INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  id_lignes VARCHAR(64) NOT NULL,
+  id_escale_depart INT UNSIGNED NOT NULL,
+  id_escale_arrivee INT UNSIGNED NOT NULL,
+  prix_liaison DECIMAL(12,2) NOT NULL DEFAULT 0,
+  actif_liaison TINYINT(1) NOT NULL DEFAULT 1,
+  PRIMARY KEY (id_liaison),
+  UNIQUE KEY uq_tpe_liaison (id_lignes, id_escale_depart, id_escale_arrivee),
+  KEY idx_tpe_liaison_depart (id_escale_depart),
+  KEY idx_tpe_liaison_arrivee (id_escale_arrivee)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  COMMENT='Prix escale→escale exclusifs profil vente escale (TPE)';
+
+-- -----------------------------------------------------------------------------
+-- P1.10 Rôle 17 : affectation ligne + escale de vente
+-- -----------------------------------------------------------------------------
+SET @exists := (
+  SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = @db AND TABLE_NAME = 'attributions_role' AND COLUMN_NAME = 'vente_escale_id_lignes'
+);
+SET @sql := IF(@exists = 0,
+  'ALTER TABLE attributions_role ADD COLUMN vente_escale_id_lignes VARCHAR(64) NULL DEFAULT NULL COMMENT ''Rôle 17: ligne affectée pour vente escale''',
+  'SELECT 1');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+SET @exists := (
+  SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = @db AND TABLE_NAME = 'attributions_role' AND COLUMN_NAME = 'vente_escale_value'
+);
+SET @sql := IF(@exists = 0,
+  'ALTER TABLE attributions_role ADD COLUMN vente_escale_value VARCHAR(160) NULL DEFAULT NULL COMMENT ''Rôle 17: valeur départ (escale~id / origin~…)''',
+  'SELECT 1');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+SET @exists := (
+  SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = @db AND TABLE_NAME = 'attributions_role' AND COLUMN_NAME = 'vente_escale_label'
+);
+SET @sql := IF(@exists = 0,
+  'ALTER TABLE attributions_role ADD COLUMN vente_escale_label VARCHAR(255) NULL DEFAULT NULL COMMENT ''Rôle 17: libellé escale de départ''',
+  'SELECT 1');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+SET @exists := (
+  SELECT COUNT(*) FROM information_schema.STATISTICS
+  WHERE TABLE_SCHEMA = @db AND TABLE_NAME = 'attributions_role' AND INDEX_NAME = 'idx_ar_vente_escale_value'
+);
+SET @sql := IF(@exists = 0,
+  'CREATE INDEX idx_ar_vente_escale_value ON attributions_role (vente_escale_value)',
+  'SELECT 1');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;

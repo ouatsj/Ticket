@@ -1,5 +1,10 @@
 <?php defined('BASEPATH') OR exit('No direct script access allowed');
+$role17_mode = function_exists('role17_is_agent') && role17_is_agent();
 ?>
+<div class="<?= $role17_mode ? 'r17-ops' : ''; ?>">
+<?php if ($role17_mode): ?>
+    <?php $this->load->view('beagle/pages/guichet/_role17_ops_chrome'); ?>
+<?php else: ?>
 <div class="row">
         <p class="mt-0 mb-2 ml-4">
             <a href="<?= site_url("confirmation/courrierescales/{$this->session->company->ekey}/{$conex->roleattribut}/{$bus_stop->idengare}/{$bus_stop->idsousgare}"); ?>"
@@ -9,6 +14,7 @@
         </a>
         </p>
 </div>
+<?php endif; ?>
 <div class="row">
     <div class="col-12">
 
@@ -145,3 +151,4 @@
 </div>
 <!--End of file: depcoursesc.php-->
 <!--File location: application/views/beagle/pages/_tickets/depcoursesc.php-->
+</div><!-- r17-ops -->

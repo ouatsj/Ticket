@@ -123,6 +123,10 @@
             $route['utilisateurs/voirprofilgare/(:any)'] = 'Utilisateurs/affectrole/$1';
             
             $route['utilisateurs/voirprofilpage/(:any)'] = 'Utilisateurs/affectpage/$1';
+            $route['utilisateurs/ajax_lignes_gare/(:any)/(:any)'] = 'Utilisateurs/ajax_lignes_gare/$1/$2';
+            $route['utilisateurs/ajax_compagnies_gare/(:any)/(:any)'] = 'Utilisateurs/ajax_compagnies_gare/$1/$2';
+            $route['utilisateurs/ajax_escales_ligne/(:any)/(:any)'] = 'Utilisateurs/ajax_escales_ligne/$1/$2';
+            $route['utilisateurs/ajax_escales_ligne/(:any)'] = 'Utilisateurs/ajax_escales_ligne/$1';
 
             $route['utilisateurs/(:num)/profilsesc/(:any)/(:num)/(:num)/(:num)/(:any)/(:num)/(:any)/(:any)'] = 'Utilisateurs/profiesc/$1/$2/$3/$4/$5/$6/$7/$8/$9';
 
@@ -199,6 +203,8 @@
 
             $route['confirmation/courrierpartoescal/(:num)/(:any)/(:any)/(:any)'] = 'Confirmation/courrierpartescal/$1/$2/$3/$4';
 
+            $route['confirmation/validerarresc/(:num)/(:any)/(:any)/(:any)'] = 'Confirmation/validerarresc/$1/$2/$3/$4';
+
             /* Type_personnel */
             $route['types/(:num)'] = 'Types/view/$1';
             $route['types/(:num)/gTa'] = 'Types/add/$1/$2';
@@ -239,7 +245,12 @@
             $route['lignes/escales/(:num)'] = 'Lignes/escales/$1';
             $route['lignes/escales/(:num)/add'] = 'Lignes/addescale/$1';
             $route['lignes/escales/(:num)/edit/(:num)'] = 'Lignes/editescale/$1/$2';
+            $route['lignes/escales/(:num)/liaison/edit/(:num)'] = 'Lignes/edittpeliaison/$1/$2';
+            $route['lignes/escales/(:num)/liaison/delete/(:num)'] = 'Lignes/deltpeliaison/$1/$2';
             $route['lignes/escales/(:num)/toggle/(:num)/(:num)'] = 'Lignes/activeescale/$1/$2/$3';
+            $route['lignes/escales/(:num)/delete/(:num)'] = 'Lignes/delescale/$1/$2';
+            $route['lignes/itineraires/(:num)/delete/(:num)'] = 'Lignes/deletape/$1/$2';
+            $route['lignes/parent_meta/(:num)/(:any)'] = 'Lignes/parent_meta/$1/$2';
 
 
             /* sous lignes */

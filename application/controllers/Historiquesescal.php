@@ -16,6 +16,27 @@
             setlocale(LC_TIME, 'fr_FR', 'fra');
             $this->property['pagetitle'] = utf8_encode(strftime("%d %b %G", now()));
         }
+
+        /**
+         * Reçu courrier escale 57×40 mm — 3 exemplaires (POSPrinter).
+         */
+        protected function _print_couresc_57x40()
+        {
+            if (function_exists('role17_is_agent') && role17_is_agent()) {
+                $this->property['role17_mode'] = true;
+                if (!empty($this->property['conex']) && !empty($this->property['bus_stop'])) {
+                    $this->property = role17_inject_property(
+                        $this->property,
+                        $this->property['conex']->roleattribut,
+                        !empty($this->property['bus_stop']->idengare)
+                            ? $this->property['bus_stop']->idengare
+                            : ''
+                    );
+                }
+            }
+            $this->property['layout_print'] = TRUE;
+            return $this->layout->view('_tickets/pdfepsoncouresc', $this->property);
+        }
         
         /**
          *
@@ -41,7 +62,7 @@
                 $this->destinateurs = $this->m_recepteur->getper($des);
                 $this->property['destin'] = $this->destinateurs;
 
-                $this->layout->view('_tickets/escindexcoli', $this->property);
+                $this->_print_couresc_57x40();
             }
             elseif($tds === 'personnel' AND $tds !== 'membre' AND $tds !== 'Adulte' AND $tds !== 'partenaire_simple' AND $tds !== 'partenaire_client' AND $tds !== 'partenaire_specifique' AND $tr !== 'personnel')
             {
@@ -53,7 +74,7 @@
 
                 $this->destinateurs = $this->m_recepteur->getcl($des);
                 $this->property['destin'] = $this->destinateurs;
-                $this->layout->view('_tickets/escindexcoli1', $this->property);
+                $this->_print_couresc_57x40();
             }
 
             elseif($tds === 'partenaire_specifique' AND $tds !== 'membre' AND $tds !== 'partenaire_simple' AND $tds !== 'partenaire_client' AND $tds !== 'Adulte' AND $tds !== 'personnel')
@@ -66,7 +87,7 @@
 
                 $this->destinateurs = $this->m_recepteur->getcl($des);
                 $this->property['destin'] = $this->destinateurs;
-                $this->layout->view('_tickets/escindexcoli4', $this->property);
+                $this->_print_couresc_57x40();
             }
 
             elseif($tds === 'membre' AND $tds !== 'partenaire_specifique' AND $tds !== 'partenaire_simple' AND $tds !== 'partenaire_client' AND $tds !== 'Adulte' AND $tds !== 'personnel' AND $tr !== 'personnel')
@@ -79,7 +100,7 @@
 
                 $this->destinateurs = $this->m_recepteur->getcl($des);
                 $this->property['destin'] = $this->destinateurs;
-                $this->layout->view('_tickets/escindexcoli4', $this->property);
+                $this->_print_couresc_57x40();
             }
 
             elseif($tds === 'membre' AND $tds !== 'partenaire_specifique' AND $tds !== 'partenaire_simple' AND $tds !== 'partenaire_client' AND $tds !== 'Adulte' AND $tds !== 'personnel' AND $tr === 'personnel')
@@ -93,7 +114,7 @@
                 $this->destinateurs = $this->m_recepteur->getper($des);
                 $this->property['destin'] = $this->destinateurs;
 
-                $this->layout->view('_tickets/escindexcolis2', $this->property);
+                $this->_print_couresc_57x40();
             }
             elseif($tds === 'partenaire_client' AND $tds !== 'membre' AND $tds !== 'partenaire_simple' AND $tds !== 'partenaire_specifique' AND $tds !== 'Adulte' AND $tds !== 'personnel')
             {
@@ -105,7 +126,7 @@
 
                 $this->destinateurs = $this->m_recepteur->getcl($des);
                 $this->property['destin'] = $this->destinateurs;
-                $this->layout->view('_tickets/escindexcoli4', $this->property);
+                $this->_print_couresc_57x40();
             }
 
             elseif($tds === 'partenaire_simple' AND $tds !== 'membre' AND $tds !== 'partenaire_client' AND $tds !== 'partenaire_specifique' AND $tds !== 'Adulte' AND $tds !== 'personnel')
@@ -118,7 +139,7 @@
 
                 $this->destinateurs = $this->m_recepteur->getcl($des);
                 $this->property['destin'] = $this->destinateurs;
-                $this->layout->view('_tickets/escindexcoli4', $this->property);
+                $this->_print_couresc_57x40();
             }
         
             elseif($tds === 'Adulte' AND $tds !== 'membre' AND $tds !== 'partenaire_simple' AND $tds !== 'partenaire_client' AND $tds !== 'partenaire_specifique' AND $tds !== 'personnel' AND $tr !== 'personnel')
@@ -133,7 +154,7 @@
                 $this->destinateurs = $this->m_recepteur->getcl($des);
                 $this->property['destin'] = $this->destinateurs;
 
-                $this->layout->view('_tickets/escindexcoli3', $this->property);
+                $this->_print_couresc_57x40();
             }
 
             elseif($tds === 'Adulte' AND $tds !== 'partenaire_simple' AND $tds !== 'membre' AND $tds !== 'partenaire_client' AND $tds !== 'partenaire_specifique' AND $tds !== 'personnel' AND $tr === 'personnel')
@@ -148,7 +169,24 @@
                 $this->destinateurs = $this->m_recepteur->getper($des);
                 $this->property['destin'] = $this->destinateurs;
 
-                $this->layout->view('_tickets/escindexcoli2', $this->property);
+                $this->_print_couresc_57x40();
+            }
+            else
+            {
+                // Types non reconnus → clients classiques (évite reçu perdu / page vide).
+                $this->courriers = $this->m_courrier_expedieresc->getexpedition($this->company->ekey, $coli_id);
+                $this->property['single'] = $this->courriers;
+                $this->expediteurs = $this->m_expediteur->getcl($ex);
+                if (!$this->expediteurs) {
+                    $this->expediteurs = $this->m_expediteur->getper($ex);
+                }
+                $this->property['exped'] = $this->expediteurs;
+                $this->destinateurs = $this->m_recepteur->getcl($des);
+                if (!$this->destinateurs) {
+                    $this->destinateurs = $this->m_recepteur->getper($des);
+                }
+                $this->property['destin'] = $this->destinateurs;
+                $this->_print_couresc_57x40();
             }
 
         }
@@ -190,7 +228,7 @@
                 $this->destinateurs = $this->m_recepteur->getper($des);
                 $this->property['destin'] = $this->destinateurs;
 
-                $this->layout->view('_tickets/escindexcoli', $this->property);
+                $this->_print_couresc_57x40();
             }
             elseif($tds === 'personnel' AND $tds !== 'membre' AND $tds !== 'Adulte' AND $tds !== 'partenaire_simple' AND $tds !== 'partenaire_client' AND $tds !== 'partenaire_specifique' AND $tr !== 'personnel')
             {
@@ -202,7 +240,7 @@
 
                 $this->destinateurs = $this->m_recepteur->getcl($des);
                 $this->property['destin'] = $this->destinateurs;
-                $this->layout->view('_tickets/escindexcoli1', $this->property);
+                $this->_print_couresc_57x40();
             }
 
             elseif($tds === 'partenaire_specifique' AND $tds !== 'membre' AND $tds !== 'partenaire_simple' AND $tds !== 'partenaire_client' AND $tds !== 'Adulte' AND $tds !== 'personnel')
@@ -215,7 +253,7 @@
 
                 $this->destinateurs = $this->m_recepteur->getcl($des);
                 $this->property['destin'] = $this->destinateurs;
-                $this->layout->view('_tickets/escindexcoli4', $this->property);
+                $this->_print_couresc_57x40();
             }
 
             elseif($tds === 'membre' AND $tds !== 'partenaire_specifique' AND $tds !== 'partenaire_simple' AND $tds !== 'partenaire_client' AND $tds !== 'Adulte' AND $tds !== 'personnel' AND $tr !== 'personnel')
@@ -228,7 +266,7 @@
 
                 $this->destinateurs = $this->m_recepteur->getcl($des);
                 $this->property['destin'] = $this->destinateurs;
-                $this->layout->view('_tickets/escindexcoli4', $this->property);
+                $this->_print_couresc_57x40();
             }
 
             elseif($tds === 'membre' AND $tds !== 'partenaire_specifique' AND $tds !== 'partenaire_simple' AND $tds !== 'partenaire_client' AND $tds !== 'Adulte' AND $tds !== 'personnel' AND $tr === 'personnel')
@@ -242,7 +280,7 @@
                 $this->destinateurs = $this->m_recepteur->getper($des);
                 $this->property['destin'] = $this->destinateurs;
 
-                $this->layout->view('_tickets/escindexcolis2', $this->property);
+                $this->_print_couresc_57x40();
             }
             elseif($tds === 'partenaire_client' AND $tds !== 'membre' AND $tds !== 'partenaire_simple' AND $tds !== 'partenaire_specifique' AND $tds !== 'Adulte' AND $tds !== 'personnel')
             {
@@ -254,7 +292,7 @@
 
                 $this->destinateurs = $this->m_recepteur->getcl($des);
                 $this->property['destin'] = $this->destinateurs;
-                $this->layout->view('_tickets/escindexcoli4', $this->property);
+                $this->_print_couresc_57x40();
             }
 
             elseif($tds === 'partenaire_simple' AND $tds !== 'membre' AND $tds !== 'partenaire_client' AND $tds !== 'partenaire_specifique' AND $tds !== 'Adulte' AND $tds !== 'personnel')
@@ -267,7 +305,7 @@
 
                 $this->destinateurs = $this->m_recepteur->getcl($des);
                 $this->property['destin'] = $this->destinateurs;
-                $this->layout->view('_tickets/escindexcoli4', $this->property);
+                $this->_print_couresc_57x40();
             }
         
             elseif($tds === 'Adulte' AND $tds !== 'membre' AND $tds !== 'partenaire_simple' AND $tds !== 'partenaire_client' AND $tds !== 'partenaire_specifique' AND $tds !== 'personnel' AND $tr !== 'personnel')
@@ -282,7 +320,7 @@
                 $this->destinateurs = $this->m_recepteur->getcl($des);
                 $this->property['destin'] = $this->destinateurs;
 
-                $this->layout->view('_tickets/escindexcoli3', $this->property);
+                $this->_print_couresc_57x40();
             }
 
             elseif($tds === 'Adulte' AND $tds !== 'partenaire_simple' AND $tds !== 'membre' AND $tds !== 'partenaire_client' AND $tds !== 'partenaire_specifique' AND $tds !== 'personnel' AND $tr === 'personnel')
@@ -297,7 +335,7 @@
                 $this->destinateurs = $this->m_recepteur->getper($des);
                 $this->property['destin'] = $this->destinateurs;
 
-                $this->layout->view('_tickets/escindexcoli2', $this->property);
+                $this->_print_couresc_57x40();
             }
 
         }*/
@@ -321,7 +359,7 @@
                 $this->destinateurs = $this->m_recepteur->getcl($des);
                 $this->property['destin'] = $this->destinateurs;
 
-                $this->layout->view('_tickets/rescindexcoli', $this->property);
+                $this->_print_couresc_57x40();
           
         }
 
@@ -362,7 +400,7 @@
                 $this->destinateurs = $this->m_recepteur->getper($des);
                 $this->property['destin'] = $this->destinateurs;
 
-                $this->layout->view('_tickets/escindexcoli', $this->property);
+                $this->_print_couresc_57x40();
             }
             elseif($tds === 'personnel' AND $tds !== 'membre' AND $tds !== 'Adulte' AND $tds !== 'partenaire_simple' AND $tds !== 'partenaire_client' AND $tds !== 'partenaire_specifique' AND $tr !== 'personnel')
             {
@@ -374,7 +412,7 @@
 
                 $this->destinateurs = $this->m_recepteur->getcl($des);
                 $this->property['destin'] = $this->destinateurs;
-                $this->layout->view('_tickets/escindexcoli1', $this->property);
+                $this->_print_couresc_57x40();
             }
 
             elseif($tds === 'partenaire_specifique' AND $tds !== 'membre' AND $tds !== 'partenaire_simple' AND $tds !== 'partenaire_client' AND $tds !== 'Adulte' AND $tds !== 'personnel')
@@ -387,7 +425,7 @@
 
                 $this->destinateurs = $this->m_recepteur->getcl($des);
                 $this->property['destin'] = $this->destinateurs;
-                $this->layout->view('_tickets/escindexcoli4', $this->property);
+                $this->_print_couresc_57x40();
             }
 
             elseif($tds === 'membre' AND $tds !== 'partenaire_specifique' AND $tds !== 'partenaire_simple' AND $tds !== 'partenaire_client' AND $tds !== 'Adulte' AND $tds !== 'personnel' AND $tr !== 'personnel')
@@ -400,7 +438,7 @@
 
                 $this->destinateurs = $this->m_recepteur->getcl($des);
                 $this->property['destin'] = $this->destinateurs;
-                $this->layout->view('_tickets/escindexcoli4', $this->property);
+                $this->_print_couresc_57x40();
             }
 
             elseif($tds === 'membre' AND $tds !== 'partenaire_specifique' AND $tds !== 'partenaire_simple' AND $tds !== 'partenaire_client' AND $tds !== 'Adulte' AND $tds !== 'personnel' AND $tr === 'personnel')
@@ -414,7 +452,7 @@
                 $this->destinateurs = $this->m_recepteur->getper($des);
                 $this->property['destin'] = $this->destinateurs;
 
-                $this->layout->view('_tickets/escindexcolis2', $this->property);
+                $this->_print_couresc_57x40();
             }
             elseif($tds === 'partenaire_client' AND $tds !== 'membre' AND $tds !== 'partenaire_simple' AND $tds !== 'partenaire_specifique' AND $tds !== 'Adulte' AND $tds !== 'personnel')
             {
@@ -426,7 +464,7 @@
 
                 $this->destinateurs = $this->m_recepteur->getcl($des);
                 $this->property['destin'] = $this->destinateurs;
-                $this->layout->view('_tickets/escindexcoli5', $this->property);
+                $this->_print_couresc_57x40();
             }
 
             elseif($tds === 'partenaire_simple' AND $tds !== 'membre' AND $tds !== 'partenaire_client' AND $tds !== 'partenaire_specifique' AND $tds !== 'Adulte' AND $tds !== 'personnel')
@@ -439,7 +477,7 @@
 
                 $this->destinateurs = $this->m_recepteur->getcl($des);
                 $this->property['destin'] = $this->destinateurs;
-                $this->layout->view('_tickets/escindexcoli5', $this->property);
+                $this->_print_couresc_57x40();
             }
         
             elseif($tds === 'Adulte' AND $tds !== 'membre' AND $tds !== 'partenaire_simple' AND $tds !== 'partenaire_client' AND $tds !== 'partenaire_specifique' AND $tds !== 'personnel' AND $tr !== 'personnel')
@@ -454,7 +492,7 @@
                 $this->destinateurs = $this->m_recepteur->getcl($des);
                 $this->property['destin'] = $this->destinateurs;
 
-                $this->layout->view('_tickets/escindexcoli3', $this->property);
+                $this->_print_couresc_57x40();
             }
 
             elseif($tds === 'Adulte' AND $tds !== 'partenaire_simple' AND $tds !== 'membre' AND $tds !== 'partenaire_client' AND $tds !== 'partenaire_specifique' AND $tds !== 'personnel' AND $tr === 'personnel')
@@ -469,7 +507,7 @@
                 $this->destinateurs = $this->m_recepteur->getper($des);
                 $this->property['destin'] = $this->destinateurs;
 
-                $this->layout->view('_tickets/escindexcoli2', $this->property);
+                $this->_print_couresc_57x40();
             }
            
         }
@@ -500,7 +538,7 @@
                 $this->destinateurs = $this->m_recepteur->getper($des);
                 $this->property['destin'] = $this->destinateurs;
 
-                $this->layout->view('_tickets/escindexcoli', $this->property);
+                $this->_print_couresc_57x40();
            
             }
             else
@@ -509,7 +547,7 @@
                $this->destinateurs = $this->m_recepteur->getcl($des);
                 $this->property['destin'] = $this->destinateurs;
 
-                $this->layout->view('_tickets/escindexcoli1', $this->property);
+                $this->_print_couresc_57x40();
            
             }
            

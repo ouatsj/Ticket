@@ -6,6 +6,7 @@ $code_gaexp = !empty($code_gaexp_vente)
 $escales_depart = !empty($escales_depart) ? $escales_depart : array();
 $escale_fixe = !empty($escale_depart_fixe) ? (string) $escale_depart_fixe : '';
 $escale_fixe_label = !empty($escale_depart_label) ? (string) $escale_depart_label : $escale_fixe;
+$escale_fixed_admin = !empty($escale_depart_fixed_admin);
 ?>
 <div class="modal-container colored-header colored-header-success custom-width modal-effect-7"
      id="ticketescal-0" style="perspective: none">
@@ -21,6 +22,7 @@ $escale_fixe_label = !empty($escale_depart_label) ? (string) $escale_depart_labe
              data-code-gaexp="<?= htmlspecialchars($code_gaexp, ENT_QUOTES, 'UTF-8'); ?>"
              <?php if ($escale_fixe !== ''): ?>
              data-depart-fixe="<?= htmlspecialchars($escale_fixe, ENT_QUOTES, 'UTF-8'); ?>"
+             data-depart-locked="1"
              <?php endif; ?>>
             <?= form_open('', array('class' => 'form r17-vente-form', 'id' => 'escalLibreForm', 'autocomplete' => 'off')); ?>
                 <input type="hidden" id="pascompagnieescal" name="clientcompescal" value="">
@@ -33,9 +35,12 @@ $escale_fixe_label = !empty($escale_depart_label) ? (string) $escale_depart_labe
                 <input type="hidden" name="compconnectedescal" value="<?= htmlspecialchars($conex->cpuser_id, ENT_QUOTES, 'UTF-8'); ?>">
 
                 <?php if ($escale_fixe !== ''): ?>
-                    <input type="hidden" name="escale_depart" id="escale_depart" value="<?= htmlspecialchars($escale_fixe, ENT_QUOTES, 'UTF-8'); ?>">
-                    <div class="r17-depart-chip">
+                    <input type="hidden" name="escale_depart" id="escale_depart" value="<?= htmlspecialchars($escale_fixe, ENT_QUOTES, 'UTF-8'); ?>" readonly>
+                    <div class="r17-depart-chip<?= $escale_fixed_admin ? ' is-fixed' : ''; ?>">
                         Départ : <strong><?= htmlspecialchars($escale_fixe_label, ENT_QUOTES, 'UTF-8'); ?></strong>
+                        <?php if ($escale_fixed_admin): ?>
+                            <span class="r17-badge-fixed">figée</span>
+                        <?php endif; ?>
                     </div>
                 <?php else: ?>
                     <div class="form-group">

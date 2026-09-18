@@ -3017,6 +3017,8 @@
 
         public function getexpedition($cid, $exp = FALSE)
         {
+            // Join lignes via horaire (lh.ligne_id) : fiable pour vente escale
+            // où code_courriers.idlignes pouvait être gaexp_local-gadest (inexistant).
             if ($exp === FALSE) {
                 return $this->db->query(
                 "SELECT * FROM courriers_expesc e
@@ -3025,7 +3027,7 @@
                 JOIN expeditreception er ON cd.exprecepident = er.idexprecept
                 JOIN ligne_heure lh ON e.departcolisesc = lh.id_ligneheure
                 JOIN heures h ON lh.heure_identif = h.id_heure
-                JOIN lignes lg ON cd.idlignes = lg.ident_ligne
+                JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
                 JOIN gare_exp gex ON lg.gaexp_lg = gex.code_gaexp
                 JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
                 JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
@@ -3040,7 +3042,7 @@
                 JOIN expeditreception er ON cd.exprecepident = er.idexprecept 
                 JOIN ligne_heure lh ON e.departcolisesc = lh.id_ligneheure
                 JOIN heures h ON lh.heure_identif = h.id_heure
-                JOIN lignes lg ON cd.idlignes = lg.ident_ligne
+                JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
                 JOIN gare_exp gex ON lg.gaexp_lg = gex.code_gaexp
                 JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
                 JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
@@ -3061,7 +3063,7 @@
                 JOIN expeditreception er ON cd.exprecepident = er.idexprecept
                 JOIN ligne_heure lh ON e.departcolisesc = lh.id_ligneheure
                 JOIN heures h ON lh.heure_identif = h.id_heure
-                JOIN lignes lg ON cd.idlignes = lg.ident_ligne
+                JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
                 JOIN gare_exp gex ON lg.gaexp_lg = gex.code_gaexp
                 JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
                 JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
@@ -3077,7 +3079,7 @@
                 JOIN expeditreception er ON cd.exprecepident = er.idexprecept 
                 JOIN ligne_heure lh ON e.departcolisesc = lh.id_ligneheure
                 JOIN heures h ON lh.heure_identif = h.id_heure
-                JOIN lignes lg ON cd.idlignes = lg.ident_ligne
+                JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
                 JOIN gare_exp gex ON lg.gaexp_lg = gex.code_gaexp
                 JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
                 JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
@@ -3124,6 +3126,74 @@
                 AND e.actif_couresc = 0
                 AND e.validcouresc = 0
                 GROUP BY lg.ident_ligne, e.courrierdepartgareesc, e.prixcolisesc, dest.id_compaga, e.idoperateuresc")->result();
+        }
+
+        /**
+         * Rapport mobile après arrêt global escale — tous types (ordinaire/perso/partenaire).
+         * Pas de filtre is_conect : lisible juste après arrêt.
+         */
+        public function rapport_mobile_arret($cid, $idconx, $comp, $gd)
+        {
+            $today = mdate('%Y-%m-%d', now('UTC'));
+            return $this->db->query(
+                "SELECT COUNT(e.courrierexpidesc) AS nombres,
+                        SUM(e.prixcolisesc) AS montant,
+                        COALESCE(lg.nom_ligne, 'COURRIER') AS nom_ligne,
+                        e.prixcolisesc
+                 FROM courriers_expesc e
+                 JOIN attributions_role ar ON e.idoperateuresc = ar.roleattribut
+                 JOIN user_login ul ON ar.idgestcompte = ul.uid_login
+                 LEFT JOIN code_courriers cd ON e.id_codecourrieresc = cd.codecolisid
+                 LEFT JOIN ligne_heure lh ON e.departcolisesc = lh.id_ligneheure
+                 LEFT JOIN lignes lg ON lg.ident_ligne = COALESCE(cd.idlignes, lh.ligne_id)
+                 LEFT JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
+                 LEFT JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
+                 LEFT JOIN entreprise ep ON c.id_entrep = ep.id_entreprise
+                 WHERE ar.roleattribut = ?
+                 AND ul.guser = ?
+                 AND e.statutcouresc = 1
+                 AND e.actif_couresc = 0
+                 AND e.prixcolisesc IS NOT NULL
+                 AND e.prixcolisesc > 0
+                 AND e.dateenvoiesc <= ?
+                 AND (ep.ekey IS NULL OR ep.ekey = ?)
+                 AND (dest.id_compaga IS NULL OR dest.id_compaga = ?)
+                 GROUP BY lg.nom_ligne, e.prixcolisesc",
+                array($idconx, $gd, $today, $cid, $comp)
+            )->result();
+        }
+
+        /**
+         * Courriers du jour pour réimpression 57×40 (rôle 17).
+         */
+        public function liste_reimpri_jour($cid, $idconx, $gd, $sg)
+        {
+            $today = mdate('%Y-%m-%d', now('UTC'));
+            return $this->db->query(
+                "SELECT e.courrierexpidesc, e.num_couresc, e.prixcolisesc, e.dateenvoiesc,
+                        e.departcolisesc, e.naturecourrieresc,
+                        cd.naturecoli, cd.exprecepident, cd.nombrecolis,
+                        er.expditid, er.receptid,
+                        cl.nom_client, cl.prenom_client, cl.contact_client, cl.type_client,
+                        h.heure, lg.nom_ligne
+                 FROM courriers_expesc e
+                 LEFT JOIN code_courriers cd ON e.id_codecourrieresc = cd.codecolisid
+                 LEFT JOIN expeditreception er ON cd.exprecepident = er.idexprecept
+                 LEFT JOIN expediteurs ex ON er.expditid = ex.id_expedit
+                 LEFT JOIN client cl ON ex.clientexpedit = cl.id_client
+                 LEFT JOIN ligne_heure lh ON e.departcolisesc = lh.id_ligneheure
+                 LEFT JOIN heures h ON lh.heure_identif = h.id_heure
+                 LEFT JOIN lignes lg ON lg.ident_ligne = COALESCE(cd.idlignes, lh.ligne_id)
+                 WHERE e.idoperateuresc = ?
+                 AND e.courrierdepartgareesc = ?
+                 AND e.dateenvoiesc = ?
+                 AND e.actif_couresc = 0
+                 AND e.prixcolisesc IS NOT NULL
+                 AND e.prixcolisesc > 0
+                 ORDER BY e.courrierexpidesc DESC
+                 LIMIT 50",
+                array($idconx, $sg, $today)
+            )->result();
         }
 
         public function getdest($cid, $gd, $sg, $exp = FALSE)

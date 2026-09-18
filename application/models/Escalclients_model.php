@@ -784,10 +784,80 @@
             )->result();
         }
 
-        public function verifcodbag($cid, $cod, $gd, $sg)
+        /**
+         * Tickets marqués pour réimpression (reimpr=1) — escale / rôle 17.
+         * Filtre gare+sous-gare agent (pas gaexp_lg de la ligne, souvent ≠ escale).
+         * LEFT JOIN : tickets libre sans tarif / heure classique.
+         */
+        public function getrep_escale($cid, $uid, $gid, $sgid)
         {
             return $this->db->query(
-                "SELECT * FROM escalclients es
+                "SELECT es.*, cl.nom_client, cl.prenom_client, cl.contact_client,
+                        cl.num_CNIB, cl.date_delivre, cl.lieu_delivre,
+                        sg.nomsousgare, h.heure, lg.nom_ligne, lg.ident_ligne,
+                        dest.nom_gadest, ge.nom_gaep,
+                        lh.id_ligneheure, es.typtarifesc, c.nom_compagnie, c.logo
+                 FROM escalclients es
+                 JOIN sousgare sg ON es.departsgescal = sg.idsousgare
+                 JOIN client cl ON es.clientescal = cl.id_client
+                 LEFT JOIN ligne_heure lh ON es.id_lgeheur = lh.id_ligneheure
+                 LEFT JOIN heures h ON lh.heure_identif = h.id_heure
+                 LEFT JOIN lignes lg ON es.lignintescal = lg.ident_ligne
+                 LEFT JOIN gare_exp ge ON lg.gaexp_lg = ge.code_gaexp
+                 LEFT JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
+                 LEFT JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
+                 WHERE es.iduseescal = ?
+                 AND es.departgescal = ?
+                 AND es.departsgescal = ?
+                 AND es.reimpr = 1
+                 AND es.prixescal IS NOT NULL
+                 AND es.prixescal > 0
+                 ORDER BY es.idclescal DESC
+                 LIMIT 80",
+                array($uid, $gid, $sgid)
+            )->result();
+        }
+
+        /**
+         * @deprecated préférer getrep_escale pour rôle 17
+         */
+        public function getrep_jour($cid, $uid, $gid, $sgid)
+        {
+            return $this->getrep_escale($cid, $uid, $gid, $sgid);
+        }
+
+        public function verifcodbag($cid, $cod, $gd, $sg, $id_lignes = null)
+        {
+            $id_lignes = $id_lignes !== null ? trim((string) $id_lignes) : '';
+            // Rôle 17 : ticket fait sur l'escale (gare + sous-gare + ligne attribuée).
+            // Ne pas filtrer sur gaexp_lg de la ligne (origine Ouaga ≠ gare Boromo).
+            if ($id_lignes !== '') {
+                return $this->db->query(
+                    "SELECT es.*, cl.nom_client, cl.prenom_client, cl.contact_client,
+                            dest.nom_gadest, dest.id_compaga, h.heure, lh.id_ligneheure,
+                            lg.ident_ligne, lg.nom_ligne,
+                            ge.nom_gaep AS nom_depart_ligne
+                     FROM escalclients es
+                     JOIN sousgare sg ON es.departsgescal = sg.idsousgare
+                     JOIN client cl ON es.clientescal = cl.id_client
+                     JOIN ligne_heure lh ON es.id_lgeheur = lh.id_ligneheure
+                     JOIN heures h ON lh.heure_identif = h.id_heure
+                     JOIN lignes lg ON es.lignintescal = lg.ident_ligne
+                     JOIN gare_exp ge ON lg.gaexp_lg = ge.code_gaexp
+                     JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
+                     JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
+                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
+                     WHERE e.ekey = ?
+                     AND BINARY es.idclescal = ?
+                     AND es.lignintescal = ?
+                     AND es.departgescal = ?
+                     AND es.departsgescal = ?
+                     LIMIT 1",
+                    array($cid, $cod, $id_lignes, $gd, $sg)
+                )->row();
+            }
+
+            $sql = "SELECT * FROM escalclients es
                 JOIN sousgare sg ON es.departsgescal = sg.idsousgare
                 JOIN client cl ON es.clientescal = cl.id_client
                 JOIN type_client tcl ON cl.type_client = tcl.nom_type
@@ -798,10 +868,11 @@
                 JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
                 JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                WHERE e.ekey = '$cid'
-                AND ex.code_gaexp = '$gd'
-                AND BINARY es.idclescal = '$cod'
-                AND sg.idsousgare = '$sg'")->row();
+                WHERE e.ekey = ?
+                AND ex.code_gaexp = ?
+                AND BINARY es.idclescal = ?
+                AND sg.idsousgare = ?";
+            return $this->db->query($sql, array($cid, $gd, $cod, $sg))->row();
         }
 
         public function nifestheb($cid, $cp, $gid, $dt1, $dt2, $algn = FALSE)

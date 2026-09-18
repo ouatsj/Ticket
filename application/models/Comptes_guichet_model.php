@@ -76,6 +76,31 @@
                 
         }
 
+        /**
+         * Bordereaux ticket non validés d’un agent sur toute la gare (toutes sous-gares).
+         * Profil chef escale : l’agent arrête sur son SG d’escale, le chef ouvre souvent une autre SG.
+         */
+        public function getcompte_gare($cd, $gid, $ad)
+        {
+            return $this->db->query(
+                "SELECT * FROM compte_guichet cg
+                JOIN attributions_role ar ON cg.idusercompt = ar.roleattribut
+                JOIN user_login ul ON ar.idgestcompte = ul.uid_login
+                JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
+                JOIN gares g ON ul.guser = g.idengare
+                JOIN utilisateurs u ON cu.userlog_id = u.uid
+                JOIN compagnies c ON cg.comp = c.cle_compagnie
+                JOIN entreprise e ON c.id_entrep = e.id_entreprise
+                WHERE e.ekey = ?
+                AND ar.roleattribut = ?
+                AND cg.is_validcompte = 0
+                AND g.idengare = ?
+                AND cg.actifcompt = 0
+                ORDER BY cg.lastcptg_update DESC",
+                array($cd, (int) $ad, $gid)
+            )->result();
+        }
+
         
 		public function versfiltre($key, $gid, $db, $df, $cp, $use = FALSE)
         {

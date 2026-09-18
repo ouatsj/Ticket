@@ -242,6 +242,26 @@ if (!function_exists('guichet_totaux_fetch_snapshot')) {
         $retour = ($cptretour && isset($cptretour->totalr)) ? (float) $cptretour->totalr : 0.0;
         $bagage = ($recettebagages && isset($recettebagages->bagtotal)) ? (float) $recettebagages->bagtotal : 0.0;
         $escale = ($cptalleresc && isset($cptalleresc->total)) ? (float) $cptalleresc->total : 0.0;
+
+        // Rôle 17 : solde escale = tickets + bagage escale + courrier escale.
+        $role = '';
+        if (!empty($CI->session->agent) && isset($CI->session->agent->userole)) {
+            $role = (string) $CI->session->agent->userole;
+        }
+        if ($role === '17') {
+            if (!isset($CI->m_bagageesc)) {
+                $CI->load->model('Bagageesc_model', 'm_bagageesc');
+            }
+            if (!isset($CI->m_courrier_expedieresc)) {
+                $CI->load->model('Courriers_expesc_model', 'm_courrier_expedieresc');
+            }
+            $cptbages = $CI->m_bagageesc->compteur($ekey, $ra, $gid);
+            $cptcoures = $CI->m_courrier_expedieresc->compteur($ekey, $ra, $gid);
+            $bag_esc = ($cptbages && isset($cptbages->bagtot)) ? (float) $cptbages->bagtot : 0.0;
+            $cour_esc = ($cptcoures && isset($cptcoures->totaenesc)) ? (float) $cptcoures->totaenesc : 0.0;
+            $escale = $escale + $bag_esc + $cour_esc;
+        }
+
         // Cumul agent non arrêté : tickets aller/retour + ventes escale (table escalclients).
         $solde = $aller + $retour + $escale;
 

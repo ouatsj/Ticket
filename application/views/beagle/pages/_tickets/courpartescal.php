@@ -1,4 +1,7 @@
 <?php defined('BASEPATH') OR exit('No direct script access allowed'); ?>
+<?php $role17_mode = !empty($role17_mode) && role17_is_agent(); ?>
+<div class="<?= $role17_mode ? 'r17-ops' : ''; ?>">
+<?php if ($role17_mode): $this->load->view('beagle/pages/guichet/_role17_ops_chrome'); endif; ?>
 <div class="row">
     <p class="mt-0 mb-2 ml-4">
         <a href="<?= site_url("confirmation/courrierescales/{$this->session->company->ekey}/{$conex->roleattribut}/{$bus_stop->idengare}/{$bus_stop->idsousgare}"); ?>"
@@ -50,6 +53,15 @@
                         
                         <div class="form-group col-sm-4">
                             <label style="display:block" id="iddepcoupartoesc">Expédition</label>
+                            <?php if (!empty($role17_mode) && role17_is_agent() && !empty($garedeparts)): ?>
+                                <?php
+                                $dep0 = $garedeparts[0];
+                                $dep_val = $dep0->code_gaexp . '/' . $dep0->idsousgare . '/' . $dep0->codegares . $dep0->codsousgare;
+                                $dep_lab = !empty($escale_depart_label) ? $escale_depart_label : ($dep0->nom_gaep . '/' . $dep0->nomsousgare);
+                                ?>
+                                <input type="hidden" name="deparcourrierpartoesc" id="deparcourpartoesc" value="<?= htmlspecialchars($dep_val, ENT_QUOTES, 'UTF-8'); ?>">
+                                <div class="r17-depart-chip is-fixed">Départ escale : <strong><?= htmlspecialchars($dep_lab, ENT_QUOTES, 'UTF-8'); ?></strong></div>
+                            <?php else: ?>
                             <select style="display:block" class="form-control form-control-sm" name="deparcourrierpartoesc" id="deparcourpartoesc">
                                 <? foreach ($garedeparts as $garedepart): ?>
                                     <option value="<?= $garedepart->code_gaexp; ?>/<?= $garedepart->idsousgare; ?>/<?= $garedepart->codegares; ?><?= $garedepart->codsousgare; ?>">
@@ -57,6 +69,7 @@
                                     </option>
                                 <? endforeach; ?>
                             </select>
+                            <?php endif; ?>
                         </div>
                         <div class="form-group col-sm-4">
                             <label style="display:block" id="arrcourpartoesc">Destination</label>
@@ -140,7 +153,10 @@
                         <div class="form-group col-sm-4">
                             <label style="display:block" id="idfraispartoesc">Frais d'expédition</label>
                             <input class="form-control form-control-sm" name="fraisexpartoesc" type="number" autocomplete="off" 
-                            id="fraisexpartoesc" style="display:block" placeholder="Frais d'expédition">       
+                            id="fraisexpartoesc" style="display:block" required
+                            min="500" step="1" inputmode="numeric"
+                            placeholder="Min. 500 F CFA">
+                            <small class="text-muted">Minimum 500 F CFA (saisie libre)</small>       
                         </div>
                     </div>
                     <div class="card-header card-header-divider">EXPEDITEUR<span class="card-subtitle"></span></div>
@@ -248,3 +264,4 @@
         </div>
     </div>
 </div>
+</div><!-- r17-ops-end -->

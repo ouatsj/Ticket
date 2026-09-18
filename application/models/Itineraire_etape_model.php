@@ -151,6 +151,11 @@ class Itineraire_etape_model extends CI_Model
         return $this->db->where('id_etape', $id_etape)->update($this->table, $data);
     }
 
+    public function delete($id_etape)
+    {
+        return $this->db->where('id_etape', (int) $id_etape)->delete($this->table);
+    }
+
     public function delete_by_parent($parent_ligne)
     {
         return $this->db->where('id_lignes', $parent_ligne)->delete($this->table);

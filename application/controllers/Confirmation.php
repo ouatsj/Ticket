@@ -16,6 +16,20 @@
             setlocale(LC_TIME, 'fr_FR', 'fra');
             $this->property['pagetitle'] = utf8_encode(strftime("%d %b %G", now()));
         }
+
+        /**
+         * Rôle 17 : injecte escale figée + filtre lignes / destinations bagage-courrier.
+         *
+         * @param int|string $uid roleattribut
+         * @param string $gd
+         */
+        protected function _role17_apply_escale_ops($uid, $gd = '')
+        {
+            if (!function_exists('role17_inject_property')) {
+                $this->load->helper('role17_context');
+            }
+            $this->property = role17_inject_property($this->property, $uid, $gd);
+        }
         
         /**
          * @author KARAMA Adjaratou
@@ -2443,6 +2457,7 @@
                 $this->property['lignes'] = $this->m_lignes->get($this->company->id_entreprise, $gd);
                     
                 $this->property['typesclients'] = $this->m_type_client->get();
+                $this->_role17_apply_escale_ops($uid, $gd);
                     
                 $this->property['pagetitle'] .= " FACTURATION BAGAGES ESCAL • <strong>{$this->company->nom_entreprise}•&nbsp;$bus_stop->garenom •&nbsp;$bus_stop->nomsousgare</strong> ";
             
@@ -2460,19 +2475,28 @@
                 $conex = $this->_roleattribut_guard_bind($uid, $this->company->ekey, $gd);
                 $this->property['conex'] = $conex;
 
-                $this->property['garedeparts'] = $this->m_sousgare->getes($this->company->ekey, $gd, $sg);
-                $this->property['garearrivees'] = $this->m_gare_arrivee->get($this->company->id_entreprise, $gd);
-                $this->property['garedepartcomp'] = $this->m_gare_depart->cmpget($this->company->id_entreprise, $gd);
-                $this->property['gareactuelles'] = $this->m_gare_depart->getgidbis($this->company->id_entreprise, $gd);
-
-                $this->property['lignesgare'] = $this->m_lignes->getlggare($this->company->id_entreprise, $gd);
-                $this->property['lignes'] = $this->m_lignes->get($this->company->id_entreprise, $gd);
-                
                 $this->property['cptbages'] = $this->m_bagageesc->compteur($this->company->ekey, $uid, $gd);
-
                 $this->property['cptbagescd'] = $this->m_bagageesc->compteurcd($this->company->ekey, $uid, $gd);
-                    
-                $this->property['typesclients'] = $this->m_type_client->get();
+
+                if (function_exists('role17_is_agent') && role17_is_agent()) {
+                    $this->property['garedeparts'] = array();
+                    $this->property['garearrivees'] = array();
+                    $this->property['garedepartcomp'] = array();
+                    $this->property['gareactuelles'] = array();
+                    $this->property['lignesgare'] = array();
+                    $this->property['lignes'] = array();
+                    $this->property['typesclients'] = array();
+                    $this->property['layout_minimal'] = TRUE;
+                } else {
+                    $this->property['garedeparts'] = $this->m_sousgare->getes($this->company->ekey, $gd, $sg);
+                    $this->property['garearrivees'] = $this->m_gare_arrivee->get($this->company->id_entreprise, $gd);
+                    $this->property['garedepartcomp'] = $this->m_gare_depart->cmpget($this->company->id_entreprise, $gd);
+                    $this->property['gareactuelles'] = $this->m_gare_depart->getgidbis($this->company->id_entreprise, $gd);
+                    $this->property['lignesgare'] = $this->m_lignes->getlggare($this->company->id_entreprise, $gd);
+                    $this->property['lignes'] = $this->m_lignes->get($this->company->id_entreprise, $gd);
+                    $this->property['typesclients'] = $this->m_type_client->get();
+                }
+                $this->_role17_apply_escale_ops($uid, $gd);
                     
                 $this->property['pagetitle'] .= " ACCUEIL BAGAGES ESCAL • <strong>{$this->company->nom_entreprise}•&nbsp;$bus_stop->garenom •&nbsp;$bus_stop->nomsousgare</strong> ";
             
@@ -2493,6 +2517,10 @@
 
            
                 $this->property['bagagesesc'] = $this->m_bagageesc->get($this->company->ekey, $gd);
+                $this->_role17_apply_escale_ops($uid, $gd);
+                if (function_exists('role17_is_agent') && role17_is_agent()) {
+                    $this->property['layout_minimal'] = TRUE;
+                }
                 
                 $this->property['pagetitle'] .= "VOIR BAGAGES ESCAL • <strong>{$this->company->nom_entreprise}•&nbsp;$bus_stop->garenom •&nbsp;$bus_stop->nomsousgare</strong>";
             
@@ -2510,17 +2538,43 @@
                 $conex = $this->_roleattribut_guard_bind($uid, $this->company->ekey, $gd);
                 $this->property['conex'] = $conex;
 
-           
-                $this->property['lignesgare'] = $this->m_lignes->getlggare($this->company->id_entreprise, $gd);
-                $this->property['lignes'] = $this->m_lignes->get($this->company->id_entreprise, $gd);
-                
                 $this->property['cptcourescd'] = $this->m_courrier_expedieresc->compteurcd($this->company->ekey, $uid, $gd);
-
                 $this->property['cptcoures'] = $this->m_courrier_expedieresc->compteur($this->company->ekey, $uid, $gd);
 
-                 $this->property['typesclients'] = $this->m_type_client->get();
+                // Rôle 17 : données pour la modale d'envoi unique (types + formulaires).
+                if (function_exists('role17_is_agent') && role17_is_agent()) {
+                    $this->property['lignesgare'] = array();
+                    $this->property['lignes'] = array();
+                    $this->property['typesclients'] = array();
+                    $this->property['heures'] = array();
+                    $this->property['layout_minimal'] = TRUE;
+                    $this->property['departcourriers'] = $this->m_courrier_expedieresc->getexps($this->company->ekey, $gd, $sg);
+                    $this->property['personnels'] = $this->m_personnels->infop();
+                    $this->property['categorie'] = $this->m_categ->get($this->company->id_entreprise);
+                    $this->property['typepersonnes'] = $this->m_type_client->getgenre();
+                    $this->property['typepersonnesdest'] = $this->m_type_client->getmem();
+                    $this->property['typepersonnels'] = $this->m_type_client->getgenr();
+                    $this->property['typepersonnes1'] = $this->m_type_client->getg();
+                    $this->property['typepersonnes2'] = $this->m_type_client->getgenre2();
+                    $this->property['typepersonnesmb'] = $this->m_type_client->getm();
+                    $this->property['typepersonnes3'] = $this->m_type_client->getgenre3();
+                    $this->property['garedeparts'] = array();
+                    $this->property['garearrivees'] = array();
+                    $this->property['destination'] = array();
+                    $this->property['cptenvoi'] = $this->property['cptcoures'];
+                    foreach (array('typepersonnes', 'typepersonnes1', 'typepersonnes2', 'typepersonnes3', 'garedeparts', 'garearrivees') as $k) {
+                        if (empty($this->property[$k]) || !is_array($this->property[$k])) {
+                            $this->property[$k] = array();
+                        }
+                    }
+                } else {
+                    $this->property['lignesgare'] = $this->m_lignes->getlggare($this->company->id_entreprise, $gd);
+                    $this->property['lignes'] = $this->m_lignes->get($this->company->id_entreprise, $gd);
+                    $this->property['typesclients'] = $this->m_type_client->get();
+                    $this->property['heures'] = $this->m_heure->get();
+                }
 
-                $this->property['heures'] = $this->m_heure->get();
+                $this->_role17_apply_escale_ops($uid, $gd);
 
                 $this->property['pagetitle'] .= " EXPEDITION COURRIER ESCALE• <strong>{$this->company->nom_entreprise}•&nbsp;</strong> ";
             
@@ -2545,7 +2599,13 @@
 
                 $conex = $this->_roleattribut_guard_bind($uid, $this->company->ekey, $gd);
             $this->property['conex'] = $conex;
-            $this->property['heures'] = $this->m_heure->get();
+            if (!(function_exists('role17_is_agent') && role17_is_agent())) {
+                $this->property['heures'] = $this->m_heure->get();
+            }
+            $this->_role17_apply_escale_ops($uid, $gd);
+            if (function_exists('role17_is_agent') && role17_is_agent()) {
+                $this->property['layout_minimal'] = TRUE;
+            }
                 
             $this->property['pagetitle'] .= "•{$bus_stop->garenom}•&nbsp;{$bus_stop->nomsousgare}&nbsp;•COURRIERS ENVOYES • <strong>{$this->company->nom_entreprise}</strong>&nbsp;•&nbsp;</strong>";
             return $this->layout->view('_tickets/depcouresc', $this->property);
@@ -2604,6 +2664,7 @@
                     $this->property['garearrivees'] = $this->m_gare_arrivee->get($this->company->id_entreprise, $gd);
 
                 }
+                $this->_role17_apply_escale_ops($uid, $gd);
                 $this->property['pagetitle'] .= " EXPEDITION ORDINAIRE ESCALE• <strong>{$this->company->nom_entreprise}•&nbsp;</strong> ";
             
                 return $this->layout->view('_tickets/courordescal', $this->property);            
@@ -2662,6 +2723,7 @@
                     $this->property['garearrivees'] = $this->m_gare_arrivee->get($this->company->id_entreprise, $gd);
 
                 }
+                $this->_role17_apply_escale_ops($uid, $gd);
                 $this->property['pagetitle'] .= " EXPEDITION PERSONNEL ESCALE• <strong>{$this->company->nom_entreprise}•&nbsp;</strong> ";
             
                 return $this->layout->view('_tickets/courpersoescal', $this->property);            
@@ -2720,6 +2782,7 @@
                     $this->property['garearrivees'] = $this->m_gare_arrivee->get($this->company->id_entreprise, $gd);
 
                 }
+                $this->_role17_apply_escale_ops($uid, $gd);
                 $this->property['pagetitle'] .= " EXPEDITION PARTENAIRE ESCALE• <strong>{$this->company->nom_entreprise}•&nbsp;</strong> ";
             
                 return $this->layout->view('_tickets/courpartescal', $this->property);            
@@ -4255,18 +4318,65 @@
 
             $conex = $this->_roleattribut_guard_bind($uid, $this->company->ekey, $gd);
             $this->property['conex'] = $conex;
-            $this->property['arriveecourriers'] = $this->m_courrier_expedier->getdest($this->company->ekey, $gd, $sg);
+
+            // Venteescal : courriers_expesc (même logique d'escale) ; sinon flux guichet classique.
+            if (function_exists('role17_is_agent') && role17_is_agent()) {
+                if (!isset($this->m_courrier_expedieresc)) {
+                    $this->load->model('Courriers_expesc_model', 'm_courrier_expedieresc');
+                }
+                $arrivees = $this->m_courrier_expedieresc->getdest(
+                    $this->company->ekey,
+                    $gd,
+                    $sg
+                );
+                $forced = function_exists('role17_forced_escale')
+                    ? role17_forced_escale($uid, $gd)
+                    : null;
+                if ($forced && !empty($forced['id_lignes']) && !empty($arrivees)) {
+                    $id_ligne = (string) $forced['id_lignes'];
+                    $arrivees = array_values(array_filter($arrivees, function ($row) use ($id_ligne) {
+                        $lg = isset($row->ident_ligne) ? (string) $row->ident_ligne : (
+                            isset($row->idlignes) ? (string) $row->idlignes : ''
+                        );
+                        return $lg === '' || $lg === $id_ligne;
+                    }));
+                }
+                $this->property['arriveecourriers'] = $arrivees;
+                $this->property['alllignes'] = $this->m_courrier_expedieresc->lg(
+                    $this->company->ekey,
+                    $gd,
+                    $sg
+                );
+            } else {
+                $this->property['arriveecourriers'] = $this->m_courrier_expedier->getdest(
+                    $this->company->ekey,
+                    $gd,
+                    $sg
+                );
+                $this->property['alllignes'] = $this->m_courrier_expedier->lg(
+                    $this->company->ekey,
+                    $gd,
+                    $sg
+                );
+            }
+
             $this->property['codegaexps'] = $this->m_gare_depart->getgbiss($this->company->id_entreprise);
-            
-                $this->property['alllignes'] = $this->m_courrier_expedier->lg($this->company->ekey, $gd, $sg);
-                $this->property['lignesheure'] = $this->m_ligne_heure->get($this->company->id_entreprise, $gd);
-            
-                $this->property['lignes'] = $this->m_lignes->get($this->company->id_entreprise, $gd);
-                $this->property['garedeparts'] = $this->m_sousgare->getes($this->company->ekey, $gd, $sg);
+            $this->property['lignesheure'] = $this->m_ligne_heure->get($this->company->id_entreprise, $gd);
+            $this->property['lignes'] = $this->m_lignes->get($this->company->id_entreprise, $gd);
+            $this->property['garedeparts'] = $this->m_sousgare->getes($this->company->ekey, $gd, $sg);
             $this->property['compagnies'] = $this->m_compagnies->get();
             $this->property['heures'] = $this->m_heure->get();
+            $this->_role17_apply_escale_ops($uid, $gd);
             $this->property['pagetitle'] .= "•{$bus_stop->garenom}•&nbsp;{$bus_stop->nomsousgare}&nbsp;•COURRIERS ARRIVES • <strong>{$this->company->nom_entreprise}</strong>";
-            return $this->layout->view('_tickets/arrcours', $this->property);                  
+            return $this->layout->view('_tickets/arrcours', $this->property);
+        }
+
+        /**
+         * Alias historique / toolbar admin : même écran que validerarr (escale si rôle 17).
+         */
+        public function validerarresc($ckey, $uid, $gd, $sg)
+        {
+            return $this->validerarr($ckey, $uid, $gd, $sg);
         }
 
         public function updatedrecept($ckey)

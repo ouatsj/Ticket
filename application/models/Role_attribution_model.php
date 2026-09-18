@@ -159,6 +159,95 @@ class Role_attribution_model extends CI_Model
             return $this->db->where('roleattribut', $id)->delete($this->table);
         }
 
+        /**
+         * Colonnes vente escale (rôle 17) présentes en base.
+         */
+        public function has_vente_escale_fields()
+        {
+            static $ok = null;
+            if ($ok !== null) {
+                return $ok;
+            }
+            $ok = $this->db->field_exists('vente_escale_value', $this->table)
+                && $this->db->field_exists('vente_escale_id_lignes', $this->table)
+                && $this->db->field_exists('vente_escale_label', $this->table);
+            return $ok;
+        }
+
+        /**
+         * Enregistre ou efface l'affectation ligne/escale (rôle 17).
+         *
+         * @param int $roleattribut
+         * @param string|null $id_lignes
+         * @param string|null $value
+         * @param string|null $label
+         * @return bool
+         */
+        public function set_vente_escale($roleattribut, $id_lignes = null, $value = null, $label = null)
+        {
+            $roleattribut = (int) $roleattribut;
+            if ($roleattribut <= 0 || !$this->has_vente_escale_fields()) {
+                return false;
+            }
+
+            $id_lignes = $id_lignes !== null ? trim((string) $id_lignes) : '';
+            $value = $value !== null ? trim((string) $value) : '';
+            $label = $label !== null ? trim((string) $label) : '';
+
+            if ($id_lignes === '' || $value === '') {
+                return $this->db->where('roleattribut', $roleattribut)->update($this->table, array(
+                    'vente_escale_id_lignes' => null,
+                    'vente_escale_value' => null,
+                    'vente_escale_label' => null,
+                ));
+            }
+
+            return $this->db->where('roleattribut', $roleattribut)->update($this->table, array(
+                'vente_escale_id_lignes' => $id_lignes,
+                'vente_escale_value' => $value,
+                'vente_escale_label' => ($label !== '' ? $label : $value),
+            ));
+        }
+
+        /**
+         * Lit l'affectation escale d'une attribution (rôle 17).
+         *
+         * @param int $roleattribut
+         * @return array{id_lignes:string,value:string,label:string}|null
+         */
+        public function get_vente_escale($roleattribut)
+        {
+            $roleattribut = (int) $roleattribut;
+            if ($roleattribut <= 0 || !$this->has_vente_escale_fields()) {
+                return null;
+            }
+
+            $row = $this->db->query(
+                "SELECT vente_escale_id_lignes, vente_escale_value, vente_escale_label
+                 FROM attributions_role
+                 WHERE roleattribut = ?
+                 LIMIT 1",
+                array($roleattribut)
+            )->row();
+
+            if (!$row) {
+                return null;
+            }
+
+            $value = trim((string) $row->vente_escale_value);
+            $id_lignes = trim((string) $row->vente_escale_id_lignes);
+            if ($value === '' || strpos($value, '~') === false || $id_lignes === '') {
+                return null;
+            }
+
+            $label = trim((string) $row->vente_escale_label);
+            return array(
+                'id_lignes' => $id_lignes,
+                'value' => $value,
+                'label' => ($label !== '' ? $label : $value),
+            );
+        }
+
         public function get($cid, $useid = FALSE)
         {
             if ($useid === FALSE) {

@@ -47,6 +47,28 @@
                     AND cc.compteactif = 0")->result();
         }
 
+        /** Bordereaux courrier non validés — toute la gare (profil chef escale). */
+        public function getcompte_gare($cd, $gid, $ad)
+        {
+            return $this->db->query(
+                "SELECT * FROM compte_courrier cc
+                JOIN attributions_role ar ON cc.comptiduser = ar.roleattribut
+                JOIN user_login ul ON ar.idgestcompte = ul.uid_login
+                JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
+                JOIN gares g ON ul.guser = g.idengare
+                JOIN utilisateurs u ON cu.userlog_id = u.uid
+                JOIN compagnies c ON cc.compcour = c.cle_compagnie
+                JOIN entreprise e ON c.id_entrep = e.id_entreprise
+                WHERE e.ekey = ?
+                AND ar.roleattribut = ?
+                AND cc.validcompteis = 0
+                AND g.idengare = ?
+                AND cc.compteactif = 0
+                ORDER BY cc.update_lastcptg DESC",
+                array($cd, (int) $ad, $gid)
+            )->result();
+        }
+
         public function versfiltre($key, $gid, $db, $df, $cp, $use = FALSE)
         {
             if ($use === '') {

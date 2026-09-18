@@ -8,6 +8,11 @@
 
     </div>
 </div>
+<?php if ($msg = $this->session->flashdata('compte_error')): ?>
+<div class="row"><div class="col-12">
+    <div class="alert alert-danger"><?= htmlspecialchars($msg, ENT_QUOTES, 'UTF-8'); ?></div>
+</div></div>
+<?php endif; ?>
     <div class="row">
 
         <? foreach ($compteroleattrib as $item): ?>
@@ -61,13 +66,21 @@
                                                     </select>
                                                 </div>
                                             </div>
+                                            <?php
+                                            $this->load->view('beagle/pages/_users/_role17_escale_fields', array(
+                                                'prefix' => 'edit-' . $item->roleattribut,
+                                                'gare_id' => (string) $item->guser,
+                                                'selected_ligne' => !empty($item->vente_escale_id_lignes) ? (string) $item->vente_escale_id_lignes : '',
+                                                'selected_value' => !empty($item->vente_escale_value) ? (string) $item->vente_escale_value : '',
+                                                'selected_label' => !empty($item->vente_escale_label) ? (string) $item->vente_escale_label : '',
+                                            ));
+                                            ?>
                                             
                                             <div class="modal-footer">
                                                 <button class="btn btn-secondary modal-close" type="reset" data-dismiss="modal">
                                                     <i class="icon icon-left mdi mdi-undo"></i>&nbsp;ANNULER&nbsp;
                                                 </button>
-                                                <button class="btn btn-success md-trigger" type="submit"
-                                                        data-dismiss="modal">
+                                                <button class="btn btn-success" type="submit">
                                                     <i class="icon icon-left mdi mdi-check-all"></i>&nbsp;OK&nbsp;
                                                 </button>
                                             </div>
@@ -123,6 +136,22 @@
                         <p>Contact2: <?= $item->phone2; ?></p>
                         <p>GARE: <?= $item->garenom; ?></p>
                         <p>PROFIL: <?= $item->type_rols; ?></p>
+                        <?php if ((string) $item->userole === '17'): ?>
+                            <p>ESCALE:
+                                <?php if (!empty($item->vente_escale_label) || !empty($item->vente_escale_value)): ?>
+                                    <strong><?= htmlspecialchars(
+                                        !empty($item->vente_escale_label) ? $item->vente_escale_label : $item->vente_escale_value,
+                                        ENT_QUOTES,
+                                        'UTF-8'
+                                    ); ?></strong>
+                                    <?php if (!empty($item->vente_escale_id_lignes)): ?>
+                                        <br><small class="text-muted">Ligne: <?= htmlspecialchars($item->vente_escale_id_lignes, ENT_QUOTES, 'UTF-8'); ?></small>
+                                    <?php endif; ?>
+                                <?php else: ?>
+                                    <span class="text-warning">Non affectée</span>
+                                <?php endif; ?>
+                            </p>
+                        <?php endif; ?>
                         <p><?= ((int) $item->is_conect === 1) ? '<span
                                 class="icon mdi text-success">En ligne</span>'
                                 . (((int) $item->activeattrib === 1) ? ' <small class="text-muted">(gare active)</small>' : '')
@@ -151,3 +180,4 @@
             </div>
         </div>
 <? endif; ?>
+<script src="<?= base_url('assets/js/role17_escale_attrib.js'); ?>"></script>

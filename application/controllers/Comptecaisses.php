@@ -180,6 +180,15 @@
 
         public function arcompteescalbag($ckey, $idc, $gd, $sg)
         {
+            // Rôle 17 : arrêt bagage = arrêt global (pas d’écran distinct).
+            if (!function_exists('role17_is_agent')) {
+                $this->load->helper('role17_context');
+            }
+            if (function_exists('role17_is_agent') && role17_is_agent()) {
+                redirect('caisses/compteescal/' . $ckey . '/' . $idc . '/' . $gd . '/' . $sg);
+                return;
+            }
+
             $sgares = $this->db->query("SELECT count(idsousgare) AS sog FROM sousgare s
                             WHERE s.gareprinceid = '$gd'")->row();
             
@@ -219,6 +228,15 @@
 
         public function arcompteescalcour($ckey, $idc, $gd, $sg)
         {
+            // Rôle 17 : arrêt courrier = arrêt global (pas d’écran distinct).
+            if (!function_exists('role17_is_agent')) {
+                $this->load->helper('role17_context');
+            }
+            if (function_exists('role17_is_agent') && role17_is_agent()) {
+                redirect('caisses/compteescal/' . $ckey . '/' . $idc . '/' . $gd . '/' . $sg);
+                return;
+            }
+
             $sgares = $this->db->query("SELECT count(idsousgare) AS sog FROM sousgare s WHERE s.gareprinceid = '$gd'")->row();
             
             $this->company = $this->m_entreprises->get_key($ckey);
@@ -257,6 +275,15 @@
 
         public function valideescbag($ckey, $idcpt, $d, $gd, $isg)
         {
+            // Rôle 17 : pas d’arrêt bagage distinct — basculer sur l’arrêt global.
+            if (!function_exists('role17_is_agent')) {
+                $this->load->helper('role17_context');
+            }
+            if (function_exists('role17_is_agent') && role17_is_agent()) {
+                redirect('caisses/compteescal/' . $ckey . '/' . $idcpt . '/' . $gd . '/' . $isg);
+                return;
+            }
+
             $this->company = $this->m_entreprises->get_key($ckey);
             $idcpt = compte_arret_resolve_roleattribut($this->company->ekey, $gd, $idcpt);
             $idcpt = (int) $idcpt;
@@ -356,6 +383,12 @@
 
         public function validecouresc($ckey, $idcpt, $d, $gd, $isg)
         {
+            // Rôle 17 : pas d’arrêt courrier distinct — basculer sur l’arrêt global.
+            if (function_exists('role17_is_agent') && role17_is_agent()) {
+                redirect('caisses/compteescal/' . $ckey . '/' . $idcpt . '/' . $gd . '/' . $isg);
+                return;
+            }
+
             $this->company = $this->m_entreprises->get_key($ckey);
             $idcpt = compte_arret_resolve_roleattribut($this->company->ekey, $gd, $idcpt);
             $idcpt = (int) $idcpt;

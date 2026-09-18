@@ -1148,8 +1148,9 @@ if (!function_exists('compte_arret_unclosed_bagage')) {
     {
         $CI =& get_instance();
         $today = mdate('%Y-%m-%d', now('UTC'));
+        $ra = (int) $roleattribut;
 
-        return (bool) $CI->db->query(
+        if ($CI->db->query(
             "SELECT 1 FROM bagages b
             WHERE b.idoperabagage = ?
             AND b.date_create < ?
@@ -1157,8 +1158,28 @@ if (!function_exists('compte_arret_unclosed_bagage')) {
             AND b.annulebag = 0
             AND b.prix_bagage IS NOT NULL
             LIMIT 1",
-            [(int) $roleattribut, $today]
-        )->row();
+            array($ra, $today)
+        )->row()) {
+            return true;
+        }
+
+        // Rôle 17 / bagage escale (table bagagesesc) — jours précédents non arrêtés.
+        if ($CI->db->table_exists('bagagesesc') && $CI->db->query(
+            "SELECT 1 FROM bagagesesc bg
+            WHERE bg.idoperabagageesc = ?
+            AND bg.date_createesc < ?
+            AND bg.isvalidbagesc = 0
+            AND IFNULL(bg.annulebagesc, 0) = 0
+            AND IFNULL(bg.actifbagesc, 0) = 0
+            AND bg.prix_bagageesc IS NOT NULL
+            AND bg.prix_bagageesc > 0
+            LIMIT 1",
+            array($ra, $today)
+        )->row()) {
+            return true;
+        }
+
+        return false;
     }
 }
 

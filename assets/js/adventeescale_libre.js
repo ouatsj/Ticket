@@ -27,8 +27,20 @@ document.addEventListener('DOMContentLoaded', () => {
         const departFixe = root.getAttribute('data-depart-fixe')
             || root.dataset.departFixe
             || '';
+        const departLocked = root.getAttribute('data-depart-locked') === '1'
+            || !!departFixe;
 
         let destRequestSeq = 0;
+
+        function enforceDepartFixe() {
+            if (!departLocked || !departFixe || !selDepart) return;
+            if (selDepart.tagName === 'SELECT') {
+                // Ne pas permettre un select si le départ est figé.
+                return;
+            }
+            selDepart.value = departFixe;
+            selDepart.setAttribute('readonly', 'readonly');
+        }
 
         function resetDest() {
             if (!selDest) return;
@@ -179,12 +191,17 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         function setFormAction() {
+            enforceDepartFixe();
             if (form && cle) {
                 form.setAttribute('action', APP_ROOT + '/Ventescales/passagerescal_libre/' + cle);
             }
         }
 
         if (form) {
+            form.addEventListener('submit', function () {
+                enforceDepartFixe();
+                setFormAction();
+            });
             form.onsubmit = setFormAction;
         }
         const btn = root.querySelector('#bottonescal_libre') || document.querySelector('#bottonescal_libre');
@@ -192,8 +209,12 @@ document.addEventListener('DOMContentLoaded', () => {
             btn.onclick = setFormAction;
         }
 
+        enforceDepartFixe();
         loadDepartPoints(false);
-        root._escaleLibreReload = function () { loadDepartPoints(true); };
+        root._escaleLibreReload = function () {
+            enforceDepartFixe();
+            loadDepartPoints(true);
+        };
     }
 
     document.querySelectorAll('.adventeescale-libre').forEach(bindVenteEscaleLibre);

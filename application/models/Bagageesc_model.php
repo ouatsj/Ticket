@@ -49,8 +49,15 @@
                 AND bg.genrebagageesc = 'sans_suivi'
                 AND ex.code_gaexp = '$gd'")->result();
             }
+            // quartier_escal du ticket vérifié (OD libre) — pas le nom de ligne.
             return $this->db->query(
-                "SELECT * FROM bagagesesc bg
+                "SELECT bg.*, cl.nom_client, cl.prenom_client, cl.contact_client,
+                        esc.quartier_escal, esc.idclescal,
+                        sg.nomsousgare, h.heure,
+                        lg.ident_ligne, lg.nom_ligne,
+                        dest.nom_gadest, dest.id_compaga,
+                        c.nom_compagnie, c.logo, e.ekey
+                 FROM bagagesesc bg
                 JOIN attributions_role ar ON bg.idoperabagageesc = ar.roleattribut
                 JOIN user_login ul ON ar.idgestcompte = ul.uid_login
                 JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
@@ -64,10 +71,13 @@
                 JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
                 JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                WHERE e.ekey = '$cid'
-                AND ex.code_gaexp = '$gd'
+                WHERE e.ekey = ?
                 AND bg.genrebagageesc = 'sans_suivi'
-                AND bg.id_bagageesc = '$bgid'")->row();
+                AND bg.id_bagageesc = ?
+                AND (bg.idgarebagesc = ? OR ex.code_gaexp = ?)
+                LIMIT 1",
+                array($cid, $bgid, $gd, $gd)
+            )->row();
         }
 
         public function getnon($cid, $gd, $bgid = FALSE)
@@ -344,6 +354,7 @@
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = '$cd'
                 AND ul.guser = '$g'
+                AND ar.roleattribut = '$idcox'
                 AND bg.validbagesc = 0
                 AND dest.id_compaga = '$comp'
                 AND bg.isvalidbagesc = 1
@@ -352,6 +363,70 @@
                 AND bg.annulebagesc = 0
                 AND bg.actifbagesc = 0
                 GROUP BY lg.nom_ligne, bg.prix_bagageesc")->result();
+        }
+
+        /**
+         * Rapport mobile après arrêt global escale (tickets + bagage + courrier).
+         * Agrège bagages arrêtés du jour pour l'agent / compagnie.
+         */
+        public function rapport_mobile_arret($cd, $idcox, $comp, $g)
+        {
+            $today = mdate('%Y-%m-%d', now('UTC'));
+            return $this->db->query(
+                "SELECT COUNT(bg.id_bagageesc) AS cbg,
+                        SUM(bg.prix_bagageesc) AS bagtotal,
+                        COALESCE(lg.nom_ligne, 'BAGAGE') AS nom_ligne,
+                        bg.prix_bagageesc
+                 FROM bagagesesc bg
+                 JOIN attributions_role ar ON bg.idoperabagageesc = ar.roleattribut
+                 JOIN user_login ul ON ar.idgestcompte = ul.uid_login
+                 LEFT JOIN ligne_heure lh ON bg.id_lgeheuresc = lh.id_ligneheure
+                 LEFT JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
+                 LEFT JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
+                 LEFT JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
+                 LEFT JOIN entreprise e ON c.id_entrep = e.id_entreprise
+                 WHERE ar.roleattribut = ?
+                 AND ul.guser = ?
+                 AND bg.isvalidbagesc = 1
+                 AND bg.annulebagesc = 0
+                 AND bg.actifbagesc = 0
+                 AND bg.prix_bagageesc IS NOT NULL
+                 AND bg.prix_bagageesc > 0
+                 AND bg.date_createesc <= ?
+                 AND (e.ekey IS NULL OR e.ekey = ?)
+                 AND (dest.id_compaga IS NULL OR dest.id_compaga = ?)
+                 GROUP BY lg.nom_ligne, bg.prix_bagageesc",
+                array($idcox, $g, $today, $cd, $comp)
+            )->result();
+        }
+
+        /**
+         * Bagages du jour pour réimpression 57×40 (rôle 17).
+         */
+        public function liste_reimpri_jour($cd, $idcox, $g, $sg)
+        {
+            $today = mdate('%Y-%m-%d', now('UTC'));
+            return $this->db->query(
+                "SELECT bg.id_bagageesc, bg.codebagesc, bg.prix_bagageesc, bg.contenubagageesc,
+                        bg.date_createesc, cl.nom_client, cl.prenom_client, cl.contact_client,
+                        h.heure, lg.nom_ligne
+                 FROM bagagesesc bg
+                 JOIN client cl ON bg.clientbagesc = cl.id_client
+                 LEFT JOIN ligne_heure lh ON bg.id_lgeheuresc = lh.id_ligneheure
+                 LEFT JOIN heures h ON lh.heure_identif = h.id_heure
+                 LEFT JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
+                 WHERE bg.idoperabagageesc = ?
+                 AND bg.idgarebagesc = ?
+                 AND bg.idsgarebagesc = ?
+                 AND bg.date_createesc = ?
+                 AND bg.annulebagesc = 0
+                 AND bg.actifbagesc = 0
+                 AND bg.prix_bagageesc IS NOT NULL
+                 AND bg.prix_bagageesc > 0
+                 ORDER BY bg.id_bagageesc DESC
+                 LIMIT 50",
+                array($idcox, $g, $sg, $today)
+            )->result();
         }
 
         //fiche inventaire
