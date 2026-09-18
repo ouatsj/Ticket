@@ -32,7 +32,12 @@ document.addEventListener('DOMContentLoaded', () => {
         jambeIsolee: 0,
         nomLigneOd: '',
         nom_gaep: '',
-        nom_gadest: ''
+        nom_gadest: '',
+        dest_escale: '',
+        multiMode: false,
+        transitChemins: [],
+        _multiAutoTried: false,
+        _forceMultiLoad: false
     };
 
     function __reprogQ(id) { return document.getElementById(id); }
@@ -504,6 +509,17 @@ document.addEventListener('DOMContentLoaded', () => {
         window.__reprogState.hubCasEMsg = '';
         window.__reprogState.jambeIsolee = 0;
         window.__reprogState.nomLigneOd = '';
+        window.__reprogState._multiAutoTried = false;
+        window.__reprogState._forceMultiLoad = false;
+        window.__reprogState.multiMode = false;
+        window.__reprogState.transitChemins = [];
+        var multiCb = __reprogQ('reprog_allow_multi');
+        if (multiCb) multiCb.checked = false;
+        var multiWrap = __reprogQ('reprog_allow_multi_wrap');
+        if (multiWrap) {
+            multiWrap.style.display = 'none';
+            multiWrap.hidden = true;
+        }
         var isoEl = __reprogQ('reprog_jambe_isolee');
         if (isoEl) isoEl.value = '0';
         var scopeWrap = __reprogQ('reprog_jambe_scope_wrap');
@@ -588,13 +604,10 @@ document.addEventListener('DOMContentLoaded', () => {
         window.__reprogState.gid = __reprogResolveGareReport();
         var gaReport = window.__reprogState.gid || window.__reprogState.gaexp || '';
         // Chargement : départs gare de report — filtre STRICT nom_ligne (toutes compagnies).
+        // Pas de codes gadest/axes dans la recherche programme.
         var qs = [
             'nom_ligne=' + encodeURIComponent(String(window.__reprogState.nom_ligne))
         ];
-        var axesQ = __reprogAxesQuery();
-        if (axesQ) {
-            qs.push(axesQ.replace(/^&/, ''));
-        }
         if (window.__reprogState.id_escale) {
             qs.push('id_escale=' + encodeURIComponent(String(window.__reprogState.id_escale)));
         }
@@ -605,7 +618,7 @@ document.addEventListener('DOMContentLoaded', () => {
             window.location.origin + APP_ROOT
                 + '/reprogrammes/heures_unifie/'
                 + encodeURIComponent(gaReport) + '/'
-                + encodeURIComponent(window.__reprogState.gadest || '0') + '/'
+                + '0/'
                 + encodeURIComponent(window.__reprogState.exclude || '0')
                 + (qs.length ? ('?' + qs.join('&')) : ''),
             function (data2) {
@@ -879,9 +892,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function __reprogAxesQuery() {
-        var axes = window.__reprogState.axesOd || [];
-        if (!axes.length) return '';
-        return '&axes=' + encodeURIComponent(axes.join(','));
+        // Reprog : ne jamais filtrer le catalogue par codes d’axes
+        // (plusieurs codes = même gare → confusion). Le nom_ligne suffit.
+        return '';
     }
 
     function __reprogVerifyExtraLeg(legNum) {
@@ -1246,6 +1259,33 @@ document.addEventListener('DOMContentLoaded', () => {
         return (st.gaexp && String(st.gaexp).trim()) || '';
     }
 
+    /** Nom métier de la gare de report (session), pas le départ du ticket. */
+    function __reprogGareReportNom() {
+        var nEl = document.querySelector('input[name="gareconnect_nom"]');
+        var n = nEl ? String(nEl.value || '').trim() : '';
+        if (n) return __reprogStripCieSuffix(n);
+        var st = window.__reprogState;
+        var gid = __reprogResolveGareReport();
+        if (gid && st.gaexp && gid === String(st.gaexp).trim() && st.nom_gaep) {
+            return __reprogStripCieSuffix(st.nom_gaep);
+        }
+        return '';
+    }
+
+    /**
+     * Ligne recherche transit : gare de REPORT → destination ticket (noms).
+     * Ex. Banfora + Ouaga → BANFORA-OUAGA (pas BOBO-OUAGA du billet d’origine).
+     */
+    function __reprogNomLigneReportVersDest() {
+        var reportNom = __reprogGareReportNom();
+        var t = __reprogDestTargets();
+        var dest = t.escNom || t.destNom;
+        if (reportNom && dest) {
+            return reportNom + '-' + dest;
+        }
+        return '';
+    }
+
     // Alias historique
     function __reprogResolveGareDepart() {
         return __reprogResolveGareReport();
@@ -1275,23 +1315,59 @@ document.addEventListener('DOMContentLoaded', () => {
         ).trim();
     }
 
-    /** Rejette les chemins clairement contre-sens (départ = dest ticket, ou 1ʳᵉ arrivée = gare report). */
+    /** Rejette les chemins contre-sens ou qui n’atteignent pas la destination ticket. */
     function __reprogCheminSensOk(ch) {
         var st = window.__reprogState;
-        var gare = String(st.gid || __reprogResolveGareReport() || '').trim();
-        var dest = String(st.gadest || '').trim();
+        // Gare d’opération = report (session) en multi ; sinon départ ticket.
+        var gareNom = __reprogStripCieSuffix(
+            (st.multiMode ? __reprogGareReportNom() : '') || st.nom_gaep || ''
+        );
+        var destNom = __reprogStripCieSuffix(st.nom_gadest || '');
+        var escNom = __reprogStripCieSuffix(
+            st.dest_escale
+            || ((__reprogQ('nom_dest_vente_reprog') || {}).value || '')
+            || ''
+        );
         var et = __reprogNormalizeEtapes(ch && (ch.etapes || ch.legs));
         if (!et.length) return false;
-        var ga0 = __reprogEtapeCodeGaexp(et[0]);
-        var gd0 = __reprogEtapeCodeGadest(et[0]);
-        var gdLast = __reprogEtapeCodeGadest(et[et.length - 1]);
-        // Contre-sens : 1ʳᵉ jambe part de la destination ticket.
-        if (dest && ga0 && ga0 === dest) return false;
+        var first = et[0];
+        var last = et[et.length - 1];
+        var firstDepNom = __reprogStripCieSuffix(
+            (first && (first.nom_gaep || first.depart_itine || first.depart || '')) || ''
+        );
+        var firstArrNom = __reprogStripCieSuffix(
+            (first && (first.nom_gadest || first.arrive_itine || first.arrivee || '')) || ''
+        );
+        var lastNom = __reprogStripCieSuffix(
+            (last && (last.nom_gadest || last.arrive_itine || last.arrivee || '')) || ''
+        );
+        // Contre-sens : 1ʳᵉ jambe part de la destination (terminus ou escale).
+        if (destNom && firstDepNom && firstDepNom === destNom) return false;
+        if (escNom && firstDepNom && firstDepNom === escNom) return false;
         // Contre-sens / boucle : 1ʳᵉ jambe arrive à la gare de report.
-        if (gare && gd0 && gd0 === gare) return false;
-        // Dernière jambe doit viser la destination ticket si on la connaît (codes).
-        // Ne pas exiger égalité stricte BAM6≠BAM53 : seulement rejeter si on repart vers le départ.
-        if (gare && gdLast && gdLast === gare && et.length >= 2) return false;
+        if (gareNom && firstArrNom && firstArrNom === gareNom) return false;
+        // Dernière jambe ne doit pas revenir à la gare de report.
+        if (gareNom && lastNom && lastNom === gareNom && et.length >= 2) return false;
+        // Atteindre destination : nom terminus OU nom escale.
+        // Repli nom_ligne (hub_lie sans nom_gadest : BOBO-OUAGA → OUAGA).
+        if (destNom || escNom) {
+            if (destNom && lastNom && lastNom === destNom) return true;
+            if (escNom && lastNom && lastNom === escNom) return true;
+            var lnLast = __reprogStripCieSuffix(
+                (last && (last.nom_ligne || last.nom_itineraires)) || ''
+            );
+            if (!lnLast && first) {
+                lnLast = __reprogStripCieSuffix(first.nom_ligne || first.nom_itineraires || '');
+            }
+            if (destNom && lnLast && lnLast.slice(-(destNom.length + 1)) === '-' + destNom) {
+                return true;
+            }
+            if (escNom && lnLast && lnLast.slice(-(escNom.length + 1)) === '-' + escNom) {
+                return true;
+            }
+            if (!lastNom && !lnLast) return false;
+            return false;
+        }
         return true;
     }
 
@@ -1303,15 +1379,24 @@ document.addEventListener('DOMContentLoaded', () => {
         return !!(st.isTransitTicket && iso <= 0 && (st.nbrJambes || 0) >= 2);
     }
 
-    function __reprogFetchChemins(dateYmd, hhmm, after, forceEvenIfDirect) {
+    function __reprogFetchChemins(dateYmd, hhmm, after, forceEvenIfDirect, nomLigneOverride) {
         var st = window.__reprogState;
-        // Ancre = gare de report ; OD recherche = gare report → destination ticket.
         st.gid = __reprogResolveGareReport();
-        if (!__reprogEnsureNomLigne()) {
-            if (typeof after === 'function') after([]);
-            return;
+        var nomSearch = String(nomLigneOverride || '').trim();
+        if (!nomSearch) {
+            if (st.multiMode) {
+                nomSearch = __reprogNomLigneReportVersDest() || String(st.nom_ligne || '').trim();
+            } else {
+                nomSearch = String(st.nom_ligne || '').trim();
+            }
         }
-        // Direct déjà chargé → pas d’appel multi parasite (sauf report global transit).
+        if (!nomSearch) {
+            if (!__reprogEnsureNomLigne()) {
+                if (typeof after === 'function') after([]);
+                return;
+            }
+            nomSearch = String(st.nom_ligne || '').trim();
+        }
         var hasDirectDate = __reprogFilterByDate(dateYmd).some(function (r) {
             if (!r) return false;
             if (String(r.slot_kind || '') === 'multi') return false;
@@ -1324,14 +1409,13 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
         var axeSearch = __reprogAxeDepuisGareReport() || st.axe;
-        var force = '1';
+        var force = (forceEvenIfDirect || !hasDirectDate) ? '1' : '0';
         var url = window.location.origin + APP_ROOT
             + '/programmes/verifchemins/'
             + encodeURIComponent(axeSearch) + '/'
             + encodeURIComponent(dateYmd) + '/'
             + '0/' + force + '?reprog=1'
-            + '&nom_ligne=' + encodeURIComponent(String(st.nom_ligne));
-        url += __reprogAxesQuery();
+            + '&nom_ligne=' + encodeURIComponent(nomSearch);
         if (st.gid) {
             url += '&gare=' + encodeURIComponent(String(st.gid));
         }
@@ -1358,13 +1442,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (s === 'declaratif' || s === 'graphe_declaratif') return 20;
                 return 30;
             }
+            var allowOneLeg = !!forceEvenIfDirect || !!st.multiMode;
             chemins = chemins.filter(function (c) {
                 if (!c) return false;
-                // Garder hub/programmes/aval ; exclure déclaratif seul.
                 if (c.source === 'declaratif') return false;
                 var et = __reprogNormalizeEtapes(c.etapes || c.legs);
-                if (et.length < 2) return false;
-                return __reprogCheminSensOk(c);
+                if (!et.length) return false;
+                if (!allowOneLeg && et.length < 2) return false;
+                return __reprogCheminSensOk(c) && __reprogCheminAtteintDest(c);
             });
             chemins.sort(function (a, b) {
                 var pa = prioR(a);
@@ -1432,12 +1517,16 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function __reprogMergeItineraires(directs, chemins, allowBoth) {
-        // Règle : directs seuls s'il y en a, sinon correspondances multi.
-        // allowBoth (case Multi) : directs + correspondances.
+        // Double choix report : directs + correspondances (allowBoth=true).
+        // Les directs issus de heures_unifie (source=direct / 1 jambe) sont
+        // déjà filtrés par nom_ligne côté serveur.
         var out = [];
         var seenDirectKey = {};
         var directList = __reprogRowsArray(directs).filter(function (ch) {
-            return ch && __reprogCheminSensOk(ch);
+            if (!ch) return false;
+            var et = __reprogNormalizeEtapes(ch.etapes || ch.legs);
+            if (ch.source === 'direct' || et.length === 1) return true;
+            return __reprogCheminSensOk(ch);
         });
         directList.forEach(function (ch) {
             var et = __reprogNormalizeEtapes(ch.etapes || ch.legs);
@@ -1469,16 +1558,582 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function __reprogAllowMultiChecked() {
-        // Multi uniquement s’il n’y a pas de direct (plus de case à cocher « forcer multi »).
+        var el = __reprogQ('reprog_allow_multi');
+        return !!(el && el.checked);
+    }
+
+    function __reprogSyncAllowMultiWrap(hasDirect, hasMultiSlots) {
+        var wrap = __reprogQ('reprog_allow_multi_wrap');
+        var cb = __reprogQ('reprog_allow_multi');
+        if (!wrap) return;
+        // Visible dès qu’il y a des directs : cocher active le transit directionnel.
+        var show = !!(hasDirect && (hasMultiSlots || hasDirect));
+        wrap.style.display = show ? '' : 'none';
+        wrap.hidden = !show;
+        wrap.setAttribute('aria-hidden', show ? 'false' : 'true');
+        if (!show && cb) {
+            cb.checked = false;
+            cb.tabIndex = -1;
+        } else if (cb) {
+            cb.tabIndex = 0;
+        }
+    }
+
+    /** Destination ticket (noms) après vérif codes — pas de codes gare. */
+    function __reprogDestTargets() {
+        var st = window.__reprogState;
+        return {
+            destNom: __reprogStripCieSuffix(st.nom_gadest || ''),
+            escNom: __reprogStripCieSuffix(
+                st.dest_escale
+                || ((__reprogQ('nom_dest_vente_reprog') || {}).value || '')
+                || ''
+            ),
+            nomLigne: String(st.nom_ligne || st.nomLigneOd || '').trim()
+        };
+    }
+
+    function __reprogEtapeArrNom(et) {
+        if (!et) return '';
+        return __reprogStripCieSuffix(
+            et.nom_gadest || et.arrive_itine || et.arrivee || ''
+        );
+    }
+
+    function __reprogEtapeDepNom(et) {
+        if (!et) return '';
+        return __reprogStripCieSuffix(
+            et.nom_gaep || et.depart_itine || et.depart || ''
+        );
+    }
+
+    function __reprogEtapeHeureStr(et) {
+        if (!et) return '';
+        return __reprogHhmm(et.heure || et._graphe_heure || et.heure_depart || '');
+    }
+
+    function __reprogCheminAtteintDest(ch) {
+        var t = __reprogDestTargets();
+        var et = __reprogNormalizeEtapes(ch && (ch.etapes || ch.legs));
+        if (!et.length) return false;
+        var last = et[et.length - 1];
+        var lastNom = __reprogEtapeArrNom(last);
+        if (t.destNom && lastNom && lastNom === t.destNom) return true;
+        if (t.escNom && lastNom && lastNom === t.escNom) return true;
+        // Repli : nom de ligne se termine par la destination (BANFORA-OUAGA → OUAGA).
+        var ln = __reprogStripCieSuffix(
+            (last && (last.nom_ligne || last.nom_itineraires)) || (ch && ch.label) || ''
+        );
+        if (!ln && et[0]) {
+            ln = __reprogStripCieSuffix(et[0].nom_ligne || et[0].nom_itineraires || '');
+        }
+        if (ln && t.destNom && ln.slice(-(t.destNom.length + 1)) === '-' + t.destNom) return true;
+        if (ln && t.escNom && ln.slice(-(t.escNom.length + 1)) === '-' + t.escNom) return true;
         return false;
     }
 
-    function __reprogSyncAllowMultiWrap(hasDirect) {
-        var wrap = __reprogQ('reprog_allow_multi_wrap');
-        var cb = __reprogQ('reprog_allow_multi');
-        if (wrap) wrap.style.display = 'none';
-        if (cb) cb.checked = false;
-        // hasDirect ignoré : directs d’abord ; multi proposé seulement s’il n’y en a pas.
+    /**
+     * Transit vers la destination du ticket (direction vérifiée).
+     * Multi coché : priorise les multi-jambes (ex. Banfora→Bobo→Ouaga).
+     * 1 jambe acceptée si elle part de la gare de report et atteint la dest
+     * (même si nom_ligne = ticket, ex. report Banfora sur billet BANFORA-OUAGA).
+     */
+    function __reprogFilterTransitVersDest(chemins) {
+        var t = __reprogDestTargets();
+        var st = window.__reprogState;
+        var reportNom = __reprogGareReportNom();
+        return __reprogRowsArray(chemins).filter(function (ch) {
+            if (!ch || ch.source === 'declaratif') return false;
+            if (!__reprogCheminSensOk(ch)) return false;
+            if (!__reprogCheminAtteintDest(ch)) return false;
+            var et = __reprogNormalizeEtapes(ch.etapes || ch.legs);
+            if (et.length >= 2) return true;
+            if (et.length === 1) {
+                // Mode multi : on garde aussi un direct report→dest s’il existe
+                // (complète les correspondances via hub, ne les remplace pas).
+                if (st.multiMode) {
+                    var dep = __reprogEtapeDepNom(et[0]);
+                    if (reportNom && dep && dep !== reportNom) return false;
+                    return true;
+                }
+                var ln = __reprogStripCieSuffix(
+                    et[0].nom_ligne || et[0].nom_itineraires || ''
+                );
+                var ticketNom = __reprogStripCieSuffix(t.nomLigne);
+                return !!(ln && ticketNom && ln !== ticketNom);
+            }
+            return false;
+        });
+    }
+
+    function __reprogTransitPrio(ch) {
+        if (!ch) return -1;
+        if (typeof ch.priority === 'number') return ch.priority;
+        var s = ch.source || '';
+        if (s === 'hub_lie') return 100;
+        if (s === 'programmes') return 80;
+        if (s === 'programmes_aval') return 70;
+        if (s === 'graphe_gare' || s === 'gare_composition') return 60;
+        if (s === 'graphe') return 40;
+        return 30;
+    }
+
+    /** Un seul itinéraire transit (meilleur pour l’heure / la date). */
+    function __reprogPickUniqueTransit(chemins, hhmm) {
+        var hh = __reprogHhmm(hhmm || '');
+        var list = __reprogRowsArray(chemins).filter(function (ch) {
+            if (!ch) return false;
+            if (!hh) return true;
+            var et = __reprogNormalizeEtapes(ch.etapes || ch.legs);
+            return __reprogEtapeHeureStr(et[0]) === hh;
+        });
+        list.sort(function (a, b) {
+            var pa = __reprogTransitPrio(a);
+            var pb = __reprogTransitPrio(b);
+            if (pa !== pb) return pb - pa;
+            var na = __reprogNormalizeEtapes(a.etapes || a.legs).length || 99;
+            var nb = __reprogNormalizeEtapes(b.etapes || b.legs).length || 99;
+            if (na !== nb) return na - nb;
+            return (b.score || 0) - (a.score || 0);
+        });
+        return list.length ? list[0] : null;
+    }
+
+    /**
+     * Heures multi = 1 option par programme 1ʳᵉ jambe (comme la vente),
+     * pas une seule entrée par HH:MM.
+     */
+    function __reprogFillHeuresDepuisChemins(dateYmd, chemins) {
+        var sel = __reprogQ('heuredepartpunifie');
+        __reprogResetSelect(sel, "Choisissez l'heure");
+        if (!sel) return 0;
+
+        var rows = [];
+        var seen = {};
+        __reprogRowsArray(chemins).forEach(function (ch) {
+            var et = __reprogNormalizeEtapes(ch.etapes || ch.legs);
+            if (!et.length) return;
+            var e0 = et[0];
+            var hh = __reprogEtapeHeureStr(e0);
+            var cp = String(e0.code_progr || e0._code_progr || e0._graphe_code_progr || '');
+            if (!hh) return;
+            var key = cp ? ('p:' + cp) : ('h:' + hh + '|' + (e0.nom_ligne || e0.nom_itineraires || ''));
+            if (seen[key]) return;
+            seen[key] = 1;
+            rows.push({
+                hh: hh,
+                code_progr: cp,
+                id_ligneheure: e0.id_ligneheure || e0._id_ligneheure || '',
+                typetarif: e0.typetarif || '',
+                nom_ligne: e0.nom_ligne || e0.nom_itineraires || '',
+                cie: e0.nom_compagnie_arrivee || e0.nom_compagnie || '',
+                nSeg: et.length,
+                id_compaga: e0.id_compaga || '',
+                date_progr: String(e0.date_progr || e0._graphe_date_progr || dateYmd || '').slice(0, 10),
+                ch: ch
+            });
+        });
+        rows.sort(function (a, b) {
+            if (a.hh !== b.hh) return a.hh < b.hh ? -1 : 1;
+            return String(a.nom_ligne).localeCompare(String(b.nom_ligne))
+                || String(a.code_progr).localeCompare(String(b.code_progr));
+        });
+
+        var countByHhLigne = {};
+        rows.forEach(function (r) {
+            var k = r.hh + '|' + r.nom_ligne;
+            countByHhLigne[k] = (countByHhLigne[k] || 0) + 1;
+        });
+        var idxByHhLigne = {};
+
+        rows.forEach(function (r) {
+            var k = r.hh + '|' + r.nom_ligne;
+            idxByHhLigne[k] = (idxByHhLigne[k] || 0) + 1;
+            var ord = idxByHhLigne[k];
+            var multiSame = (countByHhLigne[k] || 0) > 1;
+            var opt = document.createElement('option');
+            // value = programme si connu, sinon HH (compat change handler).
+            opt.value = r.code_progr
+                ? (r.code_progr + '/' + r.id_ligneheure + '/' + r.typetarif)
+                : r.hh;
+            opt.setAttribute('data-kind', 'multi');
+            opt.setAttribute('data-heure', r.hh);
+            opt.setAttribute('data-date', r.date_progr || String(dateYmd || '').slice(0, 10));
+            opt.setAttribute('data-compaga', r.id_compaga || '');
+            if (r.code_progr) opt.setAttribute('data-code-progr', r.code_progr);
+            var parts = [r.hh];
+            if (multiSame) parts.push(__reprogOrdinalFr(ord));
+            parts.push('Transit');
+            if (r.nom_ligne) parts.push(r.nom_ligne);
+            if (r.nSeg > 1) parts.push(r.nSeg + ' seg.');
+            if (r.cie) parts.push(r.cie);
+            opt.textContent = parts.join(' — ');
+            sel.add(opt);
+        });
+        return rows.length;
+    }
+
+    function __reprogSyntheticLeg2(hubNom, destNom) {
+        hubNom = __reprogStripCieSuffix(hubNom || '');
+        destNom = __reprogStripCieSuffix(destNom || '');
+        if (!hubNom || !destNom) return null;
+        var ln = hubNom + '-' + destNom;
+        return {
+            nom_ligne: ln,
+            nom_itineraires: ln,
+            nom_gaep: hubNom,
+            depart_itine: hubNom,
+            nom_gadest: destNom,
+            arrive_itine: destNom
+        };
+    }
+
+    /**
+     * À partir des programmes multi de la gare (BANFORA-BOBO, BANFORA-NIANGOLOKO…),
+     * fabrique des chemins 2 jambes vers la dest (via hub).
+     * Ne dépend plus d’un seul modèle hub_lie : synthétise hub→dest si besoin.
+     */
+    function __reprogExpandHeuresViaHub(dateYmd, heuresRows, chemins) {
+        var list = __reprogRowsArray(chemins).slice();
+        var destOk = __reprogDestTargets();
+        var destNom = destOk.escNom || destOk.destNom || '';
+        var reportNom = __reprogGareReportNom();
+
+        // Hubs connus = arrivée 1ʳᵉ jambe des chemins 2+ déjà trouvés.
+        var hubLeg2 = {}; // hubNom → etape leg2
+        list.forEach(function (ch) {
+            var et = __reprogNormalizeEtapes(ch.etapes || ch.legs);
+            if (et.length < 2 || !__reprogCheminAtteintDest(ch)) return;
+            var hub = __reprogEtapeArrNom(et[0])
+                || __reprogStripCieSuffix((String(et[0].nom_ligne || '').split('-')[1] || ''));
+            if (hub && !hubLeg2[hub]) hubLeg2[hub] = et[1];
+        });
+
+        // Compléter les hubs depuis les lignes multi (ex. BANFORA-BOBO → hub BOBO).
+        __reprogRowsArray(heuresRows).forEach(function (row) {
+            if (!row) return;
+            var d = String(row.date_progr || dateYmd || '').slice(0, 10);
+            if (dateYmd && d && d !== String(dateYmd).slice(0, 10)) return;
+            var arrNom = __reprogStripCieSuffix(row.nom_gadest || '');
+            var ln = __reprogStripCieSuffix(row.nom_ligne || '');
+            var hub = arrNom;
+            if (!hub && ln && ln.indexOf('-') !== -1) {
+                hub = __reprogStripCieSuffix(ln.split('-').slice(1).join('-'));
+            }
+            if (!hub || !destNom || hub === destNom) return;
+            if (reportNom && hub === reportNom) return;
+            // Direct OD (BANFORA-OUAGA) : pas un hub.
+            if (ln && destNom && ln.slice(-(destNom.length + 1)) === '-' + destNom) return;
+            if (!hubLeg2[hub]) {
+                hubLeg2[hub] = __reprogSyntheticLeg2(hub, destNom);
+            }
+        });
+
+        var seenCp = {};
+        list.forEach(function (ch) {
+            var et = __reprogNormalizeEtapes(ch.etapes || ch.legs);
+            var cp = et[0] && (et[0].code_progr || et[0]._graphe_code_progr);
+            if (cp) seenCp[String(cp)] = 1;
+        });
+
+        __reprogRowsArray(heuresRows).forEach(function (row, idx) {
+            if (!row || !row.code_progr) return;
+            var d = String(row.date_progr || dateYmd || '').slice(0, 10);
+            if (dateYmd && d && d !== String(dateYmd).slice(0, 10)) return;
+            if (seenCp[String(row.code_progr)]) return;
+
+            var kind = String(row.slot_kind || '').trim();
+            var isMulti = kind === 'multi'
+                || row.is_od_direct === false
+                || row.is_od_direct === 0
+                || row.is_od_direct === '0';
+            var arrNom = __reprogStripCieSuffix(row.nom_gadest || '');
+            var ln = __reprogStripCieSuffix(row.nom_ligne || '');
+            var isOdDirect = !!(destNom && ln && ln.slice(-(destNom.length + 1)) === '-' + destNom);
+
+            // Direct OD 1 jambe vers dest : garder tel quel (ajouté via fromHeures).
+            if (isOdDirect && !isMulti) {
+                return;
+            }
+
+            var hub = arrNom;
+            if (!hub && ln && ln.indexOf('-') !== -1) {
+                hub = __reprogStripCieSuffix(ln.split('-').slice(1).join('-'));
+            }
+            if (!hub || hub === destNom || (reportNom && hub === reportNom)) return;
+            var leg2 = hubLeg2[hub];
+            if (!leg2) {
+                leg2 = __reprogSyntheticLeg2(hub, destNom);
+                if (leg2) hubLeg2[hub] = leg2;
+            }
+            if (!leg2) return;
+
+            var hh = __reprogHhmm(row.heure);
+            var e1 = {
+                code_itineraires: row.ident_ligne || row.ligne_id || '',
+                nom_ligne: ln,
+                nom_itineraires: ln,
+                code_gaexp: row.gaexp_lg || '',
+                gaexp_lg: row.gaexp_lg || '',
+                nom_gaep: row.nom_gaep || reportNom || '',
+                id_compaga: row.id_compaga || '',
+                heure: row.heure || hh,
+                code_gadest: row.gadest_lg || row.code_gadest || '',
+                gadest_lg: row.gadest_lg || '',
+                nom_gadest: row.nom_gadest || hub,
+                nom_compagnie_arrivee: row.nom_compagnie_arrivee || __reprogCieName(row) || '',
+                typetarif: row.typetarif,
+                categori: row.categori || '',
+                code_progr: row.code_progr || '',
+                _code_progr: row.code_progr || '',
+                _id_ligneheure: row.id_ligneheure || '',
+                id_ligneheure: row.id_ligneheure || '',
+                date_progr: d,
+                _graphe_date_progr: d
+            };
+            var e2 = {};
+            Object.keys(leg2).forEach(function (k) { e2[k] = leg2[k]; });
+            list.push({
+                source: 'programmes',
+                priority: 80,
+                id: 'rep-viahub-' + idx + '-' + (row.code_progr || ''),
+                label: ln + ' → ' + (e2.nom_ligne || e2.nom_itineraires || '') + ' (via ' + hub + ')',
+                nb_jambes: 2,
+                etapes: [e1, e2]
+            });
+            seenCp[String(row.code_progr)] = 1;
+        });
+        return list;
+    }
+
+    function __reprogApplyUniqueTransit(ch, msg) {
+        if (!ch) return;
+        window.__reprogState.mode = 'transit';
+        if (__reprogQ('reprog_mode_unifie')) {
+            __reprogQ('reprog_mode_unifie').value = 'transit';
+        }
+        __reprogShowCorrExclusive([ch], msg || 'Itinéraire transit proposé (direction ticket)');
+    }
+
+    /**
+     * Chemins 1 jambe à partir des programmes heures_unifie.
+     * Multi coché : uniquement les directs OD vers la dest (pas BANFORA-BOBO),
+     * sinon l’expand via hub les marque « déjà vus » et ils disparaissent du select.
+     */
+    function __reprogRowsAsOneLegChemins(rows, dateYmd, odOnly) {
+        var destNom = '';
+        if (odOnly) {
+            var t = __reprogDestTargets();
+            destNom = t.escNom || t.destNom || '';
+        }
+        return __reprogRowsArray(rows).filter(function (row) {
+            if (!row || !row.code_progr) return false;
+            if (!odOnly) return true;
+            var kind = String(row.slot_kind || '').trim();
+            var isMulti = kind === 'multi'
+                || row.is_od_direct === false
+                || row.is_od_direct === 0
+                || row.is_od_direct === '0';
+            if (isMulti) return false;
+            if (!destNom) return true;
+            var ln = __reprogStripCieSuffix(row.nom_ligne || '');
+            var arr = __reprogStripCieSuffix(row.nom_gadest || '');
+            return (arr && arr === destNom)
+                || (ln && ln.slice(-(destNom.length + 1)) === '-' + destNom);
+        }).map(function (row, idx) {
+            var hh = __reprogHhmm(row.heure);
+            var nom = row.nom_ligne || '';
+            var cie = __reprogCieName(row) || '';
+            return {
+                source: 'programmes',
+                id: 'rep-leg1-' + idx + '-' + (row.code_progr || ''),
+                label: (nom ? (nom + ' — ') : '') + (cie ? (cie + ' — ') : '') + hh,
+                nb_jambes: 1,
+                etapes: [{
+                    code_itineraires: row.ident_ligne || row.ligne_id || '',
+                    nom_ligne: nom,
+                    nom_itineraires: nom,
+                    code_gaexp: row.gaexp_lg || '',
+                    gaexp_lg: row.gaexp_lg || '',
+                    nom_gaep: row.nom_gaep || __reprogGareReportNom() || '',
+                    id_compaga: row.id_compaga || '',
+                    heure: row.heure || hh,
+                    code_gadest: row.gadest_lg || row.code_gadest || '',
+                    gadest_lg: row.gadest_lg || '',
+                    nom_gadest: row.nom_gadest || '',
+                    nom_compagnie_arrivee: row.nom_compagnie_arrivee || cie,
+                    typetarif: row.typetarif,
+                    categori: row.categori || '',
+                    code_progr: row.code_progr || '',
+                    _code_progr: row.code_progr || '',
+                    _id_ligneheure: row.id_ligneheure || '',
+                    id_ligneheure: row.id_ligneheure || '',
+                    intervalle1: row.intervalle1,
+                    intervalle2: row.intervalle2,
+                    date_progr: row.date_progr || dateYmd,
+                    _graphe_date_progr: String(row.date_progr || dateYmd || '').slice(0, 10)
+                }]
+            };
+        });
+    }
+
+    /**
+     * Active le transit depuis la GARE DE REPORT vers la destination du ticket.
+     * Ex. Banfora → Ouaga (BANFORA-OUAGA), pas BOBO-OUAGA du billet d’origine.
+     */
+    function __reprogLoadMultiTransitForDate(dateYmd, preferHh) {
+        var st = window.__reprogState;
+        var t = __reprogDestTargets();
+        var destLabel = t.escNom || t.destNom || 'destination';
+        var nomReport = __reprogNomLigneReportVersDest();
+        var reportNom = __reprogGareReportNom();
+        var gaReport = __reprogResolveGareReport();
+        st.multiMode = true;
+        st.gid = gaReport;
+        __reprogHideDirect();
+        __reprogSetAncreVisible(true);
+
+        if (!nomReport || !gaReport) {
+            var box0 = __reprogQ('smspunifie');
+            var err0 = __reprogQ('erreurSmspunifie');
+            if (box0) box0.style.display = 'block';
+            if (err0) {
+                err0.textContent = 'Impossible de composer la direction de report (« '
+                    + (reportNom || '?') + ' » → « ' + destLabel + ' »).';
+            }
+            return;
+        }
+
+        function finishWithList(list) {
+            list = __reprogFilterTransitVersDest(list);
+            // Ne garder que les départs du jour sélectionné (1ʳᵉ jambe).
+            list = list.filter(function (ch) {
+                var et = __reprogNormalizeEtapes(ch.etapes || ch.legs);
+                if (!et.length) return false;
+                var d = String(
+                    et[0].date_progr || et[0]._graphe_date_progr || dateYmd || ''
+                ).slice(0, 10);
+                return !dateYmd || !d || d === String(dateYmd).slice(0, 10);
+            });
+            // Multi : préférer les correspondances (≥2 jambes) s’il y en a.
+            var multiLegs = list.filter(function (ch) {
+                return __reprogNormalizeEtapes(ch.etapes || ch.legs).length >= 2;
+            });
+            if (multiLegs.length) {
+                list = multiLegs;
+            }
+            // Aujourd’hui : masquer les heures déjà passées (marge 60 min, comme vente).
+            var today = '';
+            try {
+                var nowEl = __reprogQ('actueldaterepunifie');
+                today = nowEl ? String(nowEl.value || '').slice(0, 10) : '';
+            } catch (eT) { today = ''; }
+            if (!today) {
+                var n = new Date();
+                var mm = n.getMonth() + 1;
+                var dd = n.getDate();
+                today = n.getFullYear() + '-'
+                    + (mm < 10 ? '0' : '') + mm + '-'
+                    + (dd < 10 ? '0' : '') + dd;
+            }
+            if (dateYmd && String(dateYmd).slice(0, 10) === today) {
+                var now = new Date();
+                var minHH = now.getHours() * 60 + now.getMinutes() - 60;
+                if (minHH < 0) minHH = 0;
+                var upcoming = list.filter(function (ch) {
+                    var et = __reprogNormalizeEtapes(ch.etapes || ch.legs);
+                    var hh = __reprogEtapeHeureStr(et[0]);
+                    if (!hh) return true;
+                    var parts = hh.split(':');
+                    var m = (parseInt(parts[0], 10) || 0) * 60 + (parseInt(parts[1], 10) || 0);
+                    return m >= minHH;
+                });
+                // Si tout est passé, garder la liste (report J même jour tardif).
+                if (upcoming.length) list = upcoming;
+            }
+            // Dédupliquer par signature heures+lignes
+            var seen = {};
+            list = list.filter(function (ch) {
+                var et = __reprogNormalizeEtapes(ch.etapes || ch.legs);
+                var sig = et.map(function (e) {
+                    return (e.code_progr || e.nom_ligne || '') + '@' + __reprogEtapeHeureStr(e);
+                }).join('>');
+                if (!sig || seen[sig]) return false;
+                seen[sig] = 1;
+                return true;
+            });
+            st.transitChemins = list;
+            if (!list.length) {
+                __reprogHideCorr();
+                __reprogResetSelect(__reprogQ('heuredepartpunifie'), "Choisissez l'heure");
+                var box = __reprogQ('smspunifie');
+                var err = __reprogQ('erreurSmspunifie');
+                if (box) box.style.display = 'block';
+                if (err) {
+                    err.textContent = 'Aucun départ / transit depuis '
+                        + (reportNom || 'cette gare') + ' vers ' + destLabel
+                        + ' le ' + dateYmd
+                        + ' (direction du ticket vérifié).';
+                }
+                return;
+            }
+            if (__reprogQ('smspunifie')) __reprogQ('smspunifie').style.display = 'none';
+            var nH = __reprogFillHeuresDepuisChemins(dateYmd, list);
+            var best = __reprogPickUniqueTransit(list, preferHh || '');
+            if (!best && list.length) best = list[0];
+            if (best) {
+                var et0 = __reprogNormalizeEtapes(best.etapes || best.legs)[0];
+                var hh0 = __reprogEtapeHeureStr(et0);
+                var heureSel = __reprogQ('heuredepartpunifie');
+                if (heureSel && hh0 && nH) {
+                    var code0 = et0 && (et0.code_progr || et0._code_progr || et0._graphe_code_progr) || '';
+                    for (var i = 0; i < heureSel.options.length; i++) {
+                        var o = heureSel.options[i];
+                        if ((code0 && o.getAttribute('data-code-progr') === String(code0))
+                            || o.value === hh0
+                            || o.getAttribute('data-heure') === hh0) {
+                            heureSel.selectedIndex = i;
+                            break;
+                        }
+                    }
+                }
+                var nSeg = __reprogNormalizeEtapes(best.etapes || best.legs).length;
+                __reprogApplyUniqueTransit(
+                    best,
+                    (nSeg <= 1 ? 'Départ ' : 'Transit (1 choix) — ')
+                        + nomReport + ' → ' + destLabel
+                        + ' le ' + dateYmd
+                        + (hh0 ? (' à ' + hh0) : '')
+                        + ' — depuis la gare de report'
+                );
+            }
+        }
+
+        // 1) Programmes gare report → dest + multi (ex. BANFORA-BOBO).
+        var qs = [
+            'nom_ligne=' + encodeURIComponent(nomReport),
+            'date=' + encodeURIComponent(String(dateYmd || '').slice(0, 10)),
+            'gare=' + encodeURIComponent(String(gaReport)),
+            'multi=1'
+        ];
+        __reprogXhrGet(
+            window.location.origin + APP_ROOT
+                + '/reprogrammes/heures_unifie/'
+                + encodeURIComponent(gaReport) + '/0/0?'
+                + qs.join('&'),
+            function (heuresPayload) {
+                // Garder les programmes multi en mémoire (comme la vente).
+                st.rows = __reprogRowsArray(heuresPayload);
+                // Directs OD seulement en 1 jambe — les multi (BANFORA-BOBO…)
+                // passent par expand → 2 jambes via hub de correspondance.
+                var fromHeures = __reprogRowsAsOneLegChemins(heuresPayload, dateYmd, true);
+                __reprogFetchChemins(dateYmd, preferHh || '', function (chemins) {
+                    var merged = __reprogMergeItineraires(fromHeures, chemins, true);
+                    merged = __reprogExpandHeuresViaHub(dateYmd, heuresPayload, merged);
+                    finishWithList(merged);
+                }, true, nomReport);
+            }
+        );
     }
 
     function __reprogSetAncreVisible(show) {
@@ -1634,6 +2289,11 @@ document.addEventListener('DOMContentLoaded', () => {
         __reprogResetSelect(sel, 'Choisissez un itinéraire');
         if (msg) msg.textContent = message || '';
 
+        // Toujours aligner st.chemins sur la liste affichée (sinon OnCorrChange
+        // lit un vieux résultat verifchemins → mauvais 1er segment / sièges vides).
+        chemins = __reprogRowsArray(chemins);
+        window.__reprogState.chemins = chemins;
+
         var purchaseCie = '';
         var idCieEl = __reprogQ('id_compaga_unifie');
         if (idCieEl) purchaseCie = String(idCieEl.value || '');
@@ -1657,29 +2317,38 @@ document.addEventListener('DOMContentLoaded', () => {
             var ch = item.ch;
             var idx = item.idx;
             var etapes = __reprogNormalizeEtapes(ch.etapes || ch.legs);
-            var label = ch.label || ch.nom || ch.resume || ('Itinéraire ' + (idx + 1));
-            if (ch.source !== 'direct' && etapes.length) {
-                label = etapes.map(function (e) {
-                    return e.nom_itineraires || e.nom_ligne || e.code_itineraires || '';
-                }).filter(Boolean).join(' → ') || label;
-                label += ' (' + etapes.length + ' segment' + (etapes.length > 1 ? 's' : '') + ')';
-            } else if (ch.source !== 'direct' && etapes.length === 1) {
-                label += ' (1 segment)';
-            } else if (etapes.length > 1 && ch.source === 'direct') {
-                label += ' (' + etapes.length + ' segments)';
+            var nSeg = etapes.length;
+            var isDirect = ch.source === 'direct' || nSeg === 1;
+            var label = ch.label || ch.nom || ch.resume || '';
+            if (isDirect) {
+                if (!label || label.indexOf('Direct') !== 0) {
+                    var cieD = '';
+                    if (etapes[0]) {
+                        cieD = etapes[0].nom_compagnie_arrivee || etapes[0].nom_compagnie || '';
+                    }
+                    var hhD = etapes[0] ? __reprogHhmm(etapes[0].heure) : '';
+                    var nomD = (etapes[0] && (etapes[0].nom_ligne || etapes[0].nom_itineraires)) || '';
+                    label = 'Direct — '
+                        + (nomD ? (nomD + ' — ') : '')
+                        + (cieD ? (cieD + ' — ') : '')
+                        + (hhD || '')
+                        + ' (1 jambe)';
+                }
+            } else {
+                var legs = etapes.map(function (e) {
+                    return e.nom_itineraires || e.nom_ligne || '';
+                }).filter(Boolean);
+                label = 'Transit — '
+                    + (legs.length ? legs.join(' → ') : (label || ('Itinéraire ' + (idx + 1))))
+                    + ' (' + nSeg + ' segment' + (nSeg > 1 ? 's' : '') + ')';
             }
             // Mention compagnie(s) pour distinguer CMT vs VIP dans la liste.
             var cies = [];
             etapes.forEach(function (e) {
                 var n = e.nom_compagnie_arrivee || e.nom_compagnie || '';
-                if (!n && e.id_compaga) n = String(e.id_compaga);
                 if (n && cies.indexOf(n) === -1) cies.push(n);
             });
-            if (!cies.length && ch.source === 'direct') {
-                var dn = ch.nom_compagnie_arrivee || ch.nom_compagnie || '';
-                if (dn) cies.push(dn);
-            }
-            if (cies.length) {
+            if (cies.length && label.indexOf(cies[0]) === -1) {
                 label += ' — ' + cies.join('/');
             }
             var opt = document.createElement('option');
@@ -1688,9 +2357,11 @@ document.addEventListener('DOMContentLoaded', () => {
             sel.add(opt);
         });
         __reprogShowCorrPanel();
-        if (sel.options.length === 2) {
+        // Un seul itinéraire (cas multi typique) : sélectionner et charger les segments.
+        var nOpts = sel.options.length - 1;
+        if (nOpts === 1) {
             sel.selectedIndex = 1;
-            sel.dispatchEvent(new Event('change'));
+            __reprogFireChange(sel);
         }
     }
 
@@ -1794,8 +2465,8 @@ document.addEventListener('DOMContentLoaded', () => {
             var odLabel = __reprogEtapeOdLabel(etape, idx, etapes.length);
             var dateDef = (__reprogQ('datereprog_unifie') || {}).value || '';
             // Correspondance graphe : chaque jambe peut être J+1 (day_offset / date programme).
-            if (etape && etape._graphe_date_progr) {
-                dateDef = String(etape._graphe_date_progr).slice(0, 10);
+            if (etape && (etape.date_progr || etape._graphe_date_progr)) {
+                dateDef = String(etape.date_progr || etape._graphe_date_progr).slice(0, 10);
             } else if (etape && etape._graphe_day_offset && dateDef) {
                 var off = parseInt(etape._graphe_day_offset, 10) || 0;
                 if (off > 0) {
@@ -2108,8 +2779,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 }
             }
+            // Segment 0 + programme multi choisi : forcer cette cie (ne pas basculer
+            // sur une autre cie « ≠ achat » qui n’a pas l’heure sélectionnée).
+            var forcePrefCie = (idx === 0 && !!prefCie && !!preferCode);
             // Si le code graphe est la cie d’achat mais qu’une autre cie a des départs → l’ignorer.
-            if (prefCie && purchaseCie && prefCie === purchaseCie) {
+            if (!forcePrefCie && prefCie && purchaseCie && prefCie === purchaseCie) {
                 var othersLive = cieKeys.filter(function (k) {
                     return k && k !== purchaseCie;
                 });
@@ -2117,7 +2791,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     prefCie = '';
                 }
             }
-            if (prefCie && cieKeys.length > 1 && seg.byCie[prefCie]) {
+            if (!forcePrefCie && prefCie && cieKeys.length > 1 && seg.byCie[prefCie]) {
                 var nPref = (seg.byCie[prefCie].rows || []).length;
                 var nTop = (seg.byCie[cieKeys[0]].rows || []).length;
                 if (nTop > nPref) {
@@ -2128,7 +2802,9 @@ document.addEventListener('DOMContentLoaded', () => {
             var nonPurchase = cieKeys.filter(function (k) {
                 return k && (!purchaseCie || k !== purchaseCie);
             });
-            if (prefCie && seg.byCie[prefCie] && (!purchaseCie || prefCie !== purchaseCie || !nonPurchase.length)) {
+            if (forcePrefCie && seg.byCie[prefCie]) {
+                cieSel.value = prefCie;
+            } else if (prefCie && seg.byCie[prefCie] && (!purchaseCie || prefCie !== purchaseCie || !nonPurchase.length)) {
                 cieSel.value = prefCie;
             } else if (nonPurchase.length >= 1) {
                 // VIP (ou autre) en tête parmi les cie ≠ achat.
@@ -2217,7 +2893,26 @@ document.addEventListener('DOMContentLoaded', () => {
 
         var pref = __reprogEtapeHeure(seg.etape);
         var preferCode = __reprogEtapePreferCode(seg.etape);
-        // 1 jambe : heure du programme exact si connu.
+        // 1ʳᵉ jambe : coller au programme / heure choisis en tête (select multi).
+        if (idx === 0) {
+            var anchor = __reprogQ('heuredepartpunifie');
+            var optA = (anchor && anchor.selectedIndex >= 0)
+                ? anchor.options[anchor.selectedIndex]
+                : null;
+            if (optA) {
+                var codeA = optA.getAttribute('data-code-progr') || '';
+                if (codeA) preferCode = codeA;
+                var hhA = optA.getAttribute('data-heure') || '';
+                if (hhA) pref = __reprogHhmm(hhA);
+            }
+            // value multi = code/lh/tarif → ne pas passer dans Hhmm brut.
+            if ((!pref || !hoursMap[pref]) && anchor && anchor.value
+                && String(anchor.value).indexOf('/') !== -1) {
+                var codeFromVal = String(anchor.value).split('/')[0];
+                if (codeFromVal) preferCode = preferCode || codeFromVal;
+            }
+        }
+        // Programme exact si connu.
         if (preferCode) {
             for (var hi = 0; hi < hours.length; hi++) {
                 var cand = hoursMap[hours[hi]] || [];
@@ -2231,8 +2926,13 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
         if (!pref || !hoursMap[pref]) {
-            var anchor = __reprogQ('heuredepartpunifie');
-            pref = __reprogHhmm(anchor ? anchor.value : '');
+            var anchor2 = __reprogQ('heuredepartpunifie');
+            var opt2 = (anchor2 && anchor2.selectedIndex >= 0)
+                ? anchor2.options[anchor2.selectedIndex]
+                : null;
+            pref = opt2
+                ? __reprogHhmm(opt2.getAttribute('data-heure') || '')
+                : '';
         }
         if (pref && hoursMap[pref]) {
             heureSel.value = pref;
@@ -2246,6 +2946,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 __reprogSegErr(idx, 'Erreur chargement sièges: '
                     + (eHeure && eHeure.message ? eHeure.message : eHeure));
             }
+        } else {
+            __reprogSegErr(idx, 'Choisissez l\'heure du segment (alignée sur le départ multi).');
         }
     }
 
@@ -2463,6 +3165,9 @@ document.addEventListener('DOMContentLoaded', () => {
         __reprogSetDirectInfo('');
         // Heure visible dès qu’une date est choisie (remplie après reload programmes).
         __reprogSetAncreVisible(!!dateYmd);
+        window.__reprogState._multiAutoTried = false;
+        window.__reprogState._forceMultiLoad = false;
+        window.__reprogState.multiMode = false;
         if (__reprogQ('smspunifie')) __reprogQ('smspunifie').style.display = 'none';
         if (!dateYmd) return;
 
@@ -2499,20 +3204,19 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         st.gid = __reprogResolveGareReport();
         var gaReport = st.gid || st.gaexp || '';
+        var wantMulti = __reprogAllowMultiChecked() || !!st._forceMultiLoad;
         var qs = [
             'nom_ligne=' + encodeURIComponent(String(st.nom_ligne)),
             'date=' + encodeURIComponent(String(dateYmd || '').slice(0, 10))
         ];
-        var axesQ = __reprogAxesQuery();
-        if (axesQ) qs.push(axesQ.replace(/^&/, ''));
         if (st.id_escale) qs.push('id_escale=' + encodeURIComponent(String(st.id_escale)));
         if (gaReport) qs.push('gare=' + encodeURIComponent(String(gaReport)));
-        if (__reprogAllowMultiChecked()) qs.push('multi=1');
+        if (wantMulti) qs.push('multi=1');
         __reprogXhrGet(
             window.location.origin + APP_ROOT
                 + '/reprogrammes/heures_unifie/'
                 + encodeURIComponent(gaReport) + '/'
-                + encodeURIComponent(st.gadest || '0') + '/'
+                + '0/'
                 + encodeURIComponent(st.exclude || '0')
                 + (qs.length ? ('?' + qs.join('&')) : ''),
             function (data2) {
@@ -2524,83 +3228,53 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function __reprogOnDateChangeAfterRows(dateYmd) {
         var st = window.__reprogState;
-        var allowMulti = __reprogAllowMultiChecked();
         var allForDay = __reprogFilterByDate(dateYmd);
-        var odCount = allForDay.filter(function (r) {
+        var directRows = allForDay.filter(function (r) {
             return r && String(r.slot_kind || '') !== 'multi'
                 && !(r.is_od_direct === false || r.is_od_direct === 0 || r.is_od_direct === '0');
-        }).length;
-        __reprogSyncAllowMultiWrap(odCount > 0 || (!allowMulti && allForDay.length > 0));
+        });
+        var hasDirect = directRows.length > 0;
+        var allowMulti = __reprogAllowMultiChecked();
+        var odLabel = st.nom_ligne || st.axe || '—';
+
+        __reprogSyncAllowMultiWrap(hasDirect, true);
         if (__reprogQ('smspunifie')) __reprogQ('smspunifie').style.display = 'none';
 
         if (st.nom_ligne && __reprogQ('replignunifie')) {
             __reprogQ('replignunifie').value = st.nom_ligne;
         }
 
-        // Multi : afficher Heure = autres départs gare (+ dérivé/hub), puis itinéraires.
-        // Sinon : itinéraires directs XOR correspondances (Heure masquée).
         __reprogHideDirect();
-        if (allowMulti) {
-            __reprogSetAncreVisible(true);
-            __reprogFillHeuresForDate(dateYmd, true);
-        } else {
-            __reprogSetAncreVisible(false);
-            __reprogFillHeuresForDate(dateYmd, false);
+        __reprogSetAncreVisible(true);
+
+        var multiMode = allowMulti || !hasDirect;
+        st.multiMode = multiMode;
+        st._forceMultiLoad = false;
+
+        if (multiMode) {
+            // Case multi / pas de direct : 1 transit vers destination ticket + heures associées.
+            __reprogLoadMultiTransitForDate(dateYmd, '');
+            return;
         }
 
-        var directs = (!allowMulti) ? __reprogDirectsAsChemins(dateYmd) : [];
-        __reprogFetchChemins(dateYmd, '', function (chemins) {
-            var multi = __reprogRowsArray(chemins).filter(function (ch) {
-                if (!ch || ch.source === 'declaratif') return false;
-                if (!__reprogCheminSensOk(ch)) return false;
-                return __reprogNormalizeEtapes(ch.etapes || ch.legs).length >= 2;
-            });
-            var all;
-            if (allowMulti) {
-                all = multi;
-            } else if (directs.length) {
-                // Directs seuls s’il y en a (XOR).
-                all = __reprogMergeItineraires(directs, [], false);
-            } else {
-                all = __reprogMergeItineraires([], multi, false);
+        // Mode direct : heures programmes OD, pas d’itinéraire.
+        st.transitChemins = [];
+        __reprogHideCorr();
+        var nHeures = __reprogFillHeuresForDate(dateYmd, false);
+        if (!nHeures) {
+            var box = __reprogQ('smspunifie');
+            var err = __reprogQ('erreurSmspunifie');
+            if (box) box.style.display = 'block';
+            if (err) {
+                err.textContent = 'Aucun départ direct programme pour ' + odLabel
+                    + ' le ' + dateYmd
+                    + '. Cochez « Multi / correspondances » pour un transit.';
             }
-            // Du plus simple : 1 jambe puis 2, 3…
-            all.sort(function (a, b) {
-                var na = a.nb_jambes || __reprogNormalizeEtapes(a.etapes || a.legs).length || 99;
-                var nb = b.nb_jambes || __reprogNormalizeEtapes(b.etapes || b.legs).length || 99;
-                if (na !== nb) return na - nb;
-                return 0;
-            });
-            st.chemins = all;
-            var odLabel = st.nom_ligne || st.axe || '—';
-            if (!all.length && !(allowMulti && __reprogQ('heuredepartpunifie')
-                && __reprogQ('heuredepartpunifie').options.length > 1)) {
-                var box = __reprogQ('smspunifie');
-                var err = __reprogQ('erreurSmspunifie');
-                if (box) box.style.display = 'block';
-                if (err) {
-                    err.textContent = (allowMulti
-                        ? 'Multi activé : aucune correspondance réelle pour '
-                        : 'Aucun départ programme ni correspondance réelle pour ')
-                        + odLabel + ' le ' + dateYmd
-                        + '. Vérifiez les programmes actifs (même OD / sens).';
-                }
-                return;
-            }
-            var msg;
-            if (allowMulti) {
-                msg = 'Multi : autres départs gare (+ hub/dérivé) et correspondances pour '
-                    + odLabel + ' le ' + dateYmd;
-            } else if (directs.length) {
-                msg = 'Directs pour ' + odLabel + ' le ' + dateYmd
-                    + ' — choisissez un itinéraire (compagnie dans le segment)';
-            } else {
-                msg = 'Pas de direct : correspondances cohérentes pour ' + odLabel + ' le ' + dateYmd;
-            }
-            if (all.length) {
-                __reprogShowCorrExclusive(all, msg);
-            }
-        }, true);
+        }
+    }
+
+    function wantMultiAlready(st) {
+        return !!(st && (st._forceMultiLoad || __reprogAllowMultiChecked()));
     }
 
     function __reprogOnHeureChange() {
@@ -2619,36 +3293,58 @@ document.addEventListener('DOMContentLoaded', () => {
         var opt = heureSel.options[heureSel.selectedIndex];
         var kind = opt ? (opt.getAttribute('data-kind') || '') : '';
         var progVal = heureSel.value;
-        // Nouvelle UX : value = code_progr/id_lh/typetarif (départ programme).
         var isProg = progVal.indexOf('/') !== -1 && kind !== 'corr' && kind !== 'multi';
+        var multiMode = !!(window.__reprogState.multiMode || __reprogAllowMultiChecked() || kind === 'multi');
 
-        // Multi : l’heure choisie ancre les correspondances (pas un report direct OD).
-        if (kind === 'multi' && __reprogAllowMultiChecked()) {
-            var hhMulti = opt ? (opt.getAttribute('data-heure') || __reprogHhmm(progVal)) : '';
-            window.__reprogState.mode = 'corr';
-            __reprogFetchChemins(dateYmd, hhMulti, function (chemins) {
-                var multi = __reprogRowsArray(chemins).filter(function (ch) {
-                    if (!ch || ch.source === 'declaratif') return false;
-                    if (!__reprogCheminSensOk(ch)) return false;
-                    return __reprogNormalizeEtapes(ch.etapes || ch.legs).length >= 2;
-                });
-                var odLabel = (window.__reprogState.nom_ligne || window.__reprogState.axe || '—');
-                if (!multi.length) {
+        // Multi : un seul transit pour l’heure, direction ticket, segments affichés.
+        if (multiMode || kind === 'multi') {
+            var hhMulti = opt
+                ? (opt.getAttribute('data-heure') || __reprogHhmm(progVal))
+                : __reprogHhmm(progVal);
+            var st = window.__reprogState;
+            var odLabel = st.nom_ligne || st.axe || '—';
+            var t = __reprogDestTargets();
+
+            function applyFromList(list) {
+                var codePref = opt ? (opt.getAttribute('data-code-progr') || '') : '';
+                var best = null;
+                if (codePref) {
+                    __reprogRowsArray(list).some(function (ch) {
+                        var et = __reprogNormalizeEtapes(ch.etapes || ch.legs);
+                        var cp = et[0] && (et[0].code_progr || et[0]._code_progr || et[0]._graphe_code_progr);
+                        if (cp && String(cp) === String(codePref)) {
+                            best = ch;
+                            return true;
+                        }
+                        return false;
+                    });
+                }
+                if (!best) best = __reprogPickUniqueTransit(list, hhMulti);
+                if (!best) {
                     var box = __reprogQ('smspunifie');
                     var err = __reprogQ('erreurSmspunifie');
                     if (box) box.style.display = 'block';
                     if (err) {
-                        err.textContent = 'Aucune correspondance réelle à '
-                            + (hhMulti || 'cette heure') + ' pour ' + odLabel + ' le ' + dateYmd + '.';
+                        err.textContent = 'Aucun transit à ' + (hhMulti || 'cette heure')
+                            + ' vers ' + (t.escNom || t.destNom || odLabel)
+                            + ' le ' + dateYmd + '.';
                     }
                     return;
                 }
-                __reprogShowCorrExclusive(
-                    multi,
-                    'Correspondances ancrées à ' + (hhMulti || '—')
-                        + ' pour ' + odLabel + ' le ' + dateYmd
+                __reprogApplyUniqueTransit(
+                    best,
+                    'Transit (1 choix) — ' + odLabel
+                        + ' → ' + (t.escNom || t.destNom || 'destination')
+                        + ' à ' + (hhMulti || '—')
+                        + ' — segments depuis la gare de report'
                 );
-            }, true);
+            }
+
+            if (st.transitChemins && st.transitChemins.length) {
+                applyFromList(st.transitChemins);
+                return;
+            }
+            __reprogLoadMultiTransitForDate(dateYmd, hhMulti);
             return;
         }
 
@@ -2916,7 +3612,18 @@ document.addEventListener('DOMContentLoaded', () => {
             reprogAllowMultiEl.addEventListener('change', function () {
                 var d = __reprogQ('datereprog_unifie');
                 var ymd = d ? d.value : '';
-                if (ymd) __reprogReloadHeuresThenDate(ymd);
+                if (!ymd) return;
+                window.__reprogState._multiAutoTried = false;
+                window.__reprogState.transitChemins = [];
+                if (__reprogAllowMultiChecked()) {
+                    // Active immédiatement le transit (1 itinéraire + segments).
+                    window.__reprogState.multiMode = true;
+                    __reprogLoadMultiTransitForDate(ymd, '');
+                } else {
+                    window.__reprogState.multiMode = false;
+                    __reprogHideCorr();
+                    __reprogReloadHeuresThenDate(ymd);
+                }
             });
         }
         var heurdep = __reprogQ('heuredepartpunifie');
@@ -3130,7 +3837,9 @@ document.addEventListener('DOMContentLoaded', () => {
                         }
                         __reprogEnsureNomLigne(donnees);
                         window.__reprogState.nomLigneOd = window.__reprogState.nom_ligne || '';
-                        if (parseInt(donnees.hub_cas_e, 10) === 1) {
+                        // Hub cas E : ne jamais écraser le nom_ligne d’un ticket escale
+                        // (sinon BOBO-ABIDJANCIT → BANFORA-ABIDJANCIT → 2 segments).
+                        if (parseInt(donnees.hub_cas_e, 10) === 1 && !window.__reprogState.id_escale) {
                             window.__reprogState.hubCasEMsg = donnees.hub_cas_e_msg
                                 || 'Ticket réeligné sur le tronçon hub (prix cohérent).';
                             if (donnees.hub_cas_e_nom_ligne) {

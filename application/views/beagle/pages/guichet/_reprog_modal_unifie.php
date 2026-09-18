@@ -141,6 +141,13 @@ $allow_prix_diff_unifie = true;
         <input type="hidden" value="<?= mdate('%Y-%m-%d', now()); ?>" id="actueldaterepunifie" name="dateactuelreptransit">
         <input class="form-control form-control-sm" type="hidden" name="gareconnect" value="<?= $bus_stop->idengare; ?>">
         <input class="form-control form-control-sm" type="hidden" name="gareconnect_code" value="<?= !empty($bus_stop->code_gaexp) ? $bus_stop->code_gaexp : $bus_stop->gareprinceid; ?>">
+        <input class="form-control form-control-sm" type="hidden" name="gareconnect_nom" value="<?= htmlspecialchars(
+            !empty($bus_stop->garenom) ? $bus_stop->garenom
+                : (!empty($bus_stop->nom_gaep) ? $bus_stop->nom_gaep
+                : (!empty($conex->garenom) ? $conex->garenom : '')),
+            ENT_QUOTES,
+            'UTF-8'
+        ); ?>">
         <input class="form-control form-control-sm" type="hidden" name="userconnected" value="<?= $conex->roleattribut; ?>">
         <input class="form-control form-control-sm" type="hidden" name="sousgareconnect" value="<?= $bus_stop->idsousgare; ?>">
         <input class="form-control form-control-sm" type="hidden" name="compconnected" value="<?= $conex->cpuser_id; ?>">
@@ -206,9 +213,8 @@ $allow_prix_diff_unifie = true;
                 <div class="form-group col-md-6 mb-2" id="reprog_ancre_heure_wrap" style="display:none">
                     <div class="d-flex align-items-center flex-wrap mb-1">
                         <label class="small mb-0 mr-2">Heure (départs programmes)</label>
-                        <!-- Multi forcé uniquement s’il n’y a aucun direct pour l’OD (pas de case à cocher). -->
-                        <label class="custom-control custom-checkbox custom-control-inline mb-0" id="reprog_allow_multi_wrap" style="display:none" hidden aria-hidden="true">
-                            <input type="checkbox" class="custom-control-input" id="reprog_allow_multi" value="1" tabindex="-1">
+                        <label class="custom-control custom-checkbox custom-control-inline mb-0" id="reprog_allow_multi_wrap" style="display:none">
+                            <input type="checkbox" class="custom-control-input" id="reprog_allow_multi" value="1">
                             <span class="custom-control-label small">Multi / correspondances</span>
                         </label>
                     </div>
@@ -216,8 +222,8 @@ $allow_prix_diff_unifie = true;
                         <option value="">Choisissez l'heure</option>
                     </select>
                     <p class="small text-muted mb-0 mt-1">
-                        Directs d’abord pour la date choisie (même OD / noms de gares).
-                        Correspondances multi proposées seulement s’il n’existe pas de départ direct.
+                        Direct : date → heure → siège. « Multi / correspondances » active un
+                        transit unique vers la destination du ticket (heures + segments).
                     </p>
                 </div>
                 <!-- Compagnie / « départ » retiré : le choix se fait dans Heure (1 programme = 1 option). -->
@@ -246,8 +252,8 @@ $allow_prix_diff_unifie = true;
             <div id="corr_unifie_wrap" style="display:none">
                 <div class="reprog-section-title">Itinéraires possibles</div>
                 <p class="small text-muted mb-2" id="corr_unifie_hint">
-                    Selon l’axe du ticket et la date de report (depuis la gare de report) :
-                    directs seuls s’il y en a ; sinon correspondance multi-segments.
+                    Un seul transit proposé depuis la gare de report vers la destination
+                    affichée après vérification du code (noms de ligne / gares).
                 </p>
                 <p class="text-warning small mb-2" id="corr_unifie_msg"></p>
                 <div class="form-group mb-3">

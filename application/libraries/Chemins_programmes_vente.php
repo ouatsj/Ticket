@@ -977,7 +977,26 @@ class Chemins_programmes_vente
             '_graphe_date_progr' => $date,
             '_graphe_code_progr' => $code,
             'code_progr' => $code,
+            'date_progr' => $date,
         );
+        // Heure + noms gares : requis côté reprog multi (select heure + filtre sens/dest).
+        if (!empty($p->heure)) {
+            $hh = substr(trim((string) $p->heure), 0, 8);
+            $out['heure'] = $hh;
+            $out['_graphe_heure'] = substr($hh, 0, 5);
+        }
+        if (!empty($p->nom_gaep)) {
+            $out['nom_gaep'] = trim((string) $p->nom_gaep);
+            $out['depart_itine'] = $out['nom_gaep'];
+        }
+        if (!empty($p->nom_gadest)) {
+            $out['nom_gadest'] = trim((string) $p->nom_gadest);
+            $out['arrive_itine'] = $out['nom_gadest'];
+        }
+        if (isset($p->id_ligneheure) && (int) $p->id_ligneheure > 0) {
+            $out['id_ligneheure'] = (int) $p->id_ligneheure;
+            $out['_id_ligneheure'] = (int) $p->id_ligneheure;
+        }
         if (isset($p->id_compaga) && $p->id_compaga !== '' && $p->id_compaga !== null) {
             $out['id_compaga'] = (string) $p->id_compaga;
         }
@@ -1093,16 +1112,54 @@ class Chemins_programmes_vente
 
     protected function sig_chemin(array $ch)
     {
-        if (!empty($ch['codes']) && is_array($ch['codes'])) {
-            return implode('>', array_map('strval', $ch['codes']));
-        }
         $parts = array();
-        if (!empty($ch['etapes']) && is_array($ch['etapes'])) {
+        if (!empty($ch['codes']) && is_array($ch['codes'])) {
+            $parts = array_map('strval', $ch['codes']);
+        } elseif (!empty($ch['etapes']) && is_array($ch['etapes'])) {
             foreach ($ch['etapes'] as $et) {
                 $c = $this->etape_code($et, array('code_itineraires', 'ident_ligne', 'ligne_id'));
                 if ($c !== '') {
                     $parts[] = $c;
                 }
+            }
+        }
+        // Distinguer les départs (ex. plusieurs BANFORA-BOBO → BOBO-OUAGA le même jour).
+        if (!empty($ch['etapes']) && is_array($ch['etapes'])) {
+            $first = $ch['etapes'][0];
+            $cp = '';
+            $hh = '';
+            $dp = '';
+            if (is_array($first)) {
+                $cp = isset($first['code_progr']) ? trim((string) $first['code_progr']) : '';
+                if ($cp === '' && !empty($first['_graphe_code_progr'])) {
+                    $cp = trim((string) $first['_graphe_code_progr']);
+                }
+                $hh = isset($first['heure']) ? substr(trim((string) $first['heure']), 0, 5) : '';
+                if ($hh === '' && !empty($first['_graphe_heure'])) {
+                    $hh = substr(trim((string) $first['_graphe_heure']), 0, 5);
+                }
+                $dp = isset($first['date_progr']) ? substr(trim((string) $first['date_progr']), 0, 10) : '';
+                if ($dp === '' && !empty($first['_graphe_date_progr'])) {
+                    $dp = substr(trim((string) $first['_graphe_date_progr']), 0, 10);
+                }
+            } elseif (is_object($first)) {
+                $cp = isset($first->code_progr) ? trim((string) $first->code_progr) : '';
+                if ($cp === '' && !empty($first->_graphe_code_progr)) {
+                    $cp = trim((string) $first->_graphe_code_progr);
+                }
+                $hh = isset($first->heure) ? substr(trim((string) $first->heure), 0, 5) : '';
+                if ($hh === '' && !empty($first->_graphe_heure)) {
+                    $hh = substr(trim((string) $first->_graphe_heure), 0, 5);
+                }
+                $dp = isset($first->date_progr) ? substr(trim((string) $first->date_progr), 0, 10) : '';
+                if ($dp === '' && !empty($first->_graphe_date_progr)) {
+                    $dp = substr(trim((string) $first->_graphe_date_progr), 0, 10);
+                }
+            }
+            if ($cp !== '') {
+                $parts[] = 'p:' . $cp;
+            } elseif ($dp !== '' || $hh !== '') {
+                $parts[] = 't:' . $dp . '@' . $hh;
             }
         }
         return implode('>', $parts);

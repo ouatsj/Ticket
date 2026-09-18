@@ -2674,8 +2674,9 @@
                 $axesSearch[] = $axe;
             }
 
-            // Reprog : s’il existe un direct catalogue mais l’appel force le multi
-            // (heures_unifie vide à la gare de report, ou case Multi), ne pas vider les chemins.
+            // Reprog double choix : directs viennent de heures_unifie (JS).
+            // Ici, si force=1, on sert les correspondances même s’il existe un direct.
+            // Si force=0 et direct catalogue → chemins vides (JS n’affiche que les directs).
             $hasAnyDirectNom = false;
             if ($mode_reprog && $nom !== '' && !$force_transit) {
                 foreach ($axesSearch as $axTry) {
@@ -2696,10 +2697,11 @@
                 'axes_nom_ligne' => $axesSearch,
                 'gare_report' => $gareidentif,
                 'has_direct' => $hasAnyDirectNom ? true : false,
+                'dual_choice' => ($mode_reprog && $force_transit) ? true : false,
             );
 
             if ($mode_reprog && $hasAnyDirectNom && !$force_transit) {
-                // Directs = heures_unifie (toutes cie). Pas de correspondance parasite.
+                // Sans force : pas de multi (JS a déjà les directs).
                 $decision = array(
                     'mode' => 'direct',
                     'etapes' => array(),

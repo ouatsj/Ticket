@@ -508,10 +508,24 @@
         /**
          * P2 cas E : ticket sur principal hub mais prix ≈ dérivé/suite → aligner lookup
          * sur le tronçon cohérent (ligne + code suggéré) pour le report.
+         *
+         * Ne s’applique PAS aux tickets escale : le prix (ex. 19000 Bouaké) est un
+         * tronçon tarifaire sur la ligne parent, pas un passage sur dérivé/suite hub
+         * (sinon BOBO-ABIDJANCIT → BANFORA-ABIDJANCIT et l’UI propose 2 segments).
          */
         protected function _reprog_enrich_hub_cas_e($out)
         {
             if (!$out || !is_object($out) || !empty($out->est_transit)) {
+                return $out;
+            }
+            // Escale = destination partielle sur la ligne parent : garder le nom_ligne parent.
+            // Sinon prix escale (ex. 19000) paraît « plus proche » du suite hub (23000)
+            // que du terminus (25000) → réécriture vers BANFORA-ABIDJANCIT → 2 segments.
+            if (!empty($out->est_escale_vente)
+                || (isset($out->id_escale_vente) && (int) $out->id_escale_vente > 0)
+                || (isset($out->code_gadest_vente) && trim((string) $out->code_gadest_vente) !== '')
+                || (isset($out->nom_dest_vente) && trim((string) $out->nom_dest_vente) !== '')
+            ) {
                 return $out;
             }
             $code = '';
@@ -1725,13 +1739,7 @@
             if (empty($rows) && $tarif !== null) {
                 $rows = $this->m_programme->getch_seg_reprog($ekey, $ligne, $date, null, null, $gadest, true);
             }
-            // Si filtre gadest/ville trop strict → retenter sans contrainte destination.
-            if (empty($rows) && $gadest !== null) {
-                $rows = $this->m_programme->getch_seg_reprog($ekey, $ligne, $date, $tarif, null, null, true);
-                if (empty($rows) && $tarif !== null) {
-                    $rows = $this->m_programme->getch_seg_reprog($ekey, $ligne, $date, null, null, null, true);
-                }
-            }
+            // Ne pas retenter sans destination : ça réintroduit des programmes hors sens.
             // Ne PAS réorienter tout le listing vers la ligne CMT demandée :
             // sinon les programmes VIP sont remappés vers CMT (cie figée).
             // Orientation hub unitaire : uniquement si une seule ligne_id dans le résultat.
@@ -2030,14 +2038,17 @@
             $rows = $this->m_programme->heurereprog_unifie(
                 $this->session->company->ekey,
                 $gaexp,
-                $gadest,
+                // Reprog : ne pas filtrer le catalogue par code gadest (escale ≠ terminus).
+                // L’OD est portée par nom_ligne (+ escale id si fourni).
+                '',
                 $exclude,
                 null,
                 $id_escale > 0 ? $id_escale : null,
                 $gare !== '' ? $gare : null,
                 $sg,
                 $nom_ligne,
-                !empty($axes) ? $axes : null,
+                // Jamais de filtre axes/codes quand on a un nom_ligne.
+                null,
                 $dateFilter !== '' ? $dateFilter : null
             );
             // Enrichissement hub/dérivé pour le select Heure (1ER / 2ème + libellé).
