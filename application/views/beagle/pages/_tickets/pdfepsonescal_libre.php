@@ -3,7 +3,7 @@
  * Ticket escale libre — POSPrinter 57×40 mm.
  * Écran : message seul (pas d'aperçu). Impression : ticket plein format.
  */
-$this->load->helper('ticket_escale_libre_print');
+$this->load->helper(array('ticket_escale_libre_print', 'url_safe', 'ticket_prix'));
 
 $item = !empty($item) ? $item : null;
 $accueil_url = (!empty($role17_mode) && function_exists('role17_accueil_url'))
@@ -209,7 +209,7 @@ html, body {
 (function () {
     var accueil = <?= json_encode($accueil_url); ?>;
     var gone = false;
-    var printed = false;
+    var printDone = false;
 
     function goHome() {
         if (gone) return;
@@ -218,10 +218,10 @@ html, body {
     }
 
     function afterPrintGoHome() {
-        if (printed) return;
-        printed = true;
+        if (printDone) return;
+        printDone = true;
         /* Laisse POSPrinter démarrer le job avant de quitter */
-        setTimeout(goHome, 1800);
+        setTimeout(goHome, 2200);
     }
 
     function runPrint() {
@@ -231,9 +231,10 @@ html, body {
             goHome();
             return;
         }
+        /* Secours si afterprint n'existe pas / ne se déclenche pas */
         setTimeout(function () {
-            if (!printed) afterPrintGoHome();
-        }, 10000);
+            if (!printDone) afterPrintGoHome();
+        }, 12000);
     }
 
     function whenImagesReady(cb) {
@@ -269,16 +270,7 @@ html, body {
     if ('onafterprint' in window) {
         window.onafterprint = afterPrintGoHome;
     }
-    if (window.matchMedia) {
-        try {
-            var mq = window.matchMedia('print');
-            var handler = function (ev) {
-                if (!ev.matches) afterPrintGoHome();
-            };
-            if (mq.addEventListener) mq.addEventListener('change', handler);
-            else if (mq.addListener) mq.addListener(handler);
-        } catch (e2) {}
-    }
+    /* matchMedia('print') retiré : sur TPE il bascule trop tôt → page blanche sans papier */
 
     window.onload = function () {
         whenImagesReady(runPrint);

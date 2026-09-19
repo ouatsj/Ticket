@@ -18,12 +18,16 @@
             -webkit-text-size-adjust: 100%;
         }
         @media print {
+            /* Hauteur laissée aux vues ticket/reçu (1 page 57×40 à la fois). */
             html, body {
                 width: 57mm !important;
-                height: 40mm !important;
+                height: auto !important;
+                min-height: 0 !important;
+                max-height: none !important;
                 margin: 0 !important;
                 padding: 0 !important;
                 background: #fff !important;
+                overflow: visible !important;
             }
         }
     </style>

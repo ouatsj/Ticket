@@ -620,9 +620,6 @@
                 return;
             }
 
-            // Une fois chargé pour impression → sort de la file (disparaît de VOIR REIMPRESSION).
-            $this->m_escalclients->update($item->idclescal, array('reimpr' => 0));
-
             // Toujours 57×40 mm (POSPrinter) — libre ou classique.
             if ($libre || (isset($item->quartier_escal) && strpos((string) $item->quartier_escal, '[LIBRE]') === 0)) {
                 if (isset($item->quartier_escal)) {
@@ -648,7 +645,14 @@
             if (!isset($item->prixescal) && isset($item->prix)) {
                 $item->prixescal = $item->prix;
             }
+            if (!isset($item->prixescal)) {
+                $item->prixescal = 0;
+            }
 
+            // Sort de la file seulement quand on a un ticket affichable (évite blanc + perte d’autorisation).
+            $this->m_escalclients->update($item->idclescal, array('reimpr' => 0));
+
+            $this->load->helper(array('ticket_escale_libre_print', 'url_safe', 'ticket_prix'));
             $this->property['item'] = $item;
             $this->property['bus_stop'] = $bus_stop;
             $this->property['conex'] = $conex;

@@ -370,8 +370,23 @@
             $this->company = $this->m_entreprises->get_key($ckey);
 
             $bus_stop = $this->m_sousgare->sget($this->company->ekey, $g, $idsg);
+            if (!$bus_stop) {
+                roleattribut_guard_fail_redirect_home($this->company->ekey);
+                return;
+            }
             $this->property['bus_stop'] = $bus_stop;
             $conex = $this->m_compte_user->getusergare($this->company->ekey, $g, $cpus);
+            if (!$conex && $this->session->userdata('agent')) {
+                $conex = $this->m_compte_user->getusergare(
+                    $this->company->ekey,
+                    $g,
+                    $this->session->agent->roleattribut
+                );
+            }
+            if (!$conex) {
+                roleattribut_guard_fail_redirect_home($this->company->ekey);
+                return;
+            }
             $this->property['conex'] = $conex;
 
             $this->courriers = $this->m_courrier_expedieresc->getexpedition($this->company->ekey, $coli_id);

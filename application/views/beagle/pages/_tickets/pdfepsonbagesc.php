@@ -126,10 +126,17 @@ html, body {
 }
 @media print {
     #printStatus { display: none !important; }
-    html, body { width: 57mm !important; height: auto !important; margin: 0 !important; padding: 0 !important; overflow: visible !important; }
-    #recuEpsonStack { position: static !important; }
-    .recu-copy { page-break-after: always; break-after: page; }
-    .recu-copy:last-child { page-break-after: auto; break-after: auto; }
+    /* Une seule copie active = même job que le ticket vente (1× 57×40). */
+    html, body { width: 57mm !important; height: 40mm !important; margin: 0 !important; padding: 0 !important; overflow: hidden !important; }
+    #recuEpsonStack { position: static !important; width: 57mm !important; height: 40mm !important; }
+    .recu-copy.is-print-skip { display: none !important; }
+    .recu-copy:not(.is-print-skip) {
+        position: static !important;
+        width: 57mm !important;
+        height: 40mm !important;
+        page-break-after: auto;
+        break-after: auto;
+    }
 }
 .recu-copy {
     box-sizing: border-box; width: 57mm; height: 40mm; margin: 0; padding: 0.5mm 1.6mm 0.4mm;
@@ -150,29 +157,112 @@ html, body {
 <script>
 (function () {
     var homeUrl = <?= json_encode($accueil_url); ?>;
-    var printed = false;
+    var copies = [];
+    var idx = 0;
+    var gone = false;
+    var waitingAfterPrint = false;
+    var fallbackTimer = null;
+
     function goHome() {
+        if (gone) return;
+        gone = true;
         try { location.replace(homeUrl); } catch (e) { location.href = homeUrl; }
     }
+
+    function showOnly(i) {
+        for (var n = 0; n < copies.length; n++) {
+            if (n === i) copies[n].classList.remove('is-print-skip');
+            else copies[n].classList.add('is-print-skip');
+        }
+    }
+
     function whenImagesReady(cb) {
         var imgs = document.querySelectorAll('#recuEpsonStack img');
-        var left = imgs.length;
-        if (!left) { cb(); return; }
-        var done = function () { left--; if (left <= 0) cb(); };
-        for (var i = 0; i < imgs.length; i++) {
-            if (imgs[i].complete) done();
-            else { imgs[i].onload = done; imgs[i].onerror = done; }
+        if (!imgs.length) {
+            setTimeout(cb, 150);
+            return;
         }
-        setTimeout(cb, 1200);
+        var left = imgs.length;
+        var done = false;
+        function one() {
+            left--;
+            if (left <= 0 && !done) {
+                done = true;
+                setTimeout(cb, 200);
+            }
+        }
+        for (var i = 0; i < imgs.length; i++) {
+            if (imgs[i].complete) one();
+            else {
+                imgs[i].addEventListener('load', one);
+                imgs[i].addEventListener('error', one);
+            }
+        }
+        setTimeout(function () {
+            if (!done) {
+                done = true;
+                cb();
+            }
+        }, 2500);
     }
-    function runPrint() {
-        if (printed) return;
-        printed = true;
-        try { window.print(); } catch (e) {}
-        setTimeout(goHome, 1200);
-        window.onafterprint = goHome;
+
+    function afterOneCopy() {
+        if (!waitingAfterPrint) return;
+        waitingAfterPrint = false;
+        if (fallbackTimer) {
+            clearTimeout(fallbackTimer);
+            fallbackTimer = null;
+        }
+        idx++;
+        if (idx >= copies.length) {
+            setTimeout(goHome, 1800);
+            return;
+        }
+        /* Pause courte entre jobs pour laisser POSPrinter éjecter. */
+        setTimeout(printNext, 500);
     }
-    window.onload = function () { whenImagesReady(runPrint); };
+
+    function printNext() {
+        if (gone) return;
+        showOnly(idx);
+        waitingAfterPrint = true;
+        try {
+            window.print();
+        } catch (e) {
+            goHome();
+            return;
+        }
+        fallbackTimer = setTimeout(function () {
+            if (waitingAfterPrint) afterOneCopy();
+        }, 10000);
+    }
+
+    if ('onafterprint' in window) {
+        window.onafterprint = function () {
+            if (waitingAfterPrint) afterOneCopy();
+        };
+    }
+    if (window.matchMedia) {
+        try {
+            var mq = window.matchMedia('print');
+            var handler = function (ev) {
+                if (!ev.matches && waitingAfterPrint) afterOneCopy();
+            };
+            if (mq.addEventListener) mq.addEventListener('change', handler);
+            else if (mq.addListener) mq.addListener(handler);
+        } catch (e2) {}
+    }
+
+    window.onload = function () {
+        copies = Array.prototype.slice.call(document.querySelectorAll('#recuEpsonStack .recu-copy'));
+        whenImagesReady(function () {
+            if (!copies.length) {
+                goHome();
+                return;
+            }
+            printNext();
+        });
+    };
 })();
 </script>
 

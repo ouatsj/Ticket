@@ -980,6 +980,7 @@ if (!function_exists('roleattribut_guard_uri_enforcement_skipped')) {
             $ticket_prefixes = array(
                 'editpdf',
                 'reditpdf',
+                'pdfepson',
                 'epson',
                 'repson',
                 'print_conf',
@@ -999,6 +1000,23 @@ if (!function_exists('roleattribut_guard_uri_enforcement_skipped')) {
                     return true;
                 }
             }
+        }
+
+        // Réimpression venteescale (r17) : …/pdfepsonescalrp/{ekey}/{code}/{tf}/{lh}/{gare}/{role}/{sg}
+        // La boucle générique confond tf/lh avec roleattribut → redirect login (= page blanche TPE).
+        if ($controller === 'ventescales'
+            && (strpos($method, 'pdfepson') === 0 || $method === 'voirreimpri')
+        ) {
+            return true;
+        }
+
+        // Reçus courrier escale : reditpdfesc / editpdfesc / editpdfreimp.
+        if ($controller === 'historiquesescal'
+            && (strpos($method, 'reditpdf') === 0
+                || strpos($method, 'editpdf') === 0
+                || strpos($method, 'pdfepson') === 0)
+        ) {
+            return true;
         }
 
         if ($controller === 'confirmation' && in_array($method, array('edit', 'edittr'), true)) {

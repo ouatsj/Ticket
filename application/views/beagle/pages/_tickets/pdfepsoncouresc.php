@@ -154,21 +154,24 @@ html, body {
 
 @media print {
     #printStatus { display: none !important; }
+    /* Une seule copie active = même job que le ticket vente (1× 57×40). */
     html, body {
         width: 57mm !important;
-        height: auto !important;
+        height: 40mm !important;
         margin: 0 !important;
         padding: 0 !important;
-        overflow: visible !important;
+        overflow: hidden !important;
     }
     #recuEpsonStack {
         position: static !important;
+        width: 57mm !important;
+        height: 40mm !important;
     }
-    .recu-copy {
-        page-break-after: always;
-        break-after: page;
-    }
-    .recu-copy:last-child {
+    .recu-copy.is-print-skip { display: none !important; }
+    .recu-copy:not(.is-print-skip) {
+        position: static !important;
+        width: 57mm !important;
+        height: 40mm !important;
         page-break-after: auto;
         break-after: auto;
     }
@@ -255,8 +258,11 @@ html, body {
 <script type="text/javascript">
 (function () {
     var accueil = <?= json_encode($accueil_url); ?>;
+    var copies = [];
+    var idx = 0;
     var gone = false;
-    var printed = false;
+    var waitingAfterPrint = false;
+    var fallbackTimer = null;
 
     function goHome() {
         if (gone) return;
@@ -264,22 +270,11 @@ html, body {
         window.location.replace(accueil);
     }
 
-    function afterPrintGoHome() {
-        if (printed) return;
-        printed = true;
-        setTimeout(goHome, 2200);
-    }
-
-    function runPrint() {
-        try {
-            window.print();
-        } catch (e) {
-            goHome();
-            return;
+    function showOnly(i) {
+        for (var n = 0; n < copies.length; n++) {
+            if (n === i) copies[n].classList.remove('is-print-skip');
+            else copies[n].classList.add('is-print-skip');
         }
-        setTimeout(function () {
-            if (!printed) afterPrintGoHome();
-        }, 12000);
     }
 
     function whenImagesReady(cb) {
@@ -312,14 +307,46 @@ html, body {
         }, 2500);
     }
 
+    function afterOneCopy() {
+        if (!waitingAfterPrint) return;
+        waitingAfterPrint = false;
+        if (fallbackTimer) {
+            clearTimeout(fallbackTimer);
+            fallbackTimer = null;
+        }
+        idx++;
+        if (idx >= copies.length) {
+            setTimeout(goHome, 1800);
+            return;
+        }
+        setTimeout(printNext, 500);
+    }
+
+    function printNext() {
+        if (gone) return;
+        showOnly(idx);
+        waitingAfterPrint = true;
+        try {
+            window.print();
+        } catch (e) {
+            goHome();
+            return;
+        }
+        fallbackTimer = setTimeout(function () {
+            if (waitingAfterPrint) afterOneCopy();
+        }, 10000);
+    }
+
     if ('onafterprint' in window) {
-        window.onafterprint = afterPrintGoHome;
+        window.onafterprint = function () {
+            if (waitingAfterPrint) afterOneCopy();
+        };
     }
     if (window.matchMedia) {
         try {
             var mq = window.matchMedia('print');
             var handler = function (ev) {
-                if (!ev.matches) afterPrintGoHome();
+                if (!ev.matches && waitingAfterPrint) afterOneCopy();
             };
             if (mq.addEventListener) mq.addEventListener('change', handler);
             else if (mq.addListener) mq.addListener(handler);
@@ -327,7 +354,14 @@ html, body {
     }
 
     window.onload = function () {
-        whenImagesReady(runPrint);
+        copies = Array.prototype.slice.call(document.querySelectorAll('#recuEpsonStack .recu-copy'));
+        whenImagesReady(function () {
+            if (!copies.length) {
+                goHome();
+                return;
+            }
+            printNext();
+        });
     };
 })();
 </script>
