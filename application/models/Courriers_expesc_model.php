@@ -3035,22 +3035,43 @@
                 WHERE ep.ekey = '$cid'
                 AND e.actif_couresc = 0")->result();
             }
+            // Lookup reçu : ne dépendre d’aucun JOIN strict (escale / horaire partiel).
+            $row = $this->db->query(
+                "SELECT e.*, cd.*, sg.*, er.*, lh.*, h.*, lg.*, gex.*, dest.*, c.*, ep.*,
+                        sg.nomsousgare AS nomsousgare,
+                        gex.nom_gaep AS nom_gaep,
+                        dest.nom_gadest AS nom_gadest,
+                        c.nom_compagnie AS nom_compagnie,
+                        h.heure AS heure,
+                        cd.nombrecolis AS nombrecolis,
+                        cd.naturecoli AS naturecoli
+                FROM courriers_expesc e
+                LEFT JOIN code_courriers cd ON e.id_codecourrieresc = cd.codecolisid
+                LEFT JOIN sousgare sg ON e.courrierdepartgareesc = sg.idsousgare
+                LEFT JOIN expeditreception er ON cd.exprecepident = er.idexprecept
+                LEFT JOIN ligne_heure lh ON e.departcolisesc = lh.id_ligneheure
+                LEFT JOIN heures h ON lh.heure_identif = h.id_heure
+                LEFT JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
+                LEFT JOIN gare_exp gex ON lg.gaexp_lg = gex.code_gaexp
+                LEFT JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
+                LEFT JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
+                LEFT JOIN entreprise ep ON c.id_entrep = ep.id_entreprise
+                WHERE e.courrierexpidesc = ?
+                AND (e.actif_couresc = 0 OR e.actif_couresc IS NULL)
+                AND (ep.ekey = ? OR ep.ekey IS NULL OR ? = '')
+                ORDER BY e.courrierexpidesc DESC LIMIT 1",
+                array($exp, $cid, $cid)
+            )->row();
+            if ($row) {
+                return $row;
+            }
+            // Ultime secours : le reçu existe même si les JOINs métier échouent.
             return $this->db->query(
-                "SELECT * FROM courriers_expesc e
-                JOIN code_courriers cd ON e.id_codecourrieresc = cd.codecolisid
-                JOIN sousgare sg ON e.courrierdepartgareesc = sg.idsousgare
-                JOIN expeditreception er ON cd.exprecepident = er.idexprecept 
-                JOIN ligne_heure lh ON e.departcolisesc = lh.id_ligneheure
-                JOIN heures h ON lh.heure_identif = h.id_heure
-                JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
-                JOIN gare_exp gex ON lg.gaexp_lg = gex.code_gaexp
-                JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
-                JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
-                JOIN entreprise ep ON c.id_entrep = ep.id_entreprise
-                WHERE ep.ekey = '$cid'
-                AND e.courrierexpidesc = '$exp'
-                AND e.actif_couresc = 0
-                ORDER BY e.courrierexpidesc DESC LIMIT 1")->row();
+                "SELECT e.* FROM courriers_expesc e
+                WHERE e.courrierexpidesc = ?
+                LIMIT 1",
+                array($exp)
+            )->row();
         }
 
         public function getexpedition1($cid, $cdpg, $exp = FALSE)

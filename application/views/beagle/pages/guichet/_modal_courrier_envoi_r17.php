@@ -4,9 +4,22 @@
  * cases à cocher + formulaires intégrés (pas de redirection).
  */
 $dep_lab = !empty($escale_depart_label) ? (string) $escale_depart_label : '';
-if ($dep_lab === '' && !empty($garedeparts) && is_array($garedeparts)) {
+if ($dep_lab === '' && !empty($garedeparts) && is_array($garedeparts) && !empty($garedeparts[0])) {
     $dep0 = $garedeparts[0];
-    $dep_lab = $dep0->nom_gaep . '/' . $dep0->nomsousgare;
+    $dep_lab = trim(
+        (!empty($dep0->nom_gaep) ? (string) $dep0->nom_gaep : '')
+        . '/'
+        . (!empty($dep0->nomsousgare) ? (string) $dep0->nomsousgare : ''),
+        '/'
+    );
+}
+if ($dep_lab === '' && !empty($bus_stop) && is_object($bus_stop)) {
+    $dep_lab = trim(
+        (!empty($bus_stop->nom_gaep) ? (string) $bus_stop->nom_gaep : '')
+        . '/'
+        . (!empty($bus_stop->nomsousgare) ? (string) $bus_stop->nomsousgare : ''),
+        '/'
+    );
 }
 ?>
 <div class="modal-container colored-header colored-header-success custom-width modal-effect-7"
@@ -394,8 +407,20 @@ if ($dep_lab === '' && !empty($garedeparts) && is_array($garedeparts)) {
             var dateEl = document.getElementById(dateId);
             var heureEl = document.getElementById(heureId);
             var destEl = document.getElementById(destId);
-            if (!dateEl || !heureEl || !destEl) return;
-            var ligne = destEl.getAttribute('data-role17-ligne') || '';
+            if (!dateEl || !heureEl) return;
+            var ligne = '';
+            if (destEl) {
+                ligne = destEl.getAttribute('data-role17-ligne') || '';
+            }
+            if (!ligne) {
+                var wrap = dateEl.closest ? dateEl.closest('.adcourescale') : null;
+                if (wrap) ligne = wrap.getAttribute('data-role17-ligne') || '';
+            }
+            if (!ligne) {
+                var root = document.getElementById('courrier-envoi-r17');
+                var w2 = root ? root.querySelector('[data-role17-ligne]') : null;
+                if (w2) ligne = w2.getAttribute('data-role17-ligne') || '';
+            }
             if (!ligne) return;
             // Après adcourescale.js (DOMContentLoaded) : prendre la main.
             setTimeout(function () {
@@ -408,6 +433,31 @@ if ($dep_lab === '' && !empty($garedeparts) && is_array($garedeparts)) {
         bindHeuresLigne('date_depheurecourexesc', 'hdepcouresc', 'arrscouresc');
         bindHeuresLigne('date_depheurecourexpersoesc', 'hdepcourpersoesc', 'arrscourpersoesc');
         bindHeuresLigne('date_depheurecourexpartoesc', 'hdepcourpartoesc', 'arrscourpartoesc');
+
+        // Actions formulaire (VALIDER) — ne pas dépendre d’un clic sur le wrapper.
+        (function bindCourrierFormActions() {
+            var root = document.getElementById('courrier-envoi-r17');
+            if (!root) return;
+            var cleEl = root.querySelector('[data-cle_compagnie]');
+            var cle = cleEl ? cleEl.getAttribute('data-cle_compagnie') : '';
+            if (!cle) return;
+            var base = (typeof APP_ROOT !== 'undefined' ? APP_ROOT : '') + '/Reprogrammes/';
+            var map = [
+                { id: 'coordFormesc', path: 'addordesc/' },
+                { id: 'coordFormpersoesc', path: 'addpersoesc/' },
+                { id: 'coordFormpartoesc', path: 'addpartoesc/' }
+            ];
+            // ids réels des partials
+            var forms = root.querySelectorAll('form.r17-wiz-form');
+            for (var i = 0; i < forms.length; i++) {
+                var f = forms[i];
+                var fid = f.id || '';
+                var path = 'addordesc/';
+                if (fid.indexOf('perso') !== -1) path = 'addpersoesc/';
+                else if (fid.indexOf('parto') !== -1 || fid.indexOf('part') !== -1) path = 'addpartoesc/';
+                f.setAttribute('action', base + path + encodeURIComponent(cle));
+            }
+        })();
     });
 })();
 </script>

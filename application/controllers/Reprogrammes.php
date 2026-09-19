@@ -4712,7 +4712,7 @@
                 $iduser,
                 $gid,
                 $sgid,
-                'confirmation/courrierescal/' . $this->company->ekey . '/' . $iduser . '/' . $gid . '/' . $sgid
+                'confirmation/courrierescales/' . $this->company->ekey . '/' . $iduser . '/' . $gid . '/' . $sgid
             )) {
                 return;
             }
@@ -4721,10 +4721,23 @@
                 $iduser,
                 $gid,
                 $sgid,
-                'confirmation/courrierescal/' . $this->company->ekey . '/' . $iduser . '/' . $gid . '/' . $sgid,
+                'confirmation/courrierescales/' . $this->company->ekey . '/' . $iduser . '/' . $gid . '/' . $sgid,
                 'fraisexesc',
                 500
             )) {
+                return;
+            }
+
+            $deparRaw = trim((string) $this->input->post('deparcourrieresc'));
+            if ($deparRaw === '' || strpos($deparRaw, '/') === false) {
+                $this->session->set_flashdata(
+                    'error',
+                    'Expédition (gare de départ) manquante — rouvrez le formulaire courrier.'
+                );
+                redirect(
+                    'confirmation/courrierescales/' . $this->company->ekey . '/'
+                    . $iduser . '/' . $gid . '/' . $sgid
+                );
                 return;
             }
 
@@ -4770,6 +4783,18 @@
                 $id_lignes_code = role17_courrier_idlignes($iduser, $gid, $reg . '-' . $arreg);
 
                 $arecomp = $this->db->query("SELECT d.id_compaga FROM gare_dest d WHERE d.code_gadest = '$arreg'")->row();
+
+                if (!$arecomp || empty($arecomp->id_compaga)) {
+                    $this->session->set_flashdata(
+                        'error',
+                        'Destination invalide pour le courrier — choisissez une arrivée de votre itinéraire.'
+                    );
+                    redirect(
+                        'confirmation/courrierescales/' . $this->company->ekey . '/'
+                        . $iduser . '/' . $gid . '/' . $sgid
+                    );
+                    return;
+                }
 
                 $cd = $arecomp->id_compaga;
                 
@@ -4884,12 +4909,27 @@
                         
                         $aregid = $this->db->query("SELECT d.idgaresdest FROM gare_dest d WHERE d.code_gadest = '$arreg'")->row();
 
+                        if (!$aregid || empty($aregid->idgaresdest)) {
+                            $this->session->set_flashdata(
+                                'error',
+                                'Gare d’arrivée introuvable pour cette destination.'
+                            );
+                            redirect(
+                                'confirmation/courrierescales/' . $this->company->ekey . '/'
+                                . $iduser . '/' . $gid . '/' . $sgid
+                            );
+                            return;
+                        }
+
                         $quartar = $this->db->query("SELECT g.codegares FROM gares g WHERE g.idengare = '$aregid->idgaresdest'")->row();
 
                         $sousgar_id = $this->db->query("SELECT sg.idsousgare FROM sousgare sg WHERE sg.gareprinceid = '$aregid->idgaresdest'
                             AND sg.nomsousgare = '$quart3'")->row();
+                        $sousgare_arr_id = ($sousgar_id && !empty($sousgar_id->idsousgare))
+                            ? $sousgar_id->idsousgare
+                            : $sgid;
 
-                            $argare_ar = $quartar->codegares;
+                            $argare_ar = (!empty($quartar) && !empty($quartar->codegares)) ? $quartar->codegares : '';
                         $codcour = $argdp3.$dpgdp1.mdate("%y%m%d", now('UTC')).($passecompter->id + 1).$argare_ar.$quart2.$gid.$usen.$iduser.$nat1;
                         $cdcour = $dpgdp1.mdate("%m%d", now('UTC')).($passecompt->id + 1).$argare_ar.$quart2.$nat1;
 
@@ -4904,7 +4944,7 @@
                                         'courrierdepartgareesc' => $reg1,
                                         'quartier_courrieresc' => $quart3,
                                         'garearrivecolisesc'=> $aregid->idgaresdest,
-                                        'sousgarearrividesc' => $sousgar_id->idsousgare,
+                                        'sousgarearrividesc' => $sousgare_arr_id,
                                         'dateenvoiesc' => mdate("%Y-%m-%d", now('UTC')),
                                         'prixcolisesc' => $this->input->post('fraisexesc'),
                                         'naturecourrieresc' => $this->input->post('naturecolesc'),
@@ -5065,7 +5105,7 @@
                                         'courrierdepartgareesc' => $reg1,
                                         'quartier_courrieresc' => $quart3,
                                         'garearrivecolisesc'=> $aregid->idgaresdest,
-                                        'sousgarearrividesc' => $sousgar_id->idsousgare,
+                                        'sousgarearrividesc' => (($sousgar_id && !empty($sousgar_id->idsousgare)) ? $sousgar_id->idsousgare : $sgid),
                                         'dateenvoiesc' => mdate("%Y-%m-%d", now('UTC')),
                                         'prixcolisesc' => $this->input->post('fraisexesc'),
                                         'naturecourrieresc' => $this->input->post('naturecolesc'),
@@ -5225,7 +5265,7 @@
                                         'courrierdepartgareesc' => $reg1,
                                         'quartier_courrieresc' => $quart3,
                                         'garearrivecolisesc'=> $aregid->idgaresdest,
-                                        'sousgarearrividesc' => $sousgar_id->idsousgare,
+                                        'sousgarearrividesc' => (($sousgar_id && !empty($sousgar_id->idsousgare)) ? $sousgar_id->idsousgare : $sgid),
                                         'dateenvoiesc' => mdate("%Y-%m-%d", now('UTC')),
                                         'prixcolisesc' => $this->input->post('fraisexesc'),
                                         'naturecourrieresc' => $this->input->post('naturecolesc'),
@@ -5384,7 +5424,7 @@
                                         'courrierdepartgareesc' => $reg1,
                                         'quartier_courrieresc' => $quart3,
                                         'garearrivecolisesc'=> $aregid->idgaresdest,
-                                        'sousgarearrividesc' => $sousgar_id->idsousgare,
+                                        'sousgarearrividesc' => (($sousgar_id && !empty($sousgar_id->idsousgare)) ? $sousgar_id->idsousgare : $sgid),
                                         'dateenvoiesc' => mdate("%Y-%m-%d", now('UTC')),
                                         'prixcolisesc' => $this->input->post('fraisexesc'),
                                         'naturecourrieresc' => $this->input->post('naturecolesc'),
@@ -5536,7 +5576,7 @@
                                         'courrierdepartgareesc' => $reg1,
                                         'quartier_courrieresc' => $quart3,
                                         'garearrivecolisesc'=> $aregid->idgaresdest,
-                                        'sousgarearrividesc' => $sousgar_id->idsousgare,
+                                        'sousgarearrividesc' => (($sousgar_id && !empty($sousgar_id->idsousgare)) ? $sousgar_id->idsousgare : $sgid),
                                         'dateenvoiesc' => mdate("%Y-%m-%d", now('UTC')),
                                         'prixcolisesc' => $this->input->post('fraisexesc'),
                                         'naturecourrieresc' => $this->input->post('naturecolesc'),
@@ -5683,7 +5723,7 @@
                                         'courrierdepartgareesc' => $reg1,
                                         'quartier_courrieresc' => $quart3,
                                         'garearrivecolisesc'=> $aregid->idgaresdest,
-                                        'sousgarearrividesc' => $sousgar_id->idsousgare,
+                                        'sousgarearrividesc' => (($sousgar_id && !empty($sousgar_id->idsousgare)) ? $sousgar_id->idsousgare : $sgid),
                                         'dateenvoiesc' => mdate("%Y-%m-%d", now('UTC')),
                                         'prixcolisesc' => $this->input->post('fraisexesc'),
                                         'naturecourrieresc' => $this->input->post('naturecolesc'),
@@ -5841,7 +5881,7 @@
                                         'courrierdepartgareesc' => $reg1,
                                         'quartier_courrieresc' => $quart3,
                                         'garearrivecolisesc'=> $aregid->idgaresdest,
-                                        'sousgarearrividesc' => $sousgar_id->idsousgare,
+                                        'sousgarearrividesc' => (($sousgar_id && !empty($sousgar_id->idsousgare)) ? $sousgar_id->idsousgare : $sgid),
                                         'dateenvoiesc' => mdate("%Y-%m-%d", now('UTC')),
                                         'prixcolisesc' => $this->input->post('fraisexesc'),
                                         'naturecourrieresc' => $this->input->post('naturecolesc'),
@@ -5985,7 +6025,7 @@
                                         'courrierdepartgareesc' => $reg1,
                                         'quartier_courrieresc' => $quart3,
                                         'garearrivecolisesc'=> $aregid->idgaresdest,
-                                        'sousgarearrividesc' => $sousgar_id->idsousgare,
+                                        'sousgarearrividesc' => (($sousgar_id && !empty($sousgar_id->idsousgare)) ? $sousgar_id->idsousgare : $sgid),
                                         'dateenvoiesc' => mdate("%Y-%m-%d", now('UTC')),
                                         'prixcolisesc' => $this->input->post('fraisexesc'),
                                         'naturecourrieresc' => $this->input->post('naturecolesc'),
@@ -6142,7 +6182,7 @@
                                         'courrierdepartgareesc' => $reg1,
                                         'quartier_courrieresc' => $quart3,
                                         'garearrivecolisesc'=> $aregid->idgaresdest,
-                                        'sousgarearrividesc' => $sousgar_id->idsousgare,
+                                        'sousgarearrividesc' => (($sousgar_id && !empty($sousgar_id->idsousgare)) ? $sousgar_id->idsousgare : $sgid),
                                         'dateenvoiesc' => mdate("%Y-%m-%d", now('UTC')),
                                         'prixcolisesc' => $this->input->post('fraisexesc'),
                                         'naturecourrieresc' => $this->input->post('naturecolesc'),
@@ -6300,7 +6340,7 @@
                                         'courrierdepartgareesc' => $reg1,
                                         'quartier_courrieresc' => $quart3,
                                         'garearrivecolisesc'=> $aregid->idgaresdest,
-                                        'sousgarearrividesc' => $sousgar_id->idsousgare,
+                                        'sousgarearrividesc' => (($sousgar_id && !empty($sousgar_id->idsousgare)) ? $sousgar_id->idsousgare : $sgid),
                                         'dateenvoiesc' => mdate("%Y-%m-%d", now('UTC')),
                                         'prixcolisesc' => $this->input->post('fraisexesc'),
                                         'naturecourrieresc' => $this->input->post('naturecolesc'),
@@ -6456,7 +6496,7 @@
                                         'courrierdepartgareesc' => $reg1,
                                         'quartier_courrieresc' => $quart3,
                                         'garearrivecolisesc'=> $aregid->idgaresdest,
-                                        'sousgarearrividesc' => $sousgar_id->idsousgare,
+                                        'sousgarearrividesc' => (($sousgar_id && !empty($sousgar_id->idsousgare)) ? $sousgar_id->idsousgare : $sgid),
                                         'dateenvoiesc' => mdate("%Y-%m-%d", now('UTC')),
                                         'prixcolisesc' => $this->input->post('fraisexesc'),
                                         'naturecourrieresc' => $this->input->post('naturecolesc'),
@@ -6677,7 +6717,7 @@
                                         'courrierdepartgareesc' => $reg1,
                                         'quartier_courrieresc' => $quart3,
                                         'garearrivecolisesc'=> $aregid->idgaresdest,
-                                        'sousgarearrividesc' => $sousgar_id->idsousgare,
+                                        'sousgarearrividesc' => (($sousgar_id && !empty($sousgar_id->idsousgare)) ? $sousgar_id->idsousgare : $sgid),
                                         'dateenvoiesc' => mdate("%Y-%m-%d", now('UTC')),
                                         'prixcolisesc' => $this->input->post('fraisexpersoesc'),
                                         'naturecourrieresc' => $this->input->post('naturecolpersoesc'),
@@ -6762,7 +6802,7 @@
                                         'courrierdepartgareesc' => $reg1,
                                         'quartier_courrieresc' => $quart3,
                                         'garearrivecolisesc'=> $aregid->idgaresdest,
-                                        'sousgarearrividesc' => $sousgar_id->idsousgare,
+                                        'sousgarearrividesc' => (($sousgar_id && !empty($sousgar_id->idsousgare)) ? $sousgar_id->idsousgare : $sgid),
                                         'dateenvoiesc' => mdate("%Y-%m-%d", now('UTC')),
                                         'prixcolisesc' => $this->input->post('fraisexpersoesc'),
                                         'naturecourrieresc' => $this->input->post('naturecolpersoesc'),
@@ -6856,7 +6896,7 @@
                                         'courrierdepartgareesc' => $reg1,
                                         'quartier_courrieresc' => $quart3,
                                         'garearrivecolisesc'=> $aregid->idgaresdest,
-                                        'sousgarearrividesc' => $sousgar_id->idsousgare,
+                                        'sousgarearrividesc' => (($sousgar_id && !empty($sousgar_id->idsousgare)) ? $sousgar_id->idsousgare : $sgid),
                                         'dateenvoiesc' => mdate("%Y-%m-%d", now('UTC')),
                                         'prixcolisesc' => $this->input->post('fraisexpersoesc'),
                                         'naturecourrieresc' => $this->input->post('naturecolpersoesc'),
@@ -6959,7 +6999,7 @@
                                         'courrierdepartgareesc' => $reg1,
                                         'quartier_courrieresc' => $quart3,
                                         'garearrivecolisesc'=> $aregid->idgaresdest,
-                                        'sousgarearrividesc' => $sousgar_id->idsousgare,
+                                        'sousgarearrividesc' => (($sousgar_id && !empty($sousgar_id->idsousgare)) ? $sousgar_id->idsousgare : $sgid),
                                         'dateenvoiesc' => mdate("%Y-%m-%d", now('UTC')),
                                         'prixcolisesc' => $this->input->post('fraisexpersoesc'),
                                         'naturecourrieresc' => $this->input->post('naturecolpersoesc'),
@@ -7177,7 +7217,7 @@
                                         'courrierdepartgareesc' => $reg1,
                                         'quartier_courrieresc' => $quart3,
                                         'garearrivecolisesc'=> $aregid->idgaresdest,
-                                        'sousgarearrividesc' => $sousgar_id->idsousgare,
+                                        'sousgarearrividesc' => (($sousgar_id && !empty($sousgar_id->idsousgare)) ? $sousgar_id->idsousgare : $sgid),
                                         'dateenvoiesc' => mdate("%Y-%m-%d", now('UTC')),
                                         'prixcolisesc' => $this->input->post('fraisexpartoesc'),
                                         'naturecourrieresc' => $this->input->post('naturecolpartoesc'),
@@ -7320,7 +7360,7 @@
                                         'courrierdepartgareesc' => $reg1,
                                         'quartier_courrieresc' => $quart3,
                                         'garearrivecolisesc'=> $aregid->idgaresdest,
-                                        'sousgarearrividesc' => $sousgar_id->idsousgare,
+                                        'sousgarearrividesc' => (($sousgar_id && !empty($sousgar_id->idsousgare)) ? $sousgar_id->idsousgare : $sgid),
                                         'dateenvoiesc' => mdate("%Y-%m-%d", now('UTC')),
                                         'prixcolisesc' => $this->input->post('fraisexpartoesc'),
                                         'naturecourrieresc' => $this->input->post('naturecolpartoesc'),
@@ -7462,7 +7502,7 @@
                                         'courrierdepartgareesc' => $reg1,
                                         'quartier_courrieresc' => $quart3,
                                         'garearrivecolisesc'=> $aregid->idgaresdest,
-                                        'sousgarearrividesc' => $sousgar_id->idsousgare,
+                                        'sousgarearrividesc' => (($sousgar_id && !empty($sousgar_id->idsousgare)) ? $sousgar_id->idsousgare : $sgid),
                                         'dateenvoiesc' => mdate("%Y-%m-%d", now('UTC')),
                                         'prixcolisesc' => $this->input->post('fraisexpartoesc'),
                                         'naturecourrieresc' => $this->input->post('naturecolpartoesc'),
@@ -7590,7 +7630,7 @@
                                         'courrierdepartgareesc' => $reg1,
                                         'quartier_courrieresc' => $quart3,
                                         'garearrivecolisesc'=> $aregid->idgaresdest,
-                                        'sousgarearrividesc' => $sousgar_id->idsousgare,
+                                        'sousgarearrividesc' => (($sousgar_id && !empty($sousgar_id->idsousgare)) ? $sousgar_id->idsousgare : $sgid),
                                         'dateenvoiesc' => mdate("%Y-%m-%d", now('UTC')),
                                         'prixcolisesc' => $this->input->post('fraisexpartoesc'),
                                         'naturecourrieresc' => $this->input->post('naturecolpartoesc'),

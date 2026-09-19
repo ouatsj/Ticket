@@ -314,6 +314,15 @@ document.addEventListener('DOMContentLoaded', function () {
             }
 
             applyArriveeFilter(box);
+            if (typeof window.__venteOnCompagnieArriveeChange === 'function') {
+                window.__venteOnCompagnieArriveeChange(box);
+            }
+            if (typeof window.__venteFiOnCompagnieArriveeChange === 'function') {
+                window.__venteFiOnCompagnieArriveeChange(box);
+            }
+            if (typeof window.__venteMobOnCompagnieArriveeChange === 'function') {
+                window.__venteMobOnCompagnieArriveeChange(box);
+            }
         });
 
         applyArriveeFilter(box);
@@ -4492,57 +4501,184 @@ document.addEventListener('DOMContentLoaded', () => {
                         var post_lhdepmob = depamob.split('/');
                         var seltdepmob = post_lhdepmob[0];
                         var sougidmob = post_lhdepmob[1];
+                        var cieMob = '';
+                        (function () {
+                            var selArr = document.querySelector('#arrsgaremob');
+                            if (selArr && selArr.selectedIndex > 0) {
+                                var opt = selArr.options[selArr.selectedIndex];
+                                cieMob = opt ? String(opt.getAttribute('data-compagnie') || '').trim() : '';
+                            }
+                            if (!cieMob) {
+                                var box = document.querySelector('.js-filtre-compagnie-arrivee-vente[data-target-arrivee="arrsgaremob"]');
+                                var chk = box ? box.querySelector('.js-filtre-compagnie-check:checked') : null;
+                                cieMob = chk ? String(chk.value || '').trim() : '';
+                            }
+                        })();
                         if(datedepartmob >= dateactumob)
                         {
-                            
-                            httpRequetesmob.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifheure1/${seltdepmob}-${arrmob}/${datedepartmob}`, true);
+                            // Même pipeline que le guichet : heures selon programmes gare (+ transit), filtrées cie arrivée.
+                            var urlHvMob = window.location.origin + APP_ROOT
+                                + '/programmes/verifheuresvente/'
+                                + encodeURIComponent(seltdepmob + '-' + arrmob) + '/'
+                                + encodeURIComponent(datedepartmob) + '/'
+                                + encodeURIComponent(sougidmob || '0');
+                            if (cieMob) urlHvMob += '?cie=' + encodeURIComponent(cieMob);
+                            httpRequetesmob.open('GET', urlHvMob, true);
                             httpRequetesmob.onload = () => {
-                                const dataAxemob = JSON.parse(httpRequetesmob.responseText);
-                                
-                                    if (dataAxemob == '') {
-                                        
-                                        document.querySelector('#smsdtmob').style.display = 'none';
-                                        document.querySelector('#date_depheuremob').style.color = "black";
-                                        document.querySelector('#date_depheuremob').style.border = "1px solid";
-                                        
-                                    } 
-                                    else 
-                                    {       
-                                        
-                                        document.querySelector('#smsdtmob').style.display = 'none';
-                                        document.querySelector('#date_depheuremob').style.color = "black";
-                                        document.querySelector('#date_depheuremob').style.border = "1px solid";
-                                        if (Object.entries(dataAxemob).length >= 1) 
-                                        {
-                                                
-                                            
-    
-                                            for (let key in Object.entries(dataAxemob)) {
-                                                    let opt = document.createElement('option');
-                                                    opt.value = `${dataAxemob[key].id_ligneheure}/${dataAxemob[key].heure}`;
-                                                    opt.innerHTML = `${dataAxemob[key].heure}`;
-                                                    document.querySelector('#hdepartmob').add(opt);
-                                                }
-                                        } else {
-                                            document.querySelector('#hdepartmob').options.length = 1;
-                                        }
+                                var payloadHv = null;
+                                try { payloadHv = JSON.parse(httpRequetesmob.responseText); } catch (eHv) { payloadHv = null; }
+                                var heuresList = (payloadHv && Array.isArray(payloadHv.heures)) ? payloadHv.heures : [];
+                                // Compat ancien format tableau plat.
+                                if (!heuresList.length && Array.isArray(payloadHv) && payloadHv.length) {
+                                    heuresList = payloadHv;
+                                }
+                                window.__venteMobHasTransit = !!(payloadHv && payloadHv.has_transit);
+                                document.querySelector('#smsdtmob').style.display = 'none';
+                                document.querySelector('#date_depheuremob').style.color = "black";
+                                document.querySelector('#date_depheuremob').style.border = "1px solid";
+                                var hSel = document.querySelector('#hdepartmob');
+                                if (hSel) hSel.options.length = 1;
+                                var boxCh = document.getElementById('boxchemin_mob');
+                                if (boxCh) boxCh.style.display = 'none';
+                                function ligneKeyMob(hr) {
+                                    if (typeof window.__venteLigneKeyHeure === 'function') {
+                                        return window.__venteLigneKeyHeure(hr);
                                     }
+                                    var n = String((hr && hr.nom_ligne) || '').trim().toUpperCase();
+                                    return n || String((hr && hr.ligne_depart) || '').trim().toUpperCase();
+                                }
+                                function normHhMob(h) {
+                                    if (typeof window.__venteNormalizeHhmm === 'function') {
+                                        return window.__venteNormalizeHhmm(h);
+                                    }
+                                    var s = String(h || '').trim();
+                                    return s.length >= 5 ? s.slice(0, 5) : s;
+                                }
+                                function ordinalMob(n) {
+                                    var i = parseInt(n, 10) || 0;
+                                    return i <= 1 ? '1ER' : (i + 'ème');
+                                }
+                                var directs = heuresList.filter(function (hr) {
+                                    return hr && (hr.has_programme === true || hr.has_programme === 1 || hr.has_programme === '1');
+                                });
+                                var listMob = directs.length ? directs : heuresList.slice();
+                                var countBy = {};
+                                listMob.forEach(function (hr) {
+                                    if (!hr) return;
+                                    var hh = normHhMob(hr.heure);
+                                    if (!hh) return;
+                                    var k = hh + '|' + ligneKeyMob(hr);
+                                    countBy[k] = (countBy[k] || 0) + 1;
+                                });
+                                var idxBy = {};
+                                for (var hi = 0; hi < listMob.length; hi++) {
+                                    var hr = listMob[hi] || {};
+                                    if (!hr.id_ligneheure) continue;
+                                    var hasProg = !!(hr.has_programme === true || hr.has_programme === 1 || hr.has_programme === '1');
+                                    var hh = normHhMob(hr.heure) || String(hr.heure || '');
+                                    var lk = ligneKeyMob(hr);
+                                    var gk = hh + '|' + lk;
+                                    idxBy[gk] = (idxBy[gk] || 0) + 1;
+                                    var opt = document.createElement('option');
+                                    var code = hr.code_progr ? String(hr.code_progr) : '';
+                                    opt.value = String(hr.id_ligneheure || '') + '/' + hh
+                                        + (code ? ('/' + code) : '');
+                                    opt.setAttribute('data-has-programme', hasProg ? '1' : '0');
+                                    opt.setAttribute('data-heure', hh);
+                                    var parts = [hh];
+                                    if ((countBy[gk] || 0) > 1) {
+                                        parts.push(ordinalMob(idxBy[gk]));
+                                    } else if (!hasProg) {
+                                        parts.push('correspondance');
+                                        if (hr.nom_ligne) parts.push(String(hr.nom_ligne));
+                                    } else {
+                                        var other = listMob.some(function (x) {
+                                            return x && normHhMob(x.heure) === hh && ligneKeyMob(x) !== lk;
+                                        });
+                                        if (other && hr.nom_ligne) parts.push(String(hr.nom_ligne));
+                                    }
+                                    opt.innerHTML = parts.join(' — ');
+                                    if (hSel) hSel.add(opt);
+                                }
 
                                         let hrdepartmob = document.querySelector('#hdepartmob');
                                         if (hrdepartmob !== null) {
                                             hrdepartmob.onchange = () => 
                                             {
                                                 document.querySelector('#psiegesmob').options.length = 1;
-                                                const httpRequestmob = new XMLHttpRequest();
+                                                var messEl = document.querySelector('#messmob');
+                                                var errEl = document.querySelector('#erreurMessmob');
+                                                if (messEl) messEl.style.display = 'none';
+                                                var boxCh2 = document.getElementById('boxchemin_mob');
+                                                if (boxCh2) boxCh2.style.display = 'none';
                                                 const selemob = document.querySelector('#hdepartmob')
                                                     .options[document.querySelector('#hdepartmob').options.selectedIndex].value;
+                                                if (!selemob || selemob.indexOf('/') < 0) return;
 
                                                     var post_lhmob = selemob.split('/');
                                                     var selmob = post_lhmob[0];
                                                     var lhselmob = post_lhmob[1];
+                                                var hOpt = document.querySelector('#hdepartmob').options[document.querySelector('#hdepartmob').options.selectedIndex];
+                                                var hasProgMob = hOpt && hOpt.getAttribute('data-has-programme') === '1';
+                                                window.__venteSelectedHour = { value: selemob, heure: lhselmob, hasProg: hasProgMob };
 
                                                     const dpt_datemob = document.querySelector('#date_depheuremob').value;
-                                                    
+
+                                                // Heure sans départ OD : chemins programmes/hub (même moteur que guichet).
+                                                if (!hasProgMob) {
+                                                    var urlCh = window.location.origin + `${APP_ROOT}/programmes/verifchemins/`
+                                                        + encodeURIComponent(seltdepmob + '-' + arrmob) + '/'
+                                                        + encodeURIComponent(dpt_datemob) + '/'
+                                                        + encodeURIComponent(sougidmob || '0') + '/1'
+                                                        + '?heure=' + encodeURIComponent(lhselmob || '');
+                                                    var xhrCh = new XMLHttpRequest();
+                                                    xhrCh.open('GET', urlCh, true);
+                                                    xhrCh.onload = function () {
+                                                        var payloadCh = null;
+                                                        try { payloadCh = JSON.parse(xhrCh.responseText); } catch (eCh) { payloadCh = null; }
+                                                        var chemins = (payloadCh && Array.isArray(payloadCh.chemins)) ? payloadCh.chemins : [];
+                                                        if (!chemins.length) {
+                                                            if (messEl && errEl) {
+                                                                messEl.style.display = 'block';
+                                                                errEl.innerHTML = 'Aucun départ ni correspondance pour cette heure.';
+                                                            }
+                                                            return;
+                                                        }
+                                                        var defIdx = 0;
+                                                        if (typeof window.__venteDefaultCheminIndex === 'function') {
+                                                            defIdx = window.__venteDefaultCheminIndex(chemins, window.__venteSelectedHour);
+                                                        }
+                                                        var selCh = document.getElementById('selchemin_transit_mob');
+                                                        var hintCh = document.getElementById('hintchemin_mob');
+                                                        if (boxCh2 && selCh) {
+                                                            selCh.options.length = 0;
+                                                            var o0 = document.createElement('option');
+                                                            o0.value = '';
+                                                            o0.textContent = 'Choisissez un itinéraire';
+                                                            selCh.add(o0);
+                                                            chemins.forEach(function (ch, idx) {
+                                                                var o = document.createElement('option');
+                                                                o.value = String(idx);
+                                                                o.textContent = (ch.label || ('Itinéraire ' + (idx + 1)))
+                                                                    + (ch.source ? (' [' + ch.source + ']') : '');
+                                                                selCh.add(o);
+                                                            });
+                                                            selCh.selectedIndex = defIdx + 1;
+                                                            boxCh2.style.display = 'block';
+                                                            if (hintCh) {
+                                                                hintCh.textContent = 'Correspondance : finalisez la vente multi-jambes sur le guichet (sièges par segment).';
+                                                            }
+                                                            if (messEl && errEl) {
+                                                                messEl.style.display = 'block';
+                                                                errEl.innerHTML = 'Destination en correspondance — sélectionnez l’itinéraire puis utilisez la vente guichet pour les sièges.';
+                                                            }
+                                                        }
+                                                    };
+                                                    xhrCh.send();
+                                                    return;
+                                                }
+
+                                                const httpRequestmob = new XMLHttpRequest();
                                                 httpRequestmob.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifprog/${seltdepmob}-${arrmob}/${dpt_datemob}/${selmob}`, true);
                                                 httpRequestmob.onload = () => 
                                                 {
@@ -4711,9 +4847,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                                     httpRequestmob.send();
                                                      
                                                 };
-                                                
-                                        
-                                            }
+                                        }
                                 };
                                 httpRequetesmob.setRequestHeader('Content-Type', 'application/json');
                                 httpRequetesmob.send();
@@ -5816,8 +5950,20 @@ document.addEventListener('DOMContentLoaded', () => {
         const departFixe = root.getAttribute('data-depart-fixe')
             || root.dataset.departFixe
             || '';
+        const departLocked = root.getAttribute('data-depart-locked') === '1'
+            || !!departFixe;
 
         let destRequestSeq = 0;
+
+        function enforceDepartFixe() {
+            if (!departLocked || !departFixe || !selDepart) return;
+            if (selDepart.tagName === 'SELECT') {
+                // Ne pas permettre un select si le départ est figé.
+                return;
+            }
+            selDepart.value = departFixe;
+            selDepart.setAttribute('readonly', 'readonly');
+        }
 
         function resetDest() {
             if (!selDest) return;
@@ -5968,12 +6114,17 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         function setFormAction() {
+            enforceDepartFixe();
             if (form && cle) {
                 form.setAttribute('action', APP_ROOT + '/Ventescales/passagerescal_libre/' + cle);
             }
         }
 
         if (form) {
+            form.addEventListener('submit', function () {
+                enforceDepartFixe();
+                setFormAction();
+            });
             form.onsubmit = setFormAction;
         }
         const btn = root.querySelector('#bottonescal_libre') || document.querySelector('#bottonescal_libre');
@@ -5981,8 +6132,12 @@ document.addEventListener('DOMContentLoaded', () => {
             btn.onclick = setFormAction;
         }
 
+        enforceDepartFixe();
         loadDepartPoints(false);
-        root._escaleLibreReload = function () { loadDepartPoints(true); };
+        root._escaleLibreReload = function () {
+            enforceDepartFixe();
+            loadDepartPoints(true);
+        };
     }
 
     document.querySelectorAll('.adventeescale-libre').forEach(bindVenteEscaleLibre);
@@ -6167,17 +6322,23 @@ document.addEventListener('DOMContentLoaded', () => {
                             const garedepartcour1 = document.querySelector('#deparcouresc').value;
                             const progdepart1 = document.querySelector('#date_depheurecourexesc').value;
                             document.querySelector('#hdepcouresc').options.length = 1;
-                            var post_lhdep1 = garedepartcour1.split('/');
-                            var seltdep1 = post_lhdep1[0];
-                            var sougid1 = post_lhdep1[1];
-                            var post_arr1 = garearrive1.split('/');
-                            var seltarr1 = post_arr1[0];
-                            var sougidar1 = post_arr1[1];
+                            var wrapLigne = e.getAttribute('data-role17-ligne')
+                                || (document.querySelector('#arrscouresc')
+                                    && document.querySelector('#arrscouresc').getAttribute('data-role17-ligne'))
+                                || '';
+                            var axeHeure = wrapLigne;
+                            if (!axeHeure) {
+                                var post_lhdep1 = garedepartcour1.split('/');
+                                var seltdep1 = post_lhdep1[0];
+                                var post_arr1 = garearrive1.split('/');
+                                var seltarr1 = post_arr1[0];
+                                axeHeure = seltdep1 + '-' + seltarr1;
+                            }
                             
                             let httpRequetesescal;
                             httpRequetesescal = new XMLHttpRequest();
                 
-                            httpRequetesescal.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifheure1/${seltdep1}-${seltarr1}/${progdepart1}`, true);
+                            httpRequetesescal.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifheure1/${encodeURIComponent(axeHeure)}/${progdepart1}`, true);
                             httpRequetesescal.onload = () => {
                                 const dataAxeescal = JSON.parse(httpRequetesescal.responseText);
                                 
@@ -6828,8 +6989,20 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
         e.onclick = function () {
             let coordForm = document.querySelector('#coordFormesc');
-            coordForm.setAttribute('action', `${APP_ROOT}/Reprogrammes/addordesc/${e.dataset.cle_compagnie}`);
-        }
+            if (coordForm) {
+                coordForm.setAttribute('action', `${APP_ROOT}/Reprogrammes/addordesc/${e.dataset.cle_compagnie}`);
+            }
+        };
+        // Action dès le chargement (wizard / VALIDER sans clic préalable sur le wrapper).
+        (function setCourrierFormAction() {
+            var wrap = e;
+            var form = wrap.querySelector('#coordFormesc') || document.querySelector('#coordFormesc');
+            var cle = wrap.getAttribute('data-cle_compagnie') || '';
+            if (form && cle) {
+                form.setAttribute('action', (typeof APP_ROOT !== 'undefined' ? APP_ROOT : '')
+                    + '/Reprogrammes/addordesc/' + encodeURIComponent(cle));
+            }
+        })();
 
             var clique = true;
 

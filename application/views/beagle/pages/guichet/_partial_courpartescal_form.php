@@ -39,11 +39,31 @@
                         
                         <div class="form-group col-sm-4">
                             <label style="display:block" id="iddepcoupartoesc">Expédition</label>
-                            <?php if (!empty($role17_mode) && role17_is_agent() && !empty($garedeparts)): ?>
+                            <?php
+                            $r17DepPa = null;
+                            if (!empty($role17_mode) && function_exists('role17_is_agent') && role17_is_agent()) {
+                                if (!empty($garedeparts) && is_array($garedeparts) && !empty($garedeparts[0])) {
+                                    $r17DepPa = $garedeparts[0];
+                                } elseif (!empty($bus_stop) && is_object($bus_stop)) {
+                                    $r17DepPa = $bus_stop;
+                                }
+                            }
+                            ?>
+                            <?php if ($r17DepPa): ?>
                                 <?php
-                                $dep0 = $garedeparts[0];
-                                $dep_val = $dep0->code_gaexp . '/' . $dep0->idsousgare . '/' . $dep0->codegares . $dep0->codsousgare;
-                                $dep_lab = !empty($escale_depart_label) ? $escale_depart_label : ($dep0->nom_gaep . '/' . $dep0->nomsousgare);
+                                $codeGaPa = !empty($r17DepPa->code_gaexp)
+                                    ? (string) $r17DepPa->code_gaexp
+                                    : (!empty($r17DepPa->gareprinceid) ? (string) $r17DepPa->gareprinceid : '');
+                                $codeGaresPa = isset($r17DepPa->codegares) ? (string) $r17DepPa->codegares : '';
+                                $codSousPa = isset($r17DepPa->codsousgare) ? (string) $r17DepPa->codsousgare : '';
+                                $dep_val = $codeGaPa . '/' . (string) $r17DepPa->idsousgare . '/' . $codeGaresPa . $codSousPa;
+                                $dep_lab = !empty($escale_depart_label)
+                                    ? $escale_depart_label
+                                    : (
+                                        (!empty($r17DepPa->nom_gaep) ? (string) $r17DepPa->nom_gaep : '')
+                                        . '/'
+                                        . (!empty($r17DepPa->nomsousgare) ? (string) $r17DepPa->nomsousgare : '')
+                                    );
                                 ?>
                                 <input type="hidden" name="deparcourrierpartoesc" id="deparcourpartoesc" value="<?= htmlspecialchars($dep_val, ENT_QUOTES, 'UTF-8'); ?>">
                                 <div class="r17-depart-chip is-fixed">Départ escale : <strong><?= htmlspecialchars($dep_lab, ENT_QUOTES, 'UTF-8'); ?></strong></div>

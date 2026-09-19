@@ -603,6 +603,22 @@ if (!function_exists('role17_inject_property')) {
             ? role17_courrier_destination_options($forced)
             : array();
 
+        // Départ courrier/bagage : gare+sous-gare de session (jamais laisser garedeparts vide).
+        if (!empty($property['bus_stop']) && is_object($property['bus_stop'])) {
+            $bs = $property['bus_stop'];
+            if (empty($bs->code_gaexp) && !empty($bs->gareprinceid)) {
+                $bs->code_gaexp = $bs->gareprinceid;
+            }
+            if (!empty($bs->idsousgare)) {
+                $property['garedeparts'] = array($bs);
+            }
+            if ($property['escale_depart_label'] === '' || $property['escale_depart_label'] === null) {
+                $nomGa = !empty($bs->nom_gaep) ? (string) $bs->nom_gaep : '';
+                $nomSg = !empty($bs->nomsousgare) ? (string) $bs->nomsousgare : '';
+                $property['escale_depart_label'] = trim($nomGa . ($nomGa !== '' && $nomSg !== '' ? '/' : '') . $nomSg, '/');
+            }
+        }
+
         // Courrier / bagage : destinations = itinéraire attribué (pas le catalogue gare).
         if ($forced && !empty($property['role17_courrier_dest_options'])) {
             $asGare = array();

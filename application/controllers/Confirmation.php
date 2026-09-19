@@ -2558,11 +2558,13 @@
                     $this->property['typepersonnes2'] = $this->m_type_client->getgenre2();
                     $this->property['typepersonnesmb'] = $this->m_type_client->getm();
                     $this->property['typepersonnes3'] = $this->m_type_client->getgenre3();
-                    $this->property['garedeparts'] = array();
+                    // Ne pas vider garedeparts : le partial Expédition s’en sert
+                    // (inject le remplit depuis bus_stop juste après).
+                    $this->property['garedeparts'] = !empty($bus_stop) ? array($bus_stop) : array();
                     $this->property['garearrivees'] = array();
                     $this->property['destination'] = array();
                     $this->property['cptenvoi'] = $this->property['cptcoures'];
-                    foreach (array('typepersonnes', 'typepersonnes1', 'typepersonnes2', 'typepersonnes3', 'garedeparts', 'garearrivees') as $k) {
+                    foreach (array('typepersonnes', 'typepersonnes1', 'typepersonnes2', 'typepersonnes3', 'garearrivees') as $k) {
                         if (empty($this->property[$k]) || !is_array($this->property[$k])) {
                             $this->property[$k] = array();
                         }

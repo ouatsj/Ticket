@@ -34,13 +34,31 @@
 
                     <div class="form-group col-sm-4">
                         <label style="display:block" id="iddepcouesc">Expédition</label>
-                        <?php if (!empty($role17_mode) && role17_is_agent() && !empty($garedeparts)): ?>
+                        <?php
+                        $r17Dep = null;
+                        if (!empty($role17_mode) && function_exists('role17_is_agent') && role17_is_agent()) {
+                            if (!empty($garedeparts) && is_array($garedeparts) && !empty($garedeparts[0])) {
+                                $r17Dep = $garedeparts[0];
+                            } elseif (!empty($bus_stop) && is_object($bus_stop)) {
+                                $r17Dep = $bus_stop;
+                            }
+                        }
+                        ?>
+                        <?php if ($r17Dep): ?>
                             <?php
-                            $dep0 = $garedeparts[0];
-                            $dep_val = $dep0->code_gaexp . '/' . $dep0->idsousgare . '/' . $dep0->codegares . $dep0->codsousgare;
+                            $codeGa = !empty($r17Dep->code_gaexp)
+                                ? (string) $r17Dep->code_gaexp
+                                : (!empty($r17Dep->gareprinceid) ? (string) $r17Dep->gareprinceid : '');
+                            $codeGares = isset($r17Dep->codegares) ? (string) $r17Dep->codegares : '';
+                            $codSous = isset($r17Dep->codsousgare) ? (string) $r17Dep->codsousgare : '';
+                            $dep_val = $codeGa . '/' . (string) $r17Dep->idsousgare . '/' . $codeGares . $codSous;
                             $dep_lab = !empty($escale_depart_label)
                                 ? $escale_depart_label
-                                : ($dep0->nom_gaep . '/' . $dep0->nomsousgare);
+                                : (
+                                    (!empty($r17Dep->nom_gaep) ? (string) $r17Dep->nom_gaep : '')
+                                    . '/'
+                                    . (!empty($r17Dep->nomsousgare) ? (string) $r17Dep->nomsousgare : '')
+                                );
                             ?>
                             <input type="hidden" name="deparcourrieresc" id="deparcouresc" value="<?= htmlspecialchars($dep_val, ENT_QUOTES, 'UTF-8'); ?>">
                             <div class="r17-depart-chip is-fixed">

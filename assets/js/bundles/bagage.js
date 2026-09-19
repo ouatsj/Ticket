@@ -314,6 +314,15 @@ document.addEventListener('DOMContentLoaded', function () {
             }
 
             applyArriveeFilter(box);
+            if (typeof window.__venteOnCompagnieArriveeChange === 'function') {
+                window.__venteOnCompagnieArriveeChange(box);
+            }
+            if (typeof window.__venteFiOnCompagnieArriveeChange === 'function') {
+                window.__venteFiOnCompagnieArriveeChange(box);
+            }
+            if (typeof window.__venteMobOnCompagnieArriveeChange === 'function') {
+                window.__venteMobOnCompagnieArriveeChange(box);
+            }
         });
 
         applyArriveeFilter(box);
@@ -1431,17 +1440,23 @@ document.addEventListener('DOMContentLoaded', () => {
                             const garedepartcour1 = document.querySelector('#deparcouresc').value;
                             const progdepart1 = document.querySelector('#date_depheurecourexesc').value;
                             document.querySelector('#hdepcouresc').options.length = 1;
-                            var post_lhdep1 = garedepartcour1.split('/');
-                            var seltdep1 = post_lhdep1[0];
-                            var sougid1 = post_lhdep1[1];
-                            var post_arr1 = garearrive1.split('/');
-                            var seltarr1 = post_arr1[0];
-                            var sougidar1 = post_arr1[1];
+                            var wrapLigne = e.getAttribute('data-role17-ligne')
+                                || (document.querySelector('#arrscouresc')
+                                    && document.querySelector('#arrscouresc').getAttribute('data-role17-ligne'))
+                                || '';
+                            var axeHeure = wrapLigne;
+                            if (!axeHeure) {
+                                var post_lhdep1 = garedepartcour1.split('/');
+                                var seltdep1 = post_lhdep1[0];
+                                var post_arr1 = garearrive1.split('/');
+                                var seltarr1 = post_arr1[0];
+                                axeHeure = seltdep1 + '-' + seltarr1;
+                            }
                             
                             let httpRequetesescal;
                             httpRequetesescal = new XMLHttpRequest();
                 
-                            httpRequetesescal.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifheure1/${seltdep1}-${seltarr1}/${progdepart1}`, true);
+                            httpRequetesescal.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifheure1/${encodeURIComponent(axeHeure)}/${progdepart1}`, true);
                             httpRequetesescal.onload = () => {
                                 const dataAxeescal = JSON.parse(httpRequetesescal.responseText);
                                 
@@ -2092,8 +2107,20 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
         e.onclick = function () {
             let coordForm = document.querySelector('#coordFormesc');
-            coordForm.setAttribute('action', `${APP_ROOT}/Reprogrammes/addordesc/${e.dataset.cle_compagnie}`);
-        }
+            if (coordForm) {
+                coordForm.setAttribute('action', `${APP_ROOT}/Reprogrammes/addordesc/${e.dataset.cle_compagnie}`);
+            }
+        };
+        // Action dès le chargement (wizard / VALIDER sans clic préalable sur le wrapper).
+        (function setCourrierFormAction() {
+            var wrap = e;
+            var form = wrap.querySelector('#coordFormesc') || document.querySelector('#coordFormesc');
+            var cle = wrap.getAttribute('data-cle_compagnie') || '';
+            if (form && cle) {
+                form.setAttribute('action', (typeof APP_ROOT !== 'undefined' ? APP_ROOT : '')
+                    + '/Reprogrammes/addordesc/' + encodeURIComponent(cle));
+            }
+        })();
 
             var clique = true;
 
