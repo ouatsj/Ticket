@@ -279,6 +279,16 @@
             $route['programmes/verifinfos'] = 'Programmes/verifinfos';
             $route['programmes/verifinfosbis/(:any)'] = 'Programmes/verifinfosbis/$1';
             $route['programmes/verifinfosbis'] = 'Programmes/verifinfosbis';
+
+            /* confirmation — autofill contact courrier escale */
+            $route['confirmation/verifinfos/(:any)'] = 'Confirmation/verifinfos/$1';
+            $route['confirmation/verifinfos'] = 'Confirmation/verifinfos';
+            $route['confirmation/verifinfoclients/(:any)'] = 'Confirmation/verifinfoclients/$1';
+            $route['confirmation/selectperso/(:any)'] = 'Confirmation/selectperso/$1';
+            $route['confirmation/verifinfoperso/(:any)'] = 'Confirmation/verifinfoperso/$1';
+            $route['confirmation/selectpartenaire/(:any)'] = 'Confirmation/selectpartenaire/$1';
+            $route['confirmation/fetch_typecourriers'] = 'Confirmation/fetch_typecourriers';
+            $route['confirmation/verifquart/(:any)'] = 'Confirmation/verifquart/$1';
             $route['programmes/deltamponsieg/(:any)/(:any)'] = 'Programmes/deltamponsieg/$1/$2';
             $route['programmes/deltamponsieg'] = 'Programmes/deltamponsieg';
             $route['programmes/suggest_correspondances/(:any)/(:any)'] = 'Programmes/suggest_correspondances/$1/$2';

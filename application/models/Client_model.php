@@ -43,6 +43,33 @@
             
         }
 
+        /**
+         * Lookup contact en ignorant espaces / + / tirets (autofill courrier & vente).
+         */
+        public function infocl_digits($num)
+        {
+            $digits = preg_replace('/\D/', '', (string) $num);
+            if ($digits === '' || strlen($digits) < 6) {
+                return null;
+            }
+            // Derniers 8 chiffres (souvent le national BF) pour tolérer préfixe 226.
+            $tail = strlen($digits) > 8 ? substr($digits, -8) : $digits;
+            return $this->db->query(
+                "SELECT cl.id_client, cl.type_client, cl.contact_client, cl.nom_client, cl.prenom_client,
+                        cl.num_CNIB, cl.date_delivre, cl.lieu_delivre, cl.comment_client
+                 FROM client cl
+                 WHERE REPLACE(REPLACE(REPLACE(REPLACE(IFNULL(cl.contact_client,''),' ',''),'-',''),'+',''),'.','') LIKE ?
+                 AND cl.type_client <> 'autre'
+                 AND cl.type_client <> 'eleve'
+                 AND cl.type_client <> 'enfant'
+                 AND cl.type_client <> 'etudiant'
+                 AND cl.type_client <> 'client'
+                 AND cl.type_client <> 'autrepersonnel'
+                 ORDER BY cl.id_client DESC LIMIT 1",
+                array('%' . $tail)
+            )->row();
+        }
+
         public function infocl2($num)
         {
             return $this->db->query("SELECT cl.id_client, cl.type_client, cl.contact_client, cl.nom_client, cl.prenom_client, cl.num_CNIB, cl.date_delivre, cl.lieu_delivre, cl.comment_client FROM client cl  

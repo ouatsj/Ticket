@@ -2222,9 +2222,12 @@
             $contcl = $this->m_client->infocl($n);
             if (empty($contcl)) {
                 $digits = preg_replace('/\D/', '', $n);
-                if ($digits !== '') {
+                if ($digits !== '' && $digits !== $n) {
                     $contcl = $this->m_client->infocl($digits);
                 }
+            }
+            if (empty($contcl) && method_exists($this->m_client, 'infocl_digits')) {
+                $contcl = $this->m_client->infocl_digits($n);
             }
             return $this->load->view('beagle/pages/_programme/json', array('json' => $contcl));
         }

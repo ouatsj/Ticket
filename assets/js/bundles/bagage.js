@@ -1549,74 +1549,123 @@ document.addEventListener('DOMContentLoaded', () => {
                             httpRequesttespersos1.send();
                 };
 
-                
-                let inf = document.querySelector('#exp_contactesc');
-                if (inf !== null)
-                inf.onkeyup = () => {
-                    let httpInfos;
-                    if (window.XMLHttpRequest) {
-                        httpInfos = new XMLHttpRequest();
-                    } else if (window.ActiveXObject) {
-                        httpInfos = new ActiveXObject("Microsoft.XMLHTTP");
+                // Autofill contact (expéditeur / destinataire) — tolérant espaces / +226 / égalité stricte.
+                function r17Digits(s) {
+                    return String(s == null ? '' : s).replace(/\D/g, '');
+                }
+                function r17PhoneMatch(a, b) {
+                    var da = r17Digits(a);
+                    var db = r17Digits(b);
+                    if (!da || !db || da.length < 6 || db.length < 6) return false;
+                    if (da === db) return true;
+                    var ta = da.length > 8 ? da.slice(-8) : da;
+                    var tb = db.length > 8 ? db.slice(-8) : db;
+                    return ta === tb;
+                }
+                function r17FetchClient(rawPhone, onDone) {
+                    var phone = String(rawPhone || '').trim();
+                    if (r17Digits(phone).length < 6) {
+                        onDone(null);
+                        return;
                     }
-                    var verificat = document.querySelector('#exp_contactesc').value;
-                    
-                    httpInfos.open('GET', window.location.origin + `${APP_ROOT}/confirmation/verifinfos/${verificat}`, true);
-                    httpInfos.onload = () => {
-                        const infos = JSON.parse(httpInfos.responseText);
-                        if (infos == null) {
-                            document.querySelector('#exp_nomesc').value = "";
-                            document.querySelector('#exp_prenomesc').value = "";
-                            document.querySelector('#cnib_expesc').value = "";
-                            document.querySelector('#iddate_cnibesc').value = "";
-                            document.querySelector('#lieudelexpesc').value = "";
-                            document.querySelector('#passcompagnieesc').value = "";
-                            document.querySelector('#rclientcpexpesc').value = "";
-                            document.querySelector('#prnclientcpexpesc').value = "";
-                            document.querySelector('#cnibcpexpesc').value = "";
-                            document.querySelector('#date_cnibcpexpesc').value = "";
-                            document.querySelector('#lieudelivrecpexpesc').value = "";
-                            document.querySelector('#idclientypeexpesc').value = "";
-                          
-                        } else 
-                        {
-                            if (Object.entries(infos).length > 1) {
-                                
-                                if (infos.contact_client == verificat) {
-                                    document.querySelector('#exp_nomesc').value = `${infos.nom_client}`;
-                                    document.querySelector('#exp_prenomesc').value = `${infos.prenom_client}`;
-                                    document.querySelector('#cnib_expesc').value = `${infos.num_CNIB}`;
-                                    document.querySelector('#iddate_cnibesc').value = `${infos.date_delivre}`;
-                                    document.querySelector('#lieudelexpesc').value = `${infos.lieu_delivre}`;
-                                    document.querySelector('#passcompagnieesc').value = `${infos.id_client}`;
-                                    document.querySelector('#rclientcpexpesc').value = `${infos.nom_client}`;
-                                    document.querySelector('#prnclientcpexpesc').value = `${infos.prenom_client}`;
-                                    document.querySelector('#cnibcpexpesc').value = `${infos.num_CNIB}`;
-                                    document.querySelector('#date_cnibcpexpesc').value = `${infos.date_delivre}`;
-                                    document.querySelector('#lieudelivrecpexpesc').value = `${infos.lieu_delivre}`;
-                                    document.querySelector('#idclientypeexpesc').value = `${infos.type_client}`;
-                          
-                                } else {
-                                    document.querySelector('#exp_nomesc').value = "";
-                                    document.querySelector('#exp_prenomesc').value = "";
-                                    document.querySelector('#cnib_expesc').value = "";
-                                    document.querySelector('#iddate_cnibesc').value = "";
-                                    document.querySelector('#lieudelexpesc').value = "";
-                                    document.querySelector('#passcompagnieesc').value = "";
-                                    document.querySelector('#rclientcpexpesc').value = "";
-                                    document.querySelector('#prnclientcpexpesc').value = "";
-                                    document.querySelector('#cnibcpexpesc').value = "";
-                                    document.querySelector('#date_cnibcpexpesc').value = "";
-                                    document.querySelector('#lieudelivrecpexpesc').value = "";
-                                    document.querySelector('#idclientypeexpesc').value = "";
-                          
-                                }
-                            }
+                    var http = new XMLHttpRequest();
+                    var url = window.location.origin
+                        + (typeof APP_ROOT !== 'undefined' ? APP_ROOT : '')
+                        + '/confirmation/verifinfos/' + encodeURIComponent(phone);
+                    http.open('GET', url, true);
+                    http.onload = function () {
+                        var infos = null;
+                        try { infos = JSON.parse(http.responseText); } catch (err) { infos = null; }
+                        if (!infos || !infos.id_client) {
+                            onDone(null);
+                            return;
                         }
+                        // Si l’API a trouvé un client, on remplit (égalité stricte trop fragile avec JSON_NUMERIC_CHECK).
+                        if (infos.contact_client != null && !r17PhoneMatch(infos.contact_client, phone)) {
+                            // Accepter quand même : la recherche a déjà filtré par numéro.
+                        }
+                        onDone(infos);
                     };
-                    httpInfos.setRequestHeader('Content-Type', 'application/json');
-                    httpInfos.send();
-                };
+                    http.onerror = function () { onDone(null); };
+                    http.send();
+                }
+                function r17FillExp(infos) {
+                    var set = function (id, v) {
+                        var el = document.querySelector(id);
+                        if (el) el.value = v == null ? '' : String(v);
+                    };
+                    if (!infos) {
+                        set('#exp_nomesc', '');
+                        set('#exp_prenomesc', '');
+                        set('#cnib_expesc', '');
+                        set('#iddate_cnibesc', '');
+                        set('#lieudelexpesc', '');
+                        set('#passcompagnieesc', '');
+                        set('#rclientcpexpesc', '');
+                        set('#prnclientcpexpesc', '');
+                        set('#cnibcpexpesc', '');
+                        set('#date_cnibcpexpesc', '');
+                        set('#lieudelivrecpexpesc', '');
+                        set('#idclientypeexpesc', '');
+                        return;
+                    }
+                    set('#exp_nomesc', infos.nom_client);
+                    set('#exp_prenomesc', infos.prenom_client);
+                    set('#cnib_expesc', infos.num_CNIB);
+                    set('#iddate_cnibesc', infos.date_delivre);
+                    set('#lieudelexpesc', infos.lieu_delivre);
+                    set('#passcompagnieesc', infos.id_client);
+                    set('#rclientcpexpesc', infos.nom_client);
+                    set('#prnclientcpexpesc', infos.prenom_client);
+                    set('#cnibcpexpesc', infos.num_CNIB);
+                    set('#date_cnibcpexpesc', infos.date_delivre);
+                    set('#lieudelivrecpexpesc', infos.lieu_delivre);
+                    set('#idclientypeexpesc', infos.type_client);
+                }
+                function r17FillDest(infos) {
+                    var set = function (id, v) {
+                        var el = document.querySelector(id);
+                        if (el) el.value = v == null ? '' : String(v);
+                    };
+                    if (!infos) {
+                        set('#nomdestidesc', '');
+                        set('#prenomdestidesc', '');
+                        set('#compagniepassdestesc', '');
+                        set('#rclientcpdestesc', '');
+                        set('#prnclientcpdestesc', '');
+                        set('#idclientypedestesc', '');
+                        set('#date_cnibdestidesc', '');
+                        return;
+                    }
+                    set('#nomdestidesc', infos.nom_client);
+                    set('#prenomdestidesc', infos.prenom_client);
+                    set('#compagniepassdestesc', infos.id_client);
+                    set('#idclientypedestesc', infos.type_client);
+                    set('#rclientcpdestesc', infos.nom_client);
+                    set('#prnclientcpdestesc', infos.prenom_client);
+                    set('#date_cnibdestidesc', infos.date_delivre);
+                }
+
+                let inf = document.querySelector('#exp_contactesc');
+                if (inf !== null) {
+                    inf.onkeyup = function () {
+                        r17FetchClient(inf.value, r17FillExp);
+                    };
+                    inf.addEventListener('change', function () {
+                        r17FetchClient(inf.value, r17FillExp);
+                    });
+                }
+
+                // Destinataire : autofill dès le chargement (pas seulement après choix du type).
+                let infDestInit = document.querySelector('#contactidesc');
+                if (infDestInit !== null) {
+                    infDestInit.onkeyup = function () {
+                        r17FetchClient(infDestInit.value, r17FillDest);
+                    };
+                    infDestInit.addEventListener('change', function () {
+                        r17FetchClient(infDestInit.value, r17FillDest);
+                    });
+                }
                 
 
                 let infopersos = document.querySelector('#idtypeesc');
@@ -1629,7 +1678,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     document.querySelector('#idsonnelsesc').style.display = 'none';
                     document.querySelector('#idpartesesc').options.length = 1;
                     document.querySelector('#membrepartoidesc').options.length = 1;
-                    document.querySelector('#contactidesc').value = '';
                     document.querySelector('#membrepartoesc').style.display = 'none';
                     document.querySelector('#membrepartoidesc').style.display = 'none';
                            
@@ -1637,6 +1685,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         .options[document.querySelector('#idtypeesc').options.selectedIndex].value;
                         if(personns === 'personnel')
                         {
+                            document.querySelector('#contactidesc').value = '';
                     
                             document.querySelector('#sonnelesc').style.display = 'block';
                             document.querySelector('#idsonnelsesc').style.display = 'block';
@@ -1754,71 +1803,11 @@ document.addEventListener('DOMContentLoaded', () => {
                             document.querySelector('#idpartesesc').style.display = 'none';
                             document.querySelector('#idcontesc').style.display = 'block';
                             document.querySelector('#contactidesc').style.display = 'block';
-                            document.querySelector('#nomdestidesc').value = "";
-                            document.querySelector('#prenomdestidesc').value = "";
-                            document.querySelector('#compagniepassdestesc').value = "";
-                            document.querySelector('#rclientcpdestesc').value = "";
-                            document.querySelector('#prnclientcpdestesc').value = "";
-                            document.querySelector('#idclientypedestesc').value = "";
+                            // Ne pas vider nom/prénom : l’autofill contact a pu déjà remplir.
                             let infdest = document.querySelector('#contactidesc');
                             if (infdest !== null)
                                 infdest.onkeyup = () => {
-                                    let httpInfosdest;
-                                    if (window.XMLHttpRequest) {
-                                        httpInfosdest = new XMLHttpRequest();
-                                    } else if (window.ActiveXObject) {
-                                        httpInfosdest = new ActiveXObject("Microsoft.XMLHTTP");
-                                    }
-
-                                    document.querySelector('#nomdestidesc').value = "";
-                                    document.querySelector('#prenomdestidesc').value = "";
-                                    document.querySelector('#compagniepassdestesc').value = "";
-                                    document.querySelector('#rclientcpdestesc').value = "";
-                                    document.querySelector('#prnclientcpdestesc').value = "";
-                                    document.querySelector('#idclientypedestesc').value = "";
-                                    var verificatdest = document.querySelector('#contactidesc').value;
-                                    document.querySelector('#persodestcompagnieesc').value = "";
-
-                                    httpInfosdest.open('GET', window.location.origin + `${APP_ROOT}/confirmation/verifinfos/${verificatdest}`, true);
-                                    httpInfosdest.onload = () => {
-                                        const infosdest = JSON.parse(httpInfosdest.responseText);
-                                        if (infosdest == null) {
-                                            document.querySelector('#nomdestidesc').value = "";
-                                            document.querySelector('#prenomdestidesc').value = "";
-                                            document.querySelector('#compagniepassdestesc').value = "";
-                                            document.querySelector('#rclientcpdestesc').value = "";
-                                            document.querySelector('#prnclientcpdestesc').value = "";
-                                            document.querySelector('#idclientypedestesc').value = "";
-                                            document.querySelector('#date_cnibdestidesc').value = "";
-                                            
-                                        } else 
-                                        {
-                                            if (Object.entries(infosdest).length > 1) {
-                                                
-                                                if (infosdest.contact_client == verificatdest) {
-                                                    document.querySelector('#nomdestidesc').value = `${infosdest.nom_client}`;
-                                                    document.querySelector('#prenomdestidesc').value = `${infosdest.prenom_client}`;
-                                                    document.querySelector('#compagniepassdestesc').value = `${infosdest.id_client}`;
-                                                    document.querySelector('#idclientypedestesc').value = `${infosdest.type_client}`;
-                                                    document.querySelector('#rclientcpdestesc').value = `${infosdest.nom_client}`;
-                                                    document.querySelector('#prnclientcpdestesc').value = `${infosdest.prenom_client}`;
-                                                    document.querySelector('#date_cnibdestidesc').value = `${infosdest.date_delivre}`;
-                                                    
-                                                } else {
-                                                    document.querySelector('#nomdestidesc').value = "";
-                                                    document.querySelector('#prenomdestidesc').value = "";
-                                                    document.querySelector('#compagniepassdestesc').value = "";
-                                                    document.querySelector('#rclientcpdestesc').value = "";
-                                                    document.querySelector('#prnclientcpdestesc').value = "";
-                                                    document.querySelector('#idclientypedestesc').value = "";
-                                                    document.querySelector('#date_cnibdestidesc').value = "";
-                                                    
-                                                }
-                                            }
-                                        }
-                                    };
-                                    httpInfosdest.setRequestHeader('Content-Type', 'application/json');
-                                    httpInfosdest.send();
+                                    r17FetchClient(infdest.value, r17FillDest);
                                 };
                         }
                         if(personns === 'membre'){

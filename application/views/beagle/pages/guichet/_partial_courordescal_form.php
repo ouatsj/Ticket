@@ -257,9 +257,9 @@
                     </div>
                     <!-- Numero de téléphone -->
                     <div class="form-group col-sm-4">
-                        <label style="display:none" id="idcontesc">Contact</label>
+                        <label id="idcontesc">Contact</label>
                         <input class="form-control form-control-sm" name="contact_destesc"
-                        type="tel" id="contactidesc" style="display:none"
+                        type="tel" id="contactidesc"
                         placeholder="Contact" autocomplete="off">
                     </div>
                     <input type="hidden" id="persodestcompagnieesc" name="persopassdestesc">
