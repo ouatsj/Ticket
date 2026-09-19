@@ -434,6 +434,119 @@ if ($dep_lab === '' && !empty($bus_stop) && is_object($bus_stop)) {
         bindHeuresLigne('date_depheurecourexpersoesc', 'hdepcourpersoesc', 'arrscourpersoesc');
         bindHeuresLigne('date_depheurecourexpartoesc', 'hdepcourpartoesc', 'arrscourpartoesc');
 
+        // Autofill téléphone courrier (délégation : indépendant de adcourescale / DOMContentLoaded).
+        (function bindCourrierPhoneAutofill() {
+            var root = document.getElementById('courrier-envoi-r17');
+            if (!root || root.getAttribute('data-r17-phone-bound') === '1') return;
+            root.setAttribute('data-r17-phone-bound', '1');
+
+            var seq = { exp: 0, dest: 0 };
+            var timers = { exp: null, dest: null };
+
+            function digits(s) {
+                return String(s == null ? '' : s).replace(/\D/g, '');
+            }
+            function setVal(scope, sel, v) {
+                var el = scope.querySelector(sel) || document.querySelector(sel);
+                if (el) el.value = v == null ? '' : String(v);
+            }
+            function fillExp(scope, infos) {
+                if (!infos || !(infos.id_client || infos.nom_client)) return;
+                setVal(scope, '#exp_nomesc', infos.nom_client);
+                setVal(scope, '#exp_prenomesc', infos.prenom_client);
+                setVal(scope, '#cnib_expesc', infos.num_CNIB);
+                if (infos.date_delivre) setVal(scope, '#iddate_cnibesc', infos.date_delivre);
+                setVal(scope, '#lieudelexpesc', infos.lieu_delivre);
+                setVal(scope, '#passcompagnieesc', infos.id_client);
+                setVal(scope, '#rclientcpexpesc', infos.nom_client);
+                setVal(scope, '#prnclientcpexpesc', infos.prenom_client);
+                setVal(scope, '#cnibcpexpesc', infos.num_CNIB);
+                if (infos.date_delivre) setVal(scope, '#date_cnibcpexpesc', infos.date_delivre);
+                setVal(scope, '#lieudelivrecpexpesc', infos.lieu_delivre);
+                setVal(scope, '#idclientypeexpesc', infos.type_client);
+            }
+            function fillDest(scope, infos) {
+                if (!infos || !(infos.id_client || infos.nom_client)) return;
+                setVal(scope, '#nomdestidesc', infos.nom_client);
+                setVal(scope, '#prenomdestidesc', infos.prenom_client);
+                setVal(scope, '#compagniepassdestesc', infos.id_client);
+                setVal(scope, '#idclientypedestesc', infos.type_client);
+                setVal(scope, '#rclientcpdestesc', infos.nom_client);
+                setVal(scope, '#prnclientcpdestesc', infos.prenom_client);
+                if (infos.date_delivre) setVal(scope, '#date_cnibdestidesc', infos.date_delivre);
+                // variantes perso / parto
+                setVal(scope, '#nomdestidpersoesc', infos.nom_client);
+                setVal(scope, '#prenomdestidpersoesc', infos.prenom_client);
+                setVal(scope, '#compagniepassdestpersoesc', infos.id_client);
+                setVal(scope, '#nomdestidpartoesc', infos.nom_client);
+                setVal(scope, '#prenomdestidpartoesc', infos.prenom_client);
+                setVal(scope, '#compagniepassdestpartoesc', infos.id_client);
+            }
+            function lookup(phone, kind, scope) {
+                var dig = digits(phone);
+                if (dig.length < 8) return;
+                var my = ++seq[kind];
+                var base = window.location.origin + (typeof APP_ROOT !== 'undefined' ? APP_ROOT : '');
+                function apply(infos) {
+                    if (my !== seq[kind]) return;
+                    if (kind === 'exp') fillExp(scope, infos);
+                    else fillDest(scope, infos);
+                }
+                function get(url, thenUrl) {
+                    var xhr = new XMLHttpRequest();
+                    xhr.open('GET', url, true);
+                    xhr.onload = function () {
+                        if (my !== seq[kind]) return;
+                        var infos = null;
+                        try { infos = JSON.parse(xhr.responseText); } catch (e) { infos = null; }
+                        if (infos && (infos.id_client || infos.nom_client)) {
+                            apply(infos);
+                        } else if (thenUrl) {
+                            get(thenUrl, null);
+                        }
+                    };
+                    xhr.send();
+                }
+                var enc = encodeURIComponent(String(phone).trim());
+                get(base + '/programmes/verifinfos/' + enc, base + '/confirmation/verifinfos/' + enc);
+            }
+            function schedule(el, kind) {
+                var scope = el.closest('form') || root;
+                if (timers[kind]) clearTimeout(timers[kind]);
+                timers[kind] = setTimeout(function () {
+                    lookup(el.value, kind, scope);
+                }, 350);
+            }
+            function kindOf(el) {
+                var id = el.id || '';
+                if (id === 'exp_contactesc' || id.indexOf('contact_exp') !== -1 || id.indexOf('exp_contact') !== -1) {
+                    return 'exp';
+                }
+                if (id === 'contactidesc' || id === 'contactidpersoesc' || id === 'contactidpartoesc'
+                    || id.indexOf('contact_dest') !== -1 || id.indexOf('contactid') !== -1) {
+                    return 'dest';
+                }
+                var name = el.getAttribute('name') || '';
+                if (name.indexOf('contact_exp') !== -1) return 'exp';
+                if (name.indexOf('contact_dest') !== -1) return 'dest';
+                return null;
+            }
+            root.addEventListener('input', function (ev) {
+                var el = ev.target;
+                if (!el || el.tagName !== 'INPUT') return;
+                var k = kindOf(el);
+                if (!k) return;
+                schedule(el, k);
+            });
+            root.addEventListener('change', function (ev) {
+                var el = ev.target;
+                if (!el || el.tagName !== 'INPUT') return;
+                var k = kindOf(el);
+                if (!k) return;
+                schedule(el, k);
+            });
+        })();
+
         // Actions formulaire (VALIDER) — ne pas dépendre d’un clic sur le wrapper.
         (function bindCourrierFormActions() {
             var root = document.getElementById('courrier-envoi-r17');

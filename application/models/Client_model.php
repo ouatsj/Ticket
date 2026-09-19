@@ -31,16 +31,21 @@
 
         public function infocl($num)
         {
-            return $this->db->query("SELECT cl.id_client, cl.type_client, cl.contact_client, cl.nom_client, cl.prenom_client, cl.num_CNIB, cl.date_delivre, cl.lieu_delivre, cl.comment_client FROM client cl  
-                WHERE cl.contact_client = ?
-                AND cl.type_client <> 'autre'
-                AND cl.type_client <> 'eleve'
-                AND cl.type_client <> 'enfant'
-                AND cl.type_client <> 'etudiant'
-                AND cl.type_client <> 'client'
-                AND cl.type_client <> 'autrepersonnel'
-                ORDER BY cl.id_client DESC LIMIT 1", array($num))->row();
-            
+            // Autofill vente/courrier : accepter aussi type_client = 'client'
+            // (exclusions trop strictes → « numéro existant » non trouvé).
+            return $this->db->query(
+                "SELECT cl.id_client, cl.type_client, cl.contact_client, cl.nom_client, cl.prenom_client,
+                        cl.num_CNIB, cl.date_delivre, cl.lieu_delivre, cl.comment_client
+                 FROM client cl
+                 WHERE cl.contact_client = ?
+                 AND cl.type_client <> 'autre'
+                 AND cl.type_client <> 'eleve'
+                 AND cl.type_client <> 'enfant'
+                 AND cl.type_client <> 'etudiant'
+                 AND cl.type_client <> 'autrepersonnel'
+                 ORDER BY cl.id_client DESC LIMIT 1",
+                array($num)
+            )->row();
         }
 
         /**
@@ -52,9 +57,8 @@
             if ($digits === '' || strlen($digits) < 6) {
                 return null;
             }
-            // Derniers 8 chiffres (souvent le national BF) pour tolérer préfixe 226.
             $tail = strlen($digits) > 8 ? substr($digits, -8) : $digits;
-            return $this->db->query(
+            $row = $this->db->query(
                 "SELECT cl.id_client, cl.type_client, cl.contact_client, cl.nom_client, cl.prenom_client,
                         cl.num_CNIB, cl.date_delivre, cl.lieu_delivre, cl.comment_client
                  FROM client cl
@@ -63,8 +67,20 @@
                  AND cl.type_client <> 'eleve'
                  AND cl.type_client <> 'enfant'
                  AND cl.type_client <> 'etudiant'
-                 AND cl.type_client <> 'client'
                  AND cl.type_client <> 'autrepersonnel'
+                 ORDER BY cl.id_client DESC LIMIT 1",
+                array('%' . $tail)
+            )->row();
+            if ($row) {
+                return $row;
+            }
+            // Ultime secours : tout type sauf enfant/élève (fiches legacy).
+            return $this->db->query(
+                "SELECT cl.id_client, cl.type_client, cl.contact_client, cl.nom_client, cl.prenom_client,
+                        cl.num_CNIB, cl.date_delivre, cl.lieu_delivre, cl.comment_client
+                 FROM client cl
+                 WHERE REPLACE(REPLACE(REPLACE(REPLACE(IFNULL(cl.contact_client,''),' ',''),'-',''),'+',''),'.','') LIKE ?
+                 AND cl.type_client NOT IN ('eleve','enfant','etudiant')
                  ORDER BY cl.id_client DESC LIMIT 1",
                 array('%' . $tail)
             )->row();

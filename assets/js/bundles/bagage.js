@@ -1380,7 +1380,10 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 ;
 /* --- adcourescale.js --- */
-document.addEventListener('DOMContentLoaded', () => {
+(function r17CourrierReady(fn) {
+    if (document.readyState !== 'loading') fn();
+    else document.addEventListener('DOMContentLoaded', fn);
+})(function () {
 
     document.querySelectorAll('.adcourescale').forEach(function (e) 
     {       
@@ -1549,123 +1552,126 @@ document.addEventListener('DOMContentLoaded', () => {
                             httpRequesttespersos1.send();
                 };
 
-                // Autofill contact (expéditeur / destinataire) — tolérant espaces / +226 / égalité stricte.
+                // Autofill contact — debounce + ignore réponses périmées (évite d’effacer un fill réussi).
                 function r17Digits(s) {
                     return String(s == null ? '' : s).replace(/\D/g, '');
                 }
-                function r17PhoneMatch(a, b) {
-                    var da = r17Digits(a);
-                    var db = r17Digits(b);
-                    if (!da || !db || da.length < 6 || db.length < 6) return false;
-                    if (da === db) return true;
-                    var ta = da.length > 8 ? da.slice(-8) : da;
-                    var tb = db.length > 8 ? db.slice(-8) : db;
-                    return ta === tb;
+                var r17LookupSeq = { exp: 0, dest: 0 };
+                var r17LookupTimer = { exp: null, dest: null };
+                function r17SetVal(id, v) {
+                    var el = document.querySelector(id);
+                    if (el) el.value = v == null ? '' : String(v);
                 }
-                function r17FetchClient(rawPhone, onDone) {
-                    var phone = String(rawPhone || '').trim();
-                    if (r17Digits(phone).length < 6) {
-                        onDone(null);
+                function r17FillExp(infos, allowClear) {
+                    if (!infos) {
+                        if (allowClear) {
+                            r17SetVal('#exp_nomesc', '');
+                            r17SetVal('#exp_prenomesc', '');
+                            r17SetVal('#cnib_expesc', '');
+                            r17SetVal('#lieudelexpesc', '');
+                            r17SetVal('#passcompagnieesc', '');
+                            r17SetVal('#rclientcpexpesc', '');
+                            r17SetVal('#prnclientcpexpesc', '');
+                            r17SetVal('#cnibcpexpesc', '');
+                            r17SetVal('#lieudelivrecpexpesc', '');
+                            r17SetVal('#idclientypeexpesc', '');
+                        }
                         return;
                     }
+                    r17SetVal('#exp_nomesc', infos.nom_client);
+                    r17SetVal('#exp_prenomesc', infos.prenom_client);
+                    r17SetVal('#cnib_expesc', infos.num_CNIB);
+                    if (infos.date_delivre) r17SetVal('#iddate_cnibesc', infos.date_delivre);
+                    r17SetVal('#lieudelexpesc', infos.lieu_delivre);
+                    r17SetVal('#passcompagnieesc', infos.id_client);
+                    r17SetVal('#rclientcpexpesc', infos.nom_client);
+                    r17SetVal('#prnclientcpexpesc', infos.prenom_client);
+                    r17SetVal('#cnibcpexpesc', infos.num_CNIB);
+                    if (infos.date_delivre) r17SetVal('#date_cnibcpexpesc', infos.date_delivre);
+                    r17SetVal('#lieudelivrecpexpesc', infos.lieu_delivre);
+                    r17SetVal('#idclientypeexpesc', infos.type_client);
+                }
+                function r17FillDest(infos, allowClear) {
+                    if (!infos) {
+                        if (allowClear) {
+                            r17SetVal('#nomdestidesc', '');
+                            r17SetVal('#prenomdestidesc', '');
+                            r17SetVal('#compagniepassdestesc', '');
+                            r17SetVal('#rclientcpdestesc', '');
+                            r17SetVal('#prnclientcpdestesc', '');
+                            r17SetVal('#idclientypedestesc', '');
+                        }
+                        return;
+                    }
+                    r17SetVal('#nomdestidesc', infos.nom_client);
+                    r17SetVal('#prenomdestidesc', infos.prenom_client);
+                    r17SetVal('#compagniepassdestesc', infos.id_client);
+                    r17SetVal('#idclientypedestesc', infos.type_client);
+                    r17SetVal('#rclientcpdestesc', infos.nom_client);
+                    r17SetVal('#prnclientcpdestesc', infos.prenom_client);
+                    if (infos.date_delivre) r17SetVal('#date_cnibdestidesc', infos.date_delivre);
+                }
+                function r17FetchClient(rawPhone, kind) {
+                    var phone = String(rawPhone || '').trim();
+                    var dig = r17Digits(phone);
+                    if (dig.length < 8) {
+                        // Ne pas clear : laisse saisir ; clear seulement si champ vidé.
+                        if (dig.length === 0) {
+                            if (kind === 'exp') r17FillExp(null, true);
+                            else r17FillDest(null, true);
+                        }
+                        return;
+                    }
+                    var seq = ++r17LookupSeq[kind];
+                    var root = (typeof APP_ROOT !== 'undefined' ? APP_ROOT : '');
+                    // programmes/verifinfos : même API que la vente ticket (éprouvé).
+                    var url = window.location.origin + root
+                        + '/programmes/verifinfos/' + encodeURIComponent(phone);
                     var http = new XMLHttpRequest();
-                    var url = window.location.origin
-                        + (typeof APP_ROOT !== 'undefined' ? APP_ROOT : '')
-                        + '/confirmation/verifinfos/' + encodeURIComponent(phone);
                     http.open('GET', url, true);
                     http.onload = function () {
+                        if (seq !== r17LookupSeq[kind]) return; // réponse obsolète
                         var infos = null;
                         try { infos = JSON.parse(http.responseText); } catch (err) { infos = null; }
-                        if (!infos || !infos.id_client) {
-                            onDone(null);
+                        if (!infos || !(infos.id_client || infos.nom_client)) {
+                            // Retry confirmation (au cas où)
+                            var http2 = new XMLHttpRequest();
+                            http2.open('GET', window.location.origin + root
+                                + '/confirmation/verifinfos/' + encodeURIComponent(phone), true);
+                            http2.onload = function () {
+                                if (seq !== r17LookupSeq[kind]) return;
+                                var infos2 = null;
+                                try { infos2 = JSON.parse(http2.responseText); } catch (e2) { infos2 = null; }
+                                if (kind === 'exp') r17FillExp(infos2, !!infos2);
+                                else r17FillDest(infos2, !!infos2);
+                            };
+                            http2.send();
                             return;
                         }
-                        // Si l’API a trouvé un client, on remplit (égalité stricte trop fragile avec JSON_NUMERIC_CHECK).
-                        if (infos.contact_client != null && !r17PhoneMatch(infos.contact_client, phone)) {
-                            // Accepter quand même : la recherche a déjà filtré par numéro.
-                        }
-                        onDone(infos);
+                        if (kind === 'exp') r17FillExp(infos, false);
+                        else r17FillDest(infos, false);
                     };
-                    http.onerror = function () { onDone(null); };
                     http.send();
                 }
-                function r17FillExp(infos) {
-                    var set = function (id, v) {
-                        var el = document.querySelector(id);
-                        if (el) el.value = v == null ? '' : String(v);
-                    };
-                    if (!infos) {
-                        set('#exp_nomesc', '');
-                        set('#exp_prenomesc', '');
-                        set('#cnib_expesc', '');
-                        set('#iddate_cnibesc', '');
-                        set('#lieudelexpesc', '');
-                        set('#passcompagnieesc', '');
-                        set('#rclientcpexpesc', '');
-                        set('#prnclientcpexpesc', '');
-                        set('#cnibcpexpesc', '');
-                        set('#date_cnibcpexpesc', '');
-                        set('#lieudelivrecpexpesc', '');
-                        set('#idclientypeexpesc', '');
-                        return;
-                    }
-                    set('#exp_nomesc', infos.nom_client);
-                    set('#exp_prenomesc', infos.prenom_client);
-                    set('#cnib_expesc', infos.num_CNIB);
-                    set('#iddate_cnibesc', infos.date_delivre);
-                    set('#lieudelexpesc', infos.lieu_delivre);
-                    set('#passcompagnieesc', infos.id_client);
-                    set('#rclientcpexpesc', infos.nom_client);
-                    set('#prnclientcpexpesc', infos.prenom_client);
-                    set('#cnibcpexpesc', infos.num_CNIB);
-                    set('#date_cnibcpexpesc', infos.date_delivre);
-                    set('#lieudelivrecpexpesc', infos.lieu_delivre);
-                    set('#idclientypeexpesc', infos.type_client);
-                }
-                function r17FillDest(infos) {
-                    var set = function (id, v) {
-                        var el = document.querySelector(id);
-                        if (el) el.value = v == null ? '' : String(v);
-                    };
-                    if (!infos) {
-                        set('#nomdestidesc', '');
-                        set('#prenomdestidesc', '');
-                        set('#compagniepassdestesc', '');
-                        set('#rclientcpdestesc', '');
-                        set('#prnclientcpdestesc', '');
-                        set('#idclientypedestesc', '');
-                        set('#date_cnibdestidesc', '');
-                        return;
-                    }
-                    set('#nomdestidesc', infos.nom_client);
-                    set('#prenomdestidesc', infos.prenom_client);
-                    set('#compagniepassdestesc', infos.id_client);
-                    set('#idclientypedestesc', infos.type_client);
-                    set('#rclientcpdestesc', infos.nom_client);
-                    set('#prnclientcpdestesc', infos.prenom_client);
-                    set('#date_cnibdestidesc', infos.date_delivre);
+                function r17ScheduleLookup(rawPhone, kind) {
+                    if (r17LookupTimer[kind]) clearTimeout(r17LookupTimer[kind]);
+                    r17LookupTimer[kind] = setTimeout(function () {
+                        r17FetchClient(rawPhone, kind);
+                    }, 350);
                 }
 
-                let inf = document.querySelector('#exp_contactesc');
-                if (inf !== null) {
-                    inf.onkeyup = function () {
-                        r17FetchClient(inf.value, r17FillExp);
-                    };
-                    inf.addEventListener('change', function () {
-                        r17FetchClient(inf.value, r17FillExp);
-                    });
+                function r17BindPhone(el, kind) {
+                    if (!el || el.getAttribute('data-r17-phone') === '1') return;
+                    el.setAttribute('data-r17-phone', '1');
+                    var run = function () { r17ScheduleLookup(el.value, kind); };
+                    el.addEventListener('input', run);
+                    el.addEventListener('keyup', run);
+                    el.addEventListener('change', run);
+                    el.addEventListener('blur', run);
                 }
 
-                // Destinataire : autofill dès le chargement (pas seulement après choix du type).
-                let infDestInit = document.querySelector('#contactidesc');
-                if (infDestInit !== null) {
-                    infDestInit.onkeyup = function () {
-                        r17FetchClient(infDestInit.value, r17FillDest);
-                    };
-                    infDestInit.addEventListener('change', function () {
-                        r17FetchClient(infDestInit.value, r17FillDest);
-                    });
-                }
+                r17BindPhone(document.querySelector('#exp_contactesc'), 'exp');
+                r17BindPhone(document.querySelector('#contactidesc'), 'dest');
                 
 
                 let infopersos = document.querySelector('#idtypeesc');
@@ -1806,9 +1812,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             // Ne pas vider nom/prénom : l’autofill contact a pu déjà remplir.
                             let infdest = document.querySelector('#contactidesc');
                             if (infdest !== null)
-                                infdest.onkeyup = () => {
-                                    r17FetchClient(infdest.value, r17FillDest);
-                                };
+                                r17BindPhone(infdest, 'dest');
                         }
                         if(personns === 'membre'){
 

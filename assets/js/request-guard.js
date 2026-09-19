@@ -274,7 +274,9 @@
         }
         var u = String(url);
         var m;
-        if (u.indexOf('/programmes/verifinfos/') !== -1 || u.indexOf('/Programmes/verifinfos/') !== -1) {
+        if (u.indexOf('/programmes/verifinfos/') !== -1 || u.indexOf('/Programmes/verifinfos/') !== -1
+            || u.indexOf('/confirmation/verifinfos/') !== -1 || u.indexOf('/Confirmation/verifinfos/') !== -1
+            || u.indexOf('/reprogrammes/verifinfos/') !== -1 || u.indexOf('/Reprogrammes/verifinfos/') !== -1) {
             m = u.match(/verifinfos\/([^?#]+)/i);
             if (!m || !m[1] || m[1] === 'undefined') {
                 return null;
