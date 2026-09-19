@@ -39,11 +39,17 @@ $this->load->view('beagle/pages/guichet/_role_17_styles');
     font-size: 16px !important;
 }
 .r17-ops-banner {
+    display: -webkit-box;
+    display: -ms-flexbox;
     display: flex;
+    -ms-flex-wrap: wrap;
     flex-wrap: wrap;
+    -webkit-box-align: center;
+    -ms-flex-align: center;
     align-items: center;
+    -webkit-box-pack: justify;
+    -ms-flex-pack: justify;
     justify-content: space-between;
-    gap: 0.5rem;
     margin: 0 0 0.65rem;
     padding: 0.55rem 0.75rem;
     background: #eff6ff;
@@ -52,6 +58,8 @@ $this->load->view('beagle/pages/guichet/_role_17_styles');
     color: #1e3a8a;
     font-size: 0.9rem;
 }
+.r17-ops-banner > div { margin-right: 0.5rem; margin-bottom: 0.25rem; }
+.r17-ops-banner > a { margin-bottom: 0.25rem; }
 .r17-ops-banner strong { font-weight: 700; }
 .r17-ops-banner .r17-badge-fixed {
     display: inline-block;

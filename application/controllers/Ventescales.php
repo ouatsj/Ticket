@@ -481,72 +481,56 @@
             }
             $this->property['conex'] = $conex;
 
-            $userole = !empty($conex->userole)
-                ? (string) $conex->userole
-                : (string) $this->session->agent->userole;
-            $scope_gare = in_array($userole, array('1', '2'), true);
-            // Session OU attribution gare : UI onglets tickets/bagage/courrier.
-            $role17 = (function_exists('role17_is_agent') && role17_is_agent())
-                || $userole === '17';
-
-            if ($role17) {
-                // Tickets : uniquement ceux repositionnés par le chef (reimpr=1).
-                $this->property['reponseallereimp'] = $this->m_escalclients->getrep_escale(
-                    $this->company->ekey,
-                    $conex->roleattribut,
-                    $gd,
-                    $sg
-                );
-                if (!isset($this->m_bagageesc)) {
-                    $this->load->model('Bagageesc_model', 'm_bagageesc');
-                }
-                if (!isset($this->m_courrier_expedieresc)) {
-                    $this->load->model('Courriers_expesc_model', 'm_courrier_expedieresc');
-                }
-                // Bagage / courrier : reçus du jour.
-                $this->property['reimpri_bagages'] = $this->m_bagageesc->liste_reimpri_jour(
-                    $this->company->ekey,
-                    $conex->roleattribut,
-                    $gd,
-                    $sg
-                );
-                $this->property['reimpri_courriers'] = $this->m_courrier_expedieresc->liste_reimpri_jour(
-                    $this->company->ekey,
-                    $conex->roleattribut,
-                    $gd,
-                    $sg
-                );
-                if (!function_exists('role17_forced_escale')) {
-                    $this->load->helper('role17_context');
-                }
-                // Contexte léger (évite un inject lourd qui peut planter la page).
-                $forced = function_exists('role17_forced_escale')
-                    ? role17_forced_escale($conex->roleattribut, $gd)
-                    : null;
-                $this->property['escale_depart_label'] = $forced
-                    ? $forced['label']
-                    : trim(
-                        (!empty($bus_stop->garenom) ? $bus_stop->garenom : '')
-                        . (!empty($bus_stop->nomsousgare) ? (' / ' . $bus_stop->nomsousgare) : '')
-                    );
-                $this->property['escale_depart_fixed_admin'] = $forced ? !empty($forced['fixed']) : false;
-                $this->property['escale_id_lignes'] = $forced ? $forced['id_lignes'] : '';
-                $this->property['role17_mode'] = true;
-                $this->property['layout_minimal'] = TRUE;
-                // Ne pas charger le bundle « bagage » (modales / JS inutiles ici).
-                $this->property['scripts_layout'] = 'scripts_bundle';
-                $this->property['bundle_js'] = array();
-                $this->property['bundle_optional_js'] = array();
-                $this->property['bundle_datatables'] = false;
-            } else {
-                $this->property['reponseallereimp'] = $this->m_escalclients->getrep(
-                    $this->company->ekey,
-                    $conex->roleattribut,
-                    $gd,
-                    $sg,
-                    $scope_gare
-                );
+            // Venteescale : toujours UI onglets + shell autonome (TPE Chrome 64).
+            // Tickets : uniquement ceux repositionnés par le chef (reimpr=1).
+            $this->property['reponseallereimp'] = $this->m_escalclients->getrep_escale(
+                $this->company->ekey,
+                $conex->roleattribut,
+                $gd,
+                $sg
+            );
+            if (!isset($this->m_bagageesc)) {
+                $this->load->model('Bagageesc_model', 'm_bagageesc');
             }
+            if (!isset($this->m_courrier_expedieresc)) {
+                $this->load->model('Courriers_expesc_model', 'm_courrier_expedieresc');
+            }
+            // Bagage / courrier : reçus du jour.
+            $this->property['reimpri_bagages'] = $this->m_bagageesc->liste_reimpri_jour(
+                $this->company->ekey,
+                $conex->roleattribut,
+                $gd,
+                $sg
+            );
+            $this->property['reimpri_courriers'] = $this->m_courrier_expedieresc->liste_reimpri_jour(
+                $this->company->ekey,
+                $conex->roleattribut,
+                $gd,
+                $sg
+            );
+            if (!function_exists('role17_forced_escale')) {
+                $this->load->helper('role17_context');
+            }
+            // Contexte léger (évite un inject lourd qui peut planter la page).
+            $forced = function_exists('role17_forced_escale')
+                ? role17_forced_escale($conex->roleattribut, $gd)
+                : null;
+            $this->property['escale_depart_label'] = $forced
+                ? $forced['label']
+                : trim(
+                    (!empty($bus_stop->garenom) ? $bus_stop->garenom : '')
+                    . (!empty($bus_stop->nomsousgare) ? (' / ' . $bus_stop->nomsousgare) : '')
+                );
+            $this->property['escale_depart_fixed_admin'] = $forced ? !empty($forced['fixed']) : false;
+            $this->property['escale_id_lignes'] = $forced ? $forced['id_lignes'] : '';
+            $this->property['role17_mode'] = true;
+            // Shell autonome : pas de Beagle / PerfectScrollbar / whoami.
+            $this->property['layout_reimpri'] = TRUE;
+            $this->property['layout_minimal'] = TRUE;
+            $this->property['scripts_layout'] = 'scripts_bundle';
+            $this->property['bundle_js'] = array();
+            $this->property['bundle_optional_js'] = array();
+            $this->property['bundle_datatables'] = false;
 
             $this->property['pagetitle'] .= "REIMPRESSION• <strong>{$this->company->nom_entreprise}•&nbsp;{$bus_stop->garenom} •&nbsp;{$bus_stop->nomsousgare}</strong>";
             $this->property['title'] = 'Réimpression';

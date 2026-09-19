@@ -52,6 +52,14 @@
                 return;
             }
 
+            /* Réimpression venteescale : HTML autonome (évite PerfectScrollbar /
+             * App.init / whoami qui masquent le contenu sur TPE Chrome 64). */
+            if (!empty($pdata['layout_reimpri'])) {
+                $params['layout_guichet_banner'] = false;
+                $CI->load->view($this->theme . '/reimpri', $params);
+                return;
+            }
+
             $CI->load->view($this->theme . '/use', $params);
         }
     }
