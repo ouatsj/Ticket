@@ -391,8 +391,16 @@ $escale_labels = function ($esc, $mode = 'tarif') {
                                     <td><?= $L['prix_dest'] !== null ? number_format($L['prix_dest'], 0, '', ' ') : '—'; ?></td>
                                     <td class="actions">
                                         <a href="#tpe-edit-<?= (int) $esc->id_escale; ?>"
-                                           class="md-trigger" data-modal="tpe-edit-<?= (int) $esc->id_escale; ?>">
+                                           class="md-trigger" data-modal="tpe-edit-<?= (int) $esc->id_escale; ?>"
+                                           title="Modifier">
                                             <span class="fas fa-edit text-warning"></span>
+                                        </a>
+                                        &nbsp;
+                                        <a href="<?= site_url('lignes/escales/' . $this->session->company->ekey . '/tpe/delete/' . (int) $esc->id_escale); ?>?tab=tpe"
+                                           class="btn btn-sm btn-outline-danger"
+                                           onclick="return confirm('Supprimer cette config Escale TPE (<?= htmlspecialchars($L['nom_esc'], ENT_QUOTES, 'UTF-8'); ?>) ?\\nLes Escales tarifées ne sont pas touchées.');"
+                                           title="Supprimer">
+                                            <i class="fas fa-trash text-danger"></i>
                                         </a>
 
                                         <div class="modal-container colored-header colored-header-primary custom-width modal-effect-7"

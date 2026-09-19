@@ -247,6 +247,7 @@
             $route['lignes/escales/(:num)/edit/(:num)'] = 'Lignes/editescale/$1/$2';
             $route['lignes/escales/(:num)/liaison/edit/(:num)'] = 'Lignes/edittpeliaison/$1/$2';
             $route['lignes/escales/(:num)/liaison/delete/(:num)'] = 'Lignes/deltpeliaison/$1/$2';
+            $route['lignes/escales/(:num)/tpe/delete/(:num)'] = 'Lignes/deltpeescale/$1/$2';
             $route['lignes/escales/(:num)/toggle/(:num)/(:num)'] = 'Lignes/activeescale/$1/$2/$3';
             $route['lignes/escales/(:num)/delete/(:num)'] = 'Lignes/delescale/$1/$2';
             $route['lignes/itineraires/(:num)/delete/(:num)'] = 'Lignes/deletape/$1/$2';

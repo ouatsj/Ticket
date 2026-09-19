@@ -100,6 +100,34 @@ class Itineraire_escale_model extends CI_Model
     }
 
     /**
+     * Retire une ligne de l’onglet Escale TPE (prix TPE → NULL).
+     * Conserve prix_escale (Escales tarifées) ; supprime les liaisons TPE liées.
+     */
+    public function clear_tpe_config($id_escale)
+    {
+        $id_escale = (int) $id_escale;
+        if ($id_escale <= 0) {
+            return false;
+        }
+        if (!$this->db->field_exists('prix_escale_origine', $this->table)) {
+            return false;
+        }
+        $payload = array('prix_escale_origine' => null);
+        if ($this->db->field_exists('prix_escale_tpe', $this->table)) {
+            $payload['prix_escale_tpe'] = null;
+        }
+        $ok = $this->db->where('id_escale', $id_escale)->update($this->table, $payload);
+        if ($this->db->table_exists('itineraire_escales_tpe_liaisons')) {
+            $this->db->group_start()
+                ->where('id_escale_depart', $id_escale)
+                ->or_where('id_escale_arrivee', $id_escale)
+                ->group_end()
+                ->delete('itineraire_escales_tpe_liaisons');
+        }
+        return (bool) $ok;
+    }
+
+    /**
      * Crée la table liaisons TPE si absente (idempotent).
      */
     public function ensure_tpe_liaisons_table()

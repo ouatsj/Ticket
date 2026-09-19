@@ -526,6 +526,24 @@
             $this->_redirect_itineraires('tpe');
         }
 
+        /**
+         * Supprime la config Escale TPE d’une ligne (onglet Escale TPE).
+         * N’efface pas le prix Escales tarifées.
+         */
+        public function deltpeescale($ckey, $id_escale)
+        {
+            $this->company = $this->m_entreprises->get_key($ckey);
+            if (!isset($this->m_itineraire_escale)) {
+                $this->load->model('Itineraire_escale_model', 'm_itineraire_escale');
+            }
+            $id_escale = (int) $id_escale;
+            if ($id_escale > 0 && $this->m_itineraire_escale->clear_tpe_config($id_escale)) {
+                $this->property['UPDATE_SUCCESS'] = TRUE;
+                $this->session->set_flashdata('success', 'Config Escale TPE supprimée.');
+            }
+            $this->_redirect_itineraires('tpe');
+        }
+
         public function activeescale($ckey, $id_escale, $current = 1)
         {
             if (!isset($this->m_itineraire_escale)) {
