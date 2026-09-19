@@ -1005,7 +1005,9 @@ if (!function_exists('roleattribut_guard_uri_enforcement_skipped')) {
         // Réimpression venteescale (r17) : …/pdfepsonescalrp/{ekey}/{code}/{tf}/{lh}/{gare}/{role}/{sg}
         // La boucle générique confond tf/lh avec roleattribut → redirect login (= page blanche TPE).
         if ($controller === 'ventescales'
-            && (strpos($method, 'pdfepson') === 0 || $method === 'voirreimpri')
+            && (strpos($method, 'pdfepson') === 0
+                || $method === 'voirreimpri'
+                || strpos($method, 'supprime') === 0)
         ) {
             return true;
         }

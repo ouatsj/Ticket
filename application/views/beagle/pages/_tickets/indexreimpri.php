@@ -106,14 +106,51 @@ $base_reimpri = site_url(
     margin: 0.5rem 0 0; padding: 0.85rem 0.9rem; border-radius: 8px;
     background: #f8fafc; border: 1px dashed #cbd5e1; color: #475569; font-size: 0.9rem;
 }
+.r17-row-actions {
+    display: -webkit-box;
+    display: -ms-flexbox;
+    display: flex;
+    -webkit-box-align: stretch;
+    -ms-flex-align: stretch;
+    align-items: stretch;
+    margin: 0 0 0.55rem 0;
+}
+.r17-row-actions .r17-btn {
+    -webkit-box-flex: 1;
+    -ms-flex: 1 1 auto;
+    flex: 1 1 auto;
+    margin: 0 !important;
+    border-top-right-radius: 0 !important;
+    border-bottom-right-radius: 0 !important;
+}
+.r17-row-actions .r17-del {
+    -webkit-box-flex: 0;
+    -ms-flex: 0 0 52px;
+    flex: 0 0 52px;
+    display: -webkit-box;
+    display: -ms-flexbox;
+    display: flex;
+    -webkit-box-align: center;
+    -ms-flex-align: center;
+    align-items: center;
+    -webkit-box-pack: center;
+    -ms-flex-pack: center;
+    justify-content: center;
+    margin: 0;
+    text-decoration: none;
+    color: #fff;
+    background: #b91c1c;
+    border: 1px solid #991b1b;
+    border-radius: 0 8px 8px 0;
+    font-size: 1.05rem;
+}
+.r17-row-actions .r17-del:active { background: #7f1d1d; }
 /* Chrome 64 / TPE : pas de flex gap — marges manuelles */
 .r17-shell .r17-grid {
     display: block !important;
 }
-.r17-shell .r17-grid .r17-btn {
-    display: block !important;
-    width: 100% !important;
-    margin: 0 0 0.55rem 0 !important;
+.r17-shell .r17-grid .r17-row-actions {
+    width: 100%;
     box-sizing: border-box;
 }
 @media (min-width: 480px) {
@@ -126,7 +163,7 @@ $base_reimpri = site_url(
         margin-left: -0.25rem;
         margin-right: -0.25rem;
     }
-    .r17-shell .r17-grid .r17-btn {
+    .r17-shell .r17-grid .r17-row-actions {
         width: calc(50% - 0.5rem) !important;
         margin: 0.25rem !important;
     }
@@ -171,19 +208,32 @@ $base_reimpri = site_url(
                         . rawurlencode($item->idclescal) . '/' . rawurlencode($tf) . '/' . rawurlencode($lh) . '/'
                         . rawurlencode($bus_stop->idengare) . '/' . $conex->roleattribut . '/' . $bus_stop->idsousgare
                     );
+                    $del = site_url(
+                        'ventescales/supprimescal/' . $this->session->company->ekey . '/'
+                        . rawurlencode($item->idclescal) . '/' . $conex->roleattribut . '/'
+                        . rawurlencode($bus_stop->idengare) . '/' . $bus_stop->idsousgare
+                    );
                 ?>
-                    <a href="<?= htmlspecialchars($print, ENT_QUOTES, 'UTF-8'); ?>" class="r17-btn">
-                        <span class="r17-ico"><i class="fas fa-print"></i></span>
-                        <span class="r17-txt">
-                            <?= htmlspecialchars($item->idclescal, ENT_QUOTES, 'UTF-8'); ?>
-                            <span class="r17-sub"><?= htmlspecialchars(
-                                trim((isset($item->nom_client) ? $item->nom_client : '') . ' ' . (isset($item->prenom_client) ? $item->prenom_client : ''))
-                                . ($od !== '' ? (' · ' . $od) : ''),
-                                ENT_QUOTES,
-                                'UTF-8'
-                            ); ?></span>
-                        </span>
-                    </a>
+                    <div class="r17-row-actions">
+                        <a href="<?= htmlspecialchars($print, ENT_QUOTES, 'UTF-8'); ?>" class="r17-btn">
+                            <span class="r17-ico"><i class="fas fa-print"></i></span>
+                            <span class="r17-txt">
+                                <?= htmlspecialchars($item->idclescal, ENT_QUOTES, 'UTF-8'); ?>
+                                <span class="r17-sub"><?= htmlspecialchars(
+                                    trim((isset($item->nom_client) ? $item->nom_client : '') . ' ' . (isset($item->prenom_client) ? $item->prenom_client : ''))
+                                    . ($od !== '' ? (' · ' . $od) : ''),
+                                    ENT_QUOTES,
+                                    'UTF-8'
+                                ); ?></span>
+                            </span>
+                        </a>
+                        <a href="<?= htmlspecialchars($del, ENT_QUOTES, 'UTF-8'); ?>"
+                           class="r17-del"
+                           title="Supprimer ce ticket"
+                           onclick="return confirm('Supprimer définitivement ce ticket escale ?');">
+                            <i class="fas fa-trash-alt"></i>
+                        </a>
+                    </div>
                 <?php endforeach; ?>
             </div>
         <?php endif; ?>
@@ -201,19 +251,32 @@ $base_reimpri = site_url(
                         . $b->id_bagageesc . '/' . rawurlencode($bus_stop->idengare) . '/'
                         . $conex->roleattribut . '/' . $bus_stop->idsousgare
                     );
+                    $del = site_url(
+                        'ventescales/supprimebagesc/' . $this->session->company->ekey . '/'
+                        . $b->id_bagageesc . '/' . $conex->roleattribut . '/'
+                        . rawurlencode($bus_stop->idengare) . '/' . $bus_stop->idsousgare
+                    );
                 ?>
-                    <a href="<?= htmlspecialchars($print, ENT_QUOTES, 'UTF-8'); ?>" class="r17-btn">
-                        <span class="r17-ico"><i class="fas fa-suitcase"></i></span>
-                        <span class="r17-txt">
-                            <?= htmlspecialchars(!empty($b->codebagesc) ? $b->codebagesc : $b->id_bagageesc, ENT_QUOTES, 'UTF-8'); ?>
-                            <span class="r17-sub"><?= htmlspecialchars(
-                                trim((isset($b->nom_client) ? $b->nom_client : '') . ' ' . (isset($b->prenom_client) ? $b->prenom_client : ''))
-                                . ' · ' . number_format((float) $b->prix_bagageesc, 0, '', ' ') . ' F',
-                                ENT_QUOTES,
-                                'UTF-8'
-                            ); ?></span>
-                        </span>
-                    </a>
+                    <div class="r17-row-actions">
+                        <a href="<?= htmlspecialchars($print, ENT_QUOTES, 'UTF-8'); ?>" class="r17-btn">
+                            <span class="r17-ico"><i class="fas fa-suitcase"></i></span>
+                            <span class="r17-txt">
+                                <?= htmlspecialchars(!empty($b->codebagesc) ? $b->codebagesc : $b->id_bagageesc, ENT_QUOTES, 'UTF-8'); ?>
+                                <span class="r17-sub"><?= htmlspecialchars(
+                                    trim((isset($b->nom_client) ? $b->nom_client : '') . ' ' . (isset($b->prenom_client) ? $b->prenom_client : ''))
+                                    . ' · ' . number_format((float) $b->prix_bagageesc, 0, '', ' ') . ' F',
+                                    ENT_QUOTES,
+                                    'UTF-8'
+                                ); ?></span>
+                            </span>
+                        </a>
+                        <a href="<?= htmlspecialchars($del, ENT_QUOTES, 'UTF-8'); ?>"
+                           class="r17-del"
+                           title="Annuler ce reçu bagage"
+                           onclick="return confirm('Annuler ce reçu bagage ?');">
+                            <i class="fas fa-trash-alt"></i>
+                        </a>
+                    </div>
                 <?php endforeach; ?>
             </div>
         <?php endif; ?>
@@ -237,19 +300,32 @@ $base_reimpri = site_url(
                         . rawurlencode($bus_stop->idengare) . '/'
                         . $conex->roleattribut . '/' . $bus_stop->idsousgare
                     );
+                    $del = site_url(
+                        'ventescales/supprimecouresc/' . $this->session->company->ekey . '/'
+                        . $c->courrierexpidesc . '/' . $conex->roleattribut . '/'
+                        . rawurlencode($bus_stop->idengare) . '/' . $bus_stop->idsousgare
+                    );
                 ?>
-                    <a href="<?= htmlspecialchars($print, ENT_QUOTES, 'UTF-8'); ?>" class="r17-btn">
-                        <span class="r17-ico"><i class="fas fa-envelope"></i></span>
-                        <span class="r17-txt">
-                            <?= htmlspecialchars($c->num_couresc, ENT_QUOTES, 'UTF-8'); ?>
-                            <span class="r17-sub"><?= htmlspecialchars(
-                                trim((isset($c->nom_client) ? $c->nom_client : '') . ' ' . (isset($c->prenom_client) ? $c->prenom_client : ''))
-                                . ' · ' . number_format((float) $c->prixcolisesc, 0, '', ' ') . ' F',
-                                ENT_QUOTES,
-                                'UTF-8'
-                            ); ?></span>
-                        </span>
-                    </a>
+                    <div class="r17-row-actions">
+                        <a href="<?= htmlspecialchars($print, ENT_QUOTES, 'UTF-8'); ?>" class="r17-btn">
+                            <span class="r17-ico"><i class="fas fa-envelope"></i></span>
+                            <span class="r17-txt">
+                                <?= htmlspecialchars($c->num_couresc, ENT_QUOTES, 'UTF-8'); ?>
+                                <span class="r17-sub"><?= htmlspecialchars(
+                                    trim((isset($c->nom_client) ? $c->nom_client : '') . ' ' . (isset($c->prenom_client) ? $c->prenom_client : ''))
+                                    . ' · ' . number_format((float) $c->prixcolisesc, 0, '', ' ') . ' F',
+                                    ENT_QUOTES,
+                                    'UTF-8'
+                                ); ?></span>
+                            </span>
+                        </a>
+                        <a href="<?= htmlspecialchars($del, ENT_QUOTES, 'UTF-8'); ?>"
+                           class="r17-del"
+                           title="Annuler ce courrier"
+                           onclick="return confirm('Annuler ce courrier escale ?');">
+                            <i class="fas fa-trash-alt"></i>
+                        </a>
+                    </div>
                 <?php endforeach; ?>
             </div>
         <?php endif; ?>

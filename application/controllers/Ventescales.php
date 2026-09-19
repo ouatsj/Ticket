@@ -665,4 +665,177 @@
             }
             $this->layout->view('_tickets/pdfepsonescal_libre', $this->property);
         }
+
+        /**
+         * Suppression ticket escale (TPE / historique) — hard delete + solde recalculé.
+         */
+        public function supprimescal($ckey, $code_id, $uid, $gd, $sg)
+        {
+            $this->company = $this->m_entreprises->get_key($ckey);
+            $conex = $this->_reimpri_conex($gd, $uid);
+            if (!$conex) {
+                roleattribut_guard_fail_redirect_home($this->company->ekey);
+                return;
+            }
+
+            $item = $this->db->query(
+                "SELECT es.idclescal, es.iduseescal, es.dateescal
+                 FROM escalclients es
+                 WHERE BINARY es.idclescal = ?
+                 LIMIT 1",
+                array($code_id)
+            )->row();
+
+            if (!$item) {
+                $this->session->set_flashdata('error', 'Ticket introuvable — suppression impossible.');
+                return $this->_redirect_apres_suppression($conex, $gd, $sg, 'ticket');
+            }
+
+            $userole = !empty($conex->userole)
+                ? (string) $conex->userole
+                : (string) $this->session->agent->userole;
+            if ($userole === '17' && (int) $item->iduseescal !== (int) $conex->roleattribut) {
+                $this->session->set_flashdata('error', 'Suppression refusée : ticket d’un autre opérateur.');
+                return $this->_redirect_apres_suppression($conex, $gd, $sg, 'ticket');
+            }
+
+            $this->m_escalclients->del($item->idclescal);
+            $this->session->set_flashdata('success', 'Ticket escale supprimé.');
+            return $this->_redirect_apres_suppression($conex, $gd, $sg, 'ticket');
+        }
+
+        /**
+         * Annulation reçu bagage escale (soft : annulebagesc=1).
+         */
+        public function supprimebagesc($ckey, $id_bag, $uid, $gd, $sg)
+        {
+            $this->company = $this->m_entreprises->get_key($ckey);
+            $conex = $this->_reimpri_conex($gd, $uid);
+            if (!$conex) {
+                roleattribut_guard_fail_redirect_home($this->company->ekey);
+                return;
+            }
+
+            if (!isset($this->m_bagageesc)) {
+                $this->load->model('Bagageesc_model', 'm_bagageesc');
+            }
+            $row = $this->db->query(
+                "SELECT id_bagageesc, idoperabagageesc
+                 FROM bagagesesc WHERE id_bagageesc = ? LIMIT 1",
+                array((int) $id_bag)
+            )->row();
+            if (!$row) {
+                $this->session->set_flashdata('error', 'Bagage introuvable.');
+                return $this->_redirect_apres_suppression($conex, $gd, $sg, 'bagage');
+            }
+
+            $op = isset($row->idoperabagageesc) ? (int) $row->idoperabagageesc : 0;
+            $userole = !empty($conex->userole)
+                ? (string) $conex->userole
+                : (string) $this->session->agent->userole;
+            if ($userole === '17' && $op > 0 && $op !== (int) $conex->roleattribut) {
+                $this->session->set_flashdata('error', 'Suppression refusée : bagage d’un autre opérateur.');
+                return $this->_redirect_apres_suppression($conex, $gd, $sg, 'bagage');
+            }
+
+            $this->m_bagageesc->update((int) $row->id_bagageesc, array('annulebagesc' => 1));
+            if (function_exists('guichet_totaux_cache_invalidate_from_row')) {
+                guichet_totaux_cache_invalidate_from_row(array('iduseescal' => $conex->roleattribut));
+            }
+            $this->session->set_flashdata('success', 'Reçu bagage annulé.');
+            return $this->_redirect_apres_suppression($conex, $gd, $sg, 'bagage');
+        }
+
+        /**
+         * Annulation courrier escale (soft : actif_couresc=1).
+         */
+        public function supprimecouresc($ckey, $id_cour, $uid, $gd, $sg)
+        {
+            $this->company = $this->m_entreprises->get_key($ckey);
+            $conex = $this->_reimpri_conex($gd, $uid);
+            if (!$conex) {
+                roleattribut_guard_fail_redirect_home($this->company->ekey);
+                return;
+            }
+
+            if (!isset($this->m_courrier_expedieresc)) {
+                $this->load->model('Courriers_expesc_model', 'm_courrier_expedieresc');
+            }
+            $row = $this->db->query(
+                "SELECT courrierexpidesc, idoperateuresc, num_couresc, departcolisesc
+                 FROM courriers_expesc WHERE courrierexpidesc = ? LIMIT 1",
+                array((int) $id_cour)
+            )->row();
+            if (!$row) {
+                $this->session->set_flashdata('error', 'Courrier introuvable.');
+                return $this->_redirect_apres_suppression($conex, $gd, $sg, 'courrier');
+            }
+
+            $userole = !empty($conex->userole)
+                ? (string) $conex->userole
+                : (string) $this->session->agent->userole;
+            if ($userole === '17'
+                && (int) $row->idoperateuresc !== (int) $conex->roleattribut
+            ) {
+                $this->session->set_flashdata('error', 'Suppression refusée : courrier d’un autre opérateur.');
+                return $this->_redirect_apres_suppression($conex, $gd, $sg, 'courrier');
+            }
+
+            $this->m_courrier_expedieresc->update(
+                $row->courrierexpidesc,
+                $row->num_couresc,
+                $row->departcolisesc,
+                array('actif_couresc' => 1)
+            );
+            if (function_exists('guichet_totaux_cache_invalidate_from_row')) {
+                guichet_totaux_cache_invalidate_from_row(array('iduseescal' => $conex->roleattribut));
+            }
+            $this->session->set_flashdata('success', 'Courrier annulé.');
+            return $this->_redirect_apres_suppression($conex, $gd, $sg, 'courrier');
+        }
+
+        /** @return object|null */
+        private function _reimpri_conex($gd, $uid)
+        {
+            $conex = $this->m_compte_user->getusergare($this->company->ekey, $gd, $uid);
+            if (!$conex && $this->session->userdata('agent')) {
+                $conex = $this->m_compte_user->getusergare(
+                    $this->company->ekey,
+                    $gd,
+                    $this->session->agent->roleattribut
+                );
+            }
+            return $conex;
+        }
+
+        private function _redirect_apres_suppression($conex, $gd, $sg, $tab = 'ticket')
+        {
+            $ref = isset($_SERVER['HTTP_REFERER']) ? (string) $_SERVER['HTTP_REFERER'] : '';
+            if ($ref !== '' && (
+                strpos($ref, 'tripassageresc') !== false
+                || strpos($ref, 'voirbagage') !== false
+                || strpos($ref, 'courrierescal') !== false
+            )) {
+                redirect($ref);
+                return;
+            }
+
+            $userole = !empty($conex->userole)
+                ? (string) $conex->userole
+                : (string) $this->session->agent->userole;
+            if (in_array($userole, array('1', '2'), true) && $tab === 'ticket') {
+                redirect(
+                    'historique_passagers/tripassageresc/' . $this->company->ekey . '/'
+                    . (int) $conex->roleattribut . '/' . rawurlencode($gd) . '/' . (int) $sg
+                );
+                return;
+            }
+
+            $tab = in_array($tab, array('ticket', 'bagage', 'courrier'), true) ? $tab : 'ticket';
+            redirect(
+                'ventescales/voirreimpri/' . $this->company->ekey . '/'
+                . (int) $conex->roleattribut . '/' . rawurlencode($gd) . '/' . (int) $sg
+                . '?tab=' . $tab
+            );
+        }
     }

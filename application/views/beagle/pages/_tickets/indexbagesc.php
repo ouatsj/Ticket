@@ -94,13 +94,15 @@ $role17_mode = function_exists('role17_is_agent') && role17_is_agent();
                                 <i class="fas fa-print"></i>
                             </a>
                             <? endif; ?>
-                            &nbsp;&nbsp;&nbsp;
-                            <? if ($this->session->agent->userole === '1'): ?>
+                            <? if ($this->session->agent->userole === '1' OR $this->session->agent->userole === '17'): ?>
                             <a class="icon" title="ANNULER RECU"
-                                href="<?= site_url('Confirmation/annuleesc/'.$this->session->company->ekey.'/'.$conex->roleattribut.'/'.$itemesc->id_bagageesc.'/'.$bus_stop->idengare.'/'.$bus_stop->idsousgare.'/'.$itemesc->annulebagesc); ?>">
+                                href="<?= site_url('ventescales/supprimebagesc/'.$this->session->company->ekey.'/'.$itemesc->id_bagageesc.'/'.$conex->roleattribut.'/'.$bus_stop->idengare.'/'.$bus_stop->idsousgare); ?>"
+                                onclick="return confirm('Annuler ce reçu bagage ?');">
                                 <i class="fas fa-trash-alt text-warning"></i>
                             </a>
                             &nbsp;&nbsp;&nbsp;
+                            <? endif; ?>
+                            <? if ($this->session->agent->userole === '1'): ?>
                             <a href="<?= "#?{$itemesc->id_bagageesc}&bagage={$itemesc->annulebagesc}"; ?>"
                                     title="prix" class="md-trigger" data-modal="edite-<?= $itemesc->id_bagageesc; ?>">
                                 <i class="fas fa-edit text-warning"></i>

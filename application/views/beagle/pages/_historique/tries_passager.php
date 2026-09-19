@@ -108,6 +108,12 @@ defined('BASEPATH') OR exit('No direct script access allowed'); ?>
                                     href="<?= site_url('Ventescales/reimpri/'.$this->session->company->ekey.'/'.$item->idclescal.'/'.$item->reimpr.'/'.$item->id_lgeheur.'/'.$bus_stop->idengare.'/'.$conex->roleattribut .'/'.$bus_stop->idsousgare);?>">
                                     <i class="fas fa-edit"></i>
                                 </a>&nbsp;
+
+                                <a class="icon" title="SUPPRIMER TICKET ESCALE"
+                                    href="<?= site_url('ventescales/supprimescal/'.$this->session->company->ekey.'/'.rawurlencode($item->idclescal).'/'.$conex->roleattribut.'/'.$bus_stop->idengare.'/'.$bus_stop->idsousgare); ?>"
+                                    onclick="return confirm('Supprimer définitivement ce ticket escale ?');">
+                                    <i class="fas fa-trash-alt text-danger"></i>
+                                </a>&nbsp;
                             </td>
                         </tr>
                     

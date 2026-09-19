@@ -40,7 +40,16 @@
 
         public function del($id)
         {
-        return $this->db->where('idclescal', $id)->delete($this->table);
+            $fallback = array();
+            $row = $this->db->select('iduseescal')->where('idclescal', $id)->get($this->table)->row();
+            if ($row && !empty($row->iduseescal)) {
+                $fallback['iduseescal'] = $row->iduseescal;
+            }
+            $ok = $this->db->where('idclescal', $id)->delete($this->table);
+            if ($ok && function_exists('guichet_totaux_cache_invalidate_from_row')) {
+                guichet_totaux_cache_invalidate_from_row($fallback, $fallback);
+            }
+            return $ok;
         }
 
         public function get($cid, $p_id, $tf, $t)
