@@ -59,20 +59,44 @@ $base_reimpri = site_url(
     line-height: 1.25;
 }
 .r17-tabs {
-    display: flex; gap: 0.35rem; margin: 0.5rem 0 0.85rem; flex-wrap: wrap;
+    display: -webkit-box;
+    display: -ms-flexbox;
+    display: flex;
+    -ms-flex-wrap: wrap;
+    flex-wrap: wrap;
+    margin: 0.5rem 0 0.85rem;
 }
 .r17-tabs a {
-    flex: 1 1 30%; min-height: 44px; display: flex; align-items: center; justify-content: center;
-    gap: 0.35rem; padding: 0.45rem 0.6rem; border-radius: 8px; font-weight: 700; font-size: 0.9rem;
-    text-decoration: none; color: #1e3a8a; background: #eff6ff; border: 1px solid #bfdbfe;
+    -webkit-box-flex: 1;
+    -ms-flex: 1 1 30%;
+    flex: 1 1 30%;
+    min-height: 44px;
+    display: -webkit-box;
+    display: -ms-flexbox;
+    display: flex;
+    -webkit-box-align: center;
+    -ms-flex-align: center;
+    align-items: center;
+    -webkit-box-pack: center;
+    -ms-flex-pack: center;
+    justify-content: center;
+    margin: 0.2rem;
+    padding: 0.45rem 0.6rem;
+    border-radius: 8px;
+    font-weight: 700;
+    font-size: 0.9rem;
+    text-decoration: none;
+    color: #1e3a8a;
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
 }
 .r17-tabs a.is-active { background: #1d4ed8; color: #fff; border-color: #1d4ed8; }
 .r17-tabs .r17-tab-n {
     display: inline-block; min-width: 1.25rem; padding: 0 0.3rem; border-radius: 999px;
-    font-size: 0.75rem; background: rgba(0,0,0,.12);
+    font-size: 0.75rem; background: rgba(0,0,0,.12); margin-left: 0.35rem;
 }
 .r17-tabs a.is-active .r17-tab-n { background: rgba(255,255,255,.25); }
-.r17-tab-panel { display: block; }
+.r17-tab-panel { display: block; min-height: 120px; }
 .r17-tab-panel[hidden] { display: none !important; }
 .r17-hint {
     margin: 0 0 0.75rem; padding: 0.55rem 0.7rem; border-radius: 8px;
@@ -81,6 +105,31 @@ $base_reimpri = site_url(
 .r17-empty {
     margin: 0.5rem 0 0; padding: 0.85rem 0.9rem; border-radius: 8px;
     background: #f8fafc; border: 1px dashed #cbd5e1; color: #475569; font-size: 0.9rem;
+}
+/* Chrome 64 / TPE : pas de flex gap — marges manuelles */
+.r17-shell .r17-grid {
+    display: block !important;
+}
+.r17-shell .r17-grid .r17-btn {
+    display: block !important;
+    width: 100% !important;
+    margin: 0 0 0.55rem 0 !important;
+    box-sizing: border-box;
+}
+@media (min-width: 480px) {
+    .r17-shell .r17-grid {
+        display: -webkit-box !important;
+        display: -ms-flexbox !important;
+        display: flex !important;
+        -ms-flex-wrap: wrap !important;
+        flex-wrap: wrap !important;
+        margin-left: -0.25rem;
+        margin-right: -0.25rem;
+    }
+    .r17-shell .r17-grid .r17-btn {
+        width: calc(50% - 0.5rem) !important;
+        margin: 0.25rem !important;
+    }
 }
 </style>
 

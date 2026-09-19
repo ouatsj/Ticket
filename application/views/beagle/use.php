@@ -12,7 +12,7 @@ $head_extra = array(
 $this->load->view('_layouts/head', $head_extra);
 ?>
 
-<body class="be-animate"<?php if (!empty($layout_guichet_banner) && $this->session->userdata('agent')): ?> data-agent-id="<?= (int) $this->session->agent->cpuser_id; ?>" data-whoami-url="<?= htmlspecialchars(site_url('login/whoami'), ENT_QUOTES, 'UTF-8'); ?>"<?php endif; ?>>
+<body class="be-animate<?= !empty($layout_minimal) ? ' be-minimal-chrome' : ''; ?>"<?php if (!empty($layout_guichet_banner) && $this->session->userdata('agent')): ?> data-agent-id="<?= (int) $this->session->agent->cpuser_id; ?>" data-whoami-url="<?= htmlspecialchars(site_url('login/whoami'), ENT_QUOTES, 'UTF-8'); ?>"<?php endif; ?>>
 <style>
 @media print {
 	.auth-guichet-banner,
@@ -26,6 +26,16 @@ $this->load->view('_layouts/head', $head_extra);
 .be-minimal-chrome .be-content .main-content.container-fluid {
 	padding-left: 0.5rem !important;
 	padding-right: 0.5rem !important;
+}
+/* TPE Chrome 64 : éviter hauteur 0 / contenu « page blanche » avec PerfectScrollbar */
+.be-minimal-chrome .be-content {
+	height: auto !important;
+	max-height: none !important;
+	overflow: visible !important;
+}
+.be-minimal-chrome .be-content .ps__rail-x,
+.be-minimal-chrome .be-content .ps__rail-y {
+	display: none !important;
 }
 /* Bandeau session compact (TPE / layout minimal) */
 .auth-guichet-banner--compact {
@@ -164,6 +174,7 @@ $this->load->view('_layouts/head', $head_extra);
 		'bundle_js' => isset($bundle_js) ? $bundle_js : array(),
 		'bundle_optional_js' => isset($bundle_optional_js) ? $bundle_optional_js : array(),
 		'bundle_datatables' => !empty($bundle_datatables),
+		'layout_minimal' => !empty($__layout_minimal),
 	)); ?>
 	<?php if (!empty($layout_guichet_banner)) : ?>
 	<script type="text/javascript">
