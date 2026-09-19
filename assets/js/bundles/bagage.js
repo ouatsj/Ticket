@@ -1036,107 +1036,105 @@ document.addEventListener('DOMContentLoaded', () => {
 ;
 /* --- adbagescale.js --- */
 document.addEventListener('DOMContentLoaded', () => {
-    
-    document.querySelectorAll('.adbagescale').forEach(function (e) 
+
+    document.querySelectorAll('.adbagescale').forEach(function (e)
     {
-        
+        // Modal r17 a son propre handler (évite double XHR + clear croisé).
+        if (e.dataset.r17BagBound === '1' || e.closest('#bagage-facturation-r17')) {
+            return;
+        }
+
         let baginfos = document.querySelector('#infocodeticketesc');
         if (baginfos !== null)
             baginfos.onclick = () => {
 
-
             let httpRequestBag;
-            
-            if (window.XMLHttpRequest) { // Mozilla, Safari, IE7+ ...
+
+            if (window.XMLHttpRequest) {
                 httpRequestBag = new XMLHttpRequest();
-            } else if (window.ActiveXObject) { // IE 6 and older
+            } else if (window.ActiveXObject) {
                 httpRequestBag = new ActiveXObject("Microsoft.XMLHTTP");
             }
-           
-            
+
             var bagcocl = document.querySelector("#codeticketbagesc").value;
             var baggid = document.querySelector("#codebaggidesc").value;
             var bagsgid = document.querySelector("#codebagsousgidesc").value;
-            httpRequestBag.open('GET', window.location.origin + `${APP_ROOT}/reprogrammes/codeclientverifesc/${bagcocl}/${baggid}/${bagsgid}`, true);
+            httpRequestBag.open('GET', window.location.origin + `${APP_ROOT}/reprogrammes/codeclientverifesc/${encodeURIComponent(bagcocl)}/${encodeURIComponent(baggid)}/${encodeURIComponent(bagsgid)}`, true);
+            httpRequestBag._rgSkipGuard = true;
             httpRequestBag.onload = () => {
 
-                const donneesbag = JSON.parse(httpRequestBag.responseText);
-                
-                if (donneesbag == null) {
-                    
-                        document.querySelector('#pascontactbagsansescbg').value = '';
-                        document.querySelector('#rclientcpescalbag').value = '';
-                        document.querySelector('#nclientcpescalbag').value = '';
-                        document.querySelector('#prnclientcpescalbag').value = '';
-                        document.querySelector('#id_lgeheurescalbag').value = '';
-                        document.querySelector('#codtickbagsansesc').value = '';
-                        document.querySelector('#idcompagaescbag').value = '';
-                        document.querySelector('#lignescalbag').value = '';
-                        document.querySelector('#quartpasseesc').value = '';
-                        document.querySelector('#infobagasansesc').value = '';
-                } else
-                {
+                let donneesbag = null;
+                try { donneesbag = JSON.parse(httpRequestBag.responseText); } catch (err) { donneesbag = null; }
 
-                
-                    if (Object.entries(donneesbag).length >= 1){
-
-                    rclientcpescalbag
-                        document.querySelector('#pascontactbagsansescbg').value = `${donneesbag.contact_client}`;
-                        document.querySelector('#rclientcpescalbag').value = `${donneesbag.clientescal}`;
-                        document.querySelector('#nclientcpescalbag').value = `${donneesbag.nom_client}`;
-                        document.querySelector('#prnclientcpescalbag').value = `${donneesbag.prenom_client}`;
-                        document.querySelector('#id_lgeheurescalbag').value = `${donneesbag.id_ligneheure}`;
-                        document.querySelector('#codtickbagsansesc').value = `${donneesbag.idclescal}`;
-                        document.querySelector('#idcompagaescbag').value = `${donneesbag.id_compaga}`;
-                        document.querySelector('#lignescalbag').value = `${donneesbag.ident_ligne}`;
-                        document.querySelector('#quartpasseesc').value = `${donneesbag.quartier_escal}`;
-                        document.querySelector('#infobagasansesc').value = `${donneesbag.nom_client} ${donneesbag.prenom_client}  ${donneesbag.nom_gadest}  ${donneesbag.quartier_escal} ${donneesbag.heure}`;
-                    } 
+                function setVal(id, v) {
+                    var el = document.querySelector('#' + id);
+                    if (el) el.value = v == null ? '' : String(v);
                 }
+
+                if (!donneesbag || typeof donneesbag !== 'object' || !Object.keys(donneesbag).length) {
+                    setVal('pascontactbagsansescbg', '');
+                    setVal('rclientcpescalbag', '');
+                    setVal('nclientcpescalbag', '');
+                    setVal('prnclientcpescalbag', '');
+                    setVal('id_lgeheurescalbag', '');
+                    setVal('codtickbagsansesc', '');
+                    setVal('idcompagaescbag', '');
+                    setVal('lignescalbag', '');
+                    setVal('quartpasseesc', '');
+                    setVal('infobagasansesc', '');
+                    return;
+                }
+
+                var ligneId = donneesbag.ident_ligne || donneesbag.lignintescal || '';
+                var lh = donneesbag.id_ligneheure || donneesbag.id_lgeheur || '';
+                setVal('pascontactbagsansescbg', donneesbag.contact_client);
+                setVal('rclientcpescalbag', donneesbag.clientescal);
+                setVal('nclientcpescalbag', donneesbag.nom_client);
+                setVal('prnclientcpescalbag', donneesbag.prenom_client);
+                setVal('id_lgeheurescalbag', lh);
+                setVal('codtickbagsansesc', donneesbag.idclescal || bagcocl);
+                setVal('idcompagaescbag', donneesbag.id_compaga);
+                setVal('lignescalbag', ligneId);
+                setVal('quartpasseesc', donneesbag.quartier_escal || '');
+                setVal('infobagasansesc',
+                    [donneesbag.nom_client, donneesbag.prenom_client, donneesbag.nom_gadest,
+                     donneesbag.quartier_escal, donneesbag.heure].filter(Boolean).join(' '));
             };
-            httpRequestBag.setRequestHeader('Content-Type', 'application/json');
             httpRequestBag.send();
         };
-        
-        updateContenu = function () 
+
+        window.updateContenu = function ()
         {
-            // Récupérer le champ "Contenu"
             var contenuField = document.querySelector('textarea[name="naturebagagesansesc"]');
-            
-            // Récupérer toutes les cases à cocher (checkbox)
+            if (!contenuField) return;
             var checkboxes = document.querySelectorAll('input[name="types_bagsansesc[]"]:checked');
-            
-            // Créer un tableau pour stocker les valeurs des cases cochées
             var selectedValues = [];
-            
-            // Parcourir les cases cochées et récupérer leur valeur
             checkboxes.forEach(function(checkbox) {
                 selectedValues.push(checkbox.value);
             });
-            
-            // Mettre à jour le contenu du champ avec les cases sélectionnées
-            contenuField.value = selectedValues.join(', '); // Séparer par des virgules
-        }
-        e.onclick = function () {   
-            let bagsansForm = document.querySelector('#escalFormbag');
-            
-            bagsansForm.setAttribute('action', `${APP_ROOT}/Reprogrammes/savebagesc/${e.dataset.cle_compagnie}`);   
-        }
-        
-        var clique = true;
+            contenuField.value = selectedValues.join(', ');
+        };
 
-            $('#bottonbagesc').click(function(event) 
-            {
-                if(clique) 
-                {
-                    clique = false;
-                    return true;
-                }
-                else return false;
-            })       
-    })    
+        e.onclick = function () {
+            let bagsansForm = document.querySelector('#escalFormbag');
+            if (bagsansForm) {
+                bagsansForm.setAttribute('action', `${APP_ROOT}/Reprogrammes/savebagesc/${e.dataset.cle_compagnie}`);
+            }
+        };
+
+        var clique = true;
+        $('#bottonbagesc').click(function()
+        {
+            if (clique) {
+                clique = false;
+                return true;
+            }
+            return false;
+        });
+    });
 
 });
+
 ;
 /* --- adventeescale.js --- */
 document.addEventListener('DOMContentLoaded', () => {

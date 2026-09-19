@@ -2679,6 +2679,10 @@
                     . '/' . $bus_stop->idsousgare
                     . '/' . mdate('%d/%m/%Y', now('UTC'))
                 );
+                $this->session->set_flashdata(
+                    'error',
+                    'Ticket introuvable pour impression — vérifiez que la vente a bien été enregistrée.'
+                );
                 redirect($accueil);
                 return;
             }
@@ -2702,6 +2706,21 @@
             $this->property['conex'] = $conex;
             $this->bagagesesc = $this->m_bagageesc->get($this->company->ekey, $g, $bg_id);
             $this->property['itemescbag'] = $this->bagagesesc;
+
+            if (empty($this->bagagesesc)) {
+                $this->session->set_flashdata(
+                    'error',
+                    'Reçu bagage introuvable — la facturation a peut‑être échoué. Revérifiez le code ticket puis FACTURER.'
+                );
+                $back = (function_exists('role17_is_agent') && role17_is_agent() && function_exists('role17_accueil_url') && $bus_stop && $conex)
+                    ? role17_accueil_url($bus_stop, $conex)
+                    : site_url(
+                        'confirmation/bagageescales/' . $this->company->ekey . '/'
+                        . $cpus . '/' . $g . '/' . $idsg
+                    );
+                redirect($back);
+                return;
+            }
 
             if (function_exists('role17_is_agent') && role17_is_agent()) {
                 $this->property['role17_mode'] = true;

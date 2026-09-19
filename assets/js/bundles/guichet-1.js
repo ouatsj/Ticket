@@ -11177,6 +11177,12 @@ document.addEventListener('DOMContentLoaded', () => {
             || !!departFixe;
 
         let destRequestSeq = 0;
+        let clientLookupSeq = 0;
+        let clientLookupTimer = null;
+
+        function digitsOnly(v) {
+            return String(v || '').replace(/\D/g, '');
+        }
 
         function enforceDepartFixe() {
             if (!departLocked || !departFixe || !selDepart) return;
@@ -11201,6 +11207,17 @@ document.addEventListener('DOMContentLoaded', () => {
             if (clientId) clientId.value = '';
             if (nomRef) nomRef.value = '';
             if (prenomRef) prenomRef.value = '';
+        }
+
+        function fillClient(infos) {
+            if (!infos || !(infos.id_client || infos.nom_client || infos.contact_client)) {
+                return;
+            }
+            if (nom) nom.value = infos.nom_client || '';
+            if (prenom) prenom.value = infos.prenom_client || '';
+            if (clientId) clientId.value = infos.id_client || '';
+            if (nomRef) nomRef.value = infos.nom_client || '';
+            if (prenomRef) prenomRef.value = infos.prenom_client || '';
         }
 
         function fillDepartOptions(rows) {
@@ -11288,6 +11305,53 @@ document.addEventListener('DOMContentLoaded', () => {
             http.send();
         }
 
+        function fetchClient(rawPhone) {
+            const phone = String(rawPhone || '').trim();
+            const dig = digitsOnly(phone);
+            if (dig.length < 6) {
+                if (dig.length === 0) {
+                    clearClient();
+                }
+                return;
+            }
+            const seq = ++clientLookupSeq;
+            const rootPath = (typeof APP_ROOT !== 'undefined' ? APP_ROOT : '');
+            const http = new XMLHttpRequest();
+            http._rgSkipGuard = true;
+            http.open('GET', window.location.origin + rootPath
+                + '/programmes/verifinfos/' + encodeURIComponent(phone), true);
+            http.onload = function () {
+                if (seq !== clientLookupSeq) return;
+                let infos = null;
+                try { infos = JSON.parse(http.responseText); } catch (err) { infos = null; }
+                if (infos && (infos.id_client || infos.nom_client || infos.contact_client)) {
+                    fillClient(infos);
+                    return;
+                }
+                const http2 = new XMLHttpRequest();
+                http2._rgSkipGuard = true;
+                http2.open('GET', window.location.origin + rootPath
+                    + '/confirmation/verifinfos/' + encodeURIComponent(phone), true);
+                http2.onload = function () {
+                    if (seq !== clientLookupSeq) return;
+                    let infos2 = null;
+                    try { infos2 = JSON.parse(http2.responseText); } catch (e2) { infos2 = null; }
+                    // Pas de clear agressif : une réponse vide ne doit pas
+                    // effacer un nom déjà chargé (course de requêtes).
+                    fillClient(infos2);
+                };
+                http2.send();
+            };
+            http.send();
+        }
+
+        function scheduleClientLookup(rawPhone) {
+            if (clientLookupTimer) clearTimeout(clientLookupTimer);
+            clientLookupTimer = setTimeout(function () {
+                fetchClient(rawPhone);
+            }, 350);
+        }
+
         if (selDepart && selDepart.tagName === 'SELECT') {
             selDepart.onchange = function () {
                 resetDest();
@@ -11310,30 +11374,13 @@ document.addEventListener('DOMContentLoaded', () => {
             };
         }
 
-        if (contact) {
-            contact.onkeyup = function () {
-                const verificat = contact.value.trim();
-                if (verificat.length < 6) {
-                    clearClient();
-                    return;
-                }
-                const httpInfos = new XMLHttpRequest();
-                httpInfos.open('GET', window.location.origin + APP_ROOT + '/programmes/verifinfos/' + encodeURIComponent(verificat), true);
-                httpInfos.onload = function () {
-                    let infos = null;
-                    try { infos = JSON.parse(httpInfos.responseText); } catch (err) { infos = null; }
-                    if (!infos || !infos.contact_client) {
-                        clearClient();
-                        return;
-                    }
-                    if (nom) nom.value = infos.nom_client || '';
-                    if (prenom) prenom.value = infos.prenom_client || '';
-                    if (clientId) clientId.value = infos.id_client || '';
-                    if (nomRef) nomRef.value = infos.nom_client || '';
-                    if (prenomRef) prenomRef.value = infos.prenom_client || '';
-                };
-                httpInfos.send();
-            };
+        if (contact && contact.getAttribute('data-r17-phone') !== '1') {
+            contact.setAttribute('data-r17-phone', '1');
+            const run = function () { scheduleClientLookup(contact.value); };
+            contact.addEventListener('input', run);
+            contact.addEventListener('keyup', run);
+            contact.addEventListener('change', run);
+            contact.addEventListener('blur', run);
         }
 
         function setFormAction() {

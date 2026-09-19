@@ -191,20 +191,20 @@ assert_file_contains(
     'A13 API destinations vente force escale rôle 17'
 );
 
-echo "\n[B] Confinement hors scope (Phase 5)\n";
+echo "\n[B] Confinement hors scope (rôles / helpers non touchés)\n";
+// Les contrôleurs Rapport / Historique_Passagers / Caisses peuvent évoluer
+// pour le parcours r17 (vagues C–D) — on ne les traite plus comme hors-scope.
 assert_file_absent_change('application/helpers/compte_arret_helper.php', 'B1 compte_arret_helper non modifié');
-assert_file_absent_change('application/controllers/Rapport.php', 'B2 Rapport.php non modifié');
-assert_file_absent_change('application/controllers/Historique_Passagers.php', 'B3 Historique_Passagers non modifié');
-assert_file_absent_change('application/controllers/Caisses.php', 'B4 Caisses.php non modifié');
-assert_file_absent_change('application/views/beagle/pages/guichet/role_6.php', 'B5 page rôle 6 non modifiée');
-assert_file_absent_change('assets/js/bundles/guichet-6.js', 'B6 bundle guichet-6 non modifié');
-assert_file_absent_change('assets/js/bundles/guichet-5.js', 'B7 bundle guichet-5 non modifié');
+assert_file_absent_change('application/controllers/Caisses.php', 'B2 Caisses.php non modifié');
+assert_file_absent_change('application/views/beagle/pages/guichet/role_6.php', 'B3 page rôle 6 non modifiée');
+assert_file_absent_change('assets/js/bundles/guichet-6.js', 'B4 bundle guichet-6 non modifié');
+assert_file_absent_change('assets/js/bundles/guichet-5.js', 'B5 bundle guichet-5 non modifié');
 
 // btn_retour partagé mais branché rôle 17
 assert_file_contains(
     'application/views/_partials/btn_retour_gare.php',
     array("userole === '17'", 'escale_fixed', 'RETOUR GARES'),
-    'B8 btn_retour branché uniquement rôle 17'
+    'B6 btn_retour branché uniquement rôle 17'
 );
 
 echo "\n[C] Règles métier (logique pure)\n";
@@ -351,8 +351,26 @@ foreach ($checklist as $line) {
     echo "  [ ] {$line}\n";
 }
 
+echo "\n[F] Parcours ops (Vague A–E) — smoke dédié\n";
+assert_file_contains(
+    'scripts/tests/role17_parcours_smoke.php',
+    array('Vague E', 'clientLookupSeq', 'listbordereau_esc', 'Réimpression refusée'),
+    'F1 smoke parcours présent'
+);
+assert_file_contains(
+    'assets/js/bundles/guichet-17.js',
+    array('clientLookupSeq', '_rgSkipGuard'),
+    'F2 guichet-17 autofill vague A'
+);
+assert_file_contains(
+    'application/helpers/role17_context_helper.php',
+    array('role17_forced_ligne_rows'),
+    'F3 helper bordereau vague C'
+);
+
 echo "\n" . str_repeat('-', 55) . "\n";
 echo "Résultat auto : {$passed} OK, {$failed} FAIL, {$skipped} SKIP\n";
+echo "Smoke parcours : php scripts/tests/role17_parcours_smoke.php [--rebuild]\n";
 if ($failed > 0) {
     echo "STATUT: FAIL\n";
     exit(1);

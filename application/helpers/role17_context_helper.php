@@ -349,6 +349,40 @@ if (!function_exists('role17_filter_garearrivees')) {
     }
 }
 
+if (!function_exists('role17_forced_ligne_rows')) {
+    /**
+     * Ligne attribuée (ident_ligne) sans filtrer sur la gare d'origine
+     * — nécessaire pour le bordereau courrier r17 (escale ≠ gaexp_lg).
+     *
+     * @param array|null $forced
+     * @return array
+     */
+    function role17_forced_ligne_rows($forced = null)
+    {
+        if ($forced === null) {
+            $forced = role17_forced_escale();
+        }
+        if (!$forced || empty($forced['id_lignes'])) {
+            return array();
+        }
+        $CI =& get_instance();
+        $id = trim((string) $forced['id_lignes']);
+        if ($id === '') {
+            return array();
+        }
+        $row = $CI->db->query(
+            'SELECT lg.ident_ligne, lg.nom_ligne, lg.gaexp_lg, lg.gadest_lg,
+                    ga.code_gadest, ga.nom_gadest
+             FROM lignes lg
+             JOIN gare_dest ga ON lg.gadest_lg = ga.code_gadest
+             WHERE lg.ident_ligne = ?
+             LIMIT 1',
+            array($id)
+        )->row();
+        return $row ? array($row) : array();
+    }
+}
+
 if (!function_exists('role17_filter_lignes')) {
     /**
      * @param array $lignes
@@ -636,11 +670,22 @@ if (!function_exists('role17_inject_property')) {
         } elseif ($forced && !empty($property['garearrivees'])) {
             $property['garearrivees'] = role17_filter_garearrivees($property['garearrivees'], $forced);
         }
-        if ($forced && !empty($property['lignes'])) {
-            $property['lignes'] = role17_filter_lignes($property['lignes'], $forced);
-        }
-        if ($forced && !empty($property['lignesgare'])) {
-            $property['lignesgare'] = role17_filter_lignes($property['lignesgare'], $forced);
+
+        // Bordereau courrier : toujours exposer la ligne forcée (catalogue gare souvent vide en escale).
+        if ($forced) {
+            $forcedRows = role17_forced_ligne_rows($forced);
+            if (!empty($property['lignes']) && is_array($property['lignes'])) {
+                $filtered = role17_filter_lignes($property['lignes'], $forced);
+                $property['lignes'] = !empty($filtered) ? $filtered : $forcedRows;
+            } else {
+                $property['lignes'] = $forcedRows;
+            }
+            if (!empty($property['lignesgare']) && is_array($property['lignesgare'])) {
+                $filteredG = role17_filter_lignes($property['lignesgare'], $forced);
+                $property['lignesgare'] = !empty($filteredG) ? $filteredG : $forcedRows;
+            } else {
+                $property['lignesgare'] = $forcedRows;
+            }
         }
 
         return $property;

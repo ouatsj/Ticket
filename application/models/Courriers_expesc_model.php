@@ -3078,37 +3078,55 @@
         {
             if ($exp === FALSE) {
                 return $this->db->query(
-                "SELECT * FROM courriers_expesc e
-                JOIN code_courriers cd ON e.id_codecourrieresc = cd.codecolisid
-                JOIN sousgare sg ON e.courrierdepartgareesc = sg.idsousgare
-                JOIN expeditreception er ON cd.exprecepident = er.idexprecept
-                JOIN ligne_heure lh ON e.departcolisesc = lh.id_ligneheure
-                JOIN heures h ON lh.heure_identif = h.id_heure
-                JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
-                JOIN gare_exp gex ON lg.gaexp_lg = gex.code_gaexp
-                JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
-                JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
-                JOIN entreprise ep ON c.id_entrep = ep.id_entreprise
-                WHERE ep.ekey = '$cid'
-                AND e.departcolisesc = '$cdpg'
-                AND e.actif_couresc = 0")->result();
+                "SELECT e.*, cd.*, sg.*, er.*, lh.*, h.*, lg.*, gex.*, dest.*, c.*, ep.*
+                FROM courriers_expesc e
+                LEFT JOIN code_courriers cd ON e.id_codecourrieresc = cd.codecolisid
+                LEFT JOIN sousgare sg ON e.courrierdepartgareesc = sg.idsousgare
+                LEFT JOIN expeditreception er ON cd.exprecepident = er.idexprecept
+                LEFT JOIN ligne_heure lh ON e.departcolisesc = lh.id_ligneheure
+                LEFT JOIN heures h ON lh.heure_identif = h.id_heure
+                LEFT JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
+                LEFT JOIN gare_exp gex ON lg.gaexp_lg = gex.code_gaexp
+                LEFT JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
+                LEFT JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
+                LEFT JOIN entreprise ep ON c.id_entrep = ep.id_entreprise
+                WHERE e.departcolisesc = ?
+                AND (e.actif_couresc = 0 OR e.actif_couresc IS NULL)
+                AND (ep.ekey = ? OR ep.ekey IS NULL OR ? = '')",
+                array($cdpg, $cid, $cid)
+                )->result();
             }
-            return $this->db->query(
-                "SELECT * FROM courriers_expesc e
-                JOIN code_courriers cd ON e.id_codecourrieresc = cd.codecolisid
-                JOIN sousgare sg ON e.courrierdepartgareesc = sg.idsousgare
-                JOIN expeditreception er ON cd.exprecepident = er.idexprecept 
-                JOIN ligne_heure lh ON e.departcolisesc = lh.id_ligneheure
-                JOIN heures h ON lh.heure_identif = h.id_heure
-                JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
-                JOIN gare_exp gex ON lg.gaexp_lg = gex.code_gaexp
-                JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
-                JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
-                JOIN entreprise ep ON c.id_entrep = ep.id_entreprise
-                WHERE ep.ekey = '$cid'
-                AND e.departcolisesc = '$cdpg'
-                AND e.courrierexpidesc = '$exp'
-                AND e.actif_couresc = 0")->row();
+            $row = $this->db->query(
+                "SELECT e.*, cd.*, sg.*, er.*, lh.*, h.*, lg.*, gex.*, dest.*, c.*, ep.*,
+                        sg.nomsousgare AS nomsousgare,
+                        gex.nom_gaep AS nom_gaep,
+                        dest.nom_gadest AS nom_gadest,
+                        c.nom_compagnie AS nom_compagnie,
+                        h.heure AS heure,
+                        cd.nombrecolis AS nombrecolis,
+                        cd.naturecoli AS naturecoli
+                FROM courriers_expesc e
+                LEFT JOIN code_courriers cd ON e.id_codecourrieresc = cd.codecolisid
+                LEFT JOIN sousgare sg ON e.courrierdepartgareesc = sg.idsousgare
+                LEFT JOIN expeditreception er ON cd.exprecepident = er.idexprecept
+                LEFT JOIN ligne_heure lh ON e.departcolisesc = lh.id_ligneheure
+                LEFT JOIN heures h ON lh.heure_identif = h.id_heure
+                LEFT JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
+                LEFT JOIN gare_exp gex ON lg.gaexp_lg = gex.code_gaexp
+                LEFT JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
+                LEFT JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
+                LEFT JOIN entreprise ep ON c.id_entrep = ep.id_entreprise
+                WHERE e.courrierexpidesc = ?
+                AND e.departcolisesc = ?
+                AND (e.actif_couresc = 0 OR e.actif_couresc IS NULL)
+                AND (ep.ekey = ? OR ep.ekey IS NULL OR ? = '')
+                ORDER BY e.courrierexpidesc DESC LIMIT 1",
+                array($exp, $cdpg, $cid, $cid)
+            )->row();
+            if ($row) {
+                return $row;
+            }
+            return $this->getexpedition($cid, $exp);
         }
 
         public function rapexp($cid, $idconx, $comp, $gd, $sg)
@@ -3437,95 +3455,64 @@
                 AND e.courrierexpidesc = '$exp'")->row();
         }
 
+        /**
+         * Bordereau envoi escale : id_ligneheure + date (+ sous-gare / quartier).
+         * JOIN souples (évite échec personnel / idlignes legacy / gaexp ≠ escale).
+         */
+        public function listbordereau_esc($cid, $id_lh, $dt, $sgd = null, $qt = '')
+        {
+            $id_lh = trim((string) $id_lh);
+            $dt = trim((string) $dt);
+            $qt = trim((string) $qt);
+            $params = array($cid, $id_lh, $dt);
+            $sql = "SELECT e.*, cd.*, sg.*, er.*, lh.*, h.*, lg.*,
+                           cd.nombrecolis AS nombrecolis,
+                           cd.naturecoli AS naturecoli,
+                           e.naturecourrieresc AS naturecourrieresc,
+                           e.num_couresc AS num_couresc
+                    FROM courriers_expesc e
+                    LEFT JOIN code_courriers cd ON e.id_codecourrieresc = cd.codecolisid
+                    LEFT JOIN expeditreception er ON cd.exprecepident = er.idexprecept
+                    LEFT JOIN sousgare sg ON e.courrierdepartgareesc = sg.idsousgare
+                    LEFT JOIN ligne_heure lh ON e.departcolisesc = lh.id_ligneheure
+                    LEFT JOIN heures h ON lh.heure_identif = h.id_heure
+                    LEFT JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
+                    LEFT JOIN entreprise ep ON ep.ekey = ?
+                    WHERE e.departcolisesc = ?
+                    AND e.dateenvoiesc = ?
+                    AND (e.actif_couresc = 0 OR e.actif_couresc IS NULL)";
+            if ($sgd !== null && $sgd !== '') {
+                $sql .= ' AND e.courrierdepartgareesc = ?';
+                $params[] = $sgd;
+            }
+            if ($qt !== '') {
+                $sql .= ' AND (e.quartier_courrieresc = ? OR e.quartier_courrieresc LIKE ?)';
+                $params[] = $qt;
+                $params[] = $qt . '%';
+            }
+            $sql .= ' ORDER BY e.courrierexpidesc ASC';
+            return $this->db->query($sql, $params)->result();
+        }
+
         public function listad1($cid, $cdprog, $h, $dt, $qt = FALSE)
         {
-            if($qt === ''){
-                return $this->db->query(
-                "SELECT * FROM courriers_expesc e
-                JOIN code_courriers cd ON e.id_codecourrieresc = cd.codecolisid
-                JOIN expeditreception er ON cd.exprecepident = er.idexprecept
-                JOIN sousgare sg ON e.courrierdepartgareesc = sg.idsousgare
-                JOIN recepteurs re ON er.receptid = re.idrecepetion
-                JOIN client cl ON re.client_recept = cl.id_client 
-                JOIN ligne_heure lh ON e.departcolisesc = lh.id_ligneheure
-                JOIN heures h ON lh.heure_identif = h.id_heure
-                JOIN lignes lg ON cd.idlignes = lg.ident_ligne
-                JOIN gare_exp gex ON lg.gaexp_lg = gex.code_gaexp
-                JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
-                JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
-                JOIN entreprise ep ON c.id_entrep = ep.id_entreprise
-                WHERE ep.ekey = '$cid'
-                AND e.departcolisesc = '$cdprog'
-                AND lh.id_ligneheure = '$h'
-                AND e.dateenvoiesc = '$dt'")->result();
+            $id_lh = trim((string) (($cdprog !== '' && $cdprog !== null) ? $cdprog : $h));
+            if ($id_lh === '' && $h !== null && $h !== '') {
+                $id_lh = trim((string) $h);
             }
-            return $this->db->query(
-                "SELECT * FROM courriers_expesc e
-                JOIN code_courriers cd ON e.id_codecourrieresc = cd.codecolisid
-                JOIN expeditreception er ON cd.exprecepident = er.idexprecept
-                JOIN sousgare sg ON e.courrierdepartgareesc = sg.idsousgare
-                JOIN recepteurs re ON er.receptid = re.idrecepetion
-                JOIN client cl ON re.client_recept = cl.id_client 
-                JOIN ligne_heure lh ON e.departcolisesc = lh.id_ligneheure
-                JOIN heures h ON lh.heure_identif = h.id_heure
-                JOIN lignes lg ON cd.idlignes = lg.ident_ligne
-                JOIN gare_exp gex ON lg.gaexp_lg = gex.code_gaexp
-                JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
-                JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
-                JOIN entreprise ep ON c.id_entrep = ep.id_entreprise
-                WHERE ep.ekey = '$cid'
-                AND e.departcolisesc = '$cdprog'
-                AND lh.id_ligneheure = '$h'
-                AND e.dateenvoiesc = '$dt'
-                AND e.quartier_courrieresc = '$qt'")->result();
+            $qtNorm = ($qt === FALSE || $qt === null) ? '' : trim((string) $qt);
+            return $this->listbordereau_esc($cid, $id_lh, $dt, null, $qtNorm);
         }
 
         public function list1($cid, $gid, $sgd, $cdprog, $h, $dt, $qt = FALSE)
         {
-            if($qt === ''){
-
-                return $this->db->query(
-                    "SELECT * FROM courriers_expesc e
-                    JOIN code_courriers cd ON e.id_codecourrieresc = cd.codecolisid
-                    JOIN expeditreception er ON cd.exprecepident = er.idexprecept
-                    JOIN sousgare sg ON e.courrierdepartgareesc = sg.idsousgare
-                    JOIN recepteurs re ON er.receptid = re.idrecepetion
-                    JOIN client cl ON re.client_recept = cl.id_client
-                    JOIN ligne_heure lh ON e.departcolisesc = lh.id_ligneheure
-                    JOIN heures h ON lh.heure_identif = h.id_heure
-                    JOIN lignes lg ON cd.idlignes = lg.ident_ligne
-                    JOIN gare_exp gex ON lg.gaexp_lg = gex.code_gaexp
-                    JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
-                    JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
-                    JOIN entreprise ep ON c.id_entrep = ep.id_entreprise
-                    WHERE ep.ekey = '$cid'
-                    AND e.departcolisesc = '$cdprog'
-                    AND lh.id_ligneheure = '$h'
-                    AND e.dateenvoiesc = '$dt'
-                    AND gex.code_gaexp = '$gid'
-                    AND sg.idsousgare = '$sgd'")->result();
+            $id_lh = trim((string) (($cdprog !== '' && $cdprog !== null) ? $cdprog : $h));
+            if ($id_lh === '' && $h !== null && $h !== '') {
+                $id_lh = trim((string) $h);
             }
-                return $this->db->query(
-                    "SELECT * FROM courriers_expesc e
-                    JOIN code_courriers cd ON e.id_codecourrieresc = cd.codecolisid
-                    JOIN expeditreception er ON cd.exprecepident = er.idexprecept
-                    JOIN sousgare sg ON e.courrierdepartgareesc = sg.idsousgare
-                    JOIN recepteurs re ON er.receptid = re.idrecepetion
-                    JOIN client cl ON re.client_recept = cl.id_client
-                    JOIN ligne_heure lh ON e.departcolisesc = lh.id_ligneheure
-                    JOIN heures h ON lh.heure_identif = h.id_heure
-                    JOIN lignes lg ON cd.idlignes = lg.ident_ligne
-                    JOIN gare_exp gex ON lg.gaexp_lg = gex.code_gaexp
-                    JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
-                    JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
-                    JOIN entreprise ep ON c.id_entrep = ep.id_entreprise
-                    WHERE ep.ekey = '$cid'
-                    AND e.departcolisesc = '$cdprog'
-                    AND lh.id_ligneheure = '$h'
-                    AND e.dateenvoiesc = '$dt'
-                    AND gex.code_gaexp = '$gid'
-                    AND sg.idsousgare = '$sgd'
-                    AND e.quartier_courrieresc = '$qt'")->result();   
+            $qtNorm = ($qt === FALSE || $qt === null) ? '' : trim((string) $qt);
+            // Filtrer sous-gare (pas gaexp_lg : origine ligne ≠ gare escale).
+            return $this->listbordereau_esc($cid, $id_lh, $dt, $sgd, $qtNorm);
         }
     }
     /** Courriers_expesc_model.php **/

@@ -5,8 +5,22 @@ document.addEventListener('DOMContentLoaded', () => {
     {
         document.querySelector('h3#bordsTitleesc').innerHTML = `TIRAGE BORDEREAU PAR LIGNE`;
 
+        function r17TriggerLigneChange() {
+            var sel = document.querySelector('#deptscouridligneesc');
+            if (!sel || !sel.value) return;
+            if (typeof sel.onchange === 'function') {
+                sel.onchange();
+            } else {
+                sel.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+        }
+
         let arcourr = document.querySelector('#deptscouridligneesc');
-            if (arcourr !== null)
+            if (arcourr !== null) {
+            // R17 : une seule ligne pré-sélectionnée → charger quartiers immédiatement.
+            if (arcourr.getAttribute('data-r17-locked') === '1' && arcourr.value) {
+                setTimeout(r17TriggerLigneChange, 50);
+            }
             arcourr.onchange = () => {
                 
                 document.querySelector('#courdeptidprogesc').options.length = 1;
@@ -46,6 +60,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 httptypequartr.setRequestHeader('Content-Type', 'application/json');
                 httptypequartr.send();
             };
+            }
             let infoligne = document.querySelector('#courdeptchoisirdateesc');
             if (infoligne !== null)
             infoligne.onchange = () => {

@@ -4504,31 +4504,46 @@
             $this->company = $this->m_entreprises->get_key($ckey);
 
             $gid = $this->input->post('gareconnectescalbag');
+            if ($gid === null || $gid === '') {
+                $gid = $this->input->post('gareconnect');
+            }
             $sgid = $this->input->post('sousgareconnectescalbag');
-            $iduser = roleattribut_guard_post_hint($this->company->ekey, 'gareconnect', 'userconnectedescalbag');
+            if ($sgid === null || $sgid === '') {
+                $sgid = $this->input->post('sousgareconnect');
+            }
+            $iduser = roleattribut_guard_post_hint(
+                $this->company->ekey,
+                array('gareconnectescalbag', 'gareconnect'),
+                array('userconnectedescalbag', 'userconnected')
+            );
+
+            $bagage_back = 'confirmation/bagageescales/' . $this->company->ekey . '/'
+                . $iduser . '/' . $gid . '/' . $sgid;
+
             if ($msg = compte_arret_guard_sale('bagage', $iduser, $gid)) {
                 compte_arret_redirect_guichet($iduser, $gid, $sgid, $msg);
                 return;
             }
-
-            $today = mdate("%Y-%m-%d", now('UTC'));
 
             $bagepsonesc = $this->input->post('epsonbagsansesc');
             $idcmpt = $this->input->post('compconnectedescalbag');
 
             // Rôle 17 : bagage uniquement sur l'itinéraire de l'escale liée au compte.
             if (function_exists('role17_is_agent') && role17_is_agent()) {
+                if (!function_exists('role17_forced_escale')) {
+                    $this->load->helper('role17_context');
+                }
                 $forced = role17_forced_escale($iduser, $gid);
                 $ligne_post = trim((string) $this->input->post('lignedepaescalbag'));
                 $ligne_forced = $forced && !empty($forced['id_lignes'])
                     ? (string) $forced['id_lignes']
                     : '';
-                if ($ligne_forced === '' || $ligne_post === '' || $ligne_post !== $ligne_forced) {
+                if ($ligne_forced === '' || $ligne_post === '' || (string) $ligne_post !== (string) $ligne_forced) {
                     $this->session->set_flashdata(
                         'error',
                         'Bagage refusé : le ticket doit appartenir à l’itinéraire de votre escale affectée.'
                     );
-                    redirect('confirmation/bagageescales/' . $this->company->ekey . '/' . $iduser . '/' . $gid . '/' . $sgid);
+                    redirect($bagage_back);
                     return;
                 }
             }
@@ -4540,7 +4555,7 @@
                 $iduser,
                 $gid,
                 $sgid,
-                'confirmation/bagageescales/' . $this->company->ekey . '/' . $iduser . '/' . $gid . '/' . $sgid,
+                $bagage_back,
                 'fraisbagsansesc',
                 500
             )) {
@@ -4550,80 +4565,123 @@
             $ch = $this->input->post('types_bagsansesc');
             $chr = is_array($ch) ? implode(',', $ch) : (string) $ch;
 
-            $quart3 = $this->input->post('quartpassesesc');
-            
-            $arcod1 = strpos($this->input->post('lignedepaescalbag'), '-');
-            $arcod2 = substr($this->input->post('lignedepaescalbag'), 0, $arcod1);
+            $quart3 = trim((string) $this->input->post('quartpassesesc'));
+            $ligneRaw = trim((string) $this->input->post('lignedepaescalbag'));
+            $cid = (int) $this->session->company->ekey;
+            $cd = 0;
+            $arcod3 = null;
+            $argde = '';
+            $sargde = '';
 
-            $arcod3 = substr($this->input->post('lignedepaescalbag'), $arcod1 + 1, strlen($this->input->post('lignedepaescalbag')));
-
-            $arecomp = $this->db->query("SELECT d.id_compaga FROM gare_dest d WHERE d.code_gadest = '$arcod3'")->row();
-            
-            $cid = (int)$this->session->company->ekey;
-
-            $cd = (int)$arecomp->id_compaga;
-
-            if($arcod3 == NULL)
-            {
-
-                $argde = '';
-
+            // Format legacy : CODEEXP-CODEDEST
+            if ($ligneRaw !== '' && strpos($ligneRaw, '-') !== false) {
+                $arcod1 = strpos($ligneRaw, '-');
+                $arcod3 = substr($ligneRaw, $arcod1 + 1);
+                $arecomp = $this->db->query(
+                    'SELECT d.id_compaga, d.idgaresdest FROM gare_dest d WHERE d.code_gadest = ? LIMIT 1',
+                    array($arcod3)
+                )->row();
+                if ($arecomp) {
+                    $cd = (int) $arecomp->id_compaga;
+                    $argde = $arecomp->idgaresdest;
+                }
+            } elseif ($ligneRaw !== '' && ctype_digit($ligneRaw)) {
+                // Format r17 : ident_ligne numérique (posté après vérif ticket).
+                $ligRow = $this->db->query(
+                    'SELECT lg.ident_ligne, lg.gadest_lg, dest.id_compaga, dest.idgaresdest, dest.code_gadest
+                     FROM lignes lg
+                     JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
+                     WHERE lg.ident_ligne = ?
+                     LIMIT 1',
+                    array((int) $ligneRaw)
+                )->row();
+                if ($ligRow) {
+                    $cd = (int) $ligRow->id_compaga;
+                    $argde = $ligRow->idgaresdest;
+                    $arcod3 = $ligRow->code_gadest;
+                }
             }
-            else
-            {
 
-                    $aregid = $this->db->query("SELECT d.idgaresdest FROM gare_dest d WHERE d.code_gadest = '$arcod3'")->row();
+            // Fallback : id_compaga rempli côté formulaire après vérif ticket.
+            if ($cd <= 0) {
+                $cd = (int) $this->input->post('idcompagadescbag');
+            }
+            if ($cd <= 0) {
+                $this->session->set_flashdata(
+                    'error',
+                    'Bagage refusé : itinéraire / destination introuvable. Revérifiez le code ticket.'
+                );
+                redirect($bagage_back);
+                return;
+            }
 
-                    $quartar = $this->db->query("SELECT g.codegares FROM gares g WHERE g.idengare = '$aregid->idgaresdest'")->row();
-
+            if ($argde === '' && $arcod3) {
+                $aregid = $this->db->query(
+                    'SELECT d.idgaresdest FROM gare_dest d WHERE d.code_gadest = ? LIMIT 1',
+                    array($arcod3)
+                )->row();
+                if ($aregid) {
                     $argde = $aregid->idgaresdest;
-            }
-            
-            if($quart3 == NULL)
-            {
-                $sargde = '';
+                }
             }
 
-            else
-            {
-
-                $quart3 = $this->input->post('quartpassesesc');
-
-                $aregid = $this->db->query("SELECT d.idgaresdest FROM gare_dest d WHERE d.code_gadest = '$arcod3'")->row();
-
-                $sousgar_id = $this->db->query("SELECT sg.idsousgare FROM sousgare sg WHERE sg.gareprinceid = '$aregid->idgaresdest'
-                            AND sg.nomsousgare = '$quart3'")->row();
-
-                $sargde = $sousgar_id->idsousgare;
+            if ($quart3 !== '' && $argde !== '') {
+                $quartClean = preg_replace('/^\[LIBRE\]\s*/i', '', $quart3);
+                $sousgar_id = $this->db->query(
+                    'SELECT sg.idsousgare FROM sousgare sg
+                     WHERE sg.gareprinceid = ?
+                     AND (sg.nomsousgare = ? OR sg.nomsousgare = ?)
+                     LIMIT 1',
+                    array($argde, $quart3, $quartClean)
+                )->row();
+                if ($sousgar_id) {
+                    $sargde = $sousgar_id->idsousgare;
+                }
             }
 
-            if($this->input->post('passcontactbagsansescbg') != NULL AND $this->input->post('nclientescalbag') != NULL AND $this->input->post('cpprclientescalbag') != NULL AND $this->input->post('idlgeheurescalbag') != NULL  AND $this->input->post('codeticketbagsesc') != NULL AND $this->input->post('types_bagsansesc') != NULL AND $this->input->post('naturebagagesansesc') != NULL AND $this->input->post('nombrebagsansesc') != NULL AND $this->input->post('fraisbagsansesc') != NULL)
+            $codeTicket = $this->input->post('codeticketbagsesc');
+            if ($codeTicket === null || $codeTicket === '') {
+                $codeTicket = $this->input->post('codetickbagsansesc');
+            }
+
+            $fields_ok = (
+                $this->input->post('passcontactbagsansescbg') != null
+                && $this->input->post('nclientescalbag') != null
+                && $this->input->post('cpprclientescalbag') != null
+                && $this->input->post('idlgeheurescalbag') != null
+                && $codeTicket != null && $codeTicket !== ''
+                && $this->input->post('types_bagsansesc') != null
+                && $this->input->post('naturebagagesansesc') != null
+                && $this->input->post('nombrebagsansesc') != null
+                && $this->input->post('fraisbagsansesc') != null
+            );
+
+            if ($fields_ok)
             {
                 $nbrs = $this->input->post('nombrebagsansesc');
 
-                if($nbrs === '' OR $nbrs === '0' OR $nbrs === '-1'){
-
+                if ($nbrs === '' OR $nbrs === '0' OR $nbrs === '-1') {
                     $nbres = '1';
-
-                }else
-                {
+                } else {
                     $nbres = $this->input->post('nombrebagsansesc');
                 }
 
-                $derniercrnesc = $this->db->query("SELECT be.couleurcarnetesc FROM bagagesesc be
+                // Carnet : ne pas exiger gaexp_lg = gare escale (souvent ≠ origine ligne).
+                $derniercrnesc = $this->db->query(
+                    "SELECT be.couleurcarnetesc FROM bagagesesc be
                     JOIN ligne_heure lh ON be.id_lgeheuresc = lh.id_ligneheure
-                    JOIN lignes lg ON lh.ligne_id = lg.ident_ligne 
-                    JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
+                    JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
                     JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
                     JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                    WHERE e.ekey = '$cid'
-                    AND dest.id_compaga ='$cd'
-                    AND ex.code_gaexp = '$gid'
-                    ORDER BY be.lastbag_updateesc DESC LIMIT 1")->row();
-                
-                
-                if($bagepsonesc)
+                    WHERE e.ekey = ?
+                    AND dest.id_compaga = ?
+                    AND be.idgarebagesc = ?
+                    ORDER BY be.lastbag_updateesc DESC LIMIT 1",
+                    array($cid, $cd, $gid)
+                )->row();
+
+                if ($bagepsonesc)
                 {
                     $argupgabesc = array(
                         'idoperabagageesc' => $iduser,
@@ -4633,7 +4691,7 @@
                         'idsgarebagesc' => $sgid,
                         'gidarrbagesc' => $argde,
                         'sgidarrbagesc' => $sargde,
-                        'codebagesc' => $this->input->post('codeticketbagsesc'),
+                        'codebagesc' => $codeTicket,
                         'contactexpediesc' => $this->input->post('passcontactbagsansescbg'),
                         'genrebagageesc' => 'sans_suivi',
                         'typebagagesesc' => $chr,
@@ -4647,51 +4705,54 @@
 
                     $idbagesc = $this->m_bagageesc->create($argupgabesc);
 
-                    if ($derniercrnesc == NULL)
-                    {
-                                    
-                        $this->db->query("UPDATE bagagesesc SET couleurcarnetesc = 'A' WHERE id_bagageesc = '$idbagesc' AND prix_bagageesc != '0.00'");
+                    if (!$idbagesc) {
+                        $this->session->set_flashdata('error', 'Enregistrement bagage échoué — réessayez.');
+                        redirect($bagage_back);
+                        return;
                     }
 
+                    if ($derniercrnesc == NULL)
+                    {
+                        $this->db->query("UPDATE bagagesesc SET couleurcarnetesc = 'A' WHERE id_bagageesc = '$idbagesc' AND prix_bagageesc != '0.00'");
+                    }
                     else
                     {
                         if ($derniercrnesc->couleurcarnetesc == 'A')
                         {
-                                        
                             $this->db->query("UPDATE bagagesesc SET couleurcarnetesc = 'B' WHERE id_bagageesc = '$idbagesc' AND prix_bagageesc != '0.00'");
                         }
                         elseif ($derniercrnesc->couleurcarnetesc == 'B')
                         {
-                                        
                             $this->db->query("UPDATE bagagesesc SET couleurcarnetesc = 'C' WHERE id_bagageesc = '$idbagesc' AND prix_bagageesc != '0.00'");
                         }
                         elseif ($derniercrnesc->couleurcarnetesc == 'C')
                         {
-                                        
                             $this->db->query("UPDATE bagagesesc SET couleurcarnetesc = 'D' WHERE id_bagageesc = '$idbagesc' AND prix_bagageesc != '0.00'");
                         }
                         elseif ($derniercrnesc->couleurcarnetesc == 'D')
                         {
-                                        
                             $this->db->query("UPDATE bagagesesc SET couleurcarnetesc = 'E' WHERE id_bagageesc = '$idbagesc' AND prix_bagageesc != '0.00'");
                         }
-
                         else
                         {
-                                        
                             $this->db->query("UPDATE bagagesesc SET couleurcarnetesc = 'A' WHERE id_bagageesc = '$idbagesc' AND prix_bagageesc != '0.00'");
                         }
                     }
 
                     redirect('Historique_Passagers/pdfepsonbagesc/'.$this->session->company->ekey.'/'.$idbagesc.'/'.$gid.'/'.$iduser.'/'.$sgid);
+                    return;
                 }
-                
-            }              
-            else
-            {
-                
-                redirect('gares/'.$this->session->company->ekey.'/gTc/'. $gid.'/compte/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+
+                $this->session->set_flashdata('error', 'Impression non demandée — relancez FACTURER.');
+                redirect($bagage_back);
+                return;
             }
+
+            $this->session->set_flashdata(
+                'error',
+                'Bagage incomplet : vérifiez le code ticket, le type, le contenu, le nombre et les frais (≥ 500).'
+            );
+            redirect($bagage_back);
         }
 
 

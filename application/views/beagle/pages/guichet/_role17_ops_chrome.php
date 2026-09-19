@@ -96,3 +96,18 @@ $this->load->view('beagle/pages/guichet/_role_17_styles');
         <i class="fas fa-home"></i>&nbsp;Accueil
     </a>
 </div>
+<?php if ($msg = $this->session->flashdata('error')): ?>
+    <div class="alert alert-danger" role="alert" style="margin:0 0 0.75rem;border-radius:8px;">
+        <?= htmlspecialchars((string) $msg, ENT_QUOTES, 'UTF-8'); ?>
+    </div>
+<?php endif; ?>
+<?php if ($msg = $this->session->flashdata('success')): ?>
+    <div class="alert alert-success" role="alert" style="margin:0 0 0.75rem;border-radius:8px;">
+        <?= htmlspecialchars((string) $msg, ENT_QUOTES, 'UTF-8'); ?>
+    </div>
+<?php endif; ?>
+<?php if ($msg = $this->session->flashdata('sale_error')): ?>
+    <div class="alert alert-danger" role="alert" style="margin:0 0 0.75rem;border-radius:8px;">
+        <?= htmlspecialchars((string) $msg, ENT_QUOTES, 'UTF-8'); ?>
+    </div>
+<?php endif; ?>

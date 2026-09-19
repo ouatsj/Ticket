@@ -149,7 +149,16 @@
                     }
                     return;
                 }
-                var ligneId = donneesbag.ident_ligne || donneesbag.lignintescal || '';
+                var forcedLigne = (document.getElementById('role17_bag_ligne') || {}).value || '';
+                var ligneId = donneesbag.ident_ligne || donneesbag.lignintescal || forcedLigne || '';
+                if (forcedLigne && String(ligneId) !== String(forcedLigne)) {
+                    clearTicket();
+                    if (err) {
+                        err.textContent = 'Ce ticket n’appartient pas à l’itinéraire de votre escale.';
+                        err.style.display = 'block';
+                    }
+                    return;
+                }
                 var ligneNom = donneesbag.nom_ligne || ligneId;
                 var client = [donneesbag.nom_client, donneesbag.prenom_client].filter(Boolean).join(' ');
                 var dest = donneesbag.nom_gadest || '';

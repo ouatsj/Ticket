@@ -22,6 +22,31 @@
          */
         protected function _print_couresc_57x40()
         {
+            if (empty($this->property['single'])) {
+                $bus = !empty($this->property['bus_stop']) ? $this->property['bus_stop'] : null;
+                $conex = !empty($this->property['conex']) ? $this->property['conex'] : null;
+                $this->session->set_flashdata(
+                    'error',
+                    'Reçu courrier introuvable — l’envoi n’a peut‑être pas été enregistré. Réessayez l’envoi ou la réimpression.'
+                );
+                if ($bus && $conex && function_exists('role17_is_agent') && role17_is_agent()) {
+                    redirect(
+                        'ventescales/voirreimpri/' . $this->session->company->ekey . '/'
+                        . $conex->roleattribut . '/' . $bus->idengare . '/' . $bus->idsousgare
+                        . '?tab=courrier'
+                    );
+                    return;
+                }
+                if ($bus && $conex) {
+                    redirect(
+                        'confirmation/courrierescales/' . $this->session->company->ekey . '/'
+                        . $conex->roleattribut . '/' . $bus->idengare . '/' . $bus->idsousgare
+                    );
+                    return;
+                }
+                redirect('gares');
+                return;
+            }
             if (function_exists('role17_is_agent') && role17_is_agent()) {
                 $this->property['role17_mode'] = true;
                 if (!empty($this->property['conex']) && !empty($this->property['bus_stop'])) {
@@ -344,23 +369,34 @@
         {
             $this->company = $this->m_entreprises->get_key($ckey);
 
-            
             $bus_stop = $this->m_sousgare->sget($this->company->ekey, $g, $idsg);
-                        $this->property['bus_stop'] = $bus_stop;
-                $conex = $this->m_compte_user->getusergare($this->company->ekey, $g, $cpus);
-                $this->property['conex'] = $conex;
-           
-                $this->courriers = $this->m_courrier_expedieresc->getexpedition($this->company->ekey, $coli_id);
-                    $this->property['single'] = $this->courriers;
+            $this->property['bus_stop'] = $bus_stop;
+            $conex = $this->m_compte_user->getusergare($this->company->ekey, $g, $cpus);
+            $this->property['conex'] = $conex;
 
-                $this->expediteurs = $this->m_expediteur->getcl($ex);
-                $this->property['exped'] = $this->expediteurs;
+            $this->courriers = $this->m_courrier_expedieresc->getexpedition($this->company->ekey, $coli_id);
+            if (!$this->courriers && $dpcoli_id) {
+                $this->courriers = $this->m_courrier_expedieresc->getexpedition1(
+                    $this->company->ekey,
+                    $dpcoli_id,
+                    $coli_id
+                );
+            }
+            $this->property['single'] = $this->courriers;
 
-                $this->destinateurs = $this->m_recepteur->getcl($des);
-                $this->property['destin'] = $this->destinateurs;
+            $this->expediteurs = $this->m_expediteur->getcl($ex);
+            if (!$this->expediteurs) {
+                $this->expediteurs = $this->m_expediteur->getper($ex);
+            }
+            $this->property['exped'] = $this->expediteurs;
 
-                $this->_print_couresc_57x40();
-          
+            $this->destinateurs = $this->m_recepteur->getcl($des);
+            if (!$this->destinateurs) {
+                $this->destinateurs = $this->m_recepteur->getper($des);
+            }
+            $this->property['destin'] = $this->destinateurs;
+
+            $this->_print_couresc_57x40();
         }
 
         public function editpdfreimp($ckey, $coli_id, $copg, $ex, $des, $tds, $g, $cpus, $idsg)

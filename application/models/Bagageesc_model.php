@@ -50,7 +50,8 @@
                 AND ex.code_gaexp = '$gd'")->result();
             }
             // quartier_escal du ticket vérifié (OD libre) — pas le nom de ligne.
-            return $this->db->query(
+            // LEFT JOIN : ne pas perdre le reçu si horaire / ticket / gaexp partiels.
+            $row = $this->db->query(
                 "SELECT bg.*, cl.nom_client, cl.prenom_client, cl.contact_client,
                         esc.quartier_escal, esc.idclescal,
                         sg.nomsousgare, h.heure,
@@ -58,25 +59,38 @@
                         dest.nom_gadest, dest.id_compaga,
                         c.nom_compagnie, c.logo, e.ekey
                  FROM bagagesesc bg
-                JOIN attributions_role ar ON bg.idoperabagageesc = ar.roleattribut
-                JOIN user_login ul ON ar.idgestcompte = ul.uid_login
-                JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
-                JOIN client cl ON bg.clientbagesc = cl.id_client
-                JOIN ligne_heure lh ON bg.id_lgeheuresc = lh.id_ligneheure
-                JOIN sousgare sg ON bg.idsgarebagesc = sg.idsousgare
-                JOIN escalclients esc ON bg.codebagesc = esc.idclescal
-                JOIN heures h ON lh.heure_identif = h.id_heure
-                JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
-                JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
-                JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
-                JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
-                JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                WHERE e.ekey = ?
-                AND bg.genrebagageesc = 'sans_suivi'
-                AND bg.id_bagageesc = ?
-                AND (bg.idgarebagesc = ? OR ex.code_gaexp = ?)
+                LEFT JOIN client cl ON bg.clientbagesc = cl.id_client
+                LEFT JOIN ligne_heure lh ON bg.id_lgeheuresc = lh.id_ligneheure
+                LEFT JOIN sousgare sg ON bg.idsgarebagesc = sg.idsousgare
+                LEFT JOIN escalclients esc ON BINARY bg.codebagesc = BINARY esc.idclescal
+                LEFT JOIN heures h ON lh.heure_identif = h.id_heure
+                LEFT JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
+                LEFT JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
+                LEFT JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
+                LEFT JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
+                LEFT JOIN entreprise e ON c.id_entrep = e.id_entreprise
+                WHERE bg.id_bagageesc = ?
+                AND (bg.annulebagesc = 0 OR bg.annulebagesc IS NULL)
+                AND (
+                    bg.idgarebagesc = ?
+                    OR ex.code_gaexp = ?
+                    OR e.ekey = ?
+                    OR e.ekey IS NULL
+                )
                 LIMIT 1",
-                array($cid, $bgid, $gd, $gd)
+                array($bgid, $gd, $gd, $cid)
+            )->row();
+            if ($row) {
+                return $row;
+            }
+            // Ultime secours : le reçu existe même sans JOINs métier.
+            return $this->db->query(
+                "SELECT bg.*, cl.nom_client, cl.prenom_client, cl.contact_client
+                 FROM bagagesesc bg
+                 LEFT JOIN client cl ON bg.clientbagesc = cl.id_client
+                 WHERE bg.id_bagageesc = ?
+                 LIMIT 1",
+                array($bgid)
             )->row();
         }
 
@@ -411,7 +425,7 @@
                         bg.date_createesc, cl.nom_client, cl.prenom_client, cl.contact_client,
                         h.heure, lg.nom_ligne
                  FROM bagagesesc bg
-                 JOIN client cl ON bg.clientbagesc = cl.id_client
+                 LEFT JOIN client cl ON bg.clientbagesc = cl.id_client
                  LEFT JOIN ligne_heure lh ON bg.id_lgeheuresc = lh.id_ligneheure
                  LEFT JOIN heures h ON lh.heure_identif = h.id_heure
                  LEFT JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
@@ -419,8 +433,8 @@
                  AND bg.idgarebagesc = ?
                  AND bg.idsgarebagesc = ?
                  AND bg.date_createesc = ?
-                 AND bg.annulebagesc = 0
-                 AND bg.actifbagesc = 0
+                 AND (bg.annulebagesc = 0 OR bg.annulebagesc IS NULL)
+                 AND (bg.actifbagesc = 0 OR bg.actifbagesc IS NULL)
                  AND bg.prix_bagageesc IS NOT NULL
                  AND bg.prix_bagageesc > 0
                  ORDER BY bg.id_bagageesc DESC

@@ -272,6 +272,10 @@
             }
 
             if (!$this->input->post('epsonescal')) {
+                $this->session->set_flashdata(
+                    'error',
+                    'Impression non demandée — cliquez IMPRIMER après avoir rempli le formulaire.'
+                );
                 redirect('gares/' . $this->session->company->ekey . '/gTc/' . $gid . '/compte/' . $iduser . '/' . $sgid . '/' . mdate("%d/%m/%Y", now('UTC')));
                 return;
             }
@@ -591,6 +595,10 @@
                 }
             }
             if (!$item) {
+                $this->session->set_flashdata(
+                    'error',
+                    'Réimpression refusée : ticket introuvable ou non autorisé par le chef (repositionnement requis).'
+                );
                 redirect('ventescales/voirreimpri/' . $this->company->ekey . '/'
                     . (int) $conex->roleattribut . '/' . rawurlencode($g) . '/' . (int) $idsg);
                 return;
@@ -603,6 +611,10 @@
             if ((string) $userole === '17'
                 && (int) $item->iduseescal !== (int) $conex->roleattribut
             ) {
+                $this->session->set_flashdata(
+                    'error',
+                    'Réimpression refusée : ce ticket appartient à un autre opérateur.'
+                );
                 redirect('ventescales/voirreimpri/' . $this->company->ekey . '/'
                     . (int) $conex->roleattribut . '/' . rawurlencode($g) . '/' . (int) $idsg);
                 return;

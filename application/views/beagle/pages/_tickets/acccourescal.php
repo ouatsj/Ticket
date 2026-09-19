@@ -119,14 +119,30 @@ $accueil = role17_is_agent()
 
                 <div class="form-group col-sm-4">
                     <label>LIGNE</label>
-                    <select class="form-control form-control-sm" name="deptscourligneesc" id="deptscouridligneesc" required>
+                    <?php
+                    $lignes_bord = !empty($lignes) && is_array($lignes) ? $lignes : array();
+                    $r17_single_ligne = ($role17_mode && count($lignes_bord) === 1) ? $lignes_bord[0] : null;
+                    ?>
+                    <select class="form-control form-control-sm" name="deptscourligneesc" id="deptscouridligneesc" required
+                        <?= $r17_single_ligne ? 'data-r17-locked="1"' : ''; ?>>
                         <option value="">Choisissez la ligne</option>
-                        <? foreach ($lignes as $ligneitem): ?>
-                            <option value="<?= $ligneitem->ident_ligne; ?>/<?= !empty($ligneitem->code_gadest) ? $ligneitem->code_gadest : $ligneitem->gadest_lg; ?>/<?= $ligneitem->nom_ligne; ?>">
-                                <?= $ligneitem->nom_ligne; ?>
+                        <?php foreach ($lignes_bord as $ligneitem): ?>
+                            <?php
+                            $optVal = $ligneitem->ident_ligne
+                                . '/' . (!empty($ligneitem->code_gadest) ? $ligneitem->code_gadest : $ligneitem->gadest_lg)
+                                . '/' . $ligneitem->nom_ligne;
+                            $sel = ($r17_single_ligne
+                                && (string) $ligneitem->ident_ligne === (string) $r17_single_ligne->ident_ligne)
+                                ? ' selected' : '';
+                            ?>
+                            <option value="<?= htmlspecialchars($optVal, ENT_QUOTES, 'UTF-8'); ?>"<?= $sel; ?>>
+                                <?= htmlspecialchars((string) $ligneitem->nom_ligne, ENT_QUOTES, 'UTF-8'); ?>
                             </option>
-                        <? endforeach; ?>
+                        <?php endforeach; ?>
                     </select>
+                    <?php if ($role17_mode && empty($lignes_bord)): ?>
+                        <small class="text-danger">Aucune ligne attribuée à votre escale — contactez l’admin.</small>
+                    <?php endif; ?>
                 </div>
                 <div class="form-group col-sm-4">
                     <label>OUARTIER</label>

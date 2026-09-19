@@ -51,10 +51,11 @@ if (!in_array($tab, array('ticket', 'bagage', 'courrier'), true)) {
     <div class="r17-tab-panel" <?= $tab === 'ticket' ? '' : 'hidden'; ?>>
         <p class="r17-hint">
             Les tickets n’apparaissent ici qu’après validation du <strong>chef guichet</strong>
-            (repositionnement réimpression). Impression 57×40.
+            (repositionnement réimpression). Une fois imprimés, ils quittent cette liste.
+            Si le bouton ne produit rien : demandez au chef de repositionner le ticket.
         </p>
         <?php if (empty($tickets)): ?>
-            <p class="text-muted">Aucun ticket autorisé à réimprimer.</p>
+            <p class="text-muted">Aucun ticket autorisé à réimprimer pour le moment.</p>
         <?php else: ?>
             <div class="r17-grid">
                 <?php foreach ($tickets as $item):
@@ -88,9 +89,9 @@ if (!in_array($tab, array('ticket', 'bagage', 'courrier'), true)) {
     </div>
 
     <div class="r17-tab-panel" <?= $tab === 'bagage' ? '' : 'hidden'; ?>>
-        <p class="r17-hint">Reçus bagage du jour · 57×40.</p>
+        <p class="r17-hint">Reçus bagage du jour · 57×40. Si la liste est vide, facturez d’abord un bagage sur un ticket de votre escale.</p>
         <?php if (empty($bags)): ?>
-            <p class="text-muted">Aucun bagage aujourd’hui.</p>
+            <p class="text-muted">Aucun bagage facturé aujourd’hui — rien à réimprimer.</p>
         <?php else: ?>
             <div class="r17-grid">
                 <?php foreach ($bags as $b):
@@ -118,9 +119,9 @@ if (!in_array($tab, array('ticket', 'bagage', 'courrier'), true)) {
     </div>
 
     <div class="r17-tab-panel" <?= $tab === 'courrier' ? '' : 'hidden'; ?>>
-        <p class="r17-hint">Reçus courrier du jour · 57×40.</p>
+        <p class="r17-hint">Reçus courrier du jour · 57×40. Si un reçu « introuvable » apparaît, réessayez depuis cette liste (JOINs assouplis).</p>
         <?php if (empty($cours)): ?>
-            <p class="text-muted">Aucun courrier aujourd’hui.</p>
+            <p class="text-muted">Aucun courrier envoyé aujourd’hui — rien à réimprimer.</p>
         <?php else: ?>
             <div class="r17-grid">
                 <?php foreach ($cours as $c):

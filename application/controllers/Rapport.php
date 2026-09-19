@@ -14002,108 +14002,126 @@
         public function listescourriersesc($ckey)
         {
               $cdbord = $this->input->post('courschauffeuresc');
-              $cprgbord = $this->input->post('courdeptprograesc');
+              $cprgbord = trim((string) $this->input->post('courdeptprograesc'));
               $cvbord = $this->input->post('courconvoiesc');
               $dabord = $this->input->post('courborddeptdateenesc');
-              $lignebord = $this->input->post('deptscourligneesc');
+              $lignebord = trim((string) $this->input->post('deptscourligneesc'));
               $usenam = $this->input->post('usernames');
               $nam = $this->m_compte_user->cpusers($usenam);
-              $lignequart = $this->input->post('courdeptquartieresc');
+              $lignequart = trim((string) $this->input->post('courdeptquartieresc'));
               $gd = $this->input->post('gareattribuer');
               $sgd = $this->input->post('sousgareconnect');
               $iduser = $this->input->post('usernameconect');
-              
-              $itinerairesg = $this->db->query("SELECT sg.nomsousgare, sg.idsousgare FROM sousgare sg WHERE sg.idsousgare = '$sgd'")->row();
 
-              //identifiant l'heure dans la table ligne heure
+              $itinerairesg = $this->db->query(
+                  'SELECT sg.nomsousgare, sg.idsousgare FROM sousgare sg WHERE sg.idsousgare = ?',
+                  array($sgd)
+              )->row();
 
-              $ligne_lhbord = strpos($this->input->post('deptscourligneesc'), '/');
-              
-              $lignehbord = substr($this->input->post('deptscourligneesc'), 0, $ligne_lhbord);
-              $lignelhrebord = substr($this->input->post('deptscourligneesc'), $ligne_lhbord + 1, strlen($this->input->post('deptscourligneesc')));
-              
-              $ligne_lhbord1 = strpos($lignehbord, '-');
-              
-              $lignehbord1 = substr($lignehbord, 0, $ligne_lhbord1);
-                $lignelhrebord1 = substr($lignehbord, $ligne_lhbord1 + 1, strlen($lignehbord));
-              
-              $post_heurebord = strpos($this->input->post('courdeptprograesc'), '/');
+              // Format form : ident_ligne/code_gadest/nom_ligne (ident peut être numérique).
+              $ligneParts = explode('/', $lignebord);
+              $identLigne = isset($ligneParts[0]) ? trim($ligneParts[0]) : '';
+              $codeDest = isset($ligneParts[1]) ? trim($ligneParts[1]) : '';
+              $nomLigne = isset($ligneParts[2]) ? trim(implode('/', array_slice($ligneParts, 2))) : $identLigne;
 
-              $sub_heurebord = substr($this->input->post('courdeptprograesc'), 0, $post_heurebord);
+              // Heure form r17/escale : id_ligneheure seul (legacy multi-/ encore accepté).
+              $idLh = $cprgbord;
+              if (strpos($cprgbord, '/') !== false) {
+                  $idLh = trim(substr($cprgbord, 0, strpos($cprgbord, '/')));
+              }
 
-              $dprogbord = substr($this->input->post('courdeptprograesc'), $post_heurebord + 1, strlen($this->input->post('courdeptprograesc')));
+              $this->entreprise = $this->m_entreprises->get_key($ckey);
+              $role = isset($this->session->agent->userole)
+                  ? (string) $this->session->agent->userole
+                  : '';
 
-              $post_heurebord1 = strpos($dprogbord, '/');
+              if ($idLh === '' || $dabord === null || $dabord === '') {
+                  $this->session->set_flashdata(
+                      'error',
+                      'Bordereau : choisissez la ligne, la date et l’heure.'
+                  );
+                  redirect(
+                      'confirmation/courrierescales/' . $this->entreprise->ekey
+                      . '/' . $iduser . '/' . $gd . '/' . $sgd
+                  );
+                  return;
+              }
 
-              $sub_heurebord1 = substr($dprogbord, 0, $post_heurebord1);
+              // Toujours modèle escale ; rôle 17 / admin : pas de filtre gaexp_lg.
+              if ($role === '1' || $role === '2' || $role === '17') {
+                  $onbord = $this->m_courrier_expedieresc->listbordereau_esc(
+                      $this->entreprise->ekey,
+                      $idLh,
+                      $dabord,
+                      null,
+                      $lignequart
+                  );
+              } else {
+                  $onbord = $this->m_courrier_expedieresc->listbordereau_esc(
+                      $this->entreprise->ekey,
+                      $idLh,
+                      $dabord,
+                      $sgd,
+                      $lignequart
+                  );
+              }
+              if (!is_array($onbord)) {
+                  $onbord = array();
+              }
 
-              $dprogbord1 = substr($dprogbord, $post_heurebord1 + 1, strlen($dprogbord));
-              
-              $post_heurebord2 = strpos($dprogbord1, '/');
+              $codeGareLabel = $codeDest !== '' ? $codeDest : $identLigne;
+              $sgLabel = ($itinerairesg && !empty($itinerairesg->nomsousgare))
+                  ? $itinerairesg->nomsousgare
+                  : '';
 
-              $sub_heurebord2 = substr($dprogbord1, 0, $post_heurebord2);
-
-              $dprogbord2 = substr($dprogbord1, $post_heurebord2 + 1, strlen($dprogbord1));
-
-                
-                  $this->entreprise = $this->m_entreprises->get_key($ckey);
-               
-                    if ($this->session->agent->userole === '1' OR $this->session->agent->userole === '2'){
-                        
-                        $onbord = $this->m_courrier_expedieresc->listad1($this->entreprise->ekey, $sub_heurebord, $sub_heurebord2, $dabord, $lignequart);
-                    }
-                    else
-                    {
-                        $onbord = $this->m_courrier_expedier->list1($this->entreprise->ekey, $gd, $sgd, $sub_heurebord, $sub_heurebord2, $dabord, $lignequart);
-                    }
-                      
                         $pdf = new TCPDF(PDF_PAGE_ORIENTATION, PDF_UNIT, PDF_PAGE_FORMAT, true, 'UTF-8', false);
-                  
-     
+
                       // set document information
                       $pdf->SetCreator(PDF_CREATOR);
                       $pdf->SetAuthor('NET SOLUTIONS');
                       $pdf->SetTitle('LISTE-');
                       $pdf->SetSubject('COURRIERS');
                       $pdf->SetKeywords('--');
-                      
-                      $pdf->SetHeaderData(false, false, $this->entreprise->nom_entreprise, '   ' . utf8_encode(strftime("%d-%m-%G", strtotime($dabord))) . '    ' . $sub_heurebord1);
+
+                      $pdf->SetHeaderData(false, false, $this->entreprise->nom_entreprise, '   ' . utf8_encode(strftime("%d-%m-%G", strtotime($dabord))) . '    ');
                       // remove default header/footer
                       $pdf->setPrintHeader(true);
                       $pdf->setPrintFooter(false);
-                      
+
                       // set default monospaced font
                       $pdf->SetDefaultMonospacedFont(PDF_FONT_MONOSPACED);
                       $pdf->SetHeaderMargin(PDF_MARGIN_LEFT, PDF_MARGIN_TOP, PDF_MARGIN_RIGHT);
                       $pdf->SetHeaderMargin(PDF_MARGIN_HEADER);
                       // set margins
                       $pdf->SetMargins(PDF_MARGIN_LEFT, PDF_MARGIN_TOP, PDF_MARGIN_RIGHT);
-                      
-                      
+
+
                       // set auto page breaks
                       $pdf->SetAutoPageBreak(TRUE, PDF_MARGIN_BOTTOM);
-                      
+
                       // set image scale factor
                       $pdf->setImageScale(PDF_IMAGE_SCALE_RATIO);
-                      
+
                       // set font
-                      
-                      
+
+
                       // add a page
                       //$pdf->AddPage();
                       $pdf->AddPage('P', 'A4', 0);
                       // - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
                       // GROUPE DE GAUCHE
                       $pdf->SetFont('courier', '', 13);
-                      $htmlhead = '<h3>CODE DE LA GARE: ' . $lignehbord1 .' &nbsp;&nbsp;&nbsp;CHAUFFEUR: ' . urldecode($cdbord).'</h3>
-                         
-                         <h3></h3>';
+                      $htmlhead = '<h3>CODE: ' . htmlspecialchars($codeGareLabel, ENT_QUOTES, 'UTF-8')
+                          . ' &nbsp;&nbsp;&nbsp;CHAUFFEUR: ' . urldecode((string) $cdbord) . '</h3>'
+                          . '<h3></h3>';
                       $pdf->writeHTML($htmlhead, $linebreak = false, $fill = false, $reseth = true, $cell = false, $align = "");
-                      
-                      $titre = '<h1 align="center"> LISTE DES COURRIERS  '.$itinerairesg->nomsousgare.' '.$ln->nom_ligne.' '.$lignequart.'</h1>';
+
+                      $titre = '<h1 align="center"> LISTE DES COURRIERS  '
+                          . htmlspecialchars($sgLabel . ' ' . $nomLigne . ' ' . $lignequart, ENT_QUOTES, 'UTF-8')
+                          . '</h1>';
                       $them = '<table border="1" cellpadding="0">
-                          <thead> 
-                            <tr> 
+                          <thead>
+                            <tr>
                                 <th width="20%" align="center"><strong>CODE</strong></th>
                                 <th width="20%" align="center"><strong>DESIGNATION</strong></th>
 
@@ -14114,27 +14132,30 @@
                           $them .= '<tr>
                               <td width="20%" align="left"><strong>' . $elementbord->num_couresc . '</strong></td>
                               <td width="20%" align="left"><strong>' . $elementbord->nombrecolis . '' . $elementbord->naturecoli . ' '.$elementbord->naturecourrieresc.'</strong></td>
-                              
+
                             </tr>';
                       }
+                      $agentName = ($nam && (!empty($nam->first_name) || !empty($nam->last_name)))
+                          ? trim($nam->first_name . ' ' . $nam->last_name)
+                          : '';
                       $them .= '<tr>
                         <td width="100%" align="center"></td>
-                        
+
                         </tr>';
                       $them .= '<tr>
-                        <td width="15%" align="center"><strong>Agent<br><br><br> '. $nam->first_name.' '.$nam->last_name.'</strong></td>
-                        <td width="10%" align="center"><strong>Convoyeur <br> <br><br>'. urldecode($cvbord).'</strong></td>
+                        <td width="15%" align="center"><strong>Agent<br><br><br> '. htmlspecialchars($agentName, ENT_QUOTES, 'UTF-8').'</strong></td>
+                        <td width="10%" align="center"><strong>Convoyeur <br> <br><br>'. urldecode((string) $cvbord).'</strong></td>
                         <td width="15%" align="center"><strong>Recepteur</strong></td>
                         </tr>';
                       $them .= ' </tbody></table>';
-                      
+
                         $pdf->writeHTML($titre, $linebreak = false, $fill = false, $reseth = true, $cell = false, $align = "");
                         $pdf->writeHTML($them, $linebreak = true, $fill = false, $reseth = true, $cell = false, $align = "");
                         ob_end_clean();
                         //Close and output PDF document
                         $pdf->Output('example_011.pdf' . '', 'I');
-                      
-                
+
+
                //============================================================+
                // END OF FILE
                //============================================================+

@@ -18,14 +18,33 @@ $accueil_url = (!empty($role17_mode) && function_exists('role17_accueil_url'))
     );
 
 if (!$single) {
-    echo '<p style="padding:16px;font-family:Arial,sans-serif;">Reçu introuvable</p>';
-    echo '<script>setTimeout(function(){location.replace(' . json_encode($accueil_url) . ');},800);</script>';
+    if (method_exists($this->session, 'set_flashdata')) {
+        $this->session->set_flashdata(
+            'error',
+            'Reçu courrier introuvable — réessayez l’envoi ou la réimpression depuis la liste du jour.'
+        );
+    }
+    echo '<p style="padding:16px;font-family:Arial,sans-serif;">Reçu introuvable — retour…</p>';
+    echo '<script>setTimeout(function(){location.replace(' . json_encode($accueil_url) . ');},1200);</script>';
     return;
 }
 
+// Enrichir OD si JOINs partiels (escale) : labels session / bus_stop.
 $dep = trim((string) (isset($single->nomsousgare) ? $single->nomsousgare : (isset($single->nom_gaep) ? $single->nom_gaep : '')));
 if ($dep === '' && !empty($single->nom_gaep)) {
     $dep = (string) $single->nom_gaep;
+}
+if ($dep === '' && !empty($bus_stop)) {
+    if (!empty($bus_stop->nomsousgare)) {
+        $dep = (string) $bus_stop->nomsousgare;
+    } elseif (!empty($bus_stop->garenom)) {
+        $dep = (string) $bus_stop->garenom;
+    } elseif (!empty($bus_stop->nom_gaep)) {
+        $dep = (string) $bus_stop->nom_gaep;
+    }
+}
+if ($dep === '' && !empty($escale_depart_label)) {
+    $dep = preg_replace('/\s*\/\s*.*$/', '', (string) $escale_depart_label);
 }
 $arr = trim((string) (isset($single->nom_gadest) ? $single->nom_gadest : ''));
 $od = ticket_escale_libre_pos_text($dep . ' - ' . $arr, true);

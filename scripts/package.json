@@ -8,6 +8,9 @@
   },
   "scripts": {
     "build:bundles": "php build_module_bundles.php && php build_guichet_bundles.php",
+    "test:role17": "php tests/role17_escale_acceptance_test.php",
+    "test:role17-parcours": "php tests/role17_parcours_smoke.php",
+    "test:role17-all": "php build_guichet_bundles.php && php build_module_bundles.php && php tests/role17_parcours_smoke.php && php tests/role17_escale_acceptance_test.php",
     "postinstall": "echo 'terser pret — lancer: npm run build:bundles'"
   },
   "keywords": [],

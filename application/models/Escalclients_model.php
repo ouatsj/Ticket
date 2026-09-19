@@ -834,8 +834,8 @@
             if ($id_lignes !== '') {
                 return $this->db->query(
                     "SELECT es.*, cl.nom_client, cl.prenom_client, cl.contact_client,
-                            dest.nom_gadest, dest.id_compaga, h.heure, lh.id_ligneheure,
-                            lg.ident_ligne, lg.nom_ligne,
+                            dest.nom_gadest, dest.code_gadest, dest.id_compaga, h.heure, lh.id_ligneheure,
+                            lg.ident_ligne, lg.nom_ligne, lg.gaexp_lg, lg.gadest_lg,
                             ge.nom_gaep AS nom_depart_ligne
                      FROM escalclients es
                      JOIN sousgare sg ON es.departsgescal = sg.idsousgare

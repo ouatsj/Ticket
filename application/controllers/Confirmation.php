@@ -2552,6 +2552,8 @@
 
                 // Rôle 17 : données pour la modale d'envoi unique (types + formulaires).
                 if (function_exists('role17_is_agent') && role17_is_agent()) {
+                    // lignes / lignesgare : laissés vides ici — role17_inject_property
+                    // injecte la ligne forcée (catalogue gare inadapté à l'escale).
                     $this->property['lignesgare'] = array();
                     $this->property['lignes'] = array();
                     $this->property['typesclients'] = array();

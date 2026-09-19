@@ -5954,6 +5954,12 @@ document.addEventListener('DOMContentLoaded', () => {
             || !!departFixe;
 
         let destRequestSeq = 0;
+        let clientLookupSeq = 0;
+        let clientLookupTimer = null;
+
+        function digitsOnly(v) {
+            return String(v || '').replace(/\D/g, '');
+        }
 
         function enforceDepartFixe() {
             if (!departLocked || !departFixe || !selDepart) return;
@@ -5978,6 +5984,17 @@ document.addEventListener('DOMContentLoaded', () => {
             if (clientId) clientId.value = '';
             if (nomRef) nomRef.value = '';
             if (prenomRef) prenomRef.value = '';
+        }
+
+        function fillClient(infos) {
+            if (!infos || !(infos.id_client || infos.nom_client || infos.contact_client)) {
+                return;
+            }
+            if (nom) nom.value = infos.nom_client || '';
+            if (prenom) prenom.value = infos.prenom_client || '';
+            if (clientId) clientId.value = infos.id_client || '';
+            if (nomRef) nomRef.value = infos.nom_client || '';
+            if (prenomRef) prenomRef.value = infos.prenom_client || '';
         }
 
         function fillDepartOptions(rows) {
@@ -6065,6 +6082,53 @@ document.addEventListener('DOMContentLoaded', () => {
             http.send();
         }
 
+        function fetchClient(rawPhone) {
+            const phone = String(rawPhone || '').trim();
+            const dig = digitsOnly(phone);
+            if (dig.length < 6) {
+                if (dig.length === 0) {
+                    clearClient();
+                }
+                return;
+            }
+            const seq = ++clientLookupSeq;
+            const rootPath = (typeof APP_ROOT !== 'undefined' ? APP_ROOT : '');
+            const http = new XMLHttpRequest();
+            http._rgSkipGuard = true;
+            http.open('GET', window.location.origin + rootPath
+                + '/programmes/verifinfos/' + encodeURIComponent(phone), true);
+            http.onload = function () {
+                if (seq !== clientLookupSeq) return;
+                let infos = null;
+                try { infos = JSON.parse(http.responseText); } catch (err) { infos = null; }
+                if (infos && (infos.id_client || infos.nom_client || infos.contact_client)) {
+                    fillClient(infos);
+                    return;
+                }
+                const http2 = new XMLHttpRequest();
+                http2._rgSkipGuard = true;
+                http2.open('GET', window.location.origin + rootPath
+                    + '/confirmation/verifinfos/' + encodeURIComponent(phone), true);
+                http2.onload = function () {
+                    if (seq !== clientLookupSeq) return;
+                    let infos2 = null;
+                    try { infos2 = JSON.parse(http2.responseText); } catch (e2) { infos2 = null; }
+                    // Pas de clear agressif : une réponse vide ne doit pas
+                    // effacer un nom déjà chargé (course de requêtes).
+                    fillClient(infos2);
+                };
+                http2.send();
+            };
+            http.send();
+        }
+
+        function scheduleClientLookup(rawPhone) {
+            if (clientLookupTimer) clearTimeout(clientLookupTimer);
+            clientLookupTimer = setTimeout(function () {
+                fetchClient(rawPhone);
+            }, 350);
+        }
+
         if (selDepart && selDepart.tagName === 'SELECT') {
             selDepart.onchange = function () {
                 resetDest();
@@ -6087,30 +6151,13 @@ document.addEventListener('DOMContentLoaded', () => {
             };
         }
 
-        if (contact) {
-            contact.onkeyup = function () {
-                const verificat = contact.value.trim();
-                if (verificat.length < 6) {
-                    clearClient();
-                    return;
-                }
-                const httpInfos = new XMLHttpRequest();
-                httpInfos.open('GET', window.location.origin + APP_ROOT + '/programmes/verifinfos/' + encodeURIComponent(verificat), true);
-                httpInfos.onload = function () {
-                    let infos = null;
-                    try { infos = JSON.parse(httpInfos.responseText); } catch (err) { infos = null; }
-                    if (!infos || !infos.contact_client) {
-                        clearClient();
-                        return;
-                    }
-                    if (nom) nom.value = infos.nom_client || '';
-                    if (prenom) prenom.value = infos.prenom_client || '';
-                    if (clientId) clientId.value = infos.id_client || '';
-                    if (nomRef) nomRef.value = infos.nom_client || '';
-                    if (prenomRef) prenomRef.value = infos.prenom_client || '';
-                };
-                httpInfos.send();
-            };
+        if (contact && contact.getAttribute('data-r17-phone') !== '1') {
+            contact.setAttribute('data-r17-phone', '1');
+            const run = function () { scheduleClientLookup(contact.value); };
+            contact.addEventListener('input', run);
+            contact.addEventListener('keyup', run);
+            contact.addEventListener('change', run);
+            contact.addEventListener('blur', run);
         }
 
         function setFormAction() {
@@ -6159,107 +6206,105 @@ document.addEventListener('DOMContentLoaded', () => {
 ;
 /* --- adbagescale.js --- */
 document.addEventListener('DOMContentLoaded', () => {
-    
-    document.querySelectorAll('.adbagescale').forEach(function (e) 
+
+    document.querySelectorAll('.adbagescale').forEach(function (e)
     {
-        
+        // Modal r17 a son propre handler (évite double XHR + clear croisé).
+        if (e.dataset.r17BagBound === '1' || e.closest('#bagage-facturation-r17')) {
+            return;
+        }
+
         let baginfos = document.querySelector('#infocodeticketesc');
         if (baginfos !== null)
             baginfos.onclick = () => {
 
-
             let httpRequestBag;
-            
-            if (window.XMLHttpRequest) { // Mozilla, Safari, IE7+ ...
+
+            if (window.XMLHttpRequest) {
                 httpRequestBag = new XMLHttpRequest();
-            } else if (window.ActiveXObject) { // IE 6 and older
+            } else if (window.ActiveXObject) {
                 httpRequestBag = new ActiveXObject("Microsoft.XMLHTTP");
             }
-           
-            
+
             var bagcocl = document.querySelector("#codeticketbagesc").value;
             var baggid = document.querySelector("#codebaggidesc").value;
             var bagsgid = document.querySelector("#codebagsousgidesc").value;
-            httpRequestBag.open('GET', window.location.origin + `${APP_ROOT}/reprogrammes/codeclientverifesc/${bagcocl}/${baggid}/${bagsgid}`, true);
+            httpRequestBag.open('GET', window.location.origin + `${APP_ROOT}/reprogrammes/codeclientverifesc/${encodeURIComponent(bagcocl)}/${encodeURIComponent(baggid)}/${encodeURIComponent(bagsgid)}`, true);
+            httpRequestBag._rgSkipGuard = true;
             httpRequestBag.onload = () => {
 
-                const donneesbag = JSON.parse(httpRequestBag.responseText);
-                
-                if (donneesbag == null) {
-                    
-                        document.querySelector('#pascontactbagsansescbg').value = '';
-                        document.querySelector('#rclientcpescalbag').value = '';
-                        document.querySelector('#nclientcpescalbag').value = '';
-                        document.querySelector('#prnclientcpescalbag').value = '';
-                        document.querySelector('#id_lgeheurescalbag').value = '';
-                        document.querySelector('#codtickbagsansesc').value = '';
-                        document.querySelector('#idcompagaescbag').value = '';
-                        document.querySelector('#lignescalbag').value = '';
-                        document.querySelector('#quartpasseesc').value = '';
-                        document.querySelector('#infobagasansesc').value = '';
-                } else
-                {
+                let donneesbag = null;
+                try { donneesbag = JSON.parse(httpRequestBag.responseText); } catch (err) { donneesbag = null; }
 
-                
-                    if (Object.entries(donneesbag).length >= 1){
-
-                    rclientcpescalbag
-                        document.querySelector('#pascontactbagsansescbg').value = `${donneesbag.contact_client}`;
-                        document.querySelector('#rclientcpescalbag').value = `${donneesbag.clientescal}`;
-                        document.querySelector('#nclientcpescalbag').value = `${donneesbag.nom_client}`;
-                        document.querySelector('#prnclientcpescalbag').value = `${donneesbag.prenom_client}`;
-                        document.querySelector('#id_lgeheurescalbag').value = `${donneesbag.id_ligneheure}`;
-                        document.querySelector('#codtickbagsansesc').value = `${donneesbag.idclescal}`;
-                        document.querySelector('#idcompagaescbag').value = `${donneesbag.id_compaga}`;
-                        document.querySelector('#lignescalbag').value = `${donneesbag.ident_ligne}`;
-                        document.querySelector('#quartpasseesc').value = `${donneesbag.quartier_escal}`;
-                        document.querySelector('#infobagasansesc').value = `${donneesbag.nom_client} ${donneesbag.prenom_client}  ${donneesbag.nom_gadest}  ${donneesbag.quartier_escal} ${donneesbag.heure}`;
-                    } 
+                function setVal(id, v) {
+                    var el = document.querySelector('#' + id);
+                    if (el) el.value = v == null ? '' : String(v);
                 }
+
+                if (!donneesbag || typeof donneesbag !== 'object' || !Object.keys(donneesbag).length) {
+                    setVal('pascontactbagsansescbg', '');
+                    setVal('rclientcpescalbag', '');
+                    setVal('nclientcpescalbag', '');
+                    setVal('prnclientcpescalbag', '');
+                    setVal('id_lgeheurescalbag', '');
+                    setVal('codtickbagsansesc', '');
+                    setVal('idcompagaescbag', '');
+                    setVal('lignescalbag', '');
+                    setVal('quartpasseesc', '');
+                    setVal('infobagasansesc', '');
+                    return;
+                }
+
+                var ligneId = donneesbag.ident_ligne || donneesbag.lignintescal || '';
+                var lh = donneesbag.id_ligneheure || donneesbag.id_lgeheur || '';
+                setVal('pascontactbagsansescbg', donneesbag.contact_client);
+                setVal('rclientcpescalbag', donneesbag.clientescal);
+                setVal('nclientcpescalbag', donneesbag.nom_client);
+                setVal('prnclientcpescalbag', donneesbag.prenom_client);
+                setVal('id_lgeheurescalbag', lh);
+                setVal('codtickbagsansesc', donneesbag.idclescal || bagcocl);
+                setVal('idcompagaescbag', donneesbag.id_compaga);
+                setVal('lignescalbag', ligneId);
+                setVal('quartpasseesc', donneesbag.quartier_escal || '');
+                setVal('infobagasansesc',
+                    [donneesbag.nom_client, donneesbag.prenom_client, donneesbag.nom_gadest,
+                     donneesbag.quartier_escal, donneesbag.heure].filter(Boolean).join(' '));
             };
-            httpRequestBag.setRequestHeader('Content-Type', 'application/json');
             httpRequestBag.send();
         };
-        
-        updateContenu = function () 
+
+        window.updateContenu = function ()
         {
-            // Récupérer le champ "Contenu"
             var contenuField = document.querySelector('textarea[name="naturebagagesansesc"]');
-            
-            // Récupérer toutes les cases à cocher (checkbox)
+            if (!contenuField) return;
             var checkboxes = document.querySelectorAll('input[name="types_bagsansesc[]"]:checked');
-            
-            // Créer un tableau pour stocker les valeurs des cases cochées
             var selectedValues = [];
-            
-            // Parcourir les cases cochées et récupérer leur valeur
             checkboxes.forEach(function(checkbox) {
                 selectedValues.push(checkbox.value);
             });
-            
-            // Mettre à jour le contenu du champ avec les cases sélectionnées
-            contenuField.value = selectedValues.join(', '); // Séparer par des virgules
-        }
-        e.onclick = function () {   
-            let bagsansForm = document.querySelector('#escalFormbag');
-            
-            bagsansForm.setAttribute('action', `${APP_ROOT}/Reprogrammes/savebagesc/${e.dataset.cle_compagnie}`);   
-        }
-        
-        var clique = true;
+            contenuField.value = selectedValues.join(', ');
+        };
 
-            $('#bottonbagesc').click(function(event) 
-            {
-                if(clique) 
-                {
-                    clique = false;
-                    return true;
-                }
-                else return false;
-            })       
-    })    
+        e.onclick = function () {
+            let bagsansForm = document.querySelector('#escalFormbag');
+            if (bagsansForm) {
+                bagsansForm.setAttribute('action', `${APP_ROOT}/Reprogrammes/savebagesc/${e.dataset.cle_compagnie}`);
+            }
+        };
+
+        var clique = true;
+        $('#bottonbagesc').click(function()
+        {
+            if (clique) {
+                clique = false;
+                return true;
+            }
+            return false;
+        });
+    });
 
 });
+
 ;
 /* --- adcourescale.js --- */
 (function r17CourrierReady(fn) {
@@ -8754,8 +8799,22 @@ document.addEventListener('DOMContentLoaded', () => {
     {
         document.querySelector('h3#bordsTitleesc').innerHTML = `TIRAGE BORDEREAU PAR LIGNE`;
 
+        function r17TriggerLigneChange() {
+            var sel = document.querySelector('#deptscouridligneesc');
+            if (!sel || !sel.value) return;
+            if (typeof sel.onchange === 'function') {
+                sel.onchange();
+            } else {
+                sel.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+        }
+
         let arcourr = document.querySelector('#deptscouridligneesc');
-            if (arcourr !== null)
+            if (arcourr !== null) {
+            // R17 : une seule ligne pré-sélectionnée → charger quartiers immédiatement.
+            if (arcourr.getAttribute('data-r17-locked') === '1' && arcourr.value) {
+                setTimeout(r17TriggerLigneChange, 50);
+            }
             arcourr.onchange = () => {
                 
                 document.querySelector('#courdeptidprogesc').options.length = 1;
@@ -8795,6 +8854,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 httptypequartr.setRequestHeader('Content-Type', 'application/json');
                 httptypequartr.send();
             };
+            }
             let infoligne = document.querySelector('#courdeptchoisirdateesc');
             if (infoligne !== null)
             infoligne.onchange = () => {

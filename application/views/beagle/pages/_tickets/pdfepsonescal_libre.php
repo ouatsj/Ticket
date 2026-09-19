@@ -17,8 +17,11 @@ $accueil_url = (!empty($role17_mode) && function_exists('role17_accueil_url'))
     );
 
 if (!$item) {
-    echo '<p style="padding:16px;font-family:Arial,sans-serif;">Ticket introuvable</p>';
-    echo '<script>setTimeout(function(){location.replace(' . json_encode($accueil_url) . ');},800);</script>';
+    if (method_exists($this->session, 'set_flashdata')) {
+        $this->session->set_flashdata('error', 'Ticket introuvable pour impression.');
+    }
+    echo '<p style="padding:16px;font-family:Arial,sans-serif;">Ticket introuvable — retour à l’accueil…</p>';
+    echo '<script>setTimeout(function(){location.replace(' . json_encode($accueil_url) . ');},1200);</script>';
     return;
 }
 
