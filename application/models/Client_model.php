@@ -57,33 +57,49 @@
             if ($digits === '' || strlen($digits) < 6) {
                 return null;
             }
-            $tail = strlen($digits) > 8 ? substr($digits, -8) : $digits;
-            $row = $this->db->query(
-                "SELECT cl.id_client, cl.type_client, cl.contact_client, cl.nom_client, cl.prenom_client,
-                        cl.num_CNIB, cl.date_delivre, cl.lieu_delivre, cl.comment_client
-                 FROM client cl
-                 WHERE REPLACE(REPLACE(REPLACE(REPLACE(IFNULL(cl.contact_client,''),' ',''),'-',''),'+',''),'.','') LIKE ?
-                 AND cl.type_client <> 'autre'
-                 AND cl.type_client <> 'eleve'
-                 AND cl.type_client <> 'enfant'
-                 AND cl.type_client <> 'etudiant'
-                 AND cl.type_client <> 'autrepersonnel'
-                 ORDER BY cl.id_client DESC LIMIT 1",
-                array('%' . $tail)
-            )->row();
-            if ($row) {
-                return $row;
+            $variants = array();
+            $variants[] = $digits;
+            $variants[] = ltrim($digits, '0');
+            if (strlen($digits) > 8) {
+                $variants[] = substr($digits, -8);
+                $variants[] = ltrim(substr($digits, -8), '0');
             }
-            // Ultime secours : tout type sauf enfant/élève (fiches legacy).
-            return $this->db->query(
-                "SELECT cl.id_client, cl.type_client, cl.contact_client, cl.nom_client, cl.prenom_client,
-                        cl.num_CNIB, cl.date_delivre, cl.lieu_delivre, cl.comment_client
-                 FROM client cl
-                 WHERE REPLACE(REPLACE(REPLACE(REPLACE(IFNULL(cl.contact_client,''),' ',''),'-',''),'+',''),'.','') LIKE ?
-                 AND cl.type_client NOT IN ('eleve','enfant','etudiant')
-                 ORDER BY cl.id_client DESC LIMIT 1",
-                array('%' . $tail)
-            )->row();
+            if (strlen($digits) >= 11 && substr($digits, 0, 3) === '226') {
+                $variants[] = substr($digits, 3);
+            }
+            $variants = array_values(array_unique(array_filter($variants, function ($v) {
+                return $v !== '' && strlen($v) >= 6;
+            })));
+
+            $typeSql = "cl.type_client NOT IN ('eleve','enfant','etudiant')";
+            foreach ($variants as $tail) {
+                $row = $this->db->query(
+                    "SELECT cl.id_client, cl.type_client, cl.contact_client, cl.nom_client, cl.prenom_client,
+                            cl.num_CNIB, cl.date_delivre, cl.lieu_delivre, cl.comment_client
+                     FROM client cl
+                     WHERE REPLACE(REPLACE(REPLACE(REPLACE(IFNULL(cl.contact_client,''),' ',''),'-',''),'+',''),'.','') LIKE ?
+                     AND $typeSql
+                     ORDER BY cl.id_client DESC LIMIT 1",
+                    array('%' . $tail)
+                )->row();
+                if ($row) {
+                    return $row;
+                }
+                // Égalité sur contact normalisé (sans LIKE trop large).
+                $row = $this->db->query(
+                    "SELECT cl.id_client, cl.type_client, cl.contact_client, cl.nom_client, cl.prenom_client,
+                            cl.num_CNIB, cl.date_delivre, cl.lieu_delivre, cl.comment_client
+                     FROM client cl
+                     WHERE REPLACE(REPLACE(REPLACE(REPLACE(IFNULL(cl.contact_client,''),' ',''),'-',''),'+',''),'.','') = ?
+                     AND $typeSql
+                     ORDER BY cl.id_client DESC LIMIT 1",
+                    array($tail)
+                )->row();
+                if ($row) {
+                    return $row;
+                }
+            }
+            return null;
         }
 
         public function infocl2($num)

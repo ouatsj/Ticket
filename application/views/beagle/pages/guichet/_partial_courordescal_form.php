@@ -231,7 +231,7 @@
                             <select name="typeclientsesc" id="idtypeesc" class="form-control form-control-sm">
                                 <option value="">Choisissez Type_client</option>
                                 <? foreach ($typepersonnes as $orddest): ?>
-                                <option value="<?= $orddest->nom_type; ?>">
+                                <option value="<?= $orddest->nom_type; ?>"<?= (isset($orddest->nom_type) && strcasecmp((string)$orddest->nom_type, 'Adulte') === 0) ? ' selected' : ''; ?>>
                                     <?= "{$orddest->nom_type}"; ?></option>
                                 <? endforeach; ?>
                             </select>

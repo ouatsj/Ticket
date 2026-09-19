@@ -434,7 +434,7 @@ if ($dep_lab === '' && !empty($bus_stop) && is_object($bus_stop)) {
         bindHeuresLigne('date_depheurecourexpersoesc', 'hdepcourpersoesc', 'arrscourpersoesc');
         bindHeuresLigne('date_depheurecourexpartoesc', 'hdepcourpartoesc', 'arrscourpartoesc');
 
-        // Autofill téléphone courrier (délégation : indépendant de adcourescale / DOMContentLoaded).
+        // Autofill téléphone courrier — focus destinataire (souvent cassé par type_client / XHR guard).
         (function bindCourrierPhoneAutofill() {
             var root = document.getElementById('courrier-envoi-r17');
             if (!root || root.getAttribute('data-r17-phone-bound') === '1') return;
@@ -446,105 +446,149 @@ if ($dep_lab === '' && !empty($bus_stop) && is_object($bus_stop)) {
             function digits(s) {
                 return String(s == null ? '' : s).replace(/\D/g, '');
             }
-            function setVal(scope, sel, v) {
-                var el = scope.querySelector(sel) || document.querySelector(sel);
+            function byId(id) {
+                return document.getElementById(id);
+            }
+            function setById(id, v) {
+                var el = byId(id);
                 if (el) el.value = v == null ? '' : String(v);
             }
-            function fillExp(scope, infos) {
-                if (!infos || !(infos.id_client || infos.nom_client)) return;
-                setVal(scope, '#exp_nomesc', infos.nom_client);
-                setVal(scope, '#exp_prenomesc', infos.prenom_client);
-                setVal(scope, '#cnib_expesc', infos.num_CNIB);
-                if (infos.date_delivre) setVal(scope, '#iddate_cnibesc', infos.date_delivre);
-                setVal(scope, '#lieudelexpesc', infos.lieu_delivre);
-                setVal(scope, '#passcompagnieesc', infos.id_client);
-                setVal(scope, '#rclientcpexpesc', infos.nom_client);
-                setVal(scope, '#prnclientcpexpesc', infos.prenom_client);
-                setVal(scope, '#cnibcpexpesc', infos.num_CNIB);
-                if (infos.date_delivre) setVal(scope, '#date_cnibcpexpesc', infos.date_delivre);
-                setVal(scope, '#lieudelivrecpexpesc', infos.lieu_delivre);
-                setVal(scope, '#idclientypeexpesc', infos.type_client);
+            function setTypeSelect(infos) {
+                var sel = byId('idtypeesc');
+                if (!sel || !infos || !infos.type_client) return;
+                var t = String(infos.type_client);
+                var found = false;
+                for (var i = 0; i < sel.options.length; i++) {
+                    if (String(sel.options[i].value) === t) {
+                        sel.selectedIndex = i;
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found) {
+                    for (var j = 0; j < sel.options.length; j++) {
+                        if (String(sel.options[j].value).toLowerCase() === 'adulte') {
+                            sel.selectedIndex = j;
+                            break;
+                        }
+                    }
+                }
+                // Afficher le champ contact (Adulte / type classique).
+                var lab = byId('idcontesc');
+                var tel = byId('contactidesc');
+                if (lab) lab.style.display = 'block';
+                if (tel) tel.style.display = 'block';
             }
-            function fillDest(scope, infos) {
+            function fillExp(infos) {
                 if (!infos || !(infos.id_client || infos.nom_client)) return;
-                setVal(scope, '#nomdestidesc', infos.nom_client);
-                setVal(scope, '#prenomdestidesc', infos.prenom_client);
-                setVal(scope, '#compagniepassdestesc', infos.id_client);
-                setVal(scope, '#idclientypedestesc', infos.type_client);
-                setVal(scope, '#rclientcpdestesc', infos.nom_client);
-                setVal(scope, '#prnclientcpdestesc', infos.prenom_client);
-                if (infos.date_delivre) setVal(scope, '#date_cnibdestidesc', infos.date_delivre);
-                // variantes perso / parto
-                setVal(scope, '#nomdestidpersoesc', infos.nom_client);
-                setVal(scope, '#prenomdestidpersoesc', infos.prenom_client);
-                setVal(scope, '#compagniepassdestpersoesc', infos.id_client);
-                setVal(scope, '#nomdestidpartoesc', infos.nom_client);
-                setVal(scope, '#prenomdestidpartoesc', infos.prenom_client);
-                setVal(scope, '#compagniepassdestpartoesc', infos.id_client);
+                setById('exp_nomesc', infos.nom_client);
+                setById('exp_prenomesc', infos.prenom_client);
+                setById('cnib_expesc', infos.num_CNIB);
+                if (infos.date_delivre) setById('iddate_cnibesc', infos.date_delivre);
+                setById('lieudelexpesc', infos.lieu_delivre);
+                setById('passcompagnieesc', infos.id_client);
+                setById('rclientcpexpesc', infos.nom_client);
+                setById('prnclientcpexpesc', infos.prenom_client);
+                setById('cnibcpexpesc', infos.num_CNIB);
+                if (infos.date_delivre) setById('date_cnibcpexpesc', infos.date_delivre);
+                setById('lieudelivrecpexpesc', infos.lieu_delivre);
+                setById('idclientypeexpesc', infos.type_client);
             }
-            function lookup(phone, kind, scope) {
+            function fillDest(infos) {
+                if (!infos || !(infos.id_client || infos.nom_client)) return;
+                setById('nomdestidesc', infos.nom_client);
+                setById('prenomdestidesc', infos.prenom_client);
+                setById('compagniepassdestesc', infos.id_client);
+                setById('idclientypedestesc', infos.type_client);
+                setById('rclientcpdestesc', infos.nom_client);
+                setById('prnclientcpdestesc', infos.prenom_client);
+                if (infos.date_delivre) setById('date_cnibdestidesc', infos.date_delivre);
+                setTypeSelect(infos);
+                // perso / parto
+                setById('nomdestidpersoesc', infos.nom_client);
+                setById('prenomdestidpersoesc', infos.prenom_client);
+                setById('compagniepassdestpersoesc', infos.id_client);
+                setById('nomdestidpartoesc', infos.nom_client);
+                setById('prenomdestidpartoesc', infos.prenom_client);
+                setById('compagniepassdestpartoesc', infos.id_client);
+            }
+            function getJson(url, onDone) {
+                var xhr = new XMLHttpRequest();
+                xhr._rgSkipGuard = true; // éviter abort croisé programmes↔confirmation
+                xhr.open('GET', url, true);
+                xhr.onload = function () {
+                    var infos = null;
+                    try { infos = JSON.parse(xhr.responseText); } catch (e) { infos = null; }
+                    onDone(infos && (infos.id_client || infos.nom_client) ? infos : null);
+                };
+                xhr.onerror = function () { onDone(null); };
+                xhr.send();
+            }
+            function lookup(phone, kind) {
                 var dig = digits(phone);
-                if (dig.length < 8) return;
+                if (dig.length < 6) return;
                 var my = ++seq[kind];
                 var base = window.location.origin + (typeof APP_ROOT !== 'undefined' ? APP_ROOT : '');
-                function apply(infos) {
-                    if (my !== seq[kind]) return;
-                    if (kind === 'exp') fillExp(scope, infos);
-                    else fillDest(scope, infos);
-                }
-                function get(url, thenUrl) {
-                    var xhr = new XMLHttpRequest();
-                    xhr.open('GET', url, true);
-                    xhr.onload = function () {
-                        if (my !== seq[kind]) return;
-                        var infos = null;
-                        try { infos = JSON.parse(xhr.responseText); } catch (e) { infos = null; }
-                        if (infos && (infos.id_client || infos.nom_client)) {
-                            apply(infos);
-                        } else if (thenUrl) {
-                            get(thenUrl, null);
-                        }
-                    };
-                    xhr.send();
-                }
                 var enc = encodeURIComponent(String(phone).trim());
-                get(base + '/programmes/verifinfos/' + enc, base + '/confirmation/verifinfos/' + enc);
+                var urls = [
+                    base + '/programmes/verifinfos/' + enc,
+                    base + '/confirmation/verifinfos/' + enc
+                ];
+                function next(i) {
+                    if (my !== seq[kind] || i >= urls.length) return;
+                    getJson(urls[i], function (infos) {
+                        if (my !== seq[kind]) return;
+                        if (infos) {
+                            if (kind === 'exp') fillExp(infos);
+                            else fillDest(infos);
+                        } else {
+                            next(i + 1);
+                        }
+                    });
+                }
+                next(0);
             }
             function schedule(el, kind) {
-                var scope = el.closest('form') || root;
                 if (timers[kind]) clearTimeout(timers[kind]);
                 timers[kind] = setTimeout(function () {
-                    lookup(el.value, kind, scope);
-                }, 350);
+                    lookup(el.value, kind);
+                }, 280);
             }
             function kindOf(el) {
+                if (!el) return null;
                 var id = el.id || '';
-                if (id === 'exp_contactesc' || id.indexOf('contact_exp') !== -1 || id.indexOf('exp_contact') !== -1) {
+                var name = el.getAttribute('name') || '';
+                if (id === 'exp_contactesc' || name === 'contact_expesc'
+                    || id.indexOf('exp_contact') !== -1 || name.indexOf('contact_exp') !== -1) {
                     return 'exp';
                 }
                 if (id === 'contactidesc' || id === 'contactidpersoesc' || id === 'contactidpartoesc'
-                    || id.indexOf('contact_dest') !== -1 || id.indexOf('contactid') !== -1) {
+                    || name === 'contact_destesc' || name === 'contact_destpersoesc' || name === 'contact_destpartoesc'
+                    || name.indexOf('contact_dest') !== -1) {
                     return 'dest';
                 }
-                var name = el.getAttribute('name') || '';
-                if (name.indexOf('contact_exp') !== -1) return 'exp';
-                if (name.indexOf('contact_dest') !== -1) return 'dest';
                 return null;
             }
-            root.addEventListener('input', function (ev) {
+            function onPhoneEvent(ev) {
                 var el = ev.target;
                 if (!el || el.tagName !== 'INPUT') return;
                 var k = kindOf(el);
                 if (!k) return;
                 schedule(el, k);
-            });
-            root.addEventListener('change', function (ev) {
-                var el = ev.target;
-                if (!el || el.tagName !== 'INPUT') return;
-                var k = kindOf(el);
-                if (!k) return;
-                schedule(el, k);
-            });
+            }
+            root.addEventListener('input', onPhoneEvent, true);
+            root.addEventListener('keyup', onPhoneEvent, true);
+            root.addEventListener('change', onPhoneEvent, true);
+            root.addEventListener('blur', onPhoneEvent, true);
+
+            // Garantir Contact destinataire visible dès l’étape 3 (sauf types spéciaux).
+            var telDest = byId('contactidesc');
+            var labDest = byId('idcontesc');
+            if (telDest) {
+                telDest.style.display = '';
+                telDest.removeAttribute('disabled');
+            }
+            if (labDest) labDest.style.display = '';
         })();
 
         // Actions formulaire (VALIDER) — ne pas dépendre d’un clic sur le wrapper.

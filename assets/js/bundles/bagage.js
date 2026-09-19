@@ -1614,8 +1614,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 function r17FetchClient(rawPhone, kind) {
                     var phone = String(rawPhone || '').trim();
                     var dig = r17Digits(phone);
-                    if (dig.length < 8) {
-                        // Ne pas clear : laisse saisir ; clear seulement si champ vidé.
+                    if (dig.length < 6) {
                         if (dig.length === 0) {
                             if (kind === 'exp') r17FillExp(null, true);
                             else r17FillDest(null, true);
@@ -1624,26 +1623,26 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                     var seq = ++r17LookupSeq[kind];
                     var root = (typeof APP_ROOT !== 'undefined' ? APP_ROOT : '');
-                    // programmes/verifinfos : même API que la vente ticket (éprouvé).
                     var url = window.location.origin + root
                         + '/programmes/verifinfos/' + encodeURIComponent(phone);
                     var http = new XMLHttpRequest();
+                    http._rgSkipGuard = true;
                     http.open('GET', url, true);
                     http.onload = function () {
-                        if (seq !== r17LookupSeq[kind]) return; // réponse obsolète
+                        if (seq !== r17LookupSeq[kind]) return;
                         var infos = null;
                         try { infos = JSON.parse(http.responseText); } catch (err) { infos = null; }
                         if (!infos || !(infos.id_client || infos.nom_client)) {
-                            // Retry confirmation (au cas où)
                             var http2 = new XMLHttpRequest();
+                            http2._rgSkipGuard = true;
                             http2.open('GET', window.location.origin + root
                                 + '/confirmation/verifinfos/' + encodeURIComponent(phone), true);
                             http2.onload = function () {
                                 if (seq !== r17LookupSeq[kind]) return;
                                 var infos2 = null;
                                 try { infos2 = JSON.parse(http2.responseText); } catch (e2) { infos2 = null; }
-                                if (kind === 'exp') r17FillExp(infos2, !!infos2);
-                                else r17FillDest(infos2, !!infos2);
+                                if (kind === 'exp') r17FillExp(infos2, false);
+                                else r17FillDest(infos2, false);
                             };
                             http2.send();
                             return;
@@ -1678,20 +1677,24 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (infopersos !== null) 
                 infopersos.onchange = () => 
                 {
-                    document.querySelector('#contactidesc').style.display = 'none';
-                    document.querySelector('#idcontesc').style.display = 'none';
+                    // Ne plus masquer Contact en tête : ça cassait l’autofill destinataire
+                    // (champ display:none pendant/après la saisie du numéro).
                     document.querySelector('#sonnelesc').style.display = 'none';
                     document.querySelector('#idsonnelsesc').style.display = 'none';
                     document.querySelector('#idpartesesc').options.length = 1;
                     document.querySelector('#membrepartoidesc').options.length = 1;
                     document.querySelector('#membrepartoesc').style.display = 'none';
                     document.querySelector('#membrepartoidesc').style.display = 'none';
+                    document.querySelector('#partcontesc').style.display = 'none';
+                    document.querySelector('#idpartesesc').style.display = 'none';
                            
                     var personns = document.querySelector('#idtypeesc')
                         .options[document.querySelector('#idtypeesc').options.selectedIndex].value;
                         if(personns === 'personnel')
                         {
                             document.querySelector('#contactidesc').value = '';
+                            document.querySelector('#contactidesc').style.display = 'none';
+                            document.querySelector('#idcontesc').style.display = 'none';
                     
                             document.querySelector('#sonnelesc').style.display = 'block';
                             document.querySelector('#idsonnelsesc').style.display = 'block';
