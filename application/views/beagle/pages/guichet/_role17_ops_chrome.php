@@ -3,9 +3,11 @@
  * Chrome commun pages secondaires Venteescal (bagage, courrier, compte, réimp).
  * Affiche l'escale liée + styles boutons tactiles.
  */
-if (empty($role17_mode) || !role17_is_agent()) {
+if (empty($role17_mode)) {
     return;
 }
+// Afficher le chrome dès que la page est en mode r17 (flag contrôleur),
+// même si un contrôle session secondaire échoue.
 $escale_label = !empty($escale_depart_label) ? (string) $escale_depart_label : '';
 $escale_fixed_admin = !empty($escale_depart_fixed_admin);
 $ligne_hint = !empty($escale_id_lignes) ? (string) $escale_id_lignes : '';

@@ -1,20 +1,63 @@
 <?php defined('BASEPATH') OR exit('No direct script access allowed');
-$role17_mode = !empty($role17_mode) && role17_is_agent();
-$retour = $role17_mode
-    ? role17_accueil_url($bus_stop, $conex)
-    : site_url("historique_passagers/{$this->session->company->ekey}/{$conex->roleattribut}/{$bus_stop->idengare}/{$bus_stop->idsousgare}");
+/**
+ * Réimpression venteescale — onglets Tickets / Bagage / Courrier (rôle 17).
+ */
+$conex_role = (!empty($conex) && isset($conex->userole)) ? (string) $conex->userole : '';
+// Faire confiance au flag contrôleur ; fallback session / atrib. gare.
+$role17_mode = !empty($role17_mode)
+    || (function_exists('role17_is_agent') && role17_is_agent())
+    || $conex_role === '17';
+
 $tickets = !empty($reponseallereimp) ? $reponseallereimp : array();
 $bags = !empty($reimpri_bagages) ? $reimpri_bagages : array();
 $cours = !empty($reimpri_courriers) ? $reimpri_courriers : array();
+if (!is_array($tickets)) {
+    $tickets = array();
+}
+if (!is_array($bags)) {
+    $bags = array();
+}
+if (!is_array($cours)) {
+    $cours = array();
+}
+
 $tab = isset($_GET['tab']) ? (string) $_GET['tab'] : 'ticket';
 if (!in_array($tab, array('ticket', 'bagage', 'courrier'), true)) {
     $tab = 'ticket';
 }
+
+$accueil = '#';
+if (!empty($bus_stop) && !empty($conex)) {
+    if ($role17_mode && function_exists('role17_accueil_url')) {
+        $accueil = role17_accueil_url($bus_stop, $conex);
+    } else {
+        $accueil = site_url(
+            'historique_passagers/' . $this->session->company->ekey
+            . '/' . $conex->roleattribut
+            . '/' . $bus_stop->idengare
+            . '/' . $bus_stop->idsousgare
+        );
+    }
+}
+$base_reimpri = site_url(
+    'ventescales/voirreimpri/' . $this->session->company->ekey
+    . '/' . (!empty($conex->roleattribut) ? $conex->roleattribut : '')
+    . '/' . (!empty($bus_stop->idengare) ? $bus_stop->idengare : '')
+    . '/' . (!empty($bus_stop->idsousgare) ? $bus_stop->idsousgare : '')
+);
 ?>
 <div class="<?= $role17_mode ? 'r17-ops r17-shell' : ''; ?>">
 <?php if ($role17_mode): ?>
+    <?php $this->load->view('beagle/pages/guichet/_role_17_styles'); ?>
     <?php $this->load->view('beagle/pages/guichet/_role17_ops_chrome'); ?>
 <style>
+.r17-reimpri-title {
+    margin: 0 0 0.65rem;
+    font-size: 1.15rem;
+    font-weight: 800;
+    color: #0f172a;
+    line-height: 1.25;
+}
 .r17-tabs {
     display: flex; gap: 0.35rem; margin: 0.5rem 0 0.85rem; flex-wrap: wrap;
 }
@@ -29,22 +72,32 @@ if (!in_array($tab, array('ticket', 'bagage', 'courrier'), true)) {
     font-size: 0.75rem; background: rgba(0,0,0,.12);
 }
 .r17-tabs a.is-active .r17-tab-n { background: rgba(255,255,255,.25); }
+.r17-tab-panel { display: block; }
 .r17-tab-panel[hidden] { display: none !important; }
 .r17-hint {
     margin: 0 0 0.75rem; padding: 0.55rem 0.7rem; border-radius: 8px;
     background: #fff7ed; border: 1px solid #fed7aa; color: #9a3412; font-size: 0.85rem;
 }
+.r17-empty {
+    margin: 0.5rem 0 0; padding: 0.85rem 0.9rem; border-radius: 8px;
+    background: #f8fafc; border: 1px dashed #cbd5e1; color: #475569; font-size: 0.9rem;
+}
 </style>
 
+    <h1 class="r17-reimpri-title">Réimpression</h1>
+
     <div class="r17-tabs" role="tablist">
-        <a href="?tab=ticket" class="<?= $tab === 'ticket' ? 'is-active' : ''; ?>" role="tab">
-            Tickets <span class="r17-tab-n"><?= count($tickets); ?></span>
+        <a href="<?= htmlspecialchars($base_reimpri . '?tab=ticket', ENT_QUOTES, 'UTF-8'); ?>"
+           class="<?= $tab === 'ticket' ? 'is-active' : ''; ?>" role="tab">
+            Tickets <span class="r17-tab-n"><?= (int) count($tickets); ?></span>
         </a>
-        <a href="?tab=bagage" class="<?= $tab === 'bagage' ? 'is-active' : ''; ?>" role="tab">
-            Bagage <span class="r17-tab-n"><?= count($bags); ?></span>
+        <a href="<?= htmlspecialchars($base_reimpri . '?tab=bagage', ENT_QUOTES, 'UTF-8'); ?>"
+           class="<?= $tab === 'bagage' ? 'is-active' : ''; ?>" role="tab">
+            Bagage <span class="r17-tab-n"><?= (int) count($bags); ?></span>
         </a>
-        <a href="?tab=courrier" class="<?= $tab === 'courrier' ? 'is-active' : ''; ?>" role="tab">
-            Courrier <span class="r17-tab-n"><?= count($cours); ?></span>
+        <a href="<?= htmlspecialchars($base_reimpri . '?tab=courrier', ENT_QUOTES, 'UTF-8'); ?>"
+           class="<?= $tab === 'courrier' ? 'is-active' : ''; ?>" role="tab">
+            Courrier <span class="r17-tab-n"><?= (int) count($cours); ?></span>
         </a>
     </div>
 
@@ -52,10 +105,9 @@ if (!in_array($tab, array('ticket', 'bagage', 'courrier'), true)) {
         <p class="r17-hint">
             Les tickets n’apparaissent ici qu’après validation du <strong>chef guichet</strong>
             (repositionnement réimpression). Une fois imprimés, ils quittent cette liste.
-            Si le bouton ne produit rien : demandez au chef de repositionner le ticket.
         </p>
         <?php if (empty($tickets)): ?>
-            <p class="text-muted">Aucun ticket autorisé à réimprimer pour le moment.</p>
+            <p class="r17-empty">Aucun ticket autorisé à réimprimer pour le moment.</p>
         <?php else: ?>
             <div class="r17-grid">
                 <?php foreach ($tickets as $item):
@@ -76,7 +128,7 @@ if (!in_array($tab, array('ticket', 'bagage', 'courrier'), true)) {
                         <span class="r17-txt">
                             <?= htmlspecialchars($item->idclescal, ENT_QUOTES, 'UTF-8'); ?>
                             <span class="r17-sub"><?= htmlspecialchars(
-                                trim($item->nom_client . ' ' . $item->prenom_client)
+                                trim((isset($item->nom_client) ? $item->nom_client : '') . ' ' . (isset($item->prenom_client) ? $item->prenom_client : ''))
                                 . ($od !== '' ? (' · ' . $od) : ''),
                                 ENT_QUOTES,
                                 'UTF-8'
@@ -91,7 +143,7 @@ if (!in_array($tab, array('ticket', 'bagage', 'courrier'), true)) {
     <div class="r17-tab-panel" <?= $tab === 'bagage' ? '' : 'hidden'; ?>>
         <p class="r17-hint">Reçus bagage du jour · 57×40. Si la liste est vide, facturez d’abord un bagage sur un ticket de votre escale.</p>
         <?php if (empty($bags)): ?>
-            <p class="text-muted">Aucun bagage facturé aujourd’hui — rien à réimprimer.</p>
+            <p class="r17-empty">Aucun bagage facturé aujourd’hui — rien à réimprimer.</p>
         <?php else: ?>
             <div class="r17-grid">
                 <?php foreach ($bags as $b):
@@ -106,7 +158,7 @@ if (!in_array($tab, array('ticket', 'bagage', 'courrier'), true)) {
                         <span class="r17-txt">
                             <?= htmlspecialchars(!empty($b->codebagesc) ? $b->codebagesc : $b->id_bagageesc, ENT_QUOTES, 'UTF-8'); ?>
                             <span class="r17-sub"><?= htmlspecialchars(
-                                trim($b->nom_client . ' ' . $b->prenom_client)
+                                trim((isset($b->nom_client) ? $b->nom_client : '') . ' ' . (isset($b->prenom_client) ? $b->prenom_client : ''))
                                 . ' · ' . number_format((float) $b->prix_bagageesc, 0, '', ' ') . ' F',
                                 ENT_QUOTES,
                                 'UTF-8'
@@ -119,9 +171,9 @@ if (!in_array($tab, array('ticket', 'bagage', 'courrier'), true)) {
     </div>
 
     <div class="r17-tab-panel" <?= $tab === 'courrier' ? '' : 'hidden'; ?>>
-        <p class="r17-hint">Reçus courrier du jour · 57×40. Si un reçu « introuvable » apparaît, réessayez depuis cette liste (JOINs assouplis).</p>
+        <p class="r17-hint">Reçus courrier du jour · 57×40. Réessayez depuis cet onglet si un reçu était « introuvable ».</p>
         <?php if (empty($cours)): ?>
-            <p class="text-muted">Aucun courrier envoyé aujourd’hui — rien à réimprimer.</p>
+            <p class="r17-empty">Aucun courrier envoyé aujourd’hui — rien à réimprimer.</p>
         <?php else: ?>
             <div class="r17-grid">
                 <?php foreach ($cours as $c):
@@ -157,7 +209,7 @@ if (!in_array($tab, array('ticket', 'bagage', 'courrier'), true)) {
 <?php else: ?>
 <div class="row">
     <p class="mt-0 mb-2 ml-4">
-        <a href="<?= htmlspecialchars($retour, ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-space btn-secondary">
+        <a href="<?= htmlspecialchars($accueil, ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-space btn-secondary">
             <i class="fas fa-arrow-circle-left text-info"></i>&nbsp;RETOUR&nbsp;
         </a>
     </p>
@@ -179,7 +231,7 @@ if (!in_array($tab, array('ticket', 'bagage', 'courrier'), true)) {
                     </tr>
                     </thead>
                     <tbody class="no-border-x">
-                    <? if (empty($reponseallereimp)): ?>
+                    <?php if (empty($tickets)): ?>
                         <tr>
                             <td colspan="6" class="text-muted py-4">
                                 Aucun ticket à réimprimer.
@@ -187,33 +239,33 @@ if (!in_array($tab, array('ticket', 'bagage', 'courrier'), true)) {
                                 puis revenez ici.
                             </td>
                         </tr>
-                    <? endif; ?>
-                    <? foreach ($reponseallereimp as $item): ?>
+                    <?php endif; ?>
+                    <?php foreach ($tickets as $item): ?>
                         <tr>
                             <td>
-                                <span><?= $item->idclescal; ?></span><br>
+                                <span><?= htmlspecialchars($item->idclescal, ENT_QUOTES, 'UTF-8'); ?></span><br>
                                 <a class="icon" title="epson"
                                     href="<?= site_url('ventescales/pdfepsonescalrp/'.$this->session->company->ekey.'/'.$item->idclescal.'/'.$item->typtarifesc.'/'.$item->id_lgeheur.'/'.$bus_stop->idengare.'/'.$conex->roleattribut.'/'.$bus_stop->idsousgare);?>">
                                     <i class="fas fa-print"></i>
                                 </a>
                             </td>
                             <td>
-                                <span>Nom:<?= $item->nom_client; ?><br></span>
-                                <span>Prénom:<?= $item->prenom_client; ?><br></span>
-                                <span>Contact:<?= $item->contact_client; ?>
+                                <span>Nom:<?= htmlspecialchars($item->nom_client, ENT_QUOTES, 'UTF-8'); ?><br></span>
+                                <span>Prénom:<?= htmlspecialchars($item->prenom_client, ENT_QUOTES, 'UTF-8'); ?><br></span>
+                                <span>Contact:<?= htmlspecialchars($item->contact_client, ENT_QUOTES, 'UTF-8'); ?>
                             </td>
                             <td>
-                                <span>Cni ou passport:<?= $item->num_CNIB; ?></span><br>
-                                <span>Délivrée le:<?= $item->date_delivre; ?></span>
-                                <span>Lieu:<?= $item->lieu_delivre; ?></span>
+                                <span>Cni ou passport:<?= htmlspecialchars($item->num_CNIB, ENT_QUOTES, 'UTF-8'); ?></span><br>
+                                <span>Délivrée le:<?= htmlspecialchars($item->date_delivre, ENT_QUOTES, 'UTF-8'); ?></span>
+                                <span>Lieu:<?= htmlspecialchars($item->lieu_delivre, ENT_QUOTES, 'UTF-8'); ?></span>
                             </td>
                             <td>
-                                <span>Départ:<?= $item->datedepescal; ?><br>
-                                <span>Heure:<?= $item->heure; ?></span></span>
-                                <span>Axe:<?= $item->nom_ligne; ?> <?= $item->quartier_escal; ?></span>
+                                <span>Départ:<?= htmlspecialchars($item->datedepescal, ENT_QUOTES, 'UTF-8'); ?><br>
+                                <span>Heure:<?= htmlspecialchars(isset($item->heure) ? $item->heure : '', ENT_QUOTES, 'UTF-8'); ?></span></span>
+                                <span>Axe:<?= htmlspecialchars(isset($item->nom_ligne) ? $item->nom_ligne : '', ENT_QUOTES, 'UTF-8'); ?> <?= htmlspecialchars(isset($item->quartier_escal) ? $item->quartier_escal : '', ENT_QUOTES, 'UTF-8'); ?></span>
                             </td>
                             <td>
-                                <span><?= number_format($item->prixescal, 0, '', ' '); ?></span>
+                                <span><?= number_format((float) $item->prixescal, 0, '', ' '); ?></span>
                             </td>
                             <td>
                                 <a class="icon" title="epson"
@@ -222,7 +274,7 @@ if (!in_array($tab, array('ticket', 'bagage', 'courrier'), true)) {
                                 </a>
                             </td>
                         </tr>
-                    <? endforeach; ?>
+                    <?php endforeach; ?>
                     </tbody>
                 </table>
             </div>
@@ -231,10 +283,3 @@ if (!in_array($tab, array('ticket', 'bagage', 'courrier'), true)) {
 </div>
 <?php endif; ?>
 </div>
-
-
-
-
-
-
-
