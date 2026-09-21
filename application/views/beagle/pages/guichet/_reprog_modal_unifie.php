@@ -262,10 +262,10 @@ $allow_prix_diff_unifie = true;
                     <div class="d-flex align-items-center justify-content-between flex-wrap mb-1">
                         <label class="small mb-0" for="corr_unifie_select">Choisir l’itinéraire</label>
                         <button type="button"
-                                class="btn btn-outline-primary btn-sm py-0 px-2"
+                                class="btn btn-primary btn-sm py-0 px-2 font-weight-bold"
                                 id="corr_unifie_plus"
                                 title="Charger un autre itinéraire avec plus de segments (même départ gare de report)"
-                                style="display:none"
+                                style="display:none; min-width:2rem;"
                                 aria-label="Autres itinéraires avec plus de segments">+</button>
                     </div>
                     <select class="form-control form-control-sm" id="corr_unifie_select">

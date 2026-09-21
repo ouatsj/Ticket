@@ -9918,6 +9918,32 @@ document.addEventListener('DOMContentLoaded', () => {
         return hh ? ('h:' + hh + '|' + ln) : '';
     }
 
+    function __reprogFirstLegHour(ch) {
+        var et = __reprogNormalizeEtapes(ch && (ch.etapes || ch.legs));
+        return et.length ? __reprogEtapeHeureStr(et[0]) : '';
+    }
+
+    function __reprogFirstLegCode(ch) {
+        var et = __reprogNormalizeEtapes(ch && (ch.etapes || ch.legs));
+        if (!et.length) return '';
+        return String(et[0].code_progr || et[0]._code_progr || et[0]._graphe_code_progr || '').trim();
+    }
+
+    /**
+     * Même ancre de départ gare de report : même programme 1ʳᵉ jambe, sinon même heure.
+     * (Les chemins à + de segments partent souvent du même créneau, pas du même code_progr.)
+     */
+    function __reprogSameDepartAncre(baseCh, ch) {
+        var hhB = __reprogFirstLegHour(baseCh);
+        var hhC = __reprogFirstLegHour(ch);
+        if (!hhB || !hhC || hhB !== hhC) return false;
+        var cpB = __reprogFirstLegCode(baseCh);
+        var cpC = __reprogFirstLegCode(ch);
+        if (cpB && cpC && cpB === cpC) return true;
+        // Même heure depuis la gare de report (créneau choisi) suffit.
+        return true;
+    }
+
     function __reprogCheminSig(ch) {
         var et = __reprogNormalizeEtapes(ch && (ch.etapes || ch.legs));
         return et.map(function (e) {
@@ -9929,26 +9955,27 @@ document.addEventListener('DOMContentLoaded', () => {
     function __reprogSetPlusItinVisible(show) {
         var btn = __reprogQ('corr_unifie_plus');
         var hint = __reprogQ('corr_unifie_plus_hint');
-        if (btn) btn.style.display = show ? '' : 'none';
-        if (hint) hint.style.display = show ? '' : 'none';
+        if (btn) {
+            btn.style.display = show ? 'inline-block' : 'none';
+            btn.disabled = false;
+        }
+        if (hint) hint.style.display = show ? 'block' : 'none';
     }
 
     /**
-     * Autres chemins : même programme de départ (1ʳᵉ jambe gare de report),
-     * plus de segments que l’itinéraire courant (gares correspondantes déjà dans pool).
+     * Autres chemins : même créneau / programme de départ gare de report,
+     * plus de segments (pool = transitChemins déjà filtrés dest / sens).
      */
     function __reprogAltTransitsPlusSeg(baseCh) {
         var st = window.__reprogState || {};
         var baseN = __reprogNormalizeEtapes(baseCh && (baseCh.etapes || baseCh.legs)).length || 0;
         if (baseN < 1) return [];
-        var baseKey = __reprogFirstLegKey(baseCh);
-        if (!baseKey) return [];
         var baseSig = __reprogCheminSig(baseCh);
         var pool = __reprogRowsArray(st.transitChemins);
         if (!pool.length) pool = __reprogRowsArray(st.chemins);
         return pool.filter(function (ch) {
             if (!ch || !__reprogCheminSensOk(ch)) return false;
-            if (__reprogFirstLegKey(ch) !== baseKey) return false;
+            if (!__reprogSameDepartAncre(baseCh, ch)) return false;
             var n = __reprogNormalizeEtapes(ch.etapes || ch.legs).length || 0;
             if (n <= baseN) return false;
             if (__reprogCheminSig(ch) === baseSig) return false;
@@ -9957,6 +9984,11 @@ document.addEventListener('DOMContentLoaded', () => {
             var na = __reprogNormalizeEtapes(a.etapes || a.legs).length || 99;
             var nb = __reprogNormalizeEtapes(b.etapes || b.legs).length || 99;
             if (na !== nb) return na - nb;
+            // Préférer même code_progr 1ʳᵉ jambe
+            var cpB = __reprogFirstLegCode(baseCh);
+            var aSame = cpB && __reprogFirstLegCode(a) === cpB ? 0 : 1;
+            var bSame = cpB && __reprogFirstLegCode(b) === cpB ? 0 : 1;
+            if (aSame !== bSame) return aSame - bSame;
             return (__reprogTransitPrio(b) || 0) - (__reprogTransitPrio(a) || 0);
         });
     }
@@ -9967,6 +9999,8 @@ document.addEventListener('DOMContentLoaded', () => {
             __reprogSetPlusItinVisible(false);
             return;
         }
+        var wrap = __reprogQ('corr_unifie_wrap');
+        var wrapVisible = !!(wrap && wrap.style.display !== 'none');
         var base = st.uniqueTransit;
         if (!base) {
             var sel = __reprogQ('corr_unifie_select');
@@ -9974,39 +10008,80 @@ document.addEventListener('DOMContentLoaded', () => {
                 base = st.chemins[parseInt(sel.value, 10)];
             }
         }
-        if (!base) {
-            __reprogSetPlusItinVisible(false);
-            return;
+        // Toujours visible dès qu’un itinéraire transit est proposé (multi),
+        // même s’il n’y a pas encore d’alt connue — le clic raffraîchit / informe.
+        var show = !!(wrapVisible && base && (st.mode === 'transit' || st.multiMode));
+        __reprogSetPlusItinVisible(show);
+        var btn = __reprogQ('corr_unifie_plus');
+        if (btn && show) {
+            var nAlt = __reprogAltTransitsPlusSeg(base).length;
+            btn.title = nAlt > 0
+                ? ('Charger ' + nAlt + ' autre(s) itinéraire(s) avec plus de segments')
+                : 'Chercher un itinéraire avec plus de segments (même départ gare de report)';
         }
-        __reprogSetPlusItinVisible(__reprogAltTransitsPlusSeg(base).length > 0);
     }
 
     /** Charge dans le select les itinéraires à plus de segments (même départ). */
     function __reprogOnPlusItineraire() {
         var st = window.__reprogState || {};
         var sel = __reprogQ('corr_unifie_select');
+        var msg = __reprogQ('corr_unifie_msg');
         var base = st.uniqueTransit;
         if (!base && sel && sel.value !== '' && st.chemins) {
             base = st.chemins[parseInt(sel.value, 10)];
         }
         if (!base) return;
-        var alts = __reprogAltTransitsPlusSeg(base);
-        if (!alts.length) {
+
+        function applyMerged(alts) {
+            if (!alts || !alts.length) {
+                if (msg) {
+                    msg.textContent = 'Aucun autre itinéraire avec plus de segments pour ce départ '
+                        + '(même heure gare de report → destination).';
+                }
+                __reprogRefreshPlusItinBtn();
+                return;
+            }
+            var merged = [base].concat(alts);
+            st.itinerairesExpanded = true;
+            st.uniqueTransit = base;
+            __reprogFillItineraireSelect(
+                merged,
+                'Itinéraires élargis — même départ gare de report, plus de segments disponibles'
+            );
+            if (sel) {
+                sel.selectedIndex = 1;
+                __reprogFireChange(sel);
+            }
             __reprogSetPlusItinVisible(false);
+        }
+
+        var alts = __reprogAltTransitsPlusSeg(base);
+        if (alts.length) {
+            applyMerged(alts);
             return;
         }
-        var merged = [base].concat(alts);
-        st.itinerairesExpanded = true;
-        st.uniqueTransit = base;
-        __reprogFillItineraireSelect(
-            merged,
-            'Itinéraires élargis — même départ gare de report, plus de segments disponibles'
-        );
-        if (sel) {
-            sel.selectedIndex = 1;
-            __reprogFireChange(sel);
-        }
-        __reprogSetPlusItinVisible(false);
+
+        // Pas d’alt en mémoire : recharger les chemins (sans filtre heure trop strict)
+        // puis refiltrer sur le même créneau / + de segments.
+        if (msg) msg.textContent = 'Recherche d’itinéraires à plus de segments…';
+        var dateEl = __reprogQ('datereprog_unifie');
+        var dateYmd = dateEl ? dateEl.value : '';
+        var hh = __reprogFirstLegHour(base);
+        __reprogFetchChemins(dateYmd, '', function (chemins) {
+            var prev = __reprogRowsArray(st.transitChemins);
+            var mergedPool = prev.slice();
+            __reprogRowsArray(chemins).forEach(function (c) {
+                var sig = __reprogCheminSig(c);
+                var exists = mergedPool.some(function (p) {
+                    return __reprogCheminSig(p) === sig;
+                });
+                if (!exists) mergedPool.push(c);
+            });
+            st.transitChemins = mergedPool;
+            applyMerged(__reprogAltTransitsPlusSeg(base));
+        }, true);
+        // hh volontairement non passé à Fetch pour élargir ; Alt filtre sur l’heure du base.
+        void hh;
     }
 
     /**
@@ -10693,6 +10768,9 @@ document.addEventListener('DOMContentLoaded', () => {
         if (nOpts === 1) {
             sel.selectedIndex = 1;
             __reprogFireChange(sel);
+        }
+        if (!window.__reprogState.itinerairesExpanded) {
+            __reprogRefreshPlusItinBtn();
         }
     }
 
