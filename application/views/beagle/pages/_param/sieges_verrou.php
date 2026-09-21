@@ -166,8 +166,8 @@ $saved_lh = isset($saved_lh) ? (int) $saved_lh : 0;
         <div class="col-12 mb-2">
             <h4 class="mb-1">Sièges verrouillés (admin)</h4>
             <p class="text-muted mb-0">
-                Filtrez par <strong>compagnie</strong>, cherchez une ligne / heure, puis cliquez pour ouvrir le plan
-                et verrouiller des sièges. Les lignes désactivées n’apparaissent pas.
+                Filtrez par <strong>compagnie d’arrivée</strong>, cherchez une ligne / heure, puis cliquez
+                pour ouvrir le plan et verrouiller des sièges. Les lignes désactivées n’apparaissent pas.
             </p>
         </div>
     </div>
@@ -185,7 +185,7 @@ $saved_lh = isset($saved_lh) ? (int) $saved_lh : 0;
     <?php endif; ?>
 
     <div class="sv-filters">
-        <div class="mb-1"><strong>Compagnies</strong></div>
+                    <div class="mb-1"><strong>Compagnies d’arrivée</strong></div>
         <?php if (empty($compagnies)): ?>
             <p class="text-muted mb-2">Aucune compagnie / ligne active.</p>
         <?php else: ?>

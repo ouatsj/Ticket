@@ -61,10 +61,14 @@ class Param_sieges_verrou extends MY_Controller
         $lignes_verrouillees = array();
 
         foreach ($heures as $h) {
-            $cie_nom = !empty($h->nom_compagnie_depart)
-                ? (string) $h->nom_compagnie_depart
-                : 'Compagnie';
-            $cie_key = $cie_nom;
+            // Filtre = compagnie d’arrivée (comme ventes / programmes) :
+            // la compagnie de départ est souvent unique (ex. CBT).
+            $cie_nom = !empty($h->nom_compagnie_arrivee)
+                ? (string) $h->nom_compagnie_arrivee
+                : (!empty($h->nom_compagnie_depart) ? (string) $h->nom_compagnie_depart : 'Compagnie');
+            $cie_key = !empty($h->cle_compagnie_arrivee)
+                ? (string) $h->cle_compagnie_arrivee
+                : $cie_nom;
             if (!isset($compagnies[$cie_key])) {
                 $compagnies[$cie_key] = array(
                     'key' => $cie_key,
@@ -77,12 +81,12 @@ class Param_sieges_verrou extends MY_Controller
             $sieges = isset($map[$lh]) ? $map[$lh] : array();
             $nom_ligne = !empty($h->nom_ligne) ? (string) $h->nom_ligne : (string) $h->ligne_id;
             $heure = !empty($h->heure) ? (string) $h->heure : '';
-            $arrivee = !empty($h->nom_compagnie_arrivee) ? (string) $h->nom_compagnie_arrivee : '';
+            $depart_cie = !empty($h->nom_compagnie_depart) ? (string) $h->nom_compagnie_depart : '';
             $search = strtolower(trim(implode(' ', array(
                 $cie_nom,
+                $depart_cie,
                 $nom_ligne,
                 $heure,
-                $arrivee,
                 (string) $lh,
                 !empty($h->ligne_id) ? (string) $h->ligne_id : '',
             ))));
@@ -93,7 +97,7 @@ class Param_sieges_verrou extends MY_Controller
                 'cie_label' => $cie_nom,
                 'nom_ligne' => $nom_ligne,
                 'heure' => $heure,
-                'arrivee' => $arrivee,
+                'arrivee' => $cie_nom,
                 'nb_verrou' => $nb,
                 'sieges' => $sieges,
                 'search' => $search,
