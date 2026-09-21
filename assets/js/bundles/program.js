@@ -1094,6 +1094,35 @@ document.addEventListener('DOMContentLoaded', () => {
         return true;
     }
 
+    /** Contiguïté en ignorant les trous verrouillés admin. */
+    function isContiguousAllowingVerrou(nums, verrouMap) {
+        if (!nums.length) {
+            return false;
+        }
+        var min = nums[0];
+        var max = nums[nums.length - 1];
+        var set = {};
+        nums.forEach(function (n) { set[n] = true; });
+        for (var i = min; i <= max; i++) {
+            if (!set[i] && !(verrouMap && verrouMap[String(i)])) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    function idLigneHeureFromForm(form) {
+        if (!form) {
+            return 0;
+        }
+        var sel = form.querySelector('select[name="heureprog"], select[name="itineraireheure"], #itineraireheure-new, #itineraireheure-empty');
+        if (!sel || !sel.value) {
+            return 0;
+        }
+        var p = String(sel.value).split('.');
+        return parseInt(p[0], 10) || 0;
+    }
+
     function fetchJson(url) {
         return fetch(url, {
             credentials: 'same-origin',
@@ -1146,16 +1175,24 @@ document.addEventListener('DOMContentLoaded', () => {
             nbrPlace: 0,
             sold: {},
             blocked: {},
+            verrou: {},
             tampon: {},
             reco: {},
             recoMode: false,
             rangeDebut: 0,
             rangeFin: 0,
             editMode: isEditBlock,
+            isAdmin: block.getAttribute('data-is-admin') === '1',
             reverting: false
         };
         if (!state.tampon) {
             state.tampon = {};
+        }
+        if (!state.verrou) {
+            state.verrou = {};
+        }
+        if (typeof state.isAdmin === 'undefined') {
+            state.isAdmin = block.getAttribute('data-is-admin') === '1';
         }
         block._quotaState = state;
         if (isEditBlock) {
@@ -1353,7 +1390,7 @@ document.addEventListener('DOMContentLoaded', () => {
             return true;
         }
 
-        function renderGrid(from, to, checkedFrom, checkedTo, sold, recoList, blockedList, tamponList) {
+        function renderGrid(from, to, checkedFrom, checkedTo, sold, recoList, blockedList, tamponList, verrouList) {
             if (!grid) {
                 return;
             }
@@ -1376,6 +1413,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 var num = parseInt(n, 10);
                 if (!isNaN(num) && num > 0 && !state.sold[String(num)]) {
                     state.tampon[String(num)] = true;
+                }
+            });
+            state.verrou = {};
+            (verrouList || []).forEach(function (n) {
+                var num = parseInt(n, 10);
+                if (!isNaN(num) && num > 0) {
+                    state.verrou[String(num)] = true;
+                    state.blocked[String(num)] = true;
                 }
             });
             state.reco = {};
@@ -1406,9 +1451,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (state.blocked[String(n)] && !isSold && !isTampon) {
                     checked = false;
                 }
-                var disabled = state.recoMode && !isReco;
+                if (state.verrou[String(n)] && !isSold && !isTampon) {
+                    checked = false;
+                    state.blocked[String(n)] = true;
+                }
+                var disabled = (state.recoMode && !isReco)
+                    || (!!state.verrou[String(n)] && !state.isAdmin && !isSold && !isTampon);
+                var isVerrou = !checked && !isSold && !isTampon && !!state.verrou[String(n)];
                 var isBlocked = !checked && !isSold && !isTampon && !disabled
-                    && !!state.blocked[String(n)];
+                    && !!state.blocked[String(n)] && !isVerrou;
                 var wrapStyle;
                 var labelExtra = '';
                 if (isSold) {
@@ -1417,6 +1468,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 } else if (isTampon) {
                     wrapStyle = 'background:#ffe5d0;border:1px solid #fd7e14;border-radius:4px;padding:4px 6px;display:block;';
                     labelExtra = ' <span style="color:#9a3412;font-size:11px;font-weight:600;">TAMPON</span>';
+                } else if (isVerrou) {
+                    wrapStyle = 'background:#f8d7da;border:1px solid #dc3545;border-radius:4px;padding:4px 6px;display:block;';
+                    labelExtra = ' <span style="color:#721c24;font-size:11px;font-weight:700;">VERROUILLÉ</span>';
                 } else if (isBlocked) {
                     wrapStyle = 'background:#e2e3e5;border:1px solid #6c757d;border-radius:4px;padding:4px 6px;display:block;opacity:0.75;';
                     labelExtra = ' <span style="color:#495057;font-size:11px;font-weight:600;">BLOQUÉ</span>';
@@ -1456,7 +1510,7 @@ document.addEventListener('DOMContentLoaded', () => {
             syncHidden();
         }
 
-        function renderAll(nbrPlace, rangeDebut, rangeFin, sold, recoList, blockedList, tamponList) {
+        function renderAll(nbrPlace, rangeDebut, rangeFin, sold, recoList, blockedList, tamponList, verrouList) {
             state.nbrPlace = nbrPlace;
             var d = rangeDebut > 0 ? rangeDebut : 1;
             var f = rangeFin > 0 ? rangeFin : nbrPlace;
@@ -1468,7 +1522,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             state.rangeDebut = d;
             state.rangeFin = f;
-            renderGrid(1, nbrPlace, d, f, sold, recoList || null, blockedList || null, tamponList || null);
+            renderGrid(1, nbrPlace, d, f, sold, recoList || null, blockedList || null, tamponList || null, verrouList || null);
         }
 
         function onToggle(ev) {
@@ -1559,7 +1613,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
-            if (!isContiguous(nums)) {
+            if (!isContiguous(nums) && !isContiguousAllowingVerrou(nums, state.verrou)) {
                 state.reverting = true;
                 cb.checked = !cb.checked;
                 state.reverting = false;
@@ -1584,8 +1638,18 @@ document.addEventListener('DOMContentLoaded', () => {
             grid.innerHTML = '<div class="col-12"><small class="text-muted">Chargement du plan…</small></div>';
             setSummary('Chargement…');
             var url = siteBase() + '/categories/getnbrplace/' + encodeURIComponent(categ);
-            return fetchJson(url)
-                .then(function (res) {
+            var ekey = block.getAttribute('data-ekey') || '';
+            var lh = idLigneHeureFromForm(form);
+            var verrouPromise = Promise.resolve({ ok: true, sieges: [] });
+            if (ekey && lh > 0) {
+                verrouPromise = fetchJson(
+                    siteBase() + '/param_sieges_verrou/' + encodeURIComponent(ekey) + '/ajax/' + lh
+                ).catch(function () { return { ok: false, sieges: [] }; });
+            }
+            return Promise.all([fetchJson(url), verrouPromise])
+                .then(function (pair) {
+                    var res = pair[0];
+                    var verrouData = pair[1];
                     var n = res && res.nbr_place ? parseInt(res.nbr_place, 10) : 0;
                     if (n <= 0) {
                         grid.innerHTML = '<div class="col-12"><small class="text-muted">Catégorie sans plan de sièges.</small></div>';
@@ -1595,7 +1659,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                     var d = parseInt(inter1, 10) || 1;
                     var f = parseInt(inter2, 10) || n;
-                    renderAll(n, d, f, sold || [], null);
+                    var verrouList = (verrouData && verrouData.ok && Array.isArray(verrouData.sieges))
+                        ? verrouData.sieges
+                        : [];
+                    renderAll(n, d, f, sold || [], null, verrouList, null, verrouList);
                 })
                 .catch(function () {
                     grid.innerHTML = '<div class="col-12"><small class="text-danger">Impossible de charger le plan de sièges.</small></div>';
@@ -1636,6 +1703,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     var recoList = null;
                     // Toujours passer la liste (même vide) pour distinguer « aucun bloqué » d’un échec.
                     var blockedList = Array.isArray(data.sieges_bloques) ? data.sieges_bloques : [];
+                    var verrouList = Array.isArray(data.sieges_verrouilles) ? data.sieges_verrouilles : [];
+                    if (typeof data.is_admin !== 'undefined') {
+                        state.isAdmin = !!data.is_admin;
+                    }
                     var tamponList = null;
                     if (data.is_reconduction_cible && Array.isArray(data.sieges_reconduits) && data.sieges_reconduits.length) {
                         recoList = data.sieges_reconduits;
@@ -1650,7 +1721,8 @@ document.addEventListener('DOMContentLoaded', () => {
                         sold,
                         recoList,
                         blockedList,
-                        tamponList
+                        tamponList,
+                        verrouList
                     );
                     var categSel = findCategSelect(block);
                     if (categSel && data.categori && !categSel.value) {
@@ -1707,12 +1779,22 @@ document.addEventListener('DOMContentLoaded', () => {
                         setSummary('Sélectionnez au moins un siège.');
                         return false;
                     }
-                    if (!state.editMode && !state.recoMode && !isContiguous(nums)) {
+                    if (!state.editMode && !state.recoMode && !isContiguousAllowingVerrou(nums, state.verrou)) {
                         ev.preventDefault();
-                        setSummary('Sélectionnez une plage de sièges contiguë.');
+                        setSummary('Sélectionnez une plage de sièges contiguë (hors verrous admin).');
                         return false;
                     }
                     syncHidden();
+                });
+                // Recharger les verrous si l’heure de départ change.
+                var heureSels = form.querySelectorAll('select[name="heureprog"], select[name="itineraireheure"]');
+                heureSels.forEach(function (hs) {
+                    hs.addEventListener('change', function () {
+                        var categSel = findCategSelect(block);
+                        if (categSel && categSel.value && block._quotaLoadCategory) {
+                            block._quotaLoadCategory(categSel.value, state.rangeDebut, state.rangeFin, Object.keys(state.sold).map(Number));
+                        }
+                    });
                 });
             }
         }

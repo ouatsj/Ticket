@@ -100,6 +100,12 @@
             $route['param_restrictions/(:num)'] = 'Param_restrictions/index/$1';
             $route['param_restrictions/(:num)/save'] = 'Param_restrictions/save/$1';
 
+            /** Paramètres admin — sièges verrouillés par ligne/heure */
+            $route['param_sieges_verrou/(:num)'] = 'Param_sieges_verrou/index/$1';
+            $route['param_sieges_verrou/(:num)/save'] = 'Param_sieges_verrou/save/$1';
+            $route['param_sieges_verrou/(:num)/ajax/(:num)'] = 'Param_sieges_verrou/ajax_verrous/$1/$2';
+            $route['param_sieges_verrou/(:num)/ajax'] = 'Param_sieges_verrou/ajax_verrous/$1';
+
             /** Rapport autres ventes (0 F / hors tarif) */
             $route['rapport_autre_vente/(:num)'] = 'Rapport_autre_vente/index/$1';
             $route['rapport_autre_vente/(:num)/export'] = 'Rapport_autre_vente/export/$1';

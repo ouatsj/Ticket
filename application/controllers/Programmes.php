@@ -1024,6 +1024,12 @@
                 $sieges_bloques = $quota['sieges_bloques'];
             }
 
+            // Verrous admin (Paramètres → ligne/heure) : toujours fusionnés à la création.
+            if (!isset($this->m_siege_verrou)) {
+                $this->load->model('Ligne_heure_siege_verrou_model', 'm_siege_verrou');
+            }
+            $sieges_bloques = $this->m_siege_verrou->merge_into_bloques((int) $sub_gdp, $sieges_bloques);
+
             if ($sub_gdp === '' || $tp === '' || $tp === null || $cts === '' || $cts === null || $dts === '') {
                 $this->session->set_flashdata(
                     'prog_create_error',
@@ -1206,6 +1212,18 @@
             }
             if (isset($quota['sieges_bloques']) && is_array($quota['sieges_bloques'])) {
                 $sieges_bloques = $quota['sieges_bloques'];
+            }
+
+            // Non-admin : ne peut pas déverrouiller les sièges admin (Paramètres).
+            // Admin : peut retirer un verrou sur ce programme uniquement.
+            if (!isset($this->m_siege_verrou)) {
+                $this->load->model('Ligne_heure_siege_verrou_model', 'm_siege_verrou');
+            }
+            $role_edit = isset($this->session->agent->userole)
+                ? (string) $this->session->agent->userole
+                : '';
+            if ($role_edit !== '1') {
+                $sieges_bloques = $this->m_siege_verrou->merge_into_bloques((int) $sub_heure, $sieges_bloques);
             }
 
             if (!empty($sieges_liberer)) {
@@ -1454,6 +1472,11 @@
             if (isset($quota['sieges_bloques']) && is_array($quota['sieges_bloques'])) {
                 $sieges_bloques = $quota['sieges_bloques'];
             }
+
+            if (!isset($this->m_siege_verrou)) {
+                $this->load->model('Ligne_heure_siege_verrou_model', 'm_siege_verrou');
+            }
+            $sieges_bloques = $this->m_siege_verrou->merge_into_bloques((int) $sub_gdp, $sieges_bloques);
 
             if ($sub_gdp === '' || $taf === '' || $taf === null || $cat === '' || $cat === null || $dtp < $today) {
                 $this->session->set_flashdata(
@@ -1861,7 +1884,7 @@
             $eid = $this->db->escape_str($this->company->id_entreprise);
             $codeEsc = $this->db->escape_str($code);
             $pr = $this->db->query(
-                "SELECT pr.code_progr, pr.categori, pr.intervalle1, pr.intervalle2
+                "SELECT pr.code_progr, pr.categori, pr.intervalle1, pr.intervalle2, pr.id_heur
                  FROM programme pr
                  JOIN gare_exp ex ON pr.gareidentif = ex.code_gaexp
                  JOIN compagnies c ON ex.id_compagd = c.cle_compagnie
@@ -1910,6 +1933,33 @@
             $sieges_bloques = $this->m_programme->sieges_bloques_programme($code, $i1, $i2);
             $sieges_occupes = $this->m_programme->sieges_occupes_programme($code);
 
+            if (!isset($this->m_siege_verrou)) {
+                $this->load->model('Ligne_heure_siege_verrou_model', 'm_siege_verrou');
+            }
+            $sieges_verrouilles = array();
+            if (!empty($pr->id_heur)) {
+                $sieges_verrouilles = $this->m_siege_verrou->sieges_for_ligneheure((int) $pr->id_heur);
+                // Afficher aussi les verrous admin encore présents dans les bloqués programme
+                // même si hors template (cas rare) — on garde la liste template.
+                $role = isset($this->session->agent->userole)
+                    ? (string) $this->session->agent->userole
+                    : '';
+                // Non-admin : forcer présence des verrous dans la liste bloquée affichée.
+                if ($role !== '1' && !empty($sieges_verrouilles)) {
+                    $setB = array();
+                    foreach ($sieges_bloques as $n) {
+                        $setB[(int) $n] = (int) $n;
+                    }
+                    foreach ($sieges_verrouilles as $n) {
+                        if ($n >= $i1 && $n <= $i2) {
+                            $setB[$n] = $n;
+                        }
+                    }
+                    $sieges_bloques = array_values($setB);
+                    sort($sieges_bloques);
+                }
+            }
+
             return $this->load->view('beagle/pages/_programme/json', array(
                 'json' => array(
                     'ok' => true,
@@ -1920,12 +1970,16 @@
                     'nbr_place' => $nbr,
                     'sieges_occupes' => $sieges_occupes,
                     'sieges_bloques' => $sieges_bloques,
+                    'sieges_verrouilles' => $sieges_verrouilles,
                     'sieges_tampon' => $sieges_tampon,
                     'nb_sieges_bloques' => count($sieges_bloques),
+                    'nb_sieges_verrouilles' => count($sieges_verrouilles),
                     'nb_sieges_tampon' => count($sieges_tampon),
                     'is_reconduction_cible' => $is_reconduction_cible,
                     'sieges_reconduits' => $sieges_reconduits,
                     'nb_sieges_reconduits' => count($sieges_reconduits),
+                    'is_admin' => (isset($this->session->agent->userole)
+                        && (string) $this->session->agent->userole === '1'),
                 ),
             ));
         }

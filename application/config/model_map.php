@@ -38,6 +38,7 @@ return array(
     'm_tarifs' => 'Tarifs_model',
     'm_tarifications' => 'Tarifications_model',
     'm_ligne_heure' => 'Ligne_heure_model',
+    'm_siege_verrou' => 'Ligne_heure_siege_verrou_model',
     'm_tamponcode' => 'Tamponcode_model',
     'm_categories_siege' => 'Categories_siege_model',
     'm_caisse' => 'Caisse_model',

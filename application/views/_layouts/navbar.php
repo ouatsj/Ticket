@@ -149,6 +149,11 @@
                                     Restrictions comptes (inactivité)
                             </a>
                             <a class="dropdown-item"
+                                href="<?= site_url("param_sieges_verrou/{$this->session->company->ekey}"); ?>">
+                                <i class="fas fa-lock text-danger"></i>
+                                    Sièges verrouillés (ligne / heure)
+                            </a>
+                            <a class="dropdown-item"
                                 href="<?= site_url("rapport_autre_vente/{$this->session->company->ekey}"); ?>">
                                 <i class="fas fa-ticket-alt text-danger"></i>
                                     Autres ventes (0 F / hors tarif)

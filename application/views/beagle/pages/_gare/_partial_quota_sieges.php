@@ -4,11 +4,14 @@ $categ_select_id = isset($categ_select_id) ? (string) $categ_select_id : '';
 $col_class = isset($col_class) ? (string) $col_class : 'col-sm-12';
 $quota_mode = isset($quota_mode) ? (string) $quota_mode : 'create';
 $quota_hint = ($quota_mode === 'edit')
-    ? 'Jaune = VENDU, orange = TAMPON (vente en cours), gris = BLOQUÉ (hors vente). Reconduction : bleu = reconduit, gris clair = hors.'
-    : 'Plage contiguë uniquement.';
+    ? 'Jaune = VENDU, orange = TAMPON, rouge = VERROUILLÉ (admin), gris = BLOQUÉ. Seul l’admin déverrouille.'
+    : 'Plage contiguë ; rouge = VERROUILLÉ admin (hors vente).';
+$is_admin_siege = isset($this->session->agent->userole) && (string) $this->session->agent->userole === '1';
 ?>
 <div class="form-group <?= htmlspecialchars($col_class, ENT_QUOTES, 'UTF-8'); ?> js-quota-sieges-block"
      data-quota-mode="<?= htmlspecialchars($quota_mode, ENT_QUOTES, 'UTF-8'); ?>"
+     data-is-admin="<?= $is_admin_siege ? '1' : '0'; ?>"
+     data-ekey="<?= htmlspecialchars($this->session->company->ekey, ENT_QUOTES, 'UTF-8'); ?>"
      <?php if ($categ_select_id !== ''): ?>data-categ-select="<?= htmlspecialchars($categ_select_id, ENT_QUOTES, 'UTF-8'); ?>"<?php endif; ?>>
     <label>SIÈGES DU DÉPART</label>
     <div class="mb-2">
