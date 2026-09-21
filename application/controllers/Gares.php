@@ -707,55 +707,6 @@
             return $row;
         }
 
-        /**
-         * Clone les sous-gares d'une autre affectation commerciale du même lieu physique.
-         *
-         * @param string $garesid
-         * @param string $new_code_gaexp
-         * @return int nombre cloné
-         */
-        protected function _clone_sousgares_physique($garesid, $new_code_gaexp)
-        {
-            $garesid = trim((string) $garesid);
-            $new_code_gaexp = trim((string) $new_code_gaexp);
-            if ($garesid === '' || $new_code_gaexp === '') {
-                return 0;
-            }
-            $src = $this->db->query(
-                "SELECT ge.code_gaexp
-                 FROM gare_exp ge
-                 JOIN compagnies c ON ge.id_compagd = c.cle_compagnie
-                 JOIN sousgare s ON s.gareprinceid = ge.code_gaexp
-                 WHERE c.id_entrep = ?
-                   AND ge.garesid = ?
-                   AND ge.code_gaexp <> ?
-                 GROUP BY ge.code_gaexp
-                 ORDER BY COUNT(s.idsousgare) DESC, ge.code_gaexp ASC
-                 LIMIT 1",
-                array((int) $this->company->id_entreprise, $garesid, $new_code_gaexp)
-            )->row();
-            if (!$src) {
-                return 0;
-            }
-            $rows = $this->db->query(
-                "SELECT nomsousgare, contactsousgare, codsousgare
-                 FROM sousgare
-                 WHERE gareprinceid = ?",
-                array($src->code_gaexp)
-            )->result();
-            $n = 0;
-            foreach ($rows as $r) {
-                $this->m_sousgare->create(array(
-                    'gareprinceid' => $new_code_gaexp,
-                    'nomsousgare' => $r->nomsousgare,
-                    'contactsousgare' => $r->contactsousgare,
-                    'codsousgare' => $r->codsousgare,
-                ));
-                $n++;
-            }
-            return $n;
-        }
-
         //insertion
         public function add($ckey)
         {
@@ -975,7 +926,6 @@
             $nom = trim((string) $this->input->post('_nomgare'));
             $ville = (int) $this->input->post('_villegare');
             $contact = trim((string) $this->input->post('_contact'));
-            $clone_sg = (string) $this->input->post('clone_sousgares') === '1';
             $idengare = '';
 
             if ($mode === 'affecter') {
@@ -1041,17 +991,9 @@
                 'contactgdepart' => $contact,
             ));
 
-            $cloned = 0;
-            if ($mode === 'affecter' && $clone_sg) {
-                $cloned = $this->_clone_sousgares_physique($idengare, $code);
-            }
-
             $msg = ($mode === 'affecter')
-                ? 'Gare de départ affectée : ' . $code . ' → lieu ' . $idengare . '.'
+                ? 'Gare de départ affectée : ' . $code . ' → lieu ' . $idengare . ' (sous-gares du lieu partagées).'
                 : 'Gare physique + départ créés : ' . $code . '.';
-            if ($cloned > 0) {
-                $msg .= ' ' . $cloned . ' sous-gare(s) clonée(s).';
-            }
             $this->session->set_flashdata('success', $msg);
             $this->property['INSERT_SUCCESS'] = TRUE;
             redirect($target);

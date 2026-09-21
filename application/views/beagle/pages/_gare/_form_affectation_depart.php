@@ -53,13 +53,10 @@ $modal_suffix = !empty($modal_suffix) ? (string) $modal_suffix : 'main';
 </div>
 
 <div class="form-group js-mode-affecter">
-    <div class="custom-control custom-checkbox">
-        <input type="checkbox" class="custom-control-input" name="clone_sousgares" value="1"
-               id="clone-sg-<?= htmlspecialchars($modal_suffix, ENT_QUOTES, 'UTF-8'); ?>">
-        <label class="custom-control-label" for="clone-sg-<?= htmlspecialchars($modal_suffix, ENT_QUOTES, 'UTF-8'); ?>">
-            Cloner les sous-gares d’une autre compagnie déjà sur ce lieu
-        </label>
-    </div>
+    <p class="text-muted small mb-0">
+        Les sous-gares du lieu physique sont <strong>partagées</strong> (pas de doublon).
+        Elles restent celles déjà définies sur ce lieu.
+    </p>
 </div>
 
 <div class="form-group">

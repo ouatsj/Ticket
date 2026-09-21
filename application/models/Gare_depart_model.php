@@ -184,7 +184,9 @@
                     "SELECT * FROM gare_exp gd
                     JOIN gares g ON gd.garesid = g.idengare
                     JOIN ville v ON gd.id_villegd = v.id_ville
-                    JOIN sousgare s ON s.gareprinceid = gd.code_gaexp
+                    JOIN sousgare s ON s.gareprinceid IN (
+                        SELECT ge_sg.code_gaexp FROM gare_exp ge_sg WHERE ge_sg.garesid = gd.garesid
+                    )
                     JOIN compagnies c ON gd.id_compagd = c.cle_compagnie
                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
                     WHERE e.id_entreprise = '$cid'")->result();
@@ -193,7 +195,9 @@
                     "SELECT * FROM gare_exp gd
                     JOIN gares g ON gd.garesid = g.idengare
                     JOIN ville v ON gd.id_villegd = v.id_ville
-                    JOIN sousgare s ON s.gareprinceid = gd.code_gaexp
+                    JOIN sousgare s ON s.gareprinceid IN (
+                        SELECT ge_sg.code_gaexp FROM gare_exp ge_sg WHERE ge_sg.garesid = gd.garesid
+                    )
                     JOIN compagnies c ON gd.id_compagd = c.cle_compagnie
                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
                     WHERE e.id_entreprise = '$cid'
@@ -208,7 +212,9 @@
                     "SELECT * FROM gare_exp gd
                     JOIN gares g ON gd.garesid = g.idengare
                     JOIN ville v ON gd.id_villegd = v.id_ville
-                    JOIN sousgare s ON s.gareprinceid = gd.code_gaexp
+                    JOIN sousgare s ON s.gareprinceid IN (
+                        SELECT ge_sg.code_gaexp FROM gare_exp ge_sg WHERE ge_sg.garesid = gd.garesid
+                    )
                     JOIN compagnies c ON gd.id_compagd = c.cle_compagnie
                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
                     WHERE e.id_entreprise = '$cid'
@@ -244,7 +250,9 @@
                 "SELECT * FROM gare_exp gd
                 JOIN gares g ON gd.garesid = g.idengare
                 JOIN ville v ON gd.id_villegd = v.id_ville
-                JOIN sousgare s ON s.gareprinceid = gd.code_gaexp
+                JOIN sousgare s ON s.gareprinceid IN (
+                    SELECT ge_sg.code_gaexp FROM gare_exp ge_sg WHERE ge_sg.garesid = gd.garesid
+                )
                 JOIN compagnies c ON gd.id_compagd = c.cle_compagnie
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.id_entreprise = '$cid'")->result();
@@ -269,7 +277,9 @@
                 FROM gare_exp gd
                 JOIN gares g ON gd.garesid = g.idengare
                 JOIN ville v ON gd.id_villegd = v.id_ville
-                JOIN sousgare s ON s.gareprinceid = gd.code_gaexp
+                JOIN sousgare s ON s.gareprinceid IN (
+                    SELECT ge_sg.code_gaexp FROM gare_exp ge_sg WHERE ge_sg.garesid = gd.garesid
+                )
                 JOIN positionlignegare pg ON pg.idsousgar = s.idsousgare
                 JOIN lignes lg ON pg.idligne = lg.ident_ligne
                 JOIN intervalletemp i ON pg.idposit = i.idinter
@@ -309,7 +319,9 @@
                 return $this->db->query(
                     "SELECT * FROM gare_exp gd
                     JOIN gares g ON gd.garesid = g.idengare
-                    JOIN sousgare s ON s.gareprinceid = gd.code_gaexp
+                    JOIN sousgare s ON s.gareprinceid IN (
+                        SELECT ge_sg.code_gaexp FROM gare_exp ge_sg WHERE ge_sg.garesid = gd.garesid
+                    )
                     JOIN ville v ON gd.id_villegd = v.id_ville
                     JOIN compagnies c ON gd.id_compagd = c.cle_compagnie
                     JOIN entreprise e ON c.id_entrep = e.id_entreprise

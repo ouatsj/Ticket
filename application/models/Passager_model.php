@@ -3365,13 +3365,23 @@
                         (
                             p.idsousgare_vente = '$sg'
                             AND p.departclient_idgare NOT IN (
-                                SELECT s.idsousgare FROM sousgare s WHERE s.gareprinceid = '$g'
+                                SELECT s.idsousgare FROM sousgare s
+                                JOIN gare_exp ge ON s.gareprinceid = ge.code_gaexp
+                                WHERE ge.garesid = COALESCE(
+                                    (SELECT garesid FROM gare_exp WHERE code_gaexp = '$g' LIMIT 1),
+                                    '$g'
+                                )
                             )
                         )
                         OR (
                             p.idsousgare_vente IS NULL
                             AND p.departclient_idgare NOT IN (
-                                SELECT s.idsousgare FROM sousgare s WHERE s.gareprinceid = '$g'
+                                SELECT s.idsousgare FROM sousgare s
+                                JOIN gare_exp ge ON s.gareprinceid = ge.code_gaexp
+                                WHERE ge.garesid = COALESCE(
+                                    (SELECT garesid FROM gare_exp WHERE code_gaexp = '$g' LIMIT 1),
+                                    '$g'
+                                )
                             )
                         )
                     )
@@ -3414,7 +3424,12 @@
                             p.idsousgare_vente IS NULL
                             AND (
                                 p.departclient_idgare IN (
-                                    SELECT s.idsousgare FROM sousgare s WHERE s.gareprinceid = '$g'
+                                    SELECT s.idsousgare FROM sousgare s
+                                JOIN gare_exp ge ON s.gareprinceid = ge.code_gaexp
+                                WHERE ge.garesid = COALESCE(
+                                    (SELECT garesid FROM gare_exp WHERE code_gaexp = '$g' LIMIT 1),
+                                    '$g'
+                                )
                                 )
                                 OR p.departclient_idgare = '$sg'
                             )
