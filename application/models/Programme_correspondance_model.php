@@ -1676,7 +1676,39 @@ class Programme_correspondance_model extends CI_Model
             array($gd, $date, $idHeur)
         )->row();
         if ($exist) {
-            return array('ok' => false, 'error' => 'depart_hub_existe');
+            $codeExist = trim((string) $exist->code_progr);
+            $refus = $this->_refus_programme_lien($codeExist);
+            if ($refus !== null) {
+                // Déjà dans un autre lien, ou inactif → pas de 2ᵉ création au même créneau.
+                return array(
+                    'ok' => false,
+                    'error' => 'depart_hub_existe',
+                    'code_progr_existant' => $codeExist,
+                    'refus' => $refus,
+                );
+            }
+            // Réutiliser le départ déjà programmé (souvent invisible si autre portée / liste filtrée).
+            $departCode = isset($principal->depart_code) ? (string) $principal->depart_code : '';
+            $typetarif = $this->_typetarif_pour_ligneheure(
+                $idHeur,
+                isset($principal->typetarif) ? $principal->typetarif : null
+            );
+            $this->m_programme->update($codeExist, array(
+                'depart_code' => $departCode,
+                'categori' => $principal->categori,
+                'intervalle1' => (int) $principal->intervalle1,
+                'intervalle2' => (int) $principal->intervalle2,
+                'typetarif' => $typetarif,
+            ));
+            $errCoh = $this->_verifier_programme_cree($codeExist, $gd, $date, $idHeur, $departCode, $attendu);
+            if ($errCoh !== null) {
+                return array(
+                    'ok' => false,
+                    'error' => $errCoh,
+                    'code_progr_existant' => $codeExist,
+                );
+            }
+            return array('ok' => true, 'code_progr' => $codeExist, 'reused' => true);
         }
 
         $today = mdate('%Y-%m-%d', now('UTC'));
@@ -2123,25 +2155,42 @@ class Programme_correspondance_model extends CI_Model
             $attenduSuite
         );
         if (empty($creerSuite['ok'])) {
-            return array('ok' => false, 'error' => isset($creerSuite['error']) ? $creerSuite['error'] : 'echec_creation_suite');
+            $errOut = array(
+                'ok' => false,
+                'error' => isset($creerSuite['error']) ? $creerSuite['error'] : 'echec_creation_suite',
+            );
+            if (!empty($creerSuite['code_progr_existant'])) {
+                $errOut['code_progr_existant'] = $creerSuite['code_progr_existant'];
+            }
+            if (!empty($creerSuite['refus'])) {
+                $errOut['refus'] = $creerSuite['refus'];
+            }
+            return $errOut;
         }
         $codeSuite = $creerSuite['code_progr'];
+        $suiteReused = !empty($creerSuite['reused']);
         $suite = $this->prog_detail($ekey, $codeSuite);
         $errSuite = $this->_assert_suite_pour_lien($principal, $suite, $lhSuite, $dateSuite);
         if ($errSuite !== null) {
-            $this->db->where('code_progr', $codeSuite)->delete('programme');
+            if (!$suiteReused) {
+                $this->db->where('code_progr', $codeSuite)->delete('programme');
+            }
             return array('ok' => false, 'error' => $errSuite);
         }
 
         $pair = $this->resolve_derive_avec_heure($ekey, $principal, $suite);
         if (!$pair || empty($pair['ligne'])) {
-            $this->db->where('code_progr', $codeSuite)->delete('programme');
+            if (!$suiteReused) {
+                $this->db->where('code_progr', $codeSuite)->delete('programme');
+            }
             return array('ok' => false, 'error' => 'ligne_derive_introuvable');
         }
         $ligneDerive = $pair['ligne'];
         $idHeur = isset($pair['id_heur']) ? (int) $pair['id_heur'] : 0;
         if ($idHeur <= 0) {
-            $this->db->where('code_progr', $codeSuite)->delete('programme');
+            if (!$suiteReused) {
+                $this->db->where('code_progr', $codeSuite)->delete('programme');
+            }
             return array('ok' => false, 'error' => 'heure_derive_introuvable');
         }
 
@@ -2177,10 +2226,12 @@ class Programme_correspondance_model extends CI_Model
         }
 
         $codeDerive = null;
+        $deriveReused = false;
         $int1 = (int) $principal->intervalle1;
         $int2 = (int) $principal->intervalle2;
         if ($existDerive) {
             $codeDerive = $existDerive->code_progr;
+            $deriveReused = true;
             $tfDerive = $this->_typetarif_pour_ligneheure(
                 $idHeur,
                 isset($principal->typetarif) ? $principal->typetarif : null
@@ -2215,19 +2266,34 @@ class Programme_correspondance_model extends CI_Model
                 $attenduDerive
             );
             if (empty($creerDerive['ok'])) {
-                $this->db->where('code_progr', $codeSuite)->delete('programme');
-                return array('ok' => false, 'error' => isset($creerDerive['error']) ? $creerDerive['error'] : 'echec_creation_derive');
+                if (!$suiteReused) {
+                    $this->db->where('code_progr', $codeSuite)->delete('programme');
+                }
+                $errOut = array(
+                    'ok' => false,
+                    'error' => isset($creerDerive['error']) ? $creerDerive['error'] : 'echec_creation_derive',
+                );
+                if (!empty($creerDerive['code_progr_existant'])) {
+                    $errOut['code_progr_existant'] = $creerDerive['code_progr_existant'];
+                }
+                if (!empty($creerDerive['refus'])) {
+                    $errOut['refus'] = $creerDerive['refus'];
+                }
+                return $errOut;
             }
             $codeDerive = $creerDerive['code_progr'];
+            $deriveReused = !empty($creerDerive['reused']);
         }
 
         $derive = $this->prog_detail($ekey, $codeDerive);
         $errDerive = $this->_assert_derive_pour_lien($principal, $suite, $derive, $ligneDerive, $idHeur);
         if ($errDerive !== null) {
-            if (!$existDerive && $codeDerive) {
+            if (!$deriveReused && $codeDerive) {
                 $this->db->where('code_progr', $codeDerive)->delete('programme');
             }
-            $this->db->where('code_progr', $codeSuite)->delete('programme');
+            if (!$suiteReused) {
+                $this->db->where('code_progr', $codeSuite)->delete('programme');
+            }
             return array('ok' => false, 'error' => $errDerive);
         }
 
@@ -2272,19 +2338,23 @@ class Programme_correspondance_model extends CI_Model
         if ($this->get_by_any_code($suite->code_progr)
             || ($codeDerive && $this->get_by_any_code($codeDerive))
         ) {
-            if (!$existDerive && $codeDerive) {
+            if (!$deriveReused && $codeDerive) {
                 $this->db->where('code_progr', $codeDerive)->delete('programme');
             }
-            $this->db->where('code_progr', $codeSuite)->delete('programme');
+            if (!$suiteReused) {
+                $this->db->where('code_progr', $codeSuite)->delete('programme');
+            }
             return array('ok' => false, 'error' => 'programme_deja_lie');
         }
         if ((string) $suite->statut_prog !== 'actif'
             || ($derive && (string) $derive->statut_prog !== 'actif')
         ) {
-            if (!$existDerive && $codeDerive) {
+            if (!$deriveReused && $codeDerive) {
                 $this->db->where('code_progr', $codeDerive)->delete('programme');
             }
-            $this->db->where('code_progr', $codeSuite)->delete('programme');
+            if (!$suiteReused) {
+                $this->db->where('code_progr', $codeSuite)->delete('programme');
+            }
             return array('ok' => false, 'error' => 'programme_inactif');
         }
 
@@ -2295,10 +2365,12 @@ class Programme_correspondance_model extends CI_Model
             'ekey' => $ekey,
         ));
         if (!$okLien || (int) $this->db->affected_rows() !== 1) {
-            if (!$existDerive && $codeDerive) {
+            if (!$deriveReused && $codeDerive) {
                 $this->db->where('code_progr', $codeDerive)->delete('programme');
             }
-            $this->db->where('code_progr', $codeSuite)->delete('programme');
+            if (!$suiteReused) {
+                $this->db->where('code_progr', $codeSuite)->delete('programme');
+            }
             return array('ok' => false, 'error' => 'echec_creation_lien');
         }
 

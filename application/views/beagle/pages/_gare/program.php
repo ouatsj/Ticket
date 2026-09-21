@@ -2009,6 +2009,22 @@ window.__PROG_CREATED_CODE = <?= json_encode((string) $__prog_created_code); ?>;
         return map[code] || code || 'Erreur';
     }
 
+    function corrErrorMessage(data) {
+        var base = corrErrorLabel(data && data.error);
+        if (!data) return base;
+        if (data.error === 'depart_hub_existe' && data.code_progr_existant) {
+            var why = data.refus === 'programme_deja_lie'
+                ? ' (déjà lié à une autre correspondance)'
+                : '';
+            return base + ' Code : ' + data.code_progr_existant + why
+                + '. Ouvrez la liste des programmes de la gare de correspondance à cette date/heure (y compris autres sous-gares).';
+        }
+        if (data.code_progr_existant) {
+            return base + ' (code ' + data.code_progr_existant + ')';
+        }
+        return base;
+    }
+
     function formatDateLabel(dateStr, principalDate) {
         if (!dateStr) return '';
         if (dateStr === principalDate) return dateStr + ' (même jour)';
@@ -2468,7 +2484,7 @@ window.__PROG_CREATED_CODE = <?= json_encode((string) $__prog_created_code); ?>;
                 body: body.toString()
             }).then(parseJsonResponse).then(function (data) {
                 if (!data || !data.ok) {
-                    setMsg(corrErrorLabel(data && data.error) || 'Échec du lien', true);
+                    setMsg(corrErrorMessage(data) || 'Échec du lien', true);
                     btn.disabled = false;
                     return;
                 }
