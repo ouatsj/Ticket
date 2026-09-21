@@ -272,8 +272,9 @@ $allow_prix_diff_unifie = true;
                         <option value="">Choisissez un itinéraire</option>
                     </select>
                     <p class="small text-muted mb-0 mt-1" id="corr_unifie_plus_hint" style="display:none">
-                        « + » : autres correspondances avec plus de segments, ancrées sur le même programme
-                        de départ de la gare de report.
+                        « + » : cherche d’autres heures à la 1ʳᵉ gare de correspondance
+                        (pas seulement le direct) vers une 2ᵉ correspondance, puis la destination —
+                        même départ gare de report.
                     </p>
                 </div>
                 <div id="corr_segments_unifie"></div>
