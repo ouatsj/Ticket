@@ -177,6 +177,11 @@ return array(
         'm_entreprises',
         'm_gare_depart',
     ),
+    'Param_sieges_verrou' => array(
+        'm_entreprises',
+        'm_ligne_heure',
+        'm_siege_verrou',
+    ),
     'Audit_quotidien' => array(
         'm_entreprises',
     ),
