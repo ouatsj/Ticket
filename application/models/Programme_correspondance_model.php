@@ -847,7 +847,13 @@ class Programme_correspondance_model extends CI_Model
             }
         }
 
-        $out = !empty($prioritaires) ? $prioritaires : $autres;
+        // Multi-hub (Banfora puis Niangoloko) : ne jamais retomber sur un tronçon
+        // vers un AUTRE hub (ex. BOBO-BANFORA alors que la suite est Niangoloko).
+        if ($nomHub !== '') {
+            $out = $prioritaires;
+        } else {
+            $out = !empty($prioritaires) ? $prioritaires : $autres;
+        }
 
         if ($hub !== '' && $nomHub !== '') {
             foreach ($this->_lignes_hub_depuis_exp(
@@ -865,8 +871,44 @@ class Programme_correspondance_model extends CI_Model
                 if (!$this->_ligne_matche_compagnie($row, $prefComp, $prefNom)) {
                     continue;
                 }
+                // Sécurité : catalogue géo doit aussi arriver au hub de la suite.
+                if (!$this->_ligne_vers_hub_nom($row, $nomHub)) {
+                    continue;
+                }
                 $seen[$id] = true;
                 $out[] = $row;
+            }
+        }
+
+        // Exclure les lignes déjà utilisées comme dérivé d’un autre lien du même principal.
+        $princCode = isset($principal->code_progr) ? trim((string) $principal->code_progr) : '';
+        if ($princCode !== '' && !empty($out)) {
+            $usedDeriveLignes = array();
+            foreach ($this->get_all_by_principal($princCode) as $lienExist) {
+                if (empty($lienExist->code_progr_derive)) {
+                    continue;
+                }
+                $der = $this->db->query(
+                    "SELECT lh.ligne_id FROM programme pr
+                     JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
+                     WHERE pr.code_progr = ?
+                     LIMIT 1",
+                    array($lienExist->code_progr_derive)
+                )->row();
+                if ($der && !empty($der->ligne_id)) {
+                    $usedDeriveLignes[(string) $der->ligne_id] = true;
+                }
+            }
+            if (!empty($usedDeriveLignes)) {
+                $filtered = array();
+                foreach ($out as $row) {
+                    $id = isset($row->ident_ligne) ? (string) $row->ident_ligne : '';
+                    if ($id !== '' && isset($usedDeriveLignes[$id])) {
+                        continue;
+                    }
+                    $filtered[] = $row;
+                }
+                $out = $filtered;
             }
         }
 
@@ -2269,9 +2311,14 @@ class Programme_correspondance_model extends CI_Model
                 if (!$suiteReused) {
                     $this->db->where('code_progr', $codeSuite)->delete('programme');
                 }
+                $rawErr = isset($creerDerive['error']) ? $creerDerive['error'] : 'echec_creation_derive';
+                // Message distinct : le conflit est à la gare PRINCIPALE (tronçon), pas au hub.
+                if ($rawErr === 'depart_hub_existe') {
+                    $rawErr = 'depart_derive_existe';
+                }
                 $errOut = array(
                     'ok' => false,
-                    'error' => isset($creerDerive['error']) ? $creerDerive['error'] : 'echec_creation_derive',
+                    'error' => $rawErr,
                 );
                 if (!empty($creerDerive['code_progr_existant'])) {
                     $errOut['code_progr_existant'] = $creerDerive['code_progr_existant'];

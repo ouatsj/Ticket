@@ -1998,6 +1998,7 @@ window.__PROG_CREATED_CODE = <?= json_encode((string) $__prog_created_code); ?>;
             params_manquants: 'Date et heure de correspondance requises.',
             heure_incompatible: 'Horaire incompatible avec cette liaison.',
             depart_hub_existe: 'Un départ existe déjà à ce créneau à la gare de correspondance.',
+            depart_derive_existe: 'Le tronçon dérivé (gare du principal → hub) existe déjà et est lié à une autre correspondance. Choisissez un autre hub ou vérifiez BOBO→NIANGOLOKO / BOBO→BANFORA.',
             echec_creation_suite: 'Échec création du départ à la gare de correspondance.',
             echec_creation_programme: 'Échec création du programme.',
             aucune_ligne_suite: 'Aucune ligne de correspondance trouvée pour ce départ.',
@@ -2012,12 +2013,14 @@ window.__PROG_CREATED_CODE = <?= json_encode((string) $__prog_created_code); ?>;
     function corrErrorMessage(data) {
         var base = corrErrorLabel(data && data.error);
         if (!data) return base;
-        if (data.error === 'depart_hub_existe' && data.code_progr_existant) {
+        if ((data.error === 'depart_hub_existe' || data.error === 'depart_derive_existe') && data.code_progr_existant) {
             var why = data.refus === 'programme_deja_lie'
                 ? ' (déjà lié à une autre correspondance)'
                 : '';
-            return base + ' Code : ' + data.code_progr_existant + why
-                + '. Ouvrez la liste des programmes de la gare de correspondance à cette date/heure (y compris autres sous-gares).';
+            var hint = data.error === 'depart_derive_existe'
+                ? ' C’est le tronçon à la gare du principal (ex. BOBO-BANFORA), pas le programme Niangoloko.'
+                : ' Ouvrez la liste des programmes de la gare de correspondance à cette date/heure (y compris autres sous-gares).';
+            return base + ' Code : ' + data.code_progr_existant + why + '.' + hint;
         }
         if (data.code_progr_existant) {
             return base + ' (code ' + data.code_progr_existant + ')';
