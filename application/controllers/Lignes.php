@@ -31,6 +31,7 @@
                 $this->property['lignes_par_compagnie_arrivee'] = $this->m_lignes->group_by_compagnie_arrivee($lignes);
                 $this->property['garedeparts'] = $this->m_gare_depart->get($this->company->id_entreprise);
                 $this->property['garearrivees'] = $this->m_gare_arrivee->getad($this->company->id_entreprise);
+                $this->property['compagnies'] = $this->m_compagnies->get_by_entreprise($this->company->id_entreprise);
                 return $this->layout->view('_ligne/view', $this->property);
         }
 
@@ -39,6 +40,7 @@
         {
             $this->company = $this->m_entreprises->get_key($ckey);
 
+            $cleComp = trim((string) $this->input->post('cle_compagnie'));
             $gare_posd = strpos($this->input->post('garedepart'), '.');
             
             $sub_gcod = substr($this->input->post('garedepart'), 0, $gare_posd);
@@ -49,6 +51,29 @@
             $sub_gcoda = substr($this->input->post('garearrivee'), 0, $gare_posa);
 
             $directionar = substr($this->input->post('garearrivee'), $gare_posa + 1, strlen($this->input->post('garearrivee')));
+
+            // Compagnie obligatoire : gare d'arrivée (et départ) doivent lui appartenir.
+            if ($cleComp === '' || $gare_posd === false || $gare_posa === false) {
+                $this->session->set_flashdata('ligne_error', 'Compagnie, gare de départ et gare d’arrivée sont obligatoires.');
+                redirect('lignes/' . $this->session->company->ekey);
+                return;
+            }
+            $gdOk = $this->db->query(
+                "SELECT code_gaexp FROM gare_exp WHERE code_gaexp = ? AND id_compagd = ? LIMIT 1",
+                array($sub_gcod, $cleComp)
+            )->row();
+            $gaOk = $this->db->query(
+                "SELECT code_gadest FROM gare_dest WHERE code_gadest = ? AND id_compaga = ? LIMIT 1",
+                array($sub_gcoda, $cleComp)
+            )->row();
+            if (!$gdOk || !$gaOk) {
+                $this->session->set_flashdata(
+                    'ligne_error',
+                    'Les gares choisies ne correspondent pas à la compagnie sélectionnée.'
+                );
+                redirect('lignes/' . $this->session->company->ekey);
+                return;
+            }
             
             $arrayligne = array(
                 'ident_ligne' => $sub_gcod. '-' .$sub_gcoda,

@@ -1,4 +1,6 @@
-<?php defined('BASEPATH') OR exit('No direct script access allowed'); ?>
+<?php defined('BASEPATH') OR exit('No direct script access allowed');
+$ligne_error = $this->session->flashdata('ligne_error');
+?>
 <div class="row">
     <div class="col-12 d-flex flex-wrap align-items-center mb-2 ml-4 pr-4">
         <button type="button" class="btn btn-space btn-info md-trigger" data-modal="add-ligne">
@@ -7,6 +9,13 @@
         </button>
     </div>
 </div>
+<?php if (!empty($ligne_error)): ?>
+<div class="row">
+    <div class="col-12 ml-4 pr-4 mb-2">
+        <div class="alert alert-danger py-2 mb-0"><?= htmlspecialchars($ligne_error, ENT_QUOTES, 'UTF-8'); ?></div>
+    </div>
+</div>
+<?php endif; ?>
 
 <div class="modal-container colored-header colored-header-success custom-width modal-effect-7"
      id="add-ligne" style="perspective: 1300px;">
@@ -18,22 +27,38 @@
                 <span class="mdi mdi-close text-white"></span>
             </button>
         </div>
-        <?= form_open("Lignes/add/{$this->session->company->ekey}", array('class' => 'modal-body form')); ?>
+        <?= form_open("Lignes/add/{$this->session->company->ekey}", array('class' => 'modal-body form', 'id' => 'form-add-ligne')); ?>
             <div class="row">
+                <div class="form-group col-sm-12">
+                    <label for="add-ligne-compagnie">COMPAGNIE <span class="text-danger">*</span></label>
+                    <select class="form-control form-control-sm" name="cle_compagnie" id="add-ligne-compagnie" required>
+                        <option value="">— Choisir la compagnie —</option>
+                        <?php foreach ((!empty($compagnies) ? $compagnies : array()) as $cie): ?>
+                            <option value="<?= htmlspecialchars($cie->cle_compagnie, ENT_QUOTES, 'UTF-8'); ?>">
+                                <?= htmlspecialchars($cie->nom_compagnie, ENT_QUOTES, 'UTF-8'); ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                    <small class="text-muted">La ligne sera créée pour cette compagnie (gares départ et arrivée filtrées).</small>
+                </div>
                 <div class="form-group col-sm-6">
                     <label>GARE DEPART</label>
-                    <select class="form-control form-control-sm" name="garedepart" required>
-                        <option value=""></option>
-                        <? foreach ($garedeparts as $garedepart): ?>
-                            <option value="<?= $garedepart->code_gaexp. '.' .$garedepart->nom_gaep; ?>">
-                                <?= "{$garedepart->nom_gaep}"; ?></option>
+                    <select class="form-control form-control-sm" name="garedepart" id="add-ligne-garedepart" required disabled>
+                        <option value="">— Choisir la compagnie d’abord —</option>
+                        <? foreach ($garedeparts as $garedepart):
+                            $cieDep = isset($garedepart->id_compagd) ? (string) $garedepart->id_compagd : '';
+                        ?>
+                            <option value="<?= htmlspecialchars($garedepart->code_gaexp . '.' . $garedepart->nom_gaep, ENT_QUOTES, 'UTF-8'); ?>"
+                                    data-compagnie="<?= htmlspecialchars($cieDep, ENT_QUOTES, 'UTF-8'); ?>">
+                                <?= htmlspecialchars($garedepart->nom_gaep, ENT_QUOTES, 'UTF-8'); ?>
+                            </option>
                         <? endforeach; ?>
                     </select>
                 </div>
                 <div class="form-group col-sm-6">
                     <label>GARE ARRIVEE</label>
-                    <select class="form-control form-control-sm" name="garearrivee" required>
-                        <option value=""></option>
+                    <select class="form-control form-control-sm" name="garearrivee" id="add-ligne-garearrivee" required disabled>
+                        <option value="">— Choisir la compagnie d’abord —</option>
                         <?php
                             $this->load->view('beagle/pages/guichet/_options_gare_arrivee', array(
                                 'garearrivees' => !empty($garearrivees) ? $garearrivees : array(),
@@ -64,6 +89,53 @@
         <?= form_close(); ?>
     </div>
 </div>
+
+<script>
+(function () {
+    var cieSel = document.getElementById('add-ligne-compagnie');
+    var depSel = document.getElementById('add-ligne-garedepart');
+    var arrSel = document.getElementById('add-ligne-garearrivee');
+    if (!cieSel || !depSel || !arrSel) return;
+
+    function filterSelect(sel, cie, keepPlaceholder) {
+        var placeholder = keepPlaceholder || '— Choisir —';
+        var first = sel.querySelector('option[value=""]');
+        var opts = Array.prototype.slice.call(sel.querySelectorAll('option'));
+        var groups = Array.prototype.slice.call(sel.querySelectorAll('optgroup'));
+        opts.forEach(function (opt) {
+            if (opt.value === '') return;
+            var oc = opt.getAttribute('data-compagnie') || '';
+            var show = !cie || oc === cie;
+            opt.hidden = !show;
+            opt.disabled = !show;
+            if (!show && opt.selected) opt.selected = false;
+        });
+        groups.forEach(function (og) {
+            var gCie = og.getAttribute('data-compagnie') || '';
+            var show = !cie || gCie === cie;
+            og.hidden = !show;
+            og.disabled = !show;
+        });
+        if (first) {
+            first.textContent = cie ? placeholder : '— Choisir la compagnie d’abord —';
+        }
+        sel.disabled = !cie;
+        if (!cie) sel.value = '';
+    }
+
+    function onCieChange() {
+        var cie = cieSel.value || '';
+        filterSelect(depSel, cie, '— Gare de départ —');
+        filterSelect(arrSel, cie, '— Gare d’arrivée —');
+        depSel.value = '';
+        arrSel.value = '';
+    }
+
+    cieSel.addEventListener('change', onCieChange);
+    // Au chargement / réouverture modale
+    onCieChange();
+})();
+</script>
 
 <div class="row">
     <div class="col-lg-12">

@@ -38,6 +38,25 @@
                 ->row();
         }
 
+        /**
+         * Compagnies d'une entreprise (création de lignes / config).
+         * @return object[]
+         */
+        public function get_by_entreprise($id_entreprise)
+        {
+            $id = (int) $id_entreprise;
+            if ($id <= 0) {
+                return array();
+            }
+            return $this->db->query(
+                "SELECT c.cle_compagnie, c.nom_compagnie, c.id_compagnie, c.id_entrep
+                 FROM compagnies c
+                 WHERE c.id_entrep = ?
+                 ORDER BY c.nom_compagnie ASC",
+                array($id)
+            )->result();
+        }
+
         public function create(array $data)
         {
             $this->db->insert($this->table, $data);
