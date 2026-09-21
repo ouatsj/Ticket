@@ -555,7 +555,7 @@ window.__PROG_CREATED_CODE = <?= json_encode((string) $__prog_created_code); ?>;
 
                                         <a href="#"
                                            class="js-corr-link"
-                                           title="<?= !empty($__corr) ? 'Voir / gérer le lien de correspondance' : 'Lier une correspondance'; ?>"
+                                           title="<?= !empty($__corr) ? (!empty($__corr['nb_liens']) && (int) $__corr['nb_liens'] > 1 ? 'Voir / gérer les correspondances (' . (int) $__corr['nb_liens'] . ')' : 'Voir / gérer le lien de correspondance') : 'Lier une correspondance'; ?>"
                                            data-code="<?= htmlspecialchars($item->code_progr, ENT_QUOTES, 'UTF-8'); ?>"
                                            data-ligne="<?= htmlspecialchars(isset($item->ligne_id) ? $item->ligne_id : (isset($item->ident_ligne) ? $item->ident_ligne : ''), ENT_QUOTES, 'UTF-8'); ?>"
                                            data-nom="<?= htmlspecialchars($item->nom_ligne, ENT_QUOTES, 'UTF-8'); ?>"
@@ -1607,7 +1607,8 @@ window.__PROG_CREATED_CODE = <?= json_encode((string) $__prog_created_code); ?>;
             <p class="mb-2" id="corr-principal-label"></p>
             <div id="corr-linked-box" class="mb-3" style="display:none;"></div>
             <div id="corr-suggest-box">
-                <p class="text-muted small">Choisir la date et l’heure de départ à la gare de correspondance (même jour ou lendemain, min. 30 min après le principal). Le départ sera créé avec le même bus, le même <code>depart_code</code> et les mêmes sièges que le principal. Suite (hub) et tronçon dérivé vendent indépendamment le même n° (relais) ; une vente sur le principal bloque le siège partout.</p>
+                <h6 id="corr-suggest-title" class="mb-1" style="display:none;">Ajouter une correspondance</h6>
+                <p class="text-muted small" id="corr-suggest-help">Choisir la date et l’heure de départ à la gare de correspondance (même jour ou lendemain, min. 30 min après le principal). Plusieurs hubs possibles (ex. Banfora et Niangoloko). Suite (hub) et tronçon dérivé vendent indépendamment le même n° (relais) ; une vente sur le principal bloque le siège partout.</p>
                 <div id="corr-heures-form" style="display:none;">
                     <div class="form-group row">
                         <label class="col-sm-3 col-form-label">Date</label>
@@ -1672,7 +1673,6 @@ window.__PROG_CREATED_CODE = <?= json_encode((string) $__prog_created_code); ?>;
         </div>
         <div class="modal-footer">
             <button class="btn btn-secondary js-corr-close" type="button">Fermer</button>
-            <button class="btn btn-danger js-corr-unlink" type="button" style="display:none;">Supprimer le lien</button>
             <button class="btn btn-primary js-corr-save" type="button" disabled>Lier + créer départs</button>
         </div>
     </div>
@@ -1690,7 +1690,9 @@ window.__PROG_CREATED_CODE = <?= json_encode((string) $__prog_created_code); ?>;
         principalMeta: null,
         suite: null,
         lien: null,
+        liens: [],
         verrouille: false,
+        canAdd: true,
         sousgaresPrincipal: [],
         sousgaresSuite: [],
         porteePrincipale: [],
@@ -1728,7 +1730,9 @@ window.__PROG_CREATED_CODE = <?= json_encode((string) $__prog_created_code); ?>;
             principalMeta: null,
             suite: null,
             lien: null,
+            liens: [],
             verrouille: false,
+            canAdd: true,
             sousgaresPrincipal: [],
             sousgaresSuite: [],
             porteePrincipale: [],
@@ -1738,14 +1742,16 @@ window.__PROG_CREATED_CODE = <?= json_encode((string) $__prog_created_code); ?>;
             hubGare: ''
         };
         var saveBtn = document.querySelector('#modal-correspondance .js-corr-save');
-        var unlinkBtn = document.querySelector('#modal-correspondance .js-corr-unlink');
         if (saveBtn) {
             saveBtn.disabled = true;
             saveBtn.style.display = 'inline-block';
+            saveBtn.textContent = 'Lier + créer départs';
         }
-        if (unlinkBtn) unlinkBtn.style.display = 'none';
         document.getElementById('corr-linked-box').style.display = 'none';
+        document.getElementById('corr-linked-box').innerHTML = '';
         document.getElementById('corr-suggest-box').style.display = 'block';
+        var suggestTitle = document.getElementById('corr-suggest-title');
+        if (suggestTitle) suggestTitle.style.display = 'none';
         document.getElementById('corr-suggest-list').innerHTML = '';
         var heuresFormHide = document.getElementById('corr-heures-form');
         if (heuresFormHide) heuresFormHide.style.display = 'none';
@@ -1985,7 +1991,9 @@ window.__PROG_CREATED_CODE = <?= json_encode((string) $__prog_created_code); ?>;
             dates_differentes: 'La suite doit être le même jour ou le lendemain du principal.',
             marge_horaire: 'La suite doit partir au moins 30 min après le principal.',
             dates_invalides: 'Date de programme invalide.',
-            deja_lie: 'Ce principal a déjà un lien de correspondance.',
+            deja_lie: 'Ce programme est déjà suite ou dérivé d’un autre lien.',
+            lien_doublon: 'Ce créneau est déjà lié à ce départ.',
+            programme_deja_lie: 'Ce départ suite/dérivé est déjà dans un autre lien.',
             programme_introuvable: 'Programme introuvable.',
             params_manquants: 'Date et heure de correspondance requises.',
             heure_incompatible: 'Horaire incompatible avec cette liaison.',
@@ -1995,7 +2003,8 @@ window.__PROG_CREATED_CODE = <?= json_encode((string) $__prog_created_code); ?>;
             aucune_ligne_suite: 'Aucune ligne de correspondance trouvée pour ce départ.',
             ligne_derive_introuvable: 'Aucune ligne hub de la même compagnie (VIP reste VIP, CMT reste CMT).',
             heure_derive_introuvable: 'Aucun horaire VIP/CMT trouvé pour le départ hub (vérifiez les heures de la ligne hub).',
-            echec_creation_derive: 'Échec création du départ dérivé.'
+            echec_creation_derive: 'Échec création du départ dérivé.',
+            lien_avec_ventes: 'Impossible : des ventes existent sur ce lien.'
         };
         return map[code] || code || 'Erreur';
     }
@@ -2118,103 +2127,108 @@ window.__PROG_CREATED_CODE = <?= json_encode((string) $__prog_created_code); ?>;
         }
     }
 
-    function renderLinked(data) {
+    function fmtProgLine(p) {
+        if (!p) return '';
+        return ((p.nom_ligne || '') + ' '
+            + (p.date_progr ? (p.date_progr + ' ') : '')
+            + ((p.heure || '') + '').substr(0, 5)).trim();
+    }
+
+    function renderLiensActifs(data, codeOuvert) {
         var box = document.getElementById('corr-linked-box');
-        var lien = data.lien;
-        var suite = data.suite;
-        var derive = data.derive;
-        var verrouille = !!(data.verrouille);
-        var nbVentes = data.nb_ventes || 0;
-        var html = '<div class="alert alert-info mb-0">';
-        html += '<div><strong>Lien actif</strong></div>';
-        if (suite) {
-            html += '<div>Correspondance : ' + (suite.nom_ligne || '') + ' '
-                + (suite.date_progr ? (suite.date_progr + ' ') : '')
-                + (suite.heure || '') + ' <code>' + lien.code_progr_suite + '</code></div>';
+        var suites = data.suites || [];
+        if ((!suites || !suites.length) && data.lien) {
+            suites = [{
+                id_lien: data.lien.id_lien || 0,
+                code_progr_suite: data.lien.code_progr_suite,
+                code_progr_derive: data.lien.code_progr_derive || null,
+                suite: data.suite || null,
+                derive: data.derive || null,
+                verrouille: !!(data.verrouille),
+                nb_ventes: data.nb_ventes || 0
+            }];
         }
-        if (derive) {
-            html += '<div>Tronçon dérivé (segments indépendants) : ' + (derive.nom_ligne || '') + ' '
-                + (derive.date_progr ? (derive.date_progr + ' ') : '')
-                + (derive.heure || '') + ' <code>' + lien.code_progr_derive + '</code></div>';
-        } else if (lien.code_progr_derive) {
-            html += '<div>Dérivé : <code>' + lien.code_progr_derive + '</code></div>';
+        if (!suites.length) {
+            box.style.display = 'none';
+            box.innerHTML = '';
+            state.liens = [];
+            state.lien = null;
+            state.verrouille = false;
+            return;
         }
-        if (verrouille) {
-            html += '<div class="mt-2 text-danger"><strong>Lien verrouillé</strong> : '
-                + nbVentes + ' vente(s) active(s) — suppression impossible.</div>';
-        }
+
+        var isPrincipal = !data.lien || String(data.lien.code_progr_principal) === String(codeOuvert);
+        var html = '<div class="alert alert-info mb-0 py-2">';
+        html += '<div class="mb-1"><strong>Liens actifs'
+            + (suites.length > 1 ? (' (' + suites.length + ')') : '')
+            + '</strong></div>';
+        suites.forEach(function (row, i) {
+            var suite = row.suite || null;
+            var derive = row.derive || null;
+            var verrouille = !!(row.verrouille);
+            var nbVentes = row.nb_ventes || 0;
+            var idLien = row.id_lien || 0;
+            html += '<div class="d-flex align-items-start justify-content-between'
+                + (i > 0 ? ' border-top pt-2 mt-2' : '') + '">';
+            html += '<div style="flex:1;min-width:0;">';
+            html += '<div>Hub : <strong>' + (fmtProgLine(suite) || '—') + '</strong>';
+            if (row.code_progr_suite) {
+                html += ' <code class="small">' + row.code_progr_suite + '</code>';
+            }
+            html += '</div>';
+            if (derive || row.code_progr_derive) {
+                html += '<div class="small text-muted">Tronçon : '
+                    + (fmtProgLine(derive) || '')
+                    + (row.code_progr_derive ? (' <code>' + row.code_progr_derive + '</code>') : '')
+                    + '</div>';
+            }
+            if (verrouille) {
+                html += '<div class="small text-danger">Verrouillé (' + nbVentes + ' vente(s))</div>';
+            }
+            html += '</div>';
+            if (isPrincipal && idLien && !verrouille) {
+                html += '<button type="button" class="btn btn-sm btn-outline-danger ml-2 js-corr-unlink-lien"'
+                    + ' data-id-lien="' + idLien + '"'
+                    + ' title="Supprimer ce lien">Supprimer</button>';
+            }
+            html += '</div>';
+        });
         html += '</div>';
         box.innerHTML = html;
         box.style.display = 'block';
-        document.getElementById('corr-suggest-box').style.display = 'none';
+
+        state.liens = suites;
+        state.lien = data.lien || null;
+        state.verrouille = !!(data.verrouille);
+        state.principal = (data.lien && data.lien.code_progr_principal)
+            ? data.lien.code_progr_principal
+            : codeOuvert;
+        state.canAdd = isPrincipal;
+
+        var suggestTitle = document.getElementById('corr-suggest-title');
         var saveBtn = document.querySelector('#modal-correspondance .js-corr-save');
-        var unlinkBtn = document.querySelector('#modal-correspondance .js-corr-unlink');
-        if (saveBtn) saveBtn.style.display = 'none';
-        if (unlinkBtn) {
-            if (verrouille) {
-                unlinkBtn.style.display = 'none';
-            } else {
-                unlinkBtn.style.display = 'inline-block';
-                unlinkBtn.disabled = false;
+        if (isPrincipal) {
+            document.getElementById('corr-suggest-box').style.display = 'block';
+            if (suggestTitle) {
+                suggestTitle.style.display = 'block';
+                suggestTitle.textContent = 'Ajouter une correspondance';
             }
+            if (saveBtn) {
+                saveBtn.style.display = 'inline-block';
+                saveBtn.textContent = suites.length ? 'Ajouter cette correspondance' : 'Lier + créer départs';
+            }
+        } else {
+            document.getElementById('corr-suggest-box').style.display = 'none';
+            if (suggestTitle) suggestTitle.style.display = 'none';
+            if (saveBtn) saveBtn.style.display = 'none';
         }
-        state.lien = lien;
-        state.principal = lien.code_progr_principal;
-        state.verrouille = verrouille;
     }
 
-    function openFor(code, nom, heure, pdate) {
-        state.principal = code;
-        state.principalMeta = { nom_ligne: nom || '', gareidentif: '' };
-        state.suite = null;
-        state.lien = null;
-        state.sousgaresPrincipal = [];
-        state.sousgaresSuite = [];
-        state.porteePrincipale = [];
-        state.porteeSuite = [];
-        state.heuresParDate = {};
-        state.datesAutorisees = [];
-        state.hubGare = '';
-        resetPorteeUi();
-        var datePart = pdate ? (' ' + pdate) : '';
-        document.getElementById('corr-principal-label').textContent =
-            'Départ principal : ' + (nom || '') + datePart + ' ' + (heure || '') + ' (' + code + ')';
-        document.getElementById('corr-linked-box').style.display = 'none';
-        document.getElementById('corr-suggest-box').style.display = 'block';
-        document.getElementById('corr-suggest-list').innerHTML = '';
-        var heuresFormOpen = document.getElementById('corr-heures-form');
-        if (heuresFormOpen) heuresFormOpen.style.display = 'none';
-        var dateSelOpen = document.getElementById('corr-date-suite');
-        var heureSelOpen = document.getElementById('corr-heure-suite');
-        if (dateSelOpen) dateSelOpen.innerHTML = '';
-        if (heureSelOpen) {
-            heureSelOpen.innerHTML = '<option value="">— Choisir une date —</option>';
-            heureSelOpen.disabled = true;
-        }
-        var saveBtn = document.querySelector('#modal-correspondance .js-corr-save');
-        var unlinkBtn = document.querySelector('#modal-correspondance .js-corr-unlink');
-        if (saveBtn) {
-            saveBtn.style.display = 'inline-block';
-            saveBtn.disabled = true;
-        }
-        if (unlinkBtn) unlinkBtn.style.display = 'none';
-        setMsg('Chargement…', false);
-        showModal();
-
-        fetch(base + '/get_correspondance/' + encodeURIComponent(ekey) + '/' + encodeURIComponent(code), {
+    function loadHeuresForPrincipal(code, nom, heure) {
+        return fetch(base + '/heures_correspondance/' + encodeURIComponent(ekey) + '/' + encodeURIComponent(code), {
             credentials: 'same-origin',
             headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' }
-        }).then(parseJsonResponse).then(function (data) {
-            if (data && data.lien) {
-                setMsg('', false);
-                renderLinked(data);
-                return null;
-            }
-            return fetch(base + '/heures_correspondance/' + encodeURIComponent(ekey) + '/' + encodeURIComponent(code), {
-                credentials: 'same-origin',
-                headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' }
-            }).then(parseJsonResponse);
-        }).then(function (sug) {
+        }).then(parseJsonResponse).then(function (sug) {
             if (!sug) return;
             setMsg('', false);
             if (!sug.ok) {
@@ -2234,18 +2248,146 @@ window.__PROG_CREATED_CODE = <?= json_encode((string) $__prog_created_code); ?>;
             }
             state.sousgaresPrincipal = sug.sousgares_principal || sug.sousgares_banfora || [];
             state.porteePrincipale = sug.portee_principale || [];
+
+            // Afficher aussi les liens renvoyés par heures (nb_liens / liens).
+            if (sug.liens && sug.liens.length && (!state.liens || !state.liens.length)) {
+                renderLiensActifs({
+                    lien: sug.lien || sug.liens[0],
+                    liens: sug.liens,
+                    suites: sug.liens,
+                    nb_liens: sug.nb_liens || sug.liens.length
+                }, code);
+            }
+
+            var suggestBox = document.getElementById('corr-suggest-box');
+            var saveBtn = document.querySelector('#modal-correspondance .js-corr-save');
+            if (state.canAdd === false) {
+                if (suggestBox) suggestBox.style.display = 'none';
+                if (saveBtn) saveBtn.style.display = 'none';
+                return;
+            }
+            if (suggestBox) suggestBox.style.display = 'block';
+            if (saveBtn) {
+                saveBtn.style.display = 'inline-block';
+                saveBtn.textContent = (state.liens && state.liens.length)
+                    ? 'Ajouter cette correspondance'
+                    : 'Lier + créer départs';
+            }
+            var suggestTitle = document.getElementById('corr-suggest-title');
+            if (suggestTitle && state.liens && state.liens.length) {
+                suggestTitle.style.display = 'block';
+            }
             renderHeuresForm(sug);
+            if (sug.already_linked && !(sug.nb_creneaux_dispo > 0)) {
+                setMsg('Aucun autre créneau disponible pour une correspondance supplémentaire.', false);
+            }
+        });
+    }
+
+    function openFor(code, nom, heure, pdate) {
+        state.principal = code;
+        state.principalMeta = { nom_ligne: nom || '', gareidentif: '' };
+        state.suite = null;
+        state.lien = null;
+        state.liens = [];
+        state.canAdd = true;
+        state.sousgaresPrincipal = [];
+        state.sousgaresSuite = [];
+        state.porteePrincipale = [];
+        state.porteeSuite = [];
+        state.heuresParDate = {};
+        state.datesAutorisees = [];
+        state.hubGare = '';
+        resetPorteeUi();
+        var datePart = pdate ? (' ' + pdate) : '';
+        document.getElementById('corr-principal-label').textContent =
+            'Départ principal : ' + (nom || '') + datePart + ' ' + (heure || '') + ' (' + code + ')';
+        document.getElementById('corr-linked-box').style.display = 'none';
+        document.getElementById('corr-linked-box').innerHTML = '';
+        document.getElementById('corr-suggest-box').style.display = 'block';
+        var suggestTitleOpen = document.getElementById('corr-suggest-title');
+        if (suggestTitleOpen) suggestTitleOpen.style.display = 'none';
+        document.getElementById('corr-suggest-list').innerHTML = '';
+        var heuresFormOpen = document.getElementById('corr-heures-form');
+        if (heuresFormOpen) heuresFormOpen.style.display = 'none';
+        var dateSelOpen = document.getElementById('corr-date-suite');
+        var heureSelOpen = document.getElementById('corr-heure-suite');
+        if (dateSelOpen) dateSelOpen.innerHTML = '';
+        if (heureSelOpen) {
+            heureSelOpen.innerHTML = '<option value="">— Choisir une date —</option>';
+            heureSelOpen.disabled = true;
+        }
+        var saveBtn = document.querySelector('#modal-correspondance .js-corr-save');
+        if (saveBtn) {
+            saveBtn.style.display = 'inline-block';
+            saveBtn.disabled = true;
+            saveBtn.textContent = 'Lier + créer départs';
+        }
+        setMsg('Chargement…', false);
+        showModal();
+
+        fetch(base + '/get_correspondance/' + encodeURIComponent(ekey) + '/' + encodeURIComponent(code), {
+            credentials: 'same-origin',
+            headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' }
+        }).then(parseJsonResponse).then(function (data) {
+            setMsg('', false);
+            if (data && (data.lien || (data.suites && data.suites.length))) {
+                renderLiensActifs(data, code);
+            }
+            if (state.canAdd === false) {
+                return null;
+            }
+            return loadHeuresForPrincipal(code, nom, heure);
         }).catch(function (err) {
             setMsg((err && err.message) ? err.message : 'Erreur réseau', true);
         });
+    }
+
+    function unlinkLienById(idLien) {
+        idLien = parseInt(idLien, 10) || 0;
+        if (idLien <= 0) return;
+        if (!window.confirm('Supprimer ce lien de correspondance ? (les programmes restent)')) return;
+        setMsg('Suppression…', false);
+        var body = new URLSearchParams();
+        body.set('id_lien', String(idLien));
+        appendCsrf(body);
+        fetch(base + '/unlink_correspondance/' + encodeURIComponent(ekey), {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'X-Requested-With': 'XMLHttpRequest',
+                'Accept': 'application/json'
+            },
+            body: body.toString()
+        }).then(parseJsonResponse).then(function (data) {
+            if (!data || !data.ok) {
+                var msg = (data && data.message) ? data.message : corrErrorLabel(data && data.error);
+                setMsg(msg || 'Échec suppression', true);
+                return;
+            }
+            setMsg('Lien supprimé.', false);
+            setTimeout(function () { window.location.reload(); }, 600);
+        }).catch(function (err) {
+            setMsg((err && err.message) ? err.message : 'Erreur réseau', true);
+        });
+    }
+
+    function renderLinked(data) {
+        renderLiensActifs(data, state.principal);
     }
 
     document.addEventListener('click', function (e) {
         var t = e.target;
         var btn = null;
         var closer = null;
+        var unlinkBtn = null;
         while (t && t !== document) {
             if (t.classList) {
+                if (t.classList.contains('js-corr-unlink-lien')) {
+                    unlinkBtn = t;
+                    break;
+                }
                 if (t.classList.contains('js-corr-link')) {
                     btn = t;
                     break;
@@ -2256,6 +2398,12 @@ window.__PROG_CREATED_CODE = <?= json_encode((string) $__prog_created_code); ?>;
                 }
             }
             t = t.parentNode;
+        }
+        if (unlinkBtn) {
+            e.preventDefault();
+            e.stopPropagation();
+            unlinkLienById(unlinkBtn.getAttribute('data-id-lien'));
+            return;
         }
         if (btn) {
             e.preventDefault();
@@ -2334,42 +2482,6 @@ window.__PROG_CREATED_CODE = <?= json_encode((string) $__prog_created_code); ?>;
             }).catch(function (err) {
                 setMsg((err && err.message) ? err.message : 'Erreur réseau', true);
                 btn.disabled = false;
-            });
-        });
-    }
-
-    var unlinkEl = document.querySelector('#modal-correspondance .js-corr-unlink');
-    if (unlinkEl) {
-        unlinkEl.addEventListener('click', function () {
-            var principal = state.principal || (state.lien && state.lien.code_progr_principal);
-            if (!principal) return;
-            if (state.verrouille) {
-                setMsg('Lien verrouillé : des ventes existent déjà.', true);
-                return;
-            }
-            if (!window.confirm('Supprimer le lien de correspondance ? (les programmes restent)')) return;
-            var body = new URLSearchParams();
-            body.set('code_progr_principal', principal);
-            appendCsrf(body);
-            fetch(base + '/unlink_correspondance/' + encodeURIComponent(ekey), {
-                method: 'POST',
-                credentials: 'same-origin',
-                headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded',
-                    'X-Requested-With': 'XMLHttpRequest',
-                    'Accept': 'application/json'
-                },
-                body: body.toString()
-            }).then(parseJsonResponse).then(function (data) {
-                if (!data || !data.ok) {
-                    var msg = (data && data.message) ? data.message : ((data && data.error) || 'Échec suppression');
-                    setMsg(msg, true);
-                    return;
-                }
-                setMsg('Lien supprimé.', false);
-                setTimeout(function () { window.location.reload(); }, 600);
-            }).catch(function (err) {
-                setMsg((err && err.message) ? err.message : 'Erreur réseau', true);
             });
         });
     }

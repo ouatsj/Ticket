@@ -10563,6 +10563,9 @@ document.addEventListener('DOMContentLoaded', () => {
         hasTransit: false,
         transitHours: [],
         chemins: [],
+        transitChemins: [],
+        uniqueTransit: null,
+        itinerairesExpanded: false,
         etapes: [],
         segData: {},
         mode: 'direct', // direct | transit
@@ -11001,6 +11004,9 @@ document.addEventListener('DOMContentLoaded', () => {
         if (segs) segs.innerHTML = '';
         var msg = __reprogQ('corr_unifie_msg');
         if (msg) msg.textContent = '';
+        window.__reprogState.uniqueTransit = null;
+        window.__reprogState.itinerairesExpanded = false;
+        __reprogSetPlusItinVisible(false);
     }
 
     function __reprogShowCorrPanel() {
@@ -12259,6 +12265,109 @@ document.addEventListener('DOMContentLoaded', () => {
         return list.length ? list[0] : null;
     }
 
+    /** Clé 1ʳᵉ jambe = programme de départ (gare de report) ou heure. */
+    function __reprogFirstLegKey(ch) {
+        var et = __reprogNormalizeEtapes(ch && (ch.etapes || ch.legs));
+        if (!et.length) return '';
+        var e0 = et[0];
+        var cp = String(e0.code_progr || e0._code_progr || e0._graphe_code_progr || '').trim();
+        if (cp) return 'p:' + cp;
+        var hh = __reprogEtapeHeureStr(e0);
+        var ln = __reprogStripCieSuffix(e0.nom_ligne || e0.nom_itineraires || '');
+        return hh ? ('h:' + hh + '|' + ln) : '';
+    }
+
+    function __reprogCheminSig(ch) {
+        var et = __reprogNormalizeEtapes(ch && (ch.etapes || ch.legs));
+        return et.map(function (e) {
+            return (e.code_progr || e._code_progr || e.nom_ligne || e.nom_itineraires || '')
+                + '@' + __reprogEtapeHeureStr(e);
+        }).join('>');
+    }
+
+    function __reprogSetPlusItinVisible(show) {
+        var btn = __reprogQ('corr_unifie_plus');
+        var hint = __reprogQ('corr_unifie_plus_hint');
+        if (btn) btn.style.display = show ? '' : 'none';
+        if (hint) hint.style.display = show ? '' : 'none';
+    }
+
+    /**
+     * Autres chemins : même programme de départ (1ʳᵉ jambe gare de report),
+     * plus de segments que l’itinéraire courant (gares correspondantes déjà dans pool).
+     */
+    function __reprogAltTransitsPlusSeg(baseCh) {
+        var st = window.__reprogState || {};
+        var baseN = __reprogNormalizeEtapes(baseCh && (baseCh.etapes || baseCh.legs)).length || 0;
+        if (baseN < 1) return [];
+        var baseKey = __reprogFirstLegKey(baseCh);
+        if (!baseKey) return [];
+        var baseSig = __reprogCheminSig(baseCh);
+        var pool = __reprogRowsArray(st.transitChemins);
+        if (!pool.length) pool = __reprogRowsArray(st.chemins);
+        return pool.filter(function (ch) {
+            if (!ch || !__reprogCheminSensOk(ch)) return false;
+            if (__reprogFirstLegKey(ch) !== baseKey) return false;
+            var n = __reprogNormalizeEtapes(ch.etapes || ch.legs).length || 0;
+            if (n <= baseN) return false;
+            if (__reprogCheminSig(ch) === baseSig) return false;
+            return true;
+        }).sort(function (a, b) {
+            var na = __reprogNormalizeEtapes(a.etapes || a.legs).length || 99;
+            var nb = __reprogNormalizeEtapes(b.etapes || b.legs).length || 99;
+            if (na !== nb) return na - nb;
+            return (__reprogTransitPrio(b) || 0) - (__reprogTransitPrio(a) || 0);
+        });
+    }
+
+    function __reprogRefreshPlusItinBtn() {
+        var st = window.__reprogState || {};
+        if (st.itinerairesExpanded) {
+            __reprogSetPlusItinVisible(false);
+            return;
+        }
+        var base = st.uniqueTransit;
+        if (!base) {
+            var sel = __reprogQ('corr_unifie_select');
+            if (sel && sel.value !== '' && st.chemins && st.chemins[parseInt(sel.value, 10)]) {
+                base = st.chemins[parseInt(sel.value, 10)];
+            }
+        }
+        if (!base) {
+            __reprogSetPlusItinVisible(false);
+            return;
+        }
+        __reprogSetPlusItinVisible(__reprogAltTransitsPlusSeg(base).length > 0);
+    }
+
+    /** Charge dans le select les itinéraires à plus de segments (même départ). */
+    function __reprogOnPlusItineraire() {
+        var st = window.__reprogState || {};
+        var sel = __reprogQ('corr_unifie_select');
+        var base = st.uniqueTransit;
+        if (!base && sel && sel.value !== '' && st.chemins) {
+            base = st.chemins[parseInt(sel.value, 10)];
+        }
+        if (!base) return;
+        var alts = __reprogAltTransitsPlusSeg(base);
+        if (!alts.length) {
+            __reprogSetPlusItinVisible(false);
+            return;
+        }
+        var merged = [base].concat(alts);
+        st.itinerairesExpanded = true;
+        st.uniqueTransit = base;
+        __reprogFillItineraireSelect(
+            merged,
+            'Itinéraires élargis — même départ gare de report, plus de segments disponibles'
+        );
+        if (sel) {
+            sel.selectedIndex = 1;
+            __reprogFireChange(sel);
+        }
+        __reprogSetPlusItinVisible(false);
+    }
+
     /**
      * Heures multi = 1 option par programme 1ʳᵉ jambe (comme la vente),
      * pas une seule entrée par HH:MM.
@@ -12469,10 +12578,13 @@ document.addEventListener('DOMContentLoaded', () => {
     function __reprogApplyUniqueTransit(ch, msg) {
         if (!ch) return;
         window.__reprogState.mode = 'transit';
+        window.__reprogState.uniqueTransit = ch;
+        window.__reprogState.itinerairesExpanded = false;
         if (__reprogQ('reprog_mode_unifie')) {
             __reprogQ('reprog_mode_unifie').value = 'transit';
         }
         __reprogShowCorrExclusive([ch], msg || 'Itinéraire transit proposé (direction ticket)');
+        __reprogRefreshPlusItinBtn();
     }
 
     /**
@@ -14215,6 +14327,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if (siegeDirect) siegeDirect.onchange = __reprogOnSiegeDirectChange;
         var corrSel = __reprogQ('corr_unifie_select');
         if (corrSel) corrSel.onchange = __reprogOnCorrChange;
+        var plusItin = __reprogQ('corr_unifie_plus');
+        if (plusItin) plusItin.onclick = __reprogOnPlusItineraire;
 
         var infos = __reprogQ('reprogrammer_infos_unifie');
         if (infos) {

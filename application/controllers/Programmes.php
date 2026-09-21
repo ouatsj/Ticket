@@ -1670,11 +1670,16 @@
         /**
          * Supprime le lien (programmes conservés).
          * POST Programmes/unlink_correspondance/{ekey}
+         * body: id_lien (préféré) OU code_progr_principal (supprime tous les liens du principal)
          */
         public function unlink_correspondance($ckey)
         {
             session_release_lock();
             $this->company = $this->m_entreprises->get_key($ckey);
+            $idLien = (int) $this->input->post('id_lien');
+            if ($idLien <= 0) {
+                $idLien = (int) $this->input->get('id_lien');
+            }
             $principal = trim((string) $this->input->post('code_progr_principal'));
             if ($principal === '') {
                 $principal = trim((string) $this->input->get('code_progr_principal'));
@@ -1682,13 +1687,18 @@
             if (!isset($this->m_programme_correspondance)) {
                 $this->load->model('Programme_correspondance_model', 'm_programme_correspondance');
             }
-            $out = $this->m_programme_correspondance->unlink($principal);
+            if ($idLien > 0) {
+                $out = $this->m_programme_correspondance->unlink_by_id($idLien);
+            } else {
+                $out = $this->m_programme_correspondance->unlink($principal);
+            }
             return $this->load->view('beagle/pages/_programme/json', array('json' => $out));
         }
 
         /**
-         * État du lien pour un programme (JSON).
+         * État du/des lien(s) pour un programme (JSON).
          * GET Programmes/get_correspondance/{ekey}/{code_progr}
+         * Compat : `lien` = premier ; `liens` = liste complète si principal multi.
          */
         public function get_correspondance($ckey, $code_progr = null)
         {
@@ -1700,10 +1710,23 @@
             if (!isset($this->m_programme_correspondance)) {
                 $this->load->model('Programme_correspondance_model', 'm_programme_correspondance');
             }
-            $lien = $this->m_programme_correspondance->get_by_any_code($code_progr);
-            $out = array('ok' => true, 'lien' => $lien, 'verrouille' => false, 'nb_ventes' => 0);
+            $ekey = $this->session->company->ekey;
+            $liens = $this->m_programme_correspondance->get_all_involving_code($code_progr);
+            // Si le code est principal, préférer get_all_by_principal (tous les hubs).
+            $asPrincipal = $this->m_programme_correspondance->get_all_by_principal($code_progr);
+            if (!empty($asPrincipal)) {
+                $liens = $asPrincipal;
+            }
+            $lien = !empty($liens) ? $liens[0] : null;
+            $out = array(
+                'ok' => true,
+                'lien' => $lien,
+                'liens' => $liens,
+                'nb_liens' => count($liens),
+                'verrouille' => false,
+                'nb_ventes' => 0,
+            );
             if ($lien) {
-                $ekey = $this->session->company->ekey;
                 $out['principal'] = $this->m_programme_correspondance->prog_detail($ekey, $lien->code_progr_principal);
                 $out['suite'] = $this->m_programme_correspondance->prog_detail($ekey, $lien->code_progr_suite);
                 if (!empty($lien->code_progr_derive)) {
@@ -1712,6 +1735,21 @@
                 $lock = $this->m_programme_correspondance->statut_verrouillage($lien);
                 $out['verrouille'] = !empty($lock['verrouille']);
                 $out['nb_ventes'] = isset($lock['nb_ventes']) ? (int) $lock['nb_ventes'] : 0;
+                $suites = array();
+                foreach ($liens as $l) {
+                    $lockL = $this->m_programme_correspondance->statut_verrouillage($l);
+                    $suites[] = array(
+                        'id_lien' => isset($l->id_lien) ? (int) $l->id_lien : 0,
+                        'code_progr_suite' => $l->code_progr_suite,
+                        'code_progr_derive' => isset($l->code_progr_derive) ? $l->code_progr_derive : null,
+                        'suite' => $this->m_programme_correspondance->prog_detail($ekey, $l->code_progr_suite),
+                        'derive' => !empty($l->code_progr_derive)
+                            ? $this->m_programme_correspondance->prog_detail($ekey, $l->code_progr_derive) : null,
+                        'verrouille' => !empty($lockL['verrouille']),
+                        'nb_ventes' => isset($lockL['nb_ventes']) ? (int) $lockL['nb_ventes'] : 0,
+                    );
+                }
+                $out['suites'] = $suites;
             }
             return $this->load->view('beagle/pages/_programme/json', array('json' => $out));
         }

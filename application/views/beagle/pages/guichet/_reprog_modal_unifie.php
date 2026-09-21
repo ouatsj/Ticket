@@ -253,15 +253,28 @@ $allow_prix_diff_unifie = true;
             <div id="corr_unifie_wrap" style="display:none">
                 <div class="reprog-section-title">Itinéraires possibles</div>
                 <p class="small text-muted mb-2" id="corr_unifie_hint">
-                    Un seul transit proposé depuis la gare de report vers la destination
-                    affichée après vérification du code (noms de ligne / gares).
+                    Un transit proposé depuis la gare de report vers la destination
+                    affichée après vérification du code. Le bouton « + » charge d’autres
+                    itinéraires avec plus de segments (même programme de départ).
                 </p>
                 <p class="text-warning small mb-2" id="corr_unifie_msg"></p>
                 <div class="form-group mb-3">
-                    <label class="small mb-0">Choisir l’itinéraire</label>
+                    <div class="d-flex align-items-center justify-content-between flex-wrap mb-1">
+                        <label class="small mb-0" for="corr_unifie_select">Choisir l’itinéraire</label>
+                        <button type="button"
+                                class="btn btn-outline-primary btn-sm py-0 px-2"
+                                id="corr_unifie_plus"
+                                title="Charger un autre itinéraire avec plus de segments (même départ gare de report)"
+                                style="display:none"
+                                aria-label="Autres itinéraires avec plus de segments">+</button>
+                    </div>
                     <select class="form-control form-control-sm" id="corr_unifie_select">
                         <option value="">Choisissez un itinéraire</option>
                     </select>
+                    <p class="small text-muted mb-0 mt-1" id="corr_unifie_plus_hint" style="display:none">
+                        « + » : autres correspondances avec plus de segments, ancrées sur le même programme
+                        de départ de la gare de report.
+                    </p>
                 </div>
                 <div id="corr_segments_unifie"></div>
                 <p class="small mb-0 mt-2" id="corr_prix_sum_unifie" style="display:none"></p>

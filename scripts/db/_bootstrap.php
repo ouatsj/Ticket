@@ -37,7 +37,31 @@ function db_script_connect(array $argv = array())
     $c = $db['default'];
 
     $host = (string) $c['hostname'];
-    if (!$allowRemote) {
+    // Hostinger : depuis le même compte, préférer localhost (évite le quota distant).
+    if (!$allowRemote && in_array($host, db_script_blocked_hosts(), true)) {
+        $tryLocal = @new mysqli('localhost', $c['username'], $c['password'], $c['database'], (int) $c['port']);
+        if ($tryLocal && !$tryLocal->connect_error) {
+            $mysqli = $tryLocal;
+            $mysqli->set_charset($c['char_set']);
+            register_shutdown_function(function () use (&$mysqli) {
+                if ($mysqli instanceof mysqli) {
+                    $mysqli->close();
+                    $mysqli = null;
+                }
+            });
+            return $mysqli;
+        }
+        if ($tryLocal) {
+            @$tryLocal->close();
+        }
+        foreach (db_script_blocked_hosts() as $blocked) {
+            if (strcasecmp($host, $blocked) === 0) {
+                fwrite(STDERR, "ERREUR: hôte MySQL distant « {$host} » bloqué pour éviter d'épuiser le quota horaire.\n");
+                fwrite(STDERR, "        Les scripts doivent utiliser localhost. Ajoutez --allow-remote uniquement si nécessaire.\n");
+                exit(2);
+            }
+        }
+    } elseif (!$allowRemote) {
         foreach (db_script_blocked_hosts() as $blocked) {
             if (strcasecmp($host, $blocked) === 0) {
                 fwrite(STDERR, "ERREUR: hôte MySQL distant « {$host} » bloqué pour éviter d'épuiser le quota horaire.\n");

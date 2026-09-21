@@ -28,13 +28,47 @@ class Programme_correspondance_model extends CI_Model
 
     public function get_by_principal($code_progr)
     {
+        $rows = $this->get_all_by_principal($code_progr);
+        return !empty($rows) ? $rows[0] : null;
+    }
+
+    /**
+     * Tous les liens dont $code_progr est le principal (multi-correspondances).
+     *
+     * @return object[]
+     */
+    public function get_all_by_principal($code_progr)
+    {
+        $code = trim((string) $code_progr);
+        if ($code === '') {
+            return array();
+        }
+        $rows = $this->db->query(
+            "SELECT * FROM {$this->table}
+             WHERE code_progr_principal = ?
+             ORDER BY id_lien ASC",
+            array($code)
+        )->result();
+        return is_array($rows) ? $rows : array();
+    }
+
+    /**
+     * True si le code est déjà suite ou dérivé d'un lien (ne peut pas être re-lié ainsi).
+     *
+     * @return object|null
+     */
+    public function get_as_suite_or_derive($code_progr)
+    {
         $code = trim((string) $code_progr);
         if ($code === '') {
             return null;
         }
         return $this->db->query(
-            "SELECT * FROM {$this->table} WHERE code_progr_principal = ? LIMIT 1",
-            array($code)
+            "SELECT * FROM {$this->table}
+             WHERE code_progr_suite = ?
+                OR code_progr_derive = ?
+             LIMIT 1",
+            array($code, $code)
         )->row();
     }
 
@@ -49,9 +83,58 @@ class Programme_correspondance_model extends CI_Model
              WHERE code_progr_principal = ?
                 OR code_progr_suite = ?
                 OR code_progr_derive = ?
+             ORDER BY id_lien ASC
              LIMIT 1",
             array($code, $code, $code)
         )->row();
+    }
+
+    /**
+     * Tous les liens impliquant ce code (principal, suite ou dérivé).
+     *
+     * @return object[]
+     */
+    public function get_all_involving_code($code_progr)
+    {
+        $code = trim((string) $code_progr);
+        if ($code === '') {
+            return array();
+        }
+        $rows = $this->db->query(
+            "SELECT * FROM {$this->table}
+             WHERE code_progr_principal = ?
+                OR code_progr_suite = ?
+                OR code_progr_derive = ?
+             ORDER BY id_lien ASC",
+            array($code, $code, $code)
+        )->result();
+        return is_array($rows) ? $rows : array();
+    }
+
+    /**
+     * Assouplit le schéma pour multi-liens (idempotent, runtime).
+     */
+    public function ensure_multi_liens_schema()
+    {
+        if (!$this->db->table_exists($this->table)) {
+            return false;
+        }
+        $indexes = $this->db->query("SHOW INDEX FROM {$this->table}")->result();
+        $names = array();
+        foreach ($indexes as $idx) {
+            if (!empty($idx->Key_name)) {
+                $names[$idx->Key_name] = true;
+            }
+        }
+        if (isset($names['uq_principal'])) {
+            $this->db->query("ALTER TABLE {$this->table} DROP INDEX uq_principal");
+        }
+        if (!isset($names['idx_principal'])) {
+            $this->db->query(
+                "ALTER TABLE {$this->table} ADD INDEX idx_principal (code_progr_principal)"
+            );
+        }
+        return true;
     }
 
     /**
@@ -100,21 +183,48 @@ class Programme_correspondance_model extends CI_Model
 
         $out = array();
         foreach ($rows as $lien) {
+            $suiteDet = isset($details[$lien->code_progr_suite]) ? $details[$lien->code_progr_suite] : null;
+            $deriveDet = (!empty($lien->code_progr_derive) && isset($details[$lien->code_progr_derive]))
+                ? $details[$lien->code_progr_derive] : null;
             $meta = array(
                 'lien' => $lien,
                 'principal' => isset($details[$lien->code_progr_principal]) ? $details[$lien->code_progr_principal] : null,
-                'suite' => isset($details[$lien->code_progr_suite]) ? $details[$lien->code_progr_suite] : null,
-                'derive' => (!empty($lien->code_progr_derive) && isset($details[$lien->code_progr_derive]))
-                    ? $details[$lien->code_progr_derive] : null,
+                'suite' => $suiteDet,
+                'derive' => $deriveDet,
             );
             if (!empty($lien->code_progr_principal)) {
-                $out[$lien->code_progr_principal] = array_merge($meta, array('role' => 'principal'));
+                $pCode = $lien->code_progr_principal;
+                if (!isset($out[$pCode])) {
+                    $out[$pCode] = array_merge($meta, array(
+                        'role' => 'principal',
+                        'liens' => array(),
+                        'suites' => array(),
+                        'nb_liens' => 0,
+                    ));
+                }
+                $out[$pCode]['liens'][] = $lien;
+                if ($suiteDet) {
+                    $out[$pCode]['suites'][] = $suiteDet;
+                }
+                $out[$pCode]['nb_liens'] = count($out[$pCode]['liens']);
+                // Compat : garder le premier lien comme « lien » principal.
+                if (count($out[$pCode]['liens']) === 1) {
+                    $out[$pCode]['lien'] = $lien;
+                    $out[$pCode]['suite'] = $suiteDet;
+                    $out[$pCode]['derive'] = $deriveDet;
+                }
             }
             if (!empty($lien->code_progr_suite)) {
-                $out[$lien->code_progr_suite] = array_merge($meta, array('role' => 'suite'));
+                $out[$lien->code_progr_suite] = array_merge($meta, array(
+                    'role' => 'suite',
+                    'nb_liens' => 1,
+                ));
             }
             if (!empty($lien->code_progr_derive)) {
-                $out[$lien->code_progr_derive] = array_merge($meta, array('role' => 'derive'));
+                $out[$lien->code_progr_derive] = array_merge($meta, array(
+                    'role' => 'derive',
+                    'nb_liens' => 1,
+                ));
             }
         }
         return $out;
@@ -191,14 +301,34 @@ class Programme_correspondance_model extends CI_Model
         };
 
         if ($role === 'principal') {
-            $suiteTxt = $short($suite);
-            $label = $suiteTxt !== '' ? ('Corr. → ' . $suiteTxt) : 'Correspondance liée';
-            $title = 'Lien correspondance (trajet complet : siège exclusif vs suite/tronçon)';
-            if ($suite) {
-                $title .= ' · suite ' . $fmt($suite);
+            $nb = isset($entry['nb_liens']) ? (int) $entry['nb_liens'] : 1;
+            if ($nb < 1) {
+                $nb = 1;
             }
-            if ($derive) {
-                $title .= ' · tronçon ' . $fmt($derive);
+            $suitesList = isset($entry['suites']) && is_array($entry['suites']) ? $entry['suites'] : array();
+            if ($nb > 1) {
+                $label = 'Correspondance ×' . $nb;
+                $titleParts = array();
+                foreach ($suitesList as $sDet) {
+                    $t = $fmt($sDet);
+                    if ($t !== '') {
+                        $titleParts[] = $t;
+                    }
+                }
+                $title = 'Correspondances liées (' . $nb . ')';
+                if (!empty($titleParts)) {
+                    $title .= ' · ' . implode(' · ', $titleParts);
+                }
+            } else {
+                $suiteTxt = $short($suite);
+                $label = $suiteTxt !== '' ? ('Corr. → ' . $suiteTxt) : 'Correspondance liée';
+                $title = 'Lien correspondance (trajet complet : siège exclusif vs suite/tronçon)';
+                if ($suite) {
+                    $title .= ' · suite ' . $fmt($suite);
+                }
+                if ($derive) {
+                    $title .= ' · tronçon ' . $fmt($derive);
+                }
             }
             return '<br><small class="badge badge-info js-corr-badge" title="'
                 . htmlspecialchars($title, ENT_QUOTES, 'UTF-8') . '">'
@@ -254,43 +384,45 @@ class Programme_correspondance_model extends CI_Model
         if ($code === '') {
             return array();
         }
-        $lien = $this->get_by_any_code($code);
-        if (!$lien) {
+        $liens = $this->get_all_involving_code($code);
+        if (empty($liens)) {
             return array($code);
         }
 
-        $principal = !empty($lien->code_progr_principal) ? (string) $lien->code_progr_principal : '';
-        $suite = !empty($lien->code_progr_suite) ? (string) $lien->code_progr_suite : '';
-        $derive = !empty($lien->code_progr_derive) ? (string) $lien->code_progr_derive : '';
-
-        $role = $this->role_dans_lien($code, $lien);
         $codes = array($code);
-        if ($role === 'principal') {
-            if ($suite !== '') {
-                $codes[] = $suite;
-            }
-            if ($derive !== '') {
-                $codes[] = $derive;
-            }
-        } elseif ($role === 'suite') {
-            if ($principal !== '') {
-                $codes[] = $principal;
-            }
-            // Pas le dérivé : segments indépendants.
-        } elseif ($role === 'derive') {
-            if ($principal !== '') {
-                $codes[] = $principal;
-            }
-            // Pas la suite : segments indépendants.
-        } else {
-            if ($principal !== '') {
-                $codes[] = $principal;
-            }
-            if ($suite !== '') {
-                $codes[] = $suite;
-            }
-            if ($derive !== '') {
-                $codes[] = $derive;
+        foreach ($liens as $lien) {
+            $principal = !empty($lien->code_progr_principal) ? (string) $lien->code_progr_principal : '';
+            $suite = !empty($lien->code_progr_suite) ? (string) $lien->code_progr_suite : '';
+            $derive = !empty($lien->code_progr_derive) ? (string) $lien->code_progr_derive : '';
+            $role = $this->role_dans_lien($code, $lien);
+
+            if ($role === 'principal') {
+                if ($suite !== '') {
+                    $codes[] = $suite;
+                }
+                if ($derive !== '') {
+                    $codes[] = $derive;
+                }
+            } elseif ($role === 'suite') {
+                if ($principal !== '') {
+                    $codes[] = $principal;
+                }
+                // Pas le dérivé : segments indépendants.
+            } elseif ($role === 'derive') {
+                if ($principal !== '') {
+                    $codes[] = $principal;
+                }
+                // Pas la suite : segments indépendants.
+            } else {
+                if ($principal !== '') {
+                    $codes[] = $principal;
+                }
+                if ($suite !== '') {
+                    $codes[] = $suite;
+                }
+                if ($derive !== '') {
+                    $codes[] = $derive;
+                }
             }
         }
 
@@ -330,8 +462,15 @@ class Programme_correspondance_model extends CI_Model
     }
 
     /**
-     * True si une vente sur $codeA doit bloquer le siège aussi pour $codeB (et inversement).
-     * Option 3 : suite et dérivé ne se bloquent pas.
+     * True si une vente sur $codeA doit bloquer le siège aussi pour $codeB
+     * (utilisé pour filtrer les « frères » même depart_code / date).
+     *
+     * Règles :
+     * - Hors correspondance → true (stock bus partagé).
+     * - Même famille de liens (même principal, multi Banfora/Niangoloko inclus)
+     *   → true seulement si $codeB ∈ codes_sieges_partages($codeA)
+     *   (option 3 : suite ∥ dérivé ; hubs distincts ∥ entre eux ; principal exclusif).
+     * - Familles distinctes / un seul côté lié → true (frères bus).
      *
      * @param string $codeA
      * @param string $codeB
@@ -344,20 +483,46 @@ class Programme_correspondance_model extends CI_Model
         if ($a === '' || $b === '' || $a === $b) {
             return true;
         }
-        $lien = $this->get_by_any_code($a);
-        if (!$lien) {
+
+        $liensA = $this->get_all_involving_code($a);
+        $liensB = $this->get_all_involving_code($b);
+        if (empty($liensA) && empty($liensB)) {
             return true;
         }
-        $roleA = $this->role_dans_lien($a, $lien);
-        $roleB = $this->role_dans_lien($b, $lien);
-        if ($roleA === null || $roleB === null) {
-            return true;
+
+        $memeFamille = false;
+        foreach ($liensA as $la) {
+            $pa = !empty($la->code_progr_principal) ? (string) $la->code_progr_principal : '';
+            if ($pa === '') {
+                continue;
+            }
+            if ($pa === $b) {
+                $memeFamille = true;
+                break;
+            }
+            foreach ($liensB as $lb) {
+                $pb = !empty($lb->code_progr_principal) ? (string) $lb->code_progr_principal : '';
+                if ($pb !== '' && $pb === $pa) {
+                    $memeFamille = true;
+                    break 2;
+                }
+            }
         }
-        if (($roleA === 'suite' && $roleB === 'derive')
-            || ($roleA === 'derive' && $roleB === 'suite')
-        ) {
-            return false;
+        if (!$memeFamille) {
+            foreach ($liensB as $lb) {
+                $pb = !empty($lb->code_progr_principal) ? (string) $lb->code_progr_principal : '';
+                if ($pb !== '' && $pb === $a) {
+                    $memeFamille = true;
+                    break;
+                }
+            }
         }
+
+        if ($memeFamille) {
+            $partages = $this->codes_sieges_partages($a);
+            return in_array($b, $partages, true);
+        }
+
         return true;
     }
 
@@ -1157,17 +1322,39 @@ class Programme_correspondance_model extends CI_Model
      */
     public function heures_correspondance($ekey, $code_progr_principal)
     {
+        $this->ensure_multi_liens_schema();
         $principal = $this->prog_detail($ekey, $code_progr_principal);
         if (!$principal) {
             return array('ok' => false, 'error' => 'programme_principal_introuvable');
         }
 
-        $exist = $this->get_by_principal($code_progr_principal);
-        if ($exist) {
+        $liensExist = $this->get_all_by_principal($code_progr_principal);
+        $slotsLies = array();
+        $liensPublic = array();
+        foreach ($liensExist as $lien) {
+            $suiteDet = $this->prog_detail($ekey, $lien->code_progr_suite);
+            if ($suiteDet) {
+                $idHeur = 0;
+                if (!empty($suiteDet->id_heur)) {
+                    $idHeur = (int) $suiteDet->id_heur;
+                } elseif (!empty($suiteDet->id_ligneheure)) {
+                    $idHeur = (int) $suiteDet->id_ligneheure;
+                }
+                if ($idHeur > 0 && !empty($suiteDet->date_progr)) {
+                    $slotsLies[$suiteDet->date_progr . '|' . $idHeur] = true;
+                }
+            }
+            $liensPublic[] = $this->_public_lien($ekey, $lien);
+        }
+
+        // Compat : si le principal est déjà suite/dérivé ailleurs, pas de nouveau lien.
+        if ($this->get_as_suite_or_derive($code_progr_principal)) {
             return array(
                 'ok' => true,
                 'already_linked' => true,
-                'lien' => $exist,
+                'nb_liens' => count($liensExist),
+                'liens' => $liensPublic,
+                'lien' => !empty($liensExist) ? $liensExist[0] : $this->get_as_suite_or_derive($code_progr_principal),
                 'principal' => $this->_public_prog($principal),
             );
         }
@@ -1176,6 +1363,10 @@ class Programme_correspondance_model extends CI_Model
         if (empty($lignes)) {
             return array(
                 'ok' => true,
+                'already_linked' => false,
+                'nb_liens' => count($liensExist),
+                'liens' => $liensPublic,
+                'lien' => !empty($liensExist) ? $liensExist[0] : null,
                 'principal' => $this->_public_prog($principal),
                 'message' => 'aucune_ligne_suite',
                 'dates_autorisees' => $this->dates_suite_autorisees($principal->date_progr),
@@ -1221,7 +1412,7 @@ class Programme_correspondance_model extends CI_Model
                     continue;
                 }
                 $slotKey = $date . '|' . (int) $r->id_ligneheure;
-                if (isset($seenSlot[$slotKey])) {
+                if (isset($seenSlot[$slotKey]) || isset($slotsLies[$slotKey])) {
                     continue;
                 }
                 $seenSlot[$slotKey] = true;
@@ -1255,13 +1446,22 @@ class Programme_correspondance_model extends CI_Model
         }
 
         $hubGare = isset($lignes[0]->gaexp_lg) ? (string) $lignes[0]->gaexp_lg : '';
+        $nbDispo = 0;
+        foreach ($heuresParDate as $list) {
+            $nbDispo += count($list);
+        }
 
         return array(
             'ok' => true,
+            'already_linked' => false,
+            'nb_liens' => count($liensExist),
+            'liens' => $liensPublic,
+            'lien' => !empty($liensExist) ? $liensExist[0] : null,
             'principal' => $this->_public_prog($principal),
             'hub_gare' => $hubGare,
             'dates_autorisees' => $datesOk,
             'heures_par_date' => $heuresParDate,
+            'nb_creneaux_dispo' => $nbDispo,
             'suite_jours_max' => (int) $this->suite_jours_max,
             'marge_min' => (int) $this->marge_min,
         );
@@ -1694,6 +1894,51 @@ class Programme_correspondance_model extends CI_Model
     }
 
     /**
+     * Résumé public d'un lien (API liste multi).
+     *
+     * @param string $ekey
+     * @param object $lien
+     * @return array
+     */
+    protected function _public_lien($ekey, $lien)
+    {
+        if (!$lien) {
+            return array();
+        }
+        $suite = !empty($lien->code_progr_suite)
+            ? $this->prog_detail($ekey, $lien->code_progr_suite) : null;
+        $derive = !empty($lien->code_progr_derive)
+            ? $this->prog_detail($ekey, $lien->code_progr_derive) : null;
+        $lock = $this->statut_verrouillage($lien);
+        return array(
+            'id_lien' => isset($lien->id_lien) ? (int) $lien->id_lien : 0,
+            'code_progr_principal' => isset($lien->code_progr_principal) ? $lien->code_progr_principal : '',
+            'code_progr_suite' => isset($lien->code_progr_suite) ? $lien->code_progr_suite : '',
+            'code_progr_derive' => isset($lien->code_progr_derive) ? $lien->code_progr_derive : null,
+            'suite' => $suite ? $this->_public_prog($suite) : null,
+            'derive' => $derive ? $this->_public_prog($derive) : null,
+            'verrouille' => !empty($lock['verrouille']),
+            'nb_ventes' => isset($lock['nb_ventes']) ? (int) $lock['nb_ventes'] : 0,
+        );
+    }
+
+    /**
+     * @param int $id_lien
+     * @return object|null
+     */
+    public function get_by_id($id_lien)
+    {
+        $id = (int) $id_lien;
+        if ($id <= 0) {
+            return null;
+        }
+        return $this->db->query(
+            "SELECT * FROM {$this->table} WHERE id_lien = ? LIMIT 1",
+            array($id)
+        )->row();
+    }
+
+    /**
      * Applique une portée sous-gare à un programme (legacy idsousgare_prog + programme_sousgare).
      * @param string $code_progr
      * @param string $gareidentif
@@ -1793,6 +2038,7 @@ class Programme_correspondance_model extends CI_Model
      */
     public function link($ekey, $code_progr_principal, array $options = array())
     {
+        $this->ensure_multi_liens_schema();
         $principal = $this->prog_detail($ekey, $code_progr_principal);
         if (!$principal) {
             return array('ok' => false, 'error' => 'programme_introuvable');
@@ -1811,9 +2057,28 @@ class Programme_correspondance_model extends CI_Model
             return array('ok' => false, 'error' => 'dates_hors_plage');
         }
 
-        // Déjà principal OU déjà suite/dérivé d'un autre lien.
-        if ($this->get_by_any_code($code_progr_principal)) {
+        // Principal déjà suite/dérivé ailleurs → interdit. Déjà principal d'autres liens → OK.
+        if ($this->get_as_suite_or_derive($code_progr_principal)) {
             return array('ok' => false, 'error' => 'deja_lie');
+        }
+
+        // Même créneau hub (id_ligneheure + date) déjà lié pour ce principal.
+        foreach ($this->get_all_by_principal($code_progr_principal) as $lienExist) {
+            $suiteExist = $this->prog_detail($ekey, $lienExist->code_progr_suite);
+            if (!$suiteExist) {
+                continue;
+            }
+            $idHeurExist = 0;
+            if (!empty($suiteExist->id_heur)) {
+                $idHeurExist = (int) $suiteExist->id_heur;
+            } elseif (!empty($suiteExist->id_ligneheure)) {
+                $idHeurExist = (int) $suiteExist->id_ligneheure;
+            }
+            if ($idHeurExist === $idHeurSuite
+                && (string) $suiteExist->date_progr === (string) $dateSuite
+            ) {
+                return array('ok' => false, 'error' => 'lien_doublon');
+            }
         }
 
         $lhSuite = $this->_detail_ligneheure_suite($ekey, $principal, $idHeurSuite);
@@ -2003,9 +2268,8 @@ class Programme_correspondance_model extends CI_Model
             }
         }
 
-        // Dernière barrière avant INSERT du lien.
-        if ($this->get_by_any_code($principal->code_progr)
-            || $this->get_by_any_code($suite->code_progr)
+        // Dernière barrière : suite/dérivé exclusifs ; principal peut déjà avoir d'autres liens.
+        if ($this->get_by_any_code($suite->code_progr)
             || ($codeDerive && $this->get_by_any_code($codeDerive))
         ) {
             if (!$existDerive && $codeDerive) {
@@ -2038,9 +2302,18 @@ class Programme_correspondance_model extends CI_Model
             return array('ok' => false, 'error' => 'echec_creation_lien');
         }
 
+        $idLien = (int) $this->db->insert_id();
+        $lienRow = $this->db->query(
+            "SELECT * FROM {$this->table} WHERE id_lien = ? LIMIT 1",
+            array($idLien)
+        )->row();
+        $tous = $this->get_all_by_principal($principal->code_progr);
+
         return array(
             'ok' => true,
-            'lien' => $this->get_by_principal($principal->code_progr),
+            'lien' => $lienRow,
+            'liens' => $tous,
+            'nb_liens' => count($tous),
             'derive' => $this->prog_detail($ekey, $codeDerive),
             'suite' => $this->_public_prog($suite),
             'principal' => $this->_public_prog($principal),
@@ -2100,12 +2373,15 @@ class Programme_correspondance_model extends CI_Model
     }
 
     /**
-     * Supprime le lien. Ne désactive pas les programmes (principal / suite / dérivé restent).
-     * Interdit s'il existe une vente active sur principal, suite ou dérivé.
+     * Supprime un lien par id_lien. Ne désactive pas les programmes.
+     * Interdit s'il existe une vente active sur principal, suite ou dérivé de CE lien.
+     *
+     * @param int $id_lien
+     * @return array
      */
-    public function unlink($code_progr_principal)
+    public function unlink_by_id($id_lien)
     {
-        $lien = $this->get_by_principal($code_progr_principal);
+        $lien = $this->get_by_id($id_lien);
         if (!$lien) {
             return array('ok' => false, 'error' => 'lien_introuvable');
         }
@@ -2118,7 +2394,42 @@ class Programme_correspondance_model extends CI_Model
                 'nb_ventes' => $lock['nb_ventes'],
             );
         }
+        $this->db->where('id_lien', (int) $lien->id_lien)->delete($this->table);
+        $restants = $this->get_all_by_principal($lien->code_progr_principal);
+        return array(
+            'ok' => true,
+            'removed' => $lien,
+            'nb_liens' => count($restants),
+            'liens' => $restants,
+        );
+    }
+
+    /**
+     * Supprime TOUS les liens du principal (admin). Ne désactive pas les programmes.
+     * Interdit si au moins un lien a des ventes.
+     */
+    public function unlink($code_progr_principal)
+    {
+        $liens = $this->get_all_by_principal($code_progr_principal);
+        if (empty($liens)) {
+            return array('ok' => false, 'error' => 'lien_introuvable');
+        }
+        $nbVentes = 0;
+        foreach ($liens as $lien) {
+            $lock = $this->statut_verrouillage($lien);
+            if (!empty($lock['verrouille'])) {
+                $nbVentes += isset($lock['nb_ventes']) ? (int) $lock['nb_ventes'] : 0;
+            }
+        }
+        if ($nbVentes > 0) {
+            return array(
+                'ok' => false,
+                'error' => 'lien_avec_ventes',
+                'message' => 'Impossible de supprimer le lien : des ventes existent déjà sur ce départ lié.',
+                'nb_ventes' => $nbVentes,
+            );
+        }
         $this->db->where('code_progr_principal', $code_progr_principal)->delete($this->table);
-        return array('ok' => true, 'removed' => $lien);
+        return array('ok' => true, 'removed' => $liens[0], 'removed_all' => $liens, 'nb_liens' => 0);
     }
 }
