@@ -29,7 +29,7 @@ $ligne_error = $this->session->flashdata('ligne_error');
         </div>
         <?= form_open("Lignes/add/{$this->session->company->ekey}", array('class' => 'modal-body form', 'id' => 'form-add-ligne')); ?>
             <div class="row">
-                <div class="form-group col-sm-12">
+                <div class="form-group col-sm-6">
                     <label for="add-ligne-compagnie">COMPAGNIE <span class="text-danger">*</span></label>
                     <select class="form-control form-control-sm" name="cle_compagnie" id="add-ligne-compagnie" required>
                         <option value="">— Choisir la compagnie —</option>
@@ -39,7 +39,12 @@ $ligne_error = $this->session->flashdata('ligne_error');
                             </option>
                         <?php endforeach; ?>
                     </select>
-                    <small class="text-muted">La ligne sera créée pour cette compagnie (gares départ et arrivée filtrées).</small>
+                </div>
+                <div class="form-group col-sm-6">
+                    <label class="d-block">&nbsp;</label>
+                    <small class="text-muted d-block pt-1">
+                        Les gares départ / arrivée se filtrent selon la compagnie.
+                    </small>
                 </div>
                 <div class="form-group col-sm-6">
                     <label>GARE DEPART</label>

@@ -14,6 +14,22 @@
             $this->db->insert($this->table, $data);
             return $this->db->insert_id();
         }
+
+        /**
+         * @param string $idengare
+         * @return bool
+         */
+        public function id_exists($idengare)
+        {
+            $idengare = trim((string) $idengare);
+            if ($idengare === '') {
+                return false;
+            }
+            return (bool) $this->db->query(
+                "SELECT 1 FROM gares WHERE idengare = ? LIMIT 1",
+                array($idengare)
+            )->row();
+        }
             
                 
         public function update($code, array $data)

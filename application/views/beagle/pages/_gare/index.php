@@ -1,5 +1,12 @@
 <?php defined('BASEPATH') OR exit('No direct script access allowed'); ?>
 
+<? if ($this->session->flashdata('error')): ?>
+    <div class="alert alert-danger mx-4"><?= htmlspecialchars($this->session->flashdata('error'), ENT_QUOTES, 'UTF-8'); ?></div>
+<? endif; ?>
+<? if ($this->session->flashdata('success')): ?>
+    <div class="alert alert-success mx-4"><?= htmlspecialchars($this->session->flashdata('success'), ENT_QUOTES, 'UTF-8'); ?></div>
+<? endif; ?>
+
 <div class="row">
     
     <? if (!empty($busarrive_stop)) : ?>
@@ -12,6 +19,7 @@
                         <div class="tools">
                             <button class="btn btn-space btn-info md-trigger" data-modal="add-new-gare">
                                 <span class="icon mdi mdi-plus-1 text-white"></span>
+                                AJOUTER UNE GARE DE DEPART
                             </button>
                         </div>
                     
@@ -28,61 +36,18 @@
                                     data-dismiss="modal" aria-hidden="true">
                                 <span class="mdi mdi-close text-white"></span></button>
                         </div>
-                        <?= form_open('Gares/adddepart/' . $this->session->company->ekey, array('class' => 'modal-body form')) ?>
-                        <div class="form-group col-sm-4">
-                            <label>GARE</label>
-                            <select name="gareselect" class="form-control form-control-sm">
-                                <option value=""></option>
-                                    <? foreach ($gares as $gnom): ?>
-                                        <option value="<?= $gnom->idengare; ?>">
-                                            <?= $gnom->garenom; ?>
-                                        </option>
-                                    <? endforeach; ?>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label>NOM GARE</label>
-                            <input class="form-control form-control-sm"
-                                type="text"
-                                name="_nomgare"
-                                placeholder="La designation de la gare" autocomplete="off" required>
-                        </div>
-
-                        <div class="row">
-                            <div class="form-group col-sm-4">
-                                <label>LOCALISATION DE LA GARE</label>
-                                <select name="_villegare" class="form-control form-control-sm">
-                                <option value=""></option>
-                                        <? foreach ($villes as $local): ?>
-                                            <option value="<?= $local->id_ville; ?>">
-                                                <?= $local->nom_ville; ?>
-                                            </option>
-                                        <? endforeach; ?>
-                                </select>
-                            </div>
-                            
-                            <div class="form-group col-sm-4">
-                                <label>COMPAGNIE</label>
-                                <select name="_compgare" class="form-control form-control-sm">
-                                <option value=""></option>
-                                        <? foreach ($compagnies as $compagnie): ?>
-                                            <option value="<?= $compagnie->cle_compagnie; ?>">
-                                                <?= $compagnie->nom_compagnie; ?>
-                                            </option>
-                                        <? endforeach; ?>
-                                </select>
-                            </div>
-                            <!-- CONTACT -->
-                            <div class="form-group col-sm-4">
-                                <label>CONTACT</label>
-                                <input class="form-control form-control-sm" name="_contact" type="text" autocomplete="off">
-                            </div>   
-                        </div>
+                        <?= form_open('Gares/adddepart/' . $this->session->company->ekey, array('class' => 'modal-body form js-gare-affectation')) ?>
+                        <?php $this->load->view('beagle/pages/_gare/_form_affectation_depart', array(
+                            'gares' => !empty($gares) ? $gares : array(),
+                            'villes' => !empty($villes) ? $villes : array(),
+                            'compagnies' => !empty($compagnies) ? $compagnies : array(),
+                            'modal_suffix' => 'list',
+                        )); ?>
 
                         <div class="modal-footer">
                             <button class="btn btn-secondary modal-close" type="button" data-dismiss="modal">ANNULER
                             </button>
-                            <button class="btn btn-success md_trigger" type="submit" data-dismiss="modal">OK
+                            <button class="btn btn-success" type="submit">OK
                             </button>
                         </div>
                         
@@ -237,63 +202,19 @@
                                             class="mdi mdi-close text-white"></span></button>
                             </div>
                             
-                            <?= form_open('Gares/adddepart/' . $this->session->company->ekey, array('class' => 'modal-body form')) ?>
-                        <div class="form-group col-sm-4">
-                            <label>GARE</label>
-                            <select name="gareselect" class="form-control form-control-sm">
-                            <option value=""></option>
-                                    <? foreach ($gares as $gnom): ?>
-                                        <option value="<?= $gnom->idengare; ?>">
-                                            <?= $gnom->garenom; ?>
-                                        </option>
-                                    <? endforeach; ?>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label>NOM GARE</label>
-                            <input class="form-control form-control-sm"
-                                   type="text"
-                                   name="_nomgare"
-                                   placeholder="La designation de la gare" autocomplete="off" required>
-                        </div>
-
-                        <div class="row">
-                            <div class="form-group col-sm-4">
-                                <label>LOCALISATION DE LA GARE</label>
-                                <select name="_villegare" class="form-control form-control-sm">
-                                <option value=""></option>
-                                        <? foreach ($villes as $local): ?>
-                                            <option value="<?= $local->id_ville; ?>">
-                                                <?= $local->nom_ville; ?>
-                                            </option>
-                                        <? endforeach; ?>
-                                </select>
-                            </div>
-                            <div class="form-group col-sm-4">
-                                <label>COMPAGNIE</label>
-                                <select name="_compgare" class="form-control form-control-sm">
-                                <option value=""></option>
-                                        <? foreach ($compagnies as $compagnie): ?>
-                                            <option value="<?= $compagnie->cle_compagnie; ?>">
-                                                <?= $compagnie->nom_compagnie; ?>
-                                            </option>
-                                        <? endforeach; ?>
-                                </select>
-                            </div>
-                            <!-- CONTACT -->
-                            <div class="form-group col-sm-4">
-                                <label>CONTACT</label>
-                                <input class="form-control form-control-sm" name="_contact" type="text"
-                                 autocomplete="off">
-                            </div>
-                        </div>
+                            <?= form_open('Gares/adddepart/' . $this->session->company->ekey, array('class' => 'modal-body form js-gare-affectation')) ?>
+                            <?php $this->load->view('beagle/pages/_gare/_form_affectation_depart', array(
+                                'gares' => !empty($gares) ? $gares : array(),
+                                'villes' => !empty($villes) ? $villes : array(),
+                                'compagnies' => !empty($compagnies) ? $compagnies : array(),
+                                'modal_suffix' => 'empty',
+                            )); ?>
 
                             <div class="modal-footer">
                                 <button class="btn btn-secondary modal-close" type="button" data-dismiss="modal">
                                     <i class="icon icon-left mdi mdi-undo"></i>&nbsp;ANNULER&nbsp;
                                 </button>
-                                <button class="btn btn-success modal-close" type="submit"
-                                        data-dismiss="modal">
+                                <button class="btn btn-success" type="submit">
                                     <i class="icon icon-left mdi mdi-check-all"></i>&nbsp;OK&nbsp;
                                 </button>
                             </div>
@@ -313,5 +234,6 @@
     <? endif; ?>
 
 </div>
+<script src="<?= base_url('assets/js/gare_affectation.js'); ?>"></script>
 <!--End of file: index.php-->
 <!--File location: application/views/beagle/pages/_gare/index.php-->

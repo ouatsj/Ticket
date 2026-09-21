@@ -14,6 +14,50 @@
             $this->db->insert($this->table, $data);
             return $this->db->insert_id();
         }
+
+        /**
+         * Affectation déjà présente : même gare physique + même compagnie.
+         *
+         * @param int|string $id_entreprise
+         * @param int|string $cle_compagnie
+         * @param string $garesid
+         * @return object|null
+         */
+        public function find_affectation($id_entreprise, $cle_compagnie, $garesid)
+        {
+            $id_entreprise = (int) $id_entreprise;
+            $cle_compagnie = (int) $cle_compagnie;
+            $garesid = trim((string) $garesid);
+            if ($id_entreprise <= 0 || $cle_compagnie <= 0 || $garesid === '') {
+                return null;
+            }
+            return $this->db->query(
+                "SELECT gd.code_gaexp, gd.nom_gaep
+                 FROM gare_exp gd
+                 JOIN compagnies c ON gd.id_compagd = c.cle_compagnie
+                 WHERE c.id_entrep = ?
+                   AND gd.id_compagd = ?
+                   AND gd.garesid = ?
+                 LIMIT 1",
+                array($id_entreprise, $cle_compagnie, $garesid)
+            )->row();
+        }
+
+        /**
+         * @param string $code
+         * @return bool
+         */
+        public function code_exists($code)
+        {
+            $code = trim((string) $code);
+            if ($code === '') {
+                return false;
+            }
+            return (bool) $this->db->query(
+                "SELECT 1 FROM gare_exp WHERE code_gaexp = ? LIMIT 1",
+                array($code)
+            )->row();
+        }
             
                 
         public function update($code_gaexp, array $data)

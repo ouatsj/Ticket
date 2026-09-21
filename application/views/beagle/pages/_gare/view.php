@@ -33,53 +33,13 @@ $compagnies = !empty($compagnies) ? $compagnies : array();
                 <span class="mdi mdi-close text-white"></span>
             </button>
         </div>
-        <?= form_open('Gares/add/' . $this->session->company->ekey, array('class' => 'modal-body form')); ?>
-        <div class="form-group col-sm-4">
-            <label>GARE</label>
-            <select name="gareselected" class="form-control form-control-sm">
-                <option value=""></option>
-                <? foreach ($gares as $gnom): ?>
-                    <option value="<?= $gnom->idengare; ?>">
-                        <?= $gnom->garenom; ?>
-                    </option>
-                <? endforeach; ?>
-            </select>
-        </div>
-        <div class="form-group">
-            <label>NOM GARE</label>
-            <input class="form-control form-control-sm"
-                   type="text" name="nomgare"
-                   placeholder="La designation de la gare" autocomplete="off" required>
-        </div>
-        <div class="row">
-            <div class="form-group col-sm-4">
-                <label>LOCALISATION DE LA GARE</label>
-                <select name="villegare" class="form-control form-control-sm">
-                    <option value=""></option>
-                    <? foreach ($villes as $local): ?>
-                        <option value="<?= $local->id_ville; ?>">
-                            <?= $local->nom_ville; ?>
-                        </option>
-                    <? endforeach; ?>
-                </select>
-            </div>
-            <div class="form-group col-sm-4">
-                <label>COMPAGNIE</label>
-                <select name="compgare" class="form-control form-control-sm">
-                    <option value=""></option>
-                    <? foreach ($compagnies as $compagnie): ?>
-                        <option value="<?= $compagnie->cle_compagnie; ?>">
-                            <?= $compagnie->nom_compagnie; ?>
-                        </option>
-                    <? endforeach; ?>
-                </select>
-            </div>
-            <div class="form-group col-sm-4">
-                <label>CONTACT</label>
-                <input class="form-control form-control-sm" name="contact" type="text"
-                       placeholder="" autocomplete="off">
-            </div>
-        </div>
+        <?= form_open('Gares/add/' . $this->session->company->ekey, array('class' => 'modal-body form js-gare-affectation')); ?>
+        <?php $this->load->view('beagle/pages/_gare/_form_affectation_arrivee', array(
+            'gares' => $gares,
+            'villes' => $villes,
+            'compagnies' => $compagnies,
+            'modal_suffix' => 'arr',
+        )); ?>
         <div class="modal-footer">
             <button class="btn btn-secondary modal-close" type="button" data-dismiss="modal">ANNULER</button>
             <button class="btn btn-success" type="submit">OK</button>
@@ -337,5 +297,6 @@ $compagnies = !empty($compagnies) ? $compagnies : array();
 
     </div>
 </div>
+<script src="<?= base_url('assets/js/gare_affectation.js'); ?>"></script>
 <!--End of file: view.php-->
 <!--File location: application/views/beagle/pages/_gare/view.php-->

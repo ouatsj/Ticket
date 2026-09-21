@@ -555,7 +555,7 @@
                 $this->property['bus_stop'] = $bus_stop;
                 $this->property['arrivees_par_compagnie'] = $this->m_gare_arrivee->group_rows_by_compagnie($bus_stop);
                 $this->property['villes'] = $this->m_villes->get();
-                $this->property['compagnies'] = $this->m_compagnies->get();
+                $this->property['compagnies'] = $this->m_compagnies->get_by_entreprise($this->company->id_entreprise);
                 return $this->layout->view('_gare/view', $this->property);
         }
 
@@ -571,7 +571,7 @@
                 $this->property['departs_par_compagnie'] = $this->m_gare_depart->get_grouped_by_compagnie($this->company->id_entreprise);
                 
                 $this->property['villes'] = $this->m_villes->get();
-                $this->property['compagnies'] = $this->m_compagnies->get();
+                $this->property['compagnies'] = $this->m_compagnies->get_by_entreprise($this->company->id_entreprise);
                 return $this->layout->view('_gare/index', $this->property);
         }
 
@@ -636,27 +636,221 @@
                  $this->property['lignes'] = $this->m_lignes->getgid($this->company->id_entreprise, $ids);
                 return $this->layout->view('_gare/indexsousligne', $this->property);
         }
+        /**
+         * Préfixe alpha 3 lettres depuis un nom de gare.
+         *
+         * @param string $nom
+         * @return string
+         */
+        protected function _gare_code_prefix($nom)
+        {
+            $raw = preg_replace('/[^A-Za-z0-9]/', '', (string) $nom);
+            $prefix = strtoupper(substr($raw, 0, 3));
+            if ($prefix === '') {
+                $prefix = 'GAR';
+            }
+            while (strlen($prefix) < 3) {
+                $prefix .= 'X';
+            }
+            return $prefix;
+        }
+
+        /**
+         * Nouveau code unique (gare_exp / gare_dest / gares).
+         *
+         * @param string $table
+         * @param string $column
+         * @param string $nom
+         * @return string
+         */
+        protected function _nouveau_code_gare($table, $column, $nom)
+        {
+            $prefix = $this->_gare_code_prefix($nom);
+            $allowed = array(
+                'gare_exp' => 'code_gaexp',
+                'gare_dest' => 'code_gadest',
+                'gares' => 'idengare',
+            );
+            if (!isset($allowed[$table]) || $allowed[$table] !== $column) {
+                return $prefix . time();
+            }
+            $n = (int) $this->db->query("SELECT COUNT(*) AS n FROM {$table}")->row()->n;
+            for ($i = 1; $i < 10000; $i++) {
+                $code = $prefix . ($n + $i);
+                $exists = $this->db->query(
+                    "SELECT 1 FROM {$table} WHERE {$column} = ? LIMIT 1",
+                    array($code)
+                )->row();
+                if (!$exists) {
+                    return $code;
+                }
+            }
+            return $prefix . substr((string) time(), -6);
+        }
+
+        /**
+         * Compagnie de l'entreprise courante ou null.
+         *
+         * @param int|string $cle_compagnie
+         * @return object|null
+         */
+        protected function _compagnie_entreprise($cle_compagnie)
+        {
+            $cle = (int) $cle_compagnie;
+            if ($cle <= 0 || empty($this->company->id_entreprise)) {
+                return null;
+            }
+            $row = $this->m_compagnies->get_key($cle);
+            if (!$row || (int) $row->id_entrep !== (int) $this->company->id_entreprise) {
+                return null;
+            }
+            return $row;
+        }
+
+        /**
+         * Clone les sous-gares d'une autre affectation commerciale du même lieu physique.
+         *
+         * @param string $garesid
+         * @param string $new_code_gaexp
+         * @return int nombre cloné
+         */
+        protected function _clone_sousgares_physique($garesid, $new_code_gaexp)
+        {
+            $garesid = trim((string) $garesid);
+            $new_code_gaexp = trim((string) $new_code_gaexp);
+            if ($garesid === '' || $new_code_gaexp === '') {
+                return 0;
+            }
+            $src = $this->db->query(
+                "SELECT ge.code_gaexp
+                 FROM gare_exp ge
+                 JOIN compagnies c ON ge.id_compagd = c.cle_compagnie
+                 JOIN sousgare s ON s.gareprinceid = ge.code_gaexp
+                 WHERE c.id_entrep = ?
+                   AND ge.garesid = ?
+                   AND ge.code_gaexp <> ?
+                 GROUP BY ge.code_gaexp
+                 ORDER BY COUNT(s.idsousgare) DESC, ge.code_gaexp ASC
+                 LIMIT 1",
+                array((int) $this->company->id_entreprise, $garesid, $new_code_gaexp)
+            )->row();
+            if (!$src) {
+                return 0;
+            }
+            $rows = $this->db->query(
+                "SELECT nomsousgare, contactsousgare, codsousgare
+                 FROM sousgare
+                 WHERE gareprinceid = ?",
+                array($src->code_gaexp)
+            )->result();
+            $n = 0;
+            foreach ($rows as $r) {
+                $this->m_sousgare->create(array(
+                    'gareprinceid' => $new_code_gaexp,
+                    'nomsousgare' => $r->nomsousgare,
+                    'contactsousgare' => $r->contactsousgare,
+                    'codsousgare' => $r->codsousgare,
+                ));
+                $n++;
+            }
+            return $n;
+        }
+
         //insertion
         public function add($ckey)
         {
             $this->company = $this->m_entreprises->get_key($ckey);
-            $compter = $this->db->query("SELECT COUNT(code_gadest) AS id FROM gare_dest")->row();
-            $nom = $this->input->post('nomgare');
-            $ng = substr($nom, 0, 3);
-            $arraygd = array(
-                'code_gadest' => $ng.($compter->id + 1),
-                'idgaresdest' =>$this->input->post('gareselected'),
-                'id_villega' => $this->input->post('villegare'),
-                'id_compaga' => $this->input->post('compgare'),
-                'contactgare' => $this->input->post('contact'),
-                'nom_gadest' => $this->input->post('nomgare'),
-                'type_gare' => $this->input->post('typegare'),
-            );
-            $gd = $this->m_gare_arrivee->create($arraygd);
-            if ($gd != NULL) {
-                $this->property['INSERT_SUCCESS'] = TRUE;
+            $target = 'gares/' . $this->session->company->ekey;
+
+            $mode = trim((string) $this->input->post('mode_affectation'));
+            if ($mode !== 'creer') {
+                $mode = 'affecter';
             }
-            redirect('gares/' . $this->session->company->ekey);
+            $cle_comp = (int) $this->input->post('compgare');
+            $compagnie = $this->_compagnie_entreprise($cle_comp);
+            if (!$compagnie) {
+                $this->session->set_flashdata('error', 'Compagnie invalide pour cette entreprise.');
+                redirect($target);
+                return;
+            }
+
+            $nom = trim((string) $this->input->post('nomgare'));
+            $ville = (int) $this->input->post('villegare');
+            $contact = trim((string) $this->input->post('contact'));
+            $type_gare = $this->input->post('typegare');
+            $idengare = '';
+
+            if ($mode === 'affecter') {
+                $idengare = trim((string) $this->input->post('gareselected'));
+                $phys = $this->m_gares->get($this->company->id_entreprise, $idengare);
+                if (!$phys) {
+                    $this->session->set_flashdata('error', 'Gare physique introuvable.');
+                    redirect($target);
+                    return;
+                }
+                $dup = $this->m_gare_arrivee->find_affectation(
+                    $this->company->id_entreprise,
+                    $cle_comp,
+                    $idengare
+                );
+                if ($dup) {
+                    $this->session->set_flashdata(
+                        'error',
+                        'Cette compagnie a déjà une gare d\'arrivée sur ce lieu (' . $dup->code_gadest . ').'
+                    );
+                    redirect($target);
+                    return;
+                }
+                if ($nom === '') {
+                    $nom = (string) $phys->garenom;
+                }
+                if ($ville <= 0) {
+                    $ville = (int) $phys->villeid;
+                }
+                if ($contact === '' && !empty($phys->contactgares)) {
+                    $contact = (string) $phys->contactgares;
+                }
+            } else {
+                if ($nom === '' || $ville <= 0) {
+                    $this->session->set_flashdata('error', 'Nom et localisation obligatoires pour créer une gare physique.');
+                    redirect($target);
+                    return;
+                }
+                $idengare = $this->_nouveau_code_gare('gares', 'idengare', $nom);
+                $this->m_gares->create(array(
+                    'idengare' => $idengare,
+                    'villeid' => $ville,
+                    'compagniegare' => $cle_comp,
+                    'garenom' => $nom,
+                    'contactgares' => $contact !== '' ? $contact : null,
+                    'codegares' => $this->input->post('codes'),
+                ));
+            }
+
+            if ($nom === '' || $ville <= 0 || $idengare === '') {
+                $this->session->set_flashdata('error', 'Données incomplètes pour la gare d\'arrivée.');
+                redirect($target);
+                return;
+            }
+
+            $code = $this->_nouveau_code_gare('gare_dest', 'code_gadest', $nom);
+            $this->m_gare_arrivee->create(array(
+                'code_gadest' => $code,
+                'idgaresdest' => $idengare,
+                'id_villega' => $ville,
+                'id_compaga' => $cle_comp,
+                'contactgare' => $contact,
+                'nom_gadest' => $nom,
+                'type_gare' => $type_gare,
+                'actif_ga' => 1,
+            ));
+
+            $msg = ($mode === 'affecter')
+                ? 'Gare d\'arrivée affectée : ' . $code . ' → lieu ' . $idengare . '.'
+                : 'Gare physique + arrivée créées : ' . $code . '.';
+            $this->session->set_flashdata('success', $msg);
+            $this->property['INSERT_SUCCESS'] = TRUE;
+            redirect($target);
         }
         
         public function edit($ckey, $g_id)
@@ -764,23 +958,103 @@
         public function adddepart($ckey)
         {
             $this->company = $this->m_entreprises->get_key($ckey);
-            $comptr = $this->db->query("SELECT COUNT(code_gaexp) AS id FROM gare_exp")->row();
-            $nom = $this->input->post('_nomgare');
-            $nge = substr($nom, 0, 3);
-            
-            $arrayge = array(
-                'code_gaexp' => $nge.($comptr->id + 1),
-                'garesid' =>$this->input->post('gareselect'),
-                'id_villegd' => $this->input->post('_villegare'),
-                'id_compagd' => $this->input->post('_compgare'),
-                'nom_gaep' => $this->input->post('_nomgare'),
-                'contactgdepart' => $this->input->post('_contact'),
-            );
-            $ge = $this->m_gare_depart->create($arrayge);
-            if ($ge != NULL) {
-                $this->property['INSERT_SUCCESS'] = TRUE;
+            $target = 'gares/expedit/' . $this->session->company->ekey;
+
+            $mode = trim((string) $this->input->post('mode_affectation'));
+            if ($mode !== 'creer') {
+                $mode = 'affecter';
             }
-            redirect('gares/expedit/' . $this->session->company->ekey);
+            $cle_comp = (int) $this->input->post('_compgare');
+            $compagnie = $this->_compagnie_entreprise($cle_comp);
+            if (!$compagnie) {
+                $this->session->set_flashdata('error', 'Compagnie invalide pour cette entreprise.');
+                redirect($target);
+                return;
+            }
+
+            $nom = trim((string) $this->input->post('_nomgare'));
+            $ville = (int) $this->input->post('_villegare');
+            $contact = trim((string) $this->input->post('_contact'));
+            $clone_sg = (string) $this->input->post('clone_sousgares') === '1';
+            $idengare = '';
+
+            if ($mode === 'affecter') {
+                $idengare = trim((string) $this->input->post('gareselect'));
+                $phys = $this->m_gares->get($this->company->id_entreprise, $idengare);
+                if (!$phys) {
+                    $this->session->set_flashdata('error', 'Gare physique introuvable.');
+                    redirect($target);
+                    return;
+                }
+                $dup = $this->m_gare_depart->find_affectation(
+                    $this->company->id_entreprise,
+                    $cle_comp,
+                    $idengare
+                );
+                if ($dup) {
+                    $this->session->set_flashdata(
+                        'error',
+                        'Cette compagnie a déjà une gare de départ sur ce lieu (' . $dup->code_gaexp . ').'
+                    );
+                    redirect($target);
+                    return;
+                }
+                if ($nom === '') {
+                    $nom = (string) $phys->garenom;
+                }
+                if ($ville <= 0) {
+                    $ville = (int) $phys->villeid;
+                }
+                if ($contact === '' && !empty($phys->contactgares)) {
+                    $contact = (string) $phys->contactgares;
+                }
+            } else {
+                if ($nom === '' || $ville <= 0) {
+                    $this->session->set_flashdata('error', 'Nom et localisation obligatoires pour créer une gare physique.');
+                    redirect($target);
+                    return;
+                }
+                $idengare = $this->_nouveau_code_gare('gares', 'idengare', $nom);
+                $this->m_gares->create(array(
+                    'idengare' => $idengare,
+                    'villeid' => $ville,
+                    'compagniegare' => $cle_comp,
+                    'garenom' => $nom,
+                    'contactgares' => $contact !== '' ? $contact : null,
+                    'codegares' => $this->input->post('codes'),
+                ));
+            }
+
+            if ($nom === '' || $ville <= 0 || $idengare === '') {
+                $this->session->set_flashdata('error', 'Données incomplètes pour la gare de départ.');
+                redirect($target);
+                return;
+            }
+
+            $code = $this->_nouveau_code_gare('gare_exp', 'code_gaexp', $nom);
+            $this->m_gare_depart->create(array(
+                'code_gaexp' => $code,
+                'garesid' => $idengare,
+                'id_villegd' => $ville,
+                'id_compagd' => $cle_comp,
+                'nom_gaep' => $nom,
+                'contactgdepart' => $contact,
+            ));
+
+            $cloned = 0;
+            if ($mode === 'affecter' && $clone_sg) {
+                $cloned = $this->_clone_sousgares_physique($idengare, $code);
+            }
+
+            $msg = ($mode === 'affecter')
+                ? 'Gare de départ affectée : ' . $code . ' → lieu ' . $idengare . '.'
+                : 'Gare physique + départ créés : ' . $code . '.';
+            if ($cloned > 0) {
+                $msg .= ' ' . $cloned . ' sous-gare(s) clonée(s).';
+            }
+            $this->session->set_flashdata('success', $msg);
+            $this->property['INSERT_SUCCESS'] = TRUE;
+            redirect($target);
         }
 
         public function updeparts($ckey)
