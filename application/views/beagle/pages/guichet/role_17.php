@@ -84,7 +84,7 @@ $this->load->view('beagle/pages/guichet/_role_17_styles');
                 <span class="r17-ico"><i class="fas fa-envelope"></i></span>
                 <span class="r17-txt">
                     Courrier
-                    <span class="r17-sub">Envoi</span>
+                    <span class="r17-sub">Envoi · Bordereau</span>
                 </span>
             </a>
             <a href="<?= site_url("ventescales/voirreimpri/{$this->session->company->ekey}/{$conex->roleattribut}/{$bus_stop->idengare}/{$bus_stop->idsousgare}"); ?>"
@@ -95,6 +95,11 @@ $this->load->view('beagle/pages/guichet/_role_17_styles');
                     <span class="r17-sub">Tickets · bagage · courrier</span>
                 </span>
             </a>
+        <?php else: ?>
+            <div class="alert alert-warning" role="alert" style="grid-column:1/-1;margin:0;border-radius:8px;">
+                Vente, bagage, courrier et réimpression sont temporairement masqués.
+                Effectuez d’abord votre <strong>arrêt de compte</strong> (bouton Compte).
+            </div>
         <?php endif; ?>
 
         <a href="<?= site_url("caisses/compteescal/{$this->session->company->ekey}/{$conex->roleattribut}/{$bus_stop->idengare}/{$bus_stop->idsousgare}"); ?>"

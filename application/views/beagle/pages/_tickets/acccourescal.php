@@ -18,22 +18,51 @@ $accueil = role17_is_agent()
         <span class="label">Recette courrier</span>
         <span class="amount"><?= number_format($rt, 0, '', ' '); ?> FCFA</span>
     </div>
+    <?php
+    // Même logique métier que le guichet classique : jours précédents non arrêtés.
+    // En r17 on n’efface plus les boutons sans explication.
+    $courrier_bloque_arret = !empty($cptcourescd);
+    $compte_url = site_url(
+        "caisses/compteescal/{$this->session->company->ekey}/{$conex->roleattribut}/{$bus_stop->idengare}/{$bus_stop->idsousgare}"
+    );
+    ?>
+    <?php if ($courrier_bloque_arret): ?>
+        <div class="alert alert-warning" role="alert" style="margin:0 0 0.75rem;border-radius:8px;">
+            Des envois courrier des <strong>jours précédents</strong> ne sont pas encore arrêtés.
+            Faites l’arrêt via
+            <a href="<?= htmlspecialchars($compte_url, ENT_QUOTES, 'UTF-8'); ?>" class="alert-link">Compte</a>
+            pour réactiver pleinement Envoi et Bordereau.
+        </div>
+    <?php endif; ?>
     <div class="r17-grid">
-        <?php if ($cptcourescd == ''): ?>
-            <a href="#" class="r17-btn is-primary md-trigger"
-               data-modal="courrier-envoi-r17">
-                <span class="r17-ico"><i class="fas fa-paper-plane"></i></span>
-                <span class="r17-txt">
-                    Envoi
-                    <span class="r17-sub">Ordinaire · Personnel · Partenaire</span>
-                </span>
-            </a>
-            <a href="#" class="r17-btn addsbordesc md-trigger"
-               data-modal="voir-bordesc" data-cle_compagnie="<?= $this->session->company->ekey; ?>">
-                <span class="r17-ico"><i class="fas fa-file-alt"></i></span>
-                <span class="r17-txt">Bordereau d’envoi</span>
-            </a>
-        <?php endif; ?>
+        <a href="#"
+           class="r17-btn is-primary md-trigger<?= $courrier_bloque_arret ? ' disabled' : ''; ?>"
+           data-modal="courrier-envoi-r17"
+           <?php if ($courrier_bloque_arret): ?>
+               aria-disabled="true"
+               onclick="return false;"
+               style="opacity:.55;pointer-events:none;"
+               title="Arrêt de compte requis"
+           <?php endif; ?>>
+            <span class="r17-ico"><i class="fas fa-paper-plane"></i></span>
+            <span class="r17-txt">
+                Envoi
+                <span class="r17-sub">Ordinaire · Personnel · Partenaire</span>
+            </span>
+        </a>
+        <a href="#"
+           class="r17-btn addsbordesc md-trigger<?= $courrier_bloque_arret ? ' disabled' : ''; ?>"
+           data-modal="voir-bordesc"
+           data-cle_compagnie="<?= $this->session->company->ekey; ?>"
+           <?php if ($courrier_bloque_arret): ?>
+               aria-disabled="true"
+               onclick="return false;"
+               style="opacity:.55;pointer-events:none;"
+               title="Arrêt de compte requis"
+           <?php endif; ?>>
+            <span class="r17-ico"><i class="fas fa-file-alt"></i></span>
+            <span class="r17-txt">Bordereau d’envoi</span>
+        </a>
         <a href="<?= site_url("confirmation/voircourrierescal/{$this->session->company->ekey}/{$conex->roleattribut}/{$bus_stop->idengare}/{$bus_stop->idsousgare}"); ?>"
            class="r17-btn">
             <span class="r17-ico"><i class="fas fa-list"></i></span>
