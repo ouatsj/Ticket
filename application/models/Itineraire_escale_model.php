@@ -331,6 +331,54 @@ class Itineraire_escale_model extends CI_Model
         return (int) $row->m + 1;
     }
 
+    /**
+     * Assure qu'un hub (gare_dest de la composition) existe comme escale sur le parent.
+     * Sans prix TPE OD — sert uniquement aux liaisons escale→hub.
+     *
+     * @param string $id_lignes
+     * @param string $code_gadest
+     * @param string $nom_escale
+     * @return int id_escale (0 si échec)
+     */
+    public function ensure_hub_escale($id_lignes, $code_gadest, $nom_escale = '')
+    {
+        $id_lignes = trim((string) $id_lignes);
+        $code_gadest = trim((string) $code_gadest);
+        $nom_escale = trim((string) $nom_escale);
+        if ($id_lignes === '' || $code_gadest === '') {
+            return 0;
+        }
+        $row = $this->db->query(
+            "SELECT id_escale FROM itineraire_escales
+             WHERE id_lignes = ? AND code_gadest = ?
+             LIMIT 1",
+            array($id_lignes, $code_gadest)
+        )->row();
+        if ($row) {
+            $id = (int) $row->id_escale;
+            if ($id > 0) {
+                $this->db->where('id_escale', $id)->update($this->table, array('actif_escale' => 1));
+            }
+            return $id;
+        }
+        if ($nom_escale === '') {
+            $g = $this->db->query(
+                "SELECT nom_gadest FROM gare_dest WHERE code_gadest = ? LIMIT 1",
+                array($code_gadest)
+            )->row();
+            $nom_escale = ($g && !empty($g->nom_gadest)) ? trim((string) $g->nom_gadest) : $code_gadest;
+        }
+        $payload = array(
+            'id_lignes' => $id_lignes,
+            'code_gadest' => $code_gadest,
+            'nom_escale' => $nom_escale,
+            'ordre_escale' => $this->next_ordre($id_lignes),
+            'actif_escale' => 1,
+            'prix_escale' => 0,
+        );
+        return (int) $this->create($payload);
+    }
+
     public function exists($parent, $code_gadest, $exclude_id = NULL)
     {
         $sql = "SELECT id_escale FROM itineraire_escales WHERE id_lignes = ? AND code_gadest = ?";

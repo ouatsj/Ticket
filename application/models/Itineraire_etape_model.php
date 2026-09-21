@@ -171,6 +171,48 @@ class Itineraire_etape_model extends CI_Model
     }
 
     /**
+     * Hubs d'un itinéraire parent = gares d'arrivée des jambes intermédiaires
+     * (composition transit), hors terminus final.
+     *
+     * @param string $ekey
+     * @param string $parent_ligne ident_ligne conteneur
+     * @return array[] [{code, nom, ordre}]
+     */
+    public function hubs_of_parent($ekey, $parent_ligne)
+    {
+        $etapes = $this->get_by_parent($ekey, $parent_ligne);
+        if (empty($etapes) || count($etapes) < 2) {
+            return array();
+        }
+        $last = count($etapes) - 1;
+        $hubs = array();
+        $seen = array();
+        foreach ($etapes as $i => $et) {
+            if ($i >= $last) {
+                break;
+            }
+            $code = isset($et->code_gadest) ? trim((string) $et->code_gadest) : '';
+            if ($code === '' || isset($seen[$code])) {
+                continue;
+            }
+            $nom = isset($et->arrive_itine) ? trim((string) $et->arrive_itine) : '';
+            if ($nom === '' && !empty($et->nom_gadest)) {
+                $nom = trim((string) $et->nom_gadest);
+            }
+            if ($nom === '') {
+                $nom = $code;
+            }
+            $seen[$code] = true;
+            $hubs[] = array(
+                'code' => $code,
+                'nom' => $nom,
+                'ordre' => isset($et->ordre_etape) ? (int) $et->ordre_etape : ($i + 1),
+            );
+        }
+        return $hubs;
+    }
+
+    /**
      * Remplace toute la composition d'une ligne conteneur.
      * $etapes = array d'ident_ligne (ordre = index+1), max 4.
      */

@@ -464,7 +464,7 @@ $escale_labels = function ($esc, $mode = 'tarif') {
 
                 <div class="card card-table">
                     <div class="card-body table-responsive">
-                        <h6 class="mb-3">Liaisons escale → escale (même parent)</h6>
+                        <h6 class="mb-3">Liaisons escale → escale / hub (même parent)</h6>
                         <?php
                         $escales_tpe_liaisons = !empty($escales_tpe_liaisons) ? $escales_tpe_liaisons : array();
                         if (!empty($escales_tpe_liaisons)):
@@ -725,7 +725,7 @@ $escale_labels = function ($esc, $mode = 'tarif') {
             <input type="checkbox" class="form-check-input" name="liaison_escale_escale" value="1"
                    id="tpe_liaison_check">
             <label class="form-check-label" for="tpe_liaison_check">
-                Prix escale → escale (même itinéraire parent)
+                Prix escale → escale / hub (composition transit du parent)
             </label>
         </div>
 
@@ -769,7 +769,7 @@ $escale_labels = function ($esc, $mode = 'tarif') {
             </div>
         </div>
 
-        <!-- Mode liaison escale → escale -->
+        <!-- Mode liaison escale → escale / hub -->
         <div id="tpe-block-liaison" style="display:none;">
             <div class="form-group">
                 <label for="tpe_escale_depart">ESCALE DÉPART *</label>
@@ -778,18 +778,19 @@ $escale_labels = function ($esc, $mode = 'tarif') {
                 </select>
             </div>
             <div class="form-group">
-                <label for="tpe_escale_arrivee">ESCALE ARRIVÉE *</label>
+                <label for="tpe_escale_arrivee">ARRIVÉE (escale ou hub) *</label>
                 <select class="form-control form-control-sm" name="id_escale_arrivee" id="tpe_escale_arrivee" disabled>
                     <option value="">Choisir d’abord le parent…</option>
                 </select>
             </div>
             <div class="form-group">
-                <label for="tpe_prix_liaison">PRIX ESCALE → ESCALE *</label>
+                <label for="tpe_prix_liaison">PRIX ESCALE → ARRIVÉE *</label>
                 <input class="form-control form-control-sm" type="number" min="0" step="1"
                        name="prix_liaison" id="tpe_prix_liaison" placeholder="ex. 1500" disabled>
             </div>
             <small class="text-muted d-block mb-2">
-                Les deux escales doivent déjà exister sur cet itinéraire parent (Escales tarifées ou TPE).
+                Départ = escale déjà sur le parent. Arrivée = autre escale <strong>ou hub</strong>
+                (gare intermédiaire de la composition transit du parent).
             </small>
         </div>
 
@@ -1041,25 +1042,60 @@ $escale_labels = function ($esc, $mode = 'tarif') {
 
     function fillTpeLiaisonSelects(meta) {
         var list = (meta && meta.escales_on_parent) ? meta.escales_on_parent.slice() : [];
-        var html = '<option value="">Choisir l’escale…</option>';
+        var hubs = (meta && meta.hubs) ? meta.hubs.slice() : [];
+        var htmlDep = '<option value="">Choisir l’escale…</option>';
         list.forEach(function (e) {
-            html += '<option value="' + String(e.id_escale) + '">'
+            htmlDep += '<option value="' + String(e.id_escale) + '">'
                 + String(e.nom || e.code) + '</option>';
         });
         if (list.length === 0) {
-            html = '<option value="">Aucune escale sur ce parent</option>';
+            htmlDep = '<option value="">Aucune escale sur ce parent</option>';
         }
+
+        var escaleCodes = {};
+        list.forEach(function (e) {
+            if (e.code) escaleCodes[String(e.code)] = true;
+        });
+        var htmlArr = '<option value="">Choisir escale ou hub…</option>';
+        if (list.length > 0) {
+            htmlArr += '<optgroup label="Escales du parent">';
+            list.forEach(function (e) {
+                htmlArr += '<option value="' + String(e.id_escale) + '">'
+                    + String(e.nom || e.code) + '</option>';
+            });
+            htmlArr += '</optgroup>';
+        }
+        var hubsShown = 0;
+        var hubOpts = '';
+        hubs.forEach(function (h) {
+            var code = String(h.code || '');
+            if (!code || escaleCodes[code]) {
+                return;
+            }
+            var val = String(h.value || ('hub:' + code));
+            hubOpts += '<option value="' + val.replace(/"/g, '&quot;') + '">'
+                + String(h.nom || code) + ' (hub)</option>';
+            hubsShown++;
+        });
+        if (hubsShown > 0) {
+            htmlArr += '<optgroup label="Hubs (composition transit)">' + hubOpts + '</optgroup>';
+        }
+        if (list.length === 0 && hubsShown === 0) {
+            htmlArr = '<option value="">Aucune escale ni hub sur ce parent</option>';
+        }
+
         if (tpeDep) {
-            tpeDep.innerHTML = html;
+            tpeDep.innerHTML = htmlDep;
             tpeDep.disabled = list.length === 0 || !isLiaisonMode();
         }
         if (tpeArr) {
-            tpeArr.innerHTML = html;
-            tpeArr.disabled = list.length === 0 || !isLiaisonMode();
+            tpeArr.innerHTML = htmlArr;
+            tpeArr.disabled = (list.length === 0) || !isLiaisonMode();
         }
         if (tpePrixLiaison) {
-            tpePrixLiaison.disabled = list.length === 0 || !isLiaisonMode();
-            if (list.length === 0) tpePrixLiaison.value = '';
+            var can = list.length > 0 && isLiaisonMode();
+            tpePrixLiaison.disabled = !can;
+            if (!can) tpePrixLiaison.value = '';
         }
     }
 

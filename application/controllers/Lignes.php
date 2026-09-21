@@ -246,21 +246,21 @@
             $is_tpe = ($tab === 'tpe');
             $redirect_tab = $is_tpe ? 'tpe' : 'escales';
 
-            // ----- Escale TPE : liaison escale → escale (même parent) -----
+            // ----- Escale TPE : liaison escale → escale / hub (même parent) -----
             if ($is_tpe && (string) $this->input->post('liaison_escale_escale') === '1') {
                 $parent = trim((string) $this->input->post('ligne_parent'));
                 $id_depart = (int) $this->input->post('id_escale_depart');
-                $id_arrivee = (int) $this->input->post('id_escale_arrivee');
+                $arrivee_raw = trim((string) $this->input->post('id_escale_arrivee'));
                 $prix_liaison = (float) str_replace(
                     array(' ', ','),
                     array('', '.'),
                     (string) $this->input->post('prix_liaison')
                 );
 
-                if ($parent === '' || $id_depart < 1 || $id_arrivee < 1 || $id_depart === $id_arrivee || $prix_liaison < 0) {
+                if ($parent === '' || $id_depart < 1 || $arrivee_raw === '' || $prix_liaison < 0) {
                     $this->session->set_flashdata(
                         'error',
-                        'Parent, escale départ, escale arrivée (distinctes) et prix sont obligatoires.'
+                        'Parent, escale départ, arrivée (escale ou hub) et prix sont obligatoires.'
                     );
                     $this->_redirect_itineraires('tpe');
                     return;
@@ -270,14 +270,65 @@
                     "SELECT id_escale, id_lignes FROM itineraire_escales WHERE id_escale = ? LIMIT 1",
                     array($id_depart)
                 )->row();
-                $arr = $this->db->query(
-                    "SELECT id_escale, id_lignes FROM itineraire_escales WHERE id_escale = ? LIMIT 1",
-                    array($id_arrivee)
-                )->row();
-                if (!$dep || !$arr || (string) $dep->id_lignes !== $parent || (string) $arr->id_lignes !== $parent) {
+                if (!$dep || (string) $dep->id_lignes !== $parent) {
                     $this->session->set_flashdata(
                         'error',
-                        'Les deux escales doivent appartenir au même itinéraire parent.'
+                        'L’escale de départ doit appartenir à l’itinéraire parent.'
+                    );
+                    $this->_redirect_itineraires('tpe');
+                    return;
+                }
+
+                $id_arrivee = 0;
+                if (stripos($arrivee_raw, 'hub:') === 0) {
+                    $hub_code = trim(substr($arrivee_raw, 4));
+                    if ($hub_code === '') {
+                        $this->session->set_flashdata('error', 'Hub invalide.');
+                        $this->_redirect_itineraires('tpe');
+                        return;
+                    }
+                    if (!isset($this->m_itineraire_etape)) {
+                        $this->load->model('Itineraire_etape_model', 'm_itineraire_etape');
+                    }
+                    $hubs = $this->m_itineraire_etape->hubs_of_parent($ckey, $parent);
+                    $hub_nom = '';
+                    $hub_ok = false;
+                    foreach ($hubs as $h) {
+                        if (isset($h['code']) && (string) $h['code'] === $hub_code) {
+                            $hub_ok = true;
+                            $hub_nom = isset($h['nom']) ? (string) $h['nom'] : $hub_code;
+                            break;
+                        }
+                    }
+                    if (!$hub_ok) {
+                        $this->session->set_flashdata(
+                            'error',
+                            'Ce hub n’appartient pas à la composition transit de l’itinéraire parent.'
+                        );
+                        $this->_redirect_itineraires('tpe');
+                        return;
+                    }
+                    $id_arrivee = $this->m_itineraire_escale->ensure_hub_escale($parent, $hub_code, $hub_nom);
+                } else {
+                    $id_arrivee = (int) $arrivee_raw;
+                    $arr = $this->db->query(
+                        "SELECT id_escale, id_lignes FROM itineraire_escales WHERE id_escale = ? LIMIT 1",
+                        array($id_arrivee)
+                    )->row();
+                    if (!$arr || (string) $arr->id_lignes !== $parent) {
+                        $this->session->set_flashdata(
+                            'error',
+                            'L’escale d’arrivée doit appartenir au même itinéraire parent.'
+                        );
+                        $this->_redirect_itineraires('tpe');
+                        return;
+                    }
+                }
+
+                if ($id_arrivee < 1 || $id_depart === $id_arrivee) {
+                    $this->session->set_flashdata(
+                        'error',
+                        'Arrivée invalide (escale/hub distincte du départ).'
                     );
                     $this->_redirect_itineraires('tpe');
                     return;
@@ -287,7 +338,7 @@
                 if ($id) {
                     $this->property['INSERT_SUCCESS'] = TRUE;
                 } else {
-                    $this->session->set_flashdata('error', 'Impossible d\'enregistrer la liaison escale→escale.');
+                    $this->session->set_flashdata('error', 'Impossible d\'enregistrer la liaison escale→escale/hub.');
                 }
                 $this->_redirect_itineraires('tpe');
                 return;
@@ -738,6 +789,32 @@
                     }
                     return strcasecmp((string) $a['nom'], (string) $b['nom']);
                 });
+
+                // Hubs = arrivées intermédiaires de la composition transit du parent
+                $out['hubs'] = array();
+                if (!isset($this->m_itineraire_etape)) {
+                    $this->load->model('Itineraire_etape_model', 'm_itineraire_etape');
+                }
+                $escale_by_code = array();
+                foreach ($out['escales_on_parent'] as $ex) {
+                    $c = isset($ex['code']) ? trim((string) $ex['code']) : '';
+                    if ($c !== '') {
+                        $escale_by_code[$c] = (int) $ex['id_escale'];
+                    }
+                }
+                foreach ((array) $this->m_itineraire_etape->hubs_of_parent($ckey, $ident_ligne) as $hub) {
+                    $code = isset($hub['code']) ? trim((string) $hub['code']) : '';
+                    if ($code === '' || $code === $term_code || $code === $orig_code) {
+                        continue;
+                    }
+                    $out['hubs'][] = array(
+                        'code' => $code,
+                        'nom' => isset($hub['nom']) ? (string) $hub['nom'] : $code,
+                        'ordre' => isset($hub['ordre']) ? (int) $hub['ordre'] : 0,
+                        'id_escale' => isset($escale_by_code[$code]) ? (int) $escale_by_code[$code] : 0,
+                        'value' => 'hub:' . $code,
+                    );
+                }
             }
 
             return $this->output
