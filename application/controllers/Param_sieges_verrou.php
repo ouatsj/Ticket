@@ -43,6 +43,78 @@ class Param_sieges_verrou extends MY_Controller
         return $n > 0 ? $n : 55;
     }
 
+    /**
+     * Lignes/heures actives + compagnies + verrous (données UI).
+     *
+     * @return array
+     */
+    protected function _build_ui_data()
+    {
+        $heures = $this->m_ligne_heure->getad($this->company->id_entreprise, FALSE);
+        if (!is_array($heures)) {
+            $heures = array();
+        }
+        $map = $this->m_siege_verrou->map_for_entreprise($this->company->id_entreprise);
+
+        $compagnies = array();
+        $lignes = array();
+        $lignes_verrouillees = array();
+
+        foreach ($heures as $h) {
+            $cie_nom = !empty($h->nom_compagnie_depart)
+                ? (string) $h->nom_compagnie_depart
+                : 'Compagnie';
+            $cie_key = $cie_nom;
+            if (!isset($compagnies[$cie_key])) {
+                $compagnies[$cie_key] = array(
+                    'key' => $cie_key,
+                    'label' => $cie_nom,
+                );
+            }
+
+            $lh = (int) $h->id_ligneheure;
+            $nb = isset($map[$lh]) ? count($map[$lh]) : 0;
+            $sieges = isset($map[$lh]) ? $map[$lh] : array();
+            $nom_ligne = !empty($h->nom_ligne) ? (string) $h->nom_ligne : (string) $h->ligne_id;
+            $heure = !empty($h->heure) ? (string) $h->heure : '';
+            $arrivee = !empty($h->nom_compagnie_arrivee) ? (string) $h->nom_compagnie_arrivee : '';
+            $search = strtolower(trim(implode(' ', array(
+                $cie_nom,
+                $nom_ligne,
+                $heure,
+                $arrivee,
+                (string) $lh,
+                !empty($h->ligne_id) ? (string) $h->ligne_id : '',
+            ))));
+
+            $item = array(
+                'id_ligneheure' => $lh,
+                'cie_key' => $cie_key,
+                'cie_label' => $cie_nom,
+                'nom_ligne' => $nom_ligne,
+                'heure' => $heure,
+                'arrivee' => $arrivee,
+                'nb_verrou' => $nb,
+                'sieges' => $sieges,
+                'search' => $search,
+            );
+            $lignes[] = $item;
+            if ($nb > 0) {
+                $lignes_verrouillees[] = $item;
+            }
+        }
+
+        uasort($compagnies, function ($a, $b) {
+            return strcasecmp($a['label'], $b['label']);
+        });
+
+        return array(
+            'compagnies' => array_values($compagnies),
+            'lignes' => $lignes,
+            'lignes_verrouillees' => $lignes_verrouillees,
+        );
+    }
+
     public function index($ckey)
     {
         $this->_require_admin();
@@ -53,47 +125,14 @@ class Param_sieges_verrou extends MY_Controller
         }
         $this->m_siege_verrou->ensure_table();
 
-        $heures = $this->m_ligne_heure->getad($this->company->id_entreprise, FALSE);
-        if (!is_array($heures)) {
-            $heures = array();
-        }
-        $map = $this->m_siege_verrou->map_for_entreprise($this->company->id_entreprise);
-
-        $selected = (int) $this->input->get('lh');
-        $selected_row = null;
-        $selected_sieges = array();
-        if ($selected > 0) {
-            foreach ($heures as $h) {
-                if ((int) $h->id_ligneheure === $selected) {
-                    $selected_row = $h;
-                    break;
-                }
-            }
-            $selected_sieges = $this->m_siege_verrou->sieges_for_ligneheure($selected);
-        }
-
-        $par_cie = array();
-        foreach ($heures as $h) {
-            $cie = !empty($h->nom_compagnie_depart)
-                ? (string) $h->nom_compagnie_depart
-                : 'Compagnie';
-            if (!isset($par_cie[$cie])) {
-                $par_cie[$cie] = array();
-            }
-            $lh = (int) $h->id_ligneheure;
-            $par_cie[$cie][] = array(
-                'row' => $h,
-                'nb_verrou' => isset($map[$lh]) ? count($map[$lh]) : 0,
-            );
-        }
-
-        $this->property['heures_par_cie'] = $par_cie;
-        $this->property['selected_lh'] = $selected;
-        $this->property['selected_row'] = $selected_row;
-        $this->property['selected_sieges'] = $selected_sieges;
+        $ui = $this->_build_ui_data();
+        $this->property['compagnies'] = $ui['compagnies'];
+        $this->property['lignes'] = $ui['lignes'];
+        $this->property['lignes_verrouillees'] = $ui['lignes_verrouillees'];
         $this->property['max_places'] = $this->_max_places();
         $this->property['saved'] = (string) $this->input->get('saved') === '1';
         $this->property['propagated'] = (int) $this->input->get('propagated');
+        $this->property['saved_lh'] = (int) $this->input->get('lh');
         $this->property['pagetitle'] .= ' • Sièges verrouillés • <strong>'
             . $this->company->nom_entreprise . '</strong>';
 
@@ -143,8 +182,7 @@ class Param_sieges_verrou extends MY_Controller
     }
 
     /**
-     * JSON : sièges verrouillés pour une ligne_heure (UI programme / vente).
-     * Accessible aux agents connectés (lecture seule).
+     * JSON : sièges verrouillés pour une ligne_heure (UI programme / vente / modal).
      */
     public function ajax_verrous($ckey, $id_ligneheure = 0)
     {
