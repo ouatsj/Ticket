@@ -29,22 +29,37 @@ if (!$single) {
     return;
 }
 
-// Enrichir OD si JOINs partiels (escale) : labels session / bus_stop.
-$dep = trim((string) (isset($single->nomsousgare) ? $single->nomsousgare : (isset($single->nom_gaep) ? $single->nom_gaep : '')));
-if ($dep === '' && !empty($single->nom_gaep)) {
-    $dep = (string) $single->nom_gaep;
-}
-if ($dep === '' && !empty($bus_stop)) {
-    if (!empty($bus_stop->nomsousgare)) {
-        $dep = (string) $bus_stop->nomsousgare;
-    } elseif (!empty($bus_stop->garenom)) {
-        $dep = (string) $bus_stop->garenom;
-    } elseif (!empty($bus_stop->nom_gaep)) {
-        $dep = (string) $bus_stop->nom_gaep;
+// Départ reçu = escale de vente (rôle 17), pas la sous-gare d’affectation guichet.
+$dep = '';
+if (!empty($escale_depart_label)) {
+    $dep = trim((string) $escale_depart_label);
+    // Ex. « BOROMO (escale) » / « BOROMO (origine) »
+    $dep = trim((string) preg_replace('/\s*\([^)]*\)\s*$/u', '', $dep));
+    // Ancien fallback inject « GARE/SOUSGARE » → garder le libellé escale (1er segment)
+    if (strpos($dep, '/') !== false) {
+        $parts = array_map('trim', explode('/', $dep, 2));
+        if ($parts[0] !== '') {
+            $dep = $parts[0];
+        }
     }
 }
-if ($dep === '' && !empty($escale_depart_label)) {
-    $dep = preg_replace('/\s*\/\s*.*$/', '', (string) $escale_depart_label);
+if ($dep === '' && !empty($single->nom_escale)) {
+    $dep = trim((string) $single->nom_escale);
+}
+if ($dep === '' && !empty($single->nom_gaep)) {
+    $dep = trim((string) $single->nom_gaep);
+}
+if ($dep === '' && !empty($bus_stop)) {
+    if (!empty($bus_stop->garenom)) {
+        $dep = trim((string) $bus_stop->garenom);
+    } elseif (!empty($bus_stop->nom_gaep)) {
+        $dep = trim((string) $bus_stop->nom_gaep);
+    } elseif (!empty($bus_stop->nomsousgare)) {
+        $dep = trim((string) $bus_stop->nomsousgare);
+    }
+}
+if ($dep === '' && !empty($single->nomsousgare)) {
+    $dep = trim((string) $single->nomsousgare);
 }
 $arr = trim((string) (isset($single->nom_gadest) ? $single->nom_gadest : ''));
 $od = ticket_escale_libre_pos_text($dep . ' - ' . $arr, true);
