@@ -2362,106 +2362,80 @@
                         ORDER BY r.date_recet ASC")->row();
         }
 
-        public function versfiltreadmin($cid, $gid, $dt1, $dt2, $cmp, $nop = FALSE)
+        /**
+         * Versements (table recette) filtrés par type Ticket|Courrier|Bagage.
+         *
+         * @param string|array|false $nop
+         */
+        public function versfiltreadmin_by_type($cid, $gid, $dt1, $dt2, $cmp, $nop, $type)
         {
-            if ($nop === ''){
-                return $this->db->query(
-                    "SELECT * FROM recette r
-                        JOIN caisse cs ON r.idcaisse = cs.id_caiss
-                        JOIN gare_exp ex ON cs.gexp_caiss = ex.code_gaexp
-                        JOIN compagnies c ON r.compkey_recet = c.cle_compagnie
-                        JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                        WHERE e.ekey = '$cid'
-                        AND r.compkey_recet = '$cmp'
-                        AND ex.code_gaexp = '$gid'
-                        AND r.actif_rect = 0
-                        AND r.date_recet BETWEEN '$dt1' AND '$dt2'
-                        AND r.type_recet = 'Ticket'
-                        ORDER BY r.date_recet ASC")->result();
-            }    
-                return $this->db->query(
-                    "SELECT * FROM recette r
+            $type = trim((string) $type);
+            if ($type === '') {
+                $type = 'Ticket';
+            }
+            $CI =& get_instance();
+            if (!isset($CI->m_gare_depart)) {
+                $CI->load->model('Gare_depart_model', 'm_gare_depart');
+            }
+            $lieu = $CI->m_gare_depart->resolve_lieu($gid);
+            $phys = ($lieu['phys'] !== '') ? $lieu['phys'] : trim((string) $gid);
+            $physEsc = $this->db->escape($phys);
+
+            $noms = array();
+            if (is_array($nop)) {
+                foreach ($nop as $n) {
+                    $n = trim((string) $n);
+                    if ($n !== '') {
+                        $noms[] = $n;
+                    }
+                }
+            } else {
+                $n = trim((string) $nop);
+                if ($n !== '' && $nop !== FALSE) {
+                    $noms[] = $n;
+                }
+            }
+
+            $nomSql = '';
+            if (!empty($noms)) {
+                $escaped = array();
+                foreach ($noms as $n) {
+                    $escaped[] = $this->db->escape($n);
+                }
+                $nomSql = ' AND r.nom IN (' . implode(',', $escaped) . ') ';
+            }
+
+            return $this->db->query(
+                "SELECT r.* FROM recette r
                     JOIN caisse cs ON r.idcaisse = cs.id_caiss
                     JOIN gare_exp ex ON cs.gexp_caiss = ex.code_gaexp
                     JOIN compagnies c ON r.compkey_recet = c.cle_compagnie
                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                    WHERE e.ekey = '$cid'
-                    AND r.compkey_recet = '$cmp'
-                    AND ex.code_gaexp = '$gid'
+                    WHERE e.ekey = ?
+                    AND r.compkey_recet = ?
+                    AND (ex.code_gaexp = ? OR ex.garesid = {$physEsc})
                     AND r.actif_rect = 0
-                    AND r.date_recet BETWEEN '$dt1' AND '$dt2'
-                    AND r.type_recet = 'Ticket'
-                    AND r.nom = '$nop'
-                    ORDER BY r.date_recet ASC")->result();
-            
+                    AND r.date_recet BETWEEN ? AND ?
+                    AND r.type_recet = ?
+                    {$nomSql}
+                    ORDER BY r.date_recet ASC",
+                array($cid, $cmp, $gid, $dt1, $dt2, $type)
+            )->result();
+        }
+
+        public function versfiltreadmin($cid, $gid, $dt1, $dt2, $cmp, $nop = FALSE)
+        {
+            return $this->versfiltreadmin_by_type($cid, $gid, $dt1, $dt2, $cmp, $nop, 'Ticket');
         }
 
         public function versfiltreadmincr($cid, $gid, $dt1, $dt2, $cmp, $nop = FALSE)
         {
-            if ($nop === ''){
-                return $this->db->query(
-                    "SELECT * FROM recette r
-                        JOIN caisse cs ON r.idcaisse = cs.id_caiss
-                        JOIN gare_exp ex ON cs.gexp_caiss = ex.code_gaexp
-                        JOIN compagnies c ON r.compkey_recet = c.cle_compagnie
-                        JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                        WHERE e.ekey = '$cid'
-                        AND r.compkey_recet = '$cmp'
-                        AND ex.code_gaexp = '$gid'
-                        AND r.actif_rect = 0
-                        AND r.date_recet BETWEEN '$dt1' AND '$dt2'
-                        AND r.type_recet = 'Courrier'
-                        ORDER BY r.date_recet ASC")->result();
-            }    
-                return $this->db->query(
-                    "SELECT * FROM recette r
-                    JOIN caisse cs ON r.idcaisse = cs.id_caiss
-                    JOIN gare_exp ex ON cs.gexp_caiss = ex.code_gaexp
-                    JOIN compagnies c ON r.compkey_recet = c.cle_compagnie
-                    JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                    WHERE e.ekey = '$cid'
-                    AND r.compkey_recet = '$cmp'
-                    AND ex.code_gaexp = '$gid'
-                    AND r.actif_rect = 0
-                    AND r.date_recet BETWEEN '$dt1' AND '$dt2'
-                    AND r.type_recet = 'Courrier'
-                    AND r.nom = '$nop'
-                    ORDER BY r.date_recet ASC")->result();
-            
+            return $this->versfiltreadmin_by_type($cid, $gid, $dt1, $dt2, $cmp, $nop, 'Courrier');
         }
 
         public function versfiltreadminbg($cid, $gid, $dt1, $dt2, $cmp, $nop = FALSE)
         {
-            if ($nop === ''){
-                return $this->db->query(
-                    "SELECT * FROM recette r
-                        JOIN caisse cs ON r.idcaisse = cs.id_caiss
-                        JOIN gare_exp ex ON cs.gexp_caiss = ex.code_gaexp
-                        JOIN compagnies c ON r.compkey_recet = c.cle_compagnie
-                        JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                        WHERE e.ekey = '$cid'
-                        AND r.compkey_recet = '$cmp'
-                        AND ex.code_gaexp = '$gid'
-                        AND r.actif_rect = 0
-                        AND r.date_recet BETWEEN '$dt1' AND '$dt2'
-                        AND r.type_recet = 'Bagage'
-                        ORDER BY r.date_recet ASC")->result();
-            }    
-                return $this->db->query(
-                    "SELECT * FROM recette r
-                    JOIN caisse cs ON r.idcaisse = cs.id_caiss
-                    JOIN gare_exp ex ON cs.gexp_caiss = ex.code_gaexp
-                    JOIN compagnies c ON r.compkey_recet = c.cle_compagnie
-                    JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                    WHERE e.ekey = '$cid'
-                    AND r.compkey_recet = '$cmp'
-                    AND ex.code_gaexp = '$gid'
-                    AND r.actif_rect = 0
-                    AND r.date_recet BETWEEN '$dt1' AND '$dt2'
-                    AND r.type_recet = 'Bagage'
-                    AND r.nom = '$nop'
-                    ORDER BY r.date_recet ASC")->result();
-            
+            return $this->versfiltreadmin_by_type($cid, $gid, $dt1, $dt2, $cmp, $nop, 'Bagage');
         }
 
         /**

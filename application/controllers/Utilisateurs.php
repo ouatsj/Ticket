@@ -277,6 +277,114 @@
             
         }
 
+        /**
+         * Opérateurs / guichetiers ayant travaillé (ventes) dans la gare sur [du, au].
+         * GET : gare (ou segment d’URL), du, au, type=ticket|op|all, comp=cle_compagnie
+         * Sans dates ou si aucun actif → fallback agents affectés à la gare.
+         */
+        public function triactifs($g = '')
+        {
+            $gare = trim((string) $this->input->get('gare'));
+            if ($gare === '') {
+                $gare = trim((string) $g);
+            }
+            $du = trim((string) $this->input->get('du'));
+            $au = trim((string) $this->input->get('au'));
+            $comp = trim((string) $this->input->get('comp'));
+            $type = trim((string) $this->input->get('type'));
+            if ($type === '') {
+                $type = 'ticket';
+            }
+
+            $ekey = $this->session->company->ekey;
+            $out = array();
+            $seen = array();
+
+            if ($gare === '') {
+                return $this->load->view('beagle/pages/_programme/json', array('json' => $out));
+            }
+
+            // 1) Agents du lieu (toujours — toutes compagnies commerciales du garesid)
+            $lieuUsers = $this->m_compte_user->get_users_tri_lieu($ekey, $gare, $type);
+            if (is_array($lieuUsers)) {
+                foreach ($lieuUsers as $u) {
+                    $k = isset($u->roleattribut) ? (string) $u->roleattribut : '';
+                    if ($k !== '' && !isset($seen[$k])) {
+                        $seen[$k] = true;
+                        $out[] = $u;
+                    }
+                }
+            }
+
+            // 2) Enrichir avec ceux qui ont vendu sur la période (si dates)
+            if ($du !== '' && $au !== '') {
+                $actifs = $this->m_passager->operateurs_actifs_periode(
+                    $ekey,
+                    $gare,
+                    $du,
+                    $au,
+                    $type,
+                    $comp !== '' ? $comp : null
+                );
+                if (is_array($actifs)) {
+                    foreach ($actifs as $u) {
+                        $k = isset($u->roleattribut) ? (string) $u->roleattribut : '';
+                        if ($k !== '' && !isset($seen[$k])) {
+                            $seen[$k] = true;
+                            $out[] = $u;
+                        }
+                    }
+                }
+            }
+
+            return $this->load->view('beagle/pages/_programme/json', array('json' => $out));
+        }
+
+        /**
+         * Lignes au départ de la gare choisie.
+         * GET : gare (ou segment), comp = cle_compagnie
+         */
+        public function trilignes($g = '')
+        {
+            $gare = trim((string) $this->input->get('gare'));
+            if ($gare === '') {
+                $gare = trim((string) $g);
+            }
+            $comp = trim((string) $this->input->get('comp'));
+            $out = array();
+            if ($gare !== '') {
+                $out = $this->m_lignes->list_by_gare_depart(
+                    $this->session->company->ekey,
+                    $gare,
+                    $comp !== '' ? $comp : null
+                );
+            }
+            if (!is_array($out)) {
+                $out = array();
+            }
+            return $this->load->view('beagle/pages/_programme/json', array('json' => $out));
+        }
+
+        /**
+         * Gares de départ pour une compagnie = gaexp_lg des lignes configurées.
+         * GET : comp = cle_compagnie (obligatoire)
+         */
+        public function trigares()
+        {
+            $comp = trim((string) $this->input->get('comp'));
+            $out = array();
+            if ($comp !== '' && $comp !== '0') {
+                $out = $this->m_gare_depart->list_for_tri_compagnie(
+                    $this->session->company->ekey,
+                    $comp
+                );
+            }
+            if (!is_array($out)) {
+                $out = array();
+            }
+            return $this->load->view('beagle/pages/_programme/json', array('json' => $out));
+        }
+
         public function comptegares($ckey, $ud, $cp, $j, $m, $a)
         {
             $this->company = $this->m_entreprises->get_key($ckey);

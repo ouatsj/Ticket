@@ -19,6 +19,7 @@ return array(
         'adtrio.js', 'adtriocour.js', 'adtrioexo.js', 'adtrioexoesc.js',
         'adtrioexoplis.js', 'adtrioexoplisesc.js', 'adtriobag.js',
         'adtrioexobag.js', 'adtrioexobagesc.js', 'advers.js', 'adverssg.js',
+        'etats-fusion-choix.js', 'tri-filtre-dynamique.js',
         'recaptbagexop.js', 'recaptbagexopesc.js', 'recaptbagglop.js', 'recaptbagglopesc.js',
     ),
     '2' => array(
@@ -33,6 +34,7 @@ return array(
         'adtrio.js', 'adtriocour.js', 'adtrioexo.js', 'adtrioexoesc.js',
         'adtrioexoplis.js', 'adtrioexoplisesc.js', 'adtriobag.js',
         'adtrioexobag.js', 'adtrioexobagesc.js', 'advers.js', 'adverssg.js',
+        'etats-fusion-choix.js', 'tri-filtre-dynamique.js',
         'recaptbagexop.js', 'recaptbagexopesc.js', 'recaptbagglop.js', 'recaptbagglopesc.js',
     ),
     '3' => array(),
@@ -79,12 +81,14 @@ return array(
         'adreportgl.js', 'adreportglesc.js', 'adreportglcours.js',
         'adreportglcoursesc.js', 'adreportgldepcour.js', 'adreportversgljs.js',
         'adtrio.js', 'adtriocour.js', 'adtriobag.js', 'adverssg.js',
+        'etats-fusion-choix.js', 'tri-filtre-dynamique.js',
         'recaptbagglop.js', 'recaptbagglopesc.js',
     ),
     '14' => array(
         'adreportgl.js', 'adreportglesc.js', 'adreportglcours.js',
         'adreportglcoursesc.js', 'adreportgldepcour.js', 'adreportversgljs.js',
         'adtrio.js', 'adtriocour.js', 'adtriobag.js', 'adverssg.js',
+        'etats-fusion-choix.js', 'tri-filtre-dynamique.js',
         'recaptbagglop.js', 'recaptbagglopesc.js',
     ),
     '15' => array(

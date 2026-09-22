@@ -2,6 +2,7 @@
 <div class="row">
                 <div class="col-sm-12">
                     <?php $this->load->view('beagle/pages/guichet/_accueil_toolbar_role_2'); ?>
+                    <?php $this->load->view('beagle/pages/guichet/_etats_fusion_choix', array('modif_sans_ticket' => true)); ?>
                 </div>
                 <?php $this->load->view('beagle/pages/guichet/_accueil_dashboard'); ?>
             </div>
@@ -4550,7 +4551,7 @@
                             </div>
                             <div class="form-group col-sm-4">
                                 <label>GUICHETIERS</label>
-                                <select class="form-control form-control-sm" name="vendeuseid" id="idvendeuse">
+                                <select class="form-control form-control-sm" name="vendeuseid" id="idvendeuse-modifvers">
                                     <option value="">Tous les guichetiers</option>
                                     <? foreach ($nom_vendeuses as $nom_vendeuse): ?>
                                         <option value="<?= $nom_vendeuse->roleattribut; ?>">
@@ -5082,11 +5083,6 @@
                                         <label>LIGNE</label>
                                         <select class="form-control form-control-sm" name="axeligneversgl" id="ligneaxeversgl">
                                             <option value="">Toutes lignes</option>
-                                            <? foreach ($lignes as $ligne): ?>
-                                            <option value="<?= $ligne->ident_ligne; ?>">
-                                                <?= $ligne->nom_ligne; ?>
-                                            </option>
-                                            <? endforeach; ?>
                                         </select>
                                     </div>
                                     <div class="modal-footer">

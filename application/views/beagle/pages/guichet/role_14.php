@@ -65,21 +65,33 @@
                                 <i></i>&nbsp;RECAP GLOBAL COURRIERESCAL&nbsp;
                             </button>
 
-                            <button class="btn btn-secondary btn-space adtrio md-trigger"
+                            <button type="button" class="btn btn-secondary btn-space md-trigger"
+                                    data-modal="form-choix-versement-0">
+                                <i></i>&nbsp;VERSEMENT&nbsp;
+                            </button>
+                            <button type="button" class="btn btn-secondary btn-space md-trigger"
+                                    data-modal="form-choix-recette-0">
+                                <i></i>&nbsp;RECETTE TICKET&nbsp;
+                            </button>
+                            <button type="button" class="btn btn-secondary btn-space adtrio md-trigger"
+                                    id="trig-versement-ticket"
+                                    style="display:none"
                                     data-modal="form-trio-0" data-ekey="<?= $this->session->company->ekey; ?>" data-idsgare="<?= $bus_stop->idengare; ?>">
-                                <i></i>&nbsp;VERSEMENT TICKET GUICHETIER &nbsp;
                             </button>
-                            <button class="btn btn-secondary btn-space adtriobag md-trigger"
+                            <button type="button" class="btn btn-secondary btn-space adtriobag md-trigger"
+                                    id="trig-versement-bagage"
+                                    style="display:none"
                                     data-modal="form-triobag-0" data-ekey="<?= $this->session->company->ekey; ?>" data-idsgare="<?= $bus_stop->idengare; ?>">
-                                <i></i>&nbsp;VERSEMENT BAGAGES&nbsp;
                             </button>
-                            <button class="btn btn-secondary btn-space adtriocour md-trigger"
+                            <button type="button" class="btn btn-secondary btn-space adtriocour md-trigger"
+                                    id="trig-versement-courrier"
+                                    style="display:none"
                                     data-modal="form-triocour-0" data-ekey="<?= $this->session->company->ekey; ?>" data-idsgare="<?= $bus_stop->idengare; ?>">
-                                <i></i>&nbsp;VERSEMENT COURRIER GUICHETIER&nbsp;
                             </button>
-                            <button class="btn btn-secondary btn-space adreportversgljs md-trigger"
+                            <button type="button" class="btn btn-secondary btn-space adreportversgljs md-trigger"
+                                    id="trig-recette-globale"
+                                    style="display:none"
                                     data-modal="form-reportversgl-0" data-ekey="<?= $this->session->company->ekey; ?>" data-idgares="<?= $bus_stop->idengare; ?>">
-                                <i></i>&nbsp;RECETTE GLOBALE TICKET&nbsp;
                             </button>
                             <button class="btn btn-secondary btn-space adreportgldepcour md-trigger"
                                     data-modal="form-reportcour-0" data-ekey="<?= $this->session->company->ekey; ?>" data-idsgare="<?= $bus_stop->idengare; ?>">
@@ -99,17 +111,19 @@
                                 <i></i>&nbsp;LISTE GLOBALE COURRIER&nbsp;
                             </button>
 
-                            <button class="btn btn-secondary btn-space md-trigger"
+                            <button type="button" class="btn btn-secondary btn-space md-trigger"
                                     data-modal="triglcourrieresc-0" data-ekey="<?= $this->session->company->ekey; ?>" data-idgares="<?= $bus_stop->idengare; ?>">
                                 <i></i>&nbsp;LISTE GLOBALE COURRIERESCAL&nbsp;
                             </button>
-                            <button class="btn btn-secondary btn-space adverssg md-trigger"
-                                data-modal="form-trisg-0" data-ekey="<?= $this->session->company->ekey; ?>" data-idsgare="<?= $bus_stop->idengare; ?>" data-idsggare="<?= $bus_stop->idsousgare; ?>">
-                                <i></i>&nbsp;RECETTE GLOBALE TICKET PAR GARE&nbsp;
+                            <button type="button" class="btn btn-secondary btn-space adverssg md-trigger"
+                                    id="trig-recette-sousgare"
+                                    style="display:none"
+                                    data-modal="form-trisg-0" data-ekey="<?= $this->session->company->ekey; ?>" data-idsgare="<?= $bus_stop->idengare; ?>" data-idsggare="<?= $bus_stop->idsousgare; ?>">
                             </button>
                         </p>
                     </div>
                 </div>
+                <?php $this->load->view('beagle/pages/guichet/_etats_fusion_choix', array('modif_sans_ticket' => true, 'recette_sans_operateur' => true)); ?>
                 <div class="modal-container colored-header colored-header-success custom-width modal-effect-7"
                     id="form-recapesc-0" style="perspective: none;">
 
@@ -608,11 +622,6 @@
                                         <label>LIGNE</label>
                                         <select class="form-control form-control-sm" name="axeligneversgl" id="ligneaxeversgl">
                                             <option value="">Toutes lignes</option>
-                                            <? foreach ($lignes as $ligne): ?>
-                                            <option value="<?= $ligne->ident_ligne; ?>">
-                                                <?= $ligne->nom_ligne; ?>
-                                            </option>
-                                            <? endforeach; ?>
                                         </select>
                                     </div>
                                     <div class="modal-footer">

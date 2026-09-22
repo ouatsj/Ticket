@@ -28,6 +28,99 @@
         return $this->db->where('cpuser_id', $id)->delete($this->table);
         }
 
+        /** code_gaexp → garesid (ul.guser). */
+        protected function _resolve_garesid($gid)
+        {
+            $gid = trim((string) $gid);
+            if ($gid === '' || $gid === '0') {
+                return '';
+            }
+            $byCode = $this->db->query(
+                "SELECT garesid FROM gare_exp WHERE code_gaexp = ? LIMIT 1",
+                array($gid)
+            )->row();
+            if ($byCode && trim((string) $byCode->garesid) !== '') {
+                return trim((string) $byCode->garesid);
+            }
+            return $gid;
+        }
+
+        /**
+         * Match ul.guser sur le lieu physique : idengare OU tout code commercial du lieu.
+         */
+        protected function _sql_ul_guser_lieu($gid, $ulAlias = 'ul')
+        {
+            $code = trim((string) $gid);
+            if ($code === '' || $code === '0') {
+                return ' AND 1=0 ';
+            }
+            $ulAlias = preg_replace('/[^a-zA-Z0-9_]/', '', (string) $ulAlias);
+
+            $CI =& get_instance();
+            if (!isset($CI->m_gare_depart)) {
+                $CI->load->model('Gare_depart_model', 'm_gare_depart');
+            }
+            $lieu = $CI->m_gare_depart->resolve_lieu($code);
+            $phys = $lieu['phys'] !== '' ? $lieu['phys'] : $code;
+            $codes = !empty($lieu['codes']) ? $lieu['codes'] : array($code, $phys);
+            $inList = array();
+            foreach ($codes as $c) {
+                $c = trim((string) $c);
+                if ($c !== '') {
+                    $inList[$c] = $this->db->escape($c);
+                }
+            }
+            if (empty($inList)) {
+                return ' AND 1=0 ';
+            }
+            $inSql = implode(',', array_values($inList));
+            $p = $this->db->escape($phys);
+            return " AND (
+                {$ulAlias}.guser IN ({$inSql})
+                OR {$ulAlias}.guser = {$p}
+                OR {$ulAlias}.guser IN (
+                    SELECT ge_u.code_gaexp FROM gare_exp ge_u
+                    WHERE ge_u.garesid = {$p} OR ge_u.garesid IN ({$inSql})
+                )
+            ) ";
+        }
+
+        /**
+         * Guichetiers / opérateurs du lieu (idengare + tous codes commerciaux).
+         *
+         * @param string $mode ticket|op|all
+         * @return array
+         */
+        public function get_users_tri_lieu($ekey, $gid, $mode = 'ticket')
+        {
+            $mode = strtolower(trim((string) $mode));
+            if ($mode === 'op') {
+                $roles = '6, 5, 10, 17';
+            } elseif ($mode === 'all') {
+                $roles = '6, 5, 10, 12, 17';
+            } else {
+                $roles = '6, 10, 12, 17';
+            }
+            $lieu = $this->_sql_ul_guser_lieu($gid, 'ul');
+            $rows = $this->db->query(
+                "SELECT DISTINCT ar.roleattribut,
+                        COALESCE(NULLIF(TRIM(cu.username), ''), CONCAT(IFNULL(u.first_name,''), ' ', IFNULL(u.last_name,'')), ar.roleattribut) AS username
+                FROM compte_user cu
+                JOIN user_login ul ON ul.uid_usercpte = cu.cpuser_id
+                JOIN attributions_role ar ON ar.idgestcompte = ul.uid_login
+                JOIN utilisateurs u ON cu.userlog_id = u.uid
+                JOIN entreprise e ON u.cle_comp = e.ekey
+                WHERE e.ekey = ?
+                AND ar.userole IN ({$roles})
+                AND IFNULL(ar.activer_role, 0) = 0
+                AND IFNULL(ul.comptactif, 0) = 0
+                {$lieu}
+                ORDER BY username ASC",
+                array($ekey)
+            )->result();
+            return is_array($rows) ? $rows : array();
+        }
+
         public function usergt($cid, $uid)
         {
             
@@ -268,6 +361,7 @@
 
         public function get_user5($cid, $gid)
         {
+            $gid = $this->_resolve_garesid($gid);
             return $this->db->query(
                 "SELECT * FROM compte_user cu
                 JOIN user_login ul ON ul.uid_usercpte = cu.cpuser_id
@@ -283,6 +377,7 @@
 
         public function get_userop5($cid, $gid)
         {
+            $gid = $this->_resolve_garesid($gid);
             return $this->db->query(
                 "SELECT * FROM compte_user cu
                 JOIN user_login ul ON ul.uid_usercpte = cu.cpuser_id
@@ -298,6 +393,7 @@
 
         public function get_useresc5($cid, $gid)
         {
+            $gid = $this->_resolve_garesid($gid);
             return $this->db->query(
                 "SELECT * FROM compte_user cu
                 JOIN user_login ul ON ul.uid_usercpte = cu.cpuser_id
@@ -313,6 +409,7 @@
 
         public function gverus($cid, $gid)
         {
+            $gid = $this->_resolve_garesid($gid);
             return $this->db->query(
                 "SELECT * FROM compte_user cu
                 JOIN user_login ul ON ul.uid_usercpte = cu.cpuser_id

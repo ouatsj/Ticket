@@ -149,6 +149,47 @@
             return $raw;
         }
 
+        /**
+         * Opérateur choisi (roleattribut) → libellé titre PDF + variantes de nom
+         * pour matcher recette.nom (souvent « NOM Prenom », parfois username).
+         *
+         * @return array{label:string,noms:array,roleattribut:string}
+         */
+        protected function _resolve_report_operateur($roleattribut)
+        {
+            $ra = trim((string) $roleattribut);
+            $out = array('label' => '', 'noms' => array(), 'roleattribut' => $ra);
+            if ($ra === '' || $ra === '0') {
+                return $out;
+            }
+            $uc = $this->m_utilisateur->u($ra);
+            if (!$uc) {
+                $out['label'] = $ra;
+                return $out;
+            }
+            $fn = isset($uc->first_name) ? trim((string) $uc->first_name) : '';
+            $ln = isset($uc->last_name) ? trim((string) $uc->last_name) : '';
+            $full = trim($fn . ' ' . $ln);
+            $user = isset($uc->username) ? trim((string) $uc->username) : '';
+            $noms = array();
+            if ($full !== '') {
+                $noms[] = $full;
+            }
+            if ($user !== '' && !in_array($user, $noms, true)) {
+                $noms[] = $user;
+            }
+            // Variante sans double espace / casse (recette.nom parfois irrégulier).
+            if ($fn !== '' && $ln !== '') {
+                $alt = trim($ln . ' ' . $fn);
+                if ($alt !== '' && !in_array($alt, $noms, true)) {
+                    $noms[] = $alt;
+                }
+            }
+            $out['noms'] = $noms;
+            $out['label'] = $full !== '' ? $full : ($user !== '' ? $user : $ra);
+            return $out;
+        }
+
         /** Sous-gare optionnelle : vide / 0 = toutes. */
         protected function _normalize_recap_sousgare_filter($raw)
         {
@@ -2814,625 +2855,636 @@
 
           //tri comptable
           //tirage de liste encaissement
-        public function triencaissement($ckey, $g)
+        /**
+         * Lit les filtres POST/GET du tri recette par opérateur.
+         *
+         * @return array
+         */
+        /**
+         * URL retour caisse / referer pour écrans d’états.
+         */
+        protected function _etat_retour_url($ckey, $gareconnect = '', $userconnected = '', $sousgareconnect = '')
+        {
+            $fallback = site_url('gares/' . $ckey);
+            if ($gareconnect !== '' && $userconnected !== '') {
+                $fallback = retour_caisse_url(
+                    $ckey,
+                    $gareconnect,
+                    $userconnected,
+                    $sousgareconnect !== '' ? $sousgareconnect : 0
+                );
+            }
+            return function_exists('retour_url_remember')
+                ? retour_url_remember($fallback)
+                : $fallback;
+        }
+
+        /**
+         * Affiche un état en page (tableau) au lieu d’un PDF direct.
+         */
+        protected function _etat_render_view($page_label, array $payload)
+        {
+            $this->property['title'] = $page_label;
+            $ent = isset($this->entreprise->nom_entreprise) ? $this->entreprise->nom_entreprise : '';
+            $this->property['pagetitle'] = utf8_encode(strftime('%d %b %G', now()))
+                . ' • ' . htmlspecialchars($page_label) . ' • <strong>'
+                . htmlspecialchars($ent) . '</strong>';
+            $this->property['titre'] = isset($payload['titre']) ? $payload['titre'] : $page_label;
+            $this->property['page_label'] = $page_label;
+            $this->property['columns'] = isset($payload['columns']) ? $payload['columns'] : array();
+            $this->property['lignes'] = isset($payload['lignes']) ? $payload['lignes'] : array();
+            $this->property['total'] = isset($payload['total']) ? $payload['total'] : 0;
+            $this->property['filters_qs'] = isset($payload['filters_qs']) ? $payload['filters_qs'] : '';
+            $this->property['retour_url'] = isset($payload['retour_url']) ? $payload['retour_url'] : '#';
+            $this->property['export_base'] = isset($payload['export_base']) ? $payload['export_base'] : '#';
+            $this->property['bundle_datatables'] = false;
+            return $this->layout->view('_rapport/etat_tableau', $this->property);
+        }
+
+        protected function _etat_output_pdf(array $payload)
+        {
+            $columns = isset($payload['columns']) ? $payload['columns'] : array();
+            $lignes = isset($payload['lignes']) ? $payload['lignes'] : array();
+            $total = isset($payload['total']) ? (float) $payload['total'] : 0;
+            $titreTxt = isset($payload['titre']) ? $payload['titre'] : 'ETAT';
+            $n = max(1, count($columns));
+            $w = (int) floor(90 / $n);
+
+            $pdf = new TCPDF(PDF_PAGE_ORIENTATION, PDF_UNIT, PDF_PAGE_FORMAT, true, 'UTF-8', false);
+            $pdf->SetCreator(PDF_CREATOR);
+            $pdf->SetAuthor('NET SOLUTIONS');
+            $pdf->SetTitle('ETAT');
+            $ent = isset($this->entreprise->nom_entreprise) ? $this->entreprise->nom_entreprise : '';
+            $pdf->SetHeaderData(false, false, $ent);
+            $pdf->setPrintHeader(true);
+            $pdf->setPrintFooter(false);
+            $pdf->SetDefaultMonospacedFont(PDF_FONT_MONOSPACED);
+            $pdf->SetHeaderMargin(PDF_MARGIN_LEFT, PDF_MARGIN_TOP, PDF_MARGIN_RIGHT);
+            $pdf->SetHeaderMargin(PDF_MARGIN_HEADER);
+            $pdf->SetMargins(PDF_MARGIN_LEFT, PDF_MARGIN_TOP, PDF_MARGIN_RIGHT);
+            $pdf->SetAutoPageBreak(TRUE, PDF_MARGIN_BOTTOM);
+            $pdf->setImageScale(PDF_IMAGE_SCALE_RATIO);
+            $pdf->AddPage('L', 'A4', 0);
+            $pdf->SetFont('courier', '', 9);
+
+            $titre = '<h1 align="center">' . htmlspecialchars($titreTxt) . '</h1>';
+            $them = '<table align="center" border="1" cellpadding="0"><thead><tr>';
+            foreach ($columns as $col) {
+                $align = isset($col['align']) ? $col['align'] : 'left';
+                $label = isset($col['label']) ? $col['label'] : '';
+                $them .= '<th width="' . $w . '%" align="' . $align . '"><strong>'
+                    . htmlspecialchars($label) . '</strong></th>';
+            }
+            $them .= '</tr></thead><tbody>';
+            foreach ($lignes as $row) {
+                $them .= '<tr>';
+                foreach ($columns as $col) {
+                    $key = isset($col['key']) ? $col['key'] : '';
+                    $align = isset($col['align']) ? $col['align'] : 'left';
+                    $val = ($key !== '' && isset($row[$key])) ? $row[$key] : '';
+                    if (!empty($col['money'])) {
+                        $val = number_format((float) $val, 0, '', ' ');
+                    } else {
+                        $val = htmlspecialchars((string) $val);
+                    }
+                    $them .= '<td width="' . $w . '%" align="' . $align . '"><strong>' . $val . '</strong></td>';
+                }
+                $them .= '</tr>';
+            }
+            $span = max(1, $n - 1);
+            $them .= '<tr><td width="' . ($w * $span) . '%" align="left"><strong>TOTAL</strong></td>'
+                . '<td width="' . $w . '%" align="right"><strong>'
+                . number_format($total, 0, '', ' ') . '</strong></td></tr>';
+            $them .= '</tbody></table>';
+            $them .= '<h2>SOMME:' . number_format($total, 0, '', ' ') . ' </h2>';
+            $pdf->writeHTML($titre, false, false, true, false, '');
+            $pdf->writeHTML($them, true, false, true, false, '');
+            if (ob_get_length()) {
+                @ob_end_clean();
+            }
+            $pdf->Output('etat.pdf', 'I');
+        }
+
+        protected function _etat_output_csv(array $payload, $excel = false)
+        {
+            $columns = isset($payload['columns']) ? $payload['columns'] : array();
+            $lignes = isset($payload['lignes']) ? $payload['lignes'] : array();
+            $total = isset($payload['total']) ? (float) $payload['total'] : 0;
+            $filename = $excel ? 'etat.xls' : 'etat.csv';
+            $mime = $excel ? 'application/vnd.ms-excel' : 'text/csv; charset=utf-8';
+            header('Content-Type: ' . $mime);
+            header('Content-Disposition: attachment; filename="' . $filename . '"');
+            header('Pragma: no-cache');
+            header('Expires: 0');
+            $out = fopen('php://output', 'w');
+            fprintf($out, chr(0xEF) . chr(0xBB) . chr(0xBF));
+            $headers = array();
+            foreach ($columns as $col) {
+                $headers[] = isset($col['label']) ? $col['label'] : '';
+            }
+            fputcsv($out, $headers, ';');
+            foreach ($lignes as $row) {
+                $line = array();
+                foreach ($columns as $col) {
+                    $key = isset($col['key']) ? $col['key'] : '';
+                    $val = ($key !== '' && isset($row[$key])) ? $row[$key] : '';
+                    if (!empty($col['money'])) {
+                        $val = (int) $val;
+                    }
+                    $line[] = $val;
+                }
+                fputcsv($out, $line, ';');
+            }
+            $tot = array_fill(0, max(0, count($columns) - 1), '');
+            if (count($columns) > 0) {
+                $tot[0] = 'TOTAL';
+            }
+            $tot[] = (int) $total;
+            fputcsv($out, $tot, ';');
+            fclose($out);
+            exit;
+        }
+
+        protected function _etat_export_dispatch(array $payload)
+        {
+            $format = strtolower(trim((string) $this->input->get('format')));
+            if ($format === 'csv') {
+                $this->_etat_output_csv($payload, false);
+                return;
+            }
+            if ($format === 'excel' || $format === 'xls') {
+                $this->_etat_output_csv($payload, true);
+                return;
+            }
+            $this->_etat_output_pdf($payload);
+        }
+
+        protected function _triencaissement_filters()
+        {
+            $ivd = $this->input->get_post('vendeuseid');
+            if ($ivd === null || trim((string) $ivd) === '') {
+                $ivd = $this->input->get_post('ivend');
+            }
+            return array(
+                'ivd' => trim((string) $ivd),
+                'ddbt' => trim((string) $this->input->get_post('dated')),
+                'dfin' => trim((string) $this->input->get_post('datef')),
+                'comp' => trim((string) $this->input->get_post('_compag')),
+                'departgar' => trim((string) $this->input->get_post('departgar')),
+                'gareconnect' => trim((string) $this->input->get_post('gareconnect')),
+                'userconnected' => trim((string) $this->input->get_post('userconnected')),
+                'sousgareconnect' => trim((string) $this->input->get_post('sousgareconnect')),
+            );
+        }
+
+        /**
+         * Données + métadonnées pour l’écran / exports recette par opérateur.
+         *
+         * @return array
+         */
+        protected function _triencaissement_payload($ckey, $g)
         {
             $this->entreprise = $this->m_entreprises->get_key($ckey);
-            $ivd = $this->input->post('vendeuseid');
-            $ddbt = $this->input->post('dated');
-            $dfin = $this->input->post('datef');
-            $comp = $this->input->post('_compag');
-            $gid = $this->_normalize_recap_gare_code_filter($this->input->post('departgar'));
+            $f = $this->_triencaissement_filters();
+            $gid = $this->_normalize_recap_gare_code_filter(
+                $f['departgar'] !== '' ? $f['departgar'] : $g
+            );
             $ncgd = $this->m_gare_depart->getn($gid);
-            $gar = $ncgd->nom_gaep;
+            $gar = ($ncgd && isset($ncgd->nom_gaep)) ? $ncgd->nom_gaep : $gid;
+            $ncomp = $this->m_compagnies->getn($f['comp']);
+            $cieNom = ($ncomp && isset($ncomp->nom_compagnie)) ? $ncomp->nom_compagnie : '';
+            $op = $this->_resolve_report_operateur($f['ivd']);
+            $opLabel = $op['label'] !== '' ? (' — ' . $op['label']) : '';
+            list($days, $days1) = $this->_recap_title_dates($f['ddbt'], $f['dfin']);
 
+            $isAdmin = ($this->session->agent->userole === '1' || $this->session->agent->userole === '2');
+            if ($isAdmin) {
+                $aller = $this->m_passager->versefiltreadmin(
+                    $this->entreprise->ekey, $gid, $f['ddbt'], $f['dfin'], $f['comp'], $f['ivd']
+                );
+                $retour = $this->m_non_passager->versefiltadmin(
+                    $this->entreprise->ekey, $gid, $f['ddbt'], $f['dfin'], $f['comp'], $f['ivd']
+                );
+            } else {
+                $aller = $this->m_passager->versefiltre(
+                    $this->entreprise->ekey, $gid, $f['ddbt'], $f['dfin'], $f['comp'], $f['ivd']
+                );
+                $retour = $this->m_non_passager->versefilt(
+                    $this->entreprise->ekey, $gid, $f['ddbt'], $f['dfin'], $f['comp'], $f['ivd']
+                );
+            }
+
+            $lignes = array();
+            $total = 0.0;
+            if (is_array($aller)) {
+                foreach ($aller as $item) {
+                    $mt = isset($item->total) ? (float) $item->total : 0.0;
+                    $lignes[] = array(
+                        'nom' => isset($item->username) ? (string) $item->username : '',
+                        'ligne' => isset($item->nom_ligne) ? (string) $item->nom_ligne : '',
+                        'montant' => $mt,
+                    );
+                    $total += $mt;
+                }
+            }
+            if (is_array($retour)) {
+                foreach ($retour as $item1) {
+                    $nomL = isset($item1->nom_ligne) ? (string) $item1->nom_ligne : '';
+                    $parts = explode('-', $nomL);
+                    $lib = (count($parts) >= 2) ? ($parts[1] . '-' . $parts[0]) : $nomL;
+                    $mt = isset($item1->totalr) ? (float) $item1->totalr : 0.0;
+                    $lignes[] = array(
+                        'nom' => isset($item1->username) ? (string) $item1->username : '',
+                        'ligne' => $lib,
+                        'montant' => $mt,
+                    );
+                    $total += $mt;
+                }
+            }
+
+            $titre = 'RECETTE PAR OPERATEUR TICKET' . $opLabel
+                . ' — ' . $cieNom . ' ' . $gar . ' DU ' . $days . ' AU ' . $days1;
+
+            $qs = http_build_query(array_filter(array(
+                'vendeuseid' => $f['ivd'],
+                'dated' => $f['ddbt'],
+                'datef' => $f['dfin'],
+                '_compag' => $f['comp'],
+                'departgar' => $gid,
+                'gareconnect' => $f['gareconnect'],
+                'userconnected' => $f['userconnected'],
+                'sousgareconnect' => $f['sousgareconnect'],
+            ), function ($v) {
+                return $v !== null && $v !== '';
+            }));
+
+            $fallback = site_url('gares/' . $ckey);
+            if ($f['gareconnect'] !== '' && $f['userconnected'] !== '') {
+                $fallback = retour_caisse_url(
+                    $ckey,
+                    $f['gareconnect'],
+                    $f['userconnected'],
+                    $f['sousgareconnect'] !== '' ? $f['sousgareconnect'] : 0
+                );
+            }
+            $retourUrl = function_exists('retour_url_remember')
+                ? retour_url_remember($fallback)
+                : $fallback;
+
+            return array(
+                'filters' => $f,
+                'gid' => $gid,
+                'titre' => $titre,
+                'lignes' => $lignes,
+                'total' => $total,
+                'filters_qs' => $qs,
+                'retour_url' => $retourUrl,
+                'op_label' => $op['label'],
+                'cie_nom' => $cieNom,
+                'gare_nom' => $gar,
+                'days' => $days,
+                'days1' => $days1,
+            );
+        }
+
+        // Affichage in-app + exports (PDF / CSV / Excel)
+        public function triencaissement($ckey, $g)
+        {
+            $payload = $this->_triencaissement_payload($ckey, $g);
+            $gidUrl = $payload['gid'] !== '' ? $payload['gid'] : $g;
+            $payload['columns'] = array(
+                array('key' => 'nom', 'label' => 'Nom', 'align' => 'left'),
+                array('key' => 'ligne', 'label' => 'Ligne', 'align' => 'left'),
+                array('key' => 'montant', 'label' => 'Montant', 'align' => 'right', 'money' => true),
+            );
+            $payload['export_base'] = site_url('Rapport/triencaissement_export/' . rawurlencode($ckey) . '/' . rawurlencode($gidUrl));
+            return $this->_etat_render_view('Recette par opérateur', $payload);
+        }
+
+        public function triencaissement_export($ckey, $g)
+        {
+            $payload = $this->_triencaissement_payload($ckey, $g);
+            $payload['columns'] = array(
+                array('key' => 'nom', 'label' => 'Nom', 'align' => 'left'),
+                array('key' => 'ligne', 'label' => 'Ligne', 'align' => 'left'),
+                array('key' => 'montant', 'label' => 'Montant', 'align' => 'right', 'money' => true),
+            );
+            $this->_etat_export_dispatch($payload);
+        }
+
+        protected function _triencaissementsg_payload($ckey, $g, $sg)
+        {
+            $this->entreprise = $this->m_entreprises->get_key($ckey);
+            $ivd = trim((string) $this->input->get_post('vendeuseidsg'));
+            $ddbt = trim((string) $this->input->get_post('datedsg'));
+            $dfin = trim((string) $this->input->get_post('datefsg'));
+            $comp = trim((string) $this->input->get_post('_compagsg'));
+            $gid = $this->_normalize_recap_gare_code_filter($this->input->get_post('departgarsg'));
+            if ($gid === '') {
+                $gid = $this->_normalize_recap_gare_code_filter($g);
+            }
+            $ncgd = $this->m_gare_depart->getn($gid);
+            $gar = ($ncgd && isset($ncgd->nom_gaep)) ? $ncgd->nom_gaep : $gid;
+            $sggd = $this->m_sousgare->sget($this->entreprise->ekey, $gid, $sg);
+            $nsgar = ($sggd && isset($sggd->nomsousgare)) ? $sggd->nomsousgare : $sg;
             $ncomp = $this->m_compagnies->getn($comp);
+            $cieNom = ($ncomp && isset($ncomp->nom_compagnie)) ? $ncomp->nom_compagnie : '';
+            list($days, $days1) = $this->_recap_title_dates($ddbt, $dfin);
 
-              $dats = explode("-", $ddbt);
-              $days = $dats[2]. '-'. $dats[1]. '-' .$dats[0];
-                $dats1 = explode("-", $dfin);
-                $days1 = $dats1[2]. '-'. $dats1[1]. '-' .$dats1[0];
-            if($this->session->agent->userole === '1' OR $this->session->agent->userole === '2')
-            {
-              $triversements = $this->m_passager->versefiltreadmin($this->entreprise->ekey, $gid, $ddbt, $dfin, $comp, $ivd);
-              $triversemes = $this->m_non_passager->versefiltadmin($this->entreprise->ekey, $gid, $ddbt, $dfin, $comp, $ivd);
+            $aller = $this->m_passager->versefiltreadminsg($this->entreprise->ekey, $gid, $ddbt, $dfin, $comp, $sg, $ivd);
+            $retour = $this->m_non_passager->versefiltadminsg($this->entreprise->ekey, $gid, $ddbt, $dfin, $comp, $sg, $ivd);
 
-              $pdf = new TCPDF(PDF_PAGE_ORIENTATION, PDF_UNIT, PDF_PAGE_FORMAT, true, 'UTF-8', false);
-              // set document information
-              $pdf->SetCreator(PDF_CREATOR);
-              $pdf->SetAuthor('NET SOLUTIONS');
-              $pdf->SetTitle('LISTE-');
-              $pdf->SetSubject('RECAPT');
-              $pdf->SetKeywords('--');
-              
-              $pdf->SetHeaderData(false, false, $this->entreprise->nom_entreprise);
-              // remove default header/footer
-              $pdf->setPrintHeader(true);
-              $pdf->setPrintFooter(false);
-              
-              // set default monospaced font
-              $pdf->SetDefaultMonospacedFont(PDF_FONT_MONOSPACED);
-              $pdf->SetHeaderMargin(PDF_MARGIN_LEFT, PDF_MARGIN_TOP, PDF_MARGIN_RIGHT);
-              $pdf->SetHeaderMargin(PDF_MARGIN_HEADER);
-              // set margins
-              $pdf->SetMargins(PDF_MARGIN_LEFT, PDF_MARGIN_TOP, PDF_MARGIN_RIGHT);
-              
-              
-              // set auto page breaks
-              $pdf->SetAutoPageBreak(TRUE, PDF_MARGIN_BOTTOM);
-              
-              // set image scale factor
-              $pdf->setImageScale(PDF_IMAGE_SCALE_RATIO);
-              
-              // set font
-              
-              
-              // add a page
-              $pdf->AddPage('L', 'A4', 0);
-              
-              // - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-              // GROUPE DE GAUCHE
-              $pdf->SetFont('courier', '', 9);
-                          
-              $titre = '<h1 align="center">VERSEMENT PAR OPERATEUR TICKET DE '.$ncomp->nom_compagnie.' '.$gar.' DU '. $days .' AU '.$days1.' </h1>';
-              $them = '<table align="center" border="1" cellpadding="0">
-                  <thead> 
-                      <tr> 
-                        <th width="25%" align="left"><strong>NOM</strong></th>
-                        <th width="30%" align="center"><strong>LIGNE</strong></th>
-                        <th width="30%" align="right"><strong>MONTANT</strong></th>
-                        </tr>
-                  </thead>
-                  <tbody>';
-                  $etatversement = 0;
-                  $globaletats= 0;
-              foreach ($triversements as $trier => $item) {
-                  $them .= '<tr>
-                      <td width="25%" align="left"><strong>' . $item->username . '</strong></td>
-                      <td width="30%" align="center"><strong>' . $item->nom_ligne . '</strong></td>
-                      <td width="30%" align="right"><strong>' . number_format($item->total, 0, '', ' ') . '</strong></td>
-                      </tr>';
-                            $etatversement += $item->total;
-              }
-              foreach ($triversemes as $trier1 => $item1) {
-                $aler4 = explode("-", $item1->nom_ligne);
-                    $allerretour4 = $aler4[1]. '-' .$aler4[0];
-                $them .= '<tr>
-                    <td width="25%" align="left"><strong>' . $item1->username . '</strong></td>
-                    <td width="30%" align="center"><strong>' . $allerretour4 . '</strong></td>
-                    <td width="30%" align="right"><strong>' . number_format($item1->totalr, 0, '', ' ') . '</strong></td>
-                    </tr>';
-                          $globaletats += $item1->totalr;
-              }
-              $them .= '<tr>
-                        <td width="55%" align="left"><strong>TOTAL</strong></td>
-                        <td width="30%" align="right"><strong> '.number_format($etatversement + $globaletats, 0, '', ' ').'</strong></td>
-                                    
-                   </tr>';
-              $them .= ' </tbody></table>';
-              $them.= '<h2>SOMME:'. number_format($etatversement + $globaletats, 0, '', ' ') .' </h2>';
-              $pdf->writeHTML($titre, $linebreak = false, $fill = false, $reseth = true, $cell = false, $align = "");
-              $pdf->writeHTML($them, $linebreak = true, $fill = false, $reseth = true, $cell = false, $align = "");
-              ob_end_clean();
-              //Close and output PDF document
-              $pdf->Output('example_014.pdf' . '', 'I');
-            }
-            else
-            {
-
-              $triversements = $this->m_passager->versefiltre($this->entreprise->ekey, $gid, $ddbt, $dfin, $comp, $ivd);
-              $triversemes = $this->m_non_passager->versefilt($this->entreprise->ekey, $gid, $ddbt, $dfin, $comp, $ivd);
-
-              $pdf = new TCPDF(PDF_PAGE_ORIENTATION, PDF_UNIT, PDF_PAGE_FORMAT, true, 'UTF-8', false);
-              // set document information
-              $pdf->SetCreator(PDF_CREATOR);
-              $pdf->SetAuthor('NET SOLUTIONS');
-              $pdf->SetTitle('LISTE-');
-              $pdf->SetSubject('RECAPT');
-              $pdf->SetKeywords('--');
-              
-              $pdf->SetHeaderData(false, false, $this->entreprise->nom_entreprise);
-              // remove default header/footer
-              $pdf->setPrintHeader(true);
-              $pdf->setPrintFooter(false);
-              
-              // set default monospaced font
-              $pdf->SetDefaultMonospacedFont(PDF_FONT_MONOSPACED);
-              $pdf->SetHeaderMargin(PDF_MARGIN_LEFT, PDF_MARGIN_TOP, PDF_MARGIN_RIGHT);
-              $pdf->SetHeaderMargin(PDF_MARGIN_HEADER);
-              // set margins
-              $pdf->SetMargins(PDF_MARGIN_LEFT, PDF_MARGIN_TOP, PDF_MARGIN_RIGHT);
-              
-              
-              // set auto page breaks
-              $pdf->SetAutoPageBreak(TRUE, PDF_MARGIN_BOTTOM);
-              
-              // set image scale factor
-              $pdf->setImageScale(PDF_IMAGE_SCALE_RATIO);
-              
-              // set font
-              
-              
-              // add a page
-              $pdf->AddPage('L', 'A4', 0);
-              
-              // - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-              // GROUPE DE GAUCHE
-              $pdf->SetFont('courier', '', 9);
-                          
-              $titre = '<h1 align="center">VERSEMENT PAR OPERATEUR TICKET DE '.$ncomp->nom_compagnie.' '.$gar.' DU '. $days .' AU '.$days1.' </h1>';
-              $them = '<table align="center" border="1" cellpadding="0">
-                  <thead> 
-                      <tr> 
-                        <th width="25%" align="center"><strong>NOM</strong></th>
-                        <th width="30%" align="center"><strong>LIGNE</strong></th>
-                        <th width="30%" align="center"><strong>MONTANT</strong></th>
-                        </tr>
-                  </thead>
-                  <tbody>';
-                  $etatversement = 0;
-                  $globaletats= 0;
-                foreach ($triversements as $trier => $item) {
-                    $them .= '<tr>
-                        <td width="25%" align="left"><strong>' . $item->username . '</strong></td>
-                        <td width="30%" align="center"><strong>' . $item->nom_ligne . '</strong></td>
-                        <td width="30%" align="right"><strong>' . number_format($item->total, 0, '', ' ') . '</strong></td>
-                        </tr>';
-                              $etatversement += $item->total;
+            $lignes = array();
+            $total = 0.0;
+            if (is_array($aller)) {
+                foreach ($aller as $item) {
+                    $mt = isset($item->total) ? (float) $item->total : 0.0;
+                    $lignes[] = array(
+                        'nom' => isset($item->username) ? (string) $item->username : '',
+                        'ligne' => isset($item->nom_ligne) ? (string) $item->nom_ligne : '',
+                        'montant' => $mt,
+                    );
+                    $total += $mt;
                 }
-                foreach ($triversemes as $trier1 => $item1) {
-                  $aler4 = explode("-", $item1->nom_ligne);
-                      $allerretour4 = $aler4[1]. '-' .$aler4[0];
-                  $them .= '<tr>
-                    <td width="25%" align="left"><strong>' . $item1->username . '</strong></td>
-                    <td width="30%" align="center"><strong>' . $allerretour4 . '</strong></td>
-                    <td width="30%" align="right"><strong>' . number_format($item1->totalr, 0, '', ' ') . '</strong></td>
-                    </tr>';
-                          $globaletats += $item1->totalr;
-                }
-                  $them .= '<tr>
-                          <td width="55%" align="left"><strong>TOTAL</strong></td>
-                          <td width="30%" align="right"><strong> '.number_format($etatversement + $globaletats, 0, '', ' ').'</strong></td>
-                                      
-                     </tr>';
-                $them .= ' </tbody></table>';
-                $them.= '<h2>SOMME:'. number_format($etatversement + $globaletats, 0, '', ' ') .' </h2>';
-                $pdf->writeHTML($titre, $linebreak = false, $fill = false, $reseth = true, $cell = false, $align = "");
-                $pdf->writeHTML($them, $linebreak = true, $fill = false, $reseth = true, $cell = false, $align = "");
-                ob_end_clean();
-                //Close and output PDF document
-                $pdf->Output('example_014.pdf' . '', 'I');
-                //============================================================+
-                // END OF FILE
-                //============================================================+
             }
+            if (is_array($retour)) {
+                foreach ($retour as $item1) {
+                    $nomL = isset($item1->nom_ligne) ? (string) $item1->nom_ligne : '';
+                    $parts = explode('-', $nomL);
+                    $lib = (count($parts) >= 2) ? ($parts[1] . '-' . $parts[0]) : $nomL;
+                    $mt = isset($item1->totalr) ? (float) $item1->totalr : 0.0;
+                    $lignes[] = array(
+                        'nom' => isset($item1->username) ? (string) $item1->username : '',
+                        'ligne' => $lib,
+                        'montant' => $mt,
+                    );
+                    $total += $mt;
+                }
+            }
+
+            $qs = http_build_query(array_filter(array(
+                'vendeuseidsg' => $ivd,
+                'datedsg' => $ddbt,
+                'datefsg' => $dfin,
+                '_compagsg' => $comp,
+                'departgarsg' => $gid,
+                'gareconnect' => trim((string) $this->input->get_post('gareconnect')),
+                'userconnected' => trim((string) $this->input->get_post('userconnected')),
+                'sousgareconnect' => trim((string) $this->input->get_post('sousgareconnect')),
+            )));
+
+            return array(
+                'titre' => 'RECETTE TICKET — ' . $cieNom . ' ' . $gar . ' ' . $nsgar . ' DU ' . $days . ' AU ' . $days1,
+                'lignes' => $lignes,
+                'total' => $total,
+                'filters_qs' => $qs,
+                'retour_url' => $this->_etat_retour_url(
+                    $ckey,
+                    trim((string) $this->input->get_post('gareconnect')),
+                    trim((string) $this->input->get_post('userconnected')),
+                    trim((string) $this->input->get_post('sousgareconnect'))
+                ),
+                'columns' => array(
+                    array('key' => 'nom', 'label' => 'Nom', 'align' => 'left'),
+                    array('key' => 'ligne', 'label' => 'Ligne', 'align' => 'left'),
+                    array('key' => 'montant', 'label' => 'Montant', 'align' => 'right', 'money' => true),
+                ),
+                'export_base' => site_url('Rapport/triencaissementsg_export/' . rawurlencode($ckey) . '/' . rawurlencode($gid !== '' ? $gid : $g) . '/' . rawurlencode($sg)),
+            );
         }
 
         public function triencaissementsg($ckey, $g, $sg)
         {
-            $this->entreprise = $this->m_entreprises->get_key($ckey);
-            $ivd = $this->input->post('vendeuseidsg');
-            $ddbt = $this->input->post('datedsg');
-            $dfin = $this->input->post('datefsg');
-            $comp = $this->input->post('_compagsg');
-            $gid = $this->_normalize_recap_gare_code_filter($this->input->post('departgarsg'));
-            $ncgd = $this->m_gare_depart->getn($gid);
-
-            $gar = $ncgd->nom_gaep;
-
-            $sggd = $this->m_sousgare->sget($this->entreprise->ekey, $gid, $sg);
-
-            $nsgar = $sggd->nomsousgare;
-
-
-            $ncomp = $this->m_compagnies->getn($comp);
-
-              $dats = explode("-", $ddbt);
-              $days = $dats[2]. '-'. $dats[1]. '-' .$dats[0];
-                $dats1 = explode("-", $dfin);
-                $days1 = $dats1[2]. '-'. $dats1[1]. '-' .$dats1[0];
-            
-              $triversements = $this->m_passager->versefiltreadminsg($this->entreprise->ekey, $gid, $ddbt, $dfin, $comp, $sg, $ivd);
-              $triversemes = $this->m_non_passager->versefiltadminsg($this->entreprise->ekey, $gid, $ddbt, $dfin, $comp, $sg, $ivd);
-
-              $pdf = new TCPDF(PDF_PAGE_ORIENTATION, PDF_UNIT, PDF_PAGE_FORMAT, true, 'UTF-8', false);
-              // set document information
-              $pdf->SetCreator(PDF_CREATOR);
-              $pdf->SetAuthor('NET SOLUTIONS');
-              $pdf->SetTitle('LISTE-');
-              $pdf->SetSubject('RECAPT');
-              $pdf->SetKeywords('--');
-              
-              $pdf->SetHeaderData(false, false, $this->entreprise->nom_entreprise);
-              // remove default header/footer
-              $pdf->setPrintHeader(true);
-              $pdf->setPrintFooter(false);
-              
-              // set default monospaced font
-              $pdf->SetDefaultMonospacedFont(PDF_FONT_MONOSPACED);
-              $pdf->SetHeaderMargin(PDF_MARGIN_LEFT, PDF_MARGIN_TOP, PDF_MARGIN_RIGHT);
-              $pdf->SetHeaderMargin(PDF_MARGIN_HEADER);
-              // set margins
-              $pdf->SetMargins(PDF_MARGIN_LEFT, PDF_MARGIN_TOP, PDF_MARGIN_RIGHT);
-              
-              
-              // set auto page breaks
-              $pdf->SetAutoPageBreak(TRUE, PDF_MARGIN_BOTTOM);
-              
-              // set image scale factor
-              $pdf->setImageScale(PDF_IMAGE_SCALE_RATIO);
-              
-              // set font
-              
-              
-              // add a page
-              $pdf->AddPage('L', 'A4', 0);
-              
-              // - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-              // GROUPE DE GAUCHE
-              $pdf->SetFont('courier', '', 9);
-                          
-              $titre = '<h1 align="center">RECETTE TICKET DE '.$ncomp->nom_compagnie.' '.$gar.' '.$nsgar.' DU '. $days .' AU '.$days1.' </h1>';
-              $them = '<table align="center" border="1" cellpadding="0">
-                  <thead> 
-                      <tr> 
-                        <th width="25%" align="left"><strong>NOM</strong></th>
-                        <th width="30%" align="center"><strong>LIGNE</strong></th>
-                        <th width="30%" align="right"><strong>MONTANT</strong></th>
-                        </tr>
-                  </thead>
-                  <tbody>';
-                  $etatversement = 0;
-                  $globaletats= 0;
-              foreach ($triversements as $trier => $item) {
-                  $them .= '<tr>
-                      <td width="25%" align="left"><strong>' . $item->username . '</strong></td>
-                      <td width="30%" align="center"><strong>' . $item->nom_ligne . '</strong></td>
-                      <td width="30%" align="right"><strong>' . number_format($item->total, 0, '', ' ') . '</strong></td>
-                      </tr>';
-                            $etatversement += $item->total;
-              }
-              foreach ($triversemes as $trier1 => $item1) {
-                $aler4 = explode("-", $item1->nom_ligne);
-                    $allerretour4 = $aler4[1]. '-' .$aler4[0];
-                $them .= '<tr>
-                    <td width="25%" align="left"><strong>' . $item1->username . '</strong></td>
-                    <td width="30%" align="center"><strong>' . $allerretour4 . '</strong></td>
-                    <td width="30%" align="right"><strong>' . number_format($item1->totalr, 0, '', ' ') . '</strong></td>
-                    </tr>';
-                          $globaletats += $item1->totalr;
-              }
-              $them .= '<tr>
-                        <td width="55%" align="left"><strong>TOTAL</strong></td>
-                        <td width="30%" align="right"><strong> '.number_format($etatversement + $globaletats, 0, '', ' ').'</strong></td>
-                                    
-                   </tr>';
-              $them .= ' </tbody></table>';
-              $them.= '<h2>SOMME:'. number_format($etatversement + $globaletats, 0, '', ' ') .' </h2>';
-              $pdf->writeHTML($titre, $linebreak = false, $fill = false, $reseth = true, $cell = false, $align = "");
-              $pdf->writeHTML($them, $linebreak = true, $fill = false, $reseth = true, $cell = false, $align = "");
-              ob_end_clean();
-              //Close and output PDF document
-              $pdf->Output('example_014.pdf' . '', 'I');
-    
+            $payload = $this->_triencaissementsg_payload($ckey, $g, $sg);
+            return $this->_etat_render_view('Recette ticket par gare', $payload);
         }
+
+        public function triencaissementsg_export($ckey, $g, $sg)
+        {
+            $this->_etat_export_dispatch($this->_triencaissementsg_payload($ckey, $g, $sg));
+        }
+
         //tirage de liste encaissement
-        public function triencaissements($ckey, $g)
+        protected function _triencaissements_payload($ckey, $g)
         {
             $this->entreprise = $this->m_entreprises->get_key($ckey);
-                $ivd = $this->input->post('vendeuseid');
-                $ddbt = $this->input->post('dated');
-                $dfin = $this->input->post('datef');
-                $comp = $this->input->post('_compag');
-                $gid = $this->_normalize_recap_gare_code_filter($this->input->post('departgar'));
-                $uc = $this->m_utilisateur->u($ivd);
-              if($uc == NULL){
-                $us = '';
-              }else{
-                $us = $uc->first_name.' '.$uc->last_name;
-              }
-              $ncomp = $this->m_compagnies->getn($comp);
+            $ivd = trim((string) $this->input->get_post('vendeuseid'));
+            if ($ivd === '') {
+                $ivd = trim((string) $this->input->get_post('ivend'));
+            }
+            $ddbt = trim((string) $this->input->get_post('dated'));
+            $dfin = trim((string) $this->input->get_post('datef'));
+            $comp = trim((string) $this->input->get_post('_compag'));
+            $gid = $this->_normalize_recap_gare_code_filter($this->input->get_post('departgar'));
+            if ($gid === '') {
+                $gid = $this->_normalize_recap_gare_code_filter($g);
+            }
+            $op = $this->_resolve_report_operateur($ivd);
+            $us = $op['label'];
+            $noms = $op['noms'];
+            $ncomp = $this->m_compagnies->getn($comp);
+            $cieNom = ($ncomp && isset($ncomp->nom_compagnie)) ? $ncomp->nom_compagnie : '';
+            $ncgd = $this->m_gare_depart->getn($gid);
+            $gar = ($ncgd && isset($ncgd->nom_gaep)) ? $ncgd->nom_gaep : $gid;
+            list($days, $days1) = $this->_recap_title_dates($ddbt, $dfin);
 
-              $ncgd = $this->m_gare_depart->getn($gid);
-                $gar = $ncgd->nom_gaep;
-
-              $dats = explode("-", $ddbt);
-              $days = $dats[2]. '-'. $dats[1]. '-' .$dats[0];
-              $dats1 = explode("-", $dfin);                          
-              $days1 = $dats1[2]. '-'. $dats1[1]. '-' .$dats1[0];
-            
-
-                //$triversements = $this->m_comptes_guichet->versfiltre($this->entreprise->ekey, $gid, $ddbt, $dfin, $comp, $ivd);
-
-                $triversements = $this->m_recette->versfiltreadmin($this->entreprise->ekey, $gid, $ddbt, $dfin, $comp, $us);
-
-                $pdf = new TCPDF(PDF_PAGE_ORIENTATION, PDF_UNIT, PDF_PAGE_FORMAT, true, 'UTF-8', false);
-                // set document information
-                $pdf->SetCreator(PDF_CREATOR);
-                $pdf->SetAuthor('NET SOLUTIONS');
-                $pdf->SetTitle('LISTE-');
-                $pdf->SetSubject('RECAPT');
-                $pdf->SetKeywords('--');
-                
-                $pdf->SetHeaderData(false, false, $this->entreprise->nom_entreprise);
-                // remove default header/footer
-                $pdf->setPrintHeader(true);
-                $pdf->setPrintFooter(false);
-                
-                // set default monospaced font
-                $pdf->SetDefaultMonospacedFont(PDF_FONT_MONOSPACED);
-                $pdf->SetHeaderMargin(PDF_MARGIN_LEFT, PDF_MARGIN_TOP, PDF_MARGIN_RIGHT);
-                $pdf->SetHeaderMargin(PDF_MARGIN_HEADER);
-                // set margins
-                $pdf->SetMargins(PDF_MARGIN_LEFT, PDF_MARGIN_TOP, PDF_MARGIN_RIGHT);
-                
-                
-                // set auto page breaks
-                $pdf->SetAutoPageBreak(TRUE, PDF_MARGIN_BOTTOM);
-                
-                // set image scale factor
-                $pdf->setImageScale(PDF_IMAGE_SCALE_RATIO);
-                
-                // set font
-                
-                
-                // add a page
-                $pdf->AddPage('L', 'A4', 0);
-                
-                // - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-                // GROUPE DE GAUCHE
-                $pdf->SetFont('courier', '', 9);
-                            
-                $titre = '<h1 align="center">ETAT DES VERSEMENTS '.$us.' '.$ncomp->nom_compagnie.' '.$gar.' DU '. $days.' AU '.$days1.' </h1>';
-                $them = '<table align="center" border="1" cellpadding="0">
-                    <thead> 
-                        <tr> 
-                          <th width="20%" align="left"><strong>DATE VERSEMENTT</strong></th>
-                          <th width="30%" align="right"><strong>MONTANT</strong></th>
-                          </tr>
-                    </thead>
-                    <tbody>';
-                    $etatversement = 0;
-                foreach ($triversements as $trier => $item) {
-                  $datsar = explode("-", $item->date_recet);
-
-                  $daysar = $datsar[2]. '-'. $datsar[1]. '-' .$datsar[0];
-
-                    $them .= '<tr>
-                        <td width="20%" align="left"><strong>'.$daysar.'</strong></td>
-                        <td width="30%" align="right"><strong>' . number_format($item->montant_recet, 0, '', ' ') . '</strong></td>
-                        </tr>';
-                              $etatversement += $item->montant_recet;
+            $rows = $this->m_recette->versfiltreadmin($this->entreprise->ekey, $gid, $ddbt, $dfin, $comp, $noms);
+            $lignes = array();
+            $total = 0.0;
+            if (is_array($rows)) {
+                foreach ($rows as $item) {
+                    $datsar = explode('-', isset($item->date_recet) ? $item->date_recet : '');
+                    $daysar = (count($datsar) === 3) ? ($datsar[2] . '-' . $datsar[1] . '-' . $datsar[0]) : (string) (isset($item->date_recet) ? $item->date_recet : '');
+                    $mt = isset($item->montant_recet) ? (float) $item->montant_recet : 0.0;
+                    $lignes[] = array(
+                        'date' => $daysar,
+                        'operateur' => isset($item->nom) ? (string) $item->nom : '',
+                        'montant' => $mt,
+                    );
+                    $total += $mt;
                 }
-                $them .= '<tr>
-                          <td width="20%" align="left"><strong>TOTAL</strong></td>
-                          <td width="30%" align="right"><strong> '.number_format($etatversement, 0, '', ' ').'</strong></td>
-                                      
-                     </tr>';
-                    
-                $them .= ' </tbody></table>';
-                $them.= '<h2>SOMME:'. number_format($etatversement, 0, '', ' ') .' </h2>';
-                $pdf->writeHTML($titre, $linebreak = false, $fill = false, $reseth = true, $cell = false, $align = "");
-                $pdf->writeHTML($them, $linebreak = true, $fill = false, $reseth = true, $cell = false, $align = "");
-                ob_end_clean();
-                //Close and output PDF document
-                $pdf->Output('example_014.pdf' . '', 'I');
-                //============================================================+
-                // END OF FILE
-                //============================================================+
-            
+            }
+            $opTitre = ($us !== '') ? $us : 'TOUS OPERATEURS';
+            $qs = http_build_query(array_filter(array(
+                'vendeuseid' => $ivd,
+                'dated' => $ddbt,
+                'datef' => $dfin,
+                '_compag' => $comp,
+                'departgar' => $gid,
+                'gareconnect' => trim((string) $this->input->get_post('gareconnect')),
+                'userconnected' => trim((string) $this->input->get_post('userconnected')),
+                'sousgareconnect' => trim((string) $this->input->get_post('sousgareconnect')),
+            )));
+            return array(
+                'titre' => 'ETAT DES VERSEMENTS TICKET — ' . $opTitre . ' — ' . $cieNom . ' ' . $gar . ' DU ' . $days . ' AU ' . $days1,
+                'lignes' => $lignes,
+                'total' => $total,
+                'filters_qs' => $qs,
+                'retour_url' => $this->_etat_retour_url(
+                    $ckey,
+                    trim((string) $this->input->get_post('gareconnect')),
+                    trim((string) $this->input->get_post('userconnected')),
+                    trim((string) $this->input->get_post('sousgareconnect'))
+                ),
+                'columns' => array(
+                    array('key' => 'date', 'label' => 'Date versement', 'align' => 'left'),
+                    array('key' => 'operateur', 'label' => 'Opérateur', 'align' => 'left'),
+                    array('key' => 'montant', 'label' => 'Montant', 'align' => 'right', 'money' => true),
+                ),
+                'export_base' => site_url('Rapport/triencaissements_export/' . rawurlencode($ckey) . '/' . rawurlencode($gid !== '' ? $gid : $g)),
+            );
         }
-        
+
+        public function triencaissements($ckey, $g)
+        {
+            return $this->_etat_render_view('Versement ticket', $this->_triencaissements_payload($ckey, $g));
+        }
+
+        public function triencaissements_export($ckey, $g)
+        {
+            $this->_etat_export_dispatch($this->_triencaissements_payload($ckey, $g));
+        }
+
+        protected function _triencaissementscour_payload($ckey, $g)
+        {
+            $this->entreprise = $this->m_entreprises->get_key($ckey);
+            $ivd = trim((string) $this->input->get_post('vendeuseidcour'));
+            $ddbt = trim((string) $this->input->get_post('datedcour'));
+            $dfin = trim((string) $this->input->get_post('datefcour'));
+            $comp = trim((string) $this->input->get_post('_compagcour'));
+            $gid = $this->_normalize_recap_gare_code_filter($this->input->get_post('departgarcour'));
+            if ($gid === '') {
+                $gid = $this->_normalize_recap_gare_code_filter($g);
+            }
+            $op = $this->_resolve_report_operateur($ivd);
+            $us = $op['label'];
+            $noms = $op['noms'];
+            $ncomp = $this->m_compagnies->getn($comp);
+            $cieNom = ($ncomp && isset($ncomp->nom_compagnie)) ? $ncomp->nom_compagnie : '';
+            $ncgd = $this->m_gare_depart->getn($gid);
+            $gar = ($ncgd && isset($ncgd->nom_gaep)) ? $ncgd->nom_gaep : $gid;
+            list($days, $days1) = $this->_recap_title_dates($ddbt, $dfin);
+
+            $rows = $this->m_recette->versfiltreadmincr($this->entreprise->ekey, $gid, $ddbt, $dfin, $comp, $noms);
+            $lignes = array();
+            $total = 0.0;
+            if (is_array($rows)) {
+                foreach ($rows as $item) {
+                    $datsar = explode('-', isset($item->date_recet) ? $item->date_recet : '');
+                    $daysar = (count($datsar) === 3) ? ($datsar[2] . '-' . $datsar[1] . '-' . $datsar[0]) : (string) (isset($item->date_recet) ? $item->date_recet : '');
+                    $mt = isset($item->montant_recet) ? (float) $item->montant_recet : 0.0;
+                    $lignes[] = array('date' => $daysar, 'montant' => $mt);
+                    $total += $mt;
+                }
+            }
+            $qs = http_build_query(array_filter(array(
+                'vendeuseidcour' => $ivd,
+                'datedcour' => $ddbt,
+                'datefcour' => $dfin,
+                '_compagcour' => $comp,
+                'departgarcour' => $gid,
+                'gareconnect' => trim((string) $this->input->get_post('gareconnect')),
+                'userconnected' => trim((string) $this->input->get_post('userconnected')),
+                'sousgareconnect' => trim((string) $this->input->get_post('sousgareconnect')),
+            )));
+            return array(
+                'titre' => 'VERSEMENT COURRIER — ' . ($us !== '' ? $us : 'TOUS') . ' — ' . $cieNom . ' ' . $gar . ' DU ' . $days . ' AU ' . $days1,
+                'lignes' => $lignes,
+                'total' => $total,
+                'filters_qs' => $qs,
+                'retour_url' => $this->_etat_retour_url(
+                    $ckey,
+                    trim((string) $this->input->get_post('gareconnect')),
+                    trim((string) $this->input->get_post('userconnected')),
+                    trim((string) $this->input->get_post('sousgareconnect'))
+                ),
+                'columns' => array(
+                    array('key' => 'date', 'label' => 'Date', 'align' => 'left'),
+                    array('key' => 'montant', 'label' => 'Montant', 'align' => 'right', 'money' => true),
+                ),
+                'export_base' => site_url('Rapport/triencaissementscour_export/' . rawurlencode($ckey) . '/' . rawurlencode($gid !== '' ? $gid : $g)),
+            );
+        }
 
         public function triencaissementscour($ckey, $g)
         {
-              
-              $this->entreprise = $this->m_entreprises->get_key($ckey);
+            return $this->_etat_render_view('Versement courrier', $this->_triencaissementscour_payload($ckey, $g));
+        }
 
-                $ivd = $this->input->post('vendeuseidcour');
-                $ddbt = $this->input->post('datedcour');
-                $dfin = $this->input->post('datefcour');
-                $comp = $this->input->post('_compagcour');
-                $gid = $this->_normalize_recap_gare_code_filter($this->input->post('departgarcour'));
-                $uc = $this->m_utilisateur->u($ivd);
-              if($uc == NULL){
-                $us = '';
-              }else{
-                $us = $uc->first_name.' '.$uc->last_name;
-              }
-              $ncomp = $this->m_compagnies->getn($comp);
+        public function triencaissementscour_export($ckey, $g)
+        {
+            $this->_etat_export_dispatch($this->_triencaissementscour_payload($ckey, $g));
+        }
 
-              $ncgd = $this->m_gare_depart->getn($gid);
-                $gar = $ncgd->nom_gaep;
+        protected function _triencaissementsbag_payload($ckey, $g)
+        {
+            $this->entreprise = $this->m_entreprises->get_key($ckey);
+            $ivd = trim((string) $this->input->get_post('vendeuseidbag'));
+            $ddbt = trim((string) $this->input->get_post('datedbag'));
+            $dfin = trim((string) $this->input->get_post('datefbag'));
+            $comp = trim((string) $this->input->get_post('_compagbag'));
+            $gid = $this->_normalize_recap_gare_code_filter($this->input->get_post('departgarbag'));
+            if ($gid === '') {
+                $gid = $this->_normalize_recap_gare_code_filter($g);
+            }
+            $op = $this->_resolve_report_operateur($ivd);
+            $us = $op['label'];
+            $noms = $op['noms'];
+            $ncomp = $this->m_compagnies->getn($comp);
+            $cieNom = ($ncomp && isset($ncomp->nom_compagnie)) ? $ncomp->nom_compagnie : '';
+            $ncgd = $this->m_gare_depart->getn($gid);
+            $gar = ($ncgd && isset($ncgd->nom_gaep)) ? $ncgd->nom_gaep : $gid;
+            list($days, $days1) = $this->_recap_title_dates($ddbt, $dfin);
 
-              $dats = explode("-", $ddbt);
-              $days = $dats[2]. '-'. $dats[1]. '-' .$dats[0];
-              $dats1 = explode("-", $dfin);
-              $days1 = $dats1[2]. '-'. $dats1[1]. '-' .$dats1[0];
-
-            
-                //$triversements = $this->m_comptes_courrierrecet->versfiltreadmincour($this->entreprise->ekey, $gid, $ddbt, $dfin, $comp, $);
-
-                $triversements = $this->m_recette->versfiltreadmincr($this->entreprise->ekey, $gid, $ddbt, $dfin, $comp, $us);
-
-                $pdf = new TCPDF(PDF_PAGE_ORIENTATION, PDF_UNIT, PDF_PAGE_FORMAT, true, 'UTF-8', false);
-                // set document information
-                $pdf->SetCreator(PDF_CREATOR);
-                $pdf->SetAuthor('NET SOLUTIONS');
-                $pdf->SetTitle('LISTE-');
-                $pdf->SetSubject('RECAPT');
-                $pdf->SetKeywords('--');
-                
-                $pdf->SetHeaderData(false, false, $this->entreprise->nom_entreprise);
-                // remove default header/footer
-                $pdf->setPrintHeader(true);
-                $pdf->setPrintFooter(false);
-                
-                // set default monospaced font
-                $pdf->SetDefaultMonospacedFont(PDF_FONT_MONOSPACED);
-                $pdf->SetHeaderMargin(PDF_MARGIN_LEFT, PDF_MARGIN_TOP, PDF_MARGIN_RIGHT);
-                $pdf->SetHeaderMargin(PDF_MARGIN_HEADER);
-                // set margins
-                $pdf->SetMargins(PDF_MARGIN_LEFT, PDF_MARGIN_TOP, PDF_MARGIN_RIGHT);
-                
-                
-                // set auto page breaks
-                $pdf->SetAutoPageBreak(TRUE, PDF_MARGIN_BOTTOM);
-                
-                // set image scale factor
-                $pdf->setImageScale(PDF_IMAGE_SCALE_RATIO);
-                
-                // set font
-                
-                
-                // add a page
-                $pdf->AddPage('L', 'A4', 0);
-                
-                // - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-                // GROUPE DE GAUCHE
-                $pdf->SetFont('courier', '', 9);
-                            
-                $titre = '<h1 align="center">VERSEMENT COURRIER GUICHETIER  '.$us.' '.$ncomp->nom_compagnie.' '.$gar.' DU '. $days.' AU '.$days1.' </h1>';
-                $them = '<table align="center" border="1" cellpadding="0">
-                    <thead> 
-                        <tr> 
-                          <th width="20%" align="center"><strong>DATE ARRET</strong></th>
-                          <th width="30%" align="center"><strong>MONTANT</strong></th>
-                          </tr>
-                    </thead>
-                    <tbody>';
-                    $etatversement = 0;
-                foreach ($triversements as $trier => $item) {
-
-                  $datsar = explode("-", $item->date_recet);
-
-                  $daysar = $datsar[2]. '-'. $datsar[1]. '-' .$datsar[0];
-
-                    $them .= '<tr>
-                        <td width="20%" align="left"><strong>'.$daysar.'</strong></td>
-                        <td width="30%" align="right"><strong>' . number_format($item->montant_recet, 0, '', ' ') . '</strong></td>
-                        </tr>';
-                              $etatversement += $item->montant_recet;
+            $rows = $this->m_recette->versfiltreadminbg($this->entreprise->ekey, $gid, $ddbt, $dfin, $comp, $noms);
+            $lignes = array();
+            $total = 0.0;
+            if (is_array($rows)) {
+                foreach ($rows as $item) {
+                    $datsar = explode('-', isset($item->date_recet) ? $item->date_recet : '');
+                    $daysar = (count($datsar) === 3) ? ($datsar[2] . '-' . $datsar[1] . '-' . $datsar[0]) : (string) (isset($item->date_recet) ? $item->date_recet : '');
+                    $mt = isset($item->montant_recet) ? (float) $item->montant_recet : 0.0;
+                    $lignes[] = array('date' => $daysar, 'montant' => $mt);
+                    $total += $mt;
                 }
-                $them .= '<tr>
-                          <td width="20%" align="left"><strong>TOTAL</strong></td>
-                          <td width="30%" align="right"><strong> '.number_format($etatversement, 0, '', ' ').'</strong></td>
-                                      
-                     </tr>';
-                $them .= ' </tbody></table>';
-                $them.= '<h2>SOMME:'. number_format($etatversement, 0, '', ' ') .' </h2>';
-                $pdf->writeHTML($titre, $linebreak = false, $fill = false, $reseth = true, $cell = false, $align = "");
-                $pdf->writeHTML($them, $linebreak = true, $fill = false, $reseth = true, $cell = false, $align = "");
-                ob_end_clean();
-                //Close and output PDF document
-                $pdf->Output('example_014.pdf' . '', 'I');
-                //============================================================+
-                // END OF FILE
-                //============================================================+
-            
+            }
+            $qs = http_build_query(array_filter(array(
+                'vendeuseidbag' => $ivd,
+                'datedbag' => $ddbt,
+                'datefbag' => $dfin,
+                '_compagbag' => $comp,
+                'departgarbag' => $gid,
+                'gareconnect' => trim((string) $this->input->get_post('gareconnect')),
+                'userconnected' => trim((string) $this->input->get_post('userconnected')),
+                'sousgareconnect' => trim((string) $this->input->get_post('sousgareconnect')),
+            )));
+            return array(
+                'titre' => 'ETAT DES VERSEMENTS BAGAGE — ' . ($us !== '' ? $us : 'TOUS') . ' — ' . $cieNom . ' ' . $gar . ' DU ' . $days . ' AU ' . $days1,
+                'lignes' => $lignes,
+                'total' => $total,
+                'filters_qs' => $qs,
+                'retour_url' => $this->_etat_retour_url(
+                    $ckey,
+                    trim((string) $this->input->get_post('gareconnect')),
+                    trim((string) $this->input->get_post('userconnected')),
+                    trim((string) $this->input->get_post('sousgareconnect'))
+                ),
+                'columns' => array(
+                    array('key' => 'date', 'label' => 'Date versement', 'align' => 'left'),
+                    array('key' => 'montant', 'label' => 'Montant', 'align' => 'right', 'money' => true),
+                ),
+                'export_base' => site_url('Rapport/triencaissementsbag_export/' . rawurlencode($ckey) . '/' . rawurlencode($gid !== '' ? $gid : $g)),
+            );
         }
 
         public function triencaissementsbag($ckey, $g)
         {
-            $this->entreprise = $this->m_entreprises->get_key($ckey);
-                $ivd = $this->input->post('vendeuseidbag');
-                $ddbt = $this->input->post('datedbag');
-                $dfin = $this->input->post('datefbag');
-                $comp = $this->input->post('_compagbag');
-                $gid = $this->_normalize_recap_gare_code_filter($this->input->post('departgarbag'));
-                $uc = $this->m_utilisateur->u($ivd);
-              if($uc == NULL){
-                $us = '';
-              }else{
-                $us = $uc->first_name.' '.$uc->last_name;
-              }
-              $ncomp = $this->m_compagnies->getn($comp);
+            return $this->_etat_render_view('Versement bagage', $this->_triencaissementsbag_payload($ckey, $g));
+        }
 
-              $ncgd = $this->m_gare_depart->getn($gid);
-                $gar = $ncgd->nom_gaep;
-
-              $dats = explode("-", $ddbt);
-              $days = $dats[2]. '-'. $dats[1]. '-' .$dats[0];
-              $dats1 = explode("-", $dfin);                          
-              $days1 = $dats1[2]. '-'. $dats1[1]. '-' .$dats1[0];
-        
-
-                $triversementsbag = $this->m_recette->versfiltreadminbg($this->entreprise->ekey, $gid, $ddbt, $dfin, $comp, $us);
-
-                $pdf = new TCPDF(PDF_PAGE_ORIENTATION, PDF_UNIT, PDF_PAGE_FORMAT, true, 'UTF-8', false);
-                // set document information
-                $pdf->SetCreator(PDF_CREATOR);
-                $pdf->SetAuthor('NET SOLUTIONS');
-                $pdf->SetTitle('LISTE-');
-                $pdf->SetSubject('RECAPT');
-                $pdf->SetKeywords('--');
-                
-                $pdf->SetHeaderData(false, false, $this->entreprise->nom_entreprise);
-                // remove default header/footer
-                $pdf->setPrintHeader(true);
-                $pdf->setPrintFooter(false);
-                
-                // set default monospaced font
-                $pdf->SetDefaultMonospacedFont(PDF_FONT_MONOSPACED);
-                $pdf->SetHeaderMargin(PDF_MARGIN_LEFT, PDF_MARGIN_TOP, PDF_MARGIN_RIGHT);
-                $pdf->SetHeaderMargin(PDF_MARGIN_HEADER);
-                // set margins
-                $pdf->SetMargins(PDF_MARGIN_LEFT, PDF_MARGIN_TOP, PDF_MARGIN_RIGHT);
-                
-                
-                // set auto page breaks
-                $pdf->SetAutoPageBreak(TRUE, PDF_MARGIN_BOTTOM);
-                
-                // set image scale factor
-                $pdf->setImageScale(PDF_IMAGE_SCALE_RATIO);
-                
-                // set font
-                
-                
-                // add a page
-                $pdf->AddPage('L', 'A4', 0);
-                
-                // - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-                // GROUPE DE GAUCHE
-                $pdf->SetFont('courier', '', 9);
-                            
-                $titre = '<h1 align="center">ETAT DES VERSEMENTS BABAGE '.$us.' '.$ncomp->nom_compagnie.' '.$gar.' DU '. $days.' AU '.$days1.' </h1>';
-                $them = '<table align="center" border="1" cellpadding="0">
-                    <thead> 
-                        <tr> 
-                          <th width="20%" align="left"><strong>DATE VERSEMENT</strong></th>
-                          <th width="30%" align="right"><strong>MONTANT</strong></th>
-                          </tr>
-                    </thead>
-                    <tbody>';
-                    $etatversementbag = 0;
-                foreach ($triversementsbag as $trier => $itemb) {
-                  $datsar = explode("-", $itemb->date_recet);
-
-                  $daysar = $datsar[2]. '-'. $datsar[1]. '-' .$datsar[0];
-
-                    $them .= '<tr>
-                        <td width="20%" align="left"><strong>'.$daysar.'</strong></td>
-                        <td width="30%" align="right"><strong>' . number_format($itemb->montant_recet, 0, '', ' ') . '</strong></td>
-                        </tr>';
-                              $etatversementbag += $itemb->montant_recet;
-                }
-                $them .= '<tr>
-                          <td width="20%" align="left"><strong>TOTAL</strong></td>
-                          <td width="30%" align="right"><strong> '.number_format($etatversementbag, 0, '', ' ').'</strong></td>
-                                      
-                     </tr>';
-                    
-                $them .= ' </tbody></table>';
-                $them.= '<h2>SOMME:'. number_format($etatversementbag, 0, '', ' ') .' </h2>';
-                $pdf->writeHTML($titre, $linebreak = false, $fill = false, $reseth = true, $cell = false, $align = "");
-                $pdf->writeHTML($them, $linebreak = true, $fill = false, $reseth = true, $cell = false, $align = "");
-                ob_end_clean();
-                //Close and output PDF document
-                $pdf->Output('example_014.pdf' . '', 'I');
-                //============================================================+
-                // END OF FILE
-                //============================================================+
-            
+        public function triencaissementsbag_export($ckey, $g)
+        {
+            $this->_etat_export_dispatch($this->_triencaissementsbag_payload($ckey, $g));
         }
 
         public function triencaissementsexo($ckey, $g)
@@ -10377,131 +10429,94 @@
               // END OF FILE
               //============================================================+
         }
+        protected function _exoreportsversgl_payload($ckey, $g)
+        {
+            $this->entreprise = $this->m_entreprises->get_key($ckey);
+            $dt1 = trim((string) $this->input->get_post('datedebutversgl'));
+            $dt2 = trim((string) $this->input->get_post('datefinversgl'));
+            $cais = trim((string) $this->input->get_post('caissierversgl'));
+            $lign = trim((string) $this->input->get_post('axeligneversgl'));
+            $comp = trim((string) $this->input->get_post('_compagversgl'));
+            $gid = $this->_normalize_recap_gare_code_filter($this->input->get_post('departgarversgl'));
+            if ($gid === '') {
+                $gid = $this->_normalize_recap_gare_code_filter($g);
+            }
+            $ncomp = $this->m_compagnies->getn($comp);
+            $cieNom = ($ncomp && isset($ncomp->nom_compagnie)) ? $ncomp->nom_compagnie : '';
+            $ncgd = $this->m_gare_depart->getn($gid);
+            $gar = ($ncgd && isset($ncgd->nom_gaep)) ? $ncgd->nom_gaep : $gid;
+            $op = $this->_resolve_report_operateur($cais);
+            $us = $op['label'];
+            list($days, $days1) = $this->_recap_title_dates($dt1, $dt2);
+
+            $onreport = $this->m_passager->listereportverscptgl($this->entreprise->ekey, $comp, $gid, $dt1, $dt2, $cais, $lign);
+            $retourreport = $this->m_non_passager->listereportversretourcptad($this->entreprise->ekey, $comp, $gid, $dt1, $dt2, $cais, $lign);
+
+            $lignes = array();
+            $total = 0.0;
+            if (is_array($onreport)) {
+                foreach ($onreport as $element) {
+                    $mt = isset($element->total) ? (float) $element->total : 0.0;
+                    $lignes[] = array(
+                        'date' => isset($element->datep_create) ? (string) $element->datep_create : '',
+                        'type' => 'Aller',
+                        'montant' => $mt,
+                    );
+                    $total += $mt;
+                }
+            }
+            if (is_array($retourreport)) {
+                foreach ($retourreport as $retour) {
+                    $mt = isset($retour->totalr) ? (float) $retour->totalr : 0.0;
+                    $lignes[] = array(
+                        'date' => isset($retour->datevente) ? (string) $retour->datevente : '',
+                        'type' => 'Retour',
+                        'montant' => $mt,
+                    );
+                    $total += $mt;
+                }
+            }
+
+            $qs = http_build_query(array_filter(array(
+                'datedebutversgl' => $dt1,
+                'datefinversgl' => $dt2,
+                'caissierversgl' => $cais,
+                'axeligneversgl' => $lign,
+                '_compagversgl' => $comp,
+                'departgarversgl' => $gid,
+                'gareconnect' => trim((string) $this->input->get_post('gareconnect')),
+                'userconnected' => trim((string) $this->input->get_post('userconnected')),
+                'sousgareconnect' => trim((string) $this->input->get_post('sousgareconnect')),
+            )));
+
+            return array(
+                'titre' => 'RECETTE GLOBALE TICKET ' . $cieNom . ' ' . $gar . ' ' . $us . ' DU ' . $days . ' AU ' . $days1,
+                'lignes' => $lignes,
+                'total' => $total,
+                'filters_qs' => $qs,
+                'retour_url' => $this->_etat_retour_url(
+                    $ckey,
+                    trim((string) $this->input->get_post('gareconnect')),
+                    trim((string) $this->input->get_post('userconnected')),
+                    trim((string) $this->input->get_post('sousgareconnect'))
+                ),
+                'columns' => array(
+                    array('key' => 'date', 'label' => 'Date', 'align' => 'left'),
+                    array('key' => 'type', 'label' => 'Type', 'align' => 'left'),
+                    array('key' => 'montant', 'label' => 'Prix total', 'align' => 'right', 'money' => true),
+                ),
+                'export_base' => site_url('Rapport/exoreportsversgl_export/' . rawurlencode($ckey) . '/' . rawurlencode($gid !== '' ? $gid : $g)),
+            );
+        }
+
         public function exoreportsversgl($ckey, $g)
         {
-          $this->entreprise = $this->m_entreprises->get_key($ckey);
+            return $this->_etat_render_view('Recette globale ticket', $this->_exoreportsversgl_payload($ckey, $g));
+        }
 
-              $dt1 = $this->input->post('datedebutversgl');
-              $dt2 = $this->input->post('datefinversgl');
-              $cais = $this->input->post('caissierversgl');
-              $lign = $this->input->post('axeligneversgl');
-              $comp = $this->input->post('_compagversgl');
-
-              $ncomp = $this->m_compagnies->getn($comp);
-              
-              $gid = $this->_normalize_recap_gare_code_filter($this->input->post('departgarversgl'));
-              $ncgd = $this->m_gare_depart->getn($gid);
-                $gar = $ncgd->nom_gaep;
-
-              $uc = $this->m_utilisateur->u($cais);
-              if($uc == NULL){
-                $us = '';
-              }else{
-                $us = $uc->first_name.' '.$uc->last_name;
-              }
-                $dats = explode("-", $dt1);
-                  $days = $dats[2]. '-'. $dats[1]. '-' .$dats[0];
-                  $dats1 = explode("-", $dt2);
-                  $days1 = $dats1[2]. '-'. $dats1[1]. '-' .$dats1[0];
-            
-              $onreport = $this->m_passager->listereportverscptgl($this->entreprise->ekey, $comp, $gid, $dt1, $dt2, $cais, $lign);
-                $retourreport = $this->m_non_passager->listereportversretourcptad($this->entreprise->ekey, $comp, $gid, $dt1, $dt2, $cais, $lign);
-            
-            
-                $pdf = new TCPDF(PDF_PAGE_ORIENTATION, PDF_UNIT, PDF_PAGE_FORMAT, true, 'UTF-8', false);
-                // set document information
-                $pdf->SetCreator(PDF_CREATOR);
-                $pdf->SetAuthor('NET SOLUTIONS');
-                $pdf->SetTitle('LISTE-');
-                $pdf->SetSubject('RECAPTULATIF');
-                $pdf->SetKeywords('--');
-                
-                $pdf->SetHeaderData(false, false, $this->entreprise->nom_entreprise);
-                // remove default header/footer
-                $pdf->setPrintHeader(true);
-                $pdf->setPrintFooter(false);
-                
-                // set default monospaced font
-                $pdf->SetDefaultMonospacedFont(PDF_FONT_MONOSPACED);
-                $pdf->SetHeaderMargin(PDF_MARGIN_LEFT, PDF_MARGIN_TOP, PDF_MARGIN_RIGHT);
-                $pdf->SetHeaderMargin(PDF_MARGIN_HEADER);
-                // set margins
-                $pdf->SetMargins(PDF_MARGIN_LEFT, PDF_MARGIN_TOP, PDF_MARGIN_RIGHT);
-                
-                
-                // set auto page breaks
-                $pdf->SetAutoPageBreak(TRUE, PDF_MARGIN_BOTTOM);
-                
-                // set image scale factor
-                $pdf->setImageScale(PDF_IMAGE_SCALE_RATIO);
-                
-                // set font
-                
-                
-                // add a page
-                $pdf->AddPage('L', 'A4', 0);
-                
-                // - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-                // GROUPE DE GAUCHE
-                $pdf->SetFont('courier', '', 9);
-                            
-                $titre = '<h1 align="center">RECETTE GLOBALE TICKET '. $ncomp->nom_compagnie.' '.$gar.' '.$us.' DU '. $days .' AU '.$days1.'</h1>';
-                $them = '<table border="1" cellpadding="0">
-                    <thead> 
-                        <tr> 
-                          
-                          <th width="20%" align="center"><strong>DATE</strong></th>
-                           
-                          
-                          <th width="20%" align="center"><strong>PRIX_TOTAL</strong></th>
-                        </tr>
-                    </thead>
-                    <tbody>';
-                    $tglobal = 0;
-                    $tglobalretour = 0;
-                    $nb = 0;
-                    $nbrt = 0;
-                    $p = 0;
-                    $pr = 0;
-                foreach ($onreport as $departh => $element) {
-                    $them .= '<tr>
-                        <td width="20%" align="left"><strong>' . $element->datep_create . '</strong></td>
-                        
-                        <td width="20%" align="right"><strong>' . number_format(($element->total), 0, '', ' ') . '</strong></td>
-                        </tr>';
-                         
-                        
-                         $p += $element->total;
-                }
-               $them .= '<tr>
-                        <td width="40%" align="center">RETOUR<strong></strong></td>
-                        </tr>';
-                foreach ($retourreport as $retours => $retour) {
-                 
-                  $them .= '<tr>
-                      <td width="20%" align="left"><strong>' . $retour->datevente . '</strong></td>
-                      
-                      <td width="20%" align="right"><strong>' . number_format(($retour->totalr), 0, '', ' ') . '</strong></td>
-                      </tr>';
-                        
-                       
-                        $pr += $retour->totalr;
-                      }
-
-                       $them .= '<tr>
-                          <td width="20%" align="left"><strong>TOTAL</strong></td>
-                          <td width="20%" align="right"><strong> '.number_format($p + $pr, 0, '', ' ').'</strong></td>
-                          
-                     </tr>';
-
-                $them .= ' </tbody></table>';
-                $them.= '<h2>SOMME:'. number_format($p + $pr, 0, '', ' ') .' </h2>';
-            
-                $pdf->writeHTML($titre, $linebreak = false, $fill = false, $reseth = true, $cell = false, $align = "");
-                $pdf->writeHTML($them, $linebreak = true, $fill = false, $reseth = true, $cell = false, $align = "");
-                ob_end_clean();
-                //Close and output PDF document
-                $pdf->Output('example_012.pdf' . '', 'D'); 
+        public function exoreportsversgl_export($ckey, $g)
+        {
+            $this->_etat_export_dispatch($this->_exoreportsversgl_payload($ckey, $g));
         }
 
         public function exoreportsventegl($ckey, $g)

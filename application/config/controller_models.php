@@ -508,6 +508,7 @@ return array(
         'm_gares',
         'm_genre_depense',
         'm_genre_recette',
+        'm_lignes',
         'm_non_passager',
         'm_passager',
         'm_recette',

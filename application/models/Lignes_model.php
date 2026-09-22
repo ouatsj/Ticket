@@ -370,6 +370,73 @@
                     AND lg.id_ligne = '$lg_id'
                     $actif")->row();
         }
+
+        /**
+         * Lignes au départ d’un lieu (gaexp_lg / même garesid).
+         * Filtre compagnie = arrivée seule (id_compaga) — propriétaire commercial
+         * de la ligne (évite de mélanger VIP/CIT/CMT sur une gare départ CBT).
+         *
+         * @return array
+         */
+        public function list_by_gare_depart($ekey, $code_gaexp, $comp = null)
+        {
+            $code_gaexp = trim((string) $code_gaexp);
+            if ($code_gaexp === '' || $code_gaexp === '0') {
+                return array();
+            }
+
+            $CI =& get_instance();
+            if (!isset($CI->m_gare_depart)) {
+                $CI->load->model('Gare_depart_model', 'm_gare_depart');
+            }
+            $lieu = $CI->m_gare_depart->resolve_lieu($code_gaexp);
+            $phys = $lieu['phys'];
+            $codes = $lieu['codes'];
+            if ($phys === '' || empty($codes)) {
+                return array();
+            }
+
+            $inList = array();
+            foreach ($codes as $c) {
+                $inList[] = $this->db->escape($c);
+            }
+            $inSql = implode(',', $inList);
+            $physEsc = $this->db->escape($phys);
+
+            $comp = trim((string) $comp);
+            $compSql = '';
+            $params = array($ekey);
+            if ($comp !== '' && $comp !== '0') {
+                $compSql = ' AND ga.id_compaga = ? ';
+                $params[] = $comp;
+            }
+
+            $actif = $this->actif_sql(true);
+            $rows = $this->db->query(
+                "SELECT DISTINCT lg.ident_ligne, lg.nom_ligne, lg.gaexp_lg, ga.nom_gadest, ga.id_compaga
+                FROM lignes lg
+                JOIN gare_exp ge ON lg.gaexp_lg = ge.code_gaexp
+                JOIN gare_dest ga ON lg.gadest_lg = ga.code_gadest
+                JOIN compagnies c_arr ON ga.id_compaga = c_arr.cle_compagnie
+                JOIN entreprise e ON c_arr.id_entrep = e.id_entreprise
+                WHERE e.ekey = ?
+                AND (
+                    lg.gaexp_lg = " . $this->db->escape($code_gaexp) . "
+                    OR ge.code_gaexp IN ({$inSql})
+                    OR ge.garesid = {$physEsc}
+                )
+                AND IFNULL(ga.nom_gadest, '') != 'OUAGAESCAL'
+                {$compSql}
+                {$actif}
+                ORDER BY
+                    CASE WHEN lg.gaexp_lg = " . $this->db->escape($code_gaexp) . " THEN 0 ELSE 1 END,
+                    lg.nom_ligne ASC",
+                $params
+            )->result();
+
+            return is_array($rows) ? $rows : array();
+        }
+
         public function create(array $data)
         {
             if (!array_key_exists('actif_lg', $data)) {

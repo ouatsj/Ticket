@@ -121,7 +121,111 @@
             return $groups;
         }
 
+        /**
+         * Résout un code_gaexp ou idengare → lieu physique + tous les codes commerciaux du lieu.
+         *
+         * @param string $code_or_phys
+         * @return array{phys:string,codes:string[]}
+         */
+        public function resolve_lieu($code_or_phys)
+        {
+            $raw = trim((string) $code_or_phys);
+            $out = array('phys' => '', 'codes' => array());
+            if ($raw === '' || $raw === '0') {
+                return $out;
+            }
 
+            $byCode = $this->db->query(
+                "SELECT code_gaexp, garesid FROM gare_exp WHERE code_gaexp = ? LIMIT 1",
+                array($raw)
+            )->row();
+            if ($byCode) {
+                $phys = trim((string) $byCode->garesid);
+                if ($phys === '') {
+                    $phys = trim((string) $byCode->code_gaexp);
+                }
+            } else {
+                $byPhys = $this->db->query(
+                    "SELECT idengare FROM gares WHERE idengare = ? LIMIT 1",
+                    array($raw)
+                )->row();
+                $phys = $byPhys ? trim((string) $byPhys->idengare) : $raw;
+            }
+            $out['phys'] = $phys;
+
+            $rows = $this->db->query(
+                "SELECT DISTINCT code_gaexp AS c FROM gare_exp
+                 WHERE garesid = ? OR code_gaexp = ? OR garesid = ? OR code_gaexp = ?",
+                array($phys, $raw, $raw, $phys)
+            )->result();
+            $codes = array();
+            foreach ($rows as $r) {
+                $c = trim((string) $r->c);
+                if ($c !== '') {
+                    $codes[$c] = $c;
+                }
+            }
+            $codes[$raw] = $raw;
+            if ($phys !== '') {
+                $codes[$phys] = $phys;
+            }
+            $out['codes'] = array_values($codes);
+            return $out;
+        }
+
+        /**
+         * Gares de départ pour le tri = lg.gaexp_lg des lignes dont la compagnie
+         * d’arrivée (id_compaga) est celle choisie — pas id_compagd (sinon CBT
+         * remonte aussi les lignes VIP/CIT/CMT partant de ses gares).
+         *
+         * @return array
+         */
+        public function list_for_tri_compagnie($ekey, $cle_compagnie)
+        {
+            $cle_compagnie = trim((string) $cle_compagnie);
+            if ($cle_compagnie === '' || $cle_compagnie === '0') {
+                return array();
+            }
+
+            // Source principale : gares de départ des lignes de la compagnie (arrivée).
+            $rows = $this->db->query(
+                "SELECT DISTINCT
+                    ge.code_gaexp,
+                    ge.nom_gaep,
+                    ge.garesid,
+                    ge.id_compagd
+                FROM lignes lg
+                JOIN gare_exp ge ON lg.gaexp_lg = ge.code_gaexp
+                JOIN gare_dest ga ON lg.gadest_lg = ga.code_gadest
+                JOIN compagnies c_arr ON ga.id_compaga = c_arr.cle_compagnie
+                JOIN entreprise e ON c_arr.id_entrep = e.id_entreprise
+                WHERE e.ekey = ?
+                AND ga.id_compaga = ?
+                AND IFNULL(lg.actif_lg, 1) = 1
+                AND IFNULL(ga.nom_gadest, '') != 'OUAGAESCAL'
+                ORDER BY ge.nom_gaep ASC, ge.code_gaexp ASC",
+                array($ekey, $cle_compagnie)
+            )->result();
+
+            if (!empty($rows)) {
+                return $rows;
+            }
+
+            // Repli : affectation commerciale seule (compagnie sans ligne encore).
+            $fallback = $this->db->query(
+                "SELECT DISTINCT gd.code_gaexp, gd.nom_gaep, gd.garesid, gd.id_compagd
+                FROM gare_exp gd
+                JOIN compagnies c ON gd.id_compagd = c.cle_compagnie
+                JOIN entreprise e ON c.id_entrep = e.id_entreprise
+                JOIN gares g ON gd.garesid = g.idengare
+                WHERE e.ekey = ?
+                AND gd.id_compagd = ?
+                ORDER BY gd.nom_gaep ASC, gd.code_gaexp ASC",
+                array($ekey, $cle_compagnie)
+            )->result();
+
+            return is_array($fallback) ? $fallback : array();
+        }
 
         public function getgid($cid)
         {

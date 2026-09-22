@@ -59,42 +59,63 @@
                                 class="btn btn-secondary btn-space md-trigger" data-modal="">
                                 <i class="fas fa-eye text-dark"></i>&nbsp;VOIR CAISSE&nbsp;
                             </a>
-          <button class="btn btn-secondary btn-space adreportversgljs md-trigger"
+          <button type="button" class="btn btn-secondary btn-space md-trigger"
+                                    data-modal="form-choix-recette-0">
+                                <i></i>&nbsp;RECETTE TICKET&nbsp;
+                            </button>
+          <button type="button" class="btn btn-secondary btn-space md-trigger"
+                                    data-modal="form-choix-versement-0">
+                                <i></i>&nbsp;VERSEMENT&nbsp;
+                            </button>
+          <button type="button" class="btn btn-secondary btn-space md-trigger"
+                                    data-modal="form-choix-modif-versement-0"
+                                    data-modif-sans-ticket="1">
+                                <i></i>&nbsp;MODIFICATION VERSEMENT&nbsp;
+                            </button>
+          <button type="button" class="btn btn-secondary btn-space adreportversgljs md-trigger"
+                                    id="trig-recette-globale"
+                                    style="display:none"
                                     data-modal="form-reportversgl-0" data-ekey="<?= $this->session->company->ekey; ?>" data-idgares="<?= $bus_stop->idengare; ?>">
-                                <i></i>&nbsp;RECETTE GLOBALE TICKET&nbsp;
                             </button>
-          <button class="btn btn-secondary btn-space advers md-trigger"
+          <button type="button" class="btn btn-secondary btn-space advers md-trigger"
+                                    id="trig-recette-operateur"
+                                    style="display:none"
                                     data-modal="form-tri-0" data-ekey="<?= $this->session->company->ekey; ?>" data-idsgare="<?= $bus_stop->idengare; ?>">
-                                <i></i>&nbsp;RECETTE PAR OPERATEUR TICKET&nbsp;
                             </button>
-          <button class="btn btn-secondary btn-space adverssg md-trigger"
-                                data-modal="form-trisg-0" data-ekey="<?= $this->session->company->ekey; ?>" data-idsgare="<?= $bus_stop->idengare; ?>" data-idsggare="<?= $bus_stop->idsousgare; ?>">
-                                <i></i>&nbsp;RECETTE GLOBALE TICKET PAR GARE&nbsp;
+          <button type="button" class="btn btn-secondary btn-space adverssg md-trigger"
+                                    id="trig-recette-sousgare"
+                                    style="display:none"
+                                    data-modal="form-trisg-0" data-ekey="<?= $this->session->company->ekey; ?>" data-idsgare="<?= $bus_stop->idengare; ?>" data-idsggare="<?= $bus_stop->idsousgare; ?>">
                             </button>
-          <button class="btn btn-secondary btn-space adtrio md-trigger"
+          <button type="button" class="btn btn-secondary btn-space adtrio md-trigger"
+                                    id="trig-versement-ticket"
+                                    style="display:none"
                                     data-modal="form-trio-0" data-ekey="<?= $this->session->company->ekey; ?>" data-idsgare="<?= $bus_stop->idengare; ?>">
-                                <i></i>&nbsp;VERSEMENT TICKET GUICHETIER&nbsp;
                             </button>
-          <button class="btn btn-secondary btn-space adtriobag md-trigger"
+          <button type="button" class="btn btn-secondary btn-space adtriobag md-trigger"
+                                    id="trig-versement-bagage"
+                                    style="display:none"
                                     data-modal="form-triobag-0" data-ekey="<?= $this->session->company->ekey; ?>" data-idsgare="<?= $bus_stop->idengare; ?>">
-                                <i></i>&nbsp;VERSEMENT BAGAGES&nbsp;
                             </button>
-          <button class="btn btn-secondary btn-space md-trigger"
+          <button type="button" class="btn btn-secondary btn-space adtriocour md-trigger"
+                                    id="trig-versement-courrier"
+                                    style="display:none"
+                                    data-modal="form-triocour-0" data-ekey="<?= $this->session->company->ekey; ?>" data-idsgare="<?= $bus_stop->idengare; ?>">
+                            </button>
+          <button type="button" class="btn btn-secondary btn-space md-trigger"
+                                    id="trig-modif-versement-courrier"
+                                    style="display:none"
                                     data-modal="form-tricr-1" data-ekey="<?= $this->session->company->ekey; ?>">
-                                <i></i>&nbsp;MODIFICATION VERSEMENT COURRIER&nbsp;
                             </button>
-          <button class="btn btn-secondary btn-space md-trigger"
+          <button type="button" class="btn btn-secondary btn-space md-trigger"
+                                    id="trig-modif-versement-bagage"
+                                    style="display:none"
                                     data-modal="form-tribg-1" data-ekey="<?= $this->session->company->ekey; ?>">
-                                <i></i>&nbsp;MODIFICATION VERSEMENT BAGAGE&nbsp;
                             </button>
           <a href="<?= site_url("caisses/caissieres/{$this->session->company->ekey}/{$conex->roleattribut}/{$bus_stop->idengare}/{$bus_stop->idsousgare}"); ?>" class="btn btn-secondary btn-space md-trigger">
                                 <i class="fas fa-user text-info"></i>
                                 <span>VOIR CAISSE PRINCIPALE</span>
                             </a>
-          <button class="btn btn-secondary btn-space adtriocour md-trigger"
-                                    data-modal="form-triocour-0" data-ekey="<?= $this->session->company->ekey; ?>" data-idsgare="<?= $bus_stop->idengare; ?>">
-                                <i></i>&nbsp;VERSEMENT COURRIER GUICHETIER&nbsp;
-                            </button>
         </div>
       </div>
       <div class="tab-pane fade" id="guichet-tab-2-consultation" role="tabpanel">
