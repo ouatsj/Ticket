@@ -25,7 +25,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         
                                 for (let key in Object.entries(infoss)) {
                                     let opt = document.createElement('option');
-                                    opt.value = `${infoss[key].roleattribut}/${infoss[key].first_name} ${infoss[key].last_name}`;
+                                    opt.value = `${infoss[key].roleattribut}/${infoss[key].username}`;
                                     opt.innerHTML = `${infoss[key].username}`;
                                     document.querySelector('#idcaissevers').add(opt);
                                     

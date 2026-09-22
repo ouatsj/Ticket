@@ -25,7 +25,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         
                                 for (let key in Object.entries(infossbe)) {
                                     let opt = document.createElement('option');
-                                    opt.value = `${infossbe[key].roleattribut}/${infossbe[key].first_name} ${infossbe[key].last_name}`;
+                                    opt.value = `${infossbe[key].roleattribut}/${infossbe[key].username}`;
                                     opt.innerHTML = `${infossbe[key].username}`;
                                     document.querySelector('#dvendeuseidexobgesc').add(opt);
                                     

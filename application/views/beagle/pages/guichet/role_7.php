@@ -192,6 +192,9 @@
                         </div>
                         
                         <?= form_open("Rapport/manifesthebdoesc/{$this->session->company->ekey}/{$bus_stop->idengare}", array('class' => 'modal-body form')); ?>
+                            <input class="form-control form-control-sm" type="hidden" name="gareconnect" value="<?=$bus_stop->idengare;?>">
+                            <input class="form-control form-control-sm" type="hidden" name="userconnected" value="<?=$conex->roleattribut;?>">
+                            <input class="form-control form-control-sm" type="hidden" name="sousgareconnect" value="<?=$bus_stop->idsousgare;?>">
                             <div class="form-group row">
                                 <div class="form-group col-sm-4">
                                     <label>COMPAGNIE</label>
@@ -334,7 +337,11 @@
                         <?= form_open("Rapport/trinombrepassesc/{$this->session->company->ekey}", array('class' => 'modal-body form')); ?>
 
                         <div class="form-group row">
-                            <div class="form-group col-sm-4">
+                            
+                            <input class="form-control form-control-sm" type="hidden" name="gareconnect" value="<?=$bus_stop->idengare;?>">
+                            <input class="form-control form-control-sm" type="hidden" name="userconnected" value="<?=$conex->roleattribut;?>">
+                            <input class="form-control form-control-sm" type="hidden" name="sousgareconnect" value="<?=$bus_stop->idsousgare;?>">
+<div class="form-group col-sm-4">
                                 <label>COMPAGNIE</label>
                                     <select class="form-control form-control-sm" name="nomcompsesc">
                                     <option value=""></option>
@@ -391,6 +398,9 @@
                         </div>
                         
                         <?= form_open("Rapport/exoclarercourrier/{$this->session->company->ekey}/{$bus_stop->idengare}", array('class' => 'modal-body form')); ?>
+                            <input class="form-control form-control-sm" type="hidden" name="gareconnect" value="<?=$bus_stop->idengare;?>">
+                            <input class="form-control form-control-sm" type="hidden" name="userconnected" value="<?=$conex->roleattribut;?>">
+                            <input class="form-control form-control-sm" type="hidden" name="sousgareconnect" value="<?=$bus_stop->idsousgare;?>">
                             <div class="form-group row">
 
                                 <div class="form-group col-sm-4">
@@ -480,6 +490,9 @@
                     </div>
                 
                         <?= form_open("Rapport/exerdeclarerbgesc/{$this->session->company->ekey}/{$bus_stop->idengare}", array('class' => 'modal-body form')); ?>
+                            <input class="form-control form-control-sm" type="hidden" name="gareconnect" value="<?=$bus_stop->idengare;?>">
+                            <input class="form-control form-control-sm" type="hidden" name="userconnected" value="<?=$conex->roleattribut;?>">
+                            <input class="form-control form-control-sm" type="hidden" name="sousgareconnect" value="<?=$bus_stop->idsousgare;?>">
                          <div class="form-group row">
                                 <div class="form-group col-sm-4">
                                     <label>COMPAGNIE</label>
@@ -546,6 +559,9 @@
                         </div>
                         
                         <?= form_open("Rapport/exerclarerbgesc/{$this->session->company->ekey}/{$bus_stop->idengare}", array('class' => 'modal-body form')); ?>
+                            <input class="form-control form-control-sm" type="hidden" name="gareconnect" value="<?=$bus_stop->idengare;?>">
+                            <input class="form-control form-control-sm" type="hidden" name="userconnected" value="<?=$conex->roleattribut;?>">
+                            <input class="form-control form-control-sm" type="hidden" name="sousgareconnect" value="<?=$bus_stop->idsousgare;?>">
                             <div class="form-group row">
                                 <div class="form-group col-sm-4">
                                     <label>COMPAGNIE</label>
@@ -613,6 +629,9 @@
                         </div>
                         
                         <?= form_open("Rapport/exodeclarercourrier/{$this->session->company->ekey}/{$bus_stop->idengare}", array('class' => 'modal-body form')); ?>
+                            <input class="form-control form-control-sm" type="hidden" name="gareconnect" value="<?=$bus_stop->idengare;?>">
+                            <input class="form-control form-control-sm" type="hidden" name="userconnected" value="<?=$conex->roleattribut;?>">
+                            <input class="form-control form-control-sm" type="hidden" name="sousgareconnect" value="<?=$bus_stop->idsousgare;?>">
                             <div class="form-group row">
 
                                 <div class="form-group col-sm-4">
@@ -700,6 +719,9 @@
                         </div>
                         
                         <?= form_open("Rapport/exoclarercourrieresc/{$this->session->company->ekey}/{$bus_stop->idengare}", array('class' => 'modal-body form')); ?>
+                            <input class="form-control form-control-sm" type="hidden" name="gareconnect" value="<?=$bus_stop->idengare;?>">
+                            <input class="form-control form-control-sm" type="hidden" name="userconnected" value="<?=$conex->roleattribut;?>">
+                            <input class="form-control form-control-sm" type="hidden" name="sousgareconnect" value="<?=$bus_stop->idsousgare;?>">
                             <div class="form-group row">
 
                                 <div class="form-group col-sm-4">
@@ -789,6 +811,9 @@
                     </div>
                     
                     <?= form_open("Rapport/exodeclarercourrieresc/{$this->session->company->ekey}/{$bus_stop->idengare}", array('class' => 'modal-body form')); ?>
+                            <input class="form-control form-control-sm" type="hidden" name="gareconnect" value="<?=$bus_stop->idengare;?>">
+                            <input class="form-control form-control-sm" type="hidden" name="userconnected" value="<?=$conex->roleattribut;?>">
+                            <input class="form-control form-control-sm" type="hidden" name="sousgareconnect" value="<?=$bus_stop->idsousgare;?>">
                         <div class="form-group row">
 
                             <div class="form-group col-sm-4">
@@ -876,6 +901,9 @@
                         </div>
                         
                         <?= form_open("Rapport/exerclarerbg/{$this->session->company->ekey}/{$bus_stop->idengare}", array('class' => 'modal-body form')); ?>
+                            <input class="form-control form-control-sm" type="hidden" name="gareconnect" value="<?=$bus_stop->idengare;?>">
+                            <input class="form-control form-control-sm" type="hidden" name="userconnected" value="<?=$conex->roleattribut;?>">
+                            <input class="form-control form-control-sm" type="hidden" name="sousgareconnect" value="<?=$bus_stop->idsousgare;?>">
                             <div class="form-group row">
                                 <div class="form-group col-sm-4">
                                     <label>COMPAGNIE</label>
@@ -944,6 +972,9 @@
                         </div>
                         
                         <?= form_open("Rapport/exerdeclarerbg/{$this->session->company->ekey}/{$bus_stop->idengare}", array('class' => 'modal-body form')); ?>
+                            <input class="form-control form-control-sm" type="hidden" name="gareconnect" value="<?=$bus_stop->idengare;?>">
+                            <input class="form-control form-control-sm" type="hidden" name="userconnected" value="<?=$conex->roleattribut;?>">
+                            <input class="form-control form-control-sm" type="hidden" name="sousgareconnect" value="<?=$bus_stop->idsousgare;?>">
                             <div class="form-group row">
                                 <div class="form-group col-sm-4">
                                     <label>COMPAGNIE</label>
@@ -1170,6 +1201,9 @@
                         </div>
                         
                         <?= form_open("Rapport/manifesthebdo/{$this->session->company->ekey}/{$bus_stop->idengare}", array('class' => 'modal-body form')); ?>
+                            <input class="form-control form-control-sm" type="hidden" name="gareconnect" value="<?=$bus_stop->idengare;?>">
+                            <input class="form-control form-control-sm" type="hidden" name="userconnected" value="<?=$conex->roleattribut;?>">
+                            <input class="form-control form-control-sm" type="hidden" name="sousgareconnect" value="<?=$bus_stop->idsousgare;?>">
                             <div class="form-group row">
                                 <div class="form-group col-sm-4">
                                     <label>COMPAGNIE</label>
@@ -1316,6 +1350,9 @@
                         </div>
                         
                         <?= form_open("Rapport/exercices/{$this->session->company->ekey}/{$bus_stop->idengare}", array('class' => 'modal-body form')); ?>
+                            <input class="form-control form-control-sm" type="hidden" name="gareconnect" value="<?=$bus_stop->idengare;?>">
+                            <input class="form-control form-control-sm" type="hidden" name="userconnected" value="<?=$conex->roleattribut;?>">
+                            <input class="form-control form-control-sm" type="hidden" name="sousgareconnect" value="<?=$bus_stop->idsousgare;?>">
                             <div class="form-group row">
                                 <div class="form-group col-sm-4">
                                     <label>COMPAGNIE</label>
@@ -1386,6 +1423,9 @@
                         </div>
                         
                         <?= form_open("Rapport/exerdeclarer/{$this->session->company->ekey}/{$bus_stop->idengare}", array('class' => 'modal-body form')); ?>
+                            <input class="form-control form-control-sm" type="hidden" name="gareconnect" value="<?=$bus_stop->idengare;?>">
+                            <input class="form-control form-control-sm" type="hidden" name="userconnected" value="<?=$conex->roleattribut;?>">
+                            <input class="form-control form-control-sm" type="hidden" name="sousgareconnect" value="<?=$bus_stop->idsousgare;?>">
                             <div class="form-group row">
                                 <div class="form-group col-sm-4">
                                     <label>COMPAGNIE</label>
@@ -1454,6 +1494,9 @@
                         </div>
                         
                         <?= form_open("Rapport/exerclarer/{$this->session->company->ekey}/{$bus_stop->idengare}", array('class' => 'modal-body form')); ?>
+                            <input class="form-control form-control-sm" type="hidden" name="gareconnect" value="<?=$bus_stop->idengare;?>">
+                            <input class="form-control form-control-sm" type="hidden" name="userconnected" value="<?=$conex->roleattribut;?>">
+                            <input class="form-control form-control-sm" type="hidden" name="sousgareconnect" value="<?=$bus_stop->idsousgare;?>">
                             <div class="form-group row">
                                 <div class="form-group col-sm-4">
                                     <label>COMPAGNIE</label>
@@ -1524,6 +1567,9 @@
                         </div>
                         
                         <?= form_open("Rapport/exerciceses/{$this->session->company->ekey}/{$bus_stop->idengare}", array('class' => 'modal-body form')); ?>
+                            <input class="form-control form-control-sm" type="hidden" name="gareconnect" value="<?=$bus_stop->idengare;?>">
+                            <input class="form-control form-control-sm" type="hidden" name="userconnected" value="<?=$conex->roleattribut;?>">
+                            <input class="form-control form-control-sm" type="hidden" name="sousgareconnect" value="<?=$bus_stop->idsousgare;?>">
                             <div class="form-group row">
                                 <div class="form-group col-sm-4">
                                     <label>COMPAGNIE</label>
@@ -1592,6 +1638,9 @@
                         </div>
                         
                         <?= form_open("Rapport/exerdeclareres/{$this->session->company->ekey}/{$bus_stop->idengare}", array('class' => 'modal-body form')); ?>
+                            <input class="form-control form-control-sm" type="hidden" name="gareconnect" value="<?=$bus_stop->idengare;?>">
+                            <input class="form-control form-control-sm" type="hidden" name="userconnected" value="<?=$conex->roleattribut;?>">
+                            <input class="form-control form-control-sm" type="hidden" name="sousgareconnect" value="<?=$bus_stop->idsousgare;?>">
                             <div class="form-group row">
                                 <div class="form-group col-sm-4">
                                     <label>COMPAGNIE</label>
@@ -1660,6 +1709,9 @@
                         </div>
                         
                         <?= form_open("Rapport/exerclareres/{$this->session->company->ekey}/{$bus_stop->idengare}", array('class' => 'modal-body form')); ?>
+                            <input class="form-control form-control-sm" type="hidden" name="gareconnect" value="<?=$bus_stop->idengare;?>">
+                            <input class="form-control form-control-sm" type="hidden" name="userconnected" value="<?=$conex->roleattribut;?>">
+                            <input class="form-control form-control-sm" type="hidden" name="sousgareconnect" value="<?=$bus_stop->idsousgare;?>">
                             <div class="form-group row">
                                 <div class="form-group col-sm-4">
                                     <label>COMPAGNIE</label>
@@ -1730,6 +1782,9 @@
                         </div>
                         
                         <?= form_open("Rapport/exercicesbag/{$this->session->company->ekey}/{$bus_stop->idengare}", array('class' => 'modal-body form')); ?>
+                            <input class="form-control form-control-sm" type="hidden" name="gareconnect" value="<?=$bus_stop->idengare;?>">
+                            <input class="form-control form-control-sm" type="hidden" name="userconnected" value="<?=$conex->roleattribut;?>">
+                            <input class="form-control form-control-sm" type="hidden" name="sousgareconnect" value="<?=$bus_stop->idsousgare;?>">
                             <div class="form-group row">
                                 <div class="form-group col-sm-4">
                                     <label>COMPAGNIE</label>
@@ -1798,6 +1853,9 @@
                         </div>
                         
                         <?= form_open("Rapport/exercicesbagesc/{$this->session->company->ekey}/{$bus_stop->idengare}", array('class' => 'modal-body form')); ?>
+                            <input class="form-control form-control-sm" type="hidden" name="gareconnect" value="<?=$bus_stop->idengare;?>">
+                            <input class="form-control form-control-sm" type="hidden" name="userconnected" value="<?=$conex->roleattribut;?>">
+                            <input class="form-control form-control-sm" type="hidden" name="sousgareconnect" value="<?=$bus_stop->idsousgare;?>">
                             <div class="form-group row">
                                 <div class="form-group col-sm-4">
                                     <label>COMPAGNIE</label>
@@ -2015,6 +2073,9 @@
                         </div>
                         
                         <?= form_open("Rapport/exocourrier/{$this->session->company->ekey}/{$bus_stop->idengare}", array('class' => 'modal-body form')); ?>
+                            <input class="form-control form-control-sm" type="hidden" name="gareconnect" value="<?=$bus_stop->idengare;?>">
+                            <input class="form-control form-control-sm" type="hidden" name="userconnected" value="<?=$conex->roleattribut;?>">
+                            <input class="form-control form-control-sm" type="hidden" name="sousgareconnect" value="<?=$bus_stop->idsousgare;?>">
                             <div class="form-group row">
 
                                 <div class="form-group col-sm-4">
@@ -2104,6 +2165,9 @@
                         </div>
                         
                         <?= form_open("Rapport/exocourrieresc/{$this->session->company->ekey}/{$bus_stop->idengare}", array('class' => 'modal-body form')); ?>
+                            <input class="form-control form-control-sm" type="hidden" name="gareconnect" value="<?=$bus_stop->idengare;?>">
+                            <input class="form-control form-control-sm" type="hidden" name="userconnected" value="<?=$conex->roleattribut;?>">
+                            <input class="form-control form-control-sm" type="hidden" name="sousgareconnect" value="<?=$bus_stop->idsousgare;?>">
                             <div class="form-group row">
 
                                 <div class="form-group col-sm-4">
@@ -2193,6 +2257,9 @@
                         </div>
                         
                         <?= form_open("Rapport/courriermanifestheb/{$this->session->company->ekey}/{$bus_stop->idengare}", array('class' => 'modal-body form')); ?>
+                            <input class="form-control form-control-sm" type="hidden" name="gareconnect" value="<?=$bus_stop->idengare;?>">
+                            <input class="form-control form-control-sm" type="hidden" name="userconnected" value="<?=$conex->roleattribut;?>">
+                            <input class="form-control form-control-sm" type="hidden" name="sousgareconnect" value="<?=$bus_stop->idsousgare;?>">
                             <div class="form-group row">
 
                                 <div class="form-group col-sm-4">
@@ -2282,6 +2349,9 @@
                         </div>
                         
                         <?= form_open("Rapport/courriermanifesthebesc/{$this->session->company->ekey}/{$bus_stop->idengare}", array('class' => 'modal-body form')); ?>
+                            <input class="form-control form-control-sm" type="hidden" name="gareconnect" value="<?=$bus_stop->idengare;?>">
+                            <input class="form-control form-control-sm" type="hidden" name="userconnected" value="<?=$conex->roleattribut;?>">
+                            <input class="form-control form-control-sm" type="hidden" name="sousgareconnect" value="<?=$bus_stop->idsousgare;?>">
                             <div class="form-group row">
 
                                 <div class="form-group col-sm-4">
@@ -2371,6 +2441,9 @@
                         </div>
                         
                         <?= form_open("Rapport/bagagemanifestheb/{$this->session->company->ekey}/{$bus_stop->idengare}", array('class' => 'modal-body form')); ?>
+                            <input class="form-control form-control-sm" type="hidden" name="gareconnect" value="<?=$bus_stop->idengare;?>">
+                            <input class="form-control form-control-sm" type="hidden" name="userconnected" value="<?=$conex->roleattribut;?>">
+                            <input class="form-control form-control-sm" type="hidden" name="sousgareconnect" value="<?=$bus_stop->idsousgare;?>">
                             <div class="form-group row">
 
                                 <div class="form-group col-sm-4">
@@ -2444,6 +2517,9 @@
                         </div>
                         
                         <?= form_open("Rapport/bagageescmanifestheb/{$this->session->company->ekey}/{$bus_stop->idengare}", array('class' => 'modal-body form')); ?>
+                            <input class="form-control form-control-sm" type="hidden" name="gareconnect" value="<?=$bus_stop->idengare;?>">
+                            <input class="form-control form-control-sm" type="hidden" name="userconnected" value="<?=$conex->roleattribut;?>">
+                            <input class="form-control form-control-sm" type="hidden" name="sousgareconnect" value="<?=$bus_stop->idsousgare;?>">
                             <div class="form-group row">
 
                                 <div class="form-group col-sm-4">
@@ -3003,7 +3079,11 @@
                      <?= form_open("Rapport/trinombrepass/{$this->session->company->ekey}", array('class' => 'modal-body form')); ?>
 
                         <div class="form-group row">
-                            <div class="form-group col-sm-4">
+                            
+                            <input class="form-control form-control-sm" type="hidden" name="gareconnect" value="<?=$bus_stop->idengare;?>">
+                            <input class="form-control form-control-sm" type="hidden" name="userconnected" value="<?=$conex->roleattribut;?>">
+                            <input class="form-control form-control-sm" type="hidden" name="sousgareconnect" value="<?=$bus_stop->idsousgare;?>">
+<div class="form-group col-sm-4">
                                 <label>COMPAGNIE</label>
                                     <select class="form-control form-control-sm" name="nomcomps">
                                     <option value=""></option>

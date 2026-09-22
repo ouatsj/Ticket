@@ -1398,15 +1398,24 @@
         }
 
         /**
-         * États / versefiltre : gare du vendeur (lieu physique), pas gaexp de ligne.
-         * Une vente faite à Ouaga pour une jambe d’une autre gare correspondante
-         * reste comptée sur la gare de l’utilisateur / du guichet de vente.
+         * Règle métier (option B — états ticket) :
+         * filtre gare = lieu physique de VENTE (guichet / idsousgare_vente),
+         * PAS la gare de ligne (ex.code_gaexp).
+         *
+         * Périmètre figé — ne pas étendre à d’autres méthodes sans revue métier :
+         *   listereport, listereportcpt, listereportcptadmin,
+         *   listereportverscptglexo, reporticket,
+         *   + versefiltre* / operateurs_actifs_periode déjà branchés ici.
+         *
+         * Écart attendu vs ancien PDF : une vente faite dans la gare A pour une
+         * jambe dont gaexp = B est comptée sur A (vente), plus sur B (ligne).
          */
         protected function _sql_etat_join_sgv()
         {
             return " LEFT JOIN sousgare sgv ON p.idsousgare_vente = sgv.idsousgare ";
         }
 
+        /** Clause AND lieu de vente = garesid résolu depuis $gid (code ou id). */
         protected function _sql_etat_vente_gare($gid)
         {
             $phys = $this->_resolve_garesid($gid);
@@ -1439,6 +1448,8 @@
         /**
          * Un roleattribut → tous les roleattribut du même compte_user
          * (un opérateur peut avoir plusieurs attributions).
+         * Règle option B : filtre opérateur = compte entier, pas un seul roleattribut.
+         * Ne pas restreindre à l’égalité simple sans revue métier.
          *
          * @return array|false
          */
@@ -1545,6 +1556,8 @@
 
             $rows = $this->db->query(
                 "SELECT DISTINCT ar.roleattribut,
+                        u.first_name,
+                        u.last_name,
                         COALESCE(
                             NULLIF(TRIM(CONCAT(IFNULL(u.first_name,''), ' ', IFNULL(u.last_name,''))), ''),
                             NULLIF(TRIM(cu.username), ''),
@@ -4636,12 +4649,17 @@
             GROUP BY {$nomLine['group']}, dest.id_compaga, p.prixvente, cu.username, p.datep_create")->result(); return $this->normalize_ticket_prix_rows($rows);        
             
     }
-    //report admin
+    //report admin — gare = lieu de vente, opérateur = tous roleattribut du compte
     public function listereport($cid, $cp, $gid, $dt1, $dt2, $acl = FALSE, $algn = FALSE)
     {
             $nomLine = $this->rapport_nom_ligne_sql();
-        
-        if ($acl === '' AND $algn === '') {
+            $venteGare = $this->_sql_etat_vente_gare($gid);
+            $joinSgv = $this->_sql_etat_join_sgv();
+            $extra = $this->_sql_etat_vendeur_in($acl);
+            if ($algn !== FALSE && $algn !== null && $algn !== '') {
+                $extra .= ' AND lg.ident_ligne = ' . $this->db->escape($algn);
+            }
+
             $rows = $this->db->query(
                 "SELECT COUNT(code_passager) AS codepassager, SUM(prixvente) AS total, {$nomLine['select']}, p.prixvente FROM passager p
                 JOIN attributions_role ar ON p.idcptuser = ar.roleattribut
@@ -4649,6 +4667,8 @@
                 JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
                 JOIN gares g ON ul.guser = g.idengare
                 JOIN utilisateurs u ON cu.userlog_id = u.uid
+                JOIN sousgare sg ON p.departclient_idgare = sg.idsousgare
+                {$joinSgv}
                 JOIN programme pr ON p.code_pro = pr.code_progr
                 JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
                 JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
@@ -4656,62 +4676,17 @@
                 JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
                 JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                WHERE e.ekey = '$cid'
-                AND p.datep_create >= '$dt1' AND p.datep_create < DATE_ADD('$dt2', INTERVAL 1 DAY)
-                AND dest.id_compaga = '$cp'
-                AND ex.code_gaexp = '$gid'
+                WHERE e.ekey = " . $this->db->escape($cid) . "
+                AND p.datep_create >= " . $this->db->escape($dt1) . " AND p.datep_create < DATE_ADD(" . $this->db->escape($dt2) . ", INTERVAL 1 DAY)
+                AND dest.id_compaga = " . $this->db->escape($cp) . "
+                {$venteGare}
+                {$extra}
                 AND p.prixvente IS NOT NULL
                 AND COALESCE(p.statut_confirme, '') NOT IN ('confirm','catconfirm','confirmcarte')
                 AND p.statut_code = 'vendu'
-                GROUP BY {$nomLine['group']}, p.prixvente")->result(); return $this->normalize_ticket_prix_rows($rows);        }
-        elseif($algn === '')
-        {
-            $rows = $this->db->query("SELECT COUNT(code_passager) AS codepassager, SUM(prixvente) AS total, {$nomLine['select']}, p.prixvente FROM passager p
-                JOIN attributions_role ar ON p.idcptuser = ar.roleattribut
-                JOIN user_login ul ON ar.idgestcompte = ul.uid_login
-                JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
-                JOIN gares g ON ul.guser = g.idengare
-                JOIN utilisateurs u ON cu.userlog_id = u.uid
-                JOIN programme pr ON p.code_pro = pr.code_progr
-                JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
-                JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
-                JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
-                JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
-                JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
-                JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                WHERE e.ekey = '$cid'
-                AND p.datep_create >= '$dt1' AND p.datep_create < DATE_ADD('$dt2', INTERVAL 1 DAY)
-                AND dest.id_compaga = '$cp'
-                AND ex.code_gaexp = '$gid'
-                AND p.prixvente IS NOT NULL
-                AND COALESCE(p.statut_confirme, '') NOT IN ('confirm','catconfirm','confirmcarte')
-                AND p.statut_code = 'vendu'
-                AND ar.roleattribut = '$acl'
-                GROUP BY {$nomLine['group']}, p.prixvente")->result(); return $this->normalize_ticket_prix_rows($rows);        }
-            $rows = $this->db->query(
-                "SELECT COUNT(code_passager) AS codepassager, SUM(prixvente) AS total, {$nomLine['select']}, p.prixvente FROM passager p
-                JOIN attributions_role ar ON p.idcptuser = ar.roleattribut
-                JOIN user_login ul ON ar.idgestcompte = ul.uid_login
-                JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
-                JOIN gares g ON ul.guser = g.idengare
-                JOIN utilisateurs u ON cu.userlog_id = u.uid
-                JOIN programme pr ON p.code_pro = pr.code_progr
-                JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
-                JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
-                JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
-                JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
-                JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
-                JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                WHERE e.ekey = '$cid'
-                AND p.datep_create >= '$dt1' AND p.datep_create < DATE_ADD('$dt2', INTERVAL 1 DAY)
-                AND dest.id_compaga = '$cp'
-                AND ex.code_gaexp = '$gid'
-                AND p.prixvente IS NOT NULL
-                AND COALESCE(p.statut_confirme, '') NOT IN ('confirm','catconfirm','confirmcarte')
-                AND p.statut_code = 'vendu'
-                AND ar.roleattribut = '$acl'
-                AND lg.ident_ligne = '$algn'
-                GROUP BY {$nomLine['group']}, p.prixvente")->result(); return $this->normalize_ticket_prix_rows($rows);    }
+                GROUP BY {$nomLine['group']}, p.prixvente")->result();
+            return $this->normalize_ticket_prix_rows($rows);
+    }
     
     public function listereportcpt($cid, $cp, $gid, $dt1, $dt2, $acl = FALSE, $algn = FALSE)
     {
@@ -4957,8 +4932,12 @@
     
     public function listereportverscptglexo($cid, $cp, $dt1, $dt2, $gid = FALSE, $acl = FALSE)
     {
-        
-        if ($gid === '' AND $acl === '') {
+            $venteGare = ($gid !== FALSE && $gid !== null && trim((string) $gid) !== '')
+                ? $this->_sql_etat_vente_gare($gid)
+                : '';
+            $joinSgv = $this->_sql_etat_join_sgv();
+            $vendeurSql = $this->_sql_etat_vendeur_in($acl);
+
             $rows = $this->db->query(
                 "SELECT SUM(prixvente) AS total, dest.id_compaga, p.datep_create FROM passager p
                 JOIN attributions_role ar ON p.idcptuser = ar.roleattribut
@@ -4966,6 +4945,8 @@
                 JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
                 JOIN gares g ON ul.guser = g.idengare
                 JOIN utilisateurs u ON cu.userlog_id = u.uid
+                JOIN sousgare sg ON p.departclient_idgare = sg.idsousgare
+                {$joinSgv}
                 JOIN programme pr ON p.code_pro = pr.code_progr
                 JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
                 JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
@@ -4973,62 +4954,18 @@
                 JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
                 JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                WHERE e.ekey = '$cid'
-                AND p.datep_create >= '$dt1' AND p.datep_create < DATE_ADD('$dt2', INTERVAL 1 DAY)
+                WHERE e.ekey = " . $this->db->escape($cid) . "
+                AND p.datep_create >= " . $this->db->escape($dt1) . " AND p.datep_create < DATE_ADD(" . $this->db->escape($dt2) . ", INTERVAL 1 DAY)
                 AND p.verifpassager IN('A', 'C', 'D')
-                AND dest.id_compaga = '$cp'
+                AND dest.id_compaga = " . $this->db->escape($cp) . "
+                {$venteGare}
+                {$vendeurSql}
                 AND p.prixvente IS NOT NULL
                 AND COALESCE(p.statut_confirme, '') NOT IN ('confirm','catconfirm','confirmcarte')
                 AND p.statut_code = 'vendu'
-                GROUP BY dest.id_compaga, p.datep_create")->result(); return $this->normalize_ticket_prix_rows($rows);        }
-        elseif($acl === '')
-        {
-            $rows = $this->db->query("SELECT SUM(prixvente) AS total, dest.id_compaga, p.datep_create FROM passager p
-                JOIN attributions_role ar ON p.idcptuser = ar.roleattribut
-                JOIN user_login ul ON ar.idgestcompte = ul.uid_login
-                JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
-                JOIN gares g ON ul.guser = g.idengare
-                JOIN utilisateurs u ON cu.userlog_id = u.uid
-                JOIN programme pr ON p.code_pro = pr.code_progr
-                JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
-                JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
-                JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
-                JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
-                JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
-                JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                WHERE e.ekey = '$cid'
-                AND p.datep_create >= '$dt1' AND p.datep_create < DATE_ADD('$dt2', INTERVAL 1 DAY)
-                AND p.verifpassager IN('A', 'C', 'D')
-                AND dest.id_compaga = '$cp'
-                AND ex.code_gaexp = '$gid'
-                AND p.prixvente IS NOT NULL
-                AND COALESCE(p.statut_confirme, '') NOT IN ('confirm','catconfirm','confirmcarte')
-                AND p.statut_code = 'vendu'
-                GROUP BY dest.id_compaga, p.datep_create")->result(); return $this->normalize_ticket_prix_rows($rows);        }
-            $rows = $this->db->query(
-                "SELECT SUM(prixvente) AS total, dest.id_compaga, p.datep_create FROM passager p
-                JOIN attributions_role ar ON p.idcptuser = ar.roleattribut
-                JOIN user_login ul ON ar.idgestcompte = ul.uid_login
-                JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
-                JOIN gares g ON ul.guser = g.idengare
-                JOIN utilisateurs u ON cu.userlog_id = u.uid
-                JOIN programme pr ON p.code_pro = pr.code_progr
-                JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
-                JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
-                JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
-                JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
-                JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
-                JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                WHERE e.ekey = '$cid'
-                AND p.datep_create >= '$dt1' AND p.datep_create < DATE_ADD('$dt2', INTERVAL 1 DAY)
-                AND p.verifpassager IN('A', 'C', 'D')
-                AND dest.id_compaga = '$cp'
-                AND ex.code_gaexp = '$gid'
-                AND ar.roleattribut = '$acl'
-                AND p.prixvente IS NOT NULL
-                AND COALESCE(p.statut_confirme, '') NOT IN ('confirm','catconfirm','confirmcarte')
-                AND p.statut_code = 'vendu'
-                GROUP BY dest.id_compaga, p.datep_create")->result(); return $this->normalize_ticket_prix_rows($rows);    }
+                GROUP BY dest.id_compaga, p.datep_create")->result();
+            return $this->normalize_ticket_prix_rows($rows);
+    }
 
     public function listereportcptadmin($cid, $cp, $gid, $dt1, $dt2, $acl = FALSE, $algn = FALSE)
     {
@@ -5164,33 +5101,29 @@
     public function reporticket($cid, $gid, $dt1, $dt2, $cp, $algn = FALSE, $sg = FALSE)
     {
             $nomLine = $this->rapport_nom_ligne_sql();
+            $venteGare = $this->_sql_etat_vente_gare($gid);
+            $joinSgv = $this->_sql_etat_join_sgv();
 
-        $sgNorm = ($sg === FALSE || $sg === null) ? '' : trim((string) $sg);
-        $sgSql = '';
-        if ($sgNorm !== '' && $sgNorm !== '0') {
-            $sgSql = " AND p.departclient_idgare = '" . $this->db->escape_str($sgNorm) . "'";
-        }
-        $gidNorm = ($gid === FALSE || $gid === null) ? '' : trim((string) $gid);
-        $gareSql = '';
-        if ($gidNorm !== '' && $gidNorm !== '0') {
-            $gidEsc = $this->db->escape_str($gidNorm);
-            $gareSql = " AND ex.code_gaexp = '{$gidEsc}'";
-        }
-        $cid = $this->db->escape_str($cid);
-        $dt1 = $this->db->escape_str($dt1);
-        $dt2 = $this->db->escape_str($dt2);
-        $cp = $this->db->escape_str($cp);
-        $algn = ($algn === FALSE || $algn === null) ? '' : trim((string) $algn);
-        $ligneSql = '';
-        if ($algn !== '') {
-            $ligneSql = " AND lg.ident_ligne = '" . $this->db->escape_str($algn) . "'";
-        }
+            $sgNorm = ($sg === FALSE || $sg === null) ? '' : trim((string) $sg);
+            $sgSql = '';
+            if ($sgNorm !== '' && $sgNorm !== '0') {
+                $sgEsc = $this->db->escape($sgNorm);
+                $sgSql = " AND (p.idsousgare_vente = {$sgEsc} OR (p.idsousgare_vente IS NULL AND p.departclient_idgare = {$sgEsc})) ";
+            }
+            $extra = '';
+            if ($algn !== FALSE && $algn !== null && trim((string) $algn) !== '') {
+                $extra .= ' AND lg.ident_ligne = ' . $this->db->escape($algn);
+            }
 
             $rows = $this->db->query(
                 "SELECT 
                     COUNT(p.code_passager) AS codepassager,
                     SUM(p.prixvente) AS total, {$nomLine['select']}, p.prixvente
                 FROM passager p
+                JOIN attributions_role ar ON p.idcptuser = ar.roleattribut
+                JOIN user_login ul ON ar.idgestcompte = ul.uid_login
+                JOIN sousgare sg ON p.departclient_idgare = sg.idsousgare
+                {$joinSgv}
                 JOIN programme pr ON p.code_pro = pr.code_progr
                 JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
                 JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
@@ -5198,14 +5131,14 @@
                 JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
                 JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                WHERE e.ekey = '{$cid}'
-                AND p.datep_create >= '{$dt1}' AND p.datep_create < DATE_ADD('{$dt2}', INTERVAL 1 DAY)
-                AND dest.id_compaga = '{$cp}'
+                WHERE e.ekey = " . $this->db->escape($cid) . "
+                AND p.datep_create >= " . $this->db->escape($dt1) . " AND p.datep_create < DATE_ADD(" . $this->db->escape($dt2) . ", INTERVAL 1 DAY)
+                AND dest.id_compaga = " . $this->db->escape($cp) . "
                 AND p.prixvente IS NOT NULL
                 AND COALESCE(p.statut_confirme, '') NOT IN ('confirm','catconfirm','confirmcarte')
                 AND p.statut_code = 'vendu'
-                {$gareSql}
-                {$ligneSql}
+                {$venteGare}
+                {$extra}
                 {$sgSql}
                 GROUP BY {$nomLine['group']}, p.prixvente")->result();
             return $this->normalize_ticket_prix_rows($rows);

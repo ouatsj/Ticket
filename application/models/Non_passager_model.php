@@ -28,14 +28,54 @@
             return $gid;
         }
 
-        /** Filtre gare = gare de l’utilisateur (pas gaexp de ligne). */
+        /**
+         * Règle métier (option B — états ticket retour) :
+         * filtre gare = lieu physique de VENTE / login agent (resolve_lieu),
+         * PAS uniquement ul.guser = code saisi ni gaexp de ligne.
+         *
+         * Périmètre figé — ne pas étendre sans revue métier :
+         *   listereportretour, listereportretourcpt,
+         *   listereportversretourcptexo, listereportversretourcpte,
+         *   reporticketretour.
+         *
+         * Aligné Passager_model::_sql_etat_vente_gare (aller / retour cohérents).
+         */
         protected function _sql_etat_user_gare($gid)
         {
-            $phys = $this->_resolve_garesid($gid);
-            if ($phys === '') {
+            $code = trim((string) $gid);
+            if ($code === '' || $code === '0') {
                 return '';
             }
-            return ' AND ul.guser = ' . $this->db->escape($phys) . ' ';
+            $CI =& get_instance();
+            if (!isset($CI->m_gare_depart)) {
+                $CI->load->model('Gare_depart_model', 'm_gare_depart');
+            }
+            $lieu = $CI->m_gare_depart->resolve_lieu($code);
+            $phys = $lieu['phys'] !== '' ? $lieu['phys'] : $code;
+            $codes = !empty($lieu['codes']) ? $lieu['codes'] : array($code, $phys);
+            $inList = array();
+            foreach ($codes as $c) {
+                $c = trim((string) $c);
+                if ($c !== '') {
+                    $inList[$c] = $this->db->escape($c);
+                }
+            }
+            if (empty($inList)) {
+                return '';
+            }
+            $inSql = implode(',', array_values($inList));
+            $p = $this->db->escape($phys);
+            // Login agent sur le lieu, ou sous-gare de vente rattachée au lieu.
+            return " AND (
+                ul.guser IN ({$inSql})
+                OR ul.guser = {$p}
+                OR EXISTS (
+                    SELECT 1 FROM sousgare sg_v
+                    JOIN gare_exp ge_v ON ge_v.code_gaexp = sg_v.gareprinceid
+                    WHERE sg_v.idsousgare = np.sousgareidentif
+                    AND (ge_v.garesid = {$p} OR ge_v.code_gaexp IN ({$inSql}))
+                )
+            ) ";
         }
         
         public function getad($cid, $np_id = FALSE)
@@ -592,70 +632,38 @@
                 AND np.sousgareidentif = '$sg'
                 GROUP BY np.id_ligne_pass, dest.id_compaga, np.prixretour, lg.nom_ligne, cu.username")->result();
         }
-        //report admin
+        //report admin — même sémantique que listereport (lieu + vendeur expand)
         public function listereportretour($cid, $cp, $gid, $dt1, $dt2, $acl = FALSE, $algn = FALSE)
         {
-            
-            if ($acl === '' AND $algn === '') {
-                return $this->db->query(
-                    "SELECT COUNT(code_non_pass) AS code_non_pass, SUM(prixretour) AS totalr, lg.nom_ligne, np.prixretour FROM non_passager np
-                    JOIN attributions_role ar ON np.cptus = ar.roleattribut
-                    JOIN user_login ul ON ar.idgestcompte = ul.uid_login
-                    JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
-                    JOIN gares g ON ul.guser = g.idengare
-                    JOIN utilisateurs u ON cu.userlog_id = u.uid
-                    JOIN lignes lg ON np.id_ligne_pass = lg.ident_ligne
-                    JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
-                    JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
-                    JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
-                    JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                    WHERE e.ekey = '$cid'
-                    AND np.datevente >= '$dt1' AND np.datevente < DATE_ADD('$dt2', INTERVAL 1 DAY)
-                    AND dest.id_compaga = '$cp'
-                    AND ex.code_gaexp = '$gid'
-                    GROUP BY np.prixretour, lg.nom_ligne")->result();
+            $userGare = $this->_sql_etat_user_gare($gid);
+            $CI =& get_instance();
+            if (!isset($CI->m_passager)) {
+                $CI->load->model('Passager_model', 'm_passager');
             }
-            elseif($algn === '')
-            {
-                return $this->db->query("SELECT COUNT(code_non_pass) AS code_non_pass, SUM(prixretour) AS totalr, lg.nom_ligne, np.prixretour FROM non_passager np
-                    JOIN attributions_role ar ON np.cptus = ar.roleattribut
-                    JOIN user_login ul ON ar.idgestcompte = ul.uid_login
-                    JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
-                    JOIN gares g ON ul.guser = g.idengare
-                    JOIN utilisateurs u ON cu.userlog_id = u.uid
-                    JOIN lignes lg ON np.id_ligne_pass = lg.ident_ligne
-                    JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
-                    JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
-                    JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
-                    JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                    WHERE e.ekey = '$cid'
-                    AND np.datevente >= '$dt1' AND np.datevente < DATE_ADD('$dt2', INTERVAL 1 DAY)
-                    AND dest.id_compaga = '$cp'
-                    AND ar.roleattribut = '$acl'
-                    AND ex.code_gaexp = '$gid'
-                    GROUP BY np.prixretour, lg.nom_ligne")->result();
+            $extra = $CI->m_passager->sql_filtre_vendeur($acl);
+            if ($algn !== FALSE && $algn !== null && $algn !== '') {
+                $extra .= ' AND lg.ident_ligne = ' . $this->db->escape($algn);
             }
-                return $this->db->query(
-                    "SELECT COUNT(code_non_pass) AS code_non_pass, SUM(prixretour) AS totalr, lg.nom_ligne, np.prixretour FROM non_passager np
-                    JOIN attributions_role ar ON np.cptus = ar.roleattribut
-                    JOIN user_login ul ON ar.idgestcompte = ul.uid_login
-                    JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
-                    JOIN gares g ON ul.guser = g.idengare
-                    JOIN utilisateurs u ON cu.userlog_id = u.uid
-                    JOIN lignes lg ON np.id_ligne_pass = lg.ident_ligne
-                    JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
-                    JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
-                    JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
-                    JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                    WHERE e.ekey = '$cid'
-                    AND np.datevente >= '$dt1' AND np.datevente < DATE_ADD('$dt2', INTERVAL 1 DAY)
-                    AND dest.id_compaga = '$cp'
-                    AND ar.roleattribut = '$acl'
-                    AND lg.ident_ligne = '$algn'
-                    AND ex.code_gaexp = '$gid'
-                    GROUP BY np.prixretour, lg.nom_ligne")->result();
-        }
 
+            return $this->db->query(
+                "SELECT COUNT(code_non_pass) AS code_non_pass, SUM(prixretour) AS totalr, lg.nom_ligne, np.prixretour FROM non_passager np
+                JOIN attributions_role ar ON np.cptus = ar.roleattribut
+                JOIN user_login ul ON ar.idgestcompte = ul.uid_login
+                JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
+                JOIN gares g ON ul.guser = g.idengare
+                JOIN utilisateurs u ON cu.userlog_id = u.uid
+                JOIN lignes lg ON np.id_ligne_pass = lg.ident_ligne
+                JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
+                JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
+                JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
+                JOIN entreprise e ON c.id_entrep = e.id_entreprise
+                WHERE e.ekey = " . $this->db->escape($cid) . "
+                AND np.datevente >= " . $this->db->escape($dt1) . " AND np.datevente < DATE_ADD(" . $this->db->escape($dt2) . ", INTERVAL 1 DAY)
+                AND dest.id_compaga = " . $this->db->escape($cp) . "
+                {$userGare}
+                {$extra}
+                GROUP BY np.prixretour, lg.nom_ligne")->result();
+        }
 
         public function listereportretourcpt($cid, $cp, $gid, $dt1, $dt2, $acl = FALSE, $algn = FALSE)
         {
@@ -770,65 +778,34 @@
 
         public function listereportversretourcptexo($cid, $cp, $dt1, $dt2, $gid = FALSE, $acl = FALSE)
         {
-            
-            if ($gid === '' AND $acl === '') {
-                return $this->db->query(
-                    "SELECT SUM(prixretour) AS totalr, np.datevente, dest.id_compaga FROM non_passager np
-                    JOIN attributions_role ar ON np.cptus = ar.roleattribut
-                    JOIN user_login ul ON ar.idgestcompte = ul.uid_login
-                    JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
-                    JOIN gares g ON ul.guser = g.idengare
-                    JOIN utilisateurs u ON cu.userlog_id = u.uid
-                    JOIN lignes lg ON np.id_ligne_pass = lg.ident_ligne
-                    JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
-                    JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
-                    JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
-                    JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                    WHERE e.ekey = '$cid'
-                    AND np.datevente >= '$dt1' AND np.datevente < DATE_ADD('$dt2', INTERVAL 1 DAY)
-                    AND np.verifnonpassager IN('A', 'C', 'D')
-                    AND dest.id_compaga = '$cp'
-                    GROUP BY np.datevente, dest.id_compaga")->result();
+            $userGare = ($gid !== FALSE && $gid !== null && trim((string) $gid) !== '')
+                ? $this->_sql_etat_user_gare($gid)
+                : '';
+            $CI =& get_instance();
+            if (!isset($CI->m_passager)) {
+                $CI->load->model('Passager_model', 'm_passager');
             }
-            elseif($acl === '')
-            {
-                return $this->db->query("SELECT SUM(prixretour) AS totalr, np.datevente, dest.id_compaga FROM non_passager np
-                    JOIN attributions_role ar ON np.cptus = ar.roleattribut
-                    JOIN user_login ul ON ar.idgestcompte = ul.uid_login
-                    JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
-                    JOIN gares g ON ul.guser = g.idengare
-                    JOIN utilisateurs u ON cu.userlog_id = u.uid
-                    JOIN lignes lg ON np.id_ligne_pass = lg.ident_ligne
-                    JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
-                    JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
-                    JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
-                    JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                    WHERE e.ekey = '$cid'
-                    AND np.datevente >= '$dt1' AND np.datevente < DATE_ADD('$dt2', INTERVAL 1 DAY)
-                    AND np.verifnonpassager IN('A', 'C', 'D')
-                    AND dest.id_compaga = '$cp'
-                    AND ex.code_gaexp = '$gid'
-                    GROUP BY np.datevente, dest.id_compaga")->result();
-            }
-                return $this->db->query(
-                    "SELECT SUM(prixretour) AS totalr, np.datevente, dest.id_compaga FROM non_passager np
-                    JOIN attributions_role ar ON np.cptus = ar.roleattribut
-                    JOIN user_login ul ON ar.idgestcompte = ul.uid_login
-                    JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
-                    JOIN gares g ON ul.guser = g.idengare
-                    JOIN utilisateurs u ON cu.userlog_id = u.uid
-                    JOIN lignes lg ON np.id_ligne_pass = lg.ident_ligne
-                    JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
-                    JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
-                    JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
-                    JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                    WHERE e.ekey = '$cid'
-                    AND np.datevente >= '$dt1' AND np.datevente < DATE_ADD('$dt2', INTERVAL 1 DAY)
-                    AND np.verifnonpassager IN('A', 'C', 'D')
-                    AND dest.id_compaga = '$cp'
-                    AND ar.roleattribut = '$acl'
-                    AND ex.code_gaexp = '$gid'
-                    GROUP BY np.datevente, dest.id_compaga")->result();
+            $vendeurSql = $CI->m_passager->sql_filtre_vendeur($acl);
+
+            return $this->db->query(
+                "SELECT SUM(prixretour) AS totalr, np.datevente, dest.id_compaga FROM non_passager np
+                JOIN attributions_role ar ON np.cptus = ar.roleattribut
+                JOIN user_login ul ON ar.idgestcompte = ul.uid_login
+                JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
+                JOIN gares g ON ul.guser = g.idengare
+                JOIN utilisateurs u ON cu.userlog_id = u.uid
+                JOIN lignes lg ON np.id_ligne_pass = lg.ident_ligne
+                JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
+                JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
+                JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
+                JOIN entreprise e ON c.id_entrep = e.id_entreprise
+                WHERE e.ekey = " . $this->db->escape($cid) . "
+                AND np.datevente >= " . $this->db->escape($dt1) . " AND np.datevente < DATE_ADD(" . $this->db->escape($dt2) . ", INTERVAL 1 DAY)
+                AND np.verifnonpassager IN('A', 'C', 'D')
+                AND dest.id_compaga = " . $this->db->escape($cp) . "
+                {$userGare}
+                {$vendeurSql}
+                GROUP BY np.datevente, dest.id_compaga")->result();
         }
 
         public function listereportversretourcpte($cid, $cp, $dt1, $dt2, $gid = FALSE, $acl = FALSE)
@@ -1035,39 +1012,31 @@
 
         public function reporticketretour($cid, $gid, $dt1, $dt2, $cp, $algn = FALSE, $sg = FALSE)
         {
+            $userGare = $this->_sql_etat_user_gare($gid);
             $sgNorm = ($sg === FALSE || $sg === null) ? '' : trim((string) $sg);
             $sgSql = '';
             if ($sgNorm !== '' && $sgNorm !== '0') {
-                $sgSql = " AND np.sousgareidentif = '" . $this->db->escape_str($sgNorm) . "'";
+                $sgSql = ' AND np.sousgareidentif = ' . $this->db->escape($sgNorm);
             }
-            $gidNorm = ($gid === FALSE || $gid === null) ? '' : trim((string) $gid);
-            $gareSql = '';
-            if ($gidNorm !== '' && $gidNorm !== '0') {
-                $gidEsc = $this->db->escape_str($gidNorm);
-                $gareSql = " AND ex.code_gaexp = '{$gidEsc}'";
-            }
-            $cid = $this->db->escape_str($cid);
-            $dt1 = $this->db->escape_str($dt1);
-            $dt2 = $this->db->escape_str($dt2);
-            $cp = $this->db->escape_str($cp);
-            $algn = ($algn === FALSE || $algn === null) ? '' : trim((string) $algn);
-            $ligneSql = '';
-            if ($algn !== '') {
-                $ligneSql = " AND lg.ident_ligne = '" . $this->db->escape_str($algn) . "'";
+            $extra = '';
+            if ($algn !== FALSE && $algn !== null && trim((string) $algn) !== '') {
+                $extra .= ' AND lg.ident_ligne = ' . $this->db->escape($algn);
             }
 
             return $this->db->query(
                 "SELECT COUNT(code_non_pass) AS code_non_pass, SUM(prixretour) AS totalr, lg.nom_ligne, np.prixretour FROM non_passager np
+                    JOIN attributions_role ar ON np.cptus = ar.roleattribut
+                    JOIN user_login ul ON ar.idgestcompte = ul.uid_login
                     JOIN lignes lg ON np.id_ligne_pass = lg.ident_ligne
                     JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
                     JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
                     JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                    WHERE e.ekey = '{$cid}'
-                    AND np.datevente >= '{$dt1}' AND np.datevente < DATE_ADD('{$dt2}', INTERVAL 1 DAY)
-                    AND dest.id_compaga = '{$cp}'
-                    {$gareSql}
-                    {$ligneSql}
+                    WHERE e.ekey = " . $this->db->escape($cid) . "
+                    AND np.datevente >= " . $this->db->escape($dt1) . " AND np.datevente < DATE_ADD(" . $this->db->escape($dt2) . ", INTERVAL 1 DAY)
+                    AND dest.id_compaga = " . $this->db->escape($cp) . "
+                    {$userGare}
+                    {$extra}
                     {$sgSql}
                     GROUP BY lg.nom_ligne, np.prixretour")->result();
         }

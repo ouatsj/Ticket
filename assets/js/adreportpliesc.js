@@ -26,7 +26,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         
                                 for (let key in Object.entries(exinfosgs)) {
                                     let opt = document.createElement('option');
-                                    opt.value = `${exinfosgs[key].roleattribut}/${exinfosgs[key].first_name} ${exinfosgs[key].last_name}`;
+                                    opt.value = `${exinfosgs[key].roleattribut}/${exinfosgs[key].username}`;
                                     opt.innerHTML = `${exinfosgs[key].username}`;
                                     document.querySelector('#idcaisseesc').add(opt);
                                     
@@ -42,7 +42,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 };
         e.onclick = function () {
             let expglobForms = document.querySelector('#expglobFormsesc');
-            expglobForms.setAttribute('action', `${APP_ROOT}/Rapport/etatsplis1/${e.dataset.ekey}/${e.dataset.idgares}`);
+            expglobForms.setAttribute('action', `${APP_ROOT}/Rapport/etatsplis1esc/${e.dataset.ekey}/${e.dataset.idgares}`);
         }
 
     })

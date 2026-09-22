@@ -107,6 +107,8 @@
             // tout en continuant à vendre — ils doivent rester sélectionnables au tri.
             $rows = $this->db->query(
                 "SELECT DISTINCT ar.roleattribut,
+                        u.first_name,
+                        u.last_name,
                         COALESCE(
                             NULLIF(TRIM(CONCAT(IFNULL(u.first_name,''), ' ', IFNULL(u.last_name,''))), ''),
                             NULLIF(TRIM(cu.username), ''),
@@ -365,68 +367,88 @@
                 AND ar.userole IN(6, 10, 17)")->result();
         }
 
+        /**
+         * Libellé liste déroulante = NOM Prénom (comme triactifs / recette globale).
+         * Fallback : login, puis roleattribut.
+         */
+        protected function _sql_display_username($u = 'u', $cu = 'cu', $ar = 'ar')
+        {
+            $u = preg_replace('/[^a-zA-Z0-9_]/', '', (string) $u);
+            $cu = preg_replace('/[^a-zA-Z0-9_]/', '', (string) $cu);
+            $ar = preg_replace('/[^a-zA-Z0-9_]/', '', (string) $ar);
+            return "COALESCE(
+                NULLIF(TRIM(CONCAT(IFNULL({$u}.first_name,''), ' ', IFNULL({$u}.last_name,''))), ''),
+                NULLIF(TRIM({$cu}.username), ''),
+                {$ar}.roleattribut
+            ) AS username";
+        }
+
+        /**
+         * Guichetiers ticket (rôles 6/10/12/17) — même libellé + lieu que la recette globale.
+         */
         public function get_user5($cid, $gid)
         {
-            $gid = $this->_resolve_garesid($gid);
-            return $this->db->query(
-                "SELECT * FROM compte_user cu
-                JOIN user_login ul ON ul.uid_usercpte = cu.cpuser_id
-                JOIN attributions_role ar ON ar.idgestcompte = ul.uid_login
-                JOIN utilisateurs u ON cu.userlog_id = u.uid
-                JOIN user_roles r ON ar.userole = r.id_rols
-                JOIN gares g ON ul.guser = g.idengare
-                JOIN entreprise e ON u.cle_comp = e.ekey
-                WHERE e.ekey = '$cid'
-                AND ul.guser = '$gid'
-                AND ar.userole IN(6, 10, 12, 17)")->result();
+            return $this->get_users_tri_lieu($cid, $gid, 'ticket');
         }
 
+        /**
+         * Opérateurs bagage / guichet (rôles 6/12/17) — libellé NOM Prénom.
+         */
         public function get_userop5($cid, $gid)
         {
-            $gid = $this->_resolve_garesid($gid);
-            return $this->db->query(
-                "SELECT * FROM compte_user cu
+            $lieu = $this->_sql_ul_guser_lieu($gid, 'ul');
+            $label = $this->_sql_display_username();
+            $rows = $this->db->query(
+                "SELECT DISTINCT ar.roleattribut,
+                        u.first_name, u.last_name,
+                        {$label}
+                FROM compte_user cu
                 JOIN user_login ul ON ul.uid_usercpte = cu.cpuser_id
                 JOIN attributions_role ar ON ar.idgestcompte = ul.uid_login
                 JOIN utilisateurs u ON cu.userlog_id = u.uid
-                JOIN user_roles r ON ar.userole = r.id_rols
-                JOIN gares g ON ul.guser = g.idengare
                 JOIN entreprise e ON u.cle_comp = e.ekey
-                WHERE e.ekey = '$cid'
-                AND ul.guser = '$gid'
-                AND ar.userole IN(6, 12, 17)")->result();
+                WHERE e.ekey = ?
+                AND ar.userole IN (6, 12, 17)
+                AND IFNULL(ar.activer_role, 0) = 0
+                {$lieu}
+                ORDER BY username ASC",
+                array($cid)
+            )->result();
+            return is_array($rows) ? $rows : array();
         }
 
+        /**
+         * Vendeurs escale (rôle 17) — libellé NOM Prénom.
+         */
         public function get_useresc5($cid, $gid)
         {
-            $gid = $this->_resolve_garesid($gid);
-            return $this->db->query(
-                "SELECT * FROM compte_user cu
+            $lieu = $this->_sql_ul_guser_lieu($gid, 'ul');
+            $label = $this->_sql_display_username();
+            $rows = $this->db->query(
+                "SELECT DISTINCT ar.roleattribut,
+                        u.first_name, u.last_name,
+                        {$label}
+                FROM compte_user cu
                 JOIN user_login ul ON ul.uid_usercpte = cu.cpuser_id
                 JOIN attributions_role ar ON ar.idgestcompte = ul.uid_login
                 JOIN utilisateurs u ON cu.userlog_id = u.uid
-                JOIN user_roles r ON ar.userole = r.id_rols
-                JOIN gares g ON ul.guser = g.idengare
                 JOIN entreprise e ON u.cle_comp = e.ekey
-                WHERE e.ekey = '$cid'
-                AND ul.guser = '$gid'
-                AND ar.userole = 17")->result();
+                WHERE e.ekey = ?
+                AND ar.userole = 17
+                AND IFNULL(ar.activer_role, 0) = 0
+                {$lieu}
+                ORDER BY username ASC",
+                array($cid)
+            )->result();
+            return is_array($rows) ? $rows : array();
         }
 
+        /**
+         * Opérateurs (rôles 6/5/10/17) — même source/libellé que triactifs type=op.
+         */
         public function gverus($cid, $gid)
         {
-            $gid = $this->_resolve_garesid($gid);
-            return $this->db->query(
-                "SELECT * FROM compte_user cu
-                JOIN user_login ul ON ul.uid_usercpte = cu.cpuser_id
-                JOIN attributions_role ar ON ar.idgestcompte = ul.uid_login
-                JOIN utilisateurs u ON cu.userlog_id = u.uid
-                JOIN user_roles r ON ar.userole = r.id_rols
-                JOIN gares g ON ul.guser = g.idengare
-                JOIN entreprise e ON u.cle_comp = e.ekey
-                WHERE e.ekey = '$cid'
-                AND ul.guser = '$gid'
-                AND ar.userole IN(6, 5, 10, 17)")->result();
+            return $this->get_users_tri_lieu($cid, $gid, 'op');
         }
 
         public function get_userad3($cid)

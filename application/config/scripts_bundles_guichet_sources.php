@@ -59,6 +59,7 @@ return array(
         'adreportjs.js', 'adreportjsesc.js', 'adreportpli.js', 'adreportpliesc.js',
         'adtrioexo.js', 'adtrioexoesc.js', 'adtrioexoplis.js', 'adtrioexoplisesc.js',
         'adtriobag.js', 'adtrioexobag.js', 'adtrioexobagesc.js',
+        'tri-filtre-dynamique.js',
         'recaptbagexop.js', 'recaptbagexopesc.js',
     ),
     '8' => array(

@@ -289,7 +289,11 @@
             
             <?= form_open("Rapport/tripassagergr/{$this->session->company->ekey}/{$conex->roleattribut}/{$bus_stop->idengare}/{$bus_stop->idsousgare}", array('class' => 'modal-body form')); ?>
             <div class="form-group row">
-                <div class="form-group col-sm-4">
+                
+                            <input class="form-control form-control-sm" type="hidden" name="gareconnect" value="<?=$bus_stop->idengare;?>">
+                            <input class="form-control form-control-sm" type="hidden" name="userconnected" value="<?=$conex->roleattribut;?>">
+                            <input class="form-control form-control-sm" type="hidden" name="sousgareconnect" value="<?=$bus_stop->idsousgare;?>">
+<div class="form-group col-sm-4">
                     <label>Date: du</label>
                     <input class="form-control form-control-sm" type="date" name="debutdateg">
                 </div>
@@ -477,7 +481,11 @@
          <?= form_open("Rapport/trinombre/{$this->session->company->ekey}", array('class' => 'modal-body form')); ?>
 
             <div class="form-group row">
-                <div class="form-group col-sm-4">
+                
+                            <input class="form-control form-control-sm" type="hidden" name="gareconnect" value="<?=$bus_stop->idengare;?>">
+                            <input class="form-control form-control-sm" type="hidden" name="userconnected" value="<?=$conex->roleattribut;?>">
+                            <input class="form-control form-control-sm" type="hidden" name="sousgareconnect" value="<?=$bus_stop->idsousgare;?>">
+<div class="form-group col-sm-4">
                     <label>COMPAGNIE</label>
                         <select class="form-control form-control-sm" name="nomcomp">
                         <option value=""></option>
@@ -597,7 +605,11 @@
          <?= form_open("Rapport/trinombrees/{$this->session->company->ekey}", array('class' => 'modal-body form')); ?>
 
             <div class="form-group row">
-                <div class="form-group col-sm-4">
+                
+                            <input class="form-control form-control-sm" type="hidden" name="gareconnect" value="<?=$bus_stop->idengare;?>">
+                            <input class="form-control form-control-sm" type="hidden" name="userconnected" value="<?=$conex->roleattribut;?>">
+                            <input class="form-control form-control-sm" type="hidden" name="sousgareconnect" value="<?=$bus_stop->idsousgare;?>">
+<div class="form-group col-sm-4">
                     <label>COMPAGNIE</label>
                         <select class="form-control form-control-sm" name="nomcompes">
                         <option value=""></option>

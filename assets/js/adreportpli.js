@@ -26,7 +26,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         
                                 for (let key in Object.entries(exinfosgs)) {
                                     let opt = document.createElement('option');
-                                    opt.value = `${exinfosgs[key].roleattribut}/${exinfosgs[key].first_name} ${exinfosgs[key].last_name}`;
+                                    opt.value = `${exinfosgs[key].roleattribut}/${exinfosgs[key].username}`;
                                     opt.innerHTML = `${exinfosgs[key].username}`;
                                     document.querySelector('#idcaisse').add(opt);
                                     
