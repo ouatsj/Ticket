@@ -1545,7 +1545,11 @@
 
             $rows = $this->db->query(
                 "SELECT DISTINCT ar.roleattribut,
-                        COALESCE(NULLIF(TRIM(cu.username), ''), CONCAT(IFNULL(u.first_name,''), ' ', IFNULL(u.last_name,'')), ar.roleattribut) AS username
+                        COALESCE(
+                            NULLIF(TRIM(CONCAT(IFNULL(u.first_name,''), ' ', IFNULL(u.last_name,''))), ''),
+                            NULLIF(TRIM(cu.username), ''),
+                            ar.roleattribut
+                        ) AS username
                 FROM passager p
                 JOIN attributions_role ar ON p.idcptuser = ar.roleattribut
                 JOIN user_login ul ON ar.idgestcompte = ul.uid_login

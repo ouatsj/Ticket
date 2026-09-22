@@ -102,9 +102,16 @@
                 $roles = '6, 10, 12, 17';
             }
             $lieu = $this->_sql_ul_guser_lieu($gid, 'ul');
+            // Libellé = NOM Prénom (pas le login seul). Pas de filtre comptactif :
+            // en prod des vendeurs actifs (activer_role=0) ont parfois comptactif=1
+            // tout en continuant à vendre — ils doivent rester sélectionnables au tri.
             $rows = $this->db->query(
                 "SELECT DISTINCT ar.roleattribut,
-                        COALESCE(NULLIF(TRIM(cu.username), ''), CONCAT(IFNULL(u.first_name,''), ' ', IFNULL(u.last_name,'')), ar.roleattribut) AS username
+                        COALESCE(
+                            NULLIF(TRIM(CONCAT(IFNULL(u.first_name,''), ' ', IFNULL(u.last_name,''))), ''),
+                            NULLIF(TRIM(cu.username), ''),
+                            ar.roleattribut
+                        ) AS username
                 FROM compte_user cu
                 JOIN user_login ul ON ul.uid_usercpte = cu.cpuser_id
                 JOIN attributions_role ar ON ar.idgestcompte = ul.uid_login
@@ -113,7 +120,6 @@
                 WHERE e.ekey = ?
                 AND ar.userole IN ({$roles})
                 AND IFNULL(ar.activer_role, 0) = 0
-                AND IFNULL(ul.comptactif, 0) = 0
                 {$lieu}
                 ORDER BY username ASC",
                 array($ekey)

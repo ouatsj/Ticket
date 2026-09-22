@@ -304,19 +304,17 @@
                 return $this->load->view('beagle/pages/_programme/json', array('json' => $out));
             }
 
-            // 1) Agents du lieu (toujours — toutes compagnies commerciales du garesid)
-            $lieuUsers = $this->m_compte_user->get_users_tri_lieu($ekey, $gare, $type);
-            if (is_array($lieuUsers)) {
-                foreach ($lieuUsers as $u) {
-                    $k = isset($u->roleattribut) ? (string) $u->roleattribut : '';
-                    if ($k !== '' && !isset($seen[$k])) {
-                        $seen[$k] = true;
-                        $out[] = $u;
-                    }
+            $push = function ($u) use (&$out, &$seen) {
+                $k = isset($u->roleattribut) ? (string) $u->roleattribut : '';
+                if ($k === '' || isset($seen[$k])) {
+                    return;
                 }
-            }
+                $seen[$k] = true;
+                $out[] = $u;
+            };
 
-            // 2) Enrichir avec ceux qui ont vendu sur la période (si dates)
+            // Avec dates : priorité aux vendeurs réellement actifs sur [du, au]
+            // (même si leur login a comptactif=1 — cas Traoré Harouna en prod).
             if ($du !== '' && $au !== '') {
                 $actifs = $this->m_passager->operateurs_actifs_periode(
                     $ekey,
@@ -328,11 +326,17 @@
                 );
                 if (is_array($actifs)) {
                     foreach ($actifs as $u) {
-                        $k = isset($u->roleattribut) ? (string) $u->roleattribut : '';
-                        if ($k !== '' && !isset($seen[$k])) {
-                            $seen[$k] = true;
-                            $out[] = $u;
-                        }
+                        $push($u);
+                    }
+                }
+            }
+
+            // Sans dates, ou si aucun actif trouvé → agents affectés au lieu.
+            if (empty($out)) {
+                $lieuUsers = $this->m_compte_user->get_users_tri_lieu($ekey, $gare, $type);
+                if (is_array($lieuUsers)) {
+                    foreach ($lieuUsers as $u) {
+                        $push($u);
                     }
                 }
             }
