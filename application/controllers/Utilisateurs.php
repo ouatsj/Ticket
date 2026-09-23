@@ -313,8 +313,15 @@
                 $out[] = $u;
             };
 
-            // Avec dates : priorité aux vendeurs réellement actifs sur [du, au]
-            // (même si leur login a comptactif=1 — cas Traoré Harouna en prod).
+            // 1) Toujours les agents affectés au lieu (filet de sécurité).
+            $lieuUsers = $this->m_compte_user->get_users_tri_lieu($ekey, $gare, $type);
+            if (is_array($lieuUsers)) {
+                foreach ($lieuUsers as $u) {
+                    $push($u);
+                }
+            }
+
+            // 2) Enrichir avec les vendeurs réellement actifs sur [du, au] (si dates).
             if ($du !== '' && $au !== '') {
                 $actifs = $this->m_passager->operateurs_actifs_periode(
                     $ekey,
@@ -331,15 +338,12 @@
                 }
             }
 
-            // Sans dates, ou si aucun actif trouvé → agents affectés au lieu.
-            if (empty($out)) {
-                $lieuUsers = $this->m_compte_user->get_users_tri_lieu($ekey, $gare, $type);
-                if (is_array($lieuUsers)) {
-                    foreach ($lieuUsers as $u) {
-                        $push($u);
-                    }
-                }
-            }
+            // Tri alpha sur username pour l’affichage.
+            usort($out, function ($a, $b) {
+                $na = isset($a->username) ? (string) $a->username : '';
+                $nb = isset($b->username) ? (string) $b->username : '';
+                return strcasecmp($na, $nb);
+            });
 
             return $this->load->view('beagle/pages/_programme/json', array('json' => $out));
         }

@@ -156,7 +156,8 @@
         const seqLignes = { seq: 0 };
         const seqGares = { seq: 0 };
 
-        // Neutralise les anciens handlers .onchange (trivendeuses) sur la gare.
+        // Neutralise les anciens handlers .onchange (trivendeuses*) posés avant ce script.
+        // Ne pas cloneNode : d'autres listeners (sous-gares) doivent rester.
         if (gareEl) {
             gareEl.onchange = null;
         }
@@ -199,6 +200,10 @@
                 }
                 if (lignesEl) {
                     resetSelect(lignesEl, 'Toutes lignes');
+                }
+                // Si une gare est déjà choisie (ou une seule option utile), recharger les opérateurs.
+                if (gareVal()) {
+                    onGareOrDates();
                 }
             }, seqGares, seq);
         }

@@ -103,15 +103,16 @@
             if ($mode === 'op') {
                 $roles = '6, 5, 10, 17';
             } elseif ($mode === 'all') {
-                $roles = '6, 5, 10, 12, 17';
+                $roles = '6, 5, 10, 12, 15, 17';
             } elseif ($mode === 'bagage') {
-                // Même périmètre que get_userop5 / trivendeusesop.
-                $roles = '6, 12, 17';
+                // Opérateurs bagage + guichetiers polyvalents (souvent 5/6/10 aussi).
+                $roles = '6, 5, 10, 12, 17';
             } elseif ($mode === 'courrier') {
-                // Guichetiers courrier (hors rôle bagage-only 12).
-                $roles = '6, 10, 15, 17';
+                // Guichetiers courrier + polyvalents.
+                $roles = '6, 5, 10, 15, 17';
             } else {
-                $roles = '6, 10, 12, 17';
+                // ticket / défaut
+                $roles = '6, 5, 10, 12, 17';
             }
             $lieu = $this->_sql_ul_guser_lieu($gid, 'ul');
             // Libellé = NOM Prénom (pas le login seul). Pas de filtre comptactif :
@@ -408,25 +409,7 @@
          */
         public function get_userop5($cid, $gid)
         {
-            $lieu = $this->_sql_ul_guser_lieu($gid, 'ul');
-            $label = $this->_sql_display_username();
-            $rows = $this->db->query(
-                "SELECT DISTINCT ar.roleattribut,
-                        u.first_name, u.last_name,
-                        {$label}
-                FROM compte_user cu
-                JOIN user_login ul ON ul.uid_usercpte = cu.cpuser_id
-                JOIN attributions_role ar ON ar.idgestcompte = ul.uid_login
-                JOIN utilisateurs u ON cu.userlog_id = u.uid
-                JOIN entreprise e ON u.cle_comp = e.ekey
-                WHERE e.ekey = ?
-                AND ar.userole IN (6, 12, 17)
-                AND IFNULL(ar.activer_role, 0) = 0
-                {$lieu}
-                ORDER BY username ASC",
-                array($cid)
-            )->result();
-            return is_array($rows) ? $rows : array();
+            return $this->get_users_tri_lieu($cid, $gid, 'bagage');
         }
 
         /**

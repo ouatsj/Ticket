@@ -65,42 +65,7 @@ document.addEventListener('DOMContentLoaded', () => {
     {
         document.querySelector('h3#Titlereps').innerHTML = `ETAT GLOBAL TICKET GUICHETIER`;
 
-        let infgars = document.querySelector('#garidentifs');
-        
-        if (infgars !== null) 
-        infgars.onchange = () => {
-            let httpInfosgars;
-            if (window.XMLHttpRequest) {
-                httpInfosgars = new XMLHttpRequest();
-            } else if (window.ActiveXObject) {
-                httpInfosgars = new ActiveXObject("Microsoft.XMLHTTP");
-            }
-                document.querySelector('#idscaissier').options.length = 1;
-
-                    var verificatgars = document.querySelector('#garidentifs').value;
-                    
-                    httpInfosgars.open('GET', window.location.origin + `${APP_ROOT}/utilisateurs/trivendeuses/${verificatgars}`, true);
-                    httpInfosgars.onload = () => {
-                        const infosgars = JSON.parse(httpInfosgars.responseText);
-                        
-                        if (Object.entries(infosgars).length > 0) {                            
-                        
-                                for (let key in Object.entries(infosgars)) {
-                                    let opt = document.createElement('option');
-                                    opt.value = `${infosgars[key].roleattribut}`;
-                                    opt.innerHTML = `${infosgars[key].username}`;
-                                    document.querySelector('#idscaissier').add(opt);
-                                    
-                                }
-                        } 
-                        else {
-                            document.querySelector('#idscaissier').options.length = 1;
-                        }
-                        
-                    };
-                    httpInfosgars.setRequestHeader('Content-Type', 'application/json');
-                    httpInfosgars.send();
-                };
+        // Opérateurs : chargés par tri-filtre-dynamique.js (utilisateurs/triactifs).
         e.onclick = function () {
         let tickForms = document.querySelector('#tickForms');
             tickForms.setAttribute('action', `${APP_ROOT}/Rapport/reports/${e.dataset.ekey}/${e.dataset.idsgare}`);
@@ -159,51 +124,20 @@ document.addEventListener('DOMContentLoaded', () => {
     
     document.querySelectorAll('.adreportglesc').forEach(function (e) 
     {
-        document.querySelector('h3#Titlerepsesc').innerHTML = `ETAT GLOBAL TICKET GUICHETIER ESCAL`;
-
-        let infgars = document.querySelector('#garidentifsesc');
-        
-        if (infgars !== null) 
-        infgars.onchange = () => {
-            let httpInfosgars;
-            if (window.XMLHttpRequest) {
-                httpInfosgars = new XMLHttpRequest();
-            } else if (window.ActiveXObject) {
-                httpInfosgars = new ActiveXObject("Microsoft.XMLHTTP");
-            }
-                document.querySelector('#idscaissieresc').options.length = 1;
-
-                    var verificatgars = document.querySelector('#garidentifsesc').value;
-                    
-                    httpInfosgars.open('GET', window.location.origin + `${APP_ROOT}/utilisateurs/trivendeusesesc/${verificatgars}`, true);
-                    httpInfosgars.onload = () => {
-                        const infosgars = JSON.parse(httpInfosgars.responseText);
-                        
-                        if (Object.entries(infosgars).length > 0) {                            
-                        
-                                for (let key in Object.entries(infosgars)) {
-                                    let opt = document.createElement('option');
-                                    opt.value = `${infosgars[key].roleattribut}`;
-                                    opt.innerHTML = `${infosgars[key].username}`;
-                                    document.querySelector('#idscaissieresc').add(opt);
-                                    
-                                }
-                        } 
-                        else {
-                            document.querySelector('#idscaissieresc').options.length = 1;
-                        }
-                        
-                    };
-                    httpInfosgars.setRequestHeader('Content-Type', 'application/json');
-                    httpInfosgars.send();
-                };
-        e.onclick = function () {
-        let tickForms = document.querySelector('#tickFormsesc');
-            tickForms.setAttribute('action', `${APP_ROOT}/Rapport/reportsesc/${e.dataset.ekey}/${e.dataset.idsgare}`);
+        var title = document.querySelector('h3#Titlerepsesc');
+        if (title) {
+            title.innerHTML = `ETAT GLOBAL TICKET GUICHETIER ESCAL`;
         }
-
-    })
+        // Opérateurs : chargés par tri-filtre-dynamique.js (utilisateurs/triactifs).
+        e.onclick = function () {
+            let tickForms = document.querySelector('#tickFormsesc');
+            if (tickForms) {
+                tickForms.setAttribute('action', `${APP_ROOT}/Rapport/reportsesc/${e.dataset.ekey}/${e.dataset.idsgare}`);
+            }
+        };
+    });
 });
+
 ;
 /* --- adreportglcours.js --- */
 document.addEventListener('DOMContentLoaded', () => {
@@ -637,7 +571,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const seqLignes = { seq: 0 };
         const seqGares = { seq: 0 };
 
-        // Neutralise les anciens handlers .onchange (trivendeuses) sur la gare.
+        // Neutralise les anciens handlers .onchange (trivendeuses*) posés avant ce script.
+        // Ne pas cloneNode : d'autres listeners (sous-gares) doivent rester.
         if (gareEl) {
             gareEl.onchange = null;
         }
@@ -680,6 +615,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 if (lignesEl) {
                     resetSelect(lignesEl, 'Toutes lignes');
+                }
+                // Si une gare est déjà choisie (ou une seule option utile), recharger les opérateurs.
+                if (gareVal()) {
+                    onGareOrDates();
                 }
             }, seqGares, seq);
         }
