@@ -1134,8 +1134,27 @@
             $this->property['filters_qs'] = isset($payload['filters_qs']) ? $payload['filters_qs'] : '';
             $this->property['retour_url'] = isset($payload['retour_url']) ? $payload['retour_url'] : '#';
             $this->property['export_base'] = isset($payload['export_base']) ? $payload['export_base'] : '#';
+            $this->property['signature_agent'] = isset($payload['signature_agent']) ? $payload['signature_agent'] : '';
+            $this->property['signature_convoyeur'] = isset($payload['signature_convoyeur']) ? $payload['signature_convoyeur'] : '';
+            $this->property['bordereau_envoi'] = !empty($payload['bordereau_envoi']);
             $this->property['bundle_datatables'] = false;
             return $this->layout->view('_rapport/etat_tableau', $this->property);
+        }
+
+        /**
+         * Nom convoyeur utilisable (vide si absent / placeholder).
+         */
+        protected function _etat_nom_convoyeur($raw)
+        {
+            $n = trim(urldecode((string) $raw));
+            if ($n === '' || $n === '0' || strcasecmp($n, 'null') === 0) {
+                return '';
+            }
+            $low = function_exists('mb_strtolower') ? mb_strtolower($n, 'UTF-8') : strtolower($n);
+            if (in_array($low, array('aucun', 'aucune', 'n/a', '-', '--', 'sans'), true)) {
+                return '';
+            }
+            return $n;
         }
 
         protected function _etat_output_pdf(array $payload)
@@ -1144,13 +1163,21 @@
             $lignes = isset($payload['lignes']) ? $payload['lignes'] : array();
             $total = isset($payload['total']) ? (float) $payload['total'] : 0;
             $titreTxt = isset($payload['titre']) ? $payload['titre'] : 'ETAT';
+            $readable = !empty($payload['bordereau_envoi']) || !empty($payload['pdf_readable']);
+            $agentSig = isset($payload['signature_agent']) ? trim((string) $payload['signature_agent']) : '';
+            $convSig = isset($payload['signature_convoyeur'])
+                ? $this->_etat_nom_convoyeur($payload['signature_convoyeur'])
+                : '';
             $n = max(1, count($columns));
             $w = (int) floor(90 / $n);
+            $pad = $readable ? 4 : 0;
+            $fontSize = $readable ? 11 : 9;
+            $font = $readable ? 'helvetica' : 'courier';
 
             $pdf = new TCPDF(PDF_PAGE_ORIENTATION, PDF_UNIT, PDF_PAGE_FORMAT, true, 'UTF-8', false);
             $pdf->SetCreator(PDF_CREATOR);
             $pdf->SetAuthor('NET SOLUTIONS');
-            $pdf->SetTitle('ETAT');
+            $pdf->SetTitle($readable ? 'BORDEREAU ENVOI' : 'ETAT');
             $ent = isset($this->entreprise->nom_entreprise) ? $this->entreprise->nom_entreprise : '';
             $pdf->SetHeaderData(false, false, $ent);
             $pdf->setPrintHeader(true);
@@ -1161,11 +1188,13 @@
             $pdf->SetMargins(PDF_MARGIN_LEFT, PDF_MARGIN_TOP, PDF_MARGIN_RIGHT);
             $pdf->SetAutoPageBreak(TRUE, PDF_MARGIN_BOTTOM);
             $pdf->setImageScale(PDF_IMAGE_SCALE_RATIO);
+            // A4 paysage (bordereau d'envoi et états).
             $pdf->AddPage('L', 'A4', 0);
-            $pdf->SetFont('courier', '', 9);
+            $pdf->SetFont($font, '', $fontSize);
 
-            $titre = '<h1 align="center">' . htmlspecialchars($titreTxt) . '</h1>';
-            $them = '<table align="center" border="1" cellpadding="0"><thead><tr>';
+            $titre = '<h1 align="center" style="font-size:' . ($readable ? '16' : '14') . 'pt;">'
+                . htmlspecialchars($titreTxt) . '</h1>';
+            $them = '<table align="center" border="1" cellpadding="' . $pad . '"><thead><tr>';
             foreach ($columns as $col) {
                 $align = isset($col['align']) ? $col['align'] : 'left';
                 $label = isset($col['label']) ? $col['label'] : '';
@@ -1194,12 +1223,35 @@
                 . number_format($total, 0, '', ' ') . '</strong></td></tr>';
             $them .= '</tbody></table>';
             $them .= '<h2>SOMME:' . number_format($total, 0, '', ' ') . ' </h2>';
+
+            $sigHtml = '';
+            if ($readable || $agentSig !== '' || $convSig !== '') {
+                $agentNom = $agentSig !== '' ? htmlspecialchars($agentSig) : '……………………………………';
+                $convNom = $convSig !== '' ? htmlspecialchars($convSig) : '……………………………………';
+                $sigHtml = '<br/><br/><table width="100%" cellpadding="6" border="0">'
+                    . '<tr>'
+                    . '<td width="50%" align="left">'
+                    . '<strong>AGENT (bordereau)</strong><br/>'
+                    . 'Nom : <strong>' . $agentNom . '</strong><br/><br/>'
+                    . 'Signature : ________________________'
+                    . '</td>'
+                    . '<td width="50%" align="right">'
+                    . '<strong>CONVOYEUR</strong><br/>'
+                    . 'Nom : <strong>' . $convNom . '</strong><br/><br/>'
+                    . 'Signature : ________________________'
+                    . '</td>'
+                    . '</tr></table>';
+            }
+
             $pdf->writeHTML($titre, false, false, true, false, '');
             $pdf->writeHTML($them, true, false, true, false, '');
+            if ($sigHtml !== '') {
+                $pdf->writeHTML($sigHtml, true, false, true, false, '');
+            }
             if (ob_get_length()) {
                 @ob_end_clean();
             }
-            $pdf->Output('etat.pdf', 'I');
+            $pdf->Output($readable ? 'bordereau_envoi_bagages.pdf' : 'etat.pdf', 'I');
         }
 
         protected function _etat_output_csv(array $payload, $excel = false)
@@ -9338,6 +9390,7 @@
             if ($agentLabel !== '') {
                 $titre .= ' — Agent ' . $agentLabel;
             }
+            $convoyeurLabel = $this->_etat_nom_convoyeur($cvbord);
             return array(
                 'titre' => $titre,
                 'lignes' => $lignes,
@@ -9358,6 +9411,10 @@
                     array('key' => 'dest', 'label' => 'Dest. finale', 'align' => 'left'),
                 ),
                 'export_base' => site_url('Rapport/listesbagages_export/' . rawurlencode($ckey)),
+                'bordereau_envoi' => true,
+                'pdf_readable' => true,
+                'signature_agent' => $agentLabel,
+                'signature_convoyeur' => $convoyeurLabel,
             );
         }
 
@@ -9417,6 +9474,9 @@
             if ($agentLabel !== '') {
                 $titre .= ' — Agent ' . $agentLabel;
             }
+            $convoyeurLabel = ($onprogrambordaxe && isset($onprogrambordaxe->busconvoybordbag))
+                ? $this->_etat_nom_convoyeur($onprogrambordaxe->busconvoybordbag)
+                : '';
             return array(
                 'titre' => $titre,
                 'lignes' => $lignes,
@@ -9437,6 +9497,10 @@
                     array('key' => 'dest', 'label' => 'Dest. finale', 'align' => 'left'),
                 ),
                 'export_base' => site_url('Rapport/reimpressionlistebag_export/' . rawurlencode($ckey) . '/' . rawurlencode($gd) . '/' . rawurlencode($sgd) . '/' . rawurlencode($sub_heurebord) . '/' . rawurlencode($sub_heurebord2) . '/' . rawurlencode($dabord) . '/' . rawurlencode($lignequart)),
+                'bordereau_envoi' => true,
+                'pdf_readable' => true,
+                'signature_agent' => $agentLabel,
+                'signature_convoyeur' => $convoyeurLabel,
             );
         }
 
