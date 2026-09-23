@@ -98,61 +98,47 @@ if (!isset($__peut_repositionner)) { $__peut_repositionner = false; }
                                     <?php endif; ?>
                                     <?php endif; ?>
                                 <?php endif; ?>
-                                <div class="btn-group dropleft d-inline-block align-middle mr-1">
-                                    <button type="button" class="btn btn-sm btn-outline-primary dropdown-toggle py-0 px-2"
-                                            data-toggle="dropdown" aria-haspopup="true" aria-expanded="false"
-                                            title="Modifier le ticket">
-                                        <i class="fas fa-edit"></i> Modifier
-                                    </button>
-                                    <div class="dropdown-menu dropdown-menu-right shadow">
-                                        <a href="<?= "#?{$item->id_client}&&{$item->nom_client}"; ?>"
-                                           data-cle_compagnie="<?= $this->session->company->ekey; ?>"
-                                           data-id_client="<?= $item->id_client; ?>"
-                                           data-tamponcod="<?= $item->tamponcod; ?>"
-                                           data-passagecod="<?= $item->code_passager; ?>"
-                                           data-cdligneh="<?= $item->id_ligneheure; ?>"
-                                           data-ticketcod="<?= $item->code_ticket; ?>"
-                                           data-ticketcodnp="<?= isset($item->codeticket) ? $item->codeticket : ''; ?>"
-                                           data-nom="<?= htmlspecialchars((string) $item->nom_client, ENT_QUOTES, 'UTF-8'); ?>"
-                                           data-prenom="<?= htmlspecialchars((string) $item->prenom_client, ENT_QUOTES, 'UTF-8'); ?>"
-                                           data-type="<?= $item->type_client; ?>"
-                                           data-contact="<?= htmlspecialchars((string) $item->contact_client, ENT_QUOTES, 'UTF-8'); ?>"
-                                           data-cni="<?= htmlspecialchars((string) $item->num_CNIB, ENT_QUOTES, 'UTF-8'); ?>"
-                                           data-cnideliver="<?= $item->date_delivre; ?>"
-                                           data-cnideliverzone="<?= htmlspecialchars((string) $item->lieu_delivre, ENT_QUOTES, 'UTF-8'); ?>"
-                                           class="dropdown-item updateticket md-trigger"
-                                           data-modal="ticket-0">
-                                            Infos client
-                                        </a>
-                                        <a href="#" class="dropdown-item updatedticket md-trigger"
-                                           data-cle_compagnie="<?= $this->session->company->ekey; ?>"
-                                           data-siege="<?= $item->num_siege_categorie; ?>"
-                                           data-codepro="<?= $item->code_pro; ?>"
-                                           data-dateprogr="<?= htmlspecialchars((string) $item->date_progr, ENT_QUOTES, 'UTF-8'); ?>"
-                                           data-heure="<?= htmlspecialchars((string) $item->heure, ENT_QUOTES, 'UTF-8'); ?>"
-                                           data-quartier="<?= htmlspecialchars((string) $item->quart, ENT_QUOTES, 'UTF-8'); ?>"
-                                           data-nom="<?= htmlspecialchars((string) $item->nom_client, ENT_QUOTES, 'UTF-8'); ?>"
-                                           data-ancdepart="<?= $item->ligne_id; ?>"
-                                           data-codticket="<?= $item->code_ticket; ?>"
-                                           data-departsousg="<?= $item->departclient_idgare; ?>"
-                                           data-passagecod="<?= $item->code_passager; ?>"
-                                           data-modal="updepart-0">
-                                            Date, heure et siège
-                                        </a>
-                                        <a href="<?= "#?{$item->id_client_pass}&client={$item->prenom_client}"; ?>"
-                                           class="dropdown-item md-trigger"
-                                           data-modal="edit-gq-<?= htmlspecialchars((string) $item->code_passager, ENT_QUOTES, 'UTF-8'); ?>">
-                                            Gare / quartier
-                                        </a>
-                                        <?php if (super_admin_can('sales.price.free')): ?>
-                                        <a href="<?= "#?{$item->id_client_pass}&client={$item->prenom_client}"; ?>"
-                                           class="dropdown-item md-trigger"
-                                           data-modal="edit-<?= $item->code_passager; ?>">
-                                            Prix
-                                        </a>
-                                        <?php endif; ?>
-                                    </div>
-                                </div>
+                                <?php if (isset($this->session->agent->userole) && (string) $this->session->agent->userole === '1'): ?>
+                                <?php
+                                    $__axe = function_exists('ticket_axe_label') ? ticket_axe_label($item) : (isset($item->nom_ligne) ? $item->nom_ligne : '');
+                                    $__arrivee = !empty($item->nom_dest_vente)
+                                        ? $item->nom_dest_vente
+                                        : (isset($item->nom_gadest) ? $item->nom_gadest : '');
+                                ?>
+                                <a href="#"
+                                   class="btn btn-sm btn-outline-primary py-0 px-2 align-middle mr-1 updatedticket md-trigger"
+                                   title="Modifier le ticket<?= !empty($item->num_jambe) ? ' (jambe ' . (int) $item->num_jambe . ')' : ''; ?>"
+                                   data-modal="modif-admin-0"
+                                   data-cle_compagnie="<?= $this->session->company->ekey; ?>"
+                                   data-id_client="<?= $item->id_client; ?>"
+                                   data-tamponcod="<?= $item->tamponcod; ?>"
+                                   data-passagecod="<?= $item->code_passager; ?>"
+                                   data-cdligneh="<?= $item->id_ligneheure; ?>"
+                                   data-ticketcod="<?= $item->code_ticket; ?>"
+                                   data-ticketcodnp="<?= isset($item->codeticket) ? $item->codeticket : ''; ?>"
+                                   data-nom="<?= htmlspecialchars((string) $item->nom_client, ENT_QUOTES, 'UTF-8'); ?>"
+                                   data-prenom="<?= htmlspecialchars((string) $item->prenom_client, ENT_QUOTES, 'UTF-8'); ?>"
+                                   data-type="<?= $item->type_client; ?>"
+                                   data-contact="<?= htmlspecialchars((string) $item->contact_client, ENT_QUOTES, 'UTF-8'); ?>"
+                                   data-cni="<?= htmlspecialchars((string) $item->num_CNIB, ENT_QUOTES, 'UTF-8'); ?>"
+                                   data-cnideliver="<?= $item->date_delivre; ?>"
+                                   data-cnideliverzone="<?= htmlspecialchars((string) $item->lieu_delivre, ENT_QUOTES, 'UTF-8'); ?>"
+                                   data-siege="<?= $item->num_siege_categorie; ?>"
+                                   data-numcat="<?= isset($item->num_cat) ? $item->num_cat : ''; ?>"
+                                   data-codepro="<?= $item->code_pro; ?>"
+                                   data-dateprogr="<?= htmlspecialchars((string) $item->date_progr, ENT_QUOTES, 'UTF-8'); ?>"
+                                   data-heure="<?= htmlspecialchars((string) $item->heure, ENT_QUOTES, 'UTF-8'); ?>"
+                                   data-quartier="<?= htmlspecialchars((string) $item->quart, ENT_QUOTES, 'UTF-8'); ?>"
+                                   data-ancdepart="<?= $item->ligne_id; ?>"
+                                   data-codticket="<?= $item->code_ticket; ?>"
+                                   data-departsousg="<?= $item->departclient_idgare; ?>"
+                                   data-prix="<?= htmlspecialchars((string) $item->prixvente, ENT_QUOTES, 'UTF-8'); ?>"
+                                   data-axe="<?= htmlspecialchars((string) $__axe, ENT_QUOTES, 'UTF-8'); ?>"
+                                   data-arrivee="<?= htmlspecialchars((string) $__arrivee, ENT_QUOTES, 'UTF-8'); ?>"
+                                   data-jambe="<?= isset($item->num_jambe) ? (int) $item->num_jambe : 1; ?>">
+                                    <i class="fas fa-edit"></i> Modifier
+                                </a>
+                                <?php endif; ?>
                                 <a href="#" class="md-trigger motif-action"
                                     title="DESACTIVER TICKET"
                                     data-modal="motif-action-0"
@@ -174,125 +160,6 @@ if (!isset($__peut_repositionner)) { $__peut_repositionner = false; }
                                         <i class="fas fa-trash-alt text-danger"></i>
                                     </a>&nbsp;
                                 <?endif;?>
-
-                                        <div
-                                            class="modal-container colored-header colored-header-success custom-width modal-effect-7"
-                                            id="edit-<?= $item->code_passager; ?>" style="perspective: none;">
-
-                                            <div class="modal-content">
-
-                                                <div class="modal-header modal-header-colored">
-                                                    <h3 class="modal-title">MODIFICATION <?=$item->nom_client;?> <?= $item->prenom_client; ?></h3>
-                                                    <button class="close modal-close" type="button"
-                                                            data-dismiss="modal" aria-hidden="true"><span
-                                                            class="mdi mdi-close text-white"></span></button>
-                                                </div>
-
-                                                <?= form_open('Historique_Passagers/updateticket/' . $this->session->company->ekey . '/' . $item->code_passager.'/'.$item->code_ticket.'/'.$conex->roleattribut.'/'.$bus_stop->idengare.'/'.$bus_stop->idsousgare.'/'.$item->codeticket, array('class' => 'modal-body form')); ?>
-
-                                                <div class="row">
-                                                    <div class="form-group col-sm-4">
-                                                        <label>Prix</label>
-                                                        <input class="form-control form-control-sm" type="number" min="0" step="0.01"
-                                                        name="prixticket"
-                                                        value="<?= $item->prixvente; ?>"
-                                                        placeholder="<?= $item->prixvente; ?>"/>
-                                                    </div>
-                                                    <?= historique_modif_ticket_motif_fields_html('prix_' . $item->code_passager); ?>
-                                                    <?php if (function_exists('sales_price_controls_enabled') && sales_price_controls_enabled()): ?>
-<div class="form-group col-sm-12">
-                                                        <label>
-                                                            <input type="checkbox" name="confirmation_zero" value="1">
-                                                            Je confirme une éventuelle modification à 0 F
-                                                        </label>
-                                                    </div>
-                                                    <?php endif; ?>
-                                                </div>
-
-                                                <div class="modal-footer">
-                                                    <button class="btn btn-secondary modal-close" type="button"
-                                                            data-dismiss="modal">
-                                                        <i class="icon icon-left mdi mdi-undo"></i>&nbsp;ANNULER&nbsp;
-                                                    </button>
-                                                    <button class="btn btn-success" type="submit">
-                                                        <i class="icon icon-left mdi mdi-check-all"></i>&nbsp;OK&nbsp;
-                                                    </button>
-                                                </div>
-
-                                                <?= form_close(); ?>
-
-                                            </div>
-
-                                        </div>
-                                    <div
-                                        class="modal-container colored-header colored-header-success custom-width modal-effect-7"
-                                            id="edit-gq-<?= htmlspecialchars((string) $item->code_passager, ENT_QUOTES, 'UTF-8'); ?>" style="perspective: none;">
-
-                                        <div class="modal-content">
-
-                                                <div class="modal-header modal-header-colored">
-                                                <h3 class="modal-title">MODIFICATION GARE OU QUARTIER DE <?=$item->nom_client;?> <?= $item->prenom_client; ?></h3>
-                                                <button class="close modal-close" type="button"
-                                                data-dismiss="modal" aria-hidden="true"><span
-                                                    class="mdi mdi-close text-white"></span></button>
-                                                </div>
-
-                                                <?= form_open('Historique_Passagers/upgarequart/'.$this->session->company->ekey.'/' . $item->code_passager.'/'.$item->code_ticket.'/'.$conex->roleattribut.'/'.$bus_stop->idengare.'/'.$bus_stop->idsousgare, array('class' => 'modal-body form')); ?>
-
-                                            <div class="row">
-                                                    
-                                            <div class="form-group col-sm-4">
-                                                <label>Sousgare</label>
-                                                <select class="form-control form-control-sm" name="deparsousgareidentifs">
-                                                <option value="<?= $item->departclient_idgare; ?>"><?= $item->nomsousgare; ?></option>
-                                                <? foreach ($garedeparts as $garedepart): ?>                          <option value="<?= $garedepart->idsousgare;?>">
-                                                <?= $garedepart->nom_gaep;?>/<?= $garedepart->nomsousgare;?>
-                                                </option>
-                                                <? endforeach; ?>
-                                                </select>
-                                            </div>
-                                            <div class="form-group col-sm-4">
-                                                <label>QUARTIER</label>
-                                                <? $cid=$this->session->company->ekey;
-                                                        $quartiers = $this->db->query("SELECT * FROM quartier q
-                                                            JOIN ville v ON q.id_ville_qua = v.id_ville
-                                                            JOIN gare_dest ga ON ga.id_villega = v.id_ville
-                                                            JOIN lignes lg ON lg.gadest_lg = ga.code_gadest
-                                                            JOIN compagnies c ON ga.id_compaga = c.cle_compagnie
-                                                            JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                                                            WHERE e.ekey = '$cid'
-                                                            AND lg.ident_ligne = '$item->ident_ligne'"
-                                                            )->result();?>
-                                                    <select class="form-control form-control-sm" name="idquarts">
-                                                    <option value="<?= $item->quart; ?>"><?= $item->quart; ?></option>
-                                                    <? foreach ($quartiers as $qrt): ?>
-                                                    <option value="<?= $qrt->nom_quartier; ?>">
-                                                    <?= $qrt->nom_quartier;?>
-                                                        </option>
-                                                    <? endforeach; ?>
-                                                        </select>
-                                                </div>
-                                            </div>
-
-                                            <div class="row">
-                                                <?= historique_modif_ticket_motif_fields_html('gq_' . $item->code_passager); ?>
-                                            </div>
-
-                                            <div class="modal-footer">
-                                            <button class="btn btn-secondary modal-close" type="button"
-                                                data-dismiss="modal">
-                                                <i class="icon icon-left mdi mdi-undo"></i>&nbsp;ANNULER&nbsp;
-                                                </button>
-                                                <button class="btn btn-success" type="submit">
-                                                <i class="icon icon-left mdi mdi-check-all"></i>&nbsp;OK&nbsp;
-                                                </button>
-                                            </div>
-
-                                            <?= form_close(); ?>
-
-                                        </div>
-
-                                    </div>
                             </td>
                         </tr>
                     

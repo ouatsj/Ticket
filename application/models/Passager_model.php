@@ -1273,17 +1273,18 @@
             return "p.code_passager, p.code_ticket, p.code_pro, p.num_siege_categorie, p.prixvente,
                     p.datep_create, p.departclient_idgare, p.id_client_pass, p.quart,
                     p.nom_dest_vente, p.lignetineraire_vendu, p.id_escale_vente, p.statut_code, p.idsousgare_vente, p.idcptuser,
+                    p.num_cat,
                     ctp.tamponcod, ctp.tamponcodtr, ctp.is_activecode,
                     cl.id_client, cl.nom_client, cl.prenom_client, cl.contact_client,
                     cl.num_CNIB, cl.date_delivre, cl.lieu_delivre, cl.type_client,
                     pr.date_progr, pr.typetarif,
                     lh.id_ligneheure, lh.ligne_id,
                     h.heure,
-                    lg.nom_ligne, lg.ident_ligne,
+                    lg.nom_ligne, lg.ident_ligne, lg.gadest_lg,
                     ex.nom_gaep,
-                    dest.nom_gadest,
+                    dest.nom_gadest, dest.code_gadest,
                     np.prixretour, np.codeticket,
-                    sg.idsousgare, sg.gareprinceid,
+                    sg.idsousgare, sg.nomsousgare, sg.gareprinceid,
                     COALESCE(sgv.gareprinceid, ul.guser, sg.gareprinceid) AS gare_vente_princeid";
         }
 

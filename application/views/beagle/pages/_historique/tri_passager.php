@@ -314,246 +314,81 @@ defined('BASEPATH') OR exit('No direct script access allowed'); ?>
 })();
 </script>
 
+    <?php if (isset($this->session->agent->userole) && (string) $this->session->agent->userole === '1'): ?>
     <div
         class="modal-container colored-header colored-header-success custom-width modal-effect-7"
-        id="ticket-0" style="perspective: none;">
+        id="modif-admin-0" style="perspective: none;">
 
         <div class="modal-content">
-    
             <div class="modal-header modal-header-colored">
-                <h3 class="modal-title" id="mtaTitle"></h3>
+                <h3 class="modal-title" id="mtickTitle">Modification ticket</h3>
                 <button class="close modal-close" type="button"
                         data-dismiss="modal" aria-hidden="true"><span
                         class="mdi mdi-close text-white"></span></button>
             </div>
-    
-            <?= form_open('', array('class' => 'modal-body form', 'id' => 'mtaForm')); ?>
-    
-            <div class="row">
-                <input class="form-control-sm" type="hidden" name="stop" value="<?=$bus_stop->idengare;?>" />
-                <input class="form-control-sm" type="hidden" name="useridconn" value="<?=$conex->cpuser_id;?>" />
-                <input class="form-control-sm" type="hidden" name="useridconnected" value="<?=$conex->roleattribut;?>" />
-                <input class="form-control-sm" type="hidden" name="sousgd" value="<?=$bus_stop->idsousgare;?>" />
-                <input class="form-control-sm" type="hidden" name="identifyclient" value="" id="identifyclientid" />
-                <input class="form-control-sm" type="hidden" name="identifycontact" value="" id="identifycontactid" />
-                <input class="form-control-sm" type="hidden" name="force_create_client" value="0" id="force_create_client" />
-                <div class="form-group col-sm-4">
-                    <label>Conctact</label>
-                    <input class="form-control form-control-sm" type="text"
-                            name="rclient_contact"
-                            id="uclient_contact"
-                            autocomplete="off"
-                            value=""
-                            placeholder=""/>
-                </div>
-                <div class="form-group col-sm-4">
-                    <label>Nom</label>
-                    <input class="form-control form-control-sm" type="text"
-                            name="rclient"
-                            id="uclient"
-                            autocomplete="off"
-                            value=""
-                            placeholder="">
-                </div>
-                <div class="form-group col-sm-4">
-                    <label>Prénom</label>
-                    <input class="form-control form-control-sm" type="text"
-                            name="prclient"
-                            id="uprnclient"
-                            autocomplete="off"
-                            value=""
-                            placeholder="">
-                </div>
-        
-                <div class="form-group col-sm-4">
-                    <label>Cni ou Passport</label>
-                    <input class="form-control form-control-sm" type="text"
-                            name="cnib" id="ucnib" autocomplete="off"
-                            value=""
-                            placeholder="">
-                </div>
-                <div class="form-group col-sm-4">
-                    <label>Délivré(e) le</label>
-                    <input class="form-control form-control-sm" type="date"
-                            name="date_cnib" id="udate_cnib"
-                            value=""
-                            placeholder="">
-                </div>
-                <div class="form-group col-sm-4">
-                    <label>Lieu</label>
-                    <input class="form-control form-control-sm" type="text"
-                            name="lieu" id="ulieudelivre"
-                            autocomplete="off"
-                            value=""
-                            placeholder="">
-                </div>
-                <div class="form-group col-sm-12" id="force_create_client_wrap" style="display:none;">
-                    <div class="form-check">
-                        <input class="form-check-input" type="checkbox" id="force_create_client_chk">
-                        <label class="form-check-label" for="force_create_client_chk">
-                            Contact inconnu : créer une <strong>nouvelle fiche client</strong> et rattacher le ticket
-                        </label>
-                    </div>
-                    <small class="text-muted">
-                        Sans cette case, les infos sont enregistrées sur le client déjà lié au ticket.
-                    </small>
-                </div>
-                <?= historique_modif_ticket_motif_fields_html('infos'); ?>
-    
-            </div>
-    
-            <div class="modal-footer">
-                <button class="btn btn-secondary modal-close" type="button"
-                        data-dismiss="modal">
-                    <i class="icon icon-left mdi mdi-undo"></i>&nbsp;ANNULER&nbsp;
-                </button>
-                <button class="btn btn-success" type="submit">
-                    <i class="icon icon-left mdi mdi-check-all"></i>&nbsp;OK&nbsp;
-                </button>
-            </div>
-    
-            <?= form_close(); ?>
 
-        </div>
-
-    </div>
-
-    <div
-        class="modal-container colored-header colored-header-success custom-width modal-effect-7"
-        id="ticketp-0" style="perspective: none;">
-
-        <div class="modal-content">
-    
-            <div class="modal-header modal-header-colored">
-                <h3 class="modal-title" id="mtaTitlep"></h3>
-                <button class="close modal-close" type="button"
-                        data-dismiss="modal" aria-hidden="true"><span
-                        class="mdi mdi-close text-white"></span></button>
-            </div>
-    
-            <?= form_open('', array('class' => 'modal-body form', 'id' => 'mtaFormp')); ?>
-    
-            <div class="row">
-                <input class="form-control-sm" type="hidden" name="stop" value="<?=$bus_stop->idengare;?>" />
-                <input class="form-control-sm" type="hidden" name="useridconn" value="<?=$conex->cpuser_id;?>" />
-                <input class="form-control-sm" type="hidden" name="useridconnected" value="<?=$conex->roleattribut;?>" />
-                <input class="form-control-sm" type="hidden" name="sousgd" value="<?=$bus_stop->idsousgare;?>" />
-                <input class="form-control-sm" type="hidden" name="identifyclient" value="" id="identifyclientid" />
-                <input class="form-control-sm" type="hidden" name="identifycontact" value="" id="identifycontactid" />
-                <div class="form-group col-sm-4">
-                    <label>Conctact</label>
-                    <input class="form-control form-control-sm" type="text"
-                            name="rclient_contactp"
-                            id="uclient_contactp"
-                            autocomplete="off"
-                            value=""
-                            placeholder=""/>
-                </div>
-                <div class="form-group col-sm-4">
-                    <label>Nom</label>
-                    <input class="form-control form-control-sm" type="text"
-                            name="rclientp"
-                            id="uclientp"
-                            autocomplete="off"
-                            value=""
-                            placeholder="">
-                </div>
-                <div class="form-group col-sm-4">
-                    <label>Prénom</label>
-                    <input class="form-control form-control-sm" type="text"
-                            name="prclientp"
-                            id="uprnclientp"
-                            autocomplete="off"
-                            value=""
-                            placeholder="">
-                </div>
-        
-                <div class="form-group col-sm-4">
-                    <label>Cni ou Passport</label>
-                    <input class="form-control form-control-sm" type="text"
-                            name="cnibp" id="ucnibp" autocomplete="off"
-                            value=""
-                            placeholder="">
-                </div>
-                <div class="form-group col-sm-4">
-                    <label>Délivré(e) le</label>
-                    <input class="form-control form-control-sm" type="date"
-                            name="date_cnibp" id="udate_cnibp"
-                            value=""
-                            placeholder="">
-                </div>
-                <div class="form-group col-sm-4">
-                    <label>Lieu</label>
-                    <input class="form-control form-control-sm" type="text"
-                            name="lieup" id="ulieudelivrep"
-                            autocomplete="off"
-                            value=""
-                            placeholder="">
-                </div>
-                <?= historique_modif_ticket_motif_fields_html('client'); ?>
-    
-            </div>
-    
-            <div class="modal-footer">
-                <button class="btn btn-secondary modal-close" type="button"
-                        data-dismiss="modal">
-                    <i class="icon icon-left mdi mdi-undo"></i>&nbsp;ANNULER&nbsp;
-                </button>
-                <button class="btn btn-success" type="submit">
-                    <i class="icon icon-left mdi mdi-check-all"></i>&nbsp;OK&nbsp;
-                </button>
-            </div>
-    
-            <?= form_close(); ?>
-
-        </div>
-
-    </div>
-
-    <div
-        class="modal-container colored-header colored-header-success custom-width modal-effect-7"
-        id="updepart-0" style="perspective: none;">
-
-        <div class="modal-content">
-    
-            <div class="modal-header modal-header-colored">
-                <h3 class="modal-title" id="mtickTitle"></h3>
-                <button class="close modal-close" type="button"
-                        data-dismiss="modal" aria-hidden="true"><span
-                        class="mdi mdi-close text-white"></span></button>
-            </div>
-    
             <?= form_open('', array('class' => 'modal-body form', 'id' => 'mdtickForm')); ?>
                 <input type="hidden" id="siegselect">
                 <input type="hidden" id="idtamposelect">
-            <div class="row">
-                <div class="form-group col-sm-3">
-                    <input type="hidden" name='codeancien' id="ancien">
-                    <input type="hidden" name='siegancien' id="anciensieg">
-                    <input type="hidden" name='progancien' id="ancienprog">
-                    <input type="hidden" name='categbus' id="categbuse">
-                    <input type="hidden" name='sousgre' id="sousgr">
+                <input type="hidden" name="codeancien" id="ancien">
+                <input type="hidden" name="siegancien" id="anciensieg">
+                <input type="hidden" name="progancien" id="ancienprog">
+                <input type="hidden" name="categbus" id="categbuse">
+                <input type="hidden" name="sousgre" id="sousgr">
+                <input type="hidden" id="pfinvendabl">
+                <input type="hidden" id="siegfinvendabl">
+                <input type="hidden" id="reserveheur">
+                <input type="hidden" id="directreserv">
+                <input type="hidden" id="datereserv">
+                <input type="hidden" name="stop" value="<?=$bus_stop->idengare;?>" />
+                <input type="hidden" name="useridconn" value="<?=$conex->cpuser_id;?>" />
+                <input type="hidden" name="useridconnected" value="<?=$conex->roleattribut;?>" />
+                <input type="hidden" name="sousgd" value="<?=$bus_stop->idsousgare;?>" />
+                <input type="hidden" name="identifyclient" value="" id="identifyclientid" />
+                <input type="hidden" name="identifycontact" value="" id="identifycontactid" />
+                <input type="hidden" name="force_create_client" value="0" id="force_create_client" />
+                <input type="hidden" name="gare_arrivee_label" id="gare_arrivee_label" value="" />
 
+            <div class="row">
+                <div class="col-12"><h5 class="text-primary mb-2">Informations client</h5></div>
+                <div class="form-group col-sm-4">
+                    <label>Contact</label>
+                    <input class="form-control form-control-sm" type="text"
+                            name="rclient_contact" id="uclient_contact" autocomplete="off" value="">
+                </div>
+                <div class="form-group col-sm-4">
+                    <label>Nom</label>
+                    <input class="form-control form-control-sm" type="text"
+                            name="rclient" id="uclient" autocomplete="off" value="">
+                </div>
+                <div class="form-group col-sm-4">
+                    <label>Prénom</label>
+                    <input class="form-control form-control-sm" type="text"
+                            name="prclient" id="uprnclient" autocomplete="off" value="">
+                </div>
+                <div class="form-group col-sm-4">
+                    <label>Cni ou Passport</label>
+                    <input class="form-control form-control-sm" type="text"
+                            name="cnib" id="ucnib" autocomplete="off" value="">
+                </div>
+                <div class="form-group col-sm-4">
+                    <label>Délivré(e) le</label>
+                    <input class="form-control form-control-sm" type="date"
+                            name="date_cnib" id="udate_cnib" value="">
+                </div>
+                <div class="form-group col-sm-4">
+                    <label>Lieu</label>
+                    <input class="form-control form-control-sm" type="text"
+                            name="lieu" id="ulieudelivre" autocomplete="off" value="">
                 </div>
             </div>
-            <div class="row">
+
+            <div class="row mt-2">
+                <div class="col-12"><h5 class="text-primary mb-2">Trajet / départ / siège</h5></div>
                 <div class="form-group col-sm-4">
-                    <input type="hidden" id="pfinvendabl">
-                    <input type="hidden" id="siegfinvendabl">
-                    <input type="hidden" id="reserveheur">
-                    <input type="hidden" id="directreserv">
-                    <input type="hidden" id="datereserv">
-                </div>
-            </div>
-            <div class="row">
-                <input class="form-control-sm" type="hidden" name="stop" value="<?=$bus_stop->idengare;?>" />
-                <input class="form-control-sm" type="hidden" name="useridconn" value="<?=$conex->cpuser_id;?>" />
-                <input class="form-control-sm" type="hidden" name="useridconnected" value="<?=$conex->roleattribut;?>" />
-                <input class="form-control-sm" type="hidden" name="sousgd" value="<?=$bus_stop->idsousgare;?>" />
-                <div class="form-group col-sm-4">
-                    <label>Sousgare</label>
+                    <label>Sous-gare de départ</label>
                     <select class="form-control form-control-sm" name="deparsousgareidentif" id="sgares">
-                        <option value=""></option>
+                        <option value="">Choisir</option>
                         <? foreach ($garedeparts as $garedepart): ?>
                             <option value="<?= $garedepart->idsousgare; ?>">
                                 <?= $garedepart->nom_gaep; ?>/<?= $garedepart->nomsousgare; ?>
@@ -562,10 +397,14 @@ defined('BASEPATH') OR exit('No direct script access allowed'); ?>
                     </select>
                 </div>
                 <div class="form-group col-sm-4">
+                    <label>Gare d'arrivée</label>
+                    <input class="form-control form-control-sm" type="text"
+                            id="uarrivee" readonly value="" placeholder="">
+                </div>
+                <div class="form-group col-sm-4">
                     <label>Quartier</label>
                     <select class="form-control form-control-sm" name="quartier" id="idquartier">
-                        <option value=""></option>
-                        
+                        <option value="">Choisir le quartier</option>
                     </select>
                 </div>
                 <div class="form-group col-sm-4">
@@ -586,29 +425,33 @@ defined('BASEPATH') OR exit('No direct script access allowed'); ?>
                         <option value="">Choisir le siège</option>
                     </select>
                 </div>
-                <div class="col-sm-4 text-center text-danger" style="display:none"
-                    id="messieg">
+                <div class="col-sm-12 text-center text-danger" style="display:none" id="messieg">
                     <p id="erreurmessieg"></p>
                 </div>
-                <?= historique_modif_ticket_motif_fields_html('depart'); ?>
-                
+                <div class="form-group col-sm-4">
+                    <label>Prix</label>
+                    <input class="form-control form-control-sm" type="number" min="0" step="0.01"
+                            name="prixticket" id="uprixticket" value="">
+                </div>
+                <div class="form-group col-sm-8">
+                    <label class="d-block">&nbsp;</label>
+                    <small class="text-muted" id="umodifmeta"></small>
+                </div>
+                <?= historique_modif_ticket_motif_fields_html('admin'); ?>
             </div>
-    
+
             <div class="modal-footer">
-                <button class="btn btn-secondary modal-close" type="button"
-                        data-dismiss="modal">
+                <button class="btn btn-secondary modal-close" type="button" data-dismiss="modal">
                     <i class="icon icon-left mdi mdi-undo"></i>&nbsp;ANNULER&nbsp;
                 </button>
                 <button class="btn btn-success" type="submit">
                     <i class="icon icon-left mdi mdi-check-all"></i>&nbsp;OK&nbsp;
                 </button>
             </div>
-    
             <?= form_close(); ?>
-
         </div>
-
     </div>
+    <?php endif; ?>
 
     <div class="modal-container colored-header colored-header-warning custom-width modal-effect-7"
          id="motif-action-0" style="perspective: none;">

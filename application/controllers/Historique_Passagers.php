@@ -418,6 +418,14 @@
         public function modifdepart($ckey, $cdp, $ct)
         {
             $this->company = $this->m_entreprises->get_key($ckey);
+            $role = isset($this->session->agent->userole) ? (string) $this->session->agent->userole : '';
+            if ($role !== '1') {
+                $this->session->set_flashdata('sale_error', 'Modification réservée au compte administrateur.');
+                $g = $this->input->post('stop');
+                $uid = $this->_roleattribut_guard_post_id($this->company->ekey, 'stop', 'useridconnected');
+                $sg = $this->input->post('sousgd');
+                return $this->view($ckey, $uid, $g, $sg, $this->property);
+            }
             $sieges = strpos($this->input->post('siege'), '/');
             $sub_siege = substr($this->input->post('siege'), 0, $sieges);
             $cde_siege = substr($this->input->post('siege'), $sieges + 1, strlen($this->input->post('siege')));
@@ -459,6 +467,154 @@
 
                 $this->property['UPDATE_SUCCESS'] = TRUE;
                 return $this->view($ckey, $uid, $g, $sg, $this->property);
+        }
+
+        /**
+         * Admin uniquement : modification unifiée (client + gare/quartier + date/heure/siège + prix).
+         * Fonctionne pour chaque jambe (1ʳᵉ ou 2ᵉ) via code_passager / code_ticket de la ligne.
+         */
+        public function modifadmin($ckey, $cdp, $ct)
+        {
+            $this->company = $this->m_entreprises->get_key($ckey);
+            $role = isset($this->session->agent->userole) ? (string) $this->session->agent->userole : '';
+            $g = $this->input->post('stop');
+            $uid = $this->_roleattribut_guard_post_id($this->company->ekey, 'stop', 'useridconnected');
+            $sg = $this->input->post('sousgd');
+            if ($role !== '1') {
+                $this->session->set_flashdata('sale_error', 'Modification réservée au compte administrateur.');
+                return $this->view($ckey, $uid, $g, $sg, $this->property);
+            }
+
+            $motif = historique_modif_ticket_read_motif_post();
+            if (!$motif['ok']) {
+                $this->session->set_flashdata('sale_error', $motif['error']);
+                return $this->view($ckey, $uid, $g, $sg, $this->property);
+            }
+
+            $before = historique_modif_ticket_row_passager($this->db, $cdp, $ct);
+            if (empty($before)) {
+                $this->session->set_flashdata('sale_error', 'Ticket introuvable.');
+                return $this->view($ckey, $uid, $g, $sg, $this->property);
+            }
+
+            $changesAll = array();
+
+            // --- Client ---
+            $idClient = (int) $this->input->post('identifyclient');
+            if ($idClient <= 0 && !empty($before['id_client_pass'])) {
+                $idClient = (int) $before['id_client_pass'];
+            }
+            if ($idClient > 0) {
+                $clientNew = array(
+                    'nom_client' => $this->input->post('rclient'),
+                    'prenom_client' => $this->input->post('prclient'),
+                    'contact_client' => $this->input->post('rclient_contact'),
+                    'num_CNIB' => $this->input->post('cnib'),
+                    'date_delivre' => $this->input->post('date_cnib'),
+                    'lieu_delivre' => $this->input->post('lieu'),
+                );
+                $beforeCl = $this->db->query(
+                    "SELECT nom_client, prenom_client, contact_client, num_CNIB, date_delivre, lieu_delivre
+                     FROM client WHERE id_client = ? LIMIT 1",
+                    array($idClient)
+                )->row_array();
+                if (is_array($beforeCl)) {
+                    $this->db->where('id_client', $idClient)->update('client', $clientNew);
+                    $diffCl = historique_modif_ticket_diff($beforeCl, $clientNew);
+                    if (!empty($diffCl)) {
+                        $changesAll = array_merge($changesAll, $diffCl);
+                        historique_modif_ticket_log($this->db, array(
+                            'ekey' => $this->company->ekey,
+                            'gare_id' => $g,
+                            'type_modif' => 'infos_client',
+                            'code_passager' => $cdp,
+                            'code_ticket' => $ct,
+                            'id_client' => $idClient,
+                            'changes' => $diffCl,
+                            'motif' => $motif['motif'],
+                            'ordre_par' => $motif['ordre_par'],
+                        ));
+                    }
+                }
+            }
+
+            // --- Départ / siège / gare / quartier ---
+            $passUpdate = array();
+            $sousgare = trim((string) $this->input->post('deparsousgareidentif'));
+            $quartier = trim((string) $this->input->post('quartier'));
+            $departs = trim((string) $this->input->post('departs'));
+            $siegeRaw = trim((string) $this->input->post('siege'));
+            $arriveeLabel = trim((string) $this->input->post('gare_arrivee_label'));
+
+            if ($sousgare !== '') {
+                $passUpdate['departclient_idgare'] = $sousgare;
+            }
+            if ($quartier !== '') {
+                $passUpdate['quart'] = $quartier;
+            }
+            if ($departs !== '') {
+                $passUpdate['code_pro'] = $departs;
+            }
+            if ($siegeRaw !== '' && strpos($siegeRaw, '/') !== false) {
+                $parts = explode('/', $siegeRaw, 2);
+                $passUpdate['num_siege_categorie'] = $parts[0];
+                $passUpdate['num_cat'] = $parts[1];
+            }
+            if ($arriveeLabel !== '') {
+                $passUpdate['nom_dest_vente'] = $arriveeLabel;
+            }
+
+            if (!empty($passUpdate)) {
+                $slice = array();
+                foreach ($passUpdate as $k => $v) {
+                    $slice[$k] = isset($before[$k]) ? $before[$k] : null;
+                }
+                $this->m_passager->update($cdp, $ct, $passUpdate);
+                $diffP = historique_modif_ticket_diff($slice, $passUpdate);
+                if (!empty($diffP)) {
+                    $changesAll = array_merge($changesAll, $diffP);
+                    historique_modif_ticket_log($this->db, array(
+                        'ekey' => $this->company->ekey,
+                        'gare_id' => $g,
+                        'type_modif' => 'depart',
+                        'code_passager' => $cdp,
+                        'code_ticket' => $ct,
+                        'id_client' => isset($before['id_client_pass']) ? (int) $before['id_client_pass'] : null,
+                        'changes' => $diffP,
+                        'motif' => $motif['motif'],
+                        'ordre_par' => $motif['ordre_par'],
+                    ));
+                }
+            }
+
+            // --- Prix (optionnel) ---
+            $prix = $this->input->post('prixticket');
+            if ($prix !== null && $prix !== '') {
+                $prixVal = (float) $prix;
+                $oldPrix = isset($before['prixvente']) ? (float) $before['prixvente'] : null;
+                if ($oldPrix === null || abs($oldPrix - $prixVal) > 0.0001) {
+                    $prixUp = array('prixvente' => $prixVal);
+                    $this->m_passager->update($cdp, $ct, $prixUp);
+                    historique_modif_ticket_log($this->db, array(
+                        'ekey' => $this->company->ekey,
+                        'gare_id' => $g,
+                        'type_modif' => 'prix',
+                        'code_passager' => $cdp,
+                        'code_ticket' => $ct,
+                        'id_client' => isset($before['id_client_pass']) ? (int) $before['id_client_pass'] : null,
+                        'changes' => historique_modif_ticket_diff(
+                            array('prixvente' => $oldPrix),
+                            $prixUp
+                        ),
+                        'motif' => $motif['motif'],
+                        'ordre_par' => $motif['ordre_par'],
+                    ));
+                }
+            }
+
+            $this->property['UPDATE_SUCCESS'] = TRUE;
+            $this->session->set_flashdata('sale_success', 'Modification enregistrée.');
+            return $this->view($ckey, $uid, $g, $sg, $this->property);
         }
 
         public function supprimerreprt($ckey, $cdrp, $cdtp, $cdt, $uid, $g, $sg)

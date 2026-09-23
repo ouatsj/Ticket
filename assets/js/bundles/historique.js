@@ -60,158 +60,7 @@ document.addEventListener('DOMContentLoaded', () => {
 ;
 /* --- updateticket.js --- */
 document.addEventListener('DOMContentLoaded', () => {
-    // Bouton unique « Modifier infos client » (ex orange + rouge unifiés).
-    document.querySelectorAll('.updateticket').forEach(function (e) {
-        e.onclick = function () {
-            let mtaForm = document.querySelector('#mtaForm');
-            if (!mtaForm) {
-                return;
-            }
-
-            const ekey = e.dataset.cle_compagnie || '';
-            const codePassager = e.dataset.tamponcod || e.dataset.passagecod || '';
-            const ligneHeure = e.dataset.cdligneh || '';
-            const codeTicket = e.dataset.ticketcod || '';
-            const codeTicketNp = e.dataset.ticketcodnp || '';
-            const idClient = e.dataset.id_client || '';
-
-            let action = `${APP_ROOT}/Programmes/updatep/${ekey}/${codePassager}/${ligneHeure}/${codeTicket}`;
-            if (codeTicketNp) {
-                action += `/${codeTicketNp}`;
-            }
-            mtaForm.setAttribute('action', action);
-
-            const title = document.querySelector('h3#mtaTitle');
-            if (title) {
-                title.innerHTML = `MODIFICATION INFOS CLIENT : ${e.dataset.nom || ''}`;
-            }
-
-            const setVal = (sel, val) => {
-                const el = document.querySelector(sel);
-                if (el) {
-                    el.value = val == null ? '' : String(val);
-                }
-            };
-
-            setVal('#uclient_contact', e.dataset.contact);
-            setVal('#uclient', e.dataset.nom);
-            setVal('#uprnclient', e.dataset.prenom);
-            setVal('#ucnib', e.dataset.cni);
-            setVal('#udate_cnib', e.dataset.cnideliver);
-            setVal('#ulieudelivre', e.dataset.cnideliverzone);
-            // Toujours préremplir l'id client lié au ticket (évite création silencieuse).
-            setVal('#identifyclientid', idClient);
-            setVal('#identifycontactid', e.dataset.contact || '');
-            setVal('#force_create_client', '0');
-
-            const wrap = document.querySelector('#force_create_client_wrap');
-            if (wrap) {
-                wrap.style.display = 'none';
-            }
-            const chk = document.querySelector('#force_create_client_chk');
-            if (chk) {
-                chk.checked = false;
-            }
-        };
-    });
-
-    const inf = document.querySelector('#uclient_contact');
-    if (inf !== null) {
-        inf.onkeyup = () => {
-            let httpInfos;
-            if (window.XMLHttpRequest) {
-                httpInfos = new XMLHttpRequest();
-            } else if (window.ActiveXObject) {
-                httpInfos = new ActiveXObject('Microsoft.XMLHTTP');
-            } else {
-                return;
-            }
-
-            const verificat = document.querySelector('#uclient_contact').value;
-            const wrap = document.querySelector('#force_create_client_wrap');
-            const forceHidden = document.querySelector('#force_create_client');
-            const chk = document.querySelector('#force_create_client_chk');
-            const idEl = document.querySelector('#identifyclientid');
-            const ctEl = document.querySelector('#identifycontactid');
-
-            httpInfos.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifinfos/${encodeURIComponent(verificat)}`, true);
-            httpInfos.onload = () => {
-                let infos = null;
-                try {
-                    infos = JSON.parse(httpInfos.responseText);
-                } catch (err) {
-                    infos = null;
-                }
-
-                if (infos == null || typeof infos !== 'object') {
-                    if (idEl) {
-                        idEl.value = '';
-                    }
-                    if (ctEl) {
-                        ctEl.value = '';
-                    }
-                    if (wrap) {
-                        wrap.style.display = verificat ? 'block' : 'none';
-                    }
-                    if (forceHidden) {
-                        forceHidden.value = (chk && chk.checked) ? '1' : '0';
-                    }
-                    return;
-                }
-
-                if (Object.entries(infos).length > 1 && infos.contact_client == verificat) {
-                    const setVal = (sel, val) => {
-                        const el = document.querySelector(sel);
-                        if (el) {
-                            el.value = val == null ? '' : String(val);
-                        }
-                    };
-                    setVal('#uclient', infos.nom_client);
-                    setVal('#uprnclient', infos.prenom_client);
-                    setVal('#ucnib', infos.num_CNIB);
-                    setVal('#udate_cnib', infos.date_delivre);
-                    setVal('#ulieudelivre', infos.lieu_delivre);
-                    if (idEl) {
-                        idEl.value = `${infos.id_client}`;
-                    }
-                    if (ctEl) {
-                        ctEl.value = `${infos.contact_client}`;
-                    }
-                    if (wrap) {
-                        wrap.style.display = 'none';
-                    }
-                    if (chk) {
-                        chk.checked = false;
-                    }
-                    if (forceHidden) {
-                        forceHidden.value = '0';
-                    }
-                } else {
-                    if (idEl) {
-                        idEl.value = '';
-                    }
-                    if (ctEl) {
-                        ctEl.value = '';
-                    }
-                    if (wrap) {
-                        wrap.style.display = 'block';
-                    }
-                }
-            };
-            httpInfos.setRequestHeader('Content-Type', 'application/json');
-            httpInfos.send();
-        };
-    }
-
-    const chk = document.querySelector('#force_create_client_chk');
-    if (chk) {
-        chk.addEventListener('change', function () {
-            const forceHidden = document.querySelector('#force_create_client');
-            if (forceHidden) {
-                forceHidden.value = chk.checked ? '1' : '0';
-            }
-        });
-    }
+    // Ancien bouton « Infos client » : fusionné dans updatedticket.js (modal admin unique).
 });
 
 ;
@@ -229,6 +78,24 @@ document.addEventListener('DOMContentLoaded', () => {
 document.addEventListener('DOMContentLoaded', () => {
     const appRoot = () => (typeof APP_ROOT !== 'undefined' ? APP_ROOT : '');
     let programmesCache = [];
+    let currentWantSiege = '';
+    let currentWantCat = '';
+
+    function rowsFromJson(data) {
+        if (!data) {
+            return [];
+        }
+        if (Array.isArray(data)) {
+            return data.filter(Boolean);
+        }
+        if (typeof data === 'object') {
+            return Object.keys(data)
+                .filter((k) => /^\d+$/.test(k) || data[k])
+                .map((k) => data[k])
+                .filter((row) => row && typeof row === 'object');
+        }
+        return [];
+    }
 
     function resetSelect(sel, placeholder) {
         if (!sel) {
@@ -255,6 +122,32 @@ document.addEventListener('DOMContentLoaded', () => {
         return false;
     }
 
+    function setVal(sel, val) {
+        const el = document.querySelector(sel);
+        if (el) {
+            el.value = val == null ? '' : String(val);
+        }
+    }
+
+    function ensureCurrentSiegeOption(siegeEl) {
+        if (!siegeEl || !currentWantSiege) {
+            return;
+        }
+        const want = String(currentWantSiege);
+        for (let i = 0; i < siegeEl.options.length; i++) {
+            if (String(siegeEl.options[i].value).split('/')[0] === want) {
+                siegeEl.selectedIndex = i;
+                return;
+            }
+        }
+        const cat = currentWantCat || '0';
+        const opt = document.createElement('option');
+        opt.value = `${want}/${cat}`;
+        opt.textContent = want + ' (actuel)';
+        siegeEl.add(opt);
+        siegeEl.value = opt.value;
+    }
+
     function loadSiegesForProgramme(codePro) {
         const siegeEl = document.querySelector('#siegeclient');
         const messieg = document.querySelector('#messieg');
@@ -266,92 +159,67 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        const httpRequest = new XMLHttpRequest();
-        httpRequest.open(
+        const httpMeta = new XMLHttpRequest();
+        httpMeta.open(
             'GET',
             window.location.origin + `${appRoot()}/reprogrammes/siegdispo/${encodeURIComponent(codePro)}`,
             true
         );
-        httpRequest.onload = () => {
-            let don = null;
+        httpMeta.onload = () => {
+            let meta = null;
             try {
-                don = JSON.parse(httpRequest.responseText);
+                meta = JSON.parse(httpMeta.responseText);
             } catch (err) {
-                don = null;
+                meta = null;
             }
-            if (don && Object.entries(don).length > 0) {
-                for (let key in Object.entries(don)) {
-                    const row = don[key];
-                    if (!row) {
-                        continue;
-                    }
-                    const map = {
-                        '#pfinvendabl': row.intervalle2,
-                        '#siegfinvendabl': row.intervalle1,
-                        '#directreserv': row.nom_ligne,
-                        '#reserveheur': row.heure,
-                        '#datereserv': row.date_progr,
-                        '#categbuse': row.categori,
-                    };
-                    Object.keys(map).forEach((sel) => {
-                        const el = document.querySelector(sel);
-                        if (el) {
-                            el.value = map[sel] != null ? map[sel] : '';
-                        }
-                    });
+            const rows = rowsFromJson(meta);
+            let d1 = 1;
+            let d2 = 70;
+            if (rows.length > 0) {
+                const row = rows[0];
+                d1 = parseInt(row.intervalle1, 10) || 1;
+                d2 = parseInt(row.intervalle2, 10) || 70;
+                setVal('#pfinvendabl', d2);
+                setVal('#siegfinvendabl', d1);
+                setVal('#directreserv', row.nom_ligne || '');
+                setVal('#reserveheur', row.heure || '');
+                setVal('#datereserv', row.date_progr || '');
+                setVal('#categbuse', row.categori || '');
+                if (row.nom_gadest) {
+                    setVal('#uarrivee', row.nom_gadest);
+                    setVal('#gare_arrivee_label', row.nom_gadest);
                 }
             }
 
-            const lp = (document.querySelector('#pfinvendabl') || {}).value || '';
-            const dbpl = (document.querySelector('#siegfinvendabl') || {}).value || '';
-            const direc = (document.querySelector('#directreserv') || {}).value || '';
-            const he = (document.querySelector('#reserveheur') || {}).value || '';
-            const datres = (document.querySelector('#datereserv') || {}).value || '';
-
-            const httpRequestbis = new XMLHttpRequest();
-            httpRequestbis.open(
+            const httpSieges = new XMLHttpRequest();
+            httpSieges.open(
                 'GET',
                 window.location.origin
-                    + `${appRoot()}/programmes/siegdisponible/${encodeURIComponent(codePro)}/`
-                    + `${encodeURIComponent(datres)}/${encodeURIComponent(direc)}/`
-                    + `${encodeURIComponent(he)}/${encodeURIComponent(dbpl)}/${encodeURIComponent(lp)}`,
+                    + `${appRoot()}/programmes/siegdisponibletrans/${encodeURIComponent(codePro)}/${d1}/${d2}`,
                 true
             );
-            httpRequestbis.onload = () => {
+            httpSieges.onload = () => {
                 let donbis = null;
                 try {
-                    donbis = JSON.parse(httpRequestbis.responseText);
+                    donbis = JSON.parse(httpSieges.responseText);
                 } catch (err) {
                     donbis = null;
                 }
                 resetSelect(siegeEl, 'Choisir le siège');
-                if (donbis && Object.entries(donbis).length >= 1) {
-                    for (let key in Object.entries(donbis)) {
-                        const row = donbis[key];
-                        if (!row || row.siege_num == null) {
-                            continue;
-                        }
-                        const opt = document.createElement('option');
-                        opt.value = `${row.siege_num}/${row.idcat_bus}`;
-                        opt.textContent = String(row.siege_num);
-                        siegeEl.add(opt);
+                rowsFromJson(donbis).forEach((row) => {
+                    if (!row || row.siege_num == null) {
+                        return;
                     }
-                }
-                const wantSiege = document.querySelector('#anciensieg');
-                if (wantSiege && wantSiege.value) {
-                    for (let i = 0; i < siegeEl.options.length; i++) {
-                        if (String(siegeEl.options[i].value).split('/')[0] === String(wantSiege.value)) {
-                            siegeEl.selectedIndex = i;
-                            break;
-                        }
-                    }
-                }
+                    const opt = document.createElement('option');
+                    opt.value = `${row.siege_num}/${row.idcat_bus || row.categori || '0'}`;
+                    opt.textContent = String(row.siege_num);
+                    siegeEl.add(opt);
+                });
+                ensureCurrentSiegeOption(siegeEl);
             };
-            httpRequestbis.setRequestHeader('Content-Type', 'application/json');
-            httpRequestbis.send();
+            httpSieges.send();
         };
-        httpRequest.setRequestHeader('Content-Type', 'application/json');
-        httpRequest.send();
+        httpMeta.send();
     }
 
     function fillHeures(dateVal, preferCodePro, preferHeure) {
@@ -368,6 +236,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 opt.value = String(p.code_progr);
                 opt.textContent = String(p.heure || '');
                 opt.dataset.heure = String(p.heure || '');
+                if (p.nom_gadest) {
+                    opt.dataset.arrivee = String(p.nom_gadest);
+                }
                 heureEl.add(opt);
             });
 
@@ -386,6 +257,11 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
         if (selected && heureEl.value) {
+            const opt = heureEl.options[heureEl.selectedIndex];
+            if (opt && opt.dataset.arrivee) {
+                setVal('#uarrivee', opt.dataset.arrivee);
+                setVal('#gare_arrivee_label', opt.dataset.arrivee);
+            }
             loadSiegesForProgramme(heureEl.value);
         }
     }
@@ -398,23 +274,37 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             mtForm.setAttribute(
                 'action',
-                `${appRoot()}/Historique_Passagers/modifdepart/${e.dataset.cle_compagnie}/${e.dataset.passagecod}/${e.dataset.codticket}`
+                `${appRoot()}/Historique_Passagers/modifadmin/${e.dataset.cle_compagnie}/${e.dataset.passagecod}/${e.dataset.codticket || e.dataset.ticketcod}`
             );
+
+            const jambe = e.dataset.jambe || '1';
             const title = document.querySelector('h3#mtickTitle');
             if (title) {
-                title.innerHTML = `MODIFICATION DÉPART / SIÈGE : ${e.dataset.nom || ''}`;
+                title.innerHTML = `MODIFICATION TICKET : ${e.dataset.nom || ''} ${e.dataset.prenom || ''} (jambe ${jambe})`;
+            }
+            const meta = document.querySelector('#umodifmeta');
+            if (meta) {
+                meta.textContent = `Axe : ${e.dataset.axe || ''} · Code : ${e.dataset.passagecod || ''} / ${e.dataset.codticket || e.dataset.ticketcod || ''}`;
             }
 
-            const setHid = (sel, val) => {
-                const el = document.querySelector(sel);
-                if (el) {
-                    el.value = val == null ? '' : String(val);
-                }
-            };
-            setHid('#anciensieg', e.dataset.siege);
-            setHid('#ancien', e.dataset.ancdepart);
-            setHid('#ancienprog', e.dataset.codepro);
-            setHid('#sousgr', e.dataset.departsousg);
+            currentWantSiege = e.dataset.siege || '';
+            currentWantCat = e.dataset.numcat || '';
+
+            setVal('#anciensieg', e.dataset.siege);
+            setVal('#ancien', e.dataset.ancdepart);
+            setVal('#ancienprog', e.dataset.codepro);
+            setVal('#sousgr', e.dataset.departsousg);
+            setVal('#identifyclientid', e.dataset.id_client);
+            setVal('#identifycontactid', e.dataset.contact);
+            setVal('#uclient_contact', e.dataset.contact);
+            setVal('#uclient', e.dataset.nom);
+            setVal('#uprnclient', e.dataset.prenom);
+            setVal('#ucnib', e.dataset.cni);
+            setVal('#udate_cnib', e.dataset.cnideliver);
+            setVal('#ulieudelivre', e.dataset.cnideliverzone);
+            setVal('#uprixticket', e.dataset.prix);
+            setVal('#uarrivee', e.dataset.arrivee);
+            setVal('#gare_arrivee_label', e.dataset.arrivee);
 
             const sgares = document.querySelector('#sgares');
             if (sgares && e.dataset.departsousg) {
@@ -435,61 +325,56 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
-            const httpRequetesq = new XMLHttpRequest();
-            httpRequetesq.open(
+            const httpQ = new XMLHttpRequest();
+            httpQ.open(
                 'GET',
                 window.location.origin + `${appRoot()}/confirmation/verifconfquart/${encodeURIComponent(idlg)}`,
                 true
             );
-            httpRequetesq.onload = () => {
+            httpQ.onload = () => {
                 let qdata = null;
                 try {
-                    qdata = JSON.parse(httpRequetesq.responseText);
+                    qdata = JSON.parse(httpQ.responseText);
                 } catch (err) {
                     qdata = null;
                 }
                 const qEl = document.querySelector('#idquartier');
                 resetSelect(qEl, 'Choisir le quartier');
-                if (qdata && Object.entries(qdata).length >= 1) {
-                    for (let key in Object.entries(qdata)) {
-                        const row = qdata[key];
-                        if (!row || !row.nom_quartier) {
-                            continue;
-                        }
+                rowsFromJson(qdata).forEach((row) => {
+                    if (!row || !row.nom_quartier) {
+                        return;
+                    }
+                    const opt = document.createElement('option');
+                    opt.value = row.nom_quartier;
+                    opt.textContent = row.nom_quartier;
+                    qEl.add(opt);
+                });
+                if (e.dataset.quartier) {
+                    if (!setSelectValue(qEl, e.dataset.quartier)) {
                         const opt = document.createElement('option');
-                        opt.value = row.nom_quartier;
-                        opt.textContent = row.nom_quartier;
+                        opt.value = e.dataset.quartier;
+                        opt.textContent = e.dataset.quartier;
                         qEl.add(opt);
+                        qEl.value = e.dataset.quartier;
                     }
                 }
-                if (e.dataset.quartier) {
-                    setSelectValue(qEl, e.dataset.quartier);
-                }
             };
-            httpRequetesq.setRequestHeader('Content-Type', 'application/json');
-            httpRequetesq.send();
+            httpQ.send();
 
-            const httpRequetes = new XMLHttpRequest();
-            httpRequetes.open(
+            const httpP = new XMLHttpRequest();
+            httpP.open(
                 'GET',
                 window.location.origin + `${appRoot()}/programmes/verifprogrammes/${encodeURIComponent(idlg)}`,
                 true
             );
-            httpRequetes.onload = () => {
+            httpP.onload = () => {
                 let dataAxe = null;
                 try {
-                    dataAxe = JSON.parse(httpRequetes.responseText);
+                    dataAxe = JSON.parse(httpP.responseText);
                 } catch (err) {
                     dataAxe = null;
                 }
-                programmesCache = [];
-                if (dataAxe && Object.entries(dataAxe).length >= 1) {
-                    for (let key in Object.entries(dataAxe)) {
-                        if (dataAxe[key]) {
-                            programmesCache.push(dataAxe[key]);
-                        }
-                    }
-                }
+                programmesCache = rowsFromJson(dataAxe);
 
                 const dateEl = document.querySelector('#dateclient');
                 resetSelect(dateEl, 'Choisir la date');
@@ -518,14 +403,16 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 }
             };
-            httpRequetes.setRequestHeader('Content-Type', 'application/json');
-            httpRequetes.send();
+            httpP.send();
         });
     });
 
     const dateEl = document.querySelector('#dateclient');
     if (dateEl) {
         dateEl.addEventListener('change', function () {
+            // Nouveau créneau → ne pas forcer l'ancien siège.
+            currentWantSiege = '';
+            currentWantCat = '';
             fillHeures(dateEl.value, '', '');
         });
     }
@@ -533,6 +420,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const heureEl = document.querySelector('#departclient');
     if (heureEl) {
         heureEl.addEventListener('change', function () {
+            currentWantSiege = '';
+            currentWantCat = '';
+            const opt = heureEl.options[heureEl.selectedIndex];
+            if (opt && opt.dataset.arrivee) {
+                setVal('#uarrivee', opt.dataset.arrivee);
+                setVal('#gare_arrivee_label', opt.dataset.arrivee);
+            }
             loadSiegesForProgramme(heureEl.value);
         });
     }
@@ -546,70 +440,48 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!codePro || !siegeVal) {
                 return;
             }
-            const Requestsiegereserve = new XMLHttpRequest();
-            Requestsiegereserve.open(
+            // Siège actuel du ticket ouvert : autorisé sans contrôle conflict.
+            if (currentWantSiege && String(siegeVal).split('/')[0] === String(currentWantSiege)) {
+                if (messieg) {
+                    messieg.style.display = 'none';
+                }
+                return;
+            }
+            const req = new XMLHttpRequest();
+            req.open(
                 'GET',
                 window.location.origin
                     + `${appRoot()}/programmes/verifisieges/${encodeURIComponent(codePro)}/${encodeURIComponent(siegeVal)}`,
                 true
             );
-            Requestsiegereserve.onload = () => {
-                let reservdonsieg = null;
+            req.onload = () => {
+                let occupied = null;
                 try {
-                    reservdonsieg = JSON.parse(Requestsiegereserve.responseText);
+                    occupied = JSON.parse(req.responseText);
                 } catch (err) {
-                    reservdonsieg = null;
+                    occupied = null;
                 }
                 const empty =
-                    reservdonsieg == '' ||
-                    reservdonsieg === null ||
-                    (Array.isArray(reservdonsieg) && reservdonsieg.length === 0) ||
-                    (typeof reservdonsieg === 'object' && Object.keys(reservdonsieg).length === 0);
-
+                    occupied == '' ||
+                    occupied === null ||
+                    (Array.isArray(occupied) && occupied.length === 0) ||
+                    (typeof occupied === 'object' && Object.keys(occupied).length === 0);
                 if (empty) {
-                    const httpSiegsreserv = new XMLHttpRequest();
-                    httpSiegsreserv.open(
-                        'GET',
-                        window.location.origin
-                            + `${appRoot()}/programmes/creersiege/${encodeURIComponent(codePro)}/${encodeURIComponent(siegeVal)}`,
-                        true
-                    );
-                    httpSiegsreserv.onload = () => {
-                        let dongreserv = null;
-                        try {
-                            dongreserv = JSON.parse(httpSiegsreserv.responseText);
-                        } catch (err) {
-                            dongreserv = null;
-                        }
-                        if (messieg) {
-                            messieg.style.display = 'none';
-                        }
-                        if (dongreserv && Object.entries(dongreserv).length >= 1) {
-                            for (let key in Object.entries(dongreserv)) {
-                                const row = dongreserv[key];
-                                if (!row) continue;
-                                const idt = document.querySelector('#idtamposelect');
-                                const sg = document.querySelector('#siegselect');
-                                if (idt) idt.value = row.idtamp != null ? row.idtamp : '';
-                                if (sg) sg.value = row.numsieg != null ? row.numsieg : '';
-                            }
-                        }
-                    };
-                    httpSiegsreserv.setRequestHeader('Content-Type', 'application/json');
-                    httpSiegsreserv.send();
-                } else {
-                    siegeEl.value = '';
                     if (messieg) {
-                        messieg.style.display = 'block';
+                        messieg.style.display = 'none';
                     }
-                    const err = document.querySelector('#erreurmessieg');
-                    if (err) {
-                        err.innerHTML = 'Siège déjà utilisé.';
-                    }
+                    return;
+                }
+                siegeEl.value = '';
+                if (messieg) {
+                    messieg.style.display = 'block';
+                }
+                const err = document.querySelector('#erreurmessieg');
+                if (err) {
+                    err.innerHTML = 'Siège déjà utilisé.';
                 }
             };
-            Requestsiegereserve.setRequestHeader('Content-Type', 'application/json');
-            Requestsiegereserve.send();
+            req.send();
         });
     }
 });
