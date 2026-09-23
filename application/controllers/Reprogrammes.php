@@ -1604,6 +1604,8 @@
                     'statut_code' => 'vendu',
                     // Hors encaissement agent (report gratuit, même multi-compagnie).
                     'statutvente' => self::REPROG_STATUTVENTE_HORS_CA,
+                    // Prix 0 : ne jamais gonfler vente / arrêt (ticket imprimé = GRATUIT).
+                    'prixvente' => 0,
                     'quart' => $quartLeg,
                     'createpas_at' => now('UTC'),
                     'datep_create' => mdate('%Y-%m-%d', now('UTC')),
@@ -1611,9 +1613,6 @@
                 $statConf = trim((string) $this->input->post('statconfirmtransit'));
                 if ($statConf === 'confirm') {
                     $pas['statut_confirme'] = 'confirm';
-                }
-                if ($prix !== '' && $prix !== null) {
-                    $pas['prixvente'] = $prix;
                 }
                 $this->m_passager->create($pas);
                 // Dernière jambe : préserver l'escale déjà vendue (après create pour ne pas écraser le prix jambe).
@@ -2763,6 +2762,8 @@
                                             'statut_code' => 'vendu',
                                             // Hors encaissement agent (changement de compagnie = report gratuit).
                                             'statutvente' => self::REPROG_STATUTVENTE_HORS_CA,
+                                            // Prix 0 : hors CA — ne jamais gonfler les totaux guichet.
+                                            'prixvente' => 0,
                                             'quart' => 'Marche',
                                             'createpas_at' => now('UTC'),
                                             'datep_create' => mdate("%Y-%m-%d", now('UTC')),
@@ -2771,15 +2772,13 @@
                                         if ($statConfCie === 'confirm') {
                                             $pasarray['statut_confirme'] = 'confirm';
                                         }
-                                        // Transit → direct : prioriser somme des jambes vérifiées.
+                                        // Transit → direct : champs siège / programme uniquement (pas de prix CA).
                                         $collapseCie = $this->_reprog_fields_transit_collapse_direct();
                                         if (!empty($collapseCie)) {
+                                            unset($collapseCie['prixvente']);
                                             $pasarray = array_merge($pasarray, $collapseCie);
-                                        } else {
-                                            $prixOrigCie = $this->input->post('prixventeunifie');
-                                            if ($prixOrigCie !== false && $prixOrigCie !== null && trim((string) $prixOrigCie) !== '') {
-                                                $pasarray['prixvente'] = $prixOrigCie;
-                                            }
+                                            $pasarray['prixvente'] = 0;
+                                            $pasarray['statutvente'] = self::REPROG_STATUTVENTE_HORS_CA;
                                         }
                                     $passrid = $this->m_passager->create($pasarray);
                                     if ($passrid != FALSE) {

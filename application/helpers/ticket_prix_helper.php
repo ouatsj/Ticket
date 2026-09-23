@@ -289,6 +289,46 @@ if (!function_exists('passager_sql_hors_confirmation_vente')) {
     }
 }
 
+if (!function_exists('passager_sql_hors_clone_report')) {
+    /**
+     * Fragment SQL : exclure les clones émis au report (hors CA / jamais encaissés).
+     * Aligné arrêt de compte : statutvente=2 = REPROG_STATUTVENTE_HORS_CA.
+     * Les origines reportées (statutvente 0/1 + repor) restent dans les totaux vente.
+     *
+     * @param string $alias alias table passager ('' = sans alias)
+     * @return string
+     */
+    function passager_sql_hors_clone_report($alias = 'p')
+    {
+        $col = ($alias === '' || $alias === null) ? 'statutvente' : $alias . '.statutvente';
+        return " AND IFNULL({$col}, 0) <> 2 ";
+    }
+}
+
+if (!function_exists('passager_appliquer_clone_report_hors_ca')) {
+    /**
+     * Clone de report (statutvente=2) : jamais d’encaissement — forcer prixvente=0.
+     * Empêche tout total guichet / état basé sur SUM(prixvente) de recompter le report.
+     *
+     * @param array $data
+     * @param mixed $statutvente_existant si update partiel sans statutvente dans $data
+     * @return array
+     */
+    function passager_appliquer_clone_report_hors_ca(array $data, $statutvente_existant = null)
+    {
+        $sv = null;
+        if (array_key_exists('statutvente', $data) && $data['statutvente'] !== null && $data['statutvente'] !== '') {
+            $sv = (int) $data['statutvente'];
+        } elseif ($statutvente_existant !== null && $statutvente_existant !== '') {
+            $sv = (int) $statutvente_existant;
+        }
+        if ($sv === 2) {
+            $data['prixvente'] = 0;
+        }
+        return $data;
+    }
+}
+
 if (!function_exists('passager_sql_est_confirmation')) {
     /**
      * Fragment SQL : uniquement les lignes confirmation (gratuites).

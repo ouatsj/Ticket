@@ -16,6 +16,18 @@
             return passager_sql_hors_confirmation_vente($alias);
         }
 
+        /**
+         * Hors COUNT/SUM vente : clones de report (statutvente=2), jamais encaissés.
+         * Même règle monétaire que l’arrêt de compte.
+         */
+        protected function sql_hors_clone_report($alias = 'p')
+        {
+            if (!function_exists('passager_sql_hors_clone_report')) {
+                $this->load->helper('ticket_prix');
+            }
+            return passager_sql_hors_clone_report($alias);
+        }
+
         public function __construct()
         {
             parent::__construct();
@@ -281,6 +293,11 @@
                 $CI->load->helper('ticket_prix');
             }
             $data = passager_appliquer_confirmation_gratuite($data);
+            // Clone report (statutvente=2) : hors CA — prix 0 pour ne jamais gonfler les totaux.
+            if (!function_exists('passager_appliquer_clone_report_hors_ca')) {
+                $CI->load->helper('ticket_prix');
+            }
+            $data = passager_appliquer_clone_report_hors_ca($data);
 
             $this->db->trans_start();
 
@@ -389,6 +406,21 @@
                 }
             }
             $data = passager_appliquer_confirmation_gratuite($data, $statutAvant);
+
+            // Clone report hors CA : forcer 0 F (création ou update partiel).
+            $svAvant = null;
+            if (isset($before['statutvente']) && $before['statutvente'] !== null && $before['statutvente'] !== '') {
+                $svAvant = $before['statutvente'];
+            } elseif (!array_key_exists('statutvente', $data) && array_key_exists('prixvente', $data)) {
+                $rowSv = $this->db->query(
+                    'SELECT statutvente FROM passager WHERE code_passager = ? AND code_ticket = ? LIMIT 1',
+                    array($code_passager, $code_ticket)
+                )->row();
+                if ($rowSv) {
+                    $svAvant = $rowSv->statutvente;
+                }
+            }
+            $data = passager_appliquer_clone_report_hors_ca($data, $svAvant);
 
             $CI =& get_instance();
             $siegeTxStarted = false;
@@ -4624,6 +4656,7 @@
             $venteGare = $this->_sql_etat_vente_gare($gid);
             $joinSgv = $this->_sql_etat_join_sgv();
             $vendeurSql = $this->_sql_etat_vendeur_in($idvd);
+            $horsClone = $this->sql_hors_clone_report('p');
 
             $rows = $this->db->query("SELECT SUM(prixvente) AS total, lg.ident_ligne, dest.id_compaga, {$nomLine['select']}, p.prixvente, cu.username FROM passager p
             JOIN attributions_role ar ON p.idcptuser = ar.roleattribut
@@ -4646,6 +4679,7 @@
             AND p.prixvente IS NOT NULL
             AND p.statut_code = 'vendu'
             AND p.actif_pas = 0
+            {$horsClone}
             {$venteGare}
             GROUP BY {$nomLine['group']}, dest.id_compaga, p.prixvente, cu.username")->result();
             return $this->normalize_ticket_prix_rows($rows);
@@ -4657,6 +4691,7 @@
             $venteGare = $this->_sql_etat_vente_gare($gid);
             $joinSgv = $this->_sql_etat_join_sgv();
             $vendeurSql = $this->_sql_etat_vendeur_in($idvd);
+            $horsClone = $this->sql_hors_clone_report('p');
 
             $rows = $this->db->query("SELECT SUM(prixvente) AS total, lg.ident_ligne, dest.id_compaga, {$nomLine['select']}, p.prixvente, cu.username FROM passager p
             JOIN attributions_role ar ON p.idcptuser = ar.roleattribut
@@ -4678,6 +4713,7 @@
             {$vendeurSql}
             AND p.prixvente IS NOT NULL
             AND p.statut_code = 'vendu'
+            {$horsClone}
             {$venteGare}
             GROUP BY {$nomLine['group']}, dest.id_compaga, p.prixvente, cu.username")->result();
             return $this->normalize_ticket_prix_rows($rows);
@@ -4689,6 +4725,7 @@
             $venteGare = $this->_sql_etat_vente_gare($gid);
             $joinSgv = $this->_sql_etat_join_sgv();
             $vendeurSql = $this->_sql_etat_vendeur_in($idvd);
+            $horsClone = $this->sql_hors_clone_report('p');
             $sgEsc = $this->db->escape($sg);
             // Sous-gare du guichet vendeur (pas départ de jambe).
             $sgScope = " AND (p.idsousgare_vente = {$sgEsc} OR (p.idsousgare_vente IS NULL AND p.departclient_idgare = {$sgEsc})) ";
@@ -4713,6 +4750,7 @@
             {$vendeurSql}
             AND p.prixvente IS NOT NULL
             AND p.statut_code = 'vendu'
+            {$horsClone}
             {$venteGare}
             {$sgScope}
             GROUP BY {$nomLine['group']}, dest.id_compaga, p.prixvente, cu.username")->result();
@@ -4722,6 +4760,7 @@
     public function versfiltre($key, $gid, $db, $df, $cp, $use)
     {
             $nomLine = $this->rapport_nom_ligne_sql();
+            $horsClone = $this->sql_hors_clone_report('p');
 
             $rows = $this->db->query("SELECT SUM(prixvente) AS total, lg.ident_ligne, dest.id_compaga, {$nomLine['select']}, p.prixvente, cu.username, p.datep_create FROM passager p
             JOIN attributions_role ar ON p.idcptuser = ar.roleattribut
@@ -4740,6 +4779,7 @@
             AND dest.id_compaga = '$cp'
             AND p.prixvente IS NOT NULL
             AND p.statut_code = 'vendu'
+            {$horsClone}
             AND ar.roleattribut = '$use'
             AND ex.code_gaexp = '$gid'
             GROUP BY {$nomLine['group']}, dest.id_compaga, p.prixvente, cu.username, p.datep_create")->result(); return $this->normalize_ticket_prix_rows($rows);        
@@ -4780,6 +4820,7 @@
                 AND p.prixvente IS NOT NULL
                 AND COALESCE(p.statut_confirme, '') NOT IN ('confirm','catconfirm','confirmcarte')
                 AND p.statut_code = 'vendu'
+                AND IFNULL(p.statutvente, 0) <> 2
                 GROUP BY {$nomLine['group']}, p.prixvente")->result();
             return $this->normalize_ticket_prix_rows($rows);
     }
@@ -4812,6 +4853,7 @@
                 AND p.prixvente IS NOT NULL
                 AND COALESCE(p.statut_confirme, '') NOT IN ('confirm','catconfirm','confirmcarte')
                 AND p.statut_code = 'vendu'
+                AND IFNULL(p.statutvente, 0) <> 2
                 GROUP BY {$nomLine['group']}, p.prixvente")->result(); return $this->normalize_ticket_prix_rows($rows);        }
         elseif($algn === '')
         {
@@ -4835,6 +4877,7 @@
                 AND p.prixvente IS NOT NULL
                 AND COALESCE(p.statut_confirme, '') NOT IN ('confirm','catconfirm','confirmcarte')
                 AND p.statut_code = 'vendu'
+                AND IFNULL(p.statutvente, 0) <> 2
                 AND ex.code_gaexp = '$gid'
                 AND ar.roleattribut = '$acl'
                 GROUP BY ar.roleattribut, u.first_name, dest.id_compaga, u.last_name, {$nomLine['group']}, p.prixvente")->result(); return $this->normalize_ticket_prix_rows($rows);        }
@@ -4859,6 +4902,7 @@
                 AND p.prixvente IS NOT NULL
                 AND COALESCE(p.statut_confirme, '') NOT IN ('confirm','catconfirm','confirmcarte')
                 AND p.statut_code = 'vendu'
+                AND IFNULL(p.statutvente, 0) <> 2
                 AND ar.roleattribut = '$acl'
                 AND lg.ident_ligne = '$algn'
                 AND ex.code_gaexp = '$gid'
@@ -4890,6 +4934,7 @@
                 AND p.prixvente IS NOT NULL
                 AND COALESCE(p.statut_confirme, '') NOT IN ('confirm','catconfirm','confirmcarte')
                 AND p.statut_code = 'vendu'
+                AND IFNULL(p.statutvente, 0) <> 2
                 GROUP BY dest.id_compaga, p.datep_create")->result(); return $this->normalize_ticket_prix_rows($rows);        }
         
             $rows = $this->db->query(
@@ -4915,6 +4960,7 @@
                 AND p.prixvente IS NOT NULL
                 AND COALESCE(p.statut_confirme, '') NOT IN ('confirm','catconfirm','confirmcarte')
                 AND p.statut_code = 'vendu'
+                AND IFNULL(p.statutvente, 0) <> 2
                 GROUP BY dest.id_compaga, p.datep_create")->result(); return $this->normalize_ticket_prix_rows($rows);    }
 
     public function listereportverscptgl($cid, $cp, $gid, $dt1, $dt2, $acl = FALSE, $algn = FALSE)
@@ -4950,6 +4996,7 @@
                 AND p.prixvente IS NOT NULL
                 AND COALESCE(p.statut_confirme, '') NOT IN ('confirm','catconfirm','confirmcarte')
                 AND p.statut_code = 'vendu'
+                AND IFNULL(p.statutvente, 0) <> 2
                 GROUP BY dest.id_compaga, p.datep_create")->result();
             return $this->normalize_ticket_prix_rows($rows);
     }
@@ -4978,6 +5025,7 @@
                 AND p.prixvente IS NOT NULL
                 AND COALESCE(p.statut_confirme, '') NOT IN ('confirm','catconfirm','confirmcarte')
                 AND p.statut_code = 'vendu'
+                AND IFNULL(p.statutvente, 0) <> 2
                 GROUP BY dest.id_compaga, p.datep_create")->result(); return $this->normalize_ticket_prix_rows($rows);        }
         elseif($acl === '')
         {
@@ -5001,6 +5049,7 @@
                 AND p.prixvente IS NOT NULL
                 AND COALESCE(p.statut_confirme, '') NOT IN ('confirm','catconfirm','confirmcarte')
                 AND p.statut_code = 'vendu'
+                AND IFNULL(p.statutvente, 0) <> 2
                 GROUP BY dest.id_compaga, p.datep_create")->result(); return $this->normalize_ticket_prix_rows($rows);        }
             $rows = $this->db->query(
                 "SELECT SUM(prixvente) AS total, dest.id_compaga, p.datep_create FROM passager p
@@ -5024,6 +5073,7 @@
                 AND p.prixvente IS NOT NULL
                 AND COALESCE(p.statut_confirme, '') NOT IN ('confirm','catconfirm','confirmcarte')
                 AND p.statut_code = 'vendu'
+                AND IFNULL(p.statutvente, 0) <> 2
                 GROUP BY dest.id_compaga, p.datep_create")->result(); return $this->normalize_ticket_prix_rows($rows);    }
     
     public function listereportverscptglexo($cid, $cp, $dt1, $dt2, $gid = FALSE, $acl = FALSE)
@@ -5059,6 +5109,7 @@
                 AND p.prixvente IS NOT NULL
                 AND COALESCE(p.statut_confirme, '') NOT IN ('confirm','catconfirm','confirmcarte')
                 AND p.statut_code = 'vendu'
+                AND IFNULL(p.statutvente, 0) <> 2
                 GROUP BY dest.id_compaga, p.datep_create")->result();
             return $this->normalize_ticket_prix_rows($rows);
     }
@@ -5090,6 +5141,7 @@
                 AND p.prixvente IS NOT NULL
                 AND COALESCE(p.statut_confirme, '') NOT IN ('confirm','catconfirm','confirmcarte')
                 AND p.statut_code = 'vendu'
+                AND IFNULL(p.statutvente, 0) <> 2
                 AND ex.code_gaexp = '$gid'
                 GROUP BY {$nomLine['group']}, p.prixvente")->result(); return $this->normalize_ticket_prix_rows($rows);        }
         elseif($algn === '')
@@ -5114,6 +5166,7 @@
                 AND p.prixvente IS NOT NULL
                 AND COALESCE(p.statut_confirme, '') NOT IN ('confirm','catconfirm','confirmcarte')
                 AND p.statut_code = 'vendu'
+                AND IFNULL(p.statutvente, 0) <> 2
                 AND ex.code_gaexp = '$gid'
                 AND ar.roleattribut = '$acl'
                 GROUP BY {$nomLine['group']}, p.prixvente")->result(); return $this->normalize_ticket_prix_rows($rows);        }
@@ -5138,6 +5191,7 @@
                 AND p.prixvente IS NOT NULL
                 AND COALESCE(p.statut_confirme, '') NOT IN ('confirm','catconfirm','confirmcarte')
                 AND p.statut_code = 'vendu'
+                AND IFNULL(p.statutvente, 0) <> 2
                 AND ar.roleattribut = '$acl'
                 AND lg.ident_ligne = '$algn'
                 GROUP BY {$nomLine['group']}, p.prixvente")->result(); return $this->normalize_ticket_prix_rows($rows);    }
@@ -5169,6 +5223,7 @@
                 AND p.prixvente IS NOT NULL
                 AND COALESCE(p.statut_confirme, '') NOT IN ('confirm','catconfirm','confirmcarte')
                 AND p.statut_code = 'vendu'
+                AND IFNULL(p.statutvente, 0) <> 2
                 AND ex.code_gaexp = '$gid'
                 GROUP BY {$nomLine['group']}, dest.id_compaga, p.prixvente")->result(); return $this->normalize_ticket_prix_rows($rows);        }
             $rows = $this->db->query(
@@ -5191,6 +5246,7 @@
                 AND p.prixvente IS NOT NULL
                 AND COALESCE(p.statut_confirme, '') NOT IN ('confirm','catconfirm','confirmcarte')
                 AND p.statut_code = 'vendu'
+                AND IFNULL(p.statutvente, 0) <> 2
                 AND lg.ident_ligne = '$algn'
                 GROUP BY {$nomLine['group']}, dest.id_compaga, p.prixvente")->result(); return $this->normalize_ticket_prix_rows($rows);    }*/
 
@@ -5233,6 +5289,7 @@
                 AND p.prixvente IS NOT NULL
                 AND COALESCE(p.statut_confirme, '') NOT IN ('confirm','catconfirm','confirmcarte')
                 AND p.statut_code = 'vendu'
+                AND IFNULL(p.statutvente, 0) <> 2
                 {$venteGare}
                 {$extra}
                 {$sgSql}
@@ -5265,6 +5322,7 @@
                 AND p.prixvente IS NOT NULL
                 AND COALESCE(p.statut_confirme, '') NOT IN ('confirm','catconfirm','confirmcarte')
                 AND p.statut_code = 'vendu'
+                AND IFNULL(p.statutvente, 0) <> 2
                 AND ex.code_gaexp = '$gid'")->result(); return $this->normalize_ticket_prix_rows($rows);        }
             $rows = $this->db->query(
                 "SELECT * FROM passager p
@@ -5286,6 +5344,7 @@
                 AND p.prixvente IS NOT NULL
                 AND COALESCE(p.statut_confirme, '') NOT IN ('confirm','catconfirm','confirmcarte')
                 AND p.statut_code = 'vendu'
+                AND IFNULL(p.statutvente, 0) <> 2
                 AND lg.ident_ligne = '$algn'")->result(); return $this->normalize_ticket_prix_rows($rows);    }
 
     //report comptable
@@ -5319,6 +5378,7 @@
                 AND p.prixvente IS NOT NULL
                 AND COALESCE(p.statut_confirme, '') NOT IN ('confirm','catconfirm','confirmcarte')
                 AND p.statut_code = 'vendu'
+                AND IFNULL(p.statutvente, 0) <> 2
                 GROUP BY {$nomLine['group']}, p.prixvente")->result(); return $this->normalize_ticket_prix_rows($rows);        }
             $rows = $this->db->query(
                 "SELECT COUNT(code_passager) AS codepassager, SUM(prixvente) AS total, {$nomLine['select']}, p.prixvente FROM passager p
@@ -5342,6 +5402,7 @@
                 AND p.prixvente IS NOT NULL
                 AND COALESCE(p.statut_confirme, '') NOT IN ('confirm','catconfirm','confirmcarte')
                 AND p.statut_code = 'vendu'
+                AND IFNULL(p.statutvente, 0) <> 2
                 AND lg.ident_ligne = '$algn'
                 GROUP BY {$nomLine['group']}, p.prixvente")->result(); return $this->normalize_ticket_prix_rows($rows);    }
     
@@ -5373,6 +5434,7 @@
                 AND p.prixvente IS NOT NULL
                 AND COALESCE(p.statut_confirme, '') NOT IN ('confirm','catconfirm','confirmcarte')
                 AND p.statut_code = 'vendu'
+                AND IFNULL(p.statutvente, 0) <> 2
                 AND ex.code_gaexp = '$gid'
                 GROUP BY {$nomLine['group']}, p.prixvente")->result(); return $this->normalize_ticket_prix_rows($rows);        }
             $rows = $this->db->query(
@@ -5395,6 +5457,7 @@
                 AND p.prixvente IS NOT NULL
                 AND COALESCE(p.statut_confirme, '') NOT IN ('confirm','catconfirm','confirmcarte')
                 AND p.statut_code = 'vendu'
+                AND IFNULL(p.statutvente, 0) <> 2
                 AND lg.ident_ligne = '$algn'
                 AND ex.code_gaexp = '$gid'
                 GROUP BY {$nomLine['group']}, p.prixvente")->result(); return $this->normalize_ticket_prix_rows($rows);    }*/
@@ -5426,6 +5489,7 @@
                 AND p.prixvente IS NOT NULL
                 AND COALESCE(p.statut_confirme, '') NOT IN ('confirm','catconfirm','confirmcarte')
                 AND p.statut_code = 'vendu'
+                AND IFNULL(p.statutvente, 0) <> 2
                 AND EXISTS (
                   SELECT 1 FROM user_login ul
                   WHERE ul.uid_login = (
@@ -5456,6 +5520,7 @@
                 AND p.prixvente IS NOT NULL
                 AND COALESCE(p.statut_confirme, '') NOT IN ('confirm','catconfirm','confirmcarte')
                 AND p.statut_code = 'vendu'
+                AND IFNULL(p.statutvente, 0) <> 2
                 AND lg.ident_ligne = '$algn'
                 AND EXISTS (
                   SELECT 1 FROM user_login ul
@@ -5495,6 +5560,7 @@
                 AND p.prixvente IS NOT NULL
                 AND COALESCE(p.statut_confirme, '') NOT IN ('confirm','catconfirm','confirmcarte')
                 AND p.statut_code = 'vendu'
+                AND IFNULL(p.statutvente, 0) <> 2
                 AND EXISTS (
                   SELECT 1 FROM user_login ul
                   WHERE ul.uid_login = (
@@ -5525,6 +5591,7 @@
                 AND p.prixvente IS NOT NULL
                 AND COALESCE(p.statut_confirme, '') NOT IN ('confirm','catconfirm','confirmcarte')
                 AND p.statut_code = 'vendu'
+                AND IFNULL(p.statutvente, 0) <> 2
                 AND lg.ident_ligne = '$algn'
                 AND EXISTS (
                   SELECT 1 FROM user_login ul
@@ -5566,6 +5633,7 @@
                 AND p.prixvente IS NOT NULL
                 AND COALESCE(p.statut_confirme, '') NOT IN ('confirm','catconfirm','confirmcarte')
                 AND p.statut_code = 'vendu'
+                AND IFNULL(p.statutvente, 0) <> 2
                 AND ex.code_gaexp = '$gid'
                 GROUP BY {$nomLine['group']}, p.prixvente")->result(); return $this->normalize_ticket_prix_rows($rows);        }
             $rows = $this->db->query(
@@ -5588,6 +5656,7 @@
                 AND p.prixvente IS NOT NULL
                 AND COALESCE(p.statut_confirme, '') NOT IN ('confirm','catconfirm','confirmcarte')
                 AND p.statut_code = 'vendu'
+                AND IFNULL(p.statutvente, 0) <> 2
                 AND lg.ident_ligne = '$algn'
                 AND ex.code_gaexp = '$gid'
                 GROUP BY {$nomLine['group']}, p.prixvente")->result(); return $this->normalize_ticket_prix_rows($rows);    }*/
@@ -5614,6 +5683,7 @@
                 AND p.prixvente IS NOT NULL
                 AND COALESCE(p.statut_confirme, '') NOT IN ('confirm','catconfirm','confirmcarte')
                 AND p.statut_code = 'vendu'
+                AND IFNULL(p.statutvente, 0) <> 2
                 AND EXISTS (
                   SELECT 1 FROM user_login ul
                   WHERE ul.uid_login = (
@@ -5641,6 +5711,7 @@
                 AND p.prixvente IS NOT NULL
                 AND COALESCE(p.statut_confirme, '') NOT IN ('confirm','catconfirm','confirmcarte')
                 AND p.statut_code = 'vendu'
+                AND IFNULL(p.statutvente, 0) <> 2
                 AND lg.ident_ligne = '$algn'
                 AND EXISTS (
                   SELECT 1 FROM user_login ul

@@ -226,12 +226,18 @@
                  WHERE e.ekey = {$cidEsc}
                  AND BINARY np.codeticket = {$codeEsc}
                  AND (np.actif_nonp = 0 OR np.actif_nonp IS NULL)
+                 AND YEAR(np.datevente) = YEAR(CURDATE())
                  AND NOT EXISTS (
                     SELECT 1 FROM passager p
-                    WHERE BINARY p.code_ticket = BINARY np.codeticket
+                    WHERE (
+                        BINARY p.code_passager = BINARY np.code_non_pass
+                        OR BINARY p.code_ticket = BINARY np.codeticket
+                      )
                       AND p.actif_pas = 0
                       AND p.statut_confirme = 'confirm'
+                      AND YEAR(p.datep_create) = YEAR(CURDATE())
                  )
+                 ORDER BY np.datevente DESC, np.creatednp_at DESC
                  LIMIT 1"
             )->row();
         }
@@ -251,6 +257,7 @@
             }
             $cidEsc = $this->db->escape($cid);
             $codeEsc = $this->db->escape($code);
+            // Année en cours uniquement : évite collisions de codeticket réutilisés (ex. 0922N20J11 2023 vs 2026).
             return $this->db->query(
                 "SELECT np.codeticket, np.code_non_pass, np.prixretour, np.id_ligne_pass, np.nom_ligne AS np_nom_ligne,
                         np.id_client_npass, np.sousgareidentif, np.datevente, np.creatednp_at,
@@ -272,12 +279,18 @@
                  WHERE e.ekey = {$cidEsc}
                  AND BINARY np.codeticket = {$codeEsc}
                  AND (np.actif_nonp = 0 OR np.actif_nonp IS NULL)
+                 AND YEAR(np.datevente) = YEAR(CURDATE())
                  AND NOT EXISTS (
                     SELECT 1 FROM passager p
-                    WHERE BINARY p.code_ticket = BINARY np.codeticket
+                    WHERE (
+                        BINARY p.code_passager = BINARY np.code_non_pass
+                        OR BINARY p.code_ticket = BINARY np.codeticket
+                      )
                       AND p.actif_pas = 0
                       AND p.statut_confirme = 'confirm'
+                      AND YEAR(p.datep_create) = YEAR(CURDATE())
                  )
+                 ORDER BY np.datevente DESC, np.creatednp_at DESC, np.code_non_pass DESC
                  LIMIT 1"
             )->row();
         }
@@ -319,11 +332,16 @@
                    AND np.id_client_npass = {$clientId}
                    AND np.creatednp_at = {$created}
                    AND (np.actif_nonp = 0 OR np.actif_nonp IS NULL)
+                   AND YEAR(np.datevente) = YEAR(CURDATE())
                    AND NOT EXISTS (
                       SELECT 1 FROM passager p
-                      WHERE BINARY p.code_ticket = BINARY np.codeticket
+                      WHERE (
+                          BINARY p.code_passager = BINARY np.code_non_pass
+                          OR BINARY p.code_ticket = BINARY np.codeticket
+                        )
                         AND p.actif_pas = 0
                         AND p.statut_confirme = 'confirm'
+                        AND YEAR(p.datep_create) = YEAR(CURDATE())
                    )
                  ORDER BY np.code_non_pass ASC"
             )->result();
