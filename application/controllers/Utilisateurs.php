@@ -313,15 +313,11 @@
                 $out[] = $u;
             };
 
-            // 1) Toujours les agents affectés au lieu (filet de sécurité).
-            $lieuUsers = $this->m_compte_user->get_users_tri_lieu($ekey, $gare, $type);
-            if (is_array($lieuUsers)) {
-                foreach ($lieuUsers as $u) {
-                    $push($u);
-                }
-            }
+            // Avec dates + bagage/courrier : priorité aux opérateurs ayant réellement
+            // facturé sur l’intervalle (gare de facturation), pas seulement ul.guser.
+            $useActifsOnly = ($du !== '' && $au !== ''
+                && ($type === 'bagage' || $type === 'courrier'));
 
-            // 2) Enrichir avec les vendeurs réellement actifs sur [du, au] (si dates).
             if ($du !== '' && $au !== '') {
                 $actifs = $this->m_passager->operateurs_actifs_periode(
                     $ekey,
@@ -333,6 +329,16 @@
                 );
                 if (is_array($actifs)) {
                     foreach ($actifs as $u) {
+                        $push($u);
+                    }
+                }
+            }
+
+            // Filet : agents affectés au lieu (si pas de dates, ou actifs vides).
+            if (!$useActifsOnly || empty($out)) {
+                $lieuUsers = $this->m_compte_user->get_users_tri_lieu($ekey, $gare, $type);
+                if (is_array($lieuUsers)) {
+                    foreach ($lieuUsers as $u) {
                         $push($u);
                     }
                 }

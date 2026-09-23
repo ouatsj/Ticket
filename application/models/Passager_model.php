@@ -1630,21 +1630,105 @@
         }
 
         /**
-         * Opérateurs ayant saisi des bagages (direct + escal) sur [du, au] au lieu.
+         * Opérateurs ayant facturé des bagages (direct + escal) sur [du, au]
+         * à la gare de facturation (idgarebag / idgarebagesc / ligne),
+         * pas l’affectation courante ul.guser.
          */
         protected function _operateurs_actifs_bagage($ekey, $gid, $du, $au, $comp = null)
         {
             $CI =& get_instance();
-            if (!isset($CI->m_compte_user)) {
-                $CI->load->model('Compte_user_model', 'm_compte_user');
+            if (!isset($CI->m_gare_depart)) {
+                $CI->load->model('Gare_depart_model', 'm_gare_depart');
             }
-            $lieu = $CI->m_compte_user->sql_ul_guser_lieu($gid, 'ul');
+            $lieu = $CI->m_gare_depart->resolve_lieu($gid);
+            $codes = is_array($lieu['codes']) ? $lieu['codes'] : array();
+            if (!empty($lieu['phys'])) {
+                $codes[] = $lieu['phys'];
+            }
+            $gidTrim = trim((string) $gid);
+            if ($gidTrim !== '') {
+                $codes[] = $gidTrim;
+            }
+            $codes = array_values(array_unique(array_filter(array_map('strval', $codes))));
+            if (empty($codes)) {
+                return array();
+            }
+            $inPh = implode(',', array_fill(0, count($codes), '?'));
+
             $label = "COALESCE(
                 NULLIF(TRIM(CONCAT(IFNULL(u.first_name,''), ' ', IFNULL(u.last_name,''))), ''),
                 NULLIF(TRIM(cu.username), ''),
                 ar.roleattribut
             ) AS username";
-            $params = array($ekey, $du, $au, $ekey, $du, $au);
+
+            $comp = trim((string) $comp);
+            $compSql = '';
+            $compJoinBag = '';
+            $compJoinEsc = '';
+            if ($comp !== '' && $comp !== '0') {
+                // Compagnie via ligne directe ou via programme (même logique que les états).
+                $compJoinBag = "
+                    LEFT JOIN lignes lg_b ON bg.lgidbagage = lg_b.ident_ligne
+                    LEFT JOIN programme pr_b ON bg.progidbagage = pr_b.code_progr
+                    LEFT JOIN ligne_heure lh_b ON pr_b.id_heur = lh_b.id_ligneheure
+                    LEFT JOIN lignes lg_bp ON lh_b.ligne_id = lg_bp.ident_ligne
+                    LEFT JOIN gare_dest dest_b ON COALESCE(lg_b.gadest_lg, lg_bp.gadest_lg) = dest_b.code_gadest
+                ";
+                // Escal : ligne via id_lgeheuresc.
+                $compJoinEsc = "
+                    LEFT JOIN ligne_heure lh_e ON bg.id_lgeheuresc = lh_e.id_ligneheure
+                    LEFT JOIN lignes lg_e ON lh_e.ligne_id = lg_e.ident_ligne
+                    LEFT JOIN gare_dest dest_e ON lg_e.gadest_lg = dest_e.code_gadest
+                ";
+                $compSql = ' AND dest_%s.id_compaga = ? ';
+            }
+
+            // Gare = facturation (idgare*) OU départ ligne (lg.gaexp_lg).
+            $gareBag = " AND (
+                bg.idgarebag IN ({$inPh})
+                OR EXISTS (
+                    SELECT 1 FROM lignes lgx
+                    WHERE lgx.ident_ligne = bg.lgidbagage
+                    AND lgx.gaexp_lg IN ({$inPh})
+                )
+            ) ";
+            $gareEsc = " AND (
+                bg.idgarebagesc IN ({$inPh})
+                OR EXISTS (
+                    SELECT 1
+                    FROM ligne_heure lhx
+                    JOIN lignes lgx ON lhx.ligne_id = lgx.ident_ligne
+                    WHERE lhx.id_ligneheure = bg.id_lgeheuresc
+                    AND lgx.gaexp_lg IN ({$inPh})
+                )
+            ) ";
+
+            $paramsBag = array($ekey, $du, $au);
+            foreach ($codes as $c) {
+                $paramsBag[] = $c;
+            }
+            foreach ($codes as $c) {
+                $paramsBag[] = $c;
+            }
+            $compSqlBag = '';
+            if ($comp !== '' && $comp !== '0') {
+                $compSqlBag = sprintf($compSql, 'b');
+                $paramsBag[] = $comp;
+            }
+
+            $paramsEsc = array($ekey, $du, $au);
+            foreach ($codes as $c) {
+                $paramsEsc[] = $c;
+            }
+            foreach ($codes as $c) {
+                $paramsEsc[] = $c;
+            }
+            $compSqlEsc = '';
+            if ($comp !== '' && $comp !== '0') {
+                $compSqlEsc = sprintf($compSql, 'e');
+                $paramsEsc[] = $comp;
+            }
+
             $sql = "
                 SELECT DISTINCT ar.roleattribut, u.first_name, u.last_name, {$label}
                 FROM bagages bg
@@ -1653,9 +1737,13 @@
                 JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
                 JOIN utilisateurs u ON cu.userlog_id = u.uid
                 JOIN entreprise e ON u.cle_comp = e.ekey
+                {$compJoinBag}
                 WHERE e.ekey = ?
                 AND bg.date_create >= ? AND bg.date_create < DATE_ADD(?, INTERVAL 1 DAY)
-                {$lieu}
+                AND bg.prix_bagage IS NOT NULL
+                AND IFNULL(bg.annulebag, 0) = 0
+                {$gareBag}
+                {$compSqlBag}
                 UNION
                 SELECT DISTINCT ar.roleattribut, u.first_name, u.last_name, {$label}
                 FROM bagagesesc bg
@@ -1664,11 +1752,16 @@
                 JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
                 JOIN utilisateurs u ON cu.userlog_id = u.uid
                 JOIN entreprise e ON u.cle_comp = e.ekey
+                {$compJoinEsc}
                 WHERE e.ekey = ?
-                AND bg.date_create >= ? AND bg.date_create < DATE_ADD(?, INTERVAL 1 DAY)
-                {$lieu}
+                AND bg.date_createesc >= ? AND bg.date_createesc < DATE_ADD(?, INTERVAL 1 DAY)
+                AND bg.prix_bagageesc IS NOT NULL
+                AND IFNULL(bg.annulebagesc, 0) = 0
+                {$gareEsc}
+                {$compSqlEsc}
                 ORDER BY username ASC
             ";
+            $params = array_merge($paramsBag, $paramsEsc);
             $rows = $this->db->query($sql, $params)->result();
             return is_array($rows) ? $rows : array();
         }
