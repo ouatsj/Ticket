@@ -8,7 +8,28 @@
         {
             parent::__construct();
         }
-        
+
+        /** Délègue au helper bagage (idgarebagesc + gaexp ligne). */
+        protected function _sql_gare_esc($gid)
+        {
+            if (!isset($this->m_bagage)) {
+                $this->load->model('Bagage_model', 'm_bagage');
+            }
+            return $this->m_bagage->sql_filtre_gare_facturation(
+                $gid,
+                'bg.idgarebagesc',
+                'lg.gaexp_lg'
+            );
+        }
+
+        protected function _sql_op_esc($us)
+        {
+            if (!isset($this->m_bagage)) {
+                $this->load->model('Bagage_model', 'm_bagage');
+            }
+            return $this->m_bagage->sql_filtre_operateur_bagage($us);
+        }
+
         public function create(array $data)
         {
             $this->db->insert($this->table, $data);
@@ -720,124 +741,76 @@
 
         public function reportbgcpt($cid, $gid, $dt1, $dt2, $cp, $algn = FALSE)
         {
-            
-            if ($algn === '') 
-            {
-                return $this->db->query(
-                    "SELECT COUNT(id_bagageesc) AS codid_bagageesc, SUM(prix_bagageesc) AS total, lg.nom_ligne, bg.prix_bagageesc FROM bagagesesc bg
-                        JOIN attributions_role ar ON bg.idoperabagageesc = ar.roleattribut
-                        JOIN user_login ul ON ar.idgestcompte = ul.uid_login
-                        JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
-                        JOIN client cl ON bg.clientbagesc = cl.id_client
-                        JOIN ligne_heure lh ON bg.id_lgeheuresc = lh.id_ligneheure
-                        JOIN heures h ON lh.heure_identif = h.id_heure
-                        JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
-                        JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
-                        JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
-                        JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
-                        JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                        WHERE e.ekey = '$cid'
-                        AND bg.date_createesc >= '$dt1' AND bg.date_createesc < DATE_ADD('$dt2', INTERVAL 1 DAY)
-                        AND dest.id_compaga = '$cp'
-                        AND ex.code_gaexp = '$gid'
-                        AND bg.couleurcarnetesc IN('A', 'C')
-                        AND bg.prix_bagageesc IS NOT NULL
-                        GROUP BY lg.nom_ligne, bg.prix_bagageesc")->result();
-            }
-                return $this->db->query(
-                    "SELECT COUNT(id_bagageesc) AS codid_bagageesc, SUM(prix_bagageesc) AS total, lg.nom_ligne, bg.prix_bagageesc FROM bagagesesc bg
-                        JOIN attributions_role ar ON bg.idoperabagageesc = ar.roleattribut
-                        JOIN user_login ul ON ar.idgestcompte = ul.uid_login
-                        JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
-                        JOIN client cl ON bg.clientbagesc = cl.id_client
-                        JOIN ligne_heure lh ON bg.id_lgeheuresc = lh.id_ligneheure
-                        JOIN heures h ON lh.heure_identif = h.id_heure
-                        JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
-                        JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
-                        JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
-                        JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
-                        JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                        WHERE e.ekey = '$cid'
-                        AND bg.date_createesc >= '$dt1' AND bg.date_createesc < DATE_ADD('$dt2', INTERVAL 1 DAY)
-                        AND dest.id_compaga = '$cp'
-                        AND ex.code_gaexp = '$gid'
-                        AND bg.couleurcarnetesc IN('A', 'C')
-                        AND bg.prix_bagageesc IS NOT NULL
-                        AND lg.ident_ligne = '$algn'
-                        GROUP BY lg.nom_ligne, bg.prix_bagageesc")->result();
+            $cid = $this->db->escape_str($cid);
+            $dt1 = $this->db->escape_str($dt1);
+            $dt2 = $this->db->escape_str($dt2);
+            $cp = $this->db->escape_str($cp);
+            $gareSql = $this->_sql_gare_esc($gid);
+            $algn = ($algn === FALSE || $algn === null) ? '' : trim((string) $algn);
+            $ligneSql = ($algn !== '')
+                ? " AND lg.ident_ligne = '" . $this->db->escape_str($algn) . "' "
+                : '';
+
+            return $this->db->query(
+                "SELECT COUNT(id_bagageesc) AS codid_bagageesc, SUM(prix_bagageesc) AS total, lg.nom_ligne, bg.prix_bagageesc
+                FROM bagagesesc bg
+                JOIN attributions_role ar ON bg.idoperabagageesc = ar.roleattribut
+                JOIN user_login ul ON ar.idgestcompte = ul.uid_login
+                JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
+                JOIN client cl ON bg.clientbagesc = cl.id_client
+                JOIN ligne_heure lh ON bg.id_lgeheuresc = lh.id_ligneheure
+                JOIN heures h ON lh.heure_identif = h.id_heure
+                JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
+                JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
+                JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
+                JOIN entreprise e ON c.id_entrep = e.id_entreprise
+                WHERE e.ekey = '{$cid}'
+                AND bg.date_createesc >= '{$dt1}' AND bg.date_createesc < DATE_ADD('{$dt2}', INTERVAL 1 DAY)
+                AND dest.id_compaga = '{$cp}'
+                AND bg.couleurcarnetesc IN('A', 'C')
+                AND bg.prix_bagageesc IS NOT NULL
+                {$gareSql}
+                {$ligneSql}
+                GROUP BY lg.nom_ligne, bg.prix_bagageesc"
+            )->result();
         }
 
         public function reportbgcptop($cid, $cp, $gid, $dt1, $dt2, $us, $algn = FALSE)
         {
-            if ($us === '' AND $algn === '') 
-            {
-                return $this->db->query(
-                    "SELECT COUNT(id_bagageesc) AS codid_bagageesc, SUM(prix_bagageesc) AS total, lg.nom_ligne, bg.prix_bagageesc FROM bagagesesc bg
-                        JOIN attributions_role ar ON bg.idoperabagageesc = ar.roleattribut
-                        JOIN user_login ul ON ar.idgestcompte = ul.uid_login
-                        JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
-                        JOIN client cl ON bg.clientbagesc = cl.id_client
-                        JOIN ligne_heure lh ON bg.id_lgeheuresc = lh.id_ligneheure
-                        JOIN heures h ON lh.heure_identif = h.id_heure
-                        JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
-                        JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
-                        JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
-                        JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
-                        JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                        WHERE e.ekey = '$cid'
-                        AND bg.date_createesc >= '$dt1' AND bg.date_createesc < DATE_ADD('$dt2', INTERVAL 1 DAY)
-                        AND dest.id_compaga = '$cp'
-                        AND ex.code_gaexp = '$gid'
-                        AND bg.couleurcarnetesc IN('A', 'C')
-                        AND bg.prix_bagageesc IS NOT NULL
-                        GROUP BY lg.nom_ligne, bg.prix_bagageesc")->result();
-            }
-            elseif ($algn === '') 
-            {
-                return $this->db->query(
-                    "SELECT COUNT(id_bagageesc) AS codid_bagageesc, SUM(prix_bagageesc) AS total, lg.nom_ligne, bg.prix_bagageesc FROM bagagesesc bg
-                        JOIN attributions_role ar ON bg.idoperabagageesc = ar.roleattribut
-                        JOIN user_login ul ON ar.idgestcompte = ul.uid_login
-                        JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
-                        JOIN client cl ON bg.clientbagesc = cl.id_client
-                        JOIN ligne_heure lh ON bg.id_lgeheuresc = lh.id_ligneheure
-                        JOIN heures h ON lh.heure_identif = h.id_heure
-                        JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
-                        JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
-                        JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
-                        JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
-                        JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                        WHERE e.ekey = '$cid'
-                        AND bg.date_createesc >= '$dt1' AND bg.date_createesc < DATE_ADD('$dt2', INTERVAL 1 DAY)
-                        AND dest.id_compaga = '$cp'
-                        AND ex.code_gaexp = '$gid'
-                        AND ar.roleattribut = '$us'
-                        AND bg.couleurcarnetesc IN('A', 'C')
-                        AND bg.prix_bagageesc IS NOT NULL
-                        GROUP BY lg.nom_ligne, bg.prix_bagageesc")->result();
-            }
-                return $this->db->query(
-                    "SELECT COUNT(id_bagageesc) AS codid_bagageesc, SUM(prix_bagageesc) AS total, lg.nom_ligne, bg.prix_bagageesc FROM bagagesesc bg
-                        JOIN attributions_role ar ON bg.idoperabagageesc = ar.roleattribut
-                        JOIN user_login ul ON ar.idgestcompte = ul.uid_login
-                        JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
-                        JOIN client cl ON bg.clientbagesc = cl.id_client
-                        JOIN ligne_heure lh ON bg.id_lgeheuresc = lh.id_ligneheure
-                        JOIN heures h ON lh.heure_identif = h.id_heure
-                        JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
-                        JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
-                        JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
-                        JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
-                        JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                        WHERE e.ekey = '$cid'
-                        AND bg.date_createesc >= '$dt1' AND bg.date_createesc < DATE_ADD('$dt2', INTERVAL 1 DAY)
-                        AND dest.id_compaga = '$cp'
-                        AND ex.code_gaexp = '$gid'
-                        AND ar.roleattribut = '$us'
-                        AND bg.couleurcarnetesc IN('A', 'C')
-                        AND bg.prix_bagageesc IS NOT NULL
-                        AND lg.ident_ligne = '$algn'
-                        GROUP BY lg.nom_ligne, bg.prix_bagageesc")->result();
+            $cid = $this->db->escape_str($cid);
+            $dt1 = $this->db->escape_str($dt1);
+            $dt2 = $this->db->escape_str($dt2);
+            $cp = $this->db->escape_str($cp);
+            $gareSql = $this->_sql_gare_esc($gid);
+            $opSql = $this->_sql_op_esc($us);
+            $algn = ($algn === FALSE || $algn === null) ? '' : trim((string) $algn);
+            $ligneSql = ($algn !== '')
+                ? " AND lg.ident_ligne = '" . $this->db->escape_str($algn) . "' "
+                : '';
+
+            return $this->db->query(
+                "SELECT COUNT(id_bagageesc) AS codid_bagageesc, SUM(prix_bagageesc) AS total, lg.nom_ligne, bg.prix_bagageesc
+                FROM bagagesesc bg
+                JOIN attributions_role ar ON bg.idoperabagageesc = ar.roleattribut
+                JOIN user_login ul ON ar.idgestcompte = ul.uid_login
+                JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
+                JOIN client cl ON bg.clientbagesc = cl.id_client
+                JOIN ligne_heure lh ON bg.id_lgeheuresc = lh.id_ligneheure
+                JOIN heures h ON lh.heure_identif = h.id_heure
+                JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
+                JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
+                JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
+                JOIN entreprise e ON c.id_entrep = e.id_entreprise
+                WHERE e.ekey = '{$cid}'
+                AND bg.date_createesc >= '{$dt1}' AND bg.date_createesc < DATE_ADD('{$dt2}', INTERVAL 1 DAY)
+                AND dest.id_compaga = '{$cp}'
+                AND bg.couleurcarnetesc IN('A', 'C')
+                AND bg.prix_bagageesc IS NOT NULL
+                {$gareSql}
+                {$opSql}
+                {$ligneSql}
+                GROUP BY lg.nom_ligne, bg.prix_bagageesc"
+            )->result();
         }
 
         public function reportbag($cid, $cp, $gid, $dt1, $dt2, $algn = FALSE)
@@ -847,183 +820,104 @@
             $dt2 = $this->db->escape_str($dt2);
             $cp = $this->db->escape_str($cp);
             $gidNorm = ($gid === FALSE || $gid === null) ? '' : trim((string) $gid);
-            $gareSql = '';
-            if ($gidNorm !== '' && $gidNorm !== '0') {
-                $gareSql = " AND ex.code_gaexp = '" . $this->db->escape_str($gidNorm) . "'";
-            }
+            $gareSql = ($gidNorm !== '' && $gidNorm !== '0') ? $this->_sql_gare_esc($gidNorm) : '';
             $algn = ($algn === FALSE || $algn === null) ? '' : trim((string) $algn);
-            $ligneSql = '';
-            if ($algn !== '') {
-                $ligneSql = " AND lg.ident_ligne = '" . $this->db->escape_str($algn) . "'";
-            }
+            $ligneSql = ($algn !== '')
+                ? " AND lg.ident_ligne = '" . $this->db->escape_str($algn) . "' "
+                : '';
 
             return $this->db->query(
-                "SELECT COUNT(id_bagageesc) AS codid_bagageesc, SUM(prix_bagageesc) AS total, lg.nom_ligne, dest.id_compaga, bg.prix_bagageesc FROM bagagesesc bg
-                        JOIN attributions_role ar ON bg.idoperabagageesc = ar.roleattribut
-                        JOIN user_login ul ON ar.idgestcompte = ul.uid_login
-                        JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
-                        JOIN client cl ON bg.clientbagesc = cl.id_client
-                        JOIN ligne_heure lh ON bg.id_lgeheuresc = lh.id_ligneheure
-                        JOIN heures h ON lh.heure_identif = h.id_heure
-                        JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
-                        JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
-                        JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
-                        JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
-                        JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                        WHERE e.ekey = '{$cid}'
-                        AND bg.date_createesc >= '{$dt1}' AND bg.date_createesc < DATE_ADD('{$dt2}', INTERVAL 1 DAY)
-                        AND dest.id_compaga = '{$cp}'
-                        AND bg.prix_bagageesc IS NOT NULL
-                        {$gareSql}
-                        {$ligneSql}
-                        GROUP BY lg.nom_ligne, dest.id_compaga, bg.prix_bagageesc")->result();
+                "SELECT COUNT(id_bagageesc) AS codid_bagageesc, SUM(prix_bagageesc) AS total, lg.nom_ligne, dest.id_compaga, bg.prix_bagageesc
+                FROM bagagesesc bg
+                JOIN attributions_role ar ON bg.idoperabagageesc = ar.roleattribut
+                JOIN user_login ul ON ar.idgestcompte = ul.uid_login
+                JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
+                JOIN client cl ON bg.clientbagesc = cl.id_client
+                JOIN ligne_heure lh ON bg.id_lgeheuresc = lh.id_ligneheure
+                JOIN heures h ON lh.heure_identif = h.id_heure
+                JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
+                JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
+                JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
+                JOIN entreprise e ON c.id_entrep = e.id_entreprise
+                WHERE e.ekey = '{$cid}'
+                AND bg.date_createesc >= '{$dt1}' AND bg.date_createesc < DATE_ADD('{$dt2}', INTERVAL 1 DAY)
+                AND dest.id_compaga = '{$cp}'
+                AND bg.prix_bagageesc IS NOT NULL
+                {$gareSql}
+                {$ligneSql}
+                GROUP BY lg.nom_ligne, dest.id_compaga, bg.prix_bagageesc"
+            )->result();
         }
 
         public function reportbaggl($cid, $cp, $gid, $dt1, $dt2, $us, $algn = FALSE)
         {
-            
-            if ($us === '' AND $algn === '') 
-            {
-                return $this->db->query(
-                    "SELECT COUNT(id_bagageesc) AS codid_bagageesc, SUM(prix_bagageesc) AS total, lg.nom_ligne, bg.prix_bagageesc FROM bagagesesc bg
-                        JOIN attributions_role ar ON bg.idoperabagageesc = ar.roleattribut
-                        JOIN user_login ul ON ar.idgestcompte = ul.uid_login
-                        JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
-                        JOIN client cl ON bg.clientbagesc = cl.id_client
-                        JOIN ligne_heure lh ON bg.id_lgeheuresc = lh.id_ligneheure
-                        JOIN heures h ON lh.heure_identif = h.id_heure
-                        JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
-                        JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
-                        JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
-                        JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
-                        JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                        WHERE e.ekey = '$cid'
-                        AND bg.date_createesc >= '$dt1' AND bg.date_createesc < DATE_ADD('$dt2', INTERVAL 1 DAY)
-                        AND dest.id_compaga = '$cp'
-                        AND ex.code_gaexp = '$gid'
-                        AND bg.couleurcarnetesc IN('A', 'C')
-                        AND bg.prix_bagageesc IS NOT NULL
-                        GROUP BY lg.nom_ligne, bg.prix_bagageesc")->result();
-            }
-            elseif ($algn === '') 
-            {
-                return $this->db->query(
-                    "SELECT COUNT(id_bagageesc) AS codid_bagageesc, SUM(prix_bagageesc) AS total, lg.nom_ligne, dest.id_compaga, bg.prix_bagageesc FROM bagagesesc bg
-                        JOIN attributions_role ar ON bg.idoperabagageesc = ar.roleattribut
-                        JOIN user_login ul ON ar.idgestcompte = ul.uid_login
-                        JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
-                        JOIN client cl ON bg.clientbagesc = cl.id_client
-                        JOIN ligne_heure lh ON bg.id_lgeheuresc = lh.id_ligneheure
-                        JOIN heures h ON lh.heure_identif = h.id_heure
-                        JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
-                        JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
-                        JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
-                        JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
-                        JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                        WHERE e.ekey = '$cid'
-                        AND bg.date_createesc >= '$dt1' AND bg.date_createesc < DATE_ADD('$dt2', INTERVAL 1 DAY)
-                        AND dest.id_compaga = '$cp'
-                        AND ex.code_gaexp = '$gid'
-                        AND ar.roleattribut = '$us'
-                        AND bg.prix_bagageesc IS NOT NULL
-                        GROUP BY lg.nom_ligne, dest.id_compaga, bg.prix_bagageesc")->result();
-            }
-                return $this->db->query(
-                    "SELECT COUNT(id_bagageesc) AS codid_bagageesc, SUM(prix_bagageesc) AS total, lg.nom_ligne, dest.id_compaga, bg.prix_bagageesc FROM bagagesesc bg
-                        JOIN attributions_role ar ON bg.idoperabagageesc = ar.roleattribut
-                        JOIN user_login ul ON ar.idgestcompte = ul.uid_login
-                        JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
-                        JOIN client cl ON bg.clientbagesc = cl.id_client
-                        JOIN ligne_heure lh ON bg.id_lgeheuresc = lh.id_ligneheure
-                        JOIN heures h ON lh.heure_identif = h.id_heure
-                        JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
-                        JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
-                        JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
-                        JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
-                        JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                        WHERE e.ekey = '$cid'
-                        AND bg.date_createesc >= '$dt1' AND bg.date_createesc < DATE_ADD('$dt2', INTERVAL 1 DAY)
-                        AND dest.id_compaga = '$cp'
-                        AND ex.code_gaexp = '$gid'
-                        AND ar.roleattribut = '$us'
-                        AND lg.ident_ligne = '$algn'
-                        AND bg.prix_bagageesc IS NOT NULL
-                        GROUP BY lg.nom_ligne, dest.id_compaga, bg.prix_bagageesc")->result();
+            $cid = $this->db->escape_str($cid);
+            $dt1 = $this->db->escape_str($dt1);
+            $dt2 = $this->db->escape_str($dt2);
+            $cp = $this->db->escape_str($cp);
+            $gareSql = $this->_sql_gare_esc($gid);
+            $opSql = $this->_sql_op_esc($us);
+            $algn = ($algn === FALSE || $algn === null) ? '' : trim((string) $algn);
+            $ligneSql = ($algn !== '')
+                ? " AND lg.ident_ligne = '" . $this->db->escape_str($algn) . "' "
+                : '';
+
+            return $this->db->query(
+                "SELECT COUNT(id_bagageesc) AS codid_bagageesc, SUM(prix_bagageesc) AS total, lg.nom_ligne, dest.id_compaga, bg.prix_bagageesc
+                FROM bagagesesc bg
+                JOIN attributions_role ar ON bg.idoperabagageesc = ar.roleattribut
+                JOIN user_login ul ON ar.idgestcompte = ul.uid_login
+                JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
+                JOIN client cl ON bg.clientbagesc = cl.id_client
+                JOIN ligne_heure lh ON bg.id_lgeheuresc = lh.id_ligneheure
+                JOIN heures h ON lh.heure_identif = h.id_heure
+                JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
+                JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
+                JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
+                JOIN entreprise e ON c.id_entrep = e.id_entreprise
+                WHERE e.ekey = '{$cid}'
+                AND bg.date_createesc >= '{$dt1}' AND bg.date_createesc < DATE_ADD('{$dt2}', INTERVAL 1 DAY)
+                AND dest.id_compaga = '{$cp}'
+                AND bg.prix_bagageesc IS NOT NULL
+                {$gareSql}
+                {$opSql}
+                {$ligneSql}
+                GROUP BY lg.nom_ligne, dest.id_compaga, bg.prix_bagageesc"
+            )->result();
         }
 
         public function listereportverscptglexo($cid, $cp, $dt1, $dt2, $gid = FALSE, $acl = FALSE)
         {
-            
-            if ($gid === '' AND $acl === '') {
-                return $this->db->query(
-                "SELECT COUNT(id_bagageesc) AS codid_bagageesc, SUM(prix_bagageesc) AS total, dest.id_compaga, bg.date_createesc FROM bagagesesc bg
-                    JOIN attributions_role ar ON bg.idoperabagageesc = ar.roleattribut
-                    JOIN user_login ul ON ar.idgestcompte = ul.uid_login
-                    JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
-                    JOIN gares g ON ul.guser = g.idengare
-                    JOIN utilisateurs u ON cu.userlog_id = u.uid
-                    JOIN client cl ON bg.clientbagesc = cl.id_client
-                    JOIN ligne_heure lh ON bg.id_lgeheuresc = lh.id_ligneheure
-                    JOIN heures h ON lh.heure_identif = h.id_heure
-                    JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
-                    JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
-                    JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
-                    JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
-                    JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                    WHERE e.ekey = '$cid'
-                    AND bg.date_createesc >= '$dt1' AND date_createesc < DATE_ADD('$dt2', INTERVAL 1 DAY)
-                    AND bg.couleurcarnetesc IN('A', 'C')
-                    AND dest.id_compaga = '$cp'
-                    AND bg.prix_bagageesc IS NOT NULL
-                    GROUP BY dest.id_compaga, bg.date_createesc")->result();
-            }
-            elseif($acl === '')
-            {
-                return $this->db->query("SELECT COUNT(id_bagageesc) AS codid_bagageesc, SUM(prix_bagageesc) AS total, dest.id_compaga, bg.date_createesc FROM bagagesesc bg
-                    JOIN attributions_role ar ON bg.idoperabagageesc = ar.roleattribut
-                    JOIN user_login ul ON ar.idgestcompte = ul.uid_login
-                    JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
-                    JOIN gares g ON ul.guser = g.idengare
-                    JOIN utilisateurs u ON cu.userlog_id = u.uid
-                    JOIN client cl ON bg.clientbagesc = cl.id_client
-                    JOIN ligne_heure lh ON bg.id_lgeheuresc = lh.id_ligneheure
-                    JOIN heures h ON lh.heure_identif = h.id_heure
-                    JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
-                    JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
-                    JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
-                    JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
-                    JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                    WHERE e.ekey = '$cid'
-                    AND bg.date_createesc >= '$dt1' AND date_createesc < DATE_ADD('$dt2', INTERVAL 1 DAY)
-                    AND bg.couleurcarnetesc IN('A', 'C')
-                    AND dest.id_compaga = '$cp'
-                    AND bg.prix_bagageesc IS NOT NULL
-                    AND ex.code_gaexp = '$gid'
-                    GROUP BY dest.id_compaga, bg.date_createesc")->result();
-            }
-                return $this->db->query(
-                    "SELECT COUNT(id_bagageesc) AS codid_bagageesc, SUM(prix_bagageesc) AS total, dest.id_compaga, bg.date_createesc FROM bagagesesc bg
-                    JOIN attributions_role ar ON bg.idoperabagageesc = ar.roleattribut
-                    JOIN user_login ul ON ar.idgestcompte = ul.uid_login
-                    JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
-                    JOIN gares g ON ul.guser = g.idengare
-                    JOIN utilisateurs u ON cu.userlog_id = u.uid
-                    JOIN client cl ON bg.clientbagesc = cl.id_client
-                    JOIN ligne_heure lh ON bg.id_lgeheuresc = lh.id_ligneheure
-                    JOIN heures h ON lh.heure_identif = h.id_heure
-                    JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
-                    JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
-                    JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
-                    JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
-                    JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                    WHERE e.ekey = '$cid'
-                    AND bg.date_createesc >= '$dt1' AND date_createesc < DATE_ADD('$dt2', INTERVAL 1 DAY)
-                    AND bg.couleurcarnetesc IN('A', 'C')
-                    AND dest.id_compaga = '$cp'
-                    AND bg.prix_bagageesc IS NOT NULL
-                    AND ex.code_gaexp = '$gid'
-                    AND ar.roleattribut = '$acl'
-                    GROUP BY dest.id_compaga, bg.date_createesc")->result();
+            $cid = $this->db->escape_str($cid);
+            $dt1 = $this->db->escape_str($dt1);
+            $dt2 = $this->db->escape_str($dt2);
+            $cp = $this->db->escape_str($cp);
+            $gidNorm = ($gid === FALSE || $gid === null) ? '' : trim((string) $gid);
+            $gareSql = ($gidNorm !== '' && $gidNorm !== '0') ? $this->_sql_gare_esc($gidNorm) : '';
+            $opSql = $this->_sql_op_esc($acl);
+
+            return $this->db->query(
+                "SELECT COUNT(id_bagageesc) AS codid_bagageesc, SUM(prix_bagageesc) AS total, dest.id_compaga, bg.date_createesc
+                FROM bagagesesc bg
+                JOIN attributions_role ar ON bg.idoperabagageesc = ar.roleattribut
+                JOIN user_login ul ON ar.idgestcompte = ul.uid_login
+                JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
+                JOIN client cl ON bg.clientbagesc = cl.id_client
+                JOIN ligne_heure lh ON bg.id_lgeheuresc = lh.id_ligneheure
+                JOIN heures h ON lh.heure_identif = h.id_heure
+                JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
+                JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
+                JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
+                JOIN entreprise e ON c.id_entrep = e.id_entreprise
+                WHERE e.ekey = '{$cid}'
+                AND bg.date_createesc >= '{$dt1}' AND bg.date_createesc < DATE_ADD('{$dt2}', INTERVAL 1 DAY)
+                AND bg.couleurcarnetesc IN('A', 'C')
+                AND dest.id_compaga = '{$cp}'
+                AND bg.prix_bagageesc IS NOT NULL
+                {$gareSql}
+                {$opSql}
+                GROUP BY dest.id_compaga, bg.date_createesc"
+            )->result();
         }
 
         public function recaptexobgescheb($cid, $dt1, $dt2, $gd, $cp, $algn = FALSE)

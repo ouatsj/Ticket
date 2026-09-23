@@ -1469,13 +1469,25 @@
                 $clean = array();
                 foreach ($us as $v) {
                     $v = trim((string) $v);
+                    $slashPos = strpos($v, '/');
+                    if ($slashPos !== false) {
+                        $v = trim(substr($v, 0, $slashPos));
+                    }
                     if ($v !== '' && $v !== '0') {
                         $clean[] = $v;
                     }
                 }
                 return empty($clean) ? FALSE : array_values(array_unique($clean));
             }
-            return trim((string) $us);
+            $v = trim((string) $us);
+            $slashPos = strpos($v, '/');
+            if ($slashPos !== false) {
+                $v = trim(substr($v, 0, $slashPos));
+            }
+            if ($v === '' || $v === '0') {
+                return FALSE;
+            }
+            return $v;
         }
 
         /**
