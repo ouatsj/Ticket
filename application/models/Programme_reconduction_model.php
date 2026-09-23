@@ -1155,8 +1155,8 @@ class Programme_reconduction_model extends CI_Model
 
         $this->db->trans_begin();
 
-        // depart_code unique = stock sièges indépendant du principal du même créneau.
-        $pc = $this->m_programme->depart_code_depuis_code_progr($gareStore, $pcd);
+        // N° BUS aléatoire unique (01–99) pour date + gare — ne touche pas les départs existants.
+        $pc = $this->m_programme->depart_code_avec_nbus($gareStore, $dateProg);
         if (trim((string) $pc) === '') {
             $this->db->trans_rollback();
             return array('ok' => false, 'error' => 'depart_code_manquant');

@@ -284,28 +284,120 @@
         }
 
         /**
-         * depart_code aligné sur le suffixe numérique de code_progr (jour+gare+n).
+         * N° BUS déjà utilisés pour une gare + date de départ (01–99).
+         * Lit les programmes existants sans les modifier.
          *
          * @param string $gareidentif
-         * @param string $code_progr
+         * @param string $date_progr Y-m-d
+         * @return array<int,true> clés = 1..99 déjà pris
+         */
+        public function nbus_utilises_date_gare($gareidentif, $date_progr)
+        {
+            $gd = trim((string) $gareidentif);
+            $date = trim((string) $date_progr);
+            $used = array();
+            if ($gd === '' || $date === '') {
+                return $used;
+            }
+            if (!function_exists('ticket_nbus_from_depart_code')) {
+                $this->load->helper('ticket_prix');
+            }
+            $rows = $this->db->query(
+                "SELECT depart_code, gareidentif FROM programme
+                 WHERE date_progr = ?
+                   AND gareidentif = ?
+                   AND depart_code IS NOT NULL
+                   AND depart_code <> ''",
+                array($date, $gd)
+            )->result();
+            foreach ($rows as $r) {
+                $raw = ticket_nbus_from_depart_code(
+                    isset($r->depart_code) ? $r->depart_code : '',
+                    isset($r->gareidentif) ? $r->gareidentif : $gd
+                );
+                if ($raw === '' || !ctype_digit((string) $raw)) {
+                    continue;
+                }
+                $n = (int) $raw;
+                if ($n >= 1 && $n <= 99) {
+                    $used[$n] = true;
+                }
+            }
+            return $used;
+        }
+
+        /**
+         * Tirage aléatoire unique 01–99 pour date_progr + gare (nouveaux départs uniquement).
+         *
+         * @param string $gareidentif
+         * @param string $date_progr
+         * @return string deux chiffres (ex. "07")
+         */
+        public function nouveau_nbus_aleatoire($gareidentif, $date_progr)
+        {
+            $used = $this->nbus_utilises_date_gare($gareidentif, $date_progr);
+            $free = array();
+            for ($i = 1; $i <= 99; $i++) {
+                if (!isset($used[$i])) {
+                    $free[] = $i;
+                }
+            }
+            if (empty($free)) {
+                return sprintf('%02d', mt_rand(1, 99));
+            }
+            return sprintf('%02d', $free[mt_rand(0, count($free) - 1)]);
+        }
+
+        /**
+         * depart_code = JJ + gare + N° BUS (2 chiffres aléatoires uniques jour+gare).
+         * Ne recalcule jamais un départ déjà stocké : réservé aux créations.
+         *
+         * @param string      $gareidentif
+         * @param string      $date_progr
+         * @param string|null $nbus        optionnel (sinon tirage)
          * @return string
          */
-        public function depart_code_depuis_code_progr($gareidentif, $code_progr)
+        public function depart_code_avec_nbus($gareidentif, $date_progr, $nbus = null)
         {
             $gd = trim((string) $gareidentif);
             $gd4 = ($gd === 'OUA12') ? 'WUA12' : $gd;
-            $prefix = mdate('%y%m%d', now('UTC')) . $gd4;
-            $code = trim((string) $code_progr);
-            $suffix = (strpos($code, $prefix) === 0) ? substr($code, strlen($prefix)) : preg_replace('/\D+/', '', $code);
-            if ($suffix === '' || $suffix === null) {
-                $suffix = (string) time();
+            $date = trim((string) $date_progr);
+            $ts = ($date !== '') ? strtotime($date) : false;
+            $day = ($ts !== false) ? date('d', $ts) : mdate('%d', now('UTC'));
+            if ($nbus === null || $nbus === '') {
+                $nbus = $this->nouveau_nbus_aleatoire($gd, $date);
             }
-            return mdate('%d', now('UTC')) . $gd4 . $suffix;
+            $n = (int) $nbus;
+            if ($n < 1 || $n > 99) {
+                $nbus = $this->nouveau_nbus_aleatoire($gd, $date);
+            } else {
+                $nbus = sprintf('%02d', $n);
+            }
+            return $day . $gd4 . $nbus;
+        }
+
+        /**
+         * @deprecated Préférer depart_code_avec_nbus (aléatoire unique date+gare).
+         * Conservé pour compat : délègue au nouveau schéma si date connue via code_progr jour.
+         *
+         * @param string $gareidentif
+         * @param string $code_progr
+         * @param string $date_progr optionnel Y-m-d
+         * @return string
+         */
+        public function depart_code_depuis_code_progr($gareidentif, $code_progr, $date_progr = '')
+        {
+            $date = trim((string) $date_progr);
+            if ($date === '') {
+                $date = mdate('%Y-%m-%d', now('UTC'));
+            }
+            return $this->depart_code_avec_nbus($gareidentif, $date);
         }
 
         /**
          * INSERT programme avec codes uniques + vérification affected_rows.
          * Réessaie sur collision PK. Ne s'appuie pas sur insert_id() (PK string).
+         * Si depart_code est fourni (correspondance / rattachement), il est conservé tel quel.
          *
          * @param array $data champs programme (code_progr / depart_code optionnels)
          * @param int   $maxAttempts
@@ -331,14 +423,24 @@
                 $data['createdpg_at'] = now('UTC');
             }
 
+            $departFourni = !empty($data['depart_code']);
+            $departConserve = $departFourni ? trim((string) $data['depart_code']) : '';
+            $datePr = isset($data['date_progr']) ? trim((string) $data['date_progr']) : '';
+            if ($datePr === '') {
+                $datePr = mdate('%Y-%m-%d', now('UTC'));
+            }
+
             $maxAttempts = max(1, (int) $maxAttempts);
             for ($attempt = 0; $attempt < $maxAttempts; $attempt++) {
                 $needCode = empty($data['code_progr']);
                 if ($needCode || $attempt > 0) {
                     $data['code_progr'] = $this->nouveau_code_progr($gd);
                 }
-                if (empty($data['depart_code']) || $attempt > 0) {
-                    $data['depart_code'] = $this->depart_code_depuis_code_progr($gd, $data['code_progr']);
+                if ($departFourni) {
+                    // Correspondance / rattachement : ne jamais réattribuer le N° BUS.
+                    $data['depart_code'] = $departConserve;
+                } elseif (empty($data['depart_code']) || $attempt > 0) {
+                    $data['depart_code'] = $this->depart_code_avec_nbus($gd, $datePr);
                 }
 
                 $inserted = $this->db->insert($this->table, $data);
@@ -365,8 +467,11 @@
                 if (!$isDup && $attempt === 0) {
                     return array('ok' => false, 'error' => 'echec_creation_programme');
                 }
-                // Collision → régénérer codes au tour suivant.
-                unset($data['code_progr'], $data['depart_code']);
+                // Collision PK → nouveau code_progr ; N° BUS fourni inchangé, sinon nouveau tirage.
+                unset($data['code_progr']);
+                if (!$departFourni) {
+                    unset($data['depart_code']);
+                }
             }
 
             return array('ok' => false, 'error' => 'echec_creation_programme');
