@@ -230,7 +230,7 @@
                     JOIN gares g ON ge.garesid = g.idengare
                     JOIN ville v ON ga.id_villega = v.id_ville
                     JOIN compagnies c ON ge.id_compagd = c.cle_compagnie
-                    JOIN compagnies ca ON ga.id_compaga = ca.cle_compagnie
+                    LEFT JOIN compagnies ca ON ga.id_compaga = ca.cle_compagnie
                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
                     WHERE e.id_entreprise = '$cid'
                     AND g.idengare = '$gid'
@@ -250,7 +250,7 @@
                     JOIN gares g ON ge.garesid = g.idengare
                     JOIN ville v ON ga.id_villega = v.id_ville
                     JOIN compagnies c ON ge.id_compagd = c.cle_compagnie
-                    JOIN compagnies ca ON ga.id_compaga = ca.cle_compagnie
+                    LEFT JOIN compagnies ca ON ga.id_compaga = ca.cle_compagnie
                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
                     WHERE e.id_entreprise = '$cid'
                     AND g.idengare = '$gid'

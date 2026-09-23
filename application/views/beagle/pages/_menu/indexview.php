@@ -76,7 +76,7 @@
             $first_key = reset($group_keys);
         ?>
 
-            <div class="card card-table">
+            <div class="card card-table" id="card-statut-heure-compagnies">
                 <div class="card-header">
                     <div class="row align-items-center mb-2">
                         <div class="col-md-6">
@@ -128,8 +128,16 @@
                                     </tr>
                                     </thead>
                                     <tbody>
-                                    <? foreach ($groupe['statuts'] as $item): ?>
-                                        <tr>
+                                    <? foreach ($groupe['statuts'] as $item):
+                                        $searchTxt = trim(
+                                            (isset($item->nom_gadest) ? (string) $item->nom_gadest : '')
+                                            . ' '
+                                            . (isset($item->heure) ? (string) $item->heure : '')
+                                            . ' '
+                                            . (isset($item->typestatutgare) ? (string) $item->typestatutgare : '')
+                                        );
+                                    ?>
+                                        <tr data-search="<?= htmlspecialchars($searchTxt, ENT_QUOTES, 'UTF-8'); ?>">
                                             <td><?= $item->nom_gadest; ?></td>
                                             <td><?= $item->heure; ?></td>
                                             <td><?= $item->typestatutgare; ?></td>
@@ -205,15 +213,28 @@
             <script>
             (function () {
                 var input = document.getElementById('filtre-statut-heure');
-                if (!input) { return; }
+                var card = document.getElementById('card-statut-heure-compagnies');
+                if (!input || !card) { return; }
+
+                function norm(s) {
+                    s = String(s || '').toLowerCase();
+                    try {
+                        return s.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+                    } catch (e) {
+                        return s;
+                    }
+                }
+
                 function filterActivePane() {
-                    var q = (input.value || '').toLowerCase().trim();
-                    var pane = document.querySelector('.tab-content > .tab-pane.active');
+                    var q = norm(input.value).trim();
+                    var pane = card.querySelector('.tab-content > .tab-pane.active.show')
+                        || card.querySelector('.tab-content > .tab-pane.active');
                     if (!pane) { return; }
-                    var rows = pane.querySelectorAll('tbody tr');
+                    var rows = pane.querySelectorAll('tbody > tr[data-search]');
                     var visible = 0;
                     for (var i = 0; i < rows.length; i++) {
-                        var show = !q || (rows[i].textContent || '').toLowerCase().indexOf(q) !== -1;
+                        var hay = norm(rows[i].getAttribute('data-search') || '');
+                        var show = !q || hay.indexOf(q) !== -1;
                         rows[i].style.display = show ? '' : 'none';
                         if (show) { visible++; }
                     }
@@ -222,9 +243,13 @@
                         emptyMsg.classList.toggle('d-none', !(q && visible === 0));
                     }
                 }
+
                 input.addEventListener('input', filterActivePane);
-                var tabLinks = document.querySelectorAll('#tabs-statut-compagnie a[data-toggle="tab"]');
+                input.addEventListener('keyup', filterActivePane);
+                input.addEventListener('search', filterActivePane);
+                var tabLinks = card.querySelectorAll('#tabs-statut-compagnie a[data-toggle="tab"]');
                 for (var t = 0; t < tabLinks.length; t++) {
+                    tabLinks[t].addEventListener('shown.bs.tab', filterActivePane);
                     if (window.jQuery) {
                         window.jQuery(tabLinks[t]).on('shown.bs.tab', filterActivePane);
                     }

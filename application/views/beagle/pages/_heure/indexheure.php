@@ -11,6 +11,21 @@
     </div>
 </div>
 
+<?php
+$lignes_par_cie = !empty($lignes_par_compagnie_arrivee) ? $lignes_par_compagnie_arrivee : array();
+if (empty($lignes_par_cie) && !empty($lignes) && isset($this->m_lignes)) {
+    $lignes_par_cie = $this->m_lignes->group_by_compagnie_arrivee($lignes);
+}
+$flashOk = $this->session->flashdata('ligneheure_success');
+$flashErr = $this->session->flashdata('ligneheure_error');
+?>
+<?php if ($flashOk): ?>
+    <div class="alert alert-success mx-4"><?= htmlspecialchars((string) $flashOk, ENT_QUOTES, 'UTF-8'); ?></div>
+<?php endif; ?>
+<?php if ($flashErr): ?>
+    <div class="alert alert-danger mx-4"><?= htmlspecialchars((string) $flashErr, ENT_QUOTES, 'UTF-8'); ?></div>
+<?php endif; ?>
+
 <div class="modal-container colored-header colored-header-success custom-width modal-effect-7"
      id="add-ligneheure" style="perspective: 1300px;">
     <div class="modal-content">
@@ -21,22 +36,41 @@
                 <span class="mdi mdi-close text-white"></span>
             </button>
         </div>
-        <?= form_open("Ligneheure/add/{$this->session->company->ekey}", array('class' => 'modal-body form')); ?>
+        <?= form_open("Ligneheure/add/{$this->session->company->ekey}", array('class' => 'modal-body form', 'id' => 'form-add-ligneheure')); ?>
             <input class="form-control form-control-sm" type="hidden" name="gareconnect" value="<?=$gare_stop->idengare;?>">
             <input class="form-control form-control-sm" type="hidden" name="sousgareconnect" value="<?=$gare_stop->idsousgare;?>">
             <input class="form-control form-control-sm" type="hidden" name="compconnected" value="<?=$conex->cpuser_id;?>">
             <input class="form-control form-control-sm" type="hidden" name="userconnected" value="<?=$conex->roleattribut;?>">
 
+            <p class="text-muted small mb-3">
+                Comme pour le statut heure : la <strong>compagnie d’arrivée</strong> détermine l’onglet
+                où la ligne/heure apparaîtra (via la gare d’arrivée de la ligne).
+            </p>
+
             <div class="row">
+                <div class="form-group col-sm-12">
+                    <label for="filter-cie-ligneheure">COMPAGNIE D’ARRIVÉE</label>
+                    <select class="form-control form-control-sm" id="filter-cie-ligneheure">
+                        <option value="">Toutes les compagnies</option>
+                        <?php foreach ($lignes_par_cie as $cle => $groupe):
+                            $comp_label = !empty($groupe['nom_compagnie']) ? $groupe['nom_compagnie'] : 'Sans compagnie';
+                            ?>
+                            <option value="<?= htmlspecialchars((string) $cle, ENT_QUOTES, 'UTF-8'); ?>">
+                                <?= htmlspecialchars($comp_label, ENT_QUOTES, 'UTF-8'); ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
                 <div class="form-group col-sm-6">
                     <label>LIGNE</label>
-                    <select class="form-control form-control-sm" name="itineraire" required>
+                    <select class="form-control form-control-sm js-ligne-cie-lh" name="itineraire" id="itineraire-add-lh" required>
                         <option value=""></option>
-                        <? foreach ($lignes as $ligne): ?>
-                            <option value="<?= $ligne->ident_ligne; ?>">
-                                <?= "{$ligne->nom_ligne}"; ?>
-                            </option>
-                        <? endforeach; ?>
+                        <?php
+                        $this->load->view('beagle/pages/_ligne/_options_ligne_compagnie_arrivee', array(
+                            'lignes_par_compagnie_arrivee' => $lignes_par_cie,
+                            'lignes' => !empty($lignes) ? $lignes : array(),
+                        ));
+                        ?>
                     </select>
                 </div>
                 <div class="form-group col-sm-6">
@@ -63,6 +97,31 @@
         <?= form_close(); ?>
     </div>
 </div>
+<script>
+(function () {
+    var filterCie = document.getElementById('filter-cie-ligneheure');
+    var ligneSel = document.getElementById('itineraire-add-lh');
+    if (!filterCie || !ligneSel) { return; }
+    function applyCieFilter() {
+        var cie = filterCie.value || '';
+        var groups = ligneSel.querySelectorAll('optgroup');
+        for (var i = 0; i < groups.length; i++) {
+            var og = groups[i];
+            var gCie = og.getAttribute('data-compagnie') || '';
+            var show = (cie === '' || gCie === cie);
+            og.style.display = show ? '' : 'none';
+            var opts = og.querySelectorAll('option');
+            for (var j = 0; j < opts.length; j++) {
+                opts[j].disabled = !show;
+                if (!show && opts[j].selected) {
+                    ligneSel.value = '';
+                }
+            }
+        }
+    }
+    filterCie.addEventListener('change', applyCieFilter);
+})();
+</script>
 
 <div class="row">
     <div class="col-lg-12">
@@ -74,7 +133,7 @@
             $first_key = reset($group_keys);
         ?>
 
-            <div class="card card-table">
+            <div class="card card-table" id="card-ligneheure-compagnies">
                 <div class="card-header">
                     <div class="row align-items-center mb-2">
                         <div class="col-md-6">
@@ -139,8 +198,14 @@
                                     </tr>
                                     </thead>
                                     <tbody>
-                                    <? foreach ($groupe['heureslignes'] as $item): ?>
-                                        <tr>
+                                    <? foreach ($groupe['heureslignes'] as $item):
+                                        $searchTxt = trim(
+                                            (isset($item->nom_ligne) ? (string) $item->nom_ligne : '')
+                                            . ' '
+                                            . (isset($item->heure) ? (string) $item->heure : '')
+                                        );
+                                    ?>
+                                        <tr data-search="<?= htmlspecialchars($searchTxt, ENT_QUOTES, 'UTF-8'); ?>">
                                             <td><?= $item->nom_ligne; ?></td>
                                             <td><?= $item->heure; ?></td>
                                             <td class="actions">
@@ -176,11 +241,13 @@
                                                                 <label>LIGNE</label>
                                                                     <select class="form-control form-control-sm" name="itineraire">
                                                                     <option value="<?= $item->ligne_id; ?>"><?= $item->nom_ligne; ?></option>
-                                                                        <? foreach ($lignes as $ligne): ?>
-                                                                            <option value="<?= $ligne->ident_ligne; ?>">
-                                                                                <?= "{$ligne->nom_ligne}"; ?>
-                                                                            </option>
-                                                                        <? endforeach; ?>
+                                                                        <?php
+                                                                        $this->load->view('beagle/pages/_ligne/_options_ligne_compagnie_arrivee', array(
+                                                                            'lignes_par_compagnie_arrivee' => $lignes_par_cie,
+                                                                            'lignes' => !empty($lignes) ? $lignes : array(),
+                                                                            'selected' => (string) $item->ligne_id,
+                                                                        ));
+                                                                        ?>
                                                                     </select>
                                                             </div>
                                                             <div class="form-group col-sm-3">
@@ -223,17 +290,28 @@
             <script>
             (function () {
                 var input = document.getElementById('filtre-ligneheure');
-                if (!input) { return; }
+                var card = document.getElementById('card-ligneheure-compagnies');
+                if (!input || !card) { return; }
+
+                function norm(s) {
+                    s = String(s || '').toLowerCase();
+                    try {
+                        return s.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+                    } catch (e) {
+                        return s;
+                    }
+                }
 
                 function filterActivePane() {
-                    var q = (input.value || '').toLowerCase().trim();
-                    var pane = document.querySelector('.tab-content > .tab-pane.active');
+                    var q = norm(input.value).trim();
+                    var pane = card.querySelector('.tab-content > .tab-pane.active.show')
+                        || card.querySelector('.tab-content > .tab-pane.active');
                     if (!pane) { return; }
-                    var rows = pane.querySelectorAll('tbody tr');
+                    var rows = pane.querySelectorAll('tbody > tr[data-search]');
                     var visible = 0;
                     for (var i = 0; i < rows.length; i++) {
-                        var text = (rows[i].textContent || '').toLowerCase();
-                        var show = !q || text.indexOf(q) !== -1;
+                        var hay = norm(rows[i].getAttribute('data-search') || '');
+                        var show = !q || hay.indexOf(q) !== -1;
                         rows[i].style.display = show ? '' : 'none';
                         if (show) { visible++; }
                     }
@@ -248,7 +326,9 @@
                 }
 
                 input.addEventListener('input', filterActivePane);
-                var tabLinks = document.querySelectorAll('#tabs-compagnie-arrivee a[data-toggle="tab"]');
+                input.addEventListener('keyup', filterActivePane);
+                input.addEventListener('search', filterActivePane);
+                var tabLinks = card.querySelectorAll('#tabs-compagnie-arrivee a[data-toggle="tab"]');
                 for (var t = 0; t < tabLinks.length; t++) {
                     tabLinks[t].addEventListener('shown.bs.tab', filterActivePane);
                     if (window.jQuery) {

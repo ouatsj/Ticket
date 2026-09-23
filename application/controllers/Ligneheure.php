@@ -46,7 +46,9 @@
             $heuresligne = $this->m_ligne_heure->getall($this->company->id_entreprise, $g);
             $this->property['heuresligne'] = $heuresligne;
             $this->property['heuresligne_par_compagnie'] = $this->m_ligne_heure->group_by_compagnie_arrivee($heuresligne);
-            $this->property['lignes'] = $this->m_lignes->get($this->company->id_entreprise, $g);
+            $lignes = $this->m_lignes->get($this->company->id_entreprise, $g);
+            $this->property['lignes'] = $lignes;
+            $this->property['lignes_par_compagnie_arrivee'] = $this->m_lignes->group_by_compagnie_arrivee($lignes);
 
             return $this->layout->view('_heure/indexheure', $this->property);
         }
@@ -61,29 +63,68 @@
             $sg = $this->input->post('sousgareconnect');
             $iduser = roleattribut_guard_post_hint($this->company->ekey);
 
-            $lgd = $this->input->post('itineraire');
-            $idhr = $this->input->post('heureitine');
+            $lgd = trim((string) $this->input->post('itineraire'));
+            $idhr = trim((string) $this->input->post('heureitine'));
+            $redirectLh = 'ligneheure/' . $this->session->company->ekey . '/' . $iduser . '/' . $g . '/' . $sg;
 
-            $selctl = $this->db->query("SELECT * FROM ligne_heure WHERE ligne_heure.ligne_id = '$lgd' AND ligne_heure.heure_identif = '$idhr'")->row();
+            if ($lgd === '' || $idhr === '') {
+                $this->session->set_flashdata('ligneheure_error', 'Choisissez une ligne et une heure.');
+                redirect($redirectLh);
+                return;
+            }
 
-            
+            // La compagnie d'affichage vient de la gare d'arrivée de la ligne.
+            $ligneOk = $this->db->query(
+                "SELECT l.ident_ligne, l.nom_ligne, ga.id_compaga, ca.nom_compagnie AS nom_compagnie_arrivee
+                 FROM lignes l
+                 JOIN gare_dest ga ON l.gadest_lg = ga.code_gadest
+                 LEFT JOIN compagnies ca ON ga.id_compaga = ca.cle_compagnie
+                 WHERE l.ident_ligne = ?
+                 LIMIT 1",
+                array($lgd)
+            )->row();
+            if (!$ligneOk) {
+                $this->session->set_flashdata('ligneheure_error', 'Ligne introuvable.');
+                redirect($redirectLh);
+                return;
+            }
+            if (empty($ligneOk->id_compaga)) {
+                $this->session->set_flashdata(
+                    'ligneheure_error',
+                    'Cette ligne n’a pas de compagnie d’arrivée : corrigez la gare d’arrivée de la ligne avant d’ajouter l’heure.'
+                );
+                redirect($redirectLh);
+                return;
+            }
+
+            $selctl = $this->db->query(
+                'SELECT id_ligneheure FROM ligne_heure WHERE ligne_id = ? AND heure_identif = ? LIMIT 1',
+                array($lgd, $idhr)
+            )->row();
+
             $arraylh = array(
-                'ligne_id' => $this->input->post('itineraire'),
-                'heure_identif' => $this->input->post('heureitine'),
+                'ligne_id' => $lgd,
+                'heure_identif' => $idhr,
                 'createlh_at' => now('UTC'),
             );
-            if ($selctl === NULL){
-
+            if ($selctl === NULL) {
                 $this->m_ligne_heure->create($arraylh);
-            
-                $this->property['INSERT_SUCCESS'] = TRUE;
+                $cieLabel = !empty($ligneOk->nom_compagnie_arrivee) ? $ligneOk->nom_compagnie_arrivee : '';
+                $this->session->set_flashdata(
+                    'ligneheure_success',
+                    'Ligne/heure créée'
+                    . ($cieLabel !== '' ? (' — onglet « ' . $cieLabel . ' »') : '')
+                    . '.'
+                );
+                redirect($redirectLh);
+                return;
+            }
 
-                redirect('ligneheure/' . $this->session->company->ekey.'/'.$iduser.'/'.$g.'/'.$sg);
-            }
-            else{
-                redirect('gares/'.$this->session->company->ekey.'/gTc/'. $g.'/compte/'. $iduser.'/'. $sg.'/'. mdate("%d/%m/%Y", now('UTC')));
-            }
-            
+            $this->session->set_flashdata(
+                'ligneheure_error',
+                'Cette combinaison ligne / heure existe déjà (onglet compagnie d’arrivée correspondant).'
+            );
+            redirect($redirectLh);
         }
         
     
