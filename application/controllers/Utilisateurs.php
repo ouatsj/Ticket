@@ -279,7 +279,7 @@
 
         /**
          * Opérateurs / guichetiers ayant travaillé (ventes) dans la gare sur [du, au].
-         * GET : gare (ou segment d’URL), du, au, type=ticket|op|all, comp=cle_compagnie
+         * GET : gare (ou segment d’URL), du, au, type=ticket|op|all|bagage|courrier, comp=cle_compagnie
          * Sans dates ou si aucun actif → fallback agents affectés à la gare.
          */
         public function triactifs($g = '')

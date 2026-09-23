@@ -73,7 +73,7 @@ defined('BASEPATH') OR exit('No direct script access allowed'); ?>
                 </div>
 
             </div>
-            <div class="card-body">
+            <div class="card-body" style="overflow: visible;">
                 <?php
                     $__tri_debut = isset($tri_debut) ? (string) $tri_debut : '';
                     $__tri_fin = isset($tri_fin) ? (string) $tri_fin : '';
@@ -569,19 +569,22 @@ defined('BASEPATH') OR exit('No direct script access allowed'); ?>
                     </select>
                 </div>
                 <div class="form-group col-sm-4">
-                    <label>Depart</label>
-                    <select class="form-control form-control-sm" name="departs" id="departclient">
-                        <option value=""></option>
-                        
+                    <label>Date de départ</label>
+                    <select class="form-control form-control-sm" id="dateclient">
+                        <option value="">Choisir la date</option>
                     </select>
                 </div>
                 <div class="form-group col-sm-4">
-                    <label>Siege</label>
-                    <select class="form-control form-control-sm" name="siege" id="siegeclient">
-                        <option value=""></option>
-                        
+                    <label>Heure de départ</label>
+                    <select class="form-control form-control-sm" name="departs" id="departclient">
+                        <option value="">Choisir l'heure</option>
                     </select>
-
+                </div>
+                <div class="form-group col-sm-4">
+                    <label>N° siège</label>
+                    <select class="form-control form-control-sm" name="siege" id="siegeclient">
+                        <option value="">Choisir le siège</option>
+                    </select>
                 </div>
                 <div class="col-sm-4 text-center text-danger" style="display:none"
                     id="messieg">

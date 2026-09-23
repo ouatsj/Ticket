@@ -318,7 +318,7 @@
             du: '[name="datedbag"]',
             au: '[name="datefbag"]',
             users: '#idvendeusesbag',
-            userType: 'ticket',
+            userType: 'bagage',
         });
 
         wire({
@@ -328,7 +328,7 @@
             du: '[name="datedcour"]',
             au: '[name="datefcour"]',
             users: '#idvendeusescour',
-            userType: 'ticket',
+            userType: 'courrier',
         });
 
         wire({
@@ -427,7 +427,7 @@
             au: '[name="datefinbagop"]',
             users: '#idvendeuseop',
             lignes: '[name="axelignebagop"]',
-            userType: 'op',
+            userType: 'bagage',
         });
 
         wire({
@@ -438,7 +438,7 @@
             au: '[name="datefinbagopesc"]',
             users: '#idvendeuseopesc',
             lignes: '[name="axelignebagopesc"]',
-            userType: 'op',
+            userType: 'bagage',
         });
 
         wire({
@@ -449,7 +449,7 @@
             au: '[name="datefinbagopgl"]',
             users: '#idvendeuseopgl',
             lignes: '[name="axelignebagopgl"]',
-            userType: 'op',
+            userType: 'bagage',
         });
 
         wire({
@@ -460,7 +460,7 @@
             au: '[name="datefinbagopglesc"]',
             users: '#idvendeuseopglesc',
             lignes: '[name="axelignebagopglesc"]',
-            userType: 'op',
+            userType: 'bagage',
         });
 
         wire({
@@ -492,7 +492,7 @@
             du: '[name="datedexobg"]',
             au: '[name="datefexobg"]',
             users: '[name="vendeuseidexobg"]',
-            userType: 'ticket',
+            userType: 'bagage',
             userValueMode: 'slash',
         });
 
@@ -503,7 +503,7 @@
             du: '[name="datedexobgesc"]',
             au: '[name="datefexobgesc"]',
             users: '[name="vendeuseidexobgesc"]',
-            userType: 'ticket',
+            userType: 'bagage',
             userValueMode: 'slash',
         });
 
@@ -538,7 +538,7 @@
             au: '[name="datesfinsplig"]',
             users: '[name="caissesidplig"]',
             lignes: '[name="axelignesplig"]',
-            userType: 'ticket',
+            userType: 'courrier',
             userValueMode: 'slash',
         });
 
@@ -550,7 +550,7 @@
             au: '[name="datesfinspligesc"]',
             users: '[name="caissesidpligesc"]',
             lignes: '[name="axelignespligesc"]',
-            userType: 'ticket',
+            userType: 'courrier',
             userValueMode: 'slash',
         });
 
@@ -562,7 +562,7 @@
             au: '[name="datesfinspli"]',
             users: '[name="caissesidpli"]',
             lignes: '[name="axelignespli"]',
-            userType: 'ticket',
+            userType: 'courrier',
             userValueMode: 'slash',
         });
 
@@ -574,7 +574,7 @@
             au: '[name="datesfinspliesc"]',
             users: '[name="caissesidpliesc"]',
             lignes: '[name="axelignespliesc"]',
-            userType: 'ticket',
+            userType: 'courrier',
             userValueMode: 'slash',
         });
 
@@ -585,7 +585,7 @@
             du: '[name="datesdebutsplivers"]',
             au: '[name="datesfinsplivers"]',
             users: '[name="caissesidplivers"]',
-            userType: 'ticket',
+            userType: 'courrier',
             userValueMode: 'slash',
         });
 
@@ -596,7 +596,7 @@
             du: '[name="datesdebutspliversesc"]',
             au: '[name="datesfinspliversesc"]',
             users: '[name="caissesidpliversesc"]',
-            userType: 'ticket',
+            userType: 'courrier',
             userValueMode: 'slash',
         });
 
@@ -607,7 +607,7 @@
             du: '[name="datedebutcourdep"]',
             au: '[name="datefincourdep"]',
             users: '#idscaissiercourdep',
-            userType: 'ticket',
+            userType: 'courrier',
         });
 
         // --- Récaps ex mensuels compagnie (ticket / bagage / courrier) ---

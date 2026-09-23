@@ -227,190 +227,390 @@ document.addEventListener('DOMContentLoaded', () => {
 ;
 /* --- updatedticket.js --- */
 document.addEventListener('DOMContentLoaded', () => {
-    
-    document.querySelectorAll('.updatedticket').forEach(function (e) {
-        
-        e.onclick = function () {
-            let mtForm = document.querySelector('#mdtickForm');
-            mtForm.setAttribute('action', `${APP_ROOT}/Historique_Passagers/modifdepart/${e.dataset.cle_compagnie}/${e.dataset.passagecod}/${e.dataset.codticket}`);
-            document.querySelector('h3#mtickTitle').innerHTML = `MODIFICATION SUR LE TICKET DE : ${e.dataset.nom}`;
-            $('#anciensieg').val(`${e.dataset.siege}`);
-            $('#ancien').val(`${e.dataset.ancdepart}`);
-            $('#ancienprog').val(`${e.dataset.codepro}`);
-            $('#sousgr').val(`${e.dataset.departsousg}`); 
+    const appRoot = () => (typeof APP_ROOT !== 'undefined' ? APP_ROOT : '');
+    let programmesCache = [];
 
-            var idlg = document.querySelector('#ancien').value;
-            let httpRequetesq = new XMLHttpRequest();
-            httpRequetesq.open('GET', window.location.origin + `${APP_ROOT}/confirmation/verifconfquart/${idlg}`, true);
-            httpRequetesq.onload = () => {
-            const qdata = JSON.parse(httpRequetesq.responseText);
-            if(qdata == ''){
-                document.querySelector('#idquartier').options.length = 1;
-            }else{
-                if (Object.entries(qdata).length >= 1) {
-                            
-                    for (let key in Object.entries(qdata)) {
-                        let opt = document.createElement('option');
-                        opt.value = `${qdata[key].nom_quartier}`;
-                        opt.innerHTML = `${qdata[key].nom_quartier}`;
-                        document.querySelector('#idquartier').add(opt);
+    function resetSelect(sel, placeholder) {
+        if (!sel) {
+            return;
+        }
+        sel.options.length = 0;
+        const opt = document.createElement('option');
+        opt.value = '';
+        opt.textContent = placeholder || '';
+        sel.add(opt);
+    }
+
+    function setSelectValue(sel, value) {
+        if (!sel || value == null || value === '') {
+            return false;
+        }
+        const v = String(value);
+        for (let i = 0; i < sel.options.length; i++) {
+            if (String(sel.options[i].value) === v) {
+                sel.selectedIndex = i;
+                return true;
+            }
+        }
+        return false;
+    }
+
+    function loadSiegesForProgramme(codePro) {
+        const siegeEl = document.querySelector('#siegeclient');
+        const messieg = document.querySelector('#messieg');
+        if (messieg) {
+            messieg.style.display = 'none';
+        }
+        resetSelect(siegeEl, 'Choisir le siège');
+        if (!codePro) {
+            return;
+        }
+
+        const httpRequest = new XMLHttpRequest();
+        httpRequest.open(
+            'GET',
+            window.location.origin + `${appRoot()}/reprogrammes/siegdispo/${encodeURIComponent(codePro)}`,
+            true
+        );
+        httpRequest.onload = () => {
+            let don = null;
+            try {
+                don = JSON.parse(httpRequest.responseText);
+            } catch (err) {
+                don = null;
+            }
+            if (don && Object.entries(don).length > 0) {
+                for (let key in Object.entries(don)) {
+                    const row = don[key];
+                    if (!row) {
+                        continue;
                     }
-                } else {
-                    document.querySelector('#idquartier').options.length = 1;
+                    const map = {
+                        '#pfinvendabl': row.intervalle2,
+                        '#siegfinvendabl': row.intervalle1,
+                        '#directreserv': row.nom_ligne,
+                        '#reserveheur': row.heure,
+                        '#datereserv': row.date_progr,
+                        '#categbuse': row.categori,
+                    };
+                    Object.keys(map).forEach((sel) => {
+                        const el = document.querySelector(sel);
+                        if (el) {
+                            el.value = map[sel] != null ? map[sel] : '';
+                        }
+                    });
                 }
             }
-                
-                    
+
+            const lp = (document.querySelector('#pfinvendabl') || {}).value || '';
+            const dbpl = (document.querySelector('#siegfinvendabl') || {}).value || '';
+            const direc = (document.querySelector('#directreserv') || {}).value || '';
+            const he = (document.querySelector('#reserveheur') || {}).value || '';
+            const datres = (document.querySelector('#datereserv') || {}).value || '';
+
+            const httpRequestbis = new XMLHttpRequest();
+            httpRequestbis.open(
+                'GET',
+                window.location.origin
+                    + `${appRoot()}/programmes/siegdisponible/${encodeURIComponent(codePro)}/`
+                    + `${encodeURIComponent(datres)}/${encodeURIComponent(direc)}/`
+                    + `${encodeURIComponent(he)}/${encodeURIComponent(dbpl)}/${encodeURIComponent(lp)}`,
+                true
+            );
+            httpRequestbis.onload = () => {
+                let donbis = null;
+                try {
+                    donbis = JSON.parse(httpRequestbis.responseText);
+                } catch (err) {
+                    donbis = null;
+                }
+                resetSelect(siegeEl, 'Choisir le siège');
+                if (donbis && Object.entries(donbis).length >= 1) {
+                    for (let key in Object.entries(donbis)) {
+                        const row = donbis[key];
+                        if (!row || row.siege_num == null) {
+                            continue;
+                        }
+                        const opt = document.createElement('option');
+                        opt.value = `${row.siege_num}/${row.idcat_bus}`;
+                        opt.textContent = String(row.siege_num);
+                        siegeEl.add(opt);
+                    }
+                }
+                const wantSiege = document.querySelector('#anciensieg');
+                if (wantSiege && wantSiege.value) {
+                    for (let i = 0; i < siegeEl.options.length; i++) {
+                        if (String(siegeEl.options[i].value).split('/')[0] === String(wantSiege.value)) {
+                            siegeEl.selectedIndex = i;
+                            break;
+                        }
+                    }
+                }
+            };
+            httpRequestbis.setRequestHeader('Content-Type', 'application/json');
+            httpRequestbis.send();
+        };
+        httpRequest.setRequestHeader('Content-Type', 'application/json');
+        httpRequest.send();
+    }
+
+    function fillHeures(dateVal, preferCodePro, preferHeure) {
+        const heureEl = document.querySelector('#departclient');
+        resetSelect(heureEl, "Choisir l'heure");
+        resetSelect(document.querySelector('#siegeclient'), 'Choisir le siège');
+        if (!dateVal) {
+            return;
+        }
+        programmesCache
+            .filter((p) => p && String(p.date_progr) === String(dateVal))
+            .forEach((p) => {
+                const opt = document.createElement('option');
+                opt.value = String(p.code_progr);
+                opt.textContent = String(p.heure || '');
+                opt.dataset.heure = String(p.heure || '');
+                heureEl.add(opt);
+            });
+
+        let selected = false;
+        if (preferCodePro) {
+            selected = setSelectValue(heureEl, preferCodePro);
+        }
+        if (!selected && preferHeure) {
+            for (let i = 0; i < heureEl.options.length; i++) {
+                const h = heureEl.options[i].dataset.heure || heureEl.options[i].textContent;
+                if (String(h) === String(preferHeure)) {
+                    heureEl.selectedIndex = i;
+                    selected = true;
+                    break;
+                }
+            }
+        }
+        if (selected && heureEl.value) {
+            loadSiegesForProgramme(heureEl.value);
+        }
+    }
+
+    document.querySelectorAll('.updatedticket').forEach(function (e) {
+        e.addEventListener('click', function () {
+            const mtForm = document.querySelector('#mdtickForm');
+            if (!mtForm) {
+                return;
+            }
+            mtForm.setAttribute(
+                'action',
+                `${appRoot()}/Historique_Passagers/modifdepart/${e.dataset.cle_compagnie}/${e.dataset.passagecod}/${e.dataset.codticket}`
+            );
+            const title = document.querySelector('h3#mtickTitle');
+            if (title) {
+                title.innerHTML = `MODIFICATION DÉPART / SIÈGE : ${e.dataset.nom || ''}`;
+            }
+
+            const setHid = (sel, val) => {
+                const el = document.querySelector(sel);
+                if (el) {
+                    el.value = val == null ? '' : String(val);
+                }
+            };
+            setHid('#anciensieg', e.dataset.siege);
+            setHid('#ancien', e.dataset.ancdepart);
+            setHid('#ancienprog', e.dataset.codepro);
+            setHid('#sousgr', e.dataset.departsousg);
+
+            const sgares = document.querySelector('#sgares');
+            if (sgares && e.dataset.departsousg) {
+                setSelectValue(sgares, e.dataset.departsousg);
+            }
+
+            resetSelect(document.querySelector('#idquartier'), 'Choisir le quartier');
+            resetSelect(document.querySelector('#dateclient'), 'Choisir la date');
+            resetSelect(document.querySelector('#departclient'), "Choisir l'heure");
+            resetSelect(document.querySelector('#siegeclient'), 'Choisir le siège');
+            const messieg = document.querySelector('#messieg');
+            if (messieg) {
+                messieg.style.display = 'none';
+            }
+
+            const idlg = e.dataset.ancdepart || '';
+            if (!idlg) {
+                return;
+            }
+
+            const httpRequetesq = new XMLHttpRequest();
+            httpRequetesq.open(
+                'GET',
+                window.location.origin + `${appRoot()}/confirmation/verifconfquart/${encodeURIComponent(idlg)}`,
+                true
+            );
+            httpRequetesq.onload = () => {
+                let qdata = null;
+                try {
+                    qdata = JSON.parse(httpRequetesq.responseText);
+                } catch (err) {
+                    qdata = null;
+                }
+                const qEl = document.querySelector('#idquartier');
+                resetSelect(qEl, 'Choisir le quartier');
+                if (qdata && Object.entries(qdata).length >= 1) {
+                    for (let key in Object.entries(qdata)) {
+                        const row = qdata[key];
+                        if (!row || !row.nom_quartier) {
+                            continue;
+                        }
+                        const opt = document.createElement('option');
+                        opt.value = row.nom_quartier;
+                        opt.textContent = row.nom_quartier;
+                        qEl.add(opt);
+                    }
+                }
+                if (e.dataset.quartier) {
+                    setSelectValue(qEl, e.dataset.quartier);
+                }
             };
             httpRequetesq.setRequestHeader('Content-Type', 'application/json');
             httpRequetesq.send();
-            let httpRequetes = new XMLHttpRequest();
-            httpRequetes.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifprogrammes/${idlg}`, true);
+
+            const httpRequetes = new XMLHttpRequest();
+            httpRequetes.open(
+                'GET',
+                window.location.origin + `${appRoot()}/programmes/verifprogrammes/${encodeURIComponent(idlg)}`,
+                true
+            );
             httpRequetes.onload = () => {
-                const dataAxe = JSON.parse(httpRequetes.responseText);
-                
-                
-                    if (Object.entries(dataAxe).length >= 1) {
-                            
-                            for (let key in Object.entries(dataAxe)) {
-                                let opt = document.createElement('option');
-                                opt.value = `${dataAxe[key].code_progr}`;
-                                opt.innerHTML = `${dataAxe[key].heure}/${dataAxe[key].date_progr}`;
-                                document.querySelector('#departclient').add(opt);
-                            }
-                        } else {
-                            document.querySelector('#departclient').options.length = 1;
+                let dataAxe = null;
+                try {
+                    dataAxe = JSON.parse(httpRequetes.responseText);
+                } catch (err) {
+                    dataAxe = null;
+                }
+                programmesCache = [];
+                if (dataAxe && Object.entries(dataAxe).length >= 1) {
+                    for (let key in Object.entries(dataAxe)) {
+                        if (dataAxe[key]) {
+                            programmesCache.push(dataAxe[key]);
                         }
+                    }
+                }
+
+                const dateEl = document.querySelector('#dateclient');
+                resetSelect(dateEl, 'Choisir la date');
+                const seenDates = {};
+                programmesCache.forEach((p) => {
+                    const d = p && p.date_progr != null ? String(p.date_progr) : '';
+                    if (!d || seenDates[d]) {
+                        return;
+                    }
+                    seenDates[d] = true;
+                    const opt = document.createElement('option');
+                    opt.value = d;
+                    opt.textContent = d;
+                    dateEl.add(opt);
+                });
+
+                const preferDate = e.dataset.dateprogr || '';
+                const preferCode = e.dataset.codepro || '';
+                const preferHeure = e.dataset.heure || '';
+                if (preferDate && setSelectValue(dateEl, preferDate)) {
+                    fillHeures(preferDate, preferCode, preferHeure);
+                } else if (preferCode) {
+                    const match = programmesCache.find((p) => p && String(p.code_progr) === String(preferCode));
+                    if (match && match.date_progr && setSelectValue(dateEl, match.date_progr)) {
+                        fillHeures(match.date_progr, preferCode, preferHeure);
+                    }
+                }
             };
             httpRequetes.setRequestHeader('Content-Type', 'application/json');
             httpRequetes.send();
+        });
+    });
 
-            let hrdepart = document.querySelector('#departclient');
-            if (hrdepart !== null) {
-                hrdepart.onchange = () => {
-                    document.querySelector('#siegeclient').options.length = 1;
-                    const httpRequest = new XMLHttpRequest();
-                    const sel = document.querySelector('#departclient')
-                        .options[document.querySelector('#departclient').options.selectedIndex].value;
-                    httpRequest.open('GET', window.location.origin + `${APP_ROOT}/reprogrammes/siegdispo/${sel}`, true);
-                    httpRequest.onload = () => {
-                        const don = JSON.parse(httpRequest.responseText);
-                        console.debug(`${typeof don} - ${don.attributes}`, console.memory);
-                        if (Object.entries(don).length > 0) {
-                            for (let key in Object.entries(don)) {
-                                document.querySelector('#pfinvendabl').value = `${don[key].intervalle2}`;
-                                document.querySelector('#siegfinvendabl').value = `${don[key].intervalle1}`;
-                                document.querySelector('#directreserv').value = `${don[key].nom_ligne}`;
-                                document.querySelector('#reserveheur').value = `${don[key].heure}`;
-                                document.querySelector('#datereserv').value = `${don[key].date_progr}`;
-                                document.querySelector('#categbuse').value=`${don[key].categori}`;
+    const dateEl = document.querySelector('#dateclient');
+    if (dateEl) {
+        dateEl.addEventListener('change', function () {
+            fillHeures(dateEl.value, '', '');
+        });
+    }
 
-                                console.debug(`${don[key].intervalle1} - ${don[key].intervalle2}`, console.memory)
-                                
+    const heureEl = document.querySelector('#departclient');
+    if (heureEl) {
+        heureEl.addEventListener('change', function () {
+            loadSiegesForProgramme(heureEl.value);
+        });
+    }
+
+    const siegeEl = document.querySelector('#siegeclient');
+    if (siegeEl) {
+        siegeEl.addEventListener('change', function () {
+            const codePro = (document.querySelector('#departclient') || {}).value || '';
+            const siegeVal = siegeEl.value || '';
+            const messieg = document.querySelector('#messieg');
+            if (!codePro || !siegeVal) {
+                return;
+            }
+            const Requestsiegereserve = new XMLHttpRequest();
+            Requestsiegereserve.open(
+                'GET',
+                window.location.origin
+                    + `${appRoot()}/programmes/verifisieges/${encodeURIComponent(codePro)}/${encodeURIComponent(siegeVal)}`,
+                true
+            );
+            Requestsiegereserve.onload = () => {
+                let reservdonsieg = null;
+                try {
+                    reservdonsieg = JSON.parse(Requestsiegereserve.responseText);
+                } catch (err) {
+                    reservdonsieg = null;
+                }
+                const empty =
+                    reservdonsieg == '' ||
+                    reservdonsieg === null ||
+                    (Array.isArray(reservdonsieg) && reservdonsieg.length === 0) ||
+                    (typeof reservdonsieg === 'object' && Object.keys(reservdonsieg).length === 0);
+
+                if (empty) {
+                    const httpSiegsreserv = new XMLHttpRequest();
+                    httpSiegsreserv.open(
+                        'GET',
+                        window.location.origin
+                            + `${appRoot()}/programmes/creersiege/${encodeURIComponent(codePro)}/${encodeURIComponent(siegeVal)}`,
+                        true
+                    );
+                    httpSiegsreserv.onload = () => {
+                        let dongreserv = null;
+                        try {
+                            dongreserv = JSON.parse(httpSiegsreserv.responseText);
+                        } catch (err) {
+                            dongreserv = null;
+                        }
+                        if (messieg) {
+                            messieg.style.display = 'none';
+                        }
+                        if (dongreserv && Object.entries(dongreserv).length >= 1) {
+                            for (let key in Object.entries(dongreserv)) {
+                                const row = dongreserv[key];
+                                if (!row) continue;
+                                const idt = document.querySelector('#idtamposelect');
+                                const sg = document.querySelector('#siegselect');
+                                if (idt) idt.value = row.idtamp != null ? row.idtamp : '';
+                                if (sg) sg.value = row.numsieg != null ? row.numsieg : '';
                             }
                         }
-
-                    
-
-                        const httpRequestbis = new XMLHttpRequest();
-    
-                        const lp = document.querySelector('#pfinvendabl').value;
-                        const dbpl = document.querySelector('#siegfinvendabl').value;
-                        const direc = document.querySelector('#directreserv').value;
-                        const he = document.querySelector('#reserveheur').value;
-                        const datres = document.querySelector('#datereserv').value;
-    
-                        httpRequestbis.open('GET', window.location.origin + `${APP_ROOT}/programmes/siegdisponible/${sel}/${datres}/${direc}/${he}/${dbpl}/${lp}`, true);
-                        httpRequestbis.onload = () => {
-                            const donbis = JSON.parse(httpRequestbis.responseText);
-                            console.debug(`${typeof donbis} - ${donbis.attributes}`, console.memory);
-                            if (Object.entries(donbis).length >= 1) {
-                                for (let key in Object.entries(donbis)) {
-                                    
-                                    let opt = document.createElement('option');
-                                    opt.value = `${donbis[key].siege_num}/${donbis[key].idcat_bus}`;
-                                    opt.innerHTML = `${donbis[key].siege_num}`;
-                                    document.querySelector('#siegeclient').add(opt);
-                            
-                                }
-                                
-                            } else {
-                                document.querySelector('#siegeclient').options.length = 1;
-                            }
-                            
-                        };
-                        httpRequestbis.setRequestHeader('Content-Type', 'application/json');
-                        httpRequestbis.send();
-                          
                     };
-                    httpRequest.setRequestHeader('Content-Type', 'application/json');
-                    httpRequest.send();
-                };
-           
-            }
-
-            let depsiegreserve = document.querySelector('#siegeclient');
-            if (depsiegreserve !== null)
-            depsiegreserve.onchange = () => {
-                    
-                    let Requestsiegereserve;
-                    
-                    if (window.XMLHttpRequest) { // Mozilla, Safari, IE7+ ...
-                        Requestsiegereserve = new XMLHttpRequest();
-                    } else if (window.ActiveXObject) { // IE 6 and older
-                        Requestsiegereserve = new ActiveXObject("Microsoft.XMLHTTP");
+                    httpSiegsreserv.setRequestHeader('Content-Type', 'application/json');
+                    httpSiegsreserv.send();
+                } else {
+                    siegeEl.value = '';
+                    if (messieg) {
+                        messieg.style.display = 'block';
                     }
-                    
-                    const dp_progreserv = document.querySelector('#departclient').options[document.querySelector('#departclient').options.selectedIndex].value;
-                    const dp_siegereserv = document.querySelector('#siegeclient').options[document.querySelector('#siegeclient').options.selectedIndex].value;
-                                       
-                    Requestsiegereserve.open('GET', window.location.origin + `${APP_ROOT}/programmes/verifisieges/${dp_progreserv}/${dp_siegereserv}`, true);
-                    Requestsiegereserve.onload = () => 
-                    {
-                        
-                            const reservdonsieg = JSON.parse(Requestsiegereserve.responseText);
-                            if (reservdonsieg == '')
-                                    {
-                                        let httpSiegsreserv;
-                                        httpSiegsreserv = new XMLHttpRequest();
-                                        const dp_progconf = document.querySelector('#departclient').options[document.querySelector('#departclient').options.selectedIndex].value;
-                                        const dp_siegeconf = document.querySelector('#siegeclient').options[document.querySelector('#siegeclient').options.selectedIndex].value;
-                                        httpSiegsreserv.open('GET', window.location.origin + `${APP_ROOT}/programmes/creersiege/${dp_progconf}/${dp_siegeconf}`, true);
-                                        httpSiegsreserv.onload = () => 
-                                        {
-                                            const dongreserv= JSON.parse(httpSiegsreserv.responseText);
-                                            document.querySelector('#messieg').style.display = 'none';
-                                            if (Object.entries(dongreserv).length >= 1)
-                                            {
-                                                for (let key in Object.entries(dongreserv)) {
-                                                    document.querySelector('#idtamposelect').value = `${dongreserv[key].idtamp}`;                    
-                                                    document.querySelector('#siegselect').value = `${dongreserv[key].numsieg}`;
-                                                }
-                                            }
-                                        
-                                        };
-                                        httpSiegsreserv.setRequestHeader('Content-Type', 'application/json');
-                                        httpSiegsreserv.send();
-                                    }
-                                    else {
-                                        document.querySelector('#siegeclient').value = '';     
-                                        if (Object.entries(reservdonsieg).length >= 1)
-                                        {
-                                            for (let key in Object.entries(reservdonsieg)) {
-                                                document.querySelector('#idtamposelect').value = `${reservdonsieg[key].idtamp}`;                    
-                                                document.querySelector('#siegselect').value = `${reservdonsieg[key].numsieg}`;
-                                            }
-
-                                        }
-                                        document.querySelector('#messieg').style.display = 'block';
-                                        document.querySelector('#erreurmessieg').innerHTML = `Siege déjà utilisé.`; 
-                                    }
-                    };
-                    Requestsiegereserve.setRequestHeader('content-Type', 'text/json');
-                    Requestsiegereserve.send();
-                };
-                
-        }
-
-    })
+                    const err = document.querySelector('#erreurmessieg');
+                    if (err) {
+                        err.innerHTML = 'Siège déjà utilisé.';
+                    }
+                }
+            };
+            Requestsiegereserve.setRequestHeader('Content-Type', 'application/json');
+            Requestsiegereserve.send();
+        });
+    }
 });
+

@@ -98,37 +98,61 @@ if (!isset($__peut_repositionner)) { $__peut_repositionner = false; }
                                     <?php endif; ?>
                                     <?php endif; ?>
                                 <?php endif; ?>
-                                <a href="<?= "#?{$item->id_client}&&{$item->nom_client}"; ?>"
-                                       data-cle_compagnie="<?= $this->session->company->ekey; ?>"
-                                        data-id_client="<?= $item->id_client; ?>"
-                                        data-tamponcod="<?= $item->tamponcod; ?>"
-                                        data-passagecod="<?= $item->code_passager; ?>"
-                                        data-cdligneh="<?= $item->id_ligneheure; ?>"
-                                        data-ticketcod="<?= $item->code_ticket; ?>"
-                                        data-ticketcodnp="<?= isset($item->codeticket) ? $item->codeticket : ''; ?>"
-                                        data-nom="<?= $item->nom_client; ?>"
-                                        data-prenom="<?= $item->prenom_client; ?>"
-                                        data-type="<?= $item->type_client; ?>"
-                                        data-contact="<?= $item->contact_client; ?>"
-                                        data-cni="<?= $item->num_CNIB; ?>"
-                                        data-cnideliver="<?= $item->date_delivre; ?>"
-                                        data-cnideliverzone="<?= $item->lieu_delivre; ?>"
-                                        class="updateticket md-trigger" title="MODIFIER INFOS CLIENT"
-                                        data-modal="ticket-0">&nbsp;
-                                        <span class="fas fa-edit text-warning"></span>
-                                </a>&nbsp;
-                                            
-                                <a href="#" class="updatedticket md-trigger" data-cle_compagnie="<?= $this->session->company->ekey; ?>"
-                                    data-siege="<?= $item->num_siege_categorie; ?>"
-                                    data-codepro="<?= $item->code_pro; ?>"
-                                    data-nom="<?= $item->nom_client; ?>"
-                                    data-ancdepart="<?= $item->ligne_id; ?>"
-                                    data-codticket="<?= $item->code_ticket; ?>"
-                                    data-departsousg="<?= $item->departclient_idgare; ?>"
-                                    data-passagecod="<?= $item->code_passager; ?>" title="MODIFIER DEPART"
-                                    data-modal="updepart-0">
-                                    <i class="fas fa-edit text-success"></i>
-                                </a>&nbsp;
+                                <div class="btn-group dropleft d-inline-block align-middle mr-1">
+                                    <button type="button" class="btn btn-sm btn-outline-primary dropdown-toggle py-0 px-2"
+                                            data-toggle="dropdown" aria-haspopup="true" aria-expanded="false"
+                                            title="Modifier le ticket">
+                                        <i class="fas fa-edit"></i> Modifier
+                                    </button>
+                                    <div class="dropdown-menu dropdown-menu-right shadow">
+                                        <a href="<?= "#?{$item->id_client}&&{$item->nom_client}"; ?>"
+                                           data-cle_compagnie="<?= $this->session->company->ekey; ?>"
+                                           data-id_client="<?= $item->id_client; ?>"
+                                           data-tamponcod="<?= $item->tamponcod; ?>"
+                                           data-passagecod="<?= $item->code_passager; ?>"
+                                           data-cdligneh="<?= $item->id_ligneheure; ?>"
+                                           data-ticketcod="<?= $item->code_ticket; ?>"
+                                           data-ticketcodnp="<?= isset($item->codeticket) ? $item->codeticket : ''; ?>"
+                                           data-nom="<?= htmlspecialchars((string) $item->nom_client, ENT_QUOTES, 'UTF-8'); ?>"
+                                           data-prenom="<?= htmlspecialchars((string) $item->prenom_client, ENT_QUOTES, 'UTF-8'); ?>"
+                                           data-type="<?= $item->type_client; ?>"
+                                           data-contact="<?= htmlspecialchars((string) $item->contact_client, ENT_QUOTES, 'UTF-8'); ?>"
+                                           data-cni="<?= htmlspecialchars((string) $item->num_CNIB, ENT_QUOTES, 'UTF-8'); ?>"
+                                           data-cnideliver="<?= $item->date_delivre; ?>"
+                                           data-cnideliverzone="<?= htmlspecialchars((string) $item->lieu_delivre, ENT_QUOTES, 'UTF-8'); ?>"
+                                           class="dropdown-item updateticket md-trigger"
+                                           data-modal="ticket-0">
+                                            Infos client
+                                        </a>
+                                        <a href="#" class="dropdown-item updatedticket md-trigger"
+                                           data-cle_compagnie="<?= $this->session->company->ekey; ?>"
+                                           data-siege="<?= $item->num_siege_categorie; ?>"
+                                           data-codepro="<?= $item->code_pro; ?>"
+                                           data-dateprogr="<?= htmlspecialchars((string) $item->date_progr, ENT_QUOTES, 'UTF-8'); ?>"
+                                           data-heure="<?= htmlspecialchars((string) $item->heure, ENT_QUOTES, 'UTF-8'); ?>"
+                                           data-quartier="<?= htmlspecialchars((string) $item->quart, ENT_QUOTES, 'UTF-8'); ?>"
+                                           data-nom="<?= htmlspecialchars((string) $item->nom_client, ENT_QUOTES, 'UTF-8'); ?>"
+                                           data-ancdepart="<?= $item->ligne_id; ?>"
+                                           data-codticket="<?= $item->code_ticket; ?>"
+                                           data-departsousg="<?= $item->departclient_idgare; ?>"
+                                           data-passagecod="<?= $item->code_passager; ?>"
+                                           data-modal="updepart-0">
+                                            Date, heure et siège
+                                        </a>
+                                        <a href="<?= "#?{$item->id_client_pass}&client={$item->prenom_client}"; ?>"
+                                           class="dropdown-item md-trigger"
+                                           data-modal="edit-gq-<?= htmlspecialchars((string) $item->code_passager, ENT_QUOTES, 'UTF-8'); ?>">
+                                            Gare / quartier
+                                        </a>
+                                        <?php if (super_admin_can('sales.price.free')): ?>
+                                        <a href="<?= "#?{$item->id_client_pass}&client={$item->prenom_client}"; ?>"
+                                           class="dropdown-item md-trigger"
+                                           data-modal="edit-<?= $item->code_passager; ?>">
+                                            Prix
+                                        </a>
+                                        <?php endif; ?>
+                                    </div>
+                                </div>
                                 <a href="#" class="md-trigger motif-action"
                                     title="DESACTIVER TICKET"
                                     data-modal="motif-action-0"
@@ -150,18 +174,7 @@ if (!isset($__peut_repositionner)) { $__peut_repositionner = false; }
                                         <i class="fas fa-trash-alt text-danger"></i>
                                     </a>&nbsp;
                                 <?endif;?>
-                                <? if (super_admin_can('sales.price.free')): ?>
 
-                                    <a href="<?= "#?{$item->id_client_pass}&client={$item->prenom_client}"; ?>"
-                                            title="prix" class="md-trigger" data-modal="edit-<?= $item->code_passager; ?>">
-                                        <i class="fas fa-edit text-warning"></i>
-                                    </a>&nbsp;
-                                    
-                                <?endif;?>
-                                        <a href="<?= "#?{$item->id_client_pass}&client={$item->prenom_client}"; ?>"
-                                            title="gare quartier" class="md-trigger" data-modal="edit-<?= $item->quart; ?>">
-                                            <i class="fas fa-edit text-warning"></i>
-                                        </a>&nbsp;
                                         <div
                                             class="modal-container colored-header colored-header-success custom-width modal-effect-7"
                                             id="edit-<?= $item->code_passager; ?>" style="perspective: none;">
@@ -213,7 +226,7 @@ if (!isset($__peut_repositionner)) { $__peut_repositionner = false; }
                                         </div>
                                     <div
                                         class="modal-container colored-header colored-header-success custom-width modal-effect-7"
-                                            id="edit-<?= $item->quart; ?>" style="perspective: none;">
+                                            id="edit-gq-<?= htmlspecialchars((string) $item->code_passager, ENT_QUOTES, 'UTF-8'); ?>" style="perspective: none;">
 
                                         <div class="modal-content">
 

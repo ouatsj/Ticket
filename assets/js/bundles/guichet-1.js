@@ -19567,43 +19567,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.querySelectorAll('.adreportglcours').forEach(function (e) 
     {
         document.querySelector('h3#Titlexpglobg').innerHTML = `ETAT GLOBAL COURRIER GUICHETIER`;
-
-        let expinfosg = document.querySelector('#garesg');
-        
-        if (expinfosg !== null) 
-        expinfosg.onchange = () => {
-            let httpInforsgexpg;
-            if (window.XMLHttpRequest) {
-                httpInforsgexpg = new XMLHttpRequest();
-            } else if (window.ActiveXObject) {
-                httpInforsgexpg = new ActiveXObject("Microsoft.XMLHTTP");
-            }
-                document.querySelector('#idcaisseg').options.length = 1;
-
-                    var expeverifivendg = document.querySelector('#garesg').value;
-                    
-                    httpInforsgexpg.open('GET', window.location.origin + `${APP_ROOT}/utilisateurs/trivendeuses/${expeverifivendg}`, true);
-                    httpInforsgexpg.onload = () => {
-                        const exinfosgsg = JSON.parse(httpInforsgexpg.responseText);
-                        
-                        if (Object.entries(exinfosgsg).length > 0) {                            
-                        
-                                for (let key in Object.entries(exinfosgsg)) {
-                                    let opt = document.createElement('option');
-                                    opt.value = `${exinfosgsg[key].roleattribut}/${exinfosgsg[key].username}`;
-                                    opt.innerHTML = `${exinfosgsg[key].username}`;
-                                    document.querySelector('#idcaisseg').add(opt);
-                                    
-                                }
-                        } 
-                        else {
-                            document.querySelector('#idcaisseg').options.length = 1;
-                        }
-                        
-                    };
-                    httpInforsgexpg.setRequestHeader('Content-Type', 'application/json');
-                    httpInforsgexpg.send();
-                };
+        // Guichetiers : tri-filtre-dynamique.js (type=courrier)
         e.onclick = function () {
             let expglobFormsg = document.querySelector('#expglobFormsg');
             expglobFormsg.setAttribute('action', `${APP_ROOT}/Rapport/etatsglcourrier/${e.dataset.ekey}/${e.dataset.idsgare}`);
@@ -19656,6 +19620,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 });
+
 ;
 /* --- adreportglcoursesc.js --- */
 document.addEventListener('DOMContentLoaded', () => {
@@ -19663,43 +19628,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.querySelectorAll('.adreportglcoursesc').forEach(function (e) 
     {
         document.querySelector('h3#Titlexpglobgesc').innerHTML = `ETAT GLOBAL COURRIERESCAL GUICHETIER`;
-
-        let expinfosg = document.querySelector('#garesgesc');
-        
-        if (expinfosg !== null) 
-        expinfosg.onchange = () => {
-            let httpInforsgexpg;
-            if (window.XMLHttpRequest) {
-                httpInforsgexpg = new XMLHttpRequest();
-            } else if (window.ActiveXObject) {
-                httpInforsgexpg = new ActiveXObject("Microsoft.XMLHTTP");
-            }
-                document.querySelector('#idcaissegesc').options.length = 1;
-
-                    var expeverifivendg = document.querySelector('#garesgesc').value;
-                    
-                    httpInforsgexpg.open('GET', window.location.origin + `${APP_ROOT}/utilisateurs/trivendeuses/${expeverifivendg}`, true);
-                    httpInforsgexpg.onload = () => {
-                        const exinfosgsg = JSON.parse(httpInforsgexpg.responseText);
-                        
-                        if (Object.entries(exinfosgsg).length > 0) {                            
-                        
-                                for (let key in Object.entries(exinfosgsg)) {
-                                    let opt = document.createElement('option');
-                                    opt.value = `${exinfosgsg[key].roleattribut}/${exinfosgsg[key].username}`;
-                                    opt.innerHTML = `${exinfosgsg[key].username}`;
-                                    document.querySelector('#idcaissegesc').add(opt);
-                                    
-                                }
-                        } 
-                        else {
-                            document.querySelector('#idcaissegesc').options.length = 1;
-                        }
-                        
-                    };
-                    httpInforsgexpg.setRequestHeader('Content-Type', 'application/json');
-                    httpInforsgexpg.send();
-                };
+        // Guichetiers : tri-filtre-dynamique.js (type=courrier)
         e.onclick = function () {
             let expglobFormsg = document.querySelector('#expglobFormsgesc');
             expglobFormsg.setAttribute('action', `${APP_ROOT}/Rapport/etatsglcourrieresc/${e.dataset.ekey}/${e.dataset.idsgare}`);
@@ -19707,6 +19636,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     })
 });
+
 ;
 /* --- adreportgldepcour.js --- */
 document.addEventListener('DOMContentLoaded', () => {
@@ -19714,43 +19644,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.querySelectorAll('.adreportgldepcour').forEach(function (e) 
     {
         document.querySelector('h3#Titlerepscourdep').innerHTML = `RECAP DEPENSE COURRIER`;
-
-        let infgarscrdep = document.querySelector('#garidentifscourdep');
-        
-        if (infgarscrdep !== null) 
-        infgarscrdep.onchange = () => {
-            let httpInfosgarscrdep;
-            if (window.XMLHttpRequest) {
-                httpInfosgarscrdep = new XMLHttpRequest();
-            } else if (window.ActiveXObject) {
-                httpInfosgarscrdep = new ActiveXObject("Microsoft.XMLHTTP");
-            }
-                document.querySelector('#idscaissiercourdep').options.length = 1;
-
-                    var verificatgarscrdep = document.querySelector('#garidentifscourdep').value;
-                    
-                    httpInfosgarscrdep.open('GET', window.location.origin + `${APP_ROOT}/utilisateurs/trivendeuses/${verificatgarscrdep}`, true);
-                    httpInfosgarscrdep.onload = () => {
-                        const infosgarscrdep = JSON.parse(httpInfosgarscrdep.responseText);
-                        
-                        if (Object.entries(infosgarscrdep).length > 0) {                            
-                        
-                                for (let key in Object.entries(infosgarscrdep)) {
-                                    let opt = document.createElement('option');
-                                    opt.value = `${infosgarscrdep[key].roleattribut}`;
-                                    opt.innerHTML = `${infosgarscrdep[key].username}`;
-                                    document.querySelector('#idscaissiercourdep').add(opt);
-                                    
-                                }
-                        } 
-                        else {
-                            document.querySelector('#idscaissiercourdep').options.length = 1;
-                        }
-                        
-                    };
-                    httpInfosgarscrdep.setRequestHeader('Content-Type', 'application/json');
-                    httpInfosgarscrdep.send();
-                };
+        // Guichetiers : tri-filtre-dynamique.js (type=courrier)
         e.onclick = function () {
         let tickFormscrdep = document.querySelector('#tickFormscourdep');
             tickFormscrdep.setAttribute('action', `${APP_ROOT}/Rapport/tridepensescour/${e.dataset.ekey}/${e.dataset.idsgare}`);
@@ -19758,6 +19652,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     })
 });
+
 ;
 /* --- adreportpli.js --- */
 document.addEventListener('DOMContentLoaded', () => {
@@ -19765,43 +19660,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.querySelectorAll('.adreportpli').forEach(function (e) 
     {
         document.querySelector('h3#Titlexpglob').innerHTML = `EXERCICE MENSUEL COURRIER GUICHETIER`;
-
-        let expinfos = document.querySelector('#gares');
-        
-        if (expinfos !== null) 
-        expinfos.onchange = () => {
-            let httpInforsgexp;
-            if (window.XMLHttpRequest) {
-                httpInforsgexp = new XMLHttpRequest();
-            } else if (window.ActiveXObject) {
-                httpInforsgexp = new ActiveXObject("Microsoft.XMLHTTP");
-            }
-                document.querySelector('#idcaisse').options.length = 1;
-
-                    var expeverifivend = document.querySelector('#gares').value;
-                    
-                    httpInforsgexp.open('GET', window.location.origin + `${APP_ROOT}/utilisateurs/trivendeuses/${expeverifivend}`, true);
-                    httpInforsgexp.onload = () => {
-                        const exinfosgs = JSON.parse(httpInforsgexp.responseText);
-                        
-                        if (Object.entries(exinfosgs).length > 0) {                            
-                        
-                                for (let key in Object.entries(exinfosgs)) {
-                                    let opt = document.createElement('option');
-                                    opt.value = `${exinfosgs[key].roleattribut}/${exinfosgs[key].username}`;
-                                    opt.innerHTML = `${exinfosgs[key].username}`;
-                                    document.querySelector('#idcaisse').add(opt);
-                                    
-                                }
-                        } 
-                        else {
-                            document.querySelector('#idcaisse').options.length = 1;
-                        }
-                        
-                    };
-                    httpInforsgexp.setRequestHeader('Content-Type', 'application/json');
-                    httpInforsgexp.send();
-                };
+        // Guichetiers : tri-filtre-dynamique.js (type=courrier)
         e.onclick = function () {
             let expglobForms = document.querySelector('#expglobForms');
             expglobForms.setAttribute('action', `${APP_ROOT}/Rapport/etatsplis1/${e.dataset.ekey}/${e.dataset.idgares}`);
@@ -19809,6 +19668,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     })
 });
+
 ;
 /* --- adreportpliesc.js --- */
 document.addEventListener('DOMContentLoaded', () => {
@@ -19816,43 +19676,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.querySelectorAll('.adreportpliesc').forEach(function (e) 
     {
         document.querySelector('h3#Titlexpglobesc').innerHTML = `EXERCICE MENSUEL COURRIERESCAL GUICHETIER`;
-
-        let expinfos = document.querySelector('#garesesc');
-        
-        if (expinfos !== null) 
-        expinfos.onchange = () => {
-            let httpInforsgexp;
-            if (window.XMLHttpRequest) {
-                httpInforsgexp = new XMLHttpRequest();
-            } else if (window.ActiveXObject) {
-                httpInforsgexp = new ActiveXObject("Microsoft.XMLHTTP");
-            }
-                document.querySelector('#idcaisseesc').options.length = 1;
-
-                    var expeverifivend = document.querySelector('#garesesc').value;
-                    
-                    httpInforsgexp.open('GET', window.location.origin + `${APP_ROOT}/utilisateurs/trivendeuses/${expeverifivend}`, true);
-                    httpInforsgexp.onload = () => {
-                        const exinfosgs = JSON.parse(httpInforsgexp.responseText);
-                        
-                        if (Object.entries(exinfosgs).length > 0) {                            
-                        
-                                for (let key in Object.entries(exinfosgs)) {
-                                    let opt = document.createElement('option');
-                                    opt.value = `${exinfosgs[key].roleattribut}/${exinfosgs[key].username}`;
-                                    opt.innerHTML = `${exinfosgs[key].username}`;
-                                    document.querySelector('#idcaisseesc').add(opt);
-                                    
-                                }
-                        } 
-                        else {
-                            document.querySelector('#idcaisseesc').options.length = 1;
-                        }
-                        
-                    };
-                    httpInforsgexp.setRequestHeader('Content-Type', 'application/json');
-                    httpInforsgexp.send();
-                };
+        // Guichetiers : tri-filtre-dynamique.js (type=courrier)
         e.onclick = function () {
             let expglobForms = document.querySelector('#expglobFormsesc');
             expglobForms.setAttribute('action', `${APP_ROOT}/Rapport/etatsplis1esc/${e.dataset.ekey}/${e.dataset.idgares}`);
@@ -19860,6 +19684,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     })
 });
+
 ;
 /* --- adreportversgljs.js --- */
 document.addEventListener('DOMContentLoaded', () => {
@@ -20020,45 +19845,10 @@ document.addEventListener('DOMContentLoaded', () => {
 /* --- adtrioexoplis.js --- */
 document.addEventListener('DOMContentLoaded', () => {
 
-    document.querySelectorAll('.adtrioexoplis').forEach(function (e) 
+    document.querySelectorAll('.adtrioexoplis').forEach(function (e)
     {
         document.querySelector('h3#Titlexpglobvers').innerHTML = `BROUILLARD(EXERCICE) COURRIER`;
-        let infgares = document.querySelector('#garesvers');
-        
-        if (infgares !== null) 
-        infgares.onchange = () => {
-            let httpInfoss;
-            if (window.XMLHttpRequest) {
-                httpInfoss = new XMLHttpRequest();
-            } else if (window.ActiveXObject) {
-                httpInfoss = new ActiveXObject("Microsoft.XMLHTTP");
-            }
-                document.querySelector('#idcaissevers').options.length = 1;
-
-                    var verificatgares = document.querySelector('#garesvers').value;
-                    
-                    httpInfoss.open('GET', window.location.origin + `${APP_ROOT}/utilisateurs/trivendeuses/${verificatgares}`, true);
-                    httpInfoss.onload = () => {
-                        const infoss = JSON.parse(httpInfoss.responseText);
-                        
-                        if (Object.entries(infoss).length > 0) {                            
-                        
-                                for (let key in Object.entries(infoss)) {
-                                    let opt = document.createElement('option');
-                                    opt.value = `${infoss[key].roleattribut}/${infoss[key].username}`;
-                                    opt.innerHTML = `${infoss[key].username}`;
-                                    document.querySelector('#idcaissevers').add(opt);
-                                    
-                                }
-                        } 
-                        else {
-                            document.querySelector('#idcaissevers').options.length = 1;
-                        }
-                        
-                    };
-                    httpInfoss.setRequestHeader('Content-Type', 'application/json');
-                    httpInfoss.send();
-                };
+        // Guichetiers : tri-filtre-dynamique.js (type=courrier)
         e.onclick = function () {
         let encaisFormv = document.querySelector('#expglobFormsvers');
             encaisFormv.setAttribute('action', `${APP_ROOT}/Rapport/etatsverseplis/${e.dataset.ekey}/${e.dataset.idgare}`);
@@ -20066,49 +19856,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
     })
 });
+
 ;
 /* --- adtrioexoplisesc.js --- */
 document.addEventListener('DOMContentLoaded', () => {
 
-    document.querySelectorAll('.adtrioexoplisesc').forEach(function (e) 
+    document.querySelectorAll('.adtrioexoplisesc').forEach(function (e)
     {
         document.querySelector('h3#Titlexpglobversesc').innerHTML = `BROUILLARD(EXERCICE) COURRIERESCAL`;
-        let infgares = document.querySelector('#garesversesc');
-        
-        if (infgares !== null) 
-        infgares.onchange = () => {
-            let httpInfoss;
-            if (window.XMLHttpRequest) {
-                httpInfoss = new XMLHttpRequest();
-            } else if (window.ActiveXObject) {
-                httpInfoss = new ActiveXObject("Microsoft.XMLHTTP");
-            }
-                document.querySelector('#idcaisseversesc').options.length = 1;
-
-                    var verificatgares = document.querySelector('#garesversesc').value;
-                    
-                    httpInfoss.open('GET', window.location.origin + `${APP_ROOT}/utilisateurs/trivendeuses/${verificatgares}`, true);
-                    httpInfoss.onload = () => {
-                        const infoss = JSON.parse(httpInfoss.responseText);
-                        
-                        if (Object.entries(infoss).length > 0) {                            
-                        
-                                for (let key in Object.entries(infoss)) {
-                                    let opt = document.createElement('option');
-                                    opt.value = `${infoss[key].roleattribut}/${infoss[key].username}`;
-                                    opt.innerHTML = `${infoss[key].username}`;
-                                    document.querySelector('#idcaisseversesc').add(opt);
-                                    
-                                }
-                        } 
-                        else {
-                            document.querySelector('#idcaisseversesc').options.length = 1;
-                        }
-                        
-                    };
-                    httpInfoss.setRequestHeader('Content-Type', 'application/json');
-                    httpInfoss.send();
-                };
+        // Guichetiers : tri-filtre-dynamique.js (type=courrier)
         e.onclick = function () {
         let encaisFormv = document.querySelector('#expglobFormsversesc');
             encaisFormv.setAttribute('action', `${APP_ROOT}/Rapport/etatsverseplisesc/${e.dataset.ekey}/${e.dataset.idgare}`);
@@ -20116,6 +19872,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     })
 });
+
 ;
 /* --- adtriobag.js --- */
 document.addEventListener('DOMContentLoaded', () => {
@@ -20139,45 +19896,10 @@ document.addEventListener('DOMContentLoaded', () => {
 /* --- adtrioexobag.js --- */
 document.addEventListener('DOMContentLoaded', () => {
 
-    document.querySelectorAll('.adtrioexobag').forEach(function (e) 
+    document.querySelectorAll('.adtrioexobag').forEach(function (e)
     {
         document.querySelector('h3#Titlexpglobversbg').innerHTML = `BROUILLARD(EXERCICE) BAGAGES`;
-        let infgaresb = document.querySelector('#departgarexobge');
-        
-        if (infgaresb !== null) 
-        infgaresb.onchange = () => {
-            let httpInfossb;
-            if (window.XMLHttpRequest) {
-                httpInfossb = new XMLHttpRequest();
-            } else if (window.ActiveXObject) {
-                httpInfossb = new ActiveXObject("Microsoft.XMLHTTP");
-            }
-                document.querySelector('#dvendeuseidexobg').options.length = 1;
-
-                    var verificatgaresb = document.querySelector('#departgarexobge').value;
-                    
-                    httpInfossb.open('GET', window.location.origin + `${APP_ROOT}/utilisateurs/trivendeuses/${verificatgaresb}`, true);
-                    httpInfossb.onload = () => {
-                        const infossb = JSON.parse(httpInfossb.responseText);
-                        
-                        if (Object.entries(infossb).length > 0) {                            
-                        
-                                for (let key in Object.entries(infossb)) {
-                                    let opt = document.createElement('option');
-                                    opt.value = `${infossb[key].roleattribut}/${infossb[key].username}`;
-                                    opt.innerHTML = `${infossb[key].username}`;
-                                    document.querySelector('#dvendeuseidexobg').add(opt);
-                                    
-                                }
-                        } 
-                        else {
-                            document.querySelector('#dvendeuseidexobg').options.length = 1;
-                        }
-                        
-                    };
-                    httpInfossb.setRequestHeader('Content-Type', 'application/json');
-                    httpInfossb.send();
-                };
+        // Opérateurs : tri-filtre-dynamique.js (type=bagage)
         e.onclick = function () {
         let encaisFormvb = document.querySelector('#expglobFormsversbg');
             encaisFormvb.setAttribute('action', `${APP_ROOT}/Rapport/triencaissementsexobag/${e.dataset.ekey}/${e.dataset.idgare}`);
@@ -20185,49 +19907,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
     })
 });
+
 ;
 /* --- adtrioexobagesc.js --- */
 document.addEventListener('DOMContentLoaded', () => {
 
-    document.querySelectorAll('.adtrioexobagesc').forEach(function (e) 
+    document.querySelectorAll('.adtrioexobagesc').forEach(function (e)
     {
         document.querySelector('h3#Titlexpglobversbgesc').innerHTML = `BROUILLARD(EXERCICE) BAGAGESESCAL`;
-        let infgaresbe = document.querySelector('#departgarexobgeesc');
-        
-        if (infgaresbe !== null) 
-        infgaresbe.onchange = () => {
-            let httpInfossbe;
-            if (window.XMLHttpRequest) {
-                httpInfossbe = new XMLHttpRequest();
-            } else if (window.ActiveXObject) {
-                httpInfossbe = new ActiveXObject("Microsoft.XMLHTTP");
-            }
-                document.querySelector('#dvendeuseidexobgesc').options.length = 1;
-
-                    var verificatgaresbe = document.querySelector('#departgarexobgeesc').value;
-                    
-                    httpInfossbe.open('GET', window.location.origin + `${APP_ROOT}/utilisateurs/trivendeuses/${verificatgaresbe}`, true);
-                    httpInfossbe.onload = () => {
-                        const infossbe = JSON.parse(httpInfossbe.responseText);
-                        
-                        if (Object.entries(infossbe).length > 0) {                            
-                        
-                                for (let key in Object.entries(infossbe)) {
-                                    let opt = document.createElement('option');
-                                    opt.value = `${infossbe[key].roleattribut}/${infossbe[key].username}`;
-                                    opt.innerHTML = `${infossbe[key].username}`;
-                                    document.querySelector('#dvendeuseidexobgesc').add(opt);
-                                    
-                                }
-                        } 
-                        else {
-                            document.querySelector('#dvendeuseidexobgesc').options.length = 1;
-                        }
-                        
-                    };
-                    httpInfossbe.setRequestHeader('Content-Type', 'application/json');
-                    httpInfossbe.send();
-                };
+        // Opérateurs : tri-filtre-dynamique.js (type=bagage)
         e.onclick = function () {
         let encaisFormvbe = document.querySelector('#expglobFormsversbgesc');
             encaisFormvbe.setAttribute('action', `${APP_ROOT}/Rapport/triencaissementsexobagesc/${e.dataset.ekey}/${e.dataset.idgare}`);
@@ -20235,6 +19923,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     })
 });
+
 ;
 /* --- advers.js --- */
 document.addEventListener('DOMContentLoaded', () => {
@@ -20324,6 +20013,70 @@ document.addEventListener('DOMContentLoaded', () => {
             openTrigger(select.value);
         });
     });
+});
+
+;
+/* --- recaptbagexop.js --- */
+document.addEventListener('DOMContentLoaded', () => {
+    
+    document.querySelectorAll('.recaptbagexop').forEach(function (e) 
+    {
+        document.querySelector('h3#optitle').innerHTML = `EXERCICE MENSUEL BAGAGE OPERATEUR`;
+        // Opérateurs : tri-filtre-dynamique.js (type=bagage)
+        e.onclick = function () {
+        let tickFormsgl = document.querySelector('#tickFormop');
+            tickFormsgl.setAttribute('action', `${APP_ROOT}/Rapport/exercicesbagop/${e.dataset.ekey}/${e.dataset.idsgare}`);
+        }
+
+    })
+});
+
+;
+/* --- recaptbagexopesc.js --- */
+document.addEventListener('DOMContentLoaded', () => {
+    
+    document.querySelectorAll('.recaptbagexopesc').forEach(function (e) 
+    {
+        document.querySelector('h3#optitleesc').innerHTML = `EXERCICE MENSUEL BAGAGEESCAL OPERATEUR`;
+        // Opérateurs : tri-filtre-dynamique.js (type=bagage)
+        e.onclick = function () {
+        let tickFormsgl = document.querySelector('#tickFormopesc');
+            tickFormsgl.setAttribute('action', `${APP_ROOT}/Rapport/exercicesbagopesc/${e.dataset.ekey}/${e.dataset.idsgare}`);
+        }
+
+    })
+});
+
+;
+/* --- recaptbagglop.js --- */
+document.addEventListener('DOMContentLoaded', () => {
+    
+    document.querySelectorAll('.recaptbagglop').forEach(function (e) 
+    {
+        document.querySelector('h3#optitlegl').innerHTML = `ETAT GLOBAL BAGAGE OPERATEUR`;
+        // Opérateurs : tri-filtre-dynamique.js (type=bagage)
+        e.onclick = function () {
+        let tickFormsgl = document.querySelector('#tickFormopgl');
+            tickFormsgl.setAttribute('action', `${APP_ROOT}/Rapport/reportbaggl/${e.dataset.ekey}/${e.dataset.idsgare}`);
+        }
+
+    })
+});
+
+;
+/* --- recaptbagglopesc.js --- */
+document.addEventListener('DOMContentLoaded', () => {
+    
+    document.querySelectorAll('.recaptbagglopesc').forEach(function (e) 
+    {
+        document.querySelector('h3#optitleglesc').innerHTML = `ETAT GLOBAL BAGAGEESCAL OPERATEUR`;
+        // Opérateurs : tri-filtre-dynamique.js (type=bagage)
+        e.onclick = function () {
+        let tickFormsgl = document.querySelector('#tickFormopglesc');
+            tickFormsgl.setAttribute('action', `${APP_ROOT}/Rapport/reportbagglesc/${e.dataset.ekey}/${e.dataset.idsgare}`);
+        }
+
+    })
 });
 
 ;
@@ -20648,7 +20401,7 @@ document.addEventListener('DOMContentLoaded', () => {
             du: '[name="datedbag"]',
             au: '[name="datefbag"]',
             users: '#idvendeusesbag',
-            userType: 'ticket',
+            userType: 'bagage',
         });
 
         wire({
@@ -20658,7 +20411,7 @@ document.addEventListener('DOMContentLoaded', () => {
             du: '[name="datedcour"]',
             au: '[name="datefcour"]',
             users: '#idvendeusescour',
-            userType: 'ticket',
+            userType: 'courrier',
         });
 
         wire({
@@ -20757,7 +20510,7 @@ document.addEventListener('DOMContentLoaded', () => {
             au: '[name="datefinbagop"]',
             users: '#idvendeuseop',
             lignes: '[name="axelignebagop"]',
-            userType: 'op',
+            userType: 'bagage',
         });
 
         wire({
@@ -20768,7 +20521,7 @@ document.addEventListener('DOMContentLoaded', () => {
             au: '[name="datefinbagopesc"]',
             users: '#idvendeuseopesc',
             lignes: '[name="axelignebagopesc"]',
-            userType: 'op',
+            userType: 'bagage',
         });
 
         wire({
@@ -20779,7 +20532,7 @@ document.addEventListener('DOMContentLoaded', () => {
             au: '[name="datefinbagopgl"]',
             users: '#idvendeuseopgl',
             lignes: '[name="axelignebagopgl"]',
-            userType: 'op',
+            userType: 'bagage',
         });
 
         wire({
@@ -20790,7 +20543,7 @@ document.addEventListener('DOMContentLoaded', () => {
             au: '[name="datefinbagopglesc"]',
             users: '#idvendeuseopglesc',
             lignes: '[name="axelignebagopglesc"]',
-            userType: 'op',
+            userType: 'bagage',
         });
 
         wire({
@@ -20822,7 +20575,7 @@ document.addEventListener('DOMContentLoaded', () => {
             du: '[name="datedexobg"]',
             au: '[name="datefexobg"]',
             users: '[name="vendeuseidexobg"]',
-            userType: 'ticket',
+            userType: 'bagage',
             userValueMode: 'slash',
         });
 
@@ -20833,7 +20586,7 @@ document.addEventListener('DOMContentLoaded', () => {
             du: '[name="datedexobgesc"]',
             au: '[name="datefexobgesc"]',
             users: '[name="vendeuseidexobgesc"]',
-            userType: 'ticket',
+            userType: 'bagage',
             userValueMode: 'slash',
         });
 
@@ -20868,7 +20621,7 @@ document.addEventListener('DOMContentLoaded', () => {
             au: '[name="datesfinsplig"]',
             users: '[name="caissesidplig"]',
             lignes: '[name="axelignesplig"]',
-            userType: 'ticket',
+            userType: 'courrier',
             userValueMode: 'slash',
         });
 
@@ -20880,7 +20633,7 @@ document.addEventListener('DOMContentLoaded', () => {
             au: '[name="datesfinspligesc"]',
             users: '[name="caissesidpligesc"]',
             lignes: '[name="axelignespligesc"]',
-            userType: 'ticket',
+            userType: 'courrier',
             userValueMode: 'slash',
         });
 
@@ -20892,7 +20645,7 @@ document.addEventListener('DOMContentLoaded', () => {
             au: '[name="datesfinspli"]',
             users: '[name="caissesidpli"]',
             lignes: '[name="axelignespli"]',
-            userType: 'ticket',
+            userType: 'courrier',
             userValueMode: 'slash',
         });
 
@@ -20904,7 +20657,7 @@ document.addEventListener('DOMContentLoaded', () => {
             au: '[name="datesfinspliesc"]',
             users: '[name="caissesidpliesc"]',
             lignes: '[name="axelignespliesc"]',
-            userType: 'ticket',
+            userType: 'courrier',
             userValueMode: 'slash',
         });
 
@@ -20915,7 +20668,7 @@ document.addEventListener('DOMContentLoaded', () => {
             du: '[name="datesdebutsplivers"]',
             au: '[name="datesfinsplivers"]',
             users: '[name="caissesidplivers"]',
-            userType: 'ticket',
+            userType: 'courrier',
             userValueMode: 'slash',
         });
 
@@ -20926,7 +20679,7 @@ document.addEventListener('DOMContentLoaded', () => {
             du: '[name="datesdebutspliversesc"]',
             au: '[name="datesfinspliversesc"]',
             users: '[name="caissesidpliversesc"]',
-            userType: 'ticket',
+            userType: 'courrier',
             userValueMode: 'slash',
         });
 
@@ -20937,7 +20690,7 @@ document.addEventListener('DOMContentLoaded', () => {
             du: '[name="datedebutcourdep"]',
             au: '[name="datefincourdep"]',
             users: '#idscaissiercourdep',
-            userType: 'ticket',
+            userType: 'courrier',
         });
 
         // --- Récaps ex mensuels compagnie (ticket / bagage / courrier) ---
@@ -21246,207 +20999,3 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 })();
 
-;
-/* --- recaptbagexop.js --- */
-document.addEventListener('DOMContentLoaded', () => {
-    
-    document.querySelectorAll('.recaptbagexop').forEach(function (e) 
-    {
-        document.querySelector('h3#optitle').innerHTML = `EXERCICE MENSUEL BAGAGE OPERATEUR`;
-
-        let infgars = document.querySelector('#departgardpbagop');
-        
-        if (infgars !== null) 
-        infgars.onchange = () => {
-            let httpInfosgars;
-            if (window.XMLHttpRequest) {
-                httpInfosgars = new XMLHttpRequest();
-            } else if (window.ActiveXObject) {
-                httpInfosgars = new ActiveXObject("Microsoft.XMLHTTP");
-            }
-                document.querySelector('#idvendeuseop').options.length = 1;
-
-                    var verificatgars = document.querySelector('#departgardpbagop').value;
-                    
-                    httpInfosgars.open('GET', window.location.origin + `${APP_ROOT}/utilisateurs/trivendeusesop/${verificatgars}`, true);
-                    httpInfosgars.onload = () => {
-                        const infosgars = JSON.parse(httpInfosgars.responseText);
-                        
-                        if (Object.entries(infosgars).length > 0) {                            
-                        
-                                for (let key in Object.entries(infosgars)) {
-                                    let opt = document.createElement('option');
-                                    opt.value = `${infosgars[key].roleattribut}`;
-                                    opt.innerHTML = `${infosgars[key].username}`;
-                                    document.querySelector('#idvendeuseop').add(opt);
-                                    
-                                }
-                        } 
-                        else {
-                            document.querySelector('#idvendeuseop').options.length = 1;
-                        }
-                        
-                    };
-                    httpInfosgars.setRequestHeader('Content-Type', 'application/json');
-                    httpInfosgars.send();
-                };
-        e.onclick = function () {
-        let tickFormsgl = document.querySelector('#tickFormop');
-            tickFormsgl.setAttribute('action', `${APP_ROOT}/Rapport/exercicesbagop/${e.dataset.ekey}/${e.dataset.idsgare}`);
-        }
-
-    })
-});
-;
-/* --- recaptbagexopesc.js --- */
-document.addEventListener('DOMContentLoaded', () => {
-    
-    document.querySelectorAll('.recaptbagexopesc').forEach(function (e) 
-    {
-        document.querySelector('h3#optitleesc').innerHTML = `EXERCICE MENSUEL BAGAGEESCAL OPERATEUR`;
-
-        let infgars = document.querySelector('#departgardpbagopesc');
-        
-        if (infgars !== null) 
-        infgars.onchange = () => {
-            let httpInfosgars;
-            if (window.XMLHttpRequest) {
-                httpInfosgars = new XMLHttpRequest();
-            } else if (window.ActiveXObject) {
-                httpInfosgars = new ActiveXObject("Microsoft.XMLHTTP");
-            }
-                document.querySelector('#idvendeuseopesc').options.length = 1;
-
-                    var verificatgars = document.querySelector('#departgardpbagopesc').value;
-                    
-                    httpInfosgars.open('GET', window.location.origin + `${APP_ROOT}/utilisateurs/trivendeusesesc/${verificatgars}`, true);
-                    httpInfosgars.onload = () => {
-                        const infosgars = JSON.parse(httpInfosgars.responseText);
-                        
-                        if (Object.entries(infosgars).length > 0) {                            
-                        
-                                for (let key in Object.entries(infosgars)) {
-                                    let opt = document.createElement('option');
-                                    opt.value = `${infosgars[key].roleattribut}`;
-                                    opt.innerHTML = `${infosgars[key].username}`;
-                                    document.querySelector('#idvendeuseopesc').add(opt);
-                                    
-                                }
-                        } 
-                        else {
-                            document.querySelector('#idvendeuseopesc').options.length = 1;
-                        }
-                        
-                    };
-                    httpInfosgars.setRequestHeader('Content-Type', 'application/json');
-                    httpInfosgars.send();
-                };
-        e.onclick = function () {
-        let tickFormsgl = document.querySelector('#tickFormopesc');
-            tickFormsgl.setAttribute('action', `${APP_ROOT}/Rapport/exercicesbagopesc/${e.dataset.ekey}/${e.dataset.idsgare}`);
-        }
-
-    })
-});
-;
-/* --- recaptbagglop.js --- */
-document.addEventListener('DOMContentLoaded', () => {
-    
-    document.querySelectorAll('.recaptbagglop').forEach(function (e) 
-    {
-        document.querySelector('h3#optitlegl').innerHTML = `ETAT GLOBAL BAGAGE OPERATEUR`;
-
-        let infgars = document.querySelector('#departgardpbagopgl');
-        
-        if (infgars !== null) 
-        infgars.onchange = () => {
-            let httpInfosgars;
-            if (window.XMLHttpRequest) {
-                httpInfosgars = new XMLHttpRequest();
-            } else if (window.ActiveXObject) {
-                httpInfosgars = new ActiveXObject("Microsoft.XMLHTTP");
-            }
-                document.querySelector('#idvendeuseopgl').options.length = 1;
-
-                    var verificatgars = document.querySelector('#departgardpbagopgl').value;
-                    
-                    httpInfosgars.open('GET', window.location.origin + `${APP_ROOT}/utilisateurs/trivendeusesop/${verificatgars}`, true);
-                    httpInfosgars.onload = () => {
-                        const infosgars = JSON.parse(httpInfosgars.responseText);
-                        
-                        if (Object.entries(infosgars).length > 0) {                            
-                        
-                                for (let key in Object.entries(infosgars)) {
-                                    let opt = document.createElement('option');
-                                    opt.value = `${infosgars[key].roleattribut}`;
-                                    opt.innerHTML = `${infosgars[key].username}`;
-                                    document.querySelector('#idvendeuseopgl').add(opt);
-                                    
-                                }
-                        } 
-                        else {
-                            document.querySelector('#idvendeuseopgl').options.length = 1;
-                        }
-                        
-                    };
-                    httpInfosgars.setRequestHeader('Content-Type', 'application/json');
-                    httpInfosgars.send();
-                };
-        e.onclick = function () {
-        let tickFormsgl = document.querySelector('#tickFormopgl');
-            tickFormsgl.setAttribute('action', `${APP_ROOT}/Rapport/reportbaggl/${e.dataset.ekey}/${e.dataset.idsgare}`);
-        }
-
-    })
-});
-;
-/* --- recaptbagglopesc.js --- */
-document.addEventListener('DOMContentLoaded', () => {
-    
-    document.querySelectorAll('.recaptbagglopesc').forEach(function (e) 
-    {
-        document.querySelector('h3#optitleglesc').innerHTML = `ETAT GLOBAL BAGAGEESCAL OPERATEUR`;
-
-        let infgars = document.querySelector('#departgardpbagopglesc');
-        
-        if (infgars !== null) 
-        infgars.onchange = () => {
-            let httpInfosgars;
-            if (window.XMLHttpRequest) {
-                httpInfosgars = new XMLHttpRequest();
-            } else if (window.ActiveXObject) {
-                httpInfosgars = new ActiveXObject("Microsoft.XMLHTTP");
-            }
-                document.querySelector('#idvendeuseopglesc').options.length = 1;
-
-                    var verificatgars = document.querySelector('#departgardpbagopglesc').value;
-                    
-                    httpInfosgars.open('GET', window.location.origin + `${APP_ROOT}/utilisateurs/trivendeusesesc/${verificatgars}`, true);
-                    httpInfosgars.onload = () => {
-                        const infosgars = JSON.parse(httpInfosgars.responseText);
-                        
-                        if (Object.entries(infosgars).length > 0) {                            
-                        
-                                for (let key in Object.entries(infosgars)) {
-                                    let opt = document.createElement('option');
-                                    opt.value = `${infosgars[key].roleattribut}`;
-                                    opt.innerHTML = `${infosgars[key].username}`;
-                                    document.querySelector('#idvendeuseopglesc').add(opt);
-                                    
-                                }
-                        } 
-                        else {
-                            document.querySelector('#idvendeuseopglesc').options.length = 1;
-                        }
-                        
-                    };
-                    httpInfosgars.setRequestHeader('Content-Type', 'application/json');
-                    httpInfosgars.send();
-                };
-        e.onclick = function () {
-        let tickFormsgl = document.querySelector('#tickFormopglesc');
-            tickFormsgl.setAttribute('action', `${APP_ROOT}/Rapport/reportbagglesc/${e.dataset.ekey}/${e.dataset.idsgare}`);
-        }
-
-    })
-});

@@ -85,10 +85,16 @@
             ) ";
         }
 
+        /** Accès public au filtre lieu (triactifs bagage/courrier). */
+        public function sql_ul_guser_lieu($gid, $ulAlias = 'ul')
+        {
+            return $this->_sql_ul_guser_lieu($gid, $ulAlias);
+        }
+
         /**
          * Guichetiers / opérateurs du lieu (idengare + tous codes commerciaux).
          *
-         * @param string $mode ticket|op|all
+         * @param string $mode ticket|op|all|bagage|courrier
          * @return array
          */
         public function get_users_tri_lieu($ekey, $gid, $mode = 'ticket')
@@ -98,6 +104,12 @@
                 $roles = '6, 5, 10, 17';
             } elseif ($mode === 'all') {
                 $roles = '6, 5, 10, 12, 17';
+            } elseif ($mode === 'bagage') {
+                // Même périmètre que get_userop5 / trivendeusesop.
+                $roles = '6, 12, 17';
+            } elseif ($mode === 'courrier') {
+                // Guichetiers courrier (hors rôle bagage-only 12).
+                $roles = '6, 10, 15, 17';
             } else {
                 $roles = '6, 10, 12, 17';
             }

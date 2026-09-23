@@ -1507,10 +1507,10 @@
         }
 
         /**
-         * Guichetiers / opérateurs ayant réellement vendu dans la gare
+         * Guichetiers / opérateurs ayant réellement travaillé dans la gare
          * (lieu physique vendeur) sur l’intervalle [du, au].
          *
-         * @param string $mode ticket|op|all
+         * @param string $mode ticket|op|all|bagage|courrier
          * @param string|null $comp cle_compagnie destination (optionnel)
          * @return array
          */
@@ -1520,6 +1520,14 @@
             $au = trim((string) $au);
             if ($du === '' || $au === '') {
                 return array();
+            }
+
+            $mode = strtolower(trim((string) $mode));
+            if ($mode === 'bagage') {
+                return $this->_operateurs_actifs_bagage($ekey, $gid, $du, $au, $comp);
+            }
+            if ($mode === 'courrier') {
+                return $this->_operateurs_actifs_courrier($ekey, $gid, $du, $au, $comp);
             }
 
             $CI =& get_instance();
@@ -1533,7 +1541,6 @@
             }
 
             $roles = '6, 5, 10, 12, 17';
-            $mode = strtolower(trim((string) $mode));
             if ($mode === 'op') {
                 $roles = '6, 5, 10, 17';
             } elseif ($mode === 'ticket') {
@@ -1586,6 +1593,94 @@
                 ORDER BY username ASC",
                 $params
             )->result();
+            return is_array($rows) ? $rows : array();
+        }
+
+        /**
+         * Opérateurs ayant saisi des bagages (direct + escal) sur [du, au] au lieu.
+         */
+        protected function _operateurs_actifs_bagage($ekey, $gid, $du, $au, $comp = null)
+        {
+            $CI =& get_instance();
+            if (!isset($CI->m_compte_user)) {
+                $CI->load->model('Compte_user_model', 'm_compte_user');
+            }
+            $lieu = $CI->m_compte_user->sql_ul_guser_lieu($gid, 'ul');
+            $label = "COALESCE(
+                NULLIF(TRIM(CONCAT(IFNULL(u.first_name,''), ' ', IFNULL(u.last_name,''))), ''),
+                NULLIF(TRIM(cu.username), ''),
+                ar.roleattribut
+            ) AS username";
+            $params = array($ekey, $du, $au, $ekey, $du, $au);
+            $sql = "
+                SELECT DISTINCT ar.roleattribut, u.first_name, u.last_name, {$label}
+                FROM bagages bg
+                JOIN attributions_role ar ON bg.idoperabagage = ar.roleattribut
+                JOIN user_login ul ON ar.idgestcompte = ul.uid_login
+                JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
+                JOIN utilisateurs u ON cu.userlog_id = u.uid
+                JOIN entreprise e ON u.cle_comp = e.ekey
+                WHERE e.ekey = ?
+                AND bg.date_create >= ? AND bg.date_create < DATE_ADD(?, INTERVAL 1 DAY)
+                {$lieu}
+                UNION
+                SELECT DISTINCT ar.roleattribut, u.first_name, u.last_name, {$label}
+                FROM bagagesesc bg
+                JOIN attributions_role ar ON bg.idoperabagageesc = ar.roleattribut
+                JOIN user_login ul ON ar.idgestcompte = ul.uid_login
+                JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
+                JOIN utilisateurs u ON cu.userlog_id = u.uid
+                JOIN entreprise e ON u.cle_comp = e.ekey
+                WHERE e.ekey = ?
+                AND bg.date_create >= ? AND bg.date_create < DATE_ADD(?, INTERVAL 1 DAY)
+                {$lieu}
+                ORDER BY username ASC
+            ";
+            $rows = $this->db->query($sql, $params)->result();
+            return is_array($rows) ? $rows : array();
+        }
+
+        /**
+         * Opérateurs ayant saisi des courriers (direct + escal) sur [du, au] au lieu.
+         */
+        protected function _operateurs_actifs_courrier($ekey, $gid, $du, $au, $comp = null)
+        {
+            $CI =& get_instance();
+            if (!isset($CI->m_compte_user)) {
+                $CI->load->model('Compte_user_model', 'm_compte_user');
+            }
+            $lieu = $CI->m_compte_user->sql_ul_guser_lieu($gid, 'ul');
+            $label = "COALESCE(
+                NULLIF(TRIM(CONCAT(IFNULL(u.first_name,''), ' ', IFNULL(u.last_name,''))), ''),
+                NULLIF(TRIM(cu.username), ''),
+                ar.roleattribut
+            ) AS username";
+            $params = array($ekey, $du, $au, $ekey, $du, $au);
+            $sql = "
+                SELECT DISTINCT ar.roleattribut, u.first_name, u.last_name, {$label}
+                FROM courriers_exp ce
+                JOIN attributions_role ar ON ce.idoperateur = ar.roleattribut
+                JOIN user_login ul ON ar.idgestcompte = ul.uid_login
+                JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
+                JOIN utilisateurs u ON cu.userlog_id = u.uid
+                JOIN entreprise e ON u.cle_comp = e.ekey
+                WHERE e.ekey = ?
+                AND ce.dateenvoi >= ? AND ce.dateenvoi < DATE_ADD(?, INTERVAL 1 DAY)
+                {$lieu}
+                UNION
+                SELECT DISTINCT ar.roleattribut, u.first_name, u.last_name, {$label}
+                FROM courriers_expesc es
+                JOIN attributions_role ar ON es.idoperateuresc = ar.roleattribut
+                JOIN user_login ul ON ar.idgestcompte = ul.uid_login
+                JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
+                JOIN utilisateurs u ON cu.userlog_id = u.uid
+                JOIN entreprise e ON u.cle_comp = e.ekey
+                WHERE e.ekey = ?
+                AND es.dateenvoiesc >= ? AND es.dateenvoiesc < DATE_ADD(?, INTERVAL 1 DAY)
+                {$lieu}
+                ORDER BY username ASC
+            ";
+            $rows = $this->db->query($sql, $params)->result();
             return is_array($rows) ? $rows : array();
         }
 
