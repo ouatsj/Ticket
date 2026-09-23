@@ -1535,7 +1535,7 @@
 
                 LEFT JOIN lignes g ON lh.ligne_id = g.ident_ligne
                 LEFT JOIN lignes lg ON bg.lgidbagage = lg.ident_ligne
-
+                LEFT JOIN gare_exp gex ON gex.code_gaexp = COALESCE(lg.gaexp_lg, g.gaexp_lg)
                 LEFT JOIN gare_dest dest
                     ON (lg.gadest_lg = dest.code_gadest 
                         OR g.gadest_lg = dest.code_gadest)
@@ -1604,7 +1604,7 @@
 
                 LEFT JOIN lignes g ON lh.ligne_id = g.ident_ligne
                 LEFT JOIN lignes lg ON bg.lgidbagage = lg.ident_ligne
-
+                LEFT JOIN gare_exp gex ON gex.code_gaexp = COALESCE(lg.gaexp_lg, g.gaexp_lg)
                 LEFT JOIN gare_dest dest
                     ON (lg.gadest_lg = dest.code_gadest 
                         OR g.gadest_lg = dest.code_gadest)
@@ -1723,7 +1723,7 @@
 
                 LEFT JOIN lignes g ON lh.ligne_id = g.ident_ligne
                 LEFT JOIN lignes lg ON bg.lgidbagage = lg.ident_ligne
-
+                LEFT JOIN gare_exp gex ON gex.code_gaexp = COALESCE(lg.gaexp_lg, g.gaexp_lg)
                 LEFT JOIN gare_dest dest
                     ON (lg.gadest_lg = dest.code_gadest 
                         OR g.gadest_lg = dest.code_gadest)

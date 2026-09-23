@@ -158,6 +158,11 @@
         protected function _resolve_report_operateur($roleattribut)
         {
             $ra = trim((string) $roleattribut);
+            // Formulaires slash (TRI userValueMode) : "roleattribut/username".
+            $slashPos = strpos($ra, '/');
+            if ($slashPos !== false) {
+                $ra = trim(substr($ra, 0, $slashPos));
+            }
             $out = array('label' => '', 'noms' => array(), 'roleattribut' => $ra);
             if ($ra === '' || $ra === '0') {
                 return $out;
@@ -1954,7 +1959,7 @@
         protected function _triencaissementsexobag_payload($ckey, $g)
         {
             $this->entreprise = $this->m_entreprises->get_key($ckey);
-            $ivd = trim((string) $this->input->get_post('vendeuseidexobg'));
+            $ivdRaw = trim((string) $this->input->get_post('vendeuseidexobg'));
             $ddbt = trim((string) $this->input->get_post('datedexobg'));
             $dfin = trim((string) $this->input->get_post('datefexobg'));
             $comp = trim((string) $this->input->get_post('_compagexobg'));
@@ -1962,7 +1967,8 @@
             if ($gid === '') {
                 $gid = $this->_normalize_recap_gare_code_filter($g);
             }
-            $op = $this->_resolve_report_operateur($ivd);
+            $op = $this->_resolve_report_operateur($ivdRaw);
+            $ivd = $op['roleattribut'];
             $ncgd = $this->m_gare_depart->getn($gid);
             $gar = ($ncgd && isset($ncgd->nom_gaep)) ? $ncgd->nom_gaep : $gid;
             $ncomp = $this->m_compagnies->getn($comp);
@@ -2025,7 +2031,7 @@
         protected function _triencaissementsexobagesc_payload($ckey, $g)
         {
             $this->entreprise = $this->m_entreprises->get_key($ckey);
-            $ivd = trim((string) $this->input->get_post('vendeuseidexobgesc'));
+            $ivdRaw = trim((string) $this->input->get_post('vendeuseidexobgesc'));
             $ddbt = trim((string) $this->input->get_post('datedexobgesc'));
             $dfin = trim((string) $this->input->get_post('datefexobgesc'));
             $comp = trim((string) $this->input->get_post('_compagexobgesc'));
@@ -2033,7 +2039,8 @@
             if ($gid === '') {
                 $gid = $this->_normalize_recap_gare_code_filter($g);
             }
-            $op = $this->_resolve_report_operateur($ivd);
+            $op = $this->_resolve_report_operateur($ivdRaw);
+            $ivd = $op['roleattribut'];
             $ncgd = $this->m_gare_depart->getn($gid);
             $gar = ($ncgd && isset($ncgd->nom_gaep)) ? $ncgd->nom_gaep : $gid;
             $ncomp = $this->m_compagnies->getn($comp);
@@ -2096,7 +2103,7 @@
         protected function _tridepensescour_payload($ckey, $g)
         {
             $this->entreprise = $this->m_entreprises->get_key($ckey);
-            $ivd = trim((string) $this->input->get_post('caissiercourdep'));
+            $ivdRaw = trim((string) $this->input->get_post('caissiercourdep'));
             $ddbt = trim((string) $this->input->get_post('datedebutcourdep'));
             $dfin = trim((string) $this->input->get_post('datefincourdep'));
             $comp = trim((string) $this->input->get_post('_compagcourdep'));
@@ -2104,7 +2111,8 @@
             if ($gid === '') {
                 $gid = $this->_normalize_recap_gare_code_filter($g);
             }
-            $op = $this->_resolve_report_operateur($ivd);
+            $op = $this->_resolve_report_operateur($ivdRaw);
+            $ivd = $op['roleattribut'];
             $ncomp = $this->m_compagnies->getn($comp);
             $cieNom = ($ncomp && isset($ncomp->nom_compagnie)) ? $ncomp->nom_compagnie : '';
             list($days, $days1) = $this->_recap_title_dates($ddbt, $dfin);

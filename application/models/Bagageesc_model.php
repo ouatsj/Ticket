@@ -837,7 +837,7 @@
                         AND bg.couleurcarnetesc IN('A', 'C')
                         AND bg.prix_bagageesc IS NOT NULL
                         AND lg.ident_ligne = '$algn'
-                        GROUP BY lg.nom_ligne, bg.prix_bagage")->result();
+                        GROUP BY lg.nom_ligne, bg.prix_bagageesc")->result();
         }
 
         public function reportbag($cid, $cp, $gid, $dt1, $dt2, $algn = FALSE)
