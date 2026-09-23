@@ -1779,21 +1779,102 @@
         }
 
         /**
-         * Opérateurs ayant saisi des courriers (direct + escal) sur [du, au] au lieu.
+         * Opérateurs ayant saisi des courriers (direct + escal) sur [du, au]
+         * à la gare d’émission (sous-gare départ / gaexp ligne), pas ul.guser.
          */
         protected function _operateurs_actifs_courrier($ekey, $gid, $du, $au, $comp = null)
         {
             $CI =& get_instance();
-            if (!isset($CI->m_compte_user)) {
-                $CI->load->model('Compte_user_model', 'm_compte_user');
+            if (!isset($CI->m_gare_depart)) {
+                $CI->load->model('Gare_depart_model', 'm_gare_depart');
             }
-            $lieu = $CI->m_compte_user->sql_ul_guser_lieu($gid, 'ul');
+            $lieu = $CI->m_gare_depart->resolve_lieu($gid);
+            $codes = is_array($lieu['codes']) ? $lieu['codes'] : array();
+            if (!empty($lieu['phys'])) {
+                $codes[] = $lieu['phys'];
+            }
+            $gidTrim = trim((string) $gid);
+            if ($gidTrim !== '') {
+                $codes[] = $gidTrim;
+            }
+            $codes = array_values(array_unique(array_filter(array_map('strval', $codes))));
+            if (empty($codes)) {
+                return array();
+            }
+            $inPh = implode(',', array_fill(0, count($codes), '?'));
+
             $label = "COALESCE(
                 NULLIF(TRIM(CONCAT(IFNULL(u.first_name,''), ' ', IFNULL(u.last_name,''))), ''),
                 NULLIF(TRIM(cu.username), ''),
                 ar.roleattribut
             ) AS username";
-            $params = array($ekey, $du, $au, $ekey, $du, $au);
+
+            $comp = trim((string) $comp);
+            $compSql = '';
+            $compJoin = '';
+            $compJoinEsc = '';
+            if ($comp !== '' && $comp !== '0') {
+                $compJoin = "
+                    LEFT JOIN code_courriers cd ON ce.id_codecourrier = cd.codecolisid
+                    LEFT JOIN lignes lg ON cd.idlignes = lg.ident_ligne
+                    LEFT JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
+                ";
+                $compJoinEsc = "
+                    LEFT JOIN code_courriers cd ON es.id_codecourrieresc = cd.codecolisid
+                    LEFT JOIN lignes lg ON cd.idlignes = lg.ident_ligne
+                    LEFT JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
+                ";
+                $compSql = ' AND dest.id_compaga = ? ';
+            }
+
+            // Émission = sous-gare départ (gareprinceid) OU gaexp de la ligne du colis.
+            $gareCe = " AND (
+                sg.gareprinceid IN ({$inPh})
+                OR EXISTS (
+                    SELECT 1 FROM gare_exp ge
+                    WHERE ge.code_gaexp = sg.gareprinceid
+                    AND (ge.garesid IN ({$inPh}) OR ge.code_gaexp IN ({$inPh}))
+                )
+                OR EXISTS (
+                    SELECT 1 FROM code_courriers cdx
+                    JOIN lignes lgx ON cdx.idlignes = lgx.ident_ligne
+                    WHERE cdx.codecolisid = ce.id_codecourrier
+                    AND lgx.gaexp_lg IN ({$inPh})
+                )
+            ) ";
+            $gareEs = " AND (
+                sg.gareprinceid IN ({$inPh})
+                OR EXISTS (
+                    SELECT 1 FROM gare_exp ge
+                    WHERE ge.code_gaexp = sg.gareprinceid
+                    AND (ge.garesid IN ({$inPh}) OR ge.code_gaexp IN ({$inPh}))
+                )
+                OR EXISTS (
+                    SELECT 1 FROM code_courriers cdx
+                    JOIN lignes lgx ON cdx.idlignes = lgx.ident_ligne
+                    WHERE cdx.codecolisid = es.id_codecourrieresc
+                    AND lgx.gaexp_lg IN ({$inPh})
+                )
+            ) ";
+
+            $paramsCe = array($ekey, $du, $au);
+            foreach ($codes as $c) { $paramsCe[] = $c; }
+            foreach ($codes as $c) { $paramsCe[] = $c; }
+            foreach ($codes as $c) { $paramsCe[] = $c; }
+            foreach ($codes as $c) { $paramsCe[] = $c; }
+            if ($comp !== '' && $comp !== '0') {
+                $paramsCe[] = $comp;
+            }
+
+            $paramsEs = array($ekey, $du, $au);
+            foreach ($codes as $c) { $paramsEs[] = $c; }
+            foreach ($codes as $c) { $paramsEs[] = $c; }
+            foreach ($codes as $c) { $paramsEs[] = $c; }
+            foreach ($codes as $c) { $paramsEs[] = $c; }
+            if ($comp !== '' && $comp !== '0') {
+                $paramsEs[] = $comp;
+            }
+
             $sql = "
                 SELECT DISTINCT ar.roleattribut, u.first_name, u.last_name, {$label}
                 FROM courriers_exp ce
@@ -1802,9 +1883,12 @@
                 JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
                 JOIN utilisateurs u ON cu.userlog_id = u.uid
                 JOIN entreprise e ON u.cle_comp = e.ekey
+                JOIN sousgare sg ON ce.courrierdepartgare = sg.idsousgare
+                {$compJoin}
                 WHERE e.ekey = ?
                 AND ce.dateenvoi >= ? AND ce.dateenvoi < DATE_ADD(?, INTERVAL 1 DAY)
-                {$lieu}
+                {$gareCe}
+                {$compSql}
                 UNION
                 SELECT DISTINCT ar.roleattribut, u.first_name, u.last_name, {$label}
                 FROM courriers_expesc es
@@ -1813,12 +1897,15 @@
                 JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
                 JOIN utilisateurs u ON cu.userlog_id = u.uid
                 JOIN entreprise e ON u.cle_comp = e.ekey
+                JOIN sousgare sg ON es.courrierdepartgareesc = sg.idsousgare
+                {$compJoinEsc}
                 WHERE e.ekey = ?
                 AND es.dateenvoiesc >= ? AND es.dateenvoiesc < DATE_ADD(?, INTERVAL 1 DAY)
-                {$lieu}
+                {$gareEs}
+                {$compSql}
                 ORDER BY username ASC
             ";
-            $rows = $this->db->query($sql, $params)->result();
+            $rows = $this->db->query($sql, array_merge($paramsCe, $paramsEs))->result();
             return is_array($rows) ? $rows : array();
         }
 

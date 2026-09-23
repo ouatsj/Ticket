@@ -8,7 +8,72 @@
         {
             parent::__construct();
         }
-        
+
+        /**
+         * Lieu de vente / émission escal ticket :
+         * ul.guser (lieu) OU sous-gare départ escal OU gaexp ligne.
+         */
+        public function sql_filtre_gare_escal($gid, $ulAlias = 'ul', $sgAlias = 'sg', $gaexpExpr = 'lg.gaexp_lg')
+        {
+            $gid = trim((string) $gid);
+            if ($gid === '' || $gid === '0') {
+                return '';
+            }
+            if (!isset($this->m_compte_user)) {
+                $this->load->model('Compte_user_model', 'm_compte_user');
+            }
+            if (!isset($this->m_gare_depart)) {
+                $this->load->model('Gare_depart_model', 'm_gare_depart');
+            }
+            $lieuUl = $this->m_compte_user->sql_ul_guser_lieu($gid, $ulAlias);
+            $lieu = $this->m_gare_depart->resolve_lieu($gid);
+            $codes = is_array($lieu['codes']) ? $lieu['codes'] : array();
+            if (!empty($lieu['phys'])) {
+                $codes[] = $lieu['phys'];
+            }
+            $codes[] = $gid;
+            $codes = array_values(array_unique(array_filter(array_map('strval', $codes))));
+            if (empty($codes)) {
+                return $lieuUl;
+            }
+            $in = array();
+            foreach ($codes as $c) {
+                $in[] = $this->db->escape($c);
+            }
+            $inSql = implode(',', $in);
+            $sgAlias = preg_replace('/[^a-zA-Z0-9_]/', '', (string) $sgAlias);
+            $ulPart = trim($lieuUl);
+            if (strpos($ulPart, 'AND') === 0) {
+                $ulPart = trim(substr($ulPart, 3));
+            }
+            return " AND (
+                ({$ulPart})
+                OR {$sgAlias}.gareprinceid IN ({$inSql})
+                OR EXISTS (
+                    SELECT 1 FROM gare_exp ge
+                    WHERE ge.code_gaexp = {$sgAlias}.gareprinceid
+                    AND (ge.garesid IN ({$inSql}) OR ge.code_gaexp IN ({$inSql}))
+                )
+                OR {$gaexpExpr} IN ({$inSql})
+            ) ";
+        }
+
+        public function sql_filtre_operateur_escal($us, $arAlias = 'ar')
+        {
+            $us = trim((string) $us);
+            $slashPos = strpos($us, '/');
+            if ($slashPos !== false) {
+                $us = trim(substr($us, 0, $slashPos));
+            }
+            if ($us === '' || $us === '0') {
+                return '';
+            }
+            if (!isset($this->m_passager)) {
+                $this->load->model('Passager_model', 'm_passager');
+            }
+            return $this->m_passager->sql_filtre_vendeur($us, $arAlias);
+        }
+
         public function create(array $data)
         {
             $data = roleattribut_guard_apply_to_data($data, array('idcptuser', 'iduseescal'));
@@ -447,316 +512,214 @@
             $dt2 = $this->db->escape_str($dt2);
             $cp = $this->db->escape_str($cp);
             $gidNorm = ($gid === FALSE || $gid === null) ? '' : trim((string) $gid);
-            $gareSql = '';
-            if ($gidNorm !== '' && $gidNorm !== '0') {
-                $gareSql = " AND ul.guser = '" . $this->db->escape_str($gidNorm) . "'";
-            }
+            $gareSql = ($gidNorm !== '' && $gidNorm !== '0')
+                ? $this->sql_filtre_gare_escal($gidNorm)
+                : '';
             $algn = ($algn === FALSE || $algn === null) ? '' : trim((string) $algn);
-            $ligneSql = '';
-            if ($algn !== '') {
-                $ligneSql = " AND lg.ident_ligne = '" . $this->db->escape_str($algn) . "'";
-            }
+            $ligneSql = ($algn !== '')
+                ? " AND lg.ident_ligne = '" . $this->db->escape_str($algn) . "' "
+                : '';
 
             return $this->db->query(
-                "SELECT COUNT(idclescal) AS escalp, SUM(prixescal) AS tota, lg.nom_ligne, esp.prixescal FROM escalclients esp
-                        JOIN attributions_role ar ON esp.iduseescal = ar.roleattribut
-                        JOIN user_login ul ON ar.idgestcompte = ul.uid_login
-                        JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
-                        JOIN gares g ON ul.guser = g.idengare
-                        JOIN utilisateurs u ON cu.userlog_id = u.uid
-                        JOIN lignes lg ON esp.lignintescal = lg.ident_ligne
-                        JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
-                        JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
-                        JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
-                        JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                        WHERE e.ekey = '{$cid}'
-                        AND esp.datedepescal >= '{$dt1}' AND datedepescal < DATE_ADD('{$dt2}', INTERVAL 1 DAY)
-                        AND esp.prixescal IS NOT NULL
-                        AND esp.arrcptescal = 1
-                        AND dest.id_compaga = '{$cp}'
-                        {$gareSql}
-                        {$ligneSql}
-                        GROUP BY lg.nom_ligne, esp.prixescal")->result();
+                "SELECT COUNT(idclescal) AS escalp, SUM(prixescal) AS tota, lg.nom_ligne, esp.prixescal
+                FROM escalclients esp
+                JOIN attributions_role ar ON esp.iduseescal = ar.roleattribut
+                JOIN user_login ul ON ar.idgestcompte = ul.uid_login
+                JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
+                JOIN utilisateurs u ON cu.userlog_id = u.uid
+                LEFT JOIN sousgare sg ON esp.departsgescal = sg.idsousgare
+                JOIN lignes lg ON esp.lignintescal = lg.ident_ligne
+                JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
+                JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
+                JOIN entreprise e ON c.id_entrep = e.id_entreprise
+                WHERE e.ekey = '{$cid}'
+                AND esp.datedepescal >= '{$dt1}' AND esp.datedepescal < DATE_ADD('{$dt2}', INTERVAL 1 DAY)
+                AND esp.prixescal IS NOT NULL
+                AND esp.arrcptescal = 1
+                AND dest.id_compaga = '{$cp}'
+                {$gareSql}
+                {$ligneSql}
+                GROUP BY lg.nom_ligne, esp.prixescal")->result();
         }
         //exo
         public function reporticketcpt($cid, $gid, $dt1, $dt2, $cp, $algn = FALSE)
         {
-            
-            if ($algn === '') 
-            {
-                return $this->db->query(
-                    "SELECT COUNT(idclescal) AS escalp, SUM(prixescal) AS tota, lg.nom_ligne, esp.prixescal FROM escalclients esp
-                        JOIN attributions_role ar ON esp.iduseescal = ar.roleattribut
-                        JOIN user_login ul ON ar.idgestcompte = ul.uid_login
-                        JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
-                        JOIN gares g ON ul.guser = g.idengare
-                        JOIN utilisateurs u ON cu.userlog_id = u.uid
-                        JOIN lignes lg ON esp.lignintescal = lg.ident_ligne
-                        JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
-                        JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
-                        JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
-                        JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                        WHERE e.ekey = '$cid'
-                        AND esp.datedepescal >= '$dt1' AND datedepescal < DATE_ADD('$dt2', INTERVAL 1 DAY)
-                        AND esp.prixescal IS NOT NULL
-                        AND ex.code_gaexp = '$gid'
-                        AND esp.arrcptescal = 1
-                        AND esp.escalpanier IN('A', 'C', 'D')
-                        AND dest.id_compaga = '$cp'
-                        GROUP BY lg.nom_ligne, esp.prixescal")->result();
-            }
-                return $this->db->query(
-                    "SELECT COUNT(idclescal) AS escalp, SUM(prixescal) AS tota, lg.nom_ligne, esp.prixescal FROM escalclients esp
-                        JOIN attributions_role ar ON esp.iduseescal = ar.roleattribut
-                        JOIN user_login ul ON ar.idgestcompte = ul.uid_login
-                        JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
-                        JOIN gares g ON ul.guser = g.idengare
-                        JOIN utilisateurs u ON cu.userlog_id = u.uid
-                        JOIN lignes lg ON esp.lignintescal = lg.ident_ligne
-                        JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
-                        JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
-                        JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
-                        JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                        WHERE e.ekey = '$cid'
-                        AND esp.datedepescal >= '$dt1' AND datedepescal < DATE_ADD('$dt2', INTERVAL 1 DAY)
-                        AND esp.prixescal IS NOT NULL
-                        AND ex.code_gaexp = '$gid'
-                        AND esp.arrcptescal = 1
-                        AND esp.escalpanier IN('A', 'C', 'D')
-                        AND dest.id_compaga = '$cp'
-                        AND lg.ident_ligne = '$algn'
-                        GROUP BY lg.nom_ligne, esp.prixescal")->result();
+            $cid = $this->db->escape_str($cid);
+            $dt1 = $this->db->escape_str($dt1);
+            $dt2 = $this->db->escape_str($dt2);
+            $cp = $this->db->escape_str($cp);
+            $gareSql = $this->sql_filtre_gare_escal($gid);
+            $algn = ($algn === FALSE || $algn === null) ? '' : trim((string) $algn);
+            $ligneSql = ($algn !== '')
+                ? " AND lg.ident_ligne = '" . $this->db->escape_str($algn) . "' "
+                : '';
+
+            return $this->db->query(
+                "SELECT COUNT(idclescal) AS escalp, SUM(prixescal) AS tota, lg.nom_ligne, esp.prixescal
+                FROM escalclients esp
+                JOIN attributions_role ar ON esp.iduseescal = ar.roleattribut
+                JOIN user_login ul ON ar.idgestcompte = ul.uid_login
+                JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
+                JOIN utilisateurs u ON cu.userlog_id = u.uid
+                LEFT JOIN sousgare sg ON esp.departsgescal = sg.idsousgare
+                JOIN lignes lg ON esp.lignintescal = lg.ident_ligne
+                JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
+                JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
+                JOIN entreprise e ON c.id_entrep = e.id_entreprise
+                WHERE e.ekey = '{$cid}'
+                AND esp.datedepescal >= '{$dt1}' AND esp.datedepescal < DATE_ADD('{$dt2}', INTERVAL 1 DAY)
+                AND esp.prixescal IS NOT NULL
+                AND esp.arrcptescal = 1
+                AND esp.escalpanier IN('A', 'C', 'D')
+                AND dest.id_compaga = '{$cp}'
+                {$gareSql}
+                {$ligneSql}
+                GROUP BY lg.nom_ligne, esp.prixescal")->result();
         }
 
         public function reporticketcptgr($cid, $gid, $dt1, $dt2, $cp, $algn = FALSE)
         {
-            
-            if ($algn === '') 
-            {
-                return $this->db->query(
-                    "SELECT * FROM escalclients esp
-                        JOIN attributions_role ar ON esp.iduseescal = ar.roleattribut
-                        JOIN user_login ul ON ar.idgestcompte = ul.uid_login
-                        JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
-                        JOIN gares g ON ul.guser = g.idengare
-                        JOIN utilisateurs u ON cu.userlog_id = u.uid
-                        JOIN lignes lg ON esp.lignintescal = lg.ident_ligne
-                        JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
-                        JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
-                        JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
-                        JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                        WHERE e.ekey = '$cid'
-                        AND esp.datedepescal >= '$dt1' AND datedepescal < DATE_ADD('$dt2', INTERVAL 1 DAY)
-                        AND esp.prixescal IS NOT NULL
-                        AND ex.code_gaexp = '$gid'
-                        AND esp.arrcptescal = 1
-                        AND esp.escalpanier IN('A', 'C', 'D')
-                        AND dest.id_compaga = '$cp'")->result();
-            }
-                return $this->db->query(
-                    "SELECT * FROM escalclients esp
-                        JOIN attributions_role ar ON esp.iduseescal = ar.roleattribut
-                        JOIN user_login ul ON ar.idgestcompte = ul.uid_login
-                        JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
-                        JOIN gares g ON ul.guser = g.idengare
-                        JOIN utilisateurs u ON cu.userlog_id = u.uid
-                        JOIN lignes lg ON esp.lignintescal = lg.ident_ligne
-                        JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
-                        JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
-                        JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
-                        JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                        WHERE e.ekey = '$cid'
-                        AND esp.datedepescal >= '$dt1' AND datedepescal < DATE_ADD('$dt2', INTERVAL 1 DAY)
-                        AND esp.prixescal IS NOT NULL
-                        AND ex.code_gaexp = '$gid'
-                        AND esp.arrcptescal = 1
-                        AND esp.escalpanier IN('A', 'C', 'D')
-                        AND dest.id_compaga = '$cp'
-                        AND lg.ident_ligne = '$algn'")->result();
+            $cid = $this->db->escape_str($cid);
+            $dt1 = $this->db->escape_str($dt1);
+            $dt2 = $this->db->escape_str($dt2);
+            $cp = $this->db->escape_str($cp);
+            $gareSql = $this->sql_filtre_gare_escal($gid);
+            $algn = ($algn === FALSE || $algn === null) ? '' : trim((string) $algn);
+            $ligneSql = ($algn !== '')
+                ? " AND lg.ident_ligne = '" . $this->db->escape_str($algn) . "' "
+                : '';
+
+            return $this->db->query(
+                "SELECT * FROM escalclients esp
+                JOIN attributions_role ar ON esp.iduseescal = ar.roleattribut
+                JOIN user_login ul ON ar.idgestcompte = ul.uid_login
+                JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
+                JOIN utilisateurs u ON cu.userlog_id = u.uid
+                LEFT JOIN sousgare sg ON esp.departsgescal = sg.idsousgare
+                JOIN lignes lg ON esp.lignintescal = lg.ident_ligne
+                JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
+                JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
+                JOIN entreprise e ON c.id_entrep = e.id_entreprise
+                WHERE e.ekey = '{$cid}'
+                AND esp.datedepescal >= '{$dt1}' AND esp.datedepescal < DATE_ADD('{$dt2}', INTERVAL 1 DAY)
+                AND esp.prixescal IS NOT NULL
+                AND esp.arrcptescal = 1
+                AND esp.escalpanier IN('A', 'C', 'D')
+                AND dest.id_compaga = '{$cp}'
+                {$gareSql}
+                {$ligneSql}"
+            )->result();
         }
 
         public function reporticketcptd($cid, $cp, $gid, $dt1, $dt2, $algn = FALSE)
         {
-            
-            if ($algn === '')
-            {
-                return $this->db->query(
-                    "SELECT COUNT(idclescal) AS escalp, SUM(prixescal) AS tota, lg.nom_ligne, esp.prixescal FROM escalclients esp
-                        JOIN attributions_role ar ON esp.iduseescal = ar.roleattribut
-                        JOIN user_login ul ON ar.idgestcompte = ul.uid_login
-                        JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
-                        JOIN gares g ON ul.guser = g.idengare
-                        JOIN utilisateurs u ON cu.userlog_id = u.uid
-                        JOIN lignes lg ON esp.lignintescal = lg.ident_ligne
-                        JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
-                        JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
-                        JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
-                        JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                        WHERE e.ekey = '$cid'
-                        AND esp.datedepescal >= '$dt1' AND datedepescal < DATE_ADD('$dt2', INTERVAL 1 DAY)
-                        AND esp.arrcptescal = 1
-                        AND dest.id_compaga = '$cp'
-                        AND ex.code_gaexp = '$gid'
-                        AND esp.exopes = 1
-                        AND esp.prixescal IS NOT NULL
-                        GROUP BY lg.nom_ligne, esp.prixescal")->result();
-            }
-                return $this->db->query(
-                    "SELECT COUNT(idclescal) AS escalp, SUM(prixescal) AS tota, lg.nom_ligne, esp.prixescal FROM escalclients esp
-                        JOIN attributions_role ar ON esp.iduseescal = ar.roleattribut
-                        JOIN user_login ul ON ar.idgestcompte = ul.uid_login
-                        JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
-                        JOIN gares g ON ul.guser = g.idengare
-                        JOIN utilisateurs u ON cu.userlog_id = u.uid
-                        JOIN lignes lg ON esp.lignintescal = lg.ident_ligne
-                        JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
-                        JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
-                        JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
-                        JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                        WHERE e.ekey = '$cid'
-                        AND esp.datedepescal >= '$dt1' AND datedepescal < DATE_ADD('$dt2', INTERVAL 1 DAY)
-                        AND esp.arrcptescal = 1
-                        AND dest.id_compaga = '$cp'
-                        AND ex.code_gaexp = '$gid'
-                        AND esp.exopes = 1
-                        AND esp.prixescal IS NOT NULL
-                        AND lg.ident_ligne = '$algn'
-                        GROUP BY lg.nom_ligne, esp.prixescal")->result();
+            $cid = $this->db->escape_str($cid);
+            $dt1 = $this->db->escape_str($dt1);
+            $dt2 = $this->db->escape_str($dt2);
+            $cp = $this->db->escape_str($cp);
+            $gareSql = $this->sql_filtre_gare_escal($gid);
+            $algn = ($algn === FALSE || $algn === null) ? '' : trim((string) $algn);
+            $ligneSql = ($algn !== '')
+                ? " AND lg.ident_ligne = '" . $this->db->escape_str($algn) . "' "
+                : '';
+
+            return $this->db->query(
+                "SELECT COUNT(idclescal) AS escalp, SUM(prixescal) AS tota, lg.nom_ligne, esp.prixescal
+                FROM escalclients esp
+                JOIN attributions_role ar ON esp.iduseescal = ar.roleattribut
+                JOIN user_login ul ON ar.idgestcompte = ul.uid_login
+                JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
+                JOIN utilisateurs u ON cu.userlog_id = u.uid
+                LEFT JOIN sousgare sg ON esp.departsgescal = sg.idsousgare
+                JOIN lignes lg ON esp.lignintescal = lg.ident_ligne
+                JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
+                JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
+                JOIN entreprise e ON c.id_entrep = e.id_entreprise
+                WHERE e.ekey = '{$cid}'
+                AND esp.datedepescal >= '{$dt1}' AND esp.datedepescal < DATE_ADD('{$dt2}', INTERVAL 1 DAY)
+                AND esp.arrcptescal = 1
+                AND dest.id_compaga = '{$cp}'
+                AND esp.exopes = 1
+                AND esp.prixescal IS NOT NULL
+                {$gareSql}
+                {$ligneSql}
+                GROUP BY lg.nom_ligne, esp.prixescal"
+            )->result();
         }
 
         public function listereportesc($cid, $cp, $gid, $dt1, $dt2, $acl = FALSE, $algn = FALSE)
         {
-            
-            if ($acl === '' AND $algn === '') {
-                return $this->db->query(
-                    "SELECT  COUNT(idclescal) AS escalp, SUM(prixescal) AS tota, lg.nom_ligne, esp.prixescal FROM escalclients esp
-                    JOIN attributions_role ar ON esp.iduseescal = ar.roleattribut
-                    JOIN user_login ul ON ar.idgestcompte = ul.uid_login
-                    JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
-                    JOIN gares g ON ul.guser = g.idengare
-                    JOIN utilisateurs u ON cu.userlog_id = u.uid
-                    JOIN lignes lg ON esp.lignintescal = lg.ident_ligne
-                    JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
-                    JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
-                    JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
-                    JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                    WHERE e.ekey = '$cid'
-                    AND esp.datedepescal >= '$dt1' AND datedepescal < DATE_ADD('$dt2', INTERVAL 1 DAY)
-                    AND dest.id_compaga = '$cp'
-                    AND esp.prixescal IS NOT NULL
-                    AND ex.code_gaexp = '$gid'
-                    GROUP BY lg.nom_ligne, esp.prixescal")->result();
-            }
-            elseif($algn === '')
-            {
-                return $this->db->query("SELECT COUNT(idclescal) AS escalp, SUM(prixescal) AS tota, u.first_name, u.last_name, dest.id_compaga, lg.nom_ligne, ar.roleattribut, esp.prixescal FROM escalclients esp
-                    JOIN attributions_role ar ON esp.iduseescal = ar.roleattribut
-                    JOIN user_login ul ON ar.idgestcompte = ul.uid_login
-                    JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
-                    JOIN gares g ON ul.guser = g.idengare
-                    JOIN utilisateurs u ON cu.userlog_id = u.uid
-                    JOIN lignes lg ON esp.lignintescal = lg.ident_ligne
-                    JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
-                    JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
-                    JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
-                    JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                    WHERE e.ekey = '$cid'
-                    AND esp.datedepescal >= '$dt1' AND datedepescal < DATE_ADD('$dt2', INTERVAL 1 DAY)
-                    AND dest.id_compaga = '$cp'
-                    AND esp.prixescal IS NOT NULL
-                    AND ar.roleattribut = '$acl'
-                    AND ex.code_gaexp = '$gid'
-                    GROUP BY ar.roleattribut, dest.id_compaga, u.first_name, u.last_name, lg.nom_ligne, esp.prixescal")->result();
-            }
-                return $this->db->query(
-            "SELECT COUNT(idclescal) AS escalp, SUM(prixescal) AS tota, u.first_name, u.last_name, dest.id_compaga, lg.nom_ligne, ar.roleattribut, esp.prixescal FROM escalclients esp
-                    JOIN attributions_role ar ON esp.iduseescal = ar.roleattribut
-                    JOIN user_login ul ON ar.idgestcompte = ul.uid_login
-                    JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
-                    JOIN gares g ON ul.guser = g.idengare
-                    JOIN utilisateurs u ON cu.userlog_id = u.uid
-                    JOIN lignes lg ON esp.lignintescal = lg.ident_ligne
-                    JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
-                    JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
-                    JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
-                    JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                    WHERE e.ekey = '$cid'
-                    AND esp.datedepescal >= '$dt1' AND datedepescal < DATE_ADD('$dt2', INTERVAL 1 DAY)
-                    AND dest.id_compaga = '$cp'
-                    AND esp.prixescal IS NOT NULL
-                    AND ar.roleattribut = '$acl'
-                    AND lg.ident_ligne = '$algn'
-                    AND ex.code_gaexp = '$gid'
-                    GROUP BY ar.roleattribut, dest.id_compaga, u.first_name, u.last_name, lg.nom_ligne, esp.prixescal")->result();
+            $cid = $this->db->escape_str($cid);
+            $dt1 = $this->db->escape_str($dt1);
+            $dt2 = $this->db->escape_str($dt2);
+            $cp = $this->db->escape_str($cp);
+            $gareSql = $this->sql_filtre_gare_escal($gid);
+            $opSql = $this->sql_filtre_operateur_escal($acl);
+            $algn = ($algn === FALSE || $algn === null) ? '' : trim((string) $algn);
+            $ligneSql = ($algn !== '')
+                ? " AND lg.ident_ligne = '" . $this->db->escape_str($algn) . "' "
+                : '';
+
+            return $this->db->query(
+                "SELECT COUNT(idclescal) AS escalp, SUM(prixescal) AS tota, lg.nom_ligne, esp.prixescal,
+                        u.first_name, u.last_name, dest.id_compaga, ar.roleattribut
+                FROM escalclients esp
+                JOIN attributions_role ar ON esp.iduseescal = ar.roleattribut
+                JOIN user_login ul ON ar.idgestcompte = ul.uid_login
+                JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
+                JOIN utilisateurs u ON cu.userlog_id = u.uid
+                LEFT JOIN sousgare sg ON esp.departsgescal = sg.idsousgare
+                JOIN lignes lg ON esp.lignintescal = lg.ident_ligne
+                JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
+                JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
+                JOIN entreprise e ON c.id_entrep = e.id_entreprise
+                WHERE e.ekey = '{$cid}'
+                AND esp.datedepescal >= '{$dt1}' AND esp.datedepescal < DATE_ADD('{$dt2}', INTERVAL 1 DAY)
+                AND dest.id_compaga = '{$cp}'
+                AND esp.prixescal IS NOT NULL
+                {$gareSql}
+                {$opSql}
+                {$ligneSql}
+                GROUP BY lg.nom_ligne, esp.prixescal, u.first_name, u.last_name, dest.id_compaga, ar.roleattribut"
+            )->result();
         }
         
         public function listereportcptesc($cid, $cp, $gid, $dt1, $dt2, $acl = FALSE, $algn = FALSE)
         {
-            
-            if ($acl === '' AND $algn === '') {
-                return $this->db->query(
-                    "SELECT  COUNT(idclescal) AS escalp, SUM(prixescal) AS tota, lg.nom_ligne, esp.prixescal FROM escalclients esp
-                    JOIN attributions_role ar ON esp.iduseescal = ar.roleattribut
-                    JOIN user_login ul ON ar.idgestcompte = ul.uid_login
-                    JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
-                    JOIN gares g ON ul.guser = g.idengare
-                    JOIN utilisateurs u ON cu.userlog_id = u.uid
-                    JOIN lignes lg ON esp.lignintescal = lg.ident_ligne
-                    JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
-                    JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
-                    JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
-                    JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                    WHERE e.ekey = '$cid'
-                    AND esp.datedepescal >= '$dt1' AND datedepescal < DATE_ADD('$dt2', INTERVAL 1 DAY)
-                    AND dest.id_compaga = '$cp'
-                    AND esp.escalpanier IN('A', 'C', 'D')
-                    AND esp.prixescal IS NOT NULL
-                    AND ex.code_gaexp = '$gid'
-                    GROUP BY lg.nom_ligne, esp.prixescal")->result();
-            }
-            elseif($algn === '')
-            {
-                return $this->db->query("SELECT COUNT(idclescal) AS escalp, SUM(prixescal) AS tota, u.first_name, u.last_name, dest.id_compaga, lg.nom_ligne, ar.roleattribut, esp.prixescal FROM escalclients esp
-                    JOIN attributions_role ar ON esp.iduseescal = ar.roleattribut
-                    JOIN user_login ul ON ar.idgestcompte = ul.uid_login
-                    JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
-                    JOIN gares g ON ul.guser = g.idengare
-                    JOIN utilisateurs u ON cu.userlog_id = u.uid
-                    JOIN lignes lg ON esp.lignintescal = lg.ident_ligne
-                    JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
-                    JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
-                    JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
-                    JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                    WHERE e.ekey = '$cid'
-                    AND esp.datedepescal >= '$dt1' AND datedepescal < DATE_ADD('$dt2', INTERVAL 1 DAY)
-                    AND dest.id_compaga = '$cp'
-                    AND esp.escalpanier IN('A', 'C', 'D')
-                    AND esp.prixescal IS NOT NULL
-                    AND ar.roleattribut = '$acl'
-                    AND ex.code_gaexp = '$gid'
-                    GROUP BY ar.roleattribut, dest.id_compaga, u.first_name, u.last_name, lg.nom_ligne, esp.prixescal")->result();
-            }
-                return $this->db->query(
-            "SELECT COUNT(idclescal) AS escalp, SUM(prixescal) AS tota, u.first_name, u.last_name, dest.id_compaga, lg.nom_ligne, ar.roleattribut, esp.prixescal FROM escalclients esp
-                    JOIN attributions_role ar ON esp.iduseescal = ar.roleattribut
-                    JOIN user_login ul ON ar.idgestcompte = ul.uid_login
-                    JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
-                    JOIN gares g ON ul.guser = g.idengare
-                    JOIN utilisateurs u ON cu.userlog_id = u.uid
-                    JOIN lignes lg ON esp.lignintescal = lg.ident_ligne
-                    JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
-                    JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
-                    JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
-                    JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                    WHERE e.ekey = '$cid'
-                    AND esp.datedepescal >= '$dt1' AND datedepescal < DATE_ADD('$dt2', INTERVAL 1 DAY)
-                    AND dest.id_compaga = '$cp'
-                    AND esp.escalpanier IN('A', 'C', 'D')
-                    AND esp.prixescal IS NOT NULL
-                    AND ar.roleattribut = '$acl'
-                    AND lg.ident_ligne = '$algn'
-                    AND ex.code_gaexp = '$gid'
-                    GROUP BY ar.roleattribut, dest.id_compaga, u.first_name, u.last_name, lg.nom_ligne, esp.prixescal")->result();
+            $cid = $this->db->escape_str($cid);
+            $dt1 = $this->db->escape_str($dt1);
+            $dt2 = $this->db->escape_str($dt2);
+            $cp = $this->db->escape_str($cp);
+            $gareSql = $this->sql_filtre_gare_escal($gid);
+            $opSql = $this->sql_filtre_operateur_escal($acl);
+            $algn = ($algn === FALSE || $algn === null) ? '' : trim((string) $algn);
+            $ligneSql = ($algn !== '')
+                ? " AND lg.ident_ligne = '" . $this->db->escape_str($algn) . "' "
+                : '';
+
+            return $this->db->query(
+                "SELECT COUNT(idclescal) AS escalp, SUM(prixescal) AS tota, lg.nom_ligne, esp.prixescal,
+                        u.first_name, u.last_name, dest.id_compaga, ar.roleattribut
+                FROM escalclients esp
+                JOIN attributions_role ar ON esp.iduseescal = ar.roleattribut
+                JOIN user_login ul ON ar.idgestcompte = ul.uid_login
+                JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
+                JOIN utilisateurs u ON cu.userlog_id = u.uid
+                LEFT JOIN sousgare sg ON esp.departsgescal = sg.idsousgare
+                JOIN lignes lg ON esp.lignintescal = lg.ident_ligne
+                JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
+                JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
+                JOIN entreprise e ON c.id_entrep = e.id_entreprise
+                WHERE e.ekey = '{$cid}'
+                AND esp.datedepescal >= '{$dt1}' AND esp.datedepescal < DATE_ADD('{$dt2}', INTERVAL 1 DAY)
+                AND dest.id_compaga = '{$cp}'
+                AND esp.escalpanier IN('A', 'C', 'D')
+                AND esp.prixescal IS NOT NULL
+                {$gareSql}
+                {$opSql}
+                {$ligneSql}
+                GROUP BY lg.nom_ligne, esp.prixescal, u.first_name, u.last_name, dest.id_compaga, ar.roleattribut"
+            )->result();
         }
 
         /**
@@ -886,97 +849,70 @@
 
         public function nifestheb($cid, $cp, $gid, $dt1, $dt2, $algn = FALSE)
     {
-        
-        if ($algn === '') 
-        {
-            return $this->db->query(
-            "SELECT COUNT(idclescal) AS escalp, SUM(prixescal) AS tota, lg.nom_ligne, esp.prixescal, esp.datedepescal FROM escalclients esp
-                JOIN attributions_role ar ON esp.iduseescal = ar.roleattribut
-                JOIN user_login ul ON ar.idgestcompte = ul.uid_login
-                JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
-                JOIN gares g ON ul.guser = g.idengare
-                JOIN utilisateurs u ON cu.userlog_id = u.uid
-                JOIN lignes lg ON esp.lignintescal = lg.ident_ligne
-                JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
-                JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
-                JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
-                JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                WHERE e.ekey = '$cid'
-                AND dest.id_compaga = '$cp'
-                AND esp.datedepescal >= '$dt1' AND datedepescal < DATE_ADD('$dt2', INTERVAL 1 DAY)
-                AND ex.code_gaexp = '$gid'
-                AND esp.escalpanier IN('A', 'C', 'D')
-                AND esp.prixescal IS NOT NULL
-                GROUP BY lg.nom_ligne, esp.prixescal, esp.datedepescal
-                ORDER BY esp.datedepescal ASC")->result();
-        }
-            return $this->db->query(
-                "SELECT COUNT(idclescal) AS escalp, SUM(prixescal) AS tota, lg.nom_ligne, esp.prixescal, esp.datedepescal FROM escalclients esp
-                JOIN attributions_role ar ON esp.iduseescal = ar.roleattribut
-                JOIN user_login ul ON ar.idgestcompte = ul.uid_login
-                JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
-                JOIN gares g ON ul.guser = g.idengare
-                JOIN utilisateurs u ON cu.userlog_id = u.uid
-                JOIN lignes lg ON esp.lignintescal = lg.ident_ligne
-                JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
-                JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
-                JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
-                JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                WHERE e.ekey = '$cid'
-                AND dest.id_compaga = '$cp'
-                AND esp.datedepescal >= '$dt1' AND datedepescal < DATE_ADD('$dt2', INTERVAL 1 DAY)
-                AND ex.code_gaexp = '$gid'
-                AND esp.escalpanier IN('A', 'C', 'D')
-                AND esp.prixescal IS NOT NULL
-                AND lg.ident_ligne = '$algn'
-                GROUP BY lg.nom_ligne, esp.prixescal, esp.datedepescal
-                ORDER BY esp.datedepescal ASC")->result();
+        $cid = $this->db->escape_str($cid);
+        $dt1 = $this->db->escape_str($dt1);
+        $dt2 = $this->db->escape_str($dt2);
+        $cp = $this->db->escape_str($cp);
+        $gareSql = $this->sql_filtre_gare_escal($gid);
+        $algn = ($algn === FALSE || $algn === null) ? '' : trim((string) $algn);
+        $ligneSql = ($algn !== '')
+            ? " AND lg.ident_ligne = '" . $this->db->escape_str($algn) . "' "
+            : '';
+
+        return $this->db->query(
+            "SELECT COUNT(idclescal) AS escalp, SUM(prixescal) AS tota, lg.nom_ligne, esp.prixescal, esp.datedepescal
+            FROM escalclients esp
+            JOIN attributions_role ar ON esp.iduseescal = ar.roleattribut
+            JOIN user_login ul ON ar.idgestcompte = ul.uid_login
+            JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
+            JOIN utilisateurs u ON cu.userlog_id = u.uid
+            LEFT JOIN sousgare sg ON esp.departsgescal = sg.idsousgare
+            JOIN lignes lg ON esp.lignintescal = lg.ident_ligne
+            JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
+            JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
+            JOIN entreprise e ON c.id_entrep = e.id_entreprise
+            WHERE e.ekey = '{$cid}'
+            AND dest.id_compaga = '{$cp}'
+            AND esp.datedepescal >= '{$dt1}' AND esp.datedepescal < DATE_ADD('{$dt2}', INTERVAL 1 DAY)
+            AND esp.escalpanier IN('A', 'C', 'D')
+            AND esp.prixescal IS NOT NULL
+            {$gareSql}
+            {$ligneSql}
+            GROUP BY lg.nom_ligne, esp.prixescal, esp.datedepescal
+            ORDER BY esp.datedepescal ASC"
+        )->result();
     }
 
     public function listereportverscptglexo($cid, $cp, $gid, $dt1, $dt2, $acl = FALSE)
     {
-        
-        if($acl === '')
-        {
-            return $this->db->query("SELECT SUM(prixescal) AS tota, dest.id_compaga, esp.datedepescal FROM escalclients esp
-                JOIN attributions_role ar ON esp.iduseescal = ar.roleattribut
-                JOIN user_login ul ON ar.idgestcompte = ul.uid_login
-                JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
-                JOIN gares g ON ul.guser = g.idengare
-                JOIN utilisateurs u ON cu.userlog_id = u.uid
-                JOIN lignes lg ON esp.lignintescal = lg.ident_ligne
-                JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
-                JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
-                JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
-                JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                WHERE e.ekey = '$cid'
-                AND dest.id_compaga = '$cp'
-                AND ex.code_gaexp = '$gid'
-                AND esp.escalpanier IN('A', 'C', 'D')
-                AND esp.datedepescal >= '$dt1' AND datedepescal < DATE_ADD('$dt2', INTERVAL 1 DAY)
-                AND esp.prixescal IS NOT NULL
-                GROUP BY dest.id_compaga, esp.datedepescal")->result();
-        }
-            return $this->db->query(
-                "SELECT SUM(prixescal) AS tota, dest.id_compaga, esp.datedepescal FROM escalclients esp
-                JOIN attributions_role ar ON esp.iduseescal = ar.roleattribut
-                JOIN user_login ul ON ar.idgestcompte = ul.uid_login
-                JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
-                JOIN gares g ON ul.guser = g.idengare
-                JOIN utilisateurs u ON cu.userlog_id = u.uid
-                JOIN lignes lg ON esp.lignintescal = lg.ident_ligne
-                JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
-                JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
-                JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
-                JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                WHERE e.ekey = '$cid'
-                AND dest.id_compaga = '$cp'
-                AND ex.code_gaexp = '$gid'
-                AND esp.datedepescal >= '$dt1' AND datedepescal < DATE_ADD('$dt2', INTERVAL 1 DAY)
-                AND ar.roleattribut = '$acl'
-                AND esp.escalpanier IN('A', 'C', 'D')
-                AND esp.prixescal IS NOT NULL
-                GROUP BY dest.id_compaga, esp.datedepescal")->result();
+        $cid = $this->db->escape_str($cid);
+        $dt1 = $this->db->escape_str($dt1);
+        $dt2 = $this->db->escape_str($dt2);
+        $cp = $this->db->escape_str($cp);
+        $gareSql = $this->sql_filtre_gare_escal($gid);
+        $opSql = $this->sql_filtre_operateur_escal($acl);
+
+        return $this->db->query(
+            "SELECT SUM(prixescal) AS tota, dest.id_compaga, esp.datedepescal
+            FROM escalclients esp
+            JOIN attributions_role ar ON esp.iduseescal = ar.roleattribut
+            JOIN user_login ul ON ar.idgestcompte = ul.uid_login
+            JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
+            JOIN utilisateurs u ON cu.userlog_id = u.uid
+            LEFT JOIN sousgare sg ON esp.departsgescal = sg.idsousgare
+            JOIN lignes lg ON esp.lignintescal = lg.ident_ligne
+            JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
+            JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
+            JOIN entreprise e ON c.id_entrep = e.id_entreprise
+            WHERE e.ekey = '{$cid}'
+            AND dest.id_compaga = '{$cp}'
+            AND esp.escalpanier IN('A', 'C', 'D')
+            AND esp.datedepescal >= '{$dt1}' AND esp.datedepescal < DATE_ADD('{$dt2}', INTERVAL 1 DAY)
+            AND esp.prixescal IS NOT NULL
+            {$gareSql}
+            {$opSql}
+            GROUP BY dest.id_compaga, esp.datedepescal"
+        )->result();
     }
 
     public function exopass($cid, $cp, $gd, $d1, $d2)
