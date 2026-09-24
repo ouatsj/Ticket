@@ -142,6 +142,53 @@
             return is_array($rows) ? $rows : array();
         }
 
+        /**
+         * Escales configurées sur les agents vente escale (rôle 17) du lieu.
+         *
+         * @param string $ekey
+         * @param string $gid idengare ou code gare
+         * @return array
+         */
+        public function get_escales_vente_lieu($ekey, $gid)
+        {
+            if (!$this->db->field_exists('vente_escale_value', 'attributions_role')
+                || !$this->db->field_exists('vente_escale_label', 'attributions_role')
+            ) {
+                return array();
+            }
+            $lieu = $this->_sql_ul_guser_lieu($gid, 'ul');
+            $rows = $this->db->query(
+                "SELECT ar.roleattribut,
+                        g.idengare AS guser,
+                        ar.vente_escale_id_lignes,
+                        ar.vente_escale_value,
+                        ar.vente_escale_label,
+                        l.nom_ligne,
+                        COALESCE(
+                            NULLIF(TRIM(CONCAT(IFNULL(u.first_name,''), ' ', IFNULL(u.last_name,''))), ''),
+                            NULLIF(TRIM(cu.username), ''),
+                            CONCAT(ar.roleattribut, '')
+                        ) AS agent_nom
+                 FROM attributions_role ar
+                 JOIN user_login ul ON ar.idgestcompte = ul.uid_login
+                 JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
+                 JOIN utilisateurs u ON cu.userlog_id = u.uid
+                 JOIN gares g ON ul.guser = g.idengare
+                 JOIN entreprise e ON u.cle_comp = e.ekey
+                 LEFT JOIN lignes l ON l.ident_ligne = ar.vente_escale_id_lignes
+                 WHERE e.ekey = ?
+                   AND ar.userole = 17
+                   AND IFNULL(ar.activer_role, 0) = 0
+                   AND IFNULL(ul.comptactif, 0) = 0
+                   AND ar.vente_escale_value IS NOT NULL
+                   AND TRIM(ar.vente_escale_value) <> ''
+                   {$lieu}
+                 ORDER BY ar.vente_escale_label ASC, agent_nom ASC",
+                array($ekey)
+            )->result();
+            return is_array($rows) ? $rows : array();
+        }
+
         public function usergt($cid, $uid)
         {
             
@@ -1880,5 +1927,109 @@
             }
 
             return array('ok' => true);
+        }
+
+        /**
+         * Bordereaux encore affichés sur le compte du guichetier (même gare, même sous-gare).
+         *
+         * @param string $ekey
+         * @param int|string $idsg
+         * @param int[] $roleattributs
+         * @return int[]
+         */
+        public function arrets_guichet_en_attente($ekey, $idsg, array $roleattributs)
+        {
+            $ids = array();
+            foreach ($roleattributs as $id) {
+                $id = (int) $id;
+                if ($id > 0) {
+                    $ids[$id] = $id;
+                }
+            }
+            if ($ekey === '' || $idsg === '' || $idsg === null || empty($ids)) {
+                return array();
+            }
+            $ids = array_values($ids);
+            $ph = implode(',', array_fill(0, count($ids), '?'));
+            $gare = "JOIN attributions_role ar ON %s = ar.roleattribut
+                     JOIN user_login ul ON ar.idgestcompte = ul.uid_login
+                     JOIN gares g ON ul.guser = g.idengare
+                     JOIN compagnies c ON %s = c.cle_compagnie
+                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
+                     WHERE e.ekey = ?
+                       AND g.idengare = ul.guser
+                       AND %s = ?
+                       AND %s IN ($ph)";
+            $sql = "SELECT roleattribut FROM (
+                        SELECT ar.roleattribut
+                        FROM compte_guichet cg
+                        " . sprintf($gare, 'cg.idusercompt', 'cg.comp', 'cg.idsousga', 'ar.roleattribut') . "
+                          AND cg.is_validcompte = 0
+                          AND cg.actifcompt = 0
+                        UNION
+                        SELECT ar.roleattribut
+                        FROM compte_bagage cb
+                        " . sprintf($gare, 'cb.idusercomptbg', 'cb.compbg', 'cb.idsousgabg', 'ar.roleattribut') . "
+                          AND cb.is_validcomptebg = 0
+                          AND cb.actifcomptbg = 0
+                        UNION
+                        SELECT ar.roleattribut
+                        FROM compte_courrier cc
+                        " . sprintf($gare, 'cc.comptiduser', 'cc.compcour', 'cc.idsousg', 'ar.roleattribut') . "
+                          AND cc.validcompteis = 0
+                          AND cc.compteactif = 0
+                    ) attente";
+            $bind = array();
+            for ($i = 0; $i < 3; $i++) {
+                $bind[] = $ekey;
+                $bind[] = $idsg;
+                foreach ($ids as $id) {
+                    $bind[] = $id;
+                }
+            }
+            $rows = $this->db->query($sql, $bind)->result();
+            $out = array();
+            foreach ($rows as $row) {
+                $out[] = (int) $row->roleattribut;
+            }
+            return $out;
+        }
+
+        /**
+         * Guichetiers réellement en session sur cette attribution.
+         *
+         * @param int[] $roleattributs
+         * @return int[]
+         */
+        public function guichetiers_connectes(array $roleattributs)
+        {
+            $ids = array();
+            foreach ($roleattributs as $id) {
+                $id = (int) $id;
+                if ($id > 0) {
+                    $ids[$id] = $id;
+                }
+            }
+            if (empty($ids)) {
+                return array();
+            }
+            $ids = array_values($ids);
+            $rows = $this->db->query(
+                "SELECT ar.roleattribut
+                 FROM attributions_role ar
+                 JOIN user_login ul ON ar.idgestcompte = ul.uid_login
+                 JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
+                 WHERE ar.roleattribut IN (" . implode(',', array_fill(0, count($ids), '?')) . ")
+                   AND cu.is_conect = 1
+                   AND ar.activeattrib = 1
+                   AND ar.activer_role = 0
+                   AND ul.comptactif = 0",
+                $ids
+            )->result();
+            $out = array();
+            foreach ($rows as $row) {
+                $out[] = (int) $row->roleattribut;
+            }
+            return $out;
         }
     }

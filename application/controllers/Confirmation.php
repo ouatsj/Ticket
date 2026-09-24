@@ -4337,23 +4337,11 @@
                 if (!isset($this->m_courrier_expedieresc)) {
                     $this->load->model('Courriers_expesc_model', 'm_courrier_expedieresc');
                 }
-                $arrivees = $this->m_courrier_expedieresc->getdest(
+                $arrivees = $this->m_courrier_expedieresc->getdest_lieu(
                     $this->company->ekey,
                     $gd,
                     $sg
                 );
-                $forced = function_exists('role17_forced_escale')
-                    ? role17_forced_escale($uid, $gd)
-                    : null;
-                if ($forced && !empty($forced['id_lignes']) && !empty($arrivees)) {
-                    $id_ligne = (string) $forced['id_lignes'];
-                    $arrivees = array_values(array_filter($arrivees, function ($row) use ($id_ligne) {
-                        $lg = isset($row->ident_ligne) ? (string) $row->ident_ligne : (
-                            isset($row->idlignes) ? (string) $row->idlignes : ''
-                        );
-                        return $lg === '' || $lg === $id_ligne;
-                    }));
-                }
                 $this->property['arriveecourriers'] = $arrivees;
                 $this->property['alllignes'] = $this->m_courrier_expedieresc->lg(
                     $this->company->ekey,
@@ -4361,10 +4349,22 @@
                     $sg
                 );
             } else {
-                $this->property['arriveecourriers'] = $this->m_courrier_expedier->getdest(
+                $classiques = $this->m_courrier_expedier->getdest(
                     $this->company->ekey,
                     $gd,
                     $sg
+                );
+                if (!isset($this->m_courrier_expedieresc)) {
+                    $this->load->model('Courriers_expesc_model', 'm_courrier_expedieresc');
+                }
+                $escales = $this->m_courrier_expedieresc->getdest_lieu(
+                    $this->company->ekey,
+                    $gd,
+                    $sg
+                );
+                $this->property['arriveecourriers'] = array_merge(
+                    is_array($classiques) ? $classiques : array(),
+                    is_array($escales) ? $escales : array()
                 );
                 $this->property['alllignes'] = $this->m_courrier_expedier->lg(
                     $this->company->ekey,
@@ -4506,6 +4506,14 @@
                     
                     
                     $this->m_courrier_expedier->update($id, $idn, $idp, $up);
+                    if ($this->db->affected_rows() < 1) {
+                        if (!isset($this->m_courrier_expedieresc)) {
+                            $this->load->model('Courriers_expesc_model', 'm_courrier_expedieresc');
+                        }
+                        $this->m_courrier_expedieresc->update($id, $idn, $idp, array(
+                            'is_validcouresc' => $stat,
+                        ));
+                    }
                    
             redirect('confirmation/validerarr/'.$this->session->company->ekey.'/'.$usct.'/'.$gidexp.'/'.$idsg);
         }

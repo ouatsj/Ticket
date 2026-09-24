@@ -1,7 +1,8 @@
 <?php defined('BASEPATH') OR exit('No direct script access allowed'); ?>
+<?php $this->load->view('_partials/btn_retour_profil'); ?>
 <div class="row">
     
-    <div class="col-6 text-center">
+    <div class="col-6 text-center" id="compte-ticket">
 
         <div class="card card-table">
 
@@ -158,7 +159,7 @@
             </div>
         </div>
     </div>
-    <div class="col-6 text-center">
+    <div class="col-6 text-center" id="compte-bagage">
         <div class="card card-table">
             <div class="card-header">
                 <div class="tools dropdown">
@@ -295,7 +296,7 @@
 
                 </div>
 
-                <div class="title">COMPTE COURRIER</div>
+                <div class="title" id="compte-courrier">COMPTE COURRIER</div>
 
             </div>
             <div class="card-body">

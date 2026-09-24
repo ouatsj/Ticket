@@ -4755,6 +4755,29 @@
         }
 
 
+        /**
+         * Sous-gare d’arrivée courrier escale.
+         * Rôle 17 : escale choisie, sinon sous-gare principale de la gare CBT.
+         */
+        protected function _r17_arrivee_sousgare($aregid, $quartNom, $codeGadest)
+        {
+            $idGare = ($aregid && !empty($aregid->idgaresdest)) ? (string) $aregid->idgaresdest : '';
+            if (function_exists('role17_is_agent') && role17_is_agent() && $idGare !== '') {
+                $princ = $this->db->query(
+                    "SELECT idsousgare FROM sousgare WHERE gareprinceid = ? ORDER BY idsousgare ASC LIMIT 1",
+                    array($idGare)
+                )->row();
+                if ($princ) {
+                    return $princ;
+                }
+            }
+            $quartNom = $this->db->escape_str((string) $quartNom);
+            $idEsc = $this->db->escape_str($idGare);
+            return $this->db->query(
+                "SELECT sg.idsousgare FROM sousgare sg WHERE sg.gareprinceid = '{$idEsc}' AND sg.nomsousgare = '{$quartNom}'"
+            )->row();
+        }
+
         public function addordesc($ckey)
         {
             $cid = $this->session->company->ekey;
@@ -4835,6 +4858,17 @@
                 $argd1 = strpos($argdp, '/');
                 $arreg2 = substr($argdp, 0, $argd1);
                 $argdp3 = substr($argdp, $argd1 + 1, strlen($argdp));
+
+                // Escale choisie : arrivée = cette escale (gare de l’escale sur la ligne), pas la sous-gare.
+                if (function_exists('role17_is_agent') && role17_is_agent()) {
+                    if (!function_exists('role17_escale_code_gadest')) {
+                        $this->load->helper('role17_context');
+                    }
+                    $escCode = role17_escale_code_gadest($this->input->post('escale_arr_esc'), $arreg);
+                    if ($escCode !== '') {
+                        $arreg = $escCode;
+                    }
+                }
 
                 // Rôle 17 : ligne attribuée (évite BOR-BOB inventé qui casse le reçu).
                 if (!function_exists('role17_courrier_idlignes')) {
@@ -4983,8 +5017,7 @@
 
                         $quartar = $this->db->query("SELECT g.codegares FROM gares g WHERE g.idengare = '$aregid->idgaresdest'")->row();
 
-                        $sousgar_id = $this->db->query("SELECT sg.idsousgare FROM sousgare sg WHERE sg.gareprinceid = '$aregid->idgaresdest'
-                            AND sg.nomsousgare = '$quart3'")->row();
+                        $sousgar_id = $this->_r17_arrivee_sousgare($aregid, $quart3, $arreg);
                         $sousgare_arr_id = ($sousgar_id && !empty($sousgar_id->idsousgare))
                             ? $sousgar_id->idsousgare
                             : $sgid;
@@ -5148,7 +5181,7 @@
 
                         $quartar = $this->db->query("SELECT g.codegares FROM gares g WHERE g.idengare = '$aregid->idgaresdest'")->row();
 
-                        $sousgar_id = $this->db->query("SELECT sg.idsousgare FROM sousgare sg WHERE sg.gareprinceid = '$aregid->idgaresdest' AND sg.nomsousgare = '$quart3'")->row();
+                        $sousgar_id = $this->_r17_arrivee_sousgare($aregid, $quart3, $arreg);
 
                             $argare_ar = $quartar->codegares;
                         $codcour = $argdp3.$dpgdp1.mdate("%y%m%d", now('UTC')).($passecompter->id + 1).$argare_ar.$quart2.$gid.$usen.$iduser.$nat1;
@@ -5307,8 +5340,7 @@
 
                         $quartar = $this->db->query("SELECT g.codegares FROM gares g WHERE g.idengare = '$aregid->idgaresdest'")->row();
 
-                        $sousgar_id = $this->db->query("SELECT sg.idsousgare FROM sousgare sg WHERE sg.gareprinceid = '$aregid->idgaresdest'
-                            AND sg.nomsousgare = '$quart3'")->row();
+                        $sousgar_id = $this->_r17_arrivee_sousgare($aregid, $quart3, $arreg);
 
                             $argare_ar = $quartar->codegares;
                         $codcour = $argdp3.$dpgdp1.mdate("%y%m%d", now('UTC')).($passecompter->id + 1).$argare_ar.$quart2.$gid.$usen.$iduser.$nat1;
@@ -5466,8 +5498,7 @@
 
                         $quartar = $this->db->query("SELECT g.codegares FROM gares g WHERE g.idengare = '$aregid->idgaresdest'")->row();
 
-                        $sousgar_id = $this->db->query("SELECT sg.idsousgare FROM sousgare sg WHERE sg.gareprinceid = '$aregid->idgaresdest'
-                            AND sg.nomsousgare = '$quart3'")->row();
+                        $sousgar_id = $this->_r17_arrivee_sousgare($aregid, $quart3, $arreg);
 
                             $argare_ar = $quartar->codegares;
                         $codcour = $argdp3.$dpgdp1.mdate("%y%m%d", now('UTC')).($passecompter->id + 1).$argare_ar.$quart2.$gid.$usen.$iduser.$nat1;
@@ -5616,8 +5647,7 @@
 
                         $quartar = $this->db->query("SELECT g.codegares FROM gares g WHERE g.idengare = '$aregid->idgaresdest'")->row();
 
-                        $sousgar_id = $this->db->query("SELECT sg.idsousgare FROM sousgare sg WHERE sg.gareprinceid = '$aregid->idgaresdest'
-                            AND sg.nomsousgare = '$quart3'")->row();
+                        $sousgar_id = $this->_r17_arrivee_sousgare($aregid, $quart3, $arreg);
 
                             $argare_ar = $quartar->codegares;
                         $codcour = $argdp3.$dpgdp1.mdate("%y%m%d", now('UTC')).($passecompter->id + 1).$argare_ar.$quart2.$gid.$usen.$iduser.$nat1;
@@ -5763,8 +5793,7 @@
 
                         $quartar = $this->db->query("SELECT g.codegares FROM gares g WHERE g.idengare = '$aregid->idgaresdest'")->row();
 
-                        $sousgar_id = $this->db->query("SELECT sg.idsousgare FROM sousgare sg WHERE sg.gareprinceid = '$aregid->idgaresdest'
-                            AND sg.nomsousgare = '$quart3'")->row();
+                        $sousgar_id = $this->_r17_arrivee_sousgare($aregid, $quart3, $arreg);
 
                             $argare_ar = $quartar->codegares;
 
@@ -5923,8 +5952,7 @@
 
                         $quartar = $this->db->query("SELECT g.codegares FROM gares g WHERE g.idengare = '$aregid->idgaresdest'")->row();
 
-                        $sousgar_id = $this->db->query("SELECT sg.idsousgare FROM sousgare sg WHERE sg.gareprinceid = '$aregid->idgaresdest'
-                            AND sg.nomsousgare = '$quart3'")->row();
+                        $sousgar_id = $this->_r17_arrivee_sousgare($aregid, $quart3, $arreg);
 
                             $argare_ar = $quartar->codegares;
                         $codcour = $argdp3.$dpgdp1.mdate("%y%m%d", now('UTC')).($passecompter->id + 1).$argare_ar.$quart2.$gid.$usen.$iduser.$nat1;
@@ -6066,8 +6094,7 @@
 
                         $quartar = $this->db->query("SELECT g.codegares FROM gares g WHERE g.idengare = '$aregid->idgaresdest'")->row();
 
-                        $sousgar_id = $this->db->query("SELECT sg.idsousgare FROM sousgare sg WHERE sg.gareprinceid = '$aregid->idgaresdest'
-                            AND sg.nomsousgare = '$quart3'")->row();
+                        $sousgar_id = $this->_r17_arrivee_sousgare($aregid, $quart3, $arreg);
 
                             $argare_ar = $quartar->codegares;
                         $codcour = $argdp3.$dpgdp1.mdate("%y%m%d", now('UTC')).($passecompter->id + 1).$argare_ar.$quart2.$gid.$usen.$iduser.$nat1;
@@ -6224,8 +6251,7 @@
 
                         $quartar = $this->db->query("SELECT g.codegares FROM gares g WHERE g.idengare = '$aregid->idgaresdest'")->row();
 
-                        $sousgar_id = $this->db->query("SELECT sg.idsousgare FROM sousgare sg WHERE sg.gareprinceid = '$aregid->idgaresdest'
-                            AND sg.nomsousgare = '$quart3'")->row();
+                        $sousgar_id = $this->_r17_arrivee_sousgare($aregid, $quart3, $arreg);
 
                             $argare_ar = $quartar->codegares;
                         $codcour = $argdp3.$dpgdp1.mdate("%y%m%d", now('UTC')).($passecompter->id + 1).$argare_ar.$quart2.$gid.$usen.$iduser.$nat1;
@@ -6382,8 +6408,7 @@
 
                         $quartar = $this->db->query("SELECT g.codegares FROM gares g WHERE g.idengare = '$aregid->idgaresdest'")->row();
 
-                        $sousgar_id = $this->db->query("SELECT sg.idsousgare FROM sousgare sg WHERE sg.gareprinceid = '$aregid->idgaresdest'
-                            AND sg.nomsousgare = '$quart3'")->row();
+                        $sousgar_id = $this->_r17_arrivee_sousgare($aregid, $quart3, $arreg);
 
                             $argare_ar = $quartar->codegares;
                         $codcour = $argdp3.$dpgdp1.mdate("%y%m%d", now('UTC')).($passecompter->id + 1).$argare_ar.$quart2.$gid.$usen.$iduser.$nat1;
@@ -6537,8 +6562,7 @@
 
                         $quartar = $this->db->query("SELECT g.codegares FROM gares g WHERE g.idengare = '$aregid->idgaresdest'")->row();
 
-                        $sousgar_id = $this->db->query("SELECT sg.idsousgare FROM sousgare sg WHERE sg.gareprinceid = '$aregid->idgaresdest'
-                            AND sg.nomsousgare = '$quart3'")->row();
+                        $sousgar_id = $this->_r17_arrivee_sousgare($aregid, $quart3, $arreg);
 
                             $argare_ar = $quartar->codegares;
                         $codcour = $argdp3.$dpgdp1.mdate("%y%m%d", now('UTC')).($passecompter->id + 1).$argare_ar.$quart2.$gid.$usen.$iduser.$nat1;

@@ -1,6 +1,15 @@
 <?php defined('BASEPATH') OR exit('No direct script access allowed'); ?>
 <div class="row">
     <p class="mt-0 mb-2 ml-4">
+        <?php
+        $__retour_fb = (!empty($bus_stop) && !empty($conex))
+            ? retour_guichet_url($this->session->company->ekey, $bus_stop->idengare, $conex->roleattribut, $bus_stop->idsousgare)
+            : '';
+        $__retour_href = retour_url($__retour_fb);
+        ?>
+        <a href="<?= htmlspecialchars($__retour_href, ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-space btn-secondary">
+            <i class="fas fa-arrow-circle-left text-info"></i>&nbsp;RETOUR&nbsp;
+        </a>
         <a href="#" class="btn btn-space btn-secondary md-trigger" 
             data-modal="form-verseajoutbg">
             <i class="fas fa-edit text-success"></i>&nbsp;AJOUT VERSEMENT&nbsp;

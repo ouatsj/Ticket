@@ -80,7 +80,9 @@
 
                     <div class="card card-border card-full">
 
-                        <div class="card-header card-header-divider"><?=$item->nom_caisse;?> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                        <div class="card-header card-header-divider">
+                            <span class="badge badge-primary">Caissier</span>
+                            <?=$item->nom_caisse;?> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
                         
                             <a href="<?= "#?{$item->id_caiss}"; ?>"
                                 class="md-trigger" data-modal="edit-caisse-<?= $item->id_caiss; ?>">
@@ -284,7 +286,9 @@
             <? if ($this->session->agent->userole === '1' OR $this->session->agent->userole === '18' OR $this->session->agent->userole === '2'): ?>
                 <div class="col-lg-3">
                     <div class="card card-border card-full">
-                        <div class="card-header card-header-divider"><?=$item->nom_caisse;?> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                        <div class="card-header card-header-divider">
+                            <span class="badge badge-info">Adjoint caisse</span>
+                            <?=$item->nom_caisse;?> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
                         
                             <a href="<?= "#?{$item->id_caiss}"; ?>"
                                 class="md-trigger" data-modal="edit-caisse-<?= $item->id_caiss; ?>">
@@ -482,7 +486,9 @@
 
                     <div class="card card-border card-full">
 
-                        <div class="card-header card-header-divider"><?=$item->nom_caisse;?> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                        <div class="card-header card-header-divider">
+                            <span class="badge badge-success">Chef de guichet</span>
+                            <?=$item->nom_caisse;?> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
                         
                             <a href="<?= "#?{$item->id_caiss}"; ?>"
                                 class="md-trigger" data-modal="edit-caisse-<?= $item->id_caiss; ?>">

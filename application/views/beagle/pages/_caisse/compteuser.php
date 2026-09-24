@@ -1,4 +1,5 @@
 <?php defined('BASEPATH') OR exit('No direct script access allowed'); ?>
+<?php $this->load->view('_partials/btn_retour_profil'); ?>
 <div class="row">
     
     <div class="col-6 text-center">

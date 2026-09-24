@@ -282,6 +282,7 @@
             $route['personnels/verifinfos'] = 'Personnels/verifinfos';
 
             /* programmes */
+            $route['programmes/escalesdest/(:any)'] = 'Programmes/escalesdest/$1';
             $route['programmes/verifinfos/(:any)'] = 'Programmes/verifinfos/$1';
             $route['programmes/verifinfos'] = 'Programmes/verifinfos';
             $route['programmes/verifinfosbis/(:any)'] = 'Programmes/verifinfosbis/$1';
@@ -349,6 +350,7 @@
             $route['gares/position(:num)'] = 'Gares/positions/$1';
             $route['gares/sousgares/(:num)/(:any)/(:any)/(:any)'] = 'Gares/editsousgare/$1/$2/$3/$4';
             $route['gares/souslignegares/(:num)/(:any)/(:any)/(:any)'] = 'Gares/editsousligne/$1/$2/$3/$4';
+            $route['gares/(:num)/gTs/(:any)/escaleops/(:num)/(:num)'] = 'Gares/escaleops/$1/$2/$3/$4';
             $route['gares/(:num)/gTs/(:any)/(:any)/(:any)/(:any)/(:any)/(:any)'] = 'Gares/optiongare/$1/$2/$3/$4/$5/$6/$7';
             $route['gares/(:num)/gTi/(:any)/itineraire/(:any)/(:any)/(:any)/(:any)/(:num)/(:num)'] = 'Gares/voiritineraire/$1/$2/$3/$4/$5/$6/$7/$8';
             $route['gares/(:num)/gTe/(:any)/escale/(:any)/(:any)/(:any)/(:any)/(:num)/(:num)'] = 'Gares/entreescale/$1/$2/$3/$4/$5/$6/$7/$8';

@@ -2606,6 +2606,23 @@
         }
 
         //selection des qurtier pour la gare d'arrivee
+        /**
+         * Escales de la ligne entre la gare de l’agent et la destination.
+         */
+        public function escalesdest($code)
+        {
+            session_release_lock();
+            $this->load->helper('role17_context');
+            $code = trim(rawurldecode((string) $code));
+            if (strpos($code, '/') !== false) {
+                $code = substr($code, 0, strpos($code, '/'));
+            }
+            $rows = function_exists('role17_escales_destination')
+                ? role17_escales_destination($code)
+                : array();
+            return $this->load->view('beagle/pages/_programme/json', array('json' => $rows));
+        }
+
         public function verifquart($gaid)
         {
             session_release_lock();

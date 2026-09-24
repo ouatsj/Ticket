@@ -7,6 +7,15 @@
             </a>
         </p>
     </div>
+<?php if (!empty($show_onglets_lieu)): ?>
+    <div class="col-12">
+        <div class="sg-lieu-tabs" role="tablist">
+            <button type="button" class="sg-lieu-tab is-active" data-sg-tab="quartier" role="tab" aria-selected="true">Quartier</button>
+            <button type="button" class="sg-lieu-tab" data-sg-tab="escale" role="tab" aria-selected="false">Escale<?php if (!empty($escales_vente)): ?> (<?= count($escales_vente); ?>)<?php endif; ?></button>
+        </div>
+    </div>
+<?php endif; ?>
+<div id="sg-panel-quartier" style="display:contents">
  <? if (!empty($sousgares)) : ?>
         
         <div class="col-lg-12">
@@ -163,4 +172,89 @@
     </div>
     
 <? endif; ?>
+</div>
+<?php if (!empty($show_onglets_lieu)): ?>
+<div id="sg-panel-escale" style="display:none">
+    <?php if (!empty($escales_vente)): ?>
+        <?php foreach ($escales_vente as $esc): ?>
+            <?php
+            $esc_label = trim((string) $esc->vente_escale_label);
+            if ($esc_label === '') {
+                $esc_label = trim((string) $esc->vente_escale_value);
+            }
+            $esc_ligne = trim((string) $esc->nom_ligne);
+            if ($esc_ligne === '') {
+                $esc_ligne = trim((string) $esc->vente_escale_id_lignes);
+            }
+            $esc_agent = trim((string) $esc->agent_nom);
+            ?>
+            <div class="col-lg-3">
+                <div class="card card-border card-full">
+                    <div class="card-header card-header-divider"><?= htmlspecialchars($esc_label, ENT_QUOTES, 'UTF-8'); ?></div>
+                    <div class="card-body">
+                        <?php if ($esc_ligne !== ''): ?>
+                            <p>Ligne : <?= htmlspecialchars($esc_ligne, ENT_QUOTES, 'UTF-8'); ?></p>
+                        <?php endif; ?>
+                        <?php if ($esc_agent !== ''): ?>
+                            <p>Agent : <?= htmlspecialchars($esc_agent, ENT_QUOTES, 'UTF-8'); ?></p>
+                        <?php endif; ?>
+                        <?php if (!empty($esc->voir_url)): ?>
+                            <a href="<?= htmlspecialchars($esc->voir_url, ENT_QUOTES, 'UTF-8'); ?>"
+                               class="btn btn-block btn-rounded text-dark bg-white">
+                                <span class="fas fa-eye"></span>
+                                VOIR
+                            </a>
+                        <?php endif; ?>
+                    </div>
+                </div>
+            </div>
+        <?php endforeach; ?>
+    <?php else: ?>
+        <div class="col-lg-6 offset-lg-3">
+            <div class="card">
+                <div class="card-body text-center">
+                    <h2>AUCUNE ESCALE CONFIGURÉE</h2>
+                    <p>Aucun agent vente escale de cette gare n’a d’escale affectée.</p>
+                </div>
+            </div>
+        </div>
+    <?php endif; ?>
+</div>
+<style>
+.sg-lieu-tabs { display: flex; gap: 0.5rem; margin: 0 0 0.85rem; }
+.sg-lieu-tab {
+    flex: 1 1 50%;
+    min-height: 52px;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    background: #fff;
+    color: #1f2937;
+    font-weight: 700;
+    font-size: 1.05rem;
+}
+.sg-lieu-tab.is-active { background: #0d6efd; border-color: #0d6efd; color: #fff; }
+</style>
+<script>
+(function () {
+    var tabs = document.querySelectorAll('.sg-lieu-tab');
+    var quartier = document.getElementById('sg-panel-quartier');
+    var escale = document.getElementById('sg-panel-escale');
+    if (!tabs.length || !quartier || !escale) return;
+    function show(name) {
+        quartier.style.display = name === 'quartier' ? 'contents' : 'none';
+        escale.style.display = name === 'escale' ? 'contents' : 'none';
+        for (var i = 0; i < tabs.length; i++) {
+            var on = tabs[i].getAttribute('data-sg-tab') === name;
+            tabs[i].classList.toggle('is-active', on);
+            tabs[i].setAttribute('aria-selected', on ? 'true' : 'false');
+        }
+    }
+    for (var i = 0; i < tabs.length; i++) {
+        tabs[i].addEventListener('click', function () {
+            show(this.getAttribute('data-sg-tab'));
+        });
+    }
+})();
+</script>
+<?php endif; ?>
 </div>

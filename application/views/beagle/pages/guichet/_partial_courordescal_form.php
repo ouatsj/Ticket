@@ -79,12 +79,12 @@
                     </div>
                     <div class="form-group col-sm-4">
                         <label>Destination</label>
-                        <?php if (!empty($role17_mode) && !empty($role17_courrier_dest_options)): ?>
+                        <?php if (!empty($role17_mode)): ?>
                         <select class="form-control form-control-sm" name="arricouresc" id="arrscouresc"
                             data-role17-ligne="<?= htmlspecialchars(!empty($escale_id_lignes) ? (string) $escale_id_lignes : '', ENT_QUOTES, 'UTF-8'); ?>"
                             required>
-                            <option value="">Choisissez l'arrivée</option>
-                            <?php foreach ($role17_courrier_dest_options as $opt): ?>
+                            <option value="">Choisissez la gare CBT</option>
+                            <?php foreach (!empty($role17_courrier_dest_options) ? $role17_courrier_dest_options : array() as $opt): ?>
                                 <option value="<?= htmlspecialchars($opt->value, ENT_QUOTES, 'UTF-8'); ?>">
                                     <?= htmlspecialchars($opt->label, ENT_QUOTES, 'UTF-8'); ?>
                                 </option>

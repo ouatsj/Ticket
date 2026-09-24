@@ -343,6 +343,43 @@
 }
 
 @media (max-width: 575.98px) {
+    .r17-shell {
+        --r17-gap: 0.7rem;
+        --r17-touch: 84px;
+    }
+    .r17-shell .r17-grid {
+        grid-template-columns: 1fr;
+    }
+    .r17-shell .r17-btn {
+        min-height: 84px;
+        padding: 0.85rem 0.9rem;
+        font-size: 1.15rem;
+        border-radius: 12px;
+        gap: 0.7rem;
+    }
+    .r17-shell .r17-btn.is-primary {
+        min-height: 92px;
+        font-size: 1.25rem;
+    }
+    .r17-shell .r17-btn .r17-ico {
+        flex-basis: 2.75rem;
+        width: 2.75rem;
+        height: 2.75rem;
+        font-size: 1.25rem;
+        border-radius: 10px;
+    }
+    .r17-shell .r17-btn .r17-sub {
+        display: block;
+        font-size: 0.82rem;
+        font-weight: 600;
+        opacity: 0.85;
+        margin-top: 0.15rem;
+    }
+    .r17-shell .r17-header .btn {
+        min-height: 52px;
+        padding: 0.65rem 1rem;
+        font-size: 1.05rem;
+    }
     .r17-shell .alert {
         padding: 0.4rem 0.55rem;
         font-size: 0.78rem;
@@ -383,13 +420,9 @@
     #ticketescal-0 .modal-footer .btn,
     #ticketescal-0 .modal-footer input.btn {
         flex: 1 1 50%;
-        min-height: 54px !important;
-        height: 54px !important;
-        font-size: 1.05rem;
-    }
-    .r17-shell .r17-header .btn {
-        min-height: 46px;
-        font-size: 0.95rem;
+        min-height: 64px !important;
+        height: 64px !important;
+        font-size: 1.15rem;
     }
 }
 </style>

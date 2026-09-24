@@ -61,7 +61,17 @@ if ($dep === '' && !empty($bus_stop)) {
 if ($dep === '' && !empty($single->nomsousgare)) {
     $dep = trim((string) $single->nomsousgare);
 }
-$arr = trim((string) (isset($single->nom_gadest) ? $single->nom_gadest : ''));
+$arrGare = trim((string) (isset($single->nom_dest_choisie) ? $single->nom_dest_choisie : ''));
+$arrEsc = trim((string) (isset($single->nom_escale_arrivee) ? $single->nom_escale_arrivee : ''));
+if ($arrGare === '') {
+    $arrGare = trim((string) (isset($single->nom_gadest) ? $single->nom_gadest : ''));
+}
+$arr = $arrGare;
+$idArr = isset($single->id_escale_arrivee) ? (int) $single->id_escale_arrivee : 0;
+$idPrinc = isset($single->id_sg_principale) ? (int) $single->id_sg_principale : 0;
+if ($arrEsc !== '' && $idArr > 0 && $idPrinc > 0 && $idArr !== $idPrinc) {
+    $arr = $arrEsc;
+}
 $od = ticket_escale_libre_pos_text($dep . ' - ' . $arr, true);
 
 $exp_name = '';

@@ -2901,7 +2901,11 @@
                         c.nom_compagnie AS nom_compagnie,
                         h.heure AS heure,
                         cd.nombrecolis AS nombrecolis,
-                        cd.naturecoli AS naturecoli
+                        cd.naturecoli AS naturecoli,
+                        destarr.nom_gadest AS nom_dest_choisie,
+                        sga.nomsousgare AS nom_escale_arrivee,
+                        sga.idsousgare AS id_escale_arrivee,
+                        (SELECT MIN(sx.idsousgare) FROM sousgare sx WHERE sx.gareprinceid = e.garearrivecolisesc) AS id_sg_principale
                 FROM courriers_expesc e
                 LEFT JOIN code_courriers cd ON e.id_codecourrieresc = cd.codecolisid
                 LEFT JOIN sousgare sg ON e.courrierdepartgareesc = sg.idsousgare
@@ -2911,6 +2915,8 @@
                 LEFT JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
                 LEFT JOIN gare_exp gex ON lg.gaexp_lg = gex.code_gaexp
                 LEFT JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
+                LEFT JOIN gare_dest destarr ON destarr.idgaresdest = e.garearrivecolisesc
+                LEFT JOIN sousgare sga ON sga.idsousgare = e.sousgarearrividesc
                 LEFT JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                 LEFT JOIN entreprise ep ON c.id_entrep = ep.id_entreprise
                 WHERE e.courrierexpidesc = ?
@@ -3089,6 +3095,58 @@
                  ORDER BY e.courrierexpidesc DESC
                  LIMIT 50",
                 array($idconx, $sg, $today)
+            )->result();
+        }
+
+        /**
+         * Arrivées visibles au guichet : gare destination, ou escale (sous-gare) choisie.
+         * Alias colonnes du tableau réception (courriers_exp).
+         */
+        public function getdest_lieu($cid, $gd, $sg)
+        {
+            $cid = $this->db->escape_str($cid);
+            $gd = $this->db->escape_str($gd);
+            $sg = (int) $sg;
+            return $this->db->query(
+                "SELECT e.courrierexpidesc AS courrierexpid,
+                        e.num_couresc AS num_cour,
+                        e.departcolisesc AS departcolis,
+                        e.prixcolisesc AS prixcolis,
+                        e.dateenvoiesc AS dateenvoi,
+                        e.dateenvoiesc AS date_progr,
+                        e.naturecourrieresc AS naturecourrier,
+                        e.is_validcouresc AS is_validcour,
+                        e.garearrivecolisesc AS idgaresdest,
+                        cd.nombrecolis, cd.naturecoli, cd.valeurscoli, cd.idlignes,
+                        er.receptid AS client_recept, er.idexprecept AS idrecepetion,
+                        cl.id_client, cl.nom_client, cl.prenom_client, cl.contact_client,
+                        cl.type_client, cl.num_CNIB, cl.date_delivre, cl.lieu_delivre,
+                        h.heure, lh.id_ligneheure,
+                        COALESCE(lg.nom_ligne, '') AS nom_ligne
+                 FROM courriers_expesc e
+                 LEFT JOIN code_courriers cd ON e.id_codecourrieresc = cd.codecolisid
+                 LEFT JOIN expeditreception er ON cd.exprecepident = er.idexprecept
+                 LEFT JOIN recepteurs re ON er.receptid = re.idrecepetion
+                 LEFT JOIN client cl ON re.client_recept = cl.id_client
+                 LEFT JOIN ligne_heure lh ON e.departcolisesc = lh.id_ligneheure
+                 LEFT JOIN heures h ON lh.heure_identif = h.id_heure
+                 LEFT JOIN lignes lg ON cd.idlignes = lg.ident_ligne
+                 LEFT JOIN gare_dest dest ON dest.idgaresdest = e.garearrivecolisesc
+                 LEFT JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
+                 LEFT JOIN entreprise ep ON c.id_entrep = ep.id_entreprise
+                 WHERE (ep.ekey = '{$cid}' OR ep.ekey IS NULL)
+                 AND e.is_validcouresc = 0
+                 AND e.actif_couresc = 0
+                 AND e.statuscourrieresc = 'pas_transit'
+                 AND (
+                    e.sousgarearrividesc = '{$sg}'
+                    OR (
+                        e.garearrivecolisesc = '{$gd}'
+                        AND e.sousgarearrividesc = (
+                            SELECT MIN(sx.idsousgare) FROM sousgare sx WHERE sx.gareprinceid = '{$gd}'
+                        )
+                    )
+                 )"
             )->result();
         }
 

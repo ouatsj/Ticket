@@ -112,8 +112,39 @@
                 }),
             );
         }
-        
-       
+
+        /**
+         * Connecté, arrêt en attente de validation, ou déconnecté de la gare.
+         * L'attente prime : un agent connecté qui a déjà arrêté son compte va dans cet onglet.
+         *
+         * @param object[] $vendeuses
+         * @return object[]
+         */
+        protected function _classer_vendeuses_guichet($vendeuses, $ekey, $idsg)
+        {
+            if (!is_array($vendeuses)) {
+                return array();
+            }
+            $ids = array();
+            foreach ($vendeuses as $item) {
+                if (!empty($item->roleattribut)) {
+                    $ids[] = (int) $item->roleattribut;
+                }
+            }
+            $attente = array_flip($this->m_compte_user->arrets_guichet_en_attente($ekey, $idsg, $ids));
+            $connectes = array_flip($this->m_compte_user->guichetiers_connectes($ids));
+            foreach ($vendeuses as $item) {
+                $ra = !empty($item->roleattribut) ? (int) $item->roleattribut : 0;
+                if (isset($attente[$ra])) {
+                    $item->guichet_groupe = 'attente';
+                } elseif (isset($connectes[$ra])) {
+                    $item->guichet_groupe = 'connecte';
+                } else {
+                    $item->guichet_groupe = 'deconnecte';
+                }
+            }
+            return $vendeuses;
+        }
 
        public function opts($ckey, $cdg, $cid, $type = 'recette', $cpr, $idsg, $d = FALSE, $m = FALSE, $y = FALSE)
        {
@@ -653,6 +684,11 @@
                         $this->property['vendeuses'] = $this->m_compte_user->get_userus2($this->company->ekey, $cdg);
                     }
                     $this->property['caisseident'] = $caisseident;
+                    $this->property['vendeuses'] = $this->_classer_vendeuses_guichet(
+                        $this->property['vendeuses'],
+                        $this->company->ekey,
+                        $idsg
+                    );
                     $this->property['pagetitle'] .= "• VALIDATION DES RECETTES DU GUICHET<strong>•&nbsp;{$this->company->nom_entreprise}•&nbsp;{$conex->type_rols}</strong>";
                    return $this->layout->view('_recette/view_vendeuse', $this->property);
                 break;
@@ -12165,6 +12201,11 @@
                 }
                 $this->property['typedocuments'] = $this->m_typedocument->get();
                 $this->property['caisseident'] = $caisseident;
+                $this->property['vendeuses'] = $this->_classer_vendeuses_guichet(
+                    $this->property['vendeuses'],
+                    $this->company->ekey,
+                    $idsg
+                );
                 $this->property['pagetitle'] .= "• VALIDATION DES RECETTES DU GUICHET<strong>•&nbsp;{$this->company->nom_entreprise}•&nbsp;{$conex->type_rols}</strong>";
                return $this->layout->view('_recette/ad_view_vendeuse', $this->property);
             break;
