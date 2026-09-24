@@ -350,6 +350,7 @@
             $route['gares/position(:num)'] = 'Gares/positions/$1';
             $route['gares/sousgares/(:num)/(:any)/(:any)/(:any)'] = 'Gares/editsousgare/$1/$2/$3/$4';
             $route['gares/souslignegares/(:num)/(:any)/(:any)/(:any)'] = 'Gares/editsousligne/$1/$2/$3/$4';
+            $route['gares/(:num)/gTs/(:any)/escaleagents/(:any)/(:num)'] = 'Gares/escaleagents/$1/$2/$3/$4';
             $route['gares/(:num)/gTs/(:any)/escaleops/(:num)/(:num)'] = 'Gares/escaleops/$1/$2/$3/$4';
             $route['gares/(:num)/gTs/(:any)/(:any)/(:any)/(:any)/(:any)/(:any)'] = 'Gares/optiongare/$1/$2/$3/$4/$5/$6/$7';
             $route['gares/(:num)/gTi/(:any)/itineraire/(:any)/(:any)/(:any)/(:any)/(:num)/(:num)'] = 'Gares/voiritineraire/$1/$2/$3/$4/$5/$6/$7/$8';

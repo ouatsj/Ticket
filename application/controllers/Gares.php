@@ -27,6 +27,7 @@
             $light = array(
                 'optiongare' => array('m_entreprises', 'm_gare_depart', 'm_compte_user', 'm_sousgare', 'm_itineraire_escale'),
                 'entreescale' => array('m_entreprises', 'm_itineraire_escale', 'm_compte_user', 'm_sousgare'),
+                'escaleagents' => array('m_entreprises', 'm_gare_depart', 'm_compte_user'),
                 'escaleops' => array(
                     'm_entreprises', 'm_gare_depart', 'm_compte_user', 'm_escalclients',
                     'm_bagageesc', 'm_courrier_expedieresc',
@@ -1126,7 +1127,7 @@
                     $userole = ($this->session->userdata('agent') && isset($this->session->agent->userole))
                         ? (string) $this->session->agent->userole
                         : '';
-                    $roles_onglets = array('1', '2', '4', '5', '7', '18');
+                    $roles_onglets = $this->_escale_roles_consultation();
                     $escales_vente = array();
                     if (in_array($userole, $roles_onglets, true)) {
                         $escales_vente = $this->m_compte_user->get_escales_vente_lieu(
@@ -1137,21 +1138,15 @@
                     // Pas d'onglet Escale si aucun agent vente escale n'est configuré sur la gare.
                     $this->property['show_onglets_lieu'] = in_array($userole, $roles_onglets, true)
                         && !empty($escales_vente);
+                    $escales_lieu = array();
                     if (!empty($this->property['show_onglets_lieu'])) {
                         $idsg = 0;
                         if (!empty($this->property['sousgares'][0]->idsousgare)) {
                             $idsg = $this->property['sousgares'][0]->idsousgare;
                         }
-                        foreach ($escales_vente as $esc) {
-                            $esc->voir_url = site_url(
-                                'gares/' . $this->company->ekey
-                                . '/gTs/' . $gid
-                                . '/escaleops/' . (int) $esc->roleattribut
-                                . '/' . $idsg
-                            );
-                        }
+                        $escales_lieu = $this->_group_escales_lieu($escales_vente, $gid, $idsg);
                     }
-                    $this->property['escales_vente'] = $escales_vente;
+                    $this->property['escales_lieu'] = $escales_lieu;
 
                     if ($bus_stop) {
                         $this->property['pagetitle'] .= "•{$bus_stop->garenom}&nbsp;•SOUS GARE<strong>•&nbsp;{$this->company->nom_entreprise}</strong>";
@@ -1167,6 +1162,214 @@
         }
 
         /**
+         * Profils qui consultent les escales d'une gare.
+         * Même chaîne que la caisse : chef, adjoint, caissier, comptable, superviseur, admin.
+         *
+         * @return array
+         */
+        protected function _escale_roles_consultation()
+        {
+            return array('1', '2', '4', '5', '7', '16', '18');
+        }
+
+        /**
+         * Tâches visibles pour l'agent d'escale, dans l'ordre vendeur → superviseur.
+         * Chaque profil ne voit que sa tâche. L'admin voit toute la chaîne.
+         * Le superviseur voit adjoint, caissier et exercices, comme sur la caisse.
+         *
+         * @param string $userole
+         * @param string $profil
+         * @param array $exercices
+         * @return array
+         */
+        protected function _escale_taches_agent($userole, $profil, array $exercices)
+        {
+            $arret = array(
+                array('label' => "Valider l'arrêt — tickets", 'url' => $profil . '#compte-ticket'),
+                array('label' => "Valider l'arrêt — bagages", 'url' => $profil . '#compte-bagage'),
+                array('label' => "Valider l'arrêt — courriers", 'url' => $profil . '#compte-courrier'),
+            );
+            $operations = array(
+                array('label' => 'Opérations — tickets', 'url' => $profil . '#compte-ticket'),
+                array('label' => 'Opérations — bagages', 'url' => $profil . '#compte-bagage'),
+                array('label' => 'Opérations — courriers', 'url' => $profil . '#compte-courrier'),
+            );
+            $sections = array(
+                array(
+                    'badge' => 'Chef de guichet',
+                    'badge_class' => 'badge-success',
+                    'intro' => "Valider l'arrêt de compte du vendeur escale.",
+                    'roles' => array('1', '5', '16'),
+                    'links' => $arret,
+                ),
+                array(
+                    'badge' => 'Adjoint caisse',
+                    'badge_class' => 'badge-info',
+                    'intro' => 'Consulter les opérations de cet escale.',
+                    'roles' => array('1', '2', '18'),
+                    'links' => $operations,
+                ),
+                array(
+                    'badge' => 'Caissier',
+                    'badge_class' => 'badge-primary',
+                    'intro' => 'Consulter les opérations de cet escale.',
+                    'roles' => array('1', '2', '4'),
+                    'links' => $operations,
+                ),
+                array(
+                    'badge' => 'Comptable',
+                    'badge_class' => 'badge-warning',
+                    'intro' => 'Exercices du mois pour cet agent.',
+                    'roles' => array('1', '2', '7'),
+                    'links' => $exercices,
+                ),
+            );
+            $out = array();
+            foreach ($sections as $section) {
+                if (in_array((string) $userole, $section['roles'], true) && !empty($section['links'])) {
+                    $out[] = $section;
+                }
+            }
+            return $out;
+        }
+
+        /**
+         * Une carte par escale configurée sur la gare (plusieurs agents peuvent partager la même).
+         *
+         * @param array $rows
+         * @param string $gid
+         * @param int $idsg
+         * @return array
+         */
+        protected function _group_escales_lieu(array $rows, $gid, $idsg)
+        {
+            $grouped = array();
+            foreach ($rows as $esc) {
+                $value = str_replace('|', '~', trim((string) $esc->vente_escale_value));
+                if ($value === '') {
+                    continue;
+                }
+                if (!isset($grouped[$value])) {
+                    $label = trim((string) $esc->vente_escale_label);
+                    if ($label === '') {
+                        $label = $value;
+                    }
+                    $ligne = trim((string) $esc->nom_ligne);
+                    if ($ligne === '') {
+                        $ligne = trim((string) $esc->vente_escale_id_lignes);
+                    }
+                    $grouped[$value] = (object) array(
+                        'value' => $value,
+                        'label' => $label,
+                        'ligne' => $ligne,
+                        'nb_agents' => 0,
+                        'voir_url' => site_url(
+                            'gares/' . $this->company->ekey
+                            . '/gTs/' . $gid
+                            . '/escaleagents/' . rawurlencode($value)
+                            . '/' . (int) $idsg
+                        ),
+                    );
+                }
+                $grouped[$value]->nb_agents++;
+            }
+            return array_values($grouped);
+        }
+
+        /**
+         * Agents configurés sur une escale de la gare.
+         */
+        public function escaleagents($ckey, $gid, $escale_key, $idsg)
+        {
+            if (!$this->session->userdata('agent')) {
+                redirect('login/ins');
+                return;
+            }
+            $userole = (string) $this->session->agent->userole;
+            if (!in_array($userole, $this->_escale_roles_consultation(), true)) {
+                show_error('Accès refusé.', 403);
+                return;
+            }
+
+            $this->company = $this->m_entreprises->get_key($ckey);
+            if ($this->company && !$this->session->userdata('company')) {
+                $this->session->set_userdata('company', $this->company);
+            }
+
+            $idsg = (int) $idsg;
+            $wanted = str_replace('|', '~', trim(rawurldecode((string) $escale_key)));
+            $bus_stop = $this->m_gare_depart->get($this->company->id_entreprise, $gid);
+            $gare_id = ($bus_stop && !empty($bus_stop->garesid)) ? $bus_stop->garesid : $gid;
+            $gare_connect = roleattribut_guard_normalize_gare_id($this->company->ekey, $gare_id);
+            $conn = $this->m_compte_user->connect_gare_exclusive(
+                $this->company->ekey,
+                $gare_connect,
+                $this->session->agent->roleattribut
+            );
+            $this->property['conex'] = $conn['conex'];
+            if (!$this->property['conex']) {
+                $this->property['conex'] = $this->m_compte_user->usget(
+                    (int) $this->session->agent->cpuser_id,
+                    $gare_id
+                );
+            }
+            $viewer = ($this->property['conex'] && !empty($this->property['conex']->roleattribut))
+                ? $this->property['conex']->roleattribut
+                : (int) $this->session->agent->roleattribut;
+
+            $date_seg = mdate('%d/%m/%Y', now('UTC'));
+            $retour = site_url(
+                'gares/' . $this->company->ekey . '/gTs/' . $gid . '/sousgare/' . $viewer . '/' . $date_seg
+                . '?onglet=escale'
+            );
+            $agents = array();
+            $label = $wanted;
+            $ligne = '';
+            foreach ($this->m_compte_user->get_escales_vente_lieu($this->company->ekey, $gare_id) as $row) {
+                $value = str_replace('|', '~', trim((string) $row->vente_escale_value));
+                if ($value !== $wanted) {
+                    continue;
+                }
+                if ($label === $wanted) {
+                    $row_label = trim((string) $row->vente_escale_label);
+                    if ($row_label !== '') {
+                        $label = $row_label;
+                    }
+                }
+                if ($ligne === '') {
+                    $ligne = trim((string) $row->nom_ligne);
+                    if ($ligne === '') {
+                        $ligne = trim((string) $row->vente_escale_id_lignes);
+                    }
+                }
+                $row->voir_url = site_url(
+                    'gares/' . $this->company->ekey
+                    . '/gTs/' . $gid
+                    . '/escaleops/' . (int) $row->roleattribut
+                    . '/' . $idsg
+                );
+                $agents[] = $row;
+            }
+            if (!$agents) {
+                redirect($retour);
+                return;
+            }
+
+            $this->property['escale_label'] = $label;
+            $this->property['escale_ligne'] = $ligne;
+            $this->property['escale_agents'] = $agents;
+            $this->property['retour_sousgare'] = $retour;
+            $this->property['bus_stop'] = $bus_stop;
+            $this->property['layout_minimal'] = TRUE;
+            $nom = ($bus_stop && !empty($bus_stop->garenom)) ? $bus_stop->garenom : $gid;
+            $this->property['pagetitle'] .= "•{$nom}&nbsp;•ESCALE<strong>•&nbsp;{$this->company->nom_entreprise}</strong>";
+            $this->property = array_merge($this->property, scripts_bundle_property('accueil'));
+            session_release_lock();
+
+            return $this->layout->view('_gare/escaleagents', $this->property);
+        }
+
+        /**
          * Intérieur d'une escale : mêmes familles de boutons que dans une sous-gare
          * (compte ticket / bagage / courrier, exercices), pour cet agent.
          */
@@ -1177,7 +1380,7 @@
                 return;
             }
             $userole = (string) $this->session->agent->userole;
-            if (!in_array($userole, array('1', '2', '4', '5', '7', '18'), true)) {
+            if (!in_array($userole, $this->_escale_roles_consultation(), true)) {
                 show_error('Accès refusé.', 403);
                 return;
             }
@@ -1252,53 +1455,41 @@
             $ligne = rawurlencode((string) $escale->vente_escale_id_lignes);
             $q_agent = (string) $agent_ra;
 
-            $compte_links = array();
-            if (in_array($userole, array('1', '2', '4', '5', '18'), true)) {
-                $verbe = ($userole === '4' || $userole === '18') ? 'Opérations' : "Valider l'arrêt";
-                $compte_links = array(
-                    array('label' => $verbe . ' — tickets', 'url' => $profil . '#compte-ticket'),
-                    array('label' => $verbe . ' — bagages', 'url' => $profil . '#compte-bagage'),
-                    array('label' => $verbe . ' — courriers', 'url' => $profil . '#compte-courrier'),
-                );
-            }
-
-            $exercice_links = array();
-            if (in_array($userole, array('1', '2', '7'), true)) {
-                $base = 'Rapport/';
-                $ek = $this->company->ekey . '/' . $gare_id;
-                $exercice_links = array(
-                    array(
-                        'label' => 'Exercice tickets du mois',
-                        'url' => site_url(
-                            $base . 'exoreportsesc/' . $ek
-                            . '?caissieresc=' . $q_agent
-                            . '&datedebutesc=' . $du
-                            . '&datefinesc=' . $au
-                            . '&axeligneesc=' . $ligne
-                        ),
+            $base = 'Rapport/';
+            $ek = $this->company->ekey . '/' . $gare_id;
+            $exercice_links = array(
+                array(
+                    'label' => 'Exercice tickets du mois',
+                    'url' => site_url(
+                        $base . 'exoreportsesc/' . $ek
+                        . '?caissieresc=' . $q_agent
+                        . '&datedebutesc=' . $du
+                        . '&datefinesc=' . $au
+                        . '&axeligneesc=' . $ligne
                     ),
-                    array(
-                        'label' => 'Exercice bagages du mois',
-                        'url' => site_url(
-                            $base . 'exercicesbagopesc/' . $ek
-                            . '?vendeuseidopesc=' . $q_agent
-                            . '&datedebutbagopesc=' . $du
-                            . '&datefinbagopesc=' . $au
-                            . '&axelignebagopesc=' . $ligne
-                        ),
+                ),
+                array(
+                    'label' => 'Exercice bagages du mois',
+                    'url' => site_url(
+                        $base . 'exercicesbagopesc/' . $ek
+                        . '?vendeuseidopesc=' . $q_agent
+                        . '&datedebutbagopesc=' . $du
+                        . '&datefinbagopesc=' . $au
+                        . '&axelignebagopesc=' . $ligne
                     ),
-                    array(
-                        'label' => 'Exercice courriers du mois',
-                        'url' => site_url(
-                            $base . 'etatsplis1esc/' . $ek
-                            . '?caissesidpliesc=' . $q_agent
-                            . '&datesdebutspliesc=' . $du
-                            . '&datesfinspliesc=' . $au
-                            . '&axelignespliesc=' . $ligne
-                        ),
+                ),
+                array(
+                    'label' => 'Exercice courriers du mois',
+                    'url' => site_url(
+                        $base . 'etatsplis1esc/' . $ek
+                        . '?caissesidpliesc=' . $q_agent
+                        . '&datesdebutspliesc=' . $du
+                        . '&datesfinspliesc=' . $au
+                        . '&axelignespliesc=' . $ligne
                     ),
-                );
-            }
+                ),
+            );
+            $taches = $this->_escale_taches_agent($userole, $profil, $exercice_links);
 
             $tickets = $this->m_escalclients->compteur($this->company->ekey, $agent_ra, $gare_id);
             $bagages = $this->m_bagageesc->compteur($this->company->ekey, $agent_ra, $gare_id);
@@ -1308,13 +1499,20 @@
             if ($label === '') {
                 $label = trim((string) $escale->vente_escale_value);
             }
+            $escale_value = str_replace('|', '~', trim((string) $escale->vente_escale_value));
+            $retour_agents = site_url(
+                'gares/' . $this->company->ekey
+                . '/gTs/' . $gid
+                . '/escaleagents/' . rawurlencode($escale_value)
+                . '/' . $idsg
+            );
             $this->property['escale_ops'] = $escale;
             $this->property['escale_label'] = $label;
-            $this->property['compte_links'] = $compte_links;
-            $this->property['exercice_links'] = $exercice_links;
+            $this->property['escale_taches'] = $taches;
             $this->property['ouvert_tickets'] = ($tickets && isset($tickets->total)) ? (float) $tickets->total : 0.0;
             $this->property['ouvert_bagages'] = ($bagages && isset($bagages->bagtot)) ? (float) $bagages->bagtot : 0.0;
             $this->property['ouvert_courriers'] = ($courriers && isset($courriers->totaenesc)) ? (float) $courriers->totaenesc : 0.0;
+            $this->property['retour_agents'] = $retour_agents;
             $this->property['retour_sousgare'] = $retour;
             $this->property['bus_stop'] = $bus_stop;
             $this->property['layout_minimal'] = TRUE;

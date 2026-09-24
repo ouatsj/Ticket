@@ -11,7 +11,7 @@
     <div class="col-12">
         <div class="sg-lieu-tabs" role="tablist">
             <button type="button" class="sg-lieu-tab is-active" data-sg-tab="quartier" role="tab" aria-selected="true">Quartier</button>
-            <button type="button" class="sg-lieu-tab" data-sg-tab="escale" role="tab" aria-selected="false">Escale<?php if (!empty($escales_vente)): ?> (<?= count($escales_vente); ?>)<?php endif; ?></button>
+            <button type="button" class="sg-lieu-tab" data-sg-tab="escale" role="tab" aria-selected="false">Escale<?php if (!empty($escales_lieu)): ?> (<?= count($escales_lieu); ?>)<?php endif; ?></button>
         </div>
     </div>
 <?php endif; ?>
@@ -175,18 +175,12 @@
 </div>
 <?php if (!empty($show_onglets_lieu)): ?>
 <div id="sg-panel-escale" style="display:none">
-    <?php if (!empty($escales_vente)): ?>
-        <?php foreach ($escales_vente as $esc): ?>
+    <?php if (!empty($escales_lieu)): ?>
+        <?php foreach ($escales_lieu as $esc): ?>
             <?php
-            $esc_label = trim((string) $esc->vente_escale_label);
-            if ($esc_label === '') {
-                $esc_label = trim((string) $esc->vente_escale_value);
-            }
-            $esc_ligne = trim((string) $esc->nom_ligne);
-            if ($esc_ligne === '') {
-                $esc_ligne = trim((string) $esc->vente_escale_id_lignes);
-            }
-            $esc_agent = trim((string) $esc->agent_nom);
+            $esc_label = trim((string) $esc->label);
+            $esc_ligne = trim((string) $esc->ligne);
+            $esc_nb = isset($esc->nb_agents) ? (int) $esc->nb_agents : 0;
             ?>
             <div class="col-lg-3">
                 <div class="card card-border card-full">
@@ -195,9 +189,7 @@
                         <?php if ($esc_ligne !== ''): ?>
                             <p>Ligne : <?= htmlspecialchars($esc_ligne, ENT_QUOTES, 'UTF-8'); ?></p>
                         <?php endif; ?>
-                        <?php if ($esc_agent !== ''): ?>
-                            <p>Agent : <?= htmlspecialchars($esc_agent, ENT_QUOTES, 'UTF-8'); ?></p>
-                        <?php endif; ?>
+                        <p>Agents : <?= $esc_nb; ?></p>
                         <?php if (!empty($esc->voir_url)): ?>
                             <a href="<?= htmlspecialchars($esc->voir_url, ENT_QUOTES, 'UTF-8'); ?>"
                                class="btn btn-block btn-rounded text-dark bg-white">
@@ -253,6 +245,19 @@
         tabs[i].addEventListener('click', function () {
             show(this.getAttribute('data-sg-tab'));
         });
+    }
+    var onglet = '';
+    if (window.location.search) {
+        var parts = window.location.search.replace(/^\?/, '').split('&');
+        for (var j = 0; j < parts.length; j++) {
+            var pair = parts[j].split('=');
+            if (decodeURIComponent(pair[0] || '') === 'onglet') {
+                onglet = decodeURIComponent(pair[1] || '');
+            }
+        }
+    }
+    if (onglet === 'escale') {
+        show('escale');
     }
 })();
 </script>
