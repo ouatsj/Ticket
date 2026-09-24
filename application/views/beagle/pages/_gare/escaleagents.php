@@ -7,6 +7,38 @@
             </a>
         </p>
     </div>
+    <?php if (!empty($escale_label)): ?>
+        <div class="col-12">
+            <h3 class="ml-3"><?= htmlspecialchars($escale_label, ENT_QUOTES, 'UTF-8'); ?>
+                <?php if (!empty($escale_ligne)): ?>
+                    <small class="text-muted">— <?= htmlspecialchars($escale_ligne, ENT_QUOTES, 'UTF-8'); ?></small>
+                <?php endif; ?>
+            </h3>
+        </div>
+    <?php endif; ?>
+    <?php if (!empty($escale_taches)): ?>
+        <?php foreach ($escale_taches as $tache): ?>
+            <div class="col-lg-3">
+                <div class="card card-border card-full">
+                    <div class="card-header card-header-divider">
+                        <span class="badge <?= htmlspecialchars($tache['badge_class'], ENT_QUOTES, 'UTF-8'); ?>"><?= htmlspecialchars($tache['badge'], ENT_QUOTES, 'UTF-8'); ?></span>
+                        <?php if (!empty($tache['intro'])): ?>
+                            <?= htmlspecialchars($tache['intro'], ENT_QUOTES, 'UTF-8'); ?>
+                        <?php endif; ?>
+                    </div>
+                    <div class="card-body">
+                        <?php foreach ($tache['links'] as $act): ?>
+                            <a href="<?= htmlspecialchars($act['url'], ENT_QUOTES, 'UTF-8'); ?>"
+                               class="btn btn-block btn-rounded text-dark bg-white mb-1">
+                                <span class="fas fa-eye"></span>
+                                <?= htmlspecialchars($act['label'], ENT_QUOTES, 'UTF-8'); ?>
+                            </a>
+                        <?php endforeach; ?>
+                    </div>
+                </div>
+            </div>
+        <?php endforeach; ?>
+    <?php endif; ?>
     <?php if (!empty($escale_agents)): ?>
         <?php foreach ($escale_agents as $esc): ?>
             <?php

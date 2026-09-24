@@ -1162,75 +1162,172 @@
         }
 
         /**
-         * Profils qui consultent les escales d'une gare.
-         * Même chaîne que la caisse : chef, adjoint, caissier, comptable, superviseur, admin.
+         * Onglet Escale : adjoint, caissier, comptable, superviseur, admin.
+         * Le chef de guichet et l'aide chef passent par Recette guichet escale.
          *
          * @return array
          */
         protected function _escale_roles_consultation()
         {
-            return array('1', '2', '4', '5', '7', '16', '18');
+            return array('1', '2', '4', '7', '18');
         }
 
         /**
-         * Tâches visibles pour l'agent d'escale, dans l'ordre vendeur → superviseur.
-         * Chaque profil ne voit que sa tâche. L'admin voit toute la chaîne.
-         * Le superviseur voit adjoint, caissier et exercices, comme sur la caisse.
+         * @param string|int $gare_id
+         * @param string $gid
+         * @return object|null
+         */
+        protected function _escale_caisse($gare_id, $gid)
+        {
+            return $this->db->query(
+                "SELECT ce.id_caiss, ce.gexp_caiss
+                 FROM caisse ce
+                 JOIN gare_exp ex ON ce.gexp_caiss = ex.code_gaexp
+                 WHERE ex.garesid = ? OR ex.code_gaexp = ?
+                 ORDER BY ce.id_caiss ASC
+                 LIMIT 1",
+                array($gare_id, $gid)
+            )->row();
+        }
+
+        /**
+         * Mêmes boutons que la page caisse d'une sous-gare, selon le profil connecté.
+         * Le comptable reçoit les exercices escale, comme sur sa page de sous-gare.
          *
          * @param string $userole
-         * @param string $profil
-         * @param array $exercices
+         * @param object|null $caisse
+         * @param int $viewer
+         * @param int $idsg
+         * @param string $date_seg
+         * @param array $agents
+         * @param string|int $gare_id
          * @return array
          */
-        protected function _escale_taches_agent($userole, $profil, array $exercices)
+        protected function _escale_boutons_comme_sousgare($userole, $caisse, $viewer, $idsg, $date_seg, array $agents, $gare_id)
         {
-            $arret = array(
-                array('label' => "Valider l'arrêt — tickets", 'url' => $profil . '#compte-ticket'),
-                array('label' => "Valider l'arrêt — bagages", 'url' => $profil . '#compte-bagage'),
-                array('label' => "Valider l'arrêt — courriers", 'url' => $profil . '#compte-courrier'),
-            );
-            $operations = array(
-                array('label' => 'Opérations — tickets', 'url' => $profil . '#compte-ticket'),
-                array('label' => 'Opérations — bagages', 'url' => $profil . '#compte-bagage'),
-                array('label' => 'Opérations — courriers', 'url' => $profil . '#compte-courrier'),
-            );
-            $sections = array(
-                array(
-                    'badge' => 'Chef de guichet',
-                    'badge_class' => 'badge-success',
-                    'intro' => "Valider l'arrêt de compte du vendeur escale.",
-                    'roles' => array('1', '5', '16'),
-                    'links' => $arret,
-                ),
-                array(
-                    'badge' => 'Adjoint caisse',
-                    'badge_class' => 'badge-info',
-                    'intro' => 'Consulter les opérations de cet escale.',
-                    'roles' => array('1', '2', '18'),
-                    'links' => $operations,
-                ),
-                array(
+            $userole = (string) $userole;
+            $sections = array();
+            $gexp = ($caisse && !empty($caisse->gexp_caiss)) ? $caisse->gexp_caiss : '';
+            $id_caiss = ($caisse && !empty($caisse->id_caiss)) ? (int) $caisse->id_caiss : 0;
+            $ekey = $this->company->ekey;
+            $gtv = function ($type) use ($ekey, $gexp, $id_caiss, $viewer, $idsg, $date_seg) {
+                return site_url(
+                    'caisses/' . $ekey . '/gTv/' . $gexp . '/' . $id_caiss
+                    . '/' . $type . '/' . $viewer . '/' . $idsg . '/' . $date_seg
+                );
+            };
+            $cais = function ($type) use ($ekey, $gexp, $id_caiss, $viewer, $idsg, $date_seg) {
+                return site_url(
+                    'caisses/' . $ekey . '/cais/' . $gexp . '/' . $id_caiss
+                    . '/' . $viewer . '/' . $type . '/' . $idsg . '/' . $date_seg
+                );
+            };
+
+            if ($gexp !== '' && $id_caiss > 0 && in_array($userole, array('1', '2', '4'), true)) {
+                $links = array(
+                    array('label' => 'RECETTES', 'url' => $gtv('recette')),
+                    array('label' => 'DEPOTS', 'url' => $gtv('depot')),
+                    array('label' => 'VERSEMENT', 'url' => $gtv('versement')),
+                    array('label' => 'DEPENSES', 'url' => $gtv('depense')),
+                    array('label' => 'ARRÊT COMPTE CAISSE', 'url' => $gtv('arretcaisseprincipale')),
+                );
+                if ($userole === '1' || $userole === '4') {
+                    $links[] = array('label' => 'VALIDATION', 'url' => $gtv('validation'));
+                }
+                $sections[] = array(
                     'badge' => 'Caissier',
                     'badge_class' => 'badge-primary',
-                    'intro' => 'Consulter les opérations de cet escale.',
-                    'roles' => array('1', '2', '4'),
-                    'links' => $operations,
-                ),
-                array(
-                    'badge' => 'Comptable',
-                    'badge_class' => 'badge-warning',
-                    'intro' => 'Exercices du mois pour cet agent.',
-                    'roles' => array('1', '2', '7'),
-                    'links' => $exercices,
-                ),
-            );
-            $out = array();
-            foreach ($sections as $section) {
-                if (in_array((string) $userole, $section['roles'], true) && !empty($section['links'])) {
-                    $out[] = $section;
+                    'intro' => '',
+                    'links' => $links,
+                );
+            }
+
+            if ($gexp !== '' && $id_caiss > 0 && in_array($userole, array('1', '2', '18'), true)) {
+                $links = array(
+                    array('label' => 'RECETTES', 'url' => $gtv('recette')),
+                    array('label' => 'DEPOTS', 'url' => $gtv('depot')),
+                    array('label' => 'VERSEMENT', 'url' => $gtv('versement')),
+                    array('label' => 'DEPENSES', 'url' => $gtv('depense')),
+                );
+                if ($userole === '1' || $userole === '18') {
+                    $links[] = array('label' => 'VALIDATION', 'url' => $gtv('validation'));
+                }
+                $sections[] = array(
+                    'badge' => 'Adjoint caisse',
+                    'badge_class' => 'badge-info',
+                    'intro' => '',
+                    'links' => $links,
+                );
+            }
+
+            if ($gexp !== '' && $id_caiss > 0 && $userole === '1') {
+                $sections[] = array(
+                    'badge' => 'Chef de guichet',
+                    'badge_class' => 'badge-success',
+                    'intro' => '',
+                    'links' => array(
+                        array('label' => 'RECETTES', 'url' => $cais('recette_adjoint')),
+                        array('label' => 'DEPOTS', 'url' => $cais('depot_adjoint')),
+                        array('label' => 'VERSEMENT', 'url' => $cais('autreversement_adjoint')),
+                        array('label' => 'DEPENSES', 'url' => $cais('depense_adjoint')),
+                        array('label' => 'ARRÊT COMPTE CHEF GUICHET', 'url' => $cais('arretcaisse_adjoint')),
+                    ),
+                );
+            }
+
+            if (in_array($userole, array('1', '2', '7'), true)) {
+                $du = mdate('%Y-%m-01', now('UTC'));
+                $au = mdate('%Y-%m-%d', now('UTC'));
+                $base = 'Rapport/';
+                $ek = $ekey . '/' . $gare_id;
+                foreach ($agents as $agent) {
+                    $ra = !empty($agent->roleattribut) ? (int) $agent->roleattribut : 0;
+                    if ($ra <= 0) {
+                        continue;
+                    }
+                    $ligne = rawurlencode((string) $agent->vente_escale_id_lignes);
+                    $nom = trim((string) (isset($agent->agent_nom) ? $agent->agent_nom : ''));
+                    $sections[] = array(
+                        'badge' => 'Comptable',
+                        'badge_class' => 'badge-warning',
+                        'intro' => $nom !== '' ? $nom : ('Agent ' . $ra),
+                        'links' => array(
+                            array(
+                                'label' => 'EXERCICE MENSUEL TICKET GUICHETIER ESCAL',
+                                'url' => site_url(
+                                    $base . 'exoreportsesc/' . $ek
+                                    . '?caissieresc=' . $ra
+                                    . '&datedebutesc=' . $du
+                                    . '&datefinesc=' . $au
+                                    . '&axeligneesc=' . $ligne
+                                ),
+                            ),
+                            array(
+                                'label' => 'EXERCICE MENSUEL BAGAGEESCAL OPERATEUR',
+                                'url' => site_url(
+                                    $base . 'exercicesbagopesc/' . $ek
+                                    . '?vendeuseidopesc=' . $ra
+                                    . '&datedebutbagopesc=' . $du
+                                    . '&datefinbagopesc=' . $au
+                                    . '&axelignebagopesc=' . $ligne
+                                ),
+                            ),
+                            array(
+                                'label' => 'EXERCICE COURRIERS ESCAL',
+                                'url' => site_url(
+                                    $base . 'etatsplis1esc/' . $ek
+                                    . '?caissesidpliesc=' . $ra
+                                    . '&datesdebutspliesc=' . $du
+                                    . '&datesfinspliesc=' . $au
+                                    . '&axelignespliesc=' . $ligne
+                                ),
+                            ),
+                        ),
+                    );
                 }
             }
-            return $out;
+
+            return $sections;
         }
 
         /**
@@ -1355,9 +1452,19 @@
                 return;
             }
 
+            $caisse = $this->_escale_caisse($gare_id, $gid);
             $this->property['escale_label'] = $label;
             $this->property['escale_ligne'] = $ligne;
             $this->property['escale_agents'] = $agents;
+            $this->property['escale_taches'] = $this->_escale_boutons_comme_sousgare(
+                $userole,
+                $caisse,
+                $viewer,
+                $idsg,
+                $date_seg,
+                $agents,
+                $gare_id
+            );
             $this->property['retour_sousgare'] = $retour;
             $this->property['bus_stop'] = $bus_stop;
             $this->property['layout_minimal'] = TRUE;
@@ -1427,69 +1534,16 @@
                 return;
             }
 
-            $id_caiss = 0;
-            $caisse = $this->db->query(
-                "SELECT ce.id_caiss
-                 FROM caisse ce
-                 JOIN gare_exp ex ON ce.gexp_caiss = ex.code_gaexp
-                 WHERE ex.garesid = ? OR ex.code_gaexp = ?
-                 ORDER BY ce.id_caiss ASC
-                 LIMIT 1",
-                array($gare_id, $gid)
-            )->row();
-            if ($caisse && !empty($caisse->id_caiss)) {
-                $id_caiss = (int) $caisse->id_caiss;
-            }
-            $guser = !empty($escale->guser) ? $escale->guser : $gare_id;
-            $profil = site_url(
-                'utilisateurs/' . $this->company->ekey
-                . '/profilsesc/' . $guser
-                . '/' . $idsg
-                . '/' . $agent_ra
-                . '/' . $id_caiss
-                . '/' . $viewer
-                . '/' . $date_seg
+            $caisse = $this->_escale_caisse($gare_id, $gid);
+            $taches = $this->_escale_boutons_comme_sousgare(
+                $userole,
+                $caisse,
+                $viewer,
+                $idsg,
+                $date_seg,
+                array($escale),
+                $gare_id
             );
-            $du = mdate('%Y-%m-01', now('UTC'));
-            $au = mdate('%Y-%m-%d', now('UTC'));
-            $ligne = rawurlencode((string) $escale->vente_escale_id_lignes);
-            $q_agent = (string) $agent_ra;
-
-            $base = 'Rapport/';
-            $ek = $this->company->ekey . '/' . $gare_id;
-            $exercice_links = array(
-                array(
-                    'label' => 'Exercice tickets du mois',
-                    'url' => site_url(
-                        $base . 'exoreportsesc/' . $ek
-                        . '?caissieresc=' . $q_agent
-                        . '&datedebutesc=' . $du
-                        . '&datefinesc=' . $au
-                        . '&axeligneesc=' . $ligne
-                    ),
-                ),
-                array(
-                    'label' => 'Exercice bagages du mois',
-                    'url' => site_url(
-                        $base . 'exercicesbagopesc/' . $ek
-                        . '?vendeuseidopesc=' . $q_agent
-                        . '&datedebutbagopesc=' . $du
-                        . '&datefinbagopesc=' . $au
-                        . '&axelignebagopesc=' . $ligne
-                    ),
-                ),
-                array(
-                    'label' => 'Exercice courriers du mois',
-                    'url' => site_url(
-                        $base . 'etatsplis1esc/' . $ek
-                        . '?caissesidpliesc=' . $q_agent
-                        . '&datesdebutspliesc=' . $du
-                        . '&datesfinspliesc=' . $au
-                        . '&axelignespliesc=' . $ligne
-                    ),
-                ),
-            );
-            $taches = $this->_escale_taches_agent($userole, $profil, $exercice_links);
 
             $tickets = $this->m_escalclients->compteur($this->company->ekey, $agent_ra, $gare_id);
             $bagages = $this->m_bagageesc->compteur($this->company->ekey, $agent_ra, $gare_id);
