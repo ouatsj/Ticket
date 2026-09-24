@@ -1939,6 +1939,22 @@
          */
         public function arrets_guichet_en_attente($ekey, $idsg, array $roleattributs)
         {
+            return $this->arrets_en_attente($ekey, $roleattributs, $idsg, array('guichet', 'bagage', 'courrier'));
+        }
+
+        /**
+         * Bordereaux encore visibles sur la page œil.
+         * $idsg null : toute la gare de l'agent (profil escale).
+         * $idsg renseigné : uniquement cette sous-gare.
+         *
+         * @param string $ekey
+         * @param int[] $roleattributs
+         * @param int|string|null $idsg
+         * @param string[] $sources guichet, bagage, courrier
+         * @return int[]
+         */
+        public function arrets_en_attente($ekey, array $roleattributs, $idsg = null, array $sources = array('guichet', 'bagage', 'courrier'))
+        {
             $ids = array();
             foreach ($roleattributs as $id) {
                 $id = (int) $id;
@@ -1946,48 +1962,52 @@
                     $ids[$id] = $id;
                 }
             }
-            if ($ekey === '' || $idsg === '' || $idsg === null || empty($ids)) {
+            $filtrer_sg = ($idsg !== null && $idsg !== '');
+            if ($ekey === '' || empty($ids) || ($filtrer_sg && ($idsg === '' || $idsg === null))) {
                 return array();
             }
             $ids = array_values($ids);
-            $ph = implode(',', array_fill(0, count($ids), '?'));
-            $gare = "JOIN attributions_role ar ON %s = ar.roleattribut
-                     JOIN user_login ul ON ar.idgestcompte = ul.uid_login
-                     JOIN gares g ON ul.guser = g.idengare
-                     JOIN compagnies c ON %s = c.cle_compagnie
-                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                     WHERE e.ekey = ?
-                       AND g.idengare = ul.guser
-                       AND %s = ?
-                       AND %s IN ($ph)";
-            $sql = "SELECT roleattribut FROM (
-                        SELECT ar.roleattribut
-                        FROM compte_guichet cg
-                        " . sprintf($gare, 'cg.idusercompt', 'cg.comp', 'cg.idsousga', 'ar.roleattribut') . "
-                          AND cg.is_validcompte = 0
-                          AND cg.actifcompt = 0
-                        UNION
-                        SELECT ar.roleattribut
-                        FROM compte_bagage cb
-                        " . sprintf($gare, 'cb.idusercomptbg', 'cb.compbg', 'cb.idsousgabg', 'ar.roleattribut') . "
-                          AND cb.is_validcomptebg = 0
-                          AND cb.actifcomptbg = 0
-                        UNION
-                        SELECT ar.roleattribut
-                        FROM compte_courrier cc
-                        " . sprintf($gare, 'cc.comptiduser', 'cc.compcour', 'cc.idsousg', 'ar.roleattribut') . "
-                          AND cc.validcompteis = 0
-                          AND cc.compteactif = 0
-                    ) attente";
+            $catalogue = array(
+                'guichet' => array('compte_guichet cg', 'cg.idusercompt', 'cg.comp', 'cg.idsousga', 'cg.is_validcompte = 0 AND cg.actifcompt = 0'),
+                'bagage' => array('compte_bagage cb', 'cb.idusercomptbg', 'cb.compbg', 'cb.idsousgabg', 'cb.is_validcomptebg = 0 AND cb.actifcomptbg = 0'),
+                'courrier' => array('compte_courrier cc', 'cc.comptiduser', 'cc.compcour', 'cc.idsousg', 'cc.validcompteis = 0 AND cc.compteactif = 0'),
+            );
+            $parts = array();
             $bind = array();
-            for ($i = 0; $i < 3; $i++) {
+            $ph = implode(',', array_fill(0, count($ids), '?'));
+            foreach ($sources as $source) {
+                if (!isset($catalogue[$source])) {
+                    continue;
+                }
+                list($table, $ra, $comp, $sg, $flags) = $catalogue[$source];
+                $sg_sql = $filtrer_sg ? " AND {$sg} = ?" : '';
+                $parts[] = "SELECT ar.roleattribut
+                    FROM {$table}
+                    JOIN attributions_role ar ON {$ra} = ar.roleattribut
+                    JOIN user_login ul ON ar.idgestcompte = ul.uid_login
+                    JOIN gares g ON ul.guser = g.idengare
+                    JOIN compagnies c ON {$comp} = c.cle_compagnie
+                    JOIN entreprise e ON c.id_entrep = e.id_entreprise
+                    WHERE e.ekey = ?
+                      AND g.idengare = ul.guser
+                      AND ar.roleattribut IN ($ph)
+                      {$sg_sql}
+                      AND {$flags}";
                 $bind[] = $ekey;
-                $bind[] = $idsg;
                 foreach ($ids as $id) {
                     $bind[] = $id;
                 }
+                if ($filtrer_sg) {
+                    $bind[] = $idsg;
+                }
             }
-            $rows = $this->db->query($sql, $bind)->result();
+            if (empty($parts)) {
+                return array();
+            }
+            $rows = $this->db->query(
+                'SELECT roleattribut FROM (' . implode(' UNION ', $parts) . ') attente',
+                $bind
+            )->result();
             $out = array();
             foreach ($rows as $row) {
                 $out[] = (int) $row->roleattribut;

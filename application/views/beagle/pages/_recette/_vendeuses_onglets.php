@@ -1,6 +1,12 @@
 <?php defined('BASEPATH') OR exit('No direct script access allowed'); ?>
 <?php
-$liste = !empty($vendeuses) && is_array($vendeuses) ? $vendeuses : array();
+if (isset($rg_agents) && is_array($rg_agents)) {
+    $liste = $rg_agents;
+} else {
+    $liste = !empty($vendeuses) && is_array($vendeuses) ? $vendeuses : array();
+}
+$rg_profil = !empty($rg_profil) ? (string) $rg_profil : 'profils';
+$rg_qui = !empty($rg_qui) ? (string) $rg_qui : 'guichetier';
 $groupes = array(
     'connecte' => array(),
     'attente' => array(),
@@ -24,7 +30,7 @@ $date_op = mdate('%d/%m/%Y', now('UTC'));
 ?>
 <div class="col-12 mb-3">
     <input type="search" id="rg-filtre" class="form-control"
-           placeholder="Rechercher un guichetier (nom, téléphone, profil)" autocomplete="off">
+           placeholder="Rechercher un <?= htmlspecialchars($rg_qui, ENT_QUOTES, 'UTF-8'); ?> (nom, téléphone, profil)" autocomplete="off">
 </div>
 <div class="col-12 mb-3">
     <div class="rg-tabs" role="tablist">
@@ -41,7 +47,7 @@ $date_op = mdate('%d/%m/%Y', now('UTC'));
     <div class="rg-panel row col-12" data-rg-panel="<?= $cle; ?>"<?= $cle === 'connecte' ? '' : ' style="display:none"'; ?>>
         <?php if (empty($groupes[$cle])): ?>
             <div class="col-12 rg-vide" data-rg-vide="1">
-                <p class="text-center text-muted mb-0">Aucun guichetier dans cet onglet.</p>
+                <p class="text-center text-muted mb-0">Aucun <?= htmlspecialchars($rg_qui, ENT_QUOTES, 'UTF-8'); ?> dans cet onglet.</p>
             </div>
         <?php endif; ?>
         <?php foreach ($groupes[$cle] as $item):
@@ -70,7 +76,7 @@ $date_op = mdate('%d/%m/%Y', now('UTC'));
                             <?php endif; ?>
                         </p>
                         <a href="<?= site_url('utilisateurs/'
-                            . $this->session->company->ekey . '/profils/'
+                            . $this->session->company->ekey . '/' . $rg_profil . '/'
                             . $item->guser . '/' . $idsg . '/' . $item->roleattribut . '/' . $id_caiss . '/' . $conex->roleattribut . '/' . $date_op); ?>"
                            class="btn btn-block btn-rounded text-dark bg-info">
                             <span class="icon mdi mdi-eye"></span>
@@ -80,7 +86,7 @@ $date_op = mdate('%d/%m/%Y', now('UTC'));
             </div>
         <?php endforeach; ?>
         <div class="col-12 rg-vide-filtre" style="display:none">
-            <p class="text-center text-muted mb-0">Aucun guichetier ne correspond à la recherche.</p>
+            <p class="text-center text-muted mb-0">Aucun <?= htmlspecialchars($rg_qui, ENT_QUOTES, 'UTF-8'); ?> ne correspond à la recherche.</p>
         </div>
     </div>
 <?php endforeach; ?>

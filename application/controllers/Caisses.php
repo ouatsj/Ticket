@@ -122,18 +122,34 @@
          */
         protected function _classer_vendeuses_guichet($vendeuses, $ekey, $idsg)
         {
-            if (!is_array($vendeuses)) {
+            return $this->_classer_agents_recette($vendeuses, $ekey, $idsg, array('guichet', 'bagage', 'courrier'), true);
+        }
+
+        /**
+         * @param object[] $agents
+         * @param string[] $sources
+         * @param bool $sousgare true = le bordereau doit être sur cette sous-gare
+         * @return object[]
+         */
+        protected function _classer_agents_recette($agents, $ekey, $idsg, array $sources, $sousgare)
+        {
+            if (!is_array($agents)) {
                 return array();
             }
             $ids = array();
-            foreach ($vendeuses as $item) {
+            foreach ($agents as $item) {
                 if (!empty($item->roleattribut)) {
                     $ids[] = (int) $item->roleattribut;
                 }
             }
-            $attente = array_flip($this->m_compte_user->arrets_guichet_en_attente($ekey, $idsg, $ids));
+            $attente = array_flip($this->m_compte_user->arrets_en_attente(
+                $ekey,
+                $ids,
+                $sousgare ? $idsg : null,
+                $sources
+            ));
             $connectes = array_flip($this->m_compte_user->guichetiers_connectes($ids));
-            foreach ($vendeuses as $item) {
+            foreach ($agents as $item) {
                 $ra = !empty($item->roleattribut) ? (int) $item->roleattribut : 0;
                 if (isset($attente[$ra])) {
                     $item->guichet_groupe = 'attente';
@@ -143,7 +159,7 @@
                     $item->guichet_groupe = 'deconnecte';
                 }
             }
-            return $vendeuses;
+            return $agents;
         }
 
        public function opts($ckey, $cdg, $cid, $type = 'recette', $cpr, $idsg, $d = FALSE, $m = FALSE, $y = FALSE)
@@ -702,6 +718,13 @@
                         $this->property['vendeuseses'] = $this->m_compte_user->get_es2($this->company->ekey, $cdg);
                     }
                     $this->property['caisseident'] = $caisseident;
+                    $this->property['vendeuseses'] = $this->_classer_agents_recette(
+                        $this->property['vendeuseses'],
+                        $this->company->ekey,
+                        $idsg,
+                        array('guichet', 'bagage', 'courrier'),
+                        false
+                    );
                     $this->property['pagetitle'] .= "• VALIDATION DES RECETTES DU GUICHET ESCAL<strong>•&nbsp;{$this->company->nom_entreprise}•&nbsp;{$conex->type_rols}</strong>";
                    return $this->layout->view('_recette/view_vendeusees', $this->property);
                 break;
@@ -714,6 +737,13 @@
                         $this->property['ecrivainbagages'] = $this->m_compte_user->get_userbg2($this->company->ekey, $cdg);
                     }
                     $this->property['caisseident'] = $caisseident;
+                    $this->property['ecrivainbagages'] = $this->_classer_agents_recette(
+                        $this->property['ecrivainbagages'],
+                        $this->company->ekey,
+                        $idsg,
+                        array('bagage'),
+                        true
+                    );
                     $this->property['pagetitle'] .= "• VALIDATION DES RECETTES BAGAGES<strong>•&nbsp;{$this->company->nom_entreprise}•&nbsp;{$conex->type_rols}</strong>";
                    return $this->layout->view('_recette/view_bagage', $this->property);
                 break;
@@ -12219,6 +12249,13 @@
                         $this->property['vendeuseses'] = $this->m_compte_user->get_es2($this->company->ekey, $cdg);
                     }
                     $this->property['caisseident'] = $caisseident;
+                    $this->property['vendeuseses'] = $this->_classer_agents_recette(
+                        $this->property['vendeuseses'],
+                        $this->company->ekey,
+                        $idsg,
+                        array('guichet', 'bagage', 'courrier'),
+                        false
+                    );
                     $this->property['pagetitle'] .= "• VALIDATION DES RECETTES DU GUICHET ESCAL<strong>•&nbsp;{$this->company->nom_entreprise}•&nbsp;{$conex->type_rols}</strong>";
                    return $this->layout->view('_recette/ad_view_vendeusees', $this->property);
             break;
@@ -12233,6 +12270,13 @@
                 }
                 $this->property['typedocuments'] = $this->m_typedocument->get();
                 $this->property['caisseident'] = $caisseident;
+                $this->property['ecrivainbagages'] = $this->_classer_agents_recette(
+                    $this->property['ecrivainbagages'],
+                    $this->company->ekey,
+                    $idsg,
+                    array('bagage'),
+                    true
+                );
                 $this->property['pagetitle'] .= "• VALIDATION DES RECETTES BAGAGES<strong>•&nbsp;{$this->company->nom_entreprise}•&nbsp;{$conex->type_rols}</strong>";
                return $this->layout->view('_recette/ad_view_bagage', $this->property);
             break;
