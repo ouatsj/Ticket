@@ -1132,10 +1132,85 @@
         }
 
         /**
+         * Clé de tri alphabétique, sans tenir compte des accents ni de la casse.
+         */
+        protected function _etat_cle_alpha($value)
+        {
+            $s = trim((string) $value);
+            if (function_exists('mb_strtoupper')) {
+                $s = mb_strtoupper($s, 'UTF-8');
+            } else {
+                $s = strtoupper($s);
+            }
+            return strtr($s, array(
+                'À' => 'A', 'Á' => 'A', 'Â' => 'A', 'Ä' => 'A',
+                'É' => 'E', 'È' => 'E', 'Ê' => 'E', 'Ë' => 'E',
+                'Ï' => 'I', 'Î' => 'I', 'Ô' => 'O', 'Ö' => 'O',
+                'Ù' => 'U', 'Û' => 'U', 'Ü' => 'U', 'Ç' => 'C',
+                'Œ' => 'OE', 'Æ' => 'AE',
+            ));
+        }
+
+        protected function _etat_valeur_colonne($row, $key)
+        {
+            if (is_array($row)) {
+                return isset($row[$key]) ? $row[$key] : '';
+            }
+            if (is_object($row)) {
+                return isset($row->$key) ? $row->$key : '';
+            }
+            return '';
+        }
+
+        /**
+         * Quand la première colonne est Ligne, ordre alphabétique.
+         * À prix égal de nom, le prix unitaire croissant regroupe la même ligne.
+         */
+        protected function _etat_ordonner_par_ligne(array $payload)
+        {
+            $columns = isset($payload['columns']) && is_array($payload['columns']) ? $payload['columns'] : array();
+            if (!isset($columns[0]['key']) || $columns[0]['key'] !== 'ligne') {
+                return $payload;
+            }
+            if (empty($payload['lignes']) || !is_array($payload['lignes'])) {
+                return $payload;
+            }
+            $lignes = array_values($payload['lignes']);
+            usort($lignes, array($this, '_etat_cmp_ligne'));
+            $payload['lignes'] = $lignes;
+            return $payload;
+        }
+
+        protected function _etat_cmp_ligne($a, $b)
+        {
+            $cmp = strcmp(
+                $this->_etat_cle_alpha($this->_etat_valeur_colonne($a, 'ligne')),
+                $this->_etat_cle_alpha($this->_etat_valeur_colonne($b, 'ligne'))
+            );
+            if ($cmp !== 0) {
+                return $cmp;
+            }
+            $pa = (float) $this->_etat_valeur_colonne($a, 'pu');
+            $pb = (float) $this->_etat_valeur_colonne($b, 'pu');
+            if ($pa == 0.0 && $pb == 0.0) {
+                $pa = (float) $this->_etat_valeur_colonne($a, 'prix');
+                $pb = (float) $this->_etat_valeur_colonne($b, 'prix');
+            }
+            if ($pa < $pb) {
+                return -1;
+            }
+            if ($pa > $pb) {
+                return 1;
+            }
+            return 0;
+        }
+
+        /**
          * Affiche un état en page (tableau) au lieu d’un PDF direct.
          */
         protected function _etat_render_view($page_label, array $payload)
         {
+            $payload = $this->_etat_ordonner_par_ligne($payload);
             $this->property['title'] = $page_label;
             $ent = isset($this->entreprise->nom_entreprise) ? $this->entreprise->nom_entreprise : '';
             $this->property['pagetitle'] = utf8_encode(strftime('%d %b %G', now()))
@@ -1311,6 +1386,7 @@
 
         protected function _etat_export_dispatch(array $payload)
         {
+            $payload = $this->_etat_ordonner_par_ligne($payload);
             $format = strtolower(trim((string) $this->input->get('format')));
             if ($format === 'csv') {
                 $this->_etat_output_csv($payload, false);
@@ -2963,15 +3039,15 @@
             $isAdmin = ($this->session->agent->userole === '1' || $this->session->agent->userole === '2');
             if ($isAdmin) {
                 if ($comp == 5002) {
-                    $reportick = $this->m_passager->reporticket($this->entreprise->ekey, $gid, $dt1, $dt2, $comp, $lign);
-                    $reportickretors = $this->m_non_passager->reporticketretour($this->entreprise->ekey, $gid, $dt1, $dt2, $comp, $lign);
+                    $reportick = $this->m_passager->reporticket($this->entreprise->ekey, $gid, $dt1, $dt2, $comp, $lign, false, 'ticket_etats');
+                    $reportickretors = $this->m_non_passager->reporticketretour($this->entreprise->ekey, $gid, $dt1, $dt2, $comp, $lign, false, 'ticket_etats');
                 } else {
                     $reportick = $this->m_passager->reporticketcptadmin($this->entreprise->ekey, $gid, $dt1, $dt2, $comp, $lign);
                     $reportickretors = $this->m_non_passager->reporticketretourcptadmin($this->entreprise->ekey, $gid, $dt1, $dt2, $comp, $lign);
                 }
             } elseif ($comp == 5002) {
-                $reportick = $this->m_passager->reporticket($this->entreprise->ekey, $gid, $dt1, $dt2, $comp, $lign);
-                $reportickretors = $this->m_non_passager->reporticketretour($this->entreprise->ekey, $gid, $dt1, $dt2, $comp, $lign);
+                $reportick = $this->m_passager->reporticket($this->entreprise->ekey, $gid, $dt1, $dt2, $comp, $lign, false, 'ticket_etats');
+                $reportickretors = $this->m_non_passager->reporticketretour($this->entreprise->ekey, $gid, $dt1, $dt2, $comp, $lign, false, 'ticket_etats');
             } else {
                 $reportick = $this->m_passager->reporticketcpt($this->entreprise->ekey, $gid, $dt1, $dt2, $comp, $lign);
                 $reportickretors = $this->m_non_passager->reporticketretourcpt($this->entreprise->ekey, $gid, $dt1, $dt2, $comp, $lign);
@@ -3050,6 +3126,21 @@
         }
 
 
+        protected function _declaration_deja($comp, $famille, $dt1, $dt2)
+        {
+            $this->load->helper('etat_lettres');
+            $ekey = isset($this->entreprise->ekey) ? (int) $this->entreprise->ekey : 0;
+            return etat_declaration_deja($ekey, $comp, $famille, $dt1, $dt2);
+        }
+
+        protected function _declaration_figer($comp, $famille, $dt1, $dt2)
+        {
+            $this->load->helper('etat_lettres');
+            $ekey = isset($this->entreprise->ekey) ? (int) $this->entreprise->ekey : 0;
+            $acteur = isset($this->session->agent->roleattribut) ? $this->session->agent->roleattribut : null;
+            etat_declaration_figer($ekey, $comp, $famille, $dt1, $dt2, $acteur);
+        }
+
         protected function _exerclarer_payload($ckey, $g, $doUpdate = true)
         {
             $this->entreprise = $this->m_entreprises->get_key($ckey);
@@ -3071,7 +3162,8 @@
             $savedNbr = (int) $this->input->get_post('decl_nbr');
             $nbr = 0;
             $ok = false;
-            if ($doUpdate && $saved === '') {
+            $dejaDeclaree = ($doUpdate && $saved === '' && $this->_declaration_deja($comp, 'ticket_etats', $dt1, $dt2));
+            if ($doUpdate && $saved === '' && !$dejaDeclaree) {
                 if ($comp == 5002) {
                     $reportick = $this->m_passager->reporticketgr($this->entreprise->ekey, $gid, $dt1, $dt2, $comp, $lign);
                     $reportickretors = $this->m_non_passager->reporticketretourgr($this->entreprise->ekey, $gid, $dt1, $dt2, $comp, $lign);
@@ -3097,11 +3189,14 @@
                     $nbr++;
                 }
                 $ok = ($pa !== false && $nbr > 0);
+                if ($ok) {
+                    $this->_declaration_figer($comp, 'ticket_etats', $dt1, $dt2);
+                }
             } else {
                 $ok = ($saved === 'REUSSIE');
                 $nbr = $savedNbr;
             }
-            $re = $ok ? 'REUSSIE' : 'NON REUSSIE';
+            $re = !empty($dejaDeclaree) ? 'DEJA DECLAREE' : ($ok ? 'REUSSIE' : 'NON REUSSIE');
             $qs = http_build_query(array_filter(array(
                 'datedebutdc' => $dt1,
                 'datefindc' => $dt2,
@@ -3260,7 +3355,8 @@
             $savedNbr = (int) $this->input->get_post('decl_nbr');
             $nbr = 0;
             $ok = false;
-            if ($doUpdate && $saved === '') {
+            $dejaDeclaree = ($doUpdate && $saved === '' && $this->_declaration_deja($comp, 'bagage', $dt1, $dt2));
+            if ($doUpdate && $saved === '' && !$dejaDeclaree) {
                 $reportbag = $this->m_bagage->reportbagcptgr($this->entreprise->ekey, $gid, $dt1, $dt2, $comp, $lign);
                 if (!is_array($reportbag)) {
                     $reportbag = array();
@@ -3272,11 +3368,14 @@
                     $nbr++;
                 }
                 $ok = ($pab !== false && $nbr > 0);
+                if ($ok) {
+                    $this->_declaration_figer($comp, 'bagage', $dt1, $dt2);
+                }
             } else {
                 $ok = ($saved === 'REUSSIE');
                 $nbr = $savedNbr;
             }
-            $re = $ok ? 'REUSSIE' : 'NON REUSSIE';
+            $re = !empty($dejaDeclaree) ? 'DEJA DECLAREE' : ($ok ? 'REUSSIE' : 'NON REUSSIE');
             $qs = http_build_query(array_filter(array(
                 'datedebutdcbg' => $dt1,
                 'datefindcbg' => $dt2,
@@ -3340,7 +3439,8 @@
             $savedNbr = (int) $this->input->get_post('decl_nbr');
             $nbr = 0;
             $ok = false;
-            if ($doUpdate && $saved === '') {
+            $dejaDeclaree = ($doUpdate && $saved === '' && $this->_declaration_deja($comp, 'bagage', $dt1, $dt2));
+            if ($doUpdate && $saved === '' && !$dejaDeclaree) {
                 $reportbag = $this->m_bagageesc->reportbagcptgr($this->entreprise->ekey, $comp, $gid, $dt1, $dt2, $lign);
                 if (!is_array($reportbag)) {
                     $reportbag = array();
@@ -3352,11 +3452,14 @@
                     $nbr++;
                 }
                 $ok = ($pab !== false && $nbr > 0);
+                if ($ok) {
+                    $this->_declaration_figer($comp, 'bagage', $dt1, $dt2);
+                }
             } else {
                 $ok = ($saved === 'REUSSIE');
                 $nbr = $savedNbr;
             }
-            $re = $ok ? 'REUSSIE' : 'NON REUSSIE';
+            $re = !empty($dejaDeclaree) ? 'DEJA DECLAREE' : ($ok ? 'REUSSIE' : 'NON REUSSIE');
             $qs = http_build_query(array_filter(array(
                 'datedebutdcbgesc' => $dt1,
                 'datefindcbgesc' => $dt2,
@@ -3587,7 +3690,8 @@
             $savedNbr = (int) $this->input->get_post('decl_nbr');
             $nbr = 0;
             $ok = false;
-            if ($doUpdate && $saved === '') {
+            $dejaDeclaree = ($doUpdate && $saved === '' && $this->_declaration_deja($comp, 'courrier', $dt1, $dt2));
+            if ($doUpdate && $saved === '' && !$dejaDeclaree) {
                 $recapcourrier = $this->m_courrier_expedier->recaptexopligr($this->entreprise->ekey, $dt1, $dt2, $gid, $comp, $tyc, $lign);
                 if (!is_array($recapcourrier)) {
                     $recapcourrier = array();
@@ -3599,11 +3703,14 @@
                     $nbr++;
                 }
                 $ok = ($pacr !== false && $nbr > 0);
+                if ($ok) {
+                    $this->_declaration_figer($comp, 'courrier', $dt1, $dt2);
+                }
             } else {
                 $ok = ($saved === 'REUSSIE');
                 $nbr = $savedNbr;
             }
-            $re = $ok ? 'REUSSIE' : 'NON REUSSIE';
+            $re = !empty($dejaDeclaree) ? 'DEJA DECLAREE' : ($ok ? 'REUSSIE' : 'NON REUSSIE');
             $qs = http_build_query(array_filter(array(
                 'datedebutcrcl' => $dt1,
                 'datefincrcl' => $dt2,
@@ -3678,7 +3785,8 @@
             $savedNbr = (int) $this->input->get_post('decl_nbr');
             $nbr = 0;
             $ok = false;
-            if ($doUpdate && $saved === '') {
+            $dejaDeclaree = ($doUpdate && $saved === '' && $this->_declaration_deja($comp, 'courrier', $dt1, $dt2));
+            if ($doUpdate && $saved === '' && !$dejaDeclaree) {
                 $recapcourrier = $this->m_courrier_expedieresc->recaptexopligr($this->entreprise->ekey, $dt1, $dt2, $gid, $comp, $tyc, $lign);
                 if (!is_array($recapcourrier)) {
                     $recapcourrier = array();
@@ -3690,11 +3798,14 @@
                     $nbr++;
                 }
                 $ok = ($pacr !== false && $nbr > 0);
+                if ($ok) {
+                    $this->_declaration_figer($comp, 'courrier', $dt1, $dt2);
+                }
             } else {
                 $ok = ($saved === 'REUSSIE');
                 $nbr = $savedNbr;
             }
-            $re = $ok ? 'REUSSIE' : 'NON REUSSIE';
+            $re = !empty($dejaDeclaree) ? 'DEJA DECLAREE' : ($ok ? 'REUSSIE' : 'NON REUSSIE');
             $qs = http_build_query(array_filter(array(
                 'datedebutcrclesc' => $dt1,
                 'datefincrclesc' => $dt2,
@@ -4011,7 +4122,8 @@
             $savedNbr = (int) $this->input->get_post('decl_nbr');
             $nbr = 0;
             $ok = false;
-            if ($doUpdate && $saved === '') {
+            $dejaDeclaree = ($doUpdate && $saved === '' && $this->_declaration_deja($comp, 'ticket_escal', $dt1, $dt2));
+            if ($doUpdate && $saved === '' && !$dejaDeclaree) {
                 $reportick = $this->m_escalclients->reporticketcptgr($this->entreprise->ekey, $gid, $dt1, $dt2, $comp, $lign);
                 if (!is_array($reportick)) {
                     $reportick = array();
@@ -4023,11 +4135,14 @@
                     $nbr++;
                 }
                 $ok = ($paes !== false && $nbr > 0);
+                if ($ok) {
+                    $this->_declaration_figer($comp, 'ticket_escal', $dt1, $dt2);
+                }
             } else {
                 $ok = ($saved === 'REUSSIE');
                 $nbr = $savedNbr;
             }
-            $re = $ok ? 'REUSSIE' : 'NON REUSSIE';
+            $re = !empty($dejaDeclaree) ? 'DEJA DECLAREE' : ($ok ? 'REUSSIE' : 'NON REUSSIE');
             $qs = http_build_query(array_filter(array(
                 'datedebutdces' => $dt1,
                 'datefindces' => $dt2,
@@ -4413,14 +4528,14 @@
             if ($isAdmin) {
                 if ($comp == 5002) {
                     $reportick = $this->m_passager->nifesthebad($this->entreprise->ekey, $gid, $dt1, $dt2, $comp, $lign);
-                    $reportickretors = $this->m_non_passager->reporticketretour($this->entreprise->ekey, $gid, $dt1, $dt2, $comp, $lign);
+                    $reportickretors = $this->m_non_passager->reporticketretour($this->entreprise->ekey, $gid, $dt1, $dt2, $comp, $lign, false, 'ticket_etats');
                 } else {
                     $reportick = $this->m_passager->nifesthebcptadmin($this->entreprise->ekey, $gid, $dt1, $dt2, $comp, $lign);
                     $reportickretors = $this->m_non_passager->reporticketretourcptadmin($this->entreprise->ekey, $gid, $dt1, $dt2, $comp, $lign);
                 }
             } elseif ($comp == 5002) {
                 $reportick = $this->m_passager->nifesthebad($this->entreprise->ekey, $gid, $dt1, $dt2, $comp, $lign);
-                $reportickretors = $this->m_non_passager->reporticketretour($this->entreprise->ekey, $gid, $dt1, $dt2, $comp, $lign);
+                $reportickretors = $this->m_non_passager->reporticketretour($this->entreprise->ekey, $gid, $dt1, $dt2, $comp, $lign, false, 'ticket_etats');
             } else {
                 $reportick = $this->m_passager->nifestheb($this->entreprise->ekey, $gid, $dt1, $dt2, $comp, $lign);
                 $reportickretors = $this->m_non_passager->reporticketretourcpt($this->entreprise->ekey, $gid, $dt1, $dt2, $comp, $lign);
@@ -5121,8 +5236,8 @@
             $role = isset($this->session->agent->userole) ? (string) $this->session->agent->userole : '';
             $isAdmin = ($role === '1' || $role === '2');
             if ((string) $comp === '5002') {
-                $onreport = $this->m_passager->listereport($this->entreprise->ekey, $comp, $gid, $dt1, $dt2, $cais, $lign);
-                $retourreport = $this->m_non_passager->listereportretour($this->entreprise->ekey, $comp, $gid, $dt1, $dt2, $cais, $lign);
+                $onreport = $this->m_passager->listereport($this->entreprise->ekey, $comp, $gid, $dt1, $dt2, $cais, $lign, 'ticket_etats');
+                $retourreport = $this->m_non_passager->listereportretour($this->entreprise->ekey, $comp, $gid, $dt1, $dt2, $cais, $lign, 'ticket_etats');
             } elseif ($isAdmin) {
                 $onreport = $this->m_passager->listereportcptadmin($this->entreprise->ekey, $comp, $gid, $dt1, $dt2, $cais, $lign);
                 $retourreport = $this->m_non_passager->listereportretourcptadmin($this->entreprise->ekey, $comp, $gid, $dt1, $dt2, $cais, $lign);
@@ -5989,8 +6104,8 @@
             $role = isset($this->session->agent->userole) ? (string) $this->session->agent->userole : '';
             $isAdmin = ($role === '1' || $role === '2');
             if ((string) $comp === '5002') {
-                $onreport = $this->m_passager->listereport($this->entreprise->ekey, $comp, $gid, $dt1, $dt2, $cais, $lign);
-                $retourreport = $this->m_non_passager->listereportretour($this->entreprise->ekey, $comp, $gid, $dt1, $dt2, $cais, $lign);
+                $onreport = $this->m_passager->listereport($this->entreprise->ekey, $comp, $gid, $dt1, $dt2, $cais, $lign, 'ticket_etats');
+                $retourreport = $this->m_non_passager->listereportretour($this->entreprise->ekey, $comp, $gid, $dt1, $dt2, $cais, $lign, 'ticket_etats');
             } elseif ($isAdmin) {
                 $onreport = $this->m_passager->listereportcptadmin($this->entreprise->ekey, $comp, $gid, $dt1, $dt2, $cais, $lign);
                 $retourreport = $this->m_non_passager->listereportretourcptadmin($this->entreprise->ekey, $comp, $gid, $dt1, $dt2, $cais, $lign);

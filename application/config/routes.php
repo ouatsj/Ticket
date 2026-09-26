@@ -99,6 +99,8 @@
             /** Paramètres restrictions comptes (inactivité, sessions) */
             $route['param_restrictions/(:num)'] = 'Param_restrictions/index/$1';
             $route['param_restrictions/(:num)/save'] = 'Param_restrictions/save/$1';
+            $route['param_lettres/(:num)'] = 'Param_lettres/index/$1';
+            $route['param_lettres/(:num)/save'] = 'Param_lettres/save/$1';
 
             /** Paramètres admin — sièges verrouillés par ligne/heure */
             $route['param_sieges_verrou/(:num)'] = 'Param_sieges_verrou/index/$1';

@@ -7,6 +7,51 @@
         public function __construct()
         {
             parent::__construct();
+            $this->load->helper('etat_lettres');
+            $this->_ensure_ligne_vendue_columns();
+        }
+
+        private function _ensure_ligne_vendue_columns()
+        {
+            static $done = false;
+            if ($done) {
+                return;
+            }
+            $done = true;
+            $prev = $this->db->db_debug;
+            $this->db->db_debug = false;
+            foreach (array('nom_ligne_vendu' => 'VARCHAR(50) NULL', 'code_gaexp_vendu' => 'VARCHAR(20) NULL') as $col => $def) {
+                $q = $this->db->query("SHOW COLUMNS FROM courriers_exp LIKE " . $this->db->escape($col));
+                if (!$q || $q->num_rows() < 1) {
+                    $this->db->query("ALTER TABLE courriers_exp ADD COLUMN {$col} {$def}");
+                }
+            }
+            $this->db->db_debug = $prev;
+        }
+
+        protected function _figer_ligne_vendue(array $data)
+        {
+            if (empty($data['id_codecourrier'])) {
+                return $data;
+            }
+            $row = $this->db->query(
+                "SELECT lg.nom_ligne, lg.gaexp_lg
+                 FROM code_courriers cd
+                 JOIN lignes lg ON cd.idlignes = lg.ident_ligne
+                 WHERE cd.codecolisid = ?
+                 LIMIT 1",
+                array($data['id_codecourrier'])
+            )->row();
+            if (!$row) {
+                return $data;
+            }
+            if (!isset($data['nom_ligne_vendu']) || trim((string) $data['nom_ligne_vendu']) === '') {
+                $data['nom_ligne_vendu'] = $row->nom_ligne;
+            }
+            if (!isset($data['code_gaexp_vendu']) || trim((string) $data['code_gaexp_vendu']) === '') {
+                $data['code_gaexp_vendu'] = $row->gaexp_lg;
+            }
+            return $data;
         }
 
         /**
@@ -68,7 +113,7 @@
 
         public function create(array $data)
         {
-            $this->db->insert($this->table, $data);
+            $this->db->insert($this->table, $this->_figer_ligne_vendue($data));
             return $this->db->insert_id();
         }
             
@@ -125,7 +170,7 @@
                 {$gareSql}
                 {$opSql}
                 {$ligneSql}
-                GROUP BY lg.nom_ligne, e.prixcolis"
+                GROUP BY COALESCE(NULLIF(TRIM(e.nom_ligne_vendu), ''), lg.nom_ligne), e.prixcolis"
             )->result();
         }
 
@@ -133,7 +178,7 @@
         {        
             if($cp === '' AND  $gd === '' AND $idconx === '' AND $tycr === '' AND $al === ''){
                 return $this->db->query(
-                    "SELECT COUNT(courrierexpid) AS nombres, SUM(prixcolis) AS montant, ar.roleattribut, dest.id_compaga, u.first_name, u.last_name, lg.nom_ligne, cd.naturecoli, e.prixcolis, e.dateenvoi FROM courriers_exp e
+                    "SELECT COUNT(courrierexpid) AS nombres, SUM(prixcolis) AS montant, ar.roleattribut, dest.id_compaga, u.first_name, u.last_name, COALESCE(NULLIF(TRIM(e.nom_ligne_vendu), ''), lg.nom_ligne) AS nom_ligne, cd.naturecoli, e.prixcolis, e.dateenvoi FROM courriers_exp e
                     JOIN attributions_role ar ON e.idoperateur = ar.roleattribut
                     JOIN user_login ul ON ar.idgestcompte = ul.uid_login
                     JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
@@ -163,12 +208,12 @@
                     AND cd.naturecoli <> 'Petit_colis'
                     AND cd.naturecoli <> 'Gros_colis'
                     AND e.verifcour IN('A', 'C', 'D')
-                    GROUP BY ar.roleattribut, dest.id_compaga, u.first_name, u.last_name, lg.nom_ligne, cd.naturecoli, e.prixcolis, e.dateenvoi
+                    GROUP BY ar.roleattribut, dest.id_compaga, u.first_name, u.last_name, COALESCE(NULLIF(TRIM(e.nom_ligne_vendu), ''), lg.nom_ligne), cd.naturecoli, e.prixcolis, e.dateenvoi
                     ORDER BY e.dateenvoi ASC")->result();
             }        
             elseif($gd === '' AND $idconx=== '' AND $tycr === '' AND $al === ''){
                 return $this->db->query(
-                    "SELECT COUNT(courrierexpid) AS nombres, SUM(prixcolis) AS montant, ar.roleattribut, dest.id_compaga, u.first_name, u.last_name, lg.nom_ligne, cd.naturecoli, e.prixcolis, e.dateenvoi FROM courriers_exp e
+                    "SELECT COUNT(courrierexpid) AS nombres, SUM(prixcolis) AS montant, ar.roleattribut, dest.id_compaga, u.first_name, u.last_name, COALESCE(NULLIF(TRIM(e.nom_ligne_vendu), ''), lg.nom_ligne) AS nom_ligne, cd.naturecoli, e.prixcolis, e.dateenvoi FROM courriers_exp e
                     JOIN attributions_role ar ON e.idoperateur = ar.roleattribut
                     JOIN user_login ul ON ar.idgestcompte = ul.uid_login
                     JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
@@ -199,12 +244,12 @@
                     AND cd.naturecoli <> 'Gros_colis'
                     AND e.verifcour IN('A', 'C', 'D')
                     AND dest.id_compaga = '$cp'
-                    GROUP BY ar.roleattribut, dest.id_compaga, u.first_name, u.last_name, lg.nom_ligne, cd.naturecoli, e.prixcolis, e.dateenvoi
+                    GROUP BY ar.roleattribut, dest.id_compaga, u.first_name, u.last_name, COALESCE(NULLIF(TRIM(e.nom_ligne_vendu), ''), lg.nom_ligne), cd.naturecoli, e.prixcolis, e.dateenvoi
                     ORDER BY e.dateenvoi ASC")->result();
             }
             elseif($idconx=== '' AND $tycr === '' AND $al === ''){
                 return $this->db->query(
-                    "SELECT COUNT(courrierexpid) AS nombres, SUM(prixcolis) AS montant, ar.roleattribut, dest.id_compaga, u.first_name, u.last_name, lg.nom_ligne, cd.naturecoli, e.prixcolis, e.dateenvoi FROM courriers_exp e
+                    "SELECT COUNT(courrierexpid) AS nombres, SUM(prixcolis) AS montant, ar.roleattribut, dest.id_compaga, u.first_name, u.last_name, COALESCE(NULLIF(TRIM(e.nom_ligne_vendu), ''), lg.nom_ligne) AS nom_ligne, cd.naturecoli, e.prixcolis, e.dateenvoi FROM courriers_exp e
                     JOIN attributions_role ar ON e.idoperateur = ar.roleattribut
                     JOIN user_login ul ON ar.idgestcompte = ul.uid_login
                     JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
@@ -235,13 +280,13 @@
                     AND cd.naturecoli <> 'Sac_partenaire'
                     AND cd.naturecoli <> 'Petit_colis'
                     AND cd.naturecoli <> 'Gros_colis'
-                    AND gex.code_gaexp = '$gd'
-                    GROUP BY ar.roleattribut, dest.id_compaga, u.first_name, u.last_name, lg.nom_ligne, cd.naturecoli, e.prixcolis, e.dateenvoi
+                    AND COALESCE(NULLIF(TRIM(e.code_gaexp_vendu), ''), gex.code_gaexp) = '$gd'
+                    GROUP BY ar.roleattribut, dest.id_compaga, u.first_name, u.last_name, COALESCE(NULLIF(TRIM(e.nom_ligne_vendu), ''), lg.nom_ligne), cd.naturecoli, e.prixcolis, e.dateenvoi
                     ORDER BY e.dateenvoi ASC")->result();
             }
             elseif ($tycr === '' AND $al === '') {
                 return $this->db->query(
-                    "SELECT COUNT(courrierexpid) AS nombres, SUM(prixcolis) AS montant, ar.roleattribut, dest.id_compaga, u.first_name, u.last_name, lg.nom_ligne, cd.naturecoli, e.prixcolis, e.dateenvoi FROM courriers_exp e
+                    "SELECT COUNT(courrierexpid) AS nombres, SUM(prixcolis) AS montant, ar.roleattribut, dest.id_compaga, u.first_name, u.last_name, COALESCE(NULLIF(TRIM(e.nom_ligne_vendu), ''), lg.nom_ligne) AS nom_ligne, cd.naturecoli, e.prixcolis, e.dateenvoi FROM courriers_exp e
                     JOIN attributions_role ar ON e.idoperateur = ar.roleattribut
                     JOIN user_login ul ON ar.idgestcompte = ul.uid_login
                     JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
@@ -262,7 +307,7 @@
                     AND e.dateenvoi >= '$dt1' AND dateenvoi < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND e.prixcolis IS NOT NULL
                     AND e.partocour IS NULL
-                    AND gex.code_gaexp = '$gd'
+                    AND COALESCE(NULLIF(TRIM(e.code_gaexp_vendu), ''), gex.code_gaexp) = '$gd'
                     AND dest.id_compaga = '$cp'
                     AND cd.naturecoli <> 'Carton'
                     AND cd.naturecoli <> 'Moyen_plis'
@@ -274,12 +319,12 @@
                     AND cd.naturecoli <> 'Gros_colis'
                     AND ar.roleattribut = '$idconx'
                     AND e.verifcour IN('A', 'C', 'D')
-                    GROUP BY ar.roleattribut, dest.id_compaga, u.first_name, u.last_name, lg.nom_ligne, cd.naturecoli, e.prixcolis, e.dateenvoi
+                    GROUP BY ar.roleattribut, dest.id_compaga, u.first_name, u.last_name, COALESCE(NULLIF(TRIM(e.nom_ligne_vendu), ''), lg.nom_ligne), cd.naturecoli, e.prixcolis, e.dateenvoi
                     ORDER BY e.dateenvoi ASC")->result();
             }
             elseif ($al === '') {
                 return $this->db->query(
-                    "SELECT COUNT(courrierexpid) AS nombres, SUM(prixcolis) AS montant, ar.roleattribut, dest.id_compaga, u.first_name, u.last_name, lg.nom_ligne, cd.naturecoli, e.prixcolis, e.dateenvoi FROM courriers_exp e
+                    "SELECT COUNT(courrierexpid) AS nombres, SUM(prixcolis) AS montant, ar.roleattribut, dest.id_compaga, u.first_name, u.last_name, COALESCE(NULLIF(TRIM(e.nom_ligne_vendu), ''), lg.nom_ligne) AS nom_ligne, cd.naturecoli, e.prixcolis, e.dateenvoi FROM courriers_exp e
                     JOIN attributions_role ar ON e.idoperateur = ar.roleattribut
                     JOIN user_login ul ON ar.idgestcompte = ul.uid_login
                     JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
@@ -301,16 +346,16 @@
                     AND e.dateenvoi >= '$dt1' AND dateenvoi < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND e.prixcolis IS NOT NULL
                     AND e.partocour IS NULL
-                    AND gex.code_gaexp = '$gd'
+                    AND COALESCE(NULLIF(TRIM(e.code_gaexp_vendu), ''), gex.code_gaexp) = '$gd'
                     AND ar.roleattribut = '$idconx'
                     AND cd.naturecoli = '$tycr'
                     AND e.verifcour IN('A', 'C', 'D')
-                    GROUP BY ar.roleattribut, dest.id_compaga, u.first_name, u.last_name, lg.nom_ligne, cd.naturecoli, e.prixcolis, e.dateenvoi
+                    GROUP BY ar.roleattribut, dest.id_compaga, u.first_name, u.last_name, COALESCE(NULLIF(TRIM(e.nom_ligne_vendu), ''), lg.nom_ligne), cd.naturecoli, e.prixcolis, e.dateenvoi
                     ORDER BY e.dateenvoi ASC")->result();
             }
             
                 return $this->db->query(
-                    "SELECT COUNT(courrierexpid) AS nombres, SUM(prixcolis) AS montant, ar.roleattribut, dest.id_compaga, u.first_name, u.last_name, lg.nom_ligne, cd.naturecoli, e.prixcolis, e.dateenvoi FROM courriers_exp e
+                    "SELECT COUNT(courrierexpid) AS nombres, SUM(prixcolis) AS montant, ar.roleattribut, dest.id_compaga, u.first_name, u.last_name, COALESCE(NULLIF(TRIM(e.nom_ligne_vendu), ''), lg.nom_ligne) AS nom_ligne, cd.naturecoli, e.prixcolis, e.dateenvoi FROM courriers_exp e
                     JOIN attributions_role ar ON e.idoperateur = ar.roleattribut
                     JOIN user_login ul ON ar.idgestcompte = ul.uid_login
                     JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
@@ -332,20 +377,21 @@
                     AND e.dateenvoi >= '$dt1' AND dateenvoi < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND e.prixcolis IS NOT NULL
                     AND e.partocour IS NULL
-                    AND gex.code_gaexp = '$gd'
+                    AND COALESCE(NULLIF(TRIM(e.code_gaexp_vendu), ''), gex.code_gaexp) = '$gd'
                     AND ar.roleattribut = '$idconx'
                     AND cd.naturecoli = '$tycr'
                     AND lg.ident_ligne = '$al'
                     AND e.verifcour IN('A', 'C', 'D')
-                    GROUP BY ar.roleattribut, dest.id_compaga, u.first_name, u.last_name, lg.nom_ligne, cd.naturecoli, e.prixcolis, e.dateenvoi
+                    GROUP BY ar.roleattribut, dest.id_compaga, u.first_name, u.last_name, COALESCE(NULLIF(TRIM(e.nom_ligne_vendu), ''), lg.nom_ligne), cd.naturecoli, e.prixcolis, e.dateenvoi
                     ORDER BY e.dateenvoi ASC")->result();
         }
 
         public function expetatsplis($cid, $dt1, $dt2, $gd = FALSE, $cp = FALSE, $idconx = FALSE, $tycr = FALSE, $al = FALSE)
-        {        
+        {
+        $filtreLettres = etat_filtre_lettres('e.verifcour', 'e.dateenvoi', $cp, 'courrier', $dt1, $dt2);        
             if($gd === '' AND $cp === '' AND $idconx === '' AND $tycr === '' AND $al === ''){
                 return $this->db->query(
-                    "SELECT COUNT(courrierexpid) AS nombres, SUM(prixcolis) AS montant, ar.roleattribut, dest.id_compaga, u.first_name, u.last_name, lg.nom_ligne, cd.naturecoli, e.prixcolis, e.dateenvoi FROM courriers_exp e
+                    "SELECT COUNT(courrierexpid) AS nombres, SUM(prixcolis) AS montant, ar.roleattribut, dest.id_compaga, u.first_name, u.last_name, COALESCE(NULLIF(TRIM(e.nom_ligne_vendu), ''), lg.nom_ligne) AS nom_ligne, cd.naturecoli, e.prixcolis, e.dateenvoi FROM courriers_exp e
                     JOIN attributions_role ar ON e.idoperateur = ar.roleattribut
                     JOIN user_login ul ON ar.idgestcompte = ul.uid_login
                     JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
@@ -374,13 +420,13 @@
                     AND cd.naturecoli <> 'Sac_partenaire'
                     AND cd.naturecoli <> 'Petit_colis'
                     AND cd.naturecoli <> 'Gros_colis'
-                    AND e.verifcour IN('A', 'C', 'D')
-                    GROUP BY ar.roleattribut, dest.id_compaga, u.first_name, u.last_name, lg.nom_ligne, e.prixcolis
+                    {$filtreLettres}
+                    GROUP BY ar.roleattribut, dest.id_compaga, u.first_name, u.last_name, COALESCE(NULLIF(TRIM(e.nom_ligne_vendu), ''), lg.nom_ligne), e.prixcolis
                     ORDER BY e.dateenvoi ASC")->result();
             }
             elseif($cp === '' AND $idconx === '' AND $tycr === '' AND $al === ''){
                 return $this->db->query(
-                    "SELECT COUNT(courrierexpid) AS nombres, SUM(prixcolis) AS montant, ar.roleattribut, dest.id_compaga, u.first_name, u.last_name, lg.nom_ligne, cd.naturecoli, e.prixcolis, e.dateenvoi FROM courriers_exp e
+                    "SELECT COUNT(courrierexpid) AS nombres, SUM(prixcolis) AS montant, ar.roleattribut, dest.id_compaga, u.first_name, u.last_name, COALESCE(NULLIF(TRIM(e.nom_ligne_vendu), ''), lg.nom_ligne) AS nom_ligne, cd.naturecoli, e.prixcolis, e.dateenvoi FROM courriers_exp e
                     JOIN attributions_role ar ON e.idoperateur = ar.roleattribut
                     JOIN user_login ul ON ar.idgestcompte = ul.uid_login
                     JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
@@ -401,7 +447,7 @@
                     AND e.dateenvoi >= '$dt1' AND e.dateenvoi < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND e.prixcolis IS NOT NULL
                     AND e.partocour IS NULL
-                    AND e.verifcour IN('A', 'C', 'D')
+                    {$filtreLettres}
                     AND cd.naturecoli <> 'Carton'
                     AND cd.naturecoli <> 'Moyen_plis'
                     AND cd.naturecoli <> 'Moyen_colis'
@@ -410,13 +456,13 @@
                     AND cd.naturecoli <> 'Sac_partenaire'
                     AND cd.naturecoli <> 'Petit_colis'
                     AND cd.naturecoli <> 'Gros_colis'
-                    AND gex.code_gaexp = '$gd'
-                    GROUP BY ar.roleattribut, dest.id_compaga, u.first_name, u.last_name, lg.nom_ligne, e.prixcolis
+                    AND COALESCE(NULLIF(TRIM(e.code_gaexp_vendu), ''), gex.code_gaexp) = '$gd'
+                    GROUP BY ar.roleattribut, dest.id_compaga, u.first_name, u.last_name, COALESCE(NULLIF(TRIM(e.nom_ligne_vendu), ''), lg.nom_ligne), e.prixcolis
                     ORDER BY e.dateenvoi ASC")->result();
             }
             elseif ($idconx === '' AND $tycr === '' AND $al === '') {
                 return $this->db->query(
-                    "SELECT COUNT(courrierexpid) AS nombres, SUM(prixcolis) AS montant, ar.roleattribut, dest.id_compaga, u.first_name, u.last_name, lg.nom_ligne, cd.naturecoli, e.prixcolis, e.dateenvoi FROM courriers_exp e
+                    "SELECT COUNT(courrierexpid) AS nombres, SUM(prixcolis) AS montant, ar.roleattribut, dest.id_compaga, u.first_name, u.last_name, COALESCE(NULLIF(TRIM(e.nom_ligne_vendu), ''), lg.nom_ligne) AS nom_ligne, cd.naturecoli, e.prixcolis, e.dateenvoi FROM courriers_exp e
                     JOIN attributions_role ar ON e.idoperateur = ar.roleattribut
                     JOIN user_login ul ON ar.idgestcompte = ul.uid_login
                     JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
@@ -437,7 +483,7 @@
                     AND e.dateenvoi >= '$dt1' AND e.dateenvoi < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND e.prixcolis IS NOT NULL
                     AND e.partocour IS NULL
-                    AND gex.code_gaexp = '$gd'
+                    AND COALESCE(NULLIF(TRIM(e.code_gaexp_vendu), ''), gex.code_gaexp) = '$gd'
                     AND dest.id_compaga = '$cp'
                     AND cd.naturecoli <> 'Carton'
                     AND cd.naturecoli <> 'Moyen_plis'
@@ -447,13 +493,13 @@
                     AND cd.naturecoli <> 'Sac_partenaire'
                     AND cd.naturecoli <> 'Petit_colis'
                     AND cd.naturecoli <> 'Gros_colis'
-                    AND e.verifcour IN('A', 'C', 'D')
-                    GROUP BY ar.roleattribut, dest.id_compaga, u.first_name, u.last_name, lg.nom_ligne, e.prixcolis
+                    {$filtreLettres}
+                    GROUP BY ar.roleattribut, dest.id_compaga, u.first_name, u.last_name, COALESCE(NULLIF(TRIM(e.nom_ligne_vendu), ''), lg.nom_ligne), e.prixcolis
                     ORDER BY e.dateenvoi ASC")->result();
             }
             elseif($tycr === '' AND $al === ''){
                 return $this->db->query(
-                    "SELECT COUNT(courrierexpid) AS nombres, SUM(prixcolis) AS montant, ar.roleattribut, dest.id_compaga, u.first_name, u.last_name, lg.nom_ligne, cd.naturecoli, e.prixcolis, e.dateenvoi FROM courriers_exp e
+                    "SELECT COUNT(courrierexpid) AS nombres, SUM(prixcolis) AS montant, ar.roleattribut, dest.id_compaga, u.first_name, u.last_name, COALESCE(NULLIF(TRIM(e.nom_ligne_vendu), ''), lg.nom_ligne) AS nom_ligne, cd.naturecoli, e.prixcolis, e.dateenvoi FROM courriers_exp e
                     JOIN attributions_role ar ON e.idoperateur = ar.roleattribut
                     JOIN user_login ul ON ar.idgestcompte = ul.uid_login
                     JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
@@ -472,12 +518,12 @@
                     JOIN entreprise ep ON c.id_entrep = ep.id_entreprise
                     WHERE ep.ekey = '$cid'
                     AND ar.roleattribut = '$idconx'
-                    AND gex.code_gaexp = '$gd'
+                    AND COALESCE(NULLIF(TRIM(e.code_gaexp_vendu), ''), gex.code_gaexp) = '$gd'
                     AND dest.id_compaga = '$cp'
                     AND e.dateenvoi >= '$dt1' AND e.dateenvoi < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND e.prixcolis IS NOT NULL
                     AND e.partocour IS NULL
-                    AND e.verifcour IN('A', 'C', 'D')
+                    {$filtreLettres}
                     AND cd.naturecoli <> 'Carton'
                     AND cd.naturecoli <> 'Moyen_plis'
                     AND cd.naturecoli <> 'Moyen_colis'
@@ -486,12 +532,12 @@
                     AND cd.naturecoli <> 'Sac_partenaire'
                     AND cd.naturecoli <> 'Petit_colis'
                     AND cd.naturecoli <> 'Gros_colis'
-                    GROUP BY ar.roleattribut, dest.id_compaga, u.first_name, u.last_name, lg.nom_ligne, e.prixcolis
+                    GROUP BY ar.roleattribut, dest.id_compaga, u.first_name, u.last_name, COALESCE(NULLIF(TRIM(e.nom_ligne_vendu), ''), lg.nom_ligne), e.prixcolis
                     ORDER BY e.dateenvoi ASC")->result();
             }
             elseif ($al === '') {
                 return $this->db->query(
-                    "SELECT COUNT(courrierexpid) AS nombres, SUM(prixcolis) AS montant, ar.roleattribut, dest.id_compaga, u.first_name, u.last_name, lg.nom_ligne, cd.naturecoli, e.prixcolis, e.dateenvoi FROM courriers_exp e
+                    "SELECT COUNT(courrierexpid) AS nombres, SUM(prixcolis) AS montant, ar.roleattribut, dest.id_compaga, u.first_name, u.last_name, COALESCE(NULLIF(TRIM(e.nom_ligne_vendu), ''), lg.nom_ligne) AS nom_ligne, cd.naturecoli, e.prixcolis, e.dateenvoi FROM courriers_exp e
                     JOIN attributions_role ar ON e.idoperateur = ar.roleattribut
                     JOIN user_login ul ON ar.idgestcompte = ul.uid_login
                     JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
@@ -513,16 +559,16 @@
                     AND e.dateenvoi >= '$dt1' AND e.dateenvoi < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND e.prixcolis IS NOT NULL
                     AND e.partocour IS NULL
-                    AND gex.code_gaexp = '$gd'
+                    AND COALESCE(NULLIF(TRIM(e.code_gaexp_vendu), ''), gex.code_gaexp) = '$gd'
                     AND ar.roleattribut = '$idconx'
                     AND cd.naturecoli = '$tycr'
-                    AND e.verifcour IN('A', 'C', 'D')
-                    GROUP BY ar.roleattribut, dest.id_compaga, u.first_name, u.last_name, lg.nom_ligne, e.prixcolis
+                    {$filtreLettres}
+                    GROUP BY ar.roleattribut, dest.id_compaga, u.first_name, u.last_name, COALESCE(NULLIF(TRIM(e.nom_ligne_vendu), ''), lg.nom_ligne), e.prixcolis
                     ORDER BY e.dateenvoi ASC")->result();
             }
             
                 return $this->db->query(
-                    "SELECT COUNT(courrierexpid) AS nombres, SUM(prixcolis) AS montant, ar.roleattribut, dest.id_compaga, u.first_name, u.last_name, lg.nom_ligne, cd.naturecoli, e.prixcolis, e.dateenvoi FROM courriers_exp e
+                    "SELECT COUNT(courrierexpid) AS nombres, SUM(prixcolis) AS montant, ar.roleattribut, dest.id_compaga, u.first_name, u.last_name, COALESCE(NULLIF(TRIM(e.nom_ligne_vendu), ''), lg.nom_ligne) AS nom_ligne, cd.naturecoli, e.prixcolis, e.dateenvoi FROM courriers_exp e
                     JOIN attributions_role ar ON e.idoperateur = ar.roleattribut
                     JOIN user_login ul ON ar.idgestcompte = ul.uid_login
                     JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
@@ -544,17 +590,18 @@
                     AND e.dateenvoi >= '$dt1' AND e.dateenvoi < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND e.prixcolis IS NOT NULL
                     AND e.partocour IS NULL
-                    AND gex.code_gaexp = '$gd'
+                    AND COALESCE(NULLIF(TRIM(e.code_gaexp_vendu), ''), gex.code_gaexp) = '$gd'
                     AND ar.roleattribut = '$idconx'
                     AND cd.naturecoli = '$tycr'
                     AND lg.ident_ligne = '$al'
-                    AND e.verifcour IN('A', 'C', 'D')
-                    GROUP BY ar.roleattribut, dest.id_compaga, u.first_name, u.last_name, lg.nom_ligne, e.prixcolis
+                    {$filtreLettres}
+                    GROUP BY ar.roleattribut, dest.id_compaga, u.first_name, u.last_name, COALESCE(NULLIF(TRIM(e.nom_ligne_vendu), ''), lg.nom_ligne), e.prixcolis
                     ORDER BY e.dateenvoi ASC")->result();
         }
 
         public function expverspli($cid, $dt1, $dt2, $cp = FALSE, $gd = FALSE, $idconx = FALSE, $tycr = FALSE )
-        {        
+        {
+        $filtreLettres = etat_filtre_lettres('e.verifcour', 'e.dateenvoi', $cp, 'courrier', $dt1, $dt2);        
             if($cp === '' AND $gd === '' AND $idconx === '' AND $tycr === ''){
                 return $this->db->query(
                     "SELECT COUNT(courrierexpid) AS nombres, SUM(prixcolis) AS montant, dest.id_compaga, e.dateenvoi FROM courriers_exp e
@@ -578,7 +625,7 @@
                     AND e.dateenvoi >= '$dt1' AND e.dateenvoi < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND e.prixcolis IS NOT NULL
                     AND e.partocour IS NULL
-                    AND e.verifcour IN('A', 'C', 'D')
+                    {$filtreLettres}
                     AND cd.naturecoli <> 'Carton'
                     AND cd.naturecoli <> 'Moyen_plis'
                     AND cd.naturecoli <> 'Moyen_colis'
@@ -614,7 +661,7 @@
                     AND e.prixcolis IS NOT NULL
                     AND e.partocour IS NULL
                     AND dest.id_compaga = '$cp'
-                    AND e.verifcour IN('A', 'C', 'D')
+                    {$filtreLettres}
                     AND cd.naturecoli <> 'Carton'
                     AND cd.naturecoli <> 'Moyen_plis'
                     AND cd.naturecoli <> 'Moyen_colis'
@@ -650,8 +697,8 @@
                     AND e.prixcolis IS NOT NULL
                     AND e.partocour IS NULL
                     AND dest.id_compaga = '$cp'
-                    AND gex.code_gaexp = '$gd'
-                    AND e.verifcour IN('A', 'C', 'D')
+                    AND COALESCE(NULLIF(TRIM(e.code_gaexp_vendu), ''), gex.code_gaexp) = '$gd'
+                    {$filtreLettres}
                     AND cd.naturecoli <> 'Carton'
                     AND cd.naturecoli <> 'Moyen_plis'
                     AND cd.naturecoli <> 'Moyen_colis'
@@ -684,11 +731,11 @@
                     JOIN entreprise ep ON c.id_entrep = ep.id_entreprise
                     WHERE ep.ekey = '$cid'
                     AND ar.roleattribut = '$idconx'
-                    AND gex.code_gaexp = '$gd'
+                    AND COALESCE(NULLIF(TRIM(e.code_gaexp_vendu), ''), gex.code_gaexp) = '$gd'
                     AND e.dateenvoi >= '$dt1' AND e.dateenvoi < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND e.prixcolis IS NOT NULL
                     AND e.partocour IS NULL
-                    AND e.verifcour IN('A', 'C', 'D')
+                    {$filtreLettres}
                     AND cd.naturecoli <> 'Carton'
                     AND cd.naturecoli <> 'Moyen_plis'
                     AND cd.naturecoli <> 'Moyen_colis'
@@ -724,10 +771,10 @@
                     AND e.dateenvoi >= '$dt1' AND e.dateenvoi < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND e.prixcolis IS NOT NULL
                     AND e.partocour IS NULL
-                    AND gex.code_gaexp = '$gd'
+                    AND COALESCE(NULLIF(TRIM(e.code_gaexp_vendu), ''), gex.code_gaexp) = '$gd'
                     AND ar.roleattribut = '$idconx'
                     AND cd.naturecoli = '$tycr'
-                    AND e.verifcour IN('A', 'C', 'D')
+                    {$filtreLettres}
                     GROUP BY dest.id_compaga, e.dateenvoi
                     ORDER BY e.dateenvoi ASC")->result();
         }
@@ -736,7 +783,7 @@
         {        
             if ($gd === '' AND $tycr === '' AND $idconx === '' AND $algn === '') {
                 return $this->db->query(
-                    "SELECT COUNT(courrierexpid) AS nombres, SUM(prixcolis) AS montant, ar.roleattribut, dest.id_compaga, u.first_name, u.last_name, lg.nom_ligne, cd.naturecoli, e.prixcolis FROM courriers_exp e
+                    "SELECT COUNT(courrierexpid) AS nombres, SUM(prixcolis) AS montant, ar.roleattribut, dest.id_compaga, u.first_name, u.last_name, COALESCE(NULLIF(TRIM(e.nom_ligne_vendu), ''), lg.nom_ligne) AS nom_ligne, cd.naturecoli, e.prixcolis FROM courriers_exp e
                     JOIN attributions_role ar ON e.idoperateur = ar.roleattribut
                     JOIN user_login ul ON ar.idgestcompte = ul.uid_login
                     JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
@@ -759,11 +806,11 @@
                     AND e.prixcolis IS NOT NULL
                     AND e.partocour IS NULL
                     AND e.actif_cour = 0
-                    GROUP BY dest.id_compaga, lg.nom_ligne, cd.naturecoli, e.prixcolis")->result();
+                    GROUP BY dest.id_compaga, COALESCE(NULLIF(TRIM(e.nom_ligne_vendu), ''), lg.nom_ligne), cd.naturecoli, e.prixcolis")->result();
             }
             elseif ($tycr === '' AND $idconx === '' AND $algn === '') {
                 return $this->db->query(
-                    "SELECT COUNT(courrierexpid) AS nombres, SUM(prixcolis) AS montant, ar.roleattribut, dest.id_compaga, u.first_name, u.last_name, lg.nom_ligne, cd.naturecoli, e.prixcolis FROM courriers_exp e
+                    "SELECT COUNT(courrierexpid) AS nombres, SUM(prixcolis) AS montant, ar.roleattribut, dest.id_compaga, u.first_name, u.last_name, COALESCE(NULLIF(TRIM(e.nom_ligne_vendu), ''), lg.nom_ligne) AS nom_ligne, cd.naturecoli, e.prixcolis FROM courriers_exp e
                     JOIN attributions_role ar ON e.idoperateur = ar.roleattribut
                     JOIN user_login ul ON ar.idgestcompte = ul.uid_login
                     JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
@@ -786,12 +833,12 @@
                     AND e.prixcolis IS NOT NULL
                     AND e.partocour IS NULL
                     AND e.actif_cour = 0
-                    AND gex.code_gaexp = '$gd'
-                    GROUP BY dest.id_compaga, lg.nom_ligne, cd.naturecoli, e.prixcolis")->result();
+                    AND COALESCE(NULLIF(TRIM(e.code_gaexp_vendu), ''), gex.code_gaexp) = '$gd'
+                    GROUP BY dest.id_compaga, COALESCE(NULLIF(TRIM(e.nom_ligne_vendu), ''), lg.nom_ligne), cd.naturecoli, e.prixcolis")->result();
             }
             elseif ($idconx === '' AND $algn === '') {
                 return $this->db->query(
-                    "SELECT COUNT(courrierexpid) AS nombres, SUM(prixcolis) AS montant, ar.roleattribut, dest.id_compaga, u.first_name, u.last_name, lg.nom_ligne, cd.naturecoli, e.prixcolis FROM courriers_exp e
+                    "SELECT COUNT(courrierexpid) AS nombres, SUM(prixcolis) AS montant, ar.roleattribut, dest.id_compaga, u.first_name, u.last_name, COALESCE(NULLIF(TRIM(e.nom_ligne_vendu), ''), lg.nom_ligne) AS nom_ligne, cd.naturecoli, e.prixcolis FROM courriers_exp e
                     JOIN attributions_role ar ON e.idoperateur = ar.roleattribut
                     JOIN user_login ul ON ar.idgestcompte = ul.uid_login
                     JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
@@ -814,14 +861,14 @@
                     AND e.prixcolis IS NOT NULL
                     AND e.partocour IS NULL
                     AND e.actif_cour = 0
-                    AND gex.code_gaexp = '$gd'
+                    AND COALESCE(NULLIF(TRIM(e.code_gaexp_vendu), ''), gex.code_gaexp) = '$gd'
                     AND cd.naturecoli = '$tycr'
-                    AND gex.code_gaexp = '$gd'
-                    GROUP BY dest.id_compaga, lg.nom_ligne, cd.naturecoli, e.prixcolis")->result();
+                    AND COALESCE(NULLIF(TRIM(e.code_gaexp_vendu), ''), gex.code_gaexp) = '$gd'
+                    GROUP BY dest.id_compaga, COALESCE(NULLIF(TRIM(e.nom_ligne_vendu), ''), lg.nom_ligne), cd.naturecoli, e.prixcolis")->result();
             }
             elseif($algn === '')
             {
-                return $this->db->query("SELECT COUNT(courrierexpid) AS nombres, SUM(prixcolis) AS montant, ar.roleattribut, dest.id_compaga, u.first_name, u.last_name, lg.nom_ligne, cd.naturecoli, e.prixcolis FROM courriers_exp e
+                return $this->db->query("SELECT COUNT(courrierexpid) AS nombres, SUM(prixcolis) AS montant, ar.roleattribut, dest.id_compaga, u.first_name, u.last_name, COALESCE(NULLIF(TRIM(e.nom_ligne_vendu), ''), lg.nom_ligne) AS nom_ligne, cd.naturecoli, e.prixcolis FROM courriers_exp e
                     JOIN attributions_role ar ON e.idoperateur = ar.roleattribut
                     JOIN user_login ul ON ar.idgestcompte = ul.uid_login
                     JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
@@ -844,13 +891,13 @@
                     AND e.prixcolis IS NOT NULL
                     AND e.partocour IS NULL
                     AND e.actif_cour = 0
-                    AND gex.code_gaexp = '$gd'
+                    AND COALESCE(NULLIF(TRIM(e.code_gaexp_vendu), ''), gex.code_gaexp) = '$gd'
                     AND cd.naturecoli = '$tycr'
                     AND ar.roleattribut = '$idconx'
-                    GROUP BY dest.id_compaga, lg.nom_ligne, cd.naturecoli, e.prixcolis")->result();
+                    GROUP BY dest.id_compaga, COALESCE(NULLIF(TRIM(e.nom_ligne_vendu), ''), lg.nom_ligne), cd.naturecoli, e.prixcolis")->result();
             }
                 return $this->db->query(
-                    "SELECT COUNT(courrierexpid) AS nombres, SUM(prixcolis) AS montant, ar.roleattribut, dest.id_compaga, u.first_name, u.last_name, lg.nom_ligne, cd.naturecoli, e.prixcolis FROM courriers_exp e
+                    "SELECT COUNT(courrierexpid) AS nombres, SUM(prixcolis) AS montant, ar.roleattribut, dest.id_compaga, u.first_name, u.last_name, COALESCE(NULLIF(TRIM(e.nom_ligne_vendu), ''), lg.nom_ligne) AS nom_ligne, cd.naturecoli, e.prixcolis FROM courriers_exp e
                     JOIN attributions_role ar ON e.idoperateur = ar.roleattribut
                     JOIN user_login ul ON ar.idgestcompte = ul.uid_login
                     JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
@@ -873,11 +920,11 @@
                     AND e.prixcolis IS NOT NULL
                     AND e.partocour IS NULL
                     AND e.actif_cour = 0
-                    AND gex.code_gaexp = '$gd'
+                    AND COALESCE(NULLIF(TRIM(e.code_gaexp_vendu), ''), gex.code_gaexp) = '$gd'
                     AND ar.roleattribut = '$idconx'
                     AND lg.ident_ligne = '$algn'
                     AND cd.naturecoli = '$tycr'
-                    GROUP BY dest.id_compaga,, lg.nom_ligne, cd.naturecoli, e.prixcolis")->result();
+                    GROUP BY dest.id_compaga,, COALESCE(NULLIF(TRIM(e.nom_ligne_vendu), ''), lg.nom_ligne), cd.naturecoli, e.prixcolis")->result();
         }
 
         public function expetatspli2($cid, $cp, $dt1, $dt2, $gd = FALSE, $tycr = FALSE, $idconx = FALSE)
@@ -936,7 +983,7 @@
                     AND e.partocour IS NULL
                     AND e.actif_cour = 0
                     AND e.verifcour IN('A', 'C', 'D')
-                    AND gex.code_gaexp = '$gd'
+                    AND COALESCE(NULLIF(TRIM(e.code_gaexp_vendu), ''), gex.code_gaexp) = '$gd'
                     GROUP BY e.dateenvoi, cd.naturecoli")->result();
             }
             elseif ($idconx === '') {
@@ -964,7 +1011,7 @@
                     AND e.prixcolis IS NOT NULL
                     AND e.partocour IS NULL
                     AND e.actif_cour = 0
-                    AND gex.code_gaexp = '$gd'
+                    AND COALESCE(NULLIF(TRIM(e.code_gaexp_vendu), ''), gex.code_gaexp) = '$gd'
                     AND cd.naturecoli = '$tycr'
                     AND e.verifcour IN('A', 'C', 'D')
                     GROUP BY e.dateenvoi, cd.naturecoli")->result();
@@ -994,7 +1041,7 @@
                     AND e.prixcolis IS NOT NULL
                     AND e.partocour IS NULL
                     AND e.actif_cour = 0
-                    AND gex.code_gaexp = '$gd'
+                    AND COALESCE(NULLIF(TRIM(e.code_gaexp_vendu), ''), gex.code_gaexp) = '$gd'
                     AND cd.naturecoli = '$tycr'
                     AND ar.roleattribut = '$idconx'
                     AND e.verifcour IN('A', 'C', 'D')
@@ -1006,7 +1053,7 @@
         {        
             if ($gd === '' AND $idconx === '' AND $tycr === '' AND $cp === '' AND $algn === '') {
                 return $this->db->query(
-                    "SELECT COUNT(courrierexpid) AS nombres, SUM(prixcolis) AS montant, cd.naturecoli, lg.nom_ligne, e.prixcolis FROM courriers_exp e
+                    "SELECT COUNT(courrierexpid) AS nombres, SUM(prixcolis) AS montant, cd.naturecoli, COALESCE(NULLIF(TRIM(e.nom_ligne_vendu), ''), lg.nom_ligne) AS nom_ligne, e.prixcolis FROM courriers_exp e
                     JOIN attributions_role ar ON e.idoperateur = ar.roleattribut
                     JOIN user_login ul ON ar.idgestcompte = ul.uid_login
                     JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
@@ -1027,11 +1074,11 @@
                     AND e.dateenvoi >= '$dt1' AND dateenvoi < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND e.prixcolis IS NOT NULL
                     AND e.partocour IS NULL
-                    GROUP BY cd.naturecoli, lg.nom_ligne, e.prixcolis")->result();
+                    GROUP BY cd.naturecoli, COALESCE(NULLIF(TRIM(e.nom_ligne_vendu), ''), lg.nom_ligne), e.prixcolis")->result();
             }
             elseif ($idconx === '' AND $tycr === '' AND $cp === '' AND $algn === '') {
                 return $this->db->query(
-                    "SELECT COUNT(courrierexpid) AS nombres, SUM(prixcolis) AS montant, cd.naturecoli, lg.nom_ligne, e.prixcolis FROM courriers_exp e
+                    "SELECT COUNT(courrierexpid) AS nombres, SUM(prixcolis) AS montant, cd.naturecoli, COALESCE(NULLIF(TRIM(e.nom_ligne_vendu), ''), lg.nom_ligne) AS nom_ligne, e.prixcolis FROM courriers_exp e
                     JOIN attributions_role ar ON e.idoperateur = ar.roleattribut
                     JOIN user_login ul ON ar.idgestcompte = ul.uid_login
                     JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
@@ -1052,12 +1099,12 @@
                     AND e.dateenvoi >= '$dt1' AND dateenvoi < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND e.prixcolis IS NOT NULL
                     AND e.partocour IS NULL
-                    AND gex.code_gaexp = '$gd'
-                    GROUP BY cd.naturecoli, lg.nom_ligne, e.prixcolis")->result();
+                    AND COALESCE(NULLIF(TRIM(e.code_gaexp_vendu), ''), gex.code_gaexp) = '$gd'
+                    GROUP BY cd.naturecoli, COALESCE(NULLIF(TRIM(e.nom_ligne_vendu), ''), lg.nom_ligne), e.prixcolis")->result();
             }
             elseif ($tycr === '' AND $cp === '' AND $algn === '') {
                 return $this->db->query(
-                    "SELECT COUNT(courrierexpid) AS nombres, SUM(prixcolis) AS montant, cd.naturecoli, lg.nom_ligne, e.prixcolis FROM courriers_exp e
+                    "SELECT COUNT(courrierexpid) AS nombres, SUM(prixcolis) AS montant, cd.naturecoli, COALESCE(NULLIF(TRIM(e.nom_ligne_vendu), ''), lg.nom_ligne) AS nom_ligne, e.prixcolis FROM courriers_exp e
                     JOIN attributions_role ar ON e.idoperateur = ar.roleattribut
                     JOIN user_login ul ON ar.idgestcompte = ul.uid_login
                     JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
@@ -1078,13 +1125,13 @@
                     AND e.dateenvoi >= '$dt1' AND dateenvoi < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND e.prixcolis IS NOT NULL
                     AND e.partocour IS NULL
-                    AND gex.code_gaexp = '$gd'
+                    AND COALESCE(NULLIF(TRIM(e.code_gaexp_vendu), ''), gex.code_gaexp) = '$gd'
                     AND ar.roleattribut = '$idconx'
-                    GROUP BY cd.naturecoli, lg.nom_ligne, e.prixcolis")->result();
+                    GROUP BY cd.naturecoli, COALESCE(NULLIF(TRIM(e.nom_ligne_vendu), ''), lg.nom_ligne), e.prixcolis")->result();
             }
             elseif ($cp === '' AND $algn === '') {
                 return $this->db->query(
-                    "SELECT COUNT(courrierexpid) AS nombres, SUM(prixcolis) AS montant, cd.naturecoli, lg.nom_ligne, e.prixcolis FROM courriers_exp e
+                    "SELECT COUNT(courrierexpid) AS nombres, SUM(prixcolis) AS montant, cd.naturecoli, COALESCE(NULLIF(TRIM(e.nom_ligne_vendu), ''), lg.nom_ligne) AS nom_ligne, e.prixcolis FROM courriers_exp e
                     JOIN attributions_role ar ON e.idoperateur = ar.roleattribut
                     JOIN user_login ul ON ar.idgestcompte = ul.uid_login
                     JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
@@ -1105,14 +1152,14 @@
                     AND e.dateenvoi >= '$dt1' AND dateenvoi < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND e.prixcolis IS NOT NULL
                     AND e.partocour IS NULL
-                    AND gex.code_gaexp = '$gd'
+                    AND COALESCE(NULLIF(TRIM(e.code_gaexp_vendu), ''), gex.code_gaexp) = '$gd'
                     AND ar.roleattribut = '$idconx'
                     AND cd.naturecoli = '$tycr'
-                    GROUP BY cd.naturecoli, lg.nom_ligne, e.prixcolis")->result();
+                    GROUP BY cd.naturecoli, COALESCE(NULLIF(TRIM(e.nom_ligne_vendu), ''), lg.nom_ligne), e.prixcolis")->result();
             }
             elseif($tycr === '' AND $algn === '')
             {
-                return $this->db->query("SELECT COUNT(courrierexpid) AS nombres, SUM(prixcolis) AS montant, cd.naturecoli, lg.nom_ligne, e.prixcolis FROM courriers_exp e
+                return $this->db->query("SELECT COUNT(courrierexpid) AS nombres, SUM(prixcolis) AS montant, cd.naturecoli, COALESCE(NULLIF(TRIM(e.nom_ligne_vendu), ''), lg.nom_ligne) AS nom_ligne, e.prixcolis FROM courriers_exp e
                     JOIN attributions_role ar ON e.idoperateur = ar.roleattribut
                     JOIN user_login ul ON ar.idgestcompte = ul.uid_login
                     JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
@@ -1134,13 +1181,13 @@
                     AND e.prixcolis IS NOT NULL
                     AND e.partocour IS NULL
                     AND dest.id_compaga = '$cp'
-                    AND gex.code_gaexp = '$gd'
+                    AND COALESCE(NULLIF(TRIM(e.code_gaexp_vendu), ''), gex.code_gaexp) = '$gd'
                     AND ar.roleattribut = '$idconx'
-                    GROUP BY cd.naturecoli, lg.nom_ligne, e.prixcolis")->result();
+                    GROUP BY cd.naturecoli, COALESCE(NULLIF(TRIM(e.nom_ligne_vendu), ''), lg.nom_ligne), e.prixcolis")->result();
             }
             elseif($algn === '')
             {
-                return $this->db->query("SELECT COUNT(courrierexpid) AS nombres, SUM(prixcolis) AS montant, cd.naturecoli, lg.nom_ligne, e.prixcolis FROM courriers_exp e
+                return $this->db->query("SELECT COUNT(courrierexpid) AS nombres, SUM(prixcolis) AS montant, cd.naturecoli, COALESCE(NULLIF(TRIM(e.nom_ligne_vendu), ''), lg.nom_ligne) AS nom_ligne, e.prixcolis FROM courriers_exp e
                     JOIN attributions_role ar ON e.idoperateur = ar.roleattribut
                     JOIN user_login ul ON ar.idgestcompte = ul.uid_login
                     JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
@@ -1162,13 +1209,13 @@
                     AND e.prixcolis IS NOT NULL
                     AND e.partocour IS NULL
                     AND dest.id_compaga = '$cp'
-                    AND gex.code_gaexp = '$gd'
+                    AND COALESCE(NULLIF(TRIM(e.code_gaexp_vendu), ''), gex.code_gaexp) = '$gd'
                     AND cd.naturecoli = '$tycr'
                     AND ar.roleattribut = '$idconx'
-                    GROUP BY cd.naturecoli, lg.nom_ligne, e.prixcolis")->result();
+                    GROUP BY cd.naturecoli, COALESCE(NULLIF(TRIM(e.nom_ligne_vendu), ''), lg.nom_ligne), e.prixcolis")->result();
             }
                 return $this->db->query(
-                    "SELECT COUNT(courrierexpid) AS nombres, SUM(prixcolis) AS montant, cd.naturecoli, lg.nom_ligne, e.prixcolis FROM courriers_exp e
+                    "SELECT COUNT(courrierexpid) AS nombres, SUM(prixcolis) AS montant, cd.naturecoli, COALESCE(NULLIF(TRIM(e.nom_ligne_vendu), ''), lg.nom_ligne) AS nom_ligne, e.prixcolis FROM courriers_exp e
                     JOIN attributions_role ar ON e.idoperateur = ar.roleattribut
                     JOIN user_login ul ON ar.idgestcompte = ul.uid_login
                     JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
@@ -1190,11 +1237,11 @@
                     AND dest.id_compaga = '$cp'
                     AND e.prixcolis IS NOT NULL
                     AND e.partocour IS NULL
-                    AND gex.code_gaexp = '$gd'
+                    AND COALESCE(NULLIF(TRIM(e.code_gaexp_vendu), ''), gex.code_gaexp) = '$gd'
                     AND cd.naturecoli = '$tycr'
                     AND ar.roleattribut = '$idconx'
                     AND lg.ident_ligne = '$algn'
-                    GROUP BY cd.naturecoli, lg.nom_ligne, e.prixcolis")->result();
+                    GROUP BY cd.naturecoli, COALESCE(NULLIF(TRIM(e.nom_ligne_vendu), ''), lg.nom_ligne), e.prixcolis")->result();
         }
 
         //global plis
@@ -1241,7 +1288,7 @@
                     AND e.dateenvoi >= '$dt1' AND e.dateenvoi < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND e.prixcolis IS NOT NULL
                     AND e.partocour IS NULL
-                    AND gex.code_gaexp = '$gd'")->result();
+                    AND COALESCE(NULLIF(TRIM(e.code_gaexp_vendu), ''), gex.code_gaexp) = '$gd'")->result();
             }
             
             elseif($tycr === '' AND $algn === '')
@@ -1264,7 +1311,7 @@
                     AND e.dateenvoi >= '$dt1' AND e.dateenvoi < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND e.prixcolis IS NOT NULL
                     AND e.partocour IS NULL
-                    AND gex.code_gaexp = '$gd'
+                    AND COALESCE(NULLIF(TRIM(e.code_gaexp_vendu), ''), gex.code_gaexp) = '$gd'
                     AND dest.id_compaga = '$cp'")->result();
             }
             elseif($algn === '')
@@ -1288,7 +1335,7 @@
                     AND e.dateenvoi >= '$dt1' AND e.dateenvoi < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND e.prixcolis IS NOT NULL
                     AND e.partocour IS NULL
-                    AND gex.code_gaexp = '$gd'
+                    AND COALESCE(NULLIF(TRIM(e.code_gaexp_vendu), ''), gex.code_gaexp) = '$gd'
                     AND cd.naturecoli = '$tycr'")->result();
             }
                 return $this->db->query(
@@ -1311,7 +1358,7 @@
                     AND e.dateenvoi >= '$dt1' AND e.dateenvoi < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND e.prixcolis IS NOT NULL
                     AND e.partocour IS NULL
-                    AND gex.code_gaexp = '$gd'
+                    AND COALESCE(NULLIF(TRIM(e.code_gaexp_vendu), ''), gex.code_gaexp) = '$gd'
                     AND lg.ident_ligne = '$algn'
                     AND cd.naturecoli = '$tycr'")->result();
         }
@@ -1319,7 +1366,8 @@
         //moitie plis
 
         public function expetatspliexo($cid, $dt1, $dt2, $cp = FALSE, $gd = FALSE, $tycr = FALSE, $algn = FALSE)
-        {        
+        {
+        $filtreLettres = etat_filtre_lettres('e.verifcour', 'e.dateenvoi', $cp, 'courrier', $dt1, $dt2);        
             if ($cp === '' AND $gd === '' AND $tycr === '' AND $algn === NULL) {
                 return $this->db->query(
                     "SELECT * FROM courriers_exp e
@@ -1348,7 +1396,7 @@
                     AND cd.naturecoli <> 'Sac_partenaire'
                     AND cd.naturecoli <> 'Petit_colis'
                     AND cd.naturecoli <> 'Gros_colis'
-                    AND e.verifcour IN('A', 'C', 'D')")->result();
+                    {$filtreLettres}")->result();
             }
             elseif ($gd === '' AND $tycr === '' AND $algn === NULL) {
                 return $this->db->query(
@@ -1379,7 +1427,7 @@
                     AND cd.naturecoli <> 'Sac_partenaire'
                     AND cd.naturecoli <> 'Petit_colis'
                     AND cd.naturecoli <> 'Gros_colis'
-                    AND e.verifcour IN('A', 'C', 'D')")->result();
+                    {$filtreLettres}")->result();
             }
             elseif ($tycr === '' AND $algn === NULL) {
             
@@ -1401,7 +1449,7 @@
                     AND e.dateenvoi >= '$dt1' AND e.dateenvoi < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND e.prixcolis IS NOT NULL
                     AND e.partocour IS NULL
-                    AND gex.code_gaexp = '$gd'
+                    AND COALESCE(NULLIF(TRIM(e.code_gaexp_vendu), ''), gex.code_gaexp) = '$gd'
                     AND dest.id_compaga = '$cp'
                     AND cd.naturecoli <> 'Carton'
                     AND cd.naturecoli <> 'Moyen_plis'
@@ -1411,7 +1459,7 @@
                     AND cd.naturecoli <> 'Sac_partenaire'
                     AND cd.naturecoli <> 'Petit_colis'
                     AND cd.naturecoli <> 'Gros_colis'
-                    AND e.verifcour IN('A', 'C', 'D')")->result();
+                    {$filtreLettres}")->result();
             }
             elseif($algn === NULL) {
                 return $this->db->query(
@@ -1434,9 +1482,9 @@
                     AND e.dateenvoi >= '$dt1' AND e.dateenvoi < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND e.prixcolis IS NOT NULL
                     AND e.partocour IS NULL
-                    AND gex.code_gaexp = '$gd'
+                    AND COALESCE(NULLIF(TRIM(e.code_gaexp_vendu), ''), gex.code_gaexp) = '$gd'
                     AND cd.naturecoli = '$tycr'
-                    AND e.verifcour IN('A', 'C', 'D')")->result();
+                    {$filtreLettres}")->result();
 
             }
                 return $this->db->query(
@@ -1459,19 +1507,20 @@
                     AND e.dateenvoi >= '$dt1' AND e.dateenvoi < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND e.prixcolis IS NOT NULL
                     AND e.partocour IS NULL
-                    AND gex.code_gaexp = '$gd'
+                    AND COALESCE(NULLIF(TRIM(e.code_gaexp_vendu), ''), gex.code_gaexp) = '$gd'
                     AND lg.ident_ligne = '$algn'
                     AND cd.naturecoli = '$tycr'
-                    AND e.verifcour IN('A', 'C', 'D')")->result();
+                    {$filtreLettres}")->result();
         }
 
         //recapt
 
         public function recaptexopli($cid, $dt1, $dt2, $gd = FALSE, $cp = FALSE, $tycr = FALSE, $algn = FALSE)
-        {        
+        {
+        $filtreLettres = etat_filtre_lettres('e.verifcour', 'e.dateenvoi', $cp, 'courrier', $dt1, $dt2);        
             if ($gd === '' AND $cp === '' AND $tycr === '' AND $algn === '') {
                 return $this->db->query(
-                    "SELECT COUNT(courrierexpid) AS nombres, SUM(prixcolis) AS montant, dest.id_compaga, lg.nom_ligne, cd.naturecoli, e.prixcolis FROM courriers_exp e
+                    "SELECT COUNT(courrierexpid) AS nombres, SUM(prixcolis) AS montant, dest.id_compaga, COALESCE(NULLIF(TRIM(e.nom_ligne_vendu), ''), lg.nom_ligne) AS nom_ligne, cd.naturecoli, e.prixcolis FROM courriers_exp e
                     JOIN sousgare sg ON e.courrierdepartgare = sg.idsousgare
                     JOIN code_courriers cd ON e.id_codecourrier = cd.codecolisid
                     JOIN expeditreception er ON cd.exprecepident = er.idexprecept 
@@ -1495,12 +1544,12 @@
                     AND cd.naturecoli <> 'Sac_partenaire'
                     AND cd.naturecoli <> 'Petit_colis'
                     AND cd.naturecoli <> 'Gros_colis'
-                    AND e.verifcour IN('A', 'C', 'D')
-                    GROUP BY dest.id_compaga, lg.nom_ligne, cd.naturecoli, e.prixcolis")->result();
+                    {$filtreLettres}
+                    GROUP BY dest.id_compaga, COALESCE(NULLIF(TRIM(e.nom_ligne_vendu), ''), lg.nom_ligne), cd.naturecoli, e.prixcolis")->result();
             }
             elseif ($cp === '' AND $tycr === '' AND $algn === '') {
                 return $this->db->query(
-                    "SELECT COUNT(courrierexpid) AS nombres, SUM(prixcolis) AS montant, dest.id_compaga, lg.nom_ligne, cd.naturecoli, e.prixcolis FROM courriers_exp e
+                    "SELECT COUNT(courrierexpid) AS nombres, SUM(prixcolis) AS montant, dest.id_compaga, COALESCE(NULLIF(TRIM(e.nom_ligne_vendu), ''), lg.nom_ligne) AS nom_ligne, cd.naturecoli, e.prixcolis FROM courriers_exp e
                     JOIN sousgare sg ON e.courrierdepartgare = sg.idsousgare
                     JOIN code_courriers cd ON e.id_codecourrier = cd.codecolisid
                     JOIN expeditreception er ON cd.exprecepident = er.idexprecept 
@@ -1513,7 +1562,7 @@
                     JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                     JOIN entreprise ep ON c.id_entrep = ep.id_entreprise
                     WHERE ep.ekey = '$cid'
-                    AND gex.code_gaexp = '$gd'
+                    AND COALESCE(NULLIF(TRIM(e.code_gaexp_vendu), ''), gex.code_gaexp) = '$gd'
                     AND e.dateenvoi >= '$dt1' AND e.dateenvoi < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND e.prixcolis IS NOT NULL
                     AND e.partocour IS NULL
@@ -1525,12 +1574,12 @@
                     AND cd.naturecoli <> 'Sac_partenaire'
                     AND cd.naturecoli <> 'Petit_colis'
                     AND cd.naturecoli <> 'Gros_colis'
-                    AND e.verifcour IN('A', 'C', 'D')
-                    GROUP BY dest.id_compaga, lg.nom_ligne, cd.naturecoli, e.prixcolis")->result();
+                    {$filtreLettres}
+                    GROUP BY dest.id_compaga, COALESCE(NULLIF(TRIM(e.nom_ligne_vendu), ''), lg.nom_ligne), cd.naturecoli, e.prixcolis")->result();
             }
             elseif ($cp === '' AND $algn === '') {
                 return $this->db->query(
-                    "SELECT COUNT(courrierexpid) AS nombres, SUM(prixcolis) AS montant, dest.id_compaga, lg.nom_ligne, cd.naturecoli, e.prixcolis FROM courriers_exp e
+                    "SELECT COUNT(courrierexpid) AS nombres, SUM(prixcolis) AS montant, dest.id_compaga, COALESCE(NULLIF(TRIM(e.nom_ligne_vendu), ''), lg.nom_ligne) AS nom_ligne, cd.naturecoli, e.prixcolis FROM courriers_exp e
                     JOIN sousgare sg ON e.courrierdepartgare = sg.idsousgare
                     JOIN code_courriers cd ON e.id_codecourrier = cd.codecolisid
                     JOIN expeditreception er ON cd.exprecepident = er.idexprecept 
@@ -1543,17 +1592,17 @@
                     JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                     JOIN entreprise ep ON c.id_entrep = ep.id_entreprise
                     WHERE ep.ekey = '$cid'
-                    AND gex.code_gaexp = '$gd'
+                    AND COALESCE(NULLIF(TRIM(e.code_gaexp_vendu), ''), gex.code_gaexp) = '$gd'
                     AND e.dateenvoi >= '$dt1' AND e.dateenvoi < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND e.prixcolis IS NOT NULL
                     AND e.partocour IS NULL
                     AND cd.naturecoli = '$tycr'
-                    AND e.verifcour IN('A', 'C', 'D')
-                    GROUP BY dest.id_compaga, lg.nom_ligne, cd.naturecoli, e.prixcolis")->result();
+                    {$filtreLettres}
+                    GROUP BY dest.id_compaga, COALESCE(NULLIF(TRIM(e.nom_ligne_vendu), ''), lg.nom_ligne), cd.naturecoli, e.prixcolis")->result();
             }
             elseif ($tycr === '' AND $algn === '') {
                 return $this->db->query(
-                    "SELECT COUNT(courrierexpid) AS nombres, SUM(prixcolis) AS montant, dest.id_compaga, lg.nom_ligne, cd.naturecoli, e.prixcolis FROM courriers_exp e
+                    "SELECT COUNT(courrierexpid) AS nombres, SUM(prixcolis) AS montant, dest.id_compaga, COALESCE(NULLIF(TRIM(e.nom_ligne_vendu), ''), lg.nom_ligne) AS nom_ligne, cd.naturecoli, e.prixcolis FROM courriers_exp e
                     JOIN sousgare sg ON e.courrierdepartgare = sg.idsousgare
                     JOIN code_courriers cd ON e.id_codecourrier = cd.codecolisid
                     JOIN expeditreception er ON cd.exprecepident = er.idexprecept 
@@ -1578,14 +1627,14 @@
                     AND cd.naturecoli <> 'Sac_partenaire'
                     AND cd.naturecoli <> 'Petit_colis'
                     AND cd.naturecoli <> 'Gros_colis'
-                    AND e.verifcour IN('A', 'C', 'D')
-                    AND gex.code_gaexp = '$gd'
-                    GROUP BY dest.id_compaga, lg.nom_ligne, cd.naturecoli, e.prixcolis")->result();
+                    {$filtreLettres}
+                    AND COALESCE(NULLIF(TRIM(e.code_gaexp_vendu), ''), gex.code_gaexp) = '$gd'
+                    GROUP BY dest.id_compaga, COALESCE(NULLIF(TRIM(e.nom_ligne_vendu), ''), lg.nom_ligne), cd.naturecoli, e.prixcolis")->result();
             }
             
             elseif($algn === '')
             {
-                return $this->db->query("SELECT COUNT(courrierexpid) AS nombres, SUM(prixcolis) AS montant, dest.id_compaga, lg.nom_ligne, cd.naturecoli, e.prixcolis FROM courriers_exp e
+                return $this->db->query("SELECT COUNT(courrierexpid) AS nombres, SUM(prixcolis) AS montant, dest.id_compaga, COALESCE(NULLIF(TRIM(e.nom_ligne_vendu), ''), lg.nom_ligne) AS nom_ligne, cd.naturecoli, e.prixcolis FROM courriers_exp e
                     JOIN sousgare sg ON e.courrierdepartgare = sg.idsousgare
                     JOIN code_courriers cd ON e.id_codecourrier = cd.codecolisid
                     JOIN expeditreception er ON cd.exprecepident = er.idexprecept 
@@ -1602,13 +1651,13 @@
                     AND e.dateenvoi >= '$dt1' AND e.dateenvoi < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND e.prixcolis IS NOT NULL
                     AND e.partocour IS NULL
-                    AND gex.code_gaexp = '$gd'
+                    AND COALESCE(NULLIF(TRIM(e.code_gaexp_vendu), ''), gex.code_gaexp) = '$gd'
                     AND cd.naturecoli = '$tycr'
-                    AND e.verifcour IN('A', 'C', 'D')
-                    GROUP BY dest.id_compaga, lg.nom_ligne, cd.naturecoli, e.prixcolis")->result();
+                    {$filtreLettres}
+                    GROUP BY dest.id_compaga, COALESCE(NULLIF(TRIM(e.nom_ligne_vendu), ''), lg.nom_ligne), cd.naturecoli, e.prixcolis")->result();
             }
                 return $this->db->query(
-                    "SELECT COUNT(courrierexpid) AS nombres, SUM(prixcolis) AS montant, dest.id_compaga, lg.nom_ligne, cd.naturecoli, e.prixcolis FROM courriers_exp e
+                    "SELECT COUNT(courrierexpid) AS nombres, SUM(prixcolis) AS montant, dest.id_compaga, COALESCE(NULLIF(TRIM(e.nom_ligne_vendu), ''), lg.nom_ligne) AS nom_ligne, cd.naturecoli, e.prixcolis FROM courriers_exp e
                     JOIN sousgare sg ON e.courrierdepartgare = sg.idsousgare
                     JOIN code_courriers cd ON e.id_codecourrier = cd.codecolisid
                     JOIN expeditreception er ON cd.exprecepident = er.idexprecept 
@@ -1625,15 +1674,16 @@
                     AND e.dateenvoi >= '$dt1' AND e.dateenvoi < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND e.prixcolis IS NOT NULL
                     AND e.partocour IS NULL
-                    AND gex.code_gaexp = '$gd'
+                    AND COALESCE(NULLIF(TRIM(e.code_gaexp_vendu), ''), gex.code_gaexp) = '$gd'
                     AND lg.ident_ligne = '$algn'
                     AND cd.naturecoli = '$tycr'
-                    AND e.verifcour IN('A', 'C', 'D')
-                    GROUP BY dest.id_compaga, lg.nom_ligne, cd.naturecoli, e.prixcolis")->result();
+                    {$filtreLettres}
+                    GROUP BY dest.id_compaga, COALESCE(NULLIF(TRIM(e.nom_ligne_vendu), ''), lg.nom_ligne), cd.naturecoli, e.prixcolis")->result();
         }
 
         public function recaptexopligr($cid, $dt1, $dt2, $gd = FALSE, $cp = FALSE, $tycr = FALSE, $algn = FALSE)
-        {        
+        {
+        $filtreLettres = etat_filtre_lettres('e.verifcour', 'e.dateenvoi', $cp, 'courrier', $dt1, $dt2);        
             if ($gd === '' AND $cp === '' AND $tycr === '' AND $algn === '') {
                 return $this->db->query(
                     "SELECT * FROM courriers_exp e
@@ -1660,7 +1710,7 @@
                     AND cd.naturecoli <> 'Sac_partenaire'
                     AND cd.naturecoli <> 'Petit_colis'
                     AND cd.naturecoli <> 'Gros_colis'
-                    AND e.verifcour IN('A', 'C', 'D')")->result();
+                    {$filtreLettres}")->result();
             }
             elseif ($cp === '' AND $tycr === '' AND $algn === '') {
                 return $this->db->query(
@@ -1677,7 +1727,7 @@
                     JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                     JOIN entreprise ep ON c.id_entrep = ep.id_entreprise
                     WHERE ep.ekey = '$cid'
-                    AND gex.code_gaexp = '$gd'
+                    AND COALESCE(NULLIF(TRIM(e.code_gaexp_vendu), ''), gex.code_gaexp) = '$gd'
                     AND e.dateenvoi >= '$dt1' AND e.dateenvoi < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND e.prixcolis IS NOT NULL
                     AND e.partocour IS NULL
@@ -1689,7 +1739,7 @@
                     AND cd.naturecoli <> 'Sac_partenaire'
                     AND cd.naturecoli <> 'Petit_colis'
                     AND cd.naturecoli <> 'Gros_colis'
-                    AND e.verifcour IN('A', 'C', 'D')")->result();
+                    {$filtreLettres}")->result();
             }
             elseif ($cp === '' AND $algn === '') {
                 return $this->db->query(
@@ -1706,12 +1756,12 @@
                     JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                     JOIN entreprise ep ON c.id_entrep = ep.id_entreprise
                     WHERE ep.ekey = '$cid'
-                    AND gex.code_gaexp = '$gd'
+                    AND COALESCE(NULLIF(TRIM(e.code_gaexp_vendu), ''), gex.code_gaexp) = '$gd'
                     AND e.dateenvoi >= '$dt1' AND e.dateenvoi < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND e.prixcolis IS NOT NULL
                     AND e.partocour IS NULL
                     AND cd.naturecoli = '$tycr'
-                    AND e.verifcour IN('A', 'C', 'D')")->result();
+                    {$filtreLettres}")->result();
             }
             elseif ($tycr === '' AND $algn === '') {
                 return $this->db->query(
@@ -1740,8 +1790,8 @@
                     AND cd.naturecoli <> 'Sac_partenaire'
                     AND cd.naturecoli <> 'Petit_colis'
                     AND cd.naturecoli <> 'Gros_colis'
-                    AND e.verifcour IN('A', 'C', 'D')
-                    AND gex.code_gaexp = '$gd'")->result();
+                    {$filtreLettres}
+                    AND COALESCE(NULLIF(TRIM(e.code_gaexp_vendu), ''), gex.code_gaexp) = '$gd'")->result();
             }
             
             elseif($algn === '')
@@ -1763,9 +1813,9 @@
                     AND e.dateenvoi >= '$dt1' AND e.dateenvoi < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND e.prixcolis IS NOT NULL
                     AND e.partocour IS NULL
-                    AND gex.code_gaexp = '$gd'
+                    AND COALESCE(NULLIF(TRIM(e.code_gaexp_vendu), ''), gex.code_gaexp) = '$gd'
                     AND cd.naturecoli = '$tycr'
-                    AND e.verifcour IN('A', 'C', 'D')")->result();
+                    {$filtreLettres}")->result();
             }
                 return $this->db->query(
                     "SELECT * FROM courriers_exp e
@@ -1785,17 +1835,17 @@
                     AND e.dateenvoi >= '$dt1' AND e.dateenvoi < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND e.prixcolis IS NOT NULL
                     AND e.partocour IS NULL
-                    AND gex.code_gaexp = '$gd'
+                    AND COALESCE(NULLIF(TRIM(e.code_gaexp_vendu), ''), gex.code_gaexp) = '$gd'
                     AND lg.ident_ligne = '$algn'
                     AND cd.naturecoli = '$tycr'
-                    AND e.verifcour IN('A', 'C', 'D')")->result();
+                    {$filtreLettres}")->result();
         }
 
         public function recaptexoplid($cid, $dt1, $dt2, $gd = FALSE, $cp = FALSE, $tycr = FALSE, $algn = FALSE)
         {        
             if ($gd === '' AND $cp === '' AND $tycr === '' AND $algn === '') {
                 return $this->db->query(
-                    "SELECT COUNT(courrierexpid) AS nombres, SUM(prixcolis) AS montant, dest.id_compaga, lg.nom_ligne, cd.naturecoli, e.prixcolis FROM courriers_exp e
+                    "SELECT COUNT(courrierexpid) AS nombres, SUM(prixcolis) AS montant, dest.id_compaga, COALESCE(NULLIF(TRIM(e.nom_ligne_vendu), ''), lg.nom_ligne) AS nom_ligne, cd.naturecoli, e.prixcolis FROM courriers_exp e
                     JOIN sousgare sg ON e.courrierdepartgare = sg.idsousgare
                     JOIN code_courriers cd ON e.id_codecourrier = cd.codecolisid
                     JOIN expeditreception er ON cd.exprecepident = er.idexprecept 
@@ -1820,11 +1870,11 @@
                     AND cd.naturecoli <> 'Petit_colis'
                     AND cd.naturecoli <> 'Gros_colis'
                     AND e.exocr = 1
-                    GROUP BY dest.id_compaga, lg.nom_ligne, cd.naturecoli, e.prixcolis")->result();
+                    GROUP BY dest.id_compaga, COALESCE(NULLIF(TRIM(e.nom_ligne_vendu), ''), lg.nom_ligne), cd.naturecoli, e.prixcolis")->result();
             }
             elseif ($cp === '' AND $tycr === '' AND $algn === '') {
                 return $this->db->query(
-                    "SELECT COUNT(courrierexpid) AS nombres, SUM(prixcolis) AS montant, dest.id_compaga, lg.nom_ligne, cd.naturecoli, e.prixcolis FROM courriers_exp e
+                    "SELECT COUNT(courrierexpid) AS nombres, SUM(prixcolis) AS montant, dest.id_compaga, COALESCE(NULLIF(TRIM(e.nom_ligne_vendu), ''), lg.nom_ligne) AS nom_ligne, cd.naturecoli, e.prixcolis FROM courriers_exp e
                     JOIN sousgare sg ON e.courrierdepartgare = sg.idsousgare
                     JOIN code_courriers cd ON e.id_codecourrier = cd.codecolisid
                     JOIN expeditreception er ON cd.exprecepident = er.idexprecept 
@@ -1837,7 +1887,7 @@
                     JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                     JOIN entreprise ep ON c.id_entrep = ep.id_entreprise
                     WHERE ep.ekey = '$cid'
-                    AND gex.code_gaexp = '$gd'
+                    AND COALESCE(NULLIF(TRIM(e.code_gaexp_vendu), ''), gex.code_gaexp) = '$gd'
                     AND e.dateenvoi >= '$dt1' AND e.dateenvoi < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND e.prixcolis IS NOT NULL
                     AND e.partocour IS NULL
@@ -1850,11 +1900,11 @@
                     AND cd.naturecoli <> 'Petit_colis'
                     AND cd.naturecoli <> 'Gros_colis'
                     AND e.exocr = 1
-                    GROUP BY dest.id_compaga, lg.nom_ligne, cd.naturecoli, e.prixcolis")->result();
+                    GROUP BY dest.id_compaga, COALESCE(NULLIF(TRIM(e.nom_ligne_vendu), ''), lg.nom_ligne), cd.naturecoli, e.prixcolis")->result();
             }
             elseif ($cp === '' AND $algn === '') {
                 return $this->db->query(
-                    "SELECT COUNT(courrierexpid) AS nombres, SUM(prixcolis) AS montant, dest.id_compaga, lg.nom_ligne, cd.naturecoli, e.prixcolis FROM courriers_exp e
+                    "SELECT COUNT(courrierexpid) AS nombres, SUM(prixcolis) AS montant, dest.id_compaga, COALESCE(NULLIF(TRIM(e.nom_ligne_vendu), ''), lg.nom_ligne) AS nom_ligne, cd.naturecoli, e.prixcolis FROM courriers_exp e
                     JOIN sousgare sg ON e.courrierdepartgare = sg.idsousgare
                     JOIN code_courriers cd ON e.id_codecourrier = cd.codecolisid
                     JOIN expeditreception er ON cd.exprecepident = er.idexprecept 
@@ -1867,17 +1917,17 @@
                     JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                     JOIN entreprise ep ON c.id_entrep = ep.id_entreprise
                     WHERE ep.ekey = '$cid'
-                    AND gex.code_gaexp = '$gd'
+                    AND COALESCE(NULLIF(TRIM(e.code_gaexp_vendu), ''), gex.code_gaexp) = '$gd'
                     AND e.dateenvoi >= '$dt1' AND e.dateenvoi < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND e.prixcolis IS NOT NULL
                     AND e.partocour IS NULL
                     AND cd.naturecoli = '$tycr'
                     AND e.exocr = 1
-                    GROUP BY dest.id_compaga, lg.nom_ligne, cd.naturecoli, e.prixcolis")->result();
+                    GROUP BY dest.id_compaga, COALESCE(NULLIF(TRIM(e.nom_ligne_vendu), ''), lg.nom_ligne), cd.naturecoli, e.prixcolis")->result();
             }
             elseif ($tycr === '' AND $algn === '') {
                 return $this->db->query(
-                    "SELECT COUNT(courrierexpid) AS nombres, SUM(prixcolis) AS montant, dest.id_compaga, lg.nom_ligne, cd.naturecoli, e.prixcolis FROM courriers_exp e
+                    "SELECT COUNT(courrierexpid) AS nombres, SUM(prixcolis) AS montant, dest.id_compaga, COALESCE(NULLIF(TRIM(e.nom_ligne_vendu), ''), lg.nom_ligne) AS nom_ligne, cd.naturecoli, e.prixcolis FROM courriers_exp e
                     JOIN sousgare sg ON e.courrierdepartgare = sg.idsousgare
                     JOIN code_courriers cd ON e.id_codecourrier = cd.codecolisid
                     JOIN expeditreception er ON cd.exprecepident = er.idexprecept 
@@ -1903,13 +1953,13 @@
                     AND cd.naturecoli <> 'Petit_colis'
                     AND cd.naturecoli <> 'Gros_colis'
                     AND e.exocr = 1
-                    AND gex.code_gaexp = '$gd'
-                    GROUP BY dest.id_compaga, lg.nom_ligne, cd.naturecoli, e.prixcolis")->result();
+                    AND COALESCE(NULLIF(TRIM(e.code_gaexp_vendu), ''), gex.code_gaexp) = '$gd'
+                    GROUP BY dest.id_compaga, COALESCE(NULLIF(TRIM(e.nom_ligne_vendu), ''), lg.nom_ligne), cd.naturecoli, e.prixcolis")->result();
             }
             
             elseif($algn === '')
             {
-                return $this->db->query("SELECT COUNT(courrierexpid) AS nombres, SUM(prixcolis) AS montant, dest.id_compaga, lg.nom_ligne, cd.naturecoli, e.prixcolis FROM courriers_exp e
+                return $this->db->query("SELECT COUNT(courrierexpid) AS nombres, SUM(prixcolis) AS montant, dest.id_compaga, COALESCE(NULLIF(TRIM(e.nom_ligne_vendu), ''), lg.nom_ligne) AS nom_ligne, cd.naturecoli, e.prixcolis FROM courriers_exp e
                     JOIN sousgare sg ON e.courrierdepartgare = sg.idsousgare
                     JOIN code_courriers cd ON e.id_codecourrier = cd.codecolisid
                     JOIN expeditreception er ON cd.exprecepident = er.idexprecept 
@@ -1926,13 +1976,13 @@
                     AND e.dateenvoi >= '$dt1' AND e.dateenvoi < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND e.prixcolis IS NOT NULL
                     AND e.partocour IS NULL
-                    AND gex.code_gaexp = '$gd'
+                    AND COALESCE(NULLIF(TRIM(e.code_gaexp_vendu), ''), gex.code_gaexp) = '$gd'
                     AND cd.naturecoli = '$tycr'
                     AND e.exocr = 1
-                    GROUP BY dest.id_compaga, lg.nom_ligne, cd.naturecoli, e.prixcolis")->result();
+                    GROUP BY dest.id_compaga, COALESCE(NULLIF(TRIM(e.nom_ligne_vendu), ''), lg.nom_ligne), cd.naturecoli, e.prixcolis")->result();
             }
                 return $this->db->query(
-                    "SELECT COUNT(courrierexpid) AS nombres, SUM(prixcolis) AS montant, dest.id_compaga, lg.nom_ligne, cd.naturecoli, e.prixcolis FROM courriers_exp e
+                    "SELECT COUNT(courrierexpid) AS nombres, SUM(prixcolis) AS montant, dest.id_compaga, COALESCE(NULLIF(TRIM(e.nom_ligne_vendu), ''), lg.nom_ligne) AS nom_ligne, cd.naturecoli, e.prixcolis FROM courriers_exp e
                     JOIN sousgare sg ON e.courrierdepartgare = sg.idsousgare
                     JOIN code_courriers cd ON e.id_codecourrier = cd.codecolisid
                     JOIN expeditreception er ON cd.exprecepident = er.idexprecept 
@@ -1949,18 +1999,18 @@
                     AND e.dateenvoi >= '$dt1' AND e.dateenvoi < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND e.prixcolis IS NOT NULL
                     AND e.partocour IS NULL
-                    AND gex.code_gaexp = '$gd'
+                    AND COALESCE(NULLIF(TRIM(e.code_gaexp_vendu), ''), gex.code_gaexp) = '$gd'
                     AND lg.ident_ligne = '$algn'
                     AND cd.naturecoli = '$tycr'
                     AND e.exocr = 1
-                    GROUP BY dest.id_compaga, lg.nom_ligne, cd.naturecoli, e.prixcolis")->result();
+                    GROUP BY dest.id_compaga, COALESCE(NULLIF(TRIM(e.nom_ligne_vendu), ''), lg.nom_ligne), cd.naturecoli, e.prixcolis")->result();
         }
 
         public function recaptexoplijr($cid, $cp, $dt1, $dt2, $gd = FALSE, $tycr = FALSE, $algn = FALSE)
         {        
             if ($gd === '' AND $tycr === '' AND $algn === '') {
                 return $this->db->query(
-                    "SELECT COUNT(courrierexpid) AS nombres, SUM(prixcolis) AS montant, dest.id_compaga, lg.nom_ligne, cd.naturecoli, e.prixcolis, h.heure FROM courriers_exp e
+                    "SELECT COUNT(courrierexpid) AS nombres, SUM(prixcolis) AS montant, dest.id_compaga, COALESCE(NULLIF(TRIM(e.nom_ligne_vendu), ''), lg.nom_ligne) AS nom_ligne, cd.naturecoli, e.prixcolis, h.heure FROM courriers_exp e
                     JOIN sousgare sg ON e.courrierdepartgare = sg.idsousgare
                     JOIN code_courriers cd ON e.id_codecourrier = cd.codecolisid
                     JOIN expeditreception er ON cd.exprecepident = er.idexprecept 
@@ -1986,12 +2036,12 @@
                     AND cd.naturecoli <> 'Sac_partenaire'
                     AND cd.naturecoli <> 'Petit_colis'
                     AND cd.naturecoli <> 'Gros_colis'
-                    GROUP BY dest.id_compaga, lg.nom_ligne, cd.naturecoli, e.prixcolis, h.id_heure
+                    GROUP BY dest.id_compaga, COALESCE(NULLIF(TRIM(e.nom_ligne_vendu), ''), lg.nom_ligne), cd.naturecoli, e.prixcolis, h.id_heure
                     ORDER BY heure ASC")->result();
             }
             elseif ($tycr === '' AND $algn === '') {
                 return $this->db->query(
-                    "SELECT COUNT(courrierexpid) AS nombres, SUM(prixcolis) AS montant, dest.id_compaga, lg.nom_ligne, cd.naturecoli, e.prixcolis, h.heure FROM courriers_exp e
+                    "SELECT COUNT(courrierexpid) AS nombres, SUM(prixcolis) AS montant, dest.id_compaga, COALESCE(NULLIF(TRIM(e.nom_ligne_vendu), ''), lg.nom_ligne) AS nom_ligne, cd.naturecoli, e.prixcolis, h.heure FROM courriers_exp e
                     JOIN sousgare sg ON e.courrierdepartgare = sg.idsousgare
                     JOIN code_courriers cd ON e.id_codecourrier = cd.codecolisid
                     JOIN expeditreception er ON cd.exprecepident = er.idexprecept 
@@ -2017,14 +2067,14 @@
                     AND cd.naturecoli <> 'Sac_partenaire'
                     AND cd.naturecoli <> 'Petit_colis'
                     AND cd.naturecoli <> 'Gros_colis'
-                    AND gex.code_gaexp = '$gd'
-                    GROUP BY dest.id_compaga, lg.nom_ligne, cd.naturecoli, e.prixcolis, h.id_heure
+                    AND COALESCE(NULLIF(TRIM(e.code_gaexp_vendu), ''), gex.code_gaexp) = '$gd'
+                    GROUP BY dest.id_compaga, COALESCE(NULLIF(TRIM(e.nom_ligne_vendu), ''), lg.nom_ligne), cd.naturecoli, e.prixcolis, h.id_heure
                     ORDER BY heure ASC")->result();
             }
             
             elseif($algn === '')
             {
-                return $this->db->query("SELECT COUNT(courrierexpid) AS nombres, SUM(prixcolis) AS montant, dest.id_compaga, lg.nom_ligne, cd.naturecoli, e.prixcolis, h.heure FROM courriers_exp e
+                return $this->db->query("SELECT COUNT(courrierexpid) AS nombres, SUM(prixcolis) AS montant, dest.id_compaga, COALESCE(NULLIF(TRIM(e.nom_ligne_vendu), ''), lg.nom_ligne) AS nom_ligne, cd.naturecoli, e.prixcolis, h.heure FROM courriers_exp e
                     JOIN sousgare sg ON e.courrierdepartgare = sg.idsousgare
                     JOIN code_courriers cd ON e.id_codecourrier = cd.codecolisid
                     JOIN expeditreception er ON cd.exprecepident = er.idexprecept 
@@ -2041,14 +2091,14 @@
                     AND e.dateenvoi >= '$dt1' AND e.dateenvoi < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND e.prixcolis IS NOT NULL
                     AND e.partocour IS NULL
-                    AND gex.code_gaexp = '$gd'
+                    AND COALESCE(NULLIF(TRIM(e.code_gaexp_vendu), ''), gex.code_gaexp) = '$gd'
                     AND cd.naturecoli = '$tycr'
                     AND e.verifcour IN('A', 'C', 'D')
-                    GROUP BY dest.id_compaga, lg.nom_ligne, cd.naturecoli, e.prixcolis, h.id_heure
+                    GROUP BY dest.id_compaga, COALESCE(NULLIF(TRIM(e.nom_ligne_vendu), ''), lg.nom_ligne), cd.naturecoli, e.prixcolis, h.id_heure
                     ORDER BY heure ASC")->result();
             }
                 return $this->db->query(
-                    "SELECT COUNT(courrierexpid) AS nombres, SUM(prixcolis) AS montant, dest.id_compaga, lg.nom_ligne, cd.naturecoli, e.prixcolis, h.heure FROM courriers_exp e
+                    "SELECT COUNT(courrierexpid) AS nombres, SUM(prixcolis) AS montant, dest.id_compaga, COALESCE(NULLIF(TRIM(e.nom_ligne_vendu), ''), lg.nom_ligne) AS nom_ligne, cd.naturecoli, e.prixcolis, h.heure FROM courriers_exp e
                     JOIN sousgare sg ON e.courrierdepartgare = sg.idsousgare
                     JOIN code_courriers cd ON e.id_codecourrier = cd.codecolisid
                     JOIN expeditreception er ON cd.exprecepident = er.idexprecept 
@@ -2065,20 +2115,21 @@
                     AND e.dateenvoi >= '$dt1' AND e.dateenvoi < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND e.prixcolis IS NOT NULL
                     AND e.partocour IS NULL
-                    AND gex.code_gaexp = '$gd'
+                    AND COALESCE(NULLIF(TRIM(e.code_gaexp_vendu), ''), gex.code_gaexp) = '$gd'
                     AND lg.ident_ligne = '$algn'
                     AND cd.naturecoli = '$tycr'
                     AND e.verifcour IN('A', 'C', 'D')
-                    GROUP BY dest.id_compaga, lg.nom_ligne, cd.naturecoli, e.prixcolis, h.id_heure
+                    GROUP BY dest.id_compaga, COALESCE(NULLIF(TRIM(e.nom_ligne_vendu), ''), lg.nom_ligne), cd.naturecoli, e.prixcolis, h.id_heure
                     ORDER BY heure ASC")->result();
         }
 
         
         public function recaptexopliheb($cid, $dt1, $dt2, $gd = FALSE, $cp = FALSE, $tycr = FALSE, $algn = FALSE)
-        {        
+        {
+        $filtreLettres = etat_filtre_lettres('e.verifcour', 'e.dateenvoi', $cp, 'courrier', $dt1, $dt2);        
             if ($gd === '' AND $cp === '' AND $tycr === '' AND $algn === '') {
                 return $this->db->query(
-                    "SELECT COUNT(courrierexpid) AS nombres, SUM(prixcolis) AS montant, lg.nom_ligne, e.prixcolis, h.heure, e.dateenvoi FROM courriers_exp e
+                    "SELECT COUNT(courrierexpid) AS nombres, SUM(prixcolis) AS montant, COALESCE(NULLIF(TRIM(e.nom_ligne_vendu), ''), lg.nom_ligne) AS nom_ligne, e.prixcolis, h.heure, e.dateenvoi FROM courriers_exp e
                     JOIN code_courriers cd ON e.id_codecourrier = cd.codecolisid
                     JOIN expeditreception er ON cd.exprecepident = er.idexprecept
                     JOIN programme pr ON e.departcolis = pr.code_progr
@@ -2093,7 +2144,7 @@
                     AND e.dateenvoi >= '$dt1' AND e.dateenvoi < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND e.prixcolis IS NOT NULL
                     AND e.partocour IS NULL
-                    AND e.verifcour IN('A', 'C', 'D')
+                    {$filtreLettres}
                     AND cd.naturecoli <> 'Carton'
                     AND cd.naturecoli <> 'Moyen_plis'
                     AND cd.naturecoli <> 'Moyen_colis'
@@ -2102,12 +2153,12 @@
                     AND cd.naturecoli <> 'Sac_partenaire'
                     AND cd.naturecoli <> 'Petit_colis'
                     AND cd.naturecoli <> 'Gros_colis'
-                    GROUP BY lg.nom_ligne, e.prixcolis, h.id_heure, e.dateenvoi
+                    GROUP BY COALESCE(NULLIF(TRIM(e.nom_ligne_vendu), ''), lg.nom_ligne), e.prixcolis, h.id_heure, e.dateenvoi
                     ORDER BY e.dateenvoi, h.id_heure")->result();
             }
             elseif ($cp === '' AND $tycr === '' AND $algn === '') {
                 return $this->db->query(
-                    "SELECT COUNT(courrierexpid) AS nombres, SUM(prixcolis) AS montant, lg.nom_ligne, e.prixcolis, h.heure, e.dateenvoi FROM courriers_exp e
+                    "SELECT COUNT(courrierexpid) AS nombres, SUM(prixcolis) AS montant, COALESCE(NULLIF(TRIM(e.nom_ligne_vendu), ''), lg.nom_ligne) AS nom_ligne, e.prixcolis, h.heure, e.dateenvoi FROM courriers_exp e
                     JOIN code_courriers cd ON e.id_codecourrier = cd.codecolisid
                     JOIN expeditreception er ON cd.exprecepident = er.idexprecept
                     JOIN programme pr ON e.departcolis = pr.code_progr
@@ -2119,11 +2170,11 @@
                     JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                     JOIN entreprise ep ON c.id_entrep = ep.id_entreprise
                     WHERE ep.ekey = '$cid'
-                    AND gex.code_gaexp = '$gd'
+                    AND COALESCE(NULLIF(TRIM(e.code_gaexp_vendu), ''), gex.code_gaexp) = '$gd'
                     AND e.dateenvoi >= '$dt1' AND e.dateenvoi < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND e.prixcolis IS NOT NULL
                     AND e.partocour IS NULL
-                    AND e.verifcour IN('A', 'C', 'D')
+                    {$filtreLettres}
                     AND cd.naturecoli <> 'Carton'
                     AND cd.naturecoli <> 'Moyen_plis'
                     AND cd.naturecoli <> 'Moyen_colis'
@@ -2132,12 +2183,12 @@
                     AND cd.naturecoli <> 'Sac_partenaire'
                     AND cd.naturecoli <> 'Petit_colis'
                     AND cd.naturecoli <> 'Gros_colis'
-                    GROUP BY lg.nom_ligne, e.prixcolis, h.id_heure, e.dateenvoi
+                    GROUP BY COALESCE(NULLIF(TRIM(e.nom_ligne_vendu), ''), lg.nom_ligne), e.prixcolis, h.id_heure, e.dateenvoi
                     ORDER BY e.dateenvoi, h.id_heure")->result();
             }
             elseif($tycr === '' AND $algn === '') {
                 return $this->db->query(
-                    "SELECT COUNT(courrierexpid) AS nombres, SUM(prixcolis) AS montant, lg.nom_ligne, e.prixcolis, h.heure, e.dateenvoi FROM courriers_exp e
+                    "SELECT COUNT(courrierexpid) AS nombres, SUM(prixcolis) AS montant, COALESCE(NULLIF(TRIM(e.nom_ligne_vendu), ''), lg.nom_ligne) AS nom_ligne, e.prixcolis, h.heure, e.dateenvoi FROM courriers_exp e
                     JOIN code_courriers cd ON e.id_codecourrier = cd.codecolisid
                     JOIN expeditreception er ON cd.exprecepident = er.idexprecept
                     JOIN programme pr ON e.departcolis = pr.code_progr
@@ -2153,7 +2204,7 @@
                     AND e.dateenvoi >= '$dt1' AND e.dateenvoi < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND e.prixcolis IS NOT NULL
                     AND e.partocour IS NULL
-                    AND e.verifcour IN('A', 'C', 'D')
+                    {$filtreLettres}
                     AND cd.naturecoli <> 'Carton'
                     AND cd.naturecoli <> 'Moyen_plis'
                     AND cd.naturecoli <> 'Moyen_colis'
@@ -2162,14 +2213,14 @@
                     AND cd.naturecoli <> 'Sac_partenaire'
                     AND cd.naturecoli <> 'Petit_colis'
                     AND cd.naturecoli <> 'Gros_colis'
-                    AND gex.code_gaexp = '$gd'
-                    GROUP BY lg.nom_ligne, e.prixcolis, h.id_heure, e.dateenvoi
+                    AND COALESCE(NULLIF(TRIM(e.code_gaexp_vendu), ''), gex.code_gaexp) = '$gd'
+                    GROUP BY COALESCE(NULLIF(TRIM(e.nom_ligne_vendu), ''), lg.nom_ligne), e.prixcolis, h.id_heure, e.dateenvoi
                     ORDER BY e.dateenvoi, h.id_heure")->result();
             }
             
             elseif($algn === '')
             {
-                return $this->db->query("SELECT COUNT(courrierexpid) AS nombres, SUM(prixcolis) AS montant, lg.nom_ligne, e.prixcolis, h.heure, e.dateenvoi FROM courriers_exp e
+                return $this->db->query("SELECT COUNT(courrierexpid) AS nombres, SUM(prixcolis) AS montant, COALESCE(NULLIF(TRIM(e.nom_ligne_vendu), ''), lg.nom_ligne) AS nom_ligne, e.prixcolis, h.heure, e.dateenvoi FROM courriers_exp e
                     JOIN code_courriers cd ON e.id_codecourrier = cd.codecolisid
                     JOIN expeditreception er ON cd.exprecepident = er.idexprecept
                     JOIN programme pr ON e.departcolis = pr.code_progr
@@ -2185,14 +2236,14 @@
                     AND e.dateenvoi >= '$dt1' AND e.dateenvoi < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND e.prixcolis IS NOT NULL
                     AND e.partocour IS NULL
-                    AND gex.code_gaexp = '$gd'
+                    AND COALESCE(NULLIF(TRIM(e.code_gaexp_vendu), ''), gex.code_gaexp) = '$gd'
                     AND cd.naturecoli = '$tycr'
-                    AND e.verifcour IN('A', 'C', 'D')
-                    GROUP BY lg.nom_ligne, e.prixcolis, h.id_heure, e.dateenvoi
+                    {$filtreLettres}
+                    GROUP BY COALESCE(NULLIF(TRIM(e.nom_ligne_vendu), ''), lg.nom_ligne), e.prixcolis, h.id_heure, e.dateenvoi
                     ORDER BY e.dateenvoi, h.id_heure")->result();
             }
                 return $this->db->query(
-                    "SELECT COUNT(courrierexpid) AS nombres, SUM(prixcolis) AS montant, lg.nom_ligne, e.prixcolis, h.heure, e.dateenvoi FROM courriers_exp e
+                    "SELECT COUNT(courrierexpid) AS nombres, SUM(prixcolis) AS montant, COALESCE(NULLIF(TRIM(e.nom_ligne_vendu), ''), lg.nom_ligne) AS nom_ligne, e.prixcolis, h.heure, e.dateenvoi FROM courriers_exp e
                     JOIN code_courriers cd ON e.id_codecourrier = cd.codecolisid
                     JOIN expeditreception er ON cd.exprecepident = er.idexprecept
                     JOIN programme pr ON e.departcolis = pr.code_progr
@@ -2208,11 +2259,11 @@
                     AND e.dateenvoi >= '$dt1' AND e.dateenvoi < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND e.prixcolis IS NOT NULL
                     AND e.partocour IS NULL
-                    AND gex.code_gaexp = '$gd'
+                    AND COALESCE(NULLIF(TRIM(e.code_gaexp_vendu), ''), gex.code_gaexp) = '$gd'
                     AND lg.ident_ligne = '$algn'
                     AND cd.naturecoli = '$tycr'
-                    AND e.verifcour IN('A', 'C', 'D')
-                    GROUP BY lg.nom_ligne, e.prixcolis, h.id_heure, e.dateenvoi
+                    {$filtreLettres}
+                    GROUP BY COALESCE(NULLIF(TRIM(e.nom_ligne_vendu), ''), lg.nom_ligne), e.prixcolis, h.id_heure, e.dateenvoi
                     ORDER BY e.dateenvoi, h.id_heure ASC")->result();
         }
 
@@ -2220,7 +2271,7 @@
         {        
             if ($gd === '' AND $tycr === '' AND $algn === '') {
                 return $this->db->query(
-                    "SELECT COUNT(courrierexpid) AS nombres, SUM(prixcolis) AS montant, dest.id_compaga, lg.nom_ligne, cd.naturecoli, e.prixcolis FROM courriers_exp e
+                    "SELECT COUNT(courrierexpid) AS nombres, SUM(prixcolis) AS montant, dest.id_compaga, COALESCE(NULLIF(TRIM(e.nom_ligne_vendu), ''), lg.nom_ligne) AS nom_ligne, cd.naturecoli, e.prixcolis FROM courriers_exp e
                     JOIN attributions_role ar ON e.idoperateur = ar.roleattribut
                     JOIN user_login ul ON ar.idgestcompte = ul.uid_login
                     JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
@@ -2249,11 +2300,11 @@
                     AND cd.naturecoli <> 'Sac_partenaire'
                     AND cd.naturecoli <> 'Petit_colis'
                     AND cd.naturecoli <> 'Gros_colis'
-                    GROUP BY dest.id_compaga, lg.nom_ligne, cd.naturecoli, e.prixcolis")->result();
+                    GROUP BY dest.id_compaga, COALESCE(NULLIF(TRIM(e.nom_ligne_vendu), ''), lg.nom_ligne), cd.naturecoli, e.prixcolis")->result();
             }
             elseif ($tycr === '' AND $algn === '') {
                 return $this->db->query(
-                    "SELECT COUNT(courrierexpid) AS nombres, SUM(prixcolis) AS montant, dest.id_compaga, lg.nom_ligne, cd.naturecoli, e.prixcolis FROM courriers_exp e
+                    "SELECT COUNT(courrierexpid) AS nombres, SUM(prixcolis) AS montant, dest.id_compaga, COALESCE(NULLIF(TRIM(e.nom_ligne_vendu), ''), lg.nom_ligne) AS nom_ligne, cd.naturecoli, e.prixcolis FROM courriers_exp e
                     JOIN attributions_role ar ON e.idoperateur = ar.roleattribut
                     JOIN user_login ul ON ar.idgestcompte = ul.uid_login
                     JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
@@ -2282,13 +2333,13 @@
                     AND cd.naturecoli <> 'Sac_partenaire'
                     AND cd.naturecoli <> 'Petit_colis'
                     AND cd.naturecoli <> 'Gros_colis'
-                    AND gex.code_gaexp = '$gd'
-                    GROUP BY dest.id_compaga, lg.nom_ligne, cd.naturecoli, e.prixcolis")->result();
+                    AND COALESCE(NULLIF(TRIM(e.code_gaexp_vendu), ''), gex.code_gaexp) = '$gd'
+                    GROUP BY dest.id_compaga, COALESCE(NULLIF(TRIM(e.nom_ligne_vendu), ''), lg.nom_ligne), cd.naturecoli, e.prixcolis")->result();
             }
             
             elseif($algn === '')
             {
-                return $this->db->query("SELECT COUNT(courrierexpid) AS nombres, SUM(prixcolis) AS montant, dest.id_compaga, lg.nom_ligne, cd.naturecoli, e.prixcolis FROM courriers_exp e
+                return $this->db->query("SELECT COUNT(courrierexpid) AS nombres, SUM(prixcolis) AS montant, dest.id_compaga, COALESCE(NULLIF(TRIM(e.nom_ligne_vendu), ''), lg.nom_ligne) AS nom_ligne, cd.naturecoli, e.prixcolis FROM courriers_exp e
                     JOIN attributions_role ar ON e.idoperateur = ar.roleattribut
                     JOIN user_login ul ON ar.idgestcompte = ul.uid_login
                     JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
@@ -2309,12 +2360,12 @@
                     AND e.dateenvoi >= '$dt1' AND dateenvoi < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND e.prixcolis IS NOT NULL
                     AND e.partocour IS NULL
-                    AND gex.code_gaexp = '$gd'
+                    AND COALESCE(NULLIF(TRIM(e.code_gaexp_vendu), ''), gex.code_gaexp) = '$gd'
                     AND cd.naturecoli = '$tycr'
-                    GROUP BY dest.id_compaga, lg.nom_ligne, cd.naturecoli, e.prixcolis")->result();
+                    GROUP BY dest.id_compaga, COALESCE(NULLIF(TRIM(e.nom_ligne_vendu), ''), lg.nom_ligne), cd.naturecoli, e.prixcolis")->result();
             }
                 return $this->db->query(
-                    "SELECT COUNT(courrierexpid) AS nombres, SUM(prixcolis) AS montant, dest.id_compaga, lg.nom_ligne, cd.naturecoli, e.prixcolis FROM courriers_exp e
+                    "SELECT COUNT(courrierexpid) AS nombres, SUM(prixcolis) AS montant, dest.id_compaga, COALESCE(NULLIF(TRIM(e.nom_ligne_vendu), ''), lg.nom_ligne) AS nom_ligne, cd.naturecoli, e.prixcolis FROM courriers_exp e
                     JOIN attributions_role ar ON e.idoperateur = ar.roleattribut
                     JOIN user_login ul ON ar.idgestcompte = ul.uid_login
                     JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
@@ -2335,16 +2386,16 @@
                     AND e.dateenvoi >= '$dt1' AND dateenvoi < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND e.prixcolis IS NOT NULL
                     AND e.partocour IS NULL
-                    AND gex.code_gaexp = '$gd'
+                    AND COALESCE(NULLIF(TRIM(e.code_gaexp_vendu), ''), gex.code_gaexp) = '$gd'
                     AND lg.ident_ligne = '$algn'
                     AND cd.naturecoli = '$tycr'
-                    GROUP BY dest.id_compaga, lg.nom_ligne, cd.naturecoli, e.prixcolis")->result();
+                    GROUP BY dest.id_compaga, COALESCE(NULLIF(TRIM(e.nom_ligne_vendu), ''), lg.nom_ligne), cd.naturecoli, e.prixcolis")->result();
         }
         public function recaptpligl($cid, $dt1, $dt2, $gd = FALSE, $tycr = FALSE, $cp = FALSE, $algn = FALSE)
         {        
             if ($gd === '' AND $tycr === '' AND $cp === '' AND $algn === '') {
                 return $this->db->query(
-                    "SELECT COUNT(courrierexpid) AS nombres, SUM(prixcolis) AS montant, dest.id_compaga, lg.nom_ligne, cd.naturecoli, e.prixcolis FROM courriers_exp e
+                    "SELECT COUNT(courrierexpid) AS nombres, SUM(prixcolis) AS montant, dest.id_compaga, COALESCE(NULLIF(TRIM(e.nom_ligne_vendu), ''), lg.nom_ligne) AS nom_ligne, cd.naturecoli, e.prixcolis FROM courriers_exp e
                     JOIN attributions_role ar ON e.idoperateur = ar.roleattribut
                     JOIN user_login ul ON ar.idgestcompte = ul.uid_login
                     JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
@@ -2364,11 +2415,11 @@
                     AND e.dateenvoi >= '$dt1' AND dateenvoi < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND e.prixcolis IS NOT NULL
                     AND e.partocour IS NULL
-                    GROUP BY dest.id_compaga, lg.nom_ligne, cd.naturecoli, e.prixcolis")->result();
+                    GROUP BY dest.id_compaga, COALESCE(NULLIF(TRIM(e.nom_ligne_vendu), ''), lg.nom_ligne), cd.naturecoli, e.prixcolis")->result();
             }
             elseif($tycr === '' AND $cp === '' AND $algn === '') {
                 return $this->db->query(
-                    "SELECT COUNT(courrierexpid) AS nombres, SUM(prixcolis) AS montant, dest.id_compaga, lg.nom_ligne, cd.naturecoli, e.prixcolis FROM courriers_exp e
+                    "SELECT COUNT(courrierexpid) AS nombres, SUM(prixcolis) AS montant, dest.id_compaga, COALESCE(NULLIF(TRIM(e.nom_ligne_vendu), ''), lg.nom_ligne) AS nom_ligne, cd.naturecoli, e.prixcolis FROM courriers_exp e
                     JOIN attributions_role ar ON e.idoperateur = ar.roleattribut
                     JOIN user_login ul ON ar.idgestcompte = ul.uid_login
                     JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
@@ -2385,15 +2436,15 @@
                     JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                     JOIN entreprise ep ON c.id_entrep = ep.id_entreprise
                     WHERE ep.ekey = '$cid'
-                    AND gex.code_gaexp = '$gd'
+                    AND COALESCE(NULLIF(TRIM(e.code_gaexp_vendu), ''), gex.code_gaexp) = '$gd'
                     AND e.dateenvoi >= '$dt1' AND dateenvoi < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND e.prixcolis IS NOT NULL
                     AND e.partocour IS NULL
-                    GROUP BY dest.id_compaga, lg.nom_ligne, cd.naturecoli, e.prixcolis")->result();
+                    GROUP BY dest.id_compaga, COALESCE(NULLIF(TRIM(e.nom_ligne_vendu), ''), lg.nom_ligne), cd.naturecoli, e.prixcolis")->result();
             }
             elseif ($cp === '' AND $algn === '') {
                 return $this->db->query(
-                    "SELECT COUNT(courrierexpid) AS nombres, SUM(prixcolis) AS montant, dest.id_compaga, lg.nom_ligne, cd.naturecoli, e.prixcolis FROM courriers_exp e
+                    "SELECT COUNT(courrierexpid) AS nombres, SUM(prixcolis) AS montant, dest.id_compaga, COALESCE(NULLIF(TRIM(e.nom_ligne_vendu), ''), lg.nom_ligne) AS nom_ligne, cd.naturecoli, e.prixcolis FROM courriers_exp e
                     JOIN attributions_role ar ON e.idoperateur = ar.roleattribut
                     JOIN user_login ul ON ar.idgestcompte = ul.uid_login
                     JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
@@ -2413,13 +2464,13 @@
                     AND e.dateenvoi >= '$dt1' AND dateenvoi < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND e.prixcolis IS NOT NULL
                     AND e.partocour IS NULL
-                    AND gex.code_gaexp = '$gd'
+                    AND COALESCE(NULLIF(TRIM(e.code_gaexp_vendu), ''), gex.code_gaexp) = '$gd'
                     AND cd.naturecoli = '$tycr'
-                    GROUP BY dest.id_compaga, lg.nom_ligne, cd.naturecoli, e.prixcolis")->result();
+                    GROUP BY dest.id_compaga, COALESCE(NULLIF(TRIM(e.nom_ligne_vendu), ''), lg.nom_ligne), cd.naturecoli, e.prixcolis")->result();
             }
             elseif($tycr === '' AND $algn === '')
             {
-                return $this->db->query("SELECT COUNT(courrierexpid) AS nombres, SUM(prixcolis) AS montant, dest.id_compaga, lg.nom_ligne, cd.naturecoli, e.prixcolis FROM courriers_exp e
+                return $this->db->query("SELECT COUNT(courrierexpid) AS nombres, SUM(prixcolis) AS montant, dest.id_compaga, COALESCE(NULLIF(TRIM(e.nom_ligne_vendu), ''), lg.nom_ligne) AS nom_ligne, cd.naturecoli, e.prixcolis FROM courriers_exp e
                     JOIN attributions_role ar ON e.idoperateur = ar.roleattribut
                     JOIN user_login ul ON ar.idgestcompte = ul.uid_login
                     JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
@@ -2440,12 +2491,12 @@
                     AND e.dateenvoi >= '$dt1' AND dateenvoi < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND e.prixcolis IS NOT NULL
                     AND e.partocour IS NULL
-                    AND gex.code_gaexp = '$gd'
-                    GROUP BY dest.id_compaga, lg.nom_ligne, cd.naturecoli, e.prixcolis")->result();
+                    AND COALESCE(NULLIF(TRIM(e.code_gaexp_vendu), ''), gex.code_gaexp) = '$gd'
+                    GROUP BY dest.id_compaga, COALESCE(NULLIF(TRIM(e.nom_ligne_vendu), ''), lg.nom_ligne), cd.naturecoli, e.prixcolis")->result();
             }
             elseif($algn === '')
             {
-                return $this->db->query("SELECT COUNT(courrierexpid) AS nombres, SUM(prixcolis) AS montant, dest.id_compaga, lg.nom_ligne, cd.naturecoli, e.prixcolis FROM courriers_exp e
+                return $this->db->query("SELECT COUNT(courrierexpid) AS nombres, SUM(prixcolis) AS montant, dest.id_compaga, COALESCE(NULLIF(TRIM(e.nom_ligne_vendu), ''), lg.nom_ligne) AS nom_ligne, cd.naturecoli, e.prixcolis FROM courriers_exp e
                     JOIN attributions_role ar ON e.idoperateur = ar.roleattribut
                     JOIN user_login ul ON ar.idgestcompte = ul.uid_login
                     JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
@@ -2466,12 +2517,12 @@
                     AND e.dateenvoi >= '$dt1' AND dateenvoi < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND e.prixcolis IS NOT NULL
                     AND e.partocour IS NULL
-                    AND gex.code_gaexp = '$gd'
+                    AND COALESCE(NULLIF(TRIM(e.code_gaexp_vendu), ''), gex.code_gaexp) = '$gd'
                     AND cd.naturecoli = '$tycr'
-                    GROUP BY dest.id_compaga, lg.nom_ligne, cd.naturecoli, e.prixcolis")->result();
+                    GROUP BY dest.id_compaga, COALESCE(NULLIF(TRIM(e.nom_ligne_vendu), ''), lg.nom_ligne), cd.naturecoli, e.prixcolis")->result();
             }
                 return $this->db->query(
-                    "SELECT COUNT(courrierexpid) AS nombres, SUM(prixcolis) AS montant, dest.id_compaga, lg.nom_ligne, cd.naturecoli, e.prixcolis FROM courriers_exp e
+                    "SELECT COUNT(courrierexpid) AS nombres, SUM(prixcolis) AS montant, dest.id_compaga, COALESCE(NULLIF(TRIM(e.nom_ligne_vendu), ''), lg.nom_ligne) AS nom_ligne, cd.naturecoli, e.prixcolis FROM courriers_exp e
                     JOIN attributions_role ar ON e.idoperateur = ar.roleattribut
                     JOIN user_login ul ON ar.idgestcompte = ul.uid_login
                     JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
@@ -2492,10 +2543,10 @@
                     AND e.dateenvoi >= '$dt1' AND dateenvoi < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND e.prixcolis IS NOT NULL
                     AND e.partocour IS NULL
-                    AND gex.code_gaexp = '$gd'
+                    AND COALESCE(NULLIF(TRIM(e.code_gaexp_vendu), ''), gex.code_gaexp) = '$gd'
                     AND lg.ident_ligne = '$algn'
                     AND cd.naturecoli = '$tycr'
-                    GROUP BY dest.id_compaga, lg.nom_ligne, cd.naturecoli, e.prixcolis")->result();
+                    GROUP BY dest.id_compaga, COALESCE(NULLIF(TRIM(e.nom_ligne_vendu), ''), lg.nom_ligne), cd.naturecoli, e.prixcolis")->result();
         }
 
         public function trecaptpligl($cid, $dt1, $dt2, $cp = FALSE, $gd = FALSE, $tycr = FALSE, $algn = FALSE, $sgid = FALSE)
@@ -2506,7 +2557,7 @@
             $cid = $this->db->escape_str($cid);
             $dt1 = $this->db->escape_str($dt1);
             $dt2 = $this->db->escape_str($dt2);
-            $sql = "SELECT COUNT(courrierexpid) AS nombres, SUM(prixcolis) AS montant, dest.id_compaga, lg.nom_ligne, cd.naturecoli, e.prixcolis FROM courriers_exp e
+            $sql = "SELECT COUNT(courrierexpid) AS nombres, SUM(prixcolis) AS montant, dest.id_compaga, COALESCE(NULLIF(TRIM(e.nom_ligne_vendu), ''), lg.nom_ligne) AS nom_ligne, cd.naturecoli, e.prixcolis FROM courriers_exp e
                     JOIN attributions_role ar ON e.idoperateur = ar.roleattribut
                     JOIN user_login ul ON ar.idgestcompte = ul.uid_login
                     JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
@@ -2543,7 +2594,7 @@
             if ($filled($sgid)) {
                 $sql .= " AND e.courrierdepartgare = '" . $this->db->escape_str($sgid) . "'";
             }
-            $sql .= " GROUP BY dest.id_compaga, lg.nom_ligne, e.prixcolis";
+            $sql .= " GROUP BY dest.id_compaga, COALESCE(NULLIF(TRIM(e.nom_ligne_vendu), ''), lg.nom_ligne), e.prixcolis";
             return $this->db->query($sql)->result();
         }
 
@@ -2555,7 +2606,7 @@
             $cid = $this->db->escape_str($cid);
             $dt1 = $this->db->escape_str($dt1);
             $dt2 = $this->db->escape_str($dt2);
-            $sql = "SELECT COUNT(courrierexpid) AS nombres, SUM(prixcolis) AS montant, cd.naturecoli, lg.nom_ligne, e.prixcolis
+            $sql = "SELECT COUNT(courrierexpid) AS nombres, SUM(prixcolis) AS montant, cd.naturecoli, COALESCE(NULLIF(TRIM(e.nom_ligne_vendu), ''), lg.nom_ligne) AS nom_ligne, e.prixcolis
                     FROM courriers_exp e
                     JOIN attributions_role ar ON e.idoperateur = ar.roleattribut
                     JOIN user_login ul ON ar.idgestcompte = ul.uid_login
@@ -2590,7 +2641,7 @@
             if ($filled($algn)) {
                 $sql .= " AND lg.ident_ligne = '" . $this->db->escape_str($algn) . "'";
             }
-            $sql .= " GROUP BY lg.nom_ligne, e.prixcolis, cd.naturecoli";
+            $sql .= " GROUP BY COALESCE(NULLIF(TRIM(e.nom_ligne_vendu), ''), lg.nom_ligne), e.prixcolis, cd.naturecoli";
             return $this->db->query($sql)->result();
         }
 
@@ -2890,7 +2941,7 @@
         public function lg($cid, $gd, $sg)
         {
                 return $this->db->query(
-                "SELECT lg.ident_ligne, lg.nom_ligne FROM courriers_exp e
+                "SELECT lg.ident_ligne, COALESCE(NULLIF(TRIM(e.nom_ligne_vendu), ''), lg.nom_ligne) AS nom_ligne FROM courriers_exp e
                 JOIN code_courriers cd ON e.id_codecourrier = cd.codecolisid
                 JOIN expeditreception er ON cd.exprecepident = er.idexprecept
                 JOIN sousgare sg ON e.sousgarearrivid = sg.idsousgare

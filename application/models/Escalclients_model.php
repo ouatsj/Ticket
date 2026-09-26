@@ -7,6 +7,7 @@
         public function __construct()
         {
             parent::__construct();
+            $this->load->helper('etat_lettres');
         }
 
         /**
@@ -311,7 +312,7 @@
                 AND dest.id_compaga = '$cp'
                 AND ar.roleattribut = '$use'
                 AND es.cptarrchgescal = 0
-                AND ex.code_gaexp = '$gid'
+                AND es.departgescal = '$gid'
                 GROUP BY lg.ident_ligne, dest.id_compaga, es.prixescal, cu.username, es.dateescal")->result();
          
         }
@@ -335,7 +336,7 @@
                 WHERE e.ekey = '$cd'
                 AND es.dateescal >= '$dd' AND es.dateescal < DATE_ADD('$fd', INTERVAL 1 DAY)
                 AND ar.roleattribut = '$idcox'
-                AND ex.code_gaexp = '$gid'
+                AND es.departgescal = '$gid'
                 AND es.cptarrchgescal = 0
                 GROUP BY es.iduseescal, dest.id_compaga, c.id_compagnie, es.idclescal ASC")->result();
         }
@@ -414,7 +415,7 @@
                     AND es.dateescal BETWEEN '$datedb' AND '$datef'
                     AND h.h_active = 1
                     AND es.arrcptchefgescal = 0
-                    AND ex.code_gaexp = '$gid'")->result();
+                    AND es.departgescal = '$gid'")->result();
         }
         public function alldayad($cid, $datedb, $datef)
         {
@@ -454,7 +455,7 @@
                 AND es.datedepescal >= '$datedb' AND es.datedepescal < DATE_ADD('$datef', INTERVAL 1 DAY)
                 AND es.arrcptchefgescal = 0
                 AND c.cle_compagnie ='$cp'
-                AND ex.code_gaexp = '$gd'")->result();
+                AND es.departgescal = '$gd'")->result();
 
             }
 
@@ -475,7 +476,7 @@
                 AND es.datedepescal >= '$datedb' AND es.datedepescal < DATE_ADD('$datef', INTERVAL 1 DAY)
                 AND es.arrcptchefgescal = 0
                 AND c.cle_compagnie ='$cp'
-                AND ex.code_gaexp = '$gd'
+                AND es.departgescal = '$gd'
                 AND lg.ident_ligne = '$lg'")->result();
 
             }
@@ -497,7 +498,7 @@
                 AND es.datedepescal >= '$datedb' AND es.datedepescal < DATE_ADD('$datef', INTERVAL 1 DAY)
                 AND es.arrcptchefgescal = 0
                 AND c.cle_compagnie ='$cp'
-                AND ex.code_gaexp = '$gd'
+                AND es.departgescal = '$gd'
                 AND lg.ident_ligne = '$lg'
                 AND h.id_heure = '$hr'")->result();
             }
@@ -544,6 +545,7 @@
         //exo
         public function reporticketcpt($cid, $gid, $dt1, $dt2, $cp, $algn = FALSE)
         {
+        $filtreLettres = etat_filtre_lettres('esp.escalpanier', 'esp.datedepescal', $cp, 'ticket_escal', $dt1, $dt2);
             $cid = $this->db->escape_str($cid);
             $dt1 = $this->db->escape_str($dt1);
             $dt2 = $this->db->escape_str($dt2);
@@ -570,7 +572,7 @@
                 AND esp.datedepescal >= '{$dt1}' AND esp.datedepescal < DATE_ADD('{$dt2}', INTERVAL 1 DAY)
                 AND esp.prixescal IS NOT NULL
                 AND esp.arrcptescal = 1
-                AND esp.escalpanier IN('A', 'C', 'D')
+                {$filtreLettres}
                 AND dest.id_compaga = '{$cp}'
                 {$gareSql}
                 {$ligneSql}
@@ -579,6 +581,7 @@
 
         public function reporticketcptgr($cid, $gid, $dt1, $dt2, $cp, $algn = FALSE)
         {
+        $filtreLettres = etat_filtre_lettres('esp.escalpanier', 'esp.datedepescal', $cp, 'ticket_escal', $dt1, $dt2);
             $cid = $this->db->escape_str($cid);
             $dt1 = $this->db->escape_str($dt1);
             $dt2 = $this->db->escape_str($dt2);
@@ -604,7 +607,7 @@
                 AND esp.datedepescal >= '{$dt1}' AND esp.datedepescal < DATE_ADD('{$dt2}', INTERVAL 1 DAY)
                 AND esp.prixescal IS NOT NULL
                 AND esp.arrcptescal = 1
-                AND esp.escalpanier IN('A', 'C', 'D')
+                {$filtreLettres}
                 AND dest.id_compaga = '{$cp}'
                 {$gareSql}
                 {$ligneSql}"
@@ -686,6 +689,7 @@
         
         public function listereportcptesc($cid, $cp, $gid, $dt1, $dt2, $acl = FALSE, $algn = FALSE)
         {
+        $filtreLettres = etat_filtre_lettres('esp.escalpanier', 'esp.datedepescal', $cp, 'ticket_escal', $dt1, $dt2);
             $cid = $this->db->escape_str($cid);
             $dt1 = $this->db->escape_str($dt1);
             $dt2 = $this->db->escape_str($dt2);
@@ -713,7 +717,7 @@
                 WHERE e.ekey = '{$cid}'
                 AND esp.datedepescal >= '{$dt1}' AND esp.datedepescal < DATE_ADD('{$dt2}', INTERVAL 1 DAY)
                 AND dest.id_compaga = '{$cp}'
-                AND esp.escalpanier IN('A', 'C', 'D')
+                {$filtreLettres}
                 AND esp.prixescal IS NOT NULL
                 {$gareSql}
                 {$opSql}
@@ -849,6 +853,7 @@
 
         public function nifestheb($cid, $cp, $gid, $dt1, $dt2, $algn = FALSE)
     {
+        $filtreLettres = etat_filtre_lettres('esp.escalpanier', 'esp.datedepescal', $cp, 'ticket_escal', $dt1, $dt2);
         $cid = $this->db->escape_str($cid);
         $dt1 = $this->db->escape_str($dt1);
         $dt2 = $this->db->escape_str($dt2);
@@ -874,7 +879,7 @@
             WHERE e.ekey = '{$cid}'
             AND dest.id_compaga = '{$cp}'
             AND esp.datedepescal >= '{$dt1}' AND esp.datedepescal < DATE_ADD('{$dt2}', INTERVAL 1 DAY)
-            AND esp.escalpanier IN('A', 'C', 'D')
+            {$filtreLettres}
             AND esp.prixescal IS NOT NULL
             {$gareSql}
             {$ligneSql}
@@ -885,6 +890,7 @@
 
     public function listereportverscptglexo($cid, $cp, $gid, $dt1, $dt2, $acl = FALSE)
     {
+        $filtreLettres = etat_filtre_lettres('esp.escalpanier', 'esp.datedepescal', $cp, 'ticket_escal', $dt1, $dt2);
         $cid = $this->db->escape_str($cid);
         $dt1 = $this->db->escape_str($dt1);
         $dt2 = $this->db->escape_str($dt2);
@@ -906,7 +912,7 @@
             JOIN entreprise e ON c.id_entrep = e.id_entreprise
             WHERE e.ekey = '{$cid}'
             AND dest.id_compaga = '{$cp}'
-            AND esp.escalpanier IN('A', 'C', 'D')
+            {$filtreLettres}
             AND esp.datedepescal >= '{$dt1}' AND esp.datedepescal < DATE_ADD('{$dt2}', INTERVAL 1 DAY)
             AND esp.prixescal IS NOT NULL
             {$gareSql}
@@ -917,6 +923,7 @@
 
     public function exopass($cid, $cp, $gd, $d1, $d2)
     {
+        $filtreLettres = etat_filtre_lettres('es.escalpanier', 'es.datedepescal', $cp, 'ticket_escal', $d1, $d2);
          return $this->db->query(
                 "SELECT * FROM escalclients es
                 JOIN client cl ON es.clientescal = cl.id_client
@@ -931,8 +938,8 @@
                 AND dest.id_compaga = '$cp'
                 AND es.datedepescal >= '$d1' AND es.datedepescal < DATE_ADD('$d2', INTERVAL 1 DAY)
                 AND es.prixescal IS NOT NULL
-                AND ex.code_gaexp = '$gd'
-                AND es.escalpanier IN('A', 'C', 'D')")->result();        
+                AND es.departgescal = '$gd'
+                {$filtreLettres}")->result();        
     }
 
     public function exopassglob($cid, $cp, $gd, $d1, $d2)
@@ -954,7 +961,7 @@
                 AND dest.id_compaga = '$cp'
                 AND es.datedepescal >= '$d1' AND es.datedepescal < DATE_ADD('$d2', INTERVAL 1 DAY)
                 AND es.prixescal IS NOT NULL
-                AND ex.code_gaexp = '$gd'")->result();
+                AND es.departgescal = '$gd'")->result();
         
     }
 }

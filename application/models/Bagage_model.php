@@ -7,6 +7,7 @@
         public function __construct()
         {
             parent::__construct();
+            $this->load->helper('etat_lettres');
         }
 
         /**
@@ -51,8 +52,8 @@
             }
             $inSql = implode(',', $in);
             return " AND (
-                {$idGareCol} IN ({$inSql})
-                OR {$gaexpExpr} IN ({$inSql})
+                ({$idGareCol} IS NOT NULL AND {$idGareCol} <> '' AND {$idGareCol} IN ({$inSql}))
+                OR (({$idGareCol} IS NULL OR {$idGareCol} = '') AND {$gaexpExpr} IN ({$inSql}))
             ) ";
         }
 
@@ -1552,6 +1553,7 @@
 
         public function reportbgcpt($cid, $gid, $dt1, $dt2, $cp, $algn = FALSE)
         {
+        $filtreLettres = etat_filtre_lettres('bg.couleurcarnet', 'bg.date_create', $cp, 'bagage', $dt1, $dt2);
             $cid = $this->db->escape_str($cid);
             $dt1 = $this->db->escape_str($dt1);
             $dt2 = $this->db->escape_str($dt2);
@@ -1583,7 +1585,7 @@
             WHERE bg.date_create >= '{$dt1}' AND bg.date_create < DATE_ADD('{$dt2}', INTERVAL 1 DAY)
                 AND e.ekey = '{$cid}'
                 AND dest.id_compaga = '{$cp}'
-                AND bg.couleurcarnet IN ('A','C')
+                {$filtreLettres}
                 AND bg.prix_bagage IS NOT NULL
                 {$gareSql}
                 {$ligneSql}
@@ -1593,6 +1595,7 @@
 
         public function reportbgcptop($cid, $cp, $gid, $dt1, $dt2, $us, $algn = FALSE)
         {
+        $filtreLettres = etat_filtre_lettres('bg.couleurcarnet', 'bg.date_create', $cp, 'bagage', $dt1, $dt2);
             $cid = $this->db->escape_str($cid);
             $dt1 = $this->db->escape_str($dt1);
             $dt2 = $this->db->escape_str($dt2);
@@ -1625,7 +1628,7 @@
             WHERE bg.date_create >= '{$dt1}' AND bg.date_create < DATE_ADD('{$dt2}', INTERVAL 1 DAY)
                 AND e.ekey = '{$cid}'
                 AND dest.id_compaga = '{$cp}'
-                AND bg.couleurcarnet IN ('A','C')
+                {$filtreLettres}
                 AND bg.prix_bagage IS NOT NULL
                 {$gareSql}
                 {$opSql}
@@ -1721,6 +1724,7 @@
 
         public function listereportverscptglexo($cid, $cp, $dt1, $dt2, $gid = FALSE, $acl = FALSE)
         {
+        $filtreLettres = etat_filtre_lettres('bg.couleurcarnet', 'bg.date_create', $cp, 'bagage', $dt1, $dt2);
             $cid = $this->db->escape_str($cid);
             $dt1 = $this->db->escape_str($dt1);
             $dt2 = $this->db->escape_str($dt2);
@@ -1750,7 +1754,7 @@
             LEFT JOIN entreprise e ON c.id_entrep = e.id_entreprise
             WHERE bg.date_create >= '{$dt1}' AND bg.date_create < DATE_ADD('{$dt2}', INTERVAL 1 DAY)
                 AND e.ekey = '{$cid}'
-                AND bg.couleurcarnet IN ('A','C')
+                {$filtreLettres}
                 AND dest.id_compaga = '{$cp}'
                 {$gareSql}
                 {$opSql}
@@ -1759,7 +1763,8 @@
         }
 
         public function recaptexobgheb($cid, $dt1, $dt2, $gd, $cp, $algn = FALSE)
-        {        
+        {
+        $filtreLettres = etat_filtre_lettres('bg.couleurcarnet', 'bg.date_create', $cp, 'bagage', $dt1, $dt2);        
             if($algn === '') {
                 return $this->db->query("SELECT 
                     COUNT(bg.id_bagage) AS codid_bagage,
@@ -1791,7 +1796,7 @@
                     AND e.ekey = '$cid'
                     AND gex.code_gaexp = '$gd'
                     AND dest.id_compaga = '$cp'
-                    AND bg.couleurcarnet IN ('A','C')
+                    {$filtreLettres}
                 GROUP BY COALESCE(lg.nom_ligne, g.nom_ligne), DATE(bg.date_create), bg.prix_bagage
                 ORDER BY DATE(bg.date_create) ASC;")->result();
             }
@@ -1823,7 +1828,7 @@
                     AND e.ekey = '$cid'
                     AND gex.code_gaexp = '$gd'
                     AND dest.id_compaga = '$cp'
-                    AND bg.couleurcarnet IN ('A','C')
+                    {$filtreLettres}
                     AND lg.ident_ligne = '$algn'
                 GROUP BY COALESCE(lg.nom_ligne, g.nom_ligne), DATE(bg.date_create), bg.prix_bagage
                 ORDER BY DATE(bg.date_create) ASC;")->result();
@@ -1902,6 +1907,7 @@
 
         public function reportbagcptgr($cid, $gid, $dt1, $dt2, $cp, $algn = FALSE)
         {
+        $filtreLettres = etat_filtre_lettres('bg.couleurcarnet', 'bg.date_create', $cp, 'bagage', $dt1, $dt2);
             
             if ($algn === '') 
             {
@@ -1925,7 +1931,7 @@
                     bg.date_create >= '$dt1' AND bg.date_create < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND e.ekey = '$cid'
                         AND dest.id_compaga = '$cp'
-                        AND bg.couleurcarnet IN ('A','C')
+                        {$filtreLettres}
                     AND bg.prix_bagage IS NOT NULL
                     AND bg.isvalidbag = 1
                     AND EXISTS (
@@ -1959,7 +1965,7 @@
                     bg.date_create >= '$dt1' AND bg.date_create < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND e.ekey = '$cid'
                     AND dest.id_compaga = '$cp'
-                    AND bg.couleurcarnet IN ('A','C')
+                    {$filtreLettres}
                     AND lg.ident_ligne = '$algn'
                     AND EXISTS (
                       SELECT 1 FROM user_login ul

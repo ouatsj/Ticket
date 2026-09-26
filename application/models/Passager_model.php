@@ -31,7 +31,70 @@
         public function __construct()
         {
             parent::__construct();
+            $this->load->helper('etat_lettres');
+            $this->_ensure_ligne_vendue_columns();
         }
+
+        /**
+         * Colonnes qui gardent la ligne telle qu'elle était à la vente.
+         */
+        private function _ensure_ligne_vendue_columns()
+        {
+            static $done = false;
+            if ($done) {
+                return;
+            }
+            $done = true;
+            $prev = $this->db->db_debug;
+            $this->db->db_debug = false;
+            if (!$this->passager_column_exists('ident_ligne_vendu')) {
+                $this->db->query("ALTER TABLE passager ADD COLUMN ident_ligne_vendu VARCHAR(30) NULL");
+            }
+            if (!$this->passager_column_exists('code_gaexp_vendu')) {
+                $this->db->query("ALTER TABLE passager ADD COLUMN code_gaexp_vendu VARCHAR(20) NULL");
+            }
+            $this->db->db_debug = $prev;
+        }
+
+        /**
+         * Copie identifiant, nom et gare de départ de la ligne au moment de l'insert.
+         */
+        protected function _figer_ligne_vendue(array $data)
+        {
+            if (empty($data['code_pro'])) {
+                return $data;
+            }
+            $row = $this->db->query(
+                "SELECT lg.ident_ligne, lg.nom_ligne, lg.gaexp_lg, ge.nom_gaep
+                 FROM programme pr
+                 JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
+                 JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
+                 LEFT JOIN gare_exp ge ON lg.gaexp_lg = ge.code_gaexp
+                 WHERE pr.code_progr = ?
+                 LIMIT 1",
+                array($data['code_pro'])
+            )->row();
+            if (!$row) {
+                return $data;
+            }
+            if (!isset($data['ident_ligne_vendu']) || trim((string) $data['ident_ligne_vendu']) === '') {
+                $data['ident_ligne_vendu'] = $row->ident_ligne;
+            }
+            if (!isset($data['code_gaexp_vendu']) || trim((string) $data['code_gaexp_vendu']) === '') {
+                $data['code_gaexp_vendu'] = $row->gaexp_lg;
+            }
+            if (!isset($data['lignetineraire_vendu']) || trim((string) $data['lignetineraire_vendu']) === '') {
+                $dest = isset($data['nom_dest_vente']) ? trim((string) $data['nom_dest_vente']) : '';
+                $origine = isset($row->nom_gaep) ? trim((string) $row->nom_gaep) : '';
+                if ($dest !== '' && $origine !== '') {
+                    $data['lignetineraire_vendu'] = $origine . '-' . $dest;
+                } else {
+                    $data['lignetineraire_vendu'] = $row->nom_ligne;
+                }
+            }
+            return $data;
+        }
+
         private function normalize_ticket_prix_row($row)
         {
             $row = ticket_impression_prix_row($row);
@@ -190,15 +253,11 @@
             $hasNomDest = $this->passager_column_exists('nom_dest_vente');
 
             if ($hasLigne && $hasNomDest) {
-                $expr = "COALESCE(NULLIF(TRIM(p.lignetineraire_vendu), ''), " .
-                    "CASE WHEN p.nom_dest_vente IS NOT NULL AND TRIM(p.nom_dest_vente) <> '' " .
-                    "THEN CONCAT(TRIM(ex.nom_gaep), '-', TRIM(p.nom_dest_vente)) " .
-                    "ELSE lg.nom_ligne END)";
+                $expr = "COALESCE(NULLIF(TRIM(p.lignetineraire_vendu), ''), lg.nom_ligne)";
             } elseif ($hasLigne) {
                 $expr = "COALESCE(NULLIF(TRIM(p.lignetineraire_vendu), ''), lg.nom_ligne)";
             } elseif ($hasNomDest) {
-                $expr = "CASE WHEN p.nom_dest_vente IS NOT NULL AND TRIM(p.nom_dest_vente) <> '' " .
-                    "THEN CONCAT(TRIM(ex.nom_gaep), '-', TRIM(p.nom_dest_vente)) ELSE lg.nom_ligne END";
+                $expr = "COALESCE(NULLIF(TRIM(p.lignetineraire_vendu), ''), lg.nom_ligne)";
             } else {
                 $expr = 'lg.nom_ligne';
             }
@@ -322,7 +381,7 @@
                 }
             }
 
-            $ok = $this->db->insert($this->table, $data);
+            $ok = $this->db->insert($this->table, $this->_figer_ligne_vendue($data));
             $insertId = $this->db->insert_id();
 
             if (!$ok && $needsSiegeGuard && !$isReservation
@@ -1148,7 +1207,7 @@
                 AND p.statut_reprog IS NULL
                 AND c.cle_compagnie ='$cp'
                 AND ex.code_gaexp = '$gd'
-                AND lg.ident_ligne = '$lg'
+                AND COALESCE(NULLIF(TRIM(p.ident_ligne_vendu), ''), lg.ident_ligne) = '$lg'
                 GROUP BY p.code_pro, {$nomLine['group']}, pr.date_progr, h.heure
                 ORDER BY pr.date_progr, {$nomLine['group']}, h.heure ASC")->result(); return $this->normalize_ticket_prix_rows($rows);
             }
@@ -1172,7 +1231,7 @@
                 AND p.statut_reprog IS NULL
                 AND c.cle_compagnie ='$cp'
                 AND ex.code_gaexp = '$gd'
-                AND lg.ident_ligne = '$lg'
+                AND COALESCE(NULLIF(TRIM(p.ident_ligne_vendu), ''), lg.ident_ligne) = '$lg'
                 AND h.id_heure = '$hr'
                 GROUP BY p.code_pro, {$nomLine['group']}, pr.date_progr, h.heure
                 ORDER BY pr.date_progr, {$nomLine['group']}, h.heure ASC")->result(); return $this->normalize_ticket_prix_rows($rows);            }
@@ -1183,6 +1242,7 @@
 
         public function exopass($cid, $cp, $d1, $d2, $gd)
         {
+        $filtreLettres = etat_filtre_lettres('p.verifpassager', 'p.datep_create', $cp, 'ticket_liste', $d1, $d2);
             if($gd === ''){
                 $rows = $this->db->query(
                 "SELECT * FROM passager p
@@ -1198,7 +1258,7 @@
                     WHERE e.ekey = '$cid'
                     AND c.cle_compagnie ='$cp'
                     AND p.datep_create >= '$d1' AND p.datep_create < DATE_ADD('$d2', INTERVAL 1 DAY)
-                    AND p.verifpassager IN('A', 'C', 'D')
+                    {$filtreLettres}
                     AND p.statut_code = 'vendu'")->result(); return $this->normalize_ticket_prix_rows($rows);
             }
 
@@ -1218,8 +1278,12 @@
                     WHERE e.ekey = '$cid'
                     AND c.cle_compagnie ='$cp'
                     AND p.datep_create >= '$d1' AND p.datep_create < DATE_ADD('$d2', INTERVAL 1 DAY)
-                    AND ex.code_gaexp = '$gd'
-                    AND p.verifpassager IN('A', 'C', 'D')
+                    AND COALESCE(
+ (SELECT ge_v.garesid FROM sousgare sg_lv JOIN gare_exp ge_v ON ge_v.code_gaexp = sg_lv.gareprinceid WHERE sg_lv.idsousgare = p.idsousgare_vente LIMIT 1),
+ (SELECT ulx.guser FROM attributions_role arx JOIN user_login ulx ON arx.idgestcompte = ulx.uid_login WHERE arx.roleattribut = p.idcptuser LIMIT 1),
+ (SELECT ge_d.garesid FROM sousgare sg_ld JOIN gare_exp ge_d ON ge_d.code_gaexp = sg_ld.gareprinceid WHERE sg_ld.idsousgare = p.departclient_idgare LIMIT 1)
+) = (SELECT gx_lv.garesid FROM gare_exp gx_lv WHERE gx_lv.code_gaexp = '$gd' OR gx_lv.garesid = '$gd' LIMIT 1)
+                    {$filtreLettres}
                     AND p.statut_code = 'vendu'")->result(); return $this->normalize_ticket_prix_rows($rows);            }
             
         }
@@ -1241,7 +1305,11 @@
                     WHERE e.ekey = '$cid'
                     AND c.cle_compagnie ='$cp'
                     AND pr.date_progr BETWEEN '$d1' AND '$d2'
-                    AND ex.code_gaexp = '$gd'
+                    AND COALESCE(
+ (SELECT ge_v.garesid FROM sousgare sg_lv JOIN gare_exp ge_v ON ge_v.code_gaexp = sg_lv.gareprinceid WHERE sg_lv.idsousgare = p.idsousgare_vente LIMIT 1),
+ (SELECT ulx.guser FROM attributions_role arx JOIN user_login ulx ON arx.idgestcompte = ulx.uid_login WHERE arx.roleattribut = p.idcptuser LIMIT 1),
+ (SELECT ge_d.garesid FROM sousgare sg_ld JOIN gare_exp ge_d ON ge_d.code_gaexp = sg_ld.gareprinceid WHERE sg_ld.idsousgare = p.departclient_idgare LIMIT 1)
+) = (SELECT gx_lv.garesid FROM gare_exp gx_lv WHERE gx_lv.code_gaexp = '$gd' OR gx_lv.garesid = '$gd' LIMIT 1)
                     AND p.statut_code = 'vendu'")->result(); return $this->normalize_ticket_prix_rows($rows);            
         }
 
@@ -1431,24 +1499,39 @@
         }
 
         /**
-         * Règle métier (option B — états ticket) :
-         * filtre gare = lieu physique de VENTE (guichet / idsousgare_vente),
-         * PAS la gare de ligne (ex.code_gaexp).
-         *
-         * Périmètre figé — ne pas étendre à d’autres méthodes sans revue métier :
-         *   listereport, listereportcpt, listereportcptadmin,
-         *   listereportverscptglexo, reporticket,
-         *   + versefiltre* / operateurs_actifs_periode déjà branchés ici.
-         *
-         * Écart attendu vs ancien PDF : une vente faite dans la gare A pour une
-         * jambe dont gaexp = B est comptée sur A (vente), plus sur B (ligne).
+         * États ticket : gare = lieu où le ticket a été vendu
+         * (sous-gare de vente, sinon gare de l'agent, sinon départ enregistré).
+         * Le nom et l'axe restent la ligne figée sur la vente.
          */
         protected function _sql_etat_join_sgv()
         {
             return " LEFT JOIN sousgare sgv ON p.idsousgare_vente = sgv.idsousgare ";
         }
 
-        /** Clause AND lieu de vente = garesid résolu depuis $gid (code ou id). */
+        protected function _resolve_code_gaexp($gid)
+        {
+            $gid = trim((string) $gid);
+            if ($gid === '' || $gid === '0') {
+                return '';
+            }
+            $byCode = $this->db->query(
+                "SELECT code_gaexp FROM gare_exp WHERE code_gaexp = ? LIMIT 1",
+                array($gid)
+            )->row();
+            if ($byCode && trim((string) $byCode->code_gaexp) !== '') {
+                return trim((string) $byCode->code_gaexp);
+            }
+            $byId = $this->db->query(
+                "SELECT code_gaexp FROM gare_exp WHERE garesid = ? LIMIT 1",
+                array($gid)
+            )->row();
+            if ($byId && trim((string) $byId->code_gaexp) !== '') {
+                return trim((string) $byId->code_gaexp);
+            }
+            return $gid;
+        }
+
+        /** Clause AND lieu de vente = garesid de la gare choisie. */
         protected function _sql_etat_vente_gare($gid)
         {
             $phys = $this->_resolve_garesid($gid);
@@ -4973,19 +5056,24 @@
             AND p.statut_code = 'vendu'
             {$horsClone}
             AND ar.roleattribut = '$use'
-            AND ex.code_gaexp = '$gid'
+            AND COALESCE(
+ (SELECT ge_v.garesid FROM sousgare sg_lv JOIN gare_exp ge_v ON ge_v.code_gaexp = sg_lv.gareprinceid WHERE sg_lv.idsousgare = p.idsousgare_vente LIMIT 1),
+ (SELECT ulx.guser FROM attributions_role arx JOIN user_login ulx ON arx.idgestcompte = ulx.uid_login WHERE arx.roleattribut = p.idcptuser LIMIT 1),
+ (SELECT ge_d.garesid FROM sousgare sg_ld JOIN gare_exp ge_d ON ge_d.code_gaexp = sg_ld.gareprinceid WHERE sg_ld.idsousgare = p.departclient_idgare LIMIT 1)
+) = (SELECT gx_lv.garesid FROM gare_exp gx_lv WHERE gx_lv.code_gaexp = '$gid' OR gx_lv.garesid = '$gid' LIMIT 1)
             GROUP BY {$nomLine['group']}, dest.id_compaga, p.prixvente, cu.username, p.datep_create")->result(); return $this->normalize_ticket_prix_rows($rows);        
             
     }
     //report admin — gare = lieu de vente, opérateur = tous roleattribut du compte
-    public function listereport($cid, $cp, $gid, $dt1, $dt2, $acl = FALSE, $algn = FALSE)
+    public function listereport($cid, $cp, $gid, $dt1, $dt2, $acl = FALSE, $algn = FALSE, $familleLettres = null)
     {
+        $filtreLettres = ($familleLettres === null || $familleLettres === '') ? '' : etat_filtre_lettres('p.verifpassager', 'p.datep_create', $cp, $familleLettres, $dt1, $dt2);
             $nomLine = $this->rapport_nom_ligne_sql();
             $venteGare = $this->_sql_etat_vente_gare($gid);
             $joinSgv = $this->_sql_etat_join_sgv();
             $extra = $this->_sql_etat_vendeur_in($acl);
             if ($algn !== FALSE && $algn !== null && $algn !== '') {
-                $extra .= ' AND lg.ident_ligne = ' . $this->db->escape($algn);
+                $extra .= ' AND COALESCE(NULLIF(TRIM(p.ident_ligne_vendu), \'\'), lg.ident_ligne) = ' . $this->db->escape($algn);
             }
 
             $rows = $this->db->query(
@@ -5013,12 +5101,13 @@
                 AND COALESCE(p.statut_confirme, '') NOT IN ('confirm','catconfirm','confirmcarte')
                 AND p.statut_code = 'vendu'
                 AND IFNULL(p.statutvente, 0) <> 2
-                GROUP BY {$nomLine['group']}, p.prixvente")->result();
+                {$filtreLettres} GROUP BY {$nomLine['group']}, p.prixvente")->result();
             return $this->normalize_ticket_prix_rows($rows);
     }
     
     public function listereportcpt($cid, $cp, $gid, $dt1, $dt2, $acl = FALSE, $algn = FALSE)
     {
+        $filtreLettres = etat_filtre_lettres('p.verifpassager', 'p.datep_create', $cp, 'ticket_etats', $dt1, $dt2);
             $nomLine = $this->rapport_nom_ligne_sql();
 
         
@@ -5039,9 +5128,13 @@
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = '$cid'
                 AND p.datep_create >= '$dt1' AND p.datep_create < DATE_ADD('$dt2', INTERVAL 1 DAY)
-                AND p.verifpassager IN('A', 'C', 'D')
+                {$filtreLettres}
                 AND dest.id_compaga = '$cp'
-                AND ex.code_gaexp = '$gid'
+                AND COALESCE(
+ (SELECT ge_v.garesid FROM sousgare sg_lv JOIN gare_exp ge_v ON ge_v.code_gaexp = sg_lv.gareprinceid WHERE sg_lv.idsousgare = p.idsousgare_vente LIMIT 1),
+ (SELECT ulx.guser FROM attributions_role arx JOIN user_login ulx ON arx.idgestcompte = ulx.uid_login WHERE arx.roleattribut = p.idcptuser LIMIT 1),
+ (SELECT ge_d.garesid FROM sousgare sg_ld JOIN gare_exp ge_d ON ge_d.code_gaexp = sg_ld.gareprinceid WHERE sg_ld.idsousgare = p.departclient_idgare LIMIT 1)
+) = (SELECT gx_lv.garesid FROM gare_exp gx_lv WHERE gx_lv.code_gaexp = '$gid' OR gx_lv.garesid = '$gid' LIMIT 1)
                 AND p.prixvente IS NOT NULL
                 AND COALESCE(p.statut_confirme, '') NOT IN ('confirm','catconfirm','confirmcarte')
                 AND p.statut_code = 'vendu'
@@ -5065,12 +5158,16 @@
                 WHERE e.ekey = '$cid'
                 AND p.datep_create >= '$dt1' AND p.datep_create < DATE_ADD('$dt2', INTERVAL 1 DAY)
                 AND dest.id_compaga = '$cp'
-                AND p.verifpassager IN('A', 'C', 'D')
+                {$filtreLettres}
                 AND p.prixvente IS NOT NULL
                 AND COALESCE(p.statut_confirme, '') NOT IN ('confirm','catconfirm','confirmcarte')
                 AND p.statut_code = 'vendu'
                 AND IFNULL(p.statutvente, 0) <> 2
-                AND ex.code_gaexp = '$gid'
+                AND COALESCE(
+ (SELECT ge_v.garesid FROM sousgare sg_lv JOIN gare_exp ge_v ON ge_v.code_gaexp = sg_lv.gareprinceid WHERE sg_lv.idsousgare = p.idsousgare_vente LIMIT 1),
+ (SELECT ulx.guser FROM attributions_role arx JOIN user_login ulx ON arx.idgestcompte = ulx.uid_login WHERE arx.roleattribut = p.idcptuser LIMIT 1),
+ (SELECT ge_d.garesid FROM sousgare sg_ld JOIN gare_exp ge_d ON ge_d.code_gaexp = sg_ld.gareprinceid WHERE sg_ld.idsousgare = p.departclient_idgare LIMIT 1)
+) = (SELECT gx_lv.garesid FROM gare_exp gx_lv WHERE gx_lv.code_gaexp = '$gid' OR gx_lv.garesid = '$gid' LIMIT 1)
                 AND ar.roleattribut = '$acl'
                 GROUP BY ar.roleattribut, u.first_name, dest.id_compaga, u.last_name, {$nomLine['group']}, p.prixvente")->result(); return $this->normalize_ticket_prix_rows($rows);        }
             $rows = $this->db->query(
@@ -5090,14 +5187,18 @@
                 WHERE e.ekey = '$cid'
                 AND p.datep_create >= '$dt1' AND p.datep_create < DATE_ADD('$dt2', INTERVAL 1 DAY)
                 AND dest.id_compaga = '$cp'
-                AND p.verifpassager IN('A', 'C', 'D')
+                {$filtreLettres}
                 AND p.prixvente IS NOT NULL
                 AND COALESCE(p.statut_confirme, '') NOT IN ('confirm','catconfirm','confirmcarte')
                 AND p.statut_code = 'vendu'
                 AND IFNULL(p.statutvente, 0) <> 2
                 AND ar.roleattribut = '$acl'
-                AND lg.ident_ligne = '$algn'
-                AND ex.code_gaexp = '$gid'
+                AND COALESCE(NULLIF(TRIM(p.ident_ligne_vendu), ''), lg.ident_ligne) = '$algn'
+                AND COALESCE(
+ (SELECT ge_v.garesid FROM sousgare sg_lv JOIN gare_exp ge_v ON ge_v.code_gaexp = sg_lv.gareprinceid WHERE sg_lv.idsousgare = p.idsousgare_vente LIMIT 1),
+ (SELECT ulx.guser FROM attributions_role arx JOIN user_login ulx ON arx.idgestcompte = ulx.uid_login WHERE arx.roleattribut = p.idcptuser LIMIT 1),
+ (SELECT ge_d.garesid FROM sousgare sg_ld JOIN gare_exp ge_d ON ge_d.code_gaexp = sg_ld.gareprinceid WHERE sg_ld.idsousgare = p.departclient_idgare LIMIT 1)
+) = (SELECT gx_lv.garesid FROM gare_exp gx_lv WHERE gx_lv.code_gaexp = '$gid' OR gx_lv.garesid = '$gid' LIMIT 1)
                 GROUP BY ar.roleattribut, dest.id_compaga, u.first_name, u.last_name, {$nomLine['group']}, p.prixvente")->result(); return $this->normalize_ticket_prix_rows($rows);    }
 
     public function listereportverscpt($cid, $cp, $gid, $dt1, $dt2, $acl = FALSE)
@@ -5122,7 +5223,11 @@
                 AND p.datep_create >= '$dt1' AND p.datep_create < DATE_ADD('$dt2', INTERVAL 1 DAY)
                 AND p.verifpassager IN('A', 'C', 'D')
                 AND dest.id_compaga = '$cp'
-                AND ex.code_gaexp = '$gid'
+                AND COALESCE(
+ (SELECT ge_v.garesid FROM sousgare sg_lv JOIN gare_exp ge_v ON ge_v.code_gaexp = sg_lv.gareprinceid WHERE sg_lv.idsousgare = p.idsousgare_vente LIMIT 1),
+ (SELECT ulx.guser FROM attributions_role arx JOIN user_login ulx ON arx.idgestcompte = ulx.uid_login WHERE arx.roleattribut = p.idcptuser LIMIT 1),
+ (SELECT ge_d.garesid FROM sousgare sg_ld JOIN gare_exp ge_d ON ge_d.code_gaexp = sg_ld.gareprinceid WHERE sg_ld.idsousgare = p.departclient_idgare LIMIT 1)
+) = (SELECT gx_lv.garesid FROM gare_exp gx_lv WHERE gx_lv.code_gaexp = '$gid' OR gx_lv.garesid = '$gid' LIMIT 1)
                 AND p.prixvente IS NOT NULL
                 AND COALESCE(p.statut_confirme, '') NOT IN ('confirm','catconfirm','confirmcarte')
                 AND p.statut_code = 'vendu'
@@ -5147,7 +5252,11 @@
                 AND p.datep_create >= '$dt1' AND p.datep_create < DATE_ADD('$dt2', INTERVAL 1 DAY)
                 AND p.verifpassager IN('A', 'C', 'D')
                 AND dest.id_compaga = '$cp'
-                AND ex.code_gaexp = '$gid'
+                AND COALESCE(
+ (SELECT ge_v.garesid FROM sousgare sg_lv JOIN gare_exp ge_v ON ge_v.code_gaexp = sg_lv.gareprinceid WHERE sg_lv.idsousgare = p.idsousgare_vente LIMIT 1),
+ (SELECT ulx.guser FROM attributions_role arx JOIN user_login ulx ON arx.idgestcompte = ulx.uid_login WHERE arx.roleattribut = p.idcptuser LIMIT 1),
+ (SELECT ge_d.garesid FROM sousgare sg_ld JOIN gare_exp ge_d ON ge_d.code_gaexp = sg_ld.gareprinceid WHERE sg_ld.idsousgare = p.departclient_idgare LIMIT 1)
+) = (SELECT gx_lv.garesid FROM gare_exp gx_lv WHERE gx_lv.code_gaexp = '$gid' OR gx_lv.garesid = '$gid' LIMIT 1)
                 AND ar.roleattribut = '$acl'
                 AND p.prixvente IS NOT NULL
                 AND COALESCE(p.statut_confirme, '') NOT IN ('confirm','catconfirm','confirmcarte')
@@ -5161,7 +5270,7 @@
             $joinSgv = $this->_sql_etat_join_sgv();
             $extra = $this->_sql_etat_vendeur_in($acl);
             if ($algn !== FALSE && $algn !== null && $algn !== '') {
-                $extra .= " AND lg.ident_ligne = " . $this->db->escape($algn);
+                $extra .= " AND COALESCE(NULLIF(TRIM(p.ident_ligne_vendu), ''), lg.ident_ligne) = " . $this->db->escape($algn);
             }
 
             $rows = $this->db->query(
@@ -5195,6 +5304,7 @@
 
     public function listereportverscptgle($cid, $cp, $dt1, $dt2, $gid = FALSE, $acl = FALSE)
     {
+        $filtreLettres = etat_filtre_lettres('p.verifpassager', 'p.datep_create', $cp, 'ticket_etats', $dt1, $dt2);
         
         if ($gid === '' AND $acl === '') {
             $rows = $this->db->query(
@@ -5218,7 +5328,7 @@
                 AND COALESCE(p.statut_confirme, '') NOT IN ('confirm','catconfirm','confirmcarte')
                 AND p.statut_code = 'vendu'
                 AND IFNULL(p.statutvente, 0) <> 2
-                GROUP BY dest.id_compaga, p.datep_create")->result(); return $this->normalize_ticket_prix_rows($rows);        }
+                {$filtreLettres} GROUP BY dest.id_compaga, p.datep_create")->result(); return $this->normalize_ticket_prix_rows($rows);        }
         elseif($acl === '')
         {
             $rows = $this->db->query("SELECT SUM(prixvente) AS total, dest.id_compaga, p.datep_create FROM passager p
@@ -5237,12 +5347,16 @@
                 WHERE e.ekey = '$cid'
                 AND p.datep_create >= '$dt1' AND p.datep_create < DATE_ADD('$dt2', INTERVAL 1 DAY)
                 AND dest.id_compaga = '$cp'
-                AND ex.code_gaexp = '$gid'
+                AND COALESCE(
+ (SELECT ge_v.garesid FROM sousgare sg_lv JOIN gare_exp ge_v ON ge_v.code_gaexp = sg_lv.gareprinceid WHERE sg_lv.idsousgare = p.idsousgare_vente LIMIT 1),
+ (SELECT ulx.guser FROM attributions_role arx JOIN user_login ulx ON arx.idgestcompte = ulx.uid_login WHERE arx.roleattribut = p.idcptuser LIMIT 1),
+ (SELECT ge_d.garesid FROM sousgare sg_ld JOIN gare_exp ge_d ON ge_d.code_gaexp = sg_ld.gareprinceid WHERE sg_ld.idsousgare = p.departclient_idgare LIMIT 1)
+) = (SELECT gx_lv.garesid FROM gare_exp gx_lv WHERE gx_lv.code_gaexp = '$gid' OR gx_lv.garesid = '$gid' LIMIT 1)
                 AND p.prixvente IS NOT NULL
                 AND COALESCE(p.statut_confirme, '') NOT IN ('confirm','catconfirm','confirmcarte')
                 AND p.statut_code = 'vendu'
                 AND IFNULL(p.statutvente, 0) <> 2
-                GROUP BY dest.id_compaga, p.datep_create")->result(); return $this->normalize_ticket_prix_rows($rows);        }
+                {$filtreLettres} GROUP BY dest.id_compaga, p.datep_create")->result(); return $this->normalize_ticket_prix_rows($rows);        }
             $rows = $this->db->query(
                 "SELECT SUM(prixvente) AS total, dest.id_compaga, p.datep_create FROM passager p
                 JOIN attributions_role ar ON p.idcptuser = ar.roleattribut
@@ -5260,16 +5374,21 @@
                 WHERE e.ekey = '$cid'
                 AND p.datep_create >= '$dt1' AND p.datep_create < DATE_ADD('$dt2', INTERVAL 1 DAY)
                 AND dest.id_compaga = '$cp'
-                AND ex.code_gaexp = '$gid'
+                AND COALESCE(
+ (SELECT ge_v.garesid FROM sousgare sg_lv JOIN gare_exp ge_v ON ge_v.code_gaexp = sg_lv.gareprinceid WHERE sg_lv.idsousgare = p.idsousgare_vente LIMIT 1),
+ (SELECT ulx.guser FROM attributions_role arx JOIN user_login ulx ON arx.idgestcompte = ulx.uid_login WHERE arx.roleattribut = p.idcptuser LIMIT 1),
+ (SELECT ge_d.garesid FROM sousgare sg_ld JOIN gare_exp ge_d ON ge_d.code_gaexp = sg_ld.gareprinceid WHERE sg_ld.idsousgare = p.departclient_idgare LIMIT 1)
+) = (SELECT gx_lv.garesid FROM gare_exp gx_lv WHERE gx_lv.code_gaexp = '$gid' OR gx_lv.garesid = '$gid' LIMIT 1)
                 AND ar.roleattribut = '$acl'
                 AND p.prixvente IS NOT NULL
                 AND COALESCE(p.statut_confirme, '') NOT IN ('confirm','catconfirm','confirmcarte')
                 AND p.statut_code = 'vendu'
                 AND IFNULL(p.statutvente, 0) <> 2
-                GROUP BY dest.id_compaga, p.datep_create")->result(); return $this->normalize_ticket_prix_rows($rows);    }
+                {$filtreLettres} GROUP BY dest.id_compaga, p.datep_create")->result(); return $this->normalize_ticket_prix_rows($rows);    }
     
     public function listereportverscptglexo($cid, $cp, $dt1, $dt2, $gid = FALSE, $acl = FALSE)
     {
+        $filtreLettres = etat_filtre_lettres('p.verifpassager', 'p.datep_create', $cp, 'ticket_etats', $dt1, $dt2);
             $venteGare = ($gid !== FALSE && $gid !== null && trim((string) $gid) !== '')
                 ? $this->_sql_etat_vente_gare($gid)
                 : '';
@@ -5294,7 +5413,7 @@
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = " . $this->db->escape($cid) . "
                 AND p.datep_create >= " . $this->db->escape($dt1) . " AND p.datep_create < DATE_ADD(" . $this->db->escape($dt2) . ", INTERVAL 1 DAY)
-                AND p.verifpassager IN('A', 'C', 'D')
+                {$filtreLettres}
                 AND dest.id_compaga = " . $this->db->escape($cp) . "
                 {$venteGare}
                 {$vendeurSql}
@@ -5308,6 +5427,7 @@
 
     public function listereportcptadmin($cid, $cp, $gid, $dt1, $dt2, $acl = FALSE, $algn = FALSE)
     {
+        $filtreLettres = etat_filtre_lettres('p.verifpassager', 'p.datep_create', $cp, 'ticket_etats', $dt1, $dt2);
             $nomLine = $this->rapport_nom_ligne_sql();
 
         
@@ -5328,13 +5448,17 @@
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = '$cid'
                 AND p.datep_create >= '$dt1' AND p.datep_create < DATE_ADD('$dt2', INTERVAL 1 DAY)
-                AND p.verifpassager IN('A', 'C', 'D')
+                {$filtreLettres}
                 AND dest.id_compaga = '$cp'
                 AND p.prixvente IS NOT NULL
                 AND COALESCE(p.statut_confirme, '') NOT IN ('confirm','catconfirm','confirmcarte')
                 AND p.statut_code = 'vendu'
                 AND IFNULL(p.statutvente, 0) <> 2
-                AND ex.code_gaexp = '$gid'
+                AND COALESCE(
+ (SELECT ge_v.garesid FROM sousgare sg_lv JOIN gare_exp ge_v ON ge_v.code_gaexp = sg_lv.gareprinceid WHERE sg_lv.idsousgare = p.idsousgare_vente LIMIT 1),
+ (SELECT ulx.guser FROM attributions_role arx JOIN user_login ulx ON arx.idgestcompte = ulx.uid_login WHERE arx.roleattribut = p.idcptuser LIMIT 1),
+ (SELECT ge_d.garesid FROM sousgare sg_ld JOIN gare_exp ge_d ON ge_d.code_gaexp = sg_ld.gareprinceid WHERE sg_ld.idsousgare = p.departclient_idgare LIMIT 1)
+) = (SELECT gx_lv.garesid FROM gare_exp gx_lv WHERE gx_lv.code_gaexp = '$gid' OR gx_lv.garesid = '$gid' LIMIT 1)
                 GROUP BY {$nomLine['group']}, p.prixvente")->result(); return $this->normalize_ticket_prix_rows($rows);        }
         elseif($algn === '')
         {
@@ -5353,13 +5477,17 @@
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = '$cid'
                 AND p.datep_create >= '$dt1' AND p.datep_create < DATE_ADD('$dt2', INTERVAL 1 DAY)
-                AND p.verifpassager IN('A', 'C', 'D')
+                {$filtreLettres}
                 AND dest.id_compaga = '$cp'
                 AND p.prixvente IS NOT NULL
                 AND COALESCE(p.statut_confirme, '') NOT IN ('confirm','catconfirm','confirmcarte')
                 AND p.statut_code = 'vendu'
                 AND IFNULL(p.statutvente, 0) <> 2
-                AND ex.code_gaexp = '$gid'
+                AND COALESCE(
+ (SELECT ge_v.garesid FROM sousgare sg_lv JOIN gare_exp ge_v ON ge_v.code_gaexp = sg_lv.gareprinceid WHERE sg_lv.idsousgare = p.idsousgare_vente LIMIT 1),
+ (SELECT ulx.guser FROM attributions_role arx JOIN user_login ulx ON arx.idgestcompte = ulx.uid_login WHERE arx.roleattribut = p.idcptuser LIMIT 1),
+ (SELECT ge_d.garesid FROM sousgare sg_ld JOIN gare_exp ge_d ON ge_d.code_gaexp = sg_ld.gareprinceid WHERE sg_ld.idsousgare = p.departclient_idgare LIMIT 1)
+) = (SELECT gx_lv.garesid FROM gare_exp gx_lv WHERE gx_lv.code_gaexp = '$gid' OR gx_lv.garesid = '$gid' LIMIT 1)
                 AND ar.roleattribut = '$acl'
                 GROUP BY {$nomLine['group']}, p.prixvente")->result(); return $this->normalize_ticket_prix_rows($rows);        }
             $rows = $this->db->query(
@@ -5378,14 +5506,18 @@
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = '$cid'
                 AND p.datep_create >= '$dt1' AND p.datep_create < DATE_ADD('$dt2', INTERVAL 1 DAY)
-                AND p.verifpassager IN('A', 'C', 'D')
-                AND ex.code_gaexp = '$gid'
+                {$filtreLettres}
+                AND COALESCE(
+ (SELECT ge_v.garesid FROM sousgare sg_lv JOIN gare_exp ge_v ON ge_v.code_gaexp = sg_lv.gareprinceid WHERE sg_lv.idsousgare = p.idsousgare_vente LIMIT 1),
+ (SELECT ulx.guser FROM attributions_role arx JOIN user_login ulx ON arx.idgestcompte = ulx.uid_login WHERE arx.roleattribut = p.idcptuser LIMIT 1),
+ (SELECT ge_d.garesid FROM sousgare sg_ld JOIN gare_exp ge_d ON ge_d.code_gaexp = sg_ld.gareprinceid WHERE sg_ld.idsousgare = p.departclient_idgare LIMIT 1)
+) = (SELECT gx_lv.garesid FROM gare_exp gx_lv WHERE gx_lv.code_gaexp = '$gid' OR gx_lv.garesid = '$gid' LIMIT 1)
                 AND p.prixvente IS NOT NULL
                 AND COALESCE(p.statut_confirme, '') NOT IN ('confirm','catconfirm','confirmcarte')
                 AND p.statut_code = 'vendu'
                 AND IFNULL(p.statutvente, 0) <> 2
                 AND ar.roleattribut = '$acl'
-                AND lg.ident_ligne = '$algn'
+                AND COALESCE(NULLIF(TRIM(p.ident_ligne_vendu), ''), lg.ident_ligne) = '$algn'
                 GROUP BY {$nomLine['group']}, p.prixvente")->result(); return $this->normalize_ticket_prix_rows($rows);    }
     //report ticket admin
     /*public function reporticket($cid, $gid, $dt1, $dt2, $cp, $algn = FALSE)
@@ -5416,7 +5548,11 @@
                 AND COALESCE(p.statut_confirme, '') NOT IN ('confirm','catconfirm','confirmcarte')
                 AND p.statut_code = 'vendu'
                 AND IFNULL(p.statutvente, 0) <> 2
-                AND ex.code_gaexp = '$gid'
+                AND COALESCE(
+ (SELECT ge_v.garesid FROM sousgare sg_lv JOIN gare_exp ge_v ON ge_v.code_gaexp = sg_lv.gareprinceid WHERE sg_lv.idsousgare = p.idsousgare_vente LIMIT 1),
+ (SELECT ulx.guser FROM attributions_role arx JOIN user_login ulx ON arx.idgestcompte = ulx.uid_login WHERE arx.roleattribut = p.idcptuser LIMIT 1),
+ (SELECT ge_d.garesid FROM sousgare sg_ld JOIN gare_exp ge_d ON ge_d.code_gaexp = sg_ld.gareprinceid WHERE sg_ld.idsousgare = p.departclient_idgare LIMIT 1)
+) = (SELECT gx_lv.garesid FROM gare_exp gx_lv WHERE gx_lv.code_gaexp = '$gid' OR gx_lv.garesid = '$gid' LIMIT 1)
                 GROUP BY {$nomLine['group']}, dest.id_compaga, p.prixvente")->result(); return $this->normalize_ticket_prix_rows($rows);        }
             $rows = $this->db->query(
                 "SELECT COUNT(code_passager) AS codepassager, SUM(prixvente) AS total, {$nomLine['select']}, dest.id_compaga, p.prixvente FROM passager p
@@ -5434,16 +5570,21 @@
                 WHERE e.ekey = '$cid'
                 AND p.datep_create >= '$dt1' AND p.datep_create < DATE_ADD('$dt2', INTERVAL 1 DAY)
                 AND dest.id_compaga = '$cp'
-                AND ex.code_gaexp = '$gid'
+                AND COALESCE(
+ (SELECT ge_v.garesid FROM sousgare sg_lv JOIN gare_exp ge_v ON ge_v.code_gaexp = sg_lv.gareprinceid WHERE sg_lv.idsousgare = p.idsousgare_vente LIMIT 1),
+ (SELECT ulx.guser FROM attributions_role arx JOIN user_login ulx ON arx.idgestcompte = ulx.uid_login WHERE arx.roleattribut = p.idcptuser LIMIT 1),
+ (SELECT ge_d.garesid FROM sousgare sg_ld JOIN gare_exp ge_d ON ge_d.code_gaexp = sg_ld.gareprinceid WHERE sg_ld.idsousgare = p.departclient_idgare LIMIT 1)
+) = (SELECT gx_lv.garesid FROM gare_exp gx_lv WHERE gx_lv.code_gaexp = '$gid' OR gx_lv.garesid = '$gid' LIMIT 1)
                 AND p.prixvente IS NOT NULL
                 AND COALESCE(p.statut_confirme, '') NOT IN ('confirm','catconfirm','confirmcarte')
                 AND p.statut_code = 'vendu'
                 AND IFNULL(p.statutvente, 0) <> 2
-                AND lg.ident_ligne = '$algn'
+                AND COALESCE(NULLIF(TRIM(p.ident_ligne_vendu), ''), lg.ident_ligne) = '$algn'
                 GROUP BY {$nomLine['group']}, dest.id_compaga, p.prixvente")->result(); return $this->normalize_ticket_prix_rows($rows);    }*/
 
-    public function reporticket($cid, $gid, $dt1, $dt2, $cp, $algn = FALSE, $sg = FALSE)
+    public function reporticket($cid, $gid, $dt1, $dt2, $cp, $algn = FALSE, $sg = FALSE, $familleLettres = null)
     {
+        $filtreLettres = ($familleLettres === null || $familleLettres === '') ? '' : etat_filtre_lettres('p.verifpassager', 'p.datep_create', $cp, $familleLettres, $dt1, $dt2);
             $nomLine = $this->rapport_nom_ligne_sql();
             $venteGare = $this->_sql_etat_vente_gare($gid);
             $joinSgv = $this->_sql_etat_join_sgv();
@@ -5456,7 +5597,7 @@
             }
             $extra = '';
             if ($algn !== FALSE && $algn !== null && trim((string) $algn) !== '') {
-                $extra .= ' AND lg.ident_ligne = ' . $this->db->escape($algn);
+                $extra .= ' AND COALESCE(NULLIF(TRIM(p.ident_ligne_vendu), \'\'), lg.ident_ligne) = ' . $this->db->escape($algn);
             }
 
             $rows = $this->db->query(
@@ -5485,12 +5626,13 @@
                 {$venteGare}
                 {$extra}
                 {$sgSql}
-                GROUP BY {$nomLine['group']}, p.prixvente")->result();
+                {$filtreLettres} GROUP BY {$nomLine['group']}, p.prixvente")->result();
             return $this->normalize_ticket_prix_rows($rows);
     }
 
     public function reporticketgr($cid, $gid, $dt1, $dt2, $cp, $algn = FALSE)
     {
+        $filtreLettres = etat_filtre_lettres('p.verifpassager', 'p.datep_create', $cp, 'ticket_etats', $dt1, $dt2);
         
         if ($algn === '') 
         {
@@ -5515,7 +5657,11 @@
                 AND COALESCE(p.statut_confirme, '') NOT IN ('confirm','catconfirm','confirmcarte')
                 AND p.statut_code = 'vendu'
                 AND IFNULL(p.statutvente, 0) <> 2
-                AND ex.code_gaexp = '$gid'")->result(); return $this->normalize_ticket_prix_rows($rows);        }
+                AND COALESCE(
+ (SELECT ge_v.garesid FROM sousgare sg_lv JOIN gare_exp ge_v ON ge_v.code_gaexp = sg_lv.gareprinceid WHERE sg_lv.idsousgare = p.idsousgare_vente LIMIT 1),
+ (SELECT ulx.guser FROM attributions_role arx JOIN user_login ulx ON arx.idgestcompte = ulx.uid_login WHERE arx.roleattribut = p.idcptuser LIMIT 1),
+ (SELECT ge_d.garesid FROM sousgare sg_ld JOIN gare_exp ge_d ON ge_d.code_gaexp = sg_ld.gareprinceid WHERE sg_ld.idsousgare = p.departclient_idgare LIMIT 1)
+) = (SELECT gx_lv.garesid FROM gare_exp gx_lv WHERE gx_lv.code_gaexp = '$gid' OR gx_lv.garesid = '$gid' LIMIT 1){$filtreLettres}")->result(); return $this->normalize_ticket_prix_rows($rows);        }
             $rows = $this->db->query(
                 "SELECT * FROM passager p
                 JOIN attributions_role ar ON p.idcptuser = ar.roleattribut
@@ -5532,12 +5678,16 @@
                 WHERE e.ekey = '$cid'
                 AND p.datep_create >= '$dt1' AND p.datep_create < DATE_ADD('$dt2', INTERVAL 1 DAY)
                 AND dest.id_compaga = '$cp'
-                AND ex.code_gaexp = '$gid'
+                AND COALESCE(
+ (SELECT ge_v.garesid FROM sousgare sg_lv JOIN gare_exp ge_v ON ge_v.code_gaexp = sg_lv.gareprinceid WHERE sg_lv.idsousgare = p.idsousgare_vente LIMIT 1),
+ (SELECT ulx.guser FROM attributions_role arx JOIN user_login ulx ON arx.idgestcompte = ulx.uid_login WHERE arx.roleattribut = p.idcptuser LIMIT 1),
+ (SELECT ge_d.garesid FROM sousgare sg_ld JOIN gare_exp ge_d ON ge_d.code_gaexp = sg_ld.gareprinceid WHERE sg_ld.idsousgare = p.departclient_idgare LIMIT 1)
+) = (SELECT gx_lv.garesid FROM gare_exp gx_lv WHERE gx_lv.code_gaexp = '$gid' OR gx_lv.garesid = '$gid' LIMIT 1)
                 AND p.prixvente IS NOT NULL
                 AND COALESCE(p.statut_confirme, '') NOT IN ('confirm','catconfirm','confirmcarte')
                 AND p.statut_code = 'vendu'
                 AND IFNULL(p.statutvente, 0) <> 2
-                AND lg.ident_ligne = '$algn'")->result(); return $this->normalize_ticket_prix_rows($rows);    }
+                AND COALESCE(NULLIF(TRIM(p.ident_ligne_vendu), ''), lg.ident_ligne) = '$algn'{$filtreLettres}")->result(); return $this->normalize_ticket_prix_rows($rows);    }
 
     //report comptable
     public function reporticketcptd($cid, $gid, $dt1, $dt2, $cp, $algn = FALSE)
@@ -5565,7 +5715,11 @@
                 AND p.datep_create >= '$dt1' AND p.datep_create < DATE_ADD('$dt2', INTERVAL 1 DAY)
                 AND p.statutvente = 1
                 AND dest.id_compaga = '$cp'
-                AND ex.code_gaexp = '$gid'
+                AND COALESCE(
+ (SELECT ge_v.garesid FROM sousgare sg_lv JOIN gare_exp ge_v ON ge_v.code_gaexp = sg_lv.gareprinceid WHERE sg_lv.idsousgare = p.idsousgare_vente LIMIT 1),
+ (SELECT ulx.guser FROM attributions_role arx JOIN user_login ulx ON arx.idgestcompte = ulx.uid_login WHERE arx.roleattribut = p.idcptuser LIMIT 1),
+ (SELECT ge_d.garesid FROM sousgare sg_ld JOIN gare_exp ge_d ON ge_d.code_gaexp = sg_ld.gareprinceid WHERE sg_ld.idsousgare = p.departclient_idgare LIMIT 1)
+) = (SELECT gx_lv.garesid FROM gare_exp gx_lv WHERE gx_lv.code_gaexp = '$gid' OR gx_lv.garesid = '$gid' LIMIT 1)
                 AND p.exop = 1
                 AND p.prixvente IS NOT NULL
                 AND COALESCE(p.statut_confirme, '') NOT IN ('confirm','catconfirm','confirmcarte')
@@ -5590,12 +5744,16 @@
                 AND p.statutvente = 1
                 AND p.exop = 1
                 AND dest.id_compaga = '$cp'
-                AND ex.code_gaexp = '$gid'
+                AND COALESCE(
+ (SELECT ge_v.garesid FROM sousgare sg_lv JOIN gare_exp ge_v ON ge_v.code_gaexp = sg_lv.gareprinceid WHERE sg_lv.idsousgare = p.idsousgare_vente LIMIT 1),
+ (SELECT ulx.guser FROM attributions_role arx JOIN user_login ulx ON arx.idgestcompte = ulx.uid_login WHERE arx.roleattribut = p.idcptuser LIMIT 1),
+ (SELECT ge_d.garesid FROM sousgare sg_ld JOIN gare_exp ge_d ON ge_d.code_gaexp = sg_ld.gareprinceid WHERE sg_ld.idsousgare = p.departclient_idgare LIMIT 1)
+) = (SELECT gx_lv.garesid FROM gare_exp gx_lv WHERE gx_lv.code_gaexp = '$gid' OR gx_lv.garesid = '$gid' LIMIT 1)
                 AND p.prixvente IS NOT NULL
                 AND COALESCE(p.statut_confirme, '') NOT IN ('confirm','catconfirm','confirmcarte')
                 AND p.statut_code = 'vendu'
                 AND IFNULL(p.statutvente, 0) <> 2
-                AND lg.ident_ligne = '$algn'
+                AND COALESCE(NULLIF(TRIM(p.ident_ligne_vendu), ''), lg.ident_ligne) = '$algn'
                 GROUP BY {$nomLine['group']}, p.prixvente")->result(); return $this->normalize_ticket_prix_rows($rows);    }
     
     /*public function reporticketcptadmin($cid, $gid, $dt1, $dt2, $cp, $algn = FALSE)
@@ -5627,7 +5785,11 @@
                 AND COALESCE(p.statut_confirme, '') NOT IN ('confirm','catconfirm','confirmcarte')
                 AND p.statut_code = 'vendu'
                 AND IFNULL(p.statutvente, 0) <> 2
-                AND ex.code_gaexp = '$gid'
+                AND COALESCE(
+ (SELECT ge_v.garesid FROM sousgare sg_lv JOIN gare_exp ge_v ON ge_v.code_gaexp = sg_lv.gareprinceid WHERE sg_lv.idsousgare = p.idsousgare_vente LIMIT 1),
+ (SELECT ulx.guser FROM attributions_role arx JOIN user_login ulx ON arx.idgestcompte = ulx.uid_login WHERE arx.roleattribut = p.idcptuser LIMIT 1),
+ (SELECT ge_d.garesid FROM sousgare sg_ld JOIN gare_exp ge_d ON ge_d.code_gaexp = sg_ld.gareprinceid WHERE sg_ld.idsousgare = p.departclient_idgare LIMIT 1)
+) = (SELECT gx_lv.garesid FROM gare_exp gx_lv WHERE gx_lv.code_gaexp = '$gid' OR gx_lv.garesid = '$gid' LIMIT 1)
                 GROUP BY {$nomLine['group']}, p.prixvente")->result(); return $this->normalize_ticket_prix_rows($rows);        }
             $rows = $this->db->query(
                 "SELECT COUNT(code_passager) AS codepassager, SUM(prixvente) AS total, {$nomLine['select']}, p.prixvente FROM passager p
@@ -5650,12 +5812,17 @@
                 AND COALESCE(p.statut_confirme, '') NOT IN ('confirm','catconfirm','confirmcarte')
                 AND p.statut_code = 'vendu'
                 AND IFNULL(p.statutvente, 0) <> 2
-                AND lg.ident_ligne = '$algn'
-                AND ex.code_gaexp = '$gid'
+                AND COALESCE(NULLIF(TRIM(p.ident_ligne_vendu), ''), lg.ident_ligne) = '$algn'
+                AND COALESCE(
+ (SELECT ge_v.garesid FROM sousgare sg_lv JOIN gare_exp ge_v ON ge_v.code_gaexp = sg_lv.gareprinceid WHERE sg_lv.idsousgare = p.idsousgare_vente LIMIT 1),
+ (SELECT ulx.guser FROM attributions_role arx JOIN user_login ulx ON arx.idgestcompte = ulx.uid_login WHERE arx.roleattribut = p.idcptuser LIMIT 1),
+ (SELECT ge_d.garesid FROM sousgare sg_ld JOIN gare_exp ge_d ON ge_d.code_gaexp = sg_ld.gareprinceid WHERE sg_ld.idsousgare = p.departclient_idgare LIMIT 1)
+) = (SELECT gx_lv.garesid FROM gare_exp gx_lv WHERE gx_lv.code_gaexp = '$gid' OR gx_lv.garesid = '$gid' LIMIT 1)
                 GROUP BY {$nomLine['group']}, p.prixvente")->result(); return $this->normalize_ticket_prix_rows($rows);    }*/
 
     public function reporticketcptadmin($cid, $gid, $dt1, $dt2, $cp, $algn = FALSE)
     {
+        $filtreLettres = etat_filtre_lettres('p.verifpassager', 'p.datep_create', $cp, 'ticket_etats', $dt1, $dt2);
             $nomLine = $this->rapport_nom_ligne_sql();
 
         
@@ -5677,7 +5844,7 @@
                 WHERE e.ekey = '$cid'
                 AND p.datep_create >= '$dt1' AND p.datep_create < DATE_ADD('$dt2', INTERVAL 1 DAY)
                 AND dest.id_compaga = '$cp'
-                AND p.verifpassager IN('A', 'C', 'D')
+                {$filtreLettres}
                 AND p.prixvente IS NOT NULL
                 AND COALESCE(p.statut_confirme, '') NOT IN ('confirm','catconfirm','confirmcarte')
                 AND p.statut_code = 'vendu'
@@ -5690,7 +5857,11 @@
                       WHERE ar.roleattribut = p.idcptuser
                       LIMIT 1
                   )
-                AND ex.code_gaexp = '$gid'
+                AND COALESCE(
+ (SELECT ge_v.garesid FROM sousgare sg_lv JOIN gare_exp ge_v ON ge_v.code_gaexp = sg_lv.gareprinceid WHERE sg_lv.idsousgare = p.idsousgare_vente LIMIT 1),
+ (SELECT ulx.guser FROM attributions_role arx JOIN user_login ulx ON arx.idgestcompte = ulx.uid_login WHERE arx.roleattribut = p.idcptuser LIMIT 1),
+ (SELECT ge_d.garesid FROM sousgare sg_ld JOIN gare_exp ge_d ON ge_d.code_gaexp = sg_ld.gareprinceid WHERE sg_ld.idsousgare = p.departclient_idgare LIMIT 1)
+) = (SELECT gx_lv.garesid FROM gare_exp gx_lv WHERE gx_lv.code_gaexp = '$gid' OR gx_lv.garesid = '$gid' LIMIT 1)
                 )
                 GROUP BY {$nomLine['group']}, p.prixvente")->result(); return $this->normalize_ticket_prix_rows($rows);        }
             $rows = $this->db->query(
@@ -5708,12 +5879,12 @@
                 WHERE e.ekey = '$cid'
                 AND p.datep_create >= '$dt1' AND p.datep_create < DATE_ADD('$dt2', INTERVAL 1 DAY)
                 AND dest.id_compaga = '$cp'
-                AND p.verifpassager IN('A', 'C', 'D')
+                {$filtreLettres}
                 AND p.prixvente IS NOT NULL
                 AND COALESCE(p.statut_confirme, '') NOT IN ('confirm','catconfirm','confirmcarte')
                 AND p.statut_code = 'vendu'
                 AND IFNULL(p.statutvente, 0) <> 2
-                AND lg.ident_ligne = '$algn'
+                AND COALESCE(NULLIF(TRIM(p.ident_ligne_vendu), ''), lg.ident_ligne) = '$algn'
                 AND EXISTS (
                   SELECT 1 FROM user_login ul
                   WHERE ul.uid_login = (
@@ -5722,12 +5893,17 @@
                       WHERE ar.roleattribut = p.idcptuser
                       LIMIT 1
                   )
-                  AND ex.code_gaexp = '$gid'
+                  AND COALESCE(
+ (SELECT ge_v.garesid FROM sousgare sg_lv JOIN gare_exp ge_v ON ge_v.code_gaexp = sg_lv.gareprinceid WHERE sg_lv.idsousgare = p.idsousgare_vente LIMIT 1),
+ (SELECT ulx.guser FROM attributions_role arx JOIN user_login ulx ON arx.idgestcompte = ulx.uid_login WHERE arx.roleattribut = p.idcptuser LIMIT 1),
+ (SELECT ge_d.garesid FROM sousgare sg_ld JOIN gare_exp ge_d ON ge_d.code_gaexp = sg_ld.gareprinceid WHERE sg_ld.idsousgare = p.departclient_idgare LIMIT 1)
+) = (SELECT gx_lv.garesid FROM gare_exp gx_lv WHERE gx_lv.code_gaexp = '$gid' OR gx_lv.garesid = '$gid' LIMIT 1)
                  )
                 GROUP BY {$nomLine['group']}, p.prixvente")->result(); return $this->normalize_ticket_prix_rows($rows);    }
 
     public function reporticketcpt($cid, $gid, $dt1, $dt2, $cp, $algn = FALSE)
     {
+        $filtreLettres = etat_filtre_lettres('p.verifpassager', 'p.datep_create', $cp, 'ticket_etats', $dt1, $dt2);
             $nomLine = $this->rapport_nom_ligne_sql();
 
         
@@ -5748,7 +5924,7 @@
                 WHERE e.ekey = '$cid'
                 AND p.datep_create >= '$dt1' AND p.datep_create < DATE_ADD('$dt2', INTERVAL 1 DAY)
                 AND dest.id_compaga = '$cp'
-                AND p.verifpassager IN('A', 'C', 'D')
+                {$filtreLettres}
                 AND p.prixvente IS NOT NULL
                 AND COALESCE(p.statut_confirme, '') NOT IN ('confirm','catconfirm','confirmcarte')
                 AND p.statut_code = 'vendu'
@@ -5761,7 +5937,11 @@
                       WHERE ar.roleattribut = p.idcptuser
                       LIMIT 1
                   )
-                  AND ex.code_gaexp = '$gid'
+                  AND COALESCE(
+ (SELECT ge_v.garesid FROM sousgare sg_lv JOIN gare_exp ge_v ON ge_v.code_gaexp = sg_lv.gareprinceid WHERE sg_lv.idsousgare = p.idsousgare_vente LIMIT 1),
+ (SELECT ulx.guser FROM attributions_role arx JOIN user_login ulx ON arx.idgestcompte = ulx.uid_login WHERE arx.roleattribut = p.idcptuser LIMIT 1),
+ (SELECT ge_d.garesid FROM sousgare sg_ld JOIN gare_exp ge_d ON ge_d.code_gaexp = sg_ld.gareprinceid WHERE sg_ld.idsousgare = p.departclient_idgare LIMIT 1)
+) = (SELECT gx_lv.garesid FROM gare_exp gx_lv WHERE gx_lv.code_gaexp = '$gid' OR gx_lv.garesid = '$gid' LIMIT 1)
                 )
                 GROUP BY {$nomLine['group']}, p.prixvente")->result(); return $this->normalize_ticket_prix_rows($rows);        }
             $rows = $this->db->query(
@@ -5779,12 +5959,12 @@
                 WHERE e.ekey = '$cid'
                 AND p.datep_create >= '$dt1' AND p.datep_create < DATE_ADD('$dt2', INTERVAL 1 DAY)
                 AND dest.id_compaga = '$cp'
-                AND p.verifpassager IN('A', 'C', 'D')
+                {$filtreLettres}
                 AND p.prixvente IS NOT NULL
                 AND COALESCE(p.statut_confirme, '') NOT IN ('confirm','catconfirm','confirmcarte')
                 AND p.statut_code = 'vendu'
                 AND IFNULL(p.statutvente, 0) <> 2
-                AND lg.ident_ligne = '$algn'
+                AND COALESCE(NULLIF(TRIM(p.ident_ligne_vendu), ''), lg.ident_ligne) = '$algn'
                 AND EXISTS (
                   SELECT 1 FROM user_login ul
                   WHERE ul.uid_login = (
@@ -5793,7 +5973,11 @@
                       WHERE ar.roleattribut = p.idcptuser
                       LIMIT 1
                   )
-                  AND ex.code_gaexp = '$gid'
+                  AND COALESCE(
+ (SELECT ge_v.garesid FROM sousgare sg_lv JOIN gare_exp ge_v ON ge_v.code_gaexp = sg_lv.gareprinceid WHERE sg_lv.idsousgare = p.idsousgare_vente LIMIT 1),
+ (SELECT ulx.guser FROM attributions_role arx JOIN user_login ulx ON arx.idgestcompte = ulx.uid_login WHERE arx.roleattribut = p.idcptuser LIMIT 1),
+ (SELECT ge_d.garesid FROM sousgare sg_ld JOIN gare_exp ge_d ON ge_d.code_gaexp = sg_ld.gareprinceid WHERE sg_ld.idsousgare = p.departclient_idgare LIMIT 1)
+) = (SELECT gx_lv.garesid FROM gare_exp gx_lv WHERE gx_lv.code_gaexp = '$gid' OR gx_lv.garesid = '$gid' LIMIT 1)
                  )
                 GROUP BY {$nomLine['group']}, p.prixvente")->result(); return $this->normalize_ticket_prix_rows($rows);    }
 
@@ -5826,7 +6010,11 @@
                 AND COALESCE(p.statut_confirme, '') NOT IN ('confirm','catconfirm','confirmcarte')
                 AND p.statut_code = 'vendu'
                 AND IFNULL(p.statutvente, 0) <> 2
-                AND ex.code_gaexp = '$gid'
+                AND COALESCE(
+ (SELECT ge_v.garesid FROM sousgare sg_lv JOIN gare_exp ge_v ON ge_v.code_gaexp = sg_lv.gareprinceid WHERE sg_lv.idsousgare = p.idsousgare_vente LIMIT 1),
+ (SELECT ulx.guser FROM attributions_role arx JOIN user_login ulx ON arx.idgestcompte = ulx.uid_login WHERE arx.roleattribut = p.idcptuser LIMIT 1),
+ (SELECT ge_d.garesid FROM sousgare sg_ld JOIN gare_exp ge_d ON ge_d.code_gaexp = sg_ld.gareprinceid WHERE sg_ld.idsousgare = p.departclient_idgare LIMIT 1)
+) = (SELECT gx_lv.garesid FROM gare_exp gx_lv WHERE gx_lv.code_gaexp = '$gid' OR gx_lv.garesid = '$gid' LIMIT 1)
                 GROUP BY {$nomLine['group']}, p.prixvente")->result(); return $this->normalize_ticket_prix_rows($rows);        }
             $rows = $this->db->query(
                 "SELECT COUNT(code_passager) AS codepassager, SUM(prixvente) AS total, {$nomLine['select']}, p.prixvente FROM passager p
@@ -5849,12 +6037,17 @@
                 AND COALESCE(p.statut_confirme, '') NOT IN ('confirm','catconfirm','confirmcarte')
                 AND p.statut_code = 'vendu'
                 AND IFNULL(p.statutvente, 0) <> 2
-                AND lg.ident_ligne = '$algn'
-                AND ex.code_gaexp = '$gid'
+                AND COALESCE(NULLIF(TRIM(p.ident_ligne_vendu), ''), lg.ident_ligne) = '$algn'
+                AND COALESCE(
+ (SELECT ge_v.garesid FROM sousgare sg_lv JOIN gare_exp ge_v ON ge_v.code_gaexp = sg_lv.gareprinceid WHERE sg_lv.idsousgare = p.idsousgare_vente LIMIT 1),
+ (SELECT ulx.guser FROM attributions_role arx JOIN user_login ulx ON arx.idgestcompte = ulx.uid_login WHERE arx.roleattribut = p.idcptuser LIMIT 1),
+ (SELECT ge_d.garesid FROM sousgare sg_ld JOIN gare_exp ge_d ON ge_d.code_gaexp = sg_ld.gareprinceid WHERE sg_ld.idsousgare = p.departclient_idgare LIMIT 1)
+) = (SELECT gx_lv.garesid FROM gare_exp gx_lv WHERE gx_lv.code_gaexp = '$gid' OR gx_lv.garesid = '$gid' LIMIT 1)
                 GROUP BY {$nomLine['group']}, p.prixvente")->result(); return $this->normalize_ticket_prix_rows($rows);    }*/
 
     public function reporticketcptgr($cid, $gid, $dt1, $dt2, $cp, $algn = FALSE)
     {
+        $filtreLettres = etat_filtre_lettres('p.verifpassager', 'p.datep_create', $cp, 'ticket_etats', $dt1, $dt2);
         
         if ($algn === '') 
         {
@@ -5871,7 +6064,7 @@
                 AND p.datep_create >= '$dt1' AND p.datep_create < DATE_ADD('$dt2', INTERVAL 1 DAY)
                 AND p.statutvente = 1
                 AND dest.id_compaga = '$cp'
-                AND p.verifpassager IN('A', 'C', 'D')
+                {$filtreLettres}
                 AND p.prixvente IS NOT NULL
                 AND COALESCE(p.statut_confirme, '') NOT IN ('confirm','catconfirm','confirmcarte')
                 AND p.statut_code = 'vendu'
@@ -5884,7 +6077,11 @@
                       WHERE ar.roleattribut = p.idcptuser
                       LIMIT 1
                   )
-                  AND ex.code_gaexp = '$gid'
+                  AND COALESCE(
+ (SELECT ge_v.garesid FROM sousgare sg_lv JOIN gare_exp ge_v ON ge_v.code_gaexp = sg_lv.gareprinceid WHERE sg_lv.idsousgare = p.idsousgare_vente LIMIT 1),
+ (SELECT ulx.guser FROM attributions_role arx JOIN user_login ulx ON arx.idgestcompte = ulx.uid_login WHERE arx.roleattribut = p.idcptuser LIMIT 1),
+ (SELECT ge_d.garesid FROM sousgare sg_ld JOIN gare_exp ge_d ON ge_d.code_gaexp = sg_ld.gareprinceid WHERE sg_ld.idsousgare = p.departclient_idgare LIMIT 1)
+) = (SELECT gx_lv.garesid FROM gare_exp gx_lv WHERE gx_lv.code_gaexp = '$gid' OR gx_lv.garesid = '$gid' LIMIT 1)
                 )")->result(); return $this->normalize_ticket_prix_rows($rows);        }
             $rows = $this->db->query(
                 "SELECT * FROM passager p
@@ -5898,13 +6095,13 @@
                 WHERE e.ekey = '$cid'
                 AND p.datep_create >= '$dt1' AND p.datep_create < DATE_ADD('$dt2', INTERVAL 1 DAY)
                 AND p.statutvente = 1
-                AND p.verifpassager IN('A', 'C', 'D')
+                {$filtreLettres}
                 AND dest.id_compaga = '$cp'
                 AND p.prixvente IS NOT NULL
                 AND COALESCE(p.statut_confirme, '') NOT IN ('confirm','catconfirm','confirmcarte')
                 AND p.statut_code = 'vendu'
                 AND IFNULL(p.statutvente, 0) <> 2
-                AND lg.ident_ligne = '$algn'
+                AND COALESCE(NULLIF(TRIM(p.ident_ligne_vendu), ''), lg.ident_ligne) = '$algn'
                 AND EXISTS (
                   SELECT 1 FROM user_login ul
                   WHERE ul.uid_login = (
@@ -5913,7 +6110,11 @@
                       WHERE ar.roleattribut = p.idcptuser
                       LIMIT 1
                   )
-                  AND ex.code_gaexp = '$gid'
+                  AND COALESCE(
+ (SELECT ge_v.garesid FROM sousgare sg_lv JOIN gare_exp ge_v ON ge_v.code_gaexp = sg_lv.gareprinceid WHERE sg_lv.idsousgare = p.idsousgare_vente LIMIT 1),
+ (SELECT ulx.guser FROM attributions_role arx JOIN user_login ulx ON arx.idgestcompte = ulx.uid_login WHERE arx.roleattribut = p.idcptuser LIMIT 1),
+ (SELECT ge_d.garesid FROM sousgare sg_ld JOIN gare_exp ge_d ON ge_d.code_gaexp = sg_ld.gareprinceid WHERE sg_ld.idsousgare = p.departclient_idgare LIMIT 1)
+) = (SELECT gx_lv.garesid FROM gare_exp gx_lv WHERE gx_lv.code_gaexp = '$gid' OR gx_lv.garesid = '$gid' LIMIT 1)
                 )")->result(); return $this->normalize_ticket_prix_rows($rows);    }
     public function nifestad($cid, $gid, $dt1, $dt2, $cp, $algn = FALSE)
     {
@@ -5942,7 +6143,11 @@
                 AND dest.id_compaga = '$cp'
                 AND p.prixvente IS NOT NULL
                 AND COALESCE(p.statut_confirme, '') NOT IN ('confirm','catconfirm','confirmcarte')
-                AND ex.code_gaexp = '$gid'
+                AND COALESCE(
+ (SELECT ge_v.garesid FROM sousgare sg_lv JOIN gare_exp ge_v ON ge_v.code_gaexp = sg_lv.gareprinceid WHERE sg_lv.idsousgare = p.idsousgare_vente LIMIT 1),
+ (SELECT ulx.guser FROM attributions_role arx JOIN user_login ulx ON arx.idgestcompte = ulx.uid_login WHERE arx.roleattribut = p.idcptuser LIMIT 1),
+ (SELECT ge_d.garesid FROM sousgare sg_ld JOIN gare_exp ge_d ON ge_d.code_gaexp = sg_ld.gareprinceid WHERE sg_ld.idsousgare = p.departclient_idgare LIMIT 1)
+) = (SELECT gx_lv.garesid FROM gare_exp gx_lv WHERE gx_lv.code_gaexp = '$gid' OR gx_lv.garesid = '$gid' LIMIT 1)
                 AND p.statut_code = 'vendu'
                 GROUP BY {$nomLine['group']}, dest.id_compaga, p.prixvente, h.id_heure
                 ORDER BY heure ASC")->result(); return $this->normalize_ticket_prix_rows($rows);        }
@@ -5966,13 +6171,18 @@
                 AND p.prixvente IS NOT NULL
                 AND COALESCE(p.statut_confirme, '') NOT IN ('confirm','catconfirm','confirmcarte')
                 AND p.statut_code = 'vendu'
-                AND ex.code_gaexp = '$gid'
-                AND lg.ident_ligne = '$algn'
+                AND COALESCE(
+ (SELECT ge_v.garesid FROM sousgare sg_lv JOIN gare_exp ge_v ON ge_v.code_gaexp = sg_lv.gareprinceid WHERE sg_lv.idsousgare = p.idsousgare_vente LIMIT 1),
+ (SELECT ulx.guser FROM attributions_role arx JOIN user_login ulx ON arx.idgestcompte = ulx.uid_login WHERE arx.roleattribut = p.idcptuser LIMIT 1),
+ (SELECT ge_d.garesid FROM sousgare sg_ld JOIN gare_exp ge_d ON ge_d.code_gaexp = sg_ld.gareprinceid WHERE sg_ld.idsousgare = p.departclient_idgare LIMIT 1)
+) = (SELECT gx_lv.garesid FROM gare_exp gx_lv WHERE gx_lv.code_gaexp = '$gid' OR gx_lv.garesid = '$gid' LIMIT 1)
+                AND COALESCE(NULLIF(TRIM(p.ident_ligne_vendu), ''), lg.ident_ligne) = '$algn'
                 GROUP BY {$nomLine['group']}, dest.id_compaga, p.prixvente, h.id_heure
                 ORDER BY heure ASC")->result(); return $this->normalize_ticket_prix_rows($rows);    }
 
     public function nifesthebad($cid, $gid, $dt1, $dt2, $cp, $algn = FALSE)
     {
+        $filtreLettres = etat_filtre_lettres('p.verifpassager', 'p.datep_create', $cp, 'ticket_etats', $dt1, $dt2);
             $nomLine = $this->rapport_nom_ligne_sql();
 
         
@@ -5992,11 +6202,15 @@
                 WHERE e.ekey = '$cid'
                 AND p.datep_create >= '$dt1' AND p.datep_create < DATE_ADD('$dt2', INTERVAL 1 DAY)
                 AND dest.id_compaga = '$cp'
-                AND ex.code_gaexp = '$gid'
+                AND COALESCE(
+ (SELECT ge_v.garesid FROM sousgare sg_lv JOIN gare_exp ge_v ON ge_v.code_gaexp = sg_lv.gareprinceid WHERE sg_lv.idsousgare = p.idsousgare_vente LIMIT 1),
+ (SELECT ulx.guser FROM attributions_role arx JOIN user_login ulx ON arx.idgestcompte = ulx.uid_login WHERE arx.roleattribut = p.idcptuser LIMIT 1),
+ (SELECT ge_d.garesid FROM sousgare sg_ld JOIN gare_exp ge_d ON ge_d.code_gaexp = sg_ld.gareprinceid WHERE sg_ld.idsousgare = p.departclient_idgare LIMIT 1)
+) = (SELECT gx_lv.garesid FROM gare_exp gx_lv WHERE gx_lv.code_gaexp = '$gid' OR gx_lv.garesid = '$gid' LIMIT 1)
                 AND p.prixvente IS NOT NULL
                 AND COALESCE(p.statut_confirme, '') NOT IN ('confirm','catconfirm','confirmcarte')
                 AND p.statut_code = 'vendu'
-                GROUP BY {$nomLine['group']}, dest.id_compaga, p.prixvente, p.datep_create
+                {$filtreLettres} GROUP BY {$nomLine['group']}, dest.id_compaga, p.prixvente, p.datep_create
                 ORDER BY p.datep_create, nom_ligne ASC")->result(); return $this->normalize_ticket_prix_rows($rows);        }
             $rows = $this->db->query(
                 "SELECT COUNT(code_passager) AS codepassager, SUM(prixvente) AS total, {$nomLine['select']}, dest.id_compaga, p.prixvente, p.datep_create FROM passager p
@@ -6012,12 +6226,16 @@
                 WHERE e.ekey = '$cid'
                 AND p.datep_create >= '$dt1' AND p.datep_create < DATE_ADD('$dt2', INTERVAL 1 DAY)
                 AND dest.id_compaga = '$cp'
-                AND ex.code_gaexp = '$gid'
+                AND COALESCE(
+ (SELECT ge_v.garesid FROM sousgare sg_lv JOIN gare_exp ge_v ON ge_v.code_gaexp = sg_lv.gareprinceid WHERE sg_lv.idsousgare = p.idsousgare_vente LIMIT 1),
+ (SELECT ulx.guser FROM attributions_role arx JOIN user_login ulx ON arx.idgestcompte = ulx.uid_login WHERE arx.roleattribut = p.idcptuser LIMIT 1),
+ (SELECT ge_d.garesid FROM sousgare sg_ld JOIN gare_exp ge_d ON ge_d.code_gaexp = sg_ld.gareprinceid WHERE sg_ld.idsousgare = p.departclient_idgare LIMIT 1)
+) = (SELECT gx_lv.garesid FROM gare_exp gx_lv WHERE gx_lv.code_gaexp = '$gid' OR gx_lv.garesid = '$gid' LIMIT 1)
                 AND p.prixvente IS NOT NULL
                 AND COALESCE(p.statut_confirme, '') NOT IN ('confirm','catconfirm','confirmcarte')
                 AND p.statut_code = 'vendu'
-                AND lg.ident_ligne = '$algn'
-                GROUP BY {$nomLine['group']}, dest.id_compaga, p.prixvente, p.datep_create
+                AND COALESCE(NULLIF(TRIM(p.ident_ligne_vendu), ''), lg.ident_ligne) = '$algn'
+                {$filtreLettres} GROUP BY {$nomLine['group']}, dest.id_compaga, p.prixvente, p.datep_create
                 ORDER BY p.datep_create, nom_ligne ASC")->result(); return $this->normalize_ticket_prix_rows($rows);    }
 
     
@@ -6047,7 +6265,11 @@
                 AND p.prixvente IS NOT NULL
                 AND COALESCE(p.statut_confirme, '') NOT IN ('confirm','catconfirm','confirmcarte')
                 AND p.statut_code = 'vendu'
-                AND ex.code_gaexp = '$gid'
+                AND COALESCE(
+ (SELECT ge_v.garesid FROM sousgare sg_lv JOIN gare_exp ge_v ON ge_v.code_gaexp = sg_lv.gareprinceid WHERE sg_lv.idsousgare = p.idsousgare_vente LIMIT 1),
+ (SELECT ulx.guser FROM attributions_role arx JOIN user_login ulx ON arx.idgestcompte = ulx.uid_login WHERE arx.roleattribut = p.idcptuser LIMIT 1),
+ (SELECT ge_d.garesid FROM sousgare sg_ld JOIN gare_exp ge_d ON ge_d.code_gaexp = sg_ld.gareprinceid WHERE sg_ld.idsousgare = p.departclient_idgare LIMIT 1)
+) = (SELECT gx_lv.garesid FROM gare_exp gx_lv WHERE gx_lv.code_gaexp = '$gid' OR gx_lv.garesid = '$gid' LIMIT 1)
                 GROUP BY {$nomLine['group']}, p.prixvente, h.id_heure
                 ORDER BY heure ASC")->result(); return $this->normalize_ticket_prix_rows($rows);        }
             $rows = $this->db->query(
@@ -6069,13 +6291,18 @@
                 AND p.prixvente IS NOT NULL
                 AND COALESCE(p.statut_confirme, '') NOT IN ('confirm','catconfirm','confirmcarte')
                 AND p.statut_code = 'vendu'
-                AND lg.ident_ligne = '$algn'
-                AND ex.code_gaexp = '$gid'
+                AND COALESCE(NULLIF(TRIM(p.ident_ligne_vendu), ''), lg.ident_ligne) = '$algn'
+                AND COALESCE(
+ (SELECT ge_v.garesid FROM sousgare sg_lv JOIN gare_exp ge_v ON ge_v.code_gaexp = sg_lv.gareprinceid WHERE sg_lv.idsousgare = p.idsousgare_vente LIMIT 1),
+ (SELECT ulx.guser FROM attributions_role arx JOIN user_login ulx ON arx.idgestcompte = ulx.uid_login WHERE arx.roleattribut = p.idcptuser LIMIT 1),
+ (SELECT ge_d.garesid FROM sousgare sg_ld JOIN gare_exp ge_d ON ge_d.code_gaexp = sg_ld.gareprinceid WHERE sg_ld.idsousgare = p.departclient_idgare LIMIT 1)
+) = (SELECT gx_lv.garesid FROM gare_exp gx_lv WHERE gx_lv.code_gaexp = '$gid' OR gx_lv.garesid = '$gid' LIMIT 1)
                 GROUP BY {$nomLine['group']}, p.prixvente, h.id_heure
                 ORDER BY heure ASC")->result(); return $this->normalize_ticket_prix_rows($rows);    }
 
     public function nifesthebcptadmin($cid, $gid, $dt1, $dt2, $cp, $algn = FALSE)
     {
+        $filtreLettres = etat_filtre_lettres('p.verifpassager', 'p.datep_create', $cp, 'ticket_etats', $dt1, $dt2);
             $nomLine = $this->rapport_nom_ligne_sql();
 
         
@@ -6095,11 +6322,15 @@
                 WHERE e.ekey = '$cid'
                 AND p.datep_create >= '$dt1' AND p.datep_create < DATE_ADD('$dt2', INTERVAL 1 DAY)
                 AND dest.id_compaga = '$cp'
-                AND p.verifpassager IN('A', 'C', 'D')
+                {$filtreLettres}
                 AND p.prixvente IS NOT NULL
                 AND COALESCE(p.statut_confirme, '') NOT IN ('confirm','catconfirm','confirmcarte')
                 AND p.statut_code = 'vendu'
-                AND ex.code_gaexp = '$gid'
+                AND COALESCE(
+ (SELECT ge_v.garesid FROM sousgare sg_lv JOIN gare_exp ge_v ON ge_v.code_gaexp = sg_lv.gareprinceid WHERE sg_lv.idsousgare = p.idsousgare_vente LIMIT 1),
+ (SELECT ulx.guser FROM attributions_role arx JOIN user_login ulx ON arx.idgestcompte = ulx.uid_login WHERE arx.roleattribut = p.idcptuser LIMIT 1),
+ (SELECT ge_d.garesid FROM sousgare sg_ld JOIN gare_exp ge_d ON ge_d.code_gaexp = sg_ld.gareprinceid WHERE sg_ld.idsousgare = p.departclient_idgare LIMIT 1)
+) = (SELECT gx_lv.garesid FROM gare_exp gx_lv WHERE gx_lv.code_gaexp = '$gid' OR gx_lv.garesid = '$gid' LIMIT 1)
                 GROUP BY {$nomLine['group']}, p.prixvente, p.datep_create
                 ORDER BY p.datep_create, nom_ligne ASC")->result(); return $this->normalize_ticket_prix_rows($rows);        }
             $rows = $this->db->query(
@@ -6115,13 +6346,17 @@
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = '$cid'
                 AND p.datep_create >= '$dt1' AND p.datep_create < DATE_ADD('$dt2', INTERVAL 1 DAY)
-                AND p.verifpassager IN('A', 'C', 'D')
+                {$filtreLettres}
                 AND dest.id_compaga = '$cp'
                 AND p.prixvente IS NOT NULL
                 AND COALESCE(p.statut_confirme, '') NOT IN ('confirm','catconfirm','confirmcarte')
                 AND p.statut_code = 'vendu'
-                AND lg.ident_ligne = '$algn'
-                AND ex.code_gaexp = '$gid'
+                AND COALESCE(NULLIF(TRIM(p.ident_ligne_vendu), ''), lg.ident_ligne) = '$algn'
+                AND COALESCE(
+ (SELECT ge_v.garesid FROM sousgare sg_lv JOIN gare_exp ge_v ON ge_v.code_gaexp = sg_lv.gareprinceid WHERE sg_lv.idsousgare = p.idsousgare_vente LIMIT 1),
+ (SELECT ulx.guser FROM attributions_role arx JOIN user_login ulx ON arx.idgestcompte = ulx.uid_login WHERE arx.roleattribut = p.idcptuser LIMIT 1),
+ (SELECT ge_d.garesid FROM sousgare sg_ld JOIN gare_exp ge_d ON ge_d.code_gaexp = sg_ld.gareprinceid WHERE sg_ld.idsousgare = p.departclient_idgare LIMIT 1)
+) = (SELECT gx_lv.garesid FROM gare_exp gx_lv WHERE gx_lv.code_gaexp = '$gid' OR gx_lv.garesid = '$gid' LIMIT 1)
                 GROUP BY {$nomLine['group']}, p.prixvente, p.datep_create
                 ORDER BY p.datep_create, nom_ligne ASC")->result(); return $this->normalize_ticket_prix_rows($rows);    }
     public function nifest($cid, $gid, $dt1, $dt2, $cp, $algn = FALSE)
@@ -6150,7 +6385,11 @@
                 AND p.prixvente IS NOT NULL
                 AND COALESCE(p.statut_confirme, '') NOT IN ('confirm','catconfirm','confirmcarte')
                 AND p.statut_code = 'vendu'
-                AND ex.code_gaexp = '$gid'
+                AND COALESCE(
+ (SELECT ge_v.garesid FROM sousgare sg_lv JOIN gare_exp ge_v ON ge_v.code_gaexp = sg_lv.gareprinceid WHERE sg_lv.idsousgare = p.idsousgare_vente LIMIT 1),
+ (SELECT ulx.guser FROM attributions_role arx JOIN user_login ulx ON arx.idgestcompte = ulx.uid_login WHERE arx.roleattribut = p.idcptuser LIMIT 1),
+ (SELECT ge_d.garesid FROM sousgare sg_ld JOIN gare_exp ge_d ON ge_d.code_gaexp = sg_ld.gareprinceid WHERE sg_ld.idsousgare = p.departclient_idgare LIMIT 1)
+) = (SELECT gx_lv.garesid FROM gare_exp gx_lv WHERE gx_lv.code_gaexp = '$gid' OR gx_lv.garesid = '$gid' LIMIT 1)
                 GROUP BY {$nomLine['group']}, p.prixvente, h.id_heure
                 ORDER BY heure ASC")->result(); return $this->normalize_ticket_prix_rows($rows);        }
             $rows = $this->db->query(
@@ -6171,13 +6410,18 @@
                 AND p.prixvente IS NOT NULL
                 AND COALESCE(p.statut_confirme, '') NOT IN ('confirm','catconfirm','confirmcarte')
                 AND p.statut_code = 'vendu'
-                AND lg.ident_ligne = '$algn'
-                AND ex.code_gaexp = '$gid'
+                AND COALESCE(NULLIF(TRIM(p.ident_ligne_vendu), ''), lg.ident_ligne) = '$algn'
+                AND COALESCE(
+ (SELECT ge_v.garesid FROM sousgare sg_lv JOIN gare_exp ge_v ON ge_v.code_gaexp = sg_lv.gareprinceid WHERE sg_lv.idsousgare = p.idsousgare_vente LIMIT 1),
+ (SELECT ulx.guser FROM attributions_role arx JOIN user_login ulx ON arx.idgestcompte = ulx.uid_login WHERE arx.roleattribut = p.idcptuser LIMIT 1),
+ (SELECT ge_d.garesid FROM sousgare sg_ld JOIN gare_exp ge_d ON ge_d.code_gaexp = sg_ld.gareprinceid WHERE sg_ld.idsousgare = p.departclient_idgare LIMIT 1)
+) = (SELECT gx_lv.garesid FROM gare_exp gx_lv WHERE gx_lv.code_gaexp = '$gid' OR gx_lv.garesid = '$gid' LIMIT 1)
                 GROUP BY {$nomLine['group']}, p.prixvente, h.id_heure
                 ORDER BY heure ASC")->result(); return $this->normalize_ticket_prix_rows($rows);    }
 
     public function nifestheb($cid, $gid, $dt1, $dt2, $cp, $algn = FALSE)
     {
+        $filtreLettres = etat_filtre_lettres('p.verifpassager', 'p.datep_create', $cp, 'ticket_etats', $dt1, $dt2);
             $nomLine = $this->rapport_nom_ligne_sql();
 
         
@@ -6197,11 +6441,15 @@
                 WHERE e.ekey = '$cid'
                 AND p.datep_create >= '$dt1' AND p.datep_create < DATE_ADD('$dt2', INTERVAL 1 DAY)
                 AND dest.id_compaga = '$cp'
-                AND p.verifpassager IN('A', 'C', 'D')
+                {$filtreLettres}
                 AND p.prixvente IS NOT NULL
                 AND COALESCE(p.statut_confirme, '') NOT IN ('confirm','catconfirm','confirmcarte')
                 AND p.statut_code = 'vendu'
-                AND ex.code_gaexp = '$gid'
+                AND COALESCE(
+ (SELECT ge_v.garesid FROM sousgare sg_lv JOIN gare_exp ge_v ON ge_v.code_gaexp = sg_lv.gareprinceid WHERE sg_lv.idsousgare = p.idsousgare_vente LIMIT 1),
+ (SELECT ulx.guser FROM attributions_role arx JOIN user_login ulx ON arx.idgestcompte = ulx.uid_login WHERE arx.roleattribut = p.idcptuser LIMIT 1),
+ (SELECT ge_d.garesid FROM sousgare sg_ld JOIN gare_exp ge_d ON ge_d.code_gaexp = sg_ld.gareprinceid WHERE sg_ld.idsousgare = p.departclient_idgare LIMIT 1)
+) = (SELECT gx_lv.garesid FROM gare_exp gx_lv WHERE gx_lv.code_gaexp = '$gid' OR gx_lv.garesid = '$gid' LIMIT 1)
                 GROUP BY {$nomLine['group']}, p.prixvente, p.datep_create
                 ORDER BY p.datep_create, nom_ligne ASC")->result(); return $this->normalize_ticket_prix_rows($rows);        }
             $rows = $this->db->query(
@@ -6217,13 +6465,17 @@
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = '$cid'
                 AND p.datep_create >= '$dt1' AND p.datep_create < DATE_ADD('$dt2', INTERVAL 1 DAY)
-                AND p.verifpassager IN('A', 'C', 'D')
+                {$filtreLettres}
                 AND dest.id_compaga = '$cp'
                 AND p.prixvente IS NOT NULL
                 AND COALESCE(p.statut_confirme, '') NOT IN ('confirm','catconfirm','confirmcarte')
                 AND p.statut_code = 'vendu'
-                AND lg.ident_ligne = '$algn'
-                AND ex.code_gaexp = '$gid'
+                AND COALESCE(NULLIF(TRIM(p.ident_ligne_vendu), ''), lg.ident_ligne) = '$algn'
+                AND COALESCE(
+ (SELECT ge_v.garesid FROM sousgare sg_lv JOIN gare_exp ge_v ON ge_v.code_gaexp = sg_lv.gareprinceid WHERE sg_lv.idsousgare = p.idsousgare_vente LIMIT 1),
+ (SELECT ulx.guser FROM attributions_role arx JOIN user_login ulx ON arx.idgestcompte = ulx.uid_login WHERE arx.roleattribut = p.idcptuser LIMIT 1),
+ (SELECT ge_d.garesid FROM sousgare sg_ld JOIN gare_exp ge_d ON ge_d.code_gaexp = sg_ld.gareprinceid WHERE sg_ld.idsousgare = p.departclient_idgare LIMIT 1)
+) = (SELECT gx_lv.garesid FROM gare_exp gx_lv WHERE gx_lv.code_gaexp = '$gid' OR gx_lv.garesid = '$gid' LIMIT 1)
                 GROUP BY {$nomLine['group']}, p.prixvente, p.datep_create
                 ORDER BY p.datep_create, nom_ligne ASC")->result(); return $this->normalize_ticket_prix_rows($rows);    }
     //vente du jour par vendeur
@@ -6248,7 +6500,11 @@
                 WHERE e.ekey = '$cd'
                 AND p.datep_create >= '$dd' AND p.datep_create < DATE_ADD('$fd', INTERVAL 1 DAY)
                 AND ar.roleattribut = '$idcox'
-                AND ex.code_gaexp = '$gid'
+                AND COALESCE(
+ (SELECT ge_v.garesid FROM sousgare sg_lv JOIN gare_exp ge_v ON ge_v.code_gaexp = sg_lv.gareprinceid WHERE sg_lv.idsousgare = p.idsousgare_vente LIMIT 1),
+ (SELECT ulx.guser FROM attributions_role arx JOIN user_login ulx ON arx.idgestcompte = ulx.uid_login WHERE arx.roleattribut = p.idcptuser LIMIT 1),
+ (SELECT ge_d.garesid FROM sousgare sg_ld JOIN gare_exp ge_d ON ge_d.code_gaexp = sg_ld.gareprinceid WHERE sg_ld.idsousgare = p.departclient_idgare LIMIT 1)
+) = (SELECT gx_lv.garesid FROM gare_exp gx_lv WHERE gx_lv.code_gaexp = '$gid' OR gx_lv.garesid = '$gid' LIMIT 1)
                 AND p.prixvente IS NOT NULL
                 AND COALESCE(p.statut_confirme, '') NOT IN ('confirm','catconfirm','confirmcarte')
                 AND p.statut_code = 'vendu'
@@ -6571,7 +6827,7 @@
                 AND p.statut_code = 'vendu'
                 AND ar.roleattribut = '$acl'
                 AND dest.id_compaga = '$cp'
-                AND lg.ident_ligne = '$algn'
+                AND COALESCE(NULLIF(TRIM(p.ident_ligne_vendu), ''), lg.ident_ligne) = '$algn'
                 AND p.verifpassager IN('A', 'C', 'D')
                 ORDER BY datep_create ASC")->result(); return $this->normalize_ticket_prix_rows($rows);    }
 
@@ -6664,7 +6920,7 @@
                 AND p.statut_code = 'vendu'
                 AND ar.roleattribut = '$acl'
                 AND dest.id_compaga = '$cp'
-                AND lg.ident_ligne = '$algn'
+                AND COALESCE(NULLIF(TRIM(p.ident_ligne_vendu), ''), lg.ident_ligne) = '$algn'
                 ORDER BY datep_create ASC")->result(); return $this->normalize_ticket_prix_rows($rows);    }
 }
     /** Passager_model.php **/

@@ -177,6 +177,10 @@ return array(
         'm_entreprises',
         'm_gare_depart',
     ),
+    'Param_lettres' => array(
+        'm_entreprises',
+        'm_compagnies',
+    ),
     'Param_sieges_verrou' => array(
         'm_entreprises',
         'm_ligne_heure',

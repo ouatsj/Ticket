@@ -454,16 +454,9 @@ if (!function_exists('ticket_rapport_nom_ligne_sql')) {
             }
         }
 
-        if ($hasLigne && $hasNomDest) {
-            $expr = "COALESCE(NULLIF(TRIM({$p}.lignetineraire_vendu), ''), " .
-                "CASE WHEN {$p}.nom_dest_vente IS NOT NULL AND TRIM({$p}.nom_dest_vente) <> '' " .
-                "THEN CONCAT(TRIM({$ex}.nom_gaep), '-', TRIM({$p}.nom_dest_vente)) " .
-                "ELSE {$lg}.nom_ligne END)";
-        } elseif ($hasLigne) {
+        // Nom figé à la vente. Le catalogue lignes (nom, gare) peut changer ensuite.
+        if ($hasLigne) {
             $expr = "COALESCE(NULLIF(TRIM({$p}.lignetineraire_vendu), ''), {$lg}.nom_ligne)";
-        } elseif ($hasNomDest) {
-            $expr = "CASE WHEN {$p}.nom_dest_vente IS NOT NULL AND TRIM({$p}.nom_dest_vente) <> '' " .
-                "THEN CONCAT(TRIM({$ex}.nom_gaep), '-', TRIM({$p}.nom_dest_vente)) ELSE {$lg}.nom_ligne END";
         } else {
             $expr = "{$lg}.nom_ligne";
         }

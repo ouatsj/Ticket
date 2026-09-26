@@ -7,6 +7,45 @@
         public function __construct()
         {
             parent::__construct();
+            $this->load->helper('etat_lettres');
+            $this->_ensure_ligne_vendue_columns();
+        }
+
+        private function _ensure_ligne_vendue_columns()
+        {
+            static $done = false;
+            if ($done) {
+                return;
+            }
+            $done = true;
+            $prev = $this->db->db_debug;
+            $this->db->db_debug = false;
+            $q = $this->db->query("SHOW COLUMNS FROM non_passager LIKE 'code_gaexp_vendu'");
+            if (!$q || $q->num_rows() < 1) {
+                $this->db->query("ALTER TABLE non_passager ADD COLUMN code_gaexp_vendu VARCHAR(20) NULL");
+            }
+            $this->db->db_debug = $prev;
+        }
+
+        protected function _figer_ligne_vendue(array $data)
+        {
+            if (empty($data['id_ligne_pass'])) {
+                return $data;
+            }
+            $row = $this->db->query(
+                "SELECT nom_ligne, gaexp_lg FROM lignes WHERE ident_ligne = ? LIMIT 1",
+                array($data['id_ligne_pass'])
+            )->row();
+            if (!$row) {
+                return $data;
+            }
+            if (!isset($data['nom_ligne']) || trim((string) $data['nom_ligne']) === '') {
+                $data['nom_ligne'] = $row->nom_ligne;
+            }
+            if (!isset($data['code_gaexp_vendu']) || trim((string) $data['code_gaexp_vendu']) === '') {
+                $data['code_gaexp_vendu'] = $row->gaexp_lg;
+            }
+            return $data;
         }
 
         /**
@@ -29,16 +68,9 @@
         }
 
         /**
-         * Règle métier (option B — états ticket retour) :
-         * filtre gare = lieu physique de VENTE / login agent (resolve_lieu),
-         * PAS uniquement ul.guser = code saisi ni gaexp de ligne.
-         *
-         * Périmètre figé — ne pas étendre sans revue métier :
-         *   listereportretour, listereportretourcpt,
-         *   listereportversretourcptexo, listereportversretourcpte,
-         *   reporticketretour.
-         *
-         * Aligné Passager_model::_sql_etat_vente_gare (aller / retour cohérents).
+         * États retour : tickets vendus dans la gare
+         * (gare de l'agent, ou sous-gare du retour rattachée à cette gare).
+         * Le nom de ligne reste celui enregistré sur la vente.
          */
         protected function _sql_etat_user_gare($gid)
         {
@@ -65,7 +97,6 @@
             }
             $inSql = implode(',', array_values($inList));
             $p = $this->db->escape($phys);
-            // Login agent sur le lieu, ou sous-gare de vente rattachée au lieu.
             return " AND (
                 ul.guser IN ({$inSql})
                 OR ul.guser = {$p}
@@ -167,7 +198,7 @@
                 $data['prixretour'] = ticket_prix_depuis_programme($data['code_pro'], $data['prixretour']);
             }
 
-            $this->db->insert($this->table, $data);
+            $this->db->insert($this->table, $this->_figer_ligne_vendue($data));
             $id = $this->db->insert_id();
             if ($id && function_exists('guichet_totaux_cache_invalidate_from_row')) {
                 guichet_totaux_cache_invalidate_from_row($data);
@@ -477,7 +508,7 @@
             // $sg ignoré : aligné envoi chef (toutes sous-gares).
 
             return $this->db->query(
-                "SELECT COUNT(code_non_pass) AS cod, SUM(prixretour) AS totalr, lg.nom_ligne, dest.id_compaga, np.id_ligne_pass, np.prixretour FROM non_passager np
+                "SELECT COUNT(code_non_pass) AS cod, SUM(prixretour) AS totalr, COALESCE(NULLIF(TRIM(np.nom_ligne), ''), lg.nom_ligne) AS nom_ligne, dest.id_compaga, np.id_ligne_pass, np.prixretour FROM non_passager np
                 JOIN attributions_role ar ON np.cptus = ar.roleattribut
                 JOIN user_login ul ON ar.idgestcompte = ul.uid_login
                 JOIN lignes lg ON np.id_ligne_pass = lg.ident_ligne
@@ -493,7 +524,7 @@
                 AND ul.guser = ?
                 AND np.prixretour IS NOT NULL
                 AND np.prixretour > 0
-                GROUP BY np.id_ligne_pass, dest.id_compaga, np.prixretour, lg.nom_ligne, ar.roleattribut",
+                GROUP BY np.id_ligne_pass, dest.id_compaga, np.prixretour, COALESCE(NULLIF(TRIM(np.nom_ligne), ''), lg.nom_ligne), ar.roleattribut",
                 array($cd, $today, (int) $idcox, (int) $comp, $g)
             )->result();
         }
@@ -506,7 +537,7 @@
             $today = mdate('%Y-%m-%d', now('UTC'));
 
             return $this->db->query(
-                "SELECT COUNT(code_non_pass) AS cod, SUM(prixretour) AS totalr, lg.nom_ligne, dest.id_compaga, np.id_ligne_pass, np.prixretour FROM non_passager np
+                "SELECT COUNT(code_non_pass) AS cod, SUM(prixretour) AS totalr, COALESCE(NULLIF(TRIM(np.nom_ligne), ''), lg.nom_ligne) AS nom_ligne, dest.id_compaga, np.id_ligne_pass, np.prixretour FROM non_passager np
                 JOIN attributions_role ar ON np.cptus = ar.roleattribut
                 JOIN user_login ul ON ar.idgestcompte = ul.uid_login
                 JOIN lignes lg ON np.id_ligne_pass = lg.ident_ligne
@@ -522,7 +553,7 @@
                 AND ul.guser = ?
                 AND np.prixretour IS NOT NULL
                 AND np.prixretour > 0
-                GROUP BY np.id_ligne_pass, dest.id_compaga, np.prixretour, lg.nom_ligne, ar.roleattribut",
+                GROUP BY np.id_ligne_pass, dest.id_compaga, np.prixretour, COALESCE(NULLIF(TRIM(np.nom_ligne), ''), lg.nom_ligne), ar.roleattribut",
                 array($cd, $today, (int) $idcox, (int) $comp, $g)
             )->result();
         }
@@ -531,7 +562,7 @@
         {
             $today = mdate("%Y-%m-%d", now('UTC'));
             
-            return $this->db->query("SELECT SUM(prixretour) AS totalr, lg.nom_ligne, dest.id_compaga, np.id_ligne_pass, np.prixretour, cu.username, np.datevente FROM non_passager np
+            return $this->db->query("SELECT SUM(prixretour) AS totalr, COALESCE(NULLIF(TRIM(np.nom_ligne), ''), lg.nom_ligne) AS nom_ligne, dest.id_compaga, np.id_ligne_pass, np.prixretour, cu.username, np.datevente FROM non_passager np
                 JOIN attributions_role ar ON np.cptus = ar.roleattribut
                 JOIN user_login ul ON ar.idgestcompte = ul.uid_login
                 JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
@@ -545,7 +576,7 @@
                 AND np.datevente >= '$db' AND np.datevente < DATE_ADD('$df', INTERVAL 1 DAY)
                 AND ar.roleattribut = '$use'
                 AND dest.id_compaga = '$cp'
-                GROUP BY np.id_ligne_pass, dest.id_compaga, np.prixretour, lg.nom_ligne, cu.username, np.datevente")->result();
+                GROUP BY np.id_ligne_pass, dest.id_compaga, np.prixretour, COALESCE(NULLIF(TRIM(np.nom_ligne), ''), lg.nom_ligne), cu.username, np.datevente")->result();
         }
 
         //triverse
@@ -558,7 +589,7 @@
             }
             $vendeurSql = $CI->m_passager->sql_filtre_vendeur($idvd);
 
-            return $this->db->query("SELECT SUM(prixretour) AS totalr, lg.nom_ligne, np.id_ligne_pass, dest.id_compaga, np.prixretour, cu.username FROM non_passager np
+            return $this->db->query("SELECT SUM(prixretour) AS totalr, COALESCE(NULLIF(TRIM(np.nom_ligne), ''), lg.nom_ligne) AS nom_ligne, np.id_ligne_pass, dest.id_compaga, np.prixretour, cu.username FROM non_passager np
                 JOIN attributions_role ar ON np.cptus = ar.roleattribut
                 JOIN user_login ul ON ar.idgestcompte = ul.uid_login
                 JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
@@ -573,7 +604,7 @@
                 AND dest.id_compaga = '$cp'
                 {$userGare}
                 {$vendeurSql}
-                GROUP BY np.id_ligne_pass, dest.id_compaga, np.prixretour, lg.nom_ligne, cu.username")->result();
+                GROUP BY np.id_ligne_pass, dest.id_compaga, np.prixretour, COALESCE(NULLIF(TRIM(np.nom_ligne), ''), lg.nom_ligne), cu.username")->result();
         }
 
         public function versefiltadmin($key, $gid, $db, $df, $cp, $idvd = FALSE)
@@ -586,7 +617,7 @@
             }
             $vendeurSql = $CI->m_passager->sql_filtre_vendeur($idvd);
 
-            return $this->db->query("SELECT SUM(prixretour) AS totalr, lg.nom_ligne, np.id_ligne_pass, dest.id_compaga, np.prixretour, cu.username FROM non_passager np
+            return $this->db->query("SELECT SUM(prixretour) AS totalr, COALESCE(NULLIF(TRIM(np.nom_ligne), ''), lg.nom_ligne) AS nom_ligne, np.id_ligne_pass, dest.id_compaga, np.prixretour, cu.username FROM non_passager np
                 JOIN attributions_role ar ON np.cptus = ar.roleattribut
                 JOIN user_login ul ON ar.idgestcompte = ul.uid_login
                 JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
@@ -601,7 +632,7 @@
                 AND dest.id_compaga = '$cp'
                 {$userGare}
                 {$vendeurSql}
-                GROUP BY np.id_ligne_pass, dest.id_compaga, np.prixretour, lg.nom_ligne, cu.username")->result();
+                GROUP BY np.id_ligne_pass, dest.id_compaga, np.prixretour, COALESCE(NULLIF(TRIM(np.nom_ligne), ''), lg.nom_ligne), cu.username")->result();
         }
 
         public function versefiltadminsg($key, $gid, $db, $df, $cp, $sg, $idvd = FALSE)
@@ -613,7 +644,7 @@
             }
             $vendeurSql = $CI->m_passager->sql_filtre_vendeur($idvd);
 
-            return $this->db->query("SELECT SUM(prixretour) AS totalr, lg.nom_ligne, np.id_ligne_pass, dest.id_compaga, np.prixretour, cu.username FROM non_passager np
+            return $this->db->query("SELECT SUM(prixretour) AS totalr, COALESCE(NULLIF(TRIM(np.nom_ligne), ''), lg.nom_ligne) AS nom_ligne, np.id_ligne_pass, dest.id_compaga, np.prixretour, cu.username FROM non_passager np
                 JOIN attributions_role ar ON np.cptus = ar.roleattribut
                 JOIN user_login ul ON ar.idgestcompte = ul.uid_login
                 JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
@@ -630,11 +661,12 @@
                 {$vendeurSql}
                 {$userGare}
                 AND np.sousgareidentif = '$sg'
-                GROUP BY np.id_ligne_pass, dest.id_compaga, np.prixretour, lg.nom_ligne, cu.username")->result();
+                GROUP BY np.id_ligne_pass, dest.id_compaga, np.prixretour, COALESCE(NULLIF(TRIM(np.nom_ligne), ''), lg.nom_ligne), cu.username")->result();
         }
         //report admin — même sémantique que listereport (lieu + vendeur expand)
-        public function listereportretour($cid, $cp, $gid, $dt1, $dt2, $acl = FALSE, $algn = FALSE)
+        public function listereportretour($cid, $cp, $gid, $dt1, $dt2, $acl = FALSE, $algn = FALSE, $familleLettres = null)
         {
+        $filtreLettres = ($familleLettres === null || $familleLettres === '') ? '' : etat_filtre_lettres('np.verifnonpassager', 'np.datevente', $cp, $familleLettres, $dt1, $dt2);
             $userGare = $this->_sql_etat_user_gare($gid);
             $CI =& get_instance();
             if (!isset($CI->m_passager)) {
@@ -646,7 +678,7 @@
             }
 
             return $this->db->query(
-                "SELECT COUNT(code_non_pass) AS code_non_pass, SUM(prixretour) AS totalr, lg.nom_ligne, np.prixretour FROM non_passager np
+                "SELECT COUNT(code_non_pass) AS code_non_pass, SUM(prixretour) AS totalr, COALESCE(NULLIF(TRIM(np.nom_ligne), ''), lg.nom_ligne) AS nom_ligne, np.prixretour FROM non_passager np
                 JOIN attributions_role ar ON np.cptus = ar.roleattribut
                 JOIN user_login ul ON ar.idgestcompte = ul.uid_login
                 JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
@@ -662,15 +694,16 @@
                 AND dest.id_compaga = " . $this->db->escape($cp) . "
                 {$userGare}
                 {$extra}
-                GROUP BY np.prixretour, lg.nom_ligne")->result();
+                {$filtreLettres} GROUP BY np.prixretour, COALESCE(NULLIF(TRIM(np.nom_ligne), ''), lg.nom_ligne)")->result();
         }
 
         public function listereportretourcpt($cid, $cp, $gid, $dt1, $dt2, $acl = FALSE, $algn = FALSE)
         {
+        $filtreLettres = etat_filtre_lettres('np.verifnonpassager', 'np.datevente', $cp, 'ticket_etats', $dt1, $dt2);
             
             if ($acl === '' AND $algn === '') {
                 return $this->db->query(
-                    "SELECT COUNT(code_non_pass) AS code_non_pass, SUM(prixretour) AS totalr, lg.nom_ligne, np.prixretour FROM non_passager np
+                    "SELECT COUNT(code_non_pass) AS code_non_pass, SUM(prixretour) AS totalr, COALESCE(NULLIF(TRIM(np.nom_ligne), ''), lg.nom_ligne) AS nom_ligne, np.prixretour FROM non_passager np
                     JOIN attributions_role ar ON np.cptus = ar.roleattribut
                     JOIN user_login ul ON ar.idgestcompte = ul.uid_login
                     JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
@@ -683,14 +716,23 @@
                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
                     WHERE e.ekey = '$cid'
                     AND np.datevente >= '$dt1' AND np.datevente < DATE_ADD('$dt2', INTERVAL 1 DAY)
-                    AND np.verifnonpassager IN('A', 'C', 'D')
+                    {$filtreLettres}
                     AND dest.id_compaga = '$cp'
-                    AND ex.code_gaexp = '$gid'
-                    GROUP BY lg.nom_ligne, np.prixretour")->result();
+                    AND (
+ (SELECT ulx.guser FROM attributions_role arx JOIN user_login ulx ON arx.idgestcompte = ulx.uid_login WHERE arx.roleattribut = np.cptus LIMIT 1) = (SELECT gx_lv.garesid FROM gare_exp gx_lv WHERE gx_lv.code_gaexp = '$gid' OR gx_lv.garesid = '$gid' LIMIT 1)
+ OR (SELECT ulx.guser FROM attributions_role arx JOIN user_login ulx ON arx.idgestcompte = ulx.uid_login WHERE arx.roleattribut = np.cptus LIMIT 1) = '$gid'
+ OR EXISTS (
+  SELECT 1 FROM sousgare sg_v
+  JOIN gare_exp ge_v ON ge_v.code_gaexp = sg_v.gareprinceid
+  WHERE sg_v.idsousgare = np.sousgareidentif
+  AND (ge_v.code_gaexp = '$gid' OR ge_v.garesid = '$gid')
+ )
+)
+                    GROUP BY COALESCE(NULLIF(TRIM(np.nom_ligne), ''), lg.nom_ligne), np.prixretour")->result();
             }
             elseif($algn === '')
             {
-                return $this->db->query("SELECT COUNT(code_non_pass) AS code_non_pass, SUM(prixretour) AS totalr, lg.nom_ligne, np.prixretour FROM non_passager np
+                return $this->db->query("SELECT COUNT(code_non_pass) AS code_non_pass, SUM(prixretour) AS totalr, COALESCE(NULLIF(TRIM(np.nom_ligne), ''), lg.nom_ligne) AS nom_ligne, np.prixretour FROM non_passager np
                     JOIN attributions_role ar ON np.cptus = ar.roleattribut
                     JOIN user_login ul ON ar.idgestcompte = ul.uid_login
                     JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
@@ -703,14 +745,23 @@
                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
                     WHERE e.ekey = '$cid'
                     AND np.datevente >= '$dt1' AND np.datevente < DATE_ADD('$dt2', INTERVAL 1 DAY)
-                    AND np.verifnonpassager IN('A', 'C', 'D')
+                    {$filtreLettres}
                     AND dest.id_compaga = '$cp'
                     AND ar.roleattribut = '$acl'
-                    AND ex.code_gaexp = '$gid'
-                    GROUP BY np.prixretour, lg.nom_ligne")->result();
+                    AND (
+ (SELECT ulx.guser FROM attributions_role arx JOIN user_login ulx ON arx.idgestcompte = ulx.uid_login WHERE arx.roleattribut = np.cptus LIMIT 1) = (SELECT gx_lv.garesid FROM gare_exp gx_lv WHERE gx_lv.code_gaexp = '$gid' OR gx_lv.garesid = '$gid' LIMIT 1)
+ OR (SELECT ulx.guser FROM attributions_role arx JOIN user_login ulx ON arx.idgestcompte = ulx.uid_login WHERE arx.roleattribut = np.cptus LIMIT 1) = '$gid'
+ OR EXISTS (
+  SELECT 1 FROM sousgare sg_v
+  JOIN gare_exp ge_v ON ge_v.code_gaexp = sg_v.gareprinceid
+  WHERE sg_v.idsousgare = np.sousgareidentif
+  AND (ge_v.code_gaexp = '$gid' OR ge_v.garesid = '$gid')
+ )
+)
+                    GROUP BY np.prixretour, COALESCE(NULLIF(TRIM(np.nom_ligne), ''), lg.nom_ligne)")->result();
             }
                 return $this->db->query(
-                    "SELECT COUNT(code_non_pass) AS code_non_pass, SUM(prixretour) AS totalr, lg.nom_ligne, np.prixretour FROM non_passager np
+                    "SELECT COUNT(code_non_pass) AS code_non_pass, SUM(prixretour) AS totalr, COALESCE(NULLIF(TRIM(np.nom_ligne), ''), lg.nom_ligne) AS nom_ligne, np.prixretour FROM non_passager np
                     JOIN attributions_role ar ON np.cptus = ar.roleattribut
                     JOIN user_login ul ON ar.idgestcompte = ul.uid_login
                     JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
@@ -724,11 +775,20 @@
                     WHERE e.ekey = '$cid'
                     AND np.datevente >= '$dt1' AND np.datevente < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND dest.id_compaga = '$cp'
-                    AND np.verifnonpassager IN('A', 'C', 'D')
+                    {$filtreLettres}
                     AND ar.roleattribut = '$acl'
                     AND lg.ident_ligne = '$algn'
-                    AND ex.code_gaexp = '$gid'
-                    GROUP BY np.prixretour, lg.nom_ligne")->result();
+                    AND (
+ (SELECT ulx.guser FROM attributions_role arx JOIN user_login ulx ON arx.idgestcompte = ulx.uid_login WHERE arx.roleattribut = np.cptus LIMIT 1) = (SELECT gx_lv.garesid FROM gare_exp gx_lv WHERE gx_lv.code_gaexp = '$gid' OR gx_lv.garesid = '$gid' LIMIT 1)
+ OR (SELECT ulx.guser FROM attributions_role arx JOIN user_login ulx ON arx.idgestcompte = ulx.uid_login WHERE arx.roleattribut = np.cptus LIMIT 1) = '$gid'
+ OR EXISTS (
+  SELECT 1 FROM sousgare sg_v
+  JOIN gare_exp ge_v ON ge_v.code_gaexp = sg_v.gareprinceid
+  WHERE sg_v.idsousgare = np.sousgareidentif
+  AND (ge_v.code_gaexp = '$gid' OR ge_v.garesid = '$gid')
+ )
+)
+                    GROUP BY np.prixretour, COALESCE(NULLIF(TRIM(np.nom_ligne), ''), lg.nom_ligne)")->result();
         }
 
         public function listereportversretourcpt($cid, $cp, $gid, $dt1, $dt2, $acl = FALSE)
@@ -751,7 +811,16 @@
                     AND np.datevente >= '$dt1' AND np.datevente < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND np.verifnonpassager IN('A', 'C', 'D')
                     AND dest.id_compaga = '$cp'
-                    AND ex.code_gaexp = '$gid'
+                    AND (
+ (SELECT ulx.guser FROM attributions_role arx JOIN user_login ulx ON arx.idgestcompte = ulx.uid_login WHERE arx.roleattribut = np.cptus LIMIT 1) = (SELECT gx_lv.garesid FROM gare_exp gx_lv WHERE gx_lv.code_gaexp = '$gid' OR gx_lv.garesid = '$gid' LIMIT 1)
+ OR (SELECT ulx.guser FROM attributions_role arx JOIN user_login ulx ON arx.idgestcompte = ulx.uid_login WHERE arx.roleattribut = np.cptus LIMIT 1) = '$gid'
+ OR EXISTS (
+  SELECT 1 FROM sousgare sg_v
+  JOIN gare_exp ge_v ON ge_v.code_gaexp = sg_v.gareprinceid
+  WHERE sg_v.idsousgare = np.sousgareidentif
+  AND (ge_v.code_gaexp = '$gid' OR ge_v.garesid = '$gid')
+ )
+)
                     GROUP BY np.datevente, dest.id_compaga")->result();
             }
             
@@ -772,12 +841,22 @@
                     AND np.verifnonpassager IN('A', 'C', 'D')
                     AND dest.id_compaga = '$cp'
                     AND ar.roleattribut = '$acl'
-                    AND ex.code_gaexp = '$gid'
+                    AND (
+ (SELECT ulx.guser FROM attributions_role arx JOIN user_login ulx ON arx.idgestcompte = ulx.uid_login WHERE arx.roleattribut = np.cptus LIMIT 1) = (SELECT gx_lv.garesid FROM gare_exp gx_lv WHERE gx_lv.code_gaexp = '$gid' OR gx_lv.garesid = '$gid' LIMIT 1)
+ OR (SELECT ulx.guser FROM attributions_role arx JOIN user_login ulx ON arx.idgestcompte = ulx.uid_login WHERE arx.roleattribut = np.cptus LIMIT 1) = '$gid'
+ OR EXISTS (
+  SELECT 1 FROM sousgare sg_v
+  JOIN gare_exp ge_v ON ge_v.code_gaexp = sg_v.gareprinceid
+  WHERE sg_v.idsousgare = np.sousgareidentif
+  AND (ge_v.code_gaexp = '$gid' OR ge_v.garesid = '$gid')
+ )
+)
                     GROUP BY np.datevente, dest.id_compaga")->result();
         }
 
         public function listereportversretourcptexo($cid, $cp, $dt1, $dt2, $gid = FALSE, $acl = FALSE)
         {
+        $filtreLettres = etat_filtre_lettres('np.verifnonpassager', 'np.datevente', $cp, 'ticket_etats', $dt1, $dt2);
             $userGare = ($gid !== FALSE && $gid !== null && trim((string) $gid) !== '')
                 ? $this->_sql_etat_user_gare($gid)
                 : '';
@@ -801,7 +880,7 @@
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = " . $this->db->escape($cid) . "
                 AND np.datevente >= " . $this->db->escape($dt1) . " AND np.datevente < DATE_ADD(" . $this->db->escape($dt2) . ", INTERVAL 1 DAY)
-                AND np.verifnonpassager IN('A', 'C', 'D')
+                {$filtreLettres}
                 AND dest.id_compaga = " . $this->db->escape($cp) . "
                 {$userGare}
                 {$vendeurSql}
@@ -810,6 +889,7 @@
 
         public function listereportversretourcpte($cid, $cp, $dt1, $dt2, $gid = FALSE, $acl = FALSE)
         {
+        $filtreLettres = etat_filtre_lettres('np.verifnonpassager', 'np.datevente', $cp, 'ticket_etats', $dt1, $dt2);
             
             if ($gid === '' AND $acl === '') {
                 return $this->db->query(
@@ -827,8 +907,17 @@
                     WHERE e.ekey = '$cid'
                     AND np.datevente >= '$dt1' AND np.datevente < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND dest.id_compaga = '$cp'
-                    AND ex.code_gaexp = '$gid'
-                    GROUP BY np.datevente, dest.id_compaga")->result();
+                    AND (
+ (SELECT ulx.guser FROM attributions_role arx JOIN user_login ulx ON arx.idgestcompte = ulx.uid_login WHERE arx.roleattribut = np.cptus LIMIT 1) = (SELECT gx_lv.garesid FROM gare_exp gx_lv WHERE gx_lv.code_gaexp = '$gid' OR gx_lv.garesid = '$gid' LIMIT 1)
+ OR (SELECT ulx.guser FROM attributions_role arx JOIN user_login ulx ON arx.idgestcompte = ulx.uid_login WHERE arx.roleattribut = np.cptus LIMIT 1) = '$gid'
+ OR EXISTS (
+  SELECT 1 FROM sousgare sg_v
+  JOIN gare_exp ge_v ON ge_v.code_gaexp = sg_v.gareprinceid
+  WHERE sg_v.idsousgare = np.sousgareidentif
+  AND (ge_v.code_gaexp = '$gid' OR ge_v.garesid = '$gid')
+ )
+)
+                    {$filtreLettres} GROUP BY np.datevente, dest.id_compaga")->result();
             }
             elseif($acl === '')
             {
@@ -846,8 +935,17 @@
                     WHERE e.ekey = '$cid'
                     AND np.datevente >= '$dt1' AND np.datevente < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND dest.id_compaga = '$cp'
-                    AND ex.code_gaexp = '$gid'
-                    GROUP BY np.datevente, dest.id_compaga")->result();
+                    AND (
+ (SELECT ulx.guser FROM attributions_role arx JOIN user_login ulx ON arx.idgestcompte = ulx.uid_login WHERE arx.roleattribut = np.cptus LIMIT 1) = (SELECT gx_lv.garesid FROM gare_exp gx_lv WHERE gx_lv.code_gaexp = '$gid' OR gx_lv.garesid = '$gid' LIMIT 1)
+ OR (SELECT ulx.guser FROM attributions_role arx JOIN user_login ulx ON arx.idgestcompte = ulx.uid_login WHERE arx.roleattribut = np.cptus LIMIT 1) = '$gid'
+ OR EXISTS (
+  SELECT 1 FROM sousgare sg_v
+  JOIN gare_exp ge_v ON ge_v.code_gaexp = sg_v.gareprinceid
+  WHERE sg_v.idsousgare = np.sousgareidentif
+  AND (ge_v.code_gaexp = '$gid' OR ge_v.garesid = '$gid')
+ )
+)
+                    {$filtreLettres} GROUP BY np.datevente, dest.id_compaga")->result();
             }
                 return $this->db->query(
                     "SELECT SUM(prixretour) AS totalr, np.datevente, dest.id_compaga FROM non_passager np
@@ -865,8 +963,17 @@
                     AND np.datevente >= '$dt1' AND np.datevente < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND dest.id_compaga = '$cp'
                     AND ar.roleattribut = '$acl'
-                    AND ex.code_gaexp = '$gid'
-                    GROUP BY np.datevente, dest.id_compaga")->result();
+                    AND (
+ (SELECT ulx.guser FROM attributions_role arx JOIN user_login ulx ON arx.idgestcompte = ulx.uid_login WHERE arx.roleattribut = np.cptus LIMIT 1) = (SELECT gx_lv.garesid FROM gare_exp gx_lv WHERE gx_lv.code_gaexp = '$gid' OR gx_lv.garesid = '$gid' LIMIT 1)
+ OR (SELECT ulx.guser FROM attributions_role arx JOIN user_login ulx ON arx.idgestcompte = ulx.uid_login WHERE arx.roleattribut = np.cptus LIMIT 1) = '$gid'
+ OR EXISTS (
+  SELECT 1 FROM sousgare sg_v
+  JOIN gare_exp ge_v ON ge_v.code_gaexp = sg_v.gareprinceid
+  WHERE sg_v.idsousgare = np.sousgareidentif
+  AND (ge_v.code_gaexp = '$gid' OR ge_v.garesid = '$gid')
+ )
+)
+                    {$filtreLettres} GROUP BY np.datevente, dest.id_compaga")->result();
         }
         
         public function listereportversretourcptad($cid, $cp, $gid, $dt1, $dt2, $acl = FALSE, $algn = FALSE)
@@ -903,10 +1010,11 @@
     
         public function listereportretourcptadmin($cid, $cp, $gid, $dt1, $dt2, $acl = FALSE, $algn = FALSE)
         {
+        $filtreLettres = etat_filtre_lettres('np.verifnonpassager', 'np.datevente', $cp, 'ticket_etats', $dt1, $dt2);
             
             if ($acl === '' AND $algn === '') {
                 return $this->db->query(
-                    "SELECT COUNT(code_non_pass) AS code_non_pass, SUM(prixretour) AS totalr, lg.nom_ligne, np.prixretour FROM non_passager np
+                    "SELECT COUNT(code_non_pass) AS code_non_pass, SUM(prixretour) AS totalr, COALESCE(NULLIF(TRIM(np.nom_ligne), ''), lg.nom_ligne) AS nom_ligne, np.prixretour FROM non_passager np
                     JOIN attributions_role ar ON np.cptus = ar.roleattribut
                     JOIN user_login ul ON ar.idgestcompte = ul.uid_login
                     JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
@@ -919,14 +1027,23 @@
                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
                     WHERE e.ekey = '$cid'
                     AND np.datevente >= '$dt1' AND np.datevente < DATE_ADD('$dt2', INTERVAL 1 DAY)
-                    AND np.verifnonpassager IN('A', 'C', 'D')
+                    {$filtreLettres}
                     AND dest.id_compaga = '$cp'
-                    AND ex.code_gaexp = '$gid'
-                    GROUP BY np.prixretour, lg.nom_ligne")->result();
+                    AND (
+ (SELECT ulx.guser FROM attributions_role arx JOIN user_login ulx ON arx.idgestcompte = ulx.uid_login WHERE arx.roleattribut = np.cptus LIMIT 1) = (SELECT gx_lv.garesid FROM gare_exp gx_lv WHERE gx_lv.code_gaexp = '$gid' OR gx_lv.garesid = '$gid' LIMIT 1)
+ OR (SELECT ulx.guser FROM attributions_role arx JOIN user_login ulx ON arx.idgestcompte = ulx.uid_login WHERE arx.roleattribut = np.cptus LIMIT 1) = '$gid'
+ OR EXISTS (
+  SELECT 1 FROM sousgare sg_v
+  JOIN gare_exp ge_v ON ge_v.code_gaexp = sg_v.gareprinceid
+  WHERE sg_v.idsousgare = np.sousgareidentif
+  AND (ge_v.code_gaexp = '$gid' OR ge_v.garesid = '$gid')
+ )
+)
+                    GROUP BY np.prixretour, COALESCE(NULLIF(TRIM(np.nom_ligne), ''), lg.nom_ligne)")->result();
             }
             elseif($algn === '')
             {
-                return $this->db->query("SELECT COUNT(code_non_pass) AS code_non_pass, SUM(prixretour) AS totalr, lg.nom_ligne, np.prixretour FROM non_passager np
+                return $this->db->query("SELECT COUNT(code_non_pass) AS code_non_pass, SUM(prixretour) AS totalr, COALESCE(NULLIF(TRIM(np.nom_ligne), ''), lg.nom_ligne) AS nom_ligne, np.prixretour FROM non_passager np
                     JOIN attributions_role ar ON np.cptus = ar.roleattribut
                     JOIN user_login ul ON ar.idgestcompte = ul.uid_login
                     JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
@@ -939,14 +1056,23 @@
                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
                     WHERE e.ekey = '$cid'
                     AND np.datevente >= '$dt1' AND np.datevente < DATE_ADD('$dt2', INTERVAL 1 DAY)
-                    AND np.verifnonpassager IN('A', 'C', 'D')
+                    {$filtreLettres}
                     AND dest.id_compaga = '$cp'
                     AND ar.roleattribut = '$acl'
-                    AND ex.code_gaexp = '$gid'
-                    GROUP BY np.prixretour, lg.nom_ligne")->result();
+                    AND (
+ (SELECT ulx.guser FROM attributions_role arx JOIN user_login ulx ON arx.idgestcompte = ulx.uid_login WHERE arx.roleattribut = np.cptus LIMIT 1) = (SELECT gx_lv.garesid FROM gare_exp gx_lv WHERE gx_lv.code_gaexp = '$gid' OR gx_lv.garesid = '$gid' LIMIT 1)
+ OR (SELECT ulx.guser FROM attributions_role arx JOIN user_login ulx ON arx.idgestcompte = ulx.uid_login WHERE arx.roleattribut = np.cptus LIMIT 1) = '$gid'
+ OR EXISTS (
+  SELECT 1 FROM sousgare sg_v
+  JOIN gare_exp ge_v ON ge_v.code_gaexp = sg_v.gareprinceid
+  WHERE sg_v.idsousgare = np.sousgareidentif
+  AND (ge_v.code_gaexp = '$gid' OR ge_v.garesid = '$gid')
+ )
+)
+                    GROUP BY np.prixretour, COALESCE(NULLIF(TRIM(np.nom_ligne), ''), lg.nom_ligne)")->result();
             }
                 return $this->db->query(
-                    "SELECT COUNT(code_non_pass) AS code_non_pass, SUM(prixretour) AS totalr, lg.nom_ligne, np.prixretour FROM non_passager np
+                    "SELECT COUNT(code_non_pass) AS code_non_pass, SUM(prixretour) AS totalr, COALESCE(NULLIF(TRIM(np.nom_ligne), ''), lg.nom_ligne) AS nom_ligne, np.prixretour FROM non_passager np
                     JOIN attributions_role ar ON np.cptus = ar.roleattribut
                     JOIN user_login ul ON ar.idgestcompte = ul.uid_login
                     JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
@@ -959,12 +1085,21 @@
                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
                     WHERE e.ekey = '$cid'
                     AND np.datevente >= '$dt1' AND np.datevente < DATE_ADD('$dt2', INTERVAL 1 DAY)
-                    AND np.verifnonpassager IN('A', 'C', 'D')
+                    {$filtreLettres}
                     AND dest.id_compaga = '$cp'
                     AND ar.roleattribut = '$acl'
                     AND lg.ident_ligne = '$algn'
-                    AND ex.code_gaexp = '$gid'
-                    GROUP BY np.prixretour,lg.nom_ligne")->result();
+                    AND (
+ (SELECT ulx.guser FROM attributions_role arx JOIN user_login ulx ON arx.idgestcompte = ulx.uid_login WHERE arx.roleattribut = np.cptus LIMIT 1) = (SELECT gx_lv.garesid FROM gare_exp gx_lv WHERE gx_lv.code_gaexp = '$gid' OR gx_lv.garesid = '$gid' LIMIT 1)
+ OR (SELECT ulx.guser FROM attributions_role arx JOIN user_login ulx ON arx.idgestcompte = ulx.uid_login WHERE arx.roleattribut = np.cptus LIMIT 1) = '$gid'
+ OR EXISTS (
+  SELECT 1 FROM sousgare sg_v
+  JOIN gare_exp ge_v ON ge_v.code_gaexp = sg_v.gareprinceid
+  WHERE sg_v.idsousgare = np.sousgareidentif
+  AND (ge_v.code_gaexp = '$gid' OR ge_v.garesid = '$gid')
+ )
+)
+                    GROUP BY np.prixretour,COALESCE(NULLIF(TRIM(np.nom_ligne), ''), lg.nom_ligne)")->result();
         }
         //report ticket admin
         /*public function reporticketretour($cid, $gid, $dt1, $dt2, $cp, $algn = FALSE)
@@ -973,7 +1108,7 @@
             if ($algn === '') 
             {
                 return $this->db->query(
-                    "SELECT COUNT(code_non_pass) AS code_non_pass, SUM(prixretour) AS totalr, lg.nom_ligne, dest.id_compaga, np.prixretour FROM non_passager np
+                    "SELECT COUNT(code_non_pass) AS code_non_pass, SUM(prixretour) AS totalr, COALESCE(NULLIF(TRIM(np.nom_ligne), ''), lg.nom_ligne) AS nom_ligne, dest.id_compaga, np.prixretour FROM non_passager np
                     JOIN attributions_role ar ON np.cptus = ar.roleattribut
                     JOIN user_login ul ON ar.idgestcompte = ul.uid_login
                     JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
@@ -988,10 +1123,10 @@
                     AND np.datevente >= '$dt1' AND np.datevente < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND dest.id_compaga = '$cp'
                     AND ex.code_gaexp = '$gid'
-                    GROUP BY lg.nom_ligne, dest.id_compaga, np.prixretour")->result();
+                    GROUP BY COALESCE(NULLIF(TRIM(np.nom_ligne), ''), lg.nom_ligne), dest.id_compaga, np.prixretour")->result();
             }
                 return $this->db->query(
-                    "SELECT COUNT(code_non_pass) AS code_non_pass, SUM(prixretour) AS totalr, lg.nom_ligne, dest.id_compaga, np.prixretour FROM non_passager np
+                    "SELECT COUNT(code_non_pass) AS code_non_pass, SUM(prixretour) AS totalr, COALESCE(NULLIF(TRIM(np.nom_ligne), ''), lg.nom_ligne) AS nom_ligne, dest.id_compaga, np.prixretour FROM non_passager np
                     JOIN attributions_role ar ON np.cptus = ar.roleattribut
                     JOIN user_login ul ON ar.idgestcompte = ul.uid_login
                     JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
@@ -1007,11 +1142,12 @@
                     AND dest.id_compaga = '$cp'
                     AND lg.ident_ligne = '$algn'
                     AND ex.code_gaexp = '$gid'
-                    GROUP BY lg.nom_ligne, dest.id_compaga, np.prixretour")->result();
+                    GROUP BY COALESCE(NULLIF(TRIM(np.nom_ligne), ''), lg.nom_ligne), dest.id_compaga, np.prixretour")->result();
         }*/
 
-        public function reporticketretour($cid, $gid, $dt1, $dt2, $cp, $algn = FALSE, $sg = FALSE)
+        public function reporticketretour($cid, $gid, $dt1, $dt2, $cp, $algn = FALSE, $sg = FALSE, $familleLettres = null)
         {
+        $filtreLettres = ($familleLettres === null || $familleLettres === '') ? '' : etat_filtre_lettres('np.verifnonpassager', 'np.datevente', $cp, $familleLettres, $dt1, $dt2);
             $userGare = $this->_sql_etat_user_gare($gid);
             $sgNorm = ($sg === FALSE || $sg === null) ? '' : trim((string) $sg);
             $sgSql = '';
@@ -1024,7 +1160,7 @@
             }
 
             return $this->db->query(
-                "SELECT COUNT(code_non_pass) AS code_non_pass, SUM(prixretour) AS totalr, lg.nom_ligne, np.prixretour FROM non_passager np
+                "SELECT COUNT(code_non_pass) AS code_non_pass, SUM(prixretour) AS totalr, COALESCE(NULLIF(TRIM(np.nom_ligne), ''), lg.nom_ligne) AS nom_ligne, np.prixretour FROM non_passager np
                     JOIN attributions_role ar ON np.cptus = ar.roleattribut
                     JOIN user_login ul ON ar.idgestcompte = ul.uid_login
                     JOIN lignes lg ON np.id_ligne_pass = lg.ident_ligne
@@ -1038,11 +1174,12 @@
                     {$userGare}
                     {$extra}
                     {$sgSql}
-                    GROUP BY lg.nom_ligne, np.prixretour")->result();
+                    {$filtreLettres} GROUP BY COALESCE(NULLIF(TRIM(np.nom_ligne), ''), lg.nom_ligne), np.prixretour")->result();
         }
 
         public function reporticketretourgr($cid, $gid, $dt1, $dt2, $cp, $algn = FALSE)
         {
+            $filtreLettres = etat_filtre_lettres('np.verifnonpassager', 'np.datevente', $cp, 'ticket_etats', $dt1, $dt2);
             
             if ($algn === '') 
             {
@@ -1061,7 +1198,16 @@
                     WHERE e.ekey = '$cid'
                     AND np.datevente >= '$dt1' AND np.datevente < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND dest.id_compaga = '$cp'
-                    AND ex.code_gaexp = '$gid'")->result();
+                    AND (
+ (SELECT ulx.guser FROM attributions_role arx JOIN user_login ulx ON arx.idgestcompte = ulx.uid_login WHERE arx.roleattribut = np.cptus LIMIT 1) = (SELECT gx_lv.garesid FROM gare_exp gx_lv WHERE gx_lv.code_gaexp = '$gid' OR gx_lv.garesid = '$gid' LIMIT 1)
+ OR (SELECT ulx.guser FROM attributions_role arx JOIN user_login ulx ON arx.idgestcompte = ulx.uid_login WHERE arx.roleattribut = np.cptus LIMIT 1) = '$gid'
+ OR EXISTS (
+  SELECT 1 FROM sousgare sg_v
+  JOIN gare_exp ge_v ON ge_v.code_gaexp = sg_v.gareprinceid
+  WHERE sg_v.idsousgare = np.sousgareidentif
+  AND (ge_v.code_gaexp = '$gid' OR ge_v.garesid = '$gid')
+ )
+){$filtreLettres}")->result();
             }
                 return $this->db->query(
                     "SELECT * FROM non_passager np
@@ -1079,7 +1225,16 @@
                     AND np.datevente >= '$dt1' AND np.datevente < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND dest.id_compaga = '$cp'
                     AND lg.ident_ligne = '$algn'
-                    AND ex.code_gaexp = '$gid'")->result();
+                    AND (
+ (SELECT ulx.guser FROM attributions_role arx JOIN user_login ulx ON arx.idgestcompte = ulx.uid_login WHERE arx.roleattribut = np.cptus LIMIT 1) = (SELECT gx_lv.garesid FROM gare_exp gx_lv WHERE gx_lv.code_gaexp = '$gid' OR gx_lv.garesid = '$gid' LIMIT 1)
+ OR (SELECT ulx.guser FROM attributions_role arx JOIN user_login ulx ON arx.idgestcompte = ulx.uid_login WHERE arx.roleattribut = np.cptus LIMIT 1) = '$gid'
+ OR EXISTS (
+  SELECT 1 FROM sousgare sg_v
+  JOIN gare_exp ge_v ON ge_v.code_gaexp = sg_v.gareprinceid
+  WHERE sg_v.idsousgare = np.sousgareidentif
+  AND (ge_v.code_gaexp = '$gid' OR ge_v.garesid = '$gid')
+ )
+){$filtreLettres}")->result();
         }
 
         //report ticketcomptable
@@ -1090,7 +1245,7 @@
             if ($algn === '') 
             {
                 return $this->db->query(
-                    "SELECT COUNT(code_non_pass) AS code_non_pass, SUM(prixretour) AS totalr, lg.nom_ligne, np.prixretour FROM non_passager np
+                    "SELECT COUNT(code_non_pass) AS code_non_pass, SUM(prixretour) AS totalr, COALESCE(NULLIF(TRIM(np.nom_ligne), ''), lg.nom_ligne) AS nom_ligne, np.prixretour FROM non_passager np
                     JOIN attributions_role ar ON np.cptus = ar.roleattribut
                     JOIN user_login ul ON ar.idgestcompte = ul.uid_login
                     JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
@@ -1105,11 +1260,20 @@
                     AND np.datevente >= '$dt1' AND np.datevente < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND np.verifnonpassager IN('A', 'C', 'D')
                     AND dest.id_compaga = '$cp'
-                    AND ex.code_gaexp = '$gid'
-                    GROUP BY lg.nom_ligne, np.prixretour")->result();
+                    AND (
+ (SELECT ulx.guser FROM attributions_role arx JOIN user_login ulx ON arx.idgestcompte = ulx.uid_login WHERE arx.roleattribut = np.cptus LIMIT 1) = (SELECT gx_lv.garesid FROM gare_exp gx_lv WHERE gx_lv.code_gaexp = '$gid' OR gx_lv.garesid = '$gid' LIMIT 1)
+ OR (SELECT ulx.guser FROM attributions_role arx JOIN user_login ulx ON arx.idgestcompte = ulx.uid_login WHERE arx.roleattribut = np.cptus LIMIT 1) = '$gid'
+ OR EXISTS (
+  SELECT 1 FROM sousgare sg_v
+  JOIN gare_exp ge_v ON ge_v.code_gaexp = sg_v.gareprinceid
+  WHERE sg_v.idsousgare = np.sousgareidentif
+  AND (ge_v.code_gaexp = '$gid' OR ge_v.garesid = '$gid')
+ )
+)
+                    GROUP BY COALESCE(NULLIF(TRIM(np.nom_ligne), ''), lg.nom_ligne), np.prixretour")->result();
             }
                 return $this->db->query(
-                    "SELECT COUNT(code_non_pass) AS code_non_pass, SUM(prixretour) AS totalr, lg.nom_ligne, np.prixretour FROM non_passager np
+                    "SELECT COUNT(code_non_pass) AS code_non_pass, SUM(prixretour) AS totalr, COALESCE(NULLIF(TRIM(np.nom_ligne), ''), lg.nom_ligne) AS nom_ligne, np.prixretour FROM non_passager np
                     JOIN attributions_role ar ON np.cptus = ar.roleattribut
                     JOIN user_login ul ON ar.idgestcompte = ul.uid_login
                     JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
@@ -1125,16 +1289,26 @@
                     AND np.verifnonpassager IN('A', 'C', 'D')
                     AND dest.id_compaga = '$cp'
                     AND lg.ident_ligne = '$algn'
-                    AND ex.code_gaexp = '$gid'
-                    GROUP BY lg.nom_ligne, np.prixretour")->result();
+                    AND (
+ (SELECT ulx.guser FROM attributions_role arx JOIN user_login ulx ON arx.idgestcompte = ulx.uid_login WHERE arx.roleattribut = np.cptus LIMIT 1) = (SELECT gx_lv.garesid FROM gare_exp gx_lv WHERE gx_lv.code_gaexp = '$gid' OR gx_lv.garesid = '$gid' LIMIT 1)
+ OR (SELECT ulx.guser FROM attributions_role arx JOIN user_login ulx ON arx.idgestcompte = ulx.uid_login WHERE arx.roleattribut = np.cptus LIMIT 1) = '$gid'
+ OR EXISTS (
+  SELECT 1 FROM sousgare sg_v
+  JOIN gare_exp ge_v ON ge_v.code_gaexp = sg_v.gareprinceid
+  WHERE sg_v.idsousgare = np.sousgareidentif
+  AND (ge_v.code_gaexp = '$gid' OR ge_v.garesid = '$gid')
+ )
+)
+                    GROUP BY COALESCE(NULLIF(TRIM(np.nom_ligne), ''), lg.nom_ligne), np.prixretour")->result();
         }*/
         public function reporticketretourcpt($cid, $gid, $dt1, $dt2, $cp, $algn = FALSE)
         {
+        $filtreLettres = etat_filtre_lettres('np.verifnonpassager', 'np.datevente', $cp, 'ticket_etats', $dt1, $dt2);
             
             if ($algn === '') 
             {
                 return $this->db->query(
-                    "SELECT COUNT(code_non_pass) AS code_non_pass, SUM(prixretour) AS totalr, lg.nom_ligne, np.prixretour FROM non_passager np
+                    "SELECT COUNT(code_non_pass) AS code_non_pass, SUM(prixretour) AS totalr, COALESCE(NULLIF(TRIM(np.nom_ligne), ''), lg.nom_ligne) AS nom_ligne, np.prixretour FROM non_passager np
                     JOIN lignes lg ON np.id_ligne_pass = lg.ident_ligne
                     JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
                     JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
@@ -1142,7 +1316,7 @@
                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
                     WHERE e.ekey = '$cid'
                     AND np.datevente >= '$dt1' AND np.datevente < DATE_ADD('$dt2', INTERVAL 1 DAY)
-                    AND np.verifnonpassager IN('A', 'C', 'D')
+                    {$filtreLettres}
                     AND dest.id_compaga = '$cp'
                     AND EXISTS (
                       SELECT 1 FROM user_login ul
@@ -1152,12 +1326,21 @@
                           WHERE ar.roleattribut = np.cptus
                           LIMIT 1
                       )
-                      AND ex.code_gaexp = '$gid'
+                      AND (
+ (SELECT ulx.guser FROM attributions_role arx JOIN user_login ulx ON arx.idgestcompte = ulx.uid_login WHERE arx.roleattribut = np.cptus LIMIT 1) = (SELECT gx_lv.garesid FROM gare_exp gx_lv WHERE gx_lv.code_gaexp = '$gid' OR gx_lv.garesid = '$gid' LIMIT 1)
+ OR (SELECT ulx.guser FROM attributions_role arx JOIN user_login ulx ON arx.idgestcompte = ulx.uid_login WHERE arx.roleattribut = np.cptus LIMIT 1) = '$gid'
+ OR EXISTS (
+  SELECT 1 FROM sousgare sg_v
+  JOIN gare_exp ge_v ON ge_v.code_gaexp = sg_v.gareprinceid
+  WHERE sg_v.idsousgare = np.sousgareidentif
+  AND (ge_v.code_gaexp = '$gid' OR ge_v.garesid = '$gid')
+ )
+)
                      )
-                    GROUP BY lg.nom_ligne, np.prixretour")->result();
+                    GROUP BY COALESCE(NULLIF(TRIM(np.nom_ligne), ''), lg.nom_ligne), np.prixretour")->result();
             }
                 return $this->db->query(
-                    "SELECT COUNT(code_non_pass) AS code_non_pass, SUM(prixretour) AS totalr, lg.nom_ligne, np.prixretour FROM non_passager np
+                    "SELECT COUNT(code_non_pass) AS code_non_pass, SUM(prixretour) AS totalr, COALESCE(NULLIF(TRIM(np.nom_ligne), ''), lg.nom_ligne) AS nom_ligne, np.prixretour FROM non_passager np
                     JOIN lignes lg ON np.id_ligne_pass = lg.ident_ligne
                     JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
                     JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
@@ -1165,7 +1348,7 @@
                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
                     WHERE e.ekey = '$cid'
                     AND np.datevente >= '$dt1' AND np.datevente < DATE_ADD('$dt2', INTERVAL 1 DAY)
-                    AND np.verifnonpassager IN('A', 'C', 'D')
+                    {$filtreLettres}
                     AND dest.id_compaga = '$cp'
                     AND lg.ident_ligne = '$algn'
                     AND EXISTS (
@@ -1176,9 +1359,18 @@
                           WHERE ar.roleattribut = np.cptus
                           LIMIT 1
                       )
-                      AND ex.code_gaexp = '$gid'
+                      AND (
+ (SELECT ulx.guser FROM attributions_role arx JOIN user_login ulx ON arx.idgestcompte = ulx.uid_login WHERE arx.roleattribut = np.cptus LIMIT 1) = (SELECT gx_lv.garesid FROM gare_exp gx_lv WHERE gx_lv.code_gaexp = '$gid' OR gx_lv.garesid = '$gid' LIMIT 1)
+ OR (SELECT ulx.guser FROM attributions_role arx JOIN user_login ulx ON arx.idgestcompte = ulx.uid_login WHERE arx.roleattribut = np.cptus LIMIT 1) = '$gid'
+ OR EXISTS (
+  SELECT 1 FROM sousgare sg_v
+  JOIN gare_exp ge_v ON ge_v.code_gaexp = sg_v.gareprinceid
+  WHERE sg_v.idsousgare = np.sousgareidentif
+  AND (ge_v.code_gaexp = '$gid' OR ge_v.garesid = '$gid')
+ )
+)
                      )
-                    GROUP BY lg.nom_ligne, np.prixretour")->result();
+                    GROUP BY COALESCE(NULLIF(TRIM(np.nom_ligne), ''), lg.nom_ligne), np.prixretour")->result();
         }
 
         public function reporticketretourcptd($cid, $gid, $dt1, $dt2, $cp, $algn = FALSE)
@@ -1187,7 +1379,7 @@
             if ($algn === '') 
             {
                 return $this->db->query(
-                    "SELECT COUNT(code_non_pass) AS code_non_pass, SUM(prixretour) AS totalr, lg.nom_ligne, np.prixretour FROM non_passager np
+                    "SELECT COUNT(code_non_pass) AS code_non_pass, SUM(prixretour) AS totalr, COALESCE(NULLIF(TRIM(np.nom_ligne), ''), lg.nom_ligne) AS nom_ligne, np.prixretour FROM non_passager np
                     JOIN attributions_role ar ON np.cptus = ar.roleattribut
                     JOIN user_login ul ON ar.idgestcompte = ul.uid_login
                     JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
@@ -1203,11 +1395,20 @@
                     AND np.statvente = 1
                     AND np.exonp = 1
                     AND dest.id_compaga = '$cp'
-                    AND ex.code_gaexp = '$gid'
-                    GROUP BY lg.nom_ligne, np.prixretour")->result();
+                    AND (
+ (SELECT ulx.guser FROM attributions_role arx JOIN user_login ulx ON arx.idgestcompte = ulx.uid_login WHERE arx.roleattribut = np.cptus LIMIT 1) = (SELECT gx_lv.garesid FROM gare_exp gx_lv WHERE gx_lv.code_gaexp = '$gid' OR gx_lv.garesid = '$gid' LIMIT 1)
+ OR (SELECT ulx.guser FROM attributions_role arx JOIN user_login ulx ON arx.idgestcompte = ulx.uid_login WHERE arx.roleattribut = np.cptus LIMIT 1) = '$gid'
+ OR EXISTS (
+  SELECT 1 FROM sousgare sg_v
+  JOIN gare_exp ge_v ON ge_v.code_gaexp = sg_v.gareprinceid
+  WHERE sg_v.idsousgare = np.sousgareidentif
+  AND (ge_v.code_gaexp = '$gid' OR ge_v.garesid = '$gid')
+ )
+)
+                    GROUP BY COALESCE(NULLIF(TRIM(np.nom_ligne), ''), lg.nom_ligne), np.prixretour")->result();
             }
                 return $this->db->query(
-                    "SELECT COUNT(code_non_pass) AS code_non_pass, SUM(prixretour) AS totalr, lg.nom_ligne, np.prixretour FROM non_passager np
+                    "SELECT COUNT(code_non_pass) AS code_non_pass, SUM(prixretour) AS totalr, COALESCE(NULLIF(TRIM(np.nom_ligne), ''), lg.nom_ligne) AS nom_ligne, np.prixretour FROM non_passager np
                     JOIN attributions_role ar ON np.cptus = ar.roleattribut
                     JOIN user_login ul ON ar.idgestcompte = ul.uid_login
                     JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
@@ -1223,12 +1424,22 @@
                     AND np.statvente = 1
                     AND np.exonp = 1
                     AND dest.id_compaga = '$cp'
-                    AND ex.code_gaexp = '$gid'
+                    AND (
+ (SELECT ulx.guser FROM attributions_role arx JOIN user_login ulx ON arx.idgestcompte = ulx.uid_login WHERE arx.roleattribut = np.cptus LIMIT 1) = (SELECT gx_lv.garesid FROM gare_exp gx_lv WHERE gx_lv.code_gaexp = '$gid' OR gx_lv.garesid = '$gid' LIMIT 1)
+ OR (SELECT ulx.guser FROM attributions_role arx JOIN user_login ulx ON arx.idgestcompte = ulx.uid_login WHERE arx.roleattribut = np.cptus LIMIT 1) = '$gid'
+ OR EXISTS (
+  SELECT 1 FROM sousgare sg_v
+  JOIN gare_exp ge_v ON ge_v.code_gaexp = sg_v.gareprinceid
+  WHERE sg_v.idsousgare = np.sousgareidentif
+  AND (ge_v.code_gaexp = '$gid' OR ge_v.garesid = '$gid')
+ )
+)
                     AND lg.ident_ligne = '$algn'
-                    GROUP BY lg.nom_ligne, np.prixretour")->result();
+                    GROUP BY COALESCE(NULLIF(TRIM(np.nom_ligne), ''), lg.nom_ligne), np.prixretour")->result();
         }
         public function reporticketretourcptgr($cid, $gid, $dt1, $dt2, $cp, $algn = FALSE)
         {
+        $filtreLettres = etat_filtre_lettres('np.verifnonpassager', 'np.datevente', $cp, 'ticket_etats', $dt1, $dt2);
             
             if ($algn === '') 
             {
@@ -1242,7 +1453,7 @@
                     WHERE e.ekey = '$cid'
                     AND np.datevente >= '$dt1' AND np.datevente < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND np.statvente = 1
-                    AND np.verifnonpassager IN('A', 'C', 'D')
+                    {$filtreLettres}
                     AND dest.id_compaga = '$cp'
                     AND EXISTS (
                       SELECT 1 FROM user_login ul
@@ -1252,7 +1463,16 @@
                           WHERE ar.roleattribut = np.cptus
                           LIMIT 1
                       )
-                      AND ex.code_gaexp = '$gid'
+                      AND (
+ (SELECT ulx.guser FROM attributions_role arx JOIN user_login ulx ON arx.idgestcompte = ulx.uid_login WHERE arx.roleattribut = np.cptus LIMIT 1) = (SELECT gx_lv.garesid FROM gare_exp gx_lv WHERE gx_lv.code_gaexp = '$gid' OR gx_lv.garesid = '$gid' LIMIT 1)
+ OR (SELECT ulx.guser FROM attributions_role arx JOIN user_login ulx ON arx.idgestcompte = ulx.uid_login WHERE arx.roleattribut = np.cptus LIMIT 1) = '$gid'
+ OR EXISTS (
+  SELECT 1 FROM sousgare sg_v
+  JOIN gare_exp ge_v ON ge_v.code_gaexp = sg_v.gareprinceid
+  WHERE sg_v.idsousgare = np.sousgareidentif
+  AND (ge_v.code_gaexp = '$gid' OR ge_v.garesid = '$gid')
+ )
+)
                      )")->result();
             }
                 return $this->db->query(
@@ -1265,7 +1485,7 @@
                     WHERE e.ekey = '$cid'
                     AND np.datevente >= '$dt1' AND np.datevente < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND np.statvente = 1
-                    AND np.verifnonpassager IN('A', 'C', 'D')
+                    {$filtreLettres}
                     AND dest.id_compaga = '$cp'
                     AND lg.ident_ligne = '$algn'
                     AND EXISTS (
@@ -1276,7 +1496,16 @@
                           WHERE ar.roleattribut = np.cptus
                           LIMIT 1
                       )
-                      AND ex.code_gaexp = '$gid'
+                      AND (
+ (SELECT ulx.guser FROM attributions_role arx JOIN user_login ulx ON arx.idgestcompte = ulx.uid_login WHERE arx.roleattribut = np.cptus LIMIT 1) = (SELECT gx_lv.garesid FROM gare_exp gx_lv WHERE gx_lv.code_gaexp = '$gid' OR gx_lv.garesid = '$gid' LIMIT 1)
+ OR (SELECT ulx.guser FROM attributions_role arx JOIN user_login ulx ON arx.idgestcompte = ulx.uid_login WHERE arx.roleattribut = np.cptus LIMIT 1) = '$gid'
+ OR EXISTS (
+  SELECT 1 FROM sousgare sg_v
+  JOIN gare_exp ge_v ON ge_v.code_gaexp = sg_v.gareprinceid
+  WHERE sg_v.idsousgare = np.sousgareidentif
+  AND (ge_v.code_gaexp = '$gid' OR ge_v.garesid = '$gid')
+ )
+)
                      )")->result();
         }
         /*public function reporticketretourcptgr($cid, $gid, $dt1, $dt2, $cp, $algn = FALSE)
@@ -1301,7 +1530,16 @@
                     AND np.statvente = 1
                     AND np.verifnonpassager IN('A', 'C', 'D')
                     AND dest.id_compaga = '$cp'
-                    AND ex.code_gaexp = '$gid'")->result();
+                    AND (
+ (SELECT ulx.guser FROM attributions_role arx JOIN user_login ulx ON arx.idgestcompte = ulx.uid_login WHERE arx.roleattribut = np.cptus LIMIT 1) = (SELECT gx_lv.garesid FROM gare_exp gx_lv WHERE gx_lv.code_gaexp = '$gid' OR gx_lv.garesid = '$gid' LIMIT 1)
+ OR (SELECT ulx.guser FROM attributions_role arx JOIN user_login ulx ON arx.idgestcompte = ulx.uid_login WHERE arx.roleattribut = np.cptus LIMIT 1) = '$gid'
+ OR EXISTS (
+  SELECT 1 FROM sousgare sg_v
+  JOIN gare_exp ge_v ON ge_v.code_gaexp = sg_v.gareprinceid
+  WHERE sg_v.idsousgare = np.sousgareidentif
+  AND (ge_v.code_gaexp = '$gid' OR ge_v.garesid = '$gid')
+ )
+)")->result();
             }
                 return $this->db->query(
                     "SELECT * FROM non_passager np
@@ -1320,7 +1558,16 @@
                     AND np.statvente = 1
                     AND np.verifnonpassager IN('A', 'C', 'D')
                     AND dest.id_compaga = '$cp'
-                    AND ex.code_gaexp = '$gid'
+                    AND (
+ (SELECT ulx.guser FROM attributions_role arx JOIN user_login ulx ON arx.idgestcompte = ulx.uid_login WHERE arx.roleattribut = np.cptus LIMIT 1) = (SELECT gx_lv.garesid FROM gare_exp gx_lv WHERE gx_lv.code_gaexp = '$gid' OR gx_lv.garesid = '$gid' LIMIT 1)
+ OR (SELECT ulx.guser FROM attributions_role arx JOIN user_login ulx ON arx.idgestcompte = ulx.uid_login WHERE arx.roleattribut = np.cptus LIMIT 1) = '$gid'
+ OR EXISTS (
+  SELECT 1 FROM sousgare sg_v
+  JOIN gare_exp ge_v ON ge_v.code_gaexp = sg_v.gareprinceid
+  WHERE sg_v.idsousgare = np.sousgareidentif
+  AND (ge_v.code_gaexp = '$gid' OR ge_v.garesid = '$gid')
+ )
+)
                     AND lg.ident_ligne = '$algn'")->result();
         }*/
         
@@ -1330,7 +1577,7 @@
             if ($algn === '') 
             {
                 return $this->db->query(
-                    "SELECT COUNT(code_non_pass) AS code_non_pass, SUM(prixretour) AS totalr, lg.nom_ligne, np.prixretour FROM non_passager np
+                    "SELECT COUNT(code_non_pass) AS code_non_pass, SUM(prixretour) AS totalr, COALESCE(NULLIF(TRIM(np.nom_ligne), ''), lg.nom_ligne) AS nom_ligne, np.prixretour FROM non_passager np
                     JOIN attributions_role ar ON np.cptus = ar.roleattribut
                     JOIN user_login ul ON ar.idgestcompte = ul.uid_login
                     JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
@@ -1344,11 +1591,20 @@
                     AND np.datevente >= '$dt1' AND np.datevente < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND np.verifnonpassager IN('A', 'C', 'D')
                     AND dest.id_compaga = '$cp'
-                    AND ex.code_gaexp = '$gid'
-                    GROUP BY lg.nom_ligne, np.prixretour")->result();
+                    AND (
+ (SELECT ulx.guser FROM attributions_role arx JOIN user_login ulx ON arx.idgestcompte = ulx.uid_login WHERE arx.roleattribut = np.cptus LIMIT 1) = (SELECT gx_lv.garesid FROM gare_exp gx_lv WHERE gx_lv.code_gaexp = '$gid' OR gx_lv.garesid = '$gid' LIMIT 1)
+ OR (SELECT ulx.guser FROM attributions_role arx JOIN user_login ulx ON arx.idgestcompte = ulx.uid_login WHERE arx.roleattribut = np.cptus LIMIT 1) = '$gid'
+ OR EXISTS (
+  SELECT 1 FROM sousgare sg_v
+  JOIN gare_exp ge_v ON ge_v.code_gaexp = sg_v.gareprinceid
+  WHERE sg_v.idsousgare = np.sousgareidentif
+  AND (ge_v.code_gaexp = '$gid' OR ge_v.garesid = '$gid')
+ )
+)
+                    GROUP BY COALESCE(NULLIF(TRIM(np.nom_ligne), ''), lg.nom_ligne), np.prixretour")->result();
             }
                 return $this->db->query(
-                    "SELECT COUNT(code_non_pass) AS code_non_pass, SUM(prixretour) AS totalr, lg.nom_ligne, np.prixretour FROM non_passager np
+                    "SELECT COUNT(code_non_pass) AS code_non_pass, SUM(prixretour) AS totalr, COALESCE(NULLIF(TRIM(np.nom_ligne), ''), lg.nom_ligne) AS nom_ligne, np.prixretour FROM non_passager np
                     JOIN attributions_role ar ON np.cptus = ar.roleattribut
                     JOIN user_login ul ON ar.idgestcompte = ul.uid_login
                     JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
@@ -1364,17 +1620,27 @@
                     AND np.verifnonpassager IN('A', 'C', 'D')
                     AND dest.id_compaga = '$cp'
                     AND lg.ident_ligne = '$algn'
-                    AND ex.code_gaexp = '$gid'
-                    GROUP BY lg.nom_ligne, np.prixretour")->result();
+                    AND (
+ (SELECT ulx.guser FROM attributions_role arx JOIN user_login ulx ON arx.idgestcompte = ulx.uid_login WHERE arx.roleattribut = np.cptus LIMIT 1) = (SELECT gx_lv.garesid FROM gare_exp gx_lv WHERE gx_lv.code_gaexp = '$gid' OR gx_lv.garesid = '$gid' LIMIT 1)
+ OR (SELECT ulx.guser FROM attributions_role arx JOIN user_login ulx ON arx.idgestcompte = ulx.uid_login WHERE arx.roleattribut = np.cptus LIMIT 1) = '$gid'
+ OR EXISTS (
+  SELECT 1 FROM sousgare sg_v
+  JOIN gare_exp ge_v ON ge_v.code_gaexp = sg_v.gareprinceid
+  WHERE sg_v.idsousgare = np.sousgareidentif
+  AND (ge_v.code_gaexp = '$gid' OR ge_v.garesid = '$gid')
+ )
+)
+                    GROUP BY COALESCE(NULLIF(TRIM(np.nom_ligne), ''), lg.nom_ligne), np.prixretour")->result();
         }*/
 
         public function reporticketretourcptadmin($cid, $gid, $dt1, $dt2, $cp, $algn = FALSE)
         {
+        $filtreLettres = etat_filtre_lettres('np.verifnonpassager', 'np.datevente', $cp, 'ticket_etats', $dt1, $dt2);
             
             if ($algn === '') 
             {
                 return $this->db->query(
-                    "SELECT COUNT(code_non_pass) AS code_non_pass, SUM(prixretour) AS totalr, lg.nom_ligne, np.prixretour FROM non_passager np
+                    "SELECT COUNT(code_non_pass) AS code_non_pass, SUM(prixretour) AS totalr, COALESCE(NULLIF(TRIM(np.nom_ligne), ''), lg.nom_ligne) AS nom_ligne, np.prixretour FROM non_passager np
                     JOIN lignes lg ON np.id_ligne_pass = lg.ident_ligne
                     JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
                     JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
@@ -1382,7 +1648,7 @@
                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
                     WHERE e.ekey = '$cid'
                     AND np.datevente >= '$dt1' AND np.datevente < DATE_ADD('$dt2', INTERVAL 1 DAY)
-                    AND np.verifnonpassager IN('A', 'C', 'D')
+                    {$filtreLettres}
                     AND dest.id_compaga = '$cp'
                     AND EXISTS (
                       SELECT 1 FROM user_login ul
@@ -1392,12 +1658,21 @@
                           WHERE ar.roleattribut = np.cptus
                           LIMIT 1
                       )
-                      AND ex.code_gaexp = '$gid'
+                      AND (
+ (SELECT ulx.guser FROM attributions_role arx JOIN user_login ulx ON arx.idgestcompte = ulx.uid_login WHERE arx.roleattribut = np.cptus LIMIT 1) = (SELECT gx_lv.garesid FROM gare_exp gx_lv WHERE gx_lv.code_gaexp = '$gid' OR gx_lv.garesid = '$gid' LIMIT 1)
+ OR (SELECT ulx.guser FROM attributions_role arx JOIN user_login ulx ON arx.idgestcompte = ulx.uid_login WHERE arx.roleattribut = np.cptus LIMIT 1) = '$gid'
+ OR EXISTS (
+  SELECT 1 FROM sousgare sg_v
+  JOIN gare_exp ge_v ON ge_v.code_gaexp = sg_v.gareprinceid
+  WHERE sg_v.idsousgare = np.sousgareidentif
+  AND (ge_v.code_gaexp = '$gid' OR ge_v.garesid = '$gid')
+ )
+)
                      )
-                    GROUP BY lg.nom_ligne, np.prixretour")->result();
+                    GROUP BY COALESCE(NULLIF(TRIM(np.nom_ligne), ''), lg.nom_ligne), np.prixretour")->result();
             }
                 return $this->db->query(
-                    "SELECT COUNT(code_non_pass) AS code_non_pass, SUM(prixretour) AS totalr, lg.nom_ligne, np.prixretour FROM non_passager np
+                    "SELECT COUNT(code_non_pass) AS code_non_pass, SUM(prixretour) AS totalr, COALESCE(NULLIF(TRIM(np.nom_ligne), ''), lg.nom_ligne) AS nom_ligne, np.prixretour FROM non_passager np
                     JOIN lignes lg ON np.id_ligne_pass = lg.ident_ligne
                     JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
                     JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
@@ -1405,7 +1680,7 @@
                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
                     WHERE e.ekey = '$cid'
                     AND np.datevente >= '$dt1' AND np.datevente < DATE_ADD('$dt2', INTERVAL 1 DAY)
-                    AND np.verifnonpassager IN('A', 'C', 'D')
+                    {$filtreLettres}
                     AND dest.id_compaga = '$cp'
                     AND lg.ident_ligne = '$algn'
                     AND EXISTS (
@@ -1416,9 +1691,18 @@
                           WHERE ar.roleattribut = np.cptus
                           LIMIT 1
                       )
-                      AND ex.code_gaexp = '$gid'
+                      AND (
+ (SELECT ulx.guser FROM attributions_role arx JOIN user_login ulx ON arx.idgestcompte = ulx.uid_login WHERE arx.roleattribut = np.cptus LIMIT 1) = (SELECT gx_lv.garesid FROM gare_exp gx_lv WHERE gx_lv.code_gaexp = '$gid' OR gx_lv.garesid = '$gid' LIMIT 1)
+ OR (SELECT ulx.guser FROM attributions_role arx JOIN user_login ulx ON arx.idgestcompte = ulx.uid_login WHERE arx.roleattribut = np.cptus LIMIT 1) = '$gid'
+ OR EXISTS (
+  SELECT 1 FROM sousgare sg_v
+  JOIN gare_exp ge_v ON ge_v.code_gaexp = sg_v.gareprinceid
+  WHERE sg_v.idsousgare = np.sousgareidentif
+  AND (ge_v.code_gaexp = '$gid' OR ge_v.garesid = '$gid')
+ )
+)
                      )
-                    GROUP BY lg.nom_ligne, np.prixretour")->result();
+                    GROUP BY COALESCE(NULLIF(TRIM(np.nom_ligne), ''), lg.nom_ligne), np.prixretour")->result();
         }
         //reductio
         public function reduit($cid, $np_id = FALSE)
@@ -1450,6 +1734,7 @@
 
         public function exopass($cid, $cp, $d1, $d2, $gd)
         {
+        $filtreLettres = etat_filtre_lettres('np.verifnonpassager', 'np.datevente', $cp, 'ticket_liste', $d1, $d2);
             if($gd === ''){
                 return $this->db->query(
                 "SELECT * FROM non_passager np 
@@ -1462,7 +1747,7 @@
                     WHERE e.ekey = '$cid'
                     AND np.actif_nonp = 0
                     AND np.datevente >= '$d1' AND np.datevente < DATE_ADD('$d2', INTERVAL 1 DAY)
-                    AND np.verifnonpassager IN('A', 'C', 'D')
+                    {$filtreLettres}
                     AND dest.id_compaga = '$cp'")->result();
 
             }
@@ -1479,9 +1764,18 @@
                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
                     WHERE e.ekey = '$cid'
                     AND np.datevente >= '$d1' AND np.datevente < DATE_ADD('$d2', INTERVAL 1 DAY)
-                    AND np.verifnonpassager IN('A', 'C', 'D')
+                    {$filtreLettres}
                     AND dest.id_compaga = '$cp'
-                    AND ex.code_gaexp = '$gd'")->result();
+                    AND (
+ (SELECT ulx.guser FROM attributions_role arx JOIN user_login ulx ON arx.idgestcompte = ulx.uid_login WHERE arx.roleattribut = np.cptus LIMIT 1) = (SELECT gx_lv.garesid FROM gare_exp gx_lv WHERE gx_lv.code_gaexp = '$gd' OR gx_lv.garesid = '$gd' LIMIT 1)
+ OR (SELECT ulx.guser FROM attributions_role arx JOIN user_login ulx ON arx.idgestcompte = ulx.uid_login WHERE arx.roleattribut = np.cptus LIMIT 1) = '$gd'
+ OR EXISTS (
+  SELECT 1 FROM sousgare sg_v
+  JOIN gare_exp ge_v ON ge_v.code_gaexp = sg_v.gareprinceid
+  WHERE sg_v.idsousgare = np.sousgareidentif
+  AND (ge_v.code_gaexp = '$gd' OR ge_v.garesid = '$gd')
+ )
+)")->result();
             }   
         }
 
@@ -1515,7 +1809,16 @@
                     WHERE e.ekey = '$cid'
                     AND np.datevente >= '$d1' AND np.datevente < DATE_ADD('$d2', INTERVAL 1 DAY)
                     AND dest.id_compaga = '$cp'
-                    AND ex.code_gaexp = '$gd'")->result();
+                    AND (
+ (SELECT ulx.guser FROM attributions_role arx JOIN user_login ulx ON arx.idgestcompte = ulx.uid_login WHERE arx.roleattribut = np.cptus LIMIT 1) = (SELECT gx_lv.garesid FROM gare_exp gx_lv WHERE gx_lv.code_gaexp = '$gd' OR gx_lv.garesid = '$gd' LIMIT 1)
+ OR (SELECT ulx.guser FROM attributions_role arx JOIN user_login ulx ON arx.idgestcompte = ulx.uid_login WHERE arx.roleattribut = np.cptus LIMIT 1) = '$gd'
+ OR EXISTS (
+  SELECT 1 FROM sousgare sg_v
+  JOIN gare_exp ge_v ON ge_v.code_gaexp = sg_v.gareprinceid
+  WHERE sg_v.idsousgare = np.sousgareidentif
+  AND (ge_v.code_gaexp = '$gd' OR ge_v.garesid = '$gd')
+ )
+)")->result();
             }
             
         }

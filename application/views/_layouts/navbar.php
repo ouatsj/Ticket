@@ -149,6 +149,11 @@
                                     Restrictions comptes (inactivité)
                             </a>
                             <a class="dropdown-item"
+                                href="<?= site_url("param_lettres/{$this->session->company->ekey}"); ?>">
+                                <i class="fas fa-font text-secondary"></i>
+                                    Lettres des états
+                            </a>
+                            <a class="dropdown-item"
                                 href="<?= site_url("param_sieges_verrou/{$this->session->company->ekey}"); ?>">
                                 <i class="fas fa-lock text-danger"></i>
                                     Sièges verrouillés (ligne / heure)
@@ -246,6 +251,11 @@
                                 href="<?= site_url("param_restrictions/{$this->session->company->ekey}"); ?>">
                                 <i class="fas fa-user-clock text-secondary"></i>
                                     Restrictions comptes (inactivité)
+                            </a>
+                            <a class="dropdown-item"
+                                href="<?= site_url("param_lettres/{$this->session->company->ekey}"); ?>">
+                                <i class="fas fa-font text-secondary"></i>
+                                    Lettres des états
                             </a>
                             <a class="dropdown-item"
                                 href="<?= site_url("rapport_autre_vente/{$this->session->company->ekey}"); ?>">
