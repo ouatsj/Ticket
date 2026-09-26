@@ -363,6 +363,7 @@
         }
         public function typinternegenre1($cid, $pk)
         {
+                $pk = trim((string) $pk);
                 return $this->db->query(
                 "SELECT gr.genre_depens, d.type_depense FROM depense d
                 JOIN genre_depense gr ON d.id_genre_depense = gr.depenseid
@@ -370,8 +371,8 @@
                 JOIN gare_exp ex ON cs.gexp_caiss = ex.code_gaexp
                 JOIN compagnies c ON ex.id_compagd = c.cle_compagnie
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                WHERE e.ekey = '$cid'
-                AND d.type_depense = '$pk'
+                WHERE e.ekey = '".$this->db->escape_str($cid)."'
+                AND TRIM(d.type_depense) = '".$this->db->escape_str($pk)."'
                 GROUP BY gr.genre_depens")->result();
 
         }
@@ -457,7 +458,7 @@
                     AND d.compkey_dep = '$comp'
                     AND d.date_depens BETWEEN '$dt1' AND '$dt2'
                     AND d.is_actifdep = 1
-                    AND d.type_depense = '$typ'
+                    AND TRIM(d.type_depense) = '" . $this->db->escape_str(trim((string) $typ)) . "'
                     AND cs.gexp_caiss = '$gid'
                     AND d.type_depense <> 'Courrier'
                     ORDER BY d.date_depens ASC")->result();
@@ -475,7 +476,7 @@
                     AND d.compkey_dep = '$comp'
                     AND d.date_depens BETWEEN '$dt1' AND '$dt2'
                     AND d.is_actifdep = 1
-                    AND d.type_depense = '$typ'
+                    AND TRIM(d.type_depense) = '" . $this->db->escape_str(trim((string) $typ)) . "'
                     AND TRIM(gr.genre_depens) = '" . $this->db->escape_str(trim((string) $gr)) . "'
                     AND d.type_depense <> 'Courrier'
                     AND cs.gexp_caiss = '$gid'
@@ -494,7 +495,7 @@
                     AND d.compkey_dep = '$comp'
                     AND d.date_depens BETWEEN '$dt1' AND '$dt2'
                     AND d.is_actifdep = 1
-                    AND d.type_depense = '$typ'
+                    AND TRIM(d.type_depense) = '" . $this->db->escape_str(trim((string) $typ)) . "'
                     AND TRIM(gr.genre_depens) = '" . $this->db->escape_str(trim((string) $gr)) . "'
                     AND d.nom_perso = '$nm'
                     AND cs.gexp_caiss = '$gid'
@@ -512,7 +513,7 @@
                     AND d.compkey_dep = '$comp'
                     AND d.date_depens BETWEEN '$dt1' AND '$dt2'
                     AND d.is_actifdep = 1
-                    AND d.type_depense = '$typ'
+                    AND TRIM(d.type_depense) = '" . $this->db->escape_str(trim((string) $typ)) . "'
                     AND TRIM(gr.genre_depens) = '" . $this->db->escape_str(trim((string) $gr)) . "'
                     AND d.nom_perso = '$nm'
                     AND d.type_depense <> 'Courrier'
@@ -542,172 +543,69 @@
         {
             $filtre_type = $this->_filtre_type_depense($typ);
             $filtre_genre = $this->_filtre_genre_depense($gr);
-
-            if ($gr === '' AND $nm === '' AND $iddep === FALSE) {
-                return $this->db->query(
-                    "SELECT gr.genre_depens, d.type_depense, d.nom_perso, d.commentaire, d.montant_depens, d.motif, d.date_depens FROM depense d
-                    JOIN genre_depense gr ON d.id_genre_depense = gr.depenseid
-                    JOIN caisse cs ON d.idcaisse_depens = cs.id_caiss
-                    JOIN gare_exp ex ON cs.gexp_caiss = ex.code_gaexp
-                    JOIN compagnies c ON d.compkey_dep = c.cle_compagnie
-                    JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                    WHERE e.ekey = '$cid'
-                    AND d.compkey_dep = '$comp'
-                    AND d.date_depens BETWEEN '$dt1' AND '$dt2'
-                    AND d.is_actifdep = 1
-                    AND d.type_depense <> 'Courrier'
-                    AND cs.gexp_caiss = '$gid'
-                    AND d.opevalid = '$usc'
-                    $filtre_type
-                    ORDER BY d.date_depens ASC")->result();
+            $nm = trim((string) $nm);
+            $filtre_nom = ($nm === '') ? '' : " AND d.nom_perso = '".$this->db->escape_str($nm)."'";
+            $filtre_id = ($iddep === FALSE || $iddep === '' || $iddep === null)
+                ? ''
+                : " AND d.id_depense = '".$this->db->escape_str($iddep)."'";
+            $q = $this->db->query(
+                "SELECT gr.genre_depens, d.type_depense, d.nom_perso, d.commentaire, d.montant_depens, d.motif, d.date_depens FROM depense d
+                JOIN genre_depense gr ON d.id_genre_depense = gr.depenseid
+                JOIN caisse cs ON d.idcaisse_depens = cs.id_caiss
+                JOIN gare_exp ex ON cs.gexp_caiss = ex.code_gaexp
+                JOIN compagnies c ON d.compkey_dep = c.cle_compagnie
+                JOIN entreprise e ON c.id_entrep = e.id_entreprise
+                WHERE e.ekey = '".$this->db->escape_str($cid)."'
+                AND d.compkey_dep = '".$this->db->escape_str($comp)."'
+                AND d.date_depens BETWEEN '".$this->db->escape_str($dt1)."' AND '".$this->db->escape_str($dt2)."'
+                AND d.is_actifdep = 1
+                AND d.type_depense <> 'Courrier'
+                AND cs.gexp_caiss = '".$this->db->escape_str($gid)."'
+                AND (d.opevalid = '".$this->db->escape_str($usc)."' OR d.idop_dep = '".$this->db->escape_str($usc)."')
+                $filtre_type
+                $filtre_genre
+                $filtre_nom
+                $filtre_id
+                ORDER BY d.date_depens ASC"
+            );
+            if (!$q) {
+                return ($filtre_id !== '') ? null : array();
             }
-            
-            elseif($nm === '' AND $iddep === FALSE)
-            {
-                return $this->db->query(
-                    "SELECT gr.genre_depens, d.type_depense, d.nom_perso, d.commentaire, d.montant_depens, d.motif, d.date_depens FROM depense d
-                    JOIN genre_depense gr ON d.id_genre_depense = gr.depenseid
-                    JOIN caisse cs ON d.idcaisse_depens = cs.id_caiss
-                    JOIN gare_exp ex ON cs.gexp_caiss = ex.code_gaexp
-                    JOIN compagnies c ON d.compkey_dep = c.cle_compagnie
-                    JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                    WHERE e.ekey = '$cid'
-                    AND d.compkey_dep = '$comp'
-                    AND d.date_depens BETWEEN '$dt1' AND '$dt2'
-                    AND d.is_actifdep = 1
-                    AND cs.gexp_caiss = '$gid'
-                    AND d.type_depense <> 'Courrier'
-                    AND d.opevalid = '$usc'
-                    $filtre_type
-                    $filtre_genre
-                    ORDER BY d.date_depens ASC")->result();
-            }
-            elseif($iddep === FALSE)
-            {
-                return $this->db->query(
-                    "SELECT gr.genre_depens, d.type_depense, d.nom_perso, d.commentaire, d.montant_depens, d.motif, d.date_depens FROM depense d
-                    JOIN genre_depense gr ON d.id_genre_depense = gr.depenseid
-                    JOIN caisse cs ON d.idcaisse_depens = cs.id_caiss
-                    JOIN gare_exp ex ON cs.gexp_caiss = ex.code_gaexp
-                    JOIN compagnies c ON d.compkey_dep = c.cle_compagnie
-                    JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                    WHERE e.ekey = '$cid'
-                    AND d.compkey_dep = '$comp'
-                    AND d.date_depens BETWEEN '$dt1' AND '$dt2'
-                    AND d.is_actifdep = 1
-                    AND d.nom_perso = '$nm'
-                    AND cs.gexp_caiss = '$gid'
-                    AND d.type_depense <> 'Courrier'
-                    AND d.opevalid = '$usc'
-                    $filtre_type
-                    $filtre_genre
-                    ORDER BY d.date_depens ASC")->result();
-            }
-                return $this->db->query(
-                    "SELECT gr.genre_depens, d.type_depense, d.nom_perso, d.commentaire, d.montant_depens, d.motif, d.date_depens FROM depense d
-                    JOIN genre_depense gr ON d.id_genre_depense = gr.depenseid
-                    JOIN caisse cs ON d.idcaisse_depens = cs.id_caiss
-                    JOIN gare_exp ex ON cs.gexp_caiss = ex.code_gaexp
-                    JOIN compagnies c ON d.compkey_dep = c.cle_compagnie
-                    JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                    WHERE e.ekey = '$cid'
-                    AND d.compkey_dep = '$comp'
-                    AND d.date_depens BETWEEN '$dt1' AND '$dt2'
-                    AND d.is_actifdep = 1
-                    AND d.nom_perso = '$nm'
-                    AND d.id_depense = '$iddep'
-                    AND cs.gexp_caiss = '$gid'
-                    AND d.type_depense <> 'Courrier'
-                    AND d.opevalid = '$usc'
-                    $filtre_type
-                    $filtre_genre
-                    ORDER BY d.date_depens ASC")->row();
+            return ($filtre_id !== '') ? $q->row() : $q->result();
         }
 
         public function adtridepense($cid, $gid, $usc, $comp, $dt1, $dt2, $gr = FALSE, $nm = FALSE, $iddep = FALSE, $typ = FALSE)
         {
             $filtre_type = $this->_filtre_type_depense($typ);
             $filtre_genre = $this->_filtre_genre_depense($gr);
-
-            if ($gr === '' AND $nm === '' AND $iddep === FALSE) {
-                return $this->db->query(
-                    "SELECT gr.genre_depens, d.type_depense, d.nom_perso, d.commentaire, d.montant_depens, d.motif, d.date_depens FROM depense d
-                    JOIN genre_depense gr ON d.id_genre_depense = gr.depenseid
-                    JOIN caisse cs ON d.idcaisse_depens = cs.id_caiss
-                    JOIN gare_exp ex ON cs.gexp_caiss = ex.code_gaexp
-                    JOIN compagnies c ON d.compkey_dep = c.cle_compagnie
-                    JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                    WHERE e.ekey = '$cid'
-                    AND d.compkey_dep = '$comp'
-                    AND d.date_depens BETWEEN '$dt1' AND '$dt2'
-                    AND d.is_actifdepad = 1
-                    AND d.type_depense <> 'Courrier'
-                    AND cs.gexp_caiss = '$gid'
-                    AND d.opevalidad = '$usc'
-                    $filtre_type
-                    ORDER BY d.date_depens ASC")->result();
+            $nm = trim((string) $nm);
+            $filtre_nom = ($nm === '') ? '' : " AND d.nom_perso = '".$this->db->escape_str($nm)."'";
+            $filtre_id = ($iddep === FALSE || $iddep === '' || $iddep === null)
+                ? ''
+                : " AND d.id_depense = '".$this->db->escape_str($iddep)."'";
+            $q = $this->db->query(
+                "SELECT gr.genre_depens, d.type_depense, d.nom_perso, d.commentaire, d.montant_depens, d.motif, d.date_depens FROM depense d
+                JOIN genre_depense gr ON d.id_genre_depense = gr.depenseid
+                JOIN caisse cs ON d.idcaisse_depens = cs.id_caiss
+                JOIN gare_exp ex ON cs.gexp_caiss = ex.code_gaexp
+                JOIN compagnies c ON d.compkey_dep = c.cle_compagnie
+                JOIN entreprise e ON c.id_entrep = e.id_entreprise
+                WHERE e.ekey = '".$this->db->escape_str($cid)."'
+                AND d.compkey_dep = '".$this->db->escape_str($comp)."'
+                AND d.date_depens BETWEEN '".$this->db->escape_str($dt1)."' AND '".$this->db->escape_str($dt2)."'
+                AND (d.is_actifdep = 1 OR d.opevalidad = '".$this->db->escape_str($usc)."')
+                AND d.type_depense <> 'Courrier'
+                AND cs.gexp_caiss = '".$this->db->escape_str($gid)."'
+                $filtre_type
+                $filtre_genre
+                $filtre_nom
+                $filtre_id
+                ORDER BY d.date_depens ASC"
+            );
+            if (!$q) {
+                return ($filtre_id !== '') ? null : array();
             }
-            
-            elseif($nm === '' AND $iddep === FALSE)
-            {
-                return $this->db->query(
-                    "SELECT gr.genre_depens, d.type_depense, d.nom_perso, d.commentaire, d.montant_depens, d.motif, d.date_depens FROM depense d
-                    JOIN genre_depense gr ON d.id_genre_depense = gr.depenseid
-                    JOIN caisse cs ON d.idcaisse_depens = cs.id_caiss
-                    JOIN gare_exp ex ON cs.gexp_caiss = ex.code_gaexp
-                    JOIN compagnies c ON d.compkey_dep = c.cle_compagnie
-                    JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                    WHERE e.ekey = '$cid'
-                    AND d.compkey_dep = '$comp'
-                    AND d.date_depens BETWEEN '$dt1' AND '$dt2'
-                    AND d.is_actifdepad = 1
-                    AND cs.gexp_caiss = '$gid'
-                    AND d.type_depense <> 'Courrier'
-                    AND d.opevalidad = '$usc'
-                    $filtre_type
-                    $filtre_genre
-                    ORDER BY d.date_depens ASC")->result();
-            }
-            elseif($iddep === FALSE)
-            {
-                return $this->db->query(
-                    "SELECT gr.genre_depens, d.type_depense, d.nom_perso, d.commentaire, d.montant_depens, d.motif, d.date_depens FROM depense d
-                    JOIN genre_depense gr ON d.id_genre_depense = gr.depenseid
-                    JOIN caisse cs ON d.idcaisse_depens = cs.id_caiss
-                    JOIN gare_exp ex ON cs.gexp_caiss = ex.code_gaexp
-                    JOIN compagnies c ON d.compkey_dep = c.cle_compagnie
-                    JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                    WHERE e.ekey = '$cid'
-                    AND d.compkey_dep = '$comp'
-                    AND d.date_depens BETWEEN '$dt1' AND '$dt2'
-                    AND d.is_actifdepad = 1
-                    AND d.nom_perso = '$nm'
-                    AND cs.gexp_caiss = '$gid'
-                    AND d.type_depense <> 'Courrier'
-                    AND d.opevalidad = '$usc'
-                    $filtre_type
-                    $filtre_genre
-                    ORDER BY d.date_depens ASC")->result();
-            }
-                return $this->db->query(
-                    "SELECT gr.genre_depens, d.type_depense, d.nom_perso, d.commentaire, d.montant_depens, d.motif, d.date_depens FROM depense d
-                    JOIN genre_depense gr ON d.id_genre_depense = gr.depenseid
-                    JOIN caisse cs ON d.idcaisse_depens = cs.id_caiss
-                    JOIN gare_exp ex ON cs.gexp_caiss = ex.code_gaexp
-                    JOIN compagnies c ON d.compkey_dep = c.cle_compagnie
-                    JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                    WHERE e.ekey = '$cid'
-                    AND d.compkey_dep = '$comp'
-                    AND d.date_depens BETWEEN '$dt1' AND '$dt2'
-                    AND d.is_actifdepad = 1
-                    AND d.nom_perso = '$nm'
-                    AND d.id_depense = '$iddep'
-                    AND cs.gexp_caiss = '$gid'
-                    AND d.type_depense <> 'Courrier'
-                    AND d.opevalidad = '$usc'
-                    $filtre_type
-                    $filtre_genre
-                    ORDER BY d.date_depens ASC")->row();
+            return ($filtre_id !== '') ? $q->row() : $q->result();
         }   
 
         public function autretridepense($cid, $gid, $dt1, $dt2, $typ = FALSE, $gr = FALSE, $nm = FALSE, $comp = FALSE, $iddep = FALSE)
@@ -750,7 +648,7 @@
                     AND d.is_actifdep = 1
                     AND d.actif_deps = 0
                     AND d.ferme_caisdep = 0
-                    AND d.type_depense = '$typ'
+                    AND TRIM(d.type_depense) = '" . $this->db->escape_str(trim((string) $typ)) . "'
                     AND cs.gexp_caiss = '$gid'
                     AND d.type_depense <> 'Courrier'
                     AND d.opevalid = '$usc'
@@ -770,7 +668,7 @@
                     AND d.is_actifdep = 1
                     AND d.actif_deps = 0
                     AND d.ferme_caisdep = 0
-                    AND d.type_depense = '$typ'
+                    AND TRIM(d.type_depense) = '" . $this->db->escape_str(trim((string) $typ)) . "'
                     AND TRIM(gr.genre_depens) = '" . $this->db->escape_str(trim((string) $gr)) . "'
                     AND cs.gexp_caiss = '$gid'
                     AND d.type_depense <> 'Courrier'
@@ -791,7 +689,7 @@
                     AND d.is_actifdep = 1
                     AND d.actif_deps = 0
                     AND d.ferme_caisdep = 0
-                    AND d.type_depense = '$typ'
+                    AND TRIM(d.type_depense) = '" . $this->db->escape_str(trim((string) $typ)) . "'
                     AND TRIM(gr.genre_depens) = '" . $this->db->escape_str(trim((string) $gr)) . "'
                     AND d.nom_perso = '$nm'
                     AND cs.gexp_caiss = '$gid'
@@ -811,7 +709,7 @@
                     AND d.is_actifdep = 1
                     AND d.actif_deps = 0
                     AND d.ferme_caisdep = 0
-                    AND d.type_depense = '$typ'
+                    AND TRIM(d.type_depense) = '" . $this->db->escape_str(trim((string) $typ)) . "'
                     AND TRIM(gr.genre_depens) = '" . $this->db->escape_str(trim((string) $gr)) . "'
                     AND d.nom_perso = '$nm'
                     AND d.id_depense = '$iddep'
@@ -1184,149 +1082,39 @@
         //tri depense chef guichet
         public function tridepense_adjoint($cid, $gid, $conect, $dt1, $dt2, $comp = FALSE, $typ = FALSE, $gr = FALSE, $nm = FALSE, $iddep = FALSE)
         {
-            if ($comp === '' AND $typ === '' AND $gr === '' AND $nm === '' AND $iddep === FALSE){
-                    return $this->db->query(
-                        "SELECT gr.genre_depens, d.type_depense, d.nom_perso, d.commentaire, d.montant_depens, d.motif, d.idop_dep, d.date_depens FROM depense d
-                        JOIN type_personnel tp ON d.typpersonel = tp.idtyperso
-                        JOIN attributions_role ar ON d.idop_dep = ar.roleattribut
-                        JOIN user_login ul ON ar.idgestcompte = ul.uid_login
-                        JOIN gares g ON ul.guser = g.idengare
-                        JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
-                        JOIN genre_depense gr ON d.id_genre_depense = gr.depenseid
-                        JOIN caisse cs ON d.idcaisse_depens = cs.id_caiss
-                        JOIN gare_exp ex ON cs.gexp_caiss = ex.code_gaexp
-                        JOIN compagnies c ON d.compkey_dep = c.cle_compagnie
-                        JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                        WHERE e.ekey = '$cid'
-                        AND d.date_depens BETWEEN '$dt1' AND '$dt2'
-                        AND d.actif_deps = 0
-                        AND d.active_dep = 0
-                        AND d.idop_dep = '$conect'
-                        AND cs.gexp_caiss = '$gid'
-                        AND d.type_depense <> 'Courrier'
-                        ORDER BY d.date_depens ASC")->result();
+            $filtre_type = $this->_filtre_type_depense($typ);
+            $filtre_genre = $this->_filtre_genre_depense($gr);
+            $comp = trim((string) $comp);
+            $filtre_comp = ($comp === '') ? '' : " AND d.compkey_dep = '".$this->db->escape_str($comp)."'";
+            $nm = trim((string) $nm);
+            $filtre_nom = ($nm === '') ? '' : " AND d.nom_perso = '".$this->db->escape_str($nm)."'";
+            $filtre_id = ($iddep === FALSE || $iddep === '' || $iddep === null)
+                ? ''
+                : " AND d.id_depense = '".$this->db->escape_str($iddep)."'";
+            $q = $this->db->query(
+                "SELECT gr.genre_depens, d.type_depense, d.nom_perso, d.commentaire, d.montant_depens, d.motif, d.idop_dep, d.date_depens FROM depense d
+                JOIN genre_depense gr ON d.id_genre_depense = gr.depenseid
+                JOIN caisse cs ON d.idcaisse_depens = cs.id_caiss
+                JOIN gare_exp ex ON cs.gexp_caiss = ex.code_gaexp
+                JOIN compagnies c ON d.compkey_dep = c.cle_compagnie
+                JOIN entreprise e ON c.id_entrep = e.id_entreprise
+                WHERE e.ekey = '".$this->db->escape_str($cid)."'
+                AND d.date_depens BETWEEN '".$this->db->escape_str($dt1)."' AND '".$this->db->escape_str($dt2)."'
+                AND d.idop_dep = '".$this->db->escape_str($conect)."'
+                AND cs.gexp_caiss = '".$this->db->escape_str($gid)."'
+                AND d.type_depense <> 'Courrier'
+                $filtre_comp
+                $filtre_type
+                $filtre_genre
+                $filtre_nom
+                $filtre_id
+                ORDER BY d.date_depens ASC"
+            );
+            if (!$q) {
+                return ($filtre_id !== '') ? null : array();
             }
-
-            elseif ($typ === '' AND $gr === '' AND $nm === '' AND $iddep === FALSE){
-                    return $this->db->query(
-                        "SELECT gr.genre_depens, d.type_depense, d.nom_perso, d.commentaire, d.montant_depens, d.motif, d.idop_dep, d.date_depens FROM depense d
-                        JOIN type_personnel tp ON d.typpersonel = tp.idtyperso
-                        JOIN attributions_role ar ON d.idop_dep = ar.roleattribut
-                        JOIN user_login ul ON ar.idgestcompte = ul.uid_login
-                        JOIN gares g ON ul.guser = g.idengare
-                        JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
-                        JOIN genre_depense gr ON d.id_genre_depense = gr.depenseid
-                        JOIN caisse cs ON d.idcaisse_depens = cs.id_caiss
-                        JOIN gare_exp ex ON cs.gexp_caiss = ex.code_gaexp
-                        JOIN compagnies c ON d.compkey_dep = c.cle_compagnie
-                        JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                        WHERE e.ekey = '$cid'
-                        AND d.compkey_dep = '$comp'
-                        AND d.date_depens BETWEEN '$dt1' AND '$dt2'
-                        AND d.actif_deps = 0
-                        AND d.active_dep = 0
-                        AND d.idop_dep = '$conect'
-                        AND cs.gexp_caiss = '$gid'
-                        AND d.type_depense <> 'Courrier'
-                        ORDER BY d.date_depens ASC")->result();
-            }
-            
-            elseif($gr === '' AND $nm === '' AND $iddep === FALSE)
-            {
-                return $this->db->query(
-                    "SELECT gr.genre_depens, d.type_depense, d.nom_perso, d.commentaire, d.montant_depens, d.motif, d.idop_dep, d.date_depens FROM depense d
-                    JOIN attributions_role ar ON d.idop_dep = ar.roleattribut
-                    JOIN user_login ul ON ar.idgestcompte = ul.uid_login
-                    JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
-                    JOIN genre_depense gr ON d.id_genre_depense = gr.depenseid
-                    JOIN caisse cs ON d.idcaisse_depens = cs.id_caiss
-                    JOIN gare_exp ex ON cs.gexp_caiss = ex.code_gaexp
-                    JOIN compagnies c ON d.compkey_dep = c.cle_compagnie
-                    JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                    WHERE e.ekey = '$cid'
-                    AND d.compkey_dep = '$comp'
-                    AND d.actif_deps = 0
-                    AND d.active_dep = 0
-                    AND d.date_depens BETWEEN '$dt1' AND '$dt2'
-                    AND d.type_depense = '$typ'
-                    AND d.idop_dep = '$conect'
-                    AND cs.gexp_caiss='$gid'
-                    AND d.type_depense <> 'Courrier'
-                    ORDER BY d.date_depens ASC")->result();
-            }
-            elseif($nm === '' AND $iddep === FALSE)
-            {
-                return $this->db->query(
-                    "SELECT gr.genre_depens, d.type_depense, d.nom_perso, d.commentaire, d.montant_depens, d.motif, d.idop_dep, d.date_depens FROM depense d
-                    JOIN attributions_role ar ON d.idop_dep = ar.roleattribut
-                    JOIN user_login ul ON ar.idgestcompte = ul.uid_login
-                    JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
-                    JOIN genre_depense gr ON d.id_genre_depense = gr.depenseid
-                    JOIN caisse cs ON d.idcaisse_depens = cs.id_caiss
-                    JOIN gare_exp ex ON cs.gexp_caiss = ex.code_gaexp
-                    JOIN compagnies c ON d.compkey_dep = c.cle_compagnie
-                    JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                    WHERE e.ekey = '$cid'
-                    AND d.compkey_dep = '$comp'
-                    AND d.actif_deps = 0
-                    AND d.active_dep = 0
-                    AND d.date_depens BETWEEN '$dt1' AND '$dt2'
-                    AND d.type_depense = '$typ'
-                    AND TRIM(gr.genre_depens) = '" . $this->db->escape_str(trim((string) $gr)) . "'
-                    AND d.idop_dep = '$conect'
-                    AND cs.gexp_caiss='$gid'
-                    AND d.type_depense <> 'Courrier'
-                    ORDER BY d.date_depens ASC")->result();
-            }
-            elseif($iddep === FALSE)
-            {
-                return $this->db->query(
-                    "SELECT gr.genre_depens, d.type_depense, d.nom_perso, d.commentaire, d.montant_depens, d.motif, d.idop_dep, d.date_depens FROM depense d
-                    JOIN attributions_role ar ON d.idop_dep = ar.roleattribut
-                    JOIN user_login ul ON ar.idgestcompte = ul.uid_login
-                    JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
-                    JOIN genre_depense gr ON d.id_genre_depense = gr.depenseid
-                    JOIN caisse cs ON d.idcaisse_depens = cs.id_caiss
-                    JOIN gare_exp ex ON cs.gexp_caiss = ex.code_gaexp
-                    JOIN compagnies c ON d.compkey_dep = c.cle_compagnie
-                    JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                    WHERE e.ekey = '$cid'
-                    AND d.compkey_dep = '$comp'
-                    AND d.actif_deps = 0
-                    AND d.active_dep = 0
-                    AND d.date_depens BETWEEN '$dt1' AND '$dt2'
-                    AND d.type_depense = '$typ'
-                    AND TRIM(gr.genre_depens) = '" . $this->db->escape_str(trim((string) $gr)) . "'
-                    AND d.nom_perso = '$nm'
-                    AND d.idop_dep = '$conect'
-                    AND cs.gexp_caiss='$gid'
-                    AND d.type_depense <> 'Courrier'
-                    ORDER BY d.date_depens ASC")->result();
-            }
-                return $this->db->query(
-                    "SELECT gr.genre_depens, d.type_depense, d.nom_perso, d.commentaire, d.montant_depens, d.motif, d.idop_dep, d.date_depens FROM depense d
-                    JOIN attributions_role ar ON d.idop_dep = ar.roleattribut
-                    JOIN user_login ul ON ar.idgestcompte = ul.uid_login
-                    JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
-                    JOIN genre_depense gr ON d.id_genre_depense = gr.depenseid
-                    JOIN caisse cs ON d.idcaisse_depens = cs.id_caiss
-                    JOIN gare_exp ex ON cs.gexp_caiss = ex.code_gaexp
-                    JOIN compagnies c ON d.compkey_dep = c.cle_compagnie
-                    JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                    WHERE e.ekey = '$cid'
-                    AND d.compkey_dep = '$comp'
-                    AND d.actif_deps = 0
-                    AND d.active_dep = 0
-                    AND d.date_depens BETWEEN '$dt1' AND '$dt2'
-                    AND d.type_depense = '$typ'
-                    AND TRIM(gr.genre_depens) = '" . $this->db->escape_str(trim((string) $gr)) . "'
-                    AND d.nom_perso = '$nm'
-                    AND d.id_depense = '$iddep'
-                    AND d.idop_dep = '$conect'
-                    AND cs.gexp_caiss='$gid'
-                    AND d.type_depense <> 'Courrier'
-                    ORDER BY d.date_depens ASC")->row();
-        }   
+            return ($filtre_id !== '') ? $q->row() : $q->result();
+        }
 
         public function autretridepense_adjoint($cid, $gid, $adjoint, $dt1, $dt2, $typ = FALSE, $gr = FALSE, $nm = FALSE, $comp = FALSE, $iddep = FALSE)
         {
@@ -1389,7 +1177,7 @@
                     AND d.actif_deps = 0
                     AND d.active_dep = 0
                     AND d.date_depens BETWEEN '$dt1' AND '$dt2'
-                    AND d.type_depense = '$typ'
+                    AND TRIM(d.type_depense) = '" . $this->db->escape_str(trim((string) $typ)) . "'
                     AND d.idop_dep = '$adjoint'
                     AND cs.gexp_caiss='$gid'
                     AND d.type_depense <> 'Courrier'
@@ -1412,7 +1200,7 @@
                     AND d.actif_deps = 0
                     AND d.active_dep = 0
                     AND d.date_depens BETWEEN '$dt1' AND '$dt2'
-                    AND d.type_depense = '$typ'
+                    AND TRIM(d.type_depense) = '" . $this->db->escape_str(trim((string) $typ)) . "'
                     AND TRIM(gr.genre_depens) = '" . $this->db->escape_str(trim((string) $gr)) . "'
                     AND d.idop_dep = '$adjoint'
                     AND cs.gexp_caiss='$gid'
@@ -1436,7 +1224,7 @@
                     AND d.actif_deps = 0
                     AND d.active_dep = 0
                     AND d.date_depens BETWEEN '$dt1' AND '$dt2'
-                    AND d.type_depense = '$typ'
+                    AND TRIM(d.type_depense) = '" . $this->db->escape_str(trim((string) $typ)) . "'
                     AND TRIM(gr.genre_depens) = '" . $this->db->escape_str(trim((string) $gr)) . "'
                     AND d.nom_perso = '$nm'
                     AND d.idop_dep = '$adjoint'
@@ -1459,7 +1247,7 @@
                     AND d.actif_deps = 0
                     AND d.active_dep = 0
                     AND d.date_depens BETWEEN '$dt1' AND '$dt2'
-                    AND d.type_depense = '$typ'
+                    AND TRIM(d.type_depense) = '" . $this->db->escape_str(trim((string) $typ)) . "'
                     AND TRIM(gr.genre_depens) = '" . $this->db->escape_str(trim((string) $gr)) . "'
                     AND d.nom_perso = '$nm'
                     AND d.id_depense = '$iddep'
@@ -1611,105 +1399,40 @@
 
         public function valdtridepense($cid, $comp, $gid, $uop, $dt1, $dt2, $typ = FALSE, $gr = FALSE, $nm = FALSE, $iddep = FALSE)
         {
-            
-            if ($typ === '' AND $gr === '' AND $nm === '' AND $iddep === FALSE) {
-                return $this->db->query(
-                    "SELECT tp.type_personnel, d.type_depense, d.nom_perso, d.commentaire, d.montant_depens, d.motif, d.date_depens FROM depense d
-                    JOIN type_personnel tp ON d.typpersonel = tp.idtyperso
-                    JOIN caisse cs ON d.idcaisse_depens = cs.id_caiss
-                    JOIN gare_exp ex ON cs.gexp_caiss = ex.code_gaexp
-                    JOIN compagnies c ON d.compkey_dep = c.cle_compagnie
-                    JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                    WHERE e.ekey = '$cid'
-                    AND d.compkey_dep = '$comp'
-                    AND ex.code_gaexp = '$gid'
-                    AND d.opevalid = '$uop'
-                    AND d.date_depens BETWEEN '$dt1' AND '$dt2'
-                    AND d.validcptabledep = 1
-                    AND d.actif_deps = 0
-                    ORDER BY d.date_depens ASC")->result();
+            $filtre_type = $this->_filtre_type_depense($typ);
+            $filtre_genre = $this->_filtre_genre_depense($gr);
+            $comp = trim((string) $comp);
+            $filtre_comp = ($comp === '') ? '' : " AND d.compkey_dep = '".$this->db->escape_str($comp)."'";
+            $nm = trim((string) $nm);
+            $filtre_nom = ($nm === '') ? '' : " AND d.nom_perso = '".$this->db->escape_str($nm)."'";
+            $filtre_id = ($iddep === FALSE || $iddep === '' || $iddep === null)
+                ? ''
+                : " AND d.id_depense = '".$this->db->escape_str($iddep)."'";
+            $q = $this->db->query(
+                "SELECT gr.genre_depens, d.type_depense, d.nom_perso, d.commentaire, d.montant_depens, d.motif, d.date_depens FROM depense d
+                JOIN genre_depense gr ON d.id_genre_depense = gr.depenseid
+                JOIN caisse cs ON d.idcaisse_depens = cs.id_caiss
+                JOIN gare_exp ex ON cs.gexp_caiss = ex.code_gaexp
+                JOIN compagnies c ON d.compkey_dep = c.cle_compagnie
+                JOIN entreprise e ON c.id_entrep = e.id_entreprise
+                WHERE e.ekey = '".$this->db->escape_str($cid)."'
+                AND ex.code_gaexp = '".$this->db->escape_str($gid)."'
+                AND d.date_depens BETWEEN '".$this->db->escape_str($dt1)."' AND '".$this->db->escape_str($dt2)."'
+                AND (d.is_actifdep = 1 OR d.validcptabledep = 1)
+                AND d.type_depense <> 'Courrier'
+                AND (d.opevalid = '".$this->db->escape_str($uop)."' OR d.idop_dep = '".$this->db->escape_str($uop)."')
+                $filtre_comp
+                $filtre_type
+                $filtre_genre
+                $filtre_nom
+                $filtre_id
+                ORDER BY d.date_depens ASC"
+            );
+            if (!$q) {
+                return ($filtre_id !== '') ? null : array();
             }
-            
-            elseif($gr === '' AND $nm === '' AND $iddep === FALSE)
-            {
-                return $this->db->query(
-                    "SELECT tp.type_personnel, d.type_depense, d.nom_perso, d.commentaire, d.montant_depens, d.motif, d.date_depens FROM depense d
-                    JOIN type_personnel tp ON d.typpersonel = tp.idtyperso
-                    JOIN caisse cs ON d.idcaisse_depens = cs.id_caiss
-                    JOIN gare_exp ex ON cs.gexp_caiss = ex.code_gaexp
-                    JOIN compagnies c ON d.compkey_dep = c.cle_compagnie
-                    JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                    WHERE e.ekey = '$cid'
-                    AND d.compkey_dep = '$comp'
-                    AND ex.code_gaexp = '$gid'
-                    AND d.opevalid = '$uop'
-                    AND d.date_depens BETWEEN '$dt1' AND '$dt2'
-                    AND d.validcptabledep = 1
-                    AND d.actif_deps = 0
-                    AND d.type_depense = '$typ'
-                    ORDER BY d.date_depens ASC")->result();
-            }
-            elseif($nm === '' AND $iddep === FALSE)
-            {
-                return $this->db->query(
-                    "SELECT tp.type_personnel, d.type_depense, d.nom_perso, d.commentaire, d.montant_depens, d.motif, d.date_depens FROM depense d
-                    JOIN type_personnel tp ON d.typpersonel = tp.idtyperso
-                    JOIN caisse cs ON d.idcaisse_depens = cs.id_caiss
-                    JOIN gare_exp ex ON cs.gexp_caiss = ex.code_gaexp
-                    JOIN compagnies c ON d.compkey_dep = c.cle_compagnie
-                    JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                    WHERE e.ekey = '$cid'
-                    AND d.compkey_dep = '$comp'
-                    AND ex.code_gaexp = '$gid'
-                    AND d.opevalid = '$uop'
-                    AND d.date_depens BETWEEN '$dt1' AND '$dt2'
-                    AND d.validcptabledep = 1
-                    AND d.actif_deps = 0
-                    AND d.type_depense = '$typ'
-                    AND tp.type_personnel = '$gr'
-                    ORDER BY d.date_depens ASC")->result();
-            }
-            elseif($iddep === FALSE)
-            {
-                return $this->db->query(
-                    "SELECT tp.type_personnel, d.type_depense, d.nom_perso, d.commentaire, d.montant_depens, d.motif, d.date_depens FROM depense d
-                    JOIN type_personnel tp ON d.typpersonel = tp.idtyperso
-                    JOIN caisse cs ON d.idcaisse_depens = cs.id_caiss
-                    JOIN gare_exp ex ON cs.gexp_caiss = ex.code_gaexp
-                    JOIN compagnies c ON d.compkey_dep = c.cle_compagnie
-                    JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                    WHERE e.ekey = '$cid'
-                    AND d.compkey_dep = '$comp'
-                    AND d.date_depens BETWEEN '$dt1' AND '$dt2'
-                    AND d.validcptabledep = 1
-                    AND d.actif_deps = 0
-                    AND ex.code_gaexp = '$gid'
-                    AND d.opevalid = '$uop'
-                    AND d.type_depense = '$typ'
-                    AND tp.type_personnel = '$gr'
-                    AND d.nom_perso = '$nm'
-                    ORDER BY d.date_depens ASC")->result();
-            }
-                return $this->db->query(
-                    "SELECT tp.type_personnel, d.type_depense, d.nom_perso, d.commentaire, d.montant_depens, d.motif, d.date_depens FROM depense d
-                    JOIN type_personnel tp ON d.typpersonel = tp.idtyperso
-                    JOIN caisse cs ON d.idcaisse_depens = cs.id_caiss
-                    JOIN gare_exp ex ON cs.gexp_caiss = ex.code_gaexp
-                    JOIN compagnies c ON d.compkey_dep = c.cle_compagnie
-                    JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                    WHERE e.ekey = '$cid'
-                    AND d.compkey_dep = '$comp'
-                    AND d.date_depens BETWEEN '$dt1' AND '$dt2'
-                    AND d.validcptabledep = 1
-                    AND d.actif_deps = 0
-                    AND d.type_depense = '$typ'
-                    AND ex.code_gaexp = '$gid'
-                    AND d.opevalid = '$uop'
-                    AND tp.type_personnel = '$gr'
-                    AND d.nom_perso = '$nm'
-                    AND d.id_depense = '$iddep'
-                    ORDER BY d.date_depens ASC")->row();
-        }   
+            return ($filtre_id !== '') ? $q->row() : $q->result();
+        }
 
         public function valdautretridepense($cid, $comp, $gid, $uop, $dt1, $dt2, $typ = FALSE, $gr = FALSE, $nm = FALSE, $iddep = FALSE)
         {
@@ -1746,7 +1469,7 @@
                     AND d.opevalid = '$uop'
                     AND d.date_depens BETWEEN '$dt1' AND '$dt2'
                     AND d.validcptabledep = 1
-                    AND d.type_depense = '$typ'
+                    AND TRIM(d.type_depense) = '" . $this->db->escape_str(trim((string) $typ)) . "'
                     ORDER BY d.date_depens ASC")->result();
             }
             elseif($nm === '' AND $iddep === FALSE)
@@ -1763,7 +1486,7 @@
                     AND ex.code_gaexp = '$gid'
                     AND d.date_depens BETWEEN '$dt1' AND '$dt2'
                     AND d.validcptabledep = 1
-                    AND d.type_depense = '$typ'
+                    AND TRIM(d.type_depense) = '" . $this->db->escape_str(trim((string) $typ)) . "'
                     AND TRIM(gr.genre_depens) = '" . $this->db->escape_str(trim((string) $gr)) . "'
                     AND d.opevalid = '$uop'
                     ORDER BY d.date_depens ASC")->result();
@@ -1782,7 +1505,7 @@
                     AND ex.code_gaexp = '$gid'
                     AND d.date_depens BETWEEN '$dt1' AND '$dt2'
                     AND d.validcptabledep = 1
-                    AND d.type_depense = '$typ'
+                    AND TRIM(d.type_depense) = '" . $this->db->escape_str(trim((string) $typ)) . "'
                     AND TRIM(gr.genre_depens) = '" . $this->db->escape_str(trim((string) $gr)) . "'
                     AND d.nom_perso = '$nm'
                     AND d.opevalid = '$uop'
@@ -1799,7 +1522,7 @@
                     AND d.date_depens BETWEEN '$dt1' AND '$dt2'
                     AND d.validcptabledep = 1
                     AND d.actif_deps = 0
-                    AND d.type_depense = '$typ'
+                    AND TRIM(d.type_depense) = '" . $this->db->escape_str(trim((string) $typ)) . "'
                     AND TRIM(gr.genre_depens) = '" . $this->db->escape_str(trim((string) $gr)) . "'
                     AND ex.code_gaexp = '$gid'
                     AND d.nom_perso = '$nm'
@@ -1846,7 +1569,7 @@
                 AND cs.gexp_caiss = '$g'
                 AND d.idcaisse_depens = '$cais'
                 AND d.idop_dep = '$conect'
-                AND d.type_depense = '$typ'
+                AND TRIM(d.type_depense) = '" . $this->db->escape_str(trim((string) $typ)) . "'
                 AND d.type_depense <> 'Courrier'
                 AND d.active_dep = 0
                 AND d.actif_deps = 0
@@ -1870,7 +1593,7 @@
 
         public function trisdepens_opevalid($cid, $g, $cais, $conect, $dt1, $dt2, $comp, $typ = FALSE)
         {
-            $typ_filter = ($typ === '') ? '' : "AND d.type_depense = '$typ'";
+            $typ_filter = ($typ === '') ? '' : "AND TRIM(d.type_depense) = '" . $this->db->escape_str(trim((string) $typ)) . "'";
             return $this->db->query(
                 "SELECT cu.username, d.type_depense, d.nom_perso, d.commentaire, d.montant_depens, d.motif, d.idop_dep, d.date_depens FROM depense d
                 JOIN attributions_role ar ON d.idop_dep = ar.roleattribut
@@ -1895,7 +1618,7 @@
 
         public function trisdepens_opevalidad($cid, $g, $cais, $conect, $dt1, $dt2, $comp, $typ = FALSE)
         {
-            $typ_filter = ($typ === '') ? '' : "AND d.type_depense = '$typ'";
+            $typ_filter = ($typ === '') ? '' : "AND TRIM(d.type_depense) = '" . $this->db->escape_str(trim((string) $typ)) . "'";
             return $this->db->query(
                 "SELECT cu.username, d.type_depense, d.nom_perso, d.commentaire, d.montant_depens, d.motif, d.idop_dep, d.date_depens FROM depense d
                 JOIN attributions_role ar ON d.idop_dep = ar.roleattribut
@@ -1957,7 +1680,7 @@
                     AND cs.gexp_caiss = '$g'
                     AND d.idcaisse_depens = '$cais'
                     AND d.idop_dep = '$conect'
-                    AND d.type_depense = '$typ'
+                    AND TRIM(d.type_depense) = '" . $this->db->escape_str(trim((string) $typ)) . "'
                     AND d.type_depense <> 'Courrier'
                     AND d.active_dep = 1
                     AND d.actif_deps = 0
@@ -1969,101 +1692,39 @@
         //admin
         public function valdtridepensead($cid, $comp, $gid, $uop, $dt1, $dt2, $typ = FALSE, $gr = FALSE, $nm = FALSE, $iddep = FALSE)
         {
-            
-            if ($typ === '' AND $gr === '' AND $nm === '' AND $iddep === FALSE) {
-                return $this->db->query(
-                    "SELECT tp.type_personnel, d.type_depense, d.nom_perso, d.commentaire, d.montant_depens, d.motif, d.date_depens FROM depense d
-                    JOIN type_personnel tp ON d.typpersonel = tp.idtyperso
-                    JOIN caisse cs ON d.idcaisse_depens = cs.id_caiss
-                    JOIN gare_exp ex ON cs.gexp_caiss = ex.code_gaexp
-                    JOIN compagnies c ON d.compkey_dep = c.cle_compagnie
-                    JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                    WHERE e.ekey = '$cid'
-                    AND d.compkey_dep = '$comp'
-                    AND ex.code_gaexp = '$gid'
-                    AND d.type_depense <> 'Courrier'
-                    AND d.opevalid = '$uop'
-                    AND d.date_depens BETWEEN '$dt1' AND '$dt2'
-                    AND d.ferme_caisdep = 1
-                    ORDER BY d.date_depens ASC")->result();
+            $filtre_type = $this->_filtre_type_depense($typ);
+            $filtre_genre = $this->_filtre_genre_depense($gr);
+            $comp = trim((string) $comp);
+            $filtre_comp = ($comp === '') ? '' : " AND d.compkey_dep = '".$this->db->escape_str($comp)."'";
+            $nm = trim((string) $nm);
+            $filtre_nom = ($nm === '') ? '' : " AND d.nom_perso = '".$this->db->escape_str($nm)."'";
+            $filtre_id = ($iddep === FALSE || $iddep === '' || $iddep === null)
+                ? ''
+                : " AND d.id_depense = '".$this->db->escape_str($iddep)."'";
+            $q = $this->db->query(
+                "SELECT gr.genre_depens, d.type_depense, d.nom_perso, d.commentaire, d.montant_depens, d.motif, d.date_depens FROM depense d
+                JOIN genre_depense gr ON d.id_genre_depense = gr.depenseid
+                JOIN caisse cs ON d.idcaisse_depens = cs.id_caiss
+                JOIN gare_exp ex ON cs.gexp_caiss = ex.code_gaexp
+                JOIN compagnies c ON d.compkey_dep = c.cle_compagnie
+                JOIN entreprise e ON c.id_entrep = e.id_entreprise
+                WHERE e.ekey = '".$this->db->escape_str($cid)."'
+                AND ex.code_gaexp = '".$this->db->escape_str($gid)."'
+                AND d.date_depens BETWEEN '".$this->db->escape_str($dt1)."' AND '".$this->db->escape_str($dt2)."'
+                AND (d.is_actifdep = 1 OR d.ferme_caisdep = 1)
+                AND d.type_depense <> 'Courrier'
+                $filtre_comp
+                $filtre_type
+                $filtre_genre
+                $filtre_nom
+                $filtre_id
+                ORDER BY d.date_depens ASC"
+            );
+            if (!$q) {
+                return ($filtre_id !== '') ? null : array();
             }
-            
-            elseif($gr === '' AND $nm === '' AND $iddep === FALSE)
-            {
-                return $this->db->query(
-                    "SELECT tp.type_personnel, d.type_depense, d.nom_perso, d.commentaire, d.montant_depens, d.motif, d.date_depens FROM depense d
-                    JOIN type_personnel tp ON d.typpersonel = tp.idtyperso
-                    JOIN caisse cs ON d.idcaisse_depens = cs.id_caiss
-                    JOIN gare_exp ex ON cs.gexp_caiss = ex.code_gaexp
-                    JOIN compagnies c ON d.compkey_dep = c.cle_compagnie
-                    JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                    WHERE e.ekey = '$cid'
-                    AND d.compkey_dep = '$comp'
-                    AND ex.code_gaexp = '$gid'
-                    AND d.opevalid = '$uop'
-                    AND d.date_depens BETWEEN '$dt1' AND '$dt2'
-                    AND d.ferme_caisdep = 1
-                    AND d.type_depense = '$typ'
-                    ORDER BY d.date_depens ASC")->result();
-            }
-            elseif($nm === '' AND $iddep === FALSE)
-            {
-                return $this->db->query(
-                    "SELECT tp.type_personnel, d.type_depense, d.nom_perso, d.commentaire, d.montant_depens, d.motif, d.date_depens FROM depense d
-                    JOIN type_personnel tp ON d.typpersonel = tp.idtyperso
-                    JOIN caisse cs ON d.idcaisse_depens = cs.id_caiss
-                    JOIN gare_exp ex ON cs.gexp_caiss = ex.code_gaexp
-                    JOIN compagnies c ON d.compkey_dep = c.cle_compagnie
-                    JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                    WHERE e.ekey = '$cid'
-                    AND d.compkey_dep = '$comp'
-                    AND ex.code_gaexp = '$gid'
-                    AND d.opevalid = '$uop'
-                    AND d.date_depens BETWEEN '$dt1' AND '$dt2'
-                    AND d.ferme_caisdep = 1
-                    AND d.type_depense = '$typ'
-                    AND tp.type_personnel = '$gr'
-                    ORDER BY d.date_depens ASC")->result();
-            }
-            elseif($iddep === FALSE)
-            {
-                return $this->db->query(
-                    "SELECT tp.type_personnel, d.type_depense, d.nom_perso, d.commentaire, d.montant_depens, d.motif, d.date_depens FROM depense d
-                    JOIN type_personnel tp ON d.typpersonel = tp.idtyperso
-                    JOIN caisse cs ON d.idcaisse_depens = cs.id_caiss
-                    JOIN gare_exp ex ON cs.gexp_caiss = ex.code_gaexp
-                    JOIN compagnies c ON d.compkey_dep = c.cle_compagnie
-                    JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                    WHERE e.ekey = '$cid'
-                    AND d.compkey_dep = '$comp'
-                    AND d.date_depens BETWEEN '$dt1' AND '$dt2'
-                    AND d.ferme_caisdep = 1
-                    AND ex.code_gaexp = '$gid'
-                    AND d.opevalid = '$uop'
-                    AND d.type_depense = '$typ'
-                    AND tp.type_personnel = '$gr'
-                    AND d.nom_perso = '$nm'
-                    ORDER BY d.date_depens ASC")->result();
-            }
-                return $this->db->query(
-                    "SELECT tp.type_personnel, d.type_depense, d.nom_perso, d.commentaire, d.montant_depens, d.motif, d.date_depens FROM depense d
-                    JOIN type_personnel tp ON d.typpersonel = tp.idtyperso
-                    JOIN caisse cs ON d.idcaisse_depens = cs.id_caiss
-                    JOIN gare_exp ex ON cs.gexp_caiss = ex.code_gaexp
-                    JOIN compagnies c ON d.compkey_dep = c.cle_compagnie
-                    JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                    WHERE e.ekey = '$cid'
-                    AND d.compkey_dep = '$comp'
-                    AND d.date_depens BETWEEN '$dt1' AND '$dt2'
-                    AND d.ferme_caisdep = 1
-                    AND d.type_depense = '$typ'
-                    AND ex.code_gaexp = '$gid'
-                    AND d.opevalid = '$uop'
-                    AND tp.type_personnel = '$gr'
-                    AND d.nom_perso = '$nm'
-                    AND d.id_depense = '$iddep'
-                    ORDER BY d.date_depens ASC")->row();
-        }   
+            return ($filtre_id !== '') ? $q->row() : $q->result();
+        }
 
         public function valdautretridepensead($cid, $comp, $gid, $uop, $dt1, $dt2, $typ = FALSE, $gr = FALSE, $nm = FALSE, $iddep = FALSE)
         {
@@ -2099,7 +1760,7 @@
                     AND d.opevalid = '$uop'
                     AND d.date_depens BETWEEN '$dt1' AND '$dt2'
                     AND d.ferme_caisdep = 1
-                    AND d.type_depense = '$typ'
+                    AND TRIM(d.type_depense) = '" . $this->db->escape_str(trim((string) $typ)) . "'
                     ORDER BY d.date_depens ASC")->result();
             }
             elseif($nm === '' AND $iddep === FALSE)
@@ -2115,7 +1776,7 @@
                     AND ex.code_gaexp = '$gid'
                     AND d.date_depens BETWEEN '$dt1' AND '$dt2'
                     AND d.ferme_caisdep = 1
-                    AND d.type_depense = '$typ'
+                    AND TRIM(d.type_depense) = '" . $this->db->escape_str(trim((string) $typ)) . "'
                     AND TRIM(gr.genre_depens) = '" . $this->db->escape_str(trim((string) $gr)) . "'
                     AND d.opevalid = '$uop'
                     ORDER BY d.date_depens ASC")->result();
@@ -2133,7 +1794,7 @@
                     AND ex.code_gaexp = '$gid'
                     AND d.date_depens BETWEEN '$dt1' AND '$dt2'
                     AND d.ferme_caisdep = 1
-                    AND d.type_depense = '$typ'
+                    AND TRIM(d.type_depense) = '" . $this->db->escape_str(trim((string) $typ)) . "'
                     AND TRIM(gr.genre_depens) = '" . $this->db->escape_str(trim((string) $gr)) . "'
                     AND d.nom_perso = '$nm'
                     AND d.opevalid = '$uop'
@@ -2149,7 +1810,7 @@
                     WHERE e.ekey = '$cid'
                     AND d.date_depens BETWEEN '$dt1' AND '$dt2'
                     AND d.ferme_caisdep = 1
-                    AND d.type_depense = '$typ'
+                    AND TRIM(d.type_depense) = '" . $this->db->escape_str(trim((string) $typ)) . "'
                     AND TRIM(gr.genre_depens) = '" . $this->db->escape_str(trim((string) $gr)) . "'
                     AND ex.code_gaexp = '$gid'
                     AND d.nom_perso = '$nm'

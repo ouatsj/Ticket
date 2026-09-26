@@ -19,27 +19,36 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                     var recaptverificationtypinfo = document.querySelector('#recaptdtype')
                     .options[document.querySelector('#recaptdtype').options.selectedIndex].value;
-                    httpInfostypinforecapt.open('GET', window.location.origin + `${APP_ROOT}/depenses/listegenre/${recaptverificationtypinfo}`, true);
+                    httpInfostypinforecapt.open('GET', window.location.origin + `${APP_ROOT}/depenses/listegenre/${encodeURIComponent(recaptverificationtypinfo)}`, true);
                     httpInfostypinforecapt.onload = () => {
-                        const resprecapt = JSON.parse(httpInfostypinforecapt.responseText);
-        
-                            if(resprecapt == null){
-                                document.querySelector('#recaptgtype').value = "";
-        
-                            } 
-                            if (Object.entries(resprecapt).length >= 1) {
-                        
-                                for (let key in Object.entries(resprecapt)) {
-                                    let opt = document.createElement('option');
-                                    opt.value = `${resprecapt[key].type_personnel}`;
-                                    opt.innerHTML = `${resprecapt[key].type_personnel}`;
-                                    document.querySelector('#recaptgtype').add(opt);
-                                    
-                                }
-                            } else {
-                                document.querySelector('#recaptgtype').options.length = 1;
+                        var resprecapt;
+                        try {
+                            resprecapt = JSON.parse(httpInfostypinforecapt.responseText);
+                        } catch (err) {
+                            return;
+                        }
+                        var genreSelect = document.querySelector('#recaptgtype');
+                        if (!genreSelect) {
+                            return;
+                        }
+                        genreSelect.options.length = 1;
+                        if (!resprecapt) {
+                            genreSelect.selectedIndex = 0;
+                            return;
+                        }
+                        var list = Array.isArray(resprecapt)
+                            ? resprecapt
+                            : Object.keys(resprecapt).map(function (k) { return resprecapt[k]; });
+                        for (var i = 0; i < list.length; i++) {
+                            if (!list[i] || list[i].genre_depens == null || String(list[i].genre_depens).trim() === '') {
+                                continue;
                             }
-        
+                            var opt = document.createElement('option');
+                            opt.value = list[i].genre_depens;
+                            opt.textContent = list[i].genre_depens;
+                            genreSelect.appendChild(opt);
+                        }
+                        genreSelect.selectedIndex = 0;
                         };
                         
                         httpInfostypinforecapt.setRequestHeader('Content-Type', 'application/json');

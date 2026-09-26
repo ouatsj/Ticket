@@ -769,14 +769,24 @@
         }
 
 
+        protected function _depense_critere_saisi($value)
+        {
+            $value = trim((string) $value);
+            $low = function_exists('mb_strtolower') ? mb_strtolower($value, 'UTF-8') : strtolower($value);
+            if ($value === '' || $low === 'undefined' || $low === 'null' || strpos($low, 'chois') === 0) {
+                return '';
+            }
+            return $value;
+        }
+
         protected function _depense_payload($ckey)
         {
             $this->entreprise = $this->m_entreprises->get_key($ckey);
             $date1 = trim((string) $this->input->get_post('datedebut'));
             $date2 = trim((string) $this->input->get_post('datefin'));
-            $typ = trim((string) $this->input->get_post('type'));
-            $gen = trim((string) $this->input->get_post('genre'));
-            $nm = trim((string) $this->input->get_post('nom'));
+            $typ = $this->_depense_critere_saisi($this->input->get_post('type'));
+            $gen = $this->_depense_critere_saisi($this->input->get_post('genre'));
+            $nm = $this->_depense_critere_saisi($this->input->get_post('nom'));
             $comp = trim((string) $this->input->get_post('_compag'));
             $gid = trim((string) $this->input->get_post('gareconnect'));
             $atr = roleattribut_guard_post_hint($this->entreprise->ekey);
@@ -7371,9 +7381,9 @@
             $this->entreprise = $this->m_entreprises->get_key($ckey);
             $date1 = trim((string) $this->input->get_post('datedebut'));
             $date2 = trim((string) $this->input->get_post('datefin'));
-            $typ = trim((string) $this->input->get_post('type'));
-            $gen = trim((string) $this->input->get_post('genre'));
-            $nm = trim((string) $this->input->get_post('nom'));
+            $typ = $this->_depense_critere_saisi($this->input->get_post('type'));
+            $gen = $this->_depense_critere_saisi($this->input->get_post('genre'));
+            $nm = $this->_depense_critere_saisi($this->input->get_post('nom'));
             $comp = trim((string) $this->input->get_post('_compag'));
             $gid = $this->_normalize_recap_gare_code_filter($this->input->get_post('departgar'));
             $this->_assert_cashbox_recap_filters($this->entreprise->ekey, $date1, $date2, $comp, $gid);
