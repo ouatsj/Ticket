@@ -14,15 +14,13 @@
             <a href="<?= site_url('gares/' . $this->session->company->ekey . '/gTs/' . $gexp_btn . '/escaleagents/' . rawurlencode($escale_nom) . '/0'); ?>" class="btn btn-space btn-secondary">
                 <i class="fas fa-arrow-circle-left text-info"></i>&nbsp;RETOUR À L'ESCALE&nbsp;
             </a>
-            <a href="<?= site_url('caisses/' . $this->session->company->ekey . '/gTv/' . $gexp_btn . '/' . (!empty($caisseident->id_caiss) ? $caisseident->id_caiss : 0) . '/recetteguichetesc/' . $conex->roleattribut . '/' . $bus_stop->idsousgare . '/' . mdate('%d/%m/%Y', now('UTC'))) . $qesc; ?>" class="btn btn-space btn-secondary">
-                <i class="fas fa-arrow-circle-down text-info"></i>&nbsp;RECETTE GUICHET ESCALE&nbsp;
-            </a>
           <?php else: ?>
             <a href="<?= site_url("gares/{$this->session->company->ekey}". "/gTv/".
                     $gexp_btn.
                 "/cais/" . $conex->roleattribut.'/'.$bus_stop->idsousgare .'/'. mdate("%d/%m/%Y", now('UTC'))); ?>" class="btn btn-space btn-secondary">
                 <i class="fas fa-arrow-circle-left text-info"></i>&nbsp;RETOUR A LA CAISSE&nbsp;
             </a>
+          <?php endif; ?>
             <? if ($this->session->agent->userole === '1' OR $this->session->agent->userole === '2' OR $this->session->agent->userole === '4' OR $this->session->agent->userole === '18'): ?>
                     <a href="#" class="btn btn-space btn-secondary addrecette md-trigger"
                             data-modal="form-add-recette" data-cle_compagnie="<?= $this->session->company->ekey; ?>">
@@ -34,6 +32,11 @@
                     </button>
                 
                     
+                    <?php if ($depuis_escale): ?>
+                    <a href="<?= site_url('caisses/' . $this->session->company->ekey . '/gTv/' . $gexp_btn . '/' . (!empty($caisseident->id_caiss) ? $caisseident->id_caiss : 0) . '/recetteguichetesc/' . $conex->roleattribut . '/' . $bus_stop->idsousgare . '/' . mdate('%d/%m/%Y', now('UTC'))) . $qesc; ?>" class="btn btn-space btn-secondary">
+                        <i class="fas fa-arrow-circle-down text-info"></i>&nbsp;RECETTE GUICHET&nbsp;
+                    </a>
+                    <?php else: ?>
                     <a href="<?= site_url("caisses/{$this->session->company->ekey}". "/gTv/".
                         (!empty($caisseident->gexp_caiss) ? $caisseident->gexp_caiss : 0). "/".(!empty($caisseident->id_caiss) ? $caisseident->id_caiss : 0).
                         "/recetteguichet/" . $conex->roleattribut.'/'.$bus_stop->idsousgare.'/'.  mdate("%d/%m/%Y", now('UTC'))); ?>" class="btn btn-space btn-secondary">
@@ -44,6 +47,7 @@
                         "/recettebagage/" . $conex->roleattribut.'/'.$bus_stop->idsousgare.'/'.  mdate("%d/%m/%Y", now('UTC'))); ?>" class="btn btn-space btn-secondary">
                         <i class="fas fa-arrow-circle-down text-info"></i>&nbsp;RECETTE BAGAGE&nbsp;
                     </a>
+                    <?php endif; ?>
                 <?endif;?>
                 <? if ($this->session->agent->userole === '1' OR $this->session->agent->userole === '2' OR $this->session->agent->userole === '4' OR $this->session->agent->userole === '18'): ?>
                     <button class="btn btn-space btn-secondary addtrirecette md-trigger" data-cle_compagnie="<?= $this->session->company->ekey; ?>"
@@ -61,7 +65,6 @@
                         <i class="fas fa-edit text-warning"></i>&nbsp;TRI PAR OPERATEUR&nbsp;
                     </button>
                 <?endif;?>
-          <?php endif; ?>
         </p>
     </div>
     <div class="form-group text-center">Les recettes de la caisse : <? if($totalrecettes == NULL):?> 0 <? else:?> &nbsp;<?=$totalrecettes->total; ?><? endif; ?></div>

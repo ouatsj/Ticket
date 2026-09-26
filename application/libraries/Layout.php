@@ -166,8 +166,6 @@ if (!function_exists('layout_restreindre_escale')) {
             'ecrivainbagages' => null,
             'escale_agents' => null,
             'operateurs' => null,
-            'usercomptes' => null,
-            'useradjoints' => null,
         );
         $sommes = array(
             'recettes' => array('totalrecettes', 'sommerecettes', 'sommesrecettes'),

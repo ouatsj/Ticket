@@ -476,7 +476,7 @@
                     AND d.date_depens BETWEEN '$dt1' AND '$dt2'
                     AND d.is_actifdep = 1
                     AND d.type_depense = '$typ'
-                    AND gr.genre_depens = '$gr'
+                    AND TRIM(gr.genre_depens) = '" . $this->db->escape_str(trim((string) $gr)) . "'
                     AND d.type_depense <> 'Courrier'
                     AND cs.gexp_caiss = '$gid'
                     ORDER BY d.date_depens ASC")->result();
@@ -495,7 +495,7 @@
                     AND d.date_depens BETWEEN '$dt1' AND '$dt2'
                     AND d.is_actifdep = 1
                     AND d.type_depense = '$typ'
-                    AND gr.genre_depens = '$gr'
+                    AND TRIM(gr.genre_depens) = '" . $this->db->escape_str(trim((string) $gr)) . "'
                     AND d.nom_perso = '$nm'
                     AND cs.gexp_caiss = '$gid'
                     AND d.type_depense <> 'Courrier'
@@ -513,16 +513,36 @@
                     AND d.date_depens BETWEEN '$dt1' AND '$dt2'
                     AND d.is_actifdep = 1
                     AND d.type_depense = '$typ'
-                    AND gr.genre_depens = '$gr'
+                    AND TRIM(gr.genre_depens) = '" . $this->db->escape_str(trim((string) $gr)) . "'
                     AND d.nom_perso = '$nm'
                     AND d.type_depense <> 'Courrier'
                     AND d.id_depense = '$iddep'
                     AND cs.gexp_caiss = '$gid'
                     ORDER BY d.date_depens ASC")->row();
         }
-        public function tridepense($cid, $gid, $usc, $comp, $dt1, $dt2, $gr = FALSE, $nm = FALSE, $iddep = FALSE)
+        protected function _filtre_type_depense($typ)
         {
-            
+            $typ = trim((string) $typ);
+            if ($typ === '') {
+                return '';
+            }
+            return " AND TRIM(d.type_depense) = '".$this->db->escape_str($typ)."'";
+        }
+
+        protected function _filtre_genre_depense($gr)
+        {
+            $gr = trim((string) $gr);
+            if ($gr === '') {
+                return '';
+            }
+            return " AND TRIM(gr.genre_depens) = '".$this->db->escape_str($gr)."'";
+        }
+
+        public function tridepense($cid, $gid, $usc, $comp, $dt1, $dt2, $gr = FALSE, $nm = FALSE, $iddep = FALSE, $typ = FALSE)
+        {
+            $filtre_type = $this->_filtre_type_depense($typ);
+            $filtre_genre = $this->_filtre_genre_depense($gr);
+
             if ($gr === '' AND $nm === '' AND $iddep === FALSE) {
                 return $this->db->query(
                     "SELECT gr.genre_depens, d.type_depense, d.nom_perso, d.commentaire, d.montant_depens, d.motif, d.date_depens FROM depense d
@@ -538,6 +558,7 @@
                     AND d.type_depense <> 'Courrier'
                     AND cs.gexp_caiss = '$gid'
                     AND d.opevalid = '$usc'
+                    $filtre_type
                     ORDER BY d.date_depens ASC")->result();
             }
             
@@ -554,10 +575,11 @@
                     AND d.compkey_dep = '$comp'
                     AND d.date_depens BETWEEN '$dt1' AND '$dt2'
                     AND d.is_actifdep = 1
-                    AND gr.genre_depens = '$gr'
                     AND cs.gexp_caiss = '$gid'
                     AND d.type_depense <> 'Courrier'
                     AND d.opevalid = '$usc'
+                    $filtre_type
+                    $filtre_genre
                     ORDER BY d.date_depens ASC")->result();
             }
             elseif($iddep === FALSE)
@@ -573,11 +595,12 @@
                     AND d.compkey_dep = '$comp'
                     AND d.date_depens BETWEEN '$dt1' AND '$dt2'
                     AND d.is_actifdep = 1
-                    AND gr.genre_depens = '$gr'
                     AND d.nom_perso = '$nm'
                     AND cs.gexp_caiss = '$gid'
                     AND d.type_depense <> 'Courrier'
                     AND d.opevalid = '$usc'
+                    $filtre_type
+                    $filtre_genre
                     ORDER BY d.date_depens ASC")->result();
             }
                 return $this->db->query(
@@ -591,18 +614,21 @@
                     AND d.compkey_dep = '$comp'
                     AND d.date_depens BETWEEN '$dt1' AND '$dt2'
                     AND d.is_actifdep = 1
-                    AND gr.genre_depens = '$gr'
                     AND d.nom_perso = '$nm'
                     AND d.id_depense = '$iddep'
                     AND cs.gexp_caiss = '$gid'
                     AND d.type_depense <> 'Courrier'
                     AND d.opevalid = '$usc'
+                    $filtre_type
+                    $filtre_genre
                     ORDER BY d.date_depens ASC")->row();
         }
 
-        public function adtridepense($cid, $gid, $usc, $comp, $dt1, $dt2, $gr = FALSE, $nm = FALSE, $iddep = FALSE)
+        public function adtridepense($cid, $gid, $usc, $comp, $dt1, $dt2, $gr = FALSE, $nm = FALSE, $iddep = FALSE, $typ = FALSE)
         {
-            
+            $filtre_type = $this->_filtre_type_depense($typ);
+            $filtre_genre = $this->_filtre_genre_depense($gr);
+
             if ($gr === '' AND $nm === '' AND $iddep === FALSE) {
                 return $this->db->query(
                     "SELECT gr.genre_depens, d.type_depense, d.nom_perso, d.commentaire, d.montant_depens, d.motif, d.date_depens FROM depense d
@@ -618,6 +644,7 @@
                     AND d.type_depense <> 'Courrier'
                     AND cs.gexp_caiss = '$gid'
                     AND d.opevalidad = '$usc'
+                    $filtre_type
                     ORDER BY d.date_depens ASC")->result();
             }
             
@@ -634,10 +661,11 @@
                     AND d.compkey_dep = '$comp'
                     AND d.date_depens BETWEEN '$dt1' AND '$dt2'
                     AND d.is_actifdepad = 1
-                    AND gr.genre_depens = '$gr'
                     AND cs.gexp_caiss = '$gid'
                     AND d.type_depense <> 'Courrier'
                     AND d.opevalidad = '$usc'
+                    $filtre_type
+                    $filtre_genre
                     ORDER BY d.date_depens ASC")->result();
             }
             elseif($iddep === FALSE)
@@ -653,11 +681,12 @@
                     AND d.compkey_dep = '$comp'
                     AND d.date_depens BETWEEN '$dt1' AND '$dt2'
                     AND d.is_actifdepad = 1
-                    AND gr.genre_depens = '$gr'
                     AND d.nom_perso = '$nm'
                     AND cs.gexp_caiss = '$gid'
                     AND d.type_depense <> 'Courrier'
                     AND d.opevalidad = '$usc'
+                    $filtre_type
+                    $filtre_genre
                     ORDER BY d.date_depens ASC")->result();
             }
                 return $this->db->query(
@@ -671,12 +700,13 @@
                     AND d.compkey_dep = '$comp'
                     AND d.date_depens BETWEEN '$dt1' AND '$dt2'
                     AND d.is_actifdepad = 1
-                    AND gr.genre_depens = '$gr'
                     AND d.nom_perso = '$nm'
                     AND d.id_depense = '$iddep'
                     AND cs.gexp_caiss = '$gid'
                     AND d.type_depense <> 'Courrier'
                     AND d.opevalidad = '$usc'
+                    $filtre_type
+                    $filtre_genre
                     ORDER BY d.date_depens ASC")->row();
         }   
 
@@ -741,7 +771,7 @@
                     AND d.actif_deps = 0
                     AND d.ferme_caisdep = 0
                     AND d.type_depense = '$typ'
-                    AND gr.genre_depens = '$gr'
+                    AND TRIM(gr.genre_depens) = '" . $this->db->escape_str(trim((string) $gr)) . "'
                     AND cs.gexp_caiss = '$gid'
                     AND d.type_depense <> 'Courrier'
                     AND d.opevalid = '$usc'
@@ -762,7 +792,7 @@
                     AND d.actif_deps = 0
                     AND d.ferme_caisdep = 0
                     AND d.type_depense = '$typ'
-                    AND gr.genre_depens = '$gr'
+                    AND TRIM(gr.genre_depens) = '" . $this->db->escape_str(trim((string) $gr)) . "'
                     AND d.nom_perso = '$nm'
                     AND cs.gexp_caiss = '$gid'
                     AND d.type_depense <> 'Courrier'
@@ -782,7 +812,7 @@
                     AND d.actif_deps = 0
                     AND d.ferme_caisdep = 0
                     AND d.type_depense = '$typ'
-                    AND gr.genre_depens = '$gr'
+                    AND TRIM(gr.genre_depens) = '" . $this->db->escape_str(trim((string) $gr)) . "'
                     AND d.nom_perso = '$nm'
                     AND d.id_depense = '$iddep'
                     AND d.type_depense <> 'Courrier'
@@ -1242,7 +1272,7 @@
                     AND d.active_dep = 0
                     AND d.date_depens BETWEEN '$dt1' AND '$dt2'
                     AND d.type_depense = '$typ'
-                    AND gr.genre_depens = '$gr'
+                    AND TRIM(gr.genre_depens) = '" . $this->db->escape_str(trim((string) $gr)) . "'
                     AND d.idop_dep = '$conect'
                     AND cs.gexp_caiss='$gid'
                     AND d.type_depense <> 'Courrier'
@@ -1266,7 +1296,7 @@
                     AND d.active_dep = 0
                     AND d.date_depens BETWEEN '$dt1' AND '$dt2'
                     AND d.type_depense = '$typ'
-                    AND gr.genre_depens = '$gr'
+                    AND TRIM(gr.genre_depens) = '" . $this->db->escape_str(trim((string) $gr)) . "'
                     AND d.nom_perso = '$nm'
                     AND d.idop_dep = '$conect'
                     AND cs.gexp_caiss='$gid'
@@ -1289,7 +1319,7 @@
                     AND d.active_dep = 0
                     AND d.date_depens BETWEEN '$dt1' AND '$dt2'
                     AND d.type_depense = '$typ'
-                    AND gr.genre_depens = '$gr'
+                    AND TRIM(gr.genre_depens) = '" . $this->db->escape_str(trim((string) $gr)) . "'
                     AND d.nom_perso = '$nm'
                     AND d.id_depense = '$iddep'
                     AND d.idop_dep = '$conect'
@@ -1383,7 +1413,7 @@
                     AND d.active_dep = 0
                     AND d.date_depens BETWEEN '$dt1' AND '$dt2'
                     AND d.type_depense = '$typ'
-                    AND gr.genre_depens = '$gr'
+                    AND TRIM(gr.genre_depens) = '" . $this->db->escape_str(trim((string) $gr)) . "'
                     AND d.idop_dep = '$adjoint'
                     AND cs.gexp_caiss='$gid'
                     AND d.type_depense <> 'Courrier'
@@ -1407,7 +1437,7 @@
                     AND d.active_dep = 0
                     AND d.date_depens BETWEEN '$dt1' AND '$dt2'
                     AND d.type_depense = '$typ'
-                    AND gr.genre_depens = '$gr'
+                    AND TRIM(gr.genre_depens) = '" . $this->db->escape_str(trim((string) $gr)) . "'
                     AND d.nom_perso = '$nm'
                     AND d.idop_dep = '$adjoint'
                     AND cs.gexp_caiss='$gid'
@@ -1430,7 +1460,7 @@
                     AND d.active_dep = 0
                     AND d.date_depens BETWEEN '$dt1' AND '$dt2'
                     AND d.type_depense = '$typ'
-                    AND gr.genre_depens = '$gr'
+                    AND TRIM(gr.genre_depens) = '" . $this->db->escape_str(trim((string) $gr)) . "'
                     AND d.nom_perso = '$nm'
                     AND d.id_depense = '$iddep'
                     AND d.idop_dep = '$adjoint'
@@ -1734,7 +1764,7 @@
                     AND d.date_depens BETWEEN '$dt1' AND '$dt2'
                     AND d.validcptabledep = 1
                     AND d.type_depense = '$typ'
-                    AND gr.genre_depens = '$gr'
+                    AND TRIM(gr.genre_depens) = '" . $this->db->escape_str(trim((string) $gr)) . "'
                     AND d.opevalid = '$uop'
                     ORDER BY d.date_depens ASC")->result();
             }
@@ -1753,7 +1783,7 @@
                     AND d.date_depens BETWEEN '$dt1' AND '$dt2'
                     AND d.validcptabledep = 1
                     AND d.type_depense = '$typ'
-                    AND gr.genre_depens = '$gr'
+                    AND TRIM(gr.genre_depens) = '" . $this->db->escape_str(trim((string) $gr)) . "'
                     AND d.nom_perso = '$nm'
                     AND d.opevalid = '$uop'
                     ORDER BY d.date_depens ASC")->result();
@@ -1770,7 +1800,7 @@
                     AND d.validcptabledep = 1
                     AND d.actif_deps = 0
                     AND d.type_depense = '$typ'
-                    AND gr.genre_depens = '$gr'
+                    AND TRIM(gr.genre_depens) = '" . $this->db->escape_str(trim((string) $gr)) . "'
                     AND ex.code_gaexp = '$gid'
                     AND d.nom_perso = '$nm'
                     AND d.id_depense = '$iddep'
@@ -2086,7 +2116,7 @@
                     AND d.date_depens BETWEEN '$dt1' AND '$dt2'
                     AND d.ferme_caisdep = 1
                     AND d.type_depense = '$typ'
-                    AND gr.genre_depens = '$gr'
+                    AND TRIM(gr.genre_depens) = '" . $this->db->escape_str(trim((string) $gr)) . "'
                     AND d.opevalid = '$uop'
                     ORDER BY d.date_depens ASC")->result();
             }
@@ -2104,7 +2134,7 @@
                     AND d.date_depens BETWEEN '$dt1' AND '$dt2'
                     AND d.ferme_caisdep = 1
                     AND d.type_depense = '$typ'
-                    AND gr.genre_depens = '$gr'
+                    AND TRIM(gr.genre_depens) = '" . $this->db->escape_str(trim((string) $gr)) . "'
                     AND d.nom_perso = '$nm'
                     AND d.opevalid = '$uop'
                     ORDER BY d.date_depens ASC")->result();
@@ -2120,7 +2150,7 @@
                     AND d.date_depens BETWEEN '$dt1' AND '$dt2'
                     AND d.ferme_caisdep = 1
                     AND d.type_depense = '$typ'
-                    AND gr.genre_depens = '$gr'
+                    AND TRIM(gr.genre_depens) = '" . $this->db->escape_str(trim((string) $gr)) . "'
                     AND ex.code_gaexp = '$gid'
                     AND d.nom_perso = '$nm'
                     AND d.id_depense = '$iddep'

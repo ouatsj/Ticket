@@ -2363,13 +2363,70 @@ if (!function_exists('caissier_validation_bind_operateurs')) {
     }
 }
 
+if (!function_exists('caissier_arret_scope_sql')) {
+    /**
+     * Limite les lignes à une escale : opérateur de l'escale, ou nom de cet agent.
+     *
+     * @param int[]|null $ops
+     * @return array{0:string,1:array}
+     */
+    function caissier_arret_scope_sql($id_expr, $name_expr, $ops)
+    {
+        if (!is_array($ops) || !$ops) {
+            return array('', array());
+        }
+        $ids = array();
+        foreach ($ops as $id) {
+            $id = (int) $id;
+            if ($id > 0) {
+                $ids[$id] = $id;
+            }
+        }
+        if (!$ids) {
+            return array('', array());
+        }
+        $ids = array_values($ids);
+        $ph = implode(',', array_fill(0, count($ids), '?'));
+        $bind = $ids;
+        $sql = " AND ({$id_expr} IN ({$ph})";
+        if ($name_expr) {
+            $CI =& get_instance();
+            $rows = $CI->db->query(
+                "SELECT DISTINCT TRIM(CONCAT(u.first_name, ' ', u.last_name)) AS nom
+                 FROM attributions_role ar
+                 JOIN user_login ul ON ar.idgestcompte = ul.uid_login
+                 JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
+                 JOIN utilisateurs u ON cu.userlog_id = u.uid
+                 WHERE ar.roleattribut IN ({$ph})",
+                $ids
+            )->result();
+            $noms = array();
+            foreach ($rows as $row) {
+                $nom = trim((string) $row->nom);
+                if ($nom !== '') {
+                    $noms[$nom] = $nom;
+                }
+            }
+            if ($noms) {
+                $noms = array_values($noms);
+                $nph = implode(',', array_fill(0, count($noms), '?'));
+                $sql .= " OR TRIM({$name_expr}) IN ({$nph})";
+                $bind = array_merge($bind, $noms);
+            }
+        }
+        $sql .= ')';
+        return array($sql, $bind);
+    }
+}
+
 if (!function_exists('caissier_arret_pending_map')) {
     /**
      * Totaux recettes/dépenses/dépôts en attente de validation caissier, par chef guichet.
      *
+     * @param int[]|null $scope_ops agents vente escale : ne compter que leurs arrêts
      * @return array<int,object>
      */
-    function caissier_arret_pending_map($ekey, $gid, $idcais = null)
+    function caissier_arret_pending_map($ekey, $gid, $idcais = null, $scope_ops = null)
     {
         $CI =& get_instance();
         $gid = roleattribut_guard_normalize_gare_id($ekey, $gid);
@@ -2396,6 +2453,9 @@ if (!function_exists('caissier_arret_pending_map')) {
         // Les saisies encore ouvertes (active_*=0) restent chez le chef jusqu'à son arrêt.
         // Exclure les lignes déjà validées par un adjoint (is_actif*ad=1) : elles
         // passent dans la file « confirmation principal » (caissier_arret_pending_map_adjoint).
+        list($scope_rec_sql, $scope_rec_bind) = caissier_arret_scope_sql('r.idopera', 'r.nom', $scope_ops);
+        list($scope_dep_sql, $scope_dep_bind) = caissier_arret_scope_sql('d.idop_dep', null, $scope_ops);
+        list($scope_depo_sql, $scope_depo_bind) = caissier_arret_scope_sql('d.idop_depot', 'd.nom_pre', $scope_ops);
         $rec_rows = $CI->db->query(
             "SELECT r.idopera AS roleattribut, COUNT(*) AS nb, COALESCE(SUM(r.montant_recet), 0) AS total
             FROM recette r
@@ -2416,8 +2476,9 @@ if (!function_exists('caissier_arret_pending_map')) {
             AND r.is_validerecet = 0
             AND COALESCE(r.valid_recet, '') = 'valid'
             {$caisse_sql}
+            {$scope_rec_sql}
             GROUP BY r.idopera",
-            array($ekey, $gid)
+            array_merge(array($ekey, $gid), $scope_rec_bind)
         )->result();
 
         foreach ($rec_rows as $row) {
@@ -2447,8 +2508,9 @@ if (!function_exists('caissier_arret_pending_map')) {
             AND d.ferme_caisdep = 0
             AND COALESCE(d.valid_depens, '') = 'valid'
             {$caisse_sql}
+            {$scope_dep_sql}
             GROUP BY d.idop_dep",
-            array($ekey, $gid)
+            array_merge(array($ekey, $gid), $scope_dep_bind)
         )->result();
 
         foreach ($dep_rows as $row) {
@@ -2477,8 +2539,9 @@ if (!function_exists('caissier_arret_pending_map')) {
             AND d.type_depot <> 'Courrier'
             AND COALESCE(d.valid_depo, '') = 'valid'
             {$caisse_sql}
+            {$scope_depo_sql}
             GROUP BY d.idop_depot",
-            array($ekey, $gid)
+            array_merge(array($ekey, $gid), $scope_depo_bind)
         )->result();
 
         foreach ($depo_rows as $row) {
@@ -2550,7 +2613,7 @@ if (!function_exists('caissier_arret_pending_map_adjoint')) {
      *
      * @return array<int,object>
      */
-    function caissier_arret_pending_map_adjoint($ekey, $gid, $idcais = null)
+    function caissier_arret_pending_map_adjoint($ekey, $gid, $idcais = null, $scope_ops = null)
     {
         $CI =& get_instance();
         $gid = roleattribut_guard_normalize_gare_id($ekey, $gid);
@@ -2588,6 +2651,9 @@ if (!function_exists('caissier_arret_pending_map_adjoint')) {
             }
         };
 
+        list($scope_rec_sql, $scope_rec_bind) = caissier_arret_scope_sql('r.idopera', 'r.nom', $scope_ops);
+        list($scope_dep_sql, $scope_dep_bind) = caissier_arret_scope_sql('d.idop_dep', null, $scope_ops);
+        list($scope_depo_sql, $scope_depo_bind) = caissier_arret_scope_sql('d.idop_depot', 'd.nom_pre', $scope_ops);
         $rec_rows = $CI->db->query(
             "SELECT r.operavalidad AS roleattribut, COUNT(*) AS nb, COALESCE(SUM(r.montant_recet), 0) AS total,
                 MIN(r.date_recet) AS date_min, MAX(r.date_recet) AS date_max
@@ -2608,8 +2674,9 @@ if (!function_exists('caissier_arret_pending_map_adjoint')) {
             AND r.type_recet <> 'Courrier'
             AND r.date_recet <= ?
             {$caisse_sql}
+            {$scope_rec_sql}
             GROUP BY r.operavalidad",
-            array($ekey, $gid, $today)
+            array_merge(array($ekey, $gid, $today), $scope_rec_bind)
         )->result();
 
         foreach ($rec_rows as $row) {
@@ -2639,8 +2706,9 @@ if (!function_exists('caissier_arret_pending_map_adjoint')) {
             AND d.type_depense <> 'Courrier'
             AND d.date_depens <= ?
             {$caisse_sql}
+            {$scope_dep_sql}
             GROUP BY d.opevalidad",
-            array($ekey, $gid, $today)
+            array_merge(array($ekey, $gid, $today), $scope_dep_bind)
         )->result();
 
         foreach ($dep_rows as $row) {
@@ -2670,8 +2738,9 @@ if (!function_exists('caissier_arret_pending_map_adjoint')) {
             AND d.type_depot <> 'Courrier'
             AND d.datedepot <= ?
             {$caisse_sql}
+            {$scope_depo_sql}
             GROUP BY d.opvalidad",
-            array($ekey, $gid, $today)
+            array_merge(array($ekey, $gid, $today), $scope_depo_bind)
         )->result();
 
         foreach ($depo_rows as $row) {

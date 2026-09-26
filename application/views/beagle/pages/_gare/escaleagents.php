@@ -20,12 +20,12 @@
         <?php
         $profils_admin = array(
             array('id' => 'chef', 'label' => 'Chef de guichet', 'note' => 'Mêmes boutons que Voir caisse : recettes, dépôts, versement, dépenses, arrêt. L’aide chef a les mêmes boutons. La recette vente escale est la liste ci-dessous.', 'recette' => true, 'badge' => ''),
-            array('id' => 'adjoint', 'label' => 'Adjoint caisse', 'note' => 'Mêmes boutons que Voir caisse : recettes, dépôts, versement, dépenses, validation.', 'recette' => true, 'badge' => ''),
-            array('id' => 'caissier', 'label' => 'Caissier', 'note' => 'Mêmes boutons que Voir caisse : recettes, dépôts, versement, dépenses, arrêt de caisse, validation.', 'recette' => true, 'badge' => ''),
+            array('id' => 'adjoint', 'label' => 'Adjoint caisse', 'note' => 'Mêmes boutons que Voir caisse : recettes, dépôts, versement, dépenses, validation.', 'recette' => false, 'badge' => ''),
+            array('id' => 'caissier', 'label' => 'Caissier', 'note' => 'Mêmes boutons que Voir caisse : recettes, dépôts, versement, dépenses, arrêt de caisse, validation.', 'recette' => false, 'badge' => ''),
             array('id' => 'comptable', 'label' => 'Comptable', 'note' => 'Exercices escale, comme sur la page de la sous-gare.', 'recette' => false, 'badge' => 'Comptable'),
-            array('id' => 'superviseur', 'label' => 'Superviseur', 'note' => 'Cartes caissier et adjoint, plus les exercices escale.', 'recette' => true, 'badge' => 'Comptable'),
-            array('id' => 'agence', 'label' => 'Superviseur d\'agence', 'note' => 'Consultation de la recette escale et exercices.', 'recette' => true, 'badge' => 'Superviseur d\'agence'),
-            array('id' => 'site', 'label' => 'Superviseur de site', 'note' => 'Consultation de la recette escale et exercices.', 'recette' => true, 'badge' => 'Superviseur de site'),
+            array('id' => 'superviseur', 'label' => 'Superviseur', 'note' => 'Cartes caissier et adjoint, plus les exercices escale.', 'recette' => false, 'badge' => 'Comptable'),
+            array('id' => 'agence', 'label' => 'Superviseur d\'agence', 'note' => 'Consultation des cartes caisse et exercices.', 'recette' => false, 'badge' => 'Superviseur d\'agence'),
+            array('id' => 'site', 'label' => 'Superviseur de site', 'note' => 'Consultation des cartes caisse et exercices.', 'recette' => false, 'badge' => 'Superviseur de site'),
         );
         ?>
         <div class="col-12 mb-3">

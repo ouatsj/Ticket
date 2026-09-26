@@ -1214,14 +1214,14 @@
 
             if ($gexp !== '' && $id_caiss > 0 && in_array($userole, array('1', '2', '4'), true)) {
                 $links = array(
-                    array('label' => 'RECETTES', 'url' => $gtv('recetteguichetesc')),
+                    array('label' => 'RECETTES', 'url' => $gtv('recette')),
                     array('label' => 'DEPOTS', 'url' => $gtv('depot')),
                     array('label' => 'VERSEMENT', 'url' => $gtv('versement')),
                     array('label' => 'DEPENSES', 'url' => $gtv('depense')),
                     array('label' => 'ARRÊT COMPTE CAISSE', 'url' => $gtv('arretcaisseprincipale')),
                 );
                 if ($userole === '1' || $userole === '4') {
-                    $links[] = array('label' => 'VALIDATION', 'url' => $gtv('recetteguichetesc'));
+                    $links[] = array('label' => 'VALIDATION', 'url' => $gtv('validation'));
                 }
                 $sections[] = array(
                     'badge' => 'Caissier',
@@ -1233,13 +1233,13 @@
 
             if ($gexp !== '' && $id_caiss > 0 && in_array($userole, array('1', '2', '18'), true)) {
                 $links = array(
-                    array('label' => 'RECETTES', 'url' => $gtv('recetteguichetesc')),
+                    array('label' => 'RECETTES', 'url' => $gtv('recette')),
                     array('label' => 'DEPOTS', 'url' => $gtv('depot')),
                     array('label' => 'VERSEMENT', 'url' => $gtv('versement')),
                     array('label' => 'DEPENSES', 'url' => $gtv('depense')),
                 );
                 if ($userole === '1' || $userole === '18') {
-                    $links[] = array('label' => 'VALIDATION', 'url' => $gtv('recetteguichetesc'));
+                    $links[] = array('label' => 'VALIDATION', 'url' => $gtv('validation'));
                 }
                 $sections[] = array(
                     'badge' => 'Adjoint caisse',
@@ -1485,7 +1485,7 @@
 
             $caisse = $this->_escale_caisse($gare_id, $gid);
             $this->property['caisseident'] = $caisse;
-            $this->property['voir_recette_escale'] = in_array($userole, array('1', '2', '4', '5', '13', '14', '16', '18'), true);
+            $this->property['voir_recette_escale'] = in_array($userole, array('5', '16'), true);
             $this->property['escale_admin'] = ($userole === '1');
             $this->property['escale_label'] = $label;
             $this->property['escale_ligne'] = $ligne;

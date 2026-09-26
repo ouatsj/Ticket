@@ -1,11 +1,20 @@
 <?php defined('BASEPATH') OR exit('No direct script access allowed'); ?>
 
+<?php
+$escale_nom = trim((string) $this->input->get('escale'));
+$gexp_val = !empty($caisseident->gexp_caiss) ? $caisseident->gexp_caiss : (!empty($bus_stop->idengare) ? $bus_stop->idengare : 0);
+if ($escale_nom !== '') {
+    $lien_retour_val = site_url('gares/' . $this->session->company->ekey . '/gTs/' . $gexp_val . '/escaleagents/' . rawurlencode($escale_nom) . '/0');
+    $libelle_retour_val = "RETOUR À L'ESCALE";
+} else {
+    $lien_retour_val = site_url("gares/{$this->session->company->ekey}/gTv/" . $gexp_val . "/cais/" . $conex->roleattribut . '/' . $bus_stop->idsousgare . '/' . mdate("%d/%m/%Y", now('UTC')));
+    $libelle_retour_val = 'RETOUR A LA CAISSE';
+}
+?>
 <div class="row">
     <p class="mt-0 mb-2 ml-4">
-            <a href="<?= site_url("gares/{$this->session->company->ekey}". "/gTv/".
-                    (!empty($caisseident->gexp_caiss) ? $caisseident->gexp_caiss : (!empty($bus_stop->idengare) ? $bus_stop->idengare : 0)).
-                "/cais/" . $conex->roleattribut.'/'.$bus_stop->idsousgare .'/'. mdate("%d/%m/%Y", now('UTC'))); ?>" class="btn btn-space btn-secondary">
-                <i class="fas fa-arrow-circle-left text-info"></i>&nbsp;RETOUR A LA CAISSE&nbsp;
+            <a href="<?= $lien_retour_val; ?>" class="btn btn-space btn-secondary">
+                <i class="fas fa-arrow-circle-left text-info"></i>&nbsp;<?= $libelle_retour_val; ?>&nbsp;
             </a>
     </p>
 </div>

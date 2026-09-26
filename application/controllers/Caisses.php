@@ -804,18 +804,42 @@
                     $this->property['depenses'] = $this->m_depense->depens($this->company->ekey, $cid, $cdg, $cpr);
                     $this->property['caisseident'] = $caisseident;
                     $this->property['typedocuments'] = $ref['typedocuments'];
-                    $this->property['usercomptes'] = $this->m_compte_user->get_chefs_gare($this->company->ekey, $cdg);
-                    $this->property['pending_arret'] = caissier_arret_pending_map($this->company->ekey, $cdg, $cid);
-                    // Option B : principal (4) voit aussi les adjoints (18) à confirmer.
-                    $this->property['useradjoints'] = array();
-                    $this->property['pending_arret_adjoint'] = array();
-                    if (recette_role_is_validateur_principal($this->session->agent->userole)
-                        || $this->session->agent->userole === '1'
-                        || $this->session->agent->userole === '2'
-                    ) {
-                        $this->property['useradjoints'] = $this->m_compte_user->get_adjoints_gare($this->company->ekey, $cdg);
-                        $this->property['pending_arret_adjoint'] = caissier_arret_pending_map_adjoint($this->company->ekey, $cdg, $cid);
+                    $scope_ops = array();
+                    foreach (explode(',', (string) $this->input->get('escale_ops')) as $scope_id) {
+                        $scope_id = (int) $scope_id;
+                        if ($scope_id > 0) {
+                            $scope_ops[$scope_id] = $scope_id;
+                        }
                     }
+                    $scope_ops = $scope_ops ? array_values($scope_ops) : null;
+                    $chefs = $this->m_compte_user->get_chefs_gare($this->company->ekey, $cdg);
+                    $adjoints = $this->m_compte_user->get_adjoints_gare($this->company->ekey, $cdg);
+                    $role_vue = (string) $this->session->agent->userole;
+                    $voir_chefs = true;
+                    $voir_adjoints = false;
+                    if ($role_vue === '18') {
+                        $voir_chefs = true;
+                        $voir_adjoints = false;
+                    } elseif ($role_vue === '4') {
+                        if ($adjoints) {
+                            $voir_chefs = false;
+                            $voir_adjoints = true;
+                        } else {
+                            $voir_chefs = true;
+                            $voir_adjoints = false;
+                        }
+                    } elseif ($role_vue === '1' || $role_vue === '2') {
+                        $voir_chefs = true;
+                        $voir_adjoints = true;
+                    }
+                    $this->property['usercomptes'] = $voir_chefs ? $chefs : array();
+                    $this->property['pending_arret'] = $voir_chefs
+                        ? caissier_arret_pending_map($this->company->ekey, $cdg, $cid, $scope_ops)
+                        : array();
+                    $this->property['useradjoints'] = $voir_adjoints ? $adjoints : array();
+                    $this->property['pending_arret_adjoint'] = $voir_adjoints
+                        ? caissier_arret_pending_map_adjoint($this->company->ekey, $cdg, $cid, $scope_ops)
+                        : array();
                     $this->property['pagetitle'] .= "• VALIDATION COMPTE<strong>•&nbsp;{$this->company->nom_entreprise}•&nbsp;{$conex->type_rols}</strong>";
                 return $this->layout->view('_caisse/caissevalide', $this->property);
                 break;

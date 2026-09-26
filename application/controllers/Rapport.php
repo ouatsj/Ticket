@@ -788,9 +788,9 @@
             $role = (string) $this->session->agent->userole;
 
             if (recette_role_is_validateur_principal($role)) {
-                $rows = $this->m_depense->tridepense($this->entreprise->ekey, $gid, $atr, $comp, $date1, $date2, $gen, $nm);
+                $rows = $this->m_depense->tridepense($this->entreprise->ekey, $gid, $atr, $comp, $date1, $date2, $gen, $nm, FALSE, $typ);
             } elseif (recette_role_is_validateur_adjoint($role)) {
-                $rows = $this->m_depense->adtridepense($this->entreprise->ekey, $gid, $atr, $comp, $date1, $date2, $gen, $nm);
+                $rows = $this->m_depense->adtridepense($this->entreprise->ekey, $gid, $atr, $comp, $date1, $date2, $gen, $nm, FALSE, $typ);
             } elseif ($role === '1' || $role === '2') {
                 $rows = $this->m_depense->tridepenseadmin($this->entreprise->ekey, $gid, $comp, $date1, $date2, $typ, $gen, $nm);
             } elseif (recette_role_is_saisie($role)) {
@@ -7397,7 +7397,7 @@
             } elseif (recette_role_is_saisie($role)) {
                 $rows = $this->m_depense->tridepense_adjoint($this->entreprise->ekey, $gid, $uopera, $date1, $date2, $comp, $typ, $gen, $nm);
             } elseif (recette_role_is_validateur_adjoint($role)) {
-                $rows = $this->m_depense->adtridepense($this->entreprise->ekey, $gid, $uopera, $comp, $date1, $date2, $gen, $nm);
+                $rows = $this->m_depense->adtridepense($this->entreprise->ekey, $gid, $uopera, $comp, $date1, $date2, $gen, $nm, FALSE, $typ);
             } elseif ($role === '1' || $role === '2') {
                 $rows = $this->m_depense->valdtridepensead($this->entreprise->ekey, $comp, $gid, $uopera, $date1, $date2, $typ, $gen, $nm);
             } else {
