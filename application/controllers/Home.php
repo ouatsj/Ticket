@@ -170,6 +170,48 @@
                 );
             }
 
+            $roles_escale = array('1', '2', '4', '5', '7', '13', '14', '16', '18');
+            $this->property['escales_lieu'] = array();
+            if (in_array($role, $roles_escale, true)) {
+                $grouped = array();
+                foreach ($this->property['gares'] as $g) {
+                    if (empty($g->idengare)) {
+                        continue;
+                    }
+                    $rows = $this->m_compte_user->get_escales_vente_lieu($ekey, $g->idengare);
+                    foreach ($rows as $esc) {
+                        $value = str_replace('|', '~', trim((string) $esc->vente_escale_value));
+                        if ($value === '') {
+                            continue;
+                        }
+                        $cle = (string) $g->idengare . '|' . $value;
+                        if (!isset($grouped[$cle])) {
+                            $label = trim((string) $esc->vente_escale_label);
+                            if ($label === '') {
+                                $label = $value;
+                            }
+                            $ligne = trim((string) $esc->nom_ligne);
+                            if ($ligne === '') {
+                                $ligne = trim((string) $esc->vente_escale_id_lignes);
+                            }
+                            $grouped[$cle] = (object) array(
+                                'label' => $label,
+                                'ligne' => $ligne,
+                                'gare' => !empty($esc->garenom) ? $esc->garenom : (isset($g->garenom) ? $g->garenom : ''),
+                                'nb_agents' => 0,
+                                'voir_url' => site_url(
+                                    'gares/' . $ekey . '/gTs/' . $g->idengare
+                                    . '/escaleagents/' . rawurlencode($value) . '/0'
+                                ),
+                            );
+                        }
+                        $grouped[$cle]->nb_agents++;
+                    }
+                }
+                $this->property['escales_lieu'] = array_values($grouped);
+            }
+            $this->property['show_onglet_escale'] = !empty($this->property['escales_lieu']);
+
             $this->property = array_merge($this->property, scripts_bundle_property('accueil'));
             $this->layout->view('index1', $this->property);
         }

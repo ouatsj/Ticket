@@ -160,10 +160,15 @@
             $rows = $this->db->query(
                 "SELECT ar.roleattribut,
                         g.idengare AS guser,
+                        g.garenom,
                         ar.vente_escale_id_lignes,
                         ar.vente_escale_value,
                         ar.vente_escale_label,
                         l.nom_ligne,
+                        u.first_name,
+                        u.last_name,
+                        u.phone,
+                        r.type_rols,
                         COALESCE(
                             NULLIF(TRIM(CONCAT(IFNULL(u.first_name,''), ' ', IFNULL(u.last_name,''))), ''),
                             NULLIF(TRIM(cu.username), ''),
@@ -173,6 +178,7 @@
                  JOIN user_login ul ON ar.idgestcompte = ul.uid_login
                  JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
                  JOIN utilisateurs u ON cu.userlog_id = u.uid
+                 JOIN user_roles r ON ar.userole = r.id_rols
                  JOIN gares g ON ul.guser = g.idengare
                  JOIN entreprise e ON u.cle_comp = e.ekey
                  LEFT JOIN lignes l ON l.ident_ligne = ar.vente_escale_id_lignes
@@ -336,7 +342,7 @@
                 JOIN entreprise e ON u.cle_comp = e.ekey
                 WHERE e.ekey = '$cid'
                 AND ul.guser = '$gid'
-                AND ar.userole IN(6, 10, 17)
+                AND ar.userole IN(6, 10)
                 AND ar.activer_role = 0
                 AND ul.comptactif = 0")->result();
         }
@@ -353,7 +359,7 @@
                 JOIN entreprise e ON u.cle_comp = e.ekey
                 WHERE e.ekey = '$cid'
                 AND ul.guser = '$gid'
-                AND ar.userole IN(6, 10, 17)")->result();
+                AND ar.userole IN(6, 10)")->result();
         }
 
         public function get_es2($cid, $gid)
@@ -424,7 +430,7 @@
                 JOIN gares g ON ul.guser = g.idengare
                 JOIN entreprise e ON u.cle_comp = e.ekey
                 WHERE e.ekey = '$cid'
-                AND ar.userole IN(6, 10, 17)")->result();
+                AND ar.userole IN(6, 10)")->result();
         }
 
         /**
@@ -2034,8 +2040,7 @@
                 return array();
             }
             $ids = array_values($ids);
-            $rows = $this->db->query(
-                "SELECT ar.roleattribut
+            $sql = "SELECT ar.roleattribut
                  FROM attributions_role ar
                  JOIN user_login ul ON ar.idgestcompte = ul.uid_login
                  JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
@@ -2043,9 +2048,26 @@
                    AND cu.is_conect = 1
                    AND ar.activeattrib = 1
                    AND ar.activer_role = 0
-                   AND ul.comptactif = 0",
-                $ids
-            )->result();
+                   AND ul.comptactif = 0";
+            $bind = $ids;
+            if ($this->db->field_exists('derniere_activite_at', 'compte_user')) {
+                if (!function_exists('compte_arret_session_idle_minutes')) {
+                    $this->load->helper('compte_arret');
+                }
+                $minutes = function_exists('compte_arret_session_idle_minutes')
+                    ? (int) compte_arret_session_idle_minutes()
+                    : 30;
+                if ($minutes < 1) {
+                    $minutes = 30;
+                }
+                $sql .= " AND cu.derniere_activite_at IS NOT NULL
+                   AND cu.derniere_activite_at >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL ? MINUTE)";
+                $bind[] = $minutes;
+                if ($this->db->field_exists('date_deconect', 'compte_user')) {
+                    $sql .= " AND (cu.date_deconect IS NULL OR cu.derniere_activite_at >= cu.date_deconect)";
+                }
+            }
+            $rows = $this->db->query($sql, $bind)->result();
             $out = array();
             foreach ($rows as $row) {
                 $out[] = (int) $row->roleattribut;

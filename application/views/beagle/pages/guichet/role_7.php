@@ -1,4 +1,5 @@
 <?php defined('BASEPATH') OR exit('No direct script access allowed'); ?>
+<?php $this->load->view('beagle/pages/guichet/_masquer_etats_escale'); ?>
 <div class="row">
                 <div class="col-sm-12">
                     <div class="text-center">

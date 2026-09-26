@@ -1,4 +1,8 @@
 <?php defined('BASEPATH') OR exit('No direct script access allowed'); ?>
+<?php
+$consult_escale_seul = isset($this->session->agent->userole)
+    && in_array((string) $this->session->agent->userole, array('13', '14'), true);
+?>
 <?php $this->load->view('_partials/btn_retour_profil'); ?>
 <div class="row">
     
@@ -45,10 +49,12 @@
                             <td><?= $item->datearretcompt; ?><br><?= $item->lastcptg_update; ?></td>
                             <td><?= $item->montcomtpte;?></td>
                             <td>
+                                <?php if (empty($consult_escale_seul)): ?>
                                 <a href="<?= "#?&&&"; ?>"
                                     class="md-trigger" data-modal="recetvald-<?= $item->idcpguichet; ?>">
                                     <span class="fas fa-edit text-warning"></span>
                                 </a>
+                                <?php endif; ?>
 
                                 <div class="modal-container colored-header colored-header-success custom-width modal-effect-7"
                                     id="recetvald-<?= $item->idcpguichet; ?>" style="perspective: none;">
@@ -189,10 +195,12 @@
                             <td><?= $itemesc->datearretcomptbg; ?><br><?= $itemesc->lastcptg_updatebg; ?></td>
                             <td><?= $itemesc->montcomtptebg;?></td>
                             <td>
+                                <?php if (empty($consult_escale_seul)): ?>
                                 <a href="<?= "#?&&&"; ?>"
                                     class="md-trigger" data-modal="recetvaldesc-<?= $itemesc->idcpguichetbg; ?>">
                                     <span class="fas fa-edit text-warning"></span>
                                 </a>
+                                <?php endif; ?>
 
                                 <div class="modal-container colored-header colored-header-success custom-width modal-effect-7"
                                     id="recetvaldesc-<?= $itemesc->idcpguichetbg; ?>" style="perspective: none;">
@@ -322,10 +330,12 @@
                             <td><?= $itemesc1->comptdatearret; ?><br><?= $itemesc1->update_lastcptg; ?></td>
                             <td><?= $itemesc1->comptemont;?></td>
                             <td>
+                                <?php if (empty($consult_escale_seul)): ?>
                                 <a href="<?= "#?&&&"; ?>"
                                     class="md-trigger" data-modal="recetvalid-<?= $itemesc1->idcpcourrier ; ?>">
                                     <span class="fas fa-edit text-warning"></span>
                                 </a>
+                                <?php endif; ?>
 
                                 <div class="modal-container colored-header colored-header-success custom-width modal-effect-7"
                                     id="recetvalid-<?= $itemesc1->idcpcourrier ; ?>" style="perspective: none;">

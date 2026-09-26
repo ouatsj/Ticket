@@ -7,6 +7,7 @@ if (isset($rg_agents) && is_array($rg_agents)) {
 }
 $rg_profil = !empty($rg_profil) ? (string) $rg_profil : 'profils';
 $rg_qui = !empty($rg_qui) ? (string) $rg_qui : 'guichetier';
+$rg_scope = !empty($rg_scope) ? preg_replace('/[^a-z0-9_-]/i', '', (string) $rg_scope) : 'rg';
 $groupes = array(
     'connecte' => array(),
     'attente' => array(),
@@ -28,8 +29,10 @@ $id_caiss = (!empty($caisseident) && !empty($caisseident->id_caiss)) ? $caisseid
 $idsg = (!empty($bus_stop) && !empty($bus_stop->idsousgare)) ? $bus_stop->idsousgare : 0;
 $date_op = mdate('%d/%m/%Y', now('UTC'));
 ?>
+<div class="col-12" id="<?= htmlspecialchars($rg_scope, ENT_QUOTES, 'UTF-8'); ?>">
+<div class="row">
 <div class="col-12 mb-3">
-    <input type="search" id="rg-filtre" class="form-control"
+    <input type="search" id="<?= htmlspecialchars($rg_scope, ENT_QUOTES, 'UTF-8'); ?>-filtre" class="form-control rg-filtre"
            placeholder="Rechercher un <?= htmlspecialchars($rg_qui, ENT_QUOTES, 'UTF-8'); ?> (nom, téléphone, profil)" autocomplete="off">
 </div>
 <div class="col-12 mb-3">
@@ -90,6 +93,8 @@ $date_op = mdate('%d/%m/%Y', now('UTC'));
         </div>
     </div>
 <?php endforeach; ?>
+</div>
+</div>
 <style>
 .rg-tabs { display:flex; flex-wrap:wrap; gap:8px; }
 .rg-tab {
@@ -105,9 +110,11 @@ $date_op = mdate('%d/%m/%Y', now('UTC'));
 </style>
 <script>
 (function () {
-    var input = document.getElementById('rg-filtre');
-    var tabs = document.querySelectorAll('.rg-tab');
-    var panels = document.querySelectorAll('.rg-panel');
+    var root = document.getElementById(<?= json_encode($rg_scope); ?>);
+    if (!root) return;
+    var input = root.querySelector('.rg-filtre');
+    var tabs = root.querySelectorAll('.rg-tab');
+    var panels = root.querySelectorAll('.rg-panel');
     function norm(s) {
         return (s || '').toLowerCase();
     }
@@ -126,7 +133,7 @@ $date_op = mdate('%d/%m/%Y', now('UTC'));
             var filtre = panel.querySelector('.rg-vide-filtre');
             if (filtre) filtre.style.display = (q !== '' && shown === 0) ? '' : 'none';
             var cle = panel.getAttribute('data-rg-panel');
-            var badge = document.querySelector('[data-rg-count="' + cle + '"]');
+            var badge = root.querySelector('[data-rg-count="' + cle + '"]');
             if (badge) badge.textContent = String(q === '' ? cards.length : shown);
         });
     }

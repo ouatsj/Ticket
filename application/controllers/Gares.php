@@ -27,7 +27,7 @@
             $light = array(
                 'optiongare' => array('m_entreprises', 'm_gare_depart', 'm_compte_user', 'm_sousgare', 'm_itineraire_escale'),
                 'entreescale' => array('m_entreprises', 'm_itineraire_escale', 'm_compte_user', 'm_sousgare'),
-                'escaleagents' => array('m_entreprises', 'm_gare_depart', 'm_compte_user'),
+                'escaleagents' => array('m_entreprises', 'm_gare_depart', 'm_compte_user', 'm_sousgare'),
                 'escaleops' => array(
                     'm_entreprises', 'm_gare_depart', 'm_compte_user', 'm_escalclients',
                     'm_bagageesc', 'm_courrier_expedieresc',
@@ -1124,30 +1124,6 @@
 
                     $this->property['layout_minimal'] = TRUE;
 
-                    $userole = ($this->session->userdata('agent') && isset($this->session->agent->userole))
-                        ? (string) $this->session->agent->userole
-                        : '';
-                    $roles_onglets = $this->_escale_roles_consultation();
-                    $escales_vente = array();
-                    if (in_array($userole, $roles_onglets, true)) {
-                        $escales_vente = $this->m_compte_user->get_escales_vente_lieu(
-                            $this->company->ekey,
-                            $gare_id
-                        );
-                    }
-                    // Pas d'onglet Escale si aucun agent vente escale n'est configuré sur la gare.
-                    $this->property['show_onglets_lieu'] = in_array($userole, $roles_onglets, true)
-                        && !empty($escales_vente);
-                    $escales_lieu = array();
-                    if (!empty($this->property['show_onglets_lieu'])) {
-                        $idsg = 0;
-                        if (!empty($this->property['sousgares'][0]->idsousgare)) {
-                            $idsg = $this->property['sousgares'][0]->idsousgare;
-                        }
-                        $escales_lieu = $this->_group_escales_lieu($escales_vente, $gid, $idsg);
-                    }
-                    $this->property['escales_lieu'] = $escales_lieu;
-
                     if ($bus_stop) {
                         $this->property['pagetitle'] .= "•{$bus_stop->garenom}&nbsp;•SOUS GARE<strong>•&nbsp;{$this->company->nom_entreprise}</strong>";
                     }
@@ -1162,14 +1138,14 @@
         }
 
         /**
-         * Onglet Escale : adjoint, caissier, comptable, superviseur, admin.
-         * Le chef de guichet et l'aide chef passent par Recette guichet escale.
+         * Page Escale (accueil des gares) : chef, aide chef, adjoint, caissier,
+         * comptable, superviseur, superviseur d'agence, superviseur de site, admin.
          *
          * @return array
          */
         protected function _escale_roles_consultation()
         {
-            return array('1', '2', '4', '7', '18');
+            return array('1', '2', '4', '5', '7', '13', '14', '16', '18');
         }
 
         /**
@@ -1210,29 +1186,42 @@
             $gexp = ($caisse && !empty($caisse->gexp_caiss)) ? $caisse->gexp_caiss : '';
             $id_caiss = ($caisse && !empty($caisse->id_caiss)) ? (int) $caisse->id_caiss : 0;
             $ekey = $this->company->ekey;
-            $gtv = function ($type) use ($ekey, $gexp, $id_caiss, $viewer, $idsg, $date_seg) {
+            $escale_value = '';
+            $escale_ops = array();
+            foreach ($agents as $agent) {
+                if ($escale_value === '' && !empty($agent->vente_escale_value)) {
+                    $escale_value = str_replace('|', '~', trim((string) $agent->vente_escale_value));
+                }
+                if (!empty($agent->roleattribut)) {
+                    $escale_ops[] = (int) $agent->roleattribut;
+                }
+            }
+            $escale_q = ($escale_value === '')
+                ? ''
+                : ('?escale=' . rawurlencode($escale_value) . '&escale_ops=' . implode(',', $escale_ops));
+            $gtv = function ($type) use ($ekey, $gexp, $id_caiss, $viewer, $idsg, $date_seg, $escale_q) {
                 return site_url(
                     'caisses/' . $ekey . '/gTv/' . $gexp . '/' . $id_caiss
                     . '/' . $type . '/' . $viewer . '/' . $idsg . '/' . $date_seg
-                );
+                ) . $escale_q;
             };
-            $cais = function ($type) use ($ekey, $gexp, $id_caiss, $viewer, $idsg, $date_seg) {
+            $cais = function ($type) use ($ekey, $gexp, $id_caiss, $viewer, $idsg, $date_seg, $escale_q) {
                 return site_url(
                     'caisses/' . $ekey . '/cais/' . $gexp . '/' . $id_caiss
                     . '/' . $viewer . '/' . $type . '/' . $idsg . '/' . $date_seg
-                );
+                ) . $escale_q;
             };
 
             if ($gexp !== '' && $id_caiss > 0 && in_array($userole, array('1', '2', '4'), true)) {
                 $links = array(
-                    array('label' => 'RECETTES', 'url' => $gtv('recette')),
+                    array('label' => 'RECETTES', 'url' => $gtv('recetteguichetesc')),
                     array('label' => 'DEPOTS', 'url' => $gtv('depot')),
                     array('label' => 'VERSEMENT', 'url' => $gtv('versement')),
                     array('label' => 'DEPENSES', 'url' => $gtv('depense')),
                     array('label' => 'ARRÊT COMPTE CAISSE', 'url' => $gtv('arretcaisseprincipale')),
                 );
                 if ($userole === '1' || $userole === '4') {
-                    $links[] = array('label' => 'VALIDATION', 'url' => $gtv('validation'));
+                    $links[] = array('label' => 'VALIDATION', 'url' => $gtv('recetteguichetesc'));
                 }
                 $sections[] = array(
                     'badge' => 'Caissier',
@@ -1244,13 +1233,13 @@
 
             if ($gexp !== '' && $id_caiss > 0 && in_array($userole, array('1', '2', '18'), true)) {
                 $links = array(
-                    array('label' => 'RECETTES', 'url' => $gtv('recette')),
+                    array('label' => 'RECETTES', 'url' => $gtv('recetteguichetesc')),
                     array('label' => 'DEPOTS', 'url' => $gtv('depot')),
                     array('label' => 'VERSEMENT', 'url' => $gtv('versement')),
                     array('label' => 'DEPENSES', 'url' => $gtv('depense')),
                 );
                 if ($userole === '1' || $userole === '18') {
-                    $links[] = array('label' => 'VALIDATION', 'url' => $gtv('validation'));
+                    $links[] = array('label' => 'VALIDATION', 'url' => $gtv('recetteguichetesc'));
                 }
                 $sections[] = array(
                     'badge' => 'Adjoint caisse',
@@ -1260,13 +1249,13 @@
                 );
             }
 
-            if ($gexp !== '' && $id_caiss > 0 && $userole === '1') {
+            if ($gexp !== '' && $id_caiss > 0 && in_array($userole, array('1', '5', '16'), true)) {
                 $sections[] = array(
                     'badge' => 'Chef de guichet',
                     'badge_class' => 'badge-success',
                     'intro' => '',
                     'links' => array(
-                        array('label' => 'RECETTES', 'url' => $cais('recette_adjoint')),
+                        array('label' => 'RECETTES', 'url' => $cais('recetteguichetesc_adjoint')),
                         array('label' => 'DEPOTS', 'url' => $cais('depot_adjoint')),
                         array('label' => 'VERSEMENT', 'url' => $cais('autreversement_adjoint')),
                         array('label' => 'DEPENSES', 'url' => $cais('depense_adjoint')),
@@ -1275,55 +1264,76 @@
                 );
             }
 
-            if (in_array($userole, array('1', '2', '7'), true)) {
+            $suivi_escale = array(
+                '2' => array('Comptable', 'badge-warning'),
+                '7' => array('Comptable', 'badge-warning'),
+                '13' => array('Superviseur d\'agence', 'badge-dark'),
+                '14' => array('Superviseur de site', 'badge-secondary'),
+            );
+            $jeux_suivi = array();
+            if ($userole === '1') {
+                $jeux_suivi = array(
+                    array('Comptable', 'badge-warning'),
+                    array('Superviseur d\'agence', 'badge-dark'),
+                    array('Superviseur de site', 'badge-secondary'),
+                );
+            } elseif (isset($suivi_escale[$userole])) {
+                $jeux_suivi = array($suivi_escale[$userole]);
+            }
+            if ($jeux_suivi) {
                 $du = mdate('%Y-%m-01', now('UTC'));
                 $au = mdate('%Y-%m-%d', now('UTC'));
                 $base = 'Rapport/';
                 $ek = $ekey . '/' . $gare_id;
-                foreach ($agents as $agent) {
-                    $ra = !empty($agent->roleattribut) ? (int) $agent->roleattribut : 0;
-                    if ($ra <= 0) {
-                        continue;
-                    }
-                    $ligne = rawurlencode((string) $agent->vente_escale_id_lignes);
-                    $nom = trim((string) (isset($agent->agent_nom) ? $agent->agent_nom : ''));
-                    $sections[] = array(
-                        'badge' => 'Comptable',
-                        'badge_class' => 'badge-warning',
-                        'intro' => $nom !== '' ? $nom : ('Agent ' . $ra),
-                        'links' => array(
-                            array(
-                                'label' => 'EXERCICE MENSUEL TICKET GUICHETIER ESCAL',
-                                'url' => site_url(
-                                    $base . 'exoreportsesc/' . $ek
-                                    . '?caissieresc=' . $ra
-                                    . '&datedebutesc=' . $du
-                                    . '&datefinesc=' . $au
+                foreach ($jeux_suivi as $jeu) {
+                    foreach ($agents as $agent) {
+                        $ra = !empty($agent->roleattribut) ? (int) $agent->roleattribut : 0;
+                        if ($ra <= 0) {
+                            continue;
+                        }
+                        $ligne = rawurlencode((string) $agent->vente_escale_id_lignes);
+                        $nom = trim((string) (isset($agent->agent_nom) ? $agent->agent_nom : ''));
+                        $sections[] = array(
+                            'badge' => $jeu[0],
+                            'badge_class' => $jeu[1],
+                            'intro' => $nom !== '' ? $nom : ('Agent ' . $ra),
+                            'links' => array(
+                                array(
+                                    'label' => 'EXERCICE MENSUEL TICKET GUICHETIER ESCAL',
+                                    'url' => site_url(
+                                        $base . 'exoreportsesc/' . $ek
+                                        . '?caissieresc=' . $ra
+                                        . '&datedebutesc=' . $du
+                                        . '&datefinesc=' . $au
                                     . '&axeligneesc=' . $ligne
+                                    . ($escale_value !== '' ? '&escale=' . rawurlencode($escale_value) : '')
                                 ),
                             ),
-                            array(
-                                'label' => 'EXERCICE MENSUEL BAGAGEESCAL OPERATEUR',
-                                'url' => site_url(
-                                    $base . 'exercicesbagopesc/' . $ek
-                                    . '?vendeuseidopesc=' . $ra
-                                    . '&datedebutbagopesc=' . $du
-                                    . '&datefinbagopesc=' . $au
+                                array(
+                                    'label' => 'EXERCICE MENSUEL BAGAGEESCAL OPERATEUR',
+                                    'url' => site_url(
+                                        $base . 'exercicesbagopesc/' . $ek
+                                        . '?vendeuseidopesc=' . $ra
+                                        . '&datedebutbagopesc=' . $du
+                                        . '&datefinbagopesc=' . $au
                                     . '&axelignebagopesc=' . $ligne
+                                    . ($escale_value !== '' ? '&escale=' . rawurlencode($escale_value) : '')
                                 ),
                             ),
-                            array(
-                                'label' => 'EXERCICE COURRIERS ESCAL',
-                                'url' => site_url(
-                                    $base . 'etatsplis1esc/' . $ek
-                                    . '?caissesidpliesc=' . $ra
-                                    . '&datesdebutspliesc=' . $du
-                                    . '&datesfinspliesc=' . $au
+                                array(
+                                    'label' => 'EXERCICE COURRIERS ESCAL',
+                                    'url' => site_url(
+                                        $base . 'etatsplis1esc/' . $ek
+                                        . '?caissesidpliesc=' . $ra
+                                        . '&datesdebutspliesc=' . $du
+                                        . '&datesfinspliesc=' . $au
                                     . '&axelignespliesc=' . $ligne
+                                    . ($escale_value !== '' ? '&escale=' . rawurlencode($escale_value) : '')
                                 ),
                             ),
-                        ),
-                    );
+                            ),
+                        );
+                    }
                 }
             }
 
@@ -1397,6 +1407,12 @@
             $wanted = str_replace('|', '~', trim(rawurldecode((string) $escale_key)));
             $bus_stop = $this->m_gare_depart->get($this->company->id_entreprise, $gid);
             $gare_id = ($bus_stop && !empty($bus_stop->garesid)) ? $bus_stop->garesid : $gid;
+            if ($idsg <= 0) {
+                $sous_lieu = $this->m_sousgare->get($this->company->id_entreprise, $gare_id);
+                if (!empty($sous_lieu[0]->idsousgare)) {
+                    $idsg = (int) $sous_lieu[0]->idsousgare;
+                }
+            }
             $gare_connect = roleattribut_guard_normalize_gare_id($this->company->ekey, $gare_id);
             $conn = $this->m_compte_user->connect_gare_exclusive(
                 $this->company->ekey,
@@ -1415,10 +1431,7 @@
                 : (int) $this->session->agent->roleattribut;
 
             $date_seg = mdate('%d/%m/%Y', now('UTC'));
-            $retour = site_url(
-                'gares/' . $this->company->ekey . '/gTs/' . $gid . '/sousgare/' . $viewer . '/' . $date_seg
-                . '?onglet=escale'
-            );
+            $retour = site_url('home/main?onglet=escale');
             $agents = array();
             $label = $wanted;
             $ligne = '';
@@ -1439,12 +1452,6 @@
                         $ligne = trim((string) $row->vente_escale_id_lignes);
                     }
                 }
-                $row->voir_url = site_url(
-                    'gares/' . $this->company->ekey
-                    . '/gTs/' . $gid
-                    . '/escaleops/' . (int) $row->roleattribut
-                    . '/' . $idsg
-                );
                 $agents[] = $row;
             }
             if (!$agents) {
@@ -1452,7 +1459,34 @@
                 return;
             }
 
+            $ids = array();
+            foreach ($agents as $agent) {
+                if (!empty($agent->roleattribut)) {
+                    $ids[] = (int) $agent->roleattribut;
+                }
+            }
+            $attente = array_flip($this->m_compte_user->arrets_en_attente(
+                $this->company->ekey,
+                $ids,
+                null,
+                array('guichet', 'bagage', 'courrier')
+            ));
+            $connectes = array_flip($this->m_compte_user->guichetiers_connectes($ids));
+            foreach ($agents as $agent) {
+                $ra = !empty($agent->roleattribut) ? (int) $agent->roleattribut : 0;
+                if (isset($attente[$ra])) {
+                    $agent->guichet_groupe = 'attente';
+                } elseif (isset($connectes[$ra])) {
+                    $agent->guichet_groupe = 'connecte';
+                } else {
+                    $agent->guichet_groupe = 'deconnecte';
+                }
+            }
+
             $caisse = $this->_escale_caisse($gare_id, $gid);
+            $this->property['caisseident'] = $caisse;
+            $this->property['voir_recette_escale'] = in_array($userole, array('1', '2', '4', '5', '13', '14', '16', '18'), true);
+            $this->property['escale_admin'] = ($userole === '1');
             $this->property['escale_label'] = $label;
             $this->property['escale_ligne'] = $ligne;
             $this->property['escale_agents'] = $agents;
@@ -1465,6 +1499,29 @@
                 $agents,
                 $gare_id
             );
+            $this->property['escale_admin_packs'] = array();
+            if ($userole === '1') {
+                $cibles = array(
+                    'chef' => '5',
+                    'adjoint' => '18',
+                    'caissier' => '4',
+                    'comptable' => '7',
+                    'superviseur' => '2',
+                    'agence' => '13',
+                    'site' => '14',
+                );
+                foreach ($cibles as $cle => $role_cible) {
+                    $this->property['escale_admin_packs'][$cle] = $this->_escale_boutons_comme_sousgare(
+                        $role_cible,
+                        $caisse,
+                        $viewer,
+                        $idsg,
+                        $date_seg,
+                        $agents,
+                        $gare_id
+                    );
+                }
+            }
             $this->property['retour_sousgare'] = $retour;
             $this->property['bus_stop'] = $bus_stop;
             $this->property['layout_minimal'] = TRUE;

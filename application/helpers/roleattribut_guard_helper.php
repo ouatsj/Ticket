@@ -711,7 +711,7 @@ if (!function_exists('roleattribut_guard_profil_vendeur_bind')) {
 
         $vendor_ra = (int) $vendor->roleattribut;
 
-        if (!roleattribut_guard_is_supervisor()) {
+        if (!roleattribut_guard_is_supervisor() && !roleattribut_guard_is_cashbox_consultant()) {
             $caller = roleattribut_guard_operateur($ekey, $gare_id, null);
             if (validerecette_is_vendeur_userole($caller['userole'])) {
                 if ((int) $caller['roleattribut'] !== $vendor_ra) {

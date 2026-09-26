@@ -114,6 +114,44 @@
         }
 
         /**
+         * Garde uniquement les agents de l'escale demandée (?escale= et ?escale_ops=).
+         *
+         * @param object[] $agents
+         * @return object[]
+         */
+        protected function _filtrer_agents_escale($agents)
+        {
+            $escale = str_replace('|', '~', trim((string) $this->input->get('escale')));
+            $ops = array();
+            foreach (explode(',', (string) $this->input->get('escale_ops')) as $id) {
+                $id = (int) $id;
+                if ($id > 0) {
+                    $ops[$id] = $id;
+                }
+            }
+            if ($escale === '' && !$ops) {
+                return $agents;
+            }
+            $gardees = array();
+            foreach ((array) $agents as $row) {
+                if (!is_object($row)) {
+                    continue;
+                }
+                if ($ops && !isset($ops[(int) $row->roleattribut])) {
+                    continue;
+                }
+                if ($escale !== '') {
+                    $valeur = str_replace('|', '~', trim((string) (isset($row->vente_escale_value) ? $row->vente_escale_value : '')));
+                    if ($valeur !== '' && $valeur !== $escale) {
+                        continue;
+                    }
+                }
+                $gardees[] = $row;
+            }
+            return $gardees;
+        }
+
+        /**
          * Connecté, arrêt en attente de validation, ou déconnecté de la gare.
          * L'attente prime : un agent connecté qui a déjà arrêté son compte va dans cet onglet.
          *
@@ -718,6 +756,7 @@
                         $this->property['vendeuseses'] = $this->m_compte_user->get_es2($this->company->ekey, $cdg);
                     }
                     $this->property['caisseident'] = $caisseident;
+                    $this->property['vendeuseses'] = $this->_filtrer_agents_escale($this->property['vendeuseses']);
                     $this->property['vendeuseses'] = $this->_classer_agents_recette(
                         $this->property['vendeuseses'],
                         $this->company->ekey,
@@ -12249,6 +12288,7 @@
                         $this->property['vendeuseses'] = $this->m_compte_user->get_es2($this->company->ekey, $cdg);
                     }
                     $this->property['caisseident'] = $caisseident;
+                    $this->property['vendeuseses'] = $this->_filtrer_agents_escale($this->property['vendeuseses']);
                     $this->property['vendeuseses'] = $this->_classer_agents_recette(
                         $this->property['vendeuseses'],
                         $this->company->ekey,
