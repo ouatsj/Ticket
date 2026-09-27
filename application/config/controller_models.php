@@ -303,6 +303,7 @@ return array(
     'Lignes' => array(
         'm_entreprises',
         'm_compagnies',
+        'm_gares',
         'm_gare_arrivee',
         'm_gare_depart',
         'm_itineraire',

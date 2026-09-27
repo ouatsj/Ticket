@@ -457,6 +457,43 @@
         {
             return $this->db->where('ident_ligne', $id)->delete($this->table);
         }
+
+        /**
+         * Usages qui empêchent de supprimer la ligne (horaires, ventes liées, compositions).
+         *
+         * @param string $ident
+         * @return array
+         */
+        public function raisons_blocage_suppression($ident)
+        {
+            $ident = trim((string) $ident);
+            if ($ident === '') {
+                return array('identifiant vide');
+            }
+            $raisons = array();
+            $checks = array(
+                array('ligne_heure', 'ligne_id', 'des horaires'),
+                array('itineraire_etapes', 'id_lignes', 'une composition transit'),
+                array('itineraire_etapes', 'ident_ligne_etape', 'une composition transit'),
+                array('itineraire_escales', 'id_lignes', 'des escales'),
+                array('itineraire_escales_tpe_liaisons', 'id_lignes', 'des liaisons TPE'),
+                array('positionlignegare', 'idligne', 'des positions de gare'),
+                array('affectlignecarte', 'idlignecart', 'des cartes'),
+            );
+            foreach ($checks as $check) {
+                if (!$this->db->table_exists($check[0])) {
+                    continue;
+                }
+                $n = $this->db->query(
+                    'SELECT COUNT(*) AS n FROM ' . $check[0] . ' WHERE ' . $check[1] . ' = ?',
+                    array($ident)
+                )->row();
+                if ($n && (int) $n->n > 0 && !in_array($check[2], $raisons, true)) {
+                    $raisons[] = $check[2];
+                }
+            }
+            return $raisons;
+        }
     }
     /** Lignes_model.php **/
     /** application/models/Lignes_model.php **/

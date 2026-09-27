@@ -31,6 +31,7 @@
                 $this->property['lignes_par_compagnie_arrivee'] = $this->m_lignes->group_by_compagnie_arrivee($lignes);
                 $this->property['garedeparts'] = $this->m_gare_depart->get($this->company->id_entreprise);
                 $this->property['garearrivees'] = $this->m_gare_arrivee->getad($this->company->id_entreprise);
+                $this->property['gares_param'] = $this->m_gares->get($this->company->id_entreprise);
                 $this->property['compagnies'] = $this->m_compagnies->get_by_entreprise($this->company->id_entreprise);
                 return $this->layout->view('_ligne/view', $this->property);
         }
@@ -40,54 +41,185 @@
         {
             $this->company = $this->m_entreprises->get_key($ckey);
 
-            $cleComp = trim((string) $this->input->post('cle_compagnie'));
-            $gare_posd = strpos($this->input->post('garedepart'), '.');
-            
-            $sub_gcod = substr($this->input->post('garedepart'), 0, $gare_posd);
-            $sub_direction = substr($this->input->post('garedepart'), $gare_posd + 1, strlen($this->input->post('garedepart')));
-            
-            $gare_posa = strpos($this->input->post('garearrivee'), '.');
-            
-            $sub_gcoda = substr($this->input->post('garearrivee'), 0, $gare_posa);
+            $cleDep = trim((string) $this->input->post('cle_compagnie'));
+            $cleArr = trim((string) $this->input->post('cle_compagnie_arrivee'));
+            $idDep = trim((string) $this->input->post('garedepart'));
+            $idArr = trim((string) $this->input->post('garearrivee'));
 
-            $directionar = substr($this->input->post('garearrivee'), $gare_posa + 1, strlen($this->input->post('garearrivee')));
-
-            // Compagnie obligatoire : gare d'arrivée (et départ) doivent lui appartenir.
-            if ($cleComp === '' || $gare_posd === false || $gare_posa === false) {
-                $this->session->set_flashdata('ligne_error', 'Compagnie, gare de départ et gare d’arrivée sont obligatoires.');
+            if ($cleDep === '' || $cleArr === '' || $idDep === '' || $idArr === '') {
+                $this->session->set_flashdata('ligne_error', 'Les deux compagnies, la gare de départ et la gare d’arrivée sont obligatoires.');
                 redirect('lignes/' . $this->session->company->ekey);
                 return;
             }
-            $gdOk = $this->db->query(
-                "SELECT code_gaexp FROM gare_exp WHERE code_gaexp = ? AND id_compagd = ? LIMIT 1",
-                array($sub_gcod, $cleComp)
-            )->row();
-            $gaOk = $this->db->query(
-                "SELECT code_gadest FROM gare_dest WHERE code_gadest = ? AND id_compaga = ? LIMIT 1",
-                array($sub_gcoda, $cleComp)
-            )->row();
-            if (!$gdOk || !$gaOk) {
+            $dep = $this->_code_ligne_depuis_gare_param('depart', $this->company->id_entreprise, $cleDep, $idDep);
+            $arr = $this->_code_ligne_depuis_gare_param('arrivee', $this->company->id_entreprise, $cleArr, $idArr);
+            if (!$dep || !$arr) {
                 $this->session->set_flashdata(
                     'ligne_error',
-                    'Les gares choisies ne correspondent pas à la compagnie sélectionnée.'
+                    'Chaque gare doit être une gare créée dans Paramètres pour la compagnie choisie.'
+                );
+                redirect('lignes/' . $this->session->company->ekey);
+                return;
+            }
+
+            $sub_gcod = $dep['code'];
+            $sub_gcoda = $arr['code'];
+            $sub_direction = $dep['nom'];
+            $directionar = $arr['nom'];
+            $ident = $sub_gcod . '-' . $sub_gcoda;
+            $deja = $this->db->query(
+                'SELECT ident_ligne FROM lignes WHERE ident_ligne = ? LIMIT 1',
+                array($ident)
+            )->row();
+            if ($deja) {
+                $this->session->set_flashdata(
+                    'ligne_error',
+                    'Cette ligne existe déjà. Supprimez-la pour pouvoir la créer à nouveau.'
                 );
                 redirect('lignes/' . $this->session->company->ekey);
                 return;
             }
             
             $arrayligne = array(
-                'ident_ligne' => $sub_gcod. '-' .$sub_gcoda,
+                'ident_ligne' => $ident,
                 'gaexp_lg' => $sub_gcod,
                 'gadest_lg' => $sub_gcoda,
                 'nom_ligne' => $sub_direction. '-' .$directionar,
                 'distancekm' => $this->input->post('distance'),
                 'prixkm' => $this->input->post('distanceprix'),
             );
-            $blg = $this->m_lignes->create($arrayligne);
-            if ($blg != NULL) {
-                $this->property['INSERT_SUCCESS'] = TRUE;
+            $this->m_lignes->create($arrayligne);
+            if ($this->db->affected_rows() < 1) {
+                $this->session->set_flashdata('ligne_error', 'La ligne n’a pas pu être créée.');
+                redirect('lignes/' . $this->session->company->ekey);
+                return;
             }
+            $this->property['INSERT_SUCCESS'] = TRUE;
+            $this->session->set_flashdata('ligne_ok', 'Ligne créée.');
             redirect('lignes/' . $this->session->company->ekey);
+        }
+
+        /**
+         * Relie une gare de Paramètres (table gares, par compagnie) au code départ ou arrivée de la ligne.
+         *
+         * @param string $sens depart|arrivee
+         * @param int|string $idEntreprise
+         * @param int|string $cleComp
+         * @param string $idengare
+         * @return array{code:string,nom:string}|null
+         */
+        protected function _code_ligne_depuis_gare_param($sens, $idEntreprise, $cleComp, $idengare)
+        {
+            $phys = $this->db->query(
+                'SELECT g.idengare, g.garenom, g.villeid, g.contactgares
+                 FROM gares g
+                 JOIN compagnies c ON g.compagniegare = c.cle_compagnie
+                 WHERE c.id_entrep = ? AND g.compagniegare = ? AND g.idengare = ?
+                 LIMIT 1',
+                array($idEntreprise, $cleComp, $idengare)
+            )->row();
+            if (!$phys) {
+                return null;
+            }
+            $nom = (string) $phys->garenom;
+            if ($sens === 'depart') {
+                $aff = $this->m_gare_depart->find_affectation($idEntreprise, $cleComp, $phys->idengare);
+                if ($aff) {
+                    return array('code' => (string) $aff->code_gaexp, 'nom' => $nom);
+                }
+                $code = $this->_code_commercial_libre('depart', (string) $phys->idengare, $cleComp);
+                $this->m_gare_depart->create(array(
+                    'code_gaexp' => $code,
+                    'garesid' => $phys->idengare,
+                    'id_villegd' => $phys->villeid,
+                    'id_compagd' => $cleComp,
+                    'nom_gaep' => $nom,
+                    'contactgdepart' => $phys->contactgares,
+                ));
+                return array('code' => $code, 'nom' => $nom);
+            }
+            $aff = $this->m_gare_arrivee->find_affectation($idEntreprise, $cleComp, $phys->idengare);
+            if ($aff) {
+                return array('code' => (string) $aff->code_gadest, 'nom' => $nom);
+            }
+            $code = $this->_code_commercial_libre('arrivee', (string) $phys->idengare, $cleComp);
+            $this->m_gare_arrivee->create(array(
+                'code_gadest' => $code,
+                'idgaresdest' => $phys->idengare,
+                'id_villega' => $phys->villeid,
+                'id_compaga' => $cleComp,
+                'contactgare' => $phys->contactgares,
+                'nom_gadest' => $nom,
+                'actif_ga' => 1,
+            ));
+            return array('code' => $code, 'nom' => $nom);
+        }
+
+        /**
+         * @param string $sens depart|arrivee
+         * @param string $idengare
+         * @param int|string $cleComp
+         * @return string
+         */
+        protected function _code_commercial_libre($sens, $idengare, $cleComp)
+        {
+            $exists = ($sens === 'depart')
+                ? array($this->m_gare_depart, 'code_exists')
+                : array($this->m_gare_arrivee, 'code_exists');
+            $candidats = array($idengare, $idengare . 'C' . $cleComp);
+            foreach ($candidats as $code) {
+                if ($code !== '' && !call_user_func($exists, $code)) {
+                    return $code;
+                }
+            }
+            return $idengare . 'C' . $cleComp . substr((string) time(), -4);
+        }
+
+        /**
+         * Supprime une ligne inutilisée pour permettre de la recréer.
+         */
+        public function delete($ckey, $ident_ligne)
+        {
+            $this->company = $this->m_entreprises->get_key($ckey);
+            $ident_ligne = rawurldecode((string) $ident_ligne);
+            $cid = $this->company->id_entreprise;
+            $row = $this->db->query(
+                'SELECT lg.ident_ligne
+                 FROM lignes lg
+                 JOIN gare_exp ge ON lg.gaexp_lg = ge.code_gaexp
+                 JOIN compagnies c ON ge.id_compagd = c.cle_compagnie
+                 WHERE lg.ident_ligne = ? AND c.id_entrep = ?
+                 LIMIT 1',
+                array($ident_ligne, $cid)
+            )->row();
+            $target = 'lignes/' . $this->session->company->ekey;
+            $tab = preg_replace('/[^a-zA-Z0-9_-]/', '', (string) $this->input->get('tab'));
+            if ($tab !== '') {
+                $target .= '?tab=' . rawurlencode($tab);
+            }
+            if (!$row) {
+                $this->session->set_flashdata('ligne_error', 'Ligne introuvable.');
+                redirect($target);
+                return;
+            }
+            $bloque = $this->m_lignes->raisons_blocage_suppression($ident_ligne);
+            if (!empty($bloque)) {
+                $this->session->set_flashdata(
+                    'ligne_error',
+                    'Cette ligne est encore utilisée (' . implode(', ', $bloque) . '). Retirez ces éléments avant de la supprimer.'
+                );
+                redirect($target);
+                return;
+            }
+            $this->m_lignes->del($ident_ligne);
+            $this->load->helper('app_cache');
+            if (function_exists('app_cache_delete')) {
+                app_cache_delete('lignes_ad_' . $cid);
+                app_cache_delete('lignes_lggaread_' . $cid);
+                app_cache_delete('dash_count_lignes');
+            }
+            $this->session->set_flashdata('ligne_ok', 'Ligne supprimée. Vous pouvez la créer à nouveau.');
+            redirect($target);
         }
         
         public function edit($ckey, $lg_id)
@@ -101,29 +233,64 @@
         
         public function edit_($ckey, $lgid)
         {
-            $gare_pos = strpos($this->input->post('garedepart'), '.');
-            
-            $sub_gcod = substr($this->input->post('garedepart'), 0, $gare_pos);
-            $sub_direction = substr($this->input->post('garedepart'), $gare_pos + 1, strlen($this->input->post('garedepart')));
-            
-            $gare_posa = strpos($this->input->post('garearrivee'), '.');
-            
-            $sub_gcoda = substr($this->input->post('garearrivee'), 0, $gare_posa);
-            $directionar = substr($this->input->post('garearrivee'), $gare_posa + 1, strlen($this->input->post('garearrivee')));
-            $arrayedit = array(
-                'ident_ligne' => $sub_gcod. '-' .$sub_gcoda,
-                'gaexp_lg' => $sub_gcod,
-                'gadest_lg' => $sub_gcoda,
-                'nom_ligne' => $sub_direction. '-' .$directionar,
+            $this->company = $this->m_entreprises->get_key($ckey);
+            $lgid = rawurldecode((string) $lgid);
+            $tab = preg_replace('/[^a-zA-Z0-9_-]/', '', (string) $this->input->post('tab'));
+            $target = 'lignes/' . $this->session->company->ekey;
+            if ($tab !== '') {
+                $target .= '?tab=' . rawurlencode($tab);
+            }
+
+            $cleDep = trim((string) $this->input->post('cle_compagnie'));
+            $cleArr = trim((string) $this->input->post('cle_compagnie_arrivee'));
+            $idDep = trim((string) $this->input->post('garedepart'));
+            $idArr = trim((string) $this->input->post('garearrivee'));
+            if ($cleDep === '' || $cleArr === '' || $idDep === '' || $idArr === '') {
+                $this->session->set_flashdata('ligne_error', 'Les deux compagnies, la gare de départ et la gare d’arrivée sont obligatoires.');
+                redirect($target);
+                return;
+            }
+            $dep = $this->_code_ligne_depuis_gare_param('depart', $this->company->id_entreprise, $cleDep, $idDep);
+            $arr = $this->_code_ligne_depuis_gare_param('arrivee', $this->company->id_entreprise, $cleArr, $idArr);
+            if (!$dep || !$arr) {
+                $this->session->set_flashdata(
+                    'ligne_error',
+                    'Chaque gare doit être une gare créée dans Paramètres pour la compagnie choisie.'
+                );
+                redirect($target);
+                return;
+            }
+            $ident = $dep['code'] . '-' . $arr['code'];
+            if ($ident !== $lgid) {
+                $deja = $this->db->query(
+                    'SELECT ident_ligne FROM lignes WHERE ident_ligne = ? LIMIT 1',
+                    array($ident)
+                )->row();
+                if ($deja) {
+                    $this->session->set_flashdata(
+                        'ligne_error',
+                        'Cette ligne existe déjà. Supprimez-la pour pouvoir la recréer.'
+                    );
+                    redirect($target);
+                    return;
+                }
+            }
+            $ok = $this->m_lignes->update($lgid, array(
+                'ident_ligne' => $ident,
+                'gaexp_lg' => $dep['code'],
+                'gadest_lg' => $arr['code'],
+                'nom_ligne' => $dep['nom'] . '-' . $arr['nom'],
                 'distancekm' => $this->input->post('distance'),
                 'prixkm' => $this->input->post('distanceprix'),
-            );
-            if ($this->m_lignes->update($lgid, $arrayedit) != FALSE) {
-                
-                $this->property['UPDATE_SUCCESS'] = TRUE;
-                
-                redirect('lignes/' . $this->session->company->ekey);
+            ));
+            if ($ok === FALSE) {
+                $this->session->set_flashdata('ligne_error', 'La ligne n’a pas pu être modifiée.');
+                redirect($target);
+                return;
             }
+            $this->property['UPDATE_SUCCESS'] = TRUE;
+            $this->session->set_flashdata('ligne_ok', 'Ligne modifiée.');
+            redirect($target);
         }
         
         public function itineraire($ckey)

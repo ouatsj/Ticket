@@ -237,8 +237,11 @@ document.addEventListener('DOMContentLoaded', function () {
         if (!arriveeSelect || arriveeSelect.getAttribute('data-filtre-arrivee-ready') === '1') {
             return;
         }
-        // Hors ventes : formulaires admin lignes
+        // Hors ventes : formulaires admin lignes (la compagnie y est déjà un champ à part)
         if (arriveeSelect.name === 'garearrivee') {
+            return;
+        }
+        if (arriveeSelect.closest && (arriveeSelect.closest('#form-add-ligne') || arriveeSelect.closest('#form-edit-ligne'))) {
             return;
         }
         if (!arriveeSelect.querySelector('option[data-compagnie]')) {
