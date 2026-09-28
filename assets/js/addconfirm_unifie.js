@@ -728,7 +728,7 @@
 
     function __cOrdinalFr(n) {
         var i = parseInt(n, 10) || 0;
-        if (i <= 1) return '1ER';
+        if (i <= 1) return '1er';
         return i + 'ème';
     }
 
@@ -979,7 +979,11 @@
 
         __cSegErr(idx, 'Chargement…');
         __cXhrGet(url, function (data) {
-            var rows = __cRowsArray(data);
+            // La date du segment est choisie : ne garder que ce jour.
+            var jour = String(dateYmd || '').slice(0, 10);
+            var rows = __cRowsArray(data).filter(function (r) {
+                return r && String(r.date_progr || '').slice(0, 10) === jour;
+            });
             seg.rows = rows;
             seg.byCie = {};
             seg.byCieHour = {};

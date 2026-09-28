@@ -260,7 +260,7 @@
             // Année en cours uniquement : évite collisions de codeticket réutilisés (ex. 0922N20J11 2023 vs 2026).
             return $this->db->query(
                 "SELECT np.codeticket, np.code_non_pass, np.prixretour, np.id_ligne_pass, np.nom_ligne AS np_nom_ligne,
-                        np.id_client_npass, np.sousgareidentif, np.datevente, np.creatednp_at,
+                        np.id_client_npass, np.cptus, np.sousgareidentif, np.datevente, np.creatednp_at,
                         cl.id_client, cl.nom_client, cl.prenom_client, cl.contact_client,
                         cl.num_CNIB, cl.date_delivre, cl.lieu_delivre, cl.type_client,
                         lg.ident_ligne, lg.nom_ligne, lg.gaexp_lg, lg.gadest_lg,
@@ -296,7 +296,9 @@
         }
 
         /**
-         * Frères retour d’une même vente A/R transit (même client + creatednp_at).
+         * Frères retour d’une même vente A/R transit.
+         * Même client et même instant, plus les jambes décalées de quelques secondes
+         * (réseau lent à l’enregistrement) si l’itinéraire se poursuit.
          * Chaîne ordonnée départ→arrivée (ex. BANFORA-BOBO puis BOBO-OUAGA).
          *
          * @return object[]
@@ -310,9 +312,18 @@
             $cidEsc = $this->db->escape($cid);
             $clientId = (int) $seed->id_client_npass;
             $created = (int) $seed->creatednp_at;
+            $cptus = isset($seed->cptus) ? (int) $seed->cptus : 0;
+            $dateEsc = $this->db->escape(isset($seed->datevente) ? $seed->datevente : '');
+            $sgSql = '';
+            if (isset($seed->sousgareidentif) && $seed->sousgareidentif !== null && $seed->sousgareidentif !== '') {
+                $sgSql = ' AND np.sousgareidentif = ' . (int) $seed->sousgareidentif;
+            }
+            // 5 s entre deux jambes ; 15 s depuis le code saisi pour une chaîne lente.
+            $ecartJambe = 5;
+            $portee = 15;
             $rows = $this->db->query(
                 "SELECT np.codeticket, np.code_non_pass, np.prixretour, np.id_ligne_pass, np.nom_ligne AS np_nom_ligne,
-                        np.id_client_npass, np.sousgareidentif, np.datevente, np.creatednp_at,
+                        np.id_client_npass, np.cptus, np.sousgareidentif, np.datevente, np.creatednp_at,
                         cl.id_client, cl.nom_client, cl.prenom_client, cl.contact_client,
                         cl.num_CNIB, cl.date_delivre, cl.lieu_delivre, cl.type_client,
                         lg.ident_ligne, lg.nom_ligne, lg.gaexp_lg, lg.gadest_lg,
@@ -330,9 +341,17 @@
                  LEFT JOIN client cl ON cl.id_client = np.id_client_npass
                  WHERE e.ekey = {$cidEsc}
                    AND np.id_client_npass = {$clientId}
-                   AND np.creatednp_at = {$created}
                    AND (np.actif_nonp = 0 OR np.actif_nonp IS NULL)
                    AND YEAR(np.datevente) = YEAR(CURDATE())
+                   AND (
+                        np.creatednp_at = {$created}
+                        OR (
+                            np.datevente = {$dateEsc}
+                            AND np.cptus = {$cptus}
+                            {$sgSql}
+                            AND ABS(np.creatednp_at - {$created}) <= {$portee}
+                        )
+                   )
                    AND NOT EXISTS (
                       SELECT 1 FROM passager p
                       WHERE (
@@ -348,7 +367,81 @@
             if (count($rows) <= 1) {
                 return $rows ? $rows : array($seed);
             }
+            $rows = $this->_freres_elargir_ecart_reseau($rows, $created, $ecartJambe);
+            if (count($rows) <= 1) {
+                return $rows ? $rows : array($seed);
+            }
             return $this->_ordonner_jambes_retour_aller($rows);
+        }
+
+        /**
+         * Garde l’instant exact, puis ajoute les jambes à ±5 s dont la ville enchaîne.
+         *
+         * @param object[] $rows
+         * @param int $created
+         * @param int $ecartJambe
+         * @return object[]
+         */
+        protected function _freres_elargir_ecart_reseau(array $rows, $created, $ecartJambe)
+        {
+            $created = (int) $created;
+            $ecartJambe = (int) $ecartJambe;
+            $groupe = array();
+            $proches = array();
+            foreach ($rows as $r) {
+                if ((int) $r->creatednp_at === $created) {
+                    $groupe[] = $r;
+                } else {
+                    $proches[] = $r;
+                }
+            }
+            if (empty($groupe) && !empty($rows)) {
+                $groupe[] = $rows[0];
+            }
+            $guard = 0;
+            do {
+                $ajoute = false;
+                $guard++;
+                foreach ($proches as $k => $r) {
+                    $t = (int) $r->creatednp_at;
+                    foreach ($groupe as $g) {
+                        if (abs($t - (int) $g->creatednp_at) > $ecartJambe) {
+                            continue;
+                        }
+                        if (!$this->_freres_villes_enchainees($g, $r)) {
+                            continue;
+                        }
+                        $groupe[] = $r;
+                        unset($proches[$k]);
+                        $ajoute = true;
+                        break;
+                    }
+                }
+            } while ($ajoute && $guard < 8);
+
+            return $groupe;
+        }
+
+        /**
+         * Deux jambes s’enchaînent si l’arrivée de l’une est le départ de l’autre.
+         *
+         * @param object $a
+         * @param object $b
+         * @return bool
+         */
+        protected function _freres_villes_enchainees($a, $b)
+        {
+            $depA = isset($a->ville_depart_retour) ? (int) $a->ville_depart_retour : 0;
+            $dstA = isset($a->ville_dest_retour) ? (int) $a->ville_dest_retour : 0;
+            $depB = isset($b->ville_depart_retour) ? (int) $b->ville_depart_retour : 0;
+            $dstB = isset($b->ville_dest_retour) ? (int) $b->ville_dest_retour : 0;
+            if ($dstA > 0 && $dstA === $depB) {
+                return true;
+            }
+            if ($dstB > 0 && $dstB === $depA) {
+                return true;
+            }
+            return false;
         }
 
         /**

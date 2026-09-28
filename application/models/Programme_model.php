@@ -1607,8 +1607,7 @@
                 JOIN compagnies ca ON ga.id_compaga = ca.cle_compagnie
                 WHERE e.ekey = '{$cd}'
                 {$ligneSql}
-                AND pr.date_progr >= '{$dt}'
-                AND pr.date_progr <= DATE_ADD('{$dt}', INTERVAL 1 DAY)
+                AND pr.date_progr = '{$dt}'
                 AND pr.statut_prog = 'actif'
                 AND h.h_active = 1
                 AND lh.actif_lh = 1

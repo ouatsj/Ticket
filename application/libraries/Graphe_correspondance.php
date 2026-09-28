@@ -1008,6 +1008,13 @@ class Graphe_correspondance
                     continue;
                 }
 
+                // Ville d'arrivée = ville but, mais autre gare (ex. Toussiana
+                // rangée sur Bobo). Ne pas en repartir pour revenir au but :
+                // ça fabrique Manga→Ouaga→Toussiana→Banfora→Bobo.
+                if ($toNode !== '' && $toNode === $goalNode) {
+                    continue;
+                }
+
                 if (count($newPath) < $maxJ) {
                     $visited = $state['visited'];
                     if ($toNode !== '') {
@@ -1835,6 +1842,8 @@ class Graphe_correspondance
                                 $cheminsOut[$i]['label'] = rtrim((string) $c['label']) . ' · composition déclarée';
                             }
                             $cheminsOut[$i]['source'] = 'graphe_declaratif';
+                            // 2 jambes catalogue (Manga–Ouaga → Ouaga–Bobo) devant un détour plus long.
+                            $cheminsOut[$i]['priority'] = 50;
                             break;
                         }
                     }
@@ -1882,6 +1891,7 @@ class Graphe_correspondance
                                 $cheminsOut[$i]['label'] = rtrim((string) $c['label']) . ' · composition déclarée';
                             }
                             $cheminsOut[$i]['source'] = 'graphe_declaratif';
+                            $cheminsOut[$i]['priority'] = 50;
                             break;
                         }
                     }

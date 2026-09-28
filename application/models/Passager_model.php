@@ -659,7 +659,7 @@
                     JOIN passager p ON p.code_passager = ctp.tamponcod 
                     JOIN sousgare sg ON p.departclient_idgare = sg.idsousgare
                     JOIN client cl ON p.id_client_pass = cl.id_client
-                    JOIN type_client tcl ON cl.type_client = tcl.nom_type
+                    LEFT JOIN type_client tcl ON cl.type_client = tcl.nom_type
                     JOIN programme pr ON p.code_pro = pr.code_progr
                     JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
                     JOIN heures h ON lh.heure_identif = h.id_heure
@@ -693,7 +693,7 @@
                 JOIN utilisateurs u ON cu.userlog_id = u.uid 
                 JOIN sousgare sg ON p.departclient_idgare = sg.idsousgare
                 JOIN client cl ON p.id_client_pass = cl.id_client
-                JOIN type_client tcl ON cl.type_client = tcl.nom_type
+                LEFT JOIN type_client tcl ON cl.type_client = tcl.nom_type
                 JOIN programme pr ON p.code_pro = pr.code_progr
                 JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
                 JOIN heures h ON lh.heure_identif = h.id_heure
@@ -711,7 +711,7 @@
             JOIN passager p ON p.code_passager = ctp.tamponcod 
             JOIN sousgare sg ON p.departclient_idgare = sg.idsousgare
             JOIN client cl ON p.id_client_pass = cl.id_client
-            JOIN type_client tcl ON cl.type_client = tcl.nom_type
+            LEFT JOIN type_client tcl ON cl.type_client = tcl.nom_type
             JOIN programme pr ON p.code_pro = pr.code_progr
             JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
             JOIN heures h ON lh.heure_identif = h.id_heure
@@ -2716,7 +2716,7 @@
                     JOIN gares g ON ul.guser = g.idengare
                     JOIN sousgare sg ON p.departclient_idgare = sg.idsousgare 
                     JOIN client cl ON p.id_client_pass = cl.id_client
-                    JOIN type_client tcl ON cl.type_client = tcl.nom_type
+                    LEFT JOIN type_client tcl ON cl.type_client = tcl.nom_type
                     JOIN programme pr ON p.code_pro = pr.code_progr
                     JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
                     JOIN tarification tf ON tf.ligne_heure_id = lh.id_ligneheure
@@ -2747,7 +2747,7 @@
                     JOIN gares g ON ul.guser = g.idengare
                     JOIN sousgare sg ON p.departclient_idgare = sg.idsousgare 
                     JOIN client cl ON p.id_client_pass = cl.id_client
-                    JOIN type_client tcl ON cl.type_client = tcl.nom_type
+                    LEFT JOIN type_client tcl ON cl.type_client = tcl.nom_type
                     JOIN programme pr ON p.code_pro = pr.code_progr
                     JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
                     JOIN heures h ON lh.heure_identif = h.id_heure
@@ -2912,7 +2912,7 @@
                     JOIN gares g ON ul.guser = g.idengare
                     JOIN sousgare sg ON p.departclient_idgare = sg.idsousgare 
                     JOIN client cl ON p.id_client_pass = cl.id_client
-                    JOIN type_client tcl ON cl.type_client = tcl.nom_type
+                    LEFT JOIN type_client tcl ON cl.type_client = tcl.nom_type
                     JOIN programme pr ON p.code_pro = pr.code_progr
                     JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
                     JOIN tarification tf ON tf.ligne_heure_id = lh.id_ligneheure
@@ -2942,7 +2942,7 @@
                     JOIN gares g ON ul.guser = g.idengare
                     JOIN sousgare sg ON p.departclient_idgare = sg.idsousgare 
                     JOIN client cl ON p.id_client_pass = cl.id_client
-                    JOIN type_client tcl ON cl.type_client = tcl.nom_type
+                    LEFT JOIN type_client tcl ON cl.type_client = tcl.nom_type
                     JOIN programme pr ON p.code_pro = pr.code_progr
                     JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
                     JOIN heures h ON lh.heure_identif = h.id_heure

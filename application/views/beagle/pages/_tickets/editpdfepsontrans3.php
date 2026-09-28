@@ -1,4 +1,9 @@
-<?php defined('BASEPATH') OR exit('No direct script access allowed');?>
+<?php defined('BASEPATH') OR exit('No direct script access allowed');
+if (!is_object($item) || empty($item->tamponcod) || !is_object($itemtrans) || empty($itemtrans->tamponcod) || !is_object($itemtrans2) || empty($itemtrans2->tamponcod) || !is_object($itemtrans3) || empty($itemtrans3->tamponcod)) {
+    echo '<p style="font-family:sans-serif;font-size:18px;margin:24px;">Impression annulée : ticket introuvable.</p>';
+    return;
+}
+?>
 <div class="col-lg-6" align="right">
     <p class="mt-0 mb-2 ml-4">
             <a href="<?= site_url('gares/'.$this->session->company->ekey.'/gTc/'. $bus_stop->idengare.'/compte/'. $conex->roleattribut .'/'. $bus_stop->idsousgare.'/'. mdate("%d/%m/%Y", now('UTC'))); ?>" class="btn btn-space btn-secondary">

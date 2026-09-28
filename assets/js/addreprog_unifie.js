@@ -266,8 +266,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         var row = seg.selectedRow;
         if (!row || !row.code_progr) {
-            var list = (seg.byCieHour[cieSel.value] && seg.byCieHour[cieSel.value][heureSel.value]) || [];
-            row = list[0] || null;
+            row = __reprogSegHourRow(seg, cieSel, heureSel);
             seg.selectedRow = row;
         }
         if (!row || !row.code_progr) return null;
@@ -2638,7 +2637,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function __reprogOrdinalFr(n) {
         var i = parseInt(n, 10) || 0;
-        if (i <= 1) return '1ER';
+        if (i <= 1) return '1er';
         return i + 'ème';
     }
 
@@ -3203,6 +3202,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         function fillCompanies(rows, fromChemin) {
+            var jour = String(dateYmd || '').slice(0, 10);
+            rows = __reprogRowsArray(rows).filter(function (r) {
+                return r && String(r.date_progr || '').slice(0, 10) === jour;
+            });
             // Ne jamais réinjecter un code CMT fantôme hors listing live (sinon cie figée).
             var preferCode = __reprogEtapePreferCode(seg.etape);
             var preferInLive = false;
@@ -3345,6 +3348,47 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    function __reprogSegHourRow(seg, cieSel, heureSel) {
+        if (!seg || !cieSel || !heureSel || !heureSel.value) return null;
+        var opt = (heureSel.selectedIndex >= 0) ? heureSel.options[heureSel.selectedIndex] : null;
+        var code = opt ? String(opt.getAttribute('data-code-progr') || '') : '';
+        var hh = opt ? String(opt.getAttribute('data-heure') || '') : '';
+        var map = (seg.byCieHour && cieSel.value && seg.byCieHour[cieSel.value]) || {};
+        if (code) {
+            var keys = Object.keys(map);
+            for (var i = 0; i < keys.length; i++) {
+                var list = map[keys[i]] || [];
+                for (var j = 0; j < list.length; j++) {
+                    if (list[j] && String(list[j].code_progr) === code) return list[j];
+                }
+            }
+        }
+        var bucket = (hh && map[hh]) ? map[hh] : (map[heureSel.value] || []);
+        return bucket.length ? bucket[0] : null;
+    }
+
+    function __reprogSelectSegHour(heureSel, preferCode, prefHh) {
+        if (!heureSel) return false;
+        var i;
+        if (preferCode) {
+            for (i = 0; i < heureSel.options.length; i++) {
+                if (String(heureSel.options[i].getAttribute('data-code-progr') || '') === String(preferCode)) {
+                    heureSel.selectedIndex = i;
+                    return true;
+                }
+            }
+        }
+        if (prefHh) {
+            for (i = 0; i < heureSel.options.length; i++) {
+                if (String(heureSel.options[i].getAttribute('data-heure') || '') === String(prefHh)) {
+                    heureSel.selectedIndex = i;
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
     function __reprogOnSegCie(idx) {
         var seg = window.__reprogState.segData[idx];
         var cieSel = __reprogUiCie(idx);
@@ -3384,10 +3428,33 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
         __reprogSegErr(idx, '');
+        var flat = [];
         hours.forEach(function (hh) {
+            var list = (hoursMap[hh] || []).slice();
+            list.sort(function (a, b) {
+                return String((a && a.code_progr) || '').localeCompare(String((b && b.code_progr) || ''));
+            });
+            list.forEach(function (r) {
+                if (r && r.code_progr) flat.push({ hh: hh, row: r });
+            });
+        });
+        var countByHh = {};
+        flat.forEach(function (it) {
+            countByHh[it.hh] = (countByHh[it.hh] || 0) + 1;
+        });
+        var idxByHh = {};
+        flat.forEach(function (it) {
+            idxByHh[it.hh] = (idxByHh[it.hh] || 0) + 1;
+            var ord = idxByHh[it.hh];
             var opt = document.createElement('option');
-            opt.value = hh;
-            opt.textContent = hh;
+            opt.value = it.hh + '|' + String(it.row.code_progr);
+            opt.setAttribute('data-heure', it.hh);
+            opt.setAttribute('data-code-progr', String(it.row.code_progr));
+            var label = it.hh;
+            if ((countByHh[it.hh] || 0) > 1) {
+                label += ' — ' + __reprogOrdinalFr(ord);
+            }
+            opt.textContent = label;
             heureSel.add(opt);
         });
 
@@ -3434,10 +3501,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 ? __reprogHhmm(opt2.getAttribute('data-heure') || '')
                 : '';
         }
-        if (pref && hoursMap[pref]) {
-            heureSel.value = pref;
-        } else if (hours.length === 1) {
-            heureSel.value = hours[0];
+        if (!__reprogSelectSegHour(heureSel, preferCode, pref) && flat.length === 1) {
+            heureSel.selectedIndex = 1;
         }
         if (heureSel.value) {
             try {
@@ -3465,23 +3530,12 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        var list = (seg.byCieHour[cieSel.value] && seg.byCieHour[cieSel.value][heureSel.value]) || [];
-        if (!list.length) {
+        var row = __reprogSegHourRow(seg, cieSel, heureSel);
+        if (!row || !row.code_progr) {
             __reprogSegErr(idx, 'Aucun départ pour cette compagnie / heure.');
             __reprogSyncSegPost(idx);
             __reprogUpdatePrixSum();
             return;
-        }
-        // Préférer le programme exact (direct _code_progr ou graphe _graphe_code_progr).
-        var preferCode = __reprogEtapePreferCode(seg.etape);
-        var row = list[0];
-        if (preferCode) {
-            for (var ri = 0; ri < list.length; ri++) {
-                if (list[ri] && String(list[ri].code_progr) === preferCode) {
-                    row = list[ri];
-                    break;
-                }
-            }
         }
         seg.selectedRow = row;
         seg.siegeLoadId = (seg.siegeLoadId || 0) + 1;

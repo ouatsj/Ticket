@@ -177,15 +177,18 @@ $allow_externe = in_array($role_confirm, array('1', '2', '5', '15'), true);
                 </div>
             </div>
 
+            <div class="form-row" id="confirm_quartier_wrap">
+                <div class="form-group col-md-6 col-lg-4 mb-2">
+                    <label class="small mb-0" for="quartier_confirm">Quartier d’arrivée</label>
+                    <select class="form-control form-control-sm" id="quartier_confirm" name="quartconfirm">
+                        <option value="">Choisissez le quartier</option>
+                    </select>
+                    <small class="form-text text-muted">Quartier de la gare d’arrivée, y compris sur le dernier segment d’une correspondance.</small>
+                </div>
+            </div>
+
             <div id="confirm_direct_fields_wrap">
                 <div class="form-row">
-                    <div class="form-group col-md-4 mb-2" id="confirm_quartier_wrap">
-                        <label class="small mb-0" for="quartier_confirm">Quartier</label>
-                        <select class="form-control form-control-sm" id="quartier_confirm" name="quartconfirm">
-                            <option value="">Choisissez le quartier</option>
-                        </select>
-                        <small class="form-text text-muted">Quartier de la gare d’arrivée avant l’heure et le siège.</small>
-                    </div>
                     <div class="form-group col-md-4 mb-2">
                         <div class="d-flex align-items-center flex-wrap mb-1">
                             <label class="small mb-0 mr-2">Heure (départs programmes)</label>
@@ -198,7 +201,7 @@ $allow_externe = in_array($role_confirm, array('1', '2', '5', '15'), true);
                             <option value="">Choisissez l'heure</option>
                         </select>
                         <small class="form-text text-muted">
-                            Programmes de la date : même heure → 1ER, 2ème…
+                            Programmes de la date : même heure → 1er, 2ème…
                             Cochez Multi pour les correspondances uniquement (pas les directs).
                         </small>
                     </div>
