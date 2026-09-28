@@ -925,6 +925,87 @@
                 GROUP BY cs.id_caiss, v.idop_versement")->result();
         }
 
+        /**
+         * Versements d'escale pas encore envoyés au caissier.
+         *
+         * @param string $cid
+         * @param string $g
+         * @param int[] $ops
+         * @return array
+         */
+        public function ad_get_escale($cid, $g, array $ops)
+        {
+            $op_sql = recette_role_ops_in_sql('v.idop_versement', $ops);
+
+            return $this->db->query(
+                "SELECT * FROM versements v
+                JOIN genre_depot gr ON v.id_genre_versement = gr.id_genredepot
+                JOIN attributions_role ar ON v.idop_versement = ar.roleattribut
+                JOIN user_login ul ON ar.idgestcompte = ul.uid_login
+                JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
+                JOIN gares g ON ul.guser = g.idengare
+                JOIN caisse cs ON v.idcaisse_versement = cs.id_caiss
+                JOIN gare_exp ex ON cs.gexp_caiss = ex.code_gaexp
+                JOIN compagnies c ON v.compkey_vers = c.cle_compagnie
+                JOIN entreprise e ON c.id_entrep = e.id_entreprise
+                WHERE e.ekey = '$cid'
+                AND cs.gexp_caiss = '$g'
+                AND v.active_verse = 0
+                AND v.actifvers = 0
+                AND gr.genre_depot = 'Particulier'
+                AND v.type_versement <> 'Bordereau_bancairecourrier'
+                {$op_sql}
+                ORDER BY v.id_versements DESC"
+            )->result();
+        }
+
+        /**
+         * Versements d'escale déjà chez le caissier adjoint ou le principal.
+         *
+         * @param string $cid
+         * @param string $gid
+         * @param int[] $ops
+         * @param string $niveau principal|adjoint
+         * @param string $genre banque|particulier|caisse
+         * @return array
+         */
+        public function liste_caisse_escale($cid, $gid, array $ops, $niveau, $genre = 'banque')
+        {
+            $op_sql = recette_role_ops_in_sql('v.idop_versement', $ops);
+            $etat = ($niveau === 'adjoint')
+                ? "AND v.is_actifverser = 0 AND v.validopad IS NOT NULL AND v.validopad <> '' AND v.validopad <> '0'"
+                : 'AND v.is_actifverser = 1';
+            if ($genre === 'particulier') {
+                $genre_sql = "AND gr.genre_depot <> 'Banque'";
+            } elseif ($genre === 'caisse') {
+                $genre_sql = "AND gr.genre_depot <> 'Banque' AND gr.genre_depot <> 'Particulier'";
+            } else {
+                $genre_sql = "AND gr.genre_depot = 'Banque'";
+            }
+
+            return $this->db->query(
+                "SELECT * FROM versements v
+                JOIN genre_depot gr ON v.id_genre_versement = gr.id_genredepot
+                JOIN attributions_role ar ON v.idop_versement = ar.roleattribut
+                JOIN user_login ul ON ar.idgestcompte = ul.uid_login
+                JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
+                JOIN gares g ON ul.guser = g.idengare
+                JOIN caisse cs ON v.idcaisse_versement = cs.id_caiss
+                JOIN gare_exp ex ON cs.gexp_caiss = ex.code_gaexp
+                JOIN compagnies c ON v.compkey_vers = c.cle_compagnie
+                JOIN entreprise e ON c.id_entrep = e.id_entreprise
+                WHERE e.ekey = '$cid'
+                AND cs.gexp_caiss = '$gid'
+                AND v.ferme_caisvers = 0
+                AND v.actifvers = 0
+                AND v.type_versement <> 'Bordereau_bancairecourrier'
+                {$genre_sql}
+                {$etat}
+                {$op_sql}
+                ORDER BY v.id_versements DESC"
+            )->result();
+        }
+
         public function ad_get($cid, $g, $idcai, $idcx, $pk = FALSE)
         {
             $today = mdate('%Y-%m-%d', now());

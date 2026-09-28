@@ -127,7 +127,7 @@ $this->load->view('_layouts/head', $head_extra);
 	        <span class="text-muted">(<?= $banner_role; ?>)</span>
 	        <?php endif; ?>
 	        <?php if ($identity && $identity['garenom'] !== '') : ?>
-	        <span class="text-muted">— gare <?= htmlspecialchars($identity['garenom'], ENT_QUOTES, 'UTF-8'); ?></span>
+	        <span class="text-muted">— gare <?= htmlspecialchars($identity['garenom'], ENT_QUOTES, 'UTF-8'); ?><?php if (!empty($identity['lieu'])): ?> (<?= htmlspecialchars($identity['lieu'], ENT_QUOTES, 'UTF-8'); ?>)<?php endif; ?></span>
 	        <?php endif; ?>
 	        — Ce poste est personnel : déconnectez-vous avant de le quitter.
 	        <a class="btn btn-sm btn-danger ml-2" href="<?= $lout_url; ?>">

@@ -2,14 +2,15 @@
 
 <div class="row">
     <p class="mt-0 mb-2 ml-4">
-        <?php $this->load->view('_partials/btn_retour', array(
-            'fallback' => retour_caisse_url(
-                $this->session->company->ekey,
-                !empty($caisseident->gexp_caiss) ? $caisseident->gexp_caiss : (!empty($bus_stop->idengare) ? $bus_stop->idengare : 0),
-                $conex->roleattribut,
-                $bus_stop->idsousgare
-            ),
-            'label' => 'RETOUR A LA CAISSE',
+        <?php
+        $escale_nom = trim((string) $this->input->get('escale'));
+        $depuis_escale = ($escale_nom !== '');
+        $gexp_btn = !empty($caisseident->gexp_caiss) ? $caisseident->gexp_caiss : (!empty($bus_stop->idengare) ? $bus_stop->idengare : 0);
+        $this->load->view('_partials/btn_retour', array(
+            'fallback' => $depuis_escale
+                ? site_url('gares/' . $this->session->company->ekey . '/gTs/' . $gexp_btn . '/escaleagents/' . rawurlencode($escale_nom) . '/0')
+                : retour_caisse_url($this->session->company->ekey, $gexp_btn, $conex->roleattribut, $bus_stop->idsousgare),
+            'label' => $depuis_escale ? "RETOUR À L'ESCALE" : 'RETOUR A LA CAISSE',
         )); ?>
         <a href="<?= site_url("caisses/{$this->session->company->ekey}". "/gTv/".
                 (!empty($caisseident->gexp_caiss) ? $caisseident->gexp_caiss : 0). "/".(!empty($caisseident->id_caiss) ? $caisseident->id_caiss : 0).

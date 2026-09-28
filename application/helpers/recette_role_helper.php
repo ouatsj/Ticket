@@ -169,6 +169,57 @@ if (!function_exists('recette_role_is_chef_guichet_rd_list')) {
     }
 }
 
+if (!function_exists('recette_role_ops_in_sql')) {
+    /**
+     * @param string $column
+     * @param int[] $ops
+     * @return string
+     */
+    function recette_role_ops_in_sql($column, array $ops)
+    {
+        $ids = array();
+        foreach ($ops as $id) {
+            $id = (int) $id;
+            if ($id > 0) {
+                $ids[$id] = $id;
+            }
+        }
+        if (!$ids) {
+            return 'AND 1=0';
+        }
+
+        return 'AND ' . $column . ' IN (' . implode(',', $ids) . ')';
+    }
+}
+
+if (!function_exists('recette_role_ops_any_sql')) {
+    /**
+     * @param string[] $columns
+     * @param int[] $ops
+     * @return string
+     */
+    function recette_role_ops_any_sql(array $columns, array $ops)
+    {
+        $ids = array();
+        foreach ($ops as $id) {
+            $id = (int) $id;
+            if ($id > 0) {
+                $ids[$id] = $id;
+            }
+        }
+        if (!$ids || !$columns) {
+            return 'AND 1=0';
+        }
+        $in = implode(',', $ids);
+        $parts = array();
+        foreach ($columns as $column) {
+            $parts[] = $column . ' IN (' . $in . ')';
+        }
+
+        return 'AND (' . implode(' OR ', $parts) . ')';
+    }
+}
+
 if (!function_exists('recette_role_op_sql_recette_list')) {
     /**
      * Filtre opérateur pour la liste RD chef guichet : saisies du roleattribut uniquement.

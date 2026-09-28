@@ -1021,6 +1021,35 @@ if (!function_exists('compte_arret_has_admin_override')) {
     }
 }
 
+if (!function_exists('compte_arret_activity_timestamp')) {
+    /**
+     * derniere_activite_at est stockée en heure UTC (now('UTC')).
+     * strtotime() sans fuseau la lirait dans le fuseau PHP du serveur.
+     *
+     * @param string|null $value
+     * @return int|false
+     */
+    function compte_arret_activity_timestamp($value)
+    {
+        $value = trim((string) $value);
+        if ($value === '') {
+            return false;
+        }
+
+        $dt = DateTime::createFromFormat('Y-m-d H:i:s', $value, new DateTimeZone('UTC'));
+        if (!$dt instanceof DateTime) {
+            return false;
+        }
+
+        $errors = DateTime::getLastErrors();
+        if (is_array($errors) && ($errors['warning_count'] > 0 || $errors['error_count'] > 0)) {
+            return false;
+        }
+
+        return $dt->getTimestamp();
+    }
+}
+
 if (!function_exists('compte_arret_track_activity')) {
     /**
      * Met à jour derniere_activite_at (throttle ~60 s pour éviter un UPDATE à chaque requête).
@@ -1037,7 +1066,7 @@ if (!function_exists('compte_arret_track_activity')) {
         }
 
         if ($known_last !== null && $known_last !== '') {
-            $last_ts = strtotime((string) $known_last);
+            $last_ts = compte_arret_activity_timestamp($known_last);
             if ($last_ts && (time() - $last_ts) < 60) {
                 return;
             }
@@ -1048,7 +1077,7 @@ if (!function_exists('compte_arret_track_activity')) {
             $CI->db->where('cpuser_id', $cpuser_id)
                 ->group_start()
                     ->where('derniere_activite_at IS NULL', null, false)
-                    ->or_where('derniere_activite_at <', date('Y-m-d H:i:s', time() - 60))
+                    ->or_where('derniere_activite_at <', gmdate('Y-m-d H:i:s', time() - 60))
                 ->group_end()
                 ->update('compte_user', array('derniere_activite_at' => $now));
             return;
@@ -1734,7 +1763,7 @@ if (!function_exists('compte_arret_compte_card_status')) {
 
         $jours = (int) compte_arret_desactivation_jours();
         if (!empty($row->derniere_activite_at)) {
-            $last = strtotime($row->derniere_activite_at);
+            $last = compte_arret_activity_timestamp($row->derniere_activite_at);
             if ($last && $last < time() - ($jours * 86400)) {
                 return [
                     'label' => 'Désactivé',
@@ -2453,6 +2482,11 @@ if (!function_exists('caissier_arret_pending_map')) {
         // Les saisies encore ouvertes (active_*=0) restent chez le chef jusqu'à son arrêt.
         // Exclure les lignes déjà validées par un adjoint (is_actif*ad=1) : elles
         // passent dans la file « confirmation principal » (caissier_arret_pending_map_adjoint).
+        // Escale : les opérateurs sont des vendeurs (rôle 17), pas des chefs 5/16.
+        $role_chef_sql = 'AND ar.userole IN (5, 16)';
+        if (is_array($scope_ops) && $scope_ops) {
+            $role_chef_sql = '';
+        }
         list($scope_rec_sql, $scope_rec_bind) = caissier_arret_scope_sql('r.idopera', 'r.nom', $scope_ops);
         list($scope_dep_sql, $scope_dep_bind) = caissier_arret_scope_sql('d.idop_dep', null, $scope_ops);
         list($scope_depo_sql, $scope_depo_bind) = caissier_arret_scope_sql('d.idop_depot', 'd.nom_pre', $scope_ops);
@@ -2467,7 +2501,7 @@ if (!function_exists('caissier_arret_pending_map')) {
             JOIN entreprise e ON c.id_entrep = e.id_entreprise
             WHERE e.ekey = ?
             AND ul.guser = ?
-            AND ar.userole IN (5, 16)
+            {$role_chef_sql}
             AND r.is_actifrecet = 0
             AND (r.is_actifrecetad = 0 OR r.is_actifrecetad IS NULL)
             AND r.actif_rect = 0
@@ -2498,7 +2532,7 @@ if (!function_exists('caissier_arret_pending_map')) {
             JOIN entreprise e ON c.id_entrep = e.id_entreprise
             WHERE e.ekey = ?
             AND ul.guser = ?
-            AND ar.userole IN (5, 16)
+            {$role_chef_sql}
             AND d.is_actifdep = 0
             AND (d.is_actifdepad = 0 OR d.is_actifdepad IS NULL)
             AND d.actif_deps = 0
@@ -2530,7 +2564,7 @@ if (!function_exists('caissier_arret_pending_map')) {
             JOIN entreprise e ON c.id_entrep = e.id_entreprise
             WHERE e.ekey = ?
             AND ul.guser = ?
-            AND ar.userole IN (5, 16)
+            {$role_chef_sql}
             AND d.arret_caisdepo = 0
             AND d.is_actifdepo = 0
             AND (d.is_actifdepoad = 0 OR d.is_actifdepoad IS NULL)

@@ -588,10 +588,12 @@ window.__PROG_CREATED_CODE = <?= json_encode((string) $__prog_created_code); ?>;
                                             <span class="fas fa-trash text-danger"></span>
                                         </a>&nbsp;
                                         <?php endif; ?>
+                                        <?php if ((string) $this->session->agent->userole === '1'): ?>
                                         <a href="<?= site_url('Gares/activer/' . $this->session->company->ekey . '/' . $item->code_progr. '/' . $item->gareidentif. '/' . $item->statut_prog.'/'.$conex->roleattribut.'/'.$gare_stop->idsousgare);?> "class="btn btn-space btn-secondary">
                                             <?= ($item->statut_prog === 'actif') ? '<span class="icon mdi text-danger">désactiver</span>' : '<span
                                             class="icon mdi text-success">activer</span>' ?>
                                         </a>&nbsp;
+                                        <?php endif; ?>
                                         &nbsp;
                                     <? endif; ?>
                                     </td>

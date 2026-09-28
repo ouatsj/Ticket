@@ -1260,6 +1260,78 @@
         /**
          * @param bool $gare_scope true = toute la gare (chef guichet), false = caisse + sous-gare
          */
+        /**
+         * Dépenses d'escale encore chez le chef.
+         *
+         * @param string $cid
+         * @param string $idg
+         * @param int[] $ops
+         * @return array
+         */
+        public function ad_getdepen_escale($cid, $idg, array $ops)
+        {
+            $op_sql = recette_role_ops_in_sql('d.idop_dep', $ops);
+            $open_sql = recette_role_rd_open_depense_sql('5', true, 'd');
+
+            return $this->db->query(
+                "SELECT * FROM depense d
+                JOIN type_personnel tp ON d.typpersonel = tp.idtyperso
+                JOIN genre_depense gr ON d.id_genre_depense = gr.depenseid
+                JOIN attributions_role ar ON d.idop_dep = ar.roleattribut
+                JOIN user_login ul ON ar.idgestcompte = ul.uid_login
+                JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
+                JOIN caisse cs ON d.idcaisse_depens = cs.id_caiss
+                JOIN gare_exp ex ON cs.gexp_caiss = ex.code_gaexp
+                JOIN compagnies c ON d.compkey_dep = c.cle_compagnie
+                JOIN entreprise e ON c.id_entrep = e.id_entreprise
+                WHERE e.ekey = '$cid'
+                AND cs.gexp_caiss = '$idg'
+                AND d.type_depense <> 'Courrier'
+                {$open_sql}
+                AND (d.is_actifdepad = 0 OR d.is_actifdepad IS NULL)
+                {$op_sql}
+                ORDER BY d.date_depens DESC, d.id_depense DESC"
+            )->result();
+        }
+
+        /**
+         * Dépenses d'escale déjà chez le caissier adjoint ou le principal.
+         *
+         * @param string $cid
+         * @param string $idg
+         * @param int[] $ops
+         * @param string $niveau principal|adjoint
+         * @return array
+         */
+        public function liste_caisse_escale($cid, $idg, array $ops, $niveau)
+        {
+            $today = mdate('%Y-%m-%d', now());
+            $op_sql = recette_role_ops_in_sql('d.idop_dep', $ops);
+            $etat = ($niveau === 'adjoint')
+                ? 'AND d.is_actifdepad = 1 AND d.is_actifdep = 0'
+                : 'AND d.is_actifdep = 1';
+
+            return $this->db->query(
+                "SELECT * FROM depense d
+                JOIN type_personnel tp ON d.typpersonel = tp.idtyperso
+                JOIN genre_depense gr ON d.id_genre_depense = gr.depenseid
+                JOIN caisse cs ON d.idcaisse_depens = cs.id_caiss
+                JOIN gare_exp ex ON cs.gexp_caiss = ex.code_gaexp
+                JOIN compagnies c ON d.compkey_dep = c.cle_compagnie
+                JOIN entreprise e ON c.id_entrep = e.id_entreprise
+                WHERE e.ekey = '$cid'
+                AND cs.gexp_caiss = '$idg'
+                AND d.active_dep = 1
+                AND d.arret_caisdep = 0
+                AND d.actif_deps = 0
+                AND d.date_depens = '$today'
+                AND d.type_depense <> 'Courrier'
+                {$etat}
+                {$op_sql}
+                ORDER BY d.id_depense DESC"
+            )->result();
+        }
+
         public function ad_getdepen($cid, $idg, $sg, $idcais, $cx, $pk = FALSE, $userole = null, $gare_scope = false)
         {
             $cx = (int) $cx;

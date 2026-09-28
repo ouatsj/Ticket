@@ -307,7 +307,9 @@ if (!function_exists('auth_session_validate_or_logout')) {
             $minutes = function_exists('compte_arret_session_idle_minutes')
                 ? (int) compte_arret_session_idle_minutes()
                 : 30;
-            $last = !empty($row->derniere_activite_at) ? strtotime($row->derniere_activite_at) : false;
+            $last = !empty($row->derniere_activite_at)
+                ? compte_arret_activity_timestamp($row->derniere_activite_at)
+                : false;
             if (!$last || (time() - $last) >= ($minutes * 60)) {
                 $invalid = true;
                 $idle_msg = 'Session expirée pour inactivité (' . $minutes . ' min). Reconnectez-vous.';
@@ -611,6 +613,7 @@ if (!function_exists('auth_session_identity_context')) {
             'roleattribut' => isset($agent->roleattribut) ? (int) $agent->roleattribut : 0,
             'garenom' => '',
             'gare_id' => '',
+            'lieu' => '',
         );
 
         if (!empty($agent->garenom)) {
@@ -634,7 +637,120 @@ if (!function_exists('auth_session_identity_context')) {
             }
         }
 
+        $ctx['lieu'] = auth_session_lieu_courant();
+
         return $ctx;
+    }
+}
+
+if (!function_exists('auth_session_lieu_courant')) {
+    /**
+     * Sous-gare ouverte, ou escale si la page en cours est une escale.
+     *
+     * @return string
+     */
+    function auth_session_lieu_courant()
+    {
+        $CI =& get_instance();
+        $escale = trim(rawurldecode((string) $CI->input->get('escale')));
+        $c = (string) $CI->uri->segment(1);
+        $mode = (string) $CI->uri->segment(3);
+        $type = (string) $CI->uri->segment(5);
+        if ($escale === '' && $c === 'gares' && $mode === 'gTs' && $type === 'escaleagents') {
+            $escale = trim(rawurldecode((string) $CI->uri->segment(6)));
+        }
+        if ($escale !== '') {
+            return auth_session_escale_label($escale);
+        }
+
+        $idsg = 0;
+        if ($c === 'gares' && ($mode === 'gTv' || $mode === 'gTc')) {
+            $idsg = (int) $CI->uri->segment(7);
+        } elseif ($c === 'caisses' && ($mode === 'gTv' || $mode === 'cais')) {
+            $idsg = (int) $CI->uri->segment(8);
+        } elseif ($c === 'caisses' && $mode === 'RdD') {
+            $idsg = (int) $CI->uri->segment(9);
+        }
+        if ($idsg <= 0) {
+            return '';
+        }
+
+        return auth_session_sousgare_nom($idsg);
+    }
+}
+
+if (!function_exists('auth_session_company_ekey')) {
+    function auth_session_company_ekey()
+    {
+        $CI =& get_instance();
+        if ($CI->session->userdata('company') && !empty($CI->session->company->ekey)) {
+            return (string) $CI->session->company->ekey;
+        }
+
+        return '';
+    }
+}
+
+if (!function_exists('auth_session_sousgare_nom')) {
+    function auth_session_sousgare_nom($idsg)
+    {
+        $CI =& get_instance();
+        $idsg = (int) $idsg;
+        if ($idsg <= 0) {
+            return '';
+        }
+        $ekey = auth_session_company_ekey();
+        $ekey_sql = ($ekey !== '') ? ' AND e.ekey = ' . $CI->db->escape($ekey) : '';
+        $row = $CI->db->query(
+            "SELECT s.nomsousgare
+             FROM sousgare s
+             JOIN gare_exp gd ON s.gareprinceid = gd.code_gaexp
+             JOIN compagnies c ON gd.id_compagd = c.cle_compagnie
+             JOIN entreprise e ON c.id_entrep = e.id_entreprise
+             WHERE s.idsousgare = ?
+             {$ekey_sql}
+             LIMIT 1",
+            array($idsg)
+        )->row();
+        if (!$row || trim((string) $row->nomsousgare) === '') {
+            return '';
+        }
+
+        return trim((string) $row->nomsousgare);
+    }
+}
+
+if (!function_exists('auth_session_escale_label')) {
+    function auth_session_escale_label($escale)
+    {
+        $CI =& get_instance();
+        $escale = str_replace('|', '~', trim((string) $escale));
+        if ($escale === '') {
+            return '';
+        }
+        if ($CI->db->field_exists('vente_escale_label', 'attributions_role')
+            && $CI->db->field_exists('vente_escale_value', 'attributions_role')) {
+            $ekey = auth_session_company_ekey();
+            $ekey_sql = ($ekey !== '') ? ' AND e.ekey = ' . $CI->db->escape($ekey) : '';
+            $row = $CI->db->query(
+                "SELECT TRIM(ar.vente_escale_label) AS label
+                 FROM attributions_role ar
+                 JOIN user_login ul ON ar.idgestcompte = ul.uid_login
+                 JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
+                 JOIN utilisateurs u ON cu.userlog_id = u.uid
+                 JOIN entreprise e ON u.cle_comp = e.ekey
+                 WHERE REPLACE(TRIM(ar.vente_escale_value), '|', '~') = ?
+                 AND TRIM(IFNULL(ar.vente_escale_label, '')) <> ''
+                 {$ekey_sql}
+                 LIMIT 1",
+                array($escale)
+            )->row();
+            if ($row && trim((string) $row->label) !== '') {
+                return trim((string) $row->label);
+            }
+        }
+
+        return str_replace('~', ' ', $escale);
     }
 }
 

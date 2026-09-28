@@ -1,13 +1,30 @@
 <?php
     
     defined('BASEPATH') OR exit('No direct script access allowed'); ?>
+    <?php
+    $escale_nom = trim((string) $this->input->get('escale'));
+    $escale_ops = trim((string) $this->input->get('escale_ops'));
+    $depuis_escale = ($escale_nom !== '');
+    $qesc = $depuis_escale ? ('?escale=' . rawurlencode($escale_nom) . '&escale_ops=' . rawurlencode($escale_ops)) : '';
+    $vue_escale = trim((string) $this->input->get('escale_vue'));
+    if ($qesc !== '' && ($vue_escale === '4' || $vue_escale === '18')) {
+        $qesc .= '&escale_vue=' . $vue_escale;
+    }
+    $gexp_btn = !empty($caisseident->gexp_caiss) ? $caisseident->gexp_caiss : (!empty($bus_stop->idengare) ? $bus_stop->idengare : 0);
+    ?>
     <div class="row">
         <p class="mt-0 mb-2 ml-4">
+            <?php if ($depuis_escale): ?>
+            <a href="<?= site_url('gares/' . $this->session->company->ekey . '/gTs/' . $gexp_btn . '/escaleagents/' . rawurlencode($escale_nom) . '/0'); ?>" class="btn btn-space btn-secondary">
+                <i class="fas fa-arrow-circle-left text-info"></i>&nbsp;RETOUR À L'ESCALE&nbsp;
+            </a>
+            <?php else: ?>
             <a href="<?= site_url("gares/{$this->session->company->ekey}". "/gTv/".
-                    (!empty($caisseident->gexp_caiss) ? $caisseident->gexp_caiss : (!empty($bus_stop->idengare) ? $bus_stop->idengare : 0)).
+                    $gexp_btn.
                 "/cais/" . $conex->roleattribut.'/'.$bus_stop->idsousgare .'/'.mdate("%d/%m/%Y", now('UTC'))); ?>" class="btn btn-space btn-secondary">
                 <i class="fas fa-arrow-circle-left text-info"></i>&nbsp;RETOUR A LA CAISSE&nbsp;
             </a>
+            <?php endif; ?>
 
         <? if ($this->session->agent->userole === '1' OR $this->session->agent->userole === '4' OR $this->session->agent->userole === '18'): ?>
             <a href="#" class="btn btn-space btn-secondary addversebank md-trigger" 
@@ -24,7 +41,7 @@
         <? if ($this->session->agent->userole === '1' OR $this->session->agent->userole === '4' OR $this->session->agent->userole === '18'): ?>
             <a href="<?= site_url("caisses/{$this->session->company->ekey}". "/gTv/".
                 (!empty($caisseident->gexp_caiss) ? $caisseident->gexp_caiss : 0). "/".(!empty($caisseident->id_caiss) ? $caisseident->id_caiss : 0).
-                "/autreversement/" . $conex->roleattribut.'/'.$bus_stop->idsousgare.'/'. mdate("%d/%m/%Y", now('UTC'))); ?>" class="btn btn-space btn-secondary">
+                "/autreversement/" . $conex->roleattribut.'/'.$bus_stop->idsousgare.'/'. mdate("%d/%m/%Y", now('UTC'))) . $qesc; ?>" class="btn btn-space btn-secondary">
                 <i class="fas fa-arrow-circle-down text-info"></i>&nbsp;VERSEMENT CLIENT&nbsp;
             </a>
 
@@ -35,13 +52,16 @@
 
             <a href="<?= site_url("caisses/{$this->session->company->ekey}". "/gTv/".
                 (!empty($caisseident->gexp_caiss) ? $caisseident->gexp_caiss : 0). "/".(!empty($caisseident->id_caiss) ? $caisseident->id_caiss : 0).
-                "/versementcaisse/" . $conex->roleattribut.'/'.$bus_stop->idsousgare.'/'. mdate("%d/%m/%Y", now('UTC'))); ?>" class="btn btn-space btn-secondary">
+                "/versementcaisse/" . $conex->roleattribut.'/'.$bus_stop->idsousgare.'/'. mdate("%d/%m/%Y", now('UTC'))) . $qesc; ?>" class="btn btn-space btn-secondary">
                 <i class="fas fa-arrow-circle-down text-info"></i>&nbsp;VERSEMENT CAISSE&nbsp;
             </a>
         <?endif;?> 
         </p>
     </div>
     
+    <?php if ($depuis_escale): ?>
+    <div class="alert alert-info mb-2 ml-4 mr-4">Versements de cette escale déjà chez <?= ($this->session->agent->userole === '18' || $this->input->get('escale_vue') === '18') ? 'le caissier adjoint' : 'le caissier principal'; ?>.</div>
+    <?php endif; ?>
     <div class="form-group text-center">total des versements bancaire : <? if($montantvervesbank == NULL):?> 0 <? else:?> &nbsp;<?=$montantvervesbank->montant_bank; ?><? endif; ?></div>
 <div class="row">
 

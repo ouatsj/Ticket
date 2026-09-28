@@ -101,6 +101,79 @@
                 AND pt.opvalid = '$usc'
                 ORDER BY pt.id_depot DESC")->row();
         }
+        /**
+         * Dépôts d'escale pas encore envoyés au caissier.
+         *
+         * @param string $cid
+         * @param string $gid code gare exp
+         * @param int[] $ops
+         * @return array
+         */
+        public function adgetdepot_escale($cid, $gid, array $ops)
+        {
+            $op_sql = recette_role_ops_in_sql('pt.idop_depot', $ops);
+
+            return $this->db->query(
+                "SELECT * FROM depot pt
+                JOIN genre_depot gr ON pt.idgenre_depot = gr.id_genredepot
+                JOIN caisse cs ON pt.idcaisse_depot = cs.id_caiss
+                JOIN gare_exp ex ON cs.gexp_caiss = ex.code_gaexp
+                JOIN gares g ON ex.garesid = g.idengare
+                JOIN compagnies c ON pt.compkey_depo = c.cle_compagnie
+                JOIN entreprise e ON c.id_entrep = e.id_entreprise
+                WHERE e.ekey = '$cid'
+                AND pt.arret_caisdepo = 0
+                AND pt.actif_depo = 0
+                AND (pt.is_actifdepo = 0 OR pt.is_actifdepo IS NULL)
+                AND (pt.is_actifdepoad = 0 OR pt.is_actifdepoad IS NULL)
+                AND (pt.is_validdepo = 0 OR pt.is_validdepo IS NULL)
+                AND cs.gexp_caiss = '$gid'
+                AND pt.type_depot <> 'Courrier'
+                {$op_sql}
+                ORDER BY pt.id_depot DESC"
+            )->result();
+        }
+
+        /**
+         * Dépôts d'escale déjà chez le caissier adjoint ou le principal.
+         *
+         * @param string $cid
+         * @param string $gid
+         * @param int[] $ops
+         * @param string $niveau principal|adjoint
+         * @param string $genre bancaire|client
+         * @return array
+         */
+        public function liste_caisse_escale($cid, $gid, array $ops, $niveau, $genre = 'bancaire')
+        {
+            $op_sql = recette_role_ops_in_sql('pt.idop_depot', $ops);
+            $etat = ($niveau === 'adjoint')
+                ? 'AND pt.is_actifdepoad = 1 AND (pt.is_actifdepo = 0 OR pt.is_actifdepo IS NULL) AND (pt.is_validdepo = 0 OR pt.is_validdepo IS NULL)'
+                : 'AND pt.is_validdepo = 1';
+            $genre_sql = ($genre === 'client')
+                ? "AND gr.genre_depot <> 'Bancaire'"
+                : "AND pt.type_depot = 'externe' AND gr.genre_depot = 'Bancaire'";
+
+            return $this->db->query(
+                "SELECT * FROM depot pt
+                JOIN genre_depot gr ON pt.idgenre_depot = gr.id_genredepot
+                JOIN caisse cs ON pt.idcaisse_depot = cs.id_caiss
+                JOIN gare_exp ex ON cs.gexp_caiss = ex.code_gaexp
+                JOIN gares g ON ex.garesid = g.idengare
+                JOIN compagnies c ON pt.compkey_depo = c.cle_compagnie
+                JOIN entreprise e ON c.id_entrep = e.id_entreprise
+                WHERE e.ekey = '$cid'
+                AND pt.arret_caisdepo = 0
+                AND pt.actif_depo = 0
+                AND cs.gexp_caiss = '$gid'
+                AND pt.type_depot <> 'Courrier'
+                {$genre_sql}
+                {$etat}
+                {$op_sql}
+                ORDER BY pt.id_depot DESC"
+            )->result();
+        }
+
         public function adgetdepot($cid, $idcais, $gid, $usc, $pk = FALSE)
         {
             $today = mdate('%Y-%m-%d', now());

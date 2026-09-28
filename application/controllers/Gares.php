@@ -1213,15 +1213,19 @@
             };
 
             if ($gexp !== '' && $id_caiss > 0 && in_array($userole, array('1', '2', '4'), true)) {
+                $vue4 = ($escale_q !== '') ? ($escale_q . '&escale_vue=4') : '';
+                $gtv4 = function ($type) use ($gtv, $vue4) {
+                    return $gtv($type) . (($vue4 !== '' && strpos($gtv($type), '?') !== false) ? '&escale_vue=4' : '');
+                };
                 $links = array(
-                    array('label' => 'RECETTES', 'url' => $gtv('recette')),
-                    array('label' => 'DEPOTS', 'url' => $gtv('depot')),
-                    array('label' => 'VERSEMENT', 'url' => $gtv('versement')),
-                    array('label' => 'DEPENSES', 'url' => $gtv('depense')),
-                    array('label' => 'ARRÊT COMPTE CAISSE', 'url' => $gtv('arretcaisseprincipale')),
+                    array('label' => 'RECETTES', 'url' => $gtv4('recette')),
+                    array('label' => 'DEPOTS', 'url' => $gtv4('depot')),
+                    array('label' => 'VERSEMENT', 'url' => $gtv4('versement')),
+                    array('label' => 'DEPENSES', 'url' => $gtv4('depense')),
+                    array('label' => 'ARRÊT COMPTE CAISSE', 'url' => $gtv4('arretcaisseprincipale')),
                 );
                 if ($userole === '1' || $userole === '4') {
-                    $links[] = array('label' => 'VALIDATION', 'url' => $gtv('validation'));
+                    $links[] = array('label' => 'VALIDATION', 'url' => $gtv4('validation'));
                 }
                 $sections[] = array(
                     'badge' => 'Caissier',
@@ -1232,14 +1236,17 @@
             }
 
             if ($gexp !== '' && $id_caiss > 0 && in_array($userole, array('1', '2', '18'), true)) {
+                $gtv18 = function ($type) use ($gtv, $escale_q) {
+                    return $gtv($type) . (($escale_q !== '') ? '&escale_vue=18' : '');
+                };
                 $links = array(
-                    array('label' => 'RECETTES', 'url' => $gtv('recette')),
-                    array('label' => 'DEPOTS', 'url' => $gtv('depot')),
-                    array('label' => 'VERSEMENT', 'url' => $gtv('versement')),
-                    array('label' => 'DEPENSES', 'url' => $gtv('depense')),
+                    array('label' => 'RECETTES', 'url' => $gtv18('recette')),
+                    array('label' => 'DEPOTS', 'url' => $gtv18('depot')),
+                    array('label' => 'VERSEMENT', 'url' => $gtv18('versement')),
+                    array('label' => 'DEPENSES', 'url' => $gtv18('depense')),
                 );
                 if ($userole === '1' || $userole === '18') {
-                    $links[] = array('label' => 'VALIDATION', 'url' => $gtv('validation'));
+                    $links[] = array('label' => 'VALIDATION', 'url' => $gtv18('validation'));
                 }
                 $sections[] = array(
                     'badge' => 'Adjoint caisse',
@@ -1255,7 +1262,7 @@
                     'badge_class' => 'badge-success',
                     'intro' => '',
                     'links' => array(
-                        array('label' => 'RECETTES', 'url' => $cais('recetteguichetesc_adjoint')),
+                        array('label' => 'RECETTES', 'url' => $cais('recette_adjoint')),
                         array('label' => 'DEPOTS', 'url' => $cais('depot_adjoint')),
                         array('label' => 'VERSEMENT', 'url' => $cais('autreversement_adjoint')),
                         array('label' => 'DEPENSES', 'url' => $cais('depense_adjoint')),
@@ -2272,6 +2279,13 @@
         public function activer($ckey, $idprog, $gd, $statut, $idcp, $idsg)
         {
             $this->company = $this->m_entreprises->get_key($ckey);
+            $role = ($this->session->userdata('agent') && isset($this->session->agent->userole))
+                ? (string) $this->session->agent->userole
+                : '';
+            if ($role !== '1') {
+                redirect('gares/' . $ckey . '/gTv/' . $gd . '/prog/' . $idcp . '/' . $idsg . '/' . mdate('%d/%m/%Y', now('UTC')));
+                return;
+            }
                     if($statut == 'actif'){
                         $stat = 'inactif';
                     }

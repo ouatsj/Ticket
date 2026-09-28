@@ -152,6 +152,63 @@
         }
 
         /**
+         * Agents de l'escale demandée (?escale= et ?escale_ops=).
+         *
+         * @return int[]
+         */
+        protected function _escale_ops_ids()
+        {
+            if (trim((string) $this->input->get('escale')) === '') {
+                return array();
+            }
+            $ops = array();
+            foreach (explode(',', (string) $this->input->get('escale_ops')) as $id) {
+                $id = (int) $id;
+                if ($id > 0) {
+                    $ops[$id] = $id;
+                }
+            }
+
+            return array_values($ops);
+        }
+
+        /**
+         * File caissier principal ou adjoint pour les pages ouvertes depuis l'escale.
+         * L'admin et le superviseur suivent ?escale_vue= (aperçu du profil).
+         *
+         * @return string principal|adjoint
+         */
+        protected function _escale_niveau_caisse()
+        {
+            $role = (string) $this->session->agent->userole;
+            $vue = trim((string) $this->input->get('escale_vue'));
+            if (in_array($role, array('1', '2'), true) && ($vue === '18' || $vue === '4')) {
+                return ($vue === '18') ? 'adjoint' : 'principal';
+            }
+
+            return ($role === '18') ? 'adjoint' : 'principal';
+        }
+
+        /**
+         * @param array $rows
+         * @param string $champ
+         * @return float
+         */
+        protected function _total_lignes($rows, $champ)
+        {
+            $total = 0.0;
+            if (is_array($rows)) {
+                foreach ($rows as $ligne) {
+                    if (is_object($ligne) && isset($ligne->{$champ})) {
+                        $total += (float) $ligne->{$champ};
+                    }
+                }
+            }
+
+            return $total;
+        }
+
+        /**
          * Connecté, arrêt en attente de validation, ou déconnecté de la gare.
          * L'attente prime : un agent connecté qui a déjà arrêté son compte va dans cet onglet.
          *
@@ -296,7 +353,15 @@
                 case 'recette':
                         $caisseident = $this->m_caisse->get($this->company->id_entreprise, $cdg, $cid);
                         $this->property['caisseident'] = $caisseident;
-                        if (recette_role_is_saisie($this->session->agent->userole) OR $this->session->agent->userole === '1' OR $this->session->agent->userole === '2') {
+                        $escale_ops = $this->_escale_ops_ids();
+                        if ($escale_ops) {
+                            $this->property['recettes'] = $this->m_recette->liste_caisse_escale(
+                                $this->company->ekey, $cdg, $escale_ops, $this->_escale_niveau_caisse()
+                            );
+                            $total_escale = $this->_total_lignes($this->property['recettes'], 'montant_recet');
+                            $this->property['sommerecettes'] = (object) array('total' => $total_escale);
+                            $this->property['totalrecettes'] = (object) array('total' => $total_escale);
+                        } elseif (recette_role_is_saisie($this->session->agent->userole) OR $this->session->agent->userole === '1' OR $this->session->agent->userole === '2') {
                             $this->_bind_compte_recettes_depenses_pending($cpr, $cdg, $conex);
                             $this->property['recettes'] = $this->m_recette->ad_getrecet($this->company->ekey, $cdg, $idsg, $cid, $cpr, FALSE, $userole, true);
                             if (empty($this->property['recettes'])) {
@@ -305,12 +370,12 @@
                             $this->property['sommerecettes'] = $this->m_recette->ad_getmontant($this->company->ekey, $cdg, $cid, $cpr, $userole, true);
                             $this->property['totalrecettes'] = $this->m_recette->ad_getmontant1($this->company->ekey, $cdg, $idsg, $cid, $cpr, $userole, true);
                         }
-                        if ($this->session->agent->userole === '18' OR $this->session->agent->userole === '1' OR $this->session->agent->userole === '2'){
+                        if (!$escale_ops && ($this->session->agent->userole === '18' OR $this->session->agent->userole === '1' OR $this->session->agent->userole === '2')){
                             $this->property['recettes'] = $this->m_recette->adgetrecet($this->company->ekey, $cid, $cdg, $idsg, $cpr);
                             $this->property['sommerecettes'] = $this->m_recette->adgetmontant($this->company->ekey, $cid, $cdg);
                             $this->property['totalrecettes'] = $this->m_recette->adgetmontant1($this->company->ekey, $cid, $cdg, $idsg, $cpr);
                     }
-                    if ($this->session->agent->userole === '4' OR $this->session->agent->userole === '1' OR $this->session->agent->userole === '2'){
+                    if (!$escale_ops && ($this->session->agent->userole === '4' OR $this->session->agent->userole === '1' OR $this->session->agent->userole === '2')){
 
                         $this->property['recettes'] = $this->m_recette->getrecet($this->company->ekey, $cid, $cdg, $idsg, $cpr);
                         $this->property['sommerecettes'] = $this->m_recette->getmontant($this->company->ekey, $cid, $cdg);
@@ -370,6 +435,15 @@
                             $this->property['sommedepot'] = $this->m_versements->totaldepot($this->company->ekey, $cid, $cdg, $cpr);
                             $this->property['sommedepots'] = $this->m_depot->getmontant($this->company->ekey, $cid, $cpr, $cdg);
                             $this->property['sommesdepots'] = $this->m_depot->getmontant($this->company->ekey, $cid, $cpr, $cdg, $idsg);
+                    }
+                    $escale_ops = $this->_escale_ops_ids();
+                    if ($escale_ops) {
+                        $this->property['depenses'] = $this->m_depense->liste_caisse_escale(
+                            $this->company->ekey, $cdg, $escale_ops, $this->_escale_niveau_caisse()
+                        );
+                        $total_escale = $this->_total_lignes($this->property['depenses'], 'montant_depens');
+                        $this->property['sommesdepenses'] = (object) array('montant_depens' => $total_escale, 'total' => $total_escale);
+                        $this->property['sommedepenses'] = (object) array('montant_depens' => $total_escale, 'total' => $total_escale);
                     }
                     
                     $this->property['genrespersonnels'] = $ref['genrespersonnels'];
@@ -448,6 +522,15 @@
                         $this->property['sommesdepots'] = $this->m_depot->getmontantget($this->company->ekey, $cid, $cdg, $cpr);
                         $this->property['depotcaisse'] = $this->m_depot->ad_deptinterne($this->company->ekey, $cdg, $cid, $cpr);
                     }
+                    $escale_ops = $this->_escale_ops_ids();
+                    if ($escale_ops) {
+                        $this->property['versements'] = $this->m_versements->liste_caisse_escale(
+                            $this->company->ekey, $cdg, $escale_ops, $this->_escale_niveau_caisse(), 'banque'
+                        );
+                        $total_escale = $this->_total_lignes($this->property['versements'], 'montant_verser');
+                        $this->property['montantvervesbank'] = (object) array('montant_bank' => $total_escale, 'total' => $total_escale);
+                        $this->property['montantverves'] = (object) array('montant_verser' => $total_escale, 'montant_solde' => $total_escale, 'total' => $total_escale);
+                    }
                     
                     $this->property['caisses'] = $this->m_caisse->getcaisse($this->company->ekey);
                     
@@ -489,6 +572,14 @@
                         $this->property['sommedepots'] = $this->m_depot->getmontant($this->company->ekey, $cid, $cpr, $cdg);
                         $this->property['sommesdepots'] = $this->m_depot->getmontantget($this->company->ekey, $cid, $cdg, $cpr);
                         $this->property['depotcaisse'] = $this->m_depot->ad_deptinterne($this->company->ekey, $cdg, $cid, $cpr);
+                    }
+                    $escale_ops = $this->_escale_ops_ids();
+                    if ($escale_ops) {
+                        $this->property['versements'] = $this->m_versements->liste_caisse_escale(
+                            $this->company->ekey, $cdg, $escale_ops, $this->_escale_niveau_caisse(), 'particulier'
+                        );
+                        $total_escale = $this->_total_lignes($this->property['versements'], 'montant_verser');
+                        $this->property['montantverves'] = (object) array('montant_verser' => $total_escale, 'montant_solde' => $total_escale, 'total' => $total_escale);
                     }
                     $this->property['genresv'] = $this->m_genre_depot->geta();
                     
@@ -559,6 +650,14 @@
                         $this->property['sommedepots'] = $this->m_depot->getmontant($this->company->ekey, $cid, $cpr, $cdg);
                         $this->property['sommesdepots'] = $this->m_depot->getmontantget($this->company->ekey, $cid, $cdg, $cpr);
                     }
+                    $escale_ops = $this->_escale_ops_ids();
+                    if ($escale_ops) {
+                        $this->property['versements'] = $this->m_versements->liste_caisse_escale(
+                            $this->company->ekey, $cdg, $escale_ops, $this->_escale_niveau_caisse(), 'caisse'
+                        );
+                        $total_escale = $this->_total_lignes($this->property['versements'], 'montant_verser');
+                        $this->property['montantverves'] = (object) array('montant_verser' => $total_escale, 'montant_solde' => $total_escale, 'total' => $total_escale);
+                    }
 
                     $this->property['depotcaisse'] = $this->m_depot->ad_deptinterne1($this->company->ekey, $cdg, $cid, $cpr);
                     $this->property['typedocuments'] = $ref['typedocuments'];            
@@ -604,6 +703,15 @@
 
                         $this->property['sommedepots'] = $this->m_depot->getmontant($this->company->ekey, $cid, $cpr, $cdg);
                         $this->property['sommesdepots'] = $this->m_depot->getmontantget($this->company->ekey, $cid, $cdg, $cpr);
+                    }
+                    $escale_ops = $this->_escale_ops_ids();
+                    if ($escale_ops) {
+                        $this->property['depots'] = $this->m_depot->liste_caisse_escale(
+                            $this->company->ekey, $cdg, $escale_ops, $this->_escale_niveau_caisse(), 'bancaire'
+                        );
+                        $total_escale = $this->_total_lignes($this->property['depots'], 'montant_depot');
+                        $this->property['sommesdepots'] = (object) array('total' => $total_escale);
+                        $this->property['sommedepots'] = (object) array('total' => $total_escale);
                     }
 
                     $caisseident = $this->m_caisse->get($this->company->id_entreprise, $cdg, $cid);
@@ -687,6 +795,14 @@
                         $this->property['sommedepots'] = $this->m_depot->getmontant($this->company->ekey, $cid, $cpr, $cdg);
                         $this->property['sommesdepots'] = $this->m_depot->getmontantget($this->company->ekey, $cid, $cdg, $cpr);
                     }
+                    $escale_ops = $this->_escale_ops_ids();
+                    if ($escale_ops) {
+                        $this->property['autredepots'] = $this->m_depot->liste_caisse_escale(
+                            $this->company->ekey, $cdg, $escale_ops, $this->_escale_niveau_caisse(), 'client'
+                        );
+                        $total_escale = $this->_total_lignes($this->property['autredepots'], 'montant_depot');
+                        $this->property['sommesdepots'] = (object) array('total' => $total_escale);
+                    }
 
                         $this->property['typedocuments'] = $ref['typedocuments'];
                         $this->property['genres'] = $this->m_genre_depot->geta();
@@ -718,6 +834,12 @@
                         $this->property['sommerecettes'] = $this->m_versements->totalrecette($this->company->ekey, $cid, $cdg, $cpr);
                         $this->property['sommedepot'] = $this->m_versements->totaldepot($this->company->ekey, $cid, $cdg, $cpr);
                         $this->property['sommedepots'] = $this->m_depot->getmontant($this->company->ekey, $cid, $cpr, $cdg);
+                    }
+                    $escale_ops = $this->_escale_ops_ids();
+                    if ($escale_ops) {
+                        $this->property['autredepots'] = $this->m_depot->liste_caisse_escale(
+                            $this->company->ekey, $cdg, $escale_ops, $this->_escale_niveau_caisse(), 'client'
+                        );
                     }
 
                         $this->property['typedocuments'] = $ref['typedocuments'];
@@ -815,6 +937,10 @@
                     $chefs = $this->m_compte_user->get_chefs_gare($this->company->ekey, $cdg);
                     $adjoints = $this->m_compte_user->get_adjoints_gare($this->company->ekey, $cdg);
                     $role_vue = (string) $this->session->agent->userole;
+                    $vue_escale = trim((string) $this->input->get('escale_vue'));
+                    if ($scope_ops && ($role_vue === '1' || $role_vue === '2') && ($vue_escale === '18' || $vue_escale === '4')) {
+                        $role_vue = $vue_escale;
+                    }
                     $voir_chefs = true;
                     $voir_adjoints = false;
                     if ($role_vue === '18') {
@@ -831,6 +957,10 @@
                     } elseif ($role_vue === '1' || $role_vue === '2') {
                         $voir_chefs = true;
                         $voir_adjoints = true;
+                    }
+                    if ($scope_ops) {
+                        $chefs = $this->m_compte_user->get_by_roleattributs($this->company->ekey, $scope_ops);
+                        $voir_chefs = true;
                     }
                     $this->property['usercomptes'] = $voir_chefs ? $chefs : array();
                     $this->property['pending_arret'] = $voir_chefs
@@ -12014,12 +12144,26 @@
                 case 'recette_adjoint':
                     $caisseident = $this->m_caisse->get($this->company->id_entreprise, $cdg, $cid);
                     $this->_bind_compte_recettes_depenses_pending($icx, $cdg, $conex);
-                    $this->property['recettes'] = $this->m_recette->ad_getrecet($this->company->ekey, $cdg, $idsg, $cid, $icx, FALSE, $userole, true);
+                    $escale_ops = $this->_escale_ops_ids();
+                    if ($escale_ops) {
+                        $this->property['recettes'] = $this->m_recette->ad_getrecet_escale($this->company->ekey, $cdg, $escale_ops);
+                    } else {
+                        $this->property['recettes'] = $this->m_recette->ad_getrecet($this->company->ekey, $cdg, $idsg, $cid, $icx, FALSE, $userole, true);
+                    }
                     if (empty($this->property['recettes'])) {
                         $this->property['recettes'] = array();
                     }
-                    $this->property['sommerecettes'] = $this->m_recette->ad_getmontant($this->company->ekey, $cdg, $cid, $icx, $userole, true);
-                    $this->property['sommesrecettes'] = $this->m_recette->ad_getmontant1($this->company->ekey, $cdg, $idsg, $cid, $icx, $userole, true);
+                    if ($escale_ops) {
+                        $total_escale = 0.0;
+                        foreach ($this->property['recettes'] as $ligne_escale) {
+                            $total_escale += isset($ligne_escale->montant_recet) ? (float) $ligne_escale->montant_recet : 0;
+                        }
+                        $this->property['sommerecettes'] = (object) array('total' => $total_escale);
+                        $this->property['sommesrecettes'] = (object) array('total' => $total_escale);
+                    } else {
+                        $this->property['sommerecettes'] = $this->m_recette->ad_getmontant($this->company->ekey, $cdg, $cid, $icx, $userole, true);
+                        $this->property['sommesrecettes'] = $this->m_recette->ad_getmontant1($this->company->ekey, $cdg, $idsg, $cid, $icx, $userole, true);
+                    }
                     $this->property['typedocuments'] = $this->m_typedocument->get();
                     $this->property['genrespersonnels'] = $this->m_type_personnel->get();
                     $this->property['personnels'] = $this->m_personnels->get($this->company->ekey);
@@ -12031,9 +12175,21 @@
             break;  
             case 'autreversement_adjoint':
                 $caisseident = $this->m_caisse->get($this->company->id_entreprise, $cdg, $cid);
-                $this->property['versements'] = $this->m_versements->ad_get($this->company->ekey, $cdg, $cid, $icx);
+                $escale_ops = $this->_escale_ops_ids();
+                if ($escale_ops) {
+                    $this->property['versements'] = $this->m_versements->ad_get_escale($this->company->ekey, $cdg, $escale_ops);
+                    $total_verse = 0.0;
+                    foreach ($this->property['versements'] as $ligne_escale) {
+                        $total_verse += isset($ligne_escale->montant_verser) ? (float) $ligne_escale->montant_verser : 0;
+                    }
+                    $this->property['montantverves'] = (object) array('montant_verser' => $total_verse, 'total' => $total_verse);
+                } else {
+                    $this->property['versements'] = $this->m_versements->ad_get($this->company->ekey, $cdg, $cid, $icx);
+                }
                 $this->property['caisses'] = $this->m_caisse->getcaisse($this->company->ekey);
-                $this->property['montantverves'] = $this->m_versements->ad_totalversement($this->company->ekey, $cdg, $cid, $icx);
+                if (!$escale_ops) {
+                    $this->property['montantverves'] = $this->m_versements->ad_totalversement($this->company->ekey, $cdg, $cid, $icx);
+                }
                 $this->property['typedocuments'] = $this->m_typedocument->get();
                 $this->property['sommedepenses'] = $this->m_versements->ad_totaldepense($this->company->ekey, $cdg, $cid, $icx);
                 $this->property['sommerecettes'] = $this->m_versements->ad_totalrecette($this->company->ekey, $cdg, $cid, $icx);
@@ -12094,15 +12250,29 @@
             case 'depense_adjoint':
                 $caisseident = $this->m_caisse->get($this->company->id_entreprise, $cdg, $cid);
                 $this->_bind_compte_recettes_depenses_pending($icx, $cdg, $conex);
-                $this->property['depenses'] = $this->m_depense->ad_getdepen($this->company->ekey, $cdg, $idsg, $cid, $icx, FALSE, $userole, true);
+                $escale_ops = $this->_escale_ops_ids();
+                if ($escale_ops) {
+                    $this->property['depenses'] = $this->m_depense->ad_getdepen_escale($this->company->ekey, $cdg, $escale_ops);
+                } else {
+                    $this->property['depenses'] = $this->m_depense->ad_getdepen($this->company->ekey, $cdg, $idsg, $cid, $icx, FALSE, $userole, true);
+                }
                 if (empty($this->property['depenses'])) {
                     $this->property['depenses'] = array();
+                }
+                if ($escale_ops) {
+                    $total_dep = 0.0;
+                    foreach ($this->property['depenses'] as $ligne_escale) {
+                        $total_dep += isset($ligne_escale->montant_depens) ? (float) $ligne_escale->montant_depens : 0;
+                    }
+                    $this->property['sommesdepenses'] = (object) array('montant_depens' => $total_dep, 'total' => $total_dep);
                 }
                 $this->property['depotcaisse'] = $this->m_depot->ad_depotinterne($this->company->ekey, $cdg, $cid, $icx);
                 $this->property['typedocuments'] = $this->m_typedocument->get();
                 $this->property['montantverves'] = $this->m_versements->ad_totalversement($this->company->ekey, $cdg, $cid, $icx);
                 $this->property['sommedepenses'] = $this->m_versements->ad_totaldepense($this->company->ekey, $cdg, $cid, $icx, $userole, true);
-                $this->property['sommesdepenses'] = $this->m_versements->ad_totalesdepense($this->company->ekey, $cdg, $idsg, $cid, $icx, $userole, true);
+                if (!$escale_ops) {
+                    $this->property['sommesdepenses'] = $this->m_versements->ad_totalesdepense($this->company->ekey, $cdg, $idsg, $cid, $icx, $userole, true);
+                }
                 $this->property['sommerecettes'] = $this->m_versements->ad_totalrecette($this->company->ekey, $cdg, $cid, $icx, $userole);
                 $this->property['sommedepot'] = $this->m_versements->ad_totaldepot($this->company->ekey, $cdg, $cid, $icx);
                 $this->property['genrespersonnels'] = $this->m_type_personnel->get();
@@ -12120,13 +12290,25 @@
             break;
             case 'depot_adjoint':
                 $caisseident = $this->m_caisse->get($this->company->id_entreprise, $cdg, $cid);
-                $this->property['depots'] = $this->m_depot->adgetdepot($this->company->ekey, $cdg, $idsg, $cid, $icx);
+                $escale_ops = $this->_escale_ops_ids();
+                if ($escale_ops) {
+                    $this->property['depots'] = $this->m_depot->adgetdepot_escale($this->company->ekey, $cdg, $escale_ops);
+                    $total_depo = 0.0;
+                    foreach ($this->property['depots'] as $ligne_escale) {
+                        $total_depo += isset($ligne_escale->montant_depot) ? (float) $ligne_escale->montant_depot : 0;
+                    }
+                    $this->property['sommesdepots'] = (object) array('total' => $total_depo);
+                } else {
+                    $this->property['depots'] = $this->m_depot->adgetdepot($this->company->ekey, $cdg, $idsg, $cid, $icx);
+                }
                 $this->property['montantverves'] = $this->m_versements->ad_totalversement($this->company->ekey, $cdg, $cid, $icx);
                 $this->property['sommedepenses'] = $this->m_versements->ad_totaldepense($this->company->ekey, $cdg, $cid, $icx);
                 $this->property['sommerecettes'] = $this->m_versements->ad_totalrecette($this->company->ekey, $cdg, $cid, $icx);
                 $this->property['sommedepot'] = $this->m_versements->ad_totaldepot($this->company->ekey, $cdg, $cid, $icx);
                 $this->property['sommedepots'] = $this->m_depot->ad_getmontant($this->company->ekey, $cdg, $cid, $icx);
-                $this->property['sommesdepots'] = $this->m_depot->ad_getmontant1($this->company->ekey, $cdg, $idsg, $cid, $icx);
+                if (!$escale_ops) {
+                    $this->property['sommesdepots'] = $this->m_depot->ad_getmontant1($this->company->ekey, $cdg, $idsg, $cid, $icx);
+                }
                 $this->property['typedocuments'] = $this->m_typedocument->get();
                 $this->property['genres'] = $this->m_genre_depot->getb();
                 $this->property['banque'] = $this->m_banque->get();

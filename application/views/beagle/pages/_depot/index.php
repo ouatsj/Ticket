@@ -1,20 +1,29 @@
 <?php defined('BASEPATH') OR exit('No direct script access allowed'); ?>
+<?php
+$escale_nom = trim((string) $this->input->get('escale'));
+$escale_ops = trim((string) $this->input->get('escale_ops'));
+$depuis_escale = ($escale_nom !== '');
+$qesc = $depuis_escale ? ('?escale=' . rawurlencode($escale_nom) . '&escale_ops=' . rawurlencode($escale_ops)) : '';
+$vue_escale = trim((string) $this->input->get('escale_vue'));
+if ($qesc !== '' && ($vue_escale === '4' || $vue_escale === '18')) {
+    $qesc .= '&escale_vue=' . $vue_escale;
+}
+$gexp_btn = !empty($caisseident->gexp_caiss) ? $caisseident->gexp_caiss : (!empty($bus_stop->idengare) ? $bus_stop->idengare : 0);
+$retour_depot = $depuis_escale
+    ? site_url('gares/' . $this->session->company->ekey . '/gTs/' . $gexp_btn . '/escaleagents/' . rawurlencode($escale_nom) . '/0')
+    : retour_caisse_url($this->session->company->ekey, $gexp_btn, $conex->roleattribut, $bus_stop->idsousgare);
+?>
 
 <div class="row">
     <p class="mt-0 mb-2 ml-4">
         <?php $this->load->view('_partials/btn_retour', array(
-            'fallback' => retour_caisse_url(
-                $this->session->company->ekey,
-                !empty($caisseident->gexp_caiss) ? $caisseident->gexp_caiss : (!empty($bus_stop->idengare) ? $bus_stop->idengare : 0),
-                $conex->roleattribut,
-                $bus_stop->idsousgare
-            ),
-            'label' => 'RETOUR A LA CAISSE',
+            'fallback' => $retour_depot,
+            'label' => $depuis_escale ? "RETOUR À L'ESCALE" : 'RETOUR A LA CAISSE',
         )); ?>
         <? if ($this->session->agent->userole === '1' OR $this->session->agent->userole === '2' OR $this->session->agent->userole === '4' OR $this->session->agent->userole === '18'): ?>
             <a href="<?= site_url("caisses/{$this->session->company->ekey}". "/gTv/".
                     (!empty($caisseident->gexp_caiss) ? $caisseident->gexp_caiss : 0). "/".(!empty($caisseident->id_caiss) ? $caisseident->id_caiss : 0).
-                    "/depotsous/". $conex->roleattribut.'/'.$bus_stop->idsousgare .'/' . mdate("%d/%m/%Y", now('UTC'))); ?>" class="btn btn-space btn-secondary">
+                    "/depotsous/". $conex->roleattribut.'/'.$bus_stop->idsousgare .'/' . mdate("%d/%m/%Y", now('UTC'))) . $qesc; ?>" class="btn btn-space btn-secondary">
                     <i class="fas fa-arrow-circle-down text-info"></i>&nbsp;DEPOTS CAISSE&nbsp;
             </a>
             
@@ -24,13 +33,13 @@
             </button>
             <a href="<?= site_url("caisses/{$this->session->company->ekey}". "/gTv/".
                     (!empty($caisseident->gexp_caiss) ? $caisseident->gexp_caiss : 0). "/".(!empty($caisseident->id_caiss) ? $caisseident->id_caiss : 0).
-                    "/autredepot/". $conex->roleattribut.'/'.$bus_stop->idsousgare .'/' . mdate("%d/%m/%Y", now('UTC'))); ?>" class="btn btn-space btn-secondary">
+                    "/autredepot/". $conex->roleattribut.'/'.$bus_stop->idsousgare .'/' . mdate("%d/%m/%Y", now('UTC'))) . $qesc; ?>" class="btn btn-space btn-secondary">
                     <i class="fas fa-arrow-circle-down text-success"></i>&nbsp;DEPOT CLIENT&nbsp;
             </a>
             
             <a href="<?= site_url("caisses/{$this->session->company->ekey}". "/gTv/".
                     (!empty($caisseident->gexp_caiss) ? $caisseident->gexp_caiss : 0). "/".(!empty($caisseident->id_caiss) ? $caisseident->id_caiss : 0).
-                    "/autredepotfournisseur/". $conex->roleattribut.'/'.$bus_stop->idsousgare .'/' .mdate("%d/%m/%Y", now('UTC'))); ?>" class="btn btn-space btn-secondary">
+                    "/autredepotfournisseur/". $conex->roleattribut.'/'.$bus_stop->idsousgare .'/' .mdate("%d/%m/%Y", now('UTC'))) . $qesc; ?>" class="btn btn-space btn-secondary">
                     <i class="fas fa-arrow-circle-down text-success"></i>&nbsp;DEPOT FOURNISSEUR&nbsp;
             </a>
             <button class="btn btn-space btn-secondary addtridepot md-trigger"
@@ -50,6 +59,9 @@
         <?endif;?>
     </p>
 </div>
+<?php if ($depuis_escale): ?>
+<div class="alert alert-info mb-2 ml-4 mr-4">Dépôts de cette escale déjà chez <?= ($this->session->agent->userole === '18' || $this->input->get('escale_vue') === '18') ? 'le caissier adjoint' : 'le caissier principal'; ?>.</div>
+<?php endif; ?>
 <div class="form-group text-center">Les depots de la caisse : <? if($sommesdepots == NULL):?> 0 <? else:?><?=$sommesdepots->total; ?><? endif; ?></div>
 <div class="row">
 

@@ -6,6 +6,10 @@
     $escale_ops = trim((string) $this->input->get('escale_ops'));
     $depuis_escale = ($escale_nom !== '');
     $qesc = $depuis_escale ? ('?escale=' . rawurlencode($escale_nom) . '&escale_ops=' . rawurlencode($escale_ops)) : '';
+    $vue_escale = trim((string) $this->input->get('escale_vue'));
+    if ($qesc !== '' && ($vue_escale === '4' || $vue_escale === '18')) {
+        $qesc .= '&escale_vue=' . $vue_escale;
+    }
     $gexp_btn = !empty($caisseident->gexp_caiss) ? $caisseident->gexp_caiss : (!empty($bus_stop->idengare) ? $bus_stop->idengare : 0);
     ?>
     <div class="row">
@@ -35,6 +39,9 @@
                     <?php if ($depuis_escale): ?>
                     <a href="<?= site_url('caisses/' . $this->session->company->ekey . '/gTv/' . $gexp_btn . '/' . (!empty($caisseident->id_caiss) ? $caisseident->id_caiss : 0) . '/recetteguichetesc/' . $conex->roleattribut . '/' . $bus_stop->idsousgare . '/' . mdate('%d/%m/%Y', now('UTC'))) . $qesc; ?>" class="btn btn-space btn-secondary">
                         <i class="fas fa-arrow-circle-down text-info"></i>&nbsp;RECETTE GUICHET&nbsp;
+                    </a>
+                    <a href="<?= site_url('caisses/' . $this->session->company->ekey . '/gTv/' . $gexp_btn . '/' . (!empty($caisseident->id_caiss) ? $caisseident->id_caiss : 0) . '/recettebagage/' . $conex->roleattribut . '/' . $bus_stop->idsousgare . '/' . mdate('%d/%m/%Y', now('UTC'))) . $qesc; ?>" class="btn btn-space btn-secondary">
+                        <i class="fas fa-arrow-circle-down text-info"></i>&nbsp;RECETTE BAGAGE&nbsp;
                     </a>
                     <?php else: ?>
                     <a href="<?= site_url("caisses/{$this->session->company->ekey}". "/gTv/".
@@ -67,6 +74,9 @@
                 <?endif;?>
         </p>
     </div>
+    <?php if ($depuis_escale): ?>
+    <div class="alert alert-info mb-2 ml-4 mr-4">Recettes de cette escale déjà chez <?= ($this->session->agent->userole === '18' || $this->input->get('escale_vue') === '18') ? 'le caissier adjoint' : 'le caissier principal'; ?>.</div>
+    <?php endif; ?>
     <div class="form-group text-center">Les recettes de la caisse : <? if($totalrecettes == NULL):?> 0 <? else:?> &nbsp;<?=$totalrecettes->total; ?><? endif; ?></div>
 <div class="row">
 

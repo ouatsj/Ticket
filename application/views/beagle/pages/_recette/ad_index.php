@@ -14,15 +14,13 @@
             <a href="<?= site_url('gares/' . $this->session->company->ekey . '/gTs/' . $gexp_btn . '/escaleagents/' . rawurlencode($escale_nom) . '/0'); ?>" class="btn btn-space btn-secondary">
                 <i class="fas fa-arrow-circle-left text-info"></i>&nbsp;RETOUR À L'ESCALE&nbsp;
             </a>
-            <a href="<?= site_url('caisses/' . $this->session->company->ekey . '/cais/' . $gexp_btn . '/' . (!empty($caisseident->id_caiss) ? $caisseident->id_caiss : 0) . '/' . $conex->roleattribut . '/recetteguichetesc_adjoint/' . $bus_stop->idsousgare . '/' . mdate('%d/%m/%Y', now('UTC'))) . $qesc; ?>" class="btn btn-space btn-secondary">
-                <i class="fas fa-arrow-circle-down text-info"></i>&nbsp;RECETTE GUICHET ESCALE&nbsp;
-            </a>
           <?php else: ?>
             <a href="<?= site_url("gares/{$this->session->company->ekey}". "/gTv/".
                     $gexp_btn.
                 "/cais/" . $conex->roleattribut.'/'.$bus_stop->idsousgare .'/'. mdate("%d/%m/%Y", now('UTC'))); ?>" class="btn btn-space btn-secondary">
                 <i class="fas fa-arrow-circle-left text-info"></i>&nbsp;RETOUR A LA CAISSE&nbsp;
             </a>
+          <?php endif; ?>
           <? if ($this->session->agent->userole === '1' OR $this->session->agent->userole === '5' OR $this->session->agent->userole === '16'): ?>  
             <a href="#" class="btn btn-space btn-secondary addrecette md-trigger"
                     data-modal="form-add-recette" data-cle_compagnie="<?= $this->session->company->ekey; ?>">
@@ -34,14 +32,20 @@
                 <i class="fas fa-edit text-warning"></i>&nbsp;TRI DES RECETTES POUR MODIFICATION&nbsp;
             </button>
 
+            <?php if ($depuis_escale): ?>
+            <a href="<?= site_url('caisses/' . $this->session->company->ekey . '/cais/' . $gexp_btn . '/' . (!empty($caisseident->id_caiss) ? $caisseident->id_caiss : 0) . '/' . $conex->roleattribut . '/recetteguichetesc_adjoint/' . $bus_stop->idsousgare . '/' . mdate('%d/%m/%Y', now('UTC'))) . $qesc; ?>" class="btn btn-space btn-secondary">
+                <i class="fas fa-arrow-circle-down text-info"></i>&nbsp;RECETTE GUICHET ESCALE&nbsp;
+            </a>
+            <?php else: ?>
             <a href="<?= site_url("caisses/{$this->session->company->ekey}". "/cais/".
                 (!empty($caisseident->gexp_caiss) ? $caisseident->gexp_caiss : 0). "/".(!empty($caisseident->id_caiss) ? $caisseident->id_caiss : 0).'/' . $conex->roleattribut.
                 "/recetteguichet_adjoint/".$bus_stop->idsousgare.'/'. mdate("%d/%m/%Y", now('UTC'))); ?>" class="btn btn-space btn-secondary">
                 <i class="fas fa-arrow-circle-down text-info"></i>&nbsp;RECETTE GUICHET&nbsp;
             </a>
+            <?php endif; ?>
             <a href="<?= site_url("caisses/{$this->session->company->ekey}". "/cais/".
                 (!empty($caisseident->gexp_caiss) ? $caisseident->gexp_caiss : 0). "/".(!empty($caisseident->id_caiss) ? $caisseident->id_caiss : 0).'/' . $conex->roleattribut.
-                "/recettebagage_adjoint/".$bus_stop->idsousgare.'/'. mdate("%d/%m/%Y", now('UTC'))); ?>" class="btn btn-space btn-secondary">
+                "/recettebagage_adjoint/".$bus_stop->idsousgare.'/'. mdate("%d/%m/%Y", now('UTC'))) . $qesc; ?>" class="btn btn-space btn-secondary">
                 <i class="fas fa-arrow-circle-down text-info"></i>&nbsp;RECETTE BAGAGE&nbsp;
             </a>
         <?endif;?>
@@ -55,7 +59,6 @@
                 <i class="fas fa-edit text-warning"></i>&nbsp;HISTORIQUE RECETTES COURRIER&nbsp;
             </button>
         <?endif;?>
-          <?php endif; ?>
         </p>
     </div>
     <?php
@@ -65,7 +68,7 @@
     <?php if (!empty($compte_show_rd_pending)): ?>
     <div class="col-12">
         <div class="alert alert-info mb-2">
-            Recettes non arrêtées — <strong>toute la gare</strong>
+            Recettes non envoyées au caissier — <strong><?= $depuis_escale ? "cette escale" : "toute la gare"; ?></strong>
             <?php if (!empty($compte_operateur_label)): ?>
             — chef de guichet <strong><?= htmlspecialchars($compte_operateur_label, ENT_QUOTES, 'UTF-8'); ?></strong>
             <?php endif; ?>
@@ -122,7 +125,7 @@
 
                         <tbody class="no-border-x">
                         <?php if (empty($liste_recettes)): ?>
-                            <tr><td colspan="8" class="text-muted text-center">Aucune recette non arrêtée pour cette caisse.</td></tr>
+                            <tr><td colspan="8" class="text-muted text-center"><?= $depuis_escale ? "Aucune recette d'escale en attente d'envoi au caissier." : "Aucune recette non arrêtée pour cette caisse."; ?></td></tr>
                         <?php else: ?>
                         <?foreach ($liste_recettes as $item): ?>
                             <tr>

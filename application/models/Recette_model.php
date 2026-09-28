@@ -1530,6 +1530,86 @@
                 ORDER BY r.date_recet DESC, r.id_recette DESC")->row();
         }
 
+        /**
+         * Recettes d'escale encore chez le chef : pas envoyées au caissier adjoint ni au principal.
+         *
+         * @param string $cid
+         * @param string $idg
+         * @param int[] $ops
+         * @return array
+         */
+        public function ad_getrecet_escale($cid, $idg, array $ops)
+        {
+            $cols = array('r.idopera');
+            if ($this->db->field_exists('iduseescal', 'recette')) {
+                $cols[] = 'r.iduseescal';
+            }
+            $op_sql = recette_role_ops_any_sql($cols, $ops);
+            $open_sql = recette_role_rd_open_recette_sql('5', true, 'r');
+
+            return $this->db->query(
+                "SELECT * FROM recette r
+                JOIN type_personnel tp ON r.id_genre_recet = tp.idtyperso
+                JOIN caisse cs ON r.idcaisse = cs.id_caiss
+                JOIN attributions_role ar ON r.idopera = ar.roleattribut
+                JOIN user_login ul ON ar.idgestcompte = ul.uid_login
+                JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
+                JOIN gares g ON ul.guser = g.idengare
+                JOIN gare_exp ex ON cs.gexp_caiss = ex.code_gaexp
+                JOIN compagnies c ON r.compkey_recet = c.cle_compagnie
+                JOIN entreprise e ON c.id_entrep = e.id_entreprise
+                WHERE e.ekey = '$cid'
+                AND cs.gexp_caiss = '$idg'
+                AND r.type_recet <> 'Courrier'
+                {$open_sql}
+                AND (r.is_actifrecetad = 0 OR r.is_actifrecetad IS NULL)
+                {$op_sql}
+                ORDER BY r.date_recet DESC, r.id_recette DESC"
+            )->result();
+        }
+
+        /**
+         * Recettes d'escale déjà chez le caissier adjoint ou le principal.
+         * Même état que getrecet / adgetrecet, opérateurs de l'escale à la place du validateur connecté.
+         *
+         * @param string $cid
+         * @param string $idg
+         * @param int[] $ops
+         * @param string $niveau principal|adjoint
+         * @return array
+         */
+        public function liste_caisse_escale($cid, $idg, array $ops, $niveau)
+        {
+            $today = mdate('%Y-%m-%d', now());
+            $cols = array('r.idopera');
+            if ($this->db->field_exists('iduseescal', 'recette')) {
+                $cols[] = 'r.iduseescal';
+            }
+            $op_sql = recette_role_ops_any_sql($cols, $ops);
+            $etat = ($niveau === 'adjoint')
+                ? 'AND r.is_actifrecetad = 1 AND r.is_actifrecet = 0'
+                : 'AND r.is_actifrecet = 1';
+
+            return $this->db->query(
+                "SELECT * FROM recette r
+                JOIN type_personnel tp ON r.id_genre_recet = tp.idtyperso
+                JOIN caisse cs ON r.idcaisse = cs.id_caiss
+                JOIN gare_exp ex ON cs.gexp_caiss = ex.code_gaexp
+                JOIN compagnies c ON r.compkey_recet = c.cle_compagnie
+                JOIN entreprise e ON c.id_entrep = e.id_entreprise
+                WHERE e.ekey = '$cid'
+                AND cs.gexp_caiss = '$idg'
+                AND r.active_recet = 1
+                AND r.arret_caisrecet = 0
+                AND r.actif_rect = 0
+                AND r.date_recet = '$today'
+                AND r.type_recet <> 'Courrier'
+                {$etat}
+                {$op_sql}
+                ORDER BY r.id_recette DESC"
+            )->result();
+        }
+
         
         public function ad_getmontant($cid, $idg, $idcais, $cx, $userole = null, $gare_scope = false)
         {

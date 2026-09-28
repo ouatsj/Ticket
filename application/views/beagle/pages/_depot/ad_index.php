@@ -1,30 +1,39 @@
 <?php defined('BASEPATH') OR exit('No direct script access allowed'); ?>
+<?php
+$escale_nom = trim((string) $this->input->get('escale'));
+$escale_ops = trim((string) $this->input->get('escale_ops'));
+$depuis_escale = ($escale_nom !== '');
+$qesc = $depuis_escale ? ('?escale=' . rawurlencode($escale_nom) . '&escale_ops=' . rawurlencode($escale_ops)) : '';
+$gexp_btn = !empty($caisseident->gexp_caiss) ? $caisseident->gexp_caiss : (!empty($bus_stop->idengare) ? $bus_stop->idengare : 0);
+?>
 
 <div class="row">
     <p class="mt-0 mb-2 ml-4">
         <?php $this->load->view('_partials/btn_retour', array(
-            'fallback' => retour_caisse_url(
-                $this->session->company->ekey,
-                !empty($caisseident->gexp_caiss) ? $caisseident->gexp_caiss : (!empty($bus_stop->idengare) ? $bus_stop->idengare : 0),
-                $conex->roleattribut,
-                $bus_stop->idsousgare
-            ),
-            'label' => 'RETOUR A LA CAISSE',
+            'fallback' => $depuis_escale
+                ? site_url('gares/' . $this->session->company->ekey . '/gTs/' . $gexp_btn . '/escaleagents/' . rawurlencode($escale_nom) . '/0')
+                : retour_caisse_url(
+                    $this->session->company->ekey,
+                    $gexp_btn,
+                    $conex->roleattribut,
+                    $bus_stop->idsousgare
+                ),
+            'label' => $depuis_escale ? "RETOUR À L'ESCALE" : 'RETOUR A LA CAISSE',
         )); ?>
         <? if ($this->session->agent->userole === '1' OR $this->session->agent->userole === '5' OR $this->session->agent->userole === '16'): ?>
             <a href="<?= site_url("caisses/{$this->session->company->ekey}". "/cais/".
                     (!empty($caisseident->gexp_caiss) ? $caisseident->gexp_caiss : 0). "/".(!empty($caisseident->id_caiss) ? $caisseident->id_caiss : 0).'/' . $conex->roleattribut.
-                    "/depotsous_adjoint/".$bus_stop->idsousgare.'/' . mdate("%d/%m/%Y", now('UTC'))); ?>" class="btn btn-space btn-secondary">
+                    "/depotsous_adjoint/".$bus_stop->idsousgare.'/' . mdate("%d/%m/%Y", now('UTC'))) . $qesc; ?>" class="btn btn-space btn-secondary">
                     <i class="fas fa-arrow-circle-down text-info"></i>&nbsp;DEPOTS CAISSE&nbsp;
             </a>
             <a href="<?= site_url("caisses/{$this->session->company->ekey}". "/cais/".
                     (!empty($caisseident->gexp_caiss) ? $caisseident->gexp_caiss : 0). "/".(!empty($caisseident->id_caiss) ? $caisseident->id_caiss : 0).'/' . $conex->roleattribut.
-                    "/autredepot_adjoint/".$bus_stop->idsousgare.'/' .mdate("%d/%m/%Y", now('UTC'))); ?>" class="btn btn-space btn-secondary">
+                    "/autredepot_adjoint/".$bus_stop->idsousgare.'/' .mdate("%d/%m/%Y", now('UTC'))) . $qesc; ?>" class="btn btn-space btn-secondary">
                     <i class="fas fa-arrow-circle-down text-success"></i>&nbsp;DEPOT CLIENT&nbsp;
             </a>
 			<a href="<?= site_url("caisses/{$this->session->company->ekey}". "/cais/".
                     (!empty($caisseident->gexp_caiss) ? $caisseident->gexp_caiss : 0). "/".(!empty($caisseident->id_caiss) ? $caisseident->id_caiss : 0).'/' . $conex->roleattribut.
-                    "/autredepotfour_adjoint/".$bus_stop->idsousgare.'/' . mdate("%d/%m/%Y", now('UTC'))); ?>" class="btn btn-space btn-secondary">
+                    "/autredepotfour_adjoint/".$bus_stop->idsousgare.'/' . mdate("%d/%m/%Y", now('UTC'))) . $qesc; ?>" class="btn btn-space btn-secondary">
                     <i class="fas fa-arrow-circle-down text-success"></i>&nbsp;DEPOT FOURNISSEUR&nbsp;
             </a>
         <?endif;?>

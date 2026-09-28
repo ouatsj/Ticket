@@ -536,6 +536,32 @@
         }
 
         /**
+         * Agents dont le roleattribut est dans la liste (cartes validation escale).
+         *
+         * @param string $cid
+         * @param int[] $ops
+         * @return array
+         */
+        public function get_by_roleattributs($cid, array $ops)
+        {
+            $op_sql = recette_role_ops_in_sql('ar.roleattribut', $ops);
+
+            return $this->db->query(
+                "SELECT * FROM compte_user cu
+                JOIN user_login ul ON ul.uid_usercpte = cu.cpuser_id
+                JOIN attributions_role ar ON ar.idgestcompte = ul.uid_login
+                JOIN utilisateurs u ON cu.userlog_id = u.uid
+                JOIN user_roles r ON ar.userole = r.id_rols
+                JOIN gares g ON ul.guser = g.idengare
+                JOIN entreprise e ON u.cle_comp = e.ekey
+                WHERE e.ekey = '$cid'
+                AND ar.activer_role = 0
+                {$op_sql}
+                ORDER BY u.first_name ASC, u.last_name ASC"
+            )->result();
+        }
+
+        /**
          * Adjoints caisse (18) actifs sur la gare — file confirmation principal (option B).
          */
         public function get_adjoints_gare($cid, $gid)

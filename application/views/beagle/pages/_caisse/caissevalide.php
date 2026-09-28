@@ -100,7 +100,7 @@ $render_validation_cards = function ($items, $pending_map, $label_badge) use ($c
 $render_validation_cards(
     isset($usercomptes) ? $usercomptes : array(),
     isset($pending_arret) ? $pending_arret : array(),
-    'Chefs guichet'
+    $escale_nom !== '' ? 'Vendeurs escale' : 'Chefs guichet'
 );
 
 if (!empty($useradjoints)) {

@@ -1,13 +1,23 @@
 <?php
     
-    defined('BASEPATH') OR exit('No direct script access allowed'); ?>
+    defined('BASEPATH') OR exit('No direct script access allowed');
+    $escale_nom = trim((string) $this->input->get('escale'));
+    $depuis_escale = ($escale_nom !== '');
+    $gexp_btn = !empty($caisseident->gexp_caiss) ? $caisseident->gexp_caiss : (!empty($bus_stop->idengare) ? $bus_stop->idengare : 0);
+    ?>
     <div class="row">
         <p class="mt-0 mb-2 ml-4">
+            <?php if ($depuis_escale): ?>
+            <a href="<?= site_url('gares/' . $this->session->company->ekey . '/gTs/' . $gexp_btn . '/escaleagents/' . rawurlencode($escale_nom) . '/0'); ?>" class="btn btn-space btn-secondary">
+                <i class="fas fa-arrow-circle-left text-info"></i>&nbsp;RETOUR À L'ESCALE&nbsp;
+            </a>
+            <?php else: ?>
             <a href="<?= site_url("gares/{$this->session->company->ekey}". "/gTv/".
-                    (!empty($caisseident->gexp_caiss) ? $caisseident->gexp_caiss : (!empty($bus_stop->idengare) ? $bus_stop->idengare : 0)).
+                    $gexp_btn.
                 "/cais/" . $conex->roleattribut.'/'.$bus_stop->idsousgare .'/'. mdate("%d/%m/%Y", now('UTC'))); ?>" class="btn btn-space btn-secondary">
                 <i class="fas fa-arrow-circle-left text-info"></i>&nbsp;RETOUR A LA CAISSE&nbsp;
             </a>
+            <?php endif; ?>
             <? if ($this->session->agent->userole === '1' OR $this->session->agent->userole === '5' OR $this->session->agent->userole === '16'): ?>
                 <a href="#" class="btn btn-space btn-secondary adddepense md-trigger" 
                         data-modal="form-add" data-cle_compagnie="<?= $this->session->company->ekey; ?>">
