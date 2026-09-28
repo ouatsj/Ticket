@@ -110,6 +110,64 @@ if (!function_exists('layout_operateurs_vente_escale')) {
     }
 }
 
+if (!function_exists('layout_nom_cle')) {
+    function layout_nom_cle($nom)
+    {
+        $nom = trim((string) $nom);
+        $nom = preg_replace('/\s+/', ' ', $nom);
+        if ($nom === '') {
+            return '';
+        }
+
+        return function_exists('mb_strtoupper') ? mb_strtoupper($nom, 'UTF-8') : strtoupper($nom);
+    }
+}
+
+if (!function_exists('layout_noms_agents')) {
+    /**
+     * Nom normalisé => roleattribut, pour les agents demandés.
+     *
+     * @param int[] $ops
+     * @return array<string,int>
+     */
+    function layout_noms_agents(array $ops)
+    {
+        static $cache = array();
+        $ids = array();
+        foreach ($ops as $id) {
+            $id = (int) $id;
+            if ($id > 0) {
+                $ids[$id] = $id;
+            }
+        }
+        $key = implode(',', $ids);
+        if (isset($cache[$key])) {
+            return $cache[$key];
+        }
+        $cache[$key] = array();
+        if (!$ids) {
+            return $cache[$key];
+        }
+        $CI =& get_instance();
+        $rows = $CI->db->query(
+            "SELECT ar.roleattribut, u.first_name, u.last_name
+             FROM attributions_role ar
+             JOIN user_login ul ON ar.idgestcompte = ul.uid_login
+             JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
+             JOIN utilisateurs u ON cu.userlog_id = u.uid
+             WHERE ar.roleattribut IN (" . implode(',', $ids) . ")"
+        )->result();
+        foreach ($rows as $row) {
+            $cle = layout_nom_cle(trim((string) $row->first_name) . ' ' . trim((string) $row->last_name));
+            if ($cle !== '') {
+                $cache[$key][$cle] = (int) $row->roleattribut;
+            }
+        }
+
+        return $cache[$key];
+    }
+}
+
 if (!function_exists('layout_restreindre_escale')) {
     /**
      * Volet escale : uniquement les agents de cette escale.
@@ -143,7 +201,9 @@ if (!function_exists('layout_restreindre_escale')) {
             return $pdata;
         }
         $vente = $exclure_escale ? layout_operateurs_vente_escale() : array();
-        if ($exclure_escale && !$vente) {
+        $noms_escale = $dans_escale ? layout_noms_agents($ops) : array();
+        $noms_vente = $exclure_escale ? layout_noms_agents($vente) : array();
+        if ($exclure_escale && !$vente && !$noms_vente) {
             return $pdata;
         }
         $champs = array(
@@ -196,6 +256,13 @@ if (!function_exists('layout_restreindre_escale')) {
                         $trouves[] = (int) $row->{$champ};
                     }
                 }
+                $nom_cle = '';
+                foreach (array('nom', 'nom_perso', 'nom_pre', 'nom_beneficiaire') as $champ_nom) {
+                    if (isset($row->{$champ_nom}) && trim((string) $row->{$champ_nom}) !== '') {
+                        $nom_cle = layout_nom_cle($row->{$champ_nom});
+                        break;
+                    }
+                }
                 $garder = false;
                 if ($dans_escale) {
                     foreach ($trouves as $valeur) {
@@ -204,6 +271,9 @@ if (!function_exists('layout_restreindre_escale')) {
                             break;
                         }
                     }
+                    if (!$garder && $nom_cle !== '' && isset($noms_escale[$nom_cle])) {
+                        $garder = true;
+                    }
                 } else {
                     $garder = true;
                     foreach ($trouves as $valeur) {
@@ -211,6 +281,9 @@ if (!function_exists('layout_restreindre_escale')) {
                             $garder = false;
                             break;
                         }
+                    }
+                    if ($garder && $nom_cle !== '' && isset($noms_vente[$nom_cle])) {
+                        $garder = false;
                     }
                 }
                 if ($garder) {

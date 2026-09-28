@@ -1544,7 +1544,7 @@
             if ($this->db->field_exists('iduseescal', 'recette')) {
                 $cols[] = 'r.iduseescal';
             }
-            $op_sql = recette_role_ops_any_sql($cols, $ops);
+            $op_sql = recette_role_ops_ou_nom_sql($cols, 'r.nom', $ops);
             $open_sql = recette_role_rd_open_recette_sql('5', true, 'r');
 
             return $this->db->query(
@@ -1585,7 +1585,7 @@
             if ($this->db->field_exists('iduseescal', 'recette')) {
                 $cols[] = 'r.iduseescal';
             }
-            $op_sql = recette_role_ops_any_sql($cols, $ops);
+            $op_sql = recette_role_ops_ou_nom_sql($cols, 'r.nom', $ops);
             $etat = ($niveau === 'adjoint')
                 ? 'AND r.is_actifrecetad = 1 AND r.is_actifrecet = 0'
                 : 'AND r.is_actifrecet = 1';

@@ -1270,7 +1270,7 @@
          */
         public function ad_getdepen_escale($cid, $idg, array $ops)
         {
-            $op_sql = recette_role_ops_in_sql('d.idop_dep', $ops);
+            $op_sql = recette_role_ops_ou_nom_sql(array('d.idop_dep'), 'd.nom_perso', $ops);
             $open_sql = recette_role_rd_open_depense_sql('5', true, 'd');
 
             return $this->db->query(
@@ -1306,7 +1306,7 @@
         public function liste_caisse_escale($cid, $idg, array $ops, $niveau)
         {
             $today = mdate('%Y-%m-%d', now());
-            $op_sql = recette_role_ops_in_sql('d.idop_dep', $ops);
+            $op_sql = recette_role_ops_ou_nom_sql(array('d.idop_dep'), 'd.nom_perso', $ops);
             $etat = ($niveau === 'adjoint')
                 ? 'AND d.is_actifdepad = 1 AND d.is_actifdep = 0'
                 : 'AND d.is_actifdep = 1';

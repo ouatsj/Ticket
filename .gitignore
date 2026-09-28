@@ -5,6 +5,7 @@
 # Secrets et config locale
 /application/config/database.php
 .user.ini
+/scripts/deploy.env
 
 # Logs et cache
 /application/logs/*

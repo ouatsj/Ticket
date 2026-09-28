@@ -111,7 +111,7 @@
          */
         public function adgetdepot_escale($cid, $gid, array $ops)
         {
-            $op_sql = recette_role_ops_in_sql('pt.idop_depot', $ops);
+            $op_sql = recette_role_ops_ou_nom_sql(array('pt.idop_depot'), 'pt.nom_pre', $ops);
 
             return $this->db->query(
                 "SELECT * FROM depot pt
@@ -146,7 +146,7 @@
          */
         public function liste_caisse_escale($cid, $gid, array $ops, $niveau, $genre = 'bancaire')
         {
-            $op_sql = recette_role_ops_in_sql('pt.idop_depot', $ops);
+            $op_sql = recette_role_ops_ou_nom_sql(array('pt.idop_depot'), 'pt.nom_pre', $ops);
             $etat = ($niveau === 'adjoint')
                 ? 'AND pt.is_actifdepoad = 1 AND (pt.is_actifdepo = 0 OR pt.is_actifdepo IS NULL) AND (pt.is_validdepo = 0 OR pt.is_validdepo IS NULL)'
                 : 'AND pt.is_validdepo = 1';

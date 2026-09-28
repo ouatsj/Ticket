@@ -935,7 +935,7 @@
          */
         public function ad_get_escale($cid, $g, array $ops)
         {
-            $op_sql = recette_role_ops_in_sql('v.idop_versement', $ops);
+            $op_sql = recette_role_ops_ou_nom_sql(array('v.idop_versement'), 'v.nom_beneficiaire', $ops);
 
             return $this->db->query(
                 "SELECT * FROM versements v
@@ -971,7 +971,7 @@
          */
         public function liste_caisse_escale($cid, $gid, array $ops, $niveau, $genre = 'banque')
         {
-            $op_sql = recette_role_ops_in_sql('v.idop_versement', $ops);
+            $op_sql = recette_role_ops_ou_nom_sql(array('v.idop_versement'), 'v.nom_beneficiaire', $ops);
             $etat = ($niveau === 'adjoint')
                 ? "AND v.is_actifverser = 0 AND v.validopad IS NOT NULL AND v.validopad <> '' AND v.validopad <> '0'"
                 : 'AND v.is_actifverser = 1';

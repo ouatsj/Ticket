@@ -220,6 +220,64 @@ if (!function_exists('recette_role_ops_any_sql')) {
     }
 }
 
+if (!function_exists('recette_role_nom_agents_sql')) {
+    /**
+     * Nom affiché des agents (prénom + nom), comparé sans casse.
+     * La validation d'arrêt enregistre le vendeur dans recette.nom et le chef dans idopera.
+     *
+     * @param string $column
+     * @param int[] $ops
+     * @return string
+     */
+    function recette_role_nom_agents_sql($column, array $ops)
+    {
+        if (!preg_match('/^[a-z][a-z0-9_]*\.[a-z][a-z0-9_]*$/', (string) $column)) {
+            return '1=0';
+        }
+        $ids = array();
+        foreach ($ops as $id) {
+            $id = (int) $id;
+            if ($id > 0) {
+                $ids[$id] = $id;
+            }
+        }
+        if (!$ids) {
+            return '1=0';
+        }
+
+        return 'UPPER(TRIM(' . $column . ")) IN (
+            SELECT UPPER(TRIM(CONCAT(TRIM(IFNULL(u.first_name, '')), ' ', TRIM(IFNULL(u.last_name, '')))))
+            FROM attributions_role arn
+            JOIN user_login uln ON arn.idgestcompte = uln.uid_login
+            JOIN compte_user cun ON uln.uid_usercpte = cun.cpuser_id
+            JOIN utilisateurs u ON cun.userlog_id = u.uid
+            WHERE arn.roleattribut IN (" . implode(',', $ids) . ")
+        )";
+    }
+}
+
+if (!function_exists('recette_role_ops_ou_nom_sql')) {
+    /**
+     * Opérateur de l'escale, ou ligne portée par le chef au nom de cet agent.
+     *
+     * @param string[] $columns
+     * @param string $nomColumn
+     * @param int[] $ops
+     * @return string
+     */
+    function recette_role_ops_ou_nom_sql(array $columns, $nomColumn, array $ops)
+    {
+        $id_sql = recette_role_ops_any_sql($columns, $ops);
+        $nom_sql = recette_role_nom_agents_sql($nomColumn, $ops);
+        if ($id_sql === 'AND 1=0' || $nom_sql === '1=0') {
+            return 'AND 1=0';
+        }
+        $id_sql = preg_replace('/^AND\s+/', '', $id_sql);
+
+        return 'AND (' . $id_sql . ' OR ' . $nom_sql . ')';
+    }
+}
+
 if (!function_exists('recette_role_op_sql_recette_list')) {
     /**
      * Filtre opérateur pour la liste RD chef guichet : saisies du roleattribut uniquement.
