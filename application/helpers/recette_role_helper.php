@@ -293,6 +293,9 @@ if (!function_exists('recette_role_hors_escale_sql')) {
         if ($idColumn !== '') {
             $sql .= " OR {$idColumn} IN ({$ids})";
         }
+        if ($nomColumn === 'r.nom') {
+            $sql .= " OR r.commentaire_recet LIKE '%[[escale:%]]%'";
+        }
         $sql .= ')';
 
         return $sql;

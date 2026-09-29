@@ -72,6 +72,7 @@
                     . '/recette/' . (int) $cpr
                     . '/' . (int) $sg
                     . '/' . mdate('%d/%m/%Y', now('UTC'))
+                    . caissier_escale_query_suffix()
                 );
                 return;
             }
@@ -81,7 +82,12 @@
             $conex = $this->m_compte_user->getusergare($this->company->ekey, $idgd, $cpr);
             $this->property['conex'] = $conex;
             $this->property['pagetitle'] .= " LES RECETTES&nbsp; <strong>{$d} au &nbsp;{$f}</strong>";
-            $this->property['recettes'] = $this->m_recette->getrecettrisss($this->company->ekey, $idcais, $idgd, $cpr, $d, $f, $co);
+            if (caissier_escale_ops_from_request() && (string) $this->session->agent->userole === '18') {
+                $lignes_tri = $this->m_recette->adgetrecettrisss($this->company->ekey, $idcais, $idgd, $cpr, $d, $f, $co);
+            } else {
+                $lignes_tri = $this->m_recette->getrecettrisss($this->company->ekey, $idcais, $idgd, $cpr, $d, $f, $co);
+            }
+            $this->property['recettes'] = caissier_escale_filtrer_lignes($lignes_tri);
             $this->property['genrespersonnels'] = $this->m_type_personnel->get();
             $this->property['personnels'] = $this->m_personnels->get($this->company->ekey);
             $this->property['typedocuments'] = $this->m_typedocument->get();
@@ -149,7 +155,7 @@
                         'date_recet' => $this->input->post('daterecep'),
                         'createdrecet_at' => now('UTC'),
                         );
-                        $recette = $this->m_recette->create($arrayrecette);
+                        $recette = $this->m_recette->create($this->_recette_escale_row($arrayrecette));
                     }
 
                     if($this->input->post('personnel_infos')!= ''){
@@ -166,7 +172,7 @@
                         'date_recet' => $this->input->post('daterecep'),
                         'createdrecet_at' => now('UTC'),
                         );
-                        $recette = $this->m_recette->create($arrayrecette);
+                        $recette = $this->m_recette->create($this->_recette_escale_row($arrayrecette));
                     }
                     
                     if($this->input->post('persoclient') === 'perso' AND $this->input->post('personnel_infos') === '')
@@ -208,7 +214,7 @@
 
                         if($perso != NULL){
 
-                            $recette = $this->m_recette->create($arrayrecette);
+                            $recette = $this->m_recette->create($this->_recette_escale_row($arrayrecette));
 
                         }
                         
@@ -242,7 +248,7 @@
 
                         if($clhid != NULL){
 
-                            $recette = $this->m_recette->create($arrayrecette);
+                            $recette = $this->m_recette->create($this->_recette_escale_row($arrayrecette));
                         }
                         
                     }
@@ -279,7 +285,7 @@
 
                             if($clhid1 != NULL){
 
-                                $recette = $this->m_recette->create($arrayrecette);
+                                $recette = $this->m_recette->create($this->_recette_escale_row($arrayrecette));
                             }
                     }
                         
@@ -294,7 +300,7 @@
                         $this->m_recette->update($recette, $upargv);
 
                         $this->property['UPDATE_SUCCESS'] = TRUE;
-                        redirect('caisses/'.$this->session->company->ekey. '/gTv/'. $identifiant_gare. '/'. $identifiant_caisse. '/recette/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                        redirect('caisses/'.$this->session->company->ekey. '/gTv/'. $identifiant_gare. '/'. $identifiant_caisse. '/recette/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')) . caissier_escale_query_suffix());
                     }
 
                     if(recette_role_is_validateur_adjoint($this->session->agent->userole))
@@ -308,10 +314,10 @@
                         $this->m_recette->update($recette, $upargv);
 
                         $this->property['UPDATE_SUCCESS'] = TRUE;
-                        redirect('caisses/'.$this->session->company->ekey. '/gTv/'. $identifiant_gare. '/'. $identifiant_caisse. '/recette/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                        redirect('caisses/'.$this->session->company->ekey. '/gTv/'. $identifiant_gare. '/'. $identifiant_caisse. '/recette/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')) . caissier_escale_query_suffix());
                     }
                     else 
-                    redirect('caisses/'.$this->session->company->ekey. '/cais/'. $identifiant_gare. '/'. $identifiant_caisse. '/'. $iduser. '/recette_adjoint/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                    redirect('caisses/'.$this->session->company->ekey. '/cais/'. $identifiant_gare. '/'. $identifiant_caisse. '/'. $iduser. '/recette_adjoint/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')) . caissier_escale_query_suffix());
                 }
                 else
                 redirect('gares/'.$this->session->company->ekey. '/gTv/'. $identifiant_gare. '/cais/'. $iduser.'/'. $sgid.'/'.  mdate("%d/%m/%Y", now('UTC')));
@@ -615,6 +621,23 @@
         }
        
        
+        protected function _recette_escale_row(array $row)
+        {
+            if (!caissier_escale_ops_from_request()) {
+                return $row;
+            }
+            $mark = caissier_escale_marqueur($this->input->post('escale'));
+            if ($mark === '') {
+                return $row;
+            }
+            $comment = isset($row['commentaire_recet']) ? (string) $row['commentaire_recet'] : '';
+            if (strpos($comment, $mark) === false) {
+                $row['commentaire_recet'] = trim($mark . ' ' . $comment);
+            }
+
+            return $row;
+        }
+
         public function nom_genre($idgr)
         {
             $pnom = $this->m_recette->typenom($idgr);

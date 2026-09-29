@@ -204,7 +204,7 @@
                 AND r.type_recet <> 'Courrier'
                 AND r.operavalid = '$conect'
                 AND cs.gexp_caiss = '$gid'
-                AND r.date_recet BETWEEN '$ddbut' AND '$dfin' 
+                AND r.date_recet BETWEEN '$ddbut' AND '$dfin'
                 ORDER BY r.id_recette DESC")->result();
             }
             
@@ -222,7 +222,7 @@
                 AND r.type_recet <> 'Courrier'
                 AND cs.gexp_caiss = '$gid'
                 AND r.operavalid = '$conect'
-                AND r.date_recet BETWEEN '$ddbut' AND '$dfin' 
+                AND r.date_recet BETWEEN '$ddbut' AND '$dfin'
                 ORDER BY r.id_recette DESC")->result();
         }
 
@@ -1598,6 +1598,12 @@
                 $cols[] = 'r.iduseescal';
             }
             $op_sql = recette_role_ops_ou_nom_sql($cols, 'r.nom', $ops);
+            $label_escale = trim((string) get_instance()->input->get_post('escale'));
+            $marqueur = function_exists('caissier_escale_marqueur') ? caissier_escale_marqueur($label_escale) : '';
+            if ($marqueur !== '' && $op_sql !== 'AND 1=0') {
+                $op_sql = 'AND (' . preg_replace('/^AND\s+/', '', $op_sql)
+                    . ' OR r.commentaire_recet LIKE ' . $this->db->escape('%' . $marqueur . '%') . ')';
+            }
             $etat = ($niveau === 'adjoint')
                 ? 'AND r.is_actifrecetad = 1 AND r.is_actifrecet = 0'
                 : 'AND r.is_actifrecet = 1';
@@ -2206,7 +2212,23 @@
         //tri chef de guichet
         public function trisrecet($cid, $g, $cmp, $cais, $conect, $dt1, $dt2, $typ = FALSE)
         {
-            
+            $qui = "AND r.idopera = '$conect'";
+            $ops = function_exists('caissier_escale_ops_from_request') ? caissier_escale_ops_from_request() : null;
+            if ($ops) {
+                $cible = (int) $conect;
+                $ids = array();
+                foreach ($ops as $id) {
+                    $id = (int) $id;
+                    if ($id > 0) {
+                        $ids[$id] = $id;
+                    }
+                }
+                $scope = isset($ids[$cible]) ? array($cible) : array_values($ids);
+                $qui = function_exists('recette_role_ops_ou_nom_sql')
+                    ? recette_role_ops_ou_nom_sql(array('r.idopera'), 'r.nom', $scope)
+                    : 'AND 1=0';
+            }
+
             if ($typ === '' ) {
                 return $this->db->query(
                     "SELECT cu.username, r.montant_recet, r.type_recet, r.commentaire_recet, r.idopera, r.date_recet, r.nom, cu.username FROM recette r
@@ -2222,7 +2244,7 @@
                         AND r.compkey_recet = '$cmp'
                         AND cs.gexp_caiss = '$g'
                         AND r.idcaisse = '$cais'
-                        AND r.idopera = '$conect'
+                        {$qui}
                         AND r.type_recet <> 'Courrier'
                         AND r.active_recet = 1
                         AND r.actif_rect = 0
@@ -2247,7 +2269,7 @@
                         AND r.compkey_recet = '$cmp'
                         AND cs.gexp_caiss = '$g'
                         AND r.idcaisse = '$cais'
-                        AND r.idopera = '$conect'
+                        {$qui}
                         AND r.type_recet <> 'Courrier'
                         AND r.active_recet = 1
                         AND r.actif_rect = 0

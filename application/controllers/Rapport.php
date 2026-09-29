@@ -330,6 +330,7 @@
             if (!is_array($rows)) {
                 $rows = array();
             }
+            $rows = caissier_escale_filtrer_lignes($rows);
             $lignes = array();
             $total = 0.0;
             foreach ($rows as $rect) {
@@ -339,7 +340,7 @@
                     'type' => isset($rect->type_recet) ? (string) $rect->type_recet : '',
                     'genre' => isset($rect->type_personnel) ? (string) $rect->type_personnel : '',
                     'nom' => isset($rect->nom) ? (string) $rect->nom : '',
-                    'commentaire' => isset($rect->commentaire_recet) ? (string) $rect->commentaire_recet : '',
+                    'commentaire' => isset($rect->commentaire_recet) ? caissier_escale_commentaire_visible($rect->commentaire_recet) : '',
                     'montant' => $mt,
                 );
                 $total += $mt;
@@ -349,6 +350,8 @@
                 'nom' => $nm, '_compag' => $comp, 'gareconnect' => $gid,
                 'userconnected' => trim((string) $this->input->get_post('userconnected')),
                 'sousgareconnect' => trim((string) $this->input->get_post('sousgareconnect')),
+                'escale' => trim((string) $this->input->get_post('escale')),
+                'escale_ops' => trim((string) $this->input->get_post('escale_ops')),
             )));
             return array(
                 'titre' => 'ETATS DES RECETTES DE ' . $cieNom . ' ' . $garNom . ' DU ' . $days . ' AU ' . $days1,
@@ -413,6 +416,7 @@
             if (!is_array($rows)) {
                 $rows = array();
             }
+            $rows = caissier_escale_filtrer_lignes($rows);
             $lignes = array();
             $total = 0.0;
             foreach ($rows as $rect) {
@@ -422,7 +426,7 @@
                     'type' => isset($rect->type_recet) ? (string) $rect->type_recet : '',
                     'genre' => isset($rect->type_personnel) ? (string) $rect->type_personnel : '',
                     'nom' => isset($rect->nom) ? (string) $rect->nom : '',
-                    'commentaire' => isset($rect->commentaire_recet) ? (string) $rect->commentaire_recet : '',
+                    'commentaire' => isset($rect->commentaire_recet) ? caissier_escale_commentaire_visible($rect->commentaire_recet) : '',
                     'montant' => $mt,
                 );
                 $total += $mt;
@@ -432,6 +436,8 @@
                 'nomcr' => $nm, '_compagcr' => $comp, 'gareconnectcr' => $gid, 'gareconnect' => trim((string) $this->input->get_post('gareconnect')),
                 'userconnected' => trim((string) $this->input->get_post('userconnected')),
                 'sousgareconnect' => trim((string) $this->input->get_post('sousgareconnect')),
+                'escale' => trim((string) $this->input->get_post('escale')),
+                'escale_ops' => trim((string) $this->input->get_post('escale_ops')),
             )));
             return array(
                 'titre' => 'ETATS DES RECETTES COURRIER ' . $cieNom . ' ' . $garNom . ' DU ' . $days . ' AU ' . $days1,
@@ -8424,6 +8430,7 @@
             if (!is_array($rows)) {
                 $rows = array();
             }
+            $rows = caissier_escale_filtrer_lignes($rows);
             $lignes = array();
             $total = 0.0;
             foreach ($rows as $recte) {
@@ -8433,7 +8440,7 @@
                     'type' => isset($recte->type_recet) ? (string) $recte->type_recet : '',
                     'operateur' => isset($recte->username) ? (string) $recte->username : '',
                     'nom' => isset($recte->nom) ? (string) $recte->nom : '',
-                    'commentaire' => isset($recte->commentaire_recet) ? (string) $recte->commentaire_recet : '',
+                    'commentaire' => isset($recte->commentaire_recet) ? caissier_escale_commentaire_visible($recte->commentaire_recet) : '',
                     'montant' => $mt,
                 );
                 $total += $mt;
@@ -8441,6 +8448,8 @@
             $qs = http_build_query(array_filter(array(
                 'debutdate' => $date1, 'findate' => $date2, 'typerecette' => $typ, 'opera' => $us, '_compag' => $comp,
                 'gareconnect' => trim((string) $this->input->get_post('gareconnect')),
+                'escale' => trim((string) $this->input->get_post('escale')),
+                'escale_ops' => trim((string) $this->input->get_post('escale_ops')),
                 'userconnected' => trim((string) $this->input->get_post('userconnected')),
                 'sousgareconnect' => trim((string) $this->input->get_post('sousgareconnect')),
             )));

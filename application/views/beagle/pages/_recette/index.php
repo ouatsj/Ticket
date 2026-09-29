@@ -11,6 +11,26 @@
         $qesc .= '&escale_vue=' . $vue_escale;
     }
     $gexp_btn = !empty($caisseident->gexp_caiss) ? $caisseident->gexp_caiss : (!empty($bus_stop->idengare) ? $bus_stop->idengare : 0);
+    $escale_hidden = '';
+    if ($depuis_escale) {
+        $ids_escale = array();
+        foreach (explode(',', $escale_ops) as $id_escale) {
+            $id_escale = (int) $id_escale;
+            if ($id_escale > 0) {
+                $ids_escale[$id_escale] = $id_escale;
+            }
+        }
+        if ($ids_escale && !empty($operateurs) && is_array($operateurs)) {
+            $operateurs = array_values(array_filter($operateurs, function ($opr) use ($ids_escale) {
+                return isset($ids_escale[(int) $opr->roleattribut]);
+            }));
+        }
+        $escale_hidden = '<input type="hidden" name="escale" value="' . htmlspecialchars($escale_nom, ENT_QUOTES, 'UTF-8') . '">'
+            . '<input type="hidden" name="escale_ops" value="' . htmlspecialchars($escale_ops, ENT_QUOTES, 'UTF-8') . '">';
+        if ($vue_escale === '4' || $vue_escale === '18') {
+            $escale_hidden .= '<input type="hidden" name="escale_vue" value="' . htmlspecialchars($vue_escale, ENT_QUOTES, 'UTF-8') . '">';
+        }
+    }
     ?>
     <div class="row">
         <p class="mt-0 mb-2 ml-4">
@@ -129,7 +149,7 @@
                                 <td><span><?= $item->type_personnel;?></span></td>
                                 <td><span><?= $item->nom;?></span></td>
                                 <td><span><?= $item->montant_recet;?></span></td>
-                                <td><span><?= $item->commentaire_recet;?></span></td>
+                                <td><span><?= function_exists('caissier_escale_commentaire_visible') ? caissier_escale_commentaire_visible($item->commentaire_recet) : $item->commentaire_recet; ?></span></td>
                                 <td>
                                     <? if ($this->session->agent->userole === '1' OR $this->session->agent->userole === '4' OR $this->session->agent->userole === '18'): ?>
                                         <a href="<?= "#?{$item->id_recette}&&&"; ?>"
@@ -268,6 +288,7 @@
             <input class="form-control form-control-sm" type="hidden" name="sousgareconnect" value="<?=$bus_stop->idsousgare;?>">
             <input class="form-control form-control-sm" type="hidden" name="userconnected" value="<?=$conex->roleattribut;?>">
             <input class="form-control form-control-sm" type="hidden" name="compconnected" value="<?=$conex->cpuser_id;?>">
+            <?= $escale_hidden; ?>
             <div class="row">
                 <div class="form-group col-sm-4">
                     <label>COMPAGNIE</label>
@@ -484,6 +505,7 @@
                 <input class="form-control form-control-sm" type="hidden" name="userconnected" value="<?=$conex->roleattribut;?>">
                 <input class="form-control form-control-sm" type="hidden" name="compconnected" value="<?=$conex->cpuser_id;?>">
                 <input type="hidden" name="idcaisse" value="<?= $caisseident->id_caiss; ?>" id="idcaissr">
+                <?= $escale_hidden; ?>
             <div class="form-group col-sm-4">
                 <label>COMPAGNIE</label>
                 <select class="form-control form-control-sm" name="_compag">
@@ -562,6 +584,7 @@
                 <input class="form-control form-control-sm" type="hidden" name="userconnectedcr" value="<?=$conex->roleattribut;?>">
                 <input class="form-control form-control-sm" type="hidden" name="compconnectedcr" value="<?=$conex->cpuser_id;?>">
                 <input type="hidden" name="idcaissecr" value="<?= $caisseident->id_caiss; ?>" id="idcaissrcr">
+                <?= $escale_hidden; ?>
             <div class="form-group col-sm-4">
                 <label>COMPAGNIE</label>
                 <select class="form-control form-control-sm" name="_compagcr">
@@ -638,6 +661,7 @@
                 <input class="form-control form-control-sm" type="hidden" name="gareconnect" value="<?=$bus_stop->idengare;?>">
                             
                             <input class="form-control form-control-sm" type="hidden" name="userconnected" value="<?=$conex->roleattribut;?>">
+                            <?= $escale_hidden; ?>
                             
                 <div class="form-group col-sm-4">
                     <label>COMPAGNIE</label>
@@ -691,6 +715,7 @@
             <input class="form-control form-control-sm" type="hidden" name="sousgareconnect" value="<?=$bus_stop->idsousgare;?>">
             <input class="form-control form-control-sm" type="hidden" name="userconnected" value="<?=$conex->roleattribut;?>">
             <input class="form-control form-control-sm" type="hidden" name="compconnected" value="<?=$conex->cpuser_id;?>">
+            <?= $escale_hidden; ?>
             <div class="form-group col-sm-4">
                 <label>COMPAGNIE</label>
                     <select class="form-control form-control-sm" name="_compag">

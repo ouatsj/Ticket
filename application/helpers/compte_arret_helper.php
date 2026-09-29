@@ -2349,6 +2349,94 @@ if (!function_exists('caissier_escale_nom_filtre_sql')) {
     }
 }
 
+if (!function_exists('caissier_escale_marqueur')) {
+    /**
+     * Repère une saisie faite depuis une escale, sans colonne dédiée.
+     *
+     * @param string $escale
+     * @return string
+     */
+    function caissier_escale_marqueur($escale)
+    {
+        $escale = str_replace(array("\r", "\n", '[', ']'), '', trim((string) $escale));
+        if ($escale === '') {
+            return '';
+        }
+
+        return '[[escale:' . $escale . ']]';
+    }
+}
+
+if (!function_exists('caissier_escale_commentaire_visible')) {
+    function caissier_escale_commentaire_visible($texte)
+    {
+        return trim((string) preg_replace('/\[\[escale:[^\]]*\]\]\s*/', '', (string) $texte));
+    }
+}
+
+if (!function_exists('caissier_escale_filtrer_lignes')) {
+    /**
+     * Ne garde que les lignes de l'escale demandée. Hors escale, la liste est inchangée.
+     *
+     * @param array $rows
+     * @return array
+     */
+    function caissier_escale_filtrer_lignes($rows)
+    {
+        $ops = caissier_escale_ops_from_request();
+        if (!$ops || !is_array($rows)) {
+            return $rows;
+        }
+        $CI =& get_instance();
+        $ids = array();
+        foreach ($ops as $id) {
+            $id = (int) $id;
+            if ($id > 0) {
+                $ids[$id] = $id;
+            }
+        }
+        if (!$ids) {
+            return array();
+        }
+        $noms = array();
+        $q = $CI->db->query(
+            "SELECT UPPER(TRIM(CONCAT(TRIM(IFNULL(u.first_name, '')), ' ', TRIM(IFNULL(u.last_name, ''))))) AS nom
+            FROM attributions_role arn
+            JOIN user_login uln ON arn.idgestcompte = uln.uid_login
+            JOIN compte_user cun ON uln.uid_usercpte = cun.cpuser_id
+            JOIN utilisateurs u ON cun.userlog_id = u.uid
+            WHERE arn.roleattribut IN (" . implode(',', $ids) . ")"
+        );
+        if ($q) {
+            foreach ($q->result() as $agent) {
+                $nom = strtoupper(trim((string) $agent->nom));
+                if ($nom !== '') {
+                    $noms[$nom] = true;
+                }
+            }
+        }
+        $marqueur = caissier_escale_marqueur($CI->input->get_post('escale'));
+        $out = array();
+        foreach ($rows as $row) {
+            if (!is_object($row)) {
+                continue;
+            }
+            $id = isset($row->idopera) ? (int) $row->idopera : 0;
+            $nom = isset($row->nom) ? strtoupper(trim((string) $row->nom)) : '';
+            $comment = isset($row->commentaire_recet) ? (string) $row->commentaire_recet : '';
+            $par_marqueur = ($marqueur !== '' && strpos($comment, $marqueur) !== false);
+            if (($id > 0 && isset($ids[$id])) || ($nom !== '' && isset($noms[$nom])) || $par_marqueur) {
+                if (isset($row->commentaire_recet)) {
+                    $row->commentaire_recet = caissier_escale_commentaire_visible($row->commentaire_recet);
+                }
+                $out[] = $row;
+            }
+        }
+
+        return $out;
+    }
+}
+
 if (!function_exists('caissier_validation_bind_fail_redirect')) {
     /**
      * Retour caisse ou page VALIDATION si le bind chef/caissier échoue.
